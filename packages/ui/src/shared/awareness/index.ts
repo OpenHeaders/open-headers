@@ -4,71 +4,71 @@
  * devpanel hover popover).
  */
 
-export { default as PresenceBadge } from './PresenceBadge';
-export type { PresenceBadgeProps } from './PresenceBadge';
-export { default as FieldPresenceChip } from './FieldPresenceChip';
-export type { FieldPresenceChipProps } from './FieldPresenceChip';
-export { default as TabPresenceBadge } from './TabPresenceBadge';
-export type { TabPresenceBadgeProps } from './TabPresenceBadge';
-export { default as AwarenessPill } from './AwarenessPill';
-export type { AwarenessPillProps } from './AwarenessPill';
-export { default as ConflictDiffChip } from './ConflictDiffChip';
-export type { ConflictDiffChipProps } from './ConflictDiffChip';
-export { default as SetRowConflictChip } from './SetRowConflictChip';
-export type { SetRowConflictChipProps } from './SetRowConflictChip';
-export { useEntityPresence, useFieldPresence, usePathPrefixPresence } from './use-entity-presence';
-export {
-  type ActionPathBundle,
-  type ActionPathsOptions,
-  RULE_ACTION_PATHS,
-  RULE_FIELD,
-  TEMPLATE_ACTION_PATHS,
-  createActionPaths,
-} from './rule-paths';
-export { type RequestPathBundle, type RequestTabKey, REQUEST_PATHS } from './request-paths';
-export { LIVE_VARIABLE_FIELD, LIVE_WORKFLOW_FIELD } from './live-paths';
-export { type VariableLeaf, type VariablePathBundle, VARIABLE_PATHS } from './variable-paths';
-export { ActionPathsProvider, useActionPaths } from './ActionPathsContext';
 export type { ActionPathsProviderProps } from './ActionPathsContext';
-export { surfaceKindColor, surfaceKindLabel } from './surface-label';
-export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
-export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';
+export { ActionPathsProvider, useActionPaths } from './ActionPathsContext';
+export type { ActiveEditorDirtyValue } from './ActiveEditorDirty';
+export {
+  ActiveEditorDirtyProvider,
+  useActiveEditorDirty,
+  useSetActiveEditorDirty,
+} from './ActiveEditorDirty';
+export type { ActiveEditorLifecycleValue } from './ActiveEditorLifecycle';
+export {
+  ActiveEditorLifecycleProvider,
+  useActiveEditorLifecycle,
+  useSetActiveEditorLifecycle,
+} from './ActiveEditorLifecycle';
+export type { ActiveFieldFocusValue } from './ActiveFieldFocus';
+export {
+  ActiveFieldFocusProvider,
+  useActiveFieldFocus,
+  useSetActiveFieldFocus,
+} from './ActiveFieldFocus';
+export type { ActiveTabEntityValue } from './ActiveTabEntity';
+export { ActiveTabEntityProvider, useActiveTabEntity, useSetActiveTabEntity } from './ActiveTabEntity';
+export type { AwarenessPillProps } from './AwarenessPill';
+export { default as AwarenessPill } from './AwarenessPill';
+export { type AwarenessLifelineHandle, openAwarenessLifeline } from './awareness-lifeline';
+export type { ConflictDiffChipProps } from './ConflictDiffChip';
+export { default as ConflictDiffChip } from './ConflictDiffChip';
+export type { EntityFieldProps } from './EntityField';
+export { EntityField } from './EntityField';
+export type { EntityScopeValue } from './EntityScope';
+export { EntityScopeProvider, useEntityScope } from './EntityScope';
+export type { FieldPresenceChipProps } from './FieldPresenceChip';
+export { default as FieldPresenceChip } from './FieldPresenceChip';
 export { formatAgo } from './format-ago';
-export type { SurfaceIdentityHandle } from './surface-identity';
-export { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigate';
-export { openAwarenessLifeline, type AwarenessLifelineHandle } from './awareness-lifeline';
-export { TabActiveProvider, useTabActive } from './TabActiveContext';
 export {
   AwarenessIdentityProvider,
   useLocalInstanceId,
   useOptionalLocalInstanceId,
   useSurfaceIdentity,
 } from './IdentityContext';
-export { EntityScopeProvider, useEntityScope } from './EntityScope';
-export type { EntityScopeValue } from './EntityScope';
+export { LIVE_VARIABLE_FIELD, LIVE_WORKFLOW_FIELD } from './live-paths';
+export type { PresenceBadgeProps } from './PresenceBadge';
+export { default as PresenceBadge } from './PresenceBadge';
+export { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigate';
+export { REQUEST_PATHS, type RequestPathBundle, type RequestTabKey } from './request-paths';
 export {
-  ActiveFieldFocusProvider,
-  useActiveFieldFocus,
-  useSetActiveFieldFocus,
-} from './ActiveFieldFocus';
-export type { ActiveFieldFocusValue } from './ActiveFieldFocus';
-export { ActiveTabEntityProvider, useActiveTabEntity, useSetActiveTabEntity } from './ActiveTabEntity';
-export type { ActiveTabEntityValue } from './ActiveTabEntity';
-export {
-  ActiveEditorDirtyProvider,
-  useActiveEditorDirty,
-  useSetActiveEditorDirty,
-} from './ActiveEditorDirty';
-export type { ActiveEditorDirtyValue } from './ActiveEditorDirty';
-export {
-  ActiveEditorLifecycleProvider,
-  useActiveEditorLifecycle,
-  useSetActiveEditorLifecycle,
-} from './ActiveEditorLifecycle';
-export type { ActiveEditorLifecycleValue } from './ActiveEditorLifecycle';
+  type ActionPathBundle,
+  type ActionPathsOptions,
+  createActionPaths,
+  RULE_ACTION_PATHS,
+  RULE_FIELD,
+  TEMPLATE_ACTION_PATHS,
+} from './rule-paths';
+export type { SetRowConflictChipProps } from './SetRowConflictChip';
+export { default as SetRowConflictChip } from './SetRowConflictChip';
+export type { SurfaceAwarenessPublisherProps } from './SurfaceAwarenessPublisher';
+export { SurfaceAwarenessPublisher } from './SurfaceAwarenessPublisher';
+export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';
+export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
+export type { SurfaceIdentityHandle } from './surface-identity';
+export { surfaceDisplayLabel, surfaceKindColor, surfaceKindLabel } from './surface-label';
+export { TabActiveProvider, useTabActive } from './TabActiveContext';
+export type { TabPresenceBadgeProps } from './TabPresenceBadge';
+export { default as TabPresenceBadge } from './TabPresenceBadge';
 export { useEditorDirty } from './use-editor-dirty';
 export { useEditorLifecycle } from './use-editor-lifecycle';
-export { EntityField } from './EntityField';
-export type { EntityFieldProps } from './EntityField';
-export { SurfaceAwarenessPublisher } from './SurfaceAwarenessPublisher';
-export type { SurfaceAwarenessPublisherProps } from './SurfaceAwarenessPublisher';
+export { useEntityPresence, useFieldPresence, usePathPrefixPresence } from './use-entity-presence';
+export { VARIABLE_PATHS, type VariableLeaf, type VariablePathBundle } from './variable-paths';

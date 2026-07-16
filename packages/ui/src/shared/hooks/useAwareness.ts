@@ -42,13 +42,13 @@ export interface UseAwarenessOptions {
    */
   enabled?: boolean;
   /**
-   * Descriptive label this surface should advertise. Surfaces compose
-   * it with entity context — e.g. `"Workbench — Rule X"`. Updates
-   * propagate via the coordinator's label-change subscription.
-   * Optional: omitted leaves whatever the resolver minted in place
-   * (typically `document.title`).
+   * Raw descriptive context this surface should advertise (viewers
+   * compose it with their own translation of the surface kind).
+   * Updates propagate via the coordinator's context-change
+   * subscription. Optional: omitted leaves whatever the resolver
+   * minted in place (typically `document.title`).
    */
-  label?: string;
+  context?: string;
 }
 
 export function useAwareness(opts: UseAwarenessOptions): void {
@@ -64,11 +64,11 @@ export function useAwareness(opts: UseAwarenessOptions): void {
   const enabled = opts.enabled !== false && tabActive;
   const coordinator = useAwarenessCoordinator();
 
-  // Optional manual label override. The default label source is live
-  // (document.title for own-tab surfaces, the host-resolved inspected
-  // tab for DevTools panels).
-  if (opts.label !== undefined) {
-    opts.identity.setLabel(opts.label);
+  // Optional manual context override. The default context source is
+  // live (document.title for own-tab surfaces, the host-resolved
+  // inspected tab for DevTools panels).
+  if (opts.context !== undefined) {
+    opts.identity.setContext(opts.context);
   }
 
   // Track the slot across renders; we only register/unregister on

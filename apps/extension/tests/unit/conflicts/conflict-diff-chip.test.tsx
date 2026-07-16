@@ -70,7 +70,7 @@ describe('ConflictDiffChip', () => {
         local="7"
         remote={{
           surfaceKind: 'devpanel',
-          surfaceLabel: 'DevTools on staging',
+          surfaceLabelContext: 'staging.openheaders.io',
           instanceId: 'peer-instance',
           agoMs: 4_000,
         }}

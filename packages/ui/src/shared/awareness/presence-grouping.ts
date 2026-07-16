@@ -37,13 +37,22 @@
  *   capability — readers learn the structure before they meet the
  *   divergence.
  *
- * Pure module, no React. The renderer (`AwarenessPill`) walks the
- * tree and decides indentation / labels.
+ * Pure module, no React. Group labels are structured
+ * ({@link PresenceGroupLabel}): the chrome words carry `MessageKey`s,
+ * the data parts (user ids, browser brand names, profile names,
+ * device-id fragments) ride raw. The renderer (`AwarenessPill`) walks
+ * the tree and translates at render with the caller's `t`.
  */
 
 import type { AppKind, AwarenessState, BrowserContext, PresenceIdentity } from '@openheaders/core/protocol';
+import type { MessageArgs, MessageKey } from '@openheaders/i18n';
 
 export type PresenceGroupLevel = 'user' | 'device' | 'host';
+
+/** Structured group-header label. `raw` carries pure data (a user id,
+ *  a browser brand name + profile composition); `key` carries chrome
+ *  words, optionally with raw data riding in `args` holes. */
+export type PresenceGroupLabel = { kind: 'raw'; text: string } | { kind: 'key'; key: MessageKey; args?: MessageArgs };
 
 /** Internal grouping node. Either an inner group (`children` set) or a
  *  leaf (`state` set). Leaves are the per-instance `AwarenessState`
@@ -55,8 +64,8 @@ export type PresenceTreeNode =
       /** Stable key for React rendering — derived from the level's
        *  identity field (userId / deviceId / browser+profile). */
       groupKey: string;
-      /** Display label for the group header. */
-      label: string;
+      /** Structured display label for the group header. */
+      label: PresenceGroupLabel;
       /** Whether the group's identity matches the local surface's at
        *  the same level — used to render "(this device)" / "(you)"
        *  hints without needing the renderer to recompute. */
@@ -85,10 +94,7 @@ const HOST_BUCKET_FALLBACK = '__no-host__';
  * ("you" / "this device" / "this browser"). Not used for filtering;
  * callers exclude themselves before invoking this function.
  */
-export function groupPresence(
-  presence: AwarenessState[],
-  localIdentity: PresenceIdentity,
-): PresenceTreeNode[] {
+export function groupPresence(presence: AwarenessState[], localIdentity: PresenceIdentity): PresenceTreeNode[] {
   if (presence.length === 0) return [];
   return groupAtLevel(presence, 'user', localIdentity);
 }
@@ -103,9 +109,7 @@ function groupAtLevel(
   const localKey = localKeyForLevel(localIdentity, level);
   return buckets.map((b) => {
     const isLocal = localKey !== null && localKey === b.key;
-    const children = nextLevel
-      ? groupAtLevel(b.states, nextLevel, localIdentity)
-      : b.states.map(toLeaf);
+    const children = nextLevel ? groupAtLevel(b.states, nextLevel, localIdentity) : b.states.map(toLeaf);
     return {
       kind: 'group' as const,
       level,
@@ -125,7 +129,7 @@ function nextLevelOf(level: PresenceGroupLevel): PresenceGroupLevel | null {
 
 interface LevelBucket {
   key: string;
-  label: string;
+  label: PresenceGroupLabel;
   states: AwarenessState[];
 }
 
@@ -148,14 +152,24 @@ function bucketByLevel(states: AwarenessState[], level: PresenceGroupLevel): Lev
 function identifyLevel(
   identity: PresenceIdentity,
   level: PresenceGroupLevel,
-): { key: string; label: string } {
+): { key: string; label: PresenceGroupLabel } {
   if (level === 'user') {
     const id = identity.userId ?? USER_BUCKET_FALLBACK;
-    return { key: id, label: identity.userId ?? 'Local' };
+    return {
+      key: id,
+      label: identity.userId
+        ? { kind: 'raw', text: identity.userId }
+        : { kind: 'key', key: 'shared.awareness.group.local' },
+    };
   }
   if (level === 'device') {
     const id = identity.deviceId ?? DEVICE_BUCKET_FALLBACK;
-    return { key: id, label: identity.deviceId ? formatDeviceLabel(identity.deviceId) : 'This device' };
+    return {
+      key: id,
+      label: identity.deviceId
+        ? deviceLabel(identity.deviceId)
+        : { kind: 'key', key: 'shared.awareness.group.thisDevice' },
+    };
   }
   return identifyHost(identity);
 }
@@ -167,22 +181,27 @@ function identifyLevel(
  * Chrome) end up in different buckets, and a desktop surface never
  * lands in a "Chrome" bucket inherited from Electron's user-agent.
  */
-function identifyHost(identity: PresenceIdentity): { key: string; label: string } {
+function identifyHost(identity: PresenceIdentity): { key: string; label: PresenceGroupLabel } {
   const ctx = identity.browserContext;
   if (ctx) {
     if (identity.appId === 'web') {
-      return { key: `web:${formatBrowserKey(ctx)}`, label: `${formatBrowserLabel(ctx)} (web)` };
+      return {
+        key: `web:${formatBrowserKey(ctx)}`,
+        label: { kind: 'key', key: 'shared.awareness.group.browserWeb', args: { browser: formatBrowserLabel(ctx) } },
+      };
     }
-    return { key: `extension:${formatBrowserKey(ctx)}`, label: formatBrowserLabel(ctx) };
+    return { key: `extension:${formatBrowserKey(ctx)}`, label: { kind: 'raw', text: formatBrowserLabel(ctx) } };
   }
-  if (identity.appId === 'desktop') return { key: 'app:desktop', label: 'Desktop app' };
-  if (identity.appId === 'web') return { key: 'app:web', label: 'Web' };
-  if (identity.appId === 'cli') return { key: 'app:cli', label: 'CLI' };
+  if (identity.appId === 'desktop') {
+    return { key: 'app:desktop', label: { kind: 'key', key: 'shared.awareness.group.desktopApp' } };
+  }
+  if (identity.appId === 'web') return { key: 'app:web', label: { kind: 'key', key: 'shared.awareness.group.web' } };
+  if (identity.appId === 'cli') return { key: 'app:cli', label: { kind: 'key', key: 'shared.awareness.group.cli' } };
   // Extension surface that never picked up its BrowserContext (older
-  // test fixtures, or a render before observeLabel resolved). The
+  // test fixtures, or a render before observeContext resolved). The
   // legacy "This browser" label keeps existing UX intact for that
   // narrow case; the bucket key is fallback-only.
-  return { key: HOST_BUCKET_FALLBACK, label: 'This browser' };
+  return { key: HOST_BUCKET_FALLBACK, label: { kind: 'key', key: 'shared.awareness.group.thisBrowser' } };
 }
 
 function localKeyForLevel(local: PresenceIdentity, level: PresenceGroupLevel): string | null {
@@ -196,24 +215,25 @@ function localKeyForLevel(local: PresenceIdentity, level: PresenceGroupLevel): s
  * bucket. Used by the popover renderer so the local host tag matches
  * the surface kind the user is actually looking at — "this browser"
  * for an extension surface, "this app" for the desktop window, "this
- * tab" for the future web bundle.
+ * tab" for the future web bundle. Returns the `MessageKey`; the
+ * renderer translates.
  */
-export function localHostTag(appId: AppKind): string {
-  if (appId === 'extension') return 'this browser';
-  if (appId === 'desktop') return 'this app';
-  if (appId === 'web') return 'this tab';
-  return 'this surface';
+export function localHostTag(appId: AppKind): MessageKey {
+  if (appId === 'extension') return 'shared.awareness.hostTag.thisBrowser';
+  if (appId === 'desktop') return 'shared.awareness.hostTag.thisApp';
+  if (appId === 'web') return 'shared.awareness.hostTag.thisTab';
+  return 'shared.awareness.hostTag.thisSurface';
 }
 
 function toLeaf(state: AwarenessState): PresenceTreeNode {
   return { kind: 'leaf', state };
 }
 
-function formatDeviceLabel(deviceId: string): string {
+function deviceLabel(deviceId: string): PresenceGroupLabel {
   // Short form for display — full deviceId is opaque (uuid-shaped).
   // Truncates to the first 6 chars; renderer can show the full id on
   // hover if needed.
-  return `Device ${deviceId.slice(0, 6)}`;
+  return { kind: 'key', key: 'shared.awareness.group.device', args: { id: deviceId.slice(0, 6) } };
 }
 
 function formatBrowserKey(ctx: BrowserContext): string {

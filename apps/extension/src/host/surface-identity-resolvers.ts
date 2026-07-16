@@ -57,25 +57,26 @@ function getCurrentTab(): Promise<chrome.tabs.Tab | null> {
 
 /** Inspected-tab source for DevTools panels — reads
  *  `chrome.tabs.get(inspectedTabId)` and re-reads on
- *  `chrome.tabs.onUpdated` events scoped to that tab so the label
+ *  `chrome.tabs.onUpdated` events scoped to that tab so the context
  *  follows page navigations and title changes (e.g. SPAs that update
- *  document.title client-side). */
-function observeInspectedTab(apply: (label: string) => void): () => void {
+ *  document.title client-side). Applies the RAW page title/hostname;
+ *  viewers compose the "DevTools — …" framing in their own locale. */
+function observeInspectedTab(apply: (context: string) => void): () => void {
   const dev = (chrome as typeof chrome & { devtools?: { inspectedWindow?: { tabId: number } } }).devtools;
   const tabId = dev?.inspectedWindow?.tabId;
   if (typeof tabId !== 'number' || !chrome.tabs?.get) return () => {};
 
-  const buildLabel = (tab: chrome.tabs.Tab | undefined): string => {
-    if (!tab) return 'DevTools panel';
-    if (tab.title && tab.title.trim().length > 0) return `DevTools — ${tab.title}`;
+  const buildContext = (tab: chrome.tabs.Tab | undefined): string => {
+    if (!tab) return '';
+    if (tab.title && tab.title.trim().length > 0) return tab.title;
     if (tab.url) {
       try {
-        return `DevTools — ${new URL(tab.url).hostname}`;
+        return new URL(tab.url).hostname;
       } catch {
         /* fall through */
       }
     }
-    return 'DevTools panel';
+    return '';
   };
 
   let disposed = false;
@@ -85,7 +86,7 @@ function observeInspectedTab(apply: (label: string) => void): () => void {
         // Reading lastError clears it; the tab may have closed.
         void chrome.runtime.lastError;
         if (disposed) return;
-        apply(buildLabel(tab));
+        apply(buildContext(tab));
       });
     } catch {
       /* ignore — apply stays at last known value */
@@ -114,16 +115,16 @@ function observeInspectedTab(apply: (label: string) => void): () => void {
   };
 }
 
-/** Workbench tab identity — label tracks `document.title` so other
+/** Workbench tab identity — context tracks `document.title` so other
  *  surfaces see the same string the user sees on the browser tab strip
  *  (e.g. `"#4 New Header Rule — Open Headers"`). Peer-addressable by
  *  `(tabId, windowId)`. */
-export function resolveWorkbenchIdentity(initialLabel?: string): SurfaceIdentityHandle {
+export function resolveWorkbenchIdentity(initialContext?: string): SurfaceIdentityHandle {
   return buildIdentity({
     appId: 'extension',
     surfaceKind: 'workbench',
-    initialLabel,
-    observeLabel: observeDocumentTitle,
+    initialContext,
+    observeContext: observeDocumentTitle,
     resolveNavigation: async () => {
       const tab = await getCurrentTab();
       if (!tab || tab.id === undefined || tab.windowId === undefined) return null;
@@ -139,23 +140,23 @@ export function resolveWorkbenchIdentity(initialLabel?: string): SurfaceIdentity
 
 /** Popup identity — tracks the popup's own document.title. Not
  *  peer-addressable; popups dismiss on focus loss. */
-export function resolvePopupIdentity(initialLabel?: string): SurfaceIdentityHandle {
+export function resolvePopupIdentity(initialContext?: string): SurfaceIdentityHandle {
   return buildIdentity({
     appId: 'extension',
     surfaceKind: 'popup',
-    initialLabel,
-    observeLabel: observeDocumentTitle,
+    initialContext,
+    observeContext: observeDocumentTitle,
   });
 }
 
 /** Side panel identity — tracks document.title; re-openable via
  *  `chrome.sidePanel.open({ windowId })`. */
-export function resolveSidePanelIdentity(initialLabel?: string): SurfaceIdentityHandle {
+export function resolveSidePanelIdentity(initialContext?: string): SurfaceIdentityHandle {
   return buildIdentity({
     appId: 'extension',
     surfaceKind: 'sidepanel',
-    initialLabel,
-    observeLabel: observeDocumentTitle,
+    initialContext,
+    observeContext: observeDocumentTitle,
     resolveNavigation: async () => {
       const tab = await getCurrentTab();
       if (!tab || tab.windowId === undefined) return null;
@@ -164,17 +165,17 @@ export function resolveSidePanelIdentity(initialLabel?: string): SurfaceIdentity
   });
 }
 
-/** DevTools panel identity — label tracks the *inspected* tab's title
- *  (the page the user opened DevTools on), not the panel's own
+/** DevTools panel identity — context tracks the *inspected* tab's
+ *  title (the page the user opened DevTools on), not the panel's own
  *  document.title. Peer-addressable indirectly via the inspected tab;
  *  switching to that tab brings the user adjacent to the DevTools
  *  window where this panel lives. */
-export function resolveDevPanelIdentity(initialLabel?: string): SurfaceIdentityHandle {
+export function resolveDevPanelIdentity(initialContext?: string): SurfaceIdentityHandle {
   return buildIdentity({
     appId: 'extension',
     surfaceKind: 'devpanel',
-    initialLabel,
-    observeLabel: observeInspectedTab,
+    initialContext,
+    observeContext: observeInspectedTab,
     resolveNavigation: async () => {
       try {
         const dev = (chrome as typeof chrome & { devtools?: { inspectedWindow?: { tabId: number } } }).devtools;

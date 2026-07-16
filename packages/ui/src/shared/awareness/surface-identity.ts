@@ -4,14 +4,17 @@
  * Each renderer surface (popup, workbench tab, DevTools panel, side
  * panel) builds a {@link PresenceIdentity} once at mount. This module
  * owns the host-neutral half: assembling the identity record, observing
- * the descriptive `label` (typically bound to `document.title` so other
- * surfaces see exactly what the user sees on the browser tab strip), and
- * best-effort browser detection from the user-agent string.
+ * the raw descriptive `labelContext` (typically bound to
+ * `document.title` so other surfaces see exactly what the user sees on
+ * the browser tab strip), and best-effort browser detection from the
+ * user-agent string. The context is locale-neutral wire data — viewers
+ * compose the display label from their own translation of
+ * `surfaceKind` plus this context (`surface-label.ts`).
  *
  * The host-coupled half — resolving a peer-addressable navigation handle
- * and the inspected-tab label for DevTools — lives in each host's own
+ * and the inspected-tab context for DevTools — lives in each host's own
  * surface-identity resolvers, which call {@link buildIdentity} with the
- * platform-specific `appId`, `resolveNavigation`, and `observeLabel`
+ * platform-specific `appId`, `resolveNavigation`, and `observeContext`
  * inputs. The resolver runs at mount; surfaces never refresh
  * `instanceId` or `navigation` after the first call.
  */
@@ -47,33 +50,20 @@ function browserContextForApp(appId: AppKind): BrowserContext | undefined {
   return appId === 'extension' ? { browser: detectBrowser() } : undefined;
 }
 
-function defaultLabel(kind: SurfaceKind): string {
-  switch (kind) {
-    case 'workbench':
-      return 'Workbench';
-    case 'popup':
-      return 'Popup';
-    case 'devpanel':
-      return 'DevTools panel';
-    case 'sidepanel':
-      return 'Side panel';
-  }
-}
-
-export type LabelChangeListener = (label: string) => void;
+export type ContextChangeListener = (context: string) => void;
 
 export interface SurfaceIdentityHandle {
   /** The identity record passed to `useAwareness`. Returned reference
-   *  changes whenever `label` or `navigation` updates so React
+   *  changes whenever `labelContext` or `navigation` updates so React
    *  state-comparison consumers see a new object. */
   current(): PresenceIdentity;
-  /** Manually override the descriptive summary. Useful when the
-   *  surface wants a richer label than `document.title` carries. */
-  setLabel(label: string): PresenceIdentity;
-  /** Observe label updates (`document.title` mutations or async
+  /** Manually override the raw descriptive context. Useful when the
+   *  surface wants richer data than `document.title` carries. */
+  setContext(context: string): PresenceIdentity;
+  /** Observe context updates (`document.title` mutations or async
    *  inspected-tab refreshes). The awareness coordinator subscribes
-   *  to this so a label change re-publishes the current claim. */
-  onLabelChange(listener: LabelChangeListener): () => void;
+   *  to this so a context change re-publishes the current claim. */
+  onContextChange(listener: ContextChangeListener): () => void;
   /** Tear down internal observers (MutationObserver, polling). */
   dispose(): void;
 }
@@ -82,8 +72,10 @@ export interface ResolveOptions {
   /** Which app this surface belongs to — supplied by the host resolver. */
   appId: AppKind;
   surfaceKind: SurfaceKind;
-  /** Initial label seed before any live observation kicks in. */
-  initialLabel?: string;
+  /** Initial context seed before any live observation kicks in.
+   *  Omitted leaves `labelContext` unset — viewers fall back to their
+   *  own translation of `surfaceKind`. */
+  initialContext?: string;
   /** Async navigation handle resolver. The identity is returned
    *  immediately with `navigation` undefined, then the handle is filled
    *  in once the lookup completes. Surfaces that publish before
@@ -91,14 +83,14 @@ export interface ResolveOptions {
    *  change — there is no heartbeat (the awareness lifeline is
    *  connection-bound; see `awareness-lifeline.ts`). */
   resolveNavigation?: () => Promise<NavigationHandle | null>;
-  /** Wire a live-label source. Returns a teardown function. The
-   *  callback is invoked whenever the label changes, including the
+  /** Wire a live-context source. Returns a teardown function. The
+   *  callback is invoked whenever the context changes, including the
    *  initial value if it differs from the seed. */
-  observeLabel?: (apply: (label: string) => void) => () => void;
+  observeContext?: (apply: (context: string) => void) => () => void;
 }
 
 /** Assemble a {@link SurfaceIdentityHandle} from host-supplied inputs.
- *  Host-neutral: the platform-specific navigation/label wiring is
+ *  Host-neutral: the platform-specific navigation/context wiring is
  *  injected via {@link ResolveOptions}. */
 export function buildIdentity(opts: ResolveOptions): SurfaceIdentityHandle {
   const instanceId = `${opts.surfaceKind}-${generateUid()}`;
@@ -107,15 +99,15 @@ export function buildIdentity(opts: ResolveOptions): SurfaceIdentityHandle {
     surfaceKind: opts.surfaceKind,
     appId: opts.appId,
     browserContext: browserContextForApp(opts.appId),
-    label: opts.initialLabel ?? defaultLabel(opts.surfaceKind),
+    labelContext: opts.initialContext,
   };
-  const labelListeners = new Set<LabelChangeListener>();
+  const contextListeners = new Set<ContextChangeListener>();
 
-  function applyLabel(label: string): void {
-    const trimmed = label.trim();
-    if (!trimmed || identity.label === trimmed) return;
-    identity = { ...identity, label: trimmed };
-    for (const l of labelListeners) {
+  function applyContext(context: string): void {
+    const trimmed = context.trim();
+    if (!trimmed || identity.labelContext === trimmed) return;
+    identity = { ...identity, labelContext: trimmed };
+    for (const l of contextListeners) {
       try {
         l(trimmed);
       } catch {
@@ -135,25 +127,25 @@ export function buildIdentity(opts: ResolveOptions): SurfaceIdentityHandle {
       });
   }
 
-  const teardownLabel = opts.observeLabel?.((label) => applyLabel(label));
+  const teardownContext = opts.observeContext?.((context) => applyContext(context));
 
   return {
     current() {
       return identity;
     },
-    setLabel(label) {
-      applyLabel(label);
+    setContext(context) {
+      applyContext(context);
       return identity;
     },
-    onLabelChange(listener) {
-      labelListeners.add(listener);
+    onContextChange(listener) {
+      contextListeners.add(listener);
       return () => {
-        labelListeners.delete(listener);
+        contextListeners.delete(listener);
       };
     },
     dispose() {
-      teardownLabel?.();
-      labelListeners.clear();
+      teardownContext?.();
+      contextListeners.clear();
     },
   };
 }
@@ -161,8 +153,8 @@ export function buildIdentity(opts: ResolveOptions): SurfaceIdentityHandle {
 /** `document.title` source — used by surfaces whose own title is
  *  entity-aware (workbench `useWorkspaceTabTitle`, popup, sidepanel).
  *  Seeds with the current title and observes `<title>` mutations so
- *  the label tracks the browser tab strip exactly. */
-export function observeDocumentTitle(apply: (label: string) => void): () => void {
+ *  the context tracks the browser tab strip exactly. */
+export function observeDocumentTitle(apply: (context: string) => void): () => void {
   if (typeof document === 'undefined') return () => {};
   apply(document.title);
   const head = document.head ?? document.querySelector('head');

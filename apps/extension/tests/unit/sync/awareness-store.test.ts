@@ -12,7 +12,7 @@ function makeIdentity(overrides: Partial<PresenceIdentity> = {}): PresenceIdenti
     instanceId: 'workbench-1',
     surfaceKind: 'workbench',
     appId: 'extension',
-    label: 'Workbench',
+    labelContext: 'Workbench',
     ...overrides,
   };
 }
@@ -83,7 +83,7 @@ describe('awareness store', () => {
     now = 1000 + 30_001;
     store.publish(
       makeState({
-        identity: { instanceId: 'popup-A', surfaceKind: 'popup', label: 'Popup' },
+        identity: { instanceId: 'popup-A', surfaceKind: 'popup', labelContext: 'Popup' },
         lastActivityHlc: { physicalMs: now, logical: 0, nodeId: 'n2' },
       }),
     );

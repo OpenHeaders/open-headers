@@ -15,8 +15,8 @@
  * older peer once the rollout has caught up.
  */
 
-export const PROTOCOL_VERSION = 1;
-export const MIN_COMPATIBLE_PROTOCOL = 1;
+export const PROTOCOL_VERSION = 2;
+export const MIN_COMPATIBLE_PROTOCOL = 2;
 
 export function isCompatibleProtocol(peerVersion: number): boolean {
   return Number.isInteger(peerVersion) && peerVersion >= MIN_COMPATIBLE_PROTOCOL && peerVersion <= PROTOCOL_VERSION;

@@ -15,7 +15,7 @@ function describeRemote(presence: readonly AwarenessState[], now: number): Confl
   const agoMs = Math.max(0, now - top.lastActivityHlc.physicalMs);
   return {
     surfaceKind: top.identity.surfaceKind,
-    surfaceLabel: top.identity.label,
+    surfaceLabelContext: top.identity.labelContext,
     instanceId: top.identity.instanceId,
     agoMs,
   };

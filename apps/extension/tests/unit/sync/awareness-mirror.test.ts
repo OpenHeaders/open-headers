@@ -58,7 +58,7 @@ function identity(overrides: Partial<PresenceIdentity> = {}): PresenceIdentity {
     instanceId: 'workbench-1',
     surfaceKind: 'workbench',
     appId: 'extension',
-    label: 'Workbench',
+    labelContext: 'Workbench',
     ...overrides,
   };
 }

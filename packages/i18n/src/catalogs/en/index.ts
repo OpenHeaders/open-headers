@@ -8,6 +8,7 @@
 import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
+import { sharedAwareness } from './shared-awareness';
 import { sharedComponents } from './shared-components';
 import { sharedConflicts } from './shared-conflicts';
 import { sharedInfoCookies } from './shared-info-cookies';
@@ -26,6 +27,7 @@ import { workbenchVariables } from './workbench-variables';
 
 export const en = {
   ...shared,
+  ...sharedAwareness,
   ...sharedComponents,
   ...sharedConflicts,
   ...sharedInfoCookies,

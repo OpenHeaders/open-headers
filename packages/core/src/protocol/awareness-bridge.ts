@@ -97,11 +97,14 @@ export interface PresenceIdentity {
   userId?: string;
   /** Browser context — present iff `appId === 'extension'`. */
   browserContext?: BrowserContext;
-  /** Human-readable summary of what this surface is doing right now,
-   *  used directly as tooltip text. Surfaces refresh it on
-   *  entity-focus changes. Examples: `"Workbench — Rule X"`,
-   *  `"DevTools on staging.example.com"`, `"Popup"`. */
-  label: string;
+  /** Raw descriptive context — the data half of the surface's display
+   *  label: the tab title for own-tab surfaces (what the user sees on
+   *  the browser tab strip), the inspected page's title or hostname
+   *  for DevTools panels. Locale-neutral wire data; viewers compose
+   *  the display label from their own translation of `surfaceKind`
+   *  plus this context, so peers render in the viewer's locale.
+   *  Absent when the surface has no richer context than its kind. */
+  labelContext?: string;
   /** Peer-addressable handle for click-to-switch. Optional: surfaces
    *  that can't be focused programmatically (popup) omit this. */
   navigation?: NavigationHandle;

@@ -28,10 +28,10 @@ vi.mock('@openheaders/ui/shared/awareness/IdentityContext', () => ({
       instanceId: 'inst-1',
       surfaceKind: 'workbench' as const,
       appId: 'extension' as const,
-      label: 'Test',
+      labelContext: 'Test',
     }),
-    setLabel: () => undefined,
-    onLabelChange: () => () => undefined,
+    setContext: () => undefined,
+    onContextChange: () => () => undefined,
   }),
 }));
 

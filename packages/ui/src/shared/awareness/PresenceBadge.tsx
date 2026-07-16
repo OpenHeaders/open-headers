@@ -11,6 +11,7 @@
  * via this badge in their tab title / editor header slot.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 import AwarenessPill from './AwarenessPill';
 import { useEntityPresence } from './use-entity-presence';
@@ -24,13 +25,14 @@ export interface PresenceBadgeProps {
 }
 
 const PresenceBadge: React.FC<PresenceBadgeProps> = ({ entityType, entityId, excludeInstanceId, style }) => {
+  const t = useT();
   const ref = entityId ? { type: entityType, id: entityId } : null;
   const presence = useEntityPresence(ref, { excludeInstanceId, enabled: !!entityId });
   return (
     <AwarenessPill
       presence={presence}
-      title={`${presence.length} other surface${presence.length === 1 ? '' : 's'}`}
-      ariaLabel={`${presence.length} other surface${presence.length === 1 ? '' : 's'} editing this entity`}
+      title={t('shared.awareness.badge.otherSurfaces', { count: presence.length })}
+      ariaLabel={t('shared.awareness.badge.editingEntityAria', { count: presence.length })}
       style={style}
     />
   );

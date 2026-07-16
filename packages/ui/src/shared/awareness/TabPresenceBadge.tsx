@@ -12,6 +12,7 @@
  * first save) or when no peer is focused under the prefix.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 import AwarenessPill from './AwarenessPill';
 import { usePathPrefixPresence } from './use-entity-presence';
@@ -34,13 +35,14 @@ const TabPresenceBadge: React.FC<TabPresenceBadgeProps> = ({
   excludeInstanceId,
   style,
 }) => {
+  const t = useT();
   const ref = entityId ? { type: entityType, id: entityId } : null;
   const presence = usePathPrefixPresence(ref, pathPrefix, { excludeInstanceId, enabled: !!entityId });
   return (
     <AwarenessPill
       presence={presence}
-      title="Editing in this section"
-      ariaLabel={`${presence.length} other surface${presence.length === 1 ? '' : 's'} editing in this section`}
+      title={t('shared.awareness.section.title')}
+      ariaLabel={t('shared.awareness.section.editingAria', { count: presence.length })}
       style={style}
     />
   );

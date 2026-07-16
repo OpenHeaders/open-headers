@@ -97,7 +97,7 @@ export function createAwarenessCoordinator(opts: CreateAwarenessCoordinatorOptio
       e: claim?.entityFocus ?? null,
       f: claim?.fieldFocus ?? null,
       d: claim ? [...claim.dirtyFields].sort() : [],
-      l: identity.current().label,
+      l: identity.current().labelContext ?? null,
     });
   }
 
@@ -135,8 +135,8 @@ export function createAwarenessCoordinator(opts: CreateAwarenessCoordinatorOptio
       });
   }
 
-  // Re-publish on label changes too — the label rides on every state.
-  identity.onLabelChange(() => {
+  // Re-publish on context changes too — the context rides on every state.
+  identity.onContextChange(() => {
     lastPublishedKey = null;
     publish();
   });

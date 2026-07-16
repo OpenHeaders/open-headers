@@ -7,7 +7,7 @@ function id(overrides: Partial<PresenceIdentity> = {}): PresenceIdentity {
     instanceId: 'inst-1',
     surfaceKind: 'workbench',
     appId: 'extension',
-    label: 'Workbench',
+    labelContext: 'Workbench',
     ...overrides,
   };
 }
@@ -62,17 +62,17 @@ describe('groupPresence', () => {
     expect(tree).toHaveLength(1);
     const userNode = asGroup(tree[0]);
     expect(userNode.level).toBe('user');
-    expect(userNode.label).toBe('Local');
+    expect(userNode.label).toEqual({ kind: 'key', key: 'shared.awareness.group.local' });
     expect(userNode.isLocal).toBe(true);
     expect(userNode.children).toHaveLength(1);
     const deviceNode = asGroup(userNode.children[0]);
     expect(deviceNode.level).toBe('device');
-    expect(deviceNode.label).toBe('This device');
+    expect(deviceNode.label).toEqual({ kind: 'key', key: 'shared.awareness.group.thisDevice' });
     expect(deviceNode.isLocal).toBe(true);
     expect(deviceNode.children).toHaveLength(1);
     const hostNode = asGroup(deviceNode.children[0]);
     expect(hostNode.level).toBe('host');
-    expect(hostNode.label).toBe('This browser');
+    expect(hostNode.label).toEqual({ kind: 'key', key: 'shared.awareness.group.thisBrowser' });
     expect(hostNode.isLocal).toBe(true);
     expect(leafIds(hostNode.children)).toEqual(['p1', 'p2']);
   });
@@ -89,9 +89,9 @@ describe('groupPresence', () => {
     expect(device.children).toHaveLength(2);
     const chrome = asGroup(device.children[0]);
     const edge = asGroup(device.children[1]);
-    expect(chrome.label).toBe('Chrome');
+    expect(chrome.label).toEqual({ kind: 'raw', text: 'Chrome' });
     expect(chrome.isLocal).toBe(true);
-    expect(edge.label).toBe('Edge');
+    expect(edge.label).toEqual({ kind: 'raw', text: 'Edge' });
     expect(edge.isLocal).toBe(false);
     expect(leafIds(chrome.children)).toEqual(['chr-1', 'chr-2']);
     expect(leafIds(edge.children)).toEqual(['edge-1']);
@@ -113,9 +113,9 @@ describe('groupPresence', () => {
     expect(device.children).toHaveLength(2);
     const ext = asGroup(device.children[0]);
     const desk = asGroup(device.children[1]);
-    expect(ext.label).toBe('Chrome');
+    expect(ext.label).toEqual({ kind: 'raw', text: 'Chrome' });
     expect(ext.isLocal).toBe(true);
-    expect(desk.label).toBe('Desktop app');
+    expect(desk.label).toEqual({ kind: 'key', key: 'shared.awareness.group.desktopApp' });
     expect(desk.isLocal).toBe(false);
     expect(leafIds(ext.children)).toEqual(['ext']);
     expect(leafIds(desk.children)).toEqual(['desk']);
@@ -131,8 +131,8 @@ describe('groupPresence', () => {
     expect(device.children).toHaveLength(2);
     const ext = asGroup(device.children[0]);
     const web = asGroup(device.children[1]);
-    expect(ext.label).toBe('Chrome');
-    expect(web.label).toBe('Chrome (web)');
+    expect(ext.label).toEqual({ kind: 'raw', text: 'Chrome' });
+    expect(web.label).toEqual({ kind: 'key', key: 'shared.awareness.group.browserWeb', args: { browser: 'Chrome' } });
     expect(leafIds(ext.children)).toEqual(['ext']);
     expect(leafIds(web.children)).toEqual(['web']);
   });
@@ -149,13 +149,18 @@ describe('groupPresence', () => {
     expect(tree).toHaveLength(2);
     const alice = asGroup(tree[0]);
     const bob = asGroup(tree[1]);
-    expect(alice.label).toBe('alice');
+    expect(alice.label).toEqual({ kind: 'raw', text: 'alice' });
     expect(alice.isLocal).toBe(true);
-    expect(bob.label).toBe('bob');
+    expect(bob.label).toEqual({ kind: 'raw', text: 'bob' });
     expect(bob.isLocal).toBe(false);
     // Alice has one device — header still renders.
     expect(alice.children).toHaveLength(1);
     expect(asGroup(alice.children[0]).level).toBe('device');
+    expect(asGroup(alice.children[0]).label).toEqual({
+      kind: 'key',
+      key: 'shared.awareness.group.device',
+      args: { id: 'a-lapt' },
+    });
     // Bob has two devices.
     expect(bob.children).toHaveLength(2);
     expect(bob.children.every((c) => c.kind === 'group' && c.level === 'device')).toBe(true);
@@ -176,9 +181,9 @@ describe('groupPresence', () => {
     expect(device.children).toHaveLength(2);
     const work = asGroup(device.children[0]);
     const personal = asGroup(device.children[1]);
-    expect(work.label).toBe('Chrome (Work)');
+    expect(work.label).toEqual({ kind: 'raw', text: 'Chrome (Work)' });
     expect(work.isLocal).toBe(true);
-    expect(personal.label).toBe('Chrome (Personal)');
+    expect(personal.label).toEqual({ kind: 'raw', text: 'Chrome (Personal)' });
     expect(personal.isLocal).toBe(false);
   });
 

@@ -6,7 +6,7 @@
  * supplies the platform-specific half. Desktop renders a single
  * workbench window — there are no peer surfaces to navigate to, so
  * `resolveNavigation` stays unwired (the awareness peer-navigator's
- * `desktop-window` kind is reserved for Mode 2/3 transports). Label
+ * `desktop-window` kind is reserved for Mode 2/3 transports). Context
  * tracks `document.title` so other surfaces see the same string the
  * user sees on the window title bar.
  */
@@ -17,11 +17,11 @@ import {
   type SurfaceIdentityHandle,
 } from '@openheaders/ui/shared/awareness/surface-identity';
 
-export function resolveWorkbenchIdentity(initialLabel?: string): SurfaceIdentityHandle {
+export function resolveWorkbenchIdentity(initialContext?: string): SurfaceIdentityHandle {
   return buildIdentity({
     appId: 'desktop',
     surfaceKind: 'workbench',
-    initialLabel,
-    observeLabel: observeDocumentTitle,
+    initialContext,
+    observeContext: observeDocumentTitle,
   });
 }

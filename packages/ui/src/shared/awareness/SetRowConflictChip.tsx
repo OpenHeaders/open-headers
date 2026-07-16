@@ -56,7 +56,7 @@ const SetRowConflictChip: React.FC<SetRowConflictChipProps> = ({
         <div style={{ marginBottom: 8 }}>
           <SurfaceChip
             kind={remote.surfaceKind}
-            label={remote.surfaceLabel}
+            labelContext={remote.surfaceLabelContext}
             agoMs={remote.agoMs}
             size="small"
           />

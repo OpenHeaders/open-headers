@@ -8,6 +8,7 @@
  * across every scope.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
 import AwarenessPill from './AwarenessPill';
 import { useFieldPresence } from './use-entity-presence';
@@ -28,13 +29,14 @@ const FieldPresenceChip: React.FC<FieldPresenceChipProps> = ({
   excludeInstanceId,
   style,
 }) => {
+  const t = useT();
   const ref = entityId ? { type: entityType, id: entityId, path: fieldPath } : null;
   const presence = useFieldPresence(ref, { excludeInstanceId, enabled: !!entityId });
   return (
     <AwarenessPill
       presence={presence}
-      title="Editing this field"
-      ariaLabel={`${presence.length} other surface${presence.length === 1 ? '' : 's'} editing this field`}
+      title={t('shared.awareness.field.title')}
+      ariaLabel={t('shared.awareness.field.editingAria', { count: presence.length })}
       style={style}
     />
   );

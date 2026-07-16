@@ -6,7 +6,7 @@
  *   - unregister falls back to the next-most-recent slot
  *   - empty stack publishes a clearing state (entityFocus = null)
  *   - republish on demand for SW reconnect recovery
- *   - identical claims dedup; label change forces re-publish
+ *   - identical claims dedup; context change forces re-publish
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,21 +36,21 @@ function makeIdentityHandle(): SurfaceIdentityHandle {
     instanceId: 'workbench-A',
     surfaceKind: 'workbench',
     appId: 'extension',
-    label: 'Workbench',
+    labelContext: 'Workbench',
   };
-  const labelListeners = new Set<(label: string) => void>();
+  const contextListeners = new Set<(context: string) => void>();
   return {
     current: () => identity,
-    setLabel: (label) => {
-      identity = { ...identity, label };
-      for (const l of labelListeners) l(label);
+    setContext: (context) => {
+      identity = { ...identity, labelContext: context };
+      for (const l of contextListeners) l(context);
       return identity;
     },
-    onLabelChange: (l) => {
-      labelListeners.add(l);
-      return () => labelListeners.delete(l);
+    onContextChange: (l) => {
+      contextListeners.add(l);
+      return () => contextListeners.delete(l);
     },
-    dispose: () => labelListeners.clear(),
+    dispose: () => contextListeners.clear(),
   };
 }
 
@@ -213,7 +213,7 @@ describe('awareness coordinator', () => {
     expect(mockCall.mock.calls.length).toBe(before + 1);
   });
 
-  it('label change re-publishes the winning claim', () => {
+  it('context change re-publishes the winning claim', () => {
     const id = makeIdentityHandle();
     // biome-ignore lint/suspicious/noExplicitAny: minimal ctx stub for tests
     const coordinator = createAwarenessCoordinator({ identity: id, resolveContext: () => makeCtx() as any });
@@ -224,7 +224,7 @@ describe('awareness coordinator', () => {
       dirtyFields: [],
     });
     const before = mockCall.mock.calls.length;
-    id.setLabel('Workbench — Updated');
+    id.setContext('Workbench — Updated');
     expect(mockCall.mock.calls.length).toBe(before + 1);
   });
 

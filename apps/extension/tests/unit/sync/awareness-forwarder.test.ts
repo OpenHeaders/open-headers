@@ -46,7 +46,7 @@ const JOINED_ORG: Org = {
 
 function makeState(appId: AwarenessState['identity']['appId'], instanceId: string): AwarenessState {
   return {
-    identity: { instanceId, surfaceKind: 'workbench', appId, label: 'Workbench' },
+    identity: { instanceId, surfaceKind: 'workbench', appId, labelContext: 'Workbench' },
     entityFocus: null,
     fieldFocus: null,
     dirtyFields: [],

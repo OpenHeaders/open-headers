@@ -14,9 +14,10 @@ export interface ConflictRemoteInfo {
   /** Surface kind. Drives the colored dot + canonical short label
    *  ("Workbench" / "Popup" / "DevTools panel" / "Side panel"). */
   surfaceKind: SurfaceKind;
-  /** The peer's free-form label (typically its tab title). Verbose
-   *  by design — kept for tooltips + the chip's compact subtitle. */
-  surfaceLabel: string;
+  /** The peer's raw label context (typically its tab title). Verbose
+   *  by design — composed with the viewer's translation of
+   *  `surfaceKind` for tooltips + the chip's compact subtitle. */
+  surfaceLabelContext?: string;
   /** Stable identity used to detect "all rows came from the same
    *  peer" for the dialog's top-of-banner attribution. */
   instanceId: string;

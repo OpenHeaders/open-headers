@@ -23,12 +23,14 @@
  */
 
 import type { AwarenessState, PresenceIdentity } from '@openheaders/core/protocol';
+import type { MessageKey } from '@openheaders/i18n';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { Popover } from 'antd';
 import type React from 'react';
 import { useSurfaceIdentity } from './IdentityContext';
 import { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigate';
-import { groupPresence, localHostTag, type PresenceTreeNode } from './presence-grouping';
-import { surfaceKindColor, surfaceKindLabel } from './surface-label';
+import { groupPresence, localHostTag, type PresenceGroupLabel, type PresenceTreeNode } from './presence-grouping';
+import { surfaceDisplayLabel, surfaceKindColor, surfaceKindLabel } from './surface-label';
 
 export interface AwarenessPillProps {
   presence: AwarenessState[];
@@ -41,6 +43,7 @@ export interface AwarenessPillProps {
 }
 
 const AwarenessPill: React.FC<AwarenessPillProps> = ({ presence, title, ariaLabel, style }) => {
+  const t = useT();
   const localIdentity = useSurfaceIdentity().current();
   if (presence.length === 0) return null;
 
@@ -86,7 +89,7 @@ const AwarenessPill: React.FC<AwarenessPillProps> = ({ presence, title, ariaLabe
         {dotKinds.map((p) => (
           <span
             key={p.identity.surfaceKind}
-            title={surfaceKindLabel(p.identity.surfaceKind)}
+            title={t(surfaceKindLabel(p.identity.surfaceKind))}
             style={{
               display: 'inline-block',
               width: 10,
@@ -124,7 +127,7 @@ function renderNode(
   const headerKey = `g:${node.level}:${node.groupKey}`;
   return (
     <li key={headerKey} style={{ listStyle: 'none' }}>
-      <GroupHeader label={node.label} hint={hintForGroup(node, localIdentity)} depth={depth} />
+      <GroupHeader label={node.label} hintKey={hintForGroup(node, localIdentity)} depth={depth} />
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {node.children.map((child) => renderNode(child, localIdentity, depth + 1))}
       </ul>
@@ -135,56 +138,65 @@ function renderNode(
 function hintForGroup(
   node: Extract<PresenceTreeNode, { kind: 'group' }>,
   localIdentity: PresenceIdentity,
-): string | null {
+): MessageKey | null {
   if (!node.isLocal) return null;
-  if (node.level === 'user') return 'you';
-  if (node.level === 'device') return 'this device';
+  if (node.level === 'user') return 'shared.awareness.hint.you';
+  if (node.level === 'device') return 'shared.awareness.hint.thisDevice';
   return localHostTag(localIdentity.appId);
 }
 
+function groupLabelText(t: Translate, label: PresenceGroupLabel): string {
+  return label.kind === 'key' ? t(label.key, label.args) : label.text;
+}
+
 interface GroupHeaderProps {
-  label: string;
-  hint: string | null;
+  label: PresenceGroupLabel;
+  hintKey: MessageKey | null;
   depth: number;
 }
 
-const GroupHeader: React.FC<GroupHeaderProps> = ({ label, hint, depth }) => (
-  <div
-    style={{
-      paddingLeft: 6 + depth * 12,
-      paddingTop: 4,
-      paddingBottom: 2,
-      fontSize: 10,
-      fontWeight: 600,
-      color: 'var(--ant-color-text-tertiary)',
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-    }}
-  >
-    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-    {hint && (
-      <span
-        style={{
-          fontSize: 9,
-          padding: '0 4px',
-          height: 12,
-          lineHeight: '12px',
-          borderRadius: 6,
-          background: 'rgba(0,0,0,0.06)',
-          color: 'var(--ant-color-text-secondary)',
-          textTransform: 'none',
-          letterSpacing: 0,
-          fontWeight: 500,
-        }}
-      >
-        {hint}
+const GroupHeader: React.FC<GroupHeaderProps> = ({ label, hintKey, depth }) => {
+  const t = useT();
+  return (
+    <div
+      style={{
+        paddingLeft: 6 + depth * 12,
+        paddingTop: 4,
+        paddingBottom: 2,
+        fontSize: 10,
+        fontWeight: 600,
+        color: 'var(--ant-color-text-tertiary)',
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+      }}
+    >
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {groupLabelText(t, label)}
       </span>
-    )}
-  </div>
-);
+      {hintKey && (
+        <span
+          style={{
+            fontSize: 9,
+            padding: '0 4px',
+            height: 12,
+            lineHeight: '12px',
+            borderRadius: 6,
+            background: 'rgba(0,0,0,0.06)',
+            color: 'var(--ant-color-text-secondary)',
+            textTransform: 'none',
+            letterSpacing: 0,
+            fontWeight: 500,
+          }}
+        >
+          {t(hintKey)}
+        </span>
+      )}
+    </div>
+  );
+};
 
 interface SurfaceRowProps {
   state: AwarenessState;
@@ -193,6 +205,7 @@ interface SurfaceRowProps {
 }
 
 const SurfaceRow: React.FC<SurfaceRowProps> = ({ state, localIdentity, depth }) => {
+  const t = useT();
   const coLocated = isHandleCoLocated(localIdentity.navigation, state.identity.navigation);
   const navigable = !coLocated && isPeerNavigable(state.identity.navigation);
   const onClick = navigable
@@ -201,10 +214,10 @@ const SurfaceRow: React.FC<SurfaceRowProps> = ({ state, localIdentity, depth }) 
       }
     : undefined;
   const tooltip = coLocated
-    ? 'Already on this tab'
+    ? t('shared.awareness.row.alreadyOnTab')
     : navigable
-      ? 'Switch to this surface'
-      : 'Not peer-addressable';
+      ? t('shared.awareness.row.switchToSurface')
+      : t('shared.awareness.row.notAddressable');
   return (
     <li>
       <button
@@ -241,7 +254,7 @@ const SurfaceRow: React.FC<SurfaceRowProps> = ({ state, localIdentity, depth }) 
           }}
         />
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {state.identity.label}
+          {surfaceDisplayLabel(t, state.identity)}
         </span>
         {coLocated ? (
           <span
@@ -256,7 +269,7 @@ const SurfaceRow: React.FC<SurfaceRowProps> = ({ state, localIdentity, depth }) 
               flex: '0 0 auto',
             }}
           >
-            this tab
+            {t('shared.awareness.row.thisTab')}
           </span>
         ) : navigable ? (
           <span style={{ fontSize: 10, opacity: 0.6 }}>↗</span>

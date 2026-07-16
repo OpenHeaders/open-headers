@@ -13,7 +13,7 @@ function identity(): PresenceIdentity {
     instanceId: 'workbench-1',
     surfaceKind: 'workbench',
     appId: 'extension',
-    label: 'Workbench',
+    labelContext: 'Workbench',
   };
 }
 

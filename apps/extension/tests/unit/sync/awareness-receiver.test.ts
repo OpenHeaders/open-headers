@@ -29,7 +29,7 @@ import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/aw
 
 function makeState(instanceId: string): AwarenessState {
   return {
-    identity: { instanceId, surfaceKind: 'workbench', appId: 'desktop', label: 'Workbench' },
+    identity: { instanceId, surfaceKind: 'workbench', appId: 'desktop', labelContext: 'Workbench' },
     entityFocus: null,
     fieldFocus: null,
     dirtyFields: [],
