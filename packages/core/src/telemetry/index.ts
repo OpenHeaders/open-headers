@@ -9,6 +9,7 @@
 export {
   mintTelemetryInstallId,
   mintTelemetrySessionId,
+  type PersistedTelemetryQueueEntry,
   PRODUCT_TELEMETRY_ENDPOINT,
   PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT,
   TELEMETRY_MAX_LOG,
@@ -18,6 +19,7 @@ export {
   type TelemetryDisposition,
   type TelemetryInstallContext,
   type TelemetryLogEntry,
+  type TelemetryQueueStore,
   type TelemetryTransport,
 } from './client';
 export {

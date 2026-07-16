@@ -3,6 +3,7 @@ import {
   createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
   oncePerSessionLatchKey,
+  type PersistedTelemetryQueueEntry,
   ProductTelemetryController,
   type ProductTelemetryControllerDeps,
   type ProductTelemetryInstallStore,
@@ -11,6 +12,7 @@ import {
   type TelemetryEnvelope,
   type TelemetryEvent,
   type TelemetryInstallContext,
+  type TelemetryQueueStore,
 } from '../../src/telemetry';
 
 const SESSION_START: TelemetryEvent = {
@@ -37,7 +39,10 @@ function makeSessionStore(initial: Partial<{ sessionId: string; latched: string[
   return { store, state };
 }
 
-const INSTALL: TelemetryInstallContext = { installId: 'feedface00feedface00feedface0000', installedAt: 1_760_000_000_000 };
+const INSTALL: TelemetryInstallContext = {
+  installId: 'feedface00feedface00feedface0000',
+  installedAt: 1_760_000_000_000,
+};
 
 interface RigOptions {
   enabled?: boolean;
@@ -47,6 +52,7 @@ interface RigOptions {
   /** Preseeded by default so session-focused tests carry no first_run noise; null = fresh install. */
   install?: TelemetryInstallContext | null;
   installStore?: ProductTelemetryInstallStore;
+  queueStore?: TelemetryQueueStore;
 }
 
 function makeRig(options: RigOptions = {}) {
@@ -55,7 +61,8 @@ function makeRig(options: RigOptions = {}) {
   const listeners = { enabled: [] as Array<() => void> };
   const { store, state } = makeSessionStore(options);
   const installStore =
-    options.installStore ?? createInMemoryProductTelemetryInstallStore(options.install === undefined ? INSTALL : options.install);
+    options.installStore ??
+    createInMemoryProductTelemetryInstallStore(options.install === undefined ? INSTALL : options.install);
 
   const deps: ProductTelemetryControllerDeps = {
     transport: {
@@ -67,6 +74,7 @@ function makeRig(options: RigOptions = {}) {
     now: () => 1_760_000_000_000,
     sessionStore: store,
     installStore,
+    queueStore: options.queueStore,
     channel: 'chrome-store',
     getEnabled: () => gates.enabled,
     subscribeEnabled: (fn) => listeners.enabled.push(fn),
@@ -129,6 +137,27 @@ describe('ProductTelemetryController — session_start', () => {
     await controller.flush();
     expect(sent).toEqual([]);
     expect(state.latched.has(SESSION_START_LATCH_KEY)).toBe(true);
+  });
+});
+
+describe('ProductTelemetryController — durable queue restore at boot', () => {
+  it('delivers a queue persisted by a previous process life ahead of new events', async () => {
+    const persisted: PersistedTelemetryQueueEntry[] = [
+      { event: { name: 'feature_used', feature: 'vault' }, at: 1_760_000_000_000 },
+    ];
+    const state = { entries: persisted as PersistedTelemetryQueueEntry[] | null };
+    const queueStore: TelemetryQueueStore = {
+      load: async () => state.entries,
+      save: async (entries) => {
+        state.entries = [...entries];
+      },
+    };
+    const { controller, sent } = makeRig({ queueStore });
+    await controller.init();
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([{ name: 'feature_used', feature: 'vault' }, SESSION_START]);
+    expect(state.entries).toEqual([]);
   });
 });
 

@@ -9,6 +9,9 @@
  *
  * Fire-and-forget: a failed batch silently rides the next flush (no retry
  * loop), the queue is hard-capped, and nothing here throws at a caller.
+ * Evictable hosts additionally inject a `TelemetryQueueStore` so pending
+ * events survive a process death between track and flush; the queue
+ * stays RAM-only everywhere else.
  * The enabled toggle gates sending, but the session log keeps recording
  * would-be events while the channel is off: the telemetry inspector (§6)
  * reads it byte-for-byte.
@@ -29,6 +32,30 @@ export interface TelemetryTransport {
    * both are silent; the batch rides the next flush.
    */
   send(envelope: TelemetryEnvelope): Promise<boolean>;
+}
+
+/** One persisted pending event awaiting delivery. */
+export interface PersistedTelemetryQueueEntry {
+  event: TelemetryEvent;
+  /** ms since epoch at `track()` time, preserved across restores for the inspector log. */
+  at: number;
+}
+
+/**
+ * Durable home for the pending queue, for hosts whose process can die
+ * with events still queued (the extension service worker is evicted
+ * after seconds of idle). The client persists the full pending set on
+ * every queue mutation and restores it at boot; a batch leaves the
+ * store only after the transport accepts it, so delivery is
+ * at-least-once. Session scoping is the store's job: `load()` must
+ * return entries only when they were saved within the current session,
+ * never carrying events across a session boundary.
+ */
+export interface TelemetryQueueStore {
+  /** Pending entries persisted by an earlier process life of the same session, or null. */
+  load(): Promise<PersistedTelemetryQueueEntry[] | null>;
+  /** Persist the full pending queue. Called with `[]` when the queue drains or the channel turns off — off wipes the store. */
+  save(entries: ReadonlyArray<PersistedTelemetryQueueEntry>): Promise<void>;
 }
 
 /** The durable identity facts an envelope carries (plan §4, amended 2026-07-16). */
@@ -57,6 +84,8 @@ export interface TelemetryClientDeps {
    * exit). Must match `TelemetrySessionIdSchema`; omitted = minted fresh.
    */
   sessionId?: string;
+  /** Durable pending-queue home for evictable hosts; omitted = RAM-only queue. */
+  queueStore?: TelemetryQueueStore;
 }
 
 /** Hard cap on undelivered events awaiting flush; the oldest are dropped first. */
@@ -106,6 +135,7 @@ export class TelemetryClient {
   private queue: TelemetryLogEntry[] = [];
   private log: TelemetryLogEntry[] = [];
   private flushing = false;
+  private persistChain: Promise<void> = Promise.resolve();
 
   constructor(deps: TelemetryClientDeps) {
     this.deps = deps;
@@ -130,7 +160,39 @@ export class TelemetryClient {
     if (!enabled) {
       for (const entry of this.queue) entry.disposition = 'suppressed';
       this.queue = [];
+      this.persistQueue();
     }
+  }
+
+  /**
+   * Rehydrate the pending queue persisted by an earlier process life of
+   * this session (SW eviction survival). Restored entries re-enter the
+   * inspector log with their original timestamps and ride the next
+   * flush; while the channel is off they surface as suppressed and the
+   * store is wiped. No-op without a queue store, silent on store errors.
+   */
+  async restoreQueue(): Promise<void> {
+    const store = this.deps.queueStore;
+    if (!store) return;
+    let persisted: PersistedTelemetryQueueEntry[] | null;
+    try {
+      persisted = await store.load();
+    } catch {
+      return;
+    }
+    if (!persisted || persisted.length === 0) return;
+    const restored: TelemetryLogEntry[] = persisted.map((entry) => ({
+      event: entry.event,
+      at: entry.at,
+      disposition: this.enabled ? 'pending' : 'suppressed',
+    }));
+    this.log = [...restored, ...this.log];
+    if (this.log.length > TELEMETRY_MAX_LOG) this.log.splice(0, this.log.length - TELEMETRY_MAX_LOG);
+    if (this.enabled) {
+      this.queue = [...restored, ...this.queue];
+      this.capQueue();
+    }
+    this.persistQueue();
   }
 
   /**
@@ -147,10 +209,8 @@ export class TelemetryClient {
     if (this.log.length > TELEMETRY_MAX_LOG) this.log.splice(0, this.log.length - TELEMETRY_MAX_LOG);
     if (entry.disposition !== 'pending') return;
     this.queue.push(entry);
-    while (this.queue.length > TELEMETRY_MAX_QUEUE) {
-      const dropped = this.queue.shift();
-      if (dropped) dropped.disposition = 'dropped';
-    }
+    this.capQueue();
+    this.persistQueue();
   }
 
   /**
@@ -181,6 +241,9 @@ export class TelemetryClient {
         return false;
       }
       for (const entry of batch) entry.disposition = 'sent';
+      // The batch leaves the durable store only now — a process death
+      // mid-flight restores and resends it (at-least-once, never lost).
+      this.persistQueue();
       return true;
     } catch {
       this.requeue(batch);
@@ -198,9 +261,26 @@ export class TelemetryClient {
   private requeue(batch: TelemetryLogEntry[]): void {
     const pending = batch.filter((entry) => entry.disposition === 'pending');
     this.queue = [...pending, ...this.queue];
+    this.capQueue();
+    this.persistQueue();
+  }
+
+  private capQueue(): void {
     while (this.queue.length > TELEMETRY_MAX_QUEUE) {
       const dropped = this.queue.shift();
       if (dropped) dropped.disposition = 'dropped';
     }
+  }
+
+  /**
+   * Mirror the pending queue into the durable store, fire-and-forget.
+   * Snapshots synchronously and serializes writes on one chain, so the
+   * store always converges to the latest queue state in call order.
+   */
+  private persistQueue(): void {
+    const store = this.deps.queueStore;
+    if (!store) return;
+    const entries: PersistedTelemetryQueueEntry[] = this.queue.map((entry) => ({ event: entry.event, at: entry.at }));
+    this.persistChain = this.persistChain.then(() => store.save(entries)).catch(() => undefined);
   }
 }

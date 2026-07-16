@@ -11,6 +11,8 @@ import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostStorage, OH, wsKeys } from '@openheaders/core/storage';
 import {
   bucketScale,
+  mintTelemetrySessionId,
+  type PersistedTelemetryQueueEntry,
   PRODUCT_TELEMETRY_ENDPOINT,
   PRODUCT_TELEMETRY_UNINSTALL_ENDPOINT,
   ProductTelemetryController,
@@ -21,6 +23,7 @@ import {
   type TelemetryEnvelope,
   type TelemetryEvent,
   type TelemetryInstallContext,
+  type TelemetryQueueStore,
 } from '@openheaders/core/telemetry';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { alarms, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
@@ -34,6 +37,8 @@ const SESSION_ID_KEY = 'oh.productTelemetry.sessionId';
 const LATCH_KEY_PREFIX = 'oh.productTelemetry.latch.';
 const INSTALL_RECORD_KEY = 'oh.productTelemetry.install';
 const FIRST_RUN_SENT_KEY = 'oh.productTelemetry.firstRunSent';
+const QUEUE_KEY = 'oh.productTelemetry.queue';
+const QUEUE_EPOCH_KEY = 'oh.productTelemetry.queueEpoch';
 
 /**
  * `chrome.storage.session` survives SW eviction but lives in memory only
@@ -115,6 +120,53 @@ const installStore: ProductTelemetryInstallStore = {
   },
 };
 
+/**
+ * Durable pending queue on `chrome.storage.local` so SW eviction can't
+ * destroy events between track and flush. Session scoping without the
+ * session id ever touching disk: a random epoch minted per browser
+ * session lives in `chrome.storage.session` and is stamped on the
+ * persisted record — after a browser restart the epochs mismatch and
+ * the leftover queue is discarded, never carried into a new session's
+ * envelope. Engines without a session area skip persistence entirely
+ * (RAM-only queue, today's behavior).
+ */
+interface PersistedQueueRecord {
+  epoch: string;
+  entries: PersistedTelemetryQueueEntry[];
+}
+
+async function queueEpoch(area: chrome.storage.StorageArea): Promise<string> {
+  const items = await area.get(QUEUE_EPOCH_KEY);
+  const existing = items[QUEUE_EPOCH_KEY];
+  if (typeof existing === 'string') return existing;
+  const minted = mintTelemetrySessionId();
+  await area.set({ [QUEUE_EPOCH_KEY]: minted });
+  return minted;
+}
+
+const queueStore: TelemetryQueueStore = {
+  async load() {
+    const area = sessionArea();
+    if (!area) return null;
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    const items = await api.storage.local.get(QUEUE_KEY);
+    const record = items[QUEUE_KEY] as PersistedQueueRecord | undefined;
+    if (!record || !Array.isArray(record.entries)) return null;
+    return record.epoch === (await queueEpoch(area)) ? record.entries : null;
+  },
+  async save(entries) {
+    const area = sessionArea();
+    if (!area) return;
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    if (entries.length === 0) {
+      await api.storage.local.remove(QUEUE_KEY);
+      return;
+    }
+    const record: PersistedQueueRecord = { epoch: await queueEpoch(area), entries: [...entries] };
+    await api.storage.local.set({ [QUEUE_KEY]: record });
+  },
+};
+
 function detectBrowserKind(): 'chrome' | 'firefox' | 'edge' | 'safari' | 'other' {
   if (isFirefox) return 'firefox';
   if (isEdge) return 'edge';
@@ -136,7 +188,9 @@ export function detectDistributionChannel(): TelemetryChannelId {
  * and workspace count, bucketed. Reads two storage keys at boot; any
  * failure just omits the buckets — context, never worth blocking over.
  */
-async function readScaleBuckets(): Promise<Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>> {
+async function readScaleBuckets(): Promise<
+  Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>
+> {
   try {
     const storage = getHostStorage();
     if (!storage) return {};
@@ -199,6 +253,7 @@ const controller = new ProductTelemetryController({
   now: Date.now,
   sessionStore,
   installStore,
+  queueStore,
   channel: detectDistributionChannel(),
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),
@@ -209,10 +264,17 @@ const controller = new ProductTelemetryController({
 /**
  * Boot the channel. Called after `settingsReady` in `background.ts` —
  * the enabled gate reads the settings store, which must be hydrated.
+ * Flushes immediately after boot so `first_run`/`session_start` and any
+ * queue restored from a previous SW life go out while this SW is still
+ * alive; the alarm is the retry cadence, not the primary delivery path
+ * (an evicted SW would lose a RAM-only minute-old queue otherwise).
  */
 export function initProductTelemetry(): void {
   alarms?.create(FLUSH_ALARM, { periodInMinutes: FLUSH_PERIOD_MINUTES });
-  void controller.init();
+  void controller
+    .init()
+    .then(() => controller.flush())
+    .catch(() => undefined);
 }
 
 export function isProductTelemetryAlarm(alarm: chrome.alarms.Alarm): boolean {
@@ -227,10 +289,15 @@ export async function handleProductTelemetryAlarm(): Promise<void> {
  * Record one vocabulary event — UI surfaces reach it over the bridge
  * RPC, SW modules call it directly. Fire-and-forget by law (plan §7):
  * a failure (e.g. the settings store not yet hydrated on a cold call
- * path) drops the event silently, never throws at a caller.
+ * path) drops the event silently, never throws at a caller. Each track
+ * kicks an opportunistic flush so delivery never waits on the alarm —
+ * this SW may not live to see it fire.
  */
 export function trackProductTelemetryEvent(event: TelemetryEvent): void {
-  void controller.track(event).catch(() => undefined);
+  void controller
+    .track(event)
+    .then(() => controller.flush())
+    .catch(() => undefined);
 }
 
 /** UI-surface entry (bridge RPC): the inspector's snapshot. */

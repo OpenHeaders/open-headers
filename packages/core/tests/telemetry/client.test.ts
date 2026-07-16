@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mintTelemetryInstallId,
   mintTelemetrySessionId,
+  type PersistedTelemetryQueueEntry,
   TELEMETRY_MAX_LOG,
   TELEMETRY_MAX_QUEUE,
   TELEMETRY_SCHEMA_VERSION,
@@ -11,6 +12,7 @@ import {
   TelemetryEnvelopeSchema,
   type TelemetryEvent,
   type TelemetryInstallContext,
+  type TelemetryQueueStore,
 } from '../../src/telemetry';
 
 const NOW = 1_760_000_000_000;
@@ -28,7 +30,9 @@ function makeTransport(overrides: Partial<{ result: boolean; error: Error }> = {
   };
 }
 
-function makeClient(overrides: Partial<{ result: boolean; error: Error; install: TelemetryInstallContext | null }> = {}) {
+function makeClient(
+  overrides: Partial<{ result: boolean; error: Error; install: TelemetryInstallContext | null }> = {},
+) {
   const transport = makeTransport(overrides);
   let clock = NOW;
   const client = new TelemetryClient({
@@ -204,6 +208,127 @@ describe('TelemetryClient — hard caps', () => {
     const { client } = makeClient();
     for (let i = 0; i < TELEMETRY_MAX_LOG + 25; i++) client.track(makeEvent());
     expect(client.readEventLog()).toHaveLength(TELEMETRY_MAX_LOG);
+  });
+});
+
+function makeQueueStore(initial: PersistedTelemetryQueueEntry[] | null = null) {
+  const state = { entries: initial };
+  const store: TelemetryQueueStore = {
+    load: async () => state.entries,
+    save: async (entries) => {
+      state.entries = [...entries];
+    },
+  };
+  return { store, state };
+}
+
+/** The client persists fire-and-forget on a chained promise; settle the microtask/timer queue before asserting. */
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe('TelemetryClient — durable queue store', () => {
+  it('mirrors pending entries into the store on track and wipes it after an accepted flush', async () => {
+    const transport = makeTransport();
+    const { store, state } = makeQueueStore();
+    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    client.track(makeEvent());
+    await settle();
+    expect(state.entries).toEqual([{ event: makeEvent(), at: NOW }]);
+    await client.flush();
+    await settle();
+    expect(state.entries).toEqual([]);
+    expect(transport.sent).toHaveLength(1);
+  });
+
+  it('keeps a failed batch in the store so a process death never loses it', async () => {
+    const { store, state } = makeQueueStore();
+    const client = new TelemetryClient({
+      transport: { send: async () => false },
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: store,
+    });
+    client.track(makeEvent());
+    await client.flush();
+    await settle();
+    expect(state.entries).toEqual([{ event: makeEvent(), at: NOW }]);
+  });
+
+  it('restores persisted entries as pending: they re-enter the log with their original time and ride the next flush', async () => {
+    const transport = makeTransport();
+    const persisted: PersistedTelemetryQueueEntry[] = [
+      { event: { name: 'first_run', channel: 'chrome-store' }, at: NOW - 5000 },
+      { event: makeEvent(), at: NOW - 4000 },
+    ];
+    const { store } = makeQueueStore(persisted);
+    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    await client.restoreQueue();
+    expect(client.queuedCount).toBe(2);
+    expect(client.readEventLog().map((entry) => entry.at)).toEqual([NOW - 5000, NOW - 4000]);
+    await client.flush();
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0].events).toEqual(persisted.map((entry) => entry.event));
+  });
+
+  it('restores ahead of events tracked in the new process life', async () => {
+    const transport = makeTransport();
+    const { store } = makeQueueStore([{ event: makeEvent(), at: NOW - 5000 }]);
+    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    client.track({ name: 'workflow_run', ok: true });
+    await client.restoreQueue();
+    await client.flush();
+    expect(transport.sent[0].events).toEqual([makeEvent(), { name: 'workflow_run', ok: true }]);
+  });
+
+  it('surfaces a restored queue as suppressed while disabled and wipes the store — off means off', async () => {
+    const transport = makeTransport();
+    const { store, state } = makeQueueStore([{ event: makeEvent(), at: NOW - 5000 }]);
+    const client = new TelemetryClient({ transport, now: () => NOW, install: () => INSTALL, queueStore: store });
+    client.setEnabled(false);
+    await client.restoreQueue();
+    await settle();
+    expect(client.queuedCount).toBe(0);
+    expect(client.readEventLog()).toHaveLength(1);
+    expect(client.readEventLog()[0].disposition).toBe('suppressed');
+    expect(state.entries).toEqual([]);
+    expect(await client.flush()).toBe(false);
+    expect(transport.sent).toEqual([]);
+  });
+
+  it('wipes the store when the toggle turns off with events pending', async () => {
+    const { store, state } = makeQueueStore();
+    const client = new TelemetryClient({
+      transport: makeTransport(),
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: store,
+    });
+    client.track(makeEvent());
+    client.setEnabled(false);
+    await settle();
+    expect(state.entries).toEqual([]);
+  });
+
+  it('ignores a store that fails to load and stays silent', async () => {
+    const client = new TelemetryClient({
+      transport: makeTransport(),
+      now: () => NOW,
+      install: () => INSTALL,
+      queueStore: {
+        load: async () => {
+          throw new Error('storage gone');
+        },
+        save: async () => undefined,
+      },
+    });
+    await expect(client.restoreQueue()).resolves.toBeUndefined();
+    expect(client.queuedCount).toBe(0);
+  });
+
+  it('is a no-op without a queue store', async () => {
+    const { client } = makeClient();
+    await expect(client.restoreQueue()).resolves.toBeUndefined();
   });
 });
 

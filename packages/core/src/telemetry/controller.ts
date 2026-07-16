@@ -19,7 +19,7 @@
  */
 
 import type { ProductTelemetrySnapshot } from '../protocol/channels/product-telemetry';
-import type { TelemetryInstallContext, TelemetryTransport } from './client';
+import type { TelemetryInstallContext, TelemetryQueueStore, TelemetryTransport } from './client';
 import { mintTelemetryInstallId, TelemetryClient } from './client';
 import type { TelemetryChannelId, TelemetryEvent } from './vocabulary';
 
@@ -109,6 +109,8 @@ export interface ProductTelemetryControllerDeps {
   now(): number;
   sessionStore: ProductTelemetrySessionStore;
   installStore: ProductTelemetryInstallStore;
+  /** Durable pending-queue home for evictable hosts (see `TelemetryQueueStore`); omitted = RAM-only queue. */
+  queueStore?: TelemetryQueueStore;
   /** This build's distribution channel — a static host fact stamped on `first_run`. */
   channel: TelemetryChannelId;
   /** Current `telemetry.enabled` setting value. */
@@ -148,7 +150,12 @@ export class ProductTelemetryController {
 
   private async boot(): Promise<void> {
     let sessionId = await this.deps.sessionStore.getSessionId();
-    const baseDeps = { transport: this.deps.transport, now: this.deps.now, install: () => this.installContext };
+    const baseDeps = {
+      transport: this.deps.transport,
+      now: this.deps.now,
+      install: () => this.installContext,
+      queueStore: this.deps.queueStore,
+    };
     const client = sessionId ? new TelemetryClient({ ...baseDeps, sessionId }) : new TelemetryClient(baseDeps);
     if (!sessionId) {
       sessionId = client.sessionId;
@@ -165,6 +172,10 @@ export class ProductTelemetryController {
       // not running still wipes the record at the next boot.
       await this.deps.installStore.clearRecord();
     }
+    // Rehydrate pending events a previous process life persisted but
+    // never delivered (extension SW eviction) — after the enabled gate
+    // so an off boot surfaces them suppressed and wipes the store.
+    await client.restoreQueue();
     // Transitions serialize on one chain; every entry point awaits it
     // (`settled`), so identity work never races a track or flush.
     this.deps.subscribeEnabled(() => {
