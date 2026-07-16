@@ -28,6 +28,7 @@
 import {
   ApiOutlined,
   ArrowDownOutlined,
+  ArrowUpOutlined,
   ClearOutlined,
   DisconnectOutlined,
   InfoCircleOutlined,
@@ -35,11 +36,11 @@ import {
 } from '@ant-design/icons';
 import { Button, Input, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import CodeEditor from '../../shared/CodeEditor';
 import { WrapLinesIcon } from './ViewPickerIcons';
-import { stringifyLossless } from './lossless-json';
+import { parseLosslessJson, stringifyLossless } from './lossless-json';
 import { formatBytes } from './response-format';
 import type { SseEventItem } from './response-sse';
 
@@ -130,16 +131,35 @@ function previewOf(item: SseEventItem): string {
 
 const viewerCache = new WeakMap<SseEventItem, { value: string; language: 'json' | 'text' }>();
 
-/** Expanded-row content: the lossless pretty print of a JSON `data`
- *  payload under the JSON grammar; the raw wire block otherwise. */
+/** Expanded-row content — the event's DATA payload (id/event/retry
+ *  live in the info popover): the lossless pretty print under the JSON
+ *  grammar when the payload is JSON — including a multi-line payload
+ *  whose data lines are each their own JSON document, printed in
+ *  sequence — the verbatim payload text otherwise; comment-only rows
+ *  fall back to the raw wire block. */
 function viewerContentOf(item: SseEventItem): { value: string; language: 'json' | 'text' } {
   const hit = viewerCache.get(item);
   if (hit !== undefined) return hit;
   const data = item.record.data;
-  const content: { value: string; language: 'json' | 'text' } =
-    data !== undefined && typeof data !== 'string'
-      ? { value: stringifyLossless(data), language: 'json' }
-      : { value: item.raw, language: 'text' };
+  let content: { value: string; language: 'json' | 'text' };
+  if (data !== undefined && typeof data !== 'string') {
+    content = { value: stringifyLossless(data), language: 'json' };
+  } else if (typeof data === 'string') {
+    const lines = data.split('\n').filter((line) => line.trim() !== '');
+    const printed: string[] = [];
+    let allJson = lines.length > 0;
+    for (const line of lines) {
+      const parsedLine = parseLosslessJson(line);
+      if (parsedLine === null) {
+        allJson = false;
+        break;
+      }
+      printed.push(stringifyLossless(parsedLine.value));
+    }
+    content = allJson ? { value: printed.join('\n'), language: 'json' } : { value: data, language: 'text' };
+  } else {
+    content = { value: item.raw, language: 'text' };
+  }
   viewerCache.set(item, content);
   return content;
 }
@@ -209,6 +229,13 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [wrapLines, setWrapLines] = useState(true);
   const [shownLimit, setShownLimit] = useState(SHOW_STEP);
+  // New rows land at the TOP (newest-first) — when the user has
+  // scrolled down to read and more events commit, a jump-back pill
+  // floats over the list instead of the content moving under them.
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const awayFromTopRef = useRef(false);
+  const prevCountRef = useRef(count);
+  const [hasNewAbove, setHasNewAbove] = useState(false);
 
   // A new event log (new send, new snapshot) resets the display state —
   // indexes are positional in the log the state was minted against.
@@ -218,7 +245,21 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     setClearedCount(0);
     setExpanded(new Set<number>());
     setShownLimit(SHOW_STEP);
+    setHasNewAbove(false);
+    awayFromTopRef.current = false;
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
   }, [items]);
+
+  useEffect(() => {
+    if (count > prevCountRef.current && awayFromTopRef.current) setHasNewAbove(true);
+    prevCountRef.current = count;
+  }, [count]);
+
+  const jumpToTop = () => {
+    scrollerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    awayFromTopRef.current = false;
+    setHasNewAbove(false);
+  };
 
   // Visible window, newest-first: walk down from the newest committed
   // event, apply the search + clear, cap at the display window. One
@@ -306,17 +347,45 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
           />
         </Tooltip>
       </div>
-      <div
-        className="rules-thin-scrollbar"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'auto',
-          overscrollBehavior: 'contain',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 4,
-        }}
-      >
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        {hasNewAbove && (
+          <Button
+            size="small"
+            type="primary"
+            shape="round"
+            icon={<ArrowUpOutlined />}
+            data-testid="oh-sse-new-events"
+            onClick={jumpToTop}
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 2,
+              fontSize: 11,
+              boxShadow: token.boxShadowSecondary,
+            }}
+          >
+            {t('workbench.editors.request.response.sse.newEvents')}
+          </Button>
+        )}
+        <div
+          ref={scrollerRef}
+          onScroll={(e) => {
+            const away = e.currentTarget.scrollTop > 4;
+            awayFromTopRef.current = away;
+            if (!away) setHasNewAbove(false);
+          }}
+          className="rules-thin-scrollbar"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: 'auto',
+            overscrollBehavior: 'contain',
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 4,
+          }}
+        >
         {lifecycle.endedBy !== undefined && (
           <div data-testid="oh-sse-lifecycle-row" style={lifecycleRowStyle}>
             <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
@@ -460,6 +529,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
               {formatEventTime(lifecycle.connectedAt)}
             </span>
           )}
+        </div>
         </div>
       </div>
     </div>

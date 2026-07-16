@@ -7,8 +7,10 @@
  * when not; lifecycle rows (connected bottom, ended top) derived from
  * props — never invented; search and Clear display-only; the display
  * window capped with "show older" paging; per-row expansion mounting
- * the mini viewer with the lossless JSON print (int64 verbatim — the
- * F3 law). The shared Monaco CodeEditor is mocked to a <textarea> —
+ * the mini viewer over the DATA payload — lossless JSON print (int64
+ * verbatim — the F3 law), per-line JSON documents printed in sequence,
+ * plain payload text otherwise, raw wire block only for comment-only
+ * rows. The shared Monaco CodeEditor is mocked to a <textarea> —
  * the contract under test is the list, not Monaco.
  */
 
@@ -142,6 +144,35 @@ describe('ResponseSseEventList search + clear (display-only)', () => {
   });
 });
 
+describe('ResponseSseEventList new-events pill', () => {
+  it('offers a jump-to-top pill when events commit while scrolled away, and dismisses on click', () => {
+    const items = itemsOf(BODY);
+    const { container, rerender } = render(<ResponseSseEventList items={items} count={1} lifecycle={LIFECYCLE} />);
+    const scroller = container.querySelector('.rules-thin-scrollbar');
+    if (!scroller) throw new Error('scroller must render');
+    Object.defineProperty(scroller, 'scrollTo', { value: () => {} });
+    // At the top, a growing count needs no pill — the new row is visible.
+    rerender(<ResponseSseEventList items={items} count={2} lifecycle={LIFECYCLE} />);
+    expect(screen.queryByTestId('oh-sse-new-events')).toBeNull();
+    fireEvent.scroll(scroller, { target: { scrollTop: 120 } });
+    rerender(<ResponseSseEventList items={items} count={3} lifecycle={LIFECYCLE} />);
+    fireEvent.click(screen.getByTestId('oh-sse-new-events'));
+    expect(screen.queryByTestId('oh-sse-new-events')).toBeNull();
+  });
+
+  it('scrolling back to the top dismisses the pill', () => {
+    const items = itemsOf(BODY);
+    const { container, rerender } = render(<ResponseSseEventList items={items} count={2} lifecycle={LIFECYCLE} />);
+    const scroller = container.querySelector('.rules-thin-scrollbar');
+    if (!scroller) throw new Error('scroller must render');
+    fireEvent.scroll(scroller, { target: { scrollTop: 120 } });
+    rerender(<ResponseSseEventList items={items} count={3} lifecycle={LIFECYCLE} />);
+    expect(screen.getByTestId('oh-sse-new-events')).toBeTruthy();
+    fireEvent.scroll(scroller, { target: { scrollTop: 0 } });
+    expect(screen.queryByTestId('oh-sse-new-events')).toBeNull();
+  });
+});
+
 describe('ResponseSseEventList display window', () => {
   it('caps visible rows and pages down with "show older"', () => {
     const body = Array.from({ length: 250 }, (_, i) => `data: {"seq":${i}}\n`).join('\n');
@@ -175,11 +206,27 @@ describe('ResponseSseEventList row expansion', () => {
     expect(screen.queryByTestId('oh-sse-event-viewer')).toBeNull();
   });
 
-  it('shows the raw wire block for non-JSON payloads', () => {
+  it('shows the payload text verbatim for non-JSON payloads', () => {
     const items = itemsOf(BODY);
     render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
     fireEvent.click(screen.getAllByTestId('oh-sse-event-row')[1]);
     const editor = screen.getByTestId('oh-sse-event-viewer').querySelector('textarea');
-    expect(editor?.value).toBe('data: plain payload');
+    expect(editor?.value).toBe('plain payload');
+  });
+
+  it('pretty-prints a multi-line payload whose data lines are each JSON documents', () => {
+    const items = itemsOf('event: tick\ndata: {"seq":5}\ndata: {"named":true}\n\n');
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    fireEvent.click(screen.getByTestId('oh-sse-event-row'));
+    const editor = screen.getByTestId('oh-sse-event-viewer').querySelector('textarea');
+    expect(editor?.value).toBe('{\n  "seq": 5\n}\n{\n  "named": true\n}');
+  });
+
+  it('keeps the raw wire block for comment-only rows', () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    fireEvent.click(screen.getAllByTestId('oh-sse-event-row')[0]);
+    const editor = screen.getByTestId('oh-sse-event-viewer').querySelector('textarea');
+    expect(editor?.value).toBe(': heartbeat');
   });
 });

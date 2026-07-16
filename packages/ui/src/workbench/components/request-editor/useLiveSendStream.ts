@@ -63,6 +63,8 @@ export interface SseStreamSession {
 export interface LiveSendStream {
   /** Response head, or null until the head frame arrives. */
   head: RequestStreamHeadWire | null;
+  /** When the send left — the live meta strip's ticking elapsed base. */
+  startedAt: number;
   /** Decoded tail of the body received so far (bounded window). */
   tailText: string;
   /** Total body bytes received so far (cap-bounded). */
@@ -83,6 +85,7 @@ interface SseAccumulator {
 interface StreamAccumulator {
   sendId: string;
   decoder: TextDecoder;
+  startedAt: number;
   head: RequestStreamHeadWire | null;
   tailText: string;
   totalBytes: number;
@@ -117,6 +120,7 @@ export function useLiveSendStream(): {
     if (!acc) return;
     setLive({
       head: acc.head,
+      startedAt: acc.startedAt,
       tailText: acc.tailText,
       totalBytes: acc.totalBytes,
       sse: acc.sse
@@ -163,6 +167,7 @@ export function useLiveSendStream(): {
         // fatal: false — a flush boundary can split a multi-byte
         // sequence; the streaming decoder carries it across chunks.
         decoder: new TextDecoder('utf-8', { fatal: false }),
+        startedAt: Date.now(),
         head: null,
         tailText: '',
         totalBytes: 0,

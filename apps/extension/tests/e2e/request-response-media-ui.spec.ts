@@ -405,9 +405,22 @@ test.describe('Response viewer — streaming sends (UI)', () => {
     // newest-first with session timestamps and the connected row below.
     await workbench.responseLiveTail().waitFor({ state: 'visible', timeout: 15000 });
     await expect(workbench.responseLiveStatus()).toContainText('200');
+    // The live phase keeps the real tab chrome: the meta facts sit in
+    // the tab bar (pulsing dot · status · ticking elapsed · bytes) and
+    // the Headers tab already serves the head's fields.
+    await expect(workbench.responseLiveMeta()).toBeVisible();
+    const elapsedBefore = await workbench.responseLiveElapsed().innerText();
+    await expect
+      .poll(async () => workbench.responseLiveElapsed().innerText(), { timeout: 5000 })
+      .not.toBe(elapsedBefore);
+    await workbench.openResponseTab(/Headers/);
+    await expect(workbench.responseRegion()).toContainText('text/event-stream');
+    await workbench.openResponseTab(/Body/);
     const liveList = workbench.responseSseEventList();
     await liveList.waitFor({ state: 'visible', timeout: 15000 });
-    await expect(liveList).toContainText('"seq": 1', { timeout: 15000 });
+    // Odd ticks carry two JSON data lines — the row preview shows the
+    // payload verbatim (collapsed to one line), not a re-spaced print.
+    await expect(liveList).toContainText('{"seq":1}', { timeout: 15000 });
     await expect(workbench.responseSseConnectedRow()).toContainText('Connected to');
     expect(await workbench.responseSseEventTimes().count()).toBeGreaterThan(0);
 
@@ -421,7 +434,7 @@ test.describe('Response viewer — streaming sends (UI)', () => {
     expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
     const list = workbench.responseSseEventList();
     await list.waitFor({ state: 'visible', timeout: 15000 });
-    await expect(list).toContainText('"seq": 1');
+    await expect(list).toContainText('{"seq":1}');
     await expect(workbench.responseSseLifecycleRow()).toContainText('Connection stopped');
     expect(await workbench.responseSseEventTimes().count()).toBeGreaterThan(0);
 

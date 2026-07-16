@@ -1094,6 +1094,7 @@ export const workbenchEditors = {
   'workbench.editors.request.response.sse.clearEvents': 'Clear events (display only)',
   'workbench.editors.request.response.sse.showOlder': ({ count }, locale) =>
     plural(locale, Number(count), { one: 'Show {count} older event', other: 'Show {count} older events' }),
+  'workbench.editors.request.response.sse.newEvents': 'New events',
   'workbench.editors.request.response.sse.infoId': 'ID',
   'workbench.editors.request.response.sse.infoSize': 'Size',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',

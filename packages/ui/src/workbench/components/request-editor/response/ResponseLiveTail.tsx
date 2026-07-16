@@ -1,12 +1,13 @@
 /**
- * ResponseLiveTail — the response panel's live phase for a streaming
- * send: the head (status) as soon as it arrives plus the body received
- * so far, updated live until the user stops the send or the stream
- * ends (at which point the materialized snapshot takes over and the
- * full format plane engages). SSE sends (the head declared
- * `text/event-stream`) render the event LIST here instead of the text
- * tail — the same surface the materialized snapshot shows, so
- * Stop/close never switches views.
+ * ResponseLiveTail — the Body tab's live phase for a streaming send:
+ * the body received so far, updated live until the user stops the send
+ * or the stream ends (at which point the materialized snapshot takes
+ * over and the full format plane engages). SSE sends (the head
+ * declared `text/event-stream`) render the event LIST here instead of
+ * the text tail — the same surface the materialized snapshot shows, so
+ * Stop/close never switches views. The status / elapsed / bytes facts
+ * live in the tab bar's ResponseLiveMetaStrip, exactly where the
+ * settled meta strip sits.
  *
  * Perf laws honored: the tail is ONE text node inside a plain <pre> —
  * no per-line spans, no grammar, no parsing — and the hook feeding it
@@ -15,16 +16,10 @@
  * user is already there; scrolling up to read holds the position.
  */
 
-import { LoadingOutlined } from '@ant-design/icons';
-import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { LiveSendStream } from '../useLiveSendStream';
 import ResponseSseEventList from './ResponseSseEventList';
-import { formatBytes } from './response-format';
-
-const { Text } = Typography;
 
 /** Within this many px of the bottom counts as "following" — a burst of
  *  appends between scroll events must not break the follow. */
@@ -35,8 +30,6 @@ interface ResponseLiveTailProps {
 }
 
 const ResponseLiveTail: React.FC<ResponseLiveTailProps> = ({ live }) => {
-  const { token } = theme.useToken();
-  const t = useT();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const followRef = useRef(true);
 
@@ -47,50 +40,16 @@ const ResponseLiveTail: React.FC<ResponseLiveTailProps> = ({ live }) => {
     if (scroller && followRef.current) scroller.scrollTop = scroller.scrollHeight;
   }, [live.tailText]);
 
-  const statusColor =
-    live.head === null
-      ? token.colorTextSecondary
-      : live.head.status >= 500
-        ? token.colorError
-        : live.head.status >= 400
-          ? token.colorWarning
-          : live.head.status >= 200 && live.head.status < 300
-            ? token.colorSuccess
-            : token.colorTextSecondary;
-
   return (
     <div
       data-testid="oh-response-live-tail"
-      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 16px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        {live.head !== null && (
-          <Tag
-            color="default"
-            data-testid="oh-response-live-status"
-            style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0 }}
-          >
-            {live.head.status} {live.head.statusText}
-          </Tag>
-        )}
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          <LoadingOutlined style={{ marginRight: 6 }} />
-          {t('workbench.editors.request.response.streamReceiving', { size: formatBytes(live.totalBytes) })}
-        </Text>
-      </div>
       {live.sse !== null && live.head !== null ? (
         // SSE: the event list, newest-first — new rows land at the top,
         // so no scroll-follow is needed. Timestamps mint at frame
         // arrival; the connected row derives from the head.
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 16px' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
           <ResponseSseEventList
             items={live.sse.items}
             count={live.sse.count}
@@ -106,7 +65,7 @@ const ResponseLiveTail: React.FC<ResponseLiveTailProps> = ({ live }) => {
             const el = e.currentTarget;
             followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK_PX;
           }}
-          style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', padding: '8px 16px' }}
+          style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', paddingTop: 8 }}
         >
           <pre
             style={{

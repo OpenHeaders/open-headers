@@ -20,6 +20,7 @@ import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { formatBytes } from './response-format';
 import {
+  formatDurationRolled,
   formatPhaseMs,
   httpVersionLabel,
   mapEntryToTimingView,
@@ -604,8 +605,9 @@ interface ResponseMetaStripProps {
   statusColor: string;
 }
 
-/** Tiny round separator between the strip's facts. */
-const MetaDot: React.FC = () => {
+/** Tiny round separator between the strip's facts — shared with the
+ *  live variant so both phases align identically. */
+export const MetaDot: React.FC = () => {
   const { token } = theme.useToken();
   return (
     <span
@@ -621,9 +623,13 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   // The strip leads with the on-wire size when the server exposes it
   // (matches devtools' Size column); decoded bytes otherwise. The
-  // popover carries both figures either way.
+  // popover carries both figures either way. Streamed captures always
+  // show the captured bytes — the browser's timing entry for a send
+  // stopped mid-stream reports a stale, near-empty transfer figure.
   const stripBytes =
-    response.timing && response.timing.transferSize > 0 ? response.timing.transferSize : response.bodyBytes;
+    response.streamedCapture === undefined && response.timing && response.timing.transferSize > 0
+      ? response.timing.transferSize
+      : response.bodyBytes;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
       <InfoPopover content={getStatusCodeInfoContent(t, response.status, response.statusText)} trigger="hover">
@@ -640,7 +646,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       <MetaDot />
       <InfoPopover content={timingContent(response, t)} trigger="hover">
         <Text type="secondary" data-testid="oh-response-duration" style={factStyle}>
-          {response.durationMs} ms
+          {formatDurationRolled(response.durationMs)}
         </Text>
       </InfoPopover>
       <MetaDot />

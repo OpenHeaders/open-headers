@@ -721,6 +721,17 @@ export class WorkbenchPage {
     return this.page.getByTestId('oh-response-live-status').filter({ visible: true });
   }
 
+  /** The live phase's tab-bar meta strip — pulsing dot, head status,
+   *  ticking elapsed time, bytes received so far. */
+  responseLiveMeta(): Locator {
+    return this.page.getByTestId('oh-response-live-meta').filter({ visible: true });
+  }
+
+  /** The live phase's ticking elapsed-time fact. */
+  responseLiveElapsed(): Locator {
+    return this.page.getByTestId('oh-response-live-elapsed').filter({ visible: true });
+  }
+
   /** The meta strip's streamed-capture attribution tag — present only
    *  when the live stream phase engaged or the read ended early. */
   responseStreamedTag(): Locator {

@@ -12,6 +12,7 @@ import {
   statusCodeInfoCount,
 } from '@openheaders/ui/shared/info-popover/data/http-status';
 import {
+  formatDurationRolled,
   formatPhaseMs,
   httpVersionLabel,
   mapEntryToTimingView,
@@ -203,6 +204,18 @@ describe('formatPhaseMs', () => {
     expect(formatPhaseMs(3.14)).toBe('3.1 ms');
     expect(formatPhaseMs(88)).toBe('88 ms');
     expect(formatPhaseMs(1234.6)).toBe('1235 ms');
+  });
+});
+
+describe('formatDurationRolled', () => {
+  it('rolls wall-clock durations up through ms / s / m / h units', () => {
+    expect(formatDurationRolled(-5)).toBe('0 ms');
+    expect(formatDurationRolled(734)).toBe('734 ms');
+    expect(formatDurationRolled(1360)).toBe('1.4 s');
+    expect(formatDurationRolled(59_940)).toBe('59.9 s');
+    expect(formatDurationRolled(63_500)).toBe('1 m 3.5 s');
+    expect(formatDurationRolled(104_642)).toBe('1 m 44.6 s');
+    expect(formatDurationRolled(3_723_000)).toBe('1 h 2 m 3 s');
   });
 });
 

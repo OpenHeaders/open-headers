@@ -37,6 +37,7 @@ import ResponseCookiesView from './ResponseCookiesView';
 import ResponseEmptyState from './ResponseEmptyState';
 import ResponseErrorState from './ResponseErrorState';
 import ResponseHeadersView from './ResponseHeadersView';
+import ResponseLiveMetaStrip from './ResponseLiveMetaStrip';
 import ResponseLiveTail from './ResponseLiveTail';
 import ResponseMetaStrip from './ResponseMetaStrip';
 import { setCookieLinesOf } from './response-cookies';
@@ -235,7 +236,48 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      {!response || response.error !== null ? (
+      {sending && live != null && live.head !== null ? (
+        // Live phase — the SAME tab chrome as a settled response (the
+        // Postman posture): Body streams the tail / event list, Headers
+        // shows the head's fields already, and the tab-bar right slot
+        // carries the live meta facts (pulsing dot · status · ticking
+        // elapsed · bytes so far) right where the settled strip lands.
+        <Tabs
+          size="small"
+          activeKey={activeTab === 'headers' ? 'headers' : 'body'}
+          onChange={(k) => setActiveTab(k as ResponseTabKey)}
+          className="rules-response-tabs"
+          style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          tabBarStyle={{ marginBottom: 0 }}
+          tabBarExtraContent={{
+            right: (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
+                <ResponseLiveMetaStrip live={live} />
+                <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<EllipsisOutlined />}
+                    aria-label={t('workbench.editors.request.response.moreActionsAria')}
+                  />
+                </Dropdown>
+              </div>
+            ),
+          }}
+          items={[
+            {
+              key: 'body',
+              label: t('workbench.editors.request.response.tab.body'),
+              children: <ResponseLiveTail live={live} />,
+            },
+            {
+              key: 'headers',
+              label: t('workbench.editors.request.response.tab.headers', { count: live.head.headers.length }),
+              children: <ResponseHeadersView headers={live.head.headers} />,
+            },
+          ]}
+        />
+      ) : !response || response.error !== null ? (
         <>
           <div
             style={{
@@ -271,12 +313,10 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             </div>
           </div>
           {/* While a retry is in flight, the pane goes back to "Sending…"
-              instead of leaving the stale failure on screen — unless live
-              stream frames are arriving, which tail below instead. */}
+              instead of leaving the stale failure on screen; once the
+              head frame arrives the live tab chrome above takes over. */}
           {response && !sending ? (
             <ResponseErrorState error={response.error ?? ''} hint={response.errorHint} layout={layout} />
-          ) : sending && live ? (
-            <ResponseLiveTail live={live} />
           ) : (
             <ResponseEmptyState sending={sending} />
           )}

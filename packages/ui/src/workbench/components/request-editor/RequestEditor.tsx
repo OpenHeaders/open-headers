@@ -27,7 +27,7 @@
  * persisting first.
  */
 
-import { BorderOutlined, CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
@@ -664,8 +664,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         // Send morphs into Stop for EVERY in-flight send — streaming or
         // not. Stopping materializes a snapshot from whatever arrived.
         <Button
+          type="primary"
           danger
-          icon={<BorderOutlined style={{ fontSize: 9 }} />}
+          icon={
+            <span
+              aria-hidden="true"
+              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+            />
+          }
           size="small"
           data-testid="oh-request-stop"
           onClick={handleStop}

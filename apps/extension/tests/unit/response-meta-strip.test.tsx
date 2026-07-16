@@ -8,12 +8,42 @@
  * `cookiesCaptured`), never read from live jar state.
  */
 
+import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import ResponseMetaStrip from '@openheaders/ui/workbench/components/request-editor/response/ResponseMetaStrip';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 afterEach(cleanup);
+
+function makeTimingEntry(overrides: Partial<ResourceTimingEntry> = {}): ResourceTimingEntry {
+  return {
+    name: 'https://api.openheaders.io/v1/ping',
+    initiatorType: 'fetch',
+    nextHopProtocol: 'h2',
+    startTime: 0,
+    duration: 42,
+    workerStart: 0,
+    redirectStart: 0,
+    redirectEnd: 0,
+    fetchStart: 0,
+    domainLookupStart: 0,
+    domainLookupEnd: 0,
+    connectStart: 0,
+    connectEnd: 0,
+    secureConnectionStart: 0,
+    requestStart: 0,
+    responseStart: 0,
+    firstInterimResponseStart: 0,
+    finalResponseHeadersStart: 0,
+    responseEnd: 42,
+    transferSize: 0,
+    encodedBodySize: 0,
+    decodedBodySize: 0,
+    deliveryType: '',
+    ...overrides,
+  };
+}
 
 function makeSnapshot(overrides: Partial<ExecutedRequestSnapshot> = {}): ExecutedRequestSnapshot {
   return {
@@ -138,5 +168,31 @@ describe('ResponseMetaStrip streamed-capture attribution', () => {
     cleanup();
     renderStrip({ streamedCapture: { endedBy: 'error', message: 'connection reset' } });
     expect(screen.getByTestId('oh-response-streamed').textContent).toBe('Stream failed');
+  });
+});
+
+describe('ResponseMetaStrip time and size facts', () => {
+  it('rolls the duration up past a minute instead of raw ms', () => {
+    renderStrip({ durationMs: 104_642 });
+    expect(screen.getByTestId('oh-response-duration').textContent).toBe('1 m 44.6 s');
+  });
+
+  it('keeps short durations in ms', () => {
+    renderStrip();
+    expect(screen.getByTestId('oh-response-duration').textContent).toBe('42 ms');
+  });
+
+  it('shows the captured bytes for a streamed capture even when a timing entry reports a transfer size', () => {
+    renderStrip({
+      streamedCapture: { endedBy: 'stop' },
+      bodyBytes: 4096,
+      timing: makeTimingEntry({ transferSize: 300 }),
+    });
+    expect(screen.getByText('4.0 KB')).toBeTruthy();
+  });
+
+  it('leads with the wire transfer size on an ordinary (non-streamed) run', () => {
+    renderStrip({ bodyBytes: 4096, timing: makeTimingEntry({ transferSize: 300 }) });
+    expect(screen.getByText('300 B')).toBeTruthy();
   });
 });

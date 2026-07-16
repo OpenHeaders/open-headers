@@ -164,6 +164,20 @@ export function httpVersionLabel(nextHopProtocol: string): string | null {
   }
 }
 
+/** Wall-clock duration rolled up to readable units — the meta strip's
+ *  time fact for both phases (a streamed send can run for hours; raw
+ *  ms stops reading past a minute). Popovers keep exact figures. */
+export function formatDurationRolled(ms: number): string {
+  const clamped = Math.max(0, ms);
+  if (clamped < 1000) return `${Math.round(clamped)} ms`;
+  const totalSeconds = clamped / 1000;
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)} s`;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds - totalMinutes * 60;
+  if (totalMinutes < 60) return `${totalMinutes} m ${seconds.toFixed(1)} s`;
+  return `${Math.floor(totalMinutes / 60)} h ${totalMinutes % 60} m ${Math.round(seconds)} s`;
+}
+
 /** Phase-scale duration formatting — sub-ms values stay visible
  *  instead of collapsing to a fake 0. */
 export function formatPhaseMs(ms: number): string {
