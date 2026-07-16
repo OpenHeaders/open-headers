@@ -124,7 +124,7 @@ describe('ProductTelemetryController — session_start', () => {
     // A fresh controller with the same session store = SW eviction + wake.
     const second = makeRig({
       sessionId: first.state.sessionId ?? '',
-      latched: [SESSION_START_LATCH_KEY],
+      latched: [...first.state.latched],
     });
     await second.controller.init();
     await second.controller.flush();
@@ -137,6 +137,62 @@ describe('ProductTelemetryController — session_start', () => {
     await controller.flush();
     expect(sent).toEqual([]);
     expect(state.latched.has(SESSION_START_LATCH_KEY)).toBe(true);
+  });
+
+  it('counts a session enabled mid-way from the moment of consent, exactly once', async () => {
+    const { controller, sent, setEnabled } = makeRig({ enabled: false });
+    await controller.init();
+    await controller.flush();
+    expect(sent).toEqual([]);
+
+    setEnabled(true);
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].events).toEqual([SESSION_START]);
+    // The boot logged the suppressed record; the consent re-fire is a second entry.
+    expect((await controller.snapshot()).entries.map((entry) => entry.disposition)).toEqual(['suppressed', 'sent']);
+
+    setEnabled(false);
+    setEnabled(true);
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+  });
+
+  it('never re-fires session_start on toggle cycles after an enabled boot already counted it', async () => {
+    const { controller, sent, setEnabled } = makeRig();
+    await controller.init();
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+
+    setEnabled(false);
+    setEnabled(true);
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+  });
+
+  it('logs one suppressed session_start per disabled session, not one per SW wake, and lets a later enabled wake count it', async () => {
+    const first = makeRig({ enabled: false });
+    await first.controller.init();
+    expect((await first.controller.snapshot()).entries.map((entry) => entry.disposition)).toEqual(['suppressed']);
+
+    // Still-disabled wake: no second suppressed record.
+    const second = makeRig({
+      enabled: false,
+      sessionId: first.state.sessionId ?? '',
+      latched: [...first.state.latched],
+    });
+    await second.controller.init();
+    expect((await second.controller.snapshot()).entries).toEqual([]);
+
+    // The user enabled while the SW was dead: the next wake counts the session.
+    const third = makeRig({
+      sessionId: second.state.sessionId ?? '',
+      latched: [...second.state.latched],
+    });
+    await third.controller.init();
+    await third.controller.flush();
+    expect(third.sent).toHaveLength(1);
+    expect(third.sent[0].events).toEqual([SESSION_START]);
   });
 });
 

@@ -31,6 +31,7 @@ export {
   type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
   SESSION_START_LATCH_KEY,
+  SESSION_START_SENT_LATCH_KEY,
 } from './controller';
 export {
   bucketScale,

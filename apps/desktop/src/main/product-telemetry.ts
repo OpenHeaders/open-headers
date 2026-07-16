@@ -153,6 +153,11 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
     buildSessionStart: () => buildSessionStart(deps.platform, deps.appVersion, deps.storage),
   });
   await controller.init();
+  // Enabled transitions can queue a consent-time session_start; flush
+  // right behind the controller's own listener (registered first, so
+  // the transition is already on the gate chain) instead of waiting
+  // out a full interval.
+  enabledListeners.push(() => void controller.flush());
 
   // The cadence must never keep a quitting app's event loop alive.
   const timer = setInterval(() => void controller.flush(), FLUSH_PERIOD_MS);

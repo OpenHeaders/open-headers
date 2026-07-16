@@ -273,7 +273,14 @@ export function initProductTelemetry(): void {
   alarms?.create(FLUSH_ALARM, { periodInMinutes: FLUSH_PERIOD_MINUTES });
   void controller
     .init()
-    .then(() => controller.flush())
+    .then(() => {
+      // Enabled transitions can queue events of their own (the
+      // consent-time session_start re-fire) — flush right behind the
+      // controller's listener, which registered first during init, so
+      // the transition's work is already on the gate chain.
+      subscribeKey('telemetry.enabled', () => void controller.flush().catch(() => undefined));
+      return controller.flush();
+    })
     .catch(() => undefined);
 }
 

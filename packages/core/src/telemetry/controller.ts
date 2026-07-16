@@ -37,8 +37,17 @@ export interface ProductTelemetrySessionStore {
   latch(key: string): Promise<void>;
 }
 
-/** Latch key for the once-per-session `session_start` sent-bit. */
+/** Latch key marking that `session_start` fired (queued or suppressed) this session. */
 export const SESSION_START_LATCH_KEY = 'session_start';
+
+/**
+ * Latch key marking that this session's `session_start` was queued while
+ * the channel was ENABLED — the session is counted. Kept separate from
+ * the fired-latch so an off→on transition mid-session can re-fire the
+ * event (consent counts the session from that moment), while a session
+ * is still never counted twice.
+ */
+export const SESSION_START_SENT_LATCH_KEY = 'session_start:sent';
 
 /**
  * Durable install identity (plan §4, amended 2026-07-16), host-persisted.
@@ -201,6 +210,10 @@ export class ProductTelemetryController {
     this.client?.setEnabled(enabled);
     if (enabled) {
       await this.ensureInstallIdentity();
+      // A session enabled mid-way is counted from the moment of
+      // consent: re-fire session_start if this session's only ever
+      // fired suppressed (the sent-latch keeps it at most once).
+      await this.ensureSessionStart();
     } else {
       this.installContext = null;
       await this.deps.installStore.clearRecord();
@@ -222,13 +235,24 @@ export class ProductTelemetryController {
     }
   }
 
-  /** Fire `session_start` once per session. */
+  /**
+   * Fire `session_start` once per session — and count it at most once.
+   * The fired-latch dedupes the suppressed record a disabled boot logs
+   * (one per session, not one per SW wake); the sent-latch is only set
+   * when the event queues while enabled (or the platform has no
+   * vocabulary member and never will), so an off→on transition
+   * mid-session gets exactly one retry that actually counts.
+   */
   private async ensureSessionStart(): Promise<void> {
-    if (!this.client) return;
-    if (await this.deps.sessionStore.wasLatched(SESSION_START_LATCH_KEY)) return;
+    const client = this.client;
+    if (!client) return;
+    if (await this.deps.sessionStore.wasLatched(SESSION_START_SENT_LATCH_KEY)) return;
+    const firedBefore = await this.deps.sessionStore.wasLatched(SESSION_START_LATCH_KEY);
+    if (firedBefore && !client.isEnabled) return;
+    if (!firedBefore) await this.deps.sessionStore.latch(SESSION_START_LATCH_KEY);
     const event = await this.deps.buildSessionStart();
-    await this.deps.sessionStore.latch(SESSION_START_LATCH_KEY);
-    if (event) this.client.track(event);
+    if (!event || client.isEnabled) await this.deps.sessionStore.latch(SESSION_START_SENT_LATCH_KEY);
+    if (event) client.track(event);
   }
 
   /**
