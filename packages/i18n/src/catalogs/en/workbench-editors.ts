@@ -1095,6 +1095,10 @@ export const workbenchEditors = {
   'workbench.editors.request.response.sse.showOlder': ({ count }, locale) =>
     plural(locale, Number(count), { one: 'Show {count} older event', other: 'Show {count} older events' }),
   'workbench.editors.request.response.sse.newEvents': 'New events',
+  'workbench.editors.request.response.sse.sortOrder': 'Sort order',
+  'workbench.editors.request.response.sse.newestFirst': 'Newest first',
+  'workbench.editors.request.response.sse.oldestFirst': 'Oldest first',
+  'workbench.editors.request.response.sse.groupByName': 'Group by event name',
   'workbench.editors.request.response.sse.infoId': 'ID',
   'workbench.editors.request.response.sse.infoSize': 'Size',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',
@@ -1215,6 +1219,19 @@ export const workbenchEditors = {
     plural(locale, Number(count), { one: '{count} error', other: '{count} errors' }),
   'workbench.editors.spec.validation.warnings': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} warning', other: '{count} warnings' }),
+  'workbench.editors.spec.outline.title': 'Outline',
+  'workbench.editors.spec.outline.show': 'Show outline',
+  'workbench.editors.spec.outline.hide': 'Hide outline',
+  'workbench.editors.spec.outline.empty': 'The outline appears once the document parses.',
+  'workbench.editors.spec.outline.rootBadge': 'ROOT',
+  'workbench.editors.spec.outline.groups.servers': 'Servers',
+  'workbench.editors.spec.outline.groups.tags': 'Tags',
+  'workbench.editors.spec.outline.groups.paths': 'Paths',
+  'workbench.editors.spec.outline.groups.components': 'Components',
+  'workbench.editors.spec.outline.groups.schemas': 'Schemas',
+  'workbench.editors.spec.outline.groups.securitySchemes': 'Security Schemes',
+  'workbench.editors.spec.outline.groups.security': 'Security',
+  'workbench.editors.spec.outline.groups.files': 'Files',
 
   // ── Script editor (snippets/packages menus, save-to-package flow,
   //    ScriptsTab's own Monaco context-menu actions). Snippet code

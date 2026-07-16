@@ -2,18 +2,26 @@
  * ResponseSseEventList — the event-LIST surface for text/event-stream
  * bodies, ONE list across both phases: live (fed from the stream
  * frames while the send is in flight) and materialized (fed from the
- * parsed snapshot). One row per wire event, newest-first: direction
- * glyph, colored event-name badge, inline data preview, session-only
- * timestamp, and an info popover (id / size / retry). Comment blocks
- * are their own rows. Lifecycle rows — Connected to … at the bottom,
- * Connection closed/stopped/capped at the top — derive from the head
- * state + `streamedCapture`, never invented; at Stop/close the ended
- * row appends instead of the view switching.
+ * parsed snapshot). One row per wire event, newest-first by default
+ * with an arrival-order sort toggle (a stream is a timeline — time is
+ * its one meaningful order): direction glyph, colored event-name
+ * badge, inline data preview, session-only timestamp, and an info
+ * popover (id / size / retry). Comment blocks are their own rows.
+ * Lifecycle rows — Connected at the oldest edge, closed/stopped/capped
+ * at the newest, flipping with the sort — derive from the head state +
+ * `streamedCapture`, never invented; at Stop/close the ended row
+ * appends instead of the view switching. When events commit while the
+ * user is scrolled away from the edge new rows land on, a jump pill
+ * floats over the list (instant jump, no animation). "Group by event
+ * name" is CLUSTERING, not sorting — rows partition under collapsible
+ * name headers, arrival order intact within each group, group order
+ * following the direction's "new edge first" reading.
  *
- * Rows expand into a mini viewer: the shared CodeEditor with the JSON
- * grammar over the lossless print of a JSON `data` payload (int64
- * tokens verbatim — the F3 law), the raw wire block otherwise; wrap
- * toggles from the toolbar and Monaco's own Find covers in-viewer
+ * Rows expand into a mini viewer: the shared CodeEditor over the DATA
+ * payload — lossless JSON print under the JSON grammar (int64 tokens
+ * verbatim — the F3 law), per-line JSON documents printed in sequence,
+ * the payload text otherwise (raw wire block for comment-only rows);
+ * wrap toggles from the toolbar and Monaco's own Find covers in-viewer
  * search. Search and Clear are display-only — the capture is never
  * touched, and Copy/Raw elsewhere still see the wire body.
  *
@@ -29,12 +37,15 @@ import {
   ApiOutlined,
   ArrowDownOutlined,
   ArrowUpOutlined,
+  CaretRightOutlined,
+  CheckOutlined,
   ClearOutlined,
   DisconnectOutlined,
   InfoCircleOutlined,
   SearchOutlined,
+  SortAscendingOutlined,
 } from '@ant-design/icons';
-import { Button, Input, Popover, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, Input, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -229,13 +240,31 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [wrapLines, setWrapLines] = useState(true);
   const [shownLimit, setShownLimit] = useState(SHOW_STEP);
-  // New rows land at the TOP (newest-first) — when the user has
-  // scrolled down to read and more events commit, a jump-back pill
-  // floats over the list instead of the content moving under them.
+  // The stream is a timeline — the one meaningful order is arrival
+  // time: newest-first by default, flippable to oldest-first. New rows
+  // land at the top (newest-first) or the bottom (oldest-first); that
+  // edge is where the jump pill points.
+  const [newestFirst, setNewestFirst] = useState(true);
+  // Clustering, not sorting: rows partition under event-name headers,
+  // arrival order preserved within each group. Group order follows the
+  // sort direction (first group = the one with the newest activity in
+  // newest-first, the first-seen name in oldest-first).
+  const [groupByName, setGroupByName] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // When the user has scrolled away from the edge where new rows land
+  // and more events commit, a jump pill floats over the list instead
+  // of the content moving under them.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const awayFromTopRef = useRef(false);
+  const awayFromNewEdgeRef = useRef(false);
   const prevCountRef = useRef(count);
-  const [hasNewAbove, setHasNewAbove] = useState(false);
+  const [hasNewEvents, setHasNewEvents] = useState(false);
+
+  const jumpToNewest = (toNewest: boolean) => {
+    const el = scrollerRef.current;
+    if (el) el.scrollTop = toNewest ? 0 : el.scrollHeight;
+    awayFromNewEdgeRef.current = false;
+    setHasNewEvents(false);
+  };
 
   // A new event log (new send, new snapshot) resets the display state —
   // indexes are positional in the log the state was minted against.
@@ -245,21 +274,34 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     setClearedCount(0);
     setExpanded(new Set<number>());
     setShownLimit(SHOW_STEP);
-    setHasNewAbove(false);
-    awayFromTopRef.current = false;
+    setCollapsedGroups(new Set<string>());
+    setHasNewEvents(false);
+    awayFromNewEdgeRef.current = false;
     if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
   }, [items]);
 
+  // Flipping the order lands the user at the new edge, pill cleared.
   useEffect(() => {
-    if (count > prevCountRef.current && awayFromTopRef.current) setHasNewAbove(true);
-    prevCountRef.current = count;
-  }, [count]);
+    jumpToNewest(newestFirst);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: jumpToNewest reads only refs.
+  }, [newestFirst]);
 
-  const jumpToTop = () => {
-    scrollerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    awayFromTopRef.current = false;
-    setHasNewAbove(false);
-  };
+  useEffect(() => {
+    const grew = count > prevCountRef.current;
+    prevCountRef.current = count;
+    if (!grew) return;
+    if (awayFromNewEdgeRef.current) {
+      setHasNewEvents(true);
+      return;
+    }
+    // Following the new edge in oldest-first: appended rows push the
+    // bottom away — pin back to it (newest-first needs nothing, the
+    // top stays the top).
+    if (!newestFirst) {
+      const el = scrollerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }, [count, newestFirst]);
 
   // Visible window, newest-first: walk down from the newest committed
   // event, apply the search + clear, cap at the display window. One
@@ -276,6 +318,37 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     }
     return { rows, hiddenOlder };
   }, [items, count, clearedCount, search, shownLimit]);
+
+  // The window always keeps the NEWEST rows; oldest-first only flips
+  // the display order (≤ SHOW_STEP entries — a cheap copy).
+  const displayRows = useMemo(
+    () => (newestFirst ? visible.rows : [...visible.rows].reverse()),
+    [visible, newestFirst],
+  );
+
+  // Partition the display window under event-name headers, insertion-
+  // ordered over the direction-sorted rows — so group order follows
+  // the same "newest edge first" reading the flat list has.
+  const groups = useMemo(() => {
+    if (!groupByName) return null;
+    const byName = new Map<string, number[]>();
+    for (const index of displayRows) {
+      const name = badgeOf(items[index].record).name;
+      const bucket = byName.get(name);
+      if (bucket) bucket.push(index);
+      else byName.set(name, [index]);
+    }
+    return [...byName.entries()];
+  }, [displayRows, groupByName, items]);
+
+  const toggleGroup = (name: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const toggleRow = (index: number) => {
     setExpanded((prev) => {
@@ -299,6 +372,157 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     fontSize: 12,
   };
 
+  // Lifecycle rows sit at their chronological ends: connected at the
+  // oldest edge, ended at the newest — so they flip with the sort. The
+  // row at the very bottom of the scroller drops its divider.
+  const endedRow =
+    lifecycle.endedBy !== undefined ? (
+      <div
+        data-testid="oh-sse-lifecycle-row"
+        style={{ ...lifecycleRowStyle, ...(newestFirst ? {} : { borderBottom: 'none' }) }}
+      >
+        <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+        <span>
+          {endedLabel(lifecycle.endedBy, t)}
+          {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
+        </span>
+        {lifecycle.endedAt !== undefined && (
+          <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
+            {formatEventTime(lifecycle.endedAt)}
+          </span>
+        )}
+      </div>
+    ) : null;
+
+  const connectedRow = (
+    <div
+      data-testid="oh-sse-connected-row"
+      style={{ ...lifecycleRowStyle, ...(newestFirst ? { borderBottom: 'none' } : {}) }}
+    >
+      <ApiOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {t('workbench.editors.request.response.sse.connected', { url: lifecycle.url })}
+      </span>
+      {lifecycle.connectedAt !== undefined && (
+        <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
+          {formatEventTime(lifecycle.connectedAt)}
+        </span>
+      )}
+    </div>
+  );
+
+  // One event row (+ its expanded mini viewer) — shared between the
+  // flat list and the grouped view; `index` names one immutable event.
+  const renderEventRow = (index: number) => {
+    const item = items[index];
+    const badge = badgeOf(item.record);
+    const isExpanded = expanded.has(index);
+    const ts = timestamps?.[index];
+    const viewer = isExpanded ? viewerContentOf(item) : null;
+    return (
+      <Fragment key={index}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          data-testid="oh-sse-event-row"
+          onClick={() => toggleRow(index)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggleRow(index);
+            }
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '4px 10px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            cursor: 'pointer',
+          }}
+        >
+          <ArrowDownOutlined aria-hidden style={{ fontSize: 10, color: token.colorTextTertiary }} />
+          <Tag
+            data-testid="oh-sse-event-badge"
+            color={badge.kind === 'named' ? badgeColor(badge.name) : undefined}
+            style={{
+              marginInlineEnd: 0,
+              fontSize: 11,
+              lineHeight: '18px',
+              flexShrink: 0,
+              ...(badge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+            }}
+          >
+            {badge.name}
+          </Tag>
+          <span
+            style={{
+              ...cellFont,
+              color: token.colorTextSecondary,
+              flex: 1,
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {previewOf(item)}
+          </span>
+          {ts !== undefined && (
+            <span
+              data-testid="oh-sse-event-time"
+              style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
+            >
+              {formatEventTime(ts)}
+            </span>
+          )}
+          <Popover content={<EventInfo item={item} />} placement="left">
+            <InfoCircleOutlined
+              data-testid="oh-sse-event-info"
+              aria-label={t('workbench.editors.request.response.sse.eventInfoAria')}
+              onClick={(event) => event.stopPropagation()}
+              style={{ fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
+            />
+          </Popover>
+        </div>
+        {viewer !== null && (
+          <div
+            data-testid="oh-sse-event-viewer"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            style={{ height: 180, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+          >
+            <CodeEditor
+              value={viewer.value}
+              language={viewer.language}
+              readOnly
+              fill
+              variableAutoComplete={false}
+              wordWrapOverride={wrapLines ? 'on' : 'off'}
+            />
+          </div>
+        )}
+      </Fragment>
+    );
+  };
+
+  // "Show older" sits at the OLDEST edge of the window it extends.
+  const showOlderRow =
+    visible.hiddenOlder > 0 ? (
+      <div style={{ ...lifecycleRowStyle, justifyContent: 'center' }}>
+        <Button
+          size="small"
+          type="link"
+          data-testid="oh-sse-show-older"
+          style={{ fontSize: 11 }}
+          onClick={() => setShownLimit((prev) => prev + SHOW_STEP)}
+        >
+          {t('workbench.editors.request.response.sse.showOlder', { count: visible.hiddenOlder })}
+        </Button>
+      </div>
+    ) : null;
+
   return (
     <div
       data-testid="oh-sse-event-list"
@@ -319,6 +543,55 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
           {t('workbench.editors.request.response.sse.eventCount', { count: count - clearedCount })}
         </Text>
         <span style={{ marginLeft: 'auto' }} />
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          menu={{
+            items: [
+              {
+                key: 'newest',
+                label: (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                    {t('workbench.editors.request.response.sse.newestFirst')}
+                    {newestFirst && <CheckOutlined style={{ color: token.colorPrimary }} />}
+                  </span>
+                ),
+                onClick: () => setNewestFirst(true),
+              },
+              {
+                key: 'oldest',
+                label: (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                    {t('workbench.editors.request.response.sse.oldestFirst')}
+                    {!newestFirst && <CheckOutlined style={{ color: token.colorPrimary }} />}
+                  </span>
+                ),
+                onClick: () => setNewestFirst(false),
+              },
+              { type: 'divider' },
+              {
+                key: 'group',
+                label: (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                    {t('workbench.editors.request.response.sse.groupByName')}
+                    {groupByName && <CheckOutlined style={{ color: token.colorPrimary }} />}
+                  </span>
+                ),
+                onClick: () => setGroupByName((prev) => !prev),
+              },
+            ],
+          }}
+        >
+          <Tooltip title={t('workbench.editors.request.response.sse.sortOrder')} placement="bottom">
+            <Button
+              size="small"
+              type="text"
+              icon={<SortAscendingOutlined />}
+              data-testid="oh-sse-sort"
+              aria-label={t('workbench.editors.request.response.sse.sortOrder')}
+            />
+          </Tooltip>
+        </Dropdown>
         <Tooltip
           title={
             wrapLines
@@ -348,17 +621,17 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         </Tooltip>
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-        {hasNewAbove && (
+        {hasNewEvents && (
           <Button
             size="small"
             type="primary"
             shape="round"
-            icon={<ArrowUpOutlined />}
+            icon={newestFirst ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
             data-testid="oh-sse-new-events"
-            onClick={jumpToTop}
+            onClick={() => jumpToNewest(newestFirst)}
             style={{
               position: 'absolute',
-              top: 8,
+              ...(newestFirst ? { top: 8 } : { bottom: 8 }),
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 2,
@@ -372,9 +645,10 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         <div
           ref={scrollerRef}
           onScroll={(e) => {
-            const away = e.currentTarget.scrollTop > 4;
-            awayFromTopRef.current = away;
-            if (!away) setHasNewAbove(false);
+            const el = e.currentTarget;
+            const away = newestFirst ? el.scrollTop > 4 : el.scrollHeight - el.scrollTop - el.clientHeight > 4;
+            awayFromNewEdgeRef.current = away;
+            if (!away) setHasNewEvents(false);
           }}
           className="rules-thin-scrollbar"
           style={{
@@ -386,20 +660,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             borderRadius: 4,
           }}
         >
-        {lifecycle.endedBy !== undefined && (
-          <div data-testid="oh-sse-lifecycle-row" style={lifecycleRowStyle}>
-            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-            <span>
-              {endedLabel(lifecycle.endedBy, t)}
-              {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
-            </span>
-            {lifecycle.endedAt !== undefined && (
-              <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-                {formatEventTime(lifecycle.endedAt)}
-              </span>
-            )}
-          </div>
-        )}
+        {newestFirst ? endedRow : connectedRow}
         {live && count === 0 && (
           <div style={lifecycleRowStyle}>
             <span>{t('workbench.editors.request.response.sse.waiting')}</span>
@@ -410,126 +671,64 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             <span>{t('workbench.editors.request.response.sse.noMatches')}</span>
           </div>
         )}
-        {visible.rows.map((index) => {
-          const item = items[index];
-          const badge = badgeOf(item.record);
-          const isExpanded = expanded.has(index);
-          const ts = timestamps?.[index];
-          const viewer = isExpanded ? viewerContentOf(item) : null;
-          return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only — an index names one immutable event.
-            <Fragment key={index}>
-              <div
-                role="button"
-                tabIndex={0}
-                aria-expanded={isExpanded}
-                data-testid="oh-sse-event-row"
-                onClick={() => toggleRow(index)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    toggleRow(index);
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '4px 10px',
-                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                  cursor: 'pointer',
-                }}
-              >
-                <ArrowDownOutlined aria-hidden style={{ fontSize: 10, color: token.colorTextTertiary }} />
-                <Tag
-                  data-testid="oh-sse-event-badge"
-                  color={badge.kind === 'named' ? badgeColor(badge.name) : undefined}
-                  style={{
-                    marginInlineEnd: 0,
-                    fontSize: 11,
-                    lineHeight: '18px',
-                    flexShrink: 0,
-                    ...(badge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-                  }}
-                >
-                  {badge.name}
-                </Tag>
-                <span
-                  style={{
-                    ...cellFont,
-                    color: token.colorTextSecondary,
-                    flex: 1,
-                    minWidth: 0,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {previewOf(item)}
-                </span>
-                {ts !== undefined && (
-                  <span
-                    data-testid="oh-sse-event-time"
-                    style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
+        {!newestFirst && showOlderRow}
+        {groups !== null
+          ? groups.map(([name, indexes]) => {
+              const collapsed = collapsedGroups.has(name);
+              const headBadge = badgeOf(items[indexes[0]].record);
+              return (
+                <Fragment key={name}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={!collapsed}
+                    data-testid="oh-sse-group-header"
+                    onClick={() => toggleGroup(name)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleGroup(name);
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 10px',
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                      background: token.colorFillQuaternary,
+                      cursor: 'pointer',
+                    }}
                   >
-                    {formatEventTime(ts)}
-                  </span>
-                )}
-                <Popover content={<EventInfo item={item} />} placement="left">
-                  <InfoCircleOutlined
-                    data-testid="oh-sse-event-info"
-                    aria-label={t('workbench.editors.request.response.sse.eventInfoAria')}
-                    onClick={(event) => event.stopPropagation()}
-                    style={{ fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-                  />
-                </Popover>
-              </div>
-              {viewer !== null && (
-                <div
-                  data-testid="oh-sse-event-viewer"
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  style={{ height: 180, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-                >
-                  <CodeEditor
-                    value={viewer.value}
-                    language={viewer.language}
-                    readOnly
-                    fill
-                    variableAutoComplete={false}
-                    wordWrapOverride={wrapLines ? 'on' : 'off'}
-                  />
-                </div>
-              )}
-            </Fragment>
-          );
-        })}
-        {visible.hiddenOlder > 0 && (
-          <div style={{ ...lifecycleRowStyle, justifyContent: 'center' }}>
-            <Button
-              size="small"
-              type="link"
-              data-testid="oh-sse-show-older"
-              style={{ fontSize: 11 }}
-              onClick={() => setShownLimit((prev) => prev + SHOW_STEP)}
-            >
-              {t('workbench.editors.request.response.sse.showOlder', { count: visible.hiddenOlder })}
-            </Button>
-          </div>
-        )}
-        <div data-testid="oh-sse-connected-row" style={{ ...lifecycleRowStyle, borderBottom: 'none' }}>
-          <ApiOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-          <span
-            style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {t('workbench.editors.request.response.sse.connected', { url: lifecycle.url })}
-          </span>
-          {lifecycle.connectedAt !== undefined && (
-            <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-              {formatEventTime(lifecycle.connectedAt)}
-            </span>
-          )}
-        </div>
+                    <CaretRightOutlined
+                      aria-hidden
+                      rotate={collapsed ? 0 : 90}
+                      style={{ fontSize: 10, color: token.colorTextTertiary }}
+                    />
+                    <Tag
+                      color={headBadge.kind === 'named' ? badgeColor(name) : undefined}
+                      style={{
+                        marginInlineEnd: 0,
+                        fontSize: 11,
+                        lineHeight: '18px',
+                        flexShrink: 0,
+                        ...(headBadge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+                      }}
+                    >
+                      {name}
+                    </Tag>
+                    <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                      {t('workbench.editors.request.response.sse.eventCount', { count: indexes.length })}
+                    </Text>
+                  </div>
+                  {!collapsed && indexes.map((index) => renderEventRow(index))}
+                </Fragment>
+              );
+            })
+          : displayRows.map((index) => renderEventRow(index))}
+        {newestFirst && showOlderRow}
+            // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only — an index names one immutable event.
+        {newestFirst ? connectedRow : endedRow}
         </div>
       </div>
     </div>

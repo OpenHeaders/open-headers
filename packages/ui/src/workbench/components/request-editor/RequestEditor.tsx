@@ -34,7 +34,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { isRequestComplete } from '@openheaders/core/utils';
-import { App, Button, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Tabs, Tooltip, Typography, theme } from 'antd';
 import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -663,22 +663,26 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       {sending ? (
         // Send morphs into Stop for EVERY in-flight send — streaming or
         // not. Stopping materializes a snapshot from whatever arrived.
-        <Button
-          type="primary"
-          danger
-          icon={
-            <span
-              aria-hidden="true"
-              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
-            />
-          }
-          size="small"
-          data-testid="oh-request-stop"
-          onClick={handleStop}
-          style={{ fontSize: 11 }}
-        >
-          {t('workbench.editors.request.send.stop')}
-        </Button>
+        // The error token darkens one notch — a solid Stop at the base
+        // error red reads glaring next to the muted editor chrome.
+        <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+          <Button
+            type="primary"
+            danger
+            icon={
+              <span
+                aria-hidden="true"
+                style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+              />
+            }
+            size="small"
+            data-testid="oh-request-stop"
+            onClick={handleStop}
+            style={{ fontSize: 11 }}
+          >
+            {t('workbench.editors.request.send.stop')}
+          </Button>
+        </ConfigProvider>
       ) : (
         <Button
           type="primary"

@@ -17,13 +17,26 @@
 import ResponseSseEventList from '@openheaders/ui/workbench/components/request-editor/response/ResponseSseEventList';
 import { parseSseEventItems } from '@openheaders/ui/workbench/components/request-editor/response/response-sse';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
   default: ({ value, readOnly }: { value?: string; readOnly?: boolean }) => (
     <textarea data-testid="code-editor" value={value} readOnly={readOnly} onChange={() => {}} />
   ),
 }));
+
+// antd's Dropdown measures via rc-resize-observer — jsdom has none.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 afterEach(cleanup);
 
@@ -150,7 +163,6 @@ describe('ResponseSseEventList new-events pill', () => {
     const { container, rerender } = render(<ResponseSseEventList items={items} count={1} lifecycle={LIFECYCLE} />);
     const scroller = container.querySelector('.rules-thin-scrollbar');
     if (!scroller) throw new Error('scroller must render');
-    Object.defineProperty(scroller, 'scrollTo', { value: () => {} });
     // At the top, a growing count needs no pill — the new row is visible.
     rerender(<ResponseSseEventList items={items} count={2} lifecycle={LIFECYCLE} />);
     expect(screen.queryByTestId('oh-sse-new-events')).toBeNull();
@@ -170,6 +182,107 @@ describe('ResponseSseEventList new-events pill', () => {
     expect(screen.getByTestId('oh-sse-new-events')).toBeTruthy();
     fireEvent.scroll(scroller, { target: { scrollTop: 0 } });
     expect(screen.queryByTestId('oh-sse-new-events')).toBeNull();
+  });
+});
+
+describe('ResponseSseEventList sort order', () => {
+  it('flips to oldest-first: rows ascend and the lifecycle rows swap edges', async () => {
+    const items = itemsOf(BODY);
+    render(
+      <ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy: 'stop' }} />,
+    );
+    fireEvent.click(screen.getByTestId('oh-sse-sort'));
+    fireEvent.click(await screen.findByText('Oldest first'));
+    const rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows[0].textContent).toContain('tick');
+    expect(rows[2].textContent).toContain('heartbeat');
+    // Connected leads, the ended row trails — chronological reading order.
+    const connected = screen.getByTestId('oh-sse-connected-row');
+    const ended = screen.getByTestId('oh-sse-lifecycle-row');
+    expect(connected.compareDocumentPosition(rows[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rows[2].compareDocumentPosition(ended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Flipping back restores newest-first.
+    fireEvent.click(screen.getByTestId('oh-sse-sort'));
+    fireEvent.click(await screen.findByText('Newest first'));
+    expect(screen.getAllByTestId('oh-sse-event-row')[0].textContent).toContain('heartbeat');
+  });
+});
+
+describe('ResponseSseEventList group by event name', () => {
+  const GROUP_BODY = [
+    'event: tick',
+    'data: {"seq":1}',
+    '',
+    'data: {"seq":2}',
+    '',
+    'event: tick',
+    'data: {"seq":3}',
+    '',
+    ': heartbeat',
+    '',
+  ].join('\n');
+
+  async function enableGrouping() {
+    fireEvent.click(screen.getByTestId('oh-sse-sort'));
+    fireEvent.click(await screen.findByText('Group by event name'));
+  }
+
+  it('clusters rows under name headers — newest activity first, arrival order within', async () => {
+    const items = itemsOf(GROUP_BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    await enableGrouping();
+    const headers = screen.getAllByTestId('oh-sse-group-header');
+    expect(headers).toHaveLength(3);
+    // Newest-first reading: the comment block is the latest event, the
+    // tick group follows (its newest member is seq 3), message last.
+    expect(headers[0].textContent).toContain('comment');
+    expect(headers[1].textContent).toContain('tick');
+    expect(headers[1].textContent).toContain('2 events');
+    expect(headers[2].textContent).toContain('message');
+    const rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows).toHaveLength(4);
+    // Within the tick group, arrival order (newest-first) holds.
+    expect(rows[1].textContent).toContain('"seq": 3');
+    expect(rows[2].textContent).toContain('"seq": 1');
+  });
+
+  it('collapsing a group hides its rows; expanding restores them', async () => {
+    const items = itemsOf(GROUP_BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    await enableGrouping();
+    const tickHeader = screen.getAllByTestId('oh-sse-group-header')[1];
+    fireEvent.click(tickHeader);
+    expect(tickHeader.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(2);
+    fireEvent.click(tickHeader);
+    expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(4);
+  });
+
+  it('toggling grouping off restores the flat list', async () => {
+    const items = itemsOf(GROUP_BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    await enableGrouping();
+    expect(screen.getAllByTestId('oh-sse-group-header')).toHaveLength(3);
+    await enableGrouping();
+    expect(screen.queryByTestId('oh-sse-group-header')).toBeNull();
+    expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(4);
+  });
+
+  it('search narrows within groups and grouping respects the sort flip', async () => {
+    const items = itemsOf(GROUP_BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    await enableGrouping();
+    fireEvent.click(screen.getByTestId('oh-sse-sort'));
+    fireEvent.click(await screen.findByText('Oldest first'));
+    const headers = screen.getAllByTestId('oh-sse-group-header');
+    // Oldest-first reading: first-seen name leads.
+    expect(headers[0].textContent).toContain('tick');
+    const rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows[0].textContent).toContain('"seq": 1');
+    expect(rows[1].textContent).toContain('"seq": 3');
+    fireEvent.change(screen.getByTestId('oh-sse-search'), { target: { value: 'seq' } });
+    expect(screen.getAllByTestId('oh-sse-group-header')).toHaveLength(2);
+    expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(3);
   });
 });
 

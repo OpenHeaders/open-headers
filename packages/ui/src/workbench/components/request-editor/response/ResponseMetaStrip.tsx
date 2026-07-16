@@ -712,7 +712,14 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
           <MetaDot />
           <InfoPopover content={streamedCaptureContent(response.streamedCapture, t)} trigger="hover">
             <Tag
-              color={response.streamedCapture.endedBy === 'end' ? 'default' : 'warning'}
+              // Neutral for a completed stream AND a user Stop — the
+              // user asked for the partial capture; only cap/timeout/
+              // error ends are surprises worth a warning tone.
+              color={
+                response.streamedCapture.endedBy === 'end' || response.streamedCapture.endedBy === 'stop'
+                  ? 'default'
+                  : 'warning'
+              }
               data-testid="oh-response-streamed"
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >

@@ -145,11 +145,11 @@ describe('ResponseMetaStrip streamed-capture attribution', () => {
     expect(screen.queryByTestId('oh-response-streamed')).toBeNull();
   });
 
-  it('tags a user-stopped capture with warning tone (the body is partial)', () => {
+  it('tags a user-stopped capture neutral — the user asked for the partial body', () => {
     renderStrip({ streamedCapture: { endedBy: 'stop' } });
     const tag = screen.getByTestId('oh-response-streamed');
     expect(tag.textContent).toBe('Stopped');
-    expect(tag.className).toContain('ant-tag-warning');
+    expect(tag.className).not.toContain('ant-tag-warning');
   });
 
   it('tags a naturally-ended stream neutral (the capture is complete)', () => {
@@ -159,9 +159,10 @@ describe('ResponseMetaStrip streamed-capture attribution', () => {
     expect(tag.className).not.toContain('ant-tag-warning');
   });
 
-  it('labels timeout / cap / error ends distinctly', () => {
+  it('labels timeout / cap / error ends distinctly, warning-toned (surprise ends)', () => {
     renderStrip({ streamedCapture: { endedBy: 'timeout' } });
     expect(screen.getByTestId('oh-response-streamed').textContent).toBe('Timed out mid-stream');
+    expect(screen.getByTestId('oh-response-streamed').className).toContain('ant-tag-warning');
     cleanup();
     renderStrip({ streamedCapture: { endedBy: 'cap' } });
     expect(screen.getByTestId('oh-response-streamed').textContent).toBe('Stream capped');
