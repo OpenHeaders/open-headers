@@ -76,6 +76,7 @@ export const TelemetryImportSourceIdSchema = v.picklist([
   'postman-backup',
   'insomnia',
   'bruno',
+  'openapi',
   'workspace',
   'unknown',
 ]);

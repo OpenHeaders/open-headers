@@ -24,6 +24,9 @@ export type DetectedImportSource =
   | { kind: 'insomnia' }
   /** A Bruno `.bru` request file. */
   | { kind: 'bruno' }
+  /** An OpenAPI document — 3.x JSON/YAML, plus Swagger 2.0 (the parser
+   *  answers those with its honest convert-to-3.x error, not a dead-end). */
+  | { kind: 'openapi' }
   /** An `.openheaders.*` workspace export (JSON or YAML). */
   | { kind: 'workspace' }
   /** Nothing recognizable — the hub shows a hint, never a dead-end. */
@@ -90,6 +93,13 @@ export function detectImportSource(text: string): DetectedImportSource {
     }
     if (typeof parsed.type === 'string' && /\.insomnia\.rest\//.test(parsed.type)) return { kind: 'insomnia' };
 
+    // OpenAPI 3.x (`openapi` version field) — and Swagger 2.0
+    // (`swagger` field) routes to the same flow: the parser's honest
+    // "convert to 3.x" error beats an `unknown` dead-end. Checked
+    // before the Postman signatures: an OpenAPI `info` object never
+    // carries their markers, but the intent reads clearer this way.
+    if (typeof parsed.openapi === 'string' || typeof parsed.swagger === 'string') return { kind: 'openapi' };
+
     // Postman collection (`info` with schema marker) or environment
     // export (`name` + `values[]`, optionally `_postman_variable_scope`).
     const info = parsed.info;
@@ -109,6 +119,11 @@ export function detectImportSource(text: string): DetectedImportSource {
   // Insomnia v5 YAML document — keyed on the `type:` discriminator line
   // (`collection.insomnia.rest/5.0` and siblings), same shallow approach.
   if (/^type:\s*['"]?[\w.-]+\.insomnia\.rest\/\d/m.test(trimmed)) return { kind: 'insomnia' };
+
+  // OpenAPI YAML — keyed on the `openapi:` (or Swagger 2.0 `swagger:`)
+  // version discriminator line, same shallow approach; the digit
+  // requirement keeps prose mentioning "openapi:" from misfiring.
+  if (/^(?:openapi|swagger):\s*['"]?\d/m.test(trimmed)) return { kind: 'openapi' };
 
   // Bruno `.bru` request file — the grammar has no JSON/YAML envelope,
   // so key on the block-line signature: a `meta {` block plus a method

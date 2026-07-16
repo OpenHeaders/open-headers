@@ -202,6 +202,7 @@ describe('telemetry vocabulary — sync pins', () => {
       'postman-backup',
       'insomnia',
       'bruno',
+      'openapi',
       'workspace',
       'unknown',
     ]);

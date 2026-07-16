@@ -207,6 +207,51 @@ describe('detectImportSource', () => {
     });
   });
 
+  describe('OpenAPI', () => {
+    it('detects an OpenAPI 3.x JSON document', () => {
+      const doc = JSON.stringify({
+        openapi: '3.1.0',
+        info: { title: 'Openheaders API', version: '1.0.0' },
+        paths: { '/ping': { get: { summary: 'Ping' } } },
+      });
+      expect(detectImportSource(doc)).toEqual({ kind: 'openapi' });
+    });
+
+    it('detects an OpenAPI 3.x YAML document', () => {
+      const yaml = `openapi: 3.0.3\ninfo:\n  title: Openheaders API\n  version: 1.0.0\npaths: {}\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'openapi' });
+    });
+
+    it('detects a YAML document with a quoted version', () => {
+      const yaml = `openapi: '3.1.0'\ninfo:\n  title: Openheaders API\npaths: {}\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'openapi' });
+    });
+
+    it('routes Swagger 2.0 JSON to the openapi flow', () => {
+      const doc = JSON.stringify({ swagger: '2.0', info: { title: 'Legacy API' }, paths: {} });
+      expect(detectImportSource(doc)).toEqual({ kind: 'openapi' });
+    });
+
+    it('routes Swagger 2.0 YAML to the openapi flow', () => {
+      const yaml = `swagger: "2.0"\ninfo:\n  title: Legacy API\npaths: {}\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'openapi' });
+    });
+
+    it('does not misfire on prose mentioning openapi', () => {
+      expect(detectImportSource('openapi: the spec format\nsee docs\n')).toEqual({ kind: 'unknown' });
+    });
+
+    it('does not shadow an Insomnia v5 YAML document', () => {
+      const yaml = `type: collection.insomnia.rest/5.0\nname: API\ncollection: []\n`;
+      expect(detectImportSource(yaml)).toEqual({ kind: 'insomnia' });
+    });
+
+    it('does not shadow a Postman collection carrying no version fields', () => {
+      const col = JSON.stringify({ info: { name: 'API', _postman_id: 'abc' }, item: [] });
+      expect(detectImportSource(col)).toEqual({ kind: 'postman' });
+    });
+  });
+
   describe('workspace export', () => {
     it('detects the JSON form by kind discriminator', () => {
       const exp = JSON.stringify({ kind: 'workspace-export', schemaVersion: 5, workspace: {} });
