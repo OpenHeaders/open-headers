@@ -1019,4 +1019,70 @@ export const panel = {
   'panel.quickEditor.conditions.title': 'Show and edit when this rule fires',
   'panel.quickEditor.conditions.label': 'Conditions',
   'panel.quickEditor.conditions.none': 'none — matches no requests',
+
+  // Header quick editors (single-mod hover + whole-list + create).
+  // Operation options reuse the workbench op keys; validator sentences
+  // from core ride raw — only the UI fallbacks are keyed here.
+  'panel.quickEditor.header.addHeader': 'Add header',
+  'panel.quickEditor.header.mergeSeparatorTitle': 'Merge separator',
+  'panel.quickEditor.header.directionRequest': 'Request',
+  'panel.quickEditor.header.directionResponse': 'Response',
+  'panel.quickEditor.validation.nameRequired': 'Header name is required.',
+  'panel.quickEditor.validation.invalidName': 'Invalid header name.',
+  'panel.quickEditor.validation.invalidValue': 'Invalid header value.',
+  // {operation} interpolates the raw schema operation the one-click fix
+  // would switch to (e.g. add).
+  'panel.quickEditor.validation.switchTo': 'Switch to {operation}',
+
+  // ── Rule hover popover (fire-snapshot plane) ─────────────────────────
+  // Raw by design: header names/values, `{{template}}` text, the
+  // sibling-mod rows (req / res wire chips, op glyphs, the wire-shaped
+  // hover title) and the snapshot byline's direction word
+  // (request/response — wire vocabulary beside the raw header name).
+  'panel.ruleHover.tagRuleEdited': 'Rule edited',
+  'panel.ruleHover.tagVariableChanged': 'Variable changed',
+  'panel.ruleHover.tagDeleted': 'Deleted',
+  'panel.ruleHover.tagDisabled': 'Disabled',
+  'panel.ruleHover.tagModRemoved': 'Mod removed',
+  'panel.ruleHover.tagConditionsMismatch': "Conditions don't match",
+  'panel.ruleHover.tagWontFire': "Won't fire",
+  'panel.ruleHover.tagTitle.ruleDisabled': "Rule's enabled flag is off — it will not fire on any future request.",
+  'panel.ruleHover.tagTitle.modGone': 'The matching modification was removed from the rule.',
+  'panel.ruleHover.tagTitle.conditionsMismatch': "Rule's conditions no longer cover this URL.",
+  'panel.ruleHover.tagTitle.nameUnresolved':
+    "Header-name template can't be fully resolved (e.g. references a TOTP). DNR rejects literal template chars in header names.",
+  'panel.ruleHover.tagTitle.valueUnresolved': "Header-value template can't be fully resolved.",
+  'panel.ruleHover.tagTitle.separatorUnresolved': "Merge-separator template can't be fully resolved.",
+  'panel.ruleHover.deletedBody': 'This rule has been deleted. The capture above shows what it did when it fired.',
+  'panel.ruleHover.modRemovedBody':
+    'The matching modification has been removed from the rule. Open in workspace to recreate or adjust it.',
+
+  // Snapshot block (Original / Now / Future rows + byline).
+  'panel.ruleHover.snapshot.opInject': 'inject',
+  'panel.ruleHover.snapshot.opOverride': 'override',
+  'panel.ruleHover.snapshot.opAppend': 'append',
+  'panel.ruleHover.snapshot.opMerge': 'merge',
+  'panel.ruleHover.snapshot.opRemove': 'remove',
+  'panel.ruleHover.snapshot.templateTitle': 'Template before variable resolution at fire time',
+  'panel.ruleHover.snapshot.nameDriftTitle':
+    'Same template — a referenced variable now resolves to a different header name',
+  'panel.ruleHover.snapshot.cancels': 'cancels "{rule}"',
+  'panel.ruleHover.snapshot.original': 'Original',
+  'panel.ruleHover.snapshot.now': 'Now',
+  'panel.ruleHover.snapshot.future': 'Future',
+  'panel.ruleHover.snapshot.futureTitle': 'What the next matching request would get',
+  'panel.ruleHover.snapshot.removed': 'removed',
+  'panel.ruleHover.snapshot.empty': '(empty)',
+  'panel.ruleHover.snapshot.totpNote': 'TOTP / deferred refs are resolved at request time and not captured here.',
+  'panel.ruleHover.snapshot.alsoByRule': 'Also by this rule on this request',
+
+  // Future-row variants (one key per FutureKind wording).
+  'panel.ruleHover.future.ruleDeleted': "rule was deleted — won't fire",
+  'panel.ruleHover.future.ruleDisabled': "rule is disabled — won't fire",
+  'panel.ruleHover.future.modGone': 'this modification was removed from the rule',
+  'panel.ruleHover.future.conditionsMismatch': "rule's conditions no longer match this URL",
+  'panel.ruleHover.future.nameUnresolved': "header name template can't be resolved — rule won't fire",
+  'panel.ruleHover.future.valueUnresolved': "value template can't be resolved — rule won't fire",
+  'panel.ruleHover.future.separatorUnresolved': "mergeSeparator template can't be resolved — rule won't fire",
+  'panel.ruleHover.future.templateTitle': 'Template: {template}',
 } as const satisfies Catalog;

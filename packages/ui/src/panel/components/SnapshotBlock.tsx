@@ -10,6 +10,7 @@
  */
 
 import type { HeaderModification, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type { HeaderAttribution, RuleAttributionContext } from '../data/headers/header-attribution';
@@ -42,6 +43,7 @@ interface FutureValueProps {
  *   - name/value-template-unresolved — DNR builder will reject (TOTP etc.)
  */
 function FutureValue({ kind, collectionId, token, valueStyle }: FutureValueProps) {
+  const t = useT();
   const muted: React.CSSProperties = {
     ...valueStyle,
     fontStyle: 'italic',
@@ -56,31 +58,31 @@ function FutureValue({ kind, collectionId, token, valueStyle }: FutureValueProps
         </span>
       );
     case 'removed':
-      return <span style={struck}>removed</span>;
+      return <span style={struck}>{t('panel.ruleHover.snapshot.removed')}</span>;
     case 'rule-deleted':
-      return <span style={muted}>rule was deleted — won't fire</span>;
+      return <span style={muted}>{t('panel.ruleHover.future.ruleDeleted')}</span>;
     case 'rule-disabled':
-      return <span style={muted}>rule is disabled — won't fire</span>;
+      return <span style={muted}>{t('panel.ruleHover.future.ruleDisabled')}</span>;
     case 'mod-gone':
-      return <span style={muted}>this modification was removed from the rule</span>;
+      return <span style={muted}>{t('panel.ruleHover.future.modGone')}</span>;
     case 'conditions-mismatch':
-      return <span style={muted}>rule's conditions no longer match this URL</span>;
+      return <span style={muted}>{t('panel.ruleHover.future.conditionsMismatch')}</span>;
     case 'name-template-unresolved':
       return (
-        <span style={muted} title={`Template: ${kind.template}`}>
-          header name template can't be resolved — rule won't fire
+        <span style={muted} title={t('panel.ruleHover.future.templateTitle', { template: kind.template })}>
+          {t('panel.ruleHover.future.nameUnresolved')}
         </span>
       );
     case 'value-template-unresolved':
       return (
-        <span style={muted} title={`Template: ${kind.template}`}>
-          value template can't be resolved — rule won't fire
+        <span style={muted} title={t('panel.ruleHover.future.templateTitle', { template: kind.template })}>
+          {t('panel.ruleHover.future.valueUnresolved')}
         </span>
       );
     case 'separator-template-unresolved':
       return (
-        <span style={muted} title={`Template: ${kind.template}`}>
-          mergeSeparator template can't be resolved — rule won't fire
+        <span style={muted} title={t('panel.ruleHover.future.templateTitle', { template: kind.template })}>
+          {t('panel.ruleHover.future.separatorUnresolved')}
         </span>
       );
     default:
@@ -136,6 +138,7 @@ export function SnapshotBlock({
   currentResolvedName,
   applicability,
 }: SnapshotBlockProps) {
+  const t = useT();
   const { token } = theme.useToken();
   const mod = ctx.snapshotMod;
   // Long token-style values (Bearer JWTs, base64 blobs, cookies) used
@@ -188,13 +191,15 @@ export function SnapshotBlock({
   const opLabel = (() => {
     switch (mod.operation) {
       case 'override':
-        return attribution.kind === 'added' ? 'inject' : 'override';
+        return attribution.kind === 'added'
+          ? t('panel.ruleHover.snapshot.opInject')
+          : t('panel.ruleHover.snapshot.opOverride');
       case 'add':
-        return 'append';
+        return t('panel.ruleHover.snapshot.opAppend');
       case 'merge':
-        return 'merge';
+        return t('panel.ruleHover.snapshot.opMerge');
       case 'remove':
-        return 'remove';
+        return t('panel.ruleHover.snapshot.opRemove');
     }
   })();
 
@@ -258,7 +263,7 @@ export function SnapshotBlock({
       {mod.headerNameTemplate && (
         <span
           style={{ fontFamily: token.fontFamilyCode, opacity: 0.6 }}
-          title="Template before variable resolution at fire time"
+          title={t('panel.ruleHover.snapshot.templateTitle')}
         >
           ({mod.headerNameTemplate})
         </span>
@@ -268,7 +273,7 @@ export function SnapshotBlock({
           <span style={{ opacity: 0.6 }}>→</span>
           <span
             style={{ fontFamily: token.fontFamilyCode, color: token.colorWarning }}
-            title="Same template — a referenced variable now resolves to a different header name"
+            title={t('panel.ruleHover.snapshot.nameDriftTitle')}
           >
             {currentResolvedName}
           </span>
@@ -277,7 +282,9 @@ export function SnapshotBlock({
       {cancelledInjection && (
         <>
           <span style={{ opacity: 0.6 }}>·</span>
-          <span style={{ fontStyle: 'italic' }}>cancels "{cancelledInjection.ruleName}"</span>
+          <span style={{ fontStyle: 'italic' }}>
+            {t('panel.ruleHover.snapshot.cancels', { rule: cancelledInjection.ruleName })}
+          </span>
         </>
       )}
     </div>
@@ -294,14 +301,14 @@ export function SnapshotBlock({
        *  "server" baseline. */}
       {showOriginalRow && (
         <div style={rowStyle}>
-          <span style={labelStyle}>Original</span>
+          <span style={labelStyle}>{t('panel.ruleHover.snapshot.original')}</span>
           <span style={valueStyle}>{originalValue}</span>
         </div>
       )}
 
       {/* Now: what this request actually got. */}
       <div style={rowStyle}>
-        <span style={labelStyle}>Now</span>
+        <span style={labelStyle}>{t('panel.ruleHover.snapshot.now')}</span>
         {mod.operation === 'remove' ? (
           <span
             style={{
@@ -311,14 +318,16 @@ export function SnapshotBlock({
               textDecoration: 'line-through',
             }}
           >
-            removed
+            {t('panel.ruleHover.snapshot.removed')}
           </span>
         ) : appliedValue ? (
           <span style={valueStyle}>
             <ResolvedHeaderValue value={appliedValue} collectionId={collectionId} />
           </span>
         ) : (
-          <span style={{ ...valueStyle, fontStyle: 'italic', color: token.colorTextTertiary }}>(empty)</span>
+          <span style={{ ...valueStyle, fontStyle: 'italic', color: token.colorTextTertiary }}>
+            {t('panel.ruleHover.snapshot.empty')}
+          </span>
         )}
       </div>
 
@@ -327,8 +336,8 @@ export function SnapshotBlock({
        *  disabled, conditions mismatch, unresolvable template) rather
        *  than cheerfully previewing a value that wouldn't actually fire. */}
       {showFutureRow && (
-        <div style={rowStyle} title="What the next matching request would get">
-          <span style={{ ...labelStyle, color: token.colorWarning }}>Future</span>
+        <div style={rowStyle} title={t('panel.ruleHover.snapshot.futureTitle')}>
+          <span style={{ ...labelStyle, color: token.colorWarning }}>{t('panel.ruleHover.snapshot.future')}</span>
           <FutureValue kind={futureKind} collectionId={collectionId} token={token} valueStyle={valueStyle} />
         </div>
       )}
@@ -344,7 +353,7 @@ export function SnapshotBlock({
             lineHeight: 1.3,
           }}
         >
-          TOTP / deferred refs are resolved at request time and not captured here.
+          {t('panel.ruleHover.snapshot.totpNote')}
         </div>
       )}
 
@@ -370,7 +379,7 @@ export function SnapshotBlock({
               marginBottom: 4,
             }}
           >
-            Also by this rule on this request
+            {t('panel.ruleHover.snapshot.alsoByRule')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {ctx.siblingMods.map((s, i) => (

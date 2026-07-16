@@ -13,6 +13,7 @@ import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -31,17 +32,18 @@ import {
 } from '../../data/rule-create/quick-rule-edit';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
 import { useOpenValueDocument } from '../../data/value-document-intent';
-import { HEADER_OPERATION_OPTIONS } from './header-operation-options';
+import { headerOperationOptions } from './header-operation-options';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
 
-const DIRECTION_OPTIONS = [
-  { value: 'request', label: 'Request' },
-  { value: 'response', label: 'Response' },
-] as const;
+const directionOptions = (t: Translate) =>
+  [
+    { value: 'request', label: t('panel.quickEditor.header.directionRequest') },
+    { value: 'response', label: t('panel.quickEditor.header.directionResponse') },
+  ] as const;
 
 interface HeaderModRowsDraft {
   rows: HeaderModQuickRow[];
@@ -67,6 +69,7 @@ export function HeaderQuickEditor({
 }: HeaderQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
@@ -100,7 +103,7 @@ export function HeaderQuickEditor({
   const condDraft = useConditionsDraft({ canonical: headerRule?.conditions ?? null });
   const isDirty = rowsDirty || condDraft.isDirty;
 
-  const issue = useMemo(() => firstHeaderModRowIssue(rows), [rows]);
+  const issue = useMemo(() => firstHeaderModRowIssue(t, rows), [t, rows]);
 
   const { saving, canSave, handleSave, saveLabel } = useQuickEditSave({
     ruleUid: headerRule?.uid ?? null,
@@ -173,7 +176,7 @@ export function HeaderQuickEditor({
                   size="small"
                   value={row.direction}
                   onChange={(direction) => updateRow(row.uid, { direction })}
-                  options={[...DIRECTION_OPTIONS]}
+                  options={[...directionOptions(t)]}
                   style={{ width: 96, flexShrink: 0 }}
                   dropdownStyle={{ zIndex: 1090 }}
                 />
@@ -181,7 +184,7 @@ export function HeaderQuickEditor({
                   size="small"
                   value={row.operation}
                   onChange={(operation) => updateRow(row.uid, { operation })}
-                  options={HEADER_OPERATION_OPTIONS}
+                  options={headerOperationOptions(t)}
                   style={{ width: 116, flexShrink: 0 }}
                   dropdownStyle={{ zIndex: 1090 }}
                 />
@@ -194,7 +197,7 @@ export function HeaderQuickEditor({
                     allowClear
                     value={row.headerName}
                     onChange={(v) => updateRow(row.uid, { headerName: v })}
-                    placeholder="Header Name"
+                    placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
                     suggestionContext={{ collectionId }}
                   />
                 </div>
@@ -220,7 +223,11 @@ export function HeaderQuickEditor({
                       allowClear
                       value={row.value}
                       onChange={(v) => updateRow(row.uid, { value: v })}
-                      placeholder={row.operation === 'merge' ? 'Value to append' : 'Header Value'}
+                      placeholder={t(
+                        row.operation === 'merge'
+                          ? 'workbench.editors.rule.fields.header.appendValuePlaceholder'
+                          : 'workbench.editors.rule.fields.header.valuePlaceholder',
+                      )}
                       suggestionContext={{ collectionId }}
                       style={{ width: '100%' }}
                     />
@@ -231,7 +238,7 @@ export function HeaderQuickEditor({
                       value={row.mergeSeparator ?? ''}
                       onChange={(e) => updateRow(row.uid, { mergeSeparator: e.target.value })}
                       placeholder="; "
-                      title="Merge separator"
+                      title={t('panel.quickEditor.header.mergeSeparatorTitle')}
                       style={{
                         width: 36,
                         textAlign: 'center',
@@ -256,7 +263,7 @@ export function HeaderQuickEditor({
             size="small"
             style={{ fontSize: 12 }}
           >
-            Add header
+            {t('panel.quickEditor.header.addHeader')}
           </Button>
           {issue && (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
@@ -268,7 +275,7 @@ export function HeaderQuickEditor({
                   onClick={() => updateRow(issue.uid, { operation: issue.suggestion })}
                   style={{ padding: '0 0 0 6px', height: 'auto', fontSize: 11 }}
                 >
-                  Switch to {issue.suggestion}
+                  {t('panel.quickEditor.validation.switchTo', { operation: issue.suggestion })}
                 </Button>
               )}
             </div>
@@ -276,7 +283,7 @@ export function HeaderQuickEditor({
         </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          Open in workspace to inspect or change this rule.
+          {t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>

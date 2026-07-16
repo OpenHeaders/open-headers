@@ -20,6 +20,7 @@ import type {
   SseRule,
   WsRule,
 } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   buildAuthRuleUpdate,
   buildBlockRuleUpdate,
@@ -37,6 +38,8 @@ import {
   seedQueryParamRowsFromAction,
 } from '@openheaders/ui/panel/data/rule-create/quick-rule-edit';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 const CONDITIONS: RuleCondition[] = [{ uid: 'c1', type: 'request-domains', values: ['openheaders.io'] }];
 
@@ -325,12 +328,12 @@ describe('header rows — seed, rebuild and validation', () => {
 
   it('flags the first broken row and passes templates through', () => {
     const rows = seedHeaderModRows(rule.action);
-    expect(firstHeaderModRowIssue(rows)).toBeNull();
-    expect(firstHeaderModRowIssue([{ ...rows[0]!, headerName: '' }])).toEqual({
+    expect(firstHeaderModRowIssue(t, rows)).toBeNull();
+    expect(firstHeaderModRowIssue(t, [{ ...rows[0]!, headerName: '' }])).toEqual({
       uid: 'm1',
       message: 'Header name is required.',
     });
-    expect(firstHeaderModRowIssue([{ ...rows[0]!, headerName: 'bad name' }])?.uid).toBe('m1');
-    expect(firstHeaderModRowIssue([{ ...rows[0]!, headerName: '{{collection.HEADER}}' }])).toBeNull();
+    expect(firstHeaderModRowIssue(t, [{ ...rows[0]!, headerName: 'bad name' }])?.uid).toBe('m1');
+    expect(firstHeaderModRowIssue(t, [{ ...rows[0]!, headerName: '{{collection.HEADER}}' }])).toBeNull();
   });
 });

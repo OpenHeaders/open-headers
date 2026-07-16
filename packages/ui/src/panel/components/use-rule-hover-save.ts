@@ -16,6 +16,7 @@ import {
   validateHeaderName,
   validateHeaderValue,
 } from '@openheaders/core/utils';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import type { App } from 'antd';
@@ -68,6 +69,7 @@ export function useRuleHoverSave({
   clearDismissed,
   onClose,
 }: UseRuleHoverSaveArgs): RuleHoverSaveApi {
+  const t = useT();
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -83,11 +85,11 @@ export function useRuleHoverSave({
         conditionsDirty ? conditionsRef.current : undefined,
       );
       if (!built.ok) {
-        message.warning('Rule changed elsewhere — close and reopen the popover.');
+        message.warning(t('panel.quickEditor.toast.changedElsewhere'));
         return;
       }
       const result: RuleMutationResult = await mutator.updateRule(headerRule.uid, built.updates);
-      surfaceResult(result, message, () => {
+      surfaceResult(t, result, message, () => {
         // Dirty auto-clears when the broadcast lands and currentMod
         // matches draft. No explicit reset needed.
         clearDismissed();
@@ -140,18 +142,18 @@ export function useRuleHoverSave({
   return { saving, canSave, nameValidation, valueValidation, capability, handleSave, saveLabel };
 }
 
-function surfaceResult(result: RuleMutationResult, message: MessageApi, onSuccess: () => void): void {
+function surfaceResult(t: Translate, result: RuleMutationResult, message: MessageApi, onSuccess: () => void): void {
   if (result.ok) {
-    message.success('Rule updated');
+    message.success(t('panel.quickEditor.toast.ruleUpdated'));
     onSuccess();
     return;
   }
   switch (result.reason) {
     case 'not-found':
-      message.error('Rule not found — it may have been deleted.');
+      message.error(t('panel.quickEditor.toast.ruleNotFound'));
       return;
     case 'other':
-      message.error(result.message ?? 'Save failed');
+      message.error(result.message ?? t('panel.quickEditor.toast.saveFailed'));
       return;
   }
 }

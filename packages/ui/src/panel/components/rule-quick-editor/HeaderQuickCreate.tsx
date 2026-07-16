@@ -13,6 +13,7 @@
  */
 
 import type { HeaderRuleDraft } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -30,7 +31,7 @@ import {
   seedHeaderQuickDraft,
 } from '../../data/rule-create/header-rule-create';
 import { stableStringify } from '@openheaders/ui/shared/forms';
-import { HEADER_OPERATION_OPTIONS } from './header-operation-options';
+import { headerOperationOptions } from './header-operation-options';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
@@ -60,6 +61,7 @@ export function HeaderQuickCreate({
 }: HeaderQuickCreateProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
   const { rules } = useRules();
@@ -120,7 +122,9 @@ export function HeaderQuickCreate({
       conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       tags={
         <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={direction === 'response' ? 'purple' : 'blue'}>
-          {direction === 'response' ? 'Response' : 'Request'}
+          {direction === 'response'
+            ? t('panel.quickEditor.header.directionResponse')
+            : t('panel.quickEditor.header.directionRequest')}
         </Tag>
       }
       onOpenInEditor={openInEditor}
@@ -137,7 +141,7 @@ export function HeaderQuickCreate({
           size="small"
           value={quick.operation}
           onChange={(op) => updateQuick({ operation: op })}
-          options={HEADER_OPERATION_OPTIONS}
+          options={headerOperationOptions(t)}
           style={{ width: 140, flexShrink: 0 }}
           dropdownStyle={{ zIndex: 1090 }}
         />
@@ -150,7 +154,7 @@ export function HeaderQuickCreate({
             allowClear
             value={quick.headerName}
             onChange={(v) => updateQuick({ headerName: v })}
-            placeholder="Header Name"
+            placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
             suggestionContext={{ collectionId }}
           />
         </div>
@@ -160,7 +164,7 @@ export function HeaderQuickCreate({
             value={quick.mergeSeparator ?? ''}
             onChange={(e) => updateQuick({ mergeSeparator: e.target.value })}
             placeholder="; "
-            title="Merge separator"
+            title={t('panel.quickEditor.header.mergeSeparatorTitle')}
             style={{
               width: 36,
               textAlign: 'center',
@@ -186,7 +190,11 @@ export function HeaderQuickCreate({
             allowClear
             value={quick.value}
             onChange={(v) => updateQuick({ value: v })}
-            placeholder={quick.operation === 'merge' ? 'Value to append' : 'Header Value'}
+            placeholder={t(
+              quick.operation === 'merge'
+                ? 'workbench.editors.rule.fields.header.appendValuePlaceholder'
+                : 'workbench.editors.rule.fields.header.valuePlaceholder',
+            )}
             suggestionContext={{ collectionId }}
             style={{ width: '100%' }}
           />
@@ -194,12 +202,12 @@ export function HeaderQuickCreate({
       )}
       {!nameValidation.valid && (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-          {nameValidation.message || 'Invalid header name.'}
+          {nameValidation.message || t('panel.quickEditor.validation.invalidName')}
         </div>
       )}
       {!valueValidation.valid && (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-          {valueValidation.message || 'Invalid header value.'}
+          {valueValidation.message || t('panel.quickEditor.validation.invalidValue')}
         </div>
       )}
       {capability && !capability.allowed && (
@@ -212,7 +220,7 @@ export function HeaderQuickCreate({
               onClick={() => updateQuick({ operation: capability.suggestion })}
               style={{ padding: '0 0 0 6px', height: 'auto', fontSize: 11 }}
             >
-              Switch to {capability.suggestion}
+              {t('panel.quickEditor.validation.switchTo', { operation: capability.suggestion })}
             </Button>
           )}
         </div>

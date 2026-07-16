@@ -7,6 +7,7 @@
  */
 
 import type { HeaderModification, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { HeaderAttribution, RuleAttributionContext } from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 
@@ -22,37 +23,37 @@ export function snapshotAppliedValue(mod: RuleSnapshotHeaderMod): string {
   return mod.valueResolved ?? mod.valueTemplate ?? '';
 }
 
-export function tagLabelFor(kind: RuleApplicability['kind']): string {
+export function tagLabelFor(t: Translate, kind: RuleApplicability['kind']): string {
   switch (kind) {
     case 'rule-disabled':
-      return 'Disabled';
+      return t('panel.ruleHover.tagDisabled');
     case 'mod-gone':
-      return 'Mod removed';
+      return t('panel.ruleHover.tagModRemoved');
     case 'conditions-mismatch':
-      return "Conditions don't match";
+      return t('panel.ruleHover.tagConditionsMismatch');
     case 'name-template-unresolved':
     case 'value-template-unresolved':
     case 'separator-template-unresolved':
-      return "Won't fire";
+      return t('panel.ruleHover.tagWontFire');
     default:
       return '';
   }
 }
 
-export function tagTitleFor(kind: RuleApplicability['kind']): string {
+export function tagTitleFor(t: Translate, kind: RuleApplicability['kind']): string {
   switch (kind) {
     case 'rule-disabled':
-      return "Rule's enabled flag is off — it will not fire on any future request.";
+      return t('panel.ruleHover.tagTitle.ruleDisabled');
     case 'mod-gone':
-      return 'The matching modification was removed from the rule.';
+      return t('panel.ruleHover.tagTitle.modGone');
     case 'conditions-mismatch':
-      return "Rule's conditions no longer cover this URL.";
+      return t('panel.ruleHover.tagTitle.conditionsMismatch');
     case 'name-template-unresolved':
-      return "Header-name template can't be fully resolved (e.g. references a TOTP). DNR rejects literal template chars in header names.";
+      return t('panel.ruleHover.tagTitle.nameUnresolved');
     case 'value-template-unresolved':
-      return "Header-value template can't be fully resolved.";
+      return t('panel.ruleHover.tagTitle.valueUnresolved');
     case 'separator-template-unresolved':
-      return "Merge-separator template can't be fully resolved.";
+      return t('panel.ruleHover.tagTitle.separatorUnresolved');
     default:
       return '';
   }

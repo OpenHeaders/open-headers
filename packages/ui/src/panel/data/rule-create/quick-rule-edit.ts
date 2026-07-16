@@ -32,6 +32,7 @@ import type {
   SseRule,
   WsRule,
 } from '@openheaders/core/types';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import {
   generateUid,
   getHeaderOperationCapability,
@@ -285,15 +286,17 @@ export interface HeaderModRowIssue {
 
 /** First broken row, or null when every row would save cleanly. Same
  *  validators (and the same template pass-through — `{{…}}` resolves at
- *  runtime) as the single-mod popover and the workbench editor. */
-export function firstHeaderModRowIssue(rows: readonly HeaderModQuickRow[]): HeaderModRowIssue | null {
+ *  runtime) as the single-mod popover and the workbench editor. Core
+ *  validator sentences ride raw; only the UI fallbacks are keyed, so
+ *  the caller passes its `useT()` translator (shared-module rule). */
+export function firstHeaderModRowIssue(t: Translate, rows: readonly HeaderModQuickRow[]): HeaderModRowIssue | null {
   for (const row of rows) {
     const trimmed = row.headerName.trim();
-    if (!trimmed) return { uid: row.uid, message: 'Header name is required.' };
+    if (!trimmed) return { uid: row.uid, message: t('panel.quickEditor.validation.nameRequired') };
     if (!trimmed.includes('{{')) {
       const nameValidation = validateHeaderName(trimmed, row.direction === 'response');
       if (!nameValidation.valid) {
-        return { uid: row.uid, message: nameValidation.message || 'Invalid header name.' };
+        return { uid: row.uid, message: nameValidation.message || t('panel.quickEditor.validation.invalidName') };
       }
       const capability = getHeaderOperationCapability(row.direction, row.operation, row.headerName);
       if (!capability.allowed) {
@@ -303,7 +306,7 @@ export function firstHeaderModRowIssue(rows: readonly HeaderModQuickRow[]): Head
     if (row.operation !== 'remove' && row.value && !row.value.includes('{{')) {
       const valueValidation = validateHeaderValue(row.value, trimmed);
       if (!valueValidation.valid) {
-        return { uid: row.uid, message: valueValidation.message || 'Invalid header value.' };
+        return { uid: row.uid, message: valueValidation.message || t('panel.quickEditor.validation.invalidValue') };
       }
     }
   }

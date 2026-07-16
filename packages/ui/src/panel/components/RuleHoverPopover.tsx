@@ -38,6 +38,7 @@
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ConflictDiffChip,
   EntityField,
@@ -59,7 +60,7 @@ import {
 } from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-create/rule-collection';
-import { HEADER_OPERATION_OPTIONS } from './rule-quick-editor/header-operation-options';
+import { headerOperationOptions } from './rule-quick-editor/header-operation-options';
 import { QuickConditionsRow } from './rule-quick-editor/QuickConditionsRow';
 import { QuickEditorShell } from './rule-quick-editor/QuickEditorShell';
 import { useConditionsDraft } from './rule-quick-editor/use-conditions-draft';
@@ -104,8 +105,6 @@ export interface RuleHoverPopoverProps {
   visible?: boolean;
 }
 
-const OPERATION_OPTIONS = HEADER_OPERATION_OPTIONS;
-
 export function RuleHoverPopover({
   anchorEl,
   rule,
@@ -121,6 +120,8 @@ export function RuleHoverPopover({
 }: RuleHoverPopoverProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
+  const operationOptions = useMemo(() => headerOperationOptions(t), [t]);
   // The panel mounts `<RuleProvider surfaceId="panel">` (App.tsx), so
   // `useRules()` returns the workspace's collections here — collection-
   // scoped variables (`{{collection.X}}`) resolve in the Inspector just
@@ -249,7 +250,7 @@ export function RuleHoverPopover({
     <>
       {!ruleDeleted && ruleEdited && (
         <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
-          Rule edited
+          {t('panel.ruleHover.tagRuleEdited')}
         </Tag>
       )}
       {!ruleDeleted &&
@@ -263,20 +264,20 @@ export function RuleHoverPopover({
             currentResolvedName != null &&
             currentResolvedName !== ctx.snapshotMod.headerName)) && (
           <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
-            Variable changed
+            {t('panel.ruleHover.tagVariableChanged')}
           </Tag>
         )}
       {ruleDeleted && (
         <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }}>
-          Deleted
+          {t('panel.ruleHover.tagDeleted')}
         </Tag>
       )}
       {!ruleDeleted &&
         applicability &&
         applicability.kind !== 'will-fire' &&
         applicability.kind !== 'rule-deleted' && (
-          <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }} title={tagTitleFor(applicability.kind)}>
-            {tagLabelFor(applicability.kind)}
+          <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }} title={tagTitleFor(t, applicability.kind)}>
+            {tagLabelFor(t, applicability.kind)}
           </Tag>
         )}
     </>
@@ -333,7 +334,7 @@ export function RuleHoverPopover({
               size="small"
               value={draft.operation}
               onChange={(op) => updateDraft({ operation: op })}
-              options={OPERATION_OPTIONS}
+              options={operationOptions}
               // Width sized so the longest option label ("Add / Replace")
               // fits without truncation. Earlier 100 px clipped to "Add /
               // Re…", which obscured what the operation was.
@@ -350,7 +351,7 @@ export function RuleHoverPopover({
                     size="small"
                     value={draft.headerName}
                     onChange={(v) => updateDraft({ headerName: v })}
-                    placeholder="Header Name"
+                    placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
                     suggestionContext={{ collectionId }}
                   />
                 </EntityField>
@@ -359,7 +360,7 @@ export function RuleHoverPopover({
                   size="small"
                   value={draft.headerName}
                   onChange={(v) => updateDraft({ headerName: v })}
-                  placeholder="Header Name"
+                  placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
                   suggestionContext={{ collectionId }}
                 />
               )}
@@ -383,7 +384,7 @@ export function RuleHoverPopover({
                 value={draft.mergeSeparator ?? ''}
                 onChange={(e) => updateDraft({ mergeSeparator: e.target.value })}
                 placeholder="; "
-                title="Merge separator"
+                title={t('panel.quickEditor.header.mergeSeparatorTitle')}
                 style={{
                   width: 36,
                   textAlign: 'center',
@@ -414,7 +415,11 @@ export function RuleHoverPopover({
                     multiline
                     value={draft.value}
                     onChange={(v) => updateDraft({ value: v })}
-                    placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
+                    placeholder={t(
+                      draft.operation === 'merge'
+                        ? 'workbench.editors.rule.fields.header.appendValuePlaceholder'
+                        : 'workbench.editors.rule.fields.header.valuePlaceholder',
+                    )}
                     suggestionContext={{ collectionId }}
                     style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
                   />
@@ -425,7 +430,11 @@ export function RuleHoverPopover({
                   multiline
                   value={draft.value}
                   onChange={(v) => updateDraft({ value: v })}
-                  placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
+                  placeholder={t(
+                      draft.operation === 'merge'
+                        ? 'workbench.editors.rule.fields.header.appendValuePlaceholder'
+                        : 'workbench.editors.rule.fields.header.valuePlaceholder',
+                    )}
                   suggestionContext={{ collectionId }}
                   style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
                 />
@@ -450,12 +459,12 @@ export function RuleHoverPopover({
               it in one click. Name / value errors are read-only. */}
           {!nameValidation.valid && (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-              {nameValidation.message || 'Invalid header name.'}
+              {nameValidation.message || t('panel.quickEditor.validation.invalidName')}
             </div>
           )}
           {!valueValidation.valid && (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-              {valueValidation.message || 'Invalid header value.'}
+              {valueValidation.message || t('panel.quickEditor.validation.invalidValue')}
             </div>
           )}
           {capability && !capability.allowed && (
@@ -475,7 +484,7 @@ export function RuleHoverPopover({
                   onClick={() => updateDraft({ operation: capability.suggestion as HeaderOperation })}
                   style={{ padding: '0 0 0 6px', height: 'auto', fontSize: 11 }}
                 >
-                  Switch to {capability.suggestion}
+                  {t('panel.quickEditor.validation.switchTo', { operation: capability.suggestion })}
                 </Button>
               )}
             </div>
@@ -484,10 +493,10 @@ export function RuleHoverPopover({
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
           {ruleDeleted
-            ? 'This rule has been deleted. The capture above shows what it did when it fired.'
+            ? t('panel.ruleHover.deletedBody')
             : ruleType === 'header' && target
-              ? 'The matching modification has been removed from the rule. Open in workspace to recreate or adjust it.'
-              : 'Open in workspace to inspect or change this rule.'}
+              ? t('panel.ruleHover.modRemovedBody')
+              : t('panel.quickEditor.openToInspect')}
         </div>
       )}
     </QuickEditorShell>
