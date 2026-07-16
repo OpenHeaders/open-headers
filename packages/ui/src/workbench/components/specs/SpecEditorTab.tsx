@@ -36,7 +36,7 @@ import { Allotment } from 'allotment';
 import { App, Badge, Button, Empty, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
@@ -48,6 +48,7 @@ import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
 import GenerateCollectionModal from './GenerateCollectionModal';
 import SpecOutlinePane from './SpecOutlinePane';
+import { attachSpecEditorServices } from './spec-editor-services';
 import { SPEC_FORMAT_LABELS } from './spec-format-labels';
 import { planSpecInsertion, type SpecInsertTarget } from './spec-outline-insert';
 import { specFileLanguage, specFileSyntaxLabel, useSpecAnalysis } from './spec-validation';
@@ -119,11 +120,28 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const navHighlightRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  // The mount callback reads the format through a ref so its identity
+  // stays stable; language services detach with the tab (useEffect
+  // teardown), not with the editor instance.
+  const specFormatRef = useRef(spec?.format);
+  specFormatRef.current = spec?.format;
+  const editorServicesRef = useRef<monaco.IDisposable | null>(null);
   const handleEditorMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monacoApi: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monacoApi;
     navHighlightRef.current = editor.createDecorationsCollection();
+    editorServicesRef.current?.dispose();
+    if (specFormatRef.current !== undefined) {
+      editorServicesRef.current = attachSpecEditorServices(editor, monacoApi, specFormatRef.current);
+    }
   }, []);
+  useEffect(
+    () => () => {
+      editorServicesRef.current?.dispose();
+      editorServicesRef.current = null;
+    },
+    [],
+  );
 
   // Outline click → caret + section highlight (vendor parity: a bar in
   // the lines-decorations gutter spanning the clicked section, replaced
