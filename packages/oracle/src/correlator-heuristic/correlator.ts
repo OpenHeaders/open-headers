@@ -80,9 +80,9 @@ import type { HarWaitingDropLogger } from './har-waiting-buffer';
 import { HarWaitingBuffer } from './har-waiting-buffer';
 import { HopCursor } from './hop-cursor';
 import type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
-import type { OverrideEvent, OverrideEventSource } from './override-events';
 import { InFlightFifo } from './in-flight-fifo';
 import { HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
+import type { OverrideEvent, OverrideEventSource } from './override-events';
 import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
 import type { ResourceTimingEvent, ResourceTimingEventSource } from './resource-timing-events';
 import { WebRequestHarBuilder } from './webrequest-har-builder';
@@ -107,6 +107,16 @@ const MAX_PENDING_OVERRIDES = 256;
 export interface HeuristicCorrelatorSources {
   readonly webRequest: WebRequestEventSource;
   readonly har: HarEventSource;
+  /**
+   * HAR consumption posture. `'full'` (default) additionally MINTS `oh-har:`
+   * rows the wire never showed — memory-cache entries eagerly, failure-shaped
+   * waiting-buffer expiries at gc. `'join-only'` only ever ATTACHES entries to
+   * rows this correlator itself minted from webRequest — for a secondary
+   * correlator sharing one tab's HAR feed with the primary one, where a second
+   * minting path would duplicate the primary's synthesized rows. Un-joinable
+   * entries (memory-cache now, failure-shaped at expiry) drop instead.
+   */
+  readonly harPosture?: 'full' | 'join-only';
   readonly resourceTiming?: ResourceTimingEventSource;
   /**
    * Page-relayed rule-modification captures (response/request-body overrides).
@@ -180,8 +190,11 @@ export class HeuristicCorrelator implements RequestCorrelator {
    */
   private readonly pendingOverrides = new Map<number, OverrideEvent[]>();
 
+  private readonly harJoinOnly: boolean;
+
   constructor(sources: HeuristicCorrelatorSources, diagnostics?: CorrelatorDiagnostics) {
     this.diagnostics = diagnostics;
+    this.harJoinOnly = sources.harPosture === 'join-only';
     this.inFlight = new InFlightFifo({ onEviction: diagnostics?.onFifoEviction });
     this.harWaiting = new HarWaitingBuffer({ onDrop: diagnostics?.onHarWaitingDrop });
     this.webRequestUnsubscribe = sources.webRequest.subscribe((event) => this.onWebRequestEvent(event));
@@ -502,7 +515,9 @@ export class HeuristicCorrelator implements RequestCorrelator {
     // to the join (probe-proven: a held memory-cache entry mis-attached
     // to a later same-URL wire request, which then lost its own entry).
     if (isMemoryCacheHarEntry(entry)) {
-      this.mintMemoryCacheLifecycle(tabId, entry, method, url);
+      // Join-only posture: the primary correlator on this tab already mints
+      // the memory-cache row. Drop — never offer it to the join (see above).
+      if (!this.harJoinOnly) this.mintMemoryCacheLifecycle(tabId, entry, method, url);
       return;
     }
     // Snapshot the candidate picture BEFORE popMatching sweeps stale
@@ -623,6 +638,9 @@ export class HeuristicCorrelator implements RequestCorrelator {
    * Returns whether the entry was synthesized.
    */
   private maybeSynthesizeFromExpiredHar(tabId: number, entry: InspectorHarEntry): boolean {
+    // Join-only posture: the primary correlator on this tab runs the same
+    // expiry window over the same feed and mints the failure row itself.
+    if (this.harJoinOnly) return false;
     if (!this.attached.has(tabId)) return false;
     if (!hasHarFailureVerdict(entry)) return false;
     const requestId = `oh-har:${++this.harOnlySequence}`;

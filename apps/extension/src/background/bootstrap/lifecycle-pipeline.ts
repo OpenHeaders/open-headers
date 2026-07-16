@@ -112,6 +112,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // request-id space — the per-tab router invariant is untouched.
   startExtensionTrafficLifecycles({
     subscribeExtensionTraffic: (listener) => lifecycleHost.webRequestSource.subscribeExtensionTraffic(listener),
+    subscribeHar: (listener) => lifecycleHost.harSource.subscribe(listener),
     apply: (update) => lifecycleHost.store.apply(update),
   });
   // Tab-bound loads of our own packaged assets (a dedicated worker's main

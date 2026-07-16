@@ -45,7 +45,8 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
-import type { WebRequestEvent } from '@openheaders/oracle/correlator-heuristic';
+import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { HarEvent, WebRequestEvent } from '@openheaders/oracle/correlator-heuristic';
 import { startExtensionTrafficLifecycles } from '@/background/correlator-host/extension-traffic-lifecycles';
 
 const OWN_ORIGIN = 'chrome-extension://ohtestid';
@@ -91,6 +92,7 @@ function exchange(requestId: string, atMs: number): WebRequestEvent[] {
 
 describe('startExtensionTrafficLifecycles', () => {
   let channel: Set<(event: WebRequestEvent) => void>;
+  let harChannel: Set<(event: HarEvent) => void>;
   let applied: RequestLifecycleUpdate[];
   let disposers: Array<() => void>;
 
@@ -99,6 +101,10 @@ describe('startExtensionTrafficLifecycles', () => {
       subscribeExtensionTraffic: (listener) => {
         channel.add(listener);
         return () => channel.delete(listener);
+      },
+      subscribeHar: (listener) => {
+        harChannel.add(listener);
+        return () => harChannel.delete(listener);
       },
       apply: (update) => applied.push(update),
     });
@@ -109,10 +115,15 @@ describe('startExtensionTrafficLifecycles', () => {
     }
   };
 
+  const feedHar = (event: HarEvent): void => {
+    for (const listener of [...harChannel]) listener(event);
+  };
+
   const startedTabs = (): number[] => applied.filter((u) => u.kind === 'started').map((u) => u.lifecycle.tabId);
 
   beforeEach(() => {
     channel = new Set();
+    harChannel = new Set();
     applied = [];
     disposers = [];
     setCurrentTabs([]);
@@ -158,7 +169,7 @@ describe('startExtensionTrafficLifecycles', () => {
     expect(started?.kind === 'started' && started.lifecycle.issuedByWorker).toBe('service-worker');
   });
 
-  it('synthesizes a status-less terminal for own-bundle loads at onSendHeaders', () => {
+  it('synthesizes a status-less terminal for own-bundle loads at onBeforeRequest', () => {
     setCurrentTabs([extensionTab(6), extensionTab(8)]);
     disposers.push(start().dispose);
     const url = `${OWN_ORIGIN}/assets/editor.worker.js`;
@@ -171,16 +182,22 @@ describe('startExtensionTrafficLifecycles', () => {
       initiator: OWN_ORIGIN,
       frameId: 0,
     };
-    feed([
-      { ...base, method_kind: 'onBeforeRequest', timeStamp: 35_000 },
-      { ...base, method_kind: 'onSendHeaders', timeStamp: 35_001, requestHeaders: [{ name: 'Accept', value: '*/*' }] },
-    ]);
+    feed([{ ...base, method_kind: 'onBeforeRequest', timeStamp: 35_000 }]);
 
     const terminals = applied.filter((u) => u.kind === 'phase' && u.patch.phase === 'completed');
     expect(terminals.map((u) => (u.kind === 'phase' ? u.tabId : -1)).sort()).toEqual([6, 8]);
     for (const terminal of terminals) {
       expect(terminal.kind === 'phase' && terminal.patch.statusCode).toBeUndefined();
-      expect(terminal.kind === 'phase' && terminal.patch.completedAtMs).toBe(35_001);
+      expect(terminal.kind === 'phase' && terminal.patch.completedAtMs).toBe(35_000);
+    }
+    // The mint precedes the synthesized terminal for each owner partition.
+    for (const tabId of [6, 8]) {
+      const mintAt = applied.findIndex((u) => u.kind === 'started' && u.lifecycle.tabId === tabId);
+      const floorAt = applied.findIndex(
+        (u) => u.kind === 'phase' && u.tabId === tabId && u.patch.phase === 'completed',
+      );
+      expect(mintAt).toBeGreaterThanOrEqual(0);
+      expect(mintAt).toBeLessThan(floorAt);
     }
   });
 
@@ -191,6 +208,73 @@ describe('startExtensionTrafficLifecycles', () => {
     feed([before, send]);
 
     expect(applied.some((u) => u.kind === 'phase' && u.patch.phase === 'completed')).toBe(false);
+  });
+
+  it('joins the devtools HAR entry to the plane row — sizes and bodies land on it', () => {
+    setCurrentTabs([extensionTab(14)]);
+    disposers.push(start().dispose);
+    feed(exchange('1013', 55_000));
+
+    feedHar({
+      kind: 'har-entry',
+      tabId: 14,
+      entry: {
+        startedDateTime: new Date(55_000).toISOString(),
+        time: 6,
+        _resourceType: 'fetch',
+        request: { method: 'POST', url: TELEMETRY_URL, headers: [], queryString: [] },
+        response: {
+          status: 202,
+          statusText: 'Accepted',
+          headers: [],
+          content: { size: 8, mimeType: 'text/plain' },
+          _transferSize: 456,
+        },
+      } as InspectorHarEntry,
+    });
+    // The exchange's terminal already emitted the partial-HAR synthesis for
+    // this hop; the devtools join lands after it and is authoritative.
+    const attached = applied.filter((u) => u.kind === 'har-attached').at(-1);
+    expect(attached?.kind === 'har-attached' && attached.requestId).toBe('1013');
+    expect(attached?.kind === 'har-attached' && attached.har.response?._transferSize).toBe(456);
+
+    feedHar({
+      kind: 'har-body',
+      tabId: 14,
+      body: {
+        method: 'POST',
+        url: TELEMETRY_URL,
+        startedDateTime: new Date(55_000).toISOString(),
+        content: 'accepted',
+        encoding: '',
+      },
+    });
+    const body = applied.find((u) => u.kind === 'body-attached');
+    expect(body?.kind === 'body-attached' && body.requestId).toBe('1013');
+  });
+
+  it('join-only posture: never mints rows from unmatched HAR entries', () => {
+    setCurrentTabs([extensionTab(15)]);
+    disposers.push(start().dispose);
+    feedHar({
+      kind: 'har-entry',
+      tabId: 15,
+      entry: {
+        startedDateTime: new Date(65_000).toISOString(),
+        time: 0,
+        _resourceType: 'image',
+        _fromCache: 'memory',
+        request: { method: 'GET', url: `${OWN_ORIGIN}/images/icon16.png`, headers: [], queryString: [] },
+        response: {
+          status: 200,
+          statusText: 'OK',
+          headers: [],
+          content: { size: 252, mimeType: 'image/png' },
+          _transferSize: 0,
+        },
+      } as InspectorHarEntry,
+    });
+    expect(applied).toEqual([]);
   });
 
   it('adopts a tab that navigates into the extension origin and releases one that leaves', () => {

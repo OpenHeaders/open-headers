@@ -34,6 +34,7 @@
 
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import {
+  type HarEvent,
   HeuristicCorrelator,
   type WebRequestEvent,
   type WebRequestEventSource,
@@ -44,6 +45,15 @@ import { logger } from '@utils/logger';
 export interface ExtensionTrafficLifecyclesOptions {
   /** The webRequest adapter's extension-traffic channel (own SW/offscreen fetches). */
   readonly subscribeExtensionTraffic: (listener: (event: WebRequestEvent) => void) => () => void;
+  /**
+   * The devtools HAR relay, tab-keyed to each inspected tab. On an
+   * extension-origin page the browser's DevTools auto-attaches the
+   * extension's own worker targets, so this feed DOES carry the SW's
+   * fetches — sizes, wire timings, and response bodies webRequest can't
+   * see. Consumed join-only: the tab's primary correlator shares the feed
+   * and owns every HAR-only mint.
+   */
+  readonly subscribeHar: (listener: (event: HarEvent) => void) => () => void;
   /** Intake of the one `RequestLifecycleStore` every correlator feeds. */
   readonly apply: (update: RequestLifecycleUpdate) => void;
 }
@@ -77,7 +87,15 @@ export function startExtensionTrafficLifecycles(
       };
     },
   };
-  const correlator = new HeuristicCorrelator({ webRequest: rekeySource, har: { subscribe: () => () => {} } });
+  const correlator = new HeuristicCorrelator({
+    webRequest: rekeySource,
+    // The devtools HAR feed is already tab-keyed, so no re-keying source is
+    // needed: the correlator's own attach-gate scopes it to owner tabs, and
+    // join-only posture leaves every HAR-only mint (memory-cache, expired
+    // failure) to the tab's primary correlator on the same feed.
+    har: { subscribe: options.subscribeHar },
+    harPosture: 'join-only',
+  });
   // Provenance: everything on this channel is issued by the extension's own
   // worker plane (SW / offscreen — tab-less by definition), so stamp the
   // additive `issuedByWorker` fact onto each `started` mint, exactly as the
@@ -98,14 +116,13 @@ export function startExtensionTrafficLifecycles(
       for (const listener of rekeyListeners) listener(rekeyed);
     }
     // Own-bundle terminal floor: a tab-less load of the extension's own
-    // packaged asset (a dedicated worker's main script) never crosses the
-    // network stack — Chromium delivers onBeforeRequest/onSendHeaders and
-    // then nothing, so the row would read "(pending)" forever. The browser's
-    // panel resolves these as a status-less "Finished"; mirror it by
-    // synthesizing the terminal at the send, status-less so the cell reads
-    // the same. A real completion arriving anyway refines in place
-    // (completed → completed is a legal same-rank patch).
-    if (event.method_kind === 'onSendHeaders' && isOwnUrl(event.url)) {
+    // packaged asset never crosses the network stack — Chromium delivers
+    // onBeforeRequest (and not reliably anything after), so the row would
+    // read "(pending)" forever. The browser's panel resolves these as a
+    // status-less "Finished"; mirror it by synthesizing the terminal right
+    // after the mint, status-less so the cell reads the same. Later events
+    // refine in place (completed → completed is a legal same-rank patch).
+    if (event.method_kind === 'onBeforeRequest' && isOwnUrl(event.url)) {
       for (const tabId of owners) {
         options.apply({
           kind: 'phase',

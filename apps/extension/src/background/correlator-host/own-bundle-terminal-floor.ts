@@ -3,8 +3,8 @@
  * `extension-traffic-lifecycles`.
  *
  * A load of the extension's own packaged asset never crosses the network
- * stack, so Chromium's webRequest delivers `onBeforeRequest`/`onSendHeaders`
- * and then goes silent — no headers-received, no completion, no error. On an
+ * stack, so Chromium's webRequest delivers `onBeforeRequest` and then goes
+ * silent — no headers-received, no completion, no error. On an
  * extension-origin page (workbench, panel rig) such loads DO carry the real
  * tabId (a dedicated worker's main script is the live case: Monaco's editor
  * and html workers), so they ride the ordinary tab-bound channel into the
@@ -13,7 +13,7 @@
  * `chrome.devtools.network`.
  *
  * The browser's own panel resolves these as a status-less "Finished"; mirror
- * it by synthesizing the terminal at the send, status-less so the cell reads
+ * it by synthesizing the terminal at the mint, status-less so the cell reads
  * the same. Page-issued bundle assets that the HAR join DOES see refine in
  * place afterwards (completed → completed with a status is a legal same-rank
  * patch), so flooring them too is convergent, not lossy.
@@ -42,7 +42,12 @@ export interface OwnBundleTerminalFloor {
 export function startOwnBundleTerminalFloor(options: OwnBundleTerminalFloorOptions): OwnBundleTerminalFloor {
   const ownUrlPrefix = runtime.getURL('');
   const unsubscribe = options.subscribe((event) => {
-    if (event.method_kind !== 'onSendHeaders') return;
+    // Floored at onBeforeRequest — the one event Chromium reliably delivers
+    // for a bundle load (live runs showed onSendHeaders absent for the
+    // worker-script family). The correlator's `started` lands first: it
+    // subscribed to this channel before the floor, so the mint precedes the
+    // patch within the same fan-out.
+    if (event.method_kind !== 'onBeforeRequest') return;
     if (!event.url.startsWith(ownUrlPrefix)) return;
     options.apply({
       kind: 'phase',

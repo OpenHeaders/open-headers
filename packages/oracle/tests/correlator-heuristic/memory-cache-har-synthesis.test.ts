@@ -216,3 +216,53 @@ describe('HeuristicCorrelator — memory-cache HAR-only synthesis', () => {
     correlator.dispose();
   });
 });
+
+describe('HeuristicCorrelator — join-only HAR posture', () => {
+  function setupJoinOnly() {
+    const webRequest = new TestWebRequestSource();
+    const har = new TestHarSource();
+    const correlator = new HeuristicCorrelator({ webRequest, har, harPosture: 'join-only' });
+    correlator.attachTab(TAB);
+    const updates: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => updates.push(u));
+    return { webRequest, har, correlator, updates };
+  }
+
+  it('drops memory-cache entries instead of minting — the primary correlator owns those', () => {
+    const { har, correlator, updates } = setupJoinOnly();
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: memoryCacheEntry() });
+    expect(updates).toHaveLength(0);
+    correlator.dispose();
+  });
+
+  it('never synthesizes from an expired failure-shaped entry', () => {
+    const { har, correlator, updates } = setupJoinOnly();
+    const base = memoryCacheEntry();
+    const { _fromCache: _drop, ...failureShaped } = {
+      ...base,
+      response: { ...base.response!, status: 0, _error: 'net::ERR_ABORTED' },
+    };
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: failureShaped });
+    correlator.gcTick(STARTED_AT_MS + 60_000);
+    expect(updates.some((u) => u.kind === 'started')).toBe(false);
+    correlator.dispose();
+  });
+
+  it('still joins entries to its own webRequest-minted rows', () => {
+    const { webRequest, har, correlator, updates } = setupJoinOnly();
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-join',
+      url: URL_A,
+      method: 'GET',
+      type: 'image',
+      timeStamp: STARTED_AT_MS + 500,
+    });
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: wireEntry() });
+    const attached = updates.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(1);
+    expect(attached[0]?.kind === 'har-attached' && attached[0].requestId).toBe('wr-join');
+    correlator.dispose();
+  });
+});

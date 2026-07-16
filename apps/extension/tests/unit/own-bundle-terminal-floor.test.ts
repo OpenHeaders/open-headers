@@ -2,7 +2,7 @@
  * `own-bundle-terminal-floor` — tab-bound loads of the extension's own
  * packaged assets never receive completion events from webRequest, so the
  * floor synthesizes the browser's status-less "Finished" terminal at
- * `onSendHeaders`. Network URLs and other extensions' resources pass
+ * `onBeforeRequest`. Network URLs and other extensions' resources pass
  * untouched — their own completion (or the CDP plane) resolves them.
  */
 
@@ -18,9 +18,9 @@ import { startOwnBundleTerminalFloor } from '@/background/correlator-host/own-bu
 
 const OWN_ORIGIN = 'chrome-extension://ohtestid';
 
-function sendHeaders(url: string, requestId: string, atMs: number): WebRequestEvent {
+function beforeRequest(url: string, requestId: string, atMs: number): WebRequestEvent {
   return {
-    method_kind: 'onSendHeaders',
+    method_kind: 'onBeforeRequest',
     tabId: 42,
     requestId,
     url,
@@ -29,7 +29,6 @@ function sendHeaders(url: string, requestId: string, atMs: number): WebRequestEv
     initiator: OWN_ORIGIN,
     frameId: 0,
     timeStamp: atMs,
-    requestHeaders: [{ name: 'Accept', value: '*/*' }],
   };
 }
 
@@ -50,9 +49,9 @@ describe('startOwnBundleTerminalFloor', () => {
     return { applied, feed, floor, listeners };
   }
 
-  it('floors an own-bundle load to a status-less terminal at onSendHeaders', () => {
+  it('floors an own-bundle load to a status-less terminal at onBeforeRequest', () => {
     const { applied, feed } = harness();
-    feed(sendHeaders(`${OWN_ORIGIN}/assets/editor.worker.js`, '501', 10_000));
+    feed(beforeRequest(`${OWN_ORIGIN}/assets/editor.worker.js`, '501', 10_000));
 
     expect(applied).toEqual([
       {
@@ -66,15 +65,15 @@ describe('startOwnBundleTerminalFloor', () => {
 
   it('ignores network URLs and other extensions', () => {
     const { applied, feed } = harness();
-    feed(sendHeaders('https://telemetry.openheaders.io/v1/events', '502', 20_000));
-    feed(sendHeaders('chrome-extension://otherextension/asset.js', '503', 20_001));
+    feed(beforeRequest('https://telemetry.openheaders.io/v1/events', '502', 20_000));
+    feed(beforeRequest('chrome-extension://otherextension/asset.js', '503', 20_001));
     expect(applied).toEqual([]);
   });
 
-  it('ignores non-send events for own-bundle URLs', () => {
+  it('ignores later events for own-bundle URLs — the floor fires once, at the mint', () => {
     const { applied, feed } = harness();
     feed({
-      method_kind: 'onBeforeRequest',
+      method_kind: 'onSendHeaders',
       tabId: 42,
       requestId: '504',
       url: `${OWN_ORIGIN}/assets/html.worker.js`,
@@ -83,6 +82,7 @@ describe('startOwnBundleTerminalFloor', () => {
       initiator: OWN_ORIGIN,
       frameId: 0,
       timeStamp: 30_000,
+      requestHeaders: [{ name: 'Accept', value: '*/*' }],
     });
     expect(applied).toEqual([]);
   });
@@ -91,7 +91,7 @@ describe('startOwnBundleTerminalFloor', () => {
     const { applied, feed, floor, listeners } = harness();
     floor.dispose();
     expect(listeners.size).toBe(0);
-    feed(sendHeaders(`${OWN_ORIGIN}/assets/editor.worker.js`, '505', 40_000));
+    feed(beforeRequest(`${OWN_ORIGIN}/assets/editor.worker.js`, '505', 40_000));
     expect(applied).toEqual([]);
   });
 });
