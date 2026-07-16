@@ -73,7 +73,7 @@ import RequestUrlBar from './RequestUrlBar';
 import { takeHandoffResponse } from './response-handoff';
 import { capturedResponseFromSnapshot } from '../response-example/example-draft';
 import ResponsePanel from './response/ResponsePanel';
-import { useLiveSendStream } from './useLiveSendStream';
+import { type SseStreamSession, useLiveSendStream } from './useLiveSendStream';
 import { useRequestEditorLayout } from './useRequestEditorLayout';
 import { useSectionUnresolved } from './useSectionUnresolved';
 import type { AutoSuggestionContextValue } from '../template-input';
@@ -179,7 +179,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // In-flight send id — mints per Send, backs the Stop button and tags
   // the live stream frames the response panel tails.
   const activeSendIdRef = useRef<string | null>(null);
-  const { live, beginStream, endStream } = useLiveSendStream();
+  const { live, beginStream, endStream, takeSseSession } = useLiveSendStream();
+  // Session-only SSE stream timing (event timestamps, connect/end
+  // instants) — retained past materialization for this editor's
+  // lifetime so the event list keeps its times after Stop/close; never
+  // persisted, so re-opened saved bodies render none.
+  const [sseSession, setSseSession] = useState<SseStreamSession | null>(null);
   // Edit-mode mounts check the handoff stash: a draft saved to a
   // collection swaps tabs (remounting this editor) and parks its last
   // response there so the response panel survives the save.
@@ -542,12 +547,18 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     // The resolving snapshot supersedes every frame.
     const sendId = crypto.randomUUID();
     activeSendIdRef.current = sendId;
+    setSseSession(null);
     beginStream(sendId);
     const snapshot = await execute({ draft: draftRequest, sendId });
     activeSendIdRef.current = null;
+    // Take the SSE session timing (null for non-SSE sends) before the
+    // stream state drops — the materialized event list joins its
+    // timestamps onto the snapshot parse.
+    const session = takeSseSession();
     endStream();
     setSending(false);
     setResponse(snapshot);
+    setSseSession(session === null ? null : { ...session, endedAt: Date.now() });
   }, [
     sending,
     summary,
@@ -556,6 +567,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     execute,
     beginStream,
     endStream,
+    takeSseSession,
     preferredCollectionId,
     preferredFolderPath,
     requestCollections,
@@ -810,6 +822,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                   response={response}
                   sending={sending}
                   live={live}
+                  sseSession={sseSession}
                   layout={layout}
                   onLayoutChange={setLayout}
                   onClear={() => setResponse(null)}

@@ -727,6 +727,43 @@ export class WorkbenchPage {
     return this.page.getByTestId('oh-response-streamed').filter({ visible: true });
   }
 
+  /** The SSE event-list surface — one list, both phases (live feed and
+   *  materialized snapshot). */
+  responseSseEventList(): Locator {
+    return this.page.getByTestId('oh-sse-event-list').filter({ visible: true });
+  }
+
+  /** The event list's rows, newest-first. */
+  responseSseEventRows(): Locator {
+    return this.responseSseEventList().getByTestId('oh-sse-event-row');
+  }
+
+  /** The list's ended lifecycle row (closed / stopped / capped …). */
+  responseSseLifecycleRow(): Locator {
+    return this.responseSseEventList().getByTestId('oh-sse-lifecycle-row');
+  }
+
+  /** The list's connected lifecycle row — always at the bottom. */
+  responseSseConnectedRow(): Locator {
+    return this.responseSseEventList().getByTestId('oh-sse-connected-row');
+  }
+
+  /** Per-event session timestamps — rendered only when the events
+   *  streamed in live this editor session. */
+  responseSseEventTimes(): Locator {
+    return this.responseSseEventList().getByTestId('oh-sse-event-time');
+  }
+
+  /** The event list's stream-level search input. */
+  responseSseSearch(): Locator {
+    return this.responseSseEventList().getByTestId('oh-sse-search');
+  }
+
+  /** An expanded row's mini viewer (Monaco over the event payload). */
+  responseSseEventViewer(): Locator {
+    return this.responseSseEventList().getByTestId('oh-sse-event-viewer');
+  }
+
   /** Text of the response Body view picker — the language the viewer
    *  detected from the Content-Type (or the active encoding view). */
   async responseViewPickerLabel(): Promise<string> {

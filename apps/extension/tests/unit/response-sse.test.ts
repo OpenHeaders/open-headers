@@ -11,8 +11,10 @@
 import { isJsonNumber, JsonNumber } from '@openheaders/ui/workbench/components/request-editor/response/lossless-json';
 import {
   isSseResponse,
+  parseSseEventItems,
   parseSseEvents,
   prettySseBody,
+  sliceCompleteSseBlocks,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-sse';
 import { describe, expect, it } from 'vitest';
 
@@ -145,6 +147,87 @@ describe('parseSseEvents — wire grammar', () => {
   it('returns null when the body yields no blocks', () => {
     expect(parseSseEvents('')).toBeNull();
     expect(parseSseEvents('\n\n\n')).toBeNull();
+  });
+});
+
+describe('parseSseEventItems — the event list feed', () => {
+  it("carries each block's wire lines as raw, records matching parseSseEvents", () => {
+    const items = parseSseEventItems(PROBE_BODY);
+    const records = parseSseEvents(PROBE_BODY);
+    expect(items?.items.map((i) => i.record)).toEqual(records?.value);
+    expect(items?.duplicateKeys).toEqual(records?.duplicateKeys);
+    expect(items?.items[0].raw).toBe(': openheaders playground sse probe\nretry: 15000');
+    expect(items?.items[1].raw).toBe('id: 1\nevent: tick\ndata: {"seq":1,"resourceVersion":9007199254740993}');
+    expect(items?.items[4].raw).toBe(': heartbeat');
+  });
+
+  it('normalizes CRLF line endings in raw without touching the wire body', () => {
+    const body = 'event: a\r\ndata: 1\r\n\r\n';
+    const items = parseSseEventItems(body);
+    expect(items?.items[0].raw).toBe('event: a\ndata: 1');
+    expect(body).toBe('event: a\r\ndata: 1\r\n\r\n');
+  });
+
+  it('returns null when the body yields no blocks', () => {
+    expect(parseSseEventItems('')).toBeNull();
+    expect(parseSseEventItems('\n\n')).toBeNull();
+  });
+});
+
+describe("sliceCompleteSseBlocks — the live phase's incremental splitter", () => {
+  it('keeps a boundary-free buffer whole in rest', () => {
+    expect(sliceCompleteSseBlocks('event: tick\ndata: {"seq":')).toEqual({
+      complete: '',
+      rest: 'event: tick\ndata: {"seq":',
+    });
+  });
+
+  it('splits after the LAST complete blank-line boundary', () => {
+    expect(sliceCompleteSseBlocks('data: 1\n\ndata: 2\n\ndata: 3\ndata:')).toEqual({
+      complete: 'data: 1\n\ndata: 2\n\n',
+      rest: 'data: 3\ndata:',
+    });
+  });
+
+  it('an exact-boundary buffer leaves an empty rest', () => {
+    expect(sliceCompleteSseBlocks('data: 1\n\n')).toEqual({ complete: 'data: 1\n\n', rest: '' });
+  });
+
+  it('holds back a trailing \\r — the next chunk may complete a CRLF pair', () => {
+    const { complete, rest } = sliceCompleteSseBlocks('data: 1\r\n\r');
+    expect(complete).toBe('');
+    expect(rest).toBe('data: 1\r\n\r');
+  });
+
+  it('recognizes CRLF blank lines once both bytes arrived', () => {
+    expect(sliceCompleteSseBlocks('data: 1\r\n\r\ndata: 2')).toEqual({
+      complete: 'data: 1\r\n\r\n',
+      rest: 'data: 2',
+    });
+  });
+
+  it('treats multiple consecutive blank lines as one consumed boundary run', () => {
+    expect(sliceCompleteSseBlocks('data: 1\n\n\n\ndata: 2')).toEqual({
+      complete: 'data: 1\n\n\n\n',
+      rest: 'data: 2',
+    });
+  });
+
+  it('incremental parses over arbitrary chunk cuts equal the whole-body parse', () => {
+    const whole = parseSseEventItems(PROBE_BODY);
+    for (const cut of [1, 7, 13, 29, 64, PROBE_BODY.length - 3]) {
+      const items: unknown[] = [];
+      let carry = '';
+      for (const chunk of [PROBE_BODY.slice(0, cut), PROBE_BODY.slice(cut)]) {
+        const { complete, rest } = sliceCompleteSseBlocks(carry + chunk);
+        carry = rest;
+        const parsed = complete === '' ? null : parseSseEventItems(complete);
+        if (parsed) items.push(...parsed.items);
+      }
+      const tail = carry === '' ? null : parseSseEventItems(carry);
+      if (tail) items.push(...tail.items);
+      expect(items).toEqual(whole?.items);
+    }
   });
 });
 

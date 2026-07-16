@@ -211,40 +211,55 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(filtered).not.toContain('oh_build_info');
   });
 
-  test('SSE parses event-wise: Pretty re-indents JSON data, the tree lists event records', async () => {
+  test('SSE lands on the event list: rows newest-first, expansion lossless, search narrows', async () => {
     await sendProbe('sse');
-    // The body stays TEXT (picker law) — the event-wise treatment is a
-    // view, never a reclassification.
+    // The body stays TEXT (picker law) — the event list is a view,
+    // never a reclassification — and it is the LANDING view (Preview
+    // holds the toggle), so a streamed send's Stop never switches.
     expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
+    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    const list = workbench.responseSseEventList();
+    await list.waitFor({ state: 'visible', timeout: 15000 });
+
+    // One row per wire block, newest-first: the bare-data closer tops
+    // the list, the named events and the heartbeat comment all show.
+    const rows = workbench.responseSseEventRows();
+    await expect(rows).toHaveCount(6);
+    await expect(rows.first()).toContainText('joined after an empty data line');
+    await expect(list).toContainText('tick');
+    await expect(list).toContainText('config');
+    await expect(list).toContainText('heartbeat');
+    // Lifecycle rows derive, never invented: connected at the bottom,
+    // the completed capture's closed row on top. A saved-body reopen
+    // renders no per-event times (session-only law).
+    await expect(workbench.responseSseConnectedRow()).toContainText('Connected to');
+    await expect(workbench.responseSseLifecycleRow()).toContainText('Connection closed');
+
+    // Row expansion: the mini viewer prints the JSON payload lossless
+    // (F3 law — int64 verbatim).
+    await rows.filter({ hasText: 'tick' }).first().click();
+    const viewer = workbench.responseSseEventViewer();
+    await viewer.waitFor({ state: 'visible', timeout: 15000 });
+    await expect(viewer).toContainText('9007199254740993');
+
+    // Stream-level search narrows the rows, display-only.
+    await workbench.responseSseSearch().fill('sse-probe');
+    await expect(workbench.responseSseEventRows()).toHaveCount(1);
+    await workbench.responseSseSearch().fill('');
+
+    // JSONPath still narrows over the record list, lossless in the
+    // result (the filter opens the Pretty pane).
+    await workbench.filterResponseBody('$..resourceVersion');
+    await expect.poll(() => workbench.responsePrettyText(), { timeout: 15000 }).toContain('9007199254740993');
+  });
+
+  test('SSE Raw stays the wire verbatim behind the event list', async () => {
+    await sendProbe('sse');
     // Raw is the wire verbatim — framing, comments, split data lines.
     const raw = await workbench.responseRawBody();
     expect(raw).toContain(': openheaders playground sse probe');
     expect(raw).toContain('data: {"seq":1,"resourceVersion":9007199254740993}');
     expect(raw).toContain('data:   "kind": "sse-probe",');
-
-    // The parsed event records ride the JSON tree preview: named
-    // events, joined multi-line data, the heartbeat comment, and int64
-    // data tokens verbatim (F3 law). Record rows start collapsed —
-    // expand what each assertion reads.
-    expect(await workbench.responsePreviewToggle().count()).toBe(1);
-    await workbench.responsePreviewToggle().click();
-    const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
-    await tree.getByRole('button', { name: /^1\b/ }).click();
-    await tree.getByRole('button', { name: /^data\b/ }).click();
-    await tree.getByRole('button', { name: /^2\b/ }).click();
-    await tree.getByRole('button', { name: /^4\b/ }).click();
-    const text = await tree.innerText();
-    expect(text).toContain('tick');
-    expect(text).toContain('9007199254740993');
-    expect(text).toContain('heartbeat');
-    expect(text).toContain('x-trace');
-
-    // JSONPath narrows over the record list, lossless in the result.
-    await workbench.filterResponseBody('$..resourceVersion');
-    await expect
-      .poll(() => workbench.responsePrettyText(), { timeout: 15000 })
-      .toContain('9007199254740993');
   });
 
   test('ANSI log renders SGR colors in Raw; the toggle falls back to plain text', async () => {
@@ -380,26 +395,37 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
 });
 
 test.describe('Response viewer — streaming sends (UI)', () => {
-  test('a live SSE send morphs Send into Stop, tails the body, and Stop materializes a partial snapshot', async () => {
+  test('a live SSE send feeds the event list, and Stop keeps the SAME list over the snapshot', async () => {
     await workbench.openRequest(seededUids.get('sse-stream')!);
     await workbench.send();
     // Send morphs into Stop for every in-flight send (S8 law 5).
     await workbench.requestStopButton().waitFor({ state: 'visible', timeout: 15000 });
-    // The live phase: the head status paints as soon as it arrives,
-    // and the tail appends flush-batched body text mid-stream.
+    // The live phase: the head status paints as soon as it arrives and
+    // the SSE head lights the event LIST (not a text tail) — rows land
+    // newest-first with session timestamps and the connected row below.
     await workbench.responseLiveTail().waitFor({ state: 'visible', timeout: 15000 });
     await expect(workbench.responseLiveStatus()).toContainText('200');
-    await expect(workbench.responseLiveTail()).toContainText('data: {"seq":1}', { timeout: 15000 });
+    const liveList = workbench.responseSseEventList();
+    await liveList.waitFor({ state: 'visible', timeout: 15000 });
+    await expect(liveList).toContainText('"seq": 1', { timeout: 15000 });
+    await expect(workbench.responseSseConnectedRow()).toContainText('Connected to');
+    expect(await workbench.responseSseEventTimes().count()).toBeGreaterThan(0);
 
     // Stop-and-snapshot: the partial body materializes as a normal
-    // response (NOT truncation, NOT an error) with the streamed tag.
+    // response (NOT truncation, NOT an error) with the streamed tag —
+    // and the SAME event list renders over the snapshot: the stopped
+    // lifecycle row appends on top, session timestamps retained.
     await workbench.requestStopButton().click();
     expect(await workbench.responseStatusText()).toContain('200');
     await expect(workbench.responseStreamedTag()).toBeVisible();
-    // The stopped capture still rides the event-wise format plane
-    // (assert the picker BEFORE reading Raw — that switches the view).
     expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
-    expect(await workbench.responsePreviewToggle().count()).toBe(1);
+    const list = workbench.responseSseEventList();
+    await list.waitFor({ state: 'visible', timeout: 15000 });
+    await expect(list).toContainText('"seq": 1');
+    await expect(workbench.responseSseLifecycleRow()).toContainText('Connection stopped');
+    expect(await workbench.responseSseEventTimes().count()).toBeGreaterThan(0);
+
+    // Raw stays the wire verbatim behind the list.
     const raw = await workbench.responseRawBody();
     expect(raw).toContain(': oh-playground sse stream');
     expect(raw).toContain('data: {"seq":1}');

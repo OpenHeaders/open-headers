@@ -29,7 +29,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
-import type { LiveSendStream } from '../useLiveSendStream';
+import type { LiveSendStream, SseStreamSession } from '../useLiveSendStream';
 import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
 import ResponseConsoleView from './ResponseConsoleView';
@@ -121,6 +121,13 @@ interface ResponsePanelProps {
    * over when the send settles.
    */
   live?: LiveSendStream | null;
+  /**
+   * Session-only SSE stream timing retained by the editor after a live
+   * send settles — the event list joins its timestamps onto the
+   * materialized snapshot. Absent for non-SSE sends and re-opened
+   * saved bodies.
+   */
+  sseSession?: SseStreamSession | null;
   /** Current split orientation — drives the active state of the toggle. */
   layout: RequestEditorLayout;
   /** Flip the request/response split orientation. */
@@ -153,6 +160,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   response,
   sending,
   live,
+  sseSession,
   layout,
   onLayoutChange,
   onClear,
@@ -342,7 +350,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             {
               key: 'body',
               label: t('workbench.editors.request.response.tab.body'),
-              children: <ResponseBodyView response={response} />,
+              children: <ResponseBodyView response={response} sseSession={sseSession} />,
             },
             {
               key: 'headers',

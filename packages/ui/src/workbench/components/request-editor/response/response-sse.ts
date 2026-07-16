@@ -1,9 +1,10 @@
 /**
  * Server-Sent Events (text/event-stream) — the event-wise format plane:
- * detection, a block parser feeding the JSON tree preview / JSONPath
- * filter, and an event-wise Pretty. Pure display over ANY snapshot
- * (streamed or saved) — capture bytes are never touched; Raw stays the
- * wire text verbatim.
+ * detection, a block parser feeding the event list / JSONPath filter
+ * (plus the incremental splitter the live phase rides), and an
+ * event-wise Pretty. Pure display over ANY snapshot (streamed or
+ * saved) — capture bytes are never touched; Raw stays the wire text
+ * verbatim.
  *
  * Parsing follows the wire grammar (blank-line-delimited blocks; a
  * field is `name: value` with one leading space stripped, a line
@@ -40,6 +41,21 @@ export interface SseParseOutcome {
   duplicateKeys: string[];
 }
 
+/** One wire event block for the event-list surface: the display record
+ *  plus the block's own wire lines (joined `\n` — line endings
+ *  normalize in the join; the wire body itself is never touched). The
+ *  raw text is the mini viewer's verbatim fallback and the event
+ *  search's haystack. */
+export interface SseEventItem {
+  record: SseEventRecord;
+  raw: string;
+}
+
+export interface SseParseItemsOutcome {
+  items: SseEventItem[];
+  duplicateKeys: string[];
+}
+
 /** Accumulated state of one event block between blank lines. */
 interface SseBlock {
   event?: string;
@@ -49,9 +65,11 @@ interface SseBlock {
   /** Unknown field name → values in arrival order (joined `\n`). */
   unknown: Array<[string, string[]]>;
   comments: string[];
+  /** The block's wire lines verbatim, in arrival order. */
+  rawLines: string[];
 }
 
-const emptyBlock = (): SseBlock => ({ dataParts: null, unknown: [], comments: [] });
+const emptyBlock = (): SseBlock => ({ dataParts: null, unknown: [], comments: [], rawLines: [] });
 
 const blockHasContent = (block: SseBlock): boolean =>
   block.event !== undefined ||
@@ -99,16 +117,20 @@ function sseLines(body: string): string[] {
 }
 
 /**
- * Parse an event-stream body into display records, one per wire block.
- * `null` when the body yields no blocks at all (nothing to preview —
- * the text views stand). One linear pass; callers memoize per body.
+ * Parse an event-stream body into event items, one per wire block —
+ * the display record plus the block's raw wire text (the event list's
+ * feed). `null` when the body yields no blocks at all (nothing to
+ * preview — the text views stand). One linear pass; callers memoize
+ * per body.
  */
-export function parseSseEvents(body: string): SseParseOutcome | null {
-  const records: SseEventRecord[] = [];
+export function parseSseEventItems(body: string): SseParseItemsOutcome | null {
+  const items: SseEventItem[] = [];
   const duplicateKeys: string[] = [];
   let block = emptyBlock();
   const flush = () => {
-    if (blockHasContent(block)) records.push(recordFromBlock(block, duplicateKeys));
+    if (blockHasContent(block)) {
+      items.push({ record: recordFromBlock(block, duplicateKeys), raw: block.rawLines.join('\n') });
+    }
     block = emptyBlock();
   };
   for (const line of sseLines(body)) {
@@ -116,6 +138,7 @@ export function parseSseEvents(body: string): SseParseOutcome | null {
       flush();
       continue;
     }
+    block.rawLines.push(line);
     if (line.startsWith(':')) {
       block.comments.push(fieldValue(line.slice(1)));
       continue;
@@ -141,7 +164,46 @@ export function parseSseEvents(body: string): SseParseOutcome | null {
   // A capture cut before the block's blank line (a stopped stream)
   // still shows what arrived.
   flush();
-  return records.length === 0 ? null : { value: records, duplicateKeys };
+  return items.length === 0 ? null : { items, duplicateKeys };
+}
+
+/**
+ * Parse an event-stream body into display records, one per wire block —
+ * the tree preview / JSONPath filter shape, derived from the item
+ * parse. `null` when the body yields no blocks at all.
+ */
+export function parseSseEvents(body: string): SseParseOutcome | null {
+  const outcome = parseSseEventItems(body);
+  if (outcome === null) return null;
+  return { value: outcome.items.map((item) => item.record), duplicateKeys: outcome.duplicateKeys };
+}
+
+/**
+ * Split a live capture buffer at its LAST complete block boundary (the
+ * end of a blank line) — the incremental feed for the live event list:
+ * `complete` parses now (whole blocks only), `rest` carries into the
+ * next flush. Splitting only at boundaries keeps the incremental parse
+ * byte-identical to a whole-body parse of the materialized snapshot,
+ * so the positional timestamp join holds. Total work over a stream's
+ * life stays linear — each byte is scanned here once per flush window
+ * it sits in the carry, and parsed exactly once.
+ */
+export function sliceCompleteSseBlocks(buffer: string): { complete: string; rest: string } {
+  // Hold back a trailing '\r': the next chunk may open with '\n',
+  // completing a CRLF pair that must not be split into two terminators.
+  const scan = buffer.endsWith('\r') ? buffer.slice(0, -1) : buffer;
+  let lineStart = 0;
+  let cut = 0;
+  const terminator = /\r\n|\r|\n/g;
+  let match = terminator.exec(scan);
+  while (match !== null) {
+    // A terminator right where the line started = an empty line = a
+    // block boundary; the split point is just past it.
+    if (match.index === lineStart) cut = terminator.lastIndex;
+    lineStart = terminator.lastIndex;
+    match = terminator.exec(scan);
+  }
+  return { complete: buffer.slice(0, cut), rest: buffer.slice(cut) };
 }
 
 /** One block's lines as Pretty walks them — data lines keep both their

@@ -90,7 +90,9 @@ import {
   parseMetricsBody,
   suggestMetricsCompletions,
 } from './response-metrics-filter';
-import { isSseResponse, parseSseEvents, prettySseBody } from './response-sse';
+import type { SseStreamSession } from '../useLiveSendStream';
+import ResponseSseEventList from './ResponseSseEventList';
+import { isSseResponse, parseSseEventItems, prettySseBody } from './response-sse';
 import { useFormattedBody } from './use-formatted-body';
 
 const { Text } = Typography;
@@ -149,10 +151,21 @@ function initialMode(response: ExecutedRequestSnapshot): ViewMode {
   // bytes decode as — Hex is the base view; the decoded tree is a
   // Preview on top.
   if (binaryDecodeKind(response.headers) !== null) return 'hex';
-  return response.bodyEncoding === 'base64' ? 'hex' : 'pretty';
+  if (response.bodyEncoding === 'base64') return 'hex';
+  // SSE lands on the event list — the same surface the live phase
+  // showed, so a Stop/close never switches views. An empty body falls
+  // back to Pretty via the no-preview effect below.
+  if (isSseResponse(response.headers)) return 'preview';
+  return 'pretty';
 }
 
-const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
+const ResponseBodyView: React.FC<{
+  response: ExecutedRequestSnapshot;
+  /** Session-only SSE stream timing (event timestamps, connect/end
+   *  instants) retained by the editor after a live send settles —
+   *  absent for re-opened saved bodies, which render no times. */
+  sseSession?: SseStreamSession | null;
+}> = ({ response, sseSession }) => {
   const { token } = theme.useToken();
   const t = useT();
   const openSettings = useOpenSettings();
@@ -226,6 +239,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // snapshot, streamed or saved); the body stays TEXT — an override to
   // another language exits the treatment.
   const sseView = !isBinary && language === 'text' && isSseResponse(response.headers);
+  // Parsed event items — the event-list Preview's feed and the source
+  // the tree records / JSONPath filter derive from. One parse, memoized
+  // per body.
+  const sseItems = useMemo(() => (sseView ? parseSseEventItems(response.body) : null), [sseView, response.body]);
   // JSON re-indents synchronously (newline-delimited JSON line-wise,
   // each record its own block; SSE bodies event-wise); markup/code
   // languages swap in the Prettier result when it resolves (wire text
@@ -253,9 +270,13 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // leaves, and duplicate object keys are reported (last value wins,
   // like JSON.parse — the notice below says so).
   const parsed = useMemo<LosslessParseResult | undefined>(() => {
-    // SSE bodies parse event-wise into display records — the tree and
-    // JSONPath filter see the event list, like the ndjson record list.
-    if (sseView) return parseSseEvents(response.body) ?? undefined;
+    // SSE bodies parse event-wise into display records — the JSONPath
+    // filter sees the event record list, like the ndjson record list.
+    if (sseView) {
+      return sseItems === null
+        ? undefined
+        : { value: sseItems.items.map((item) => item.record), duplicateKeys: sseItems.duplicateKeys };
+    }
     if (isBinary || language !== 'json') return undefined;
     if (ndjsonView) {
       const lines = ndjsonRecordLines(response.body);
@@ -292,14 +313,14 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     // says the view is incomplete.
     if (partialCapture) return parseLosslessJsonPrefix(response.body) ?? undefined;
     return undefined;
-  }, [response.body, partialCapture, language, isBinary, ndjsonView, sseView]);
+  }, [response.body, partialCapture, language, isBinary, ndjsonView, sseView, sseItems]);
   const parsedJson = parsed?.value;
 
   // Media previews come from the Content-Type (they name a RENDERER,
   // not the body's textness) and sit above the binary gate so a raster
   // image still previews; a decoded CBOR/MessagePack body rides the
   // JSON tree the same way; html/json previews need parseable text.
-  const previewKind: 'pdf' | 'image' | 'media' | 'html' | 'json' | null = isPdf
+  const previewKind: 'pdf' | 'image' | 'media' | 'html' | 'json' | 'sse' | null = isPdf
     ? 'pdf'
     : mediaKind === 'image'
       ? 'image'
@@ -309,11 +330,13 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           ? 'json'
           : isBinary
             ? null
-            : language === 'html'
-              ? 'html'
-              : parsedJson !== undefined
-                ? 'json'
-                : null;
+            : sseView && sseItems !== null
+              ? 'sse'
+              : language === 'html'
+                ? 'html'
+                : parsedJson !== undefined
+                  ? 'json'
+                  : null;
 
   // A language override can take Preview away while it's the active
   // mode (e.g. HTML body overridden to Text) — fall back to the body's
@@ -910,6 +933,25 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           bytes={previewBytes}
           mimeType={contentTypeOf(response.headers).split(';')[0].trim()}
           kind={mediaKind === 'audio' ? 'audio' : 'video'}
+        />
+      )}
+      {mode === 'preview' && previewKind === 'sse' && sseItems !== null && (
+        // The event-list surface — the same list the live phase showed,
+        // now fed from the snapshot parse. Timestamps join positionally
+        // from the retained session (same parser, same bytes); the
+        // ended lifecycle row derives from streamedCapture, with the
+        // byte cap as the only end a buffered capture can attest.
+        <ResponseSseEventList
+          items={sseItems.items}
+          count={sseItems.items.length}
+          timestamps={sseSession?.eventTimestamps}
+          lifecycle={{
+            url: response.url,
+            connectedAt: sseSession?.connectedAt,
+            endedBy: response.streamedCapture?.endedBy ?? (response.bodyTruncated ? 'cap' : 'end'),
+            endedAt: sseSession?.endedAt,
+            endedMessage: response.streamedCapture?.message,
+          }}
         />
       )}
       {mode === 'preview' && previewKind === 'json' && (

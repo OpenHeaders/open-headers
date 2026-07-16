@@ -1,9 +1,12 @@
 /**
  * ResponseLiveTail — the response panel's live phase for a streaming
- * send: the head (status) as soon as it arrives plus a tail of the body
- * received so far, appended live until the user stops the send or the
- * stream ends (at which point the materialized snapshot takes over and
- * the full format plane engages).
+ * send: the head (status) as soon as it arrives plus the body received
+ * so far, updated live until the user stops the send or the stream
+ * ends (at which point the materialized snapshot takes over and the
+ * full format plane engages). SSE sends (the head declared
+ * `text/event-stream`) render the event LIST here instead of the text
+ * tail — the same surface the materialized snapshot shows, so
+ * Stop/close never switches views.
  *
  * Perf laws honored: the tail is ONE text node inside a plain <pre> —
  * no per-line spans, no grammar, no parsing — and the hook feeding it
@@ -18,6 +21,7 @@ import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { LiveSendStream } from '../useLiveSendStream';
+import ResponseSseEventList from './ResponseSseEventList';
 import { formatBytes } from './response-format';
 
 const { Text } = Typography;
@@ -82,28 +86,42 @@ const ResponseLiveTail: React.FC<ResponseLiveTailProps> = ({ live }) => {
           {t('workbench.editors.request.response.streamReceiving', { size: formatBytes(live.totalBytes) })}
         </Text>
       </div>
-      <div
-        ref={scrollerRef}
-        className="rules-thin-scrollbar"
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK_PX;
-        }}
-        style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', padding: '8px 16px' }}
-      >
-        <pre
-          style={{
-            margin: 0,
-            fontFamily: "'SF Mono', Consolas, monospace",
-            fontSize: 11,
-            lineHeight: 1.5,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
+      {live.sse !== null && live.head !== null ? (
+        // SSE: the event list, newest-first — new rows land at the top,
+        // so no scroll-follow is needed. Timestamps mint at frame
+        // arrival; the connected row derives from the head.
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 16px' }}>
+          <ResponseSseEventList
+            items={live.sse.items}
+            count={live.sse.count}
+            timestamps={live.sse.timestamps}
+            lifecycle={{ url: live.head.url, connectedAt: live.sse.connectedAt }}
+          />
+        </div>
+      ) : (
+        <div
+          ref={scrollerRef}
+          className="rules-thin-scrollbar"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK_PX;
           }}
+          style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', padding: '8px 16px' }}
         >
-          {live.tailText}
-        </pre>
-      </div>
+          <pre
+            style={{
+              margin: 0,
+              fontFamily: "'SF Mono', Consolas, monospace",
+              fontSize: 11,
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {live.tailText}
+          </pre>
+        </div>
+      )}
     </div>
   );
 };
