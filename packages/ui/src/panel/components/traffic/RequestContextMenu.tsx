@@ -14,7 +14,7 @@
  * where the clipboard API is gated.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { handOffApiRequestSeed } from '../../data/api-request-handoff';
 import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { formatCurl, formatFetch, formatRequestHeaders, formatResponseHeaders } from '../../data/request-formatters';
@@ -57,6 +57,43 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
+/**
+ * Hover-opened submenu row. The flyout reuses the scrollable context-menu
+ * pattern (the column-visibility menu's outer scrollhost + inner scroll
+ * region): its height is capped to the viewport room below the row,
+ * measured at open — the `100vh` term keeps the cap live across DevTools
+ * window resizes — so a long list (Copy) grows an inner scrollbar instead
+ * of running off-screen. The submenu opens 4px above the row (see
+ * `.dt-ctx-submenu`), hence the offset in the cap.
+ */
+function SubmenuRow({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [top, setTop] = useState(0);
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover submenu
+    <div
+      className="dt-ctx-item dt-ctx-sub"
+      onMouseEnter={(e) => {
+        setTop(e.currentTarget.getBoundingClientRect().top);
+        setOpen(true);
+      }}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {label} {'▸'}
+      {open && (
+        <div className="dt-ctx-menu dt-ctx-submenu dt-ctx-menu--scrollhost">
+          <div
+            className="dt-ctx-menu-scroll"
+            style={{ maxHeight: `calc(100vh - ${top - 4}px - 8px)`, overflowY: 'auto', overscrollBehavior: 'none' }}
+          >
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 async function blockRequest(url: string, scope: 'url' | 'domain'): Promise<void> {
   let pattern = url;
   if (scope === 'domain') {
@@ -84,9 +121,6 @@ export function RequestContextMenu({
   onCopyAllAsHar,
 }: RequestContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [copyOpen, setCopyOpen] = useState(false);
-  const [blockOpen, setBlockOpen] = useState(false);
-  const [saveOpen, setSaveOpen] = useState(false);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -135,65 +169,32 @@ export function RequestContextMenu({
       {item('Open in new tab', openInNewTab)}
       {item('Create API request', () => handOffApiRequestSeed(lc))}
       <div className="dt-ctx-sep" />
-      {/* Copy submenu */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}
-      <div
-        className="dt-ctx-item dt-ctx-sub"
-        onMouseEnter={() => setCopyOpen(true)}
-        onMouseLeave={() => setCopyOpen(false)}
-      >
-        Copy {'▸'}
-        {copyOpen && (
-          <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Copy URL', () => copyText(lc.url))}
-            {item('Copy as cURL', () => copyText(formatCurl(lc)))}
-            {item('Copy as fetch', () => copyText(formatFetch(lc)))}
-            {item('Copy request headers', () => copyText(formatRequestHeaders(lc)))}
-            {item('Copy response headers', () => copyText(formatResponseHeaders(lc)))}
-            {item('Copy response', () => copyText(responseBody), responseBody.length === 0)}
-            {item('Copy as HAR', () => onCopyAsHar(row, false))}
-            {item('Copy as HAR (sanitized)', () => onCopyAsHar(row, true))}
-            <div className="dt-ctx-sep" />
-            {item('Copy all URLs', () => copyText(allUrls), allRows.length === 0)}
-            {item('Copy all as cURL', () => copyText(allCurls), allRows.length === 0)}
-            {item('Copy all as HAR', () => onCopyAllAsHar(false), allRows.length === 0)}
-            {item('Copy all as HAR (sanitized)', () => onCopyAllAsHar(true), allRows.length === 0)}
-          </div>
-        )}
-      </div>
-      {/* Block requests submenu */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}
-      <div
-        className="dt-ctx-item dt-ctx-sub"
-        onMouseEnter={() => setBlockOpen(true)}
-        onMouseLeave={() => setBlockOpen(false)}
-      >
-        Block requests {'▸'}
-        {blockOpen && (
-          <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Block request URL', () => blockRequest(lc.url, 'url'))}
-            {item('Block request domain', () => blockRequest(lc.url, 'domain'))}
-          </div>
-        )}
-      </div>
+      <SubmenuRow label="Copy">
+        {item('Copy URL', () => copyText(lc.url))}
+        {item('Copy as cURL', () => copyText(formatCurl(lc)))}
+        {item('Copy as fetch', () => copyText(formatFetch(lc)))}
+        {item('Copy request headers', () => copyText(formatRequestHeaders(lc)))}
+        {item('Copy response headers', () => copyText(formatResponseHeaders(lc)))}
+        {item('Copy response', () => copyText(responseBody), responseBody.length === 0)}
+        {item('Copy as HAR', () => onCopyAsHar(row, false))}
+        {item('Copy as HAR (sanitized)', () => onCopyAsHar(row, true))}
+        <div className="dt-ctx-sep" />
+        {item('Copy all URLs', () => copyText(allUrls), allRows.length === 0)}
+        {item('Copy all as cURL', () => copyText(allCurls), allRows.length === 0)}
+        {item('Copy all as HAR', () => onCopyAllAsHar(false), allRows.length === 0)}
+        {item('Copy all as HAR (sanitized)', () => onCopyAllAsHar(true), allRows.length === 0)}
+      </SubmenuRow>
+      <SubmenuRow label="Block requests">
+        {item('Block request URL', () => blockRequest(lc.url, 'url'))}
+        {item('Block request domain', () => blockRequest(lc.url, 'domain'))}
+      </SubmenuRow>
       <div className="dt-ctx-sep" />
-      {/* Save as submenu */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}
-      <div
-        className="dt-ctx-item dt-ctx-sub"
-        onMouseEnter={() => setSaveOpen(true)}
-        onMouseLeave={() => setSaveOpen(false)}
-      >
-        Save as... {'▸'}
-        {saveOpen && (
-          <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Save this as HAR', () => onSaveAsHar(row, false))}
-            {item('Save this as HAR (sanitized)', () => onSaveAsHar(row, true))}
-            {item('Save all as HAR', () => onSaveAllAsHar(false), allRows.length === 0)}
-            {item('Save all as HAR (sanitized)', () => onSaveAllAsHar(true), allRows.length === 0)}
-          </div>
-        )}
-      </div>
+      <SubmenuRow label="Save as...">
+        {item('Save this as HAR', () => onSaveAsHar(row, false))}
+        {item('Save this as HAR (sanitized)', () => onSaveAsHar(row, true))}
+        {item('Save all as HAR', () => onSaveAllAsHar(false), allRows.length === 0)}
+        {item('Save all as HAR (sanitized)', () => onSaveAllAsHar(true), allRows.length === 0)}
+      </SubmenuRow>
     </div>
   );
 }
