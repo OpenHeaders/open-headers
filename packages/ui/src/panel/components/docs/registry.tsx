@@ -15,12 +15,12 @@ import { FilterSyntaxSection } from './sections/filter-syntax';
 
 const FILTER_SYNTAX_GROUP: DocGroup = {
   id: 'panel-filter',
-  label: 'Panel',
+  labelKey: 'panel.docs.nav.group.panel',
   sections: [
     {
       id: 'filter-syntax',
-      title: 'Filter Syntax',
-      summary: 'Text tokens, property filters, and the match toggles — every card filters one shared example capture.',
+      titleKey: 'panel.docs.nav.filterSyntax.title',
+      summaryKey: 'panel.docs.nav.filterSyntax.summary',
       group: 'panel-filter',
       icon: <FilterOutlined />,
       Component: FilterSyntaxSection,

@@ -2,7 +2,8 @@
  * DevTools panel — toolbar / status-bar chrome (Phase D station 1):
  * the top toolbar's buttons and menus, the debug-controls cluster
  * (Disable cache / throttle / overrides) with their `(i)` corpora,
- * the filter strip chrome, and the footer summary line.
+ * the filter strip chrome, and the footer summary line. Station 2
+ * adds the tool-window registry labels and the docs navigation.
  *
  * English boundary (I18N_PLAN.md §3) — raw by design inside or beside
  * keyed values: resource-type pills (All / Fetch/XHR / Doc / …),
@@ -311,4 +312,20 @@ export const panel = {
   'panel.status.theme.light': 'Light',
   'panel.status.theme.dark': 'Dark',
   'panel.status.theme.auto': 'Auto',
+
+  // ── Tool-window registry labels (activity bar / dock tabs / restore) ─
+  'panel.toolWindows.network': 'Network',
+  'panel.toolWindows.storage': 'Storage',
+  'panel.toolWindows.console': 'Console',
+  'panel.toolWindows.search': 'Search',
+  'panel.toolWindows.notifications': 'Notifications',
+  'panel.toolWindows.docs': 'Docs',
+  'panel.toolWindows.ruleActivity': 'Rule Activity',
+  'panel.toolWindows.matchedRules': 'Matched Rules',
+
+  // ── Docs tool-window navigation ─────────────────────────────────────
+  'panel.docs.nav.group.panel': 'Panel',
+  'panel.docs.nav.filterSyntax.title': 'Filter Syntax',
+  'panel.docs.nav.filterSyntax.summary':
+    'Text tokens, property filters, and the match toggles — every card filters one shared example capture.',
 } as const satisfies Catalog;

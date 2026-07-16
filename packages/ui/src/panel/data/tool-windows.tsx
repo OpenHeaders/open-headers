@@ -2,7 +2,7 @@
  * Tool-window registry for the DevTools Inspector panel.
  *
  * Uses shared dock types from @openheaders/ui/shared/dock-layout. The panel-specific
- * window IDs and their icons/labels/default slots are defined here.
+ * window IDs and their icons/label keys/default slots are defined here.
  */
 
 import { AuditOutlined, BookOutlined, DatabaseOutlined, GlobalOutlined, SearchOutlined } from '@ant-design/icons';
@@ -13,7 +13,6 @@ import type {
   ToolWindowDef as GenericToolWindowDef,
   ToolRegion,
 } from '@openheaders/ui/shared/dock-layout';
-import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@openheaders/ui/shared/dock-layout';
 import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import { ConsoleIcon } from './tool-window-icons';
@@ -40,16 +39,52 @@ export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
   // `console` / `search`, with `rules` on the bottom dock. Right
   // rail: `notifications` on top, `docs` below, `matched-rules` on
   // the bottom dock.
-  { id: 'network', label: 'Network', icon: <GlobalOutlined />, core: true, defaultSlot: 'left-top' },
-  { id: 'storage', label: 'Storage', icon: <DatabaseOutlined />, core: false, defaultSlot: 'left-bottom' },
-  { id: 'console', label: 'Console', icon: <ConsoleIcon />, core: false, defaultSlot: 'left-bottom' },
-  { id: 'search', label: 'Search', icon: <SearchOutlined />, core: false, defaultSlot: 'left-bottom' },
-  { id: 'notifications', label: 'Notifications', icon: <NotificationsIcon />, core: false, defaultSlot: 'right-top' },
-  { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-bottom' },
-  { id: 'rules', label: 'Rule Activity', icon: <AuditOutlined />, core: false, defaultSlot: 'bottom-left' },
+  {
+    id: 'network',
+    labelKey: 'panel.toolWindows.network',
+    icon: <GlobalOutlined />,
+    core: true,
+    defaultSlot: 'left-top',
+  },
+  {
+    id: 'storage',
+    labelKey: 'panel.toolWindows.storage',
+    icon: <DatabaseOutlined />,
+    core: false,
+    defaultSlot: 'left-bottom',
+  },
+  {
+    id: 'console',
+    labelKey: 'panel.toolWindows.console',
+    icon: <ConsoleIcon />,
+    core: false,
+    defaultSlot: 'left-bottom',
+  },
+  {
+    id: 'search',
+    labelKey: 'panel.toolWindows.search',
+    icon: <SearchOutlined />,
+    core: false,
+    defaultSlot: 'left-bottom',
+  },
+  {
+    id: 'notifications',
+    labelKey: 'panel.toolWindows.notifications',
+    icon: <NotificationsIcon />,
+    core: false,
+    defaultSlot: 'right-top',
+  },
+  { id: 'docs', labelKey: 'panel.toolWindows.docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-bottom' },
+  {
+    id: 'rules',
+    labelKey: 'panel.toolWindows.ruleActivity',
+    icon: <AuditOutlined />,
+    core: false,
+    defaultSlot: 'bottom-left',
+  },
   {
     id: 'matched-rules',
-    label: 'Matched Rules',
+    labelKey: 'panel.toolWindows.matchedRules',
     icon: <RequestRulesIcon />,
     core: false,
     defaultSlot: 'bottom-right',
@@ -63,8 +98,3 @@ export const PANEL_TOOL_WINDOW_MAP: Record<PanelToolWindowId, PanelToolWindowDef
   },
   {} as Record<PanelToolWindowId, PanelToolWindowDef>,
 );
-
-// Re-export shared constants for backwards compatibility.
-export const ALL_PANEL_DOCK_SLOTS = ALL_DOCK_SLOTS;
-export const PANEL_DOCK_LABELS = DOCK_LABELS;
-export const panelDockRegion = dockRegion;

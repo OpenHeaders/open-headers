@@ -2,9 +2,7 @@
  * Copy resolution for the dock-layout registries. Tool-window defs are
  * raw-or-key (see `ToolWindowDef`), so every render site funnels
  * through these resolvers instead of reading `def.label` directly.
- * Dock-slot display names resolve through `DOCK_LABEL_KEYS`; the raw
- * `DOCK_LABELS` record in `constants.ts` stays exported for the
- * unconverted devtools-panel registry.
+ * Dock-slot display names resolve through `DOCK_LABEL_KEYS`.
  */
 
 import type { MessageKey } from '@openheaders/i18n';

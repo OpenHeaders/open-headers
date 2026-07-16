@@ -9,7 +9,12 @@
 import { InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
-import { DockSlotIcon, LayoutMenuIcon, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
+import {
+  DockSlotIcon,
+  LayoutMenuIcon,
+  resolveToolWindowLabel,
+  SidebarLayoutIcon,
+} from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import type { GlobalToken, MenuProps } from 'antd';
@@ -162,7 +167,7 @@ export function buildPanelLayoutMenu({
                 icon: menuIconWrap(<DockSlotIcon slot={def.defaultSlot} size={20} />),
                 label: (
                   <Space size={6}>
-                    <span>{def.label}</span>
+                    <span>{resolveToolWindowLabel(def, t)}</span>
                   </Space>
                 ),
                 onClick: () => tl.restoreWindow(id),

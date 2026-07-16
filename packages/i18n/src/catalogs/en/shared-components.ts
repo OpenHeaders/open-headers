@@ -366,8 +366,7 @@ export const sharedComponents = {
 
   // ── Dock-layout chrome (shared shell: workbench + devtools panel).
   //    Slot labels feed the Move-to submenu, drop-zone overlays, and
-  //    the workbench restore rows; the raw DOCK_LABELS record stays
-  //    exported for the unconverted panel registry (Phase D). ──────────
+  //    the restore rows on both surfaces. ────────────────────────────
   'shared.dock.slot.leftTop': 'Left Top',
   'shared.dock.slot.leftBottom': 'Left Bottom',
   'shared.dock.slot.rightTop': 'Right Top',
