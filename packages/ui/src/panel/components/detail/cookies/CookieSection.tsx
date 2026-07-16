@@ -8,6 +8,7 @@
  * columns into one glyph cell.
  */
 
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { useMemo, useRef, type RefObject } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -25,20 +26,28 @@ import { CookieRow } from './CookieRow';
 
 const COLUMN_SPAN = 7;
 
-const STATUS_RAIL_INFO: InfoPopoverContent = {
-  title: 'Status',
-  kicker: 'OpenHeaders',
-  summary: 'A square marks cookies that are not in their raw browser state.',
-  sections: [
-    {
-      heading: 'Square colors',
-      items: [
-        { label: 'blue', desc: 'A rule that fired on this request modifies this direction’s Cookie / Set-Cookie header.' },
-        { label: 'grey', desc: 'Added or edited from this panel during this session.' },
-      ],
-    },
-  ],
-};
+function statusRailInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.cookies.statusRail.title'),
+    kicker: 'OpenHeaders',
+    summary: t('panel.inspector.cookies.statusRail.summary'),
+    sections: [
+      {
+        heading: t('panel.inspector.cookies.statusRail.colorsHeading'),
+        items: [
+          {
+            label: t('panel.inspector.cookies.statusRail.blue'),
+            desc: t('panel.inspector.cookies.statusRail.blueDesc'),
+          },
+          {
+            label: t('panel.inspector.cookies.statusRail.grey'),
+            desc: t('panel.inspector.cookies.statusRail.greyDesc'),
+          },
+        ],
+      },
+    ],
+  };
+}
 
 interface Props {
   label: string;
@@ -162,6 +171,14 @@ export function CookieSection({
   onApplyEdit,
   onDelete,
 }: Props) {
+  const t = useT();
+  const statusInfo = useMemo(() => statusRailInfo(t), [t]);
+  // `label` stays the raw section identifier; only the display form
+  // localizes, mapped here at the render site.
+  const displayLabel =
+    label === 'Response Cookies'
+      ? t('panel.inspector.cookies.section.responseCookies')
+      : t('panel.inspector.cookies.section.requestCookies');
   // Measure the actual rendered thead height so the sticky role
   // heading's `top: …` lands flush against the column-header row,
   // not 0.5-1px above or below it (the gap the hardcoded 20px
@@ -247,7 +264,7 @@ export function CookieSection({
       <tbody key={role} className={`dt-cookie-role-group dt-cookie-role-group--${role}`}>
         <tr className="dt-cookie-role-heading">
           <td colSpan={COLUMN_SPAN}>
-            {roleSectionLabel(role)} <span className="dt-cookie-role-count">{groups.get(role)?.length ?? 0}</span>
+            {roleSectionLabel(t, role)} <span className="dt-cookie-role-count">{groups.get(role)?.length ?? 0}</span>
           </td>
         </tr>
         {groups.get(role)?.map(renderRow)}
@@ -260,9 +277,11 @@ export function CookieSection({
   return (
     <details className="dt-section dt-cookie-section" open data-direction={direction} ref={sectionRef}>
       <summary ref={summaryRef ?? undefined}>
-        <span className="dt-cookie-section-title">{label}</span>
+        <span className="dt-cookie-section-title">{displayLabel}</span>
         <span className="dt-cookie-section-count">
-          {visibleCount === totalCount ? visibleCount : `${visibleCount} of ${totalCount}`}
+          {visibleCount === totalCount
+            ? visibleCount
+            : t('panel.inspector.cookies.section.countOf', { visible: visibleCount, total: totalCount })}
           {' · '}
           {totalBytes} B
         </span>
@@ -281,7 +300,7 @@ export function CookieSection({
           <thead ref={theadRef}>
             <tr>
               <th className="dt-cookie-status-head-cell">
-                <InfoPopover content={STATUS_RAIL_INFO} trigger="hover" placement="bottomLeft">
+                <InfoPopover content={statusInfo} trigger="hover" placement="bottomLeft">
                   <span className="dt-cookie-status-head">
                     <span className="dt-cookie-status-head-dot" />
                   </span>

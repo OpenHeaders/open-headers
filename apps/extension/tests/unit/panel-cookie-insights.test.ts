@@ -1,3 +1,4 @@
+import { getTranslator } from '@openheaders/i18n';
 import { computeCookieInsights, problemCookieNames } from '@openheaders/ui/panel/data/cookies/cookie-insights';
 import type { CookieRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import { describe, expect, it } from 'vitest';
@@ -16,9 +17,11 @@ function row(over: Partial<CookieRow> = {}): CookieRow {
   };
 }
 
+const t = getTranslator('en');
+
 describe('computeCookieInsights', () => {
   it('flags SameSite=None without Secure', () => {
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://openheaders.io/',
       request: [],
       response: [row({ name: 's', sameSite: 'no_restriction', secure: false })],
@@ -29,7 +32,7 @@ describe('computeCookieInsights', () => {
   });
 
   it('flags __Host- prefix violations', () => {
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://openheaders.io/',
       request: [],
       response: [row({ name: '__Host-a', secure: false, path: '/' })],
@@ -40,7 +43,7 @@ describe('computeCookieInsights', () => {
   });
 
   it('flags __Secure- prefix without Secure', () => {
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://openheaders.io/',
       request: [],
       response: [row({ name: '__Secure-a', secure: false })],
@@ -51,7 +54,7 @@ describe('computeCookieInsights', () => {
   });
 
   it('flags expired but still sent', () => {
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://openheaders.io/',
       request: [
         row({
@@ -71,7 +74,7 @@ describe('computeCookieInsights', () => {
     const big = Array.from({ length: 10 }, (_, i) =>
       row({ direction: 'request', attribution: 'request-har', name: `c${i}`, size: 500 }),
     );
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://openheaders.io/',
       request: big,
       response: [],
@@ -82,7 +85,7 @@ describe('computeCookieInsights', () => {
   });
 
   it('flags third-party cookies set', () => {
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://tracker.example.com/p',
       request: [],
       response: [row({ name: 'tp', secure: true, domain: '.tracker.example.com' })],
@@ -101,7 +104,7 @@ describe('computeCookieInsights', () => {
   });
 
   it('keeps the insight list small even with many problems', () => {
-    const insights = computeCookieInsights({
+    const insights = computeCookieInsights(t, {
       url: 'https://openheaders.io/',
       request: [],
       response: [

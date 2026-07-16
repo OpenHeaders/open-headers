@@ -34,6 +34,8 @@
  * roles so the user reads it as a suspicion, not a fact.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
+
 export type CookieRole = 'auth' | 'tracking' | 'pref' | 'functional';
 
 export interface CookieClassification {
@@ -503,14 +505,14 @@ export function classifyCookieRole(input: ClassifyInput): CookieRole {
   return classifyCookie(input).role;
 }
 
-export function roleChipLabel(role: CookieRole): string {
+export function roleChipLabel(t: Translate, role: CookieRole): string {
   switch (role) {
     case 'auth':
-      return 'auth?';
+      return t('panel.inspector.cookies.role.chipAuth');
     case 'tracking':
-      return 'tracking?';
+      return t('panel.inspector.cookies.role.chipTracking');
     case 'pref':
-      return 'pref';
+      return t('panel.inspector.cookies.role.chipPref');
     case 'functional':
       return '';
   }
@@ -529,15 +531,15 @@ export function roleSortOrder(role: CookieRole): number {
   }
 }
 
-export function roleSectionLabel(role: CookieRole): string {
+export function roleSectionLabel(t: Translate, role: CookieRole): string {
   switch (role) {
     case 'auth':
-      return 'Auth & session';
+      return t('panel.inspector.cookies.role.sectionAuth');
     case 'functional':
-      return 'Functional';
+      return t('panel.inspector.cookies.role.sectionFunctional');
     case 'pref':
-      return 'Preferences';
+      return t('panel.inspector.cookies.role.sectionPref');
     case 'tracking':
-      return 'Analytics & tracking';
+      return t('panel.inspector.cookies.role.sectionTracking');
   }
 }

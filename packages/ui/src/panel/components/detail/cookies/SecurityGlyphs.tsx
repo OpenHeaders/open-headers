@@ -9,6 +9,8 @@
  * long-form breakdown for accessibility / copy.
  */
 
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
+
 type Tone = 'on' | 'off' | 'good' | 'warn' | 'err';
 
 /** The security-relevant slice of a cookie — `CookieRow` and `JarCookie`
@@ -27,30 +29,38 @@ interface GlyphSpec {
   title: string;
 }
 
-function secureSpec(row: SecurityGlyphSubject): GlyphSpec {
+function secureSpec(t: Translate, row: SecurityGlyphSubject): GlyphSpec {
   const sameSiteNone =
     row.sameSite === 'no_restriction' || String(row.sameSite ?? '').toLowerCase() === 'none';
   const prefixDemandsSecure = row.name.startsWith('__Secure-') || row.name.startsWith('__Host-');
-  if (row.secure) return { letter: 'S', tone: 'good', title: 'Secure — sent only over HTTPS.' };
-  if (sameSiteNone) return { letter: 'S', tone: 'err', title: 'Missing Secure — SameSite=None requires Secure; browser will reject this cookie.' };
-  if (prefixDemandsSecure) return { letter: 'S', tone: 'err', title: 'Missing Secure — __Host- / __Secure- prefix requires Secure.' };
-  return { letter: 'S', tone: 'off', title: 'No Secure attribute.' };
-}
-
-function httpOnlySpec(row: SecurityGlyphSubject): GlyphSpec {
-  if (row.httpOnly) return { letter: 'H', tone: 'good', title: 'HttpOnly — not readable from JavaScript.' };
-  return { letter: 'H', tone: 'off', title: 'Readable from JavaScript (no HttpOnly).' };
-}
-
-function sameSiteSpec(row: SecurityGlyphSubject): GlyphSpec {
-  const raw = String(row.sameSite ?? '').toLowerCase();
-  if (raw === 'strict') return { letter: 'L', tone: 'good', title: 'SameSite=Strict — only sent on same-site navigations.' };
-  if (raw === 'lax') return { letter: 'L', tone: 'warn', title: 'SameSite=Lax — sent on cross-site top-level GETs.' };
-  if (raw === 'no_restriction' || raw === 'none') {
-    if (!row.secure) return { letter: 'L', tone: 'err', title: 'SameSite=None without Secure — browser will reject.' };
-    return { letter: 'L', tone: 'warn', title: 'SameSite=None — sent on every cross-site request.' };
+  if (row.secure) return { letter: 'S', tone: 'good', title: t('panel.inspector.cookies.glyphs.secureOn') };
+  if (sameSiteNone) {
+    return { letter: 'S', tone: 'err', title: t('panel.inspector.cookies.glyphs.secureMissingSameSiteNone') };
   }
-  return { letter: 'L', tone: 'off', title: 'SameSite unspecified.' };
+  if (prefixDemandsSecure) {
+    return { letter: 'S', tone: 'err', title: t('panel.inspector.cookies.glyphs.secureMissingPrefix') };
+  }
+  return { letter: 'S', tone: 'off', title: t('panel.inspector.cookies.glyphs.secureOff') };
+}
+
+function httpOnlySpec(t: Translate, row: SecurityGlyphSubject): GlyphSpec {
+  if (row.httpOnly) return { letter: 'H', tone: 'good', title: t('panel.inspector.cookies.glyphs.httpOnlyOn') };
+  return { letter: 'H', tone: 'off', title: t('panel.inspector.cookies.glyphs.httpOnlyOff') };
+}
+
+function sameSiteSpec(t: Translate, row: SecurityGlyphSubject): GlyphSpec {
+  const raw = String(row.sameSite ?? '').toLowerCase();
+  if (raw === 'strict') {
+    return { letter: 'L', tone: 'good', title: t('panel.inspector.cookies.glyphs.sameSiteStrict') };
+  }
+  if (raw === 'lax') return { letter: 'L', tone: 'warn', title: t('panel.inspector.cookies.glyphs.sameSiteLax') };
+  if (raw === 'no_restriction' || raw === 'none') {
+    if (!row.secure) {
+      return { letter: 'L', tone: 'err', title: t('panel.inspector.cookies.glyphs.sameSiteNoneNoSecure') };
+    }
+    return { letter: 'L', tone: 'warn', title: t('panel.inspector.cookies.glyphs.sameSiteNone') };
+  }
+  return { letter: 'L', tone: 'off', title: t('panel.inspector.cookies.glyphs.sameSiteUnspecified') };
 }
 
 function toneClass(t: Tone): string {
@@ -58,9 +68,10 @@ function toneClass(t: Tone): string {
 }
 
 export function SecurityGlyphs({ row }: { row: SecurityGlyphSubject }) {
-  const s = secureSpec(row);
-  const h = httpOnlySpec(row);
-  const l = sameSiteSpec(row);
+  const t = useT();
+  const s = secureSpec(t, row);
+  const h = httpOnlySpec(t, row);
+  const l = sameSiteSpec(t, row);
   const fullTitle = `${s.title}\n${h.title}\n${l.title}`;
   return (
     <span className="dt-cookie-sec" title={fullTitle}>

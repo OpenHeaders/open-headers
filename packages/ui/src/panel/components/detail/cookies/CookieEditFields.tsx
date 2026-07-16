@@ -14,6 +14,7 @@
  * honestly instead of a dead form.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { Radio, Select, Switch } from 'antd';
@@ -81,10 +82,13 @@ export function useCookieFieldResolution(values: CookieEditFormValues): CookieFi
 /** What Save will actually write — shown only while the field holds a
  *  `{{…}}` template. */
 function ResolvedLine({ field }: { field: ResolvedField }) {
+  const t = useT();
   if (!field.isTemplate) return null;
   return (
     <span className={`dt-cookie-edit-resolved${field.unresolved ? ' dt-cookie-edit-resolved--error' : ''}`}>
-      {field.unresolved ? 'Doesn’t resolve — create the variable or fix the reference.' : `Writes: ${field.resolved}`}
+      {field.unresolved
+        ? t('panel.inspector.cookies.edit.unresolved')
+        : t('panel.inspector.cookies.edit.writes', { value: field.resolved })}
     </span>
   );
 }
@@ -102,6 +106,7 @@ interface CookieEditFieldsProps {
 }
 
 export function CookieEditFields({ values, fields, set, busy, readOnly = false, affixes }: CookieEditFieldsProps) {
+  const t = useT();
   const textField = (
     key: 'name' | 'value' | 'domain' | 'path',
     placeholder: string,
@@ -130,7 +135,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
           <CookieEditFieldInfo infoKey="name" />
           {affixes?.name}
         </span>
-        {textField('name', 'cookie name')}
+        {textField('name', t('panel.inspector.cookies.edit.namePlaceholder'))}
       </div>
 
       <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
@@ -139,7 +144,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
           <CookieEditFieldInfo infoKey="value" />
           {affixes?.value}
         </span>
-        {textField('value', 'value or {{variable}}', { wrap: true, maxRows: 3 })}
+        {textField('value', t('panel.inspector.cookies.edit.valuePlaceholder'), { wrap: true, maxRows: 3 })}
       </div>
 
       <div className="dt-cookie-edit-field">
@@ -171,8 +176,8 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
           onChange={(e) => set('session', e.target.value === 'session')}
           disabled={busy || readOnly}
           options={[
-            { value: 'session', label: 'Session' },
-            { value: 'date', label: 'On date' },
+            { value: 'session', label: t('panel.inspector.cookies.edit.session') },
+            { value: 'date', label: t('panel.inspector.cookies.edit.onDate') },
           ]}
           optionType="button"
           size="small"

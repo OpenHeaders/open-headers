@@ -16,6 +16,7 @@
  *   - problem      `!` — has an insight; the top callout explains why.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { CookieRow } from '../../../data/cookies/cookie-model';
 import type { CookieRole } from '../../../data/cookies/cookie-role';
 import { roleChipLabel } from '../../../data/cookies/cookie-role';
@@ -47,34 +48,58 @@ function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info' | '
 }
 
 export function CookieChips({ row, role, vendor, problem, thirdParty, dropped, suppressRoleChip }: CookieChipsProps) {
-  const roleLabel = suppressRoleChip ? '' : roleChipLabel(role);
+  const t = useT();
+  const roleLabel = suppressRoleChip ? '' : roleChipLabel(t, role);
   const roleTooltip = (() => {
     if (vendor) {
       const noun =
-        role === 'auth' ? 'auth / session'
-        : role === 'tracking' ? 'analytics / tracking'
-        : role === 'pref' ? 'preference / consent'
-        : 'cookie';
-      return `${vendor} — ${noun} cookie.`;
+        role === 'auth'
+          ? t('panel.inspector.cookies.role.nounAuth')
+          : role === 'tracking'
+            ? t('panel.inspector.cookies.role.nounTracking')
+            : role === 'pref'
+              ? t('panel.inspector.cookies.role.nounPref')
+              : t('panel.inspector.cookies.role.nounOther');
+      return t('panel.inspector.cookies.role.vendorTooltip', { vendor, noun });
     }
-    if (role === 'auth') return 'Looks like an auth / session cookie (heuristic).';
-    if (role === 'tracking') return 'Looks like an analytics / tracking cookie (heuristic).';
-    if (role === 'pref') return 'A user-preference cookie.';
+    if (role === 'auth') return t('panel.inspector.cookies.role.tooltipAuth');
+    if (role === 'tracking') return t('panel.inspector.cookies.role.tooltipTracking');
+    if (role === 'pref') return t('panel.inspector.cookies.role.tooltipPref');
     return '';
   })();
   return (
     <span className="dt-cookie-chips">
       {roleLabel && <Chip tone="role" label={roleLabel} title={roleTooltip} />}
-      {row.partitionKey && <Chip tone="info" label="partitioned" title={`Isolated to top-level site: ${row.partitionKey}`} />}
-      {thirdParty && <Chip tone="warn" label="3rd-party" />}
+      {row.partitionKey && (
+        <Chip
+          tone="info"
+          label={t('panel.inspector.cookies.chips.partitioned')}
+          title={t('panel.inspector.cookies.chips.partitionedTitle', { key: row.partitionKey })}
+        />
+      )}
+      {thirdParty && <Chip tone="warn" label={t('panel.inspector.cookies.chips.thirdParty')} />}
       {row.attribution === 'response-set' && !dropped && (
-        <Chip tone="info" label="just set" title="Set by this response." />
+        <Chip
+          tone="info"
+          label={t('panel.inspector.cookies.chips.justSet')}
+          title={t('panel.inspector.cookies.chips.justSetTitle')}
+        />
       )}
-      {dropped && <Chip tone="err" label="dropped" title="The browser will reject this Set-Cookie." />}
+      {dropped && (
+        <Chip
+          tone="err"
+          label={t('panel.inspector.cookies.chips.dropped')}
+          title={t('panel.inspector.cookies.chips.droppedTitle')}
+        />
+      )}
       {row.attribution === 'filtered-out' && (
-        <Chip tone="warn" label="filtered out" title={row.filteredReason ?? 'Not sent on this request.'} />
+        <Chip
+          tone="warn"
+          label={t('panel.inspector.cookies.chips.filteredOut')}
+          title={row.filteredReason ?? t('panel.inspector.cookies.chips.filteredOutFallbackTitle')}
+        />
       )}
-      {problem && <Chip tone="err" label="!" title="See suggestion above." />}
+      {problem && <Chip tone="err" label="!" title={t('panel.inspector.cookies.chips.problemTitle')} />}
     </span>
   );
 }

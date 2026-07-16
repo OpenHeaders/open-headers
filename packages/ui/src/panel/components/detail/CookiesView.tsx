@@ -28,6 +28,7 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { App } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
@@ -89,33 +90,44 @@ const EMPTY_HAR = { request: undefined, response: undefined } as unknown as Insp
 // (i) content for the two CTA worlds — the override menu creates RULES
 // (virtual, rewrite matching requests in flight); Add cookie writes the
 // BROWSER JAR (a real cookie, same store as the browser's own cookie UI).
-const OVERRIDE_CTA_INFO: InfoPopoverContent = {
-  title: 'Override Cookies',
-  kicker: 'Rule',
-  summary:
-    'Creates a rule that rewrites the Cookie / Set-Cookie headers on matching requests while it fires. The browser cookie jar is untouched.',
-  sections: [
-    {
-      heading: 'Choices',
-      items: [
-        { label: 'Request cookies', desc: 'Replace the Cookie header the browser sends.' },
-        { label: 'Response cookies', desc: 'Replace a Set-Cookie header coming back from the server.' },
-        { label: 'Don’t send any cookies', desc: 'Drop the Cookie header entirely — the server sees a cookie-less request.' },
-      ],
-    },
-  ],
-};
+function overrideCtaInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.cookies.ctaInfo.overrideTitle'),
+    kicker: t('panel.inspector.cookies.ctaInfo.ruleKicker'),
+    summary: t('panel.inspector.cookies.ctaInfo.overrideSummary'),
+    sections: [
+      {
+        heading: t('panel.inspector.cookies.ctaInfo.choicesHeading'),
+        items: [
+          {
+            label: t('panel.inspector.cookies.ctaInfo.requestLabel'),
+            desc: t('panel.inspector.cookies.ctaInfo.requestDesc'),
+          },
+          {
+            label: t('panel.inspector.cookies.ctaInfo.responseLabel'),
+            desc: t('panel.inspector.cookies.ctaInfo.responseDesc'),
+          },
+          {
+            label: t('panel.inspector.cookies.ctaInfo.noneLabel'),
+            desc: t('panel.inspector.cookies.ctaInfo.noneDesc'),
+          },
+        ],
+      },
+    ],
+  };
+}
 
-const ADD_COOKIE_INFO: InfoPopoverContent = {
-  title: 'Add Cookie',
-  kicker: 'Browser jar',
-  summary:
-    'Writes a real cookie into the browser jar — the same store the browser shows under Application → Cookies.',
-  description:
-    'It persists beyond this request and the browser attaches it wherever its domain, path and flags match — no rule involved. This is also the way to create HttpOnly cookies, which page scripts can’t set. The value accepts {{variable}} references, resolved once when you save — the jar keeps that snapshot even if the variable changes later; use Override Cookies when the value should track the variable.',
-};
+function addCookieInfo(t: Translate): InfoPopoverContent {
+  return {
+    title: t('panel.inspector.cookies.ctaInfo.addTitle'),
+    kicker: t('panel.inspector.cookies.ctaInfo.jarKicker'),
+    summary: t('panel.inspector.cookies.ctaInfo.addSummary'),
+    description: t('panel.inspector.cookies.ctaInfo.addDescription'),
+  };
+}
 
 export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenCookieDocument }: CookiesViewProps) {
+  const t = useT();
   const lc = row.lifecycle;
   const har = currentHarEntry(lc) ?? EMPTY_HAR;
 
@@ -144,6 +156,9 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   const viewMenuModified = useModifiedSettings(COOKIE_VIEW_MENU_KEYS);
   const resetViewMenu = useResetSettings(COOKIE_VIEW_MENU_KEYS);
 
+  const overrideInfo = useMemo(() => overrideCtaInfo(t), [t]);
+  const addInfo = useMemo(() => addCookieInfo(t), [t]);
+
   // ── Jar lookup ─────────────────────────────────────────────────
   const jar = useCookieJar(lc.url);
 
@@ -168,28 +183,33 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   const onApplyEdit = useCallback(
     async (edit: JarCookieEdit): Promise<boolean> => {
       const { cookie, error } = await writeJarCookie(edit);
-      if (cookie) message.success(`Cookie “${edit.name}” saved`);
-      else message.error(`Couldn’t save cookie “${edit.name}”${error ? ` — ${error}` : ''}`);
+      if (cookie) message.success(t('panel.inspector.cookies.toast.saved', { name: edit.name }));
+      else
+        message.error(
+          error
+            ? t('panel.inspector.cookies.toast.saveFailedWithError', { name: edit.name, error })
+            : t('panel.inspector.cookies.toast.saveFailed', { name: edit.name }),
+        );
       return cookie != null;
     },
-    [message],
+    [message, t],
   );
 
   const onDeleteCookie = useCallback(
     (cookie: CookieRowModel) => {
       modal.confirm({
-        title: `Delete cookie “${cookie.name}”?`,
-        content: 'This removes it from the browser cookie jar. The page will stop sending it.',
-        okText: 'Delete',
+        title: t('panel.inspector.cookies.confirmDelete.title', { name: cookie.name }),
+        content: t('panel.inspector.cookies.confirmDelete.content'),
+        okText: t('panel.inspector.cookies.confirmDelete.ok'),
         okButtonProps: { danger: true },
         onOk: () =>
           removeJarCookie(deleteKeyForRow(cookie)).then((ok) => {
-            if (ok) message.success(`Cookie “${cookie.name}” deleted`);
-            else message.error(`Couldn’t delete cookie “${cookie.name}”`);
+            if (ok) message.success(t('panel.inspector.cookies.toast.deleted', { name: cookie.name }));
+            else message.error(t('panel.inspector.cookies.toast.deleteFailed', { name: cookie.name }));
           }),
       });
     },
-    [modal, message],
+    [modal, message, t],
   );
 
   // ── Enrichment ─────────────────────────────────────────────────
@@ -210,13 +230,13 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   // ── Insights + derived problem / dropped sets ──────────────────
   const insights = useMemo<readonly CookieInsight[]>(
     () =>
-      computeCookieInsights({
+      computeCookieInsights(t, {
         url: lc.url,
         request: requestRows,
         response: responseRows,
         pageOrigin,
       }),
-    [lc.url, requestRows, responseRows, pageOrigin],
+    [t, lc.url, requestRows, responseRows, pageOrigin],
   );
   const problemNames = useMemo(() => problemCookieNames(insights), [insights]);
   const droppedNames = useMemo(() => droppedCookieNames(insights), [insights]);
@@ -243,11 +263,17 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   const droppedCount = droppedNames.size;
   const problemsCount = problemNames.size;
   const footprintBits: string[] = [];
-  if (sentCount > 0) footprintBits.push(`${sentCount} sent · ${requestBytes} B`);
-  if (setCount > 0) footprintBits.push(`${setCount} set · ${responseBytes} B`);
-  if (droppedCount > 0) footprintBits.push(`${droppedCount} will be dropped`);
-  if (filteredOutCount > 0) footprintBits.push(`${filteredOutCount} filtered out`);
-  if (problemsCount > 0) footprintBits.push(`${problemsCount} flagged`);
+  if (sentCount > 0) {
+    footprintBits.push(t('panel.inspector.cookies.footprint.sent', { count: sentCount, bytes: requestBytes }));
+  }
+  if (setCount > 0) {
+    footprintBits.push(t('panel.inspector.cookies.footprint.set', { count: setCount, bytes: responseBytes }));
+  }
+  if (droppedCount > 0) footprintBits.push(t('panel.inspector.cookies.footprint.dropped', { count: droppedCount }));
+  if (filteredOutCount > 0) {
+    footprintBits.push(t('panel.inspector.cookies.footprint.filteredOut', { count: filteredOutCount }));
+  }
+  if (problemsCount > 0) footprintBits.push(t('panel.inspector.cookies.footprint.flagged', { count: problemsCount }));
   const footprintText = footprintBits.join(' · ');
 
   // ── CTAs — all open the in-panel create popover anchored to the
@@ -296,7 +322,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
   if (!hasAny) {
     return (
       <span className="dt-col-muted" style={{ padding: 12 }}>
-        No cookies sent or received.
+        {t('panel.inspector.cookies.empty')}
       </span>
     );
   }
@@ -310,23 +336,23 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
           config={filterConfig}
           onConfigChange={setFilterConfig}
           hasError={filterHasError}
-          placeholder="Filter — text, name:sess, is:secure, is:samesite-none, is:problem, is:third-party, …"
-          ariaLabel="Filter cookies"
+          placeholder={t('panel.inspector.cookies.filterPlaceholder')}
+          ariaLabel={t('panel.inspector.cookies.filterAria')}
         />
         <CookieCtaMenu
           onOverrideRequest={onCreateCookieOverride}
           onOverrideResponse={onCreateSetCookieOverride}
           onRemoveAll={onCreateRemoveAllCookies}
         />
-        <InfoTrigger content={OVERRIDE_CTA_INFO} className="dt-header-info-trigger" />
+        <InfoTrigger content={overrideInfo} className="dt-header-info-trigger" />
         {writable && (
           <>
             <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit}>
-              <button type="button" className="dt-btn" title="Add a cookie to the browser jar (including HttpOnly)">
-                Add cookie
+              <button type="button" className="dt-btn" title={t('panel.inspector.cookies.cta.addCookieTitle')}>
+                {t('panel.inspector.cookies.cta.addCookie')}
               </button>
             </CookieEditPopover>
-            <InfoTrigger content={ADD_COOKIE_INFO} className="dt-header-info-trigger" />
+            <InfoTrigger content={addInfo} className="dt-header-info-trigger" />
           </>
         )}
         <CookieMoreFiltersMenu

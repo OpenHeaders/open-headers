@@ -1,3 +1,4 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Popover } from 'antd';
 import { useCallback, useState } from 'react';
@@ -23,6 +24,7 @@ export function CookieCtaMenu({
   onOverrideResponse: (anchorEl: HTMLElement) => void;
   onRemoveAll: (anchorEl: HTMLElement) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const { triggerRef, onOpenChange, maxHeight } = usePopoverViewportFit<HTMLButtonElement>();
   const resolveContainer = useInfoPopoverContainer();
@@ -43,25 +45,25 @@ export function CookieCtaMenu({
             type="button"
             className="dt-morefilters-reset"
             onClick={pick(onOverrideRequest)}
-            title="Replace the Cookie header sent on this request"
+            title={t('panel.inspector.cookies.cta.requestCookiesTitle')}
           >
-            Request cookies…
+            {t('panel.inspector.cookies.cta.requestCookies')}
           </button>
           <button
             type="button"
             className="dt-morefilters-reset"
             onClick={pick(onOverrideResponse)}
-            title="Replace a Set-Cookie header coming back from the server"
+            title={t('panel.inspector.cookies.cta.responseCookiesTitle')}
           >
-            Response cookies…
+            {t('panel.inspector.cookies.cta.responseCookies')}
           </button>
           <button
             type="button"
             className="dt-morefilters-reset"
             onClick={pick(onRemoveAll)}
-            title="Drop the Cookie header entirely, so the server sees no cookies"
+            title={t('panel.inspector.cookies.cta.noCookiesTitle')}
           >
-            Don’t send any cookies…
+            {t('panel.inspector.cookies.cta.noCookies')}
           </button>
         </div>
       }
@@ -81,9 +83,9 @@ export function CookieCtaMenu({
         ref={triggerRef}
         type="button"
         className="dt-btn dt-btn--oh"
-        title="Create a rule that changes the cookies on matching requests"
+        title={t('panel.inspector.cookies.cta.overrideCookiesTitle')}
       >
-        Override Cookies
+        {t('panel.inspector.cookies.cta.overrideCookies')}
         <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 9 }}>
           ▾
         </span>

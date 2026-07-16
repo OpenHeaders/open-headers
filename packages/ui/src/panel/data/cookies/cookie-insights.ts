@@ -7,6 +7,7 @@
  * Keep the list short. Don't nag.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { CookieRow } from './cookie-model';
 
 export type InsightSeverity = 'info' | 'warn' | 'err';
@@ -73,7 +74,7 @@ function isCrossSite(cookieDomain: string | undefined, pageOrigin: string | null
 
 const MAX_TOTAL_COOKIE_BYTES = 4 * 1024;
 
-export function computeCookieInsights(input: CookieInsightInputs): readonly CookieInsight[] {
+export function computeCookieInsights(t: Translate, input: CookieInsightInputs): readonly CookieInsight[] {
   const now = input.now ?? Date.now();
   const out: CookieInsight[] = [];
 
@@ -85,13 +86,13 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
     out.push({
       id: 'samesite-none-no-secure',
       severity: 'err',
-      title: `${noneNoSecure.length} cookie${noneNoSecure.length > 1 ? 's' : ''} set with SameSite=None but missing Secure`,
-      detail: 'Modern browsers reject SameSite=None cookies that are not also Secure — they will not be stored.',
+      title: t('panel.inspector.cookies.insights.sameSiteNoneNoSecure.title', { count: noneNoSecure.length }),
+      detail: t('panel.inspector.cookies.insights.sameSiteNoneNoSecure.detail'),
       cookieNames: noneNoSecure.map((c) => c.name),
       action: {
         kind: 'override-set-cookie',
         cookieName: noneNoSecure[0].name,
-        label: 'Add Secure attribute',
+        label: t('panel.inspector.cookies.insights.sameSiteNoneNoSecure.action'),
       },
     });
   }
@@ -106,8 +107,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
     out.push({
       id: 'host-prefix-violation',
       severity: 'err',
-      title: `__Host- prefix violated on ${hostBad.map((c) => c.name).join(', ')}`,
-      detail: '__Host- cookies must be Secure, Path=/, and have no Domain attribute. Browsers reject them otherwise.',
+      title: t('panel.inspector.cookies.insights.hostPrefix.title', { names: hostBad.map((c) => c.name).join(', ') }),
+      detail: t('panel.inspector.cookies.insights.hostPrefix.detail'),
       cookieNames: hostBad.map((c) => c.name),
     });
   }
@@ -118,8 +119,10 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
     out.push({
       id: 'secure-prefix-violation',
       severity: 'err',
-      title: `__Secure- prefix violated on ${secureBad.map((c) => c.name).join(', ')}`,
-      detail: '__Secure- cookies must carry the Secure attribute. Browsers reject them otherwise.',
+      title: t('panel.inspector.cookies.insights.securePrefix.title', {
+        names: secureBad.map((c) => c.name).join(', '),
+      }),
+      detail: t('panel.inspector.cookies.insights.securePrefix.detail'),
       cookieNames: secureBad.map((c) => c.name),
     });
   }
@@ -130,8 +133,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
     out.push({
       id: 'partitioned-no-secure',
       severity: 'err',
-      title: `${partNoSecure.length} Partitioned cookie${partNoSecure.length > 1 ? 's' : ''} missing Secure`,
-      detail: 'Partitioned cookies must be Secure.',
+      title: t('panel.inspector.cookies.insights.partitionedNoSecure.title', { count: partNoSecure.length }),
+      detail: t('panel.inspector.cookies.insights.partitionedNoSecure.detail'),
       cookieNames: partNoSecure.map((c) => c.name),
     });
   }
@@ -143,8 +146,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
       out.push({
         id: 'set-cookie-on-http',
         severity: 'warn',
-        title: 'Cookies set over plain HTTP',
-        detail: 'These cookies can be observed and replayed by anyone on the path. Use HTTPS + the Secure attribute.',
+        title: t('panel.inspector.cookies.insights.setOnHttp.title'),
+        detail: t('panel.inspector.cookies.insights.setOnHttp.detail'),
         cookieNames: setOnHttp.map((c) => c.name),
       });
     }
@@ -158,8 +161,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
     out.push({
       id: 'expired-but-sent',
       severity: 'warn',
-      title: `${expiredSent.length} expired cookie${expiredSent.length > 1 ? 's' : ''} still being sent`,
-      detail: 'These cookies have an expiry in the past but the request carried them — the jar will drop them shortly.',
+      title: t('panel.inspector.cookies.insights.expiredSent.title', { count: expiredSent.length }),
+      detail: t('panel.inspector.cookies.insights.expiredSent.detail'),
       cookieNames: expiredSent.map((c) => c.name),
     });
   }
@@ -171,9 +174,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
     out.push({
       id: 'oversized-cookie-payload',
       severity: 'warn',
-      title: `Cookie header is ${requestPayload}B (over the 4KB common limit)`,
-      detail:
-        'Servers and intermediaries cap header size; oversized Cookie payloads can cause 4xx / 5xx without a clear error.',
+      title: t('panel.inspector.cookies.insights.oversized.title', { bytes: requestPayload }),
+      detail: t('panel.inspector.cookies.insights.oversized.detail'),
       cookieNames: input.request
         .filter((c) => c.attribution !== 'filtered-out')
         .sort((a, b) => b.size - a.size)
@@ -190,9 +192,10 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
       out.push({
         id: 'third-party-set',
         severity: 'info',
-        title: `${tp.length} third-party cookie${tp.length > 1 ? 's' : ''} set${reqOrigin ? ` by ${reqOrigin}` : ''}`,
-        detail:
-          'Modern browsers may block these in cross-site contexts unless they opt into CHIPS via the Partitioned attribute.',
+        title: reqOrigin
+          ? t('panel.inspector.cookies.insights.thirdPartySet.titleBy', { count: tp.length, origin: reqOrigin })
+          : t('panel.inspector.cookies.insights.thirdPartySet.title', { count: tp.length }),
+        detail: t('panel.inspector.cookies.insights.thirdPartySet.detail'),
         cookieNames: tp.map((c) => c.name),
       });
     }

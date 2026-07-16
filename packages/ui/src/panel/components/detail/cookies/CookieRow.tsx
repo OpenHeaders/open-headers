@@ -17,6 +17,7 @@
  */
 
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useState } from 'react';
 import { deleteKeyForRow, editCanonicalForRow } from '../../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookies/cookie-format';
@@ -103,6 +104,7 @@ export function CookieRow({
   onApplyEdit,
   onDelete,
 }: Props) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   // Edit opens on the LIVE jar entry (that's what Save writes) — when
   // its value differs from what this row captured, say so in the form
@@ -111,7 +113,9 @@ export function CookieRow({
   const jarKey = editCanonical ? deleteKeyForRow(row) : null;
   const editValueNote =
     editCanonical && editCanonical.value !== row.value
-      ? `${row.direction === 'response' ? 'This response set' : 'This request sent'}: ${row.value} — the jar value has changed since.`
+      ? row.direction === 'response'
+        ? t('panel.inspector.cookies.row.valueNoteResponse', { value: row.value })
+        : t('panel.inspector.cookies.row.valueNoteRequest', { value: row.value })
       : undefined;
   // Every row with a value is expandable — depth values (JWT/JSON/…) show
   // their decoded view, plain values show the full raw value (useful when
@@ -159,10 +163,16 @@ export function CookieRow({
               className={`dt-cookie-status-dot dt-cookie-status-dot--${indicator}`}
               title={
                 indicator === 'rule'
-                  ? `A rule modifies the ${row.direction === 'response' ? 'Set-Cookie' : 'Cookie'} header on this request`
-                  : 'Edited from this panel'
+                  ? t('panel.inspector.cookies.row.ruleDotTitle', {
+                      header: row.direction === 'response' ? 'Set-Cookie' : 'Cookie',
+                    })
+                  : t('panel.inspector.cookies.row.editedDotTitle')
               }
-              aria-label={indicator === 'rule' ? 'Rule applies' : 'Edited'}
+              aria-label={
+                indicator === 'rule'
+                  ? t('panel.inspector.cookies.row.ruleDotAria')
+                  : t('panel.inspector.cookies.row.editedDotAria')
+              }
             />
           )}
         </td>
@@ -171,9 +181,9 @@ export function CookieRow({
             className="dt-cookie-name-text"
             title={
               prefixHint === 'host'
-                ? `${row.name}\n\nThe __Host- prefix locks this cookie to one host: the browser enforces Secure, Path=/, and no Domain attribute. Set-Cookie lines that violate any of those are rejected.`
+                ? `${row.name}\n\n${t('panel.inspector.cookies.row.hostPrefixHint')}`
                 : prefixHint === 'secure'
-                  ? `${row.name}\n\nThe __Secure- prefix forces this cookie to be Secure (HTTPS-only). Set-Cookie lines missing Secure are rejected.`
+                  ? `${row.name}\n\n${t('panel.inspector.cookies.row.securePrefixHint')}`
                   : row.name
             }
           >
@@ -200,7 +210,11 @@ export function CookieRow({
             )}
             <span
               className="dt-cookie-value-text"
-              title={row.edited && row.sentValue != null ? `Edited — request carried: ${row.sentValue}` : undefined}
+              title={
+                row.edited && row.sentValue != null
+                  ? t('panel.inspector.cookies.row.editedValueTitle', { value: row.sentValue })
+                  : undefined
+              }
             >
               {valueText}
             </span>
@@ -212,8 +226,8 @@ export function CookieRow({
             <button
               type="button"
               className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
-              title={copied ? 'Copied' : 'Copy value'}
-              aria-label={copied ? 'Copied' : 'Copy value'}
+              title={copied ? t('panel.inspector.cookies.row.copied') : t('panel.inspector.cookies.row.copyValue')}
+              aria-label={copied ? t('panel.inspector.cookies.row.copied') : t('panel.inspector.cookies.row.copyValue')}
               onClick={handleCopy}
             >
               {copied ? <CheckOutlined /> : <CopyOutlined />}
@@ -221,10 +235,14 @@ export function CookieRow({
             <button
               type="button"
               className="dt-btn dt-btn--oh dt-cookie-action"
-              title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
+              title={
+                row.direction === 'response'
+                  ? t('panel.inspector.cookies.row.overrideSetCookieTitle')
+                  : t('panel.inspector.cookies.row.overrideCookieTitle')
+              }
               onClick={(e) => onMakeRule(e.currentTarget)}
             >
-              Override
+              {t('panel.inspector.cookies.row.override')}
             </button>
             {canEdit && editCanonical && jarKey && (
               <>
@@ -242,8 +260,8 @@ export function CookieRow({
                   <button
                     type="button"
                     className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
-                    title="Edit this cookie in the browser jar"
-                    aria-label="Edit cookie"
+                    title={t('panel.inspector.cookies.row.editCookieTitle')}
+                    aria-label={t('panel.inspector.cookies.row.editCookieAria')}
                   >
                     <EditOutlined />
                   </button>
@@ -251,8 +269,8 @@ export function CookieRow({
                 <button
                   type="button"
                   className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
-                  title="Delete this cookie from the browser jar"
-                  aria-label="Delete cookie"
+                  title={t('panel.inspector.cookies.row.deleteCookieTitle')}
+                  aria-label={t('panel.inspector.cookies.row.deleteCookieAria')}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();

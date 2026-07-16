@@ -33,6 +33,7 @@ import {
   editFormConflictProjection,
   editFormFromConflictText,
 } from '../../../data/cookies/cookie-edit';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useStorageDocConflicts } from '../../../data/storage/doc-conflicts';
 
 // Lazy like every other Monaco consumer — the review dialog rides the
@@ -71,6 +72,7 @@ export function useCookieConflictTier({
   canonical,
   onMergeApplied,
 }: UseCookieConflictTierArgs): CookieConflictTier {
+  const t = useT();
   const { message } = App.useApp();
 
   // Compares the form and the live canonical on their flat string
@@ -178,9 +180,9 @@ export function useCookieConflictTier({
       setValues(next);
       onMergeApplied?.();
       for (const field of conflicts.keys()) dismissConflict(field);
-      message.success('Merge applied to the form — Save writes it to the browser');
+      message.success(t('panel.inspector.cookies.toast.mergeApplied'));
     },
-    [setValues, onMergeApplied, conflicts, dismissConflict, message],
+    [setValues, onMergeApplied, conflicts, dismissConflict, message, t],
   );
 
   const banner = (

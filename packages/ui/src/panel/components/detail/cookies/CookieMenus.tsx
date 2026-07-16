@@ -3,6 +3,7 @@
  * `headers/HeadersMenus.tsx` so the muscle memory is the same.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { DevpanelCookiesExpiresFormatSetting, DevpanelCookiesSortSetting } from '../../../../workbench/settings/schema/devpanel-cookies';
 import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
 import { MenuNonDefaultDot, ToolbarMenuPopover } from '../../ToolbarMenuPopover';
@@ -36,6 +37,7 @@ export function CookieMoreFiltersMenu({
   onToggleRuleOnly: () => void;
   onToggleShowFilteredOut: () => void;
 }) {
+  const t = useT();
   const activeCount = [problemsOnly, thirdPartyOnly, ruleOnly, showFilteredOut].reduce(
     (n, v) => n + (v ? 1 : 0),
     0,
@@ -47,27 +49,27 @@ export function CookieMoreFiltersMenu({
     if (showFilteredOut) onToggleShowFilteredOut();
   };
   return (
-    <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
+    <ToolbarMenuPopover label={t('panel.inspector.cookies.moreFilters.label')} activeCount={activeCount}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={problemsOnly} onChange={onToggleProblemsOnly} />
-        Problems only
+        {t('panel.inspector.cookies.moreFilters.problemsOnly')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={thirdPartyOnly} onChange={onToggleThirdPartyOnly} />
-        3rd-party only
+        {t('panel.inspector.cookies.moreFilters.thirdPartyOnly')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={ruleOnly} onChange={onToggleRuleOnly} />
-        Rule-modified only
+        {t('panel.inspector.cookies.moreFilters.ruleOnly')}
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showFilteredOut} onChange={onToggleShowFilteredOut} />
-        Show filtered-out request cookies
+        {t('panel.inspector.cookies.moreFilters.showFilteredOut')}
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );
@@ -93,60 +95,61 @@ export interface CookieViewMenuProps {
 }
 
 export function CookieViewMenu(props: CookieViewMenuProps) {
+  const t = useT();
   const { modified, onReset } = props;
   const activeCount = modified.size;
 
   return (
-    <ToolbarMenuPopover label="View" activeCount={activeCount}>
+    <ToolbarMenuPopover label={t('panel.inspector.cookies.view.label')} activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Sort
+          {t('panel.inspector.cookies.view.sort')}
           <MenuNonDefaultDot show={modified.has('devpanelCookies.sortMode')} />
         </span>
         <select value={props.sortMode} onChange={(e) => props.onSortChange(e.target.value as DevpanelCookiesSortSetting)}>
-          <option value="original">Original</option>
-          <option value="az">A → Z</option>
-          <option value="size">Size</option>
-          <option value="expires">Expires</option>
+          <option value="original">{t('panel.inspector.cookies.view.sortOriginal')}</option>
+          <option value="az">{t('panel.inspector.cookies.view.sortAz')}</option>
+          <option value="size">{t('panel.inspector.cookies.view.sortSize')}</option>
+          <option value="expires">{t('panel.inspector.cookies.view.sortExpires')}</option>
         </select>
       </label>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Expires
+          {t('panel.inspector.cookies.view.expiresFormat')}
           <MenuNonDefaultDot show={modified.has('devpanelCookies.expiresFormat')} />
         </span>
         <select
           value={props.expiresFormat}
           onChange={(e) => props.onExpiresFormatChange(e.target.value as DevpanelCookiesExpiresFormatSetting)}
         >
-          <option value="relative">Relative</option>
-          <option value="absolute">Absolute</option>
+          <option value="relative">{t('panel.inspector.cookies.view.expiresRelative')}</option>
+          <option value="absolute">{t('panel.inspector.cookies.view.expiresAbsolute')}</option>
         </select>
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.decodeValues} onChange={props.onToggleDecodeValues} />
-        Decode URL-encoded values
+        {t('panel.inspector.cookies.view.decodeValues')}
         <MenuNonDefaultDot show={modified.has('devpanelCookies.decodeValues')} />
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.groupByRole} onChange={props.onToggleGroupByRole} />
-        Group by role (auth / pref / tracking)
+        {t('panel.inspector.cookies.view.groupByRole')}
         <MenuNonDefaultDot show={modified.has('devpanelCookies.groupByRole')} />
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.showChips} onChange={props.onToggleShowChips} />
-        Show tags
+        {t('panel.inspector.cookies.view.showTags')}
         <MenuNonDefaultDot show={modified.has('devpanelCookies.showChips')} />
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.showInsights} onChange={props.onToggleShowInsights} />
-        Show suggestions
+        {t('panel.inspector.cookies.view.showSuggestions')}
         <MenuNonDefaultDot show={modified.has('devpanelCookies.showInsights')} />
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeCount === 0}>
-        Reset to default
+        {t('panel.menu.resetToDefault')}
       </button>
     </ToolbarMenuPopover>
   );

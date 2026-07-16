@@ -10,7 +10,9 @@
  * builds one coherent picture of a single cookie field by field.
  */
 
+import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { useMemo } from 'react';
 
 export type CookieEditFieldKey =
   | 'name'
@@ -55,13 +57,14 @@ const HIGHLIGHT: Record<CookieEditFieldKey, readonly CookieExampleToken[]> = {
 };
 
 export function CookieExampleCard({ highlight }: { highlight: readonly CookieExampleToken[] }) {
+  const t = useT();
   const lit = new Set<CookieExampleToken>(highlight);
   const tok = (id: CookieExampleToken, text: string) => (
     <span className={`dt-col-eg-tok${lit.has(id) ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
   return (
     <div className="dt-col-eg">
-      <div className="dt-col-eg-cap">Example Set-Cookie</div>
+      <div className="dt-col-eg-cap">{t('panel.inspector.cookies.fieldInfo.exampleCaption')}</div>
       <div className="dt-col-eg-card">
         <div className="dt-col-eg-line">
           {tok('name', EX.name)}
@@ -95,93 +98,98 @@ function ExampleCard({ field }: { field: CookieEditFieldKey }) {
   return <CookieExampleCard highlight={HIGHLIGHT[field]} />;
 }
 
-const TEMPLATE_NOTE =
-  'Accepts {{variable}} references, resolved once when you save — the jar stores the resolved text.';
-
-const COOKIE_EDIT_FIELD_INFO: Record<CookieEditFieldKey, InfoPopoverContent> = {
-  name: {
-    diagram: <ExampleCard field="name" />,
-    title: 'Name',
-    kicker: 'Cookie field',
-    summary: 'The cookie identifier. Browsers key on (name, domain, path) — same name with a different scope is a separate cookie.',
-    description: `Prefixes are enforced by the browser: __Host- requires Secure, Path=/ and no Domain; __Secure- requires Secure. ${TEMPLATE_NOTE}`,
-  },
-  value: {
-    diagram: <ExampleCard field="value" />,
-    title: 'Value',
-    kicker: 'Cookie field',
-    summary: 'The cookie payload — what the browser sends back in the Cookie header.',
-    description: `${TEMPLATE_NOTE} The value is a snapshot: if the variable changes later the jar keeps this text — use an Override Cookies rule when the value should track the variable.`,
-  },
-  domain: {
-    diagram: <ExampleCard field="domain" />,
-    title: 'Domain',
-    kicker: 'Cookie field',
-    summary: 'Which hosts receive the cookie.',
-    description: `A plain domain like openheaders.io includes its subdomains (the browser stores it with a leading dot) unless Host-only is on, which pins the cookie to exactly this host. ${TEMPLATE_NOTE}`,
-  },
-  path: {
-    diagram: <ExampleCard field="path" />,
-    title: 'Path',
-    kicker: 'Cookie field',
-    summary: 'URL path prefix the cookie rides on — /api means only requests under /api carry it.',
-    description: `Defaults to /. ${TEMPLATE_NOTE}`,
-  },
-  expires: {
-    diagram: <ExampleCard field="expires" />,
-    title: 'Expires',
-    kicker: 'Cookie field',
-    summary: 'When the browser deletes the cookie.',
-    description:
-      'Session cookies live until the browser session ends; On date sets an absolute expiry (stored as the Expires attribute).',
-  },
-  samesite: {
-    diagram: <ExampleCard field="samesite" />,
-    title: 'SameSite',
-    kicker: 'Cookie field',
-    summary: 'When cross-site requests may carry the cookie.',
-    sections: [
-      {
-        heading: 'Values',
-        items: [
-          { label: 'Strict', desc: 'Same-site requests only.' },
-          { label: 'Lax', desc: 'Same-site plus top-level cross-site navigations (GET).' },
-          { label: 'None', desc: 'Sent cross-site too — the browser requires Secure with it.' },
-          { label: 'Unspecified', desc: 'Browser default (treated as Lax in Chrome).' },
+function cookieEditFieldInfo(t: Translate, key: CookieEditFieldKey): InfoPopoverContent {
+  const fieldKicker = t('panel.inspector.cookies.fieldInfo.fieldKicker');
+  const flagKicker = t('panel.inspector.cookies.fieldInfo.flagKicker');
+  const templateNote = t('panel.inspector.cookies.fieldInfo.templateNote');
+  switch (key) {
+    case 'name':
+      return {
+        diagram: <ExampleCard field="name" />,
+        title: 'Name',
+        kicker: fieldKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.name.summary'),
+        description: `${t('panel.inspector.cookies.fieldInfo.name.description')} ${templateNote}`,
+      };
+    case 'value':
+      return {
+        diagram: <ExampleCard field="value" />,
+        title: 'Value',
+        kicker: fieldKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.value.summary'),
+        description: `${templateNote} ${t('panel.inspector.cookies.fieldInfo.value.description')}`,
+      };
+    case 'domain':
+      return {
+        diagram: <ExampleCard field="domain" />,
+        title: 'Domain',
+        kicker: fieldKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.domain.summary'),
+        description: `${t('panel.inspector.cookies.fieldInfo.domain.description')} ${templateNote}`,
+      };
+    case 'path':
+      return {
+        diagram: <ExampleCard field="path" />,
+        title: 'Path',
+        kicker: fieldKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.path.summary'),
+        description: `${t('panel.inspector.cookies.fieldInfo.path.description')} ${templateNote}`,
+      };
+    case 'expires':
+      return {
+        diagram: <ExampleCard field="expires" />,
+        title: 'Expires',
+        kicker: fieldKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.expires.summary'),
+        description: t('panel.inspector.cookies.fieldInfo.expires.description'),
+      };
+    case 'samesite':
+      return {
+        diagram: <ExampleCard field="samesite" />,
+        title: 'SameSite',
+        kicker: fieldKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.samesite.summary'),
+        sections: [
+          {
+            heading: t('panel.inspector.cookies.fieldInfo.samesite.valuesHeading'),
+            items: [
+              { label: 'Strict', desc: t('panel.inspector.cookies.fieldInfo.samesite.strict') },
+              { label: 'Lax', desc: t('panel.inspector.cookies.fieldInfo.samesite.lax') },
+              { label: 'None', desc: t('panel.inspector.cookies.fieldInfo.samesite.none') },
+              { label: 'Unspecified', desc: t('panel.inspector.cookies.fieldInfo.samesite.unspecified') },
+            ],
+          },
         ],
-      },
-    ],
-  },
-  httponly: {
-    diagram: <ExampleCard field="httponly" />,
-    title: 'HttpOnly',
-    kicker: 'Cookie flag',
-    summary: 'Hides the cookie from page JavaScript — document.cookie can’t read or overwrite it.',
-    description:
-      'Only servers (Set-Cookie) and this editor can create HttpOnly cookies; page scripts can’t. The standard hardening for session tokens.',
-  },
-  secure: {
-    diagram: <ExampleCard field="secure" />,
-    title: 'Secure',
-    kicker: 'Cookie flag',
-    summary: 'The cookie travels only over HTTPS — plain http requests never carry it.',
-    description: 'Required for SameSite=None and for the __Host- / __Secure- name prefixes.',
-  },
-  hostonly: {
-    diagram: <ExampleCard field="hostonly" />,
-    title: 'Host-only',
-    kicker: 'Cookie flag',
-    summary: 'Pins the cookie to exactly the Domain host — subdomains don’t receive it.',
-    description:
-      'Off, the cookie is stored domain-wide (leading-dot form) and flows to subdomains. The browser’s own cookies are host-only when the server omitted the Domain attribute.',
-  },
-};
+      };
+    case 'httponly':
+      return {
+        diagram: <ExampleCard field="httponly" />,
+        title: 'HttpOnly',
+        kicker: flagKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.httponly.summary'),
+        description: t('panel.inspector.cookies.fieldInfo.httponly.description'),
+      };
+    case 'secure':
+      return {
+        diagram: <ExampleCard field="secure" />,
+        title: 'Secure',
+        kicker: flagKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.secure.summary'),
+        description: t('panel.inspector.cookies.fieldInfo.secure.description'),
+      };
+    case 'hostonly':
+      return {
+        diagram: <ExampleCard field="hostonly" />,
+        title: 'Host-only',
+        kicker: flagKicker,
+        summary: t('panel.inspector.cookies.fieldInfo.hostonly.summary'),
+        description: t('panel.inspector.cookies.fieldInfo.hostonly.description'),
+      };
+  }
+}
 
 export function CookieEditFieldInfo({ infoKey }: { infoKey: CookieEditFieldKey }) {
-  return (
-    <InfoTrigger
-      content={COOKIE_EDIT_FIELD_INFO[infoKey]}
-      className="dt-header-info-trigger dt-cookie-edit-info-trigger"
-    />
-  );
+  const t = useT();
+  const content = useMemo(() => cookieEditFieldInfo(t, infoKey), [t, infoKey]);
+  return <InfoTrigger content={content} className="dt-header-info-trigger dt-cookie-edit-info-trigger" />;
 }

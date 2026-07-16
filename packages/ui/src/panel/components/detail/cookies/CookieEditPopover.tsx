@@ -27,6 +27,7 @@
  */
 
 import { SaveOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
@@ -95,6 +96,7 @@ function CookieEditFormBody({
   onCancel,
   onSave,
 }: FormBodyProps) {
+  const t = useT();
   const [values, setValues] = useState<CookieEditFormValues>(openCanonical);
   // Live canonical — advances while the popover is open (jar sync);
   // dirty always compares against the CURRENT jar truth, so a form the
@@ -190,19 +192,17 @@ function CookieEditFormBody({
       style={maxHeight != null ? { maxHeight, overflowY: 'auto', overscrollBehavior: 'none' } : undefined}
     >
       <div className="dt-cookie-edit-popover-title">
-        {mode === 'add' ? 'Add cookie' : 'Edit cookie'}
+        {mode === 'add' ? t('panel.inspector.cookies.cta.addCookie') : t('panel.inspector.cookies.edit.editTitle')}
         {valueNote && (
           <span className="dt-exec-badge dt-exec-badge--rule-modified" title={valueNote}>
-            value changed
+            {t('panel.inspector.cookies.edit.valueChanged')}
           </span>
         )}
       </div>
       {conflictTier.banner}
       {conflictTier.dialog}
       {gone && (
-        <div className="dt-cookie-edit-note">
-          This cookie was deleted in the browser while the form was open — Save writes it back.
-        </div>
+        <div className="dt-cookie-edit-note">{t('panel.inspector.cookies.edit.goneNote')}</div>
       )}
       <CookieEditFields values={values} fields={fields} set={set} busy={busy} affixes={conflictTier.affixes} />
       {constraintError !== null && <div className="dt-cookie-edit-note">{constraintError}</div>}
@@ -213,8 +213,8 @@ function CookieEditFormBody({
             className="dt-cookie-edit-open"
             title={
               dirty
-                ? 'Save or cancel your edits first — the document opens from the browser jar'
-                : 'Open this cookie as a document tab'
+                ? t('panel.inspector.cookies.edit.openDirtyTitle')
+                : t('panel.inspector.cookies.edit.openTitle')
             }
           >
             <Button
@@ -226,12 +226,12 @@ function CookieEditFormBody({
                 onCancel();
               }}
             >
-              Open in new tab →
+              {t('panel.inspector.cookies.edit.openInTab')} →
             </Button>
           </span>
         )}
         <Tooltip
-          title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}
+          title={<ShortcutHintTitle label={saveLabel}>{t('panel.inspector.cookies.edit.save')}</ShortcutHintTitle>}
           placement="bottomRight"
           zIndex={1090}
         >
@@ -244,7 +244,7 @@ function CookieEditFormBody({
             loading={busy}
             style={{ fontSize: 11, ...(canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}) }}
           >
-            Save
+            {t('panel.inspector.cookies.edit.save')}
           </Button>
         </Tooltip>
       </div>
