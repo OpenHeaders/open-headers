@@ -14,7 +14,7 @@
 
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
-import { Button, Checkbox, Empty, Modal, Tag, Typography } from 'antd';
+import { Checkbox, Empty, Modal, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -54,15 +54,6 @@ const ProductTelemetryToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
     refresh();
   }, [refresh]);
 
-  const resetInstallId = useCallback(() => {
-    const bridge = getHostBridge();
-    if (!bridge) return;
-    void bridge
-      .call('productTelemetryResetInstallId')
-      .then(refresh)
-      .catch(() => undefined);
-  }, [refresh]);
-
   useEffect(() => {
     if (!open) return;
     const timer = setInterval(refresh, REFRESH_INTERVAL_MS);
@@ -99,11 +90,6 @@ const ProductTelemetryToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
                 ? `Install ${snapshot.installId} (random — identifies this install, not you)`
                 : 'No install identifier — counting is off'}
             </Text>
-            {snapshot.installId && (
-              <Button size="small" onClick={resetInstallId} data-testid="product-telemetry-reset-install-id">
-                Reset identifier
-              </Button>
-            )}
           </div>
         )}
         {!snapshot || snapshot.entries.length === 0 ? (

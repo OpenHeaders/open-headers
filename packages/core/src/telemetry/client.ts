@@ -71,8 +71,8 @@ export interface TelemetryClientDeps {
   /** Wall clock (ms since epoch), injected so hosts and tests own time. */
   now(): number;
   /**
-   * Current install identity, read at flush time so a mid-session reset
-   * re-stamps the very next envelope. `null` means no identity exists
+   * Current install identity, read at flush time so a mid-session
+   * re-mint (toggle off → on) re-stamps the very next envelope. `null` means no identity exists
    * (channel disabled or being wiped) — nothing flushes without one.
    */
   install(): TelemetryInstallContext | null;

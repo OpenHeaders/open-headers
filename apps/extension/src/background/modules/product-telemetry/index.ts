@@ -304,8 +304,3 @@ export function trackProductTelemetryEvent(event: TelemetryEvent): void {
 export function readProductTelemetrySnapshot(): Promise<ProductTelemetrySnapshot> {
   return controller.snapshot();
 }
-
-/** UI-surface entry (bridge RPC): mint a fresh install id. Null while the channel is off. */
-export function resetProductTelemetryInstallId(): Promise<string | null> {
-  return controller.resetInstallId();
-}

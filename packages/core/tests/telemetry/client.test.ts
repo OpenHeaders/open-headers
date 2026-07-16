@@ -92,7 +92,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
     expect(transport.sent[0].sinceInstall).toBe('8-30');
   });
 
-  it('re-reads the install context per flush so a reset re-stamps the next envelope', async () => {
+  it('re-reads the install context per flush so a re-minted identity re-stamps the next envelope', async () => {
     const transport = makeTransport();
     let installId = INSTALL.installId;
     const client = new TelemetryClient({

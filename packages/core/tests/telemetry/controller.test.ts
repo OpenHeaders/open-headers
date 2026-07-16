@@ -313,33 +313,13 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
     expect(await installStore.getRecord()).toBeNull();
   });
 
-  it('reset mints a fresh id and date, keeps the first_run latch, and re-stamps the next envelope', async () => {
-    const { controller, sent } = makeRig({ sessionStart: null });
-    await controller.init();
-    const fresh = await controller.resetInstallId();
-    expect(fresh).toMatch(/^[0-9a-f]{32}$/);
-    expect(fresh).not.toBe(INSTALL.installId);
-    expect((await controller.snapshot()).installId).toBe(fresh);
-    await controller.track({ name: 'workflow_run', ok: true });
-    await controller.flush();
-    expect(sent).toHaveLength(1);
-    expect(sent[0].installId).toBe(fresh);
-    expect(sent[0].events).toEqual([{ name: 'workflow_run', ok: true }]);
-  });
-
-  it('refuses a reset while the channel is off — there is no identity to reset', async () => {
-    const { controller } = makeRig({ enabled: false, sessionStart: null });
-    await controller.init();
-    expect(await controller.resetInstallId()).toBeNull();
-  });
-
   it('exposes the install id in the snapshot while enabled', async () => {
     const { controller } = makeRig({ sessionStart: null });
     await controller.init();
     expect((await controller.snapshot()).installId).toBe(INSTALL.installId);
   });
 
-  it('notifies onIdentityChanged at boot, on toggle transitions, and on reset', async () => {
+  it('notifies onIdentityChanged at boot and on toggle transitions', async () => {
     const seen: Array<string | null> = [];
     const gates = { enabled: true };
     const listeners: Array<() => void> = [];
@@ -364,10 +344,10 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
 
     gates.enabled = true;
     for (const fn of listeners) fn();
-    const fresh = await controller.resetInstallId();
-    expect(seen).toHaveLength(4);
+    await controller.snapshot();
+    expect(seen).toHaveLength(3);
     expect(seen[2]).toMatch(/^[0-9a-f]{32}$/);
-    expect(seen[3]).toBe(fresh);
+    expect(seen[2]).not.toBe(INSTALL.installId);
   });
 });
 

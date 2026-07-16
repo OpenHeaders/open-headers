@@ -388,9 +388,6 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'productTelemetryRead') {
       return productTelemetry.snapshot();
     }
-    if (type === 'productTelemetryResetInstallId') {
-      return { installId: await productTelemetry.resetInstallId() };
-    }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these
     // through the host bridge; the extension SW answers the same

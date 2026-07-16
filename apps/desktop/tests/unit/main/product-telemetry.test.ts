@@ -174,29 +174,6 @@ describe('installProductTelemetry — enabled gate', () => {
   });
 });
 
-describe('installProductTelemetry — reset identifier', () => {
-  it('mints a fresh id, persists it, and never re-announces first_run', async () => {
-    const { install, sent } = makeRig();
-    const handle = await install();
-    await handle.flush();
-    const fresh = await handle.resetInstallId();
-    expect(fresh).toMatch(/^[0-9a-f]{32}$/);
-    expect(fresh).not.toBe(sent[0].installId);
-    handle.track({ name: 'workflow_run', ok: true });
-    await handle.flush();
-    expect(sent[1].installId).toBe(fresh);
-    expect(sent[1].events).toEqual([{ name: 'workflow_run', ok: true }]);
-    handle.dispose();
-  });
-
-  it('refuses a reset while the channel is off', async () => {
-    const { install } = makeRig({ settings: { 'telemetry.enabled': false } });
-    const handle = await install();
-    expect(await handle.resetInstallId()).toBeNull();
-    handle.dispose();
-  });
-});
-
 describe('installProductTelemetry — inspector snapshot', () => {
   it('exposes the session log including suppressed while-disabled events', async () => {
     const { install } = makeRig({ settings: { 'telemetry.enabled': false } });

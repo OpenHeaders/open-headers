@@ -157,10 +157,9 @@ event of the current session byte for byte, sent or suppressed.
   - `installId` — 32 hex chars minted at random on first run and kept
     by the host. **Random by law**: never derived from hardware, the
     network, an account, or any real-world fact — it identifies this
-    install, not you, and cannot be traced back to either. You can
-    mint a fresh one anytime ("Reset identifier" beside the event
-    inspector), and turning the telemetry toggle off **deletes** it —
-    a later re-enable mints a new one unlinkable to history.
+    install, not you, and cannot be traced back to either. Turning the
+    telemetry toggle off **deletes** it — a later re-enable mints a
+    new one unlinkable to history, so the toggle doubles as a reset.
   - `sinceInstall` — how old the install is, only ever as one of five
     coarse buckets (`0`, `1`, `2-7`, `8-30`, `31+` days); precise ages
     are inexpressible.

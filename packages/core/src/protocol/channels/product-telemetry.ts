@@ -33,6 +33,4 @@ export interface ProductTelemetryRpc {
   productTelemetryTrack: { req: { event: TelemetryEvent }; res: { success: boolean } };
   /** Read the session event log + channel gates for the telemetry inspector. */
   productTelemetryRead: { req: Record<string, never>; res: ProductTelemetrySnapshot };
-  /** Mint a fresh install id (settings affordance). Not an acquisition: `first_run` never re-fires. Null while disabled. */
-  productTelemetryResetInstallId: { req: Record<string, never>; res: { installId: string | null } };
 }

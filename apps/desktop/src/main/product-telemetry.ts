@@ -53,8 +53,6 @@ export interface ProductTelemetryHandle {
   track(event: TelemetryEvent): void;
   /** The telemetry inspector's snapshot (bridge RPC). */
   snapshot(): Promise<ProductTelemetrySnapshot>;
-  /** Mint a fresh install id (settings affordance RPC). Null while the channel is off. */
-  resetInstallId(): Promise<string | null>;
   flush(): Promise<void>;
   /** Stop the flush cadence and fire one best-effort final flush. */
   dispose(): void;
@@ -65,9 +63,7 @@ export interface ProductTelemetryHandle {
  * keys of `OH.productTelemetryInstall` / `OH.productTelemetryFirstRunSent`
  * (identity record wiped on toggle-off; the sent-bit survives by design).
  */
-function createStorageInstallStore(
-  storage: Pick<HostStorage, 'get' | 'set' | 'remove'>,
-): ProductTelemetryInstallStore {
+function createStorageInstallStore(storage: Pick<HostStorage, 'get' | 'set' | 'remove'>): ProductTelemetryInstallStore {
   return {
     async getRecord() {
       const record = await storage.get(OH.productTelemetryInstall);
@@ -165,7 +161,6 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
   return {
     track: (event) => void controller.track(event),
     snapshot: () => controller.snapshot(),
-    resetInstallId: () => controller.resetInstallId(),
     flush: () => controller.flush(),
     dispose: () => {
       clearInterval(timer);

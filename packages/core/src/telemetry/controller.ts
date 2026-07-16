@@ -124,7 +124,7 @@ export interface ProductTelemetryControllerDeps {
    */
   buildSessionStart(): Promise<TelemetryEvent | null>;
   /**
-   * Observe identity changes (boot, toggle transitions, resets) with the
+   * Observe identity changes (boot, toggle transitions) with the
    * current install id — null while the channel is off. The extension
    * keeps its uninstall URL in step through this; other hosts omit it.
    */
@@ -220,22 +220,6 @@ export class ProductTelemetryController {
       await this.deps.installStore.markFirstRunSent();
       this.client?.track({ name: 'first_run', channel: this.deps.channel });
     }
-  }
-
-  /**
-   * Manual "reset identifier" (settings affordance): mint a fresh id and
-   * install date, keeping the `first_run` sent-bit — a reset is not an
-   * acquisition. No-op while the channel is off (there is no identity to
-   * reset). Resolves the new id, or null when disabled.
-   */
-  async resetInstallId(): Promise<string | null> {
-    await this.settled();
-    if (!this.deps.getEnabled()) return null;
-    const record: TelemetryInstallContext = { installId: mintTelemetryInstallId(), installedAt: this.deps.now() };
-    await this.deps.installStore.setRecord(record);
-    this.installContext = record;
-    this.deps.onIdentityChanged?.(record.installId);
-    return record.installId;
   }
 
   /** Fire `session_start` once per session. */
