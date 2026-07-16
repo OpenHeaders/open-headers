@@ -50,6 +50,7 @@ function JsonEntryRow({ name, value, depth }: { name: string; value: unknown; de
   const row = (
     <div
       role={expandable ? 'button' : undefined}
+      aria-expanded={expandable ? expanded : undefined}
       tabIndex={expandable ? 0 : undefined}
       onClick={expandable ? () => setExpanded((prev) => !prev) : undefined}
       onKeyDown={
@@ -71,7 +72,10 @@ function JsonEntryRow({ name, value, depth }: { name: string; value: unknown; de
         cursor: expandable ? 'pointer' : 'default',
       }}
     >
+      {/* Decorative — aria-hidden keeps the icon's "caret-right" label
+          out of the row's accessible name, which is the row's key. */}
       <CaretRightOutlined
+        aria-hidden
         style={{
           fontSize: 10,
           color: token.colorTextTertiary,

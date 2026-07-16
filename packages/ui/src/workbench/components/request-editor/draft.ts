@@ -170,6 +170,18 @@ export function mergeParamsFromUrl(
   });
 }
 
+/** Uid for a URL-derived param row. Index-keyed and DETERMINISTIC:
+ *  `draftFromRequest` runs inside `canonicalRequestProjection`, whose
+ *  output feeds fingerprint/signature comparisons — a random uid per
+ *  call makes every projection of the same request compare unequal,
+ *  and the reprime gate then re-populates the draft on every render
+ *  (an infinite setState loop that wedges the editor). Same shape as
+ *  `generateUid()` output so `UidSchema` and the conflict-path
+ *  regexes accept it unchanged. */
+function urlParamUid(index: number): string {
+  return `q${index.toString(36).padStart(7, '0')}`;
+}
+
 export function draftFromRequest(req: Request): Draft {
   // Split any legacy `?…` suffix off of `req.url` into structured
   // params so the editor's bidirectional URL↔Params sync has a clean
@@ -177,8 +189,15 @@ export function draftFromRequest(req: Request): Draft {
   // metadata and are appended AFTER the URL-derived ones, preserving
   // the visual order a user would expect (URL first, table after).
   const parsed = parseUrlQuery(req.url);
-  const urlParams: KeyValueRow[] = parsed.params.map((p) =>
-    makeKvRow({ key: p.key, value: p.value, description: '', enabled: true, hasEquals: p.hasEquals }),
+  const urlParams: KeyValueRow[] = parsed.params.map((p, i) =>
+    makeKvRow({
+      uid: urlParamUid(i),
+      key: p.key,
+      value: p.value,
+      description: '',
+      enabled: true,
+      hasEquals: p.hasEquals,
+    }),
   );
   return {
     method: req.method,
