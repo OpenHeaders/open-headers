@@ -92,16 +92,23 @@ const WorkingTicker: React.FC = () => {
   );
 };
 
+/**
+ * Where the stepper stands, for the host's dismissal policy: 'key' is
+ * freely closable; 'listing' has the enumeration RPC in flight (a
+ * minute on large accounts — closing abandons it); 'picking' has a
+ * workspace selection in progress. Hosts harden Esc/✕ past 'key' so an
+ * accidental dismissal can't throw live work away.
+ */
+export type PostmanPullStepperPhase = 'key' | 'listing' | 'picking';
+
 interface PostmanPullStepperProps {
   /** The pull was accepted — close the surface; progress rides the corner task. */
   onStarted: () => void;
-  /** Fires when the stepper moves past the key step (workspace list
-   *  loaded) and back — hosts harden dismissal while a selection is
-   *  in progress so an accidental Esc can't discard it. */
-  onAdvancedChange?: (advanced: boolean) => void;
+  /** Fires on every phase move — the host's dismissal-policy feed. */
+  onPhaseChange?: (phase: PostmanPullStepperPhase) => void;
 }
 
-const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onAdvancedChange }) => {
+const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPhaseChange }) => {
   const [apiKey, setApiKey] = useState('');
   const [listing, setListing] = useState(false);
   const [listReason, setListReason] = useState<string | null>(null);
@@ -110,10 +117,10 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onAd
   const [starting, setStarting] = useState(false);
   const [startReason, setStartReason] = useState<string | null>(null);
 
-  const advanced = workspaces !== null;
+  const phase: PostmanPullStepperPhase = workspaces !== null ? 'picking' : listing ? 'listing' : 'key';
   useEffect(() => {
-    onAdvancedChange?.(advanced);
-  }, [advanced, onAdvancedChange]);
+    onPhaseChange?.(phase);
+  }, [phase, onPhaseChange]);
 
   const listAccountWorkspaces = useCallback(() => {
     const key = apiKey.trim();

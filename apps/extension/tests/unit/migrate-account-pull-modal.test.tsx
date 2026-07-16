@@ -132,6 +132,31 @@ describe('MigrateAccountPullModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores Esc while the workspace listing is in flight; the X asks to keep waiting', async () => {
+    // A listing that never settles — the guard window under test.
+    installBridge({ 'oh.migration.postmanPull.listWorkspaces': new Promise(() => {}) });
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    fireEvent.change(screen.getByLabelText('Postman API key'), { target: { value: 'PMAK-abc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'List workspaces' }));
+
+    fireEvent.keyDown(screen.getAllByRole('dialog')[0], { key: 'Escape', keyCode: 27 });
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findAllByText('Close the import?')).not.toHaveLength(0);
+    expect(screen.getByText(/still being listed/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep waiting' }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    const closeAnywayButtons = await screen.findAllByRole('button', { name: 'Close anyway' });
+    fireEvent.click(closeAnywayButtons[closeAnywayButtons.length - 1]);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
   it('ignores Esc once the workspace picker is up; the X asks before closing', async () => {
     installBridge();
     const onClose = vi.fn();

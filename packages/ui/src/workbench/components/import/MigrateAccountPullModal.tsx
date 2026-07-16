@@ -19,7 +19,7 @@ import { CheckCircleFilled } from '@ant-design/icons';
 import { App, Button, Divider, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
-import PostmanPullStepper from './migrate/PostmanPullStepper';
+import PostmanPullStepper, { type PostmanPullStepperPhase } from './migrate/PostmanPullStepper';
 import { PostmanGlyph } from './migrate/vendor-icons';
 
 const { Text, Paragraph } = Typography;
@@ -41,29 +41,38 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { modal } = App.useApp();
-  // Past the key step a workspace selection is in progress — Esc is
-  // disabled so a stray key press can't discard it, and the X asks
-  // before throwing the selection away.
-  const [stepperAdvanced, setStepperAdvanced] = useState(false);
+  // Past the key step live work is on the line — the enumeration RPC
+  // while listing, the workspace selection once the picker is up. Esc
+  // is disabled so a stray key press can't discard either, and the X
+  // asks before throwing them away, with copy matched to the phase.
+  const [stepperPhase, setStepperPhase] = useState<PostmanPullStepperPhase>('key');
 
   const handleCancel = useCallback(() => {
-    if (!stepperAdvanced) {
+    if (stepperPhase === 'key') {
       onClose();
       return;
     }
-    // The safe choice ("Keep selecting") is the primary OK on the right;
-    // the destructive discard rides the red cancel slot on the left.
-    // Esc is off so it can't fire the discard side unnoticed.
+    // The safe choice ("Keep waiting" / "Keep selecting") is the primary
+    // OK on the right; the destructive discard rides the red cancel slot
+    // on the left. Esc is off so it can't fire the discard side unnoticed.
     modal.confirm({
       title: 'Close the import?',
-      content: 'Your workspace selection will be discarded. Nothing has been imported yet.',
-      okText: 'Keep selecting',
-      cancelText: 'Discard and close',
+      ...(stepperPhase === 'listing'
+        ? {
+            content:
+              'Your workspaces are still being listed — large accounts can take a minute. Closing abandons the listing.',
+            okText: 'Keep waiting',
+          }
+        : {
+            content: 'Your workspace selection will be discarded. Nothing has been imported yet.',
+            okText: 'Keep selecting',
+          }),
+      cancelText: stepperPhase === 'listing' ? 'Close anyway' : 'Discard and close',
       cancelButtonProps: { danger: true },
       keyboard: false,
       onCancel: onClose,
     });
-  }, [stepperAdvanced, modal, onClose]);
+  }, [stepperPhase, modal, onClose]);
 
   return (
     <Modal
@@ -73,14 +82,14 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
       footer={null}
       width={640}
       maskClosable={false}
-      keyboard={!stepperAdvanced}
+      keyboard={stepperPhase === 'key'}
       destroyOnHidden
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 12px' }}>
         <PostmanGlyph style={{ fontSize: 18 }} />
         <Text strong>Import from your Postman account</Text>
       </div>
-      <PostmanPullStepper onStarted={onClose} onAdvancedChange={setStepperAdvanced} />
+      <PostmanPullStepper onStarted={onClose} onPhaseChange={setStepperPhase} />
 
       <Divider style={{ margin: '20px 0 12px' }} />
 
