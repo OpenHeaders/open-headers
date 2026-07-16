@@ -1,12 +1,16 @@
 import {
   ApiTwoTone,
+  AppstoreTwoTone,
   BugTwoTone,
   CheckCircleFilled,
   CloseOutlined,
   ControlTwoTone,
   DashboardTwoTone,
+  DatabaseTwoTone,
   EditTwoTone,
+  ExperimentTwoTone,
   EyeTwoTone,
+  InteractionTwoTone,
   LayoutTwoTone,
   LikeTwoTone,
   SearchOutlined,
@@ -19,6 +23,11 @@ import { hostNavigation } from '@openheaders/core/navigation';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
+import {
+  BrunoGlyph,
+  InsomniaGlyph,
+  PostmanGlyph,
+} from '@openheaders/ui/workbench/components/import/migrate/vendor-icons';
 import { isFirefox } from '@openheaders/ui/shared/platform';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
@@ -29,7 +38,7 @@ const logoUrl = hostAssets.resolveUrl('images/logo-pixel.svg');
 
 const { Text } = Typography;
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 9;
 
 interface OnboardingTourProps {
   open: boolean | null;
@@ -251,6 +260,22 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 </div>
               </div>
             </div>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--ant-color-border-secondary)' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('popup.tour.migrateSwitching')}{' '}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  <PostmanGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Postman,
+                </span>{' '}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  <InsomniaGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Insomnia,
+                </span>{' '}
+                {t('popup.tour.migrateOr')}{' '}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  <BrunoGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Bruno?
+                </span>{' '}
+                {t('popup.tour.migrateHint')}
+              </Text>
+            </div>
           </StepDescription>
         ),
         target: () => getTarget('.header')!,
@@ -292,6 +317,44 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
           </StepDescription>
         ),
         target: () => getTarget('.header-rules-tabs .ant-tabs-nav')!,
+        placement: 'bottom' as const,
+        ...sharedStepProps,
+      },
+      {
+        title: (
+          <Space size={8}>
+            <AppstoreTwoTone />
+            <span>{t('popup.tour.workspaceTitle')}</span>
+          </Space>
+        ),
+        description: (
+          <StepDescription>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t('popup.tour.workspaceSubtitle')}
+            </Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+              <Space size={6}>
+                <ApiTwoTone style={{ fontSize: 14 }} />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>{t('popup.tour.workspaceRequests')}</Text> {t('popup.tour.workspaceRequestsHint')}
+                </Text>
+              </Space>
+              <Space size={6}>
+                <InteractionTwoTone style={{ fontSize: 14 }} />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>{t('popup.tour.workspaceWorkflows')}</Text> {t('popup.tour.workspaceWorkflowsHint')}
+                </Text>
+              </Space>
+              <Space size={6}>
+                <DatabaseTwoTone style={{ fontSize: 14 }} />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>{t('popup.tour.workspaceEnvs')}</Text> {t('popup.tour.workspaceEnvsHint')}
+                </Text>
+              </Space>
+            </div>
+          </StepDescription>
+        ),
+        target: () => getTarget('.header-workspace-button')!,
         placement: 'bottom' as const,
         ...sharedStepProps,
       },
@@ -476,6 +539,44 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
       {
         title: (
           <Space size={8}>
+            <ExperimentTwoTone />
+            <span>{t('popup.tour.debugModeTitle')}</span>
+          </Space>
+        ),
+        description: (
+          <StepDescription>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t('popup.tour.debugModeSubtitle')}
+            </Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+              <Space size={6}>
+                <EditTwoTone style={{ fontSize: 14 }} />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>{t('popup.tour.debugModeReqRes')}</Text> {t('popup.tour.debugModeReqResHint')}
+                </Text>
+              </Space>
+              <Space size={6}>
+                <ThunderboltTwoTone style={{ fontSize: 14 }} />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>{t('popup.tour.debugModeStreams')}</Text> {t('popup.tour.debugModeStreamsHint')}
+                </Text>
+              </Space>
+              <Space size={6}>
+                <DatabaseTwoTone style={{ fontSize: 14 }} />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>{t('popup.tour.debugModeScripts')}</Text> {t('popup.tour.debugModeScriptsHint')}
+                </Text>
+              </Space>
+            </div>
+          </StepDescription>
+        ),
+        target: () => getTarget('.footer-debug-mode')!,
+        placement: 'top' as const,
+        ...sharedStepProps,
+      },
+      {
+        title: (
+          <Space size={8}>
             <DashboardTwoTone />
             <span>{t('popup.tour.statusTitle')}</span>
           </Space>
@@ -554,10 +655,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 <Text style={{ fontSize: 13 }}>{t('popup.tour.recommend')}</Text>
               </div>
             </div>
+            <Text type="secondary" style={{ fontSize: 11, marginTop: 8, display: 'block' }}>
+              {t('popup.tour.growHint')}
+            </Text>
           </StepDescription>
         ),
-        target: () => getTarget('.github-star-button')!,
-        placement: 'top' as const,
+        target: () => getTarget('.header-notifications-button')!,
+        placement: 'bottom' as const,
         ...lastStepProps,
       },
     ],

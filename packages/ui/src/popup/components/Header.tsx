@@ -174,6 +174,7 @@ const Header: React.FC = () => {
           <Button
             type="text"
             size="small"
+            className="header-notifications-button"
             icon={<NotificationsIcon />}
             onClick={() => {
               void openWorkspace({ kind: 'open-notifications' }, surface.mode);

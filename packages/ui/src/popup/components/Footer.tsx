@@ -98,7 +98,12 @@ const Footer: React.FC = () => {
       <div>
         <Space size={8} align="center">
           <DebugModeDormantNotice tabSource="active" hasRealizableRule={hasRealizableDebugRule} />
-          <DebugModePill tabSource="active" placement="top" onOpenDocs={handleOpenDocs} />
+          <DebugModePill
+            tabSource="active"
+            className="rules-statusbar-item footer-debug-mode"
+            placement="top"
+            onOpenDocs={handleOpenDocs}
+          />
           <StatusPill
             className="rules-statusbar-item footer-system-status"
             density="full"

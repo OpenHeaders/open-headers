@@ -83,6 +83,7 @@ const RulesList: React.FC = () => {
           >
             <Button
               size="small"
+              className="header-workspace-button"
               icon={<AppstoreOutlined />}
               onClick={() => {
                 void openWorkspace({ kind: 'open-workspace' }, surface.mode);
