@@ -9,11 +9,17 @@
  * background-tasks tenant (`useMigrationPullTask`) folds the events
  * host-agnostically — mirroring the broadcast is the whole job; no
  * state lives here.
+ *
+ * Locally-run pulls (Phase B) dedupe by `runId`: a frame carrying a run
+ * this SW itself started is claimed but NOT re-broadcast — the run
+ * host's own broadcast already delivered those events to every surface,
+ * and a duplicate would double-fold in the tenant.
  */
 
 import type { PostmanPullEvent } from '@openheaders/core/import';
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
+import { isLocalMigrationPullRun } from './migration-run/run-host';
 
 const FRAME_TYPE = 'migrationPullEvent';
 
@@ -48,6 +54,7 @@ export function handleIncomingMigrationPullFrame(raw: unknown): boolean {
     logger.info('MigrationMirror', `dropping malformed ${FRAME_TYPE} frame`);
     return true;
   }
+  if (isLocalMigrationPullRun(raw.payload.runId)) return true;
   broadcast(FRAME_TYPE, raw.payload);
   return true;
 }
