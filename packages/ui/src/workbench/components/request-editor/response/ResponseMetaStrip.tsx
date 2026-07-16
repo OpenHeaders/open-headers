@@ -389,6 +389,79 @@ function authForwardedContent(t: Translate): InfoPopoverContent {
   };
 }
 
+/** Body of the redirects popover: the per-hop chain the send followed
+ *  — each hop's request line, the 3xx + Location it answered, and the
+ *  method/auth transitions where they happened — then the final
+ *  response the snapshot itself holds. Recorded by the executing
+ *  host's redirect follower; pure attribution. */
+function RedirectChainFacts({ response }: { response: ExecutedRequestSnapshot }) {
+  const { token } = theme.useToken();
+  const t = useT();
+  const chain = response.redirectChain ?? [];
+  const requestLine: React.CSSProperties = { fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' };
+  const noteLine: React.CSSProperties = { fontSize: 11, color: token.colorTextTertiary };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 260, maxWidth: 420 }}>
+      {chain.map((hop, index) => (
+        <div
+          key={`${index}-${hop.url}`}
+          data-testid="oh-response-redirect-hop"
+          style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
+          <span style={requestLine}>
+            {hop.method} {hop.url}
+          </span>
+          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+            → {hop.status}
+            {hop.statusText ? ` ${hop.statusText}` : ''} · Location: {hop.location}
+          </span>
+          {hop.methodChangedTo !== undefined && (
+            <span style={noteLine}>
+              {t('workbench.editors.request.response.meta.redirectMethodChanged', { method: hop.methodChangedTo })}
+            </span>
+          )}
+          {hop.authorization === 'stripped' && (
+            <span style={noteLine}>{t('workbench.editors.request.response.meta.redirectAuthStripped')}</span>
+          )}
+          {hop.authorization === 'forwarded' && (
+            <span style={{ fontSize: 11, color: token.colorWarning }}>
+              {t('workbench.editors.request.response.meta.redirectAuthForwarded')}
+            </span>
+          )}
+        </div>
+      ))}
+      <div
+        style={{
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          paddingTop: 6,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <span style={requestLine}>{response.url}</span>
+        <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+          → {response.status}
+          {response.statusText ? ` ${response.statusText}` : ''} ·{' '}
+          {t('workbench.editors.request.response.meta.redirectFinal')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Popover for the neutral tag on a run that followed redirects —
+ *  attribution of the chain the send actually chased (informational,
+ *  like the cookie-jar tag): each hop as sent, recorded at run time. */
+function redirectChainContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
+  return {
+    title: t('workbench.editors.request.response.meta.redirectsTitle'),
+    kicker: t('workbench.editors.request.response.meta.kicker'),
+    summary: t('workbench.editors.request.response.meta.redirectsSummary'),
+    description: <RedirectChainFacts response={response} />,
+  };
+}
+
 /** Tag label for a streamed capture — how the stream ended. */
 function streamedTagLabel(endedBy: NonNullable<ExecutedRequestSnapshot['streamedCapture']>['endedBy'], t: Translate) {
   switch (endedBy) {
@@ -590,6 +663,16 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
               style={{ marginInlineEnd: 0, cursor: 'help' }}
             >
               {t('workbench.editors.request.response.meta.authForwarded')}
+            </Tag>
+          </InfoPopover>
+        </>
+      )}
+      {response.redirectChain !== undefined && response.redirectChain.length > 0 && (
+        <>
+          <MetaDot />
+          <InfoPopover content={redirectChainContent(response, t)} trigger="hover">
+            <Tag color="default" data-testid="oh-response-redirects" style={{ marginInlineEnd: 0, cursor: 'help' }}>
+              {t('workbench.editors.request.response.meta.redirects', { count: response.redirectChain.length })}
             </Tag>
           </InfoPopover>
         </>

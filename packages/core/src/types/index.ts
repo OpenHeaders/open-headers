@@ -157,6 +157,7 @@ export type {
 
 // ── Request execution ──────────────────────────────────────────────
 export type {
+  ExecutedRedirectHop,
   ExecutedRequestErrorHint,
   ExecutedRequestSize,
   ExecutedRequestSnapshot,

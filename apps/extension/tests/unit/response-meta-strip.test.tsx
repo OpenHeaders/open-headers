@@ -64,6 +64,51 @@ describe('ResponseMetaStrip cookie-jar attribution', () => {
   });
 });
 
+describe('ResponseMetaStrip redirect-chain attribution', () => {
+  it('shows no redirects tag on a run without the rider', () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-redirects')).toBeNull();
+  });
+
+  it('shows no redirects tag when the rider is an empty list', () => {
+    renderStrip({ redirectChain: [] });
+    expect(screen.queryByTestId('oh-response-redirects')).toBeNull();
+  });
+
+  it('tags a redirected run with the hop count, neutral tone', () => {
+    renderStrip({
+      redirectChain: [
+        {
+          url: 'https://api.openheaders.io/v1/ping',
+          method: 'GET',
+          status: 302,
+          statusText: 'Found',
+          location: '/v2/ping',
+        },
+        {
+          url: 'https://api.openheaders.io/v2/ping',
+          method: 'GET',
+          status: 302,
+          statusText: 'Found',
+          location: '/v3/ping',
+        },
+      ],
+    });
+    const tag = screen.getByTestId('oh-response-redirects');
+    expect(tag.textContent).toBe('2 redirects');
+    expect(tag.className).not.toContain('ant-tag-warning');
+  });
+
+  it('pluralizes a single hop', () => {
+    renderStrip({
+      redirectChain: [
+        { url: 'https://api.openheaders.io/v1/ping', method: 'GET', status: 301, statusText: '', location: '/v2' },
+      ],
+    });
+    expect(screen.getByTestId('oh-response-redirects').textContent).toBe('1 redirect');
+  });
+});
+
 describe('ResponseMetaStrip streamed-capture attribution', () => {
   it('shows no streamed tag on a run without the rider', () => {
     renderStrip();

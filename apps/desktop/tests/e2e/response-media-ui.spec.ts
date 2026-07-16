@@ -64,6 +64,11 @@ let electronApp: ElectronApplication;
 let workbench: Page;
 let token: string;
 const seededUids = new Map<ProbeName, string>();
+/** POST probe through the 303 demotion hop — the redirect-chain case.
+ *  Desktop-only by design: the node transport owns its redirect
+ *  follower and records per-hop attribution; browser fetch follows
+ *  internally, so the extension never carries the rider. */
+let redirectDemoteUid = '';
 const consoleErrors: string[] = [];
 
 async function invoke<T>(message: Record<string, unknown>): Promise<T> {
@@ -288,6 +293,12 @@ test.beforeAll(async () => {
       await seedRequest({ ...base, name: `GET ${name} probe`, method: 'GET', url: PROBE_URL(name) }),
     );
   }
+  redirectDemoteUid = await seedRequest({
+    ...base,
+    name: 'POST redirect-demote probe',
+    method: 'POST',
+    url: 'http://127.0.0.1:3000/net/redirect-demote',
+  });
 
   await showRequestsView();
   await collapseDocsPanel();
@@ -422,6 +433,37 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
     await sendProbe('latin1');
     expect(await responseViewPickerLabel()).toMatch(/Hex$/);
     expect(await responseRawBody()).toContain('café au lait à volonté');
+  });
+
+  test('redirect chain: a followed 303 POST mints the redirects tag with per-hop attribution', async () => {
+    // Desktop-only case — the node transport records its hand-rolled
+    // redirect follower's hops; the extension's browser fetch cannot.
+    await openRequest(redirectDemoteUid);
+    await workbench.getByRole('button', { name: /Send$/ }).filter({ visible: true }).click();
+    const tag = workbench.getByTestId('oh-response-status').filter({ visible: true });
+    await tag.waitFor({ state: 'visible', timeout: 30_000 });
+    expect((await tag.textContent())?.trim()).toContain('200');
+
+    // Wire proof of the demotion: the echo target reports the method
+    // that actually arrived after the 303 hop.
+    const raw = await responseRawBody();
+    expect(raw).toContain('"method": "GET"');
+
+    const redirectsTag = workbench.getByTestId('oh-response-redirects').filter({ visible: true });
+    await redirectsTag.waitFor({ state: 'visible', timeout: 15_000 });
+    expect((await redirectsTag.textContent())?.trim()).toBe('1 redirect');
+
+    // Popover chain: the hop as sent (POST → 303 + Location) with the
+    // method-demotion note, then the final response line.
+    await redirectsTag.hover();
+    const hop = workbench.getByTestId('oh-response-redirect-hop').filter({ visible: true });
+    await hop.waitFor({ state: 'visible', timeout: 15_000 });
+    const hopText = (await hop.textContent()) ?? '';
+    expect(hopText).toContain('POST http://127.0.0.1:3000/net/redirect-demote');
+    expect(hopText).toContain('303');
+    expect(hopText).toContain('Location: /echo/demoted');
+    expect(hopText).toContain('Method changed to GET');
+    await shot('redirect-chain');
   });
 
   test('no CSP violations surfaced in the workbench console', async () => {

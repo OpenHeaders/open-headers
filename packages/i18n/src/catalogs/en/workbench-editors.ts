@@ -1054,6 +1054,17 @@ export const workbenchEditors = {
     'Nothing — no stored cookie matched, or a Cookie header set on the request won.',
   'workbench.editors.request.response.meta.jarStoredLabel': 'Stored from Set-Cookie responses',
   'workbench.editors.request.response.meta.jarStoredNone': 'Nothing — no response set a cookie.',
+  'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} redirect', other: '{count} redirects' }),
+  'workbench.editors.request.response.meta.redirectsTitle': 'Redirect chain',
+  'workbench.editors.request.response.meta.redirectsSummary':
+    'The hops this request followed before the final response — each one shows the request that was sent and the redirect it answered with, recorded when the send ran.',
+  'workbench.editors.request.response.meta.redirectMethodChanged': 'Method changed to {method} for the next request',
+  'workbench.editors.request.response.meta.redirectAuthStripped':
+    'Authorization header dropped — the next request crossed to a different origin',
+  'workbench.editors.request.response.meta.redirectAuthForwarded':
+    'Authorization header re-sent across origins — kept by this request’s Settings',
+  'workbench.editors.request.response.meta.redirectFinal': 'Final response',
   'workbench.editors.request.response.meta.streamedEnd': 'Stream ended',
   'workbench.editors.request.response.meta.streamedStop': 'Stopped',
   'workbench.editors.request.response.meta.streamedCap': 'Stream capped',

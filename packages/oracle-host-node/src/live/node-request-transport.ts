@@ -104,6 +104,7 @@ import {
   TransportError,
   type TransportHeader,
   type TransportMultipartPart,
+  type TransportRedirectHop,
   type TransportRequest,
   type TransportResponse,
   type TransportStreamObserver,
@@ -755,7 +756,8 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
             jarActivity.cookiesCaptured.push(...retry.jarCaptured);
           }
         }
-        return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity, streaming);
+        // Manual mode is single-shot — no chain to record.
+        return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity, undefined, streaming);
       }
       return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar, streaming);
     } finally {
@@ -799,6 +801,10 @@ async function followRedirectChain(
   let authorizationForwarded = false;
   let redirects = 0;
   let jarActivity: JarActivity | undefined = jar !== undefined ? { cookiesCaptured: [] } : undefined;
+  // Per-hop attribution for the snapshot — one record per hop that
+  // REDIRECTED (the final response is the snapshot itself). The loop
+  // owns the chain, so only this transport can record it.
+  const redirectChain: TransportRedirectHop[] = [];
   while (true) {
     // The jar contributes per hop, computed fresh against the CURRENT
     // hop's URL — a cookie set mid-chain rides the next hop, and a
@@ -834,14 +840,32 @@ async function followRedirectChain(
     }
     const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null;
     if (location === null)
-      return finalizeResponse(response, request, hop.url, deadline, authorizationForwarded, jarActivity, streaming);
+      return finalizeResponse(
+        response,
+        request,
+        hop.url,
+        deadline,
+        authorizationForwarded,
+        jarActivity,
+        redirectChain,
+        streaming,
+      );
     await response.body?.cancel();
     if (redirects >= maxRedirects) {
       throw new TransportError(`Stopped after ${maxRedirects} redirects — the request's redirect limit.`);
     }
     redirects++;
     const next = nextHop(hop, response.status, location, request);
-    authorizationForwarded ||= next.authorizationForwarded;
+    authorizationForwarded ||= next.authorization === 'forwarded';
+    redirectChain.push({
+      url: hop.url,
+      method: hop.method,
+      status: response.status,
+      statusText: response.statusText,
+      location,
+      ...(next.methodChangedTo !== undefined ? { methodChangedTo: next.methodChangedTo } : {}),
+      ...(next.authorization !== undefined ? { authorization: next.authorization } : {}),
+    });
     hop = next.hop;
   }
 }
@@ -852,15 +876,16 @@ async function followRedirectChain(
  * method/body demotion (301/302 POST→GET, 303 any-non-GET/HEAD→GET;
  * 307/308 always preserve) unless `followOriginalHttpMethod` keeps it,
  * and strip `Authorization` when the hop crosses origin unless
- * `followAuthorizationHeader` keeps it — in which case the re-send is
- * reported so the response surface can mark it.
+ * `followAuthorizationHeader` keeps it. What the derivation DID —
+ * method demotion, Authorization strip/forward — is reported alongside
+ * so the caller can record the hop and mark the response.
  */
 function nextHop(
   prev: HopState,
   status: number,
   location: string,
   request: TransportRequest,
-): { hop: HopState; authorizationForwarded: boolean } {
+): { hop: HopState; methodChangedTo?: string; authorization?: 'stripped' | 'forwarded' } {
   let nextUrl: URL;
   try {
     nextUrl = new URL(location, prev.url);
@@ -879,16 +904,21 @@ function nextHop(
     body = { kind: 'none' };
     headers = headers.filter((h) => !BODY_HEADERS.has(h.key.toLowerCase()));
   }
-  let authorizationForwarded = false;
+  let authorization: 'stripped' | 'forwarded' | undefined;
   const crossOrigin = new URL(prev.url).origin !== nextUrl.origin;
   if (crossOrigin && headers.some((h) => h.key.toLowerCase() === 'authorization')) {
     if (request.followAuthorizationHeader === true) {
-      authorizationForwarded = true;
+      authorization = 'forwarded';
     } else {
+      authorization = 'stripped';
       headers = headers.filter((h) => h.key.toLowerCase() !== 'authorization');
     }
   }
-  return { hop: { url: nextUrl.toString(), method, headers, body }, authorizationForwarded };
+  return {
+    hop: { url: nextUrl.toString(), method, headers, body },
+    ...(demoteToGet ? { methodChangedTo: method } : {}),
+    ...(authorization !== undefined ? { authorization } : {}),
+  };
 }
 
 /** One wire round-trip for a hop, on whichever pipeline can carry it:
@@ -1031,6 +1061,7 @@ async function finalizeResponse(
   deadline: Deadline,
   authorizationForwarded: boolean,
   jarActivity: JarActivity | undefined,
+  redirectChain: ReadonlyArray<TransportRedirectHop> | undefined,
   streaming: StreamingLeg | null,
 ): Promise<TransportResponse> {
   const headers: TransportHeader[] = [];
@@ -1067,6 +1098,7 @@ async function finalizeResponse(
     url: response.url || finalUrl,
     headers,
     ...(trailers.length > 0 ? { trailers } : {}),
+    ...(redirectChain !== undefined && redirectChain.length > 0 ? { redirectChain } : {}),
     body: read.body,
     ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,

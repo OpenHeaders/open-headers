@@ -68,6 +68,37 @@ export interface ExecutedRequestErrorHint {
   netError?: string;
 }
 
+/**
+ * One redirect hop of a followed chain — the request that actually went
+ * on the wire and the 3xx it answered with, plus the policy transitions
+ * the follower applied deriving the NEXT hop. Attribution only ("record
+ * what the send DID"): the hop was already followed; nothing here is
+ * read back by the runtime.
+ */
+export interface ExecutedRedirectHop {
+  /** URL this hop's request was sent to. */
+  url: string;
+  /** HTTP method sent on this hop. */
+  method: string;
+  /** The hop's redirect status (301/302/303/307/308). */
+  status: number;
+  statusText: string;
+  /** The `Location` header value as the hop answered it — possibly
+   *  relative; the follower resolves it against this hop's URL. */
+  location: string;
+  /** Present when the spec's method demotion fired deriving the next
+   *  hop (301/302 POST→GET, 303 any-non-GET/HEAD→GET) — the value the
+   *  method changed TO. Absent when the method carried over (307/308,
+   *  already GET/HEAD, or the `followOriginalHttpMethod` opt-in). */
+  methodChangedTo?: string;
+  /** What happened to a carried `Authorization` header when this hop's
+   *  redirect crossed origin: `'stripped'` (the default policy) or
+   *  `'forwarded'` (the `followAuthorizationHeader` opt-in fired).
+   *  Absent when no Authorization header was in play or the next hop
+   *  stayed same-origin. */
+  authorization?: 'stripped' | 'forwarded';
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */
@@ -170,6 +201,17 @@ export interface ExecutedRequestSnapshot {
    * the jar was off or nothing was stored.
    */
   cookiesCaptured?: string[];
+  /**
+   * The redirect hops this send followed before the final response,
+   * in wire order — each one the request sent and the 3xx it answered
+   * with (the final response is the snapshot itself). Present only
+   * when the executing host's network stack owns its redirect chain
+   * (the node runtime's hand-rolled follower) AND at least one
+   * redirect was followed; browser fetch follows internally and never
+   * exposes hops, so the extension omits the field — the usual
+   * capability asymmetry. Attribution only, never a behavior change.
+   */
+  redirectChain?: ExecutedRedirectHop[];
   /**
    * The remote host that executed this send on the caller's behalf — a
    * peer-forwarded dispatch answered by a connected back-end. Stamped

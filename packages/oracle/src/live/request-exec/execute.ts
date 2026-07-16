@@ -224,6 +224,11 @@ export async function executeOverTransport(
       // Trailers are attribution the transport could only read off its
       // own wire path — surface them verbatim when any arrived.
       ...(response.trailers !== undefined && response.trailers.length > 0 ? { trailers: [...response.trailers] } : {}),
+      // Same for the redirect chain — only a transport that owns its
+      // redirect follower can record per-hop attribution.
+      ...(response.redirectChain !== undefined && response.redirectChain.length > 0
+        ? { redirectChain: [...response.redirectChain] }
+        : {}),
       body: response.body,
       ...(response.bodyEncoding ? { bodyEncoding: response.bodyEncoding } : {}),
       bodyTruncated: response.bodyTruncated,

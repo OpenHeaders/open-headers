@@ -254,6 +254,35 @@ export interface TransportRequest {
   digestAuth?: { username: string; password: string };
 }
 
+/**
+ * One redirect hop a `redirect: 'follow'` send chased — the request as
+ * it went on the wire and the 3xx it answered with, plus the policy
+ * transitions applied deriving the next hop. Only a transport that owns
+ * its redirect chain (the node host's hand-rolled follower) can record
+ * these; browser fetch follows internally and surfaces nothing — that
+ * host omits the field, the usual capability asymmetry. Pure
+ * attribution for the executed-run snapshot.
+ */
+export interface TransportRedirectHop {
+  /** URL this hop's request was sent to. */
+  url: string;
+  /** HTTP method sent on this hop. */
+  method: string;
+  /** The hop's redirect status (301/302/303/307/308). */
+  status: number;
+  statusText: string;
+  /** The `Location` header value as answered — possibly relative. */
+  location: string;
+  /** Present when the spec's method demotion fired deriving the next
+   *  hop — the value the method changed TO. */
+  methodChangedTo?: string;
+  /** What happened to a carried `Authorization` header when the next
+   *  hop crossed origin: stripped (default) or forwarded (the
+   *  `followAuthorizationHeader` opt-in). Absent when no Authorization
+   *  was in play or the hop stayed same-origin. */
+  authorization?: 'stripped' | 'forwarded';
+}
+
 export interface TransportResponse {
   status: number;
   statusText: string;
@@ -269,6 +298,13 @@ export interface TransportResponse {
    * sent at least one. Pure attribution for the executed-run snapshot.
    */
   trailers?: ReadonlyArray<TransportHeader>;
+  /**
+   * The redirect hops this send followed before the final response, in
+   * wire order — see {@link TransportRedirectHop}. Present only when
+   * the transport owns its redirect chain and at least one redirect was
+   * followed. Pure attribution for the executed-run snapshot.
+   */
+  redirectChain?: ReadonlyArray<TransportRedirectHop>;
   /**
    * Response body as text, already capped at {@link TransportRequest.maxBodyBytes}
    * by the transport (it streams + aborts past the cap to bound memory).

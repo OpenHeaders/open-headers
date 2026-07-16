@@ -445,6 +445,26 @@ describe('executeOverTransport', () => {
     expect(unmarked.trailers).toBeUndefined();
   });
 
+  it('surfaces the transport-reported redirect chain verbatim, omitted when none was followed', async () => {
+    // Per-hop attribution only a transport owning its redirect
+    // follower can record — the snapshot carries what the send did.
+    const hop = {
+      url: 'https://api.openheaders.io/v1/ping',
+      method: 'POST',
+      status: 303,
+      statusText: 'See Other',
+      location: '/v1/status',
+      methodChangedTo: 'GET',
+    };
+    const withChain = captureTransport({ redirectChain: [hop] });
+    const marked = await executeOverTransport(makeResolved({ method: 'POST' }), withChain.transport);
+    expect(marked.redirectChain).toEqual([hop]);
+
+    const quiet = captureTransport();
+    const unmarked = await executeOverTransport(makeResolved(), quiet.transport);
+    expect(unmarked.redirectChain).toBeUndefined();
+  });
+
   it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
     // Capping moved into the transport (only it can stream + abort the
     // read); execute passes the already-capped result straight through.
