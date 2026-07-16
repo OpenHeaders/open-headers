@@ -59,6 +59,7 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
     ['open-live-variables', { kind: 'open-live-variables' }],
     ['open-export-modal', { kind: 'open-export-modal' }],
     ['open-import-modal', { kind: 'open-import-modal' }],
+    ['open-migrate-modal', { kind: 'open-migrate-modal' }],
     ['create-api-request (bare)', { kind: 'create-api-request' }],
     ['create-api-request (draft)', { kind: 'create-api-request', draftNonce: 'xyz-123' }],
   ];
@@ -133,6 +134,7 @@ describe('WORKSPACE_INTENT_KINDS', () => {
       'create-live-variable': { kind: 'create-live-variable' },
       'open-export-modal': { kind: 'open-export-modal' },
       'open-import-modal': { kind: 'open-import-modal' },
+      'open-migrate-modal': { kind: 'open-migrate-modal' },
       'create-api-request': { kind: 'create-api-request' },
     };
     for (const kind of WORKSPACE_INTENT_KINDS) {
@@ -175,6 +177,7 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'open-live-variables' },
     { kind: 'open-export-modal' },
     { kind: 'open-import-modal' },
+    { kind: 'open-migrate-modal' },
     { kind: 'edit-live-variable', uid: UID_A },
     { kind: 'edit-live-workflow', uid: UID_B },
     { kind: 'create-live-variable' },

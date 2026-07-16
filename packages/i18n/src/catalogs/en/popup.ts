@@ -350,7 +350,7 @@ export const popup = {
   'popup.tour.debugDesc': 'Inspect live requests, inject scripts, override responses',
   'popup.tour.migrateSwitching': 'Switching from',
   'popup.tour.migrateOr': 'or',
-  'popup.tour.migrateHint': 'Import your whole account from the Workspace.',
+  'popup.tour.migrateButton': 'Migrate from another tool',
   'popup.tour.tabsTitle': 'Switch Between Tabs',
   'popup.tour.tabsSubtitle': 'Press a number key to switch instantly.',
   'popup.tour.thisPageHint': '— rules matching the current tab',

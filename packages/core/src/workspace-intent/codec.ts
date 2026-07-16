@@ -26,6 +26,7 @@
  *   #/workspaces             → open-workspace-manager
  *   #/export                 → open-export-modal
  *   #/import-modal          → open-import-modal
+ *   #/migrate-modal         → open-migrate-modal
  *   #/workspace-vars         → open-workspace-vars
  *   #/vault                  → open-vault
  *   #/live-variables         → open-live-variables
@@ -149,6 +150,9 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
     case 'import-modal':
       return buildIntent({ kind: 'open-import-modal' });
 
+    case 'migrate-modal':
+      return buildIntent({ kind: 'open-migrate-modal' });
+
     case 'workspace-vars':
       return buildIntent({ kind: 'open-workspace-vars' });
 
@@ -254,6 +258,9 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-import-modal':
       return '#/import-modal';
+
+    case 'open-migrate-modal':
+      return '#/migrate-modal';
 
     case 'open-workspace-vars':
       return '#/workspace-vars';

@@ -81,6 +81,10 @@ interface UseWorkspaceIntentRouterOptions {
   /** `open-import-modal` — show the file-pick / drop-zone modal that
    *  precedes the import-preview. Dispatched from popup / sidepanel. */
   openImportModal: () => void;
+  /** `open-migrate-modal` — show the "Migrate from another tool" modal
+   *  (account pull / migration ladder). Dispatched from popup /
+   *  sidepanel; hosts without a migration entry no-op. */
+  openMigrateModal: () => void;
 }
 
 /** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault`/`-export-modal`/`-import-picker`/`create-environment` */
@@ -96,6 +100,7 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
     case 'open-live-variables':
     case 'open-export-modal':
     case 'open-import-modal':
+    case 'open-migrate-modal':
     case 'create-environment':
       return true;
     default:
@@ -247,6 +252,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         case 'open-import-modal':
           o.openImportModal();
           return;
+        case 'open-migrate-modal':
+          o.openMigrateModal();
+          return;
         default:
           assertNever(intent);
       }
@@ -360,6 +368,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'open-import-modal':
         o.openImportModal();
+        return;
+      case 'open-migrate-modal':
+        o.openMigrateModal();
         return;
       default:
         assertNever(pending);

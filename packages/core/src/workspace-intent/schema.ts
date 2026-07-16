@@ -153,6 +153,18 @@ export const OpenImportModalIntentSchema = v.object({
   kind: v.literal('open-import-modal'),
 });
 
+/**
+ * Open the workspace's "Migrate from another tool" modal (the account
+ * pull on the extension, the migration ladder on the desktop). Same
+ * hand-off pattern as `open-import-modal`: popup / sidepanel
+ * dispatches, navigator routes the user into the workspace tab, the
+ * router triggers the modal. Hosts without a migration entry (web)
+ * treat it as a no-op.
+ */
+export const OpenMigrateModalIntentSchema = v.object({
+  kind: v.literal('open-migrate-modal'),
+});
+
 export const OpenWorkspaceVarsIntentSchema = v.object({
   kind: v.literal('open-workspace-vars'),
 });
@@ -231,6 +243,7 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   CreateLiveVariableIntentSchema,
   OpenExportModalIntentSchema,
   OpenImportModalIntentSchema,
+  OpenMigrateModalIntentSchema,
   CreateApiRequestIntentSchema,
 ]);
 
@@ -263,6 +276,7 @@ export const WORKSPACE_INTENT_KINDS = [
   'create-live-variable',
   'open-export-modal',
   'open-import-modal',
+  'open-migrate-modal',
   'create-api-request',
 ] as const;
 

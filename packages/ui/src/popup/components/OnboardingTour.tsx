@@ -29,7 +29,9 @@ import {
   PostmanGlyph,
 } from '@openheaders/ui/workbench/components/import/migrate/vendor-icons';
 import { isFirefox } from '@openheaders/ui/shared/platform';
-import { Space, Tour, type TourProps, Typography } from 'antd';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { Button, Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
@@ -68,6 +70,7 @@ const StepDescription: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
 const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   const t = useT();
+  const surface = useSurface();
   const { setIsTourOpen } = useKeyboardNav();
   const [isVisible, setIsVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -260,8 +263,18 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--ant-color-border-secondary)' }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: '1px solid var(--ant-color-border-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
                 {t('popup.tour.migrateSwitching')}{' '}
                 <span style={{ whiteSpace: 'nowrap' }}>
                   <PostmanGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Postman,
@@ -272,9 +285,18 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 {t('popup.tour.migrateOr')}{' '}
                 <span style={{ whiteSpace: 'nowrap' }}>
                   <BrunoGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Bruno?
-                </span>{' '}
-                {t('popup.tour.migrateHint')}
+                </span>
               </Text>
+              <Button
+                size="small"
+                style={{ fontSize: 12 }}
+                onClick={() => {
+                  void openWorkspace({ kind: 'open-migrate-modal' }, surface.mode);
+                }}
+                icon={<img src={logoUrl} alt="" style={{ width: 14, height: 14, display: 'block' }} />}
+              >
+                {t('popup.tour.migrateButton')}
+              </Button>
             </div>
           </StepDescription>
         ),
@@ -665,7 +687,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         ...lastStepProps,
       },
     ],
-    [sharedStepProps, lastStepProps, t],
+    [sharedStepProps, lastStepProps, t, surface.mode],
   );
 
   return (
