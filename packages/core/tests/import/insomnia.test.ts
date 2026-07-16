@@ -178,9 +178,7 @@ describe('v4 api_spec resources', () => {
     expect(spec?.requests[0]?.request.url).toBe('{{baseUrl}}/rules');
     expect(spec?.requests[0]?.request.auth).toEqual({ type: 'inherit' });
     expect(spec?.folders.map((f) => f.path)).toEqual([['Rules']]);
-    expect(spec?.variables).toEqual([
-      { name: 'baseUrl', value: 'https://api.openheaders.io/v1', type: 'default' },
-    ]);
+    expect(spec?.variables).toEqual([{ name: 'baseUrl', value: 'https://api.openheaders.io/v1', type: 'default' }]);
     expect(spec?.auth).toEqual({ type: 'bearer', token: '' });
     const marker = result.report.transforms.find((t) => t.path === 'resources[spc_1]');
     expect(marker?.reason).toMatch(/OpenAPI importer/);
