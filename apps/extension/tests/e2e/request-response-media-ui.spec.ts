@@ -199,10 +199,14 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(raw).toContain('oh_request_duration_seconds_bucket{le="0.1"} 512 # {trace_id="4bf92f3577b34da6"}');
 
     // Selector query: series-level narrowing, header lines riding along.
+    // Poll until the filter has evaluated — the pane shows the whole
+    // body until then, and the negative assertions would race it.
     await workbench.filterResponseBody('oh_http_requests{code="500"}');
+    await expect
+      .poll(() => workbench.responsePrettyText(), { timeout: 15000 })
+      .toContain('oh_http_requests_total{code="500",path="/api/echo"} 3');
     const filtered = await workbench.responsePrettyText();
     expect(filtered).toContain('# TYPE oh_http_requests counter');
-    expect(filtered).toContain('oh_http_requests_total{code="500",path="/api/echo"} 3');
     expect(filtered).not.toContain('code="200"');
     expect(filtered).not.toContain('oh_build_info');
   });
@@ -238,7 +242,9 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
 
     // JSONPath narrows over the record list, lossless in the result.
     await workbench.filterResponseBody('$..resourceVersion');
-    expect(await workbench.responsePrettyText()).toContain('9007199254740993');
+    await expect
+      .poll(() => workbench.responsePrettyText(), { timeout: 15000 })
+      .toContain('9007199254740993');
   });
 
   test('ANSI log renders SGR colors in Raw; the toggle falls back to plain text', async () => {
