@@ -16,9 +16,14 @@
  * name" is CLUSTERING, not sorting — rows partition under collapsible
  * name headers, arrival order intact within each group, group order
  * ANCHORED to first appearance so groups never trade places mid-stream.
- * Sort direction and grouping are the `requests.sseEvents*` SETTINGS —
- * the toolbar writes the same global value the Settings page edits, so
- * the choice survives Send/Stop remounts and applies everywhere.
+ * An optional per-group row limit shows only each group's N newest
+ * events (the window slides as events arrive — several groups stay
+ * watchable at once; headers keep the real totals), and the group
+ * whose rows span the viewport top pins its header as a clickable
+ * sticky overlay. Sort direction, grouping, and the row limit are the
+ * `requests.sseEvents*` SETTINGS — the toolbar writes the same global
+ * value the Settings page edits, so the choices survive Send/Stop
+ * remounts and apply everywhere.
  *
  * Rows expand into a mini viewer: the shared CodeEditor over the DATA
  * payload — lossless JSON print under the JSON grammar (int64 tokens
@@ -298,7 +303,14 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   // remount never resets them.
   const [newestFirst, setNewestFirst] = useSetting('requests.sseEventsNewestFirst');
   const [groupByName, setGroupByName] = useSetting('requests.sseEventsGroupByName');
+  // Watch-several-groups-at-once: each group shows only its N newest
+  // rows (the window slides as events arrive); 0 = no limit.
+  const [groupRowLimit, setGroupRowLimit] = useSetting('requests.sseEventsGroupRowLimit');
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // The group whose rows span the viewport top — its header pins as an
+  // overlay (a CSS-sticky header would virtualize out of the DOM), so
+  // the group identity + total stay visible and collapsible mid-scroll.
+  const [stickyGroup, setStickyGroup] = useState<string | null>(null);
 
   // When the user has scrolled away from the edge where new rows land
   // and more events commit, a jump pill floats over the list instead
@@ -393,9 +405,14 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
 
   // The flat display list the virtual window runs over — lifecycle
   // rows at their chronological edges, headers + rows (+ expanded
-  // viewers) between. O(display rows) pushes per commit.
-  const entries = useMemo<ListEntry[]>(() => {
+  // viewers) between — plus each group's entry-index range (the sticky
+  // header's lookup). O(display rows) pushes per commit. A group row
+  // limit keeps only the N NEWEST members mounted — the window slides
+  // as events arrive, so several groups stay watchable at once; the
+  // header count keeps the group's real total.
+  const { entries, groupRanges } = useMemo(() => {
     const out: ListEntry[] = [];
+    const ranges: Array<{ name: string; startEntry: number; endEntry: number }> = [];
     const pushRow = (index: number) => {
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
@@ -409,9 +426,22 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     if (searching && displayRows.length === 0 && count > clearedCount) out.push({ key: 'none', kind: 'noMatches' });
     if (groups !== null) {
       for (const [name, indexes] of groups) {
+        const startEntry = out.length;
         const collapsed = collapsedGroups.has(name);
         out.push({ key: `h${name}`, kind: 'header', name, count: indexes.length, collapsed });
-        if (!collapsed) for (const index of indexes) pushRow(index);
+        if (!collapsed) {
+          // displayRows order puts a group's newest member first in
+          // newest-first and last in oldest-first — the limit window
+          // slices the newest end either way.
+          const shown =
+            groupRowLimit > 0
+              ? newestFirst
+                ? indexes.slice(0, groupRowLimit)
+                : indexes.slice(-groupRowLimit)
+              : indexes;
+          for (const index of shown) pushRow(index);
+        }
+        ranges.push({ name, startEntry, endEntry: out.length });
       }
     } else {
       for (const index of displayRows) pushRow(index);
@@ -421,8 +451,20 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     } else if (lifecycle.endedBy !== undefined) {
       out.push({ key: 'ended', kind: 'ended' });
     }
-    return out;
-  }, [newestFirst, lifecycle.endedBy, live, count, clearedCount, searching, displayRows, groups, expanded, collapsedGroups]);
+    return { entries: out, groupRanges: ranges };
+  }, [
+    newestFirst,
+    lifecycle.endedBy,
+    live,
+    count,
+    clearedCount,
+    searching,
+    displayRows,
+    groups,
+    expanded,
+    collapsedGroups,
+    groupRowLimit,
+  ]);
 
   const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
 
@@ -457,6 +499,25 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
       onWindowScroll();
     }
   }, [entries, prefix, newestFirst, onWindowScroll]);
+
+  // Which group's rows span the viewport top — its header pins as the
+  // sticky overlay. Recomputed on scroll and after list mutations;
+  // meaningless (null) on an unlaid-out viewport.
+  const updateStickyGroup = (el: HTMLElement) => {
+    if (el.clientHeight === 0 || groupRanges.length === 0) {
+      setStickyGroup(null);
+      return;
+    }
+    const idx = entryIndexAt(prefix, el.scrollTop);
+    const range = groupRanges.find((r) => idx >= r.startEntry && idx < r.endEntry);
+    setStickyGroup(range ? range.name : null);
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: updateStickyGroup derives from entries/prefix, which ARE the deps.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (el) updateStickyGroup(el);
+  }, [entries, prefix]);
 
   const toggleGroup = (name: string) => {
     setCollapsedGroups((prev) => {
@@ -499,6 +560,56 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const groupsHeadIndex = (name: string): number => {
     const found = groups?.find(([groupName]) => groupName === name);
     return found ? found[1][0] : 0;
+  };
+
+  /** One group-header row — shared by the in-list entry and the sticky
+   *  overlay (same anatomy, same collapse action, distinct testid). */
+  const renderGroupHeaderRow = (
+    name: string,
+    memberCount: number,
+    collapsed: boolean,
+    testid: string,
+    key?: string,
+  ): React.ReactNode => {
+    const headBadge = badgeOf(items[groupsHeadIndex(name)].record);
+    return (
+      <div
+        key={key}
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        data-testid={testid}
+        onClick={() => toggleGroup(name)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleGroup(name);
+          }
+        }}
+        style={{ ...singleRowStyle, background: token.colorFillQuaternary, cursor: 'pointer' }}
+      >
+        <CaretRightOutlined
+          aria-hidden
+          rotate={collapsed ? 0 : 90}
+          style={{ fontSize: 10, color: token.colorTextTertiary }}
+        />
+        <Tag
+          color={headBadge.kind === 'named' ? badgeColor(name) : undefined}
+          style={{
+            marginInlineEnd: 0,
+            fontSize: 11,
+            lineHeight: '18px',
+            flexShrink: 0,
+            ...(headBadge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+          }}
+        >
+          {name}
+        </Tag>
+        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+          {t('workbench.editors.request.response.sse.eventCount', { count: memberCount })}
+        </Text>
+      </div>
+    );
   };
 
   const renderEntry = (entry: ListEntry): React.ReactNode => {
@@ -546,47 +657,8 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             <span>{t('workbench.editors.request.response.sse.noMatches')}</span>
           </div>
         );
-      case 'header': {
-        const headBadge = badgeOf(items[groupsHeadIndex(entry.name)].record);
-        return (
-          <div
-            key={entry.key}
-            role="button"
-            tabIndex={0}
-            aria-expanded={!entry.collapsed}
-            data-testid="oh-sse-group-header"
-            onClick={() => toggleGroup(entry.name)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggleGroup(entry.name);
-              }
-            }}
-            style={{ ...singleRowStyle, background: token.colorFillQuaternary, cursor: 'pointer' }}
-          >
-            <CaretRightOutlined
-              aria-hidden
-              rotate={entry.collapsed ? 0 : 90}
-              style={{ fontSize: 10, color: token.colorTextTertiary }}
-            />
-            <Tag
-              color={headBadge.kind === 'named' ? badgeColor(entry.name) : undefined}
-              style={{
-                marginInlineEnd: 0,
-                fontSize: 11,
-                lineHeight: '18px',
-                flexShrink: 0,
-                ...(headBadge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-              }}
-            >
-              {entry.name}
-            </Tag>
-            <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.request.response.sse.eventCount', { count: entry.count })}
-            </Text>
-          </div>
-        );
-      }
+      case 'header':
+        return renderGroupHeaderRow(entry.name, entry.count, entry.collapsed, 'oh-sse-group-header', entry.key);
       case 'row': {
         const item = items[entry.index];
         const badge = badgeOf(item.record);
@@ -683,6 +755,10 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     }
   };
 
+  // The pinned header overlay's source group — resolved fresh so the
+  // count and collapse state track the live list.
+  const stickySource = stickyGroup !== null && groups !== null ? groups.find(([n]) => n === stickyGroup) : undefined;
+
   return (
     <div
       data-testid="oh-sse-event-list"
@@ -739,6 +815,23 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
                 ),
                 onClick: () => setGroupByName(!groupByName),
               },
+              {
+                key: 'group-limit',
+                label: t('workbench.editors.request.response.sse.rowsPerGroup'),
+                disabled: !groupByName,
+                children: [0, 5, 10, 25, 50].map((n) => ({
+                  key: `group-limit-${n}`,
+                  label: (
+                    <span
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+                    >
+                      {n === 0 ? t('workbench.editors.request.response.sse.noLimit') : String(n)}
+                      {groupRowLimit === n && <CheckOutlined style={{ color: token.colorPrimary }} />}
+                    </span>
+                  ),
+                  onClick: () => setGroupRowLimit(n),
+                })),
+              },
             ],
           }}
         >
@@ -781,6 +874,28 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         </Tooltip>
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        {stickySource !== undefined && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 1,
+              right: 1,
+              zIndex: 1,
+              background: token.colorBgContainer,
+              borderTopLeftRadius: 4,
+              borderTopRightRadius: 4,
+              overflow: 'hidden',
+            }}
+          >
+            {renderGroupHeaderRow(
+              stickySource[0],
+              stickySource[1].length,
+              collapsedGroups.has(stickySource[0]),
+              'oh-sse-sticky-header',
+            )}
+          </div>
+        )}
         {hasNewEvents && (
           <Button
             size="small"
@@ -816,6 +931,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
               anchorRef.current = null;
               setHasNewEvents(false);
             }
+            updateStickyGroup(el);
             onWindowScroll();
           }}
           className="rules-thin-scrollbar"

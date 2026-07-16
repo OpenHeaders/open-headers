@@ -18,7 +18,7 @@ import ResponseSseEventList from '@openheaders/ui/workbench/components/request-e
 import { parseSseEventItems } from '@openheaders/ui/workbench/components/request-editor/response/response-sse';
 // Registers the requests.* settings the list's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
-import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
+import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -46,6 +46,7 @@ afterEach(() => {
   // The sort/group choices are GLOBAL settings — reset between tests.
   resetSetting('requests.sseEventsNewestFirst');
   resetSetting('requests.sseEventsGroupByName');
+  resetSetting('requests.sseEventsGroupRowLimit');
 });
 
 const BODY = [
@@ -305,6 +306,39 @@ describe('ResponseSseEventList group by event name', () => {
     fireEvent.change(screen.getByTestId('oh-sse-search'), { target: { value: 'seq' } });
     expect(screen.getAllByTestId('oh-sse-group-header')).toHaveLength(2);
     expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(3);
+  });
+
+  it('caps each group to its newest N rows under the row limit — headers keep real totals', () => {
+    setSetting('requests.sseEventsGroupByName', true);
+    setSetting('requests.sseEventsGroupRowLimit', 1);
+    const items = itemsOf(GROUP_BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const headers = screen.getAllByTestId('oh-sse-group-header');
+    expect(headers).toHaveLength(3);
+    // The tick group holds 2 events but mounts only the NEWEST one.
+    expect(headers[2].textContent).toContain('2 events');
+    const rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows).toHaveLength(3);
+    expect(rows[2].textContent).toContain('"seq": 3');
+    expect(screen.queryByText(/"seq": 1/)).toBeNull();
+  });
+
+  it('the sticky overlay pins the group spanning the viewport top, still collapsible', () => {
+    setSetting('requests.sseEventsGroupByName', true);
+    const body = Array.from({ length: 60 }, (_, i) => `event: tick\ndata: {"seq":${i}}\n`).join('\n');
+    const items = itemsOf(`${body}\n`);
+    const { container } = render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const scroller = container.querySelector('.rules-thin-scrollbar');
+    if (!scroller) throw new Error('scroller must render');
+    expect(screen.queryByTestId('oh-sse-sticky-header')).toBeNull();
+    Object.defineProperty(scroller, 'clientHeight', { value: 300 });
+    fireEvent.scroll(scroller, { target: { scrollTop: 400 } });
+    const sticky = screen.getByTestId('oh-sse-sticky-header');
+    expect(sticky.textContent).toContain('tick');
+    expect(sticky.textContent).toContain('60 events');
+    // Collapsing from the overlay folds the group's rows away.
+    fireEvent.click(sticky);
+    expect(screen.queryAllByTestId('oh-sse-event-row')).toHaveLength(0);
   });
 
   it('sort/group choices are global settings that survive remounts (Send/Stop lifecycle)', async () => {

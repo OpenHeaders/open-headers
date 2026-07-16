@@ -1097,6 +1097,8 @@ export const workbenchEditors = {
   'workbench.editors.request.response.sse.newestFirst': 'Newest first',
   'workbench.editors.request.response.sse.oldestFirst': 'Oldest first',
   'workbench.editors.request.response.sse.groupByName': 'Group by event name',
+  'workbench.editors.request.response.sse.rowsPerGroup': 'Rows per group',
+  'workbench.editors.request.response.sse.noLimit': 'No limit',
   'workbench.editors.request.response.sse.infoId': 'ID',
   'workbench.editors.request.response.sse.infoSize': 'Size',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',

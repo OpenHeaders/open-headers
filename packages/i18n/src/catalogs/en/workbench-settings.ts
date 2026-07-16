@@ -1339,6 +1339,9 @@ export const workbenchSettings = {
   'workbench.settings.def.requests.sseEventsGroupByName.label': 'SSE Events: Group by Event Name',
   'workbench.settings.def.requests.sseEventsGroupByName.description':
     'Cluster the Server-Sent Events list under collapsible event-name headers, arrival order kept within each group. The list toolbar changes this same setting.',
+  'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'SSE Events: Rows per Group',
+  'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
+    'When grouping by event name, show only this many of each group’s newest events — the window slides as new events arrive, so several groups stay watchable at once. 0 shows every event. The list toolbar changes this same setting.',
 
   // ── Rules Engine category defs ─────────────────────────────────────
   'workbench.settings.def.rulesEngine.paused.label': 'Pause Rule Execution',

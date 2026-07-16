@@ -12,6 +12,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.responseBodyCapMB': number;
     'requests.sseEventsNewestFirst': boolean;
     'requests.sseEventsGroupByName': boolean;
+    'requests.sseEventsGroupRowLimit': number;
   }
 }
 
@@ -58,4 +59,19 @@ registerSetting({
   category: 'requests',
   tags: ['sse', 'stream', 'events', 'group', 'cluster', 'name'],
   scope: 'user',
+});
+
+// Watch-several-groups-at-once mode: each group shows only its N
+// newest rows (the window slides as events arrive); 0 = no limit.
+registerSetting({
+  key: 'requests.sseEventsGroupRowLimit',
+  type: 'number',
+  default: 0,
+  schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
+  labelKey: 'workbench.settings.def.requests.sseEventsGroupRowLimit.label',
+  descriptionKey: 'workbench.settings.def.requests.sseEventsGroupRowLimit.description',
+  category: 'requests',
+  tags: ['sse', 'stream', 'events', 'group', 'limit', 'rows', 'watch'],
+  scope: 'user',
+  numberRange: { min: 0, max: 100, step: 1 },
 });
