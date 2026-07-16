@@ -22,7 +22,7 @@ import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
 import ImportPostmanModal from '../import/ImportPostmanModal';
 import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } from '../import/ImportSectionedModal';
-import MigrateDesktopHandoffModal from '../import/MigrateDesktopHandoffModal';
+import MigrateAccountPullModal from '../import/MigrateAccountPullModal';
 import MigrateToolModal from '../import/MigrateToolModal';
 import ExportModal, { type ExportModalScope } from './ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './ImportPreviewModal';
@@ -47,8 +47,10 @@ export interface ImportExportModalsHandle {
    *  hand-off without the hub modal. Unrecognized text is a no-op;
    *  callers gate on `detectImportSource` before consuming the paste. */
   openImportText: (text: string, ctx?: { collectionId?: string }) => void;
-  /** Opens the migration surface: the ladder modal on desktop (the
-   *  scan/pull RPCs need fs), the desktop hand-off on the extension. */
+  /** Opens the migration surface: the full ladder modal on desktop
+   *  (the detect/scan RPCs need fs), the native account-pull modal on
+   *  the extension (its SW answers the same pull RPC pair; the local
+   *  scan demotes to a desktop fallback note). */
   openMigrateTool: () => void;
 }
 
@@ -236,21 +238,22 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     noteFeatureUsed('import-hub');
   }, []);
 
-  // Migration surface (MIGRATION_STATUS.md S5 addendum). The ladder
-  // itself runs desktop-only (the detect/scan/pull RPCs answer in the
-  // desktop shell dispatcher); the extension gets the funnel instead —
-  // a hand-off modal routed by live desktop connection state (connected
-  // → "run it in the desktop app, progress mirrors here"; otherwise the
-  // desktop install pitch). The web host has no migration entry.
+  // Migration surface (EXTENSION_ACCOUNT_PULL_PLAN.md Phase D). The
+  // desktop gets the full ladder modal (install detection + the data
+  // scan need fs); the extension gets the native account-pull modal —
+  // its service worker answers the same `oh.migration.postmanPull.*`
+  // RPC pair, so the stepper is the primary path and only the local
+  // scan falls back to the desktop (a connection-routed note inside
+  // the modal). The web host has no migration entry.
   const [migrateToolOpen, setMigrateToolOpen] = useState(false);
-  const [migrateHandoffOpen, setMigrateHandoffOpen] = useState(false);
+  const [migrateAccountPullOpen, setMigrateAccountPullOpen] = useState(false);
   const currentHost = getCurrentHost();
   const migrationAvailable = currentHost === 'desktop' || currentHost === 'extension';
   const openMigrateTool = useCallback(() => {
     if (!migrationAvailable) return;
     setImportSourceModalOpen(false);
     if (currentHost === 'desktop') setMigrateToolOpen(true);
-    else setMigrateHandoffOpen(true);
+    else setMigrateAccountPullOpen(true);
   }, [migrationAvailable, currentHost]);
 
   /**
@@ -587,10 +590,14 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         onMigrate={migrationAvailable ? openMigrateTool : undefined}
       />
 
-      <MigrateDesktopHandoffModal
-        open={migrateHandoffOpen}
-        onClose={() => setMigrateHandoffOpen(false)}
+      <MigrateAccountPullModal
+        open={migrateAccountPullOpen}
+        onClose={() => setMigrateAccountPullOpen(false)}
         connected={rulesApi.isConnected}
+        onOpenImportHub={() => {
+          setMigrateAccountPullOpen(false);
+          openImportSource();
+        }}
       />
 
       <MigrateToolModal

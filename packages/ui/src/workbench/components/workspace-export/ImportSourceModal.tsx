@@ -311,7 +311,7 @@ const ImportSourceModal: React.FC<Props> = ({
                 <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   Switching from <PostmanGlyph style={{ fontSize: 13 }} /> Postman,{' '}
                   <InsomniaGlyph style={{ fontSize: 13 }} /> Insomnia, or <BrunoGlyph style={{ fontSize: 13 }} />{' '}
-                  Bruno?
+                  Bruno? Import straight from your Postman account, or bring local tool data.
                 </Text>
                 <Button
                   size="small"
