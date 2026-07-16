@@ -55,9 +55,12 @@ export function serializeReport(
     return next;
   };
   if (anonymize) for (const workspace of summary.workspaces) alias(workspace.workspaceName);
+  // Longest name first — a name that prefixes another ("new" / "new2")
+  // must never partially rewrite the longer one's occurrences.
+  const scrubOrder = [...aliases].sort(([a], [b]) => b.length - a.length);
   const scrub = (text: string): string => {
     let out = text;
-    for (const [name, replacement] of aliases) out = out.split(name).join(replacement);
+    for (const [name, replacement] of scrubOrder) out = out.split(name).join(replacement);
     return out;
   };
   const redact = (value: string): string => `[redacted ${value.length} chars]`;
@@ -65,7 +68,12 @@ export function serializeReport(
     if (!anonymize || report === null) return report;
     return {
       ...report,
-      drops: report.drops.map((drop) => ({ ...drop, path: scrub(drop.path), reason: scrub(drop.reason) })),
+      drops: report.drops.map((drop) => ({
+        ...drop,
+        path: scrub(drop.path),
+        reason: scrub(drop.reason),
+        ...(drop.names !== undefined ? { names: drop.names.map(redact) } : {}),
+      })),
       transforms: report.transforms.map((transform) => ({
         ...transform,
         path: scrub(transform.path),

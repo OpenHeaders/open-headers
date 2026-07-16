@@ -362,7 +362,10 @@ describe('pullPostmanData', () => {
     expect(result.collections).toHaveLength(1);
     const specSkip = result.skipped.find((skip) => skip.reason.includes('not imported yet'));
     expect(specSkip).toMatchObject({ item: 'workspace', id: 'ws-1', workspaceIds: ['ws-1'] });
-    expect(specSkip?.reason).toContain('Orders OpenAPI');
+    // Spec names ride the structured `names` field, never the prose —
+    // report anonymization redacts them mechanically.
+    expect(specSkip?.names).toEqual(['Orders OpenAPI']);
+    expect(specSkip?.reason).not.toContain('Orders OpenAPI');
   });
 
   it('attributes pulled items to the workspaces that listed them', async () => {

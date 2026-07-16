@@ -367,7 +367,15 @@ describe('materializePostmanPull', () => {
   it('records ONE aggregated report with a sourceHash in the landing workspace ring', async () => {
     await materializePostmanPull(
       pullResult({
-        skipped: [{ item: 'collection', id: 'c-9', name: 'Ops', reason: 'Not pulled — the run stopped early.' }],
+        skipped: [
+          {
+            item: 'collection',
+            id: 'c-9',
+            name: 'Ops',
+            reason: 'Not pulled — the run stopped early.',
+            names: ['Orders OpenAPI'],
+          },
+        ],
       }),
       { ensureWorkspaceFor },
     );
@@ -381,6 +389,8 @@ describe('materializePostmanPull', () => {
     expect(report.summary.imported).toBe(5);
     const skipDrop = report.drops.find((d) => d.path.startsWith('pull.skipped[0]'));
     expect(skipDrop?.reason).toContain('stopped early');
+    // A skip's structured names carry into the drop unchanged.
+    expect(skipDrop?.names).toEqual(['Orders OpenAPI']);
   });
 
   it('hashes the same pulled payloads identically regardless of item order', async () => {

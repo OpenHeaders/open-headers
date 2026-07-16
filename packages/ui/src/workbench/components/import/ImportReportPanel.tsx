@@ -47,6 +47,9 @@ const ImportReportPanel: React.FC<{
               {report.drops.map((d, i) => (
                 <li key={i}>
                   <strong>{d.path}:</strong> {d.reason}
+                  {d.names && d.names.length > 0 && (
+                    <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>{d.names.join(' · ')}</div>
+                  )}
                   {d.tracking && (
                     <div style={{ color: token.colorTextTertiary, fontSize: 11 }}>tracking: {d.tracking}</div>
                   )}

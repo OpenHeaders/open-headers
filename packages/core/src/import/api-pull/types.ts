@@ -97,6 +97,9 @@ export interface PostmanPullSkip {
   id: string;
   name?: string;
   reason: string;
+  /** User-authored names the skip concerns (e.g. the skipped specs) —
+   *  structured data, kept out of the `reason` prose (see ImportDrop). */
+  names?: string[];
   /**
    * Workspaces the skip concerns — routes it into those workspaces'
    * reports. Absent when unattributable (a malformed list entry);

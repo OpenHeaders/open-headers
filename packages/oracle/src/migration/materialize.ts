@@ -626,6 +626,7 @@ async function materializeWorkspacePull(
     recordDrop(report, {
       path: `pull.skipped[${i}].${skip.item}["${skip.name ?? skip.id}"]`,
       reason: skip.reason,
+      ...(skip.names !== undefined ? { names: skip.names } : {}),
       tracking: 'PERMANENT: pull-run skip',
     });
   }

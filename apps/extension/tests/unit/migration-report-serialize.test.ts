@@ -20,12 +20,18 @@ const REPORT: ImportReport = {
   source: 'postman-pull',
   sourceHash: 'sha256:abc',
   importedAt: '2026-07-16T10:00:00.000Z',
-  summary: { imported: 4, dropped: 1, transformed: 1 },
+  summary: { imported: 4, dropped: 2, transformed: 1 },
   drops: [
     {
       path: 'collections["Billing API"].item[2]',
       reason: 'Billing API uses a binary file upload',
       tracking: '#issue-123',
+    },
+    {
+      path: 'pull.skipped[0].workspace["Billing API"]',
+      reason: '2 API specs not imported yet — spec import hasn\'t landed.',
+      names: ['Orders OpenAPI', 'Payments AsyncAPI'],
+      tracking: 'PERMANENT: pull-run skip',
     },
   ],
   transforms: [
@@ -86,7 +92,34 @@ describe('serializeReport', () => {
     // Rewritten values redact to their length.
     expect(report.transforms[0].from).toBe(`[redacted ${REPORT.transforms[0].from.length} chars]`);
     expect(report.transforms[0].to).toBe(`[redacted ${REPORT.transforms[0].to.length} chars]`);
+    // Structured drop names (user-authored entity names) redact too.
+    expect(report.drops[1].names).toEqual(['[redacted 14 chars]', '[redacted 17 chars]']);
+    expect(report.drops[1].tracking).toBe('PERMANENT: pull-run skip');
     // No raw name survives anywhere in the payload.
-    expect(serializeReport(SUMMARY, ENTRIES, true)).not.toContain('Billing API');
+    const raw = serializeReport(SUMMARY, ENTRIES, true);
+    expect(raw).not.toContain('Billing API');
+    expect(raw).not.toContain('Orders OpenAPI');
+    expect(raw).not.toContain('Payments AsyncAPI');
+  });
+
+  it('scrubs longer workspace names before their prefixes', () => {
+    const summary: PostmanImportSummary = {
+      ...SUMMARY,
+      workspaces: [
+        { ...SUMMARY.workspaces[0], workspaceId: 'ws-a', workspaceName: 'new' },
+        { ...SUMMARY.workspaces[0], workspaceId: 'ws-b', workspaceName: 'new2' },
+      ],
+    };
+    const report: ImportReport = {
+      ...REPORT,
+      drops: [{ path: 'pull.skipped[0].workspace["new2"]', reason: 'new2 was not enumerated.' }],
+      transforms: [],
+    };
+    const entries: WorkspaceReportEntry[] = [{ workspace: summary.workspaces[1], report }];
+    const payload = JSON.parse(serializeReport(summary, entries, true));
+    // "new" aliases first in the map, but "new2" must win its own
+    // occurrences — never become "Workspace 1" + a dangling "2".
+    expect(payload.workspaces[0].report.drops[0].path).toBe('pull.skipped[0].workspace["Workspace 2"]');
+    expect(payload.workspaces[0].report.drops[0].reason).toBe('Workspace 2 was not enumerated.');
   });
 });

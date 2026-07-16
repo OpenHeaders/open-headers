@@ -304,12 +304,12 @@ export async function pullPostmanData(options: PullPostmanDataOptions): Promise<
           });
         }
         if (detail.value.specs.length > 0) {
-          const names = detail.value.specs.map((spec) => spec.name ?? spec.id).join(', ');
           skipped.push({
             item: 'workspace',
             id: workspace.id,
             name: workspace.name,
-            reason: `${detail.value.specs.length} API spec${detail.value.specs.length === 1 ? '' : 's'} (${names}) not imported yet — spec import hasn't landed.`,
+            reason: `${detail.value.specs.length} API spec${detail.value.specs.length === 1 ? '' : 's'} not imported yet — spec import hasn't landed.`,
+            names: detail.value.specs.map((spec) => spec.name ?? spec.id),
             workspaceIds: [workspace.id],
           });
         }

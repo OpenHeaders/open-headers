@@ -59,6 +59,12 @@ export type ImportSource = v.InferOutput<typeof ImportSourceSchema>;
 export const ImportDropSchema = v.object({
   path: v.string(),
   reason: v.string(),
+  /**
+   * User-authored entity names the note concerns (e.g. skipped API
+   * specs). Structured DATA, never folded into the `reason` prose — so
+   * report anonymization can redact them mechanically.
+   */
+  names: v.optional(v.array(v.string())),
   tracking: v.optional(v.string()),
 });
 export type ImportDrop = v.InferOutput<typeof ImportDropSchema>;
