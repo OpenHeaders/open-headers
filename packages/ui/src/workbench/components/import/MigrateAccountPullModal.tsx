@@ -16,8 +16,9 @@
  */
 
 import { CheckCircleFilled } from '@ant-design/icons';
-import { Button, Divider, Modal, Typography, theme } from 'antd';
+import { App, Button, Divider, Modal, Typography, theme } from 'antd';
 import type React from 'react';
+import { useCallback, useState } from 'react';
 import PostmanPullStepper from './migrate/PostmanPullStepper';
 import { PostmanGlyph } from './migrate/vendor-icons';
 
@@ -39,22 +40,42 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
   onOpenImportHub,
 }) => {
   const { token } = theme.useToken();
+  const { modal } = App.useApp();
+  // Past the key step a workspace selection is in progress — Esc is
+  // disabled so a stray key press can't discard it, and the X asks
+  // before throwing the selection away.
+  const [stepperAdvanced, setStepperAdvanced] = useState(false);
+
+  const handleCancel = useCallback(() => {
+    if (!stepperAdvanced) {
+      onClose();
+      return;
+    }
+    modal.confirm({
+      title: 'Close the import?',
+      content: 'Your workspace selection will be discarded. Nothing has been imported yet.',
+      okText: 'Discard and close',
+      cancelText: 'Keep selecting',
+      onOk: onClose,
+    });
+  }, [stepperAdvanced, modal, onClose]);
 
   return (
     <Modal
       title="Migrate from another tool"
       open={open}
-      onCancel={onClose}
+      onCancel={handleCancel}
       footer={null}
       width={640}
       maskClosable={false}
+      keyboard={!stepperAdvanced}
       destroyOnHidden
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 12px' }}>
         <PostmanGlyph style={{ fontSize: 18 }} />
         <Text strong>Import from your Postman account</Text>
       </div>
-      <PostmanPullStepper onStarted={onClose} />
+      <PostmanPullStepper onStarted={onClose} onAdvancedChange={setStepperAdvanced} />
 
       <Divider style={{ margin: '20px 0 12px' }} />
 

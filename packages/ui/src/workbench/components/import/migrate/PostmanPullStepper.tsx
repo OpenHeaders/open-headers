@@ -95,9 +95,13 @@ const WorkingTicker: React.FC = () => {
 interface PostmanPullStepperProps {
   /** The pull was accepted — close the surface; progress rides the corner task. */
   onStarted: () => void;
+  /** Fires when the stepper moves past the key step (workspace list
+   *  loaded) and back — hosts harden dismissal while a selection is
+   *  in progress so an accidental Esc can't discard it. */
+  onAdvancedChange?: (advanced: boolean) => void;
 }
 
-const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted }) => {
+const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onAdvancedChange }) => {
   const [apiKey, setApiKey] = useState('');
   const [listing, setListing] = useState(false);
   const [listReason, setListReason] = useState<string | null>(null);
@@ -105,6 +109,11 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted }) =>
   const [selected, setSelected] = useState<string[]>([]);
   const [starting, setStarting] = useState(false);
   const [startReason, setStartReason] = useState<string | null>(null);
+
+  const advanced = workspaces !== null;
+  useEffect(() => {
+    onAdvancedChange?.(advanced);
+  }, [advanced, onAdvancedChange]);
 
   const listAccountWorkspaces = useCallback(() => {
     const key = apiKey.trim();

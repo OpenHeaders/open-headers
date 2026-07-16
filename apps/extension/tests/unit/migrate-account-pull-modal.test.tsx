@@ -14,6 +14,7 @@ import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
 import type { PostmanWorkspaceListResult } from '@openheaders/core/import';
 import MigrateAccountPullModal from '@openheaders/ui/workbench/components/import/MigrateAccountPullModal';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App } from 'antd';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 window.matchMedia = ((query: string) => ({
@@ -58,12 +59,14 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}): CallLo
 
 function renderModal(props: Partial<Parameters<typeof MigrateAccountPullModal>[0]> = {}) {
   return render(
-    <MigrateAccountPullModal
-      open
-      onClose={props.onClose ?? (() => {})}
-      connected={props.connected ?? false}
-      onOpenImportHub={props.onOpenImportHub ?? (() => {})}
-    />,
+    <App>
+      <MigrateAccountPullModal
+        open
+        onClose={props.onClose ?? (() => {})}
+        connected={props.connected ?? false}
+        onOpenImportHub={props.onOpenImportHub ?? (() => {})}
+      />
+    </App>,
   );
 }
 
@@ -119,6 +122,39 @@ describe('MigrateAccountPullModal', () => {
       type: 'oh.migration.postmanPull.start',
       payload: { apiKey: 'PMAK-abc', workspaceIds: ['ws-a'] },
     });
+  });
+
+  it('closes on Esc while still on the key step', () => {
+    installBridge();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', keyCode: 27 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores Esc once the workspace picker is up; the X asks before closing', async () => {
+    installBridge();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    fireEvent.change(screen.getByLabelText('Postman API key'), { target: { value: 'PMAK-abc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'List workspaces' }));
+    await screen.findByRole('checkbox', { name: /OpenHeaders Team/ });
+
+    fireEvent.keyDown(screen.getAllByRole('dialog')[0], { key: 'Escape', keyCode: 27 });
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(await screen.findByText('Close the import?')).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep selecting' }));
+    await waitFor(() => expect(screen.queryByText('Close the import?')).toBeNull());
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard and close' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it('renders nothing while closed', () => {
