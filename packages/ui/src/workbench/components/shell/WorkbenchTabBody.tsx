@@ -273,7 +273,14 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
     );
   }
   if (tab.mode === 'spec-edit' && tab.specUid) {
-    return <SpecEditorTab specUid={tab.specUid} workspaceId={editingScopeWorkspaceId} />;
+    return (
+      <SpecEditorTab
+        specUid={tab.specUid}
+        workspaceId={editingScopeWorkspaceId}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
   }
   if (tab.mode === 'workspace-vars') {
     return (

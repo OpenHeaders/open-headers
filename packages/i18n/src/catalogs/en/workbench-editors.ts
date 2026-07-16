@@ -1207,6 +1207,13 @@ export const workbenchEditors = {
 
   // ── Spec editor (API specification documents) ─────────────────────
   'workbench.editors.spec.notFound': 'Specification not found.',
+  'workbench.editors.spec.deletedElsewhere': 'This specification was deleted in another session.',
+  'workbench.editors.spec.saveFailed': 'Could not save the specification.',
+  'workbench.editors.spec.validation.clean': 'No problems found',
+  'workbench.editors.spec.validation.errors': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} error', other: '{count} errors' }),
+  'workbench.editors.spec.validation.warnings': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} warning', other: '{count} warnings' }),
 
   // ── Script editor (snippets/packages menus, save-to-package flow,
   //    ScriptsTab's own Monaco context-menu actions). Snippet code

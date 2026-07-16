@@ -20,6 +20,15 @@ import type {
 } from './types';
 import { OpenApiParseError } from './types';
 
+/**
+ * Path of the schema-only-responses aggregate drop. Exported so
+ * report consumers presenting document quality (the spec editor's
+ * validation strip) can tell this authoring note — response
+ * documentation exists but carries no concrete example to mint —
+ * apart from drops that mean generated output loses content.
+ */
+export const SCHEMA_ONLY_RESPONSES_DROP_PATH = 'paths[operations with schema-only responses]';
+
 // ── Entry point ────────────────────────────────────────────────────
 
 /**
@@ -550,7 +559,7 @@ function recordAggregates(doc: Record<string, unknown>, assembly: Assembly): voi
   }
   if (assembly.schemaOnlyResponses > 0) {
     recordDrop(report, {
-      path: 'paths[operations with schema-only responses]',
+      path: SCHEMA_ONLY_RESPONSES_DROP_PATH,
       reason: `Response documentation on ${assembly.schemaOnlyResponses} operation${assembly.schemaOnlyResponses === 1 ? '' : 's'} carries only schemas (no concrete example) — nothing to mint; add examples to the spec or author them in the editor.`,
       tracking: 'PERMANENT: response schemas without concrete examples',
     });

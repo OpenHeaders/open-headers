@@ -34,7 +34,7 @@
  *     response links are permanent drops.
  */
 
-export { parseOpenApi } from './parse';
+export { parseOpenApi, SCHEMA_ONLY_RESPONSES_DROP_PATH } from './parse';
 export {
   type OpenApiCollectionVariable,
   type OpenApiParsedExample,

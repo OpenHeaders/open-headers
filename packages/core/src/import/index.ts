@@ -143,6 +143,7 @@ export {
   type OpenApiParseOptions,
   type OpenApiParseResult,
   parseOpenApi,
+  SCHEMA_ONLY_RESPONSES_DROP_PATH,
 } from './openapi';
 export {
   type PostmanCollectionVariable,
