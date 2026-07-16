@@ -19,7 +19,13 @@
  * runner's closure.
  */
 
-import type { MigrationPullRunState, PostmanPullEvent, PostmanWorkspaceListResult } from '@openheaders/core/import';
+import {
+  foldPullEvent,
+  type MigrationPullRunState,
+  type PostmanPullEvent,
+  type PostmanWorkspaceListResult,
+  startPullRunState,
+} from '@openheaders/core/import';
 import {
   createMigrationPullRunner,
   listPostmanWorkspaces,
@@ -58,14 +64,35 @@ export interface SwMigrationRunHost {
   getState(): MigrationPullRunState;
   /** True for any run this host started in its lifetime. */
   isLocalRun(runId: string): boolean;
+  /**
+   * Surface an orphaned run whose session key is gone (browser
+   * restart): fold the marker into an interrupted terminal state that
+   * `getState` answers and open surfaces receive live — honest
+   * interruption, never a zombie task. A new local `start` supersedes
+   * it. Re-running the import IS the resume: a complete re-pull
+   * replaces the dead run's partial landing by provenance, never
+   * duplicating it.
+   */
+  adoptInterruptedRun(marker: MigrationPullRunMarker): void;
   /** Resolves once the in-flight run (if any) settles — test hook. */
   settled(): Promise<void>;
 }
+
+/**
+ * The interrupted surface's one message — folded into state AND
+ * broadcast, so hydrating and live-following surfaces read the same
+ * words. Deliberately names the remedy: re-running the import finishes
+ * the job without duplicates.
+ */
+export const MIGRATION_PULL_INTERRUPTED_REASON =
+  'The import was interrupted by a browser restart before it finished. Run it again to finish — anything already imported is replaced, not duplicated.';
 
 export function createSwMigrationRunHost(options: SwMigrationRunHostOptions = {}): SwMigrationRunHost {
   const fetchFn = options.fetchFn ?? swPullFetch;
   const localRunIds = new Set<string>();
   let marker: MigrationPullRunMarker | null = null;
+  /** Synthesized state of a key-gone orphan — a new run supersedes it. */
+  let interrupted: MigrationPullRunState | null = null;
 
   const runner = createMigrationPullRunner({
     fetchFn,
@@ -90,6 +117,7 @@ export function createSwMigrationRunHost(options: SwMigrationRunHostOptions = {}
       if (!result.started || result.runId === undefined) return result;
       const runId = result.runId;
       localRunIds.add(runId);
+      interrupted = null;
       marker = {
         runId,
         ...(workspaceIds !== undefined ? { workspaceIds } : {}),
@@ -105,8 +133,18 @@ export function createSwMigrationRunHost(options: SwMigrationRunHostOptions = {}
       });
       return result;
     },
-    getState: () => runner.getState(),
+    getState: () => {
+      const state = runner.getState();
+      return state.runId === null && interrupted !== null ? interrupted : state;
+    },
     isLocalRun: (runId) => localRunIds.has(runId),
+    adoptInterruptedRun(orphan) {
+      if (runner.getState().runId !== null) return;
+      const event: PostmanPullEvent = { kind: 'import-failed', reason: MIGRATION_PULL_INTERRUPTED_REASON };
+      interrupted = foldPullEvent(startPullRunState(orphan.runId), event);
+      localRunIds.add(orphan.runId);
+      broadcast('migrationPullEvent', { runId: orphan.runId, seq: orphan.seq + 1, event });
+    },
     settled: () => runner.settled(),
   };
 }

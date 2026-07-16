@@ -85,6 +85,7 @@ import {
   setFallbackPriorityProbe,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
+import { resumeOrphanedMigrationPull } from './modules/migration-run/orphan-resume';
 import { rehydrateCacheBypassFromSessionRules } from './modules/net/cache-bypass';
 import { rehydrateNetworkConditionsFromSession } from './modules/net/network-conditions';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
@@ -301,6 +302,14 @@ async function initializeExtension(): Promise<void> {
   });
   await hydrateLiveCacheMirror();
   await bootstrapTotpScheduler(() => scheduleUpdate('totp', { immediate: true }));
+
+  // Orphaned account-pull detection: an SW that died mid-pull resumes
+  // silently with the session key, or surfaces the run as interrupted
+  // when a browser restart cleared it. After hydration + sync boot so a
+  // resumed run's materialization tail writes through live stores.
+  void resumeOrphanedMigrationPull().catch((err: unknown) => {
+    logger.warn('Background', 'Migration pull orphan detection failed', err);
+  });
 
   const restoredRules = getRules();
   // Observer + cache-bypass + tab-tracking must rehydrate BEFORE the first

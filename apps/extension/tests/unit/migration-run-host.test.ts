@@ -6,7 +6,9 @@
  * locally-produced event fans out as the ONE `migrationPullEvent`
  * broadcast and bumps the marker's seq; both slots clear on settle
  * whatever the outcome; one run at a time; the marker never carries
- * the key; and the local-runId registry the mirror dedupes against.
+ * the key; the local-runId registry the mirror dedupes against; and
+ * the interrupted-run adoption (Phase C's key-gone leg) — folded into
+ * `getState`, broadcast live, superseded by a new run.
  */
 
 import type { PostmanImportSummary, PostmanPullEvent, PostmanPullResult } from '@openheaders/core/import';
@@ -22,7 +24,10 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { createSwMigrationRunHost } from '@/background/modules/migration-run/run-host';
+import {
+  createSwMigrationRunHost,
+  MIGRATION_PULL_INTERRUPTED_REASON,
+} from '@/background/modules/migration-run/run-host';
 
 interface FakeArea {
   store: Record<string, unknown>;
@@ -213,5 +218,58 @@ describe('createSwMigrationRunHost', () => {
 
     release(completeResult());
     await host.settled();
+  });
+
+  describe('adoptInterruptedRun', () => {
+    const ORPHAN = { runId: 'run-orphan', workspaceIds: ['ws-1'], seq: 12, startedAt: '2026-07-16T10:00:00.000Z' };
+
+    it('folds the marker into an interrupted terminal state and broadcasts it', () => {
+      installStorage();
+      const host = createSwMigrationRunHost({ pull: deferredPull().pull, materialize: vi.fn(async () => SUMMARY) });
+
+      host.adoptInterruptedRun(ORPHAN);
+      expect(host.getState()).toMatchObject({
+        runId: 'run-orphan',
+        phase: 'done',
+        importError: MIGRATION_PULL_INTERRUPTED_REASON,
+      });
+      expect(mockBroadcast).toHaveBeenCalledWith('migrationPullEvent', {
+        runId: 'run-orphan',
+        seq: 13,
+        event: { kind: 'import-failed', reason: MIGRATION_PULL_INTERRUPTED_REASON },
+      });
+      // The mirror dedupes against the adopted run too — it was this
+      // host's own run in a previous SW life.
+      expect(host.isLocalRun('run-orphan')).toBe(true);
+    });
+
+    it('is superseded by a new local run', async () => {
+      installStorage();
+      const { pull, release } = deferredPull();
+      const host = createSwMigrationRunHost({ pull, materialize: vi.fn(async () => SUMMARY) });
+
+      host.adoptInterruptedRun(ORPHAN);
+      const result = await host.start(API_KEY, ['ws-1']);
+      expect(host.getState()).toMatchObject({ runId: result.runId, phase: 'enumerating' });
+
+      release(completeResult());
+      await host.settled();
+      expect(host.getState()).toMatchObject({ runId: result.runId, phase: 'done' });
+    });
+
+    it('is a no-op while a run is live', async () => {
+      installStorage();
+      const { pull, release } = deferredPull();
+      const host = createSwMigrationRunHost({ pull, materialize: vi.fn(async () => SUMMARY) });
+
+      const result = await host.start(API_KEY);
+      mockBroadcast.mockClear();
+      host.adoptInterruptedRun(ORPHAN);
+      expect(host.getState()).toMatchObject({ runId: result.runId });
+      expect(mockBroadcast).not.toHaveBeenCalled();
+
+      release(completeResult());
+      await host.settled();
+    });
   });
 });
