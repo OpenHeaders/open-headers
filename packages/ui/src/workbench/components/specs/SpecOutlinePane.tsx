@@ -18,14 +18,29 @@
  * to the host, which splices the snippet into the Monaco buffer.
  */
 
-import { PlusOutlined } from '@ant-design/icons';
+import {
+  ApiOutlined,
+  AppstoreOutlined,
+  CloudServerOutlined,
+  FolderOutlined,
+  ImportOutlined,
+  InboxOutlined,
+  KeyOutlined,
+  MailOutlined,
+  NodeIndexOutlined,
+  OrderedListOutlined,
+  PartitionOutlined,
+  PlusOutlined,
+  SafetyOutlined,
+  TagsOutlined,
+} from '@ant-design/icons';
 import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { SpecFile } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tooltip, Tree, Typography, theme } from 'antd';
 import type { TreeDataNode } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { METHOD_COLORS } from '../sidebar/icons';
@@ -38,7 +53,8 @@ interface SpecOutlinePaneProps {
   groups: SpecOutlineNode[] | null;
   files: SpecFile[];
   rootFileUid: string;
-  onNavigate: (offset: number) => void;
+  /** `end` bounds the editor's section highlight; absent → own line only. */
+  onNavigate: (offset: number, end?: number) => void;
   /** False hides every Add affordance — non-YAML roots (S6: YAML-only). */
   canInsert: boolean;
   onInsert: (target: SpecInsertTarget) => void;
@@ -77,6 +93,23 @@ const STREAMING_LABEL_KEYS: Record<ProtoStreamingShape, MessageKey> = {
 };
 
 const GROUP_KEYS = Object.keys(GROUP_LABEL_KEYS);
+
+/** Group-header prefix icons (vendor parity — every group carries one). */
+const GROUP_ICONS: Record<string, React.ReactNode> = {
+  servers: <CloudServerOutlined />,
+  tags: <TagsOutlined />,
+  paths: <NodeIndexOutlined />,
+  components: <AppstoreOutlined />,
+  'components:schemas': <PartitionOutlined />,
+  'components:securitySchemes': <KeyOutlined />,
+  security: <SafetyOutlined />,
+  package: <InboxOutlined />,
+  imports: <ImportOutlined />,
+  services: <ApiOutlined />,
+  messages: <MailOutlined />,
+  enums: <OrderedListOutlined />,
+  files: <FolderOutlined />,
+};
 
 /** Insertable group headers → their target + Add label. Components and
  *  Files carry no affordance (subgroups / entity data). */
@@ -124,6 +157,11 @@ function groupTitle(key: string, count: number | null, wiring: AffordanceWiring)
   const insert = wiring.canInsert ? GROUP_INSERTS[key] : undefined;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, width: '100%' }}>
+      {GROUP_ICONS[key] !== undefined && (
+        <span style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary, #999)', flexShrink: 0, display: 'inline-flex' }}>
+          {GROUP_ICONS[key]}
+        </span>
+      )}
       {wiring.t(GROUP_LABEL_KEYS[key])}
       {count !== null && count > 0 && (
         <Typography.Text type="secondary" style={{ fontSize: 10, fontWeight: 400 }}>
@@ -226,13 +264,19 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
   const { token } = theme.useToken();
   const t = useT();
 
-  // Tree data + the key → offset map the click handler resolves
+  // The clicked row stays marked (vendor parity) — the keys are stable
+  // path-derived strings, so the mark survives outline recomputes.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  // Tree data + the key → source-span map the click handler resolves
   // against, built in one walk per outline recompute.
-  const { treeData, offsets } = useMemo(() => {
+  const { treeData, spans } = useMemo(() => {
     const wiring: AffordanceWiring = { canInsert, onInsert, t };
-    const offsetByKey = new Map<string, number>();
+    const spanByKey = new Map<string, { offset: number; end?: number }>();
     const toDataNode = (node: SpecOutlineNode): TreeDataNode => {
-      if (node.offset !== null) offsetByKey.set(node.key, node.offset);
+      if (node.offset !== null) {
+        spanByKey.set(node.key, { offset: node.offset, ...(node.end !== undefined ? { end: node.end } : {}) });
+      }
       // Groups whose children are themselves groups (components) show
       // no count — the subgroup rows carry the real numbers.
       const count = node.children.some((child) => child.kind === 'group') ? null : node.children.length;
@@ -258,7 +302,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
       children: files.map((file) => {
         // The single v1 root file IS the open buffer — navigating to
         // its top is the honest "select this file" until multi-file.
-        offsetByKey.set(`file:${file.uid}`, 0);
+        spanByKey.set(`file:${file.uid}`, { offset: 0 });
         return {
           key: `file:${file.uid}`,
           title: (
@@ -286,7 +330,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
         };
       }),
     });
-    return { treeData: data, offsets: offsetByKey };
+    return { treeData: data, spans: spanByKey };
   }, [groups, files, rootFileUid, t, token, canInsert, onInsert]);
 
   return (
@@ -319,11 +363,14 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
           <Tree
             blockNode
             defaultExpandedKeys={GROUP_KEYS}
-            selectedKeys={[]}
+            selectedKeys={selectedKey !== null ? [selectedKey] : []}
             treeData={treeData}
             onSelect={(_keys, info) => {
-              const offset = offsets.get(String(info.node.key));
-              if (offset !== undefined) onNavigate(offset);
+              const key = String(info.node.key);
+              const span = spans.get(key);
+              if (span === undefined) return;
+              setSelectedKey(key);
+              onNavigate(span.offset, span.end);
             }}
           />
         </div>

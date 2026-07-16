@@ -88,6 +88,40 @@ describe('buildSpecOutline', () => {
     expect(outline?.components.children[0].children[0].offset).toBe(SAMPLE_YAML.indexOf('User:'));
   });
 
+  it('carries section end offsets bounding each node for the editor highlight', () => {
+    const outline = buildSpecOutline(SAMPLE_YAML);
+    expect(outline).not.toBeNull();
+    if (outline === null) return;
+
+    // The /users path section spans its operations but not its sibling.
+    const users = outline.paths.children[0];
+    expect(users.offset).not.toBeNull();
+    expect(users.end).toBeDefined();
+    if (users.offset === null || users.end === undefined) return;
+    const usersSlice = SAMPLE_YAML.slice(users.offset, users.end);
+    expect(usersSlice.startsWith('/users:')).toBe(true);
+    expect(usersSlice).toContain("'201'");
+    expect(usersSlice).not.toContain('/status:');
+
+    // The paths group span covers every path.
+    expect(outline.paths.end).toBeDefined();
+    if (outline.paths.offset === null || outline.paths.end === undefined) return;
+    const pathsSlice = SAMPLE_YAML.slice(outline.paths.offset, outline.paths.end);
+    expect(pathsSlice).toContain('/users:');
+    expect(pathsSlice).toContain('/status:');
+    expect(pathsSlice).not.toContain('components:');
+
+    // A server row spans only its own entry.
+    const server = outline.servers.children[0];
+    if (server.offset === null || server.end === undefined) return;
+    expect(SAMPLE_YAML.slice(server.offset, server.end)).toContain('api.openheaders.io');
+    expect(SAMPLE_YAML.slice(server.offset, server.end)).not.toContain('staging');
+
+    // Absent sections carry no end.
+    const empty = buildSpecOutline("openapi: '3.1.0'\ninfo:\n  title: Empty\n  version: '1.0.0'\n");
+    expect(empty?.servers.end).toBeUndefined();
+  });
+
   it('derives the same structure from a JSON document', () => {
     const outline = buildSpecOutline(
       JSON.stringify(

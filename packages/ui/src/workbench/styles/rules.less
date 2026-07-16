@@ -2198,6 +2198,32 @@ body {
  * always visible (it IS the group's content).
  */
 .oh-spec-outline-tree {
+  /* Vendor-parity density: shallow per-level indent + slim switcher
+   * column so nested rows (schemas, operations) stay close to the rail
+   * edge instead of drowning in the antd 24px default. */
+  .ant-tree-indent-unit {
+    width: 10px;
+  }
+
+  .ant-tree-switcher {
+    width: 16px;
+    align-self: center;
+  }
+
+  .ant-tree-treenode {
+    padding-bottom: 1px;
+    align-items: center;
+  }
+
+  .ant-tree-node-content-wrapper {
+    min-height: 22px;
+    line-height: 22px;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
   .oh-spec-outline-add {
     opacity: 0;
     margin-left: auto;
@@ -2232,5 +2258,17 @@ body {
       color: var(--ant-color-text-secondary, #666);
     }
   }
+}
+
+/*
+ * Outline-click section highlight — a primary-color bar in the editor's
+ * lines-decorations gutter spanning the clicked section (vendor
+ * parity). One decoration lives at a time; the next click replaces it.
+ */
+.rules-code-editor .monaco-editor .oh-spec-nav-section {
+  background: var(--ant-color-primary, #1677ff);
+  width: 3px !important;
+  margin-left: 4px;
+  border-radius: 2px;
 }
 

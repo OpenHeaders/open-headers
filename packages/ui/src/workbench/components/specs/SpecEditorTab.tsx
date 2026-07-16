@@ -118,19 +118,40 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  const navHighlightRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const handleEditorMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monacoApi: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monacoApi;
+    navHighlightRef.current = editor.createDecorationsCollection();
   }, []);
 
-  // Outline click → caret. The offset comes from the parse-on-idle
-  // AST, so on a buffer edited since the last tick it can trail the
-  // text by a beat — getPositionAt clamps, and the next tick trues it.
-  const handleNavigate = useCallback((offset: number) => {
+  // Outline click → caret + section highlight (vendor parity: a bar in
+  // the lines-decorations gutter spanning the clicked section, replaced
+  // by the next click). The offsets come from the parse-on-idle AST, so
+  // on a buffer edited since the last tick they can trail the text by a
+  // beat — getPositionAt clamps, and the next tick trues it.
+  const handleNavigate = useCallback((offset: number, end?: number) => {
     const editor = editorRef.current;
+    const monacoApi = monacoRef.current;
     const model = editor?.getModel();
-    if (!editor || !model) return;
+    if (!editor || !monacoApi || !model) return;
     const position = model.getPositionAt(offset);
+    let endLine = position.lineNumber;
+    if (end !== undefined && end > offset) {
+      const endPosition = model.getPositionAt(end);
+      // A block node's end lands at column 1 of the line AFTER its last
+      // content (trailing newline) — highlight must not bleed onto it.
+      endLine =
+        endPosition.column === 1 && endPosition.lineNumber > position.lineNumber
+          ? endPosition.lineNumber - 1
+          : endPosition.lineNumber;
+    }
+    navHighlightRef.current?.set([
+      {
+        range: new monacoApi.Range(position.lineNumber, 1, endLine, 1),
+        options: { isWholeLine: true, linesDecorationsClassName: 'oh-spec-nav-section' },
+      },
+    ]);
     editor.setPosition(position);
     editor.revealPositionInCenterIfOutsideViewport(position);
     editor.focus();

@@ -41,6 +41,11 @@ export interface SpecOutlineNode {
   /** Character offset of the node's source position; null when the
    *  section is absent from the document (group header only). */
   offset: number | null;
+  /** Character offset just past the node's source text — the editor's
+   *  section highlight spans offset..end. Absent when the parser gives
+   *  no end (protobuf census rows) — the highlight falls back to the
+   *  node's own line. */
+  end?: number;
   /** HTTP verb, uppercased — operation nodes only. */
   method?: string;
   /** Call shape from the `stream` keywords — rpc nodes only. */
@@ -59,16 +64,35 @@ export interface SpecOutline {
 
 const OPERATION_KEYS = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']);
 
-function nodeOffset(node: unknown): number | null {
+function nodeRange(node: unknown): [number, number, number] | null {
   if (node !== null && typeof node === 'object' && 'range' in node) {
     const range = (node as { range?: [number, number, number] | null }).range;
-    if (Array.isArray(range)) return range[0];
+    if (Array.isArray(range)) return range;
   }
   return null;
 }
 
+function nodeOffset(node: unknown): number | null {
+  return nodeRange(node)?.[0] ?? null;
+}
+
+/** End of the node's own source text (`range[2]` — past trailing content). */
+function nodeEnd(node: unknown): number | null {
+  return nodeRange(node)?.[2] ?? null;
+}
+
 function pairOffset(pair: Pair): number | null {
   return nodeOffset(pair.key) ?? nodeOffset(pair.value);
+}
+
+/** A pair's section spans key start → value end. */
+function pairEnd(pair: Pair): number | null {
+  return nodeEnd(pair.value) ?? nodeEnd(pair.key);
+}
+
+/** Spread-ready `end` — present only when the AST carries one. */
+function endOf(end: number | null): { end?: number } {
+  return end !== null ? { end } : {};
 }
 
 function keyString(pair: Pair): string | null {
@@ -91,8 +115,15 @@ function scalarProp(node: unknown, key: string): string | null {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : null;
 }
 
-function group(key: string, offset: number | null, children: SpecOutlineNode[]): SpecOutlineNode {
-  return { key, label: key, kind: 'group', offset, children };
+function group(key: string, pair: Pair | null, children: SpecOutlineNode[]): SpecOutlineNode {
+  return {
+    key,
+    label: key,
+    kind: 'group',
+    offset: pair ? pairOffset(pair) : null,
+    ...endOf(pair ? pairEnd(pair) : null),
+    children,
+  };
 }
 
 function seqItems(pair: Pair | null): { seq: YAMLSeq; items: unknown[] } | null {
@@ -110,10 +141,11 @@ function buildServers(pair: Pair | null): SpecOutlineNode {
       label: url ?? `servers[${i}]`,
       kind: 'server',
       offset: nodeOffset(item),
+      ...endOf(nodeEnd(item)),
       children: [],
     });
   });
-  return group('servers', pair ? pairOffset(pair) : null, children);
+  return group('servers', pair, children);
 }
 
 function buildTags(pair: Pair | null): SpecOutlineNode {
@@ -126,10 +158,11 @@ function buildTags(pair: Pair | null): SpecOutlineNode {
       label: name ?? `tags[${i}]`,
       kind: 'tag',
       offset: nodeOffset(item),
+      ...endOf(nodeEnd(item)),
       children: [],
     });
   });
-  return group('tags', pair ? pairOffset(pair) : null, children);
+  return group('tags', pair, children);
 }
 
 function buildPaths(pair: Pair | null): SpecOutlineNode {
@@ -148,6 +181,7 @@ function buildPaths(pair: Pair | null): SpecOutlineNode {
             label: scalarProp(opPair.value, 'summary') ?? opKey.toUpperCase(),
             kind: 'operation',
             offset: pairOffset(opPair),
+            ...endOf(pairEnd(opPair)),
             method: opKey.toUpperCase(),
             children: [],
           });
@@ -158,11 +192,12 @@ function buildPaths(pair: Pair | null): SpecOutlineNode {
         label: pathKey,
         kind: 'path',
         offset: pairOffset(pathPair),
+        ...endOf(pairEnd(pathPair)),
         children: operations,
       });
     }
   }
-  return group('paths', pair ? pairOffset(pair) : null, children);
+  return group('paths', pair, children);
 }
 
 function buildNamedMapChildren(pair: Pair | null, kind: SpecOutlineKind, keyPrefix: string): SpecOutlineNode[] {
@@ -171,7 +206,14 @@ function buildNamedMapChildren(pair: Pair | null, kind: SpecOutlineKind, keyPref
     for (const entry of pair.value.items) {
       const name = keyString(entry);
       if (name === null) continue;
-      children.push({ key: `${keyPrefix}:${name}`, label: name, kind, offset: pairOffset(entry), children: [] });
+      children.push({
+        key: `${keyPrefix}:${name}`,
+        label: name,
+        kind,
+        offset: pairOffset(entry),
+        ...endOf(pairEnd(entry)),
+        children: [],
+      });
     }
   }
   return children;
@@ -187,6 +229,7 @@ function buildComponents(pair: Pair | null): SpecOutlineNode {
       label: 'schemas',
       kind: 'group',
       offset: schemasPair ? pairOffset(schemasPair) : null,
+      ...endOf(schemasPair ? pairEnd(schemasPair) : null),
       children: buildNamedMapChildren(schemasPair, 'schema', 'schema'),
     },
     {
@@ -194,10 +237,11 @@ function buildComponents(pair: Pair | null): SpecOutlineNode {
       label: 'securitySchemes',
       kind: 'group',
       offset: schemesPair ? pairOffset(schemesPair) : null,
+      ...endOf(schemesPair ? pairEnd(schemesPair) : null),
       children: buildNamedMapChildren(schemesPair, 'securityScheme', 'securityScheme'),
     },
   ];
-  return group('components', pair ? pairOffset(pair) : null, subgroups);
+  return group('components', pair, subgroups);
 }
 
 function buildSecurity(pair: Pair | null): SpecOutlineNode {
@@ -212,10 +256,11 @@ function buildSecurity(pair: Pair | null): SpecOutlineNode {
       label: names.length > 0 ? names.join(' + ') : `security[${i}]`,
       kind: 'securityRequirement',
       offset: nodeOffset(item),
+      ...endOf(nodeEnd(item)),
       children: [],
     });
   });
-  return group('security', pair ? pairOffset(pair) : null, children);
+  return group('security', pair, children);
 }
 
 /** The OpenAPI outline's groups in vendor order — the structure pane
