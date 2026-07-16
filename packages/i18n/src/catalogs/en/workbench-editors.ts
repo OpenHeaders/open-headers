@@ -1353,8 +1353,7 @@ export const workbenchEditors = {
   'workbench.editors.scriptEditor.snippet.statusCode200': 'Status code is 200',
   'workbench.editors.scriptEditor.snippet.bodyContains': 'Response body contains a string',
   'workbench.editors.scriptEditor.snippet.bodyEquals': 'Response body equals a string',
-  // ── gRPC request editor (Phase C shell — Invoke lands with the
-  // transport in Phase D; the disabled copy says so honestly). ────────
+  // ── gRPC request editor ─────────────────────────────────────────────
   'workbench.editors.grpc.notFound': 'gRPC request not found.',
   'workbench.editors.grpc.urlPlaceholder': 'host:port (e.g. grpc.openheaders.io:443)',
   'workbench.editors.grpc.tls.on': 'TLS on — click to switch to plaintext',
@@ -1364,8 +1363,32 @@ export const workbenchEditors = {
   'workbench.editors.grpc.method.unresolvedGroup': 'Not in linked spec',
   'workbench.editors.grpc.method.unresolvedOption': '{rpc} (unresolved)',
   'workbench.editors.grpc.invoke.label': 'Invoke',
-  'workbench.editors.grpc.invoke.disabledTooltip':
-    'Invoking gRPC methods is coming soon — composing and saving works today.',
+  'workbench.editors.grpc.invoke.cancel': 'Cancel',
+  'workbench.editors.grpc.invoke.browserHost': 'Invoking runs on the desktop app — composing and saving works here.',
+  'workbench.editors.grpc.invoke.needsMethod': 'Pick a method that resolves against the linked spec to invoke',
+  'workbench.editors.grpc.invoke.streamingLater':
+    'Only unary methods can be invoked for now — streaming shapes are coming.',
+  'workbench.editors.grpc.invoke.needsUrl': 'Enter a target host to invoke',
+  'workbench.editors.grpc.invoke.failed': 'Invoke failed — the host did not answer the call',
+  'workbench.editors.grpc.response.tab.response': 'Response',
+  'workbench.editors.grpc.response.tab.metadata': 'Metadata',
+  'workbench.editors.grpc.response.tab.trailers': 'Trailers',
+  'workbench.editors.grpc.response.duration': '{ms} ms',
+  'workbench.editors.grpc.response.noStatus': 'No gRPC status',
+  'workbench.editors.grpc.response.noMessage': 'The reply carried no response message.',
+  'workbench.editors.grpc.response.noMetadata': 'No metadata',
+  'workbench.editors.grpc.response.noTrailers': 'No trailers',
+  'workbench.editors.grpc.response.trailersOnly':
+    'Trailers-only reply — the status arrived with the initial metadata and no message followed.',
+  'workbench.editors.grpc.response.compressed':
+    'The response frame is compressed — compression is not negotiated, so it cannot be decoded.',
+  'workbench.editors.grpc.response.structuralNotice':
+    'Structural decode (field numbers) — the response type did not resolve against the linked spec.',
+  'workbench.editors.grpc.response.rawNotice': 'The message did not decode; raw bytes shown as base64.',
+  'workbench.editors.grpc.response.extraFrames':
+    '{count} message frames arrived — a unary reply carries one; showing the first.',
+  'workbench.editors.grpc.response.incompleteTail': 'The response ended mid-frame; complete frames shown.',
+  'workbench.editors.grpc.response.truncated': 'Response capped at {bytes} bytes.',
   'workbench.editors.grpc.tab.message': 'Message',
   'workbench.editors.grpc.tab.metadata': 'Metadata',
   'workbench.editors.grpc.tab.serviceDefinition': 'Service definition',
@@ -1387,7 +1410,7 @@ export const workbenchEditors = {
   'workbench.editors.grpc.settings.timeoutLabel': 'Call timeout (ms)',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'No limit',
   'workbench.editors.grpc.settings.timeoutHelp':
-    'Wall-clock ceiling on the whole call — becomes the gRPC deadline once invoking lands.',
+    'Wall-clock ceiling on the whole call — sent as the gRPC deadline and enforced locally.',
   'workbench.editors.grpc.toast.deletedOtherTab': 'gRPC request was deleted from another tab',
   'workbench.editors.grpc.toast.updateFailed': 'Failed to update gRPC request',
   'workbench.editors.grpc.toast.updateFailedDetail': 'Failed to update gRPC request: {message}',

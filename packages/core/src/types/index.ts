@@ -64,6 +64,7 @@ export type {
   ExtensionWorkspaceSource,
 } from './extension-workspace';
 // ── gRPC request ───────────────────────────────────────────────────
+export type { ExecutedGrpcMessageFrame, ExecutedGrpcSnapshot } from './grpc-execution';
 export type { GrpcMetadataPair, GrpcMethodRef, GrpcRequest, GrpcRequestSeed, GrpcSpecLink } from './grpc-request';
 export type {
   HarEventSourceMessage,

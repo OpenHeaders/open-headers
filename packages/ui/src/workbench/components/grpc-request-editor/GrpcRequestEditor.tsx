@@ -1,22 +1,35 @@
 /**
- * GrpcRequestEditor — tab body for one GrpcRequest entity (Phase C).
+ * GrpcRequestEditor — tab body for one GrpcRequest entity.
  *
- * Editor shell only: host URL + TLS lock, method selector grouped by
+ * Editor shell: host URL + TLS lock, method selector grouped by
  * service with call-shape glyphs (derived live from the linked
  * Protobuf spec via `deriveGrpcMethods` — ids-only specLink, nothing
  * cached), Message / Metadata / Service definition / Settings tabs,
  * and "Use Example Message" wiring `synthesizeExampleMessage` into the
- * Message tab. Invoke renders DISABLED — the transport lands in Phase
- * D; the button says so honestly.
+ * Message tab. Invoke fires the CURRENT compose state (saved or not)
+ * through the `executeGrpcRequest` channel on node hosts — unary
+ * methods only in this phase; other states keep an honest disabled
+ * tooltip. In flight it morphs to Cancel (`abortRequestSend` on the
+ * shared active-send registry); the result renders in
+ * `GrpcResponsePane` below the compose tabs, editor-local only.
  *
  * Dirty derives from form-vs-canonical equality via `useReprime`
  * (never setDirty); saves flow through the RequestsContext's
  * `updateGrpcRequest` (the gRPC write client under the hood).
  */
 
-import { LockOutlined, ReloadOutlined, SendOutlined, ThunderboltOutlined, UnlockOutlined } from '@ant-design/icons';
+import {
+  LockOutlined,
+  ReloadOutlined,
+  SendOutlined,
+  StopOutlined,
+  ThunderboltOutlined,
+  UnlockOutlined,
+} from '@ant-design/icons';
+import { hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { GrpcMethodRef } from '@openheaders/core/types';
+import type { ExecutedGrpcSnapshot, GrpcMethodRef, GrpcRequest as GrpcRequestEntity } from '@openheaders/core/types';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openheaders/ui/shared/awareness';
@@ -26,11 +39,12 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { App, Button, Input, InputNumber, Select, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { grpcTag } from '../sidebar/icons';
 import EditorHeader from '../shell/EditorHeader';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import GrpcResponsePane from './GrpcResponsePane';
 import {
   buildGrpcRequestUpdates,
   canonicalGrpcRequestProjection,
@@ -75,7 +89,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const { message: toast } = App.useApp();
   const t = useT();
   const localInstanceId = useLocalInstanceId();
-  const { grpcRequests, updateGrpcRequest } = useRequests();
+  const { grpcRequests, updateGrpcRequest, executeGrpc } = useRequests();
   const specs = useSpecs(workspaceId);
 
   const entity = useMemo(
@@ -151,6 +165,57 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     setDraft((d) => ({ ...d, message: exampleText }));
     setActiveTab('message');
   }, [exampleText]);
+
+  // ── Invoke (Phase D — unary, node hosts) ─────────────────────────
+  const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const [invoking, setInvoking] = useState(false);
+  const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);
+  const activeSendIdRef = useRef<string | null>(null);
+
+  const handleInvoke = useCallback(async () => {
+    if (!entity || invoking) return;
+    // The CURRENT compose state invokes — saved or not (the HTTP
+    // editor's draft-send law); identity fields ride along verbatim.
+    const draftEntity: GrpcRequestEntity = {
+      schemaVersion: 5,
+      uid: entity.uid,
+      path: entity.path,
+      name: entity.name,
+      description: entity.description,
+      ...buildGrpcRequestUpdates(draft),
+    };
+    const sendId = crypto.randomUUID();
+    activeSendIdRef.current = sendId;
+    setInvoking(true);
+    setResponse(null);
+    const snapshot = await executeGrpc({ draft: draftEntity, sendId });
+    activeSendIdRef.current = null;
+    setInvoking(false);
+    if (snapshot === null) {
+      toast.error(t('workbench.editors.grpc.invoke.failed'));
+      return;
+    }
+    setResponse(snapshot);
+  }, [entity, invoking, draft, executeGrpc, toast, t]);
+
+  // Cancel morphs from Invoke while in flight — the host aborts the
+  // exchange and the pending RPC above resolves with what arrived.
+  const handleCancelInvoke = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('abortRequestSend', { sendId }).catch(() => {});
+  }, []);
+
+  const invokeDisabledReason =
+    requestRuntimeKind !== 'node'
+      ? t('workbench.editors.grpc.invoke.browserHost')
+      : !selectedOption
+        ? t('workbench.editors.grpc.invoke.needsMethod')
+        : selectedOption.streaming !== 'unary'
+          ? t('workbench.editors.grpc.invoke.streamingLater')
+          : draft.url.trim() === ''
+            ? t('workbench.editors.grpc.invoke.needsUrl')
+            : null;
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -282,11 +347,23 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
             showSearch
             data-testid="grpc-method-select"
           />
-          <Tooltip title={t('workbench.editors.grpc.invoke.disabledTooltip')}>
-            <Button type="primary" icon={<ThunderboltOutlined />} disabled data-testid="grpc-invoke-button">
-              {t('workbench.editors.grpc.invoke.label')}
+          {invoking ? (
+            <Button danger icon={<StopOutlined />} onClick={handleCancelInvoke} data-testid="grpc-invoke-button">
+              {t('workbench.editors.grpc.invoke.cancel')}
             </Button>
-          </Tooltip>
+          ) : (
+            <Tooltip title={invokeDisabledReason ?? undefined}>
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                disabled={invokeDisabledReason !== null}
+                onClick={() => void handleInvoke()}
+                data-testid="grpc-invoke-button"
+              >
+                {t('workbench.editors.grpc.invoke.label')}
+              </Button>
+            </Tooltip>
+          )}
         </div>
 
         <Tabs
@@ -399,6 +476,12 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
             },
           ]}
         />
+
+        {response !== null && (
+          <div style={{ maxHeight: '45%', overflow: 'auto', flexShrink: 0 }}>
+            <GrpcResponsePane snapshot={response} registry={derivation?.registry ?? null} method={draft.method} />
+          </div>
+        )}
 
         {specFooter}
       </div>

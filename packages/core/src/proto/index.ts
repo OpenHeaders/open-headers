@@ -13,6 +13,18 @@ export {
   type ProtoJsonValue,
 } from './codec';
 export { synthesizeExampleMessage } from './example';
+export {
+  decodeGrpcMessage,
+  encodeGrpcTimeout,
+  extractGrpcStatus,
+  GRPC_STATUS_NAMES,
+  type GrpcCallStatus,
+  type GrpcMetadataField,
+  type GrpcWireFrame,
+  grpcStatusLabel,
+  readGrpcFrames,
+  writeGrpcFrame,
+} from './grpc-wire';
 export { parseProto } from './parse';
 export {
   buildRegistry,

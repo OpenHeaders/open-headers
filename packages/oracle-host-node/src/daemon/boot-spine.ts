@@ -122,6 +122,7 @@ import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { composePeerRpc } from './compose-peer-rpc';
+import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
@@ -734,6 +735,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // lives. Same channel contract the extension SW handles.
     if (type === 'executeRequest') {
       return await handleExecuteRequestRpc(message);
+    }
+    // Workbench gRPC Invoke — the GrpcRequest entity's executor plane,
+    // same in-process answer posture as executeRequest above.
+    if (type === 'executeGrpcRequest') {
+      return await handleExecuteGrpcRequestRpc(message);
     }
     // Stop an in-flight interactive send by its caller-minted id — the
     // host-neutral active-send registry the executor registered into.

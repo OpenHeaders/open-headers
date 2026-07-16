@@ -37,7 +37,7 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { AuthConfig, ExecutedRequestSnapshot } from '@openheaders/core/types';
+import type { AuthConfig, ExecutedGrpcSnapshot, ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { buildRequestCollectionTrees } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
 import {
@@ -165,6 +165,17 @@ export interface RequestsContextValue {
      *  streaming leg ignore it). */
     sendId?: string;
   }) => Promise<ExecutedRequestSnapshot | null>;
+
+  /** gRPC Invoke — the GrpcRequest entity's executor channel; answered
+   *  only by node-runtime hosts (the editor gates the button off the
+   *  `requestRuntime` capability). `sendId` joins the same active-send
+   *  registry, so the in-flight call cancels via `abortRequestSend`. */
+  executeGrpc: (input: {
+    grpcRequestUid?: string;
+    draft?: GrpcRequest;
+    environmentId?: string;
+    sendId?: string;
+  }) => Promise<ExecutedGrpcSnapshot | null>;
 }
 
 const defaultContextValue: RequestsContextValue = {
@@ -194,6 +205,7 @@ const defaultContextValue: RequestsContextValue = {
   setCollectionVariables: () => Promise.resolve(false),
   setCollectionSpecLink: () => Promise.resolve(false),
   execute: () => Promise.resolve(null),
+  executeGrpc: () => Promise.resolve(null),
 };
 
 export const RequestsContext = createContext<RequestsContextValue>(defaultContextValue);
@@ -717,6 +729,11 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     return resp?.success ? (resp.snapshot ?? null) : null;
   }, []);
 
+  const executeGrpc = useCallback<RequestsContextValue['executeGrpc']>(async (input) => {
+    const resp = await hostBridge.call('executeGrpcRequest', input).catch(() => null);
+    return resp?.success ? (resp.snapshot ?? null) : null;
+  }, []);
+
   const value = useMemo<RequestsContextValue>(
     () => ({
       requests,
@@ -745,6 +762,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setCollectionVariables,
       setCollectionSpecLink,
       execute,
+      executeGrpc,
     }),
     [
       requests,
@@ -773,6 +791,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setCollectionVariables,
       setCollectionSpecLink,
       execute,
+      executeGrpc,
     ],
   );
 

@@ -4,7 +4,15 @@
  * the active workspace.
  */
 
-import type { Collection, CollectionTree, ExecutedRequestSnapshot, Request, RequestSeed } from '../../types';
+import type {
+  Collection,
+  CollectionTree,
+  ExecutedGrpcSnapshot,
+  ExecutedRequestSnapshot,
+  GrpcRequest,
+  Request,
+  RequestSeed,
+} from '../../types';
 import type { FolderDescriptor } from './common';
 
 /**
@@ -175,6 +183,30 @@ export interface RequestRpc {
       sendId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
+  };
+  /**
+   * Invoke a gRPC request — the GrpcRequest entity's executor plane,
+   * a sibling of `executeRequest` keyed off the entity kind (session-
+   * shaped protocols never ride the HTTP channel). Unary only in this
+   * phase; answered by hosts with a node HTTP/2 stack (the desktop
+   * main process, the daemon) — browser hosts leave it unhandled and
+   * the editor's Invoke stays gated off the `requestRuntime`
+   * capability. `requestUid` takes precedence over `draft`; the
+   * `workspaceId` / `environmentId` semantics are `executeRequest`'s
+   * verbatim. `sendId` registers the exchange with the SAME active-
+   * send registry, so `abortRequestSend` cancels a gRPC invoke too —
+   * no live frames are emitted for unary (the resolving snapshot
+   * carries the whole reply).
+   */
+  executeGrpcRequest: {
+    req: {
+      grpcRequestUid?: string;
+      draft?: GrpcRequest;
+      environmentId?: string | null;
+      workspaceId?: string;
+      sendId?: string;
+    };
+    res: { success: boolean; snapshot?: ExecutedGrpcSnapshot; error?: string };
   };
   /**
    * Stop an in-flight interactive send by its caller-minted `sendId`.

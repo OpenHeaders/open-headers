@@ -88,6 +88,7 @@ function makeRequestsValue(overrides: Partial<RequestsContextValue> = {}): Reque
     setCollectionVariables: vi.fn(async () => true),
     setCollectionSpecLink: vi.fn(async () => true),
     execute: vi.fn(async () => null),
+    executeGrpc: vi.fn(async () => null),
     ...overrides,
   };
 }
