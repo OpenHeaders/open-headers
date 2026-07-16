@@ -13,8 +13,13 @@
  *      the on-demand body pull rides the composite router's `target:` leg;
  *   4. unpinning stops the plane (attachment-scoped): minted rows persist
  *      as history, new worker fetches mint nothing;
- *   5. extension-self plane: a request-editor Send appears as a row in
- *      the panel inspecting the WORKBENCH tab (webRequest plane — no pin).
+ *   5. extension-self plane: a request-editor Send appears as a ⚙ row in
+ *      the panel inspecting the WORKBENCH tab (webRequest plane — no pin),
+ *      and the workbench's own bundle worker-script loads (Monaco) read a
+ *      status-less "Finished" via the own-bundle terminal floor. The
+ *      devtools-HAR enrichment of self rows (sizes / response bodies) is
+ *      NOT assertable here: the relay rides `chrome.devtools.network`,
+ *      which exists only in a real DevTools context — live-pass only.
  *
  * SW-target discovery is a poll + attach epochs, so the setup drives
  * warm-up worker fetches until the first ⚙ row proves the Network stream
@@ -271,8 +276,20 @@ test("extension-self plane: a request-editor Send appears as a row in the workbe
   expect(await workbench.responseStatusText()).toContain('200');
 
   // The executor's fetch ran in the extension's OWN service worker — the
-  // re-keyed row must land in the workbench tab's traffic.
-  await expect(selfPanel.locator('.dt-row').filter({ hasText: marker }).first()).toBeVisible({ timeout: 20_000 });
+  // re-keyed row must land in the workbench tab's traffic, carrying the
+  // worker-issued ⚙ provenance the plane stamps on every mint.
+  const sendRow = selfPanel.locator('.dt-row').filter({ hasText: marker }).first();
+  await expect(sendRow).toBeVisible({ timeout: 20_000 });
+  await expect(sendRow.locator('.dt-col-name-gear')).toBeVisible();
+
+  // Own-bundle terminal floor: the request editor spawned Monaco's worker,
+  // whose main-script load is a tab-bound bundle load webRequest never
+  // completes — the floor must resolve it to the browser's status-less
+  // "Finished" instead of an eternal "(pending)".
+  const workerRow = selfPanel.locator('.dt-row').filter({ hasText: 'editor.worker' }).first();
+  await expect(workerRow).toBeVisible({ timeout: 20_000 });
+  await expect(workerRow).toContainText('Finished', { timeout: 10_000 });
+  await expect(workerRow).not.toContainText('(pending)');
 
   await selfPanel.close();
 });
