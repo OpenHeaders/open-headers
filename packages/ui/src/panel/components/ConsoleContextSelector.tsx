@@ -14,6 +14,7 @@
 
 import { CheckOutlined } from '@ant-design/icons';
 import type { JsContext } from '@openheaders/core/js-contexts';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useMemo } from 'react';
 import { type ConsoleContextRow, consoleContextRows, topContextKey } from '../data/console-context-selector';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
@@ -26,6 +27,7 @@ export interface ConsoleContextSelectorProps {
 }
 
 export function ConsoleContextSelector({ contexts, effectiveKey, onSelect }: ConsoleContextSelectorProps) {
+  const t = useT();
   const rows = useMemo(() => consoleContextRows(contexts), [contexts]);
   if (rows.length === 0) return null;
 
@@ -35,7 +37,7 @@ export function ConsoleContextSelector({ contexts, effectiveKey, onSelect }: Con
   return (
     <span
       className={`dt-console-context${warn ? ' dt-console-context--warn' : ''}`}
-      title="JavaScript context — where console commands evaluate"
+      title={t('panel.console.contextTitle')}
     >
       <ToolbarMenuPopover
         label={truncateLabel(effective.label)}

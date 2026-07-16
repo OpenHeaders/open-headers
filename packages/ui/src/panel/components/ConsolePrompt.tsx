@@ -20,6 +20,7 @@
  * exists yet — the registry fills within a beat of attach.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { pushConsolePromptHistory, useConsolePrefs } from '../data/console-prefs';
 
@@ -37,6 +38,7 @@ const PREVIEW_DEBOUNCE_MS = 150;
 const MAX_EAGER_EXPRESSION = 2_000;
 
 export function ConsolePrompt({ contextKey, onSubmit, onPreview }: ConsolePromptProps) {
+  const t = useT();
   const [value, setValue] = useState('');
   const prefs = useConsolePrefs();
   const history = prefs.promptHistory;
@@ -147,9 +149,9 @@ export function ConsolePrompt({ contextKey, onSubmit, onPreview }: ConsolePrompt
             value={value}
             disabled={contextKey === null}
             placeholder={
-              contextKey === null ? 'Waiting for a JavaScript context…' : 'Run JavaScript in the selected context'
+              contextKey === null ? t('panel.console.prompt.waiting') : t('panel.console.prompt.placeholder')
             }
-            aria-label="Console prompt"
+            aria-label={t('panel.console.prompt.aria')}
             spellCheck={false}
             autoComplete="off"
             onChange={(e) => {
@@ -161,7 +163,7 @@ export function ConsolePrompt({ contextKey, onSubmit, onPreview }: ConsolePrompt
         </span>
       </div>
       {preview !== null && (
-        <div className="dt-console-prompt-preview" aria-label="Eager evaluation preview">
+        <div className="dt-console-prompt-preview" aria-label={t('panel.console.prompt.previewAria')}>
           <span className="dt-console-prompt-preview-glyph" aria-hidden="true">
             ‹
           </span>

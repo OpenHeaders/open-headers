@@ -3,6 +3,7 @@
  * ladder and the wire-level mapping of the four level switches.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   ALL_LEVELS,
   DEFAULT_LEVELS,
@@ -12,14 +13,16 @@ import {
 } from '@openheaders/ui/panel/data/console-levels';
 import { describe, expect, it } from 'vitest';
 
+const t = getTranslator(DEFAULT_LOCALE);
+
 describe('levelMenuLabel', () => {
   it('collapses the mask the way the browser does', () => {
-    expect(levelMenuLabel(ALL_LEVELS)).toBe('All levels');
-    expect(levelMenuLabel(DEFAULT_LEVELS)).toBe('Default levels');
-    expect(levelMenuLabel({ verbose: false, info: false, warnings: false, errors: true })).toBe('Errors only');
-    expect(levelMenuLabel({ verbose: true, info: false, warnings: false, errors: false })).toBe('Verbose only');
-    expect(levelMenuLabel({ verbose: false, info: true, warnings: false, errors: true })).toBe('Custom levels');
-    expect(levelMenuLabel({ verbose: false, info: false, warnings: false, errors: false })).toBe('Hide all');
+    expect(levelMenuLabel(t, ALL_LEVELS)).toBe('All levels');
+    expect(levelMenuLabel(t, DEFAULT_LEVELS)).toBe('Default levels');
+    expect(levelMenuLabel(t, { verbose: false, info: false, warnings: false, errors: true })).toBe('Errors only');
+    expect(levelMenuLabel(t, { verbose: true, info: false, warnings: false, errors: false })).toBe('Verbose only');
+    expect(levelMenuLabel(t, { verbose: false, info: true, warnings: false, errors: true })).toBe('Custom levels');
+    expect(levelMenuLabel(t, { verbose: false, info: false, warnings: false, errors: false })).toBe('Hide all');
   });
 
   it('warns exactly when the mask is neither all nor default', () => {

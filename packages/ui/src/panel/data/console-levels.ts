@@ -13,6 +13,8 @@
  */
 
 import type { ConsoleLevel } from '@openheaders/core/console-stream';
+import type { MessageKey } from '@openheaders/i18n';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 export interface ConsoleLevelsMask {
   readonly verbose: boolean;
@@ -27,11 +29,11 @@ export const ALL_LEVELS: ConsoleLevelsMask = { verbose: true, info: true, warnin
 export const DEFAULT_LEVELS: ConsoleLevelsMask = { verbose: false, info: true, warnings: true, errors: true };
 
 /** Menu rows in the browser's order. */
-export const LEVEL_MENU_ITEMS: ReadonlyArray<{ key: ConsoleLevelKey; label: string }> = [
-  { key: 'verbose', label: 'Verbose' },
-  { key: 'info', label: 'Info' },
-  { key: 'warnings', label: 'Warnings' },
-  { key: 'errors', label: 'Errors' },
+export const LEVEL_MENU_ITEMS: ReadonlyArray<{ key: ConsoleLevelKey; labelKey: MessageKey }> = [
+  { key: 'verbose', labelKey: 'panel.console.levels.verbose' },
+  { key: 'info', labelKey: 'panel.console.levels.info' },
+  { key: 'warnings', labelKey: 'panel.console.levels.warnings' },
+  { key: 'errors', labelKey: 'panel.console.levels.errors' },
 ];
 
 export function isAllLevels(mask: ConsoleLevelsMask): boolean {
@@ -43,12 +45,13 @@ export function isDefaultLevels(mask: ConsoleLevelsMask): boolean {
 }
 
 /** The trigger label for the current mask. */
-export function levelMenuLabel(mask: ConsoleLevelsMask): string {
-  if (isAllLevels(mask)) return 'All levels';
-  if (isDefaultLevels(mask)) return 'Default levels';
+export function levelMenuLabel(t: Translate, mask: ConsoleLevelsMask): string {
+  if (isAllLevels(mask)) return t('panel.console.levels.all');
+  if (isDefaultLevels(mask)) return t('panel.console.levels.defaultLevels');
   const on = LEVEL_MENU_ITEMS.filter(({ key }) => mask[key]);
-  if (on.length === 0) return 'Hide all';
-  return on.length === 1 ? `${on[0].label} only` : 'Custom levels';
+  if (on.length === 0) return t('panel.console.levels.hideAll');
+  if (on.length === 1) return t('panel.console.levels.only', { level: t(on[0].labelKey) });
+  return t('panel.console.levels.custom');
 }
 
 /** The trigger warns when the mask is neither all nor default. */

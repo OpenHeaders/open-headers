@@ -29,6 +29,7 @@ import { hostBridge } from '@openheaders/core/bridge';
 import type { ConsoleEntry, ConsoleStackFrame } from '@openheaders/core/console-stream';
 import type { JsContext } from '@openheaders/core/js-contexts';
 import { hostNavigation } from '@openheaders/core/navigation';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -286,6 +287,7 @@ export function ConsoleView({
   reveal,
   onRevealConsumed,
 }: ConsoleViewProps) {
+  const t = useT();
   const [textFilter, setTextFilter] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -447,6 +449,18 @@ export function ConsoleView({
 
   const { onScroll: onStickScroll } = useStickToBottom(bodyRef, rows.length);
 
+  // Row chrome strings resolve ONCE per locale — the per-row log loop stays
+  // free of t() calls; the repeat-badge tooltip resolves lazily through the
+  // stable closure.
+  const rowLabels = useMemo<ConsoleRowLabels>(
+    () => ({
+      expandStack: t('panel.console.expandStack'),
+      collapseStack: t('panel.console.collapseStack'),
+      repeatTitle: (count: number) => t('panel.console.repeatTitle', { count }),
+    }),
+    [t],
+  );
+
   // Virtualized log: only the visible slice mounts. Heights are a closed
   // formula per row (pinned row line + expanded ladder by frame count), so
   // the window needs no measurement — see use-console-row-window.
@@ -604,14 +618,14 @@ export function ConsoleView({
         wiring={wiring}
         title={
           <div className="dt-header-filter-row">
-            <strong className="dt-header-panel-name">Console</strong>
+            <strong className="dt-header-panel-name">{t('panel.toolWindows.console')}</strong>
             <div className="dt-filter-separator" />
             <button
               type="button"
               className="dt-toolbar-icon"
               onClick={clearConsole}
-              title="Clear console"
-              aria-label="Clear console"
+              title={t('panel.console.clear')}
+              aria-label={t('panel.console.clear')}
             >
               <IconClear />
             </button>
@@ -620,8 +634,8 @@ export function ConsoleView({
               className="dt-toolbar-icon"
               onClick={toggleAllExpanded}
               disabled={expandableKeys.length === 0}
-              title={allExpanded ? 'Collapse all' : 'Expand all'}
-              aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
+              title={allExpanded ? t('panel.console.collapseAll') : t('panel.console.expandAll')}
+              aria-label={allExpanded ? t('panel.console.collapseAll') : t('panel.console.expandAll')}
             >
               {allExpanded ? <IconCollapseAll /> : <IconExpandAll />}
             </button>
@@ -638,15 +652,15 @@ export function ConsoleView({
               config={filterConfig}
               onConfigChange={setFilterConfig}
               hasError={filterPredicate.error}
-              ariaLabel="Filter console messages"
+              ariaLabel={t('panel.console.filterAria')}
             />
             <div className="dt-filter-separator" />
             <span
               className={`dt-console-levels${isCustomLevels(prefs.levels) ? ' dt-console-levels--warn' : ''}`}
-              title={`Log level: ${levelMenuLabel(prefs.levels)}`}
+              title={t('panel.console.levelTitle', { label: levelMenuLabel(t, prefs.levels) })}
             >
               <ToolbarMenuPopover
-                label={levelMenuLabel(prefs.levels)}
+                label={levelMenuLabel(t, prefs.levels)}
                 activeCount={0}
                 active={false}
                 placement="bottomRight"
@@ -658,10 +672,10 @@ export function ConsoleView({
                   onClick={() => setConsolePrefs({ levels: DEFAULT_LEVELS })}
                 >
                   <span className="dt-console-levels-check" aria-hidden="true" />
-                  <div className="dt-sortmode-item-title">Default</div>
+                  <div className="dt-sortmode-item-title">{t('panel.console.levels.default')}</div>
                 </button>
                 <div className="dt-console-levels-sep" />
-                {LEVEL_MENU_ITEMS.map(({ key, label }) => (
+                {LEVEL_MENU_ITEMS.map(({ key, labelKey }) => (
                   <button
                     key={key}
                     type="button"
@@ -671,7 +685,7 @@ export function ConsoleView({
                     <span className="dt-console-levels-check" aria-hidden="true">
                       {prefs.levels[key] && <CheckOutlined />}
                     </span>
-                    <div className="dt-sortmode-item-title">{label}</div>
+                    <div className="dt-sortmode-item-title">{t(labelKey)}</div>
                   </button>
                 ))}
               </ToolbarMenuPopover>
@@ -682,8 +696,8 @@ export function ConsoleView({
               className="dt-toolbar-icon"
               data-active={prefs.settingsOpen}
               onClick={() => setConsolePrefs({ settingsOpen: !prefs.settingsOpen })}
-              title="Console settings"
-              aria-label="Console settings"
+              title={t('panel.console.settings')}
+              aria-label={t('panel.console.settings')}
             >
               <SettingOutlined />
             </button>
@@ -692,7 +706,7 @@ export function ConsoleView({
       />
       <FilterHiddenNote
         hint={filterHint}
-        message="Revealed message is hidden by the active filter"
+        message={t('panel.console.revealedHidden')}
         onClearFilter={clearFilterForHint}
         onDismiss={dismissFilterHint}
       />
@@ -701,103 +715,103 @@ export function ConsoleView({
         // Rows in the browser's settings-pane order. The (i) trigger sits
         // beside — not inside — each label so its glyph never leaks into the
         // checkbox's accessible name and its click can't toggle the checkbox.
-        <div className="dt-console-settings-pane" role="group" aria-label="Console settings">
+        <div className="dt-console-settings-pane" role="group" aria-label={t('panel.console.settingsPaneAria')}>
           <div className="dt-console-setting">
-            <label title="Hide the browser's network log entries (failed and blocked requests)">
+            <label title={t('panel.console.setting.hideNetworkTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.hideNetwork}
                 onChange={(e) => setConsolePrefs({ hideNetwork: e.target.checked })}
               />
-              Hide network
+              {t('panel.console.setting.hideNetwork')}
             </label>
             <ConsoleSettingInfo infoKey="hideNetwork" />
           </div>
           <div className="dt-console-setting">
-            <label title="Log a message when an XHR, fetch, or EventSource request finishes or fails">
+            <label title={t('panel.console.setting.logXhrTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.logXhr}
                 onChange={(e) => setConsolePrefs({ logXhr: e.target.checked })}
               />
-              Log XMLHttpRequests
+              {t('panel.console.setting.logXhr')}
             </label>
             <ConsoleSettingInfo infoKey="logXhr" />
           </div>
           <div className="dt-console-setting">
-            <label title="Do not clear the log on navigation">
+            <label title={t('panel.console.setting.preserveLogTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.preserveLog}
                 onChange={(e) => setConsolePrefs({ preserveLog: e.target.checked })}
               />
-              Preserve log
+              {t('panel.console.setting.preserveLog')}
             </label>
             <ConsoleSettingInfo infoKey="preserveLog" />
           </div>
           <div className="dt-console-setting">
-            <label title="Eagerly evaluate text in the prompt (side-effect-free preview)">
+            <label title={t('panel.console.setting.eagerEvalTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.eagerEval}
                 onChange={(e) => setConsolePrefs({ eagerEval: e.target.checked })}
               />
-              Eager evaluation
+              {t('panel.console.setting.eagerEval')}
             </label>
             <ConsoleSettingInfo infoKey="eagerEval" />
           </div>
           <div className="dt-console-setting">
-            <label title="Only show messages from the selected context">
+            <label title={t('panel.console.setting.selectedContextOnlyTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.selectedContextOnly}
                 onChange={(e) => setConsolePrefs({ selectedContextOnly: e.target.checked })}
               />
-              Selected context only
+              {t('panel.console.setting.selectedContextOnly')}
             </label>
             <ConsoleSettingInfo infoKey="selectedContextOnly" />
           </div>
           <div className="dt-console-setting">
-            <label title="Suggest commands you ran before as you type in the prompt">
+            <label title={t('panel.console.setting.autocompleteHistoryTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.autocompleteHistory}
                 onChange={(e) => setConsolePrefs({ autocompleteHistory: e.target.checked })}
               />
-              Autocomplete from history
+              {t('panel.console.setting.autocompleteHistory')}
             </label>
             <ConsoleSettingInfo infoKey="autocompleteHistory" />
           </div>
           <div className="dt-console-setting">
-            <label title="Collapse repeated identical messages into one row with a count">
+            <label title={t('panel.console.setting.groupSimilarTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.groupSimilar}
                 onChange={(e) => setConsolePrefs({ groupSimilar: e.target.checked })}
               />
-              Group similar messages in console
+              {t('panel.console.setting.groupSimilar')}
             </label>
             <ConsoleSettingInfo infoKey="groupSimilar" />
           </div>
           <div className="dt-console-setting">
-            <label title="Evaluate with a user gesture, so APIs gated on user activation work from the prompt">
+            <label title={t('panel.console.setting.evalUserGestureTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.evalUserGesture}
                 onChange={(e) => setConsolePrefs({ evalUserGesture: e.target.checked })}
               />
-              Treat code evaluation as user action
+              {t('panel.console.setting.evalUserGesture')}
             </label>
             <ConsoleSettingInfo infoKey="evalUserGesture" />
           </div>
           <div className="dt-console-setting">
-            <label title="Show CORS policy errors alongside the page's own output">
+            <label title={t('panel.console.setting.showCorsErrorsTitle')}>
               <input
                 type="checkbox"
                 checked={prefs.showCorsErrors}
                 onChange={(e) => setConsolePrefs({ showCorsErrors: e.target.checked })}
               />
-              Show CORS errors in console
+              {t('panel.console.setting.showCorsErrors')}
             </label>
             <ConsoleSettingInfo infoKey="showCorsErrors" />
           </div>
@@ -816,21 +830,16 @@ export function ConsoleView({
           <>
             {!capturing && (
               <div className="dt-console-banner">
-                <span>
-                  Capture stopped —{' '}
-                  {cdpEnabled
-                    ? 'this tab left Debug mode’s scope. Showing the last captured output.'
-                    : 'Debug mode is off. Showing the last captured output.'}
-                </span>
+                <span>{cdpEnabled ? t('panel.console.banner.leftScope') : t('panel.console.banner.debugOff')}</span>
                 {canEnableDebug && (
                   <button type="button" className="dt-btn" onClick={enableDebug}>
-                    Enable Debug mode
+                    {t('panel.console.enableDebug')}
                   </button>
                 )}
               </div>
             )}
             {rows.length === 0 ? (
-              <div className="dt-empty">No console entries match your filter.</div>
+              <div className="dt-empty">{t('panel.console.noMatch')}</div>
             ) : (
               <>
                 {topPadPx > 0 && <div aria-hidden="true" style={{ height: topPadPx, flex: '0 0 auto' }} />}
@@ -838,6 +847,7 @@ export function ConsoleView({
                   <ConsoleRowView
                     key={row.rowKey}
                     row={row}
+                    labels={rowLabels}
                     resolvedFrames={resolvedFrames}
                     expanded={expanded.has(row.rowKey)}
                     onToggleExpanded={toggleExpanded}
@@ -856,8 +866,17 @@ export function ConsoleView({
   );
 }
 
+/** Chrome strings for the virtualized row loop, resolved once per locale
+ *  by the view — per-row renders never call `t()` (I18N_PLAN §4). */
+interface ConsoleRowLabels {
+  expandStack: string;
+  collapseStack: string;
+  repeatTitle: (count: number) => string;
+}
+
 interface ConsoleRowViewProps {
   row: ConsoleRow;
+  labels: ConsoleRowLabels;
   resolvedFrames: ResolvedFrames;
   expanded: boolean;
   onToggleExpanded: (rowKey: string) => void;
@@ -868,6 +887,7 @@ interface ConsoleRowViewProps {
 
 function ConsoleRowView({
   row,
+  labels,
   resolvedFrames,
   expanded,
   onToggleExpanded,
@@ -907,7 +927,7 @@ function ConsoleRowView({
             className="dt-console-caret"
             data-expanded={expanded}
             onClick={() => onToggleExpanded(row.rowKey)}
-            aria-label={expanded ? 'Collapse stack trace' : 'Expand stack trace'}
+            aria-label={expanded ? labels.collapseStack : labels.expandStack}
             aria-expanded={expanded}
           >
             <svg viewBox="0 0 8 8" role="img" aria-hidden="true">
@@ -920,7 +940,7 @@ function ConsoleRowView({
         {row.repeat > 1 && (
           // The browser's repeat-count badge — this row stands for N
           // identical consecutive messages ("Group similar").
-          <span className="dt-console-repeat" data-level={entry.level} title={`${row.repeat} identical messages`}>
+          <span className="dt-console-repeat" data-level={entry.level} title={labels.repeatTitle(row.repeat)}>
             {row.repeat}
           </span>
         )}
@@ -994,34 +1014,31 @@ interface ConsoleEmptyProps {
 }
 
 function ConsoleEmpty({ hasCdpCapability, cdpEnabled, capturing, onEnableDebug }: ConsoleEmptyProps) {
+  const t = useT();
   if (!hasCdpCapability) {
     return (
       <div className="dt-empty-hero">
-        <strong>Console capture needs Debug mode</strong>
-        <span className="dt-empty-hero-sub">Debug-mode inspection isn’t available in this browser.</span>
+        <strong>{t('panel.console.empty.noCdp.title')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.console.empty.noCdp.sub')}</span>
       </div>
     );
   }
   if (capturing) {
     return (
       <div className="dt-empty-hero">
-        <strong>No console output yet</strong>
-        <span className="dt-empty-hero-sub">
-          This tab’s log messages and uncaught exceptions will appear here as they happen.
-        </span>
+        <strong>{t('panel.console.empty.capturing.title')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.console.empty.capturing.sub')}</span>
       </div>
     );
   }
   if (!cdpEnabled) {
     return (
       <div className="dt-empty-hero">
-        <strong>Enable Debug mode to view console logs</strong>
-        <span className="dt-empty-hero-sub">
-          Open Headers captures this tab’s console output and uncaught exceptions while Debug mode is on.
-        </span>
+        <strong>{t('panel.console.empty.debugOff.title')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.console.empty.debugOff.sub')}</span>
         {onEnableDebug && (
           <button type="button" className="dt-btn dt-btn-primary" onClick={onEnableDebug}>
-            Enable Debug mode
+            {t('panel.console.enableDebug')}
           </button>
         )}
       </div>
@@ -1029,10 +1046,8 @@ function ConsoleEmpty({ hasCdpCapability, cdpEnabled, capturing, onEnableDebug }
   }
   return (
     <div className="dt-empty-hero">
-      <strong>This tab is outside Debug mode’s scope</strong>
-      <span className="dt-empty-hero-sub">
-        Bring it into scope from Debug mode — change the scope or pin this tab — to capture its console output.
-      </span>
+      <strong>{t('panel.console.empty.outOfScope.title')}</strong>
+      <span className="dt-empty-hero-sub">{t('panel.console.empty.outOfScope.sub')}</span>
     </div>
   );
 }

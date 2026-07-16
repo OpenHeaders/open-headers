@@ -9,6 +9,7 @@
  * coherent picture of a single console session seen setting by setting.
  */
 
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 
 export type ConsoleSettingKey =
@@ -51,12 +52,13 @@ const HIGHLIGHT: Record<ConsoleSettingKey, readonly TokenId[]> = {
 };
 
 function ExampleCard({ setting }: { setting: ConsoleSettingKey }) {
+  const t = useT();
   const lit = new Set<TokenId>(HIGHLIGHT[setting]);
   const cls = (id: TokenId, extra = '') =>
     `dt-console-eg-tok${extra ? ` ${extra}` : ''}${lit.has(id) ? ' dt-console-eg-hl' : ''}`;
   return (
     <div className="dt-console-eg">
-      <div className="dt-console-eg-cap">Example console</div>
+      <div className="dt-console-eg-cap">{t('panel.console.info.exampleCaption')}</div>
       <div className="dt-console-eg-card">
         <div className="dt-console-eg-row">
           <span className="dt-console-eg-dot" />
@@ -102,85 +104,93 @@ function ExampleCard({ setting }: { setting: ConsoleSettingKey }) {
   );
 }
 
-const CONSOLE_SETTING_INFO: Record<ConsoleSettingKey, InfoPopoverContent> = {
-  hideNetwork: {
-    title: 'Hide network',
-    kicker: 'Console',
-    summary:
-      'Hides the browser’s own network log entries — failed and blocked requests — while the page’s console output always stays.',
-    description:
-      'Also hides the "finished loading" rows synthesized by Log XMLHttpRequests — they are network-source messages too.',
-    diagram: <ExampleCard setting="hideNetwork" />,
-  },
-  logXhr: {
-    title: 'Log XMLHttpRequests',
-    kicker: 'Console',
-    summary: 'Logs a row whenever an XHR, fetch, or EventSource request finishes or fails.',
-    description:
-      'Rows log at the Info level — failures too — and the URL links to the request’s row in the Network panel. Hide network hides these rows as well.',
-    diagram: <ExampleCard setting="logXhr" />,
-  },
-  preserveLog: {
-    title: 'Preserve log',
-    kicker: 'Console',
-    summary: 'Keeps the log across page navigations instead of clearing it.',
-    description:
-      'Off, a navigation — the page’s top context being recreated — cuts the view to the entries that arrive after it.',
-    diagram: <ExampleCard setting="preserveLog" />,
-  },
-  eagerEval: {
-    title: 'Eager evaluation',
-    kicker: 'Console',
-    summary: 'Previews the result of the expression you are typing on the grey line under the prompt.',
-    description:
-      'The preview evaluates side-effect-free: an expression that would change page state shows nothing instead of running, and nothing is written to the log until you press Enter.',
-    diagram: <ExampleCard setting="eagerEval" />,
-  },
-  selectedContextOnly: {
-    title: 'Selected context only',
-    kicker: 'Console',
-    summary: 'Only shows messages from the JavaScript context picked in the toolbar’s context selector.',
-    description: 'Entries that carry no context — the browser’s own log entries — always stay visible.',
-    diagram: <ExampleCard setting="selectedContextOnly" />,
-  },
-  autocompleteHistory: {
-    title: 'Autocomplete from history',
-    kicker: 'Console',
-    summary:
-      'Suggests the most recent command that extends what you typed, as a dimmed completion in the prompt.',
-    description:
-      'Tab — or → at the end of the input — accepts it; ↑/↓ still walk the history. The history lives for the current panel session.',
-    diagram: <ExampleCard setting="autocompleteHistory" />,
-  },
-  groupSimilar: {
-    title: 'Group similar messages',
-    kicker: 'Console',
-    summary: 'Collapses consecutive identical messages into one row with a count badge.',
-    description: 'Typed commands and their results never group — the transcript stays literal.',
-    diagram: <ExampleCard setting="groupSimilar" />,
-  },
-  evalUserGesture: {
-    title: 'Treat code evaluation as user action',
-    kicker: 'Console',
-    summary: 'Runs prompt commands as if a user gesture triggered them.',
-    description:
-      'APIs gated on user activation — opening a window, writing to the clipboard, fullscreen — succeed from the prompt with this on.',
-    diagram: <ExampleCard setting="evalUserGesture" />,
-  },
-  showCorsErrors: {
-    title: 'Show CORS errors in console',
-    kicker: 'Console',
-    summary:
-      'Shows the browser’s CORS explanations — "Access to fetch at … has been blocked by CORS policy: …" — alongside the page’s output.',
-    description: 'Off hides only those explanation messages; the blocked request itself still shows in the Network panel.',
-    diagram: <ExampleCard setting="showCorsErrors" />,
-  },
-};
+/** Popover titles reuse the settings-pane label keys (they name their
+ *  control); groupSimilar's popover title differs from its checkbox label
+ *  and keeps its own key. */
+function consoleSettingInfo(t: Translate, infoKey: ConsoleSettingKey): InfoPopoverContent {
+  const kicker = t('panel.toolWindows.console');
+  const diagram = <ExampleCard setting={infoKey} />;
+  switch (infoKey) {
+    case 'hideNetwork':
+      return {
+        title: t('panel.console.setting.hideNetwork'),
+        kicker,
+        summary: t('panel.console.info.hideNetwork.summary'),
+        description: t('panel.console.info.hideNetwork.description'),
+        diagram,
+      };
+    case 'logXhr':
+      return {
+        title: t('panel.console.setting.logXhr'),
+        kicker,
+        summary: t('panel.console.info.logXhr.summary'),
+        description: t('panel.console.info.logXhr.description'),
+        diagram,
+      };
+    case 'preserveLog':
+      return {
+        title: t('panel.console.setting.preserveLog'),
+        kicker,
+        summary: t('panel.console.info.preserveLog.summary'),
+        description: t('panel.console.info.preserveLog.description'),
+        diagram,
+      };
+    case 'eagerEval':
+      return {
+        title: t('panel.console.setting.eagerEval'),
+        kicker,
+        summary: t('panel.console.info.eagerEval.summary'),
+        description: t('panel.console.info.eagerEval.description'),
+        diagram,
+      };
+    case 'selectedContextOnly':
+      return {
+        title: t('panel.console.setting.selectedContextOnly'),
+        kicker,
+        summary: t('panel.console.info.selectedContextOnly.summary'),
+        description: t('panel.console.info.selectedContextOnly.description'),
+        diagram,
+      };
+    case 'autocompleteHistory':
+      return {
+        title: t('panel.console.setting.autocompleteHistory'),
+        kicker,
+        summary: t('panel.console.info.autocompleteHistory.summary'),
+        description: t('panel.console.info.autocompleteHistory.description'),
+        diagram,
+      };
+    case 'groupSimilar':
+      return {
+        title: t('panel.console.info.groupSimilar.title'),
+        kicker,
+        summary: t('panel.console.info.groupSimilar.summary'),
+        description: t('panel.console.info.groupSimilar.description'),
+        diagram,
+      };
+    case 'evalUserGesture':
+      return {
+        title: t('panel.console.setting.evalUserGesture'),
+        kicker,
+        summary: t('panel.console.info.evalUserGesture.summary'),
+        description: t('panel.console.info.evalUserGesture.description'),
+        diagram,
+      };
+    case 'showCorsErrors':
+      return {
+        title: t('panel.console.setting.showCorsErrors'),
+        kicker,
+        summary: t('panel.console.info.showCorsErrors.summary'),
+        description: t('panel.console.info.showCorsErrors.description'),
+        diagram,
+      };
+  }
+}
 
 export function ConsoleSettingInfo({ infoKey }: { infoKey: ConsoleSettingKey }) {
+  const t = useT();
   return (
     <InfoTrigger
-      content={CONSOLE_SETTING_INFO[infoKey]}
+      content={consoleSettingInfo(t, infoKey)}
       className="dt-header-info-trigger dt-console-setting-info"
     />
   );
