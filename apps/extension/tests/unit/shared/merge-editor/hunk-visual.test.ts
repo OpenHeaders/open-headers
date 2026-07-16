@@ -72,11 +72,11 @@ describe('view/hunk-visual', () => {
   });
 
   describe('kindLabelFor', () => {
-    it('maps side kinds to symbol + present-tense diff verb', () => {
-      expect(kindLabelFor('added')).toBe('+ Adds');
-      expect(kindLabelFor('removed')).toBe('− Removes');
-      expect(kindLabelFor('modified')).toBe('~ Modifies');
-      expect(kindLabelFor('unchanged')).toBe('= Unchanged');
+    it('maps side kinds to the zone kind-label keys', () => {
+      expect(kindLabelFor('added')).toBe('shared.mergeEditor.zone.kindAdds');
+      expect(kindLabelFor('removed')).toBe('shared.mergeEditor.zone.kindRemoves');
+      expect(kindLabelFor('modified')).toBe('shared.mergeEditor.zone.kindModifies');
+      expect(kindLabelFor('unchanged')).toBe('shared.mergeEditor.zone.kindUnchanged');
     });
   });
 
@@ -107,19 +107,33 @@ describe('view/hunk-visual', () => {
   });
 
   describe('resultStatusLabelFor', () => {
-    it('all pending ⇒ "No Changes Accepted"', () => {
-      expect(resultStatusLabelFor(PENDING_HUNK)).toEqual({ label: 'No Changes Accepted', removable: [] });
+    it('all pending ⇒ no-changes key', () => {
+      expect(resultStatusLabelFor(PENDING_HUNK)).toEqual({
+        label: 'shared.mergeEditor.zone.statusNoChanges',
+        removable: [],
+      });
     });
 
-    it('both accepted ⇒ combination with two removable buttons', () => {
+    it('both accepted ⇒ combination with two removable buttons carrying their own revert titles', () => {
       const status = resultStatusLabelFor({ theirs: 'accepted', mine: 'accepted' });
-      expect(status?.label).toBe('Incoming + Current');
-      expect(status?.removable).toHaveLength(2);
+      expect(status?.label).toBe('shared.mergeEditor.zone.statusIncomingPlusCurrent');
+      expect(status?.removable).toEqual([
+        {
+          slot: 'left',
+          label: 'shared.mergeEditor.zone.removeIncoming',
+          revertTitle: 'shared.mergeEditor.zone.revertIncomingTitle',
+        },
+        {
+          slot: 'right',
+          label: 'shared.mergeEditor.zone.removeCurrent',
+          revertTitle: 'shared.mergeEditor.zone.revertCurrentTitle',
+        },
+      ]);
     });
 
-    it('one side dismissed, other pending ⇒ skipped label', () => {
+    it('one side dismissed, other pending ⇒ skipped key', () => {
       expect(resultStatusLabelFor({ theirs: 'dismissed', mine: 'pending' })).toEqual({
-        label: 'Incoming Skipped',
+        label: 'shared.mergeEditor.zone.statusIncomingSkipped',
         removable: [],
       });
     });

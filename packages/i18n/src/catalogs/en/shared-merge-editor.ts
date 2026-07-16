@@ -13,11 +13,14 @@
  * ✕ ▶ ◀ ↘ ↙ · glyphs, file / entity labels and caller-supplied group
  * names ({label} / {scope} holes carry data; only the ungrouped
  * `Other` fallback keys), adapter error text, and the session title
- * (arrives pre-keyed from callers). The Monaco view-zone plane
- * (`view/hunk-visual.ts` vocabulary, `hunk-zone-dom.ts` builders,
- * `use-merge-actions.ts` palette labels) is NOT keyed here — it is a
- * separate boundary decision (labels render inside Monaco's editor
- * surface via raw DOM view zones).
+ * (arrives pre-keyed from callers). The Monaco view-zone plane keys
+ * here too (`zone.*` for `view/hunk-visual.ts` vocabulary +
+ * `hunk-zone-dom.ts` builders, `action.*` for the
+ * `use-merge-actions.ts` palette labels) — these are the primary
+ * conflict-resolution controls, not Monaco chrome, so they translate
+ * even though they render inside the editor surface via raw DOM view
+ * zones. The `+ − ~ =` kind-label glyph prefixes ride raw inside the
+ * keyed values.
  */
 
 import { plural } from '../../runtime';
@@ -61,7 +64,7 @@ export const sharedMergeEditor = {
     'When on, accepting one side of a hunk auto-dismisses the other so the hunk resolves in one click. Off keeps the diagonal-append (↘ / ↙) affordance so you can stack both sides.',
   'shared.mergeEditor.toggle.inlineLabels': 'Inline labels',
   'shared.mergeEditor.toggle.inlineLabelsTooltip':
-    "Show 'Accept Incoming | Accept Combination | Ignore' labels above each pending hunk in the side panes. Layout-agnostic.",
+    "Show '{accept} | {combine} | {ignore}' labels above each pending hunk in the side panes. Layout-agnostic.",
   'shared.mergeEditor.toggle.sideGutters': 'Side gutters',
   'shared.mergeEditor.toggle.sideGuttersTooltip': 'Show ✕ ▶ / ◀ ✕ glyphs flanking the result editor.',
   'shared.mergeEditor.toggle.sideGuttersUnavailable':
@@ -108,6 +111,38 @@ export const sharedMergeEditor = {
   'shared.mergeEditor.fileList.statusFailed': 'failed',
   'shared.mergeEditor.fileList.pairedWith': 'Paired with: {label}',
   'shared.mergeEditor.fileList.hunksRemaining': '{count} hunks remaining',
+
+  // ── Monaco view-zone plane ─────────────────────────────────────────
+  'shared.mergeEditor.zone.acceptIncoming': 'Accept Incoming',
+  'shared.mergeEditor.zone.acceptCurrent': 'Accept Current',
+  'shared.mergeEditor.zone.acceptCombination': 'Accept Combination',
+  'shared.mergeEditor.zone.ignore': 'Ignore',
+  'shared.mergeEditor.zone.combineTooltip': 'Stack both sides — incoming first, then current',
+  'shared.mergeEditor.zone.removeIncoming': 'Remove Incoming',
+  'shared.mergeEditor.zone.removeCurrent': 'Remove Current',
+  'shared.mergeEditor.zone.revertIncomingTitle': 'Revert incoming to pending so you can re-decide',
+  'shared.mergeEditor.zone.revertCurrentTitle': 'Revert current to pending so you can re-decide',
+  'shared.mergeEditor.zone.statusNoChanges': 'No Changes Accepted',
+  'shared.mergeEditor.zone.statusIncomingPlusCurrent': 'Incoming + Current',
+  'shared.mergeEditor.zone.statusIncoming': 'Incoming',
+  'shared.mergeEditor.zone.statusCurrent': 'Current',
+  'shared.mergeEditor.zone.statusIncomingSkipped': 'Incoming Skipped',
+  'shared.mergeEditor.zone.statusCurrentSkipped': 'Current Skipped',
+  'shared.mergeEditor.zone.kindAdds': '+ Adds',
+  'shared.mergeEditor.zone.kindRemoves': '− Removes',
+  'shared.mergeEditor.zone.kindModifies': '~ Modifies',
+  'shared.mergeEditor.zone.kindUnchanged': '= Unchanged',
+
+  // ── Monaco command-palette actions ─────────────────────────────────
+  'shared.mergeEditor.action.nextHunk': 'Merge: Go to next hunk',
+  'shared.mergeEditor.action.prevHunk': 'Merge: Go to previous hunk',
+  'shared.mergeEditor.action.acceptIncomingAtCursor': 'Merge: Accept incoming hunk at cursor',
+  'shared.mergeEditor.action.acceptCurrentAtCursor': 'Merge: Accept current hunk at cursor',
+  'shared.mergeEditor.action.applyNonConflicting': 'Merge: Apply non-conflicting changes',
+  'shared.mergeEditor.action.acceptAllIncoming': 'Merge: Accept all incoming',
+  'shared.mergeEditor.action.acceptAllCurrent': 'Merge: Accept all current',
+  'shared.mergeEditor.action.undo': 'Merge: Undo (buffer + pick state)',
+  'shared.mergeEditor.action.redo': 'Merge: Redo (buffer + pick state)',
 
   // ── Result-pane action gutter ──────────────────────────────────────
   'shared.mergeEditor.gutter.acceptIncoming': 'Accept incoming',

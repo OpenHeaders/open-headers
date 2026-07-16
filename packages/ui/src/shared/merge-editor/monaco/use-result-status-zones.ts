@@ -8,6 +8,7 @@
  * zones + per-line frame decorations.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect, useRef } from 'react';
 import type { HunkAnalysis } from '../diff/hunk-analysis';
@@ -27,6 +28,7 @@ export interface UseResultStatusZonesArgs {
 }
 
 export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
+  const t = useT();
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
   const frameDecorationsRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
 
@@ -87,10 +89,10 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
 
         const dom = buildResultStatusDom({
           hunkId: analysis.id,
-          label: status.label,
-          removable: status.removable,
+          status,
           controller: args.controller,
           variant,
+          t,
         });
         const statusZoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
@@ -175,5 +177,5 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
         frameDecorationsRef.current = null;
       }
     };
-  }, [args.resultRef, args.trackedRangesRef, args.analyses, args.controller, args.stateRev, args.enabled]);
+  }, [args.resultRef, args.trackedRangesRef, args.analyses, args.controller, args.stateRev, args.enabled, t]);
 }

@@ -8,6 +8,7 @@
  * Shared DOM builders + frame class tables live in `hunk-zone-dom`.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect, useRef } from 'react';
 import type { HunkAnalysis } from '../diff/hunk-analysis';
@@ -26,6 +27,7 @@ export interface UseHunkActionZonesArgs {
 }
 
 export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
+  const t = useT();
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
   const frameDecorationsRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
 
@@ -118,6 +120,7 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
           controller: args.controller,
           combineMeaningful,
           variant: frame,
+          t,
         });
         const zoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
@@ -146,5 +149,5 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
         frameDecorationsRef.current = null;
       }
     };
-  }, [args.editorRef, args.side, args.analyses, args.controller, args.stateRev, args.enabled]);
+  }, [args.editorRef, args.side, args.analyses, args.controller, args.stateRev, args.enabled, t]);
 }

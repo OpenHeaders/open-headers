@@ -19,9 +19,12 @@
  * lives in one module that a designer can read end-to-end.
  *
  * Strictly platform-agnostic — imports nothing from Monaco. Lifts
- * cleanly into the future shared-UI package.
+ * cleanly into the future shared-UI package. Copy-bearing treatments
+ * carry `MessageKey`s, not strings — the DOM builders in
+ * `monaco/hunk-zone-dom.ts` translate at render time.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import type { HunkAnalysis, SideKind } from '../diff/hunk-analysis';
 import type { HunkPickState, SideState } from '../use-hunk-pick-state';
 
@@ -44,10 +47,12 @@ export type FrameVariant = 'pending-conflict' | 'pending-clean' | 'resolved';
  *  other side"). */
 export type MissingVariant = 'removal' | 'neutral';
 
-/** Status label + revert affordances for the result-pane status zone. */
+/** Status label + revert affordances for the result-pane status zone.
+ *  Revert titles are whole-sentence keys per side — no composition
+ *  from the button label (label-stripping breaks under translation). */
 export interface ResultStatusTreatment {
-  label: string;
-  removable: ReadonlyArray<{ slot: 'left' | 'right'; label: string }>;
+  label: MessageKey;
+  removable: ReadonlyArray<{ slot: 'left' | 'right'; label: MessageKey; revertTitle: MessageKey }>;
 }
 
 /** Whether the hunk has reached a terminal state on both sides. */
@@ -134,52 +139,61 @@ export function missingVariantFor(analysis: HunkAnalysis, side: HunkSide): Missi
  * rather than a workflow state ("this side was resolved AS X") — the
  * earlier `Added / Deleted / Modified` past-tense form could be
  * misread as "this side has already been accepted as an addition."
+ * The symbol prefix rides raw inside the keyed value.
  */
-export function kindLabelFor(kind: SideKind): string {
+export function kindLabelFor(kind: SideKind): MessageKey {
   switch (kind) {
     case 'added':
-      return '+ Adds';
+      return 'shared.mergeEditor.zone.kindAdds';
     case 'removed':
-      return '− Removes';
+      return 'shared.mergeEditor.zone.kindRemoves';
     case 'modified':
-      return '~ Modifies';
+      return 'shared.mergeEditor.zone.kindModifies';
     case 'unchanged':
-      return '= Unchanged';
+      return 'shared.mergeEditor.zone.kindUnchanged';
   }
 }
 
 // ── Result-pane status label + revert affordances ─────────────────────
 
+const REMOVE_INCOMING = {
+  slot: 'left',
+  label: 'shared.mergeEditor.zone.removeIncoming',
+  revertTitle: 'shared.mergeEditor.zone.revertIncomingTitle',
+} as const;
+const REMOVE_CURRENT = {
+  slot: 'right',
+  label: 'shared.mergeEditor.zone.removeCurrent',
+  revertTitle: 'shared.mergeEditor.zone.revertCurrentTitle',
+} as const;
+
 export function resultStatusLabelFor(state: HunkPickState): ResultStatusTreatment | null {
   if (state.theirs === 'pending' && state.mine === 'pending') {
-    return { label: 'No Changes Accepted', removable: [] };
+    return { label: 'shared.mergeEditor.zone.statusNoChanges', removable: [] };
   }
   if (state.theirs === 'accepted' && state.mine === 'accepted') {
     return {
-      label: 'Incoming + Current',
-      removable: [
-        { slot: 'left', label: 'Remove Incoming' },
-        { slot: 'right', label: 'Remove Current' },
-      ],
+      label: 'shared.mergeEditor.zone.statusIncomingPlusCurrent',
+      removable: [REMOVE_INCOMING, REMOVE_CURRENT],
     };
   }
   if (state.theirs === 'accepted') {
-    return { label: 'Incoming', removable: [{ slot: 'left', label: 'Remove Incoming' }] };
+    return { label: 'shared.mergeEditor.zone.statusIncoming', removable: [REMOVE_INCOMING] };
   }
   if (state.mine === 'accepted') {
-    return { label: 'Current', removable: [{ slot: 'right', label: 'Remove Current' }] };
+    return { label: 'shared.mergeEditor.zone.statusCurrent', removable: [REMOVE_CURRENT] };
   }
   if (state.theirs === 'dismissed' && state.mine === 'pending') {
-    return { label: 'Incoming Skipped', removable: [] };
+    return { label: 'shared.mergeEditor.zone.statusIncomingSkipped', removable: [] };
   }
   if (state.mine === 'dismissed' && state.theirs === 'pending') {
-    return { label: 'Current Skipped', removable: [] };
+    return { label: 'shared.mergeEditor.zone.statusCurrentSkipped', removable: [] };
   }
   if (state.theirs === 'dismissed' && state.mine === 'dismissed') {
     // Both dismissed — keep a bordered (grey) rectangle around the
     // hunk so the user reads "this conflict was reviewed and skipped"
     // instead of "this region is uninvolved."
-    return { label: 'No Changes Accepted', removable: [] };
+    return { label: 'shared.mergeEditor.zone.statusNoChanges', removable: [] };
   }
   return null;
 }

@@ -3,12 +3,21 @@
  * (`use-hunk-action-zones`, `use-result-status-zones`,
  * `use-hunk-alignment-placeholders`). Palette decisions live in
  * `view/hunk-visual.ts`; this module renders them into plain DOM for
- * Monaco view zones.
+ * Monaco view zones. Copy arrives as `MessageKey`s and the caller's
+ * `t` translates here — the hooks re-run their effects on locale
+ * change, so zones rebuild with fresh copy.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { HunkAnalysis } from '../diff/hunk-analysis';
 import type { PickStateController } from '../use-hunk-pick-state';
-import { type FrameVariant, type HunkSide, kindLabelFor, type MissingVariant } from '../view/hunk-visual';
+import {
+  type FrameVariant,
+  type HunkSide,
+  kindLabelFor,
+  type MissingVariant,
+  type ResultStatusTreatment,
+} from '../view/hunk-visual';
 import './hunk-action-zones.css';
 
 // ── Frame class tables ─────────────────────────────────────────────
@@ -44,8 +53,16 @@ function actionZoneVariantClass(variant: FrameVariant): string {
 
 // ── Source-pane action zones ───────────────────────────────────────
 
-const LABEL_THEIRS = { accept: 'Accept Incoming', combine: 'Accept Combination', ignore: 'Ignore' };
-const LABEL_MINE = { accept: 'Accept Current', combine: 'Accept Combination', ignore: 'Ignore' };
+const LABEL_THEIRS = {
+  accept: 'shared.mergeEditor.zone.acceptIncoming',
+  combine: 'shared.mergeEditor.zone.acceptCombination',
+  ignore: 'shared.mergeEditor.zone.ignore',
+} as const;
+const LABEL_MINE = {
+  accept: 'shared.mergeEditor.zone.acceptCurrent',
+  combine: 'shared.mergeEditor.zone.acceptCombination',
+  ignore: 'shared.mergeEditor.zone.ignore',
+} as const;
 
 function makeSeparator(): HTMLElement {
   const sep = document.createElement('span');
@@ -61,7 +78,9 @@ export function buildActionZoneDom(args: {
   controller: PickStateController;
   combineMeaningful: boolean;
   variant: FrameVariant;
+  t: Translate;
 }): HTMLElement {
+  const { t } = args;
   const labels = args.side === 'theirs' ? LABEL_THEIRS : LABEL_MINE;
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
@@ -92,14 +111,14 @@ export function buildActionZoneDom(args: {
     return btn;
   };
 
-  const acceptBtn = makeBtn(labels.accept, '', () =>
+  const acceptBtn = makeBtn(t(labels.accept), '', () =>
     args.controller.dispatch({ hunkId: args.analysis.id, slot, action: 'arrow' }),
   );
-  const combineBtn = makeBtn(labels.combine, '', () =>
+  const combineBtn = makeBtn(t(labels.combine), '', () =>
     args.controller.bulkSet([{ hunkId: args.analysis.id, next: { theirs: 'accepted', mine: 'accepted' } }]),
   );
-  combineBtn.title = 'Stack both sides — incoming first, then current';
-  const ignoreBtn = makeBtn(labels.ignore, 'oh-merge__action-zone-btn-ignore', () =>
+  combineBtn.title = t('shared.mergeEditor.zone.combineTooltip');
+  const ignoreBtn = makeBtn(t(labels.ignore), 'oh-merge__action-zone-btn-ignore', () =>
     args.controller.dispatch({ hunkId: args.analysis.id, slot, action: 'x' }),
   );
 
@@ -118,17 +137,17 @@ export function buildActionZoneDom(args: {
   const kind = args.side === 'theirs' ? args.analysis.theirs.kind : args.analysis.mine.kind;
   const kindLabel = document.createElement('span');
   kindLabel.className = 'oh-merge__action-zone-kind';
-  kindLabel.textContent = kindLabelFor(kind);
+  kindLabel.textContent = t(kindLabelFor(kind));
   root.appendChild(kindLabel);
   return wrapper;
 }
 
 export function buildResultStatusDom(args: {
   hunkId: string;
-  label: string;
-  removable: ReadonlyArray<{ slot: 'left' | 'right'; label: string }>;
+  status: ResultStatusTreatment;
   controller: PickStateController;
   variant: FrameVariant;
+  t: Translate;
 }): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
@@ -141,10 +160,10 @@ export function buildResultStatusDom(args: {
 
   const labelSpan = document.createElement('span');
   labelSpan.className = 'oh-merge__action-zone-status-label';
-  labelSpan.textContent = args.label;
+  labelSpan.textContent = args.t(args.status.label);
   root.appendChild(labelSpan);
 
-  for (const remove of args.removable) {
+  for (const remove of args.status.removable) {
     const sep = document.createElement('span');
     sep.className = 'oh-merge__action-zone-sep';
     sep.textContent = ' | ';
@@ -154,8 +173,8 @@ export function buildResultStatusDom(args: {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'oh-merge__action-zone-btn oh-merge__action-zone-btn-remove';
-    btn.textContent = remove.label;
-    btn.title = `Revert ${remove.label.replace(/^Remove\s+/, '').toLowerCase()} to pending so you can re-decide`;
+    btn.textContent = args.t(remove.label);
+    btn.title = args.t(remove.revertTitle);
     btn.addEventListener('mousedown', eatMouseDown);
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -180,9 +199,9 @@ export interface BuildPlaceholderArgs {
    *  placeholders stay flat: this side simply doesn't have content. */
   hashed?: boolean;
   /** Right-aligned kind label inside an action-slot placeholder
-   *  (decided side). Mirrors the action zone's kind label so the
-   *  per-side header pattern stays uniform across pending and
-   *  decided states. */
+   *  (decided side), already translated by the caller. Mirrors the
+   *  action zone's kind label so the per-side header pattern stays
+   *  uniform across pending and decided states. */
   kindLabel?: string;
 }
 

@@ -9,6 +9,8 @@
  * zones.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect, useRef } from 'react';
 import type { HunkAnalysis } from '../diff/hunk-analysis';
@@ -50,8 +52,10 @@ interface PlaceholderPlan {
   /** Right-aligned kind label rendered inside the action-slot when
    *  the action-slot fires (decided side). Same vocabulary the
    *  action zone uses for pending sides — keeps the per-side header
-   *  pattern uniform across pending and decided states. */
-  kindLabel?: string;
+   *  pattern uniform across pending and decided states. Carried as
+   *  a key so the plan stays pure; the hook translates at DOM-build
+   *  time. */
+  kindLabel?: MessageKey;
 }
 
 function placeholderPlanFor(args: {
@@ -116,6 +120,7 @@ export interface UseHunkAlignmentPlaceholdersArgs {
 }
 
 export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersArgs): void {
+  const t = useT();
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: stateRev is the controller's reactivity bridge
@@ -173,7 +178,7 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
           const dom = buildPlaceholderDom({
             kind: 'action-slot',
             variant: plan.missingVariant,
-            kindLabel: plan.kindLabel,
+            kindLabel: plan.kindLabel ? t(plan.kindLabel) : undefined,
           });
           const zoneId = accessor.addZone({
             afterLineNumber: Math.max(0, startLine - 1),
@@ -209,5 +214,5 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
       });
       zoneIds.clear();
     };
-  }, [args.editorRef, args.side, args.analyses, args.controller, args.stateRev, args.enabled, args.has3Panes]);
+  }, [args.editorRef, args.side, args.analyses, args.controller, args.stateRev, args.enabled, args.has3Panes, t]);
 }

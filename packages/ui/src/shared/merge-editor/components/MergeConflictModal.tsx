@@ -507,7 +507,13 @@ const MergeConflictModal = ({
             <Text style={{ fontSize: 12 }} type="secondary">
               {t('shared.mergeEditor.toggle.singleClickResolve')}
             </Text>
-            <Tooltip title={t('shared.mergeEditor.toggle.inlineLabelsTooltip')}>
+            <Tooltip
+              title={t('shared.mergeEditor.toggle.inlineLabelsTooltip', {
+                accept: t('shared.mergeEditor.zone.acceptIncoming'),
+                combine: t('shared.mergeEditor.zone.acceptCombination'),
+                ignore: t('shared.mergeEditor.zone.ignore'),
+              })}
+            >
               <Switch size="small" checked={inlineActionLabels} onChange={setInlineActionLabels} />
             </Tooltip>
             <Text style={{ fontSize: 12 }} type="secondary">

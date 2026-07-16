@@ -25,6 +25,7 @@
  * use that to splice without the user navigating first.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import * as monaco from 'monaco-editor';
 import { type RefObject, useEffect } from 'react';
 import type { Hunk } from '../diff/line-diff';
@@ -79,6 +80,9 @@ function findHunkAtLine(hunks: readonly Hunk[], line: number): Hunk | undefined 
 }
 
 export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }: UseMergeActionsArgs): void {
+  const t = useT();
+  // Locale changes re-run the effect: actions dispose and re-register
+  // with fresh labels (Monaco reads the label once at addAction time).
   useEffect(() => {
     const editor = resultEditorRef.current.editor;
     if (!editor) return;
@@ -108,7 +112,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
     disposables.push(
       editor.addAction({
         id: 'oh-merge.next-hunk',
-        label: 'Merge: Go to next hunk',
+        label: t('shared.mergeEditor.action.nextHunk'),
         keybindings: [chord(monaco.KeyCode.KeyN)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 1,
@@ -116,7 +120,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.prev-hunk',
-        label: 'Merge: Go to previous hunk',
+        label: t('shared.mergeEditor.action.prevHunk'),
         keybindings: [chord(monaco.KeyCode.KeyP)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 2,
@@ -124,7 +128,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.accept-theirs-at-cursor',
-        label: 'Merge: Accept incoming hunk at cursor',
+        label: t('shared.mergeEditor.action.acceptIncomingAtCursor'),
         keybindings: [chord(monaco.KeyCode.KeyT)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 3,
@@ -139,7 +143,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.accept-mine-at-cursor',
-        label: 'Merge: Accept current hunk at cursor',
+        label: t('shared.mergeEditor.action.acceptCurrentAtCursor'),
         keybindings: [chord(monaco.KeyCode.KeyC)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 4,
@@ -154,7 +158,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.apply-non-conflicting',
-        label: 'Merge: Apply non-conflicting changes',
+        label: t('shared.mergeEditor.action.applyNonConflicting'),
         keybindings: [chord(monaco.KeyCode.KeyA)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 5,
@@ -162,7 +166,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.accept-all-incoming',
-        label: 'Merge: Accept all incoming',
+        label: t('shared.mergeEditor.action.acceptAllIncoming'),
         keybindings: [chord(monaco.KeyCode.KeyI)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 6,
@@ -170,7 +174,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.accept-all-current',
-        label: 'Merge: Accept all current',
+        label: t('shared.mergeEditor.action.acceptAllCurrent'),
         keybindings: [chord(monaco.KeyCode.KeyU)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 7,
@@ -178,13 +182,13 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
       }),
       editor.addAction({
         id: 'oh-merge.undo',
-        label: 'Merge: Undo (buffer + pick state)',
+        label: t('shared.mergeEditor.action.undo'),
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
         run: triggerUndo,
       }),
       editor.addAction({
         id: 'oh-merge.redo',
-        label: 'Merge: Redo (buffer + pick state)',
+        label: t('shared.mergeEditor.action.redo'),
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ],
         run: triggerRedo,
       }),
@@ -201,13 +205,13 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
         disposables.push(
           sideEditor.addAction({
             id: 'oh-merge.undo',
-            label: 'Merge: Undo (buffer + pick state)',
+            label: t('shared.mergeEditor.action.undo'),
             keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
             run: triggerUndo,
           }),
           sideEditor.addAction({
             id: 'oh-merge.redo',
-            label: 'Merge: Redo (buffer + pick state)',
+            label: t('shared.mergeEditor.action.redo'),
             keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ],
             run: triggerRedo,
           }),
@@ -218,5 +222,5 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
     return () => {
       for (const d of disposables) d.dispose();
     };
-  }, [resultEditorRef, sideEditorRefs, contextRef]);
+  }, [resultEditorRef, sideEditorRefs, contextRef, t]);
 }
