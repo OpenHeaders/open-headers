@@ -15,6 +15,7 @@ import {
   formatPhaseMs,
   httpVersionLabel,
   mapEntryToTimingView,
+  mapPhaseTimingsToView,
   serializedHeaderListBytes,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-meta';
 import { describe, expect, it } from 'vitest';
@@ -142,6 +143,40 @@ describe('mapEntryToTimingView', () => {
   it('falls back to responseEnd - startTime when duration is missing', () => {
     const view = mapEntryToTimingView(makeEntry({ duration: 0 }));
     expect(view.totalMs).toBe(200);
+  });
+});
+
+describe('mapPhaseTimingsToView', () => {
+  it('maps the node marks to a sequential ladder — waiting then download', () => {
+    const view = mapPhaseTimingsToView({ waitingMs: 88, downloadMs: 50 });
+    expect(view.kind).toBe('detailed');
+    if (view.kind !== 'detailed') return;
+    expect(view.totalMs).toBe(138);
+    expect(view.phases).toEqual([
+      expect.objectContaining({ key: 'waiting', startMs: 0, durationMs: 88 }),
+      expect.objectContaining({ key: 'download', startMs: 88, durationMs: 50 }),
+    ]);
+  });
+
+  it('leads with the redirect leg when the chain had hops', () => {
+    const view = mapPhaseTimingsToView({ redirectMs: 30, waitingMs: 60, downloadMs: 10 });
+    expect(view.kind).toBe('detailed');
+    if (view.kind !== 'detailed') return;
+    expect(view.totalMs).toBe(100);
+    expect(view.phases[0]).toMatchObject({ key: 'redirect', startMs: 0, durationMs: 30 });
+    expect(view.phases[1]).toMatchObject({ key: 'waiting', startMs: 30, durationMs: 60 });
+    expect(view.phases[2]).toMatchObject({ key: 'download', startMs: 90, durationMs: 10 });
+  });
+
+  it('clamps stray negative marks to zero-width, never negative', () => {
+    const view = mapPhaseTimingsToView({ redirectMs: -1, waitingMs: 5, downloadMs: -2 });
+    expect(view.kind).toBe('detailed');
+    if (view.kind !== 'detailed') return;
+    for (const phase of view.phases) {
+      expect(phase.durationMs).toBeGreaterThanOrEqual(0);
+      expect(phase.startMs).toBeGreaterThanOrEqual(0);
+    }
+    expect(view.totalMs).toBe(5);
   });
 });
 

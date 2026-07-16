@@ -1001,6 +1001,8 @@ export const workbenchEditors = {
   'workbench.editors.request.response.meta.phase.waiting': 'Waiting (TTFB)',
   'workbench.editors.request.response.meta.phase.download': 'Content download',
   'workbench.editors.request.response.meta.totalNetwork': 'Total (network)',
+  'workbench.editors.request.response.meta.noteNodePhaseLegs':
+    'DNS, connect, and TLS are not observable per send from the app’s network runtime — they are included in Waiting.',
   'workbench.editors.request.response.meta.sizeTitle': 'Size',
   'workbench.editors.request.response.meta.sizeSummary': 'Bytes in each direction of this exchange.',
   'workbench.editors.request.response.meta.responseSize': 'Response Size',

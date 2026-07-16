@@ -306,6 +306,25 @@ export interface TransportResponse {
    */
   redirectChain?: ReadonlyArray<TransportRedirectHop>;
   /**
+   * Wall-clock phase marks the transport measured around its own
+   * exchange — manual marks, not platform resource timing (probed:
+   * undici exposes no per-request timings on either result surface,
+   * and its diagnostics_channel events carry no per-send correlation).
+   * `redirectMs` = time spent chasing redirect hops before the final
+   * hop's dispatch (present only when the chain had hops); `waitingMs`
+   * = final hop dispatch → response head (TTFB — includes any digest
+   * second leg, and the DNS/connect/TLS legs the transport cannot
+   * observe separately); `downloadMs` = head → end of the capped body
+   * read. Present only on hosts that own the exchange end to end (the
+   * browser SW rides its platform's resource timing instead). Pure
+   * attribution for the executed-run snapshot.
+   */
+  phaseTimings?: {
+    redirectMs?: number;
+    waitingMs: number;
+    downloadMs: number;
+  };
+  /**
    * Response body as text, already capped at {@link TransportRequest.maxBodyBytes}
    * by the transport (it streams + aborts past the cap to bound memory).
    * The executor surfaces this verbatim — it does NOT re-slice.

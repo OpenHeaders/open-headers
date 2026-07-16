@@ -1571,6 +1571,73 @@ describe('createNodeRequestTransport — per-hop redirect chain attribution', ()
   });
 });
 
+describe('createNodeRequestTransport — phase timing marks', () => {
+  it('stamps waiting + download on every successful send, no redirect leg without hops', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    const res = await transport().send(makeRequest());
+    expect(res.phaseTimings).toBeDefined();
+    expect(res.phaseTimings?.waitingMs).toBeGreaterThanOrEqual(0);
+    expect(res.phaseTimings?.downloadMs).toBeGreaterThanOrEqual(0);
+    expect(res.phaseTimings?.redirectMs).toBeUndefined();
+  });
+
+  it('stamps the redirect leg only when the chain had hops', async () => {
+    fetchMock.mockResolvedValueOnce(redirectResponse(302, '/moved')).mockResolvedValueOnce(new Response('ok'));
+    const res = await transport().send(makeRequest());
+    expect(res.phaseTimings?.redirectMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('stamps marks under a manual redirect policy too, never a redirect leg', async () => {
+    fetchMock.mockResolvedValue(redirectResponse(302, '/moved'));
+    const res = await transport().send(makeRequest({ redirect: 'manual' }));
+    expect(res.phaseTimings).toBeDefined();
+    expect(res.phaseTimings?.redirectMs).toBeUndefined();
+  });
+
+  it('stamps marks on a streamed read as well', async () => {
+    fetchMock.mockResolvedValue(new Response('streamed body'));
+    const observer: TransportStreamObserver = { onHead: () => {}, onChunk: () => {} };
+    const res = await transport().sendStreaming?.(makeRequest(), observer);
+    expect(res?.phaseTimings).toBeDefined();
+    expect(res?.phaseTimings?.waitingMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('real wire: the marks reflect where the exchange actually spent its time', async () => {
+    // Head held ~50 ms, then the body drips a second chunk ~40 ms later
+    // — waiting and download must each absorb their own delay. Lower
+    // bounds only (CI jitter); the mocked matrix above pins the shape.
+    const server = createServer((req, res) => {
+      if (req.url === '/hop') {
+        res.statusCode = 302;
+        res.setHeader('Location', '/slow');
+        res.end();
+        return;
+      }
+      setTimeout(() => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain');
+        res.write('first');
+        setTimeout(() => res.end('second'), 40);
+      }, 50);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(makeRequest({ url: `http://127.0.0.1:${port}/hop` }));
+      expect(res.body).toBe('firstsecond');
+      const timings = res.phaseTimings;
+      expect(timings).toBeDefined();
+      // The redirect hop answered immediately; its round-trip is real
+      // but small — only its presence is pinned.
+      expect(timings?.redirectMs).toBeGreaterThanOrEqual(0);
+      expect(timings?.waitingMs).toBeGreaterThanOrEqual(30);
+      expect(timings?.downloadMs).toBeGreaterThanOrEqual(20);
+    } finally {
+      server.close();
+    }
+  });
+});
+
 describe('createNodeRequestTransport — per-request cookie jar', () => {
   beforeEach(() => {
     resetCookieJars();

@@ -722,6 +722,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // ONE jar per send, looked up by the request's key — absent key
     // means no cookies attached, Set-Cookie discarded.
     const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
+    // Phase marks for the snapshot's timing attribution — the send's
+    // dispatch instant; the final hop's own dispatch is marked where
+    // the loop fires it (see {@link PhaseMarks}).
+    const sentAt = performance.now();
     try {
       if (request.redirect === 'manual') {
         // Single-shot: surface the first response verbatim, 3xx included.
@@ -740,6 +744,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
             cookiesCaptured: [],
           };
         }
+        const finalHopSentAt = performance.now();
         let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher);
         if (jar !== undefined && jarActivity !== undefined) {
           jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
@@ -757,9 +762,19 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           }
         }
         // Manual mode is single-shot — no chain to record.
-        return await finalizeResponse(response, request, hop.url, deadline, false, jarActivity, undefined, streaming);
+        return await finalizeResponse(
+          response,
+          request,
+          hop.url,
+          deadline,
+          false,
+          jarActivity,
+          undefined,
+          { sentAt, finalHopSentAt },
+          streaming,
+        );
       }
-      return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar, streaming);
+      return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar, sentAt, streaming);
     } finally {
       deadline?.clear();
     }
@@ -794,6 +809,7 @@ async function followRedirectChain(
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
   jar: CookieJar | undefined,
+  sentAt: number,
   streaming: StreamingLeg | null,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
@@ -818,6 +834,10 @@ async function followRedirectChain(
       sendHop = { ...hop, headers };
       if (redirects === 0 && attached !== undefined) jarActivity = { ...jarActivity, cookieHeaderAttached: attached };
     }
+    // Marked per iteration so the surviving value is the FINAL hop's
+    // dispatch instant — the boundary between the redirect and waiting
+    // phases (a digest second leg stays inside this hop's wait).
+    const hopSentAt = performance.now();
     let response = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher);
     if (jar !== undefined && jarActivity !== undefined) {
       jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
@@ -848,6 +868,7 @@ async function followRedirectChain(
         authorizationForwarded,
         jarActivity,
         redirectChain,
+        { sentAt, finalHopSentAt: hopSentAt },
         streaming,
       );
     await response.body?.cancel();
@@ -1054,6 +1075,24 @@ function tlsTuned(request: TransportRequest): boolean {
  *  the capped read; a mid-body abort or connection failure then
  *  materializes the partial body with `streamEndedEarly` instead of
  *  throwing — once the head is in, arrived bytes are never discarded. */
+/** Dispatch instants for the snapshot's phase timing — the send as a
+ *  whole and the FINAL hop (the redirect/waiting boundary). Manual
+ *  marks: undici exposes no per-request timings on either result
+ *  surface, and its diagnostics_channel events carry no per-send
+ *  correlation token (probed on 7.24.6) — so the transport measures
+ *  the phases its own loop delimits. DNS/connect/TLS are not
+ *  observable per send without an always-custom connector; they sit
+ *  inside the waiting phase, and the view says so. */
+interface PhaseMarks {
+  sentAt: number;
+  finalHopSentAt: number;
+}
+
+/** Clamp a mark delta to a non-negative tenth of a millisecond. */
+function phaseMs(ms: number): number {
+  return Math.max(0, Math.round(ms * 10) / 10);
+}
+
 async function finalizeResponse(
   response: HopResponse,
   request: TransportRequest,
@@ -1062,8 +1101,10 @@ async function finalizeResponse(
   authorizationForwarded: boolean,
   jarActivity: JarActivity | undefined,
   redirectChain: ReadonlyArray<TransportRedirectHop> | undefined,
+  marks: PhaseMarks,
   streaming: StreamingLeg | null,
 ): Promise<TransportResponse> {
+  const headAt = performance.now();
   const headers: TransportHeader[] = [];
   response.headers.forEach((value, key) => {
     headers.push({ key, value });
@@ -1087,6 +1128,8 @@ async function finalizeResponse(
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
     throw err;
   }
+  // The capped read just ended — the download phase's far edge.
+  const readEndedAt = performance.now();
   // Trailers arrive after the body — ask only now that the capped read
   // has consumed it. Only `request()` hops carry the thunk (fetch
   // exposes no trailers); a truncated read may have canceled the
@@ -1099,6 +1142,13 @@ async function finalizeResponse(
     headers,
     ...(trailers.length > 0 ? { trailers } : {}),
     ...(redirectChain !== undefined && redirectChain.length > 0 ? { redirectChain } : {}),
+    phaseTimings: {
+      ...(redirectChain !== undefined && redirectChain.length > 0
+        ? { redirectMs: phaseMs(marks.finalHopSentAt - marks.sentAt) }
+        : {}),
+      waitingMs: phaseMs(headAt - marks.finalHopSentAt),
+      downloadMs: phaseMs(readEndedAt - headAt),
+    },
     body: read.body,
     ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,

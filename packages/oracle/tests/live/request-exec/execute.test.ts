@@ -465,6 +465,16 @@ describe('executeOverTransport', () => {
     expect(unmarked.redirectChain).toBeUndefined();
   });
 
+  it('surfaces the transport-reported phase timings verbatim, omitted when the host has none', async () => {
+    const withMarks = captureTransport({ phaseTimings: { redirectMs: 12.5, waitingMs: 88.1, downloadMs: 5 } });
+    const marked = await executeOverTransport(makeResolved(), withMarks.transport);
+    expect(marked.phaseTimings).toEqual({ redirectMs: 12.5, waitingMs: 88.1, downloadMs: 5 });
+
+    const quiet = captureTransport();
+    const unmarked = await executeOverTransport(makeResolved(), quiet.transport);
+    expect(unmarked.phaseTimings).toBeUndefined();
+  });
+
   it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
     // Capping moved into the transport (only it can stream + abort the
     // read); execute passes the already-capped result straight through.

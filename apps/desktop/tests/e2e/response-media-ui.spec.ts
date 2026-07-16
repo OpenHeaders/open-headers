@@ -464,6 +464,26 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
     expect(hopText).toContain('Location: /echo/demoted');
     expect(hopText).toContain('Method changed to GET');
     await shot('redirect-chain');
+
+    // Timing ladder (F8.2): the node runtime's manual phase marks feed
+    // the same popover the browser's resource timing would — with the
+    // redirect leg present on this chained send and the honesty note
+    // about the legs the node stack can't observe.
+    await workbench.keyboard.press('Escape');
+    const duration = workbench.getByTestId('oh-response-duration').filter({ visible: true });
+    await duration.hover();
+    const ladderTotal = workbench.getByText('Total (network)').filter({ visible: true });
+    await ladderTotal.waitFor({ state: 'visible', timeout: 15_000 });
+    for (const label of ['Redirects', 'Waiting (TTFB)', 'Content download']) {
+      expect(await workbench.getByText(label).filter({ visible: true }).count()).toBeGreaterThan(0);
+    }
+    expect(
+      await workbench
+        .getByText(/not observable per send/)
+        .filter({ visible: true })
+        .count(),
+    ).toBeGreaterThan(0);
+    await shot('timing-phases');
   });
 
   test('no CSP violations surfaced in the workbench console', async () => {

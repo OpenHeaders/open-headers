@@ -23,6 +23,7 @@ import {
   formatPhaseMs,
   httpVersionLabel,
   mapEntryToTimingView,
+  mapPhaseTimingsToView,
   type ResponsePhase,
   type ResponsePhaseKey,
   serializedHeaderListBytes,
@@ -103,6 +104,24 @@ function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: n
   );
 }
 
+/** The node runtime's ladder: the same TimingLadder over the manual
+ *  phase marks, plus the honesty note about the legs the node network
+ *  stack cannot observe per send (they sit inside Waiting). */
+function NodePhaseLadder({ timings }: { timings: NonNullable<ExecutedRequestSnapshot['phaseTimings']> }) {
+  const { token } = theme.useToken();
+  const t = useT();
+  const view = mapPhaseTimingsToView(timings);
+  if (view.kind !== 'detailed') return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <TimingLadder phases={view.phases} totalMs={view.totalMs} />
+      <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
+        {t('workbench.editors.request.response.meta.noteNodePhaseLegs')}
+      </span>
+    </div>
+  );
+}
+
 function timingContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopoverContent {
   const base = {
     title: t('workbench.editors.request.response.meta.timingTitle'),
@@ -112,6 +131,11 @@ function timingContent(response: ExecutedRequestSnapshot, t: Translate): InfoPop
     }),
   };
   if (!response.timing) {
+    // The node runtime records manual phase marks instead of a
+    // resource-timing entry — same ladder, honesty note attached.
+    if (response.phaseTimings !== undefined) {
+      return { ...base, description: <NodePhaseLadder timings={response.phaseTimings} /> };
+    }
     return {
       ...base,
       description: t('workbench.editors.request.response.meta.timingNoEntry'),
@@ -615,7 +639,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       </InfoPopover>
       <MetaDot />
       <InfoPopover content={timingContent(response, t)} trigger="hover">
-        <Text type="secondary" style={factStyle}>
+        <Text type="secondary" data-testid="oh-response-duration" style={factStyle}>
           {response.durationMs} ms
         </Text>
       </InfoPopover>

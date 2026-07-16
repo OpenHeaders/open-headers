@@ -11,6 +11,7 @@
  */
 
 import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
+import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 
 export type ResponsePhaseKey = 'redirect' | 'stalled' | 'dns' | 'connect' | 'tls' | 'waiting' | 'download';
@@ -98,6 +99,47 @@ export function mapEntryToTimingView(entry: ResourceTimingEntry): ResponseTiming
     });
   }
   return { kind: 'detailed', totalMs, phases };
+}
+
+/**
+ * Map the node runtime's manual phase marks (`snapshot.phaseTimings`)
+ * onto the same ladder shape the resource-timing entry feeds — one
+ * popover view for both runtimes. The marks are sequential by
+ * construction (redirect hops → final-hop wait → download), so the
+ * ladder positions are running offsets; the total is the marks' own
+ * span, which is the network time (the snapshot's `durationMs` also
+ * counts materialization overhead). DNS/connect/TLS are not observable
+ * from the node stack — they sit inside Waiting, and the popover
+ * carries an honesty note saying so.
+ */
+export function mapPhaseTimingsToView(
+  timings: NonNullable<ExecutedRequestSnapshot['phaseTimings']>,
+): ResponseTimingView {
+  const phases: ResponsePhase[] = [];
+  let cursor = 0;
+  if (timings.redirectMs !== undefined) {
+    phases.push({
+      key: 'redirect',
+      labelKey: 'workbench.editors.request.response.meta.phase.redirect',
+      startMs: 0,
+      durationMs: clamp(timings.redirectMs),
+    });
+    cursor += clamp(timings.redirectMs);
+  }
+  phases.push({
+    key: 'waiting',
+    labelKey: 'workbench.editors.request.response.meta.phase.waiting',
+    startMs: cursor,
+    durationMs: clamp(timings.waitingMs),
+  });
+  cursor += clamp(timings.waitingMs);
+  phases.push({
+    key: 'download',
+    labelKey: 'workbench.editors.request.response.meta.phase.download',
+    startMs: cursor,
+    durationMs: clamp(timings.downloadMs),
+  });
+  return { kind: 'detailed', totalMs: cursor + clamp(timings.downloadMs), phases };
 }
 
 /** Friendly label for a negotiated ALPN protocol id; `null` when the

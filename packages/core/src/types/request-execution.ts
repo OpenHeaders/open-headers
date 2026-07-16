@@ -202,6 +202,23 @@ export interface ExecutedRequestSnapshot {
    */
   cookiesCaptured?: string[];
   /**
+   * Phase marks the executing host's transport measured around its own
+   * exchange, ms — the node runtime's manual-marks twin of the
+   * browser's `timing` entry (its network stack exposes no resource
+   * timing). `redirectMs` = time chasing redirect hops before the
+   * final hop's dispatch (present only when the chain had hops);
+   * `waitingMs` = final hop dispatch → response head (TTFB; the
+   * DNS/connect/TLS legs the runtime cannot observe separately are
+   * inside it); `downloadMs` = head → end of the body read. Absent on
+   * hosts that record a real `timing` entry instead, and on error
+   * snapshots. Attribution only — recorded from what the send did.
+   */
+  phaseTimings?: {
+    redirectMs?: number;
+    waitingMs: number;
+    downloadMs: number;
+  };
+  /**
    * The redirect hops this send followed before the final response,
    * in wire order — each one the request sent and the 3xx it answered
    * with (the final response is the snapshot itself). Present only

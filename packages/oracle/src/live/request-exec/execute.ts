@@ -229,6 +229,9 @@ export async function executeOverTransport(
       ...(response.redirectChain !== undefined && response.redirectChain.length > 0
         ? { redirectChain: [...response.redirectChain] }
         : {}),
+      // And for the phase marks — the node transport's manual-marks
+      // twin of the browser's resource-timing entry.
+      ...(response.phaseTimings !== undefined ? { phaseTimings: { ...response.phaseTimings } } : {}),
       body: response.body,
       ...(response.bodyEncoding ? { bodyEncoding: response.bodyEncoding } : {}),
       bodyTruncated: response.bodyTruncated,
