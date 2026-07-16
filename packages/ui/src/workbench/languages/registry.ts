@@ -40,7 +40,8 @@ export type LanguageId =
   | 'graphql'
   | 'markdown'
   | 'yaml'
-  | 'prometheus';
+  | 'prometheus'
+  | 'protobuf';
 
 export interface LanguageDef {
   id: LanguageId;
@@ -58,6 +59,7 @@ export const LANGUAGES: Record<LanguageId, LanguageDef> = {
   markdown: { id: 'markdown', label: 'Markdown' },
   yaml: { id: 'yaml', label: 'YAML' },
   prometheus: { id: 'prometheus', label: 'Prometheus' },
+  protobuf: { id: 'protobuf', label: 'Protobuf' },
 };
 
 /**
@@ -67,11 +69,13 @@ export const LANGUAGES: Record<LanguageId, LanguageDef> = {
  * native Monaco grammar so we fall back to plaintext until the
  * GraphQL plugin is wired. `prometheus` is our own Monarch grammar
  * (`languages/prometheus.ts`), registered under the same id in the
- * Monaco bootstrap.
+ * Monaco bootstrap. `protobuf` maps to Monaco's built-in basic
+ * language, which registers under the id `proto`.
  */
 export function toMonacoLanguage(id: LanguageId): string {
   if (id === 'text') return 'plaintext';
   if (id === 'graphql') return 'plaintext';
+  if (id === 'protobuf') return 'proto';
   return id;
 }
 

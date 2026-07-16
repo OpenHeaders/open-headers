@@ -1,13 +1,15 @@
 /**
  * SpecOutlinePane — the spec editor's structure rail (vendor parity:
- * Servers / Tags / Paths / Components / Security / Files, left of the
- * code editor).
+ * Servers / Tags / Paths / Components / Security / Files for OpenAPI,
+ * Package / Imports / Services / Messages / Enums / Files for
+ * Protobuf; left of the code editor).
  *
- * Pure presentation over the derived `SpecOutline` (parse-on-idle
+ * Pure presentation over the derived outline groups (parse-on-idle
  * result — never stored, never recomputed here) plus the entity's file
  * set for the Files group. Clicking a row hands its character offset
  * to the host, which moves the editor caret; group headers with a
- * source position navigate too.
+ * source position navigate too. Rpc rows render a call-shape glyph
+ * from their streaming metadata.
  *
  * Add affordances (S6, YAML roots only): hover "+" on insertable group
  * headers and path rows (affordance-visibility rules — hover on
@@ -17,6 +19,7 @@
  */
 
 import { PlusOutlined } from '@ant-design/icons';
+import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { SpecFile } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tooltip, Tree, Typography, theme } from 'antd';
@@ -27,10 +30,12 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { METHOD_COLORS } from '../sidebar/icons';
 import type { SpecInsertTarget } from './spec-outline-insert';
-import type { SpecOutline, SpecOutlineNode } from './spec-outline';
+import type { SpecOutlineNode } from './spec-outline';
 
 interface SpecOutlinePaneProps {
-  outline: SpecOutline | null;
+  /** Derived outline groups (format-dispatched); null before the
+   *  buffer has ever parsed. */
+  groups: SpecOutlineNode[] | null;
   files: SpecFile[];
   rootFileUid: string;
   onNavigate: (offset: number) => void;
@@ -48,7 +53,27 @@ const GROUP_LABEL_KEYS: Record<string, MessageKey> = {
   'components:schemas': 'workbench.editors.spec.outline.groups.schemas',
   'components:securitySchemes': 'workbench.editors.spec.outline.groups.securitySchemes',
   security: 'workbench.editors.spec.outline.groups.security',
+  package: 'workbench.editors.spec.outline.groups.package',
+  imports: 'workbench.editors.spec.outline.groups.imports',
+  services: 'workbench.editors.spec.outline.groups.services',
+  messages: 'workbench.editors.spec.outline.groups.messages',
+  enums: 'workbench.editors.spec.outline.groups.enums',
   files: 'workbench.editors.spec.outline.groups.files',
+};
+
+/** Call-shape glyph per streaming shape (rpc rows). */
+const STREAMING_GLYPHS: Record<ProtoStreamingShape, string> = {
+  unary: '→',
+  'server-streaming': '⇊',
+  'client-streaming': '⇈',
+  'bidi-streaming': '⇅',
+};
+
+const STREAMING_LABEL_KEYS: Record<ProtoStreamingShape, MessageKey> = {
+  unary: 'workbench.editors.spec.outline.streaming.unary',
+  'server-streaming': 'workbench.editors.spec.outline.streaming.server',
+  'client-streaming': 'workbench.editors.spec.outline.streaming.client',
+  'bidi-streaming': 'workbench.editors.spec.outline.streaming.bidi',
 };
 
 const GROUP_KEYS = Object.keys(GROUP_LABEL_KEYS);
@@ -111,6 +136,21 @@ function groupTitle(key: string, count: number | null, wiring: AffordanceWiring)
 }
 
 function entryTitle(node: SpecOutlineNode, wiring: AffordanceWiring): React.ReactNode {
+  if (node.kind === 'rpc' && node.streaming !== undefined) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, fontSize: 11, minWidth: 0 }}>
+        <Tooltip title={wiring.t(STREAMING_LABEL_KEYS[node.streaming])} placement="right">
+          <span
+            style={{ fontSize: 10, fontWeight: 700, fontFamily: "'SF Mono', monospace", flexShrink: 0 }}
+            data-testid={`spec-outline-rpc-${node.streaming}`}
+          >
+            {STREAMING_GLYPHS[node.streaming]}
+          </span>
+        </Tooltip>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.label}</span>
+      </span>
+    );
+  }
   if (node.kind === 'operation' && node.method !== undefined) {
     const color = METHOD_COLORS[node.method] ?? 'var(--ant-color-text, #1a1a1a)';
     return (
@@ -176,7 +216,7 @@ function emptyAddNode(groupKey: string, wiring: AffordanceWiring): TreeDataNode 
 }
 
 const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
-  outline,
+  groups,
   files,
   rootFileUid,
   onNavigate,
@@ -209,14 +249,8 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
     };
 
     const data: TreeDataNode[] = [];
-    if (outline !== null) {
-      data.push(
-        toDataNode(outline.servers),
-        toDataNode(outline.tags),
-        toDataNode(outline.paths),
-        toDataNode(outline.components),
-        toDataNode(outline.security),
-      );
+    if (groups !== null) {
+      data.push(...groups.map(toDataNode));
     }
     data.push({
       key: 'files',
@@ -253,7 +287,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
       }),
     });
     return { treeData: data, offsets: offsetByKey };
-  }, [outline, files, rootFileUid, t, token, canInsert, onInsert]);
+  }, [groups, files, rootFileUid, t, token, canInsert, onInsert]);
 
   return (
     <div
@@ -273,7 +307,7 @@ const SpecOutlinePane: React.FC<SpecOutlinePaneProps> = ({
       >
         {t('workbench.editors.spec.outline.title')}
       </div>
-      {outline === null ? (
+      {groups === null ? (
         <Typography.Text type="secondary" style={{ fontSize: 11, padding: '4px 12px' }}>
           {t('workbench.editors.spec.outline.empty')}
         </Typography.Text>

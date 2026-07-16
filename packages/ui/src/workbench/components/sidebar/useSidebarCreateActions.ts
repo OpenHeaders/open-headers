@@ -16,6 +16,7 @@ import { NEW_TEMPLATE_COLLECTION_NAME, uniqueName } from '@openheaders/ui/shared
 import type { App } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import type { SpecCreateFormat } from '../specs/spec-scaffold';
 
 /** Antd `message` API handed down from the sidebar's `App.useApp()` context. */
 type SidebarMessageApi = ReturnType<typeof App.useApp>['message'];
@@ -30,7 +31,7 @@ export interface UseSidebarCreateActionsParams {
   createRequestCollectionRpc: (name: string) => Promise<Collection | null>;
   createTemplateCollection: (name: string) => Promise<Collection | null>;
   createEnvironment: (name: string) => Promise<Environment | null>;
-  createSpec: (name: string) => Promise<Spec | null>;
+  createSpec: (name: string, format: SpecCreateFormat) => Promise<Spec | null>;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
@@ -45,7 +46,7 @@ export interface SidebarCreateActions {
   createNewRequestCollection: () => Promise<void>;
   createNewTemplateCollection: () => Promise<void>;
   createNewEnvironment: () => Promise<void>;
-  createNewSpec: () => Promise<void>;
+  createNewSpec: (format?: SpecCreateFormat) => Promise<void>;
 }
 
 export function useSidebarCreateActions({
@@ -112,16 +113,19 @@ export function useSidebarCreateActions({
     }
   }, [createEnvironment, environments, onSelectEnvironment, message, t, setSectionsExpanded]);
 
-  const createNewSpec = useCallback(async () => {
-    const name = uniqueName(t('shared.defaults.newSpec'), new Set(specs.map((s) => s.name)));
-    const spec = await createSpec(name);
-    if (spec) {
-      setSectionsExpanded((prev) => ({ ...prev, specs: true }));
-      onSelectSpec?.(spec.uid, spec.name, true);
-    } else {
-      message.error(t('workbench.sidebar.toast.createSpecFailed'));
-    }
-  }, [createSpec, specs, onSelectSpec, message, t, setSectionsExpanded]);
+  const createNewSpec = useCallback(
+    async (format: SpecCreateFormat = 'openapi-3.1') => {
+      const name = uniqueName(t('shared.defaults.newSpec'), new Set(specs.map((s) => s.name)));
+      const spec = await createSpec(name, format);
+      if (spec) {
+        setSectionsExpanded((prev) => ({ ...prev, specs: true }));
+        onSelectSpec?.(spec.uid, spec.name, true);
+      } else {
+        message.error(t('workbench.sidebar.toast.createSpecFailed'));
+      }
+    },
+    [createSpec, specs, onSelectSpec, message, t, setSectionsExpanded],
+  );
 
   return {
     createNewCollection,

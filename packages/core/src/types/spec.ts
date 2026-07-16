@@ -13,5 +13,5 @@ export type Spec = v.InferOutput<typeof SpecSchema>;
 /** One source file in a spec's file set. */
 export type SpecFile = v.InferOutput<typeof SpecFileSchema>;
 
-/** Supported spec format vocabulary (OpenAPI 3.x in v1). */
+/** Supported spec format vocabulary (OpenAPI 3.x, Protobuf 3). */
 export type SpecFormat = v.InferOutput<typeof SpecFormatSchema>;

@@ -162,6 +162,10 @@
     "./telemetry": {
       "import": "./src/telemetry/index.ts",
       "default": "./dist/telemetry/index.js"
+    },
+    "./proto": {
+      "import": "./src/proto/index.ts",
+      "default": "./dist/proto/index.js"
     }
   },
   "scripts": {

@@ -1,18 +1,23 @@
 /**
- * Blank "New Specification" scaffold — the seed content for a spec
- * created from the sidebar.
+ * Blank "New Specification" scaffolds — the seed content for a spec
+ * created from the sidebar, one per creatable format.
  *
- * The template is the captured vendor scaffold recorded verbatim in
- * `docs/API_SPECS_SCAFFOLDS.md` (the spacecraft sample): one root
- * `index.yaml`, OpenAPI 3.1, fully parseable out of the box. v1 only
- * ever creates this single root file; the schema's multi-file shape is
- * exercised by future phases.
+ * The OpenAPI template is the captured vendor scaffold recorded
+ * verbatim in `docs/API_SPECS_SCAFFOLDS.md` (the spacecraft sample):
+ * one root `index.yaml`, OpenAPI 3.1, fully parseable out of the box.
+ * The Protobuf template is a proto3 library sample covering all four
+ * rpc call shapes plus nested/enum/map/oneof anatomy, so the outline
+ * and the future method selector demonstrate themselves on a fresh
+ * spec. Creation only ever mints the single root file; the schema's
+ * multi-file shape is exercised by future phases.
  */
 
-import type { Spec } from '@openheaders/core/types';
+import type { Spec, SpecFormat } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 
 export const SPEC_ROOT_FILE_NAME = 'index.yaml';
+export const JSON_SPEC_ROOT_FILE_NAME = 'index.json';
+export const PROTO_SPEC_ROOT_FILE_NAME = 'index.proto';
 
 export const OPENAPI_31_SCAFFOLD = `openapi: '3.1.0'
 info:
@@ -93,16 +98,116 @@ security:
   - ApiKey: []
 `;
 
+export const PROTO3_SCAFFOLD = `syntax = "proto3";
+
+package sample.library.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Sample catalog service covering the four gRPC call shapes.
+service LibraryService {
+  // Unary: one request, one response.
+  rpc GetBook(GetBookRequest) returns (Book);
+  // Server streaming: one request, a stream of responses.
+  rpc ListBooks(ListBooksRequest) returns (stream Book);
+  // Client streaming: a stream of requests, one response.
+  rpc AddBooks(stream AddBookRequest) returns (AddBooksSummary);
+  // Bidirectional streaming: both sides stream.
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+message Book {
+  string id = 1;
+  string title = 2;
+  repeated string authors = 3;
+  Genre genre = 4;
+  google.protobuf.Timestamp published_at = 5;
+  map<string, string> labels = 6;
+
+  oneof availability {
+    bool in_stock = 7;
+    google.protobuf.Timestamp restock_at = 8;
+  }
+}
+
+enum Genre {
+  GENRE_UNSPECIFIED = 0;
+  FICTION = 1;
+  REFERENCE = 2;
+}
+
+message GetBookRequest {
+  string id = 1;
+}
+
+message ListBooksRequest {
+  optional Genre genre = 1;
+  uint32 page_size = 2;
+}
+
+message AddBookRequest {
+  Book book = 1;
+}
+
+message AddBooksSummary {
+  uint32 added = 1;
+}
+
+message ChatMessage {
+  string text = 1;
+}
+`;
+
+/** The formats the sidebar's create menu offers. */
+export type SpecCreateFormat = Extract<SpecFormat, 'openapi-3.1' | 'protobuf'>;
+
 /**
- * Seed for `applySpecCreate`: a named OpenAPI 3.1 spec holding the one
- * root file. Mints the file uid and marks it as the document root.
+ * Seed for `applySpecCreate`: a named spec of the chosen format
+ * holding the one root file. Mints the file uid and marks it as the
+ * document root.
  */
-export function createBlankSpecSeed(name: string): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
+export function createBlankSpecSeed(
+  name: string,
+  format: SpecCreateFormat = 'openapi-3.1',
+): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
   const rootFileUid = generateUid();
+  const fileName = format === 'protobuf' ? PROTO_SPEC_ROOT_FILE_NAME : SPEC_ROOT_FILE_NAME;
+  const content = format === 'protobuf' ? PROTO3_SCAFFOLD : OPENAPI_31_SCAFFOLD;
   return {
     name,
-    format: 'openapi-3.1',
+    format,
     rootFileUid,
-    files: [{ uid: rootFileUid, fileName: SPEC_ROOT_FILE_NAME, content: OPENAPI_31_SCAFFOLD }],
+    files: [{ uid: rootFileUid, fileName, content }],
+  };
+}
+
+function isJsonDocument(content: string): boolean {
+  try {
+    JSON.parse(content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Seed for `applySpecCreate` from an imported OpenAPI document (import
+ * hub "Specification with a Collection", Insomnia `api_spec`
+ * retention). The source lands verbatim as the single root file; the
+ * extension follows the document's syntax so language derivation
+ * (invariant #15) reads it right.
+ */
+export function createImportedSpecSeed(
+  name: string,
+  content: string,
+  format: Extract<SpecFormat, 'openapi-3.0' | 'openapi-3.1'>,
+): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
+  const rootFileUid = generateUid();
+  const fileName = isJsonDocument(content) ? JSON_SPEC_ROOT_FILE_NAME : SPEC_ROOT_FILE_NAME;
+  return {
+    name,
+    format,
+    rootFileUid,
+    files: [{ uid: rootFileUid, fileName, content }],
   };
 }

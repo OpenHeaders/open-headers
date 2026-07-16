@@ -22,6 +22,7 @@ const SAVE_EXTENSIONS: Record<LanguageId, string> = {
   markdown: 'md',
   yaml: 'yaml',
   prometheus: 'txt',
+  protobuf: 'proto',
 };
 
 /**

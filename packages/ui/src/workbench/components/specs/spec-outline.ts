@@ -12,6 +12,7 @@
  * Files group is entity data (`spec.files`), composed by the pane.
  */
 
+import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { Pair, YAMLMap, YAMLSeq } from 'yaml';
 import { isMap, isScalar, isSeq, parseDocument } from 'yaml';
 
@@ -23,7 +24,14 @@ export type SpecOutlineKind =
   | 'operation'
   | 'schema'
   | 'securityScheme'
-  | 'securityRequirement';
+  | 'securityRequirement'
+  // Protobuf documents (`proto-outline.ts` derives these).
+  | 'package'
+  | 'import'
+  | 'service'
+  | 'rpc'
+  | 'message'
+  | 'enum';
 
 export interface SpecOutlineNode {
   /** Stable tree key — kind-prefixed path so expansion survives recomputes. */
@@ -35,6 +43,8 @@ export interface SpecOutlineNode {
   offset: number | null;
   /** HTTP verb, uppercased — operation nodes only. */
   method?: string;
+  /** Call shape from the `stream` keywords — rpc nodes only. */
+  streaming?: ProtoStreamingShape;
   children: SpecOutlineNode[];
 }
 
@@ -206,6 +216,12 @@ function buildSecurity(pair: Pair | null): SpecOutlineNode {
     });
   });
   return group('security', pair ? pairOffset(pair) : null, children);
+}
+
+/** The OpenAPI outline's groups in vendor order — the structure pane
+ *  renders a flat group list so Protobuf outlines feed the same tree. */
+export function specOutlineGroups(outline: SpecOutline): SpecOutlineNode[] {
+  return [outline.servers, outline.tags, outline.paths, outline.components, outline.security];
 }
 
 /**

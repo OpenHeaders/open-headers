@@ -67,14 +67,14 @@ describe('planSpecInsertion', () => {
     expect(buildSpecOutline(once)?.paths.children.map((p) => p.label)).toEqual(['/users', '/new-path']);
     const twice = apply(once, { kind: 'path' });
     expect(buildSpecOutline(twice)?.paths.children.map((p) => p.label)).toEqual(['/users', '/new-path', '/new-path-2']);
-    expect(validateSpecSource(twice).errors).toEqual([]);
+    expect(validateSpecSource(twice, 'openapi-3.1').errors).toEqual([]);
   });
 
   it('adds an operation with the first free verb', () => {
     const next = apply(SAMPLE, { kind: 'operation', pathKey: '/users' });
     const users = buildSpecOutline(next)?.paths.children.find((p) => p.label === '/users');
     expect(users?.children.map((op) => op.method)).toEqual(['GET', 'POST']);
-    expect(validateSpecSource(next).errors).toEqual([]);
+    expect(validateSpecSource(next, 'openapi-3.1').errors).toEqual([]);
   });
 
   it('returns null when every verb is taken or the path is unknown', () => {
@@ -110,7 +110,7 @@ paths:
   it('creates the missing securitySchemes level inside existing components', () => {
     const next = apply(SAMPLE, { kind: 'securityScheme' });
     expect(buildSpecOutline(next)?.components.children[1].children.map((s) => s.label)).toEqual(['NewSecurityScheme']);
-    expect(validateSpecSource(next).errors).toEqual([]);
+    expect(validateSpecSource(next, 'openapi-3.1').errors).toEqual([]);
   });
 
   it('creates the full nested wrapper when components is absent', () => {
@@ -144,7 +144,7 @@ servers:
     const empty = "openapi: '3.1.0'\ninfo:\n  title: Empty\n  version: '1.0.0'\npaths:\n";
     const next = apply(empty, { kind: 'path' });
     expect(buildSpecOutline(next)?.paths.children.map((p) => p.label)).toEqual(['/new-path']);
-    expect(validateSpecSource(next).errors).toEqual([]);
+    expect(validateSpecSource(next, 'openapi-3.1').errors).toEqual([]);
   });
 
   it('returns null on non-parsing buffers and flow-empty sections', () => {
@@ -167,7 +167,7 @@ servers:
     let doc = OPENAPI_31_SCAFFOLD;
     for (const target of targets) {
       doc = apply(doc, target);
-      expect(validateSpecSource(doc).errors).toEqual([]);
+      expect(validateSpecSource(doc, 'openapi-3.1').errors).toEqual([]);
     }
     const outline = buildSpecOutline(doc);
     expect(outline?.servers.children).toHaveLength(1);

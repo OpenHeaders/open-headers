@@ -30,7 +30,6 @@ import {
   SyncOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { SPEC_FORMATS } from '@openheaders/core/schemas';
 import { SPEC_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection, SpecFile } from '@openheaders/core/types';
 import { Allotment } from 'allotment';
@@ -49,16 +48,11 @@ import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
 import GenerateCollectionModal from './GenerateCollectionModal';
 import SpecOutlinePane from './SpecOutlinePane';
+import { SPEC_FORMAT_LABELS } from './spec-format-labels';
 import { planSpecInsertion, type SpecInsertTarget } from './spec-outline-insert';
 import { specFileLanguage, specFileSyntaxLabel, useSpecAnalysis } from './spec-validation';
 import UpdateCollectionModal from './UpdateCollectionModal';
 import { useSpecSourceHash } from './use-spec-drift';
-
-/** Header badge label per format — presentation of the picklist value. */
-const FORMAT_LABELS: Record<(typeof SPEC_FORMATS)[number], string> = {
-  'openapi-3.0': 'OpenAPI 3.0',
-  'openapi-3.1': 'OpenAPI 3.1',
-};
 
 const SURFACE_ID = 'workbench';
 
@@ -96,7 +90,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   });
   const isDirty = reprime.isDirty;
 
-  const { validation, outline } = useSpecAnalysis(draft);
+  const { validation, outline } = useSpecAnalysis(draft, spec?.format ?? 'openapi-3.1');
 
   // Outline rail visibility — session-local by design (a persisted
   // preference is a settings-schema key away if demand shows).
@@ -214,7 +208,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
       <Typography.Text strong style={{ fontSize: 13 }}>
         {rootFile.fileName}
       </Typography.Text>
-      <Tag style={{ fontSize: 10, lineHeight: '16px', marginInlineEnd: 0 }}>{FORMAT_LABELS[spec.format]}</Tag>
+      <Tag style={{ fontSize: 10, lineHeight: '16px', marginInlineEnd: 0 }}>{SPEC_FORMAT_LABELS[spec.format]}</Tag>
       <Tag style={{ fontSize: 10, lineHeight: '16px' }}>{specFileSyntaxLabel(rootFile.fileName)}</Tag>
       <PresenceBadge entityType={SPEC_ENTITY_TYPE} entityId={spec.uid} excludeInstanceId={localInstanceId} />
     </>
@@ -226,9 +220,11 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   // Vendor parity: the toolbar button reads "Generate Collection"
   // until a link exists, then flips to a "Collections" popover listing
   // every generated collection (one spec → many links); per-link
-  // in-sync badges + Update ride Phase F.
+  // in-sync badges + Update ride Phase F. Protobuf specs carry no
+  // generate affordance yet — collection generation from proto
+  // services lands with the gRPC client's close-out phase.
   const generateAction =
-    linkedCollections.length === 0 ? (
+    spec.format === 'protobuf' ? null : linkedCollections.length === 0 ? (
       <Button
         size="small"
         onClick={() => setGenerateOpen(true)}
@@ -332,7 +328,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
           <Allotment proportionalLayout={false} separator>
             <Allotment.Pane minSize={160} preferredSize={230} visible={outlineOpen} snap>
               <SpecOutlinePane
-                outline={outline}
+                groups={outline}
                 files={spec.files}
                 rootFileUid={spec.rootFileUid}
                 onNavigate={handleNavigate}

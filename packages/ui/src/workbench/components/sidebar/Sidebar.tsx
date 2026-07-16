@@ -51,7 +51,7 @@ import { SectionOpenerRow } from './SectionHeader';
 import RequestsSection from './RequestsSection';
 import RulesSection from './RulesSection';
 import SpecsSection from './SpecsSection';
-import { createBlankSpecSeed } from '../specs/spec-scaffold';
+import { createBlankSpecSeed, type SpecCreateFormat } from '../specs/spec-scaffold';
 import SidebarHeaderActions from './SidebarHeaderActions';
 import type { SidebarView, TreeNode } from './types';
 import VariablesSection from './VariablesSection';
@@ -390,10 +390,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   // ── Specs (workspace-level API specification documents) ──────────
   const specs = useSpecs(activeWorkspaceId);
   const createSpecEntity = useCallback(
-    async (name: string) => {
+    async (name: string, format: SpecCreateFormat) => {
       if (!activeWorkspaceId) return null;
       const result = await applySpecCreate(
-        { spec: createBlankSpecSeed(name) },
+        { spec: createBlankSpecSeed(name, format) },
         { workspaceId: activeWorkspaceId, surfaceId: 'workbench' },
       );
       return result.ok ? result.spec : null;
