@@ -16,6 +16,8 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { Rule } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { useMemo } from 'react';
@@ -75,59 +77,67 @@ interface FireRowProps {
   lifecycle: RequestLifecycle;
 }
 
-function evidenceLabel(fire: InspectorFire, evidence: FireEvidence, lifecycle: RequestLifecycle): string {
-  if (evidence.verdict === 'contradicted') return 'contradicted';
-  if (fire.authoritative) return 'authoritative';
+function evidenceLabel(t: Translate, fire: InspectorFire, evidence: FireEvidence, lifecycle: RequestLifecycle): string {
+  if (evidence.verdict === 'contradicted') return t('panel.matchedRules.evidence.contradicted');
+  if (fire.authoritative) return t('panel.matchedRules.evidence.authoritative');
   // A captured two-sided override (served/original or sent/original) is the
   // body-rule's confirmation — the modifier ran and we recorded both sides —
   // even when the page-reported fire alone would read 'fallback'.
-  if (hasCapturedOverride(lifecycle, fire.ruleUid)) return 'confirmed';
+  if (hasCapturedOverride(lifecycle, fire.ruleUid)) return t('panel.matchedRules.evidence.confirmed');
   switch (fire.evidence) {
     case 'confirmed':
-      return 'confirmed';
+      return t('panel.matchedRules.evidence.confirmed');
     case 'matched-fallback':
-      return 'fallback';
+      return t('panel.matchedRules.evidence.fallback');
     case 'silent':
-      return 'silent';
+      return t('panel.matchedRules.evidence.silent');
     default:
-      return evidence.verdict === 'corroborated' ? 'corroborated' : 'inferred';
+      return evidence.verdict === 'corroborated'
+        ? t('panel.matchedRules.evidence.corroborated')
+        : t('panel.matchedRules.evidence.inferred');
   }
 }
 
 /** Wire values observed for the first disproven claim — the badge's receipt. */
-function contradictionDetail(evidence: FireEvidence): string {
+function contradictionDetail(t: Translate, evidence: FireEvidence): string {
   const hit = evidence.mods.find((m) => m.verdict === 'contradicted');
   if (!hit) return '';
   if (hit.reason === 'present-despite-remove') {
-    return ` ${hit.mod.headerName} is still present (${(hit.observed ?? []).join(', ')}).`;
+    return ` ${t('panel.matchedRules.contradiction.stillPresent', {
+      header: hit.mod.headerName,
+      observed: (hit.observed ?? []).join(', '),
+    })}`;
   }
   if (hit.reason === 'absent-from-wire') {
-    return ` ${hit.mod.headerName} is missing from the captured headers.`;
+    return ` ${t('panel.matchedRules.contradiction.missing', { header: hit.mod.headerName })}`;
   }
-  return ` ${hit.mod.headerName} carries "${(hit.observed ?? []).join(', ')}" instead of the claimed value.`;
+  return ` ${t('panel.matchedRules.contradiction.otherValue', {
+    header: hit.mod.headerName,
+    observed: (hit.observed ?? []).join(', '),
+  })}`;
 }
 
-function evidenceTitle(fire: InspectorFire, evidence: FireEvidence, lifecycle: RequestLifecycle): string {
+function evidenceTitle(t: Translate, fire: InspectorFire, evidence: FireEvidence, lifecycle: RequestLifecycle): string {
   if (evidence.verdict === 'contradicted') {
-    return `Contradicted — the captured headers disprove a modification this rule claimed.${contradictionDetail(evidence)}`;
+    return `${t('panel.matchedRules.evidenceTitle.contradicted')}${contradictionDetail(t, evidence)}`;
   }
   if (fire.authoritative) {
-    return 'Authoritative — the rule engine confirmed this DNR rule executed on the request.';
+    return t('panel.matchedRules.evidenceTitle.authoritative');
   }
   if (hasCapturedOverride(lifecycle, fire.ruleUid)) {
-    return 'Confirmed — the rule modified the body in page context and both sides (served vs. original) were captured for this request.';
+    return t('panel.matchedRules.evidenceTitle.capturedOverride');
   }
   switch (fire.evidence) {
     case 'confirmed':
-      return 'Confirmed by the in-page reporter — the scriptable action ran inside the page.';
+      return t('panel.matchedRules.evidenceTitle.confirmed');
     case 'matched-fallback':
-      return 'Inferred from URL matching — a scriptable confirmation was expected but did not arrive.';
+      return t('panel.matchedRules.evidenceTitle.fallback');
     case 'silent':
-      return 'Pattern matched but the request was served from cache / a service worker — no DNR or scriptable action ran.';
+      return t('panel.matchedRules.evidenceTitle.silent');
     default:
       return evidence.verdict === 'corroborated'
-        ? 'Corroborated — the claimed modification is visible in the captured headers.'
-        : 'Inferred from URL matching — the rule would match this request based on its conditions.';
+        ? t('panel.matchedRules.evidenceTitle.corroborated')
+        : t('panel.matchedRules.evidenceTitle.inferred');
   }
 }
 
@@ -137,14 +147,16 @@ const BADGE_CLASS: Record<FireDotTier, string> = {
   inferred: 'dt-exec-badge--inferred',
 };
 
-const RULE_STATE_TITLE: Record<'deleted' | 'disabled' | 'modified', string> = {
-  deleted: 'This rule has been deleted since it fired. The row shows what it did at fire time.',
-  disabled: 'This rule has been disabled since it fired — it will not apply to the next request.',
-  modified:
-    'This rule has been edited since it fired. The row shows what it did at fire time; hover to see the current rule.',
+type RuleState = 'deleted' | 'disabled' | 'modified';
+
+const RULE_STATE_KEYS: Record<RuleState, { label: MessageKey; title: MessageKey }> = {
+  deleted: { label: 'panel.matchedRules.ruleState.deleted', title: 'panel.matchedRules.ruleStateTitle.deleted' },
+  disabled: { label: 'panel.matchedRules.ruleState.disabled', title: 'panel.matchedRules.ruleStateTitle.disabled' },
+  modified: { label: 'panel.matchedRules.ruleState.modified', title: 'panel.matchedRules.ruleStateTitle.modified' },
 };
 
 function FireRow({ fire, rule, lifecycle }: FireRowProps) {
+  const t = useT();
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
   const ruleType = rule?.type ?? fire.ruleSnapshot?.type ?? null;
   const actions = describeHeaderActions(fire, rule);
@@ -194,16 +206,21 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
         <span className="dt-matched-rule-name">{label}</span>
         <span className="dt-matched-rule-badges">
           {ruleState && (
-            <span className={`dt-exec-badge dt-exec-badge--rule-${ruleState}`} title={RULE_STATE_TITLE[ruleState]}>
-              rule {ruleState}
+            <span
+              className={`dt-exec-badge dt-exec-badge--rule-${ruleState}`}
+              title={t(RULE_STATE_KEYS[ruleState].title)}
+            >
+              {t(RULE_STATE_KEYS[ruleState].label)}
             </span>
           )}
-          <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(fire, evidence, lifecycle)}>
-            {evidenceLabel(fire, evidence, lifecycle)}
+          <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(t, fire, evidence, lifecycle)}>
+            {evidenceLabel(t, fire, evidence, lifecycle)}
           </span>
         </span>
       </div>
-      {fire.pattern && <div className="dt-matched-rule-pattern">Pattern: {fire.pattern}</div>}
+      {fire.pattern && (
+        <div className="dt-matched-rule-pattern">{t('panel.matchedRules.pattern', { pattern: fire.pattern })}</div>
+      )}
       {actions.length > 0 && (
         <ul className="dt-matched-rule-actions">
           {actions.map((line) => (
@@ -221,6 +238,7 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
  *  list; the evidence slot says "would match" instead of a verdict
  *  (nothing happened yet). The same hover opens the quick editor. */
 function FutureRow({ match }: { match: FutureMatch }) {
+  const t = useT();
   const { rule, pattern } = match;
   const actions = describeHeaderRuleActions(rule);
   const rulePopover = useRulePopover();
@@ -235,9 +253,9 @@ function FutureRow({ match }: { match: FutureMatch }) {
       <div className="dt-matched-rule-head">
         {buildRuleIcon({ ruleType: rule.type, rule, isActive: rule.enabled ?? true, compactArrow: true, size: 12 })}
         <span className="dt-matched-rule-name">{rule.name}</span>
-        <span className="dt-matched-rule-future">would match</span>
+        <span className="dt-matched-rule-future">{t('panel.matchedRules.wouldMatch')}</span>
       </div>
-      {pattern && <div className="dt-matched-rule-pattern">Pattern: {pattern}</div>}
+      {pattern && <div className="dt-matched-rule-pattern">{t('panel.matchedRules.pattern', { pattern })}</div>}
       {actions.length > 0 && (
         <ul className="dt-matched-rule-actions">
           {actions.map((line) => (
@@ -250,6 +268,7 @@ function FutureRow({ match }: { match: FutureMatch }) {
 }
 
 export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPanelProps) {
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const futureMatches = useFutureMatches(row, rulesByUid);
   // Same identity derivation as the inspector tab pill (`#N host/path`),
@@ -264,7 +283,7 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
         wiring={wiring}
         title={
           <>
-            <strong>Matched Rules</strong>
+            <strong>{t('panel.toolWindows.matchedRules')}</strong>
             {reqTab && (
               <span className="dt-matched-rules-req" title={reqTab.url}>
                 <span className="dt-method-badge" style={{ color: methodColor(reqTab.method) }}>
@@ -287,18 +306,19 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
             {/* Single span: `.dt-empty` is a flex centerer, which would
               * swallow the whitespace between its anonymous text items. */}
             <span>
-              Select a request to see <span className="dt-oh-mark" role="img" aria-label="Open Headers" /> rules that
-              apply to it
+              {t('panel.matchedRules.selectPrompt.lead')}{' '}
+              <span className="dt-oh-mark" role="img" aria-label="Open Headers" />{' '}
+              {t('panel.matchedRules.selectPrompt.tail')}
             </span>
           </div>
         )}
         {row && (
           <>
             <details className="dt-section" open>
-              <summary>Matched · {row.fires.length}</summary>
+              <summary>{t('panel.matchedRules.matchedCount', { count: row.fires.length })}</summary>
               {row.fires.length === 0 && (
                 <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-                  No rules matched this request.
+                  {t('panel.matchedRules.noMatched')}
                 </div>
               )}
               {row.fires.map((f, i) => (
@@ -311,10 +331,10 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
               ))}
             </details>
             <details className="dt-section" open>
-              <summary>Future matches · {futureMatches.length}</summary>
+              <summary>{t('panel.matchedRules.futureCount', { count: futureMatches.length })}</summary>
               {futureMatches.length === 0 && (
                 <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-                  No other rules would match this request.
+                  {t('panel.matchedRules.noFuture')}
                 </div>
               )}
               {futureMatches.map((m) => (

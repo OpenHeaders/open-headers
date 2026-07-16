@@ -1,3 +1,4 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useMemo } from 'react';
 import { fireTier } from '../data/fire-evidence';
@@ -12,8 +13,9 @@ interface RuleExecutionsProps {
 }
 
 function RuleActivityHeader({ onHide }: { onHide: () => void }) {
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
-  return <PanelHeader wiring={wiring} title={<strong>Rule Activity</strong>} />;
+  return <PanelHeader wiring={wiring} title={<strong>{t('panel.toolWindows.ruleActivity')}</strong>} />;
 }
 
 interface RuleGroup {
@@ -29,6 +31,7 @@ interface RuleGroup {
 }
 
 export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: RuleExecutionsProps) {
+  const t = useT();
   const groups = useMemo<RuleGroup[]>(() => {
     const byRule: Map<string, RuleGroup> = new Map();
     for (const r of rows) {
@@ -71,7 +74,7 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
     return (
       <div className="dt-panel">
         <RuleActivityHeader onHide={onHide} />
-        <div className="dt-empty">No rule activity on this tab yet.</div>
+        <div className="dt-empty">{t('panel.ruleActivity.empty')}</div>
       </div>
     );
   }
@@ -81,29 +84,33 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
       <RuleActivityHeader onHide={onHide} />
       <div className="dt-executions">
         <div className="dt-executions-hint" style={{ marginBottom: 6 }}>
-          <strong>Applied</strong> fires are confirmed to have run — the rule engine reported the rule executed, the
-          in-page reporter confirmed the action ran, or the modification is visible in the captured headers.{' '}
-          <strong>Contradicted</strong> fires claimed a header change the captured headers disprove.{' '}
-          <strong>Inferred</strong> fires match your rule patterns against observed requests but couldn&apos;t be
-          confirmed. <strong>Off-HAR</strong> fires are rule matches on requests the panel didn&apos;t capture.
+          <strong>{t('panel.ruleActivity.hint.applied')}</strong> {t('panel.ruleActivity.hint.appliedDesc')}{' '}
+          <strong>{t('panel.ruleActivity.hint.contradicted')}</strong>{' '}
+          {t('panel.ruleActivity.hint.contradictedDesc')}{' '}
+          <strong>{t('panel.ruleActivity.hint.inferred')}</strong> {t('panel.ruleActivity.hint.inferredDesc')}{' '}
+          <strong>{t('panel.ruleActivity.hint.offHar')}</strong> {t('panel.ruleActivity.hint.offHarDesc')}
         </div>
         {groups.map((group) => (
           <details key={group.ruleUid} className="dt-exec-group" open>
             <summary>
               <code>{group.ruleUid}</code>
               <span className="dt-exec-badge dt-exec-badge--auth">
-                {group.totalHits} hit{group.totalHits === 1 ? '' : 's'}
+                {t('panel.ruleActivity.hits', { count: group.totalHits })}
               </span>
               {group.appliedHits > 0 && (
-                <span className="dt-exec-badge dt-exec-badge--auth">{group.appliedHits} applied</span>
+                <span className="dt-exec-badge dt-exec-badge--auth">
+                  {t('panel.ruleActivity.applied', { count: group.appliedHits })}
+                </span>
               )}
               {group.contradictedHits > 0 && (
                 <span className="dt-exec-badge dt-exec-badge--contradicted">
-                  {group.contradictedHits} contradicted
+                  {t('panel.ruleActivity.contradicted', { count: group.contradictedHits })}
                 </span>
               )}
               {group.danglingHits.length > 0 && (
-                <span className="dt-exec-badge dt-exec-badge--dangling">{group.danglingHits.length} off-HAR</span>
+                <span className="dt-exec-badge dt-exec-badge--dangling">
+                  {t('panel.ruleActivity.offHar', { count: group.danglingHits.length })}
+                </span>
               )}
             </summary>
             {group.attachedHits.map((h, i) => (
@@ -120,7 +127,7 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
               <div
                 key={`dng-${i}-${h.url}`}
                 className="dt-exec-url dt-exec-url--muted"
-                title="Off-HAR — the panel didn't capture a HAR shell for this fire"
+                title={t('panel.ruleActivity.offHarTitle')}
               >
                 {h.url} (off-HAR)
               </div>
@@ -133,5 +140,6 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
 }
 
 export function RuleExecutionsHint() {
-  return <span className="dt-col-muted">Rule activity grouped by rule.</span>;
+  const t = useT();
+  return <span className="dt-col-muted">{t('panel.ruleActivity.toolbarHint')}</span>;
 }

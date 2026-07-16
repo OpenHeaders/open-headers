@@ -478,4 +478,78 @@ export const panel = {
   'panel.search.row.lineCol': 'Line {line}, Col {col}',
   'panel.search.row.line': 'Line {line}',
   'panel.search.row.matchesOnLine': '{count} matches on this line',
+
+  // ── Matched Rules tool window (station: rule tool windows) ──────────
+  // Raw by design: rule action descriptor lines (`req set X = v` — rule
+  // syntax plane), match patterns, rule names/uids, and the brand mark
+  // riding between the select-prompt halves.
+  'panel.matchedRules.selectPrompt.lead': 'Select a request to see',
+  'panel.matchedRules.selectPrompt.tail': 'rules that apply to it',
+  'panel.matchedRules.matchedCount': 'Matched · {count}',
+  'panel.matchedRules.futureCount': 'Future matches · {count}',
+  'panel.matchedRules.noMatched': 'No rules matched this request.',
+  'panel.matchedRules.noFuture': 'No other rules would match this request.',
+  'panel.matchedRules.pattern': 'Pattern: {pattern}',
+  'panel.matchedRules.wouldMatch': 'would match',
+
+  // Fire-evidence badges + their receipts
+  'panel.matchedRules.evidence.contradicted': 'contradicted',
+  'panel.matchedRules.evidence.authoritative': 'authoritative',
+  'panel.matchedRules.evidence.confirmed': 'confirmed',
+  'panel.matchedRules.evidence.fallback': 'fallback',
+  'panel.matchedRules.evidence.silent': 'silent',
+  'panel.matchedRules.evidence.corroborated': 'corroborated',
+  'panel.matchedRules.evidence.inferred': 'inferred',
+  'panel.matchedRules.evidenceTitle.contradicted':
+    'Contradicted — the captured headers disprove a modification this rule claimed.',
+  'panel.matchedRules.evidenceTitle.authoritative':
+    'Authoritative — the rule engine confirmed this DNR rule executed on the request.',
+  'panel.matchedRules.evidenceTitle.capturedOverride':
+    'Confirmed — the rule modified the body in page context and both sides (served vs. original) were captured for this request.',
+  'panel.matchedRules.evidenceTitle.confirmed':
+    'Confirmed by the in-page reporter — the scriptable action ran inside the page.',
+  'panel.matchedRules.evidenceTitle.fallback':
+    'Inferred from URL matching — a scriptable confirmation was expected but did not arrive.',
+  'panel.matchedRules.evidenceTitle.silent':
+    'Pattern matched but the request was served from cache / a service worker — no DNR or scriptable action ran.',
+  'panel.matchedRules.evidenceTitle.corroborated':
+    'Corroborated — the claimed modification is visible in the captured headers.',
+  'panel.matchedRules.evidenceTitle.inferred':
+    'Inferred from URL matching — the rule would match this request based on its conditions.',
+  'panel.matchedRules.contradiction.stillPresent': '{header} is still present ({observed}).',
+  'panel.matchedRules.contradiction.missing': '{header} is missing from the captured headers.',
+  'panel.matchedRules.contradiction.otherValue': '{header} carries "{observed}" instead of the claimed value.',
+
+  // Rule-state badges (the snapshot fired; the live rule moved on)
+  'panel.matchedRules.ruleState.deleted': 'rule deleted',
+  'panel.matchedRules.ruleState.disabled': 'rule disabled',
+  'panel.matchedRules.ruleState.modified': 'rule modified',
+  'panel.matchedRules.ruleStateTitle.deleted':
+    'This rule has been deleted since it fired. The row shows what it did at fire time.',
+  'panel.matchedRules.ruleStateTitle.disabled':
+    'This rule has been disabled since it fired — it will not apply to the next request.',
+  'panel.matchedRules.ruleStateTitle.modified':
+    'This rule has been edited since it fired. The row shows what it did at fire time; hover to see the current rule.',
+
+  // ── Rule Activity tool window ────────────────────────────────────────
+  'panel.ruleActivity.empty': 'No rule activity on this tab yet.',
+  'panel.ruleActivity.toolbarHint': 'Rule activity grouped by rule.',
+  // Legend: bold term key + remainder key per sentence (the popup tour's
+  // term/hint split idiom).
+  'panel.ruleActivity.hint.applied': 'Applied',
+  'panel.ruleActivity.hint.appliedDesc':
+    'fires are confirmed to have run — the rule engine reported the rule executed, the in-page reporter confirmed the action ran, or the modification is visible in the captured headers.',
+  'panel.ruleActivity.hint.contradicted': 'Contradicted',
+  'panel.ruleActivity.hint.contradictedDesc': 'fires claimed a header change the captured headers disprove.',
+  'panel.ruleActivity.hint.inferred': 'Inferred',
+  'panel.ruleActivity.hint.inferredDesc':
+    "fires match your rule patterns against observed requests but couldn't be confirmed.",
+  'panel.ruleActivity.hint.offHar': 'Off-HAR',
+  'panel.ruleActivity.hint.offHarDesc': "fires are rule matches on requests the panel didn't capture.",
+  'panel.ruleActivity.hits': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} hit', other: '{count} hits' }),
+  'panel.ruleActivity.applied': '{count} applied',
+  'panel.ruleActivity.contradicted': '{count} contradicted',
+  'panel.ruleActivity.offHar': '{count} off-HAR',
+  'panel.ruleActivity.offHarTitle': "Off-HAR — the panel didn't capture a HAR shell for this fire",
 } as const satisfies Catalog;
