@@ -18,6 +18,7 @@ import { Dropdown } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type EditorTabDragData, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
@@ -72,6 +73,7 @@ interface SortableTabProps {
 }
 
 const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contextMenu, onSwitch, onClose }) => {
+  const t = useT();
   const dragIntent = useDragIntent();
   const data: EditorTabDragData = { kind: 'editor-tab', leafId, tabId: tab.id };
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -117,7 +119,9 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
         <span className={`dt-editor-tab-status${tab.statusCode >= 400 ? ' error' : ''}`}>{tab.statusCode}</span>
       )}
       {/* Unsaved-draft dot — same signal as the workspace tab bar. */}
-      {tabIsDirty(tab) && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
+      {tabIsDirty(tab) && (
+        <span className="dt-editor-tab-dirty" aria-label={t('panel.inspector.tabBar.unsavedChanges')} />
+      )}
       <button
         type="button"
         className="dt-editor-tab-close"
@@ -126,7 +130,7 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
           e.stopPropagation();
           onClose(tab.id);
         }}
-        aria-label="Close tab"
+        aria-label={t('panel.inspector.tabBar.closeTab')}
       >
         {'×'}
       </button>
@@ -179,6 +183,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   recentlyClosed,
   onReopen,
 }) => {
+  const t = useT();
   const [search, setSearch] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [closedExpanded, setClosedExpanded] = useState(false);
@@ -245,7 +250,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
             ref={inputRef}
             type="text"
             className="dt-tab-search-input"
-            placeholder={`Search tabs…`}
+            placeholder={t('panel.inspector.tabBar.searchPlaceholder')}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -271,13 +276,17 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 {tabBadge(tab).text}
               </span>
               <span className="dt-tab-search-item-label">{tab.label}</span>
-              {tabIsDirty(tab) && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
+              {tabIsDirty(tab) && (
+                <span className="dt-editor-tab-dirty" aria-label={t('panel.inspector.tabBar.unsavedChanges')} />
+              )}
             </div>
           ))}
           {/* Open-tabs empty state — the region must always answer the
               search, even when only closed tabs (or nothing) match. */}
           {filtered.length === 0 && (
-            <div className="dt-tab-search-empty">{search ? 'No open tabs match your search' : 'No open tabs'}</div>
+            <div className="dt-tab-search-empty">
+              {search ? t('panel.inspector.tabBar.noOpenTabsMatch') : t('panel.inspector.tabBar.noOpenTabs')}
+            </div>
           )}
           {recentlyClosed.length > 0 && (
             <>
@@ -286,8 +295,13 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
               <div className="dt-tab-search-section" onClick={() => setClosedExpanded((v) => !v)}>
                 {/* While searching, surface the match count in the header so
                     the collapsed section still answers the query. */}
-                {closedExpanded ? '▼' : '▶'} Recently Closed (
-                {search ? `${filteredClosed.length} of ${recentlyClosed.length}` : recentlyClosed.length})
+                {closedExpanded ? '▼' : '▶'}{' '}
+                {search
+                  ? t('panel.inspector.tabBar.recentlyClosedFiltered', {
+                      matched: filteredClosed.length,
+                      total: recentlyClosed.length,
+                    })
+                  : t('panel.inspector.tabBar.recentlyClosed', { count: recentlyClosed.length })}
               </div>
               {closedExpanded &&
                 filteredClosed.map((closed, idx) => {
@@ -314,7 +328,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 })}
               {/* Closed-region empty state — mirrors the open region's. */}
               {closedExpanded && filteredClosed.length === 0 && (
-                <div className="dt-tab-search-empty">No closed tabs match your search</div>
+                <div className="dt-tab-search-empty">{t('panel.inspector.tabBar.noClosedTabsMatch')}</div>
               )}
             </>
           )}
@@ -383,6 +397,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
   canUnsplit = false,
   canUnsplitAll = false,
 }) => {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabSearchOpen, setTabSearchOpen] = useState(false);
 
@@ -415,25 +430,25 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
       const splitDisabled = tabs.length < 2;
       return {
         items: [
-          { key: 'close', label: 'Close', onClick: () => onClose(tab.id) },
+          { key: 'close', label: t('panel.inspector.tabMenu.close'), onClick: () => onClose(tab.id) },
           {
             key: 'close-other',
-            label: 'Close Other Tabs',
+            label: t('panel.inspector.tabMenu.closeOther'),
             disabled: tabs.length <= 1,
             onClick: () => onCloseOther(tab.id),
           },
-          { key: 'close-all', label: 'Close All Tabs', onClick: () => onCloseAll() },
+          { key: 'close-all', label: t('panel.inspector.tabMenu.closeAll'), onClick: () => onCloseAll() },
           { type: 'divider' as const, key: 'div-1' },
           {
             key: 'close-left',
-            label: 'Close Tabs to the Left',
+            label: t('panel.inspector.tabMenu.closeToLeft'),
             icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-left" size={MENU_ICON_SIZE} />),
             disabled: tabIndex === 0,
             onClick: () => onCloseToLeft(tab.id),
           },
           {
             key: 'close-right',
-            label: 'Close Tabs to the Right',
+            label: t('panel.inspector.tabMenu.closeToRight'),
             icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-right" size={MENU_ICON_SIZE} />),
             disabled: tabIndex === tabs.length - 1,
             onClick: () => onCloseToRight(tab.id),
@@ -441,33 +456,33 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
           { type: 'divider' as const, key: 'div-2' },
           {
             key: 'split-and-move',
-            label: 'Split and Move',
+            label: t('panel.inspector.tabMenu.splitAndMove'),
             disabled: splitDisabled,
             children: [
               {
                 key: 'split-move-right',
-                label: 'Right',
+                label: t('panel.inspector.tabMenu.right'),
                 icon: menuIconWrap(<LayoutMenuIcon kind="split-right" size={MENU_ICON_SIZE} />),
                 disabled: splitDisabled,
                 onClick: () => onSplitAndMoveRight?.(tab.id),
               },
               {
                 key: 'split-move-left',
-                label: 'Left',
+                label: t('panel.inspector.tabMenu.left'),
                 icon: menuIconWrap(<LayoutMenuIcon kind="split-left" size={MENU_ICON_SIZE} />),
                 disabled: splitDisabled,
                 onClick: () => onSplitAndMoveLeft?.(tab.id),
               },
               {
                 key: 'split-move-down',
-                label: 'Down',
+                label: t('panel.inspector.tabMenu.down'),
                 icon: menuIconWrap(<LayoutMenuIcon kind="split-down" size={MENU_ICON_SIZE} />),
                 disabled: splitDisabled,
                 onClick: () => onSplitAndMoveDown?.(tab.id),
               },
               {
                 key: 'split-move-up',
-                label: 'Up',
+                label: t('panel.inspector.tabMenu.up'),
                 icon: menuIconWrap(<LayoutMenuIcon kind="split-up" size={MENU_ICON_SIZE} />),
                 disabled: splitDisabled,
                 onClick: () => onSplitAndMoveUp?.(tab.id),
@@ -478,7 +493,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
             ? ([
                 {
                   key: 'move-opposite',
-                  label: 'Move To Opposite Group',
+                  label: t('panel.inspector.tabMenu.moveToOppositeGroup'),
                   icon: menuIconWrap(
                     <LayoutMenuIcon
                       kind={
@@ -499,7 +514,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
             : []),
           {
             key: 'flip-orientation',
-            label: 'Change Splitter Orientation',
+            label: t('panel.inspector.tabMenu.changeSplitterOrientation'),
             icon: parentOrientation
               ? menuIconWrap(
                   <LayoutMenuIcon
@@ -513,7 +528,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
           },
           {
             key: 'unsplit',
-            label: 'Unsplit',
+            label: t('panel.inspector.tabMenu.unsplit'),
             icon: parentOrientation
               ? menuIconWrap(
                   <LayoutMenuIcon
@@ -529,7 +544,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
             ? ([
                 {
                   key: 'unsplit-all',
-                  label: 'Unsplit All',
+                  label: t('panel.inspector.tabMenu.unsplitAll'),
                   icon: menuIconWrap(<LayoutMenuIcon kind="unsplit-all" size={MENU_ICON_SIZE} />),
                   onClick: () => onUnsplitAll?.(),
                 },
@@ -539,6 +554,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
       };
     },
     [
+      t,
       tabs.length,
       onClose,
       onCloseOther,
@@ -593,8 +609,8 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
           type="button"
           className="dt-editor-tab-action"
           onClick={() => setTabSearchOpen((v) => !v)}
-          aria-label="Search tabs"
-          title="Search tabs"
+          aria-label={t('panel.inspector.tabBar.searchTabs')}
+          title={t('panel.inspector.tabBar.searchTabs')}
         >
           {'▾'}
         </button>

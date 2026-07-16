@@ -8,6 +8,8 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft, Rule } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useEffect, useMemo, useRef } from 'react';
 import { handOffApiRequestSeed } from '../data/api-request-handoff';
@@ -82,11 +84,16 @@ interface InspectorDetailContentProps {
   searchMatchIndex?: number;
 }
 
-const PAYLOAD_SECTION: { key: DetailSection; label: string } = { key: 'payload', label: 'Payload' };
-const COOKIES_SECTION: { key: DetailSection; label: string } = { key: 'cookies', label: 'Cookies' };
-const MESSAGES_SECTION: { key: DetailSection; label: string } = { key: 'messages', label: 'Messages' };
-const EVENTSTREAM_SECTION: { key: DetailSection; label: string } = { key: 'eventstream', label: 'EventStream' };
-const RAWDATA_SECTION: { key: DetailSection; label: string } = { key: 'rawdata', label: 'Raw Data' };
+interface SectionTab {
+  key: DetailSection;
+  labelKey: MessageKey;
+}
+
+const PAYLOAD_SECTION: SectionTab = { key: 'payload', labelKey: 'panel.inspector.sections.payload' };
+const COOKIES_SECTION: SectionTab = { key: 'cookies', labelKey: 'panel.inspector.sections.cookies' };
+const MESSAGES_SECTION: SectionTab = { key: 'messages', labelKey: 'panel.inspector.sections.messages' };
+const EVENTSTREAM_SECTION: SectionTab = { key: 'eventstream', labelKey: 'panel.inspector.sections.eventStream' };
+const RAWDATA_SECTION: SectionTab = { key: 'rawdata', labelKey: 'panel.inspector.sections.rawData' };
 
 function hasPayload(har: ReturnType<typeof currentHarEntry>): boolean {
   if (!har) return false;
@@ -202,6 +209,7 @@ export function InspectorDetailContent({
   searchLineNumber,
   searchMatchIndex,
 }: InspectorDetailContentProps) {
+  const t = useT();
   const rootRef = useRef<HTMLDivElement>(null);
   const tabBodyRef = useRef<HTMLDivElement>(null);
   const { localCollections } = useRules();
@@ -400,15 +408,15 @@ export function InspectorDetailContent({
   const mime = lifecycleMimeType(lc);
   const showEventStream =
     isEventStream(mime) || lc.resourceType === 'eventsource' || (lc.messages ?? []).some((m) => m.kind === 'sse');
-  const sections: Array<{ key: DetailSection; label: string }> = [
-    { key: 'headers', label: 'Headers' },
+  const sections: SectionTab[] = [
+    { key: 'headers', labelKey: 'panel.inspector.sections.headers' },
     ...(showMessages ? [MESSAGES_SECTION] : []),
     ...(showEventStream ? [EVENTSTREAM_SECTION] : []),
     ...(hasPayload(har) ? [PAYLOAD_SECTION] : []),
-    { key: 'preview', label: 'Preview' },
-    { key: 'response', label: 'Response' },
-    { key: 'initiator', label: 'Initiator' },
-    { key: 'timing', label: 'Timing' },
+    { key: 'preview', labelKey: 'panel.inspector.sections.preview' },
+    { key: 'response', labelKey: 'panel.inspector.sections.response' },
+    { key: 'initiator', labelKey: 'panel.inspector.sections.initiator' },
+    { key: 'timing', labelKey: 'panel.inspector.sections.timing' },
     ...(hasCookies(har) ? [COOKIES_SECTION] : []),
     RAWDATA_SECTION,
   ];
@@ -445,7 +453,7 @@ export function InspectorDetailContent({
             aria-selected={section === s.key}
             onClick={() => onSectionChange(s.key)}
           >
-            {s.label}
+            {t(s.labelKey)}
           </button>
         ))}
       </div>

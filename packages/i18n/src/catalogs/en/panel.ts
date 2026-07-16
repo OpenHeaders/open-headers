@@ -1123,4 +1123,57 @@ export const panel = {
   'panel.ruleHover.future.valueUnresolved': "value template can't be resolved — rule won't fire",
   'panel.ruleHover.future.separatorUnresolved': "mergeSeparator template can't be resolved — rule won't fire",
   'panel.ruleHover.future.templateTitle': 'Template: {template}',
+
+  // ── Inspector shell (editor tab bar + detail section tabs) ──────────
+  // Raw by design: method badges, status codes, tab labels (URLs, storage
+  // keys, cookie/cache identities), the IDB/SS/LS/CS chips, the wire-shaped
+  // pill hover title, and the ▾ / ▼ / ▶ / × glyphs beside keyed values.
+  'panel.inspector.tabBar.closeTab': 'Close tab',
+  'panel.inspector.tabBar.unsavedChanges': 'Unsaved changes',
+  'panel.inspector.tabBar.searchTabs': 'Search tabs',
+  'panel.inspector.tabBar.searchPlaceholder': 'Search tabs…',
+  'panel.inspector.tabBar.noOpenTabs': 'No open tabs',
+  'panel.inspector.tabBar.noOpenTabsMatch': 'No open tabs match your search',
+  'panel.inspector.tabBar.noClosedTabsMatch': 'No closed tabs match your search',
+  'panel.inspector.tabBar.recentlyClosed': 'Recently Closed ({count})',
+  'panel.inspector.tabBar.recentlyClosedFiltered': 'Recently Closed ({matched} of {total})',
+
+  // Tab context menu. Direction words are split directions, not the
+  // layout menu's alignment nouns — separate referents, separate keys.
+  'panel.inspector.tabMenu.close': 'Close',
+  'panel.inspector.tabMenu.closeOther': 'Close Other Tabs',
+  'panel.inspector.tabMenu.closeAll': 'Close All Tabs',
+  'panel.inspector.tabMenu.closeToLeft': 'Close Tabs to the Left',
+  'panel.inspector.tabMenu.closeToRight': 'Close Tabs to the Right',
+  'panel.inspector.tabMenu.splitAndMove': 'Split and Move',
+  'panel.inspector.tabMenu.right': 'Right',
+  'panel.inspector.tabMenu.left': 'Left',
+  'panel.inspector.tabMenu.down': 'Down',
+  'panel.inspector.tabMenu.up': 'Up',
+  'panel.inspector.tabMenu.moveToOppositeGroup': 'Move To Opposite Group',
+  'panel.inspector.tabMenu.changeSplitterOrientation': 'Change Splitter Orientation',
+  'panel.inspector.tabMenu.unsplit': 'Unsplit',
+  'panel.inspector.tabMenu.unsplitAll': 'Unsplit All',
+
+  // Detail section tabs — keyed but glossary-protected on translator
+  // handoff (host-panel tab nouns, same as the workbench tab nouns).
+  'panel.inspector.sections.headers': 'Headers',
+  'panel.inspector.sections.messages': 'Messages',
+  'panel.inspector.sections.eventStream': 'EventStream',
+  'panel.inspector.sections.payload': 'Payload',
+  'panel.inspector.sections.preview': 'Preview',
+  'panel.inspector.sections.response': 'Response',
+  'panel.inspector.sections.initiator': 'Initiator',
+  'panel.inspector.sections.timing': 'Timing',
+  'panel.inspector.sections.cookies': 'Cookies',
+  'panel.inspector.sections.rawData': 'Raw Data',
+
+  // Override-body CTA — shared by the Response tab and the Preview tab
+  // (same control, same rule target on both surfaces).
+  'panel.inspector.overrideCta.editOverride': 'Edit override',
+  'panel.inspector.overrideCta.editOverrideTitle':
+    'Edit the rule that produced this response — changes apply to future requests',
+  'panel.inspector.overrideCta.overrideResponse': 'Override Response',
+  'panel.inspector.overrideCta.overrideResponseTitle': 'Create a rule that serves this response as an editable mock',
+  'panel.inspector.overrideCta.fullResponse': 'Full response',
 } as const satisfies Catalog;

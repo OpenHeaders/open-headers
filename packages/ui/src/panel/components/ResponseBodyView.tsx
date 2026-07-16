@@ -1,4 +1,5 @@
 import type { ResponseRuleDraft, Rule } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   currentHarEntry,
@@ -50,6 +51,7 @@ export function ResponseBodyView({
   buildOverrideDraft,
   firedResponseRule,
 }: ResponseBodyViewProps) {
+  const t = useT();
   const rulePopover = useRulePopover();
   const lc = row.lifecycle;
   const declaredMime = lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
@@ -64,14 +66,14 @@ export function ResponseBodyView({
   // captured response.
   const overrideAction = firedResponseRule ? (
     <OverrideBodyButton
-      label="Edit override"
-      title="Edit the rule that produced this response — changes apply to future requests"
+      label={t('panel.inspector.overrideCta.editOverride')}
+      title={t('panel.inspector.overrideCta.editOverrideTitle')}
       onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedResponseRule }, { pinned: true })}
     />
   ) : buildOverrideDraft ? (
     <OverrideBodyButton
-      label="Override Response"
-      title="Create a rule that serves this response as an editable mock"
+      label={t('panel.inspector.overrideCta.overrideResponse')}
+      title={t('panel.inspector.overrideCta.overrideResponseTitle')}
       onClick={(e) =>
         rulePopover.open(
           { mode: 'create-response', anchorEl: e.currentTarget, draft: buildOverrideDraft(), requestId: lc.requestId },
@@ -108,7 +110,11 @@ export function ResponseBodyView({
 
     const onSwapSides = () => setSwapped((s) => !s);
     const modeButtons = canDiff ? (
-      <DualModeButtons mode={dualMode} onModeChange={setDualMode} splitModeLabel="Full response" />
+      <DualModeButtons
+        mode={dualMode}
+        onModeChange={setDualMode}
+        splitModeLabel={t('panel.inspector.overrideCta.fullResponse')}
+      />
     ) : undefined;
 
     if (showDiff && servedState.kind === 'text' && originalState.kind === 'text') {
