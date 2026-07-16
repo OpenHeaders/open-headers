@@ -319,8 +319,7 @@ const ImportSourceModal: React.FC<Props> = ({
                   or{' '}
                   <span style={{ whiteSpace: 'nowrap' }}>
                     <BrunoGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Bruno?
-                  </span>{' '}
-                  Import straight from your Postman account, or bring local tool data.
+                  </span>
                 </Text>
                 <Button
                   size="small"

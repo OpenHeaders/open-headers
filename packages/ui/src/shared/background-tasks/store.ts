@@ -20,12 +20,31 @@ export interface BackgroundTaskAction {
   run: () => void;
 }
 
+export interface BackgroundTaskStat {
+  /** Count column, right-aligned in the grid (pre-formatted). */
+  value: string;
+  label: string;
+}
+
+export interface BackgroundTaskFootnote {
+  /** Muted line rendered on its own row under the detail. */
+  text: string;
+  /** Explanation behind an (i) hover affordance next to the text. */
+  hint?: string;
+}
+
 export interface BackgroundTask {
   /** Stable producer-chosen identity — upserts replace by id. */
   id: string;
   title: string;
   /** Optional second line shown in the Processes popover. */
   detail?: string;
+  /** Aligned count/label rows rendered as a grid under the detail
+   *  (e.g. an import summary). */
+  stats?: readonly BackgroundTaskStat[];
+  /** Standalone muted line under the detail, with an optional (i)
+   *  hover explanation (e.g. a vendor-imposed quota). */
+  footnote?: BackgroundTaskFootnote;
   /** 0–100, or null for indeterminate. */
   percent: number | null;
   /** Renders the progress bar in its failure state. */
@@ -46,6 +65,12 @@ function commit(next: readonly BackgroundTask[]): void {
   for (const fn of listeners) fn();
 }
 
+function sameStats(a: readonly BackgroundTaskStat[] | undefined, b: readonly BackgroundTaskStat[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((stat, i) => stat.value === b[i].value && stat.label === b[i].label);
+}
+
 /** Insert the task, or update it in place when the id already exists. */
 export function upsertBackgroundTask(task: BackgroundTask): void {
   const index = tasks.findIndex((t) => t.id === task.id);
@@ -57,6 +82,9 @@ export function upsertBackgroundTask(task: BackgroundTask): void {
   if (
     existing.title === task.title &&
     existing.detail === task.detail &&
+    sameStats(existing.stats, task.stats) &&
+    existing.footnote?.text === task.footnote?.text &&
+    existing.footnote?.hint === task.footnote?.hint &&
     existing.percent === task.percent &&
     existing.error === task.error &&
     existing.done === task.done &&

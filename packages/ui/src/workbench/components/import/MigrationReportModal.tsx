@@ -102,7 +102,12 @@ const MigrationReportModal: React.FC<{
             ) : (
               <ExclamationCircleFilled style={{ color: token.colorWarning, fontSize: 13 }} />
             ))}
-          <Text strong>{workspace.workspaceName}</Text>
+          <Text
+            strong
+            style={{ whiteSpace: 'nowrap', flex: 'none', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {workspace.workspaceName}
+          </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {workspace.collections} collections · {workspace.environments} environments · {workspace.requests}{' '}
             requests{workspace.examples > 0 ? ` · ${workspace.examples} saved examples` : ''}
@@ -134,7 +139,7 @@ const MigrationReportModal: React.FC<{
       onOk={onClose}
       cancelButtonProps={{ style: { display: 'none' } }}
       okText="Close"
-      width={720}
+      width={840}
       centered
       maskClosable={false}
       // One scroll container: the modal stays in view and only its body

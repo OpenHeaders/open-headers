@@ -128,8 +128,13 @@ describe('deriveMigrationPullTask', () => {
     expect(task?.percent).toBe(25);
     expect(task?.detail).toContain('Pulled Users API');
     expect(task?.detail).toContain('3/12 items');
+    // The budget rides the structured footnote (own line + hover hint
+    // naming Postman as the quota's source), not the detail string.
     // Grouping separator is locale-dependent — match around it.
-    expect(task?.detail).toMatch(/9.?876 API calls left this month/);
+    expect(task?.detail).not.toContain('API calls');
+    expect(task?.footnote?.text).toMatch(/^9.?876 API calls left this month$/);
+    expect(task?.footnote?.hint).toContain('Postman');
+    expect(task?.footnote?.hint).toContain('not an Open Headers limit');
   });
 
   it('shows the pause countdown while rate limited, preferring the live tick', () => {
@@ -165,7 +170,13 @@ describe('deriveMigrationPullTask', () => {
     const task = deriveMigrationPullTask(state, null, onViewReport);
     expect(task?.title).toBe('Import finished');
     expect(task?.percent).toBe(100);
-    expect(task?.detail).toContain('8 collections, 4 environments, 42 requests');
+    // The summary counts render as aligned stat rows, not a sentence.
+    expect(task?.stats).toEqual([
+      { value: '1', label: 'workspace' },
+      { value: '8', label: 'collections' },
+      { value: '4', label: 'environments' },
+      { value: '42', label: 'requests' },
+    ]);
     expect(task?.detail).toContain('“Imported from Postman”');
     // The notes count moves next to the action button, out of the detail line.
     expect(task?.detail).not.toContain('import notes');
@@ -203,7 +214,7 @@ describe('deriveMigrationPullTask', () => {
       { kind: 'importing' },
       IMPORTED,
     );
-    expect(deriveMigrationPullTask(state, null)?.detail).toContain('Partial import:');
+    expect(deriveMigrationPullTask(state, null)?.detail).toContain('Partial import');
   });
 
   it('surfaces a failed pull as an error entry with the stop reason', () => {

@@ -145,15 +145,17 @@ describe('MigrateAccountPullModal', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(await screen.findByText('Close the import?')).toBeTruthy();
+    expect(await screen.findAllByText('Close the import?')).not.toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
 
+    // The dismissed confirm lingers hidden in jsdom (no exit motion), so
+    // later queries use the *AllBy* variants and act on the newest match.
     fireEvent.click(screen.getByRole('button', { name: 'Keep selecting' }));
-    await waitFor(() => expect(screen.queryByText('Close the import?')).toBeNull());
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Discard and close' }));
+    const discardButtons = await screen.findAllByRole('button', { name: 'Discard and close' });
+    fireEvent.click(discardButtons[discardButtons.length - 1]);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 

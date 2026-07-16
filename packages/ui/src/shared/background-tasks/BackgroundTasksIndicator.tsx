@@ -15,10 +15,10 @@
  * (e.g. "View report") renders there as a button under its row.
  */
 
-import { CheckCircleFilled, CloseOutlined, MinusOutlined } from '@ant-design/icons';
-import { Button, Progress, theme } from 'antd';
+import { CheckCircleFilled, CloseOutlined, InfoCircleOutlined, MinusOutlined } from '@ant-design/icons';
+import { Button, Progress, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type BackgroundTask,
@@ -162,6 +162,50 @@ const BackgroundTasksIndicator: React.FC = () => {
                 {task.detail && (
                   <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'pre-line' }}>
                     {task.detail}
+                  </div>
+                )}
+                {task.stats && task.stats.length > 0 && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      // Three count/label pairs per row; longer summaries
+                      // wrap onto further rows with the columns aligned.
+                      gridTemplateColumns: 'repeat(3, max-content max-content)',
+                      columnGap: 5,
+                      rowGap: 1,
+                      marginTop: 2,
+                      fontSize: 12,
+                      color: token.colorTextTertiary,
+                    }}
+                  >
+                    {task.stats.map((stat) => (
+                      <Fragment key={stat.label}>
+                        <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{stat.value}</span>
+                        <span style={{ marginRight: 10 }}>{stat.label}</span>
+                      </Fragment>
+                    ))}
+                  </div>
+                )}
+                {task.footnote && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: token.colorTextTertiary,
+                      marginTop: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                    }}
+                  >
+                    <span>{task.footnote.text}</span>
+                    {task.footnote.hint && (
+                      <Tooltip title={task.footnote.hint}>
+                        <InfoCircleOutlined
+                          aria-label="About this note"
+                          style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
+                        />
+                      </Tooltip>
+                    )}
                   </div>
                 )}
                 {task.action && (

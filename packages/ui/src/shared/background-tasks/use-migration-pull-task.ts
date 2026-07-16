@@ -20,7 +20,13 @@ import {
   startPullRunState,
 } from '@openheaders/core/import';
 import { useEffect, useRef } from 'react';
-import { type BackgroundTask, removeBackgroundTask, upsertBackgroundTask } from './store';
+import {
+  type BackgroundTask,
+  type BackgroundTaskFootnote,
+  type BackgroundTaskStat,
+  removeBackgroundTask,
+  upsertBackgroundTask,
+} from './store';
 
 const TASK_ID = 'migration-pull';
 
@@ -37,18 +43,25 @@ export function deriveMigrationPullTask(
 ): BackgroundTask | null {
   if (state.runId === null || state.phase === 'idle') return null;
 
-  const budgetNote =
+  const footnote: BackgroundTaskFootnote | undefined =
     state.budget.remainingMonth !== undefined
-      ? ` · ${state.budget.remainingMonth.toLocaleString()} API calls left this month`
-      : '';
+      ? {
+          text: `${state.budget.remainingMonth.toLocaleString()} API calls left this month`,
+          hint:
+            'Postman meters its own API — this is your Postman account’s remaining monthly quota, ' +
+            'not an Open Headers limit. The import paces itself to stay within it.',
+        }
+      : undefined;
+  const budgetNote = footnote ? { footnote } : {};
 
   switch (state.phase) {
     case 'enumerating':
       return {
         id: TASK_ID,
         title: 'Migrating from Postman',
-        detail: `Finding workspaces, collections, and environments…${budgetNote}`,
+        detail: 'Finding workspaces, collections, and environments…',
         percent: null,
+        ...budgetNote,
       };
     case 'pulling': {
       if (state.pause) {
@@ -56,8 +69,9 @@ export function deriveMigrationPullTask(
         return {
           id: TASK_ID,
           title: 'Migrating from Postman',
-          detail: `Rate limited — resuming in ${seconds}s${budgetNote}`,
+          detail: `Rate limited — resuming in ${seconds}s`,
           percent: state.totalItems > 0 ? Math.round((state.completedItems / state.totalItems) * 100) : null,
+          ...budgetNote,
         };
       }
       const last = state.lastItem;
@@ -65,8 +79,9 @@ export function deriveMigrationPullTask(
       return {
         id: TASK_ID,
         title: 'Migrating from Postman',
-        detail: `${itemNote}${state.completedItems}/${state.totalItems} items${budgetNote}`,
+        detail: `${itemNote}${state.completedItems}/${state.totalItems} items`,
         percent: state.totalItems > 0 ? Math.round((state.completedItems / state.totalItems) * 100) : null,
+        ...budgetNote,
       };
     }
     case 'importing':
@@ -79,15 +94,27 @@ export function deriveMigrationPullTask(
     case 'done': {
       if (state.imported) {
         const s = state.imported;
-        const counts = `${s.collections} collections, ${s.environments} environments, ${s.requests} requests${s.examples > 0 ? `, ${s.examples} saved examples` : ''}${s.globals > 0 ? `, ${s.globals} global variables` : ''}`;
+        const stat = (count: number, singular: string, plural: string): BackgroundTaskStat => ({
+          value: count.toLocaleString(),
+          label: count === 1 ? singular : plural,
+        });
+        const stats: BackgroundTaskStat[] = [
+          stat(s.workspaces.length, 'workspace', 'workspaces'),
+          stat(s.collections, 'collection', 'collections'),
+          stat(s.environments, 'environment', 'environments'),
+          stat(s.requests, 'request', 'requests'),
+        ];
+        if (s.examples > 0) stats.push(stat(s.examples, 'saved example', 'saved examples'));
+        if (s.globals > 0) stats.push(stat(s.globals, 'global variable', 'global variables'));
         const only = s.workspaces.length === 1 ? s.workspaces[0] : undefined;
         const target = only ? `into “${only.workspaceName}”` : `into ${s.workspaces.length} workspaces`;
         const notes = s.drops > 0 ? `${s.drops} import notes` : undefined;
-        const partial = state.outcome === 'partial' ? 'Partial import: ' : '';
+        const partial = state.outcome === 'partial' ? 'Partial import' : 'Imported';
         return {
           id: TASK_ID,
           title: 'Import finished',
-          detail: `${partial}${counts} ${target}${!onViewReport && notes ? ` · ${notes}` : ''}`,
+          detail: `${partial} ${target}${!onViewReport && notes ? ` · ${notes}` : ''}`,
+          stats,
           percent: 100,
           done: true,
           ...(onViewReport
