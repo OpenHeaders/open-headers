@@ -28,7 +28,7 @@ import { useState } from 'react';
  *  size). Pure — the caller passes its `useT()` translator (shared-
  *  module rule) — so the collapsed row's wording is pinnable in tests. */
 export function summarizeConditions(conditions: readonly RuleCondition[], t: Translate): string {
-  if (conditions.length === 0) return 'none — matches no requests';
+  if (conditions.length === 0) return t('panel.quickEditor.conditions.none');
   return conditions
     .map((c) => {
       const def = getTypeDef(c.type);
@@ -63,7 +63,7 @@ export function QuickConditionsRow({ value, onChange }: QuickConditionsRowProps)
         type="button"
         className="dt-quick-dest-toggle"
         onClick={() => setOpen((v) => !v)}
-        title="Show and edit when this rule fires"
+        title={t('panel.quickEditor.conditions.title')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -76,7 +76,7 @@ export function QuickConditionsRow({ value, onChange }: QuickConditionsRowProps)
       >
         {open ? <DownOutlined style={{ fontSize: 8 }} /> : <RightOutlined style={{ fontSize: 8 }} />}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-          Conditions{' '}
+          {t('panel.quickEditor.conditions.label')}{' '}
           <span style={{ color: value.length > 0 ? token.colorText : token.colorTextTertiary }}>
             {summarizeConditions(value, t)}
           </span>

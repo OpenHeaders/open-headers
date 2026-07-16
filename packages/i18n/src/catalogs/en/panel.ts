@@ -970,4 +970,53 @@ export const panel = {
   'panel.network.rungInfo.terminal.failed.connectionRefusedDesc': 'The server rejected or dropped the socket.',
   'panel.network.rungInfo.terminal.failed.timedOutDesc': "No answer within the network stack's time limit.",
   'panel.network.rungInfo.terminal.failed.certDesc': 'The TLS certificate failed validation.',
+
+  // ── Quick-editor popovers (station: quick-editor popover family) ────
+  // Raw by design: rule/collection/folder/header/param names, URLs,
+  // `{{template}}` chips, status codes + MIME values, code/JSON example
+  // placeholders (workbench keeps its message-filter examples raw too),
+  // the CSS / JS / GraphQL / cURL-style proper nouns, and core
+  // validator sentences (`validateHeaderName` / capability reasons —
+  // the core headers.ts plane is a later station). Field labels,
+  // operation options and placeholders that mirror a workbench control
+  // reuse that control's `workbench.editors.rule.fields.*` key
+  // (names-its-referent — the popover is the compact form of the same
+  // control).
+  'panel.quickEditor.clearRuleNameAria': 'Clear rule name',
+  'panel.quickEditor.renameTitle': '{name} — click to rename',
+  'panel.quickEditor.enabledOn': 'Enabled',
+  'panel.quickEditor.enabledOff': 'Disabled',
+  'panel.quickEditor.ruleEnabledAria': 'Rule enabled',
+  'panel.quickEditor.openInWorkspace': 'Open in workspace →',
+  'panel.quickEditor.saveButton': 'Save',
+  'panel.quickEditor.openToInspect': 'Open in workspace to inspect or change this rule.',
+  'panel.quickEditor.variableMissing': 'Variable missing — hover the red reference to create it and enable Save.',
+  'panel.quickEditor.retargetHint': 'Adjust the conditions below to retarget the rule.',
+
+  // Save/toggle toasts (create + edit chains share the not-found case).
+  'panel.quickEditor.toast.ruleUpdated': 'Rule updated',
+  'panel.quickEditor.toast.ruleNotFound': 'Rule not found — it may have been deleted.',
+  'panel.quickEditor.toast.saveFailed': 'Save failed',
+  'panel.quickEditor.toast.toggleFailed': 'Could not toggle the rule',
+  'panel.quickEditor.toast.changedElsewhere': 'Rule changed elsewhere — close and reopen the popover.',
+  'panel.quickEditor.toast.noWorkspace': 'No active workspace',
+  'panel.quickEditor.toast.collectionCreateFailed': 'Failed to create a collection for the rule',
+  'panel.quickEditor.toast.folderCreateFailed':
+    'Couldn’t create the “{name}” folder — saving at the collection root.',
+  'panel.quickEditor.toast.createFailed': 'Failed to create rule',
+  'panel.quickEditor.toast.createdDraft': 'Rule created as a draft — publish it from the workspace.',
+  'panel.quickEditor.toast.created': 'Rule created',
+
+  // Destination row ("Saving to" label + raw collection/folder names).
+  'panel.quickEditor.destination.title': 'Choose where the rule is saved',
+  'panel.quickEditor.destination.savingTo': 'Saving to',
+  'panel.quickEditor.destination.newTag': 'new',
+  'panel.quickEditor.destination.autoNamed': 'Auto — {folder}',
+  'panel.quickEditor.destination.autoRoot': 'Auto — collection root',
+  'panel.quickEditor.destination.root': 'Collection root',
+
+  // Conditions row ("Conditions" label + raw digest of the list).
+  'panel.quickEditor.conditions.title': 'Show and edit when this rule fires',
+  'panel.quickEditor.conditions.label': 'Conditions',
+  'panel.quickEditor.conditions.none': 'none — matches no requests',
 } as const satisfies Catalog;

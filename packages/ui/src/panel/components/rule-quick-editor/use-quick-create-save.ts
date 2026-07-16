@@ -24,6 +24,7 @@
 
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid, type RuleSeed, toFolderName } from '@openheaders/core/utils';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
@@ -73,13 +74,14 @@ export function useQuickCreateSave({
   message,
   onClose,
 }: UseQuickCreateSaveArgs): QuickCreateSaveApi {
+  const t = useT();
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       if (!workspaceId) {
-        message.error('No active workspace');
+        message.error(t('panel.quickEditor.toast.noWorkspace'));
         return;
       }
       const writeOpts = { workspaceId, surfaceId: 'devpanel' };
@@ -90,7 +92,7 @@ export function useQuickCreateSave({
         // collection instead of bouncing the user to the workbench.
         const collectionResult = await applyCollectionCreate({ name: NEW_RULES_COLLECTION_NAME }, writeOpts);
         if (!collectionResult.ok) {
-          message.error('Failed to create a collection for the rule');
+          message.error(t('panel.quickEditor.toast.collectionCreateFailed'));
           return;
         }
         collection = { uid: collectionResult.collection.uid, path: collectionResult.collection.path };
@@ -110,23 +112,23 @@ export function useQuickCreateSave({
         if (folderResult.ok) {
           parentPath = `${collection.path}/${toFolderName(destination.newFolderName, folderUid)}`;
         } else {
-          message.warning(`Couldn’t create the “${destination.newFolderName}” folder — saving at the collection root.`);
+          message.warning(t('panel.quickEditor.toast.folderCreateFailed', { name: destination.newFolderName }));
         }
       }
 
       const created = await mutator.createRule(buildSeed(), parentPath);
       if (!created.ok) {
         const detail = created.reason === 'other' ? created.message : undefined;
-        message.error(detail ?? 'Failed to create rule');
+        message.error(detail ?? t('panel.quickEditor.toast.createFailed'));
         return;
       }
       const published = await mutator.publishRule(created.rule.uid);
       if (!published.ok) {
-        message.warning('Rule created as a draft — publish it from the workspace.');
+        message.warning(t('panel.quickEditor.toast.createdDraft'));
         onClose();
         return;
       }
-      message.success('Rule created');
+      message.success(t('panel.quickEditor.toast.created'));
       onClose();
     } finally {
       setSaving(false);

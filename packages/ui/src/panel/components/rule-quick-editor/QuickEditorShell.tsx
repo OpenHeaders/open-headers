@@ -22,6 +22,7 @@ import { CloseCircleFilled, SaveOutlined } from '@ant-design/icons';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   PresenceBadge,
   useEditorDirty,
@@ -108,6 +109,7 @@ export function QuickEditorShell({
 }: QuickEditorShellProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const localInstanceId = useLocalInstanceId();
 
   // Product telemetry: every quick-editor body mounts through this
@@ -133,8 +135,8 @@ export function QuickEditorShell({
       if (!result.ok) {
         message.error(
           result.reason === 'not-found'
-            ? 'Rule not found — it may have been deleted.'
-            : (result.message ?? 'Could not toggle the rule'),
+            ? t('panel.quickEditor.toast.ruleNotFound')
+            : (result.message ?? t('panel.quickEditor.toast.toggleFailed')),
         );
       }
     } finally {
@@ -322,7 +324,7 @@ export function QuickEditorShell({
               />
               {nameDraft.length > 0 && (
                 <CloseCircleFilled
-                  aria-label="Clear rule name"
+                  aria-label={t('panel.quickEditor.clearRuleNameAria')}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setNameDraft('')}
                   style={{
@@ -351,7 +353,7 @@ export function QuickEditorShell({
                 minWidth: 0,
                 cursor: onRuleNameChange ? 'text' : undefined,
               }}
-              title={onRuleNameChange ? `${ruleName} — click to rename` : ruleName}
+              title={onRuleNameChange ? t('panel.quickEditor.renameTitle', { name: ruleName }) : ruleName}
               onClick={onRuleNameChange ? startEditingName : undefined}
             >
               {ruleName}
@@ -365,11 +367,11 @@ export function QuickEditorShell({
             <Switch
               size="small"
               checked={liveRule.enabled !== false}
-              checkedChildren="Enabled"
-              unCheckedChildren="Disabled"
+              checkedChildren={t('panel.quickEditor.enabledOn')}
+              unCheckedChildren={t('panel.quickEditor.enabledOff')}
               loading={toggling}
               onChange={(enabled) => void handleToggleEnabled(enabled)}
-              aria-label="Rule enabled"
+              aria-label={t('panel.quickEditor.ruleEnabledAria')}
               style={{ flexShrink: 0 }}
             />
           )}
@@ -402,11 +404,11 @@ export function QuickEditorShell({
           style={{ padding: 0, fontSize: 11 }}
           disabled={!(canOpenInEditor ?? !!liveRule)}
         >
-          Open in workspace →
+          {t('panel.quickEditor.openInWorkspace')}
         </Button>
         {save && (
           <Tooltip
-            title={<ShortcutHintTitle label={save.saveLabel}>Save</ShortcutHintTitle>}
+            title={<ShortcutHintTitle label={save.saveLabel}>{t('panel.quickEditor.saveButton')}</ShortcutHintTitle>}
             placement="bottomRight"
             zIndex={1090}
           >
@@ -422,7 +424,7 @@ export function QuickEditorShell({
                 ...(save.canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
               }}
             >
-              Save
+              {t('panel.quickEditor.saveButton')}
             </Button>
           </Tooltip>
         )}

@@ -9,6 +9,7 @@
  */
 
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ConfigProvider, Select, Tag, theme } from 'antd';
 import { useState } from 'react';
 import { listFolderOptions, type QuickFolderChoice } from '../../data/rule-create/quick-rule-destination';
@@ -18,6 +19,7 @@ const AUTO_VALUE = '__auto__';
 const ROOT_VALUE = '__root__';
 
 export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi }) {
+  const t = useT();
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
 
@@ -43,7 +45,7 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
 
   const newTag = (
     <Tag style={{ marginInlineStart: 4, marginInlineEnd: 0, fontSize: 9, lineHeight: '14px' }} color="green">
-      new
+      {t('panel.quickEditor.destination.newTag')}
     </Tag>
   );
 
@@ -53,7 +55,7 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
         type="button"
         className="dt-quick-dest-toggle"
         onClick={() => setOpen((v) => !v)}
-        title="Choose where the rule is saved"
+        title={t('panel.quickEditor.destination.title')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -66,7 +68,8 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
       >
         {open ? <DownOutlined style={{ fontSize: 8 }} /> : <RightOutlined style={{ fontSize: 8 }} />}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-          Saving to <span style={{ color: token.colorText }}>{api.collectionLabel}</span>
+          {t('panel.quickEditor.destination.savingTo')}{' '}
+          <span style={{ color: token.colorText }}>{api.collectionLabel}</span>
           {api.collectionIsNew && newTag}
           {api.folderLabel && (
             <>
@@ -97,9 +100,11 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
               options={[
                 {
                   value: AUTO_VALUE,
-                  label: api.autoFolderName ? `Auto — ${api.autoFolderName}` : 'Auto — collection root',
+                  label: api.autoFolderName
+                    ? t('panel.quickEditor.destination.autoNamed', { folder: api.autoFolderName })
+                    : t('panel.quickEditor.destination.autoRoot'),
                 },
-                { value: ROOT_VALUE, label: 'Collection root' },
+                { value: ROOT_VALUE, label: t('panel.quickEditor.destination.root') },
                 ...folderOptions.map((f) => ({
                   value: f.path,
                   label: `${' '.repeat(f.depth * 2)}${f.name}`,
