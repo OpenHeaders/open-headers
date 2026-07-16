@@ -197,6 +197,12 @@
   white-space: nowrap;
 }
 
+/* Worker-issued row marker (⚙) — sits between the type icon and the name. */
+.dt-col-name-gear {
+  flex: none;
+  opacity: 0.75;
+}
+
 .dt-col-dot {
   display: flex;
   align-items: center;

@@ -117,6 +117,8 @@ export interface LifecycleOverrides {
   /** Wrapper-capture plane (per-frame ws rule captures). */
   messageCaptures?: RequestLifecycle['messageCaptures'];
   messageCapturesDropped?: number;
+  /** Worker provenance — the SW-network plane's gear-row marker. */
+  issuedByWorker?: RequestLifecycle['issuedByWorker'];
   /**
    * Convenience for tests that only need to tweak a few fields on hop 0
    * without rebuilding the whole `har` array. Ignored when `har` is also
@@ -161,6 +163,7 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     ...(over.messagesDropped != null ? { messagesDropped: over.messagesDropped } : {}),
     ...(over.messageCaptures ? { messageCaptures: over.messageCaptures } : {}),
     ...(over.messageCapturesDropped != null ? { messageCapturesDropped: over.messageCapturesDropped } : {}),
+    ...(over.issuedByWorker ? { issuedByWorker: over.issuedByWorker } : {}),
     har,
     harBodyByHop: over.harBodyByHop ?? [],
   };

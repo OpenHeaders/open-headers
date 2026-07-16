@@ -416,3 +416,38 @@ describe('reduceClientUpdate — message-capture-appended', () => {
     expect(result.messageCapturesDropped).toBe(1);
   });
 });
+
+describe('reduceClientUpdate — worker provenance (started-only field)', () => {
+  it('inserts issuedByWorker at started and preserves it across patch and redirect', () => {
+    const inserted = reduceClientUpdate(undefined, {
+      kind: 'started',
+      lifecycle: makeLifecycle({ issuedByWorker: 'service-worker' }),
+    });
+    if (inserted === NOOP || inserted === null) throw new Error('expected state');
+    expect(inserted.issuedByWorker).toBe('service-worker');
+
+    const patched = reduceClientUpdate(inserted, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: { phase: 'headers-received', statusCode: 200 },
+    });
+    if (patched === NOOP || patched === null) throw new Error('expected state');
+    expect(patched.issuedByWorker).toBe('service-worker');
+
+    const redirected = reduceClientUpdate(patched, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'r1',
+      hop: {
+        sourceUrl: 'https://openheaders.io/a',
+        redirectUrl: 'https://openheaders.io/b',
+        statusCode: 301,
+        timestampMs: 150,
+      },
+      nextUrl: 'https://openheaders.io/b',
+    });
+    if (redirected === NOOP || redirected === null) throw new Error('expected state');
+    expect(redirected.issuedByWorker).toBe('service-worker');
+  });
+});

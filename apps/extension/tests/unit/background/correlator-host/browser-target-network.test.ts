@@ -116,6 +116,7 @@ describe('startBrowserTargetNetwork', () => {
     for (const update of started) {
       expect(update.lifecycle.requestId).toBe(storeId(TARGET, 'R1'));
       expect(update.lifecycle.url).toBe('https://api.openheaders.io/data.json');
+      expect(update.lifecycle.issuedByWorker).toBe('service-worker');
     }
   });
 

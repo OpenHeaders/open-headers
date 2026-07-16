@@ -140,7 +140,18 @@ export function startBrowserTargetNetwork(options: BrowserTargetNetworkOptions):
   };
 
   const correlator = new CdpCorrelator(adapter);
-  const offUpdates = correlator.subscribe(apply);
+  // Provenance (Phase B): every row this plane mints is worker-issued by
+  // construction — a worker target's Network stream contains only the
+  // worker's own exchanges — so stamp the additive `issuedByWorker` fact
+  // onto each `started` mint (started-only; never patched). The panel's
+  // gear glyph gates on it.
+  const offUpdates = correlator.subscribe((update) => {
+    apply(
+      update.kind === 'started'
+        ? { ...update, lifecycle: { ...update.lifecycle, issuedByWorker: 'service-worker' } }
+        : update,
+    );
+  });
 
   // Normalize once, then present per owner with only the `tabId` restamped —
   // the same raw event belongs to every tab whose main frame lives on the

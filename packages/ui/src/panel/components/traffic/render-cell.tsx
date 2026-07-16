@@ -75,6 +75,13 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
     return (
       <span className="dt-col-name">
         <ResourceIcon type={rawType} failed={failed} />
+        {/* Worker-issued rows carry the browser's gear glyph before the name
+            (its own ⚙ prefix for requests a service worker fired itself). */}
+        {lc.issuedByWorker !== undefined && (
+          <span className="dt-col-name-gear" title="Request issued by the origin's service worker">
+            ⚙
+          </span>
+        )}
         <span className="dt-col-name-text">{name}</span>
       </span>
     );

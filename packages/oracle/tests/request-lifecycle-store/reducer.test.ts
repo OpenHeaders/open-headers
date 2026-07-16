@@ -619,3 +619,38 @@ describe('reducer — override-attached (served/original capture)', () => {
     expect(result).toEqual({ kind: 'reject', reason: 'unknown-request' });
   });
 });
+
+describe('reducer — worker provenance (started-only field)', () => {
+  it('inserts issuedByWorker at started and preserves it across patch and redirect', () => {
+    const inserted = reduce(undefined, {
+      kind: 'started',
+      lifecycle: makeLifecycle({ issuedByWorker: 'service-worker' }),
+    });
+    if (inserted.kind !== 'insert') throw new Error('expected insert');
+    expect(inserted.next.issuedByWorker).toBe('service-worker');
+
+    const patched = reduce(inserted.next, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'req-1',
+      patch: { phase: 'headers-received', statusCode: 200 },
+    });
+    if (patched.kind !== 'update') throw new Error('expected update');
+    expect(patched.next.issuedByWorker).toBe('service-worker');
+
+    const redirected = reduce(patched.next, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'req-1',
+      hop: {
+        sourceUrl: 'https://api.openheaders.io/users',
+        redirectUrl: 'https://api.openheaders.io/v2/users',
+        statusCode: 301,
+        timestampMs: 1_500,
+      },
+      nextUrl: 'https://api.openheaders.io/v2/users',
+    });
+    if (redirected.kind !== 'update') throw new Error('expected update');
+    expect(redirected.next.issuedByWorker).toBe('service-worker');
+  });
+});

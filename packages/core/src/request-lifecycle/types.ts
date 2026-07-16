@@ -284,6 +284,16 @@ export interface RequestLifecycle {
    * already carries frame semantics in `resourceType` and leaves this unset.
    */
   readonly frameId?: string;
+  /**
+   * Set when this request was issued by a worker on the origin rather than
+   * by a page — the browser's gear-prefixed (⚙) Network rows. Currently the
+   * only worker plane that mints lifecycles is the service-worker one: rows
+   * from a CDP worker target (`target:<id>` session, SW-network Phase A/B).
+   * Stamped once at `started` by the minting plane and never patched —
+   * provenance is identity, not refinement. Absent on every page-issued row,
+   * so the panel gates the gear glyph on presence alone.
+   */
+  readonly issuedByWorker?: 'service-worker';
 
   // Phase machine (invariants 3, 6).
   readonly phase: RequestPhase;
