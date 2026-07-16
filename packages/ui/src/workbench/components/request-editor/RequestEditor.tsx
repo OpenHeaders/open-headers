@@ -176,6 +176,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const [liveRequest, setLiveRequest] = useState<Request | null>(null);
 
   const [sending, setSending] = useState(false);
+  // Pressing Stop suppresses the Send/Stop tooltip until the pointer
+  // leaves the button — the hint must not linger over the morph.
+  const [sendTooltipSuppressed, setSendTooltipSuppressed] = useState(false);
   // In-flight send id — mints per Send, backs the Stop button and tags
   // the live stream frames the response panel tails.
   const activeSendIdRef = useRef<string | null>(null);
@@ -643,6 +646,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const headerActions = (
     <Tooltip
       placement="bottom"
+      // Pressing Stop suppresses the tooltip until the pointer leaves —
+      // the hint must not linger over the morphed button.
+      open={sendTooltipSuppressed ? false : undefined}
+      onOpenChange={(open) => {
+        if (!open) setSendTooltipSuppressed(false);
+      }}
       title={
         sending ? (
           t('workbench.editors.request.send.stopTooltip')
@@ -677,7 +686,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             }
             size="small"
             data-testid="oh-request-stop"
-            onClick={handleStop}
+            onClick={() => {
+              setSendTooltipSuppressed(true);
+              handleStop();
+            }}
             style={{ fontSize: 11 }}
           >
             {t('workbench.editors.request.send.stop')}

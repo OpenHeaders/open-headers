@@ -15,7 +15,10 @@
  * floats over the list (instant jump, no animation). "Group by event
  * name" is CLUSTERING, not sorting — rows partition under collapsible
  * name headers, arrival order intact within each group, group order
- * following the direction's "new edge first" reading.
+ * ANCHORED to first appearance so groups never trade places mid-stream.
+ * Sort direction and grouping are the `requests.sseEvents*` SETTINGS —
+ * the toolbar writes the same global value the Settings page edits, so
+ * the choice survives Send/Stop remounts and applies everywhere.
  *
  * Rows expand into a mini viewer: the shared CodeEditor over the DATA
  * payload — lossless JSON print under the JSON grammar (int64 tokens
@@ -25,12 +28,25 @@
  * search. Search and Clear are display-only — the capture is never
  * touched, and Copy/Raw elsewhere still see the wire body.
  *
- * Perf laws (S8): the live feed is an append-only array + committed
- * count, so existing rows never re-mint; the display window is capped
- * at SHOW_STEP newest rows ("show older" pages down); and the format
- * plane (Monaco) engages per-row on expand only. Event names —
- * `message` for unnamed data events, `comment` for heartbeat blocks —
- * are wire grammar terms and deliberately stay untranslated.
+ * Perf shape (enterprise streams — tens of thousands of events):
+ *   • The live feed is an append-only array + committed count, so
+ *     existing rows never re-mint and per-item derivations (badge
+ *     name, preview, viewer content) cache on item identity.
+ *   • The list VIRTUALIZES on the shared row-window recipe (prefix
+ *     sums + binary search, the devtools panel's console/stream
+ *     machinery): every event is scroll-reachable — no paging, no row
+ *     cap — but only the viewport ± overscan is ever mounted. Heights
+ *     are pinned by construction (never measured).
+ *   • Per commit the index passes are O(visible events) of primitive
+ *     work; the DOM cost stays O(viewport).
+ *   • Scroll ANCHORS to row identity: while the user reads away from
+ *     the new edge, prepended/inserted rows shift content, and the
+ *     viewport is restored to the anchored row before paint. Following
+ *     the new edge pins to it (top for newest-first, bottom for
+ *     oldest-first).
+ * Event names — `message` for unnamed data events, `comment` for
+ * heartbeat blocks — are wire grammar terms and deliberately stay
+ * untranslated.
  */
 
 import {
@@ -47,8 +63,10 @@ import {
 } from '@ant-design/icons';
 import { Button, Dropdown, Input, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../../shared/CodeEditor';
 import { WrapLinesIcon } from './ViewPickerIcons';
 import { parseLosslessJson, stringifyLossless } from './lossless-json';
@@ -57,13 +75,17 @@ import type { SseEventItem } from './response-sse';
 
 const { Text } = Typography;
 
-/** Display window step — rows shown at once, and the page size each
- *  "show older" click adds. */
-const SHOW_STEP = 200;
-
 /** Inline preview cap — plenty for a row; the expanded viewer has the
  *  full payload. */
 const PREVIEW_MAX_CHARS = 400;
+
+/** Pinned border-box height of every single-line row (event, group
+ *  header, lifecycle) — the virtual window's arithmetic depends on
+ *  heights being exact by construction. */
+const SINGLE_ROW_PX = 28;
+/** Pinned height of an expanded row's mini viewer (180px editor +
+ *  1px divider). */
+const VIEWER_PX = 181;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -97,6 +119,14 @@ interface ResponseSseEventListProps {
   lifecycle: SseListLifecycle;
 }
 
+/** One display slot of the virtual list — heights are a closed
+ *  function of `kind`, so windowing never measures. */
+type ListEntry =
+  | { key: string; kind: 'ended' | 'connected' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'header'; name: string; count: number; collapsed: boolean }
+  | { key: string; kind: 'row'; index: number }
+  | { key: string; kind: 'viewer'; index: number };
+
 /** Stable badge palette — the same event name always lands on the same
  *  color within and across streams. */
 const BADGE_COLORS = ['blue', 'green', 'purple', 'magenta', 'cyan', 'volcano', 'geekblue', 'orange'] as const;
@@ -118,6 +148,18 @@ function badgeOf(record: SseEventItem['record']): { name: string; kind: 'named' 
 // Per-item derivations cached off the item's identity — items are
 // immutable once parsed, and the visible window re-derives per commit /
 // keystroke, so recomputing per render would rescan payloads.
+const badgeNameCache = new WeakMap<SseEventItem, string>();
+
+/** The item's group identity — the grouping pass walks the WHOLE log
+ *  per commit (the first-appearance anchor), so it's cached. */
+function badgeNameOf(item: SseEventItem): string {
+  const hit = badgeNameCache.get(item);
+  if (hit !== undefined) return hit;
+  const name = badgeOf(item.record).name;
+  badgeNameCache.set(item, name);
+  return name;
+}
+
 const previewCache = new WeakMap<SseEventItem, string>();
 
 function previewOf(item: SseEventItem): string {
@@ -203,6 +245,18 @@ function endedLabel(endedBy: SseStreamEndedBy, t: Translate): string {
   }
 }
 
+/** Last entry index whose top offset is at or above `scrollTop`. */
+function entryIndexAt(prefix: readonly number[], scrollTop: number): number {
+  let lo = 0;
+  let hi = prefix.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (prefix[mid] <= scrollTop) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
 /** Info popover body — computed on first open, not per row render. */
 const EventInfo: React.FC<{ item: SseEventItem }> = ({ item }) => {
   const t = useT();
@@ -239,30 +293,30 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [wrapLines, setWrapLines] = useState(true);
-  const [shownLimit, setShownLimit] = useState(SHOW_STEP);
-  // The stream is a timeline — the one meaningful order is arrival
-  // time: newest-first by default, flippable to oldest-first. New rows
-  // land at the top (newest-first) or the bottom (oldest-first); that
-  // edge is where the jump pill points.
-  const [newestFirst, setNewestFirst] = useState(true);
-  // Clustering, not sorting: rows partition under event-name headers,
-  // arrival order preserved within each group. Group order follows the
-  // sort direction (first group = the one with the newest activity in
-  // newest-first, the first-seen name in oldest-first).
-  const [groupByName, setGroupByName] = useState(false);
+  // Sort direction and grouping are SETTINGS — global, user-owned,
+  // written by this toolbar and the Settings page alike; a Send/Stop
+  // remount never resets them.
+  const [newestFirst, setNewestFirst] = useSetting('requests.sseEventsNewestFirst');
+  const [groupByName, setGroupByName] = useSetting('requests.sseEventsGroupByName');
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+
   // When the user has scrolled away from the edge where new rows land
   // and more events commit, a jump pill floats over the list instead
   // of the content moving under them.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const awayFromNewEdgeRef = useRef(false);
   const prevCountRef = useRef(count);
+  // Identity anchor recorded on every scroll: the entry under the
+  // viewport top + the offset into it — restored after list mutations
+  // so content never shifts under a reading user.
+  const anchorRef = useRef<{ key: string; offset: number } | null>(null);
   const [hasNewEvents, setHasNewEvents] = useState(false);
 
   const jumpToNewest = (toNewest: boolean) => {
     const el = scrollerRef.current;
     if (el) el.scrollTop = toNewest ? 0 : el.scrollHeight;
     awayFromNewEdgeRef.current = false;
+    anchorRef.current = null;
     setHasNewEvents(false);
   };
 
@@ -273,10 +327,10 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     setSearch('');
     setClearedCount(0);
     setExpanded(new Set<number>());
-    setShownLimit(SHOW_STEP);
     setCollapsedGroups(new Set<string>());
     setHasNewEvents(false);
     awayFromNewEdgeRef.current = false;
+    anchorRef.current = null;
     if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
   }, [items]);
 
@@ -289,57 +343,120 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   useEffect(() => {
     const grew = count > prevCountRef.current;
     prevCountRef.current = count;
-    if (!grew) return;
-    if (awayFromNewEdgeRef.current) {
-      setHasNewEvents(true);
-      return;
-    }
-    // Following the new edge in oldest-first: appended rows push the
-    // bottom away — pin back to it (newest-first needs nothing, the
-    // top stays the top).
-    if (!newestFirst) {
-      const el = scrollerRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    }
-  }, [count, newestFirst]);
+    if (grew && awayFromNewEdgeRef.current) setHasNewEvents(true);
+  }, [count]);
 
-  // Visible window, newest-first: walk down from the newest committed
-  // event, apply the search + clear, cap at the display window. One
-  // linear pass per commit/keystroke; matching scans the raw block
-  // text (name, data, comments and unknown fields all live there).
-  const visible = useMemo(() => {
+  // Every event index matching the search, newest-first — one linear
+  // pass of primitive work per commit/keystroke (the haystack is the
+  // raw block text: name, data, comments and unknown fields).
+  const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const rows: number[] = [];
-    let hiddenOlder = 0;
     for (let i = count - 1; i >= clearedCount; i--) {
       if (needle !== '' && !items[i].raw.toLowerCase().includes(needle)) continue;
-      if (rows.length < shownLimit) rows.push(i);
-      else hiddenOlder++;
+      rows.push(i);
     }
-    return { rows, hiddenOlder };
-  }, [items, count, clearedCount, search, shownLimit]);
+    return rows;
+  }, [items, count, clearedCount, search]);
 
-  // The window always keeps the NEWEST rows; oldest-first only flips
-  // the display order (≤ SHOW_STEP entries — a cheap copy).
   const displayRows = useMemo(
-    () => (newestFirst ? visible.rows : [...visible.rows].reverse()),
-    [visible, newestFirst],
+    () => (newestFirst ? visibleRows : [...visibleRows].reverse()),
+    [visibleRows, newestFirst],
   );
 
-  // Partition the display window under event-name headers, insertion-
-  // ordered over the direction-sorted rows — so group order follows
-  // the same "newest edge first" reading the flat list has.
+  // Partition the display rows under event-name headers. Group order
+  // ANCHORS to each name's first appearance in the log — a group never
+  // trades places once minted (new events only change its contents);
+  // only a brand-new name mints a group, at the new edge. The sort
+  // direction flips the reading of that fixed order, and rows within a
+  // group keep the direction's arrival order.
   const groups = useMemo(() => {
     if (!groupByName) return null;
+    const firstSeen = new Map<string, number>();
+    for (let i = clearedCount; i < count; i++) {
+      const name = badgeNameOf(items[i]);
+      if (!firstSeen.has(name)) firstSeen.set(name, i);
+    }
     const byName = new Map<string, number[]>();
     for (const index of displayRows) {
-      const name = badgeOf(items[index].record).name;
+      const name = badgeNameOf(items[index]);
       const bucket = byName.get(name);
       if (bucket) bucket.push(index);
       else byName.set(name, [index]);
     }
-    return [...byName.entries()];
-  }, [displayRows, groupByName, items]);
+    const anchored = [...byName.entries()].sort((a, b) => (firstSeen.get(a[0]) ?? 0) - (firstSeen.get(b[0]) ?? 0));
+    return newestFirst ? anchored.reverse() : anchored;
+  }, [displayRows, groupByName, items, count, clearedCount, newestFirst]);
+
+  const searching = search.trim() !== '';
+  const live = lifecycle.endedBy === undefined;
+
+  // The flat display list the virtual window runs over — lifecycle
+  // rows at their chronological edges, headers + rows (+ expanded
+  // viewers) between. O(display rows) pushes per commit.
+  const entries = useMemo<ListEntry[]>(() => {
+    const out: ListEntry[] = [];
+    const pushRow = (index: number) => {
+      out.push({ key: `r${index}`, kind: 'row', index });
+      if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
+    };
+    if (newestFirst) {
+      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+    } else {
+      out.push({ key: 'connected', kind: 'connected' });
+    }
+    if (live && count === 0) out.push({ key: 'waiting', kind: 'waiting' });
+    if (searching && displayRows.length === 0 && count > clearedCount) out.push({ key: 'none', kind: 'noMatches' });
+    if (groups !== null) {
+      for (const [name, indexes] of groups) {
+        const collapsed = collapsedGroups.has(name);
+        out.push({ key: `h${name}`, kind: 'header', name, count: indexes.length, collapsed });
+        if (!collapsed) for (const index of indexes) pushRow(index);
+      }
+    } else {
+      for (const index of displayRows) pushRow(index);
+    }
+    if (newestFirst) {
+      out.push({ key: 'connected', kind: 'connected' });
+    } else if (lifecycle.endedBy !== undefined) {
+      out.push({ key: 'ended', kind: 'ended' });
+    }
+    return out;
+  }, [newestFirst, lifecycle.endedBy, live, count, clearedCount, searching, displayRows, groups, expanded, collapsedGroups]);
+
+  const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
+
+  const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
+    scrollerRef,
+    heights,
+    entries.length > 0,
+  );
+
+  // Restore the identity anchor before paint after every list change:
+  // following the new edge pins to it; a reading user keeps the row
+  // under their viewport top exactly where it was. Skipped on an
+  // unlaid-out (jsdom) viewport, where everything renders anyway.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || el.clientHeight === 0) return;
+    if (!awayFromNewEdgeRef.current) {
+      const edgeTop = newestFirst ? 0 : Math.max(0, (prefix[prefix.length - 1] ?? 0) - el.clientHeight);
+      if (Math.abs(el.scrollTop - edgeTop) > 1) {
+        el.scrollTop = edgeTop;
+        onWindowScroll();
+      }
+      return;
+    }
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const idx = entries.findIndex((entry) => entry.key === anchor.key);
+    if (idx < 0) return;
+    const next = prefix[idx] + anchor.offset;
+    if (Math.abs(el.scrollTop - next) > 1) {
+      el.scrollTop = next;
+      onWindowScroll();
+    }
+  }, [entries, prefix, newestFirst, onWindowScroll]);
 
   const toggleGroup = (name: string) => {
     setCollapsedGroups((prev) => {
@@ -359,139 +476,193 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     });
   };
 
-  const searching = search.trim() !== '';
-  const live = lifecycle.endedBy === undefined;
-
-  const lifecycleRowStyle: React.CSSProperties = {
+  const singleRowStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    padding: '5px 10px',
+    height: SINGLE_ROW_PX,
+    boxSizing: 'border-box',
+    padding: '0 10px',
     borderBottom: `1px solid ${token.colorBorderSecondary}`,
+    overflow: 'hidden',
+  };
+
+  const lifecycleRowStyle: React.CSSProperties = {
+    ...singleRowStyle,
     color: token.colorTextSecondary,
     fontSize: 12,
   };
 
-  // Lifecycle rows sit at their chronological ends: connected at the
-  // oldest edge, ended at the newest — so they flip with the sort. The
-  // row at the very bottom of the scroller drops its divider.
-  const endedRow =
-    lifecycle.endedBy !== undefined ? (
-      <div
-        data-testid="oh-sse-lifecycle-row"
-        style={{ ...lifecycleRowStyle, ...(newestFirst ? {} : { borderBottom: 'none' }) }}
-      >
-        <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-        <span>
-          {endedLabel(lifecycle.endedBy, t)}
-          {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
-        </span>
-        {lifecycle.endedAt !== undefined && (
-          <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-            {formatEventTime(lifecycle.endedAt)}
-          </span>
-        )}
-      </div>
-    ) : null;
+  /** First display index of a group — the badge KIND for its header
+   *  (named/comment styling) comes from any member; the group count is
+   *  small, so the lookup stays trivial. */
+  const groupsHeadIndex = (name: string): number => {
+    const found = groups?.find(([groupName]) => groupName === name);
+    return found ? found[1][0] : 0;
+  };
 
-  const connectedRow = (
-    <div
-      data-testid="oh-sse-connected-row"
-      style={{ ...lifecycleRowStyle, ...(newestFirst ? { borderBottom: 'none' } : {}) }}
-    >
-      <ApiOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {t('workbench.editors.request.response.sse.connected', { url: lifecycle.url })}
-      </span>
-      {lifecycle.connectedAt !== undefined && (
-        <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-          {formatEventTime(lifecycle.connectedAt)}
-        </span>
-      )}
-    </div>
-  );
-
-  // One event row (+ its expanded mini viewer) — shared between the
-  // flat list and the grouped view; `index` names one immutable event.
-  const renderEventRow = (index: number) => {
-    const item = items[index];
-    const badge = badgeOf(item.record);
-    const isExpanded = expanded.has(index);
-    const ts = timestamps?.[index];
-    const viewer = isExpanded ? viewerContentOf(item) : null;
-    return (
-      <Fragment key={index}>
-        <div
-          role="button"
-          tabIndex={0}
-          aria-expanded={isExpanded}
-          data-testid="oh-sse-event-row"
-          onClick={() => toggleRow(index)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              toggleRow(index);
-            }
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '4px 10px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            cursor: 'pointer',
-          }}
-        >
-          <ArrowDownOutlined aria-hidden style={{ fontSize: 10, color: token.colorTextTertiary }} />
-          <Tag
-            data-testid="oh-sse-event-badge"
-            color={badge.kind === 'named' ? badgeColor(badge.name) : undefined}
-            style={{
-              marginInlineEnd: 0,
-              fontSize: 11,
-              lineHeight: '18px',
-              flexShrink: 0,
-              ...(badge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-            }}
-          >
-            {badge.name}
-          </Tag>
-          <span
-            style={{
-              ...cellFont,
-              color: token.colorTextSecondary,
-              flex: 1,
-              minWidth: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {previewOf(item)}
-          </span>
-          {ts !== undefined && (
-            <span
-              data-testid="oh-sse-event-time"
-              style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-            >
-              {formatEventTime(ts)}
+  const renderEntry = (entry: ListEntry): React.ReactNode => {
+    switch (entry.kind) {
+      case 'ended': {
+        if (lifecycle.endedBy === undefined) return null;
+        return (
+          <div key={entry.key} data-testid="oh-sse-lifecycle-row" style={lifecycleRowStyle}>
+            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {endedLabel(lifecycle.endedBy, t)}
+              {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
             </span>
-          )}
-          <Popover content={<EventInfo item={item} />} placement="left">
-            <InfoCircleOutlined
-              data-testid="oh-sse-event-info"
-              aria-label={t('workbench.editors.request.response.sse.eventInfoAria')}
-              onClick={(event) => event.stopPropagation()}
-              style={{ fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-            />
-          </Popover>
-        </div>
-        {viewer !== null && (
+            {lifecycle.endedAt !== undefined && (
+              <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
+                {formatEventTime(lifecycle.endedAt)}
+              </span>
+            )}
+          </div>
+        );
+      }
+      case 'connected':
+        return (
+          <div key={entry.key} data-testid="oh-sse-connected-row" style={lifecycleRowStyle}>
+            <ApiOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {t('workbench.editors.request.response.sse.connected', { url: lifecycle.url })}
+            </span>
+            {lifecycle.connectedAt !== undefined && (
+              <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
+                {formatEventTime(lifecycle.connectedAt)}
+              </span>
+            )}
+          </div>
+        );
+      case 'waiting':
+        return (
+          <div key={entry.key} style={lifecycleRowStyle}>
+            <span>{t('workbench.editors.request.response.sse.waiting')}</span>
+          </div>
+        );
+      case 'noMatches':
+        return (
+          <div key={entry.key} style={lifecycleRowStyle}>
+            <span>{t('workbench.editors.request.response.sse.noMatches')}</span>
+          </div>
+        );
+      case 'header': {
+        const headBadge = badgeOf(items[groupsHeadIndex(entry.name)].record);
+        return (
           <div
+            key={entry.key}
+            role="button"
+            tabIndex={0}
+            aria-expanded={!entry.collapsed}
+            data-testid="oh-sse-group-header"
+            onClick={() => toggleGroup(entry.name)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleGroup(entry.name);
+              }
+            }}
+            style={{ ...singleRowStyle, background: token.colorFillQuaternary, cursor: 'pointer' }}
+          >
+            <CaretRightOutlined
+              aria-hidden
+              rotate={entry.collapsed ? 0 : 90}
+              style={{ fontSize: 10, color: token.colorTextTertiary }}
+            />
+            <Tag
+              color={headBadge.kind === 'named' ? badgeColor(entry.name) : undefined}
+              style={{
+                marginInlineEnd: 0,
+                fontSize: 11,
+                lineHeight: '18px',
+                flexShrink: 0,
+                ...(headBadge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+              }}
+            >
+              {entry.name}
+            </Tag>
+            <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+              {t('workbench.editors.request.response.sse.eventCount', { count: entry.count })}
+            </Text>
+          </div>
+        );
+      }
+      case 'row': {
+        const item = items[entry.index];
+        const badge = badgeOf(item.record);
+        const isExpanded = expanded.has(entry.index);
+        const ts = timestamps?.[entry.index];
+        return (
+          <div
+            key={entry.key}
+            role="button"
+            tabIndex={0}
+            aria-expanded={isExpanded}
+            data-testid="oh-sse-event-row"
+            onClick={() => toggleRow(entry.index)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleRow(entry.index);
+              }
+            }}
+            style={{ ...singleRowStyle, cursor: 'pointer' }}
+          >
+            <ArrowDownOutlined aria-hidden style={{ fontSize: 10, color: token.colorTextTertiary }} />
+            <Tag
+              data-testid="oh-sse-event-badge"
+              color={badge.kind === 'named' ? badgeColor(badge.name) : undefined}
+              style={{
+                marginInlineEnd: 0,
+                fontSize: 11,
+                lineHeight: '18px',
+                flexShrink: 0,
+                ...(badge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+              }}
+            >
+              {badge.name}
+            </Tag>
+            <span
+              style={{
+                ...cellFont,
+                color: token.colorTextSecondary,
+                flex: 1,
+                minWidth: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {previewOf(item)}
+            </span>
+            {ts !== undefined && (
+              <span
+                data-testid="oh-sse-event-time"
+                style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
+              >
+                {formatEventTime(ts)}
+              </span>
+            )}
+            <Popover content={<EventInfo item={item} />} placement="left">
+              <InfoCircleOutlined
+                data-testid="oh-sse-event-info"
+                aria-label={t('workbench.editors.request.response.sse.eventInfoAria')}
+                onClick={(event) => event.stopPropagation()}
+                style={{ fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
+              />
+            </Popover>
+          </div>
+        );
+      }
+      case 'viewer': {
+        const viewer = viewerContentOf(items[entry.index]);
+        return (
+          <div
+            key={entry.key}
             data-testid="oh-sse-event-viewer"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
-            style={{ height: 180, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+            style={{ height: VIEWER_PX - 1, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
           >
             <CodeEditor
               value={viewer.value}
@@ -502,26 +673,15 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
               wordWrapOverride={wrapLines ? 'on' : 'off'}
             />
           </div>
-        )}
-      </Fragment>
-    );
+        );
+      }
+      default: {
+        const _exhaustive: never = entry;
+        void _exhaustive;
+        return null;
+      }
+    }
   };
-
-  // "Show older" sits at the OLDEST edge of the window it extends.
-  const showOlderRow =
-    visible.hiddenOlder > 0 ? (
-      <div style={{ ...lifecycleRowStyle, justifyContent: 'center' }}>
-        <Button
-          size="small"
-          type="link"
-          data-testid="oh-sse-show-older"
-          style={{ fontSize: 11 }}
-          onClick={() => setShownLimit((prev) => prev + SHOW_STEP)}
-        >
-          {t('workbench.editors.request.response.sse.showOlder', { count: visible.hiddenOlder })}
-        </Button>
-      </div>
-    ) : null;
 
   return (
     <div
@@ -577,7 +737,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
                     {groupByName && <CheckOutlined style={{ color: token.colorPrimary }} />}
                   </span>
                 ),
-                onClick: () => setGroupByName((prev) => !prev),
+                onClick: () => setGroupByName(!groupByName),
               },
             ],
           }}
@@ -648,7 +808,15 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             const el = e.currentTarget;
             const away = newestFirst ? el.scrollTop > 4 : el.scrollHeight - el.scrollTop - el.clientHeight > 4;
             awayFromNewEdgeRef.current = away;
-            if (!away) setHasNewEvents(false);
+            if (away) {
+              const idx = entryIndexAt(prefix, el.scrollTop);
+              const entry = entries[idx];
+              if (entry) anchorRef.current = { key: entry.key, offset: el.scrollTop - prefix[idx] };
+            } else {
+              anchorRef.current = null;
+              setHasNewEvents(false);
+            }
+            onWindowScroll();
           }}
           className="rules-thin-scrollbar"
           style={{
@@ -660,75 +828,9 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             borderRadius: 4,
           }}
         >
-        {newestFirst ? endedRow : connectedRow}
-        {live && count === 0 && (
-          <div style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.request.response.sse.waiting')}</span>
-          </div>
-        )}
-        {searching && visible.rows.length === 0 && count > clearedCount && (
-          <div style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.request.response.sse.noMatches')}</span>
-          </div>
-        )}
-        {!newestFirst && showOlderRow}
-        {groups !== null
-          ? groups.map(([name, indexes]) => {
-              const collapsed = collapsedGroups.has(name);
-              const headBadge = badgeOf(items[indexes[0]].record);
-              return (
-                <Fragment key={name}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={!collapsed}
-                    data-testid="oh-sse-group-header"
-                    onClick={() => toggleGroup(name)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        toggleGroup(name);
-                      }
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '4px 10px',
-                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                      background: token.colorFillQuaternary,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <CaretRightOutlined
-                      aria-hidden
-                      rotate={collapsed ? 0 : 90}
-                      style={{ fontSize: 10, color: token.colorTextTertiary }}
-                    />
-                    <Tag
-                      color={headBadge.kind === 'named' ? badgeColor(name) : undefined}
-                      style={{
-                        marginInlineEnd: 0,
-                        fontSize: 11,
-                        lineHeight: '18px',
-                        flexShrink: 0,
-                        ...(headBadge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-                      }}
-                    >
-                      {name}
-                    </Tag>
-                    <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {t('workbench.editors.request.response.sse.eventCount', { count: indexes.length })}
-                    </Text>
-                  </div>
-                  {!collapsed && indexes.map((index) => renderEventRow(index))}
-                </Fragment>
-              );
-            })
-          : displayRows.map((index) => renderEventRow(index))}
-        {newestFirst && showOlderRow}
-            // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only — an index names one immutable event.
-        {newestFirst ? connectedRow : endedRow}
+          <div aria-hidden style={{ height: topPadPx }} />
+          {entries.slice(start, end).map(renderEntry)}
+          <div aria-hidden style={{ height: bottomPadPx }} />
         </div>
       </div>
     </div>

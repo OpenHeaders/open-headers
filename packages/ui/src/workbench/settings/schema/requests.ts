@@ -10,6 +10,8 @@ import { registerSetting } from '../registry';
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'requests.responseBodyCapMB': number;
+    'requests.sseEventsNewestFirst': boolean;
+    'requests.sseEventsGroupByName': boolean;
   }
 }
 
@@ -29,4 +31,31 @@ registerSetting({
   tags: ['response', 'body', 'truncate', 'limit', 'size', 'cap'],
   scope: 'user',
   numberRange: { min: 1, max: getCurrentHost() === 'desktop' ? 100 : 10, step: 1 },
+});
+
+// The SSE event list's order and grouping — written by the list's own
+// toolbar too (one global value, no session/default split), so the
+// choice survives Send/Stop remounts and reads the same everywhere.
+registerSetting({
+  key: 'requests.sseEventsNewestFirst',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.sseEventsNewestFirst.label',
+  descriptionKey: 'workbench.settings.def.requests.sseEventsNewestFirst.description',
+  category: 'requests',
+  tags: ['sse', 'stream', 'events', 'sort', 'order', 'newest', 'oldest'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'requests.sseEventsGroupByName',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.sseEventsGroupByName.label',
+  descriptionKey: 'workbench.settings.def.requests.sseEventsGroupByName.description',
+  category: 'requests',
+  tags: ['sse', 'stream', 'events', 'group', 'cluster', 'name'],
+  scope: 'user',
 });

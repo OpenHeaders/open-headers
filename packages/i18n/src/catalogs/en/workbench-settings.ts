@@ -1333,6 +1333,12 @@ export const workbenchSettings = {
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Response Body Limit (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',
+  'workbench.settings.def.requests.sseEventsNewestFirst.label': 'SSE Events: Newest First',
+  'workbench.settings.def.requests.sseEventsNewestFirst.description':
+    'Order of the Server-Sent Events list — newest events at the top. Turn off to read oldest first. The list toolbar changes this same setting.',
+  'workbench.settings.def.requests.sseEventsGroupByName.label': 'SSE Events: Group by Event Name',
+  'workbench.settings.def.requests.sseEventsGroupByName.description':
+    'Cluster the Server-Sent Events list under collapsible event-name headers, arrival order kept within each group. The list toolbar changes this same setting.',
 
   // ── Rules Engine category defs ─────────────────────────────────────
   'workbench.settings.def.rulesEngine.paused.label': 'Pause Rule Execution',

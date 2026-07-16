@@ -16,6 +16,9 @@
 
 import ResponseSseEventList from '@openheaders/ui/workbench/components/request-editor/response/ResponseSseEventList';
 import { parseSseEventItems } from '@openheaders/ui/workbench/components/request-editor/response/response-sse';
+// Registers the requests.* settings the list's toolbar reads/writes.
+import '@openheaders/ui/workbench/settings/schema/requests';
+import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -38,7 +41,12 @@ beforeAll(() => {
   }
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // The sort/group choices are GLOBAL settings — reset between tests.
+  resetSetting('requests.sseEventsNewestFirst');
+  resetSetting('requests.sseEventsGroupByName');
+});
 
 const BODY = [
   'event: tick',
@@ -227,30 +235,44 @@ describe('ResponseSseEventList group by event name', () => {
     fireEvent.click(await screen.findByText('Group by event name'));
   }
 
-  it('clusters rows under name headers — newest activity first, arrival order within', async () => {
+  it('clusters rows under name headers — anchored to first appearance, arrival order within', async () => {
     const items = itemsOf(GROUP_BODY);
     render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
     await enableGrouping();
     const headers = screen.getAllByTestId('oh-sse-group-header');
     expect(headers).toHaveLength(3);
-    // Newest-first reading: the comment block is the latest event, the
-    // tick group follows (its newest member is seq 3), message last.
+    // Group order anchors to first appearance (tick → message →
+    // comment), read newest-minted first — new events never make
+    // existing groups trade places.
     expect(headers[0].textContent).toContain('comment');
-    expect(headers[1].textContent).toContain('tick');
-    expect(headers[1].textContent).toContain('2 events');
-    expect(headers[2].textContent).toContain('message');
+    expect(headers[1].textContent).toContain('message');
+    expect(headers[2].textContent).toContain('tick');
+    expect(headers[2].textContent).toContain('2 events');
     const rows = screen.getAllByTestId('oh-sse-event-row');
     expect(rows).toHaveLength(4);
     // Within the tick group, arrival order (newest-first) holds.
-    expect(rows[1].textContent).toContain('"seq": 3');
-    expect(rows[2].textContent).toContain('"seq": 1');
+    expect(rows[2].textContent).toContain('"seq": 3');
+    expect(rows[3].textContent).toContain('"seq": 1');
+  });
+
+  it('anchored group order holds as new events commit to an old group', async () => {
+    const items = itemsOf(GROUP_BODY);
+    const { rerender } = render(<ResponseSseEventList items={items} count={3} lifecycle={LIFECYCLE} />);
+    await enableGrouping();
+    // Committing the comment block (newest) after tick/message groups
+    // exist mints ITS group at the new edge; tick/message stay put.
+    rerender(<ResponseSseEventList items={items} count={4} lifecycle={LIFECYCLE} />);
+    const headers = screen.getAllByTestId('oh-sse-group-header');
+    expect(headers[0].textContent).toContain('comment');
+    expect(headers[1].textContent).toContain('message');
+    expect(headers[2].textContent).toContain('tick');
   });
 
   it('collapsing a group hides its rows; expanding restores them', async () => {
     const items = itemsOf(GROUP_BODY);
     render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
     await enableGrouping();
-    const tickHeader = screen.getAllByTestId('oh-sse-group-header')[1];
+    const tickHeader = screen.getAllByTestId('oh-sse-group-header')[2];
     fireEvent.click(tickHeader);
     expect(tickHeader.getAttribute('aria-expanded')).toBe('false');
     expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(2);
@@ -284,23 +306,51 @@ describe('ResponseSseEventList group by event name', () => {
     expect(screen.getAllByTestId('oh-sse-group-header')).toHaveLength(2);
     expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(3);
   });
+
+  it('sort/group choices are global settings that survive remounts (Send/Stop lifecycle)', async () => {
+    const items = itemsOf(GROUP_BODY);
+    const first = render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    await enableGrouping();
+    expect(screen.getAllByTestId('oh-sse-group-header').length).toBeGreaterThan(0);
+    first.unmount();
+    // A fresh instance (the live→materialized remount) reads the same
+    // setting — grouping stays on until the user changes it.
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    expect(screen.getAllByTestId('oh-sse-group-header').length).toBeGreaterThan(0);
+  });
 });
 
-describe('ResponseSseEventList display window', () => {
-  it('caps visible rows and pages down with "show older"', () => {
+describe('ResponseSseEventList virtualization', () => {
+  it('every event is reachable — no cap, no pager', () => {
     const body = Array.from({ length: 250 }, (_, i) => `data: {"seq":${i}}\n`).join('\n');
     const items = itemsOf(`${body}\n`);
     expect(items).toHaveLength(250);
     render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    // jsdom's zero-height viewport takes the shared window hook's
+    // render-everything fallback — the full list, no pager row.
     const rows = screen.getAllByTestId('oh-sse-event-row');
-    expect(rows).toHaveLength(200);
-    // Newest-first: the top row is the last event.
+    expect(rows).toHaveLength(250);
     expect(rows[0].textContent).toContain('"seq": 249');
-    const older = screen.getByTestId('oh-sse-show-older');
-    expect(older.textContent).toContain('50');
-    fireEvent.click(older);
-    expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(250);
+    expect(rows[249].textContent).toContain('"seq": 0');
     expect(screen.queryByTestId('oh-sse-show-older')).toBeNull();
+  });
+
+  it('mounts only the viewport slice once the scroller has layout', () => {
+    const body = Array.from({ length: 1000 }, (_, i) => `data: {"seq":${i}}\n`).join('\n');
+    const items = itemsOf(`${body}\n`);
+    const { container } = render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const scroller = container.querySelector('.rules-thin-scrollbar');
+    if (!scroller) throw new Error('scroller must render');
+    Object.defineProperty(scroller, 'clientHeight', { value: 400 });
+    fireEvent.scroll(scroller, { target: { scrollTop: 0 } });
+    // 400px viewport + 600px overscan at 28px rows ≈ 36 rows — three
+    // orders below the 1000-row log.
+    const mounted = screen.getAllByTestId('oh-sse-event-row').length;
+    expect(mounted).toBeGreaterThan(10);
+    expect(mounted).toBeLessThan(100);
+    // Scrolled to the far end, the tail rows mount instead.
+    fireEvent.scroll(scroller, { target: { scrollTop: 27000 } });
+    expect(screen.getAllByTestId('oh-sse-event-row')[0].textContent).not.toContain('"seq": 999');
   });
 });
 
