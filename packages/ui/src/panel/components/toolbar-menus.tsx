@@ -107,7 +107,12 @@ export function MoreFiltersMenu({
           checked={filterConfig.onlyRuleApplied}
           onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyRuleApplied: e.target.checked })}
         />
-        {t('panel.moreFilters.ruleApplied')}
+        {/* The OH mark prefixes the label (the header CTAs' idiom) so the
+            entry reads as an Open Headers rule action among host filters. */}
+        <span>
+          <span className="dt-oh-mark" style={{ marginRight: 5 }} />
+          {t('panel.moreFilters.ruleApplied')}
+        </span>
       </label>
       <div className="dt-morefilters-divider" />
       <button
