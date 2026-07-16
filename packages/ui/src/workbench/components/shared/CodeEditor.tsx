@@ -63,6 +63,11 @@ interface CodeEditorProps {
    *  open the shared JWT modal and write the edited token back in
    *  place. Off by default; the raw request-body editor opts in. */
   valueDetection?: boolean;
+  /** When true, Monaco's link plane is on: web urls and provider links
+   *  (e.g. the spec editor's `$ref` targets) render underlined with
+   *  the "Follow link (cmd/ctrl+click)" affordance. Off by default —
+   *  "Follow link" on urls in a request body/script adds nothing. */
+  linkDetection?: boolean;
   /** Where the Find / Replace / Format cluster renders. `'corner'`
    *  (default) keeps the hover overlay inside the editor; `'external'`
    *  suppresses it — the host renders a `CodeEditorActions` in its own
@@ -86,6 +91,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onEditorMount,
   wordWrapOverride,
   valueDetection = false,
+  linkDetection = false,
   actions = 'corner',
   actionsRef,
 }) => {
@@ -194,11 +200,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
-    // No web-url link detection — "Follow link" on urls in a request
-    // body/script adds nothing. The JWT edit affordance doesn't ride
-    // the link machinery (it's decoration-driven, see value-editors),
-    // so it survives this being off.
-    links: false,
+    // Link plane off unless the host opts in (`linkDetection` — the
+    // spec editor's `$ref` / url affordance). The JWT edit affordance
+    // doesn't ride the link machinery (it's decoration-driven, see
+    // value-editors), so it survives this being off.
+    links: linkDetection,
     fontFamily,
     fontSize,
     fontLigatures,

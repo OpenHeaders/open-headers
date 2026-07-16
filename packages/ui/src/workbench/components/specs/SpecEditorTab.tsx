@@ -383,6 +383,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
                   onChange={setDraft}
                   language={specFileLanguage(rootFile.fileName)}
                   variableAutoComplete={false}
+                  linkDetection
                   onEditorMount={handleEditorMount}
                 />
               </div>

@@ -94,6 +94,41 @@ export function specPathAtOffset(doc: Document, offset: number): SpecPathHit | n
   return walkNode(doc.contents, offset, []);
 }
 
+export interface SpecRefSite {
+  /** The reference value's token span (the link underline range). */
+  start: number;
+  end: number;
+  /** The local JSON Pointer (`#/components/…`). */
+  pointer: string;
+}
+
+function collectRefs(node: unknown, sites: SpecRefSite[]): void {
+  if (isMap(node)) {
+    for (const pair of node.items) {
+      if (keyString(pair) === '$ref' && isScalar(pair.value) && typeof pair.value.value === 'string') {
+        const pointer = pair.value.value;
+        const range = tokenRange(pair.value);
+        if (pointer.startsWith('#/') && range !== null) {
+          sites.push({ start: range[0], end: range[1], pointer });
+        }
+        continue;
+      }
+      collectRefs(pair.value, sites);
+    }
+    return;
+  }
+  if (isSeq(node)) {
+    for (const item of node.items) collectRefs(item, sites);
+  }
+}
+
+/** Every local `$ref` value in the document — the link provider's sites. */
+export function collectSpecRefs(doc: Document): SpecRefSite[] {
+  const sites: SpecRefSite[] = [];
+  collectRefs(doc.contents, sites);
+  return sites;
+}
+
 export interface SpecPointerTarget {
   /** The target's key-token span — where go-to-definition lands. */
   start: number;

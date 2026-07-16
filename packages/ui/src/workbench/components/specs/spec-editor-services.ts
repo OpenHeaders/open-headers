@@ -2,12 +2,14 @@
  * Spec editor language services — the Monaco glue over the pure cores
  * (`spec-doc-path.ts` navigation + `openapi-annotations.ts` catalog).
  *
- * Two services, vendor parity:
+ * Three services, vendor parity:
  * - hover: the specification's own description of the field under the
  *   cursor, titled with the document's format label;
- * - go-to-definition on local `$ref` values (`#/components/…`) —
- *   Monaco's native cmd/ctrl+click jump and cmd+hover underline, no
- *   opener plumbing.
+ * - links on local `$ref` values (`#/components/…`) — the persistent
+ *   underline + "Follow link (cmd/ctrl+click)" affordance, opened by a
+ *   registered link opener that jumps inside the document (the target
+ *   resolves at click time, so an edited buffer never jumps stale);
+ * - go-to-definition on the same values — F12 / peek parity.
  *
  * Providers register once per Monaco instance for the spec syntaxes
  * (same `WeakSet` idiom as the JWT link plane) and gate per model
@@ -21,14 +23,23 @@ import type { Monaco } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import type { Document } from 'yaml';
 import { type AnnotatedSpecFormat, lookupSpecAnnotation } from './openapi-annotations';
-import { parseSpecDocument, resolveSpecPointer, specPathAtOffset } from './spec-doc-path';
+import { collectSpecRefs, parseSpecDocument, resolveSpecPointer, specPathAtOffset } from './spec-doc-path';
 import { SPEC_FORMAT_LABELS } from './spec-format-labels';
 
 /** Monaco language ids a spec root file can carry. */
 const SPEC_LANGUAGES: ReadonlyArray<string> = ['yaml', 'json'];
 
+/** The `$ref` link urls' scheme — claimed by the in-document opener. */
+const REF_LINK_SCHEME = 'openheaders-spec';
+
+interface SpecModelEntry {
+  format: AnnotatedSpecFormat;
+  /** The mounted editor — the link opener jumps through it. */
+  editor: monaco.editor.IStandaloneCodeEditor;
+}
+
 /** Models currently backing an annotated spec editor, by URI. */
-const specModels = new Map<string, AnnotatedSpecFormat>();
+const specModels = new Map<string, SpecModelEntry>();
 
 /** Monaco instances that already carry the providers. */
 const registeredApis = new WeakSet<Monaco>();
@@ -59,18 +70,52 @@ function rangeOf(model: monaco.editor.ITextModel, start: number, end: number): m
 }
 
 function provideSpecHover(model: monaco.editor.ITextModel, position: monaco.Position): monaco.languages.Hover | null {
-  const format = specModels.get(model.uri.toString());
-  if (format === undefined) return null;
+  const entry = specModels.get(model.uri.toString());
+  if (entry === undefined) return null;
   const doc = specDocumentFor(model);
   if (doc === null) return null;
   const hit = specPathAtOffset(doc, model.getOffsetAt(position));
   if (hit === null) return null;
-  const text = lookupSpecAnnotation(hit.path, format);
+  const text = lookupSpecAnnotation(hit.path, entry.format);
   if (text === null) return null;
   return {
     range: rangeOf(model, hit.start, hit.end),
-    contents: [{ value: `**${SPEC_FORMAT_LABELS[format]}**` }, { value: text }],
+    contents: [{ value: `**${SPEC_FORMAT_LABELS[entry.format]}**` }, { value: text }],
   };
+}
+
+function provideSpecLinks(model: monaco.editor.ITextModel): monaco.languages.ILinksList | null {
+  if (!specModels.has(model.uri.toString())) return null;
+  const doc = specDocumentFor(model);
+  if (doc === null) return null;
+  const links: monaco.languages.ILink[] = collectSpecRefs(doc).map((site) => ({
+    range: rangeOf(model, site.start, site.end),
+    // The target re-resolves at open time against the then-current
+    // buffer — the url carries only the pointer and the model.
+    url: `${REF_LINK_SCHEME}:ref?model=${encodeURIComponent(model.uri.toString())}&pointer=${encodeURIComponent(site.pointer)}`,
+    tooltip: 'Follow link',
+  }));
+  return { links };
+}
+
+function openSpecRefLink(resource: monaco.Uri): boolean {
+  if (resource.scheme !== REF_LINK_SCHEME) return false;
+  const params = new URLSearchParams(resource.query);
+  const modelUri = params.get('model');
+  const pointer = params.get('pointer');
+  if (modelUri === null || pointer === null) return true;
+  const entry = specModels.get(modelUri);
+  const model = entry?.editor.getModel();
+  if (entry === undefined || !model) return true;
+  const doc = specDocumentFor(model);
+  if (doc === null) return true;
+  const target = resolveSpecPointer(doc, pointer);
+  if (target === null) return true;
+  const position = model.getPositionAt(target.start);
+  entry.editor.setPosition(position);
+  entry.editor.revealPositionInCenterIfOutsideViewport(position);
+  entry.editor.focus();
+  return true;
 }
 
 function provideSpecDefinition(
@@ -98,10 +143,15 @@ function ensureProviders(monacoApi: Monaco): void {
   const definitionProvider: monaco.languages.DefinitionProvider = {
     provideDefinition: (model, position) => provideSpecDefinition(model, position),
   };
+  const linkProvider: monaco.languages.LinkProvider = {
+    provideLinks: (model) => provideSpecLinks(model),
+  };
   for (const language of SPEC_LANGUAGES) {
     monacoApi.languages.registerHoverProvider(language, hoverProvider);
     monacoApi.languages.registerDefinitionProvider(language, definitionProvider);
+    monacoApi.languages.registerLinkProvider(language, linkProvider);
   }
+  monacoApi.editor.registerLinkOpener({ open: (resource: monaco.Uri) => openSpecRefLink(resource) });
 }
 
 /**
@@ -121,7 +171,7 @@ export function attachSpecEditorServices(
     return { dispose: () => {} };
   }
   const uri = model.uri.toString();
-  specModels.set(uri, format);
+  specModels.set(uri, { format, editor });
   ensureProviders(monacoApi);
   return {
     dispose: () => {

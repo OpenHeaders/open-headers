@@ -5,6 +5,7 @@
  */
 
 import {
+  collectSpecRefs,
   parseSpecDocument,
   resolveSpecPointer,
   specPathAtOffset,
@@ -98,6 +99,39 @@ describe('specPathAtOffset', () => {
     const doc = docOf(json);
     const hit = specPathAtOffset(doc, json.indexOf('"title"') + 2);
     expect(hit).toMatchObject({ path: ['info', 'title'], token: 'key' });
+  });
+});
+
+describe('collectSpecRefs', () => {
+  it('collects every local $ref value with its span and pointer', () => {
+    const sites = collectSpecRefs(docOf(SAMPLE_YAML));
+    expect(sites).toHaveLength(1);
+    expect(sites[0].pointer).toBe('#/components/schemas/User');
+    expect(SAMPLE_YAML.slice(sites[0].start, sites[0].end)).toBe("'#/components/schemas/User'");
+  });
+
+  it('skips external references and non-string values', () => {
+    const yaml = [
+      'paths:',
+      '  /a:',
+      '    get:',
+      '      responses:',
+      "        '200':",
+      '          content:',
+      '            application/json:',
+      '              schema:',
+      "                $ref: 'https://openheaders.io/schemas/a.yaml'",
+      'components:',
+      '  schemas:',
+      '    A:',
+      "      $ref: '#/components/schemas/B'",
+      '    B:',
+      '      type: object',
+      '',
+    ].join('\n');
+    const sites = collectSpecRefs(docOf(yaml));
+    expect(sites).toHaveLength(1);
+    expect(sites[0].pointer).toBe('#/components/schemas/B');
   });
 });
 
