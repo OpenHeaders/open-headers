@@ -158,17 +158,17 @@ export const SystemStatusSection: React.FC = () => {
       </DiagramFrame>
       <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
         <strong>
-          {t('workbench.docs.body.systemStatus.requestsGreenLabel')} {'<status> <statusText>'}
+          {t('workbench.docs.body.systemStatus.requestsGreenLabel')} <code>{'<status> <statusText>'}</code>
         </strong>{' '}
-        {t('workbench.docs.body.systemStatus.requestsGreenMiddle')} <em>200 OK</em>, <em>404 Not Found</em>,{' '}
-        <em>500 Server Error</em>
+        {t('workbench.docs.body.systemStatus.requestsGreenMiddle')} <code>200 OK</code>, <code>404 Not Found</code>,{' '}
+        <code>500 Server Error</code>
         {t('workbench.docs.body.systemStatus.requestsGreenSuffix')}
       </StateRow>
       <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
         <strong>
-          {t('workbench.docs.body.systemStatus.requestsYellowLabel')} {'<message>'}
+          {t('workbench.docs.body.systemStatus.requestsYellowLabel')} <code>{'<message>'}</code>
         </strong>{' '}
-        {t('workbench.docs.body.systemStatus.requestsYellowMiddle')} <em>NetworkError</em>, <em>Aborted</em>
+        {t('workbench.docs.body.systemStatus.requestsYellowMiddle')} <code>NetworkError</code>, <code>Aborted</code>
         {t('workbench.docs.body.systemStatus.requestsYellowSuffix')}
       </StateRow>
 
@@ -228,7 +228,7 @@ export const SystemStatusSection: React.FC = () => {
       </StateRow>
       <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
         <strong>
-          {t('workbench.docs.body.systemStatus.secretsYellowLabel')} {'<storageKey>'}
+          {t('workbench.docs.body.systemStatus.secretsYellowLabel')} <code>{'<storageKey>'}</code>
         </strong>{' '}
         {t('workbench.docs.body.systemStatus.secretsYellowMiddle')}
       </StateRow>

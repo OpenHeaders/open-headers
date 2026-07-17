@@ -1,8 +1,7 @@
 /**
- * Minimal collapsible JSON tree viewer — mirrors the detail pane
- * HAR viewers use. No external dependency; built on
- * native `<details>` so keyboard nav and text selection work out of
- * the box.
+ * Minimal collapsible JSON tree viewer for HAR detail panes. No
+ * external dependency; built on native `<details>` so keyboard nav
+ * and text selection work out of the box.
  *
  * Values render with type-hinted colors:
  *   - strings → green
@@ -26,6 +25,10 @@ interface JsonTreeProps {
   depth?: number;
   seen?: WeakSet<object>;
 }
+
+// JSON syntax tokens — rendered verbatim, never localized.
+const NULL_TEXT = 'null';
+const CIRCULAR_TEXT = '[Circular]';
 
 const KEY_STYLE = { color: '#7b61ff' } as const;
 const STRING_STYLE = { color: '#1a7f37' } as const;
@@ -54,7 +57,7 @@ export const JsonTree = memo(function JsonTree({
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
         <LabelKey name={name} />
-        <span style={ATOM_STYLE}>null</span>
+        <span style={ATOM_STYLE}>{NULL_TEXT}</span>
       </div>
     );
   }
@@ -62,7 +65,7 @@ export const JsonTree = memo(function JsonTree({
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
         <LabelKey name={name} />
-        <span style={STRING_STYLE}>&quot;{value}&quot;</span>
+        <span style={STRING_STYLE}>{`"${value}"`}</span>
       </div>
     );
   }
@@ -96,7 +99,7 @@ export const JsonTree = memo(function JsonTree({
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
         <LabelKey name={name} />
-        <span style={MUTED_STYLE}>[Circular]</span>
+        <span style={MUTED_STYLE}>{CIRCULAR_TEXT}</span>
       </div>
     );
   }

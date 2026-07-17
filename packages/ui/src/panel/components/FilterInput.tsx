@@ -9,6 +9,10 @@ import type { TextMatchConfig } from '../data/text-match';
  * surfaces with wider configs (the network `FilterConfig`) can pass
  * their state object straight through.
  */
+/** The three standard match-toggle glyphs — letterform icons, not
+ *  prose; the Filter Syntax docs' mock input renders the same set. */
+export const TOGGLE_GLYPHS = { matchCase: 'Aa', wholeWord: 'ab', regexMode: '.*' } as const;
+
 interface FilterInputProps<C extends TextMatchConfig> {
   value: string;
   onChange: (value: string) => void;
@@ -96,7 +100,7 @@ export function FilterInput<C extends TextMatchConfig>({
           onClick={() => toggle('matchCase')}
           title={t('panel.filter.matchCase')}
         >
-          Aa
+          {TOGGLE_GLYPHS.matchCase}
         </button>
         <button
           type="button"
@@ -105,7 +109,7 @@ export function FilterInput<C extends TextMatchConfig>({
           onClick={() => toggle('wholeWord')}
           title={t('panel.filter.wholeWord')}
         >
-          ab
+          {TOGGLE_GLYPHS.wholeWord}
         </button>
         <button
           type="button"
@@ -114,7 +118,7 @@ export function FilterInput<C extends TextMatchConfig>({
           onClick={() => toggle('regexMode')}
           title={t('panel.filter.regex')}
         >
-          .*
+          {TOGGLE_GLYPHS.regexMode}
         </button>
       </div>
     </div>

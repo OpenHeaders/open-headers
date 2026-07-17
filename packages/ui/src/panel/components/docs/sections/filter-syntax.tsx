@@ -54,7 +54,11 @@ export function FilterSyntaxSection() {
       <Anchor id="filter-text">
         <Card
           title={t('panel.docs.filterSyntax.textTitle')}
-          extra={<Tag color="blue">api users</Tag>}
+          extra={
+            <Tag color="blue">
+              <code>api users</code>
+            </Tag>
+          }
           style={CARD_STYLE}
         >
           {t('panel.docs.filterSyntax.text1')}
@@ -293,7 +297,15 @@ export function FilterSyntaxSection() {
       </DocParagraph>
 
       <Anchor id="filter-match-case">
-        <Card title={t('panel.docs.filterSyntax.matchCaseTitle')} extra={<Tag>Aa · Alt+C</Tag>} style={CARD_STYLE}>
+        <Card
+          title={t('panel.docs.filterSyntax.matchCaseTitle')}
+          extra={
+            <Tag>
+              <code>Aa · Alt+C</code>
+            </Tag>
+          }
+          style={CARD_STYLE}
+        >
           {t('panel.docs.filterSyntax.matchCase1Prefix')} <code>V1</code>{' '}
           {t('panel.docs.filterSyntax.matchCase1And')} <code>v1</code>{' '}
           {t('panel.docs.filterSyntax.matchCase1Suffix')}
@@ -314,7 +326,15 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-whole-word">
-        <Card title={t('panel.docs.filterSyntax.wholeWordTitle')} extra={<Tag>ab · Alt+W</Tag>} style={CARD_STYLE}>
+        <Card
+          title={t('panel.docs.filterSyntax.wholeWordTitle')}
+          extra={
+            <Tag>
+              <code>ab · Alt+W</code>
+            </Tag>
+          }
+          style={CARD_STYLE}
+        >
           {t('panel.docs.filterSyntax.wholeWord1Prefix')} <code>/</code>, <code>.</code>, <code>?</code>,{' '}
           <code>=</code> {t('panel.docs.filterSyntax.wholeWord1Suffix')}
           <DiagramFrame caption={t('panel.docs.filterSyntax.wholeWordCaption')}>
@@ -336,7 +356,11 @@ export function FilterSyntaxSection() {
       <Anchor id="filter-regex">
         <Card
           title={t('panel.docs.filterSyntax.regexTitle')}
-          extra={<Tag color="purple">.* · Alt+R</Tag>}
+          extra={
+            <Tag color="purple">
+              <code>.* · Alt+R</code>
+            </Tag>
+          }
           style={CARD_STYLE}
         >
           {t('panel.docs.filterSyntax.regex1')}

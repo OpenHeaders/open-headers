@@ -60,6 +60,16 @@ export const GLOSSARY: readonly string[] = [
   'SameSite',
   'HttpOnly',
   'Secure',
+  'Partitioned',
+  // declarativeNetRequest condition field names (docs chips)
+  'urlFilter',
+  'regexFilter',
+  'requestDomains',
+  'excludedRequestDomains',
+  'initiatorDomains',
+  'requestMethods',
+  'resourceTypes',
+  'domainType',
   // JWT part + registered-claim names (RFC 7519 vocabulary)
   'Header',
   'Signature',

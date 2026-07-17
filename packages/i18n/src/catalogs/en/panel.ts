@@ -357,6 +357,7 @@ export const panel = {
   'panel.docs.filterSyntax.intro2KbdSuffix': 'flip the toggles while the input has focus.',
 
   'panel.docs.filterSyntax.headingText': 'Text filters',
+  'panel.docs.filterExample.captureHeading': 'The example capture',
   'panel.docs.filterSyntax.headingProperty': 'Property filters',
   'panel.docs.filterSyntax.headingToggles': 'Match toggles',
   'panel.docs.filterSyntax.headingElsewhere': 'Everywhere else',

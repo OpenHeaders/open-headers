@@ -9,6 +9,8 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { TOGGLE_GLYPHS } from '../FilterInput';
 
 export interface ExampleRequest {
   id: 'users' | 'login' | 'app' | 'font' | 'pixel';
@@ -101,6 +103,7 @@ function ToggleChip({ label, active }: { label: string; active: boolean }) {
 }
 
 export const FilterExample: React.FC<FilterExampleProps> = ({ filter, toggles, verdicts }) => {
+  const t = useT();
   const byId = new Map(verdicts.map((v) => [v.id, v]));
   return (
     <div style={{ width: '100%', fontSize: 11 }}>
@@ -120,9 +123,9 @@ export const FilterExample: React.FC<FilterExampleProps> = ({ filter, toggles, v
         <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--ant-color-text)', flex: 1, minWidth: 0 }}>
           {filter}
         </span>
-        <ToggleChip label="Aa" active={toggles?.matchCase === true} />
-        <ToggleChip label="ab" active={toggles?.wholeWord === true} />
-        <ToggleChip label=".*" active={toggles?.regexMode === true} />
+        <ToggleChip label={TOGGLE_GLYPHS.matchCase} active={toggles?.matchCase === true} />
+        <ToggleChip label={TOGGLE_GLYPHS.wholeWord} active={toggles?.wholeWord === true} />
+        <ToggleChip label={TOGGLE_GLYPHS.regexMode} active={toggles?.regexMode === true} />
       </div>
 
       <div
@@ -135,7 +138,7 @@ export const FilterExample: React.FC<FilterExampleProps> = ({ filter, toggles, v
           marginBottom: 4,
         }}
       >
-        The example capture
+        {t('panel.docs.filterExample.captureHeading')}
       </div>
       {EXAMPLE_REQUESTS.map((r) => {
         const verdict = byId.get(r.id);

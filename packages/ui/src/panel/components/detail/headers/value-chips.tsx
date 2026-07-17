@@ -10,6 +10,9 @@ import {
 } from '../../../data/headers/header-value-introspection';
 import { humanSec } from './utils';
 
+// Content-Type parameter name — wire vocabulary, rendered verbatim.
+const BOUNDARY_PARAM = 'boundary';
+
 /**
  * Inline value chip. When `info` is supplied, an `<InfoTrigger>` (the
  * same shared `(i)` glyph used by header rows) is rendered *before*
@@ -285,7 +288,11 @@ function SetCookieChips({ value }: { value: string }) {
     chips.push(<Chip key="part" tone="ok" info={cookieFlagInfo(t, 'Partitioned')}>Partitioned</Chip>);
   }
   if (info.sameSite) {
-    chips.push(<Chip key="ss" tone="info" info={sameSiteInfo(t, info.sameSite)}>SameSite={info.sameSite}</Chip>);
+    chips.push(
+      <Chip key="ss" tone="info" info={sameSiteInfo(t, info.sameSite)}>
+        {`SameSite=${info.sameSite}`}
+      </Chip>,
+    );
   }
   if (info.expiresAtMs != null) {
     const remainingSec = Math.max(0, Math.round((info.expiresAtMs - Date.now()) / 1000));
@@ -342,7 +349,7 @@ function ContentTypeChip({ value }: { value: string }) {
       )}
       {info.boundary && (
         <Chip tone="muted" info={boundaryInfo(t)}>
-          boundary
+          {BOUNDARY_PARAM}
         </Chip>
       )}
     </span>
