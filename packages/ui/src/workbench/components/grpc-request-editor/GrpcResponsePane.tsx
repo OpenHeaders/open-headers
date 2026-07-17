@@ -135,7 +135,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
         {t('workbench.editors.grpc.response.compressed')}
       </Text>
     ) : view.kind === 'raw' ? (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto', minHeight: 0 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           {t('workbench.editors.grpc.response.rawNotice')}
         </Text>
@@ -144,7 +144,13 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
         </Text>
       </div>
     ) : (
-      <CodeEditor value={view.text} language="json" readOnly minHeight={180} />
+      // Fill viewer bounded by the sash (the compose editor's inset
+      // discipline) — no fixed height, no manual grip.
+      <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          <CodeEditor value={view.text} language="json" readOnly fill />
+        </div>
+      </div>
     );
 
   return (
@@ -172,8 +178,19 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
             key: 'response',
             label: t('workbench.editors.grpc.response.tab.response'),
             children: (
+              // No scroll container here — the fill viewer must not
+              // feed its Monaco-written height back into a scrolling
+              // parent (the ratchet). Non-fill branches scroll inside
+              // their own wrappers.
               <div
-                style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}
+                style={{
+                  height: '100%',
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  padding: '8px 0',
+                }}
               >
                 {notices.map((notice) => (
                   <Text key={notice} type="warning" style={{ fontSize: 11 }}>
