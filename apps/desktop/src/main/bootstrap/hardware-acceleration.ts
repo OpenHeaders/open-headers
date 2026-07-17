@@ -19,6 +19,7 @@
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, dialog } from 'electron';
+import { mainTranslator } from './locale';
 import { createLogger } from './logger';
 import { relaunchApp } from './relaunch';
 
@@ -68,12 +69,15 @@ export async function toggleHardwareAcceleration(): Promise<void> {
     return;
   }
 
+  const t = mainTranslator();
   const { response } = await dialog.showMessageBox({
     type: 'info',
-    title: 'Hardware Acceleration',
-    message: `Hardware acceleration will be ${disable ? 'disabled' : 'enabled'} the next time ${app.getName()} starts.`,
-    detail: 'Restart now to apply the change immediately.',
-    buttons: ['Restart Now', 'Later'],
+    title: t('desktop.dialog.hardwareAcceleration.title'),
+    message: disable
+      ? t('desktop.dialog.hardwareAcceleration.willBeDisabled', { name: app.getName() })
+      : t('desktop.dialog.hardwareAcceleration.willBeEnabled', { name: app.getName() }),
+    detail: t('desktop.dialog.hardwareAcceleration.detail'),
+    buttons: [t('desktop.dialog.hardwareAcceleration.restartNow'), t('desktop.dialog.hardwareAcceleration.later')],
     defaultId: 0,
     cancelId: 1,
   });

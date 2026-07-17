@@ -62,6 +62,27 @@ describe('hardware-acceleration', () => {
     expect(quit).not.toHaveBeenCalled();
   });
 
+  it('offers the restart in the shipped keyed sentences, per direction', async () => {
+    const show = vi.spyOn(dialog, 'showMessageBox').mockResolvedValue({ response: 1, checkboxChecked: false });
+    await toggleHardwareAcceleration();
+    expect(show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Hardware Acceleration',
+        message: 'Hardware acceleration will be disabled the next time OpenHeaders starts.',
+        detail: 'Restart now to apply the change immediately.',
+        buttons: ['Restart Now', 'Later'],
+      }),
+    );
+
+    show.mockClear();
+    await toggleHardwareAcceleration();
+    expect(show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Hardware acceleration will be enabled the next time OpenHeaders starts.',
+      }),
+    );
+  });
+
   it('accepting the restart prompt relaunches and quits', async () => {
     vi.spyOn(dialog, 'showMessageBox').mockResolvedValue({ response: 0, checkboxChecked: false });
     const relaunch = vi.spyOn(app, 'relaunch');

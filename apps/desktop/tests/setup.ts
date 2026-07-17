@@ -12,6 +12,7 @@ const originalResolve = ModuleInternal._resolveFilename;
 const mockModules: Record<string, string> = {
   electron: new URL('./__mocks__/electron.ts', import.meta.url).pathname,
   'electron-log': new URL('./__mocks__/electron-log.ts', import.meta.url).pathname,
+  'electron-log/main': new URL('./__mocks__/electron-log.ts', import.meta.url).pathname,
 };
 
 ModuleInternal._resolveFilename = function (request: string, parent: Module, isMain: boolean, options: object) {

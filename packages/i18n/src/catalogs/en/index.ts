@@ -6,6 +6,7 @@
  */
 
 import type { Catalog } from '../../types';
+import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
 import { popup } from './popup';
@@ -42,6 +43,7 @@ export const en = {
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
+  ...desktop,
   ...extension,
   ...panel,
   ...popup,

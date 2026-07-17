@@ -14,8 +14,10 @@
  * `update-menus` and rebuilds on every updater transition.
  */
 
+import type { Translator } from '@openheaders/i18n';
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, nativeImage, shell } from 'electron';
 import { isHardwareAccelerationDisabled, toggleHardwareAcceleration } from './hardware-acceleration';
+import { mainTranslator } from './locale';
 import { broadcastToAllRenderers, sendToFocusedRenderer, sendToRendererWindow } from './renderer-broadcast';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { createChildWindow, getMainWindow, showMainWindow } from './window-manager';
@@ -41,18 +43,20 @@ function settingsGearIcon(): Electron.NativeImage {
   return icon;
 }
 
-function settingsMenuItem(): MenuItemConstructorOptions {
+function settingsMenuItem(t: Translator): MenuItemConstructorOptions {
   return {
-    label: 'Settings…',
+    label: t('desktop.menu.settings'),
     accelerator: 'CommandOrControl+,',
     ...(process.platform === 'darwin' ? { icon: settingsGearIcon() } : {}),
     click: openSettingsSurface,
   };
 }
 
-function hardwareAccelerationMenuItem(): MenuItemConstructorOptions {
+function hardwareAccelerationMenuItem(t: Translator): MenuItemConstructorOptions {
   return {
-    label: isHardwareAccelerationDisabled() ? 'Enable Hardware Acceleration' : 'Disable Hardware Acceleration',
+    label: isHardwareAccelerationDisabled()
+      ? t('desktop.menu.enableHardwareAcceleration')
+      : t('desktop.menu.disableHardwareAcceleration'),
     click: () => {
       void toggleHardwareAcceleration().then(rebuildApplicationMenu);
     },
@@ -78,9 +82,9 @@ function sendMenuCommand(command: 'newItem' | 'newTab' | 'import'): void {
 // Close Tab targets the focused window only — no reveal: closing a tab
 // in a window the user can't see would be silent data-flow. The
 // renderer applies its normal dirty-confirm flow.
-function closeTabMenuItem(): MenuItemConstructorOptions {
+function closeTabMenuItem(t: Translator): MenuItemConstructorOptions {
   return {
-    label: 'Close Tab',
+    label: t('desktop.menu.closeTab'),
     accelerator: 'CommandOrControl+W',
     click: () => sendToFocusedRenderer('menuCommand', { command: 'closeTab' }),
   };
@@ -91,15 +95,15 @@ function closeTabMenuItem(): MenuItemConstructorOptions {
 // bracket chords collide with keyboard-layout AltGr sequences. These are
 // native accelerators, so they work regardless of the renderer's own
 // rebindable Alt+] / Alt+[ bindings.
-function tabNavigationMenuItems(isMac: boolean): MenuItemConstructorOptions[] {
+function tabNavigationMenuItems(isMac: boolean, t: Translator): MenuItemConstructorOptions[] {
   return [
     {
-      label: 'Next Tab',
+      label: t('desktop.menu.nextTab'),
       accelerator: isMac ? 'Shift+Command+]' : 'Control+Tab',
       click: () => sendToFocusedRenderer('tabNavigate', { direction: 'next' }),
     },
     {
-      label: 'Previous Tab',
+      label: t('desktop.menu.previousTab'),
       accelerator: isMac ? 'Shift+Command+[' : 'Control+Shift+Tab',
       click: () => sendToFocusedRenderer('tabNavigate', { direction: 'previous' }),
     },
@@ -108,6 +112,7 @@ function tabNavigationMenuItems(isMac: boolean): MenuItemConstructorOptions[] {
 
 function template(): MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
+  const t = mainTranslator();
   const updateItems = updateMenuItems();
 
   const macAppMenu: MenuItemConstructorOptions[] = isMac
@@ -115,12 +120,12 @@ function template(): MenuItemConstructorOptions[] {
         {
           label: app.getName(),
           submenu: [
-            { label: `About ${app.getName()}`, click: () => app.showAboutPanel() },
+            { label: t('desktop.menu.about', { name: app.getName() }), click: () => app.showAboutPanel() },
             ...updateItems,
             { type: 'separator' },
-            hardwareAccelerationMenuItem(),
+            hardwareAccelerationMenuItem(t),
             { type: 'separator' },
-            settingsMenuItem(),
+            settingsMenuItem(t),
             { type: 'separator' },
             { role: 'services' },
             { type: 'separator' },
@@ -137,20 +142,20 @@ function template(): MenuItemConstructorOptions[] {
   return [
     ...macAppMenu,
     {
-      label: 'File',
+      label: t('desktop.menu.file'),
       submenu: [
         {
-          label: 'New…',
+          label: t('desktop.menu.newItem'),
           accelerator: 'CommandOrControl+N',
           click: () => sendMenuCommand('newItem'),
         },
         {
-          label: 'New Tab',
+          label: t('desktop.menu.newTab'),
           accelerator: 'CommandOrControl+T',
           click: () => sendMenuCommand('newTab'),
         },
         {
-          label: 'New Window',
+          label: t('desktop.menu.newWindow'),
           accelerator: 'CommandOrControl+Shift+N',
           click: () => {
             createChildWindow();
@@ -158,27 +163,27 @@ function template(): MenuItemConstructorOptions[] {
         },
         { type: 'separator' },
         {
-          label: 'Import…',
+          label: t('desktop.menu.import'),
           accelerator: 'CommandOrControl+O',
           click: () => sendMenuCommand('import'),
         },
         ...(!isMac
           ? ([
               { type: 'separator' },
-              settingsMenuItem(),
-              hardwareAccelerationMenuItem(),
+              settingsMenuItem(t),
+              hardwareAccelerationMenuItem(t),
             ] as MenuItemConstructorOptions[])
           : []),
         { type: 'separator' },
         // Close Window moves to ⇧⌘W so the plain chord goes to Close
         // Tab — the native-app convention.
         ...(isMac
-          ? ([{ role: 'close', accelerator: 'Shift+Command+W' }, closeTabMenuItem()] as MenuItemConstructorOptions[])
-          : ([closeTabMenuItem(), { role: 'quit' }] as MenuItemConstructorOptions[])),
+          ? ([{ role: 'close', accelerator: 'Shift+Command+W' }, closeTabMenuItem(t)] as MenuItemConstructorOptions[])
+          : ([closeTabMenuItem(t), { role: 'quit' }] as MenuItemConstructorOptions[])),
       ],
     },
     {
-      label: 'Edit',
+      label: t('desktop.menu.edit'),
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
@@ -190,9 +195,9 @@ function template(): MenuItemConstructorOptions[] {
       ],
     },
     {
-      label: 'View',
+      label: t('desktop.menu.view'),
       submenu: [
-        { role: 'resetZoom', label: 'Actual Size' },
+        { role: 'resetZoom', label: t('desktop.menu.actualSize') },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
@@ -213,13 +218,13 @@ function template(): MenuItemConstructorOptions[] {
     // appends the open-window list automatically via `role: 'window'`
     // on the top-level item.
     {
-      label: 'Window',
+      label: t('desktop.menu.window'),
       ...(isMac ? { role: 'window' as const } : {}),
       submenu: [
         { role: 'minimize' },
         ...(isMac ? ([{ role: 'zoom' }] as MenuItemConstructorOptions[]) : []),
         { type: 'separator' },
-        ...tabNavigationMenuItems(isMac),
+        ...tabNavigationMenuItems(isMac, t),
         ...(isMac
           ? ([{ type: 'separator' }, { role: 'front' }] as MenuItemConstructorOptions[])
           : // ⇧Ctrl+W, not the role's default Ctrl+W — the plain chord
@@ -231,11 +236,11 @@ function template(): MenuItemConstructorOptions[] {
       ],
     },
     {
-      label: 'Help',
+      label: t('desktop.menu.help'),
       submenu: [
-        { label: 'Documentation', click: () => void shell.openExternal(HOMEPAGE_URL) },
-        { label: 'Report an Issue', click: () => void shell.openExternal(ISSUES_URL) },
-        { label: 'License Agreement', click: () => void shell.openExternal(EULA_URL) },
+        { label: t('desktop.menu.documentation'), click: () => void shell.openExternal(HOMEPAGE_URL) },
+        { label: t('desktop.menu.reportIssue'), click: () => void shell.openExternal(ISSUES_URL) },
+        { label: t('desktop.menu.licenseAgreement'), click: () => void shell.openExternal(EULA_URL) },
         ...(!isMac && updateItems.length > 0
           ? ([{ type: 'separator' }, ...updateItems] as MenuItemConstructorOptions[])
           : []),

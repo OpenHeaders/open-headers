@@ -36,6 +36,7 @@ import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
+import { initMainLocale } from './main/bootstrap/locale';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
@@ -106,6 +107,10 @@ function bootstrapDesktopApp(): void {
   void app.whenReady().then(() => {
     registerAsProtocolHandler();
     installAboutPanel();
+    // OS-resolved locale default before the first menu build; the
+    // persisted setting lands via `installLocaleSubscription` once the
+    // engine's host storage exists and rebuilds the menus if it differs.
+    initMainLocale();
     installApplicationMenu();
 
     createMainWindow();

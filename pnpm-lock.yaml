@@ -164,6 +164,9 @@ importers:
       '@openheaders/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@openheaders/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@openheaders/oracle':
         specifier: workspace:*
         version: link:../../packages/oracle

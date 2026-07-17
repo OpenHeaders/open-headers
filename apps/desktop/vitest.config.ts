@@ -32,6 +32,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       electron: path.resolve(__dirname, 'tests/__mocks__/electron.ts'),
+      'electron-log/main': path.resolve(__dirname, 'tests/__mocks__/electron-log.ts'),
       'electron-log': path.resolve(__dirname, 'tests/__mocks__/electron-log.ts'),
     },
   },

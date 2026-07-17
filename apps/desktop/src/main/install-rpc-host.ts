@@ -69,6 +69,7 @@ import {
 } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app } from 'electron';
+import { installLocaleSubscription } from './bootstrap/locale';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
@@ -172,6 +173,11 @@ export async function installRpcHost(): Promise<void> {
   if (!webRootPresent) {
     consoleLogger.info(SCOPE, `web bundle not found at ${webRoot}; the serve-web-app setting stays inert`);
   }
+  // Native-surface locale (tray / menus / dialogs) follows the same
+  // settings blob — bound here because the menus install before this
+  // storage backend exists.
+  installLocaleSubscription(hostStorage);
+
   let serveWebApp = readServeWebApp((await hostStorage.get(OH.settingsUser)) ?? undefined);
   let updatePreferences = readUpdatePreferences((await hostStorage.get(OH.settingsUser)) ?? undefined);
   hostStorage.subscribe(OH.settingsUser, (next) => {

@@ -4,6 +4,7 @@ export const app = {
   getPath: (_name: string) => `/tmp/open-headers-test/${_name}`,
   getName: () => 'OpenHeaders',
   getVersion: () => '0.0.0-test',
+  getLocale: () => 'en-US',
   setName: () => {},
   quit: () => {},
   relaunch: () => {},
@@ -21,6 +22,10 @@ export function BrowserWindow() {}
 BrowserWindow.getFocusedWindow = () => null;
 BrowserWindow.getAllWindows = () => [];
 export const Menu = { buildFromTemplate: () => {}, setApplicationMenu: () => {} };
+export const nativeImage = {
+  createFromPath: () => ({ setTemplateImage: () => {} }),
+  createFromNamedImage: () => ({ resize: () => ({ setTemplateImage: () => {} }) }),
+};
 export const shell = { openExternal: () => {}, showItemInFolder: () => {} };
 export const dialog = {
   showOpenDialog: () => Promise.resolve({}),
@@ -38,6 +43,7 @@ export default {
   contextBridge,
   BrowserWindow,
   Menu,
+  nativeImage,
   shell,
   dialog,
   desktopCapturer,

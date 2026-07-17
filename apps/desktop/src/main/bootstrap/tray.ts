@@ -11,6 +11,7 @@
 
 import { app, Menu, nativeImage, Tray } from 'electron';
 import { openSettingsSurface } from './application-menu';
+import { mainTranslator } from './locale';
 import { markQuitting } from './quit-state';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { buildAssetPath, showMainWindow } from './window-manager';
@@ -20,14 +21,15 @@ import { buildAssetPath, showMainWindow } from './window-manager';
 let tray: Tray | null = null;
 
 function buildTrayMenu(): Menu {
+  const t = mainTranslator();
   const updateItems = updateMenuItems();
   return Menu.buildFromTemplate([
-    { label: 'Open Open Headers', click: showMainWindow },
+    { label: t('desktop.tray.open'), click: showMainWindow },
     ...(updateItems.length > 0 ? [{ type: 'separator' as const }, ...updateItems] : []),
     { type: 'separator' },
-    { label: 'Settings…', click: openSettingsSurface },
+    { label: t('desktop.menu.settings'), click: openSettingsSurface },
     {
-      label: 'Quit',
+      label: t('desktop.tray.quit'),
       click: () => {
         markQuitting();
         app.quit();

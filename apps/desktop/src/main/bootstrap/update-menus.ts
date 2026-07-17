@@ -19,6 +19,7 @@
 import type { AppUpdateState } from '@openheaders/core/bridge';
 import type { MenuItemConstructorOptions } from 'electron';
 import { updaterSupported } from '../electron-updater-port';
+import { mainTranslator, onLocaleChange } from './locale';
 import { showMainWindow } from './window-manager';
 
 /** The update-service slice the menu items drive (wired by `install-rpc-host`). */
@@ -37,6 +38,12 @@ const menuBuilders = new Set<() => void>();
 export function registerUpdateMenuBuilder(rebuild: () => void): void {
   menuBuilders.add(rebuild);
 }
+
+// A locale change relabels every native menu, not just the update item —
+// the registry here is the one place that already reaches them all.
+onLocaleChange(() => {
+  for (const rebuild of menuBuilders) rebuild();
+});
 
 /** Called by `install-rpc-host` once the update service exists. */
 export function installUpdateMenuActions(next: UpdateMenuActions): void {
@@ -67,13 +74,14 @@ function runManualCheck(): void {
  */
 export function updateMenuItems(): MenuItemConstructorOptions[] {
   if (!updaterSupported()) return [];
+  const t = mainTranslator();
   switch (state?.phase) {
     case 'checking':
-      return [{ label: 'Checking for Updates…', enabled: false }];
+      return [{ label: t('desktop.update.checking'), enabled: false }];
     case 'available':
       return [
         {
-          label: `Download Open Headers ${state.availableVersion}`,
+          label: t('desktop.update.download', { version: state.availableVersion ?? '' }),
           click: () => void actions?.download(),
         },
       ];
@@ -81,19 +89,21 @@ export function updateMenuItems(): MenuItemConstructorOptions[] {
       return [
         {
           label:
-            state.progressPercent !== null ? `Downloading Update… ${state.progressPercent}%` : 'Downloading Update…',
+            state.progressPercent !== null
+              ? t('desktop.update.downloading', { percent: state.progressPercent })
+              : t('desktop.update.downloadingNoProgress'),
           enabled: false,
         },
       ];
     case 'downloaded':
       return [
         {
-          label: `Restart to Install Open Headers ${state.availableVersion}`,
+          label: t('desktop.update.restartToInstall', { version: state.availableVersion ?? '' }),
           click: () => void actions?.install(),
         },
       ];
     default:
       // idle / error / pre-engine null — offer a fresh manual check.
-      return [{ label: 'Check for Updates…', click: runManualCheck }];
+      return [{ label: t('desktop.update.check'), click: runManualCheck }];
   }
 }
