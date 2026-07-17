@@ -29,7 +29,7 @@ type ContainerNode = Extract<IdbRecordPreviewNode, { kind: 'container' }>;
 function AtomValue({ node, clip }: { node: Extract<IdbRecordPreviewNode, { kind: 'atom' }>; clip?: boolean }) {
   if (node.type === 'string') {
     const text = clip && node.text.length > INLINE_STRING_MAX ? `${node.text.slice(0, INLINE_STRING_MAX)}…` : node.text;
-    return <span style={STRING_STYLE}>&quot;{text}&quot;</span>;
+    return <span style={STRING_STYLE}>{`"${text}"`}</span>;
   }
   if (node.type === 'number') return <span style={NUMBER_STYLE}>{node.text}</span>;
   if (node.type === 'boolean' || node.type === 'null') return <span style={ATOM_STYLE}>{node.text}</span>;

@@ -193,8 +193,14 @@ export function StorageGrid({
       onKeyDown={handleGridKeyDown}
     >
       <div className="dt-storage-grid-header" role="row">
-        <StorageColumnHeaderCell label="Key" info={<DomStorageColumnInfo infoKey="key" area={area} />} />
-        <StorageColumnHeaderCell label="Value" info={<DomStorageColumnInfo infoKey="value" area={area} />} />
+        <StorageColumnHeaderCell
+          label={t('panel.storage.grid.col.key')}
+          info={<DomStorageColumnInfo infoKey="key" area={area} />}
+        />
+        <StorageColumnHeaderCell
+          label={t('panel.storage.grid.col.value')}
+          info={<DomStorageColumnInfo infoKey="value" area={area} />}
+        />
       </div>
       {adding && (
         <AddRow
@@ -309,14 +315,14 @@ function AddRow({ onCancel, onCommit }: AddRowProps) {
     <div className="dt-storage-row dt-storage-row--editing" role="row">
       <UndoableCellInput
         inputRef={keyRef}
-        placeholder="Key"
+        placeholder={t('panel.storage.grid.keyPlaceholder')}
         aria-label={t('panel.storage.grid.newKeyAria')}
         value={key}
         onValueChange={setKey}
         onKeyDown={onKeyDown}
       />
       <UndoableCellInput
-        placeholder="Value"
+        placeholder={t('panel.storage.grid.valuePlaceholder')}
         aria-label={t('panel.storage.grid.newValueAria')}
         value={value}
         onValueChange={setValue}

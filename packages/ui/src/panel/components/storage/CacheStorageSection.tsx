@@ -198,10 +198,22 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
           onKeyDown={handleGridKeyDown}
         >
           <div className="dt-storage-grid-header" role="row">
-            <StorageColumnHeaderCell label="Request" info={<CacheEntryColumnInfo infoKey="request" />} />
-            <StorageColumnHeaderCell label="Method" info={<CacheEntryColumnInfo infoKey="method" />} />
-            <StorageColumnHeaderCell label="Size" info={<CacheEntryColumnInfo infoKey="size" />} />
-            <StorageColumnHeaderCell label="Time" info={<CacheEntryColumnInfo infoKey="time" />} />
+            <StorageColumnHeaderCell
+              label={t('panel.storage.cache.col.request')}
+              info={<CacheEntryColumnInfo infoKey="request" />}
+            />
+            <StorageColumnHeaderCell
+              label={t('panel.storage.cache.col.method')}
+              info={<CacheEntryColumnInfo infoKey="method" />}
+            />
+            <StorageColumnHeaderCell
+              label={t('panel.storage.cache.col.size')}
+              info={<CacheEntryColumnInfo infoKey="size" />}
+            />
+            <StorageColumnHeaderCell
+              label={t('panel.storage.cache.col.time')}
+              info={<CacheEntryColumnInfo infoKey="time" />}
+            />
           </div>
           {entries.map((e, i) => (
             // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance

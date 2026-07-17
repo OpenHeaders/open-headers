@@ -2627,6 +2627,10 @@ export const panel = {
   'panel.storage.cookies.col.scope': 'Domain · Path',
   'panel.storage.cookies.col.sec': 'Sec',
   // DOM storage grid.
+  'panel.storage.grid.col.key': 'Key',
+  'panel.storage.grid.col.value': 'Value',
+  'panel.storage.grid.keyPlaceholder': 'Key',
+  'panel.storage.grid.valuePlaceholder': 'Value',
   'panel.storage.grid.aria': 'Storage entries',
   'panel.storage.grid.clipped': 'clipped ({length})',
   'panel.storage.grid.editTitle': 'Edit this entry',
@@ -2686,6 +2690,8 @@ export const panel = {
   'panel.storage.idb.noRecordsPage': 'No records in {store} on this page.',
   'panel.storage.idb.noRecordsMatch': 'No records match your filter.',
   'panel.storage.idb.gridAria': 'IndexedDB records',
+  'panel.storage.idb.col.key': 'Key',
+  'panel.storage.idb.col.value': 'Value',
   'panel.storage.idb.openRecordTitle': 'Open this record in the editor',
   'panel.storage.idb.keyCellTitle': 'Key: {key}\nPrimary key: {primaryKey}',
   'panel.storage.idb.deleteRecordTitle': 'Delete this record',
@@ -2708,6 +2714,10 @@ export const panel = {
   'panel.storage.cache.noEntriesPage': 'No entries in {name} on this page.',
   'panel.storage.cache.noEntriesMatch': 'No entries match your filter.',
   'panel.storage.cache.gridAria': 'Cache entries',
+  'panel.storage.cache.col.request': 'Request',
+  'panel.storage.cache.col.method': 'Method',
+  'panel.storage.cache.col.size': 'Size',
+  'panel.storage.cache.col.time': 'Time',
   'panel.storage.cache.deleteEntryTitle': 'Delete this entry',
   'panel.storage.cache.deleteEntryConfirmTitle': 'Deletes the stored response — click again to confirm',
   'panel.storage.cache.deleteEntryAria': 'Delete entry {url}',
@@ -2765,6 +2775,9 @@ export const panel = {
   'panel.storage.cookieCol.expires.description':
     'Session means no Expires / Max-Age — the browser drops the cookie when the session ends.',
   'panel.storage.cacheCol.exampleCaption': 'Example entry',
+  // Fragment between the size and time tokens in the example card's
+  // meta line ('1.2 kB · stored Jan 4 …').
+  'panel.storage.cacheCol.exampleStored': '· stored',
   'panel.storage.cacheCol.request.summary': "The stored request's URL — the key the cache matches fetches against.",
   'panel.storage.cacheCol.request.description':
     'Hovering a row adds a bounded preview of the stored request headers. Click a row to open the stored response as an editor tab; the grid keeps metadata only.',
@@ -2834,6 +2847,7 @@ export const panel = {
   'panel.storage.doc.dom.refreshTitle': 'Re-read the entry',
   'panel.storage.doc.dom.refreshAria': 'Refresh entry',
   'panel.storage.doc.dom.revealTitle': 'Open {area} in the Storage tool window',
+  'panel.storage.doc.dom.keyLabel': 'Key',
   'panel.storage.doc.dom.keyAria': 'Entry key',
   'panel.storage.doc.dom.conflictNote': 'The value changed in the browser while you were editing.',
   'panel.storage.doc.dom.mergeToast': 'Merge applied to the draft — Save writes it to the browser',

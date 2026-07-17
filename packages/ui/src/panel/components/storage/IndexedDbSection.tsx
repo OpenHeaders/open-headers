@@ -297,8 +297,11 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
           onKeyDown={handleGridKeyDown}
         >
           <div className="dt-storage-grid-header" role="row">
-            <StorageColumnHeaderCell label="Key" info={<IdbRecordColumnInfo infoKey="key" />} />
-            <StorageColumnHeaderCell label="Value" info={<IdbRecordColumnInfo infoKey="value" />} />
+            <StorageColumnHeaderCell label={t('panel.storage.idb.col.key')} info={<IdbRecordColumnInfo infoKey="key" />} />
+            <StorageColumnHeaderCell
+              label={t('panel.storage.idb.col.value')}
+              info={<IdbRecordColumnInfo infoKey="value" />}
+            />
           </div>
           {records.map((r, i) => {
             const wireKey = r.primaryKeyWire;

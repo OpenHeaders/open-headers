@@ -13,6 +13,7 @@ export type IdbRecordColumnKey = 'key' | 'value';
 
 /** The single record every column popover illustrates. */
 const EX = {
+  scope: 'app › users',
   key: '41',
   value: '{id: 41, user: "ada", roles: Array(2)}',
 } as const;
@@ -27,7 +28,7 @@ function ExampleCard({ column, caption }: { column: IdbRecordColumnKey; caption:
     <div className="dt-col-eg">
       <div className="dt-col-eg-cap">{caption}</div>
       <div className="dt-col-eg-card">
-        <div className="dt-col-eg-line dt-col-eg-meta">app › users</div>
+        <div className="dt-col-eg-line dt-col-eg-meta">{EX.scope}</div>
         <div className="dt-col-eg-line">
           {tok('key', EX.key)}
           <span className="dt-col-eg-sep"> → </span>

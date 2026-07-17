@@ -362,7 +362,7 @@ export function DomStorageEntryEditorTab({
       </div>
       {doc !== null && (
         <div className="dt-storagedoc-key-row">
-          <span className="dt-storagedoc-key-label">Key</span>
+          <span className="dt-storagedoc-key-label">{t('panel.storage.doc.dom.keyLabel')}</span>
           <input
             type="text"
             className="dt-storage-cell-input"

@@ -22,6 +22,7 @@ const EX = {
 type TokenId = keyof typeof EX;
 
 function ExampleCard({ column, caption }: { column: CacheEntryColumnKey; caption: string }) {
+  const t = useT();
   const tok = (id: TokenId, text: string, extra = '') => (
     <span className={`dt-col-eg-tok${extra ? ` ${extra}` : ''}${column === id ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
@@ -33,9 +34,7 @@ function ExampleCard({ column, caption }: { column: CacheEntryColumnKey; caption
           {tok('method', EX.method, 'dt-col-eg-method')} {tok('request', EX.request)}
         </div>
         <div className="dt-col-eg-line dt-col-eg-meta">
-          {tok('size', EX.size)}
-          {' · stored '}
-          {tok('time', EX.time)}
+          {tok('size', EX.size)} {t('panel.storage.cacheCol.exampleStored')} {tok('time', EX.time)}
         </div>
       </div>
     </div>
