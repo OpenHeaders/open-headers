@@ -12,7 +12,8 @@
  */
 
 import { getBackends } from '@openheaders/core/backends';
-import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
+import { getTranslator, resolveLocale, type Translator } from '@openheaders/i18n';
+import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import type { BadgeState } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
@@ -25,6 +26,24 @@ const browserAPI = getBrowserAPI();
 const DISCONNECTED_BADGE_THRESHOLD = 3;
 
 let lastBadgeState: string | null = null;
+let lastBadgeInput: BadgeUpdateInput | null = null;
+
+// Tooltips follow the settings locale, not the browser UI locale: the
+// service worker has no React root, so it reads the persisted language
+// setting and threads the runtime Translator directly.
+function badgeTranslator(): Translator {
+  const preferences = typeof navigator !== 'undefined' ? navigator.languages : [];
+  return getTranslator(resolveLocale(getSetting('general.language'), preferences));
+}
+
+// Re-title in place when the user switches language. The repaint guard
+// keys on badge state only and would skip a locale-only change — clear
+// it before replaying the last input.
+subscribeKey('general.language', () => {
+  if (!lastBadgeInput) return;
+  lastBadgeState = null;
+  void updateExtensionBadge(lastBadgeInput);
+});
 
 export interface BadgeUpdateInput {
   connected: boolean;
@@ -44,6 +63,7 @@ export interface BadgeUpdateInput {
  */
 export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<void> {
   const { connected, isPaused, reconnectAttempts = 0, matchedRuleCount, configuredRuleCount } = input;
+  lastBadgeInput = input;
   // Get the appropriate API (chrome.action for MV3, chrome.browserAction for MV2/Firefox)
   const actionAPI =
     browserAPI.action || (browserAPI as unknown as { browserAction?: typeof chrome.action }).browserAction;
@@ -85,6 +105,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
   }
 
   lastBadgeState = currentStateKey;
+  const t = badgeTranslator();
 
   if (badgeState === 'paused') {
     // Show a gray dash when rules execution is paused
@@ -102,7 +123,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
     // Update the tooltip
     if (actionAPI.setTitle) {
       actionAPI.setTitle({
-        title: 'Open Headers - Paused\nRules execution is paused',
+        title: t('extension.badge.paused'),
       });
     }
   } else if (badgeState === 'disconnected') {
@@ -118,7 +139,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
     });
     if (actionAPI.setTitle) {
       actionAPI.setTitle({
-        title: 'Open Headers - Disconnected\nCannot reach the desktop app',
+        title: t('extension.badge.disconnected'),
       });
     }
   } else if (badgeState === 'active') {
@@ -136,9 +157,8 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
 
     // Tooltip: "3 of your 5 rules matched requests on this page".
     if (actionAPI.setTitle) {
-      const ruleText = configuredRuleCount === 1 ? 'rule' : 'rules';
       actionAPI.setTitle({
-        title: `Open Headers - Active\n${matchedRuleCount} of your ${configuredRuleCount} ${ruleText} matched requests on this page`,
+        title: t('extension.badge.active', { matched: matchedRuleCount, configured: configuredRuleCount }),
       });
     }
   } else {
@@ -148,7 +168,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
     // Reset the tooltip to default
     if (actionAPI.setTitle) {
       actionAPI.setTitle({
-        title: 'Open Headers',
+        title: t('extension.badge.default'),
       });
     }
   }
@@ -156,4 +176,5 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
 
 export function resetBadgeState(): void {
   lastBadgeState = null;
+  lastBadgeInput = null;
 }

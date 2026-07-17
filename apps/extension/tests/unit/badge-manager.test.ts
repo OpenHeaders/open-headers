@@ -4,15 +4,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // `showBadgeWhenDisconnected` read in the disconnected branch resolves
 // to the default instead of throwing. Individual tests override the
 // mock via vi.mocked(get).mockImplementationOnce(...) when they want a
-// specific setting value.
+// specific setting value. The module subscribes to `general.language`
+// at load time — capture the listener so the locale-switch test can
+// fire it.
+const { localeListeners } = vi.hoisted(() => ({ localeListeners: [] as Array<() => void> }));
 vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
       case 'backend.showBadgeWhenDisconnected':
         return true;
+      case 'general.language':
+        return 'en';
       default:
         return undefined;
     }
+  }),
+  subscribeKey: vi.fn((key: string, fn: () => void) => {
+    if (key === 'general.language') localeListeners.push(fn);
+    return () => {};
   }),
 }));
 
@@ -105,6 +114,9 @@ describe('updateExtensionBadge', () => {
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
       expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#c23b22' }, expect.any(Function));
+      expect(action.setTitle).toHaveBeenCalledWith({
+        title: 'Open Headers - Disconnected\nCannot reach the desktop app',
+      });
     });
 
     it('shows paused badge when paused and connected', async () => {
@@ -209,6 +221,32 @@ describe('updateExtensionBadge', () => {
 
       await updateExtensionBadge(makeInput({ matchedRuleCount: 7, configuredRuleCount: 10 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── Locale switch ──
+
+  describe('locale switch', () => {
+    it('re-titles the badge when the language setting changes, despite unchanged badge state', async () => {
+      const action = getActionMock();
+      expect(localeListeners).toHaveLength(1);
+
+      await updateExtensionBadge(makeInput({ matchedRuleCount: 3, configuredRuleCount: 7 }));
+      expect(action.setTitle).toHaveBeenCalledTimes(1);
+
+      // Same state key — the repaint guard alone would skip this.
+      localeListeners[0]();
+      expect(action.setTitle).toHaveBeenCalledTimes(2);
+      expect(action.setTitle).toHaveBeenLastCalledWith({
+        title: 'Open Headers - Active\n3 of your 7 rules matched requests on this page',
+      });
+    });
+
+    it('is a no-op when the language changes before any badge update', () => {
+      const action = getActionMock();
+
+      localeListeners[0]();
+      expect(action.setTitle).not.toHaveBeenCalled();
     });
   });
 
