@@ -52,6 +52,11 @@ interface Props {
   /** Opens the migration surface — the permanent "Migrate from another
    *  tool" hub entry. Absent on hosts without the migration ladder. */
   onMigrate?: () => void;
+  /** When the hub closes as a hand-off to a successor modal, the host
+   *  passes false so the close-time focus restore doesn't steal focus
+   *  from the successor's autofocused field. Defaults to antd's true
+   *  (plain cancel restores focus to the trigger). */
+  focusTriggerAfterClose?: boolean;
 }
 
 const ImportSourceModal: React.FC<Props> = ({
@@ -62,6 +67,7 @@ const ImportSourceModal: React.FC<Props> = ({
   onFolderChosen,
   loading = false,
   onMigrate,
+  focusTriggerAfterClose = true,
 }) => {
   const { token } = theme.useToken();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +110,7 @@ const ImportSourceModal: React.FC<Props> = ({
       centered
       maskClosable={false}
       destroyOnHidden
+      focusTriggerAfterClose={focusTriggerAfterClose}
       styles={{
         container: { padding: 0, overflow: 'hidden' },
         body: { padding: 0, background: token.colorBgLayout },

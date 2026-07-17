@@ -27,6 +27,9 @@ const TEXT = 'var(--ant-color-text)';
 const TEXT_DIM = 'var(--ant-color-text-secondary)';
 const PRIMARY = 'var(--ant-color-primary)';
 const WARNING = 'var(--ant-color-warning)';
+/** Postman's brand orange — these glyphs depict Postman's own UI, so
+ *  its CTAs keep the vendor color (same literal as PostmanGlyph). */
+const POSTMAN_ORANGE = '#ff6c37';
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
@@ -51,14 +54,17 @@ const AccountMenuGlyph: React.FC = () => (
       postman.co
     </text>
     {/* Top-right gear — the menu's anchor */}
-    <circle cx={106} cy={28} r={4} fill="none" stroke={PRIMARY} strokeWidth={1.4} />
-    <circle cx={106} cy={28} r={1.4} fill={PRIMARY} />
-    {/* Dropdown — dim rows above the lit "Account settings" row */}
-    <rect x={56} y={34} width={58} height={24} rx={3} fill={BG_CONTAINER} stroke={BORDER} />
-    <rect x={60} y={38} width={34} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
-    <rect x={60} y={44} width={40} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
-    <rect x={58} y={49} width={54} height={7} rx={2} fill={FILL_TERTIARY} stroke={PRIMARY} strokeWidth={0.8} />
-    <text x={61} y={54} fontSize={5} fontWeight={700} fill={TEXT}>
+    <circle cx={106} cy={26} r={4} fill="none" stroke={PRIMARY} strokeWidth={1.4} />
+    <circle cx={106} cy={26} r={1.4} fill={PRIMARY} />
+    {/* Dropdown anchored under the gear: caret notch, panel, two dim
+        menu rows, separator, then the hover-lit "Account settings" row */}
+    <rect x={52} y={32.5} width={62} height={26} rx={3} fill={BG_CONTAINER} stroke={BORDER} />
+    <path d="M 102.5 33 L 106 29.8 L 109.5 33" fill={BG_CONTAINER} stroke={BORDER} strokeWidth={0.8} />
+    <rect x={57} y={36.5} width={30} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
+    <rect x={57} y={42} width={38} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
+    <line x1={52} y1={46.5} x2={114} y2={46.5} stroke={BORDER} strokeWidth={0.6} />
+    <rect x={53.5} y={48} width={59} height={9} rx={2} fill={FILL_TERTIARY} />
+    <text x={57} y={54.3} fontSize={5.2} fontWeight={700} fill={TEXT}>
       Account settings
     </text>
     {/* Faded page body behind the menu */}
@@ -87,8 +93,8 @@ const GenerateKeyGlyph: React.FC = () => (
     {/* Page heading + Generate API key button */}
     <rect x={42} y={15} width={30} height={3.4} rx={1.7} fill={FILL_SECONDARY} />
     <rect x={42} y={22} width={48} height={2.6} rx={1.3} fill={FILL_TERTIARY} />
-    <rect x={72} y={30} width={42} height={11} rx={2.5} fill={PRIMARY} />
-    <text x={93} y={37.6} textAnchor="middle" fontSize={5} fontWeight={700} fill="#fff">
+    <rect x={64} y={30} width={50} height={11} rx={2.5} fill={POSTMAN_ORANGE} />
+    <text x={89} y={37.4} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#fff">
       Generate API key
     </text>
     {/* Existing key rows, faded */}
@@ -120,7 +126,7 @@ const CopyKeyGlyph: React.FC = () => (
     <rect x={88} y={39} width={5} height={5} rx={1} fill="none" stroke={TEXT_DIM} strokeWidth={0.9} />
     <rect x={90} y={41} width={5} height={5} rx={1} fill={FILL_TERTIARY} stroke={TEXT_DIM} strokeWidth={0.9} />
     {/* Copy to Clipboard — the step's action */}
-    <rect x={54} y={49} width={46} height={6.5} rx={2} fill={PRIMARY} />
+    <rect x={54} y={49} width={46} height={6.5} rx={2} fill={POSTMAN_ORANGE} />
     <text x={77} y={53.8} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#fff">
       Copy to Clipboard
     </text>
@@ -159,14 +165,32 @@ const PostmanKeySteps: React.FC = () => {
     minWidth: 0,
   };
 
+  // Same sub-step idiom as the popup's Debug Network walkthrough:
+  // lettered (a)/(b) mini-badges under the numbered step.
+  const subStepIndex: React.CSSProperties = {
+    flexShrink: 0,
+    width: 14,
+    height: 14,
+    borderRadius: '50%',
+    background: token.colorPrimaryBg,
+    color: token.colorPrimaryText,
+    border: `1px solid ${token.colorPrimaryBorder}`,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 700,
+    fontSize: 9,
+  };
+
   const caption = (index: number, lines: [string, string]): React.ReactNode => (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, textAlign: 'left', minWidth: 0 }}>
       <span style={stepIndex}>{index}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-        {lines.map((line) => (
-          <Text key={line} style={{ fontSize: 11, lineHeight: '14px' }}>
-            {line}
-          </Text>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+        {lines.map((line, i) => (
+          <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
+            <span style={subStepIndex}>{'ab'[i]}</span>
+            <Text style={{ fontSize: 11, lineHeight: '14px' }}>{line}</Text>
+          </div>
         ))}
       </div>
     </div>

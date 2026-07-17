@@ -599,6 +599,22 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           void onImportFolderChosen(picked);
         }}
         onMigrate={migrationAvailable ? openMigrateTool : undefined}
+        // The hub restores focus to its trigger on close only when the
+        // close is a plain cancel. When it closes as a hand-off — a
+        // successor modal is open — the restore would steal focus from
+        // that surface's autofocused field, so it stands down. Derived
+        // from the successor states, no hand-off bookkeeping needed.
+        focusTriggerAfterClose={
+          !(
+            migrateToolOpen ||
+            migrateAccountPullOpen ||
+            importCurlOpen ||
+            importHarOpen ||
+            importPostmanOpen ||
+            importSectionedState.open ||
+            importPreviewState.open
+          )
+        }
       />
 
       <MigrateAccountPullModal

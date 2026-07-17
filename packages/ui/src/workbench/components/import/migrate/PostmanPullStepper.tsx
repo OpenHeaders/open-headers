@@ -126,6 +126,9 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
   // The hosting modal's focus trap lands on the dialog wrapper after the
   // open animation, beating the input's own autoFocus — refocus the key
   // field once mounted (and again when "Back" returns to the key step).
+  // The import hub → migrate handoff is covered at the switch site: the
+  // hub closes with focusTriggerAfterClose off, so its close-time focus
+  // restore never competes with this.
   const keyInputRef = useRef<InputRef>(null);
   useEffect(() => {
     if (workspaces !== null) return;
@@ -182,8 +185,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
     return (
       <div style={{ textAlign: 'center' }}>
         <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-          Paste a Postman API key (Settings → API keys) to list your workspaces and pick which ones to import. The key
-          is used for this run only — it is never stored or logged.
+          Paste a Postman API key (Settings → API keys) to list your workspaces and pick which ones to import.
         </Paragraph>
         <div style={{ display: 'flex', gap: 8, maxWidth: 520, margin: '0 auto' }}>
           <Input.Password
