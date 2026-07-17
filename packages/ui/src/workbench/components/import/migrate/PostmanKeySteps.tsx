@@ -159,31 +159,40 @@ const PostmanKeySteps: React.FC = () => {
     minWidth: 0,
   };
 
-  const caption = (index: number, line: string): React.ReactNode => (
+  const caption = (index: number, lines: [string, string]): React.ReactNode => (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, textAlign: 'left', minWidth: 0 }}>
       <span style={stepIndex}>{index}</span>
-      <Text style={{ fontSize: 11, lineHeight: '14px' }}>{line}</Text>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        {lines.map((line) => (
+          <Text key={line} style={{ fontSize: 11, lineHeight: '14px' }}>
+            {line}
+          </Text>
+        ))}
+      </div>
     </div>
   );
 
   const steps: React.ReactNode[] = [
     <div key="menu" style={stepCard} data-testid="oh-postman-key-step-menu">
       <AccountMenuGlyph />
-      {caption(1, 'In the Postman app or on postman.co, open the top-right settings menu and choose Account settings.')}
+      {caption(1, [
+        'In the Postman app or on postman.co,',
+        'open the top-right settings menu and choose Account settings.',
+      ])}
     </div>,
     <div key="generate" style={stepCard} data-testid="oh-postman-key-step-generate">
       <GenerateKeyGlyph />
-      {caption(2, 'Pick API keys in the sidebar, then Generate API key.')}
+      {caption(2, ['Pick API keys in the sidebar,', 'then Generate API key.'])}
     </div>,
     <div key="copy" style={stepCard} data-testid="oh-postman-key-step-copy">
       <CopyKeyGlyph />
-      {caption(3, 'Copy the key — it is shown only once — and paste it above.')}
+      {caption(3, ['Copy the key — it is shown only once —', 'and paste it above.'])}
     </div>,
   ];
 
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 12, width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 24, width: '100%' }}
       data-testid="oh-postman-key-steps"
     >
       {steps.map((step, i) => (

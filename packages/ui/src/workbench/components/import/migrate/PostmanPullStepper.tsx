@@ -16,9 +16,9 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import type { PostmanWorkspacePreview } from '@openheaders/core/import';
-import { Alert, Button, Checkbox, Input, Typography, theme } from 'antd';
+import { Alert, Button, Checkbox, Input, type InputRef, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { setBackgroundTasksPanelOpen } from '@openheaders/ui/shared/background-tasks';
 import PostmanKeySteps from './PostmanKeySteps';
 
@@ -123,6 +123,16 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
     onPhaseChange?.(phase);
   }, [phase, onPhaseChange]);
 
+  // The hosting modal's focus trap lands on the dialog wrapper after the
+  // open animation, beating the input's own autoFocus — refocus the key
+  // field once mounted (and again when "Back" returns to the key step).
+  const keyInputRef = useRef<InputRef>(null);
+  useEffect(() => {
+    if (workspaces !== null) return;
+    const timer = setTimeout(() => keyInputRef.current?.focus(), 100);
+    return () => clearTimeout(timer);
+  }, [workspaces]);
+
   const listAccountWorkspaces = useCallback(() => {
     const key = apiKey.trim();
     if (!key) return;
@@ -177,6 +187,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
         </Paragraph>
         <div style={{ display: 'flex', gap: 8, maxWidth: 520, margin: '0 auto' }}>
           <Input.Password
+            ref={keyInputRef}
             autoFocus
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
