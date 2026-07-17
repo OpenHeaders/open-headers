@@ -102,6 +102,69 @@ function domFreeEntityDecodePlugin(): Plugin {
 }
 
 /**
+ * Release-channel build-time twin of the strip-testid jsx-runtime shim:
+ * removes `'data-testid'` object properties from module code, so the
+ * selector strings never reach the bundle text at all (the runtime shim
+ * still covers ids arriving through computed spreads). AST-based — a
+ * property is removed only when its key is exactly the literal
+ * `data-testid`, wherever the object appears.
+ */
+function stripTestIdPropsPlugin(): Plugin {
+  interface AstNode {
+    type: string;
+    start: number;
+    end: number;
+    [key: string]: unknown;
+  }
+  const isNode = (value: unknown): value is AstNode =>
+    typeof value === 'object' && value !== null && typeof (value as AstNode).type === 'string';
+  const walk = (node: unknown, visit: (n: AstNode) => void): void => {
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child, visit);
+      return;
+    }
+    if (!isNode(node)) return;
+    visit(node);
+    for (const key of Object.keys(node)) {
+      if (key !== 'loc') walk(node[key], visit);
+    }
+  };
+  return {
+    name: 'strip-testid-props',
+    enforce: 'post',
+    transform(code, id) {
+      if ((id.includes('node_modules') && !id.includes('@openheaders')) || !code.includes('data-testid')) return null;
+      const ranges: Array<[number, number]> = [];
+      walk(this.parse(code), (node) => {
+        if (node.type !== 'Property') return;
+        const key = node.key;
+        if (isNode(key) && key.type === 'Literal' && (key as { value?: unknown }).value === 'data-testid') {
+          ranges.push([node.start, node.end]);
+        }
+      });
+      if (ranges.length === 0) return null;
+      let out = code;
+      for (const [start, end] of ranges.sort((a, b) => b[0] - a[0])) {
+        // Take the following comma (or the preceding one for a last
+        // property) so the object literal stays valid.
+        let sliceEnd = end;
+        let sliceStart = start;
+        while (sliceEnd < out.length && /\s/.test(out[sliceEnd])) sliceEnd++;
+        if (out[sliceEnd] === ',') {
+          sliceEnd++;
+        } else {
+          let before = start - 1;
+          while (before >= 0 && /\s/.test(out[before])) before--;
+          if (out[before] === ',') sliceStart = before;
+        }
+        out = out.slice(0, sliceStart) + out.slice(sliceEnd);
+      }
+      return { code: out, map: null };
+    },
+  };
+}
+
+/**
  * Vite plugin to ensure Chrome Web Store compliance.
  * Replaces webpack's Function constructor usage and removes source map references.
  */
@@ -283,6 +346,7 @@ export default defineConfig({
   plugins: [
     ...(browser === 'firefox' ? [firefoxTsServiceStubPlugin()] : []),
     domFreeEntityDecodePlugin(),
+    ...(isReleaseChannel ? [stripTestIdPropsPlugin()] : []),
     react(),
     chromeSafePlugin(),
     copyAssetsPlugin(),
