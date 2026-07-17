@@ -63,8 +63,26 @@ describe('scanForJWTs', () => {
     expect(scanForJWTs('{{env.API_TOKEN}}')).toHaveLength(0);
   });
 
+  it('rejects runs with adjacent, leading or trailing dots', () => {
+    expect(scanForJWTs('a..b.c')).toHaveLength(0);
+    expect(scanForJWTs(`.${TOKEN}`)).toHaveLength(0);
+    expect(scanForJWTs(`${TOKEN}.`)).toHaveLength(0);
+  });
+
   it('returns nothing for empty text', () => {
     expect(scanForJWTs('')).toHaveLength(0);
+  });
+
+  it('stays linear on a long dotless base64 run (inline-sourcemap freeze regression)', () => {
+    // A captured .js body carrying a ~300 kB base64 inline sourcemap:
+    // the old regex scan re-consumed the run from every start position
+    // (O(n²), a multi-second panel freeze); the charcode pass is O(n).
+    const sourcemapRun = 'A'.repeat(300 * 1024);
+    const text = `//# sourceMappingURL=data:application/json;base64,${sourcemapRun}\nconst t = "${TOKEN}";`;
+    const started = performance.now();
+    const hits = scanForJWTs(text);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(hits.map((h) => h.token)).toEqual([TOKEN]);
   });
 });
 
