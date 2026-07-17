@@ -1,6 +1,9 @@
 import type { ElapsedRung, TimingInsight } from '@openheaders/ui/panel/data/timing/timing-insight';
 import { computeTransferRate, findBottleneck, findWarnings } from '@openheaders/ui/panel/data/timing/timing-insight';
+import { getTranslator } from '@openheaders/i18n';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator('en');
 
 function phase(key: ElapsedRung['key'], ms: number): ElapsedRung {
   return { key, label: key, ms };
@@ -8,12 +11,12 @@ function phase(key: ElapsedRung['key'], ms: number): ElapsedRung {
 
 describe('findBottleneck', () => {
   it('returns null on empty phase list', () => {
-    expect(findBottleneck([], 0)).toBeNull();
+    expect(findBottleneck(t, [], 0)).toBeNull();
   });
 
   it('flags the dominant phase when it is ≥30% of total', () => {
     const phases = [phase('wait', 400), phase('connect', 100), phase('receive', 100)];
-    const out = findBottleneck(phases, 600);
+    const out = findBottleneck(t, phases, 600);
     expect(out?.phase).toBe('wait');
     expect(out?.percent).toBeCloseTo(66.66, 1);
   });
@@ -30,27 +33,27 @@ describe('findBottleneck', () => {
       phase('stalled', 90),
       phase('queueing', 90),
     ];
-    const out = findBottleneck(phases, 1200);
+    const out = findBottleneck(t, phases, 1200);
     expect(out?.phase).toBe('wait');
   });
 
   it('returns null when no single phase clearly dominates', () => {
     // 100/395 = 25.3% (under 30), runner-up 99 → 100 < 2×99
     const phases = [phase('wait', 100), phase('connect', 99), phase('receive', 98), phase('dns', 98)];
-    expect(findBottleneck(phases, 395)).toBeNull();
+    expect(findBottleneck(t, phases, 395)).toBeNull();
   });
 });
 
 describe('findWarnings', () => {
   it('flags every phase over its individual threshold', () => {
     const phases = [phase('dns', 200), phase('wait', 700), phase('receive', 100)];
-    const out = findWarnings(phases, null);
+    const out = findWarnings(t, phases, null);
     expect(out.map((w: TimingInsight) => w.phase)).toEqual(['dns', 'wait']);
   });
 
   it('excludes the phase already covered by the bottleneck callout', () => {
     const phases = [phase('dns', 200), phase('wait', 700)];
-    const out = findWarnings(phases, 'wait');
+    const out = findWarnings(t, phases, 'wait');
     expect(out.map((w: TimingInsight) => w.phase)).toEqual(['dns']);
   });
 });

@@ -3,9 +3,11 @@
  *
  * Same shape as the Timing tab's bottleneck callout — short auto-derived
  * messages that turn the raw summary numbers into prescriptions. The
- * view renders these as a stacked list above the chain tree.
+ * view renders these as a stacked list above the chain tree. Copy is
+ * t-fed; hosts, byte figures, and percentages ride as raw holes.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { CascadeSummary } from './cascade-summary';
 
 export type CascadeInsightKind = 'failure' | 'third-party' | 'host';
@@ -28,14 +30,14 @@ function formatBytes(b: number): string {
  * Generates 0..3 insights. Order: failures first (reliability),
  * dominant host (perf attribution), third-party share (cleanup target).
  */
-export function computeCascadeInsights(summary: CascadeSummary): readonly CascadeInsight[] {
+export function computeCascadeInsights(t: Translate, summary: CascadeSummary): readonly CascadeInsight[] {
   const out: CascadeInsight[] = [];
 
   if (summary.failedCount > 0) {
     out.push({
       kind: 'failure',
-      headline: `${summary.failedCount} failed request${summary.failedCount === 1 ? '' : 's'} in this cascade.`,
-      hint: 'Check ad-blockers, CSP rules, and CORS configuration.',
+      headline: t('panel.inspector.initiator.insights.failedHeadline', { count: summary.failedCount }),
+      hint: t('panel.inspector.initiator.insights.failedHint'),
     });
   }
 
@@ -54,8 +56,13 @@ export function computeCascadeInsights(summary: CascadeSummary): readonly Cascad
       const percent = Math.round((topBytes / summary.transferredBytes) * 100);
       out.push({
         kind: 'host',
-        headline: `${topHost} loaded ${topCount} request${topCount === 1 ? '' : 's'} (${formatBytes(topBytes)}) — ${percent}% of cascade weight.`,
-        hint: 'Largest single host in this cascade. Self-host or defer if you can.',
+        headline: t('panel.inspector.initiator.insights.hostHeadline', {
+          host: topHost,
+          count: topCount,
+          bytes: formatBytes(topBytes),
+          percent,
+        }),
+        hint: t('panel.inspector.initiator.insights.hostHint'),
       });
     }
   }
@@ -64,8 +71,8 @@ export function computeCascadeInsights(summary: CascadeSummary): readonly Cascad
     const percent = Math.round((summary.thirdPartyBytes / summary.transferredBytes) * 100);
     out.push({
       kind: 'third-party',
-      headline: `${percent}% of cascade bytes are third-party.`,
-      hint: 'Trim, defer, or self-host non-essential third parties.',
+      headline: t('panel.inspector.initiator.insights.thirdPartyHeadline', { percent }),
+      hint: t('panel.inspector.initiator.insights.thirdPartyHint'),
     });
   }
 

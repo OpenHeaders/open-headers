@@ -14,6 +14,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback, useMemo } from 'react';
 import {
   currentHarEntry,
@@ -47,6 +48,7 @@ export default function InitiatorView({
   pageOrigin,
   onOpenRequest,
 }: InitiatorViewProps) {
+  const t = useT();
   const lc = row.lifecycle;
   const raw = currentHarEntry(lc)?._initiator as Initiator | undefined;
   const hasChildren = getInitiatorChildren(lc.url).length > 0;
@@ -64,7 +66,7 @@ export default function InitiatorView({
   if (!raw && !hasChildren && !hasUpstream) {
     return (
       <span className="dt-col-muted" style={{ padding: 12 }}>
-        No initiator data available.
+        {t('panel.inspector.initiator.noData')}
       </span>
     );
   }
@@ -86,7 +88,7 @@ export default function InitiatorView({
 
       {raw && !raw.stack && raw.url && (
         <details className="dt-section" open>
-          <summary>Initiator</summary>
+          <summary>{t('panel.inspector.sections.initiator')}</summary>
           <div className="dt-initiator-frame">
             <span className="dt-initiator-fn">{raw.type ?? 'other'}</span>
             <span className="dt-initiator-loc" title={raw.url}>
@@ -99,9 +101,9 @@ export default function InitiatorView({
 
       {raw && !raw.stack && !raw.url && !hasChildren && (
         <details className="dt-section" open>
-          <summary>Initiator</summary>
+          <summary>{t('panel.inspector.sections.initiator')}</summary>
           <div className="dt-kv">
-            <span className="dt-kv-key">Type:</span>
+            <span className="dt-kv-key">{t('panel.inspector.initiator.typeLabel')}</span>
             <span className="dt-kv-val">{raw.type ?? 'unknown'}</span>
           </div>
         </details>

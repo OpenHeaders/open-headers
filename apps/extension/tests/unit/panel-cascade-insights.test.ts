@@ -1,7 +1,10 @@
 import type { CascadeInsight } from '@openheaders/ui/panel/data/cascade/cascade-insights';
 import { computeCascadeInsights } from '@openheaders/ui/panel/data/cascade/cascade-insights';
 import type { CascadeSummary, SubtreeStats } from '@openheaders/ui/panel/data/cascade/cascade-summary';
+import { getTranslator } from '@openheaders/i18n';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator('en');
 
 function summary(over: Partial<CascadeSummary>): CascadeSummary {
   return {
@@ -18,11 +21,11 @@ function summary(over: Partial<CascadeSummary>): CascadeSummary {
 
 describe('computeCascadeInsights', () => {
   it('returns no insights for a clean cascade', () => {
-    expect(computeCascadeInsights(summary({}))).toEqual([]);
+    expect(computeCascadeInsights(t, summary({}))).toEqual([]);
   });
 
   it('flags failures', () => {
-    const out = computeCascadeInsights(summary({ failedCount: 3 }));
+    const out = computeCascadeInsights(t, summary({ failedCount: 3 }));
     expect(out).toHaveLength(1);
     expect(out[0].kind).toBe('failure');
     expect(out[0].headline).toMatch(/3 failed/);
@@ -33,7 +36,7 @@ describe('computeCascadeInsights', () => {
       ['cdn.example.com', { count: 7, bytes: 60_000, ms: 0, failures: 0 }],
       ['other.example.com', { count: 3, bytes: 40_000, ms: 0, failures: 0 }],
     ]);
-    const out = computeCascadeInsights(summary({ transferredBytes: 100_000, byHost }));
+    const out = computeCascadeInsights(t, summary({ transferredBytes: 100_000, byHost }));
     expect(out.some((i: CascadeInsight) => i.kind === 'host')).toBe(true);
   });
 
@@ -51,19 +54,19 @@ describe('computeCascadeInsights', () => {
     ]);
     void byHost;
     expect(
-      computeCascadeInsights(summary({ transferredBytes: 100_000, byHost: balanced })).some(
+      computeCascadeInsights(t, summary({ transferredBytes: 100_000, byHost: balanced })).some(
         (i: CascadeInsight) => i.kind === 'host',
       ),
     ).toBe(false);
   });
 
   it('flags third-party share above 50%', () => {
-    const out = computeCascadeInsights(summary({ transferredBytes: 100_000, thirdPartyBytes: 60_000 }));
+    const out = computeCascadeInsights(t, summary({ transferredBytes: 100_000, thirdPartyBytes: 60_000 }));
     expect(out.some((i: CascadeInsight) => i.kind === 'third-party')).toBe(true);
   });
 
   it('does NOT flag third-party share below 50%', () => {
-    const out = computeCascadeInsights(summary({ transferredBytes: 100_000, thirdPartyBytes: 40_000 }));
+    const out = computeCascadeInsights(t, summary({ transferredBytes: 100_000, thirdPartyBytes: 40_000 }));
     expect(out.some((i: CascadeInsight) => i.kind === 'third-party')).toBe(false);
   });
 });

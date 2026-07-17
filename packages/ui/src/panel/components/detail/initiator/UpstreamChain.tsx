@@ -1,8 +1,10 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useMemo } from 'react';
 import { computeInitiatorRowMeta } from '../../../data/initiator/initiator-row-meta';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
 import type { UpstreamChainEntry } from '../../../data/initiator/upstream-chain';
 import ResourceIcon from '../../traffic/ResourceIcon';
-import { RowChips } from './RowChips';
+import { buildInitiatorRowLabels, RowChips } from './RowChips';
 
 export function UpstreamChain({
   row,
@@ -16,10 +18,12 @@ export function UpstreamChain({
   pageOrigin: string | null;
   onOpenRequest?: (requestId: string) => void;
 }) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildInitiatorRowLabels(t), [t]);
   if (chain.length <= 1) return null; // No ancestors — nothing to show.
   return (
     <details className="dt-section" open>
-      <summary>Request initiator chain</summary>
+      <summary>{t('panel.inspector.initiator.upstreamChain')}</summary>
       <div className="dt-initiator-chain">
         {chain.map((entry, i) => {
           const isCurrent = entry.lifecycle?.requestId === row.lifecycle.requestId;
@@ -51,7 +55,7 @@ export function UpstreamChain({
               <span className={urlClass} title={entry.url}>
                 {entry.url}
               </span>
-              {meta && <RowChips meta={meta} subtree={null} />}
+              {meta && <RowChips meta={meta} subtree={null} labels={rowLabels} />}
             </div>
           );
         })}

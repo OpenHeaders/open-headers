@@ -16,6 +16,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useState } from 'react';
 import { buildHarFromEntries } from '../../data/har/har-export';
@@ -30,13 +31,15 @@ import { maybeRedactHeaderValue } from './raw-data/redact';
 import { generateSnippet, SNIPPET_FORMATS, type SnippetFormat } from './raw-data/snippet-generators';
 import TextBodyViewer from './TextBodyViewer';
 
-const HAR_INFO: InfoPopoverContent = {
-  kicker: 'Format',
-  title: 'HAR 1.2',
-  summary: 'Portable HTTP Archive — a JSON snapshot of one request.',
-  description:
-    'Save it to attach to a bug report, share with a teammate, or import into another tool that reads HAR files.',
-};
+// The title stays the raw format name (HAR 1.2).
+function harInfo(t: Translate): InfoPopoverContent {
+  return {
+    kicker: t('panel.inspector.rawData.harInfo.kicker'),
+    title: 'HAR 1.2',
+    summary: t('panel.inspector.rawData.harInfo.summary'),
+    description: t('panel.inspector.rawData.harInfo.description'),
+  };
+}
 
 interface RawDataViewProps {
   row: InspectorRowWithFires;
@@ -85,6 +88,8 @@ function applyRedaction(headers: readonly HeaderPair[], redact: boolean): Header
 }
 
 export default function RawDataView({ row, requestHeaders, pages }: RawDataViewProps) {
+  const t = useT();
+  const harInfoContent = useMemo(() => harInfo(t), [t]);
   const lc = row.lifecycle;
   const har = currentHarEntry(lc);
   const pageref = useMemo(() => resolvePageref(lc, pages) ?? undefined, [lc, pages]);
@@ -135,8 +140,8 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
             pageref,
             pages,
           })
-        : '(no request data yet)',
-    [har, headersForSnippet, format, includeHeaders, includeBody, pageref, pages],
+        : t('panel.inspector.rawData.noRequestData'),
+    [har, headersForSnippet, format, includeHeaders, includeBody, pageref, pages, t],
   );
 
   const copy = async (): Promise<void> => {
@@ -193,13 +198,13 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
         onToggle={(e) => setExportOpen((e.currentTarget as HTMLDetailsElement).open)}
       >
         <summary>
-          <span className="dt-rawdata-summary-label">Export snippet</span>
+          <span className="dt-rawdata-summary-label">{t('panel.inspector.rawData.exportSnippet')}</span>
           <span
             className="dt-rawdata-summary-controls"
             onClick={(e) => e.stopPropagation()}
           >
           <label className="dt-rawdata-field">
-            <span className="dt-rawdata-field-label">Format</span>
+            <span className="dt-rawdata-field-label">{t('panel.inspector.rawData.formatLabel')}</span>
             <select
               className="dt-rawdata-select"
               value={format}
@@ -207,7 +212,7 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
             >
               {SNIPPET_FORMATS.map((f) => (
                 <option key={f.value} value={f.value}>
-                  {f.label}
+                  {t(f.labelKey)}
                 </option>
               ))}
             </select>
@@ -215,16 +220,16 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
 
           <span className="dt-rawdata-actions">
             <button type="button" className="dt-payload-toggle-btn" onClick={copy}>
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? t('panel.inspector.rawData.copied') : t('panel.inspector.rawData.copy')}
             </button>
-            <ToolbarMenuPopover label="View" activeCount={viewActiveCount}>
+            <ToolbarMenuPopover label={t('panel.inspector.rawData.view.label')} activeCount={viewActiveCount}>
               <label className="dt-morefilters-item">
                 <input
                   type="checkbox"
                   checked={includeHeaders}
                   onChange={(e) => setIncludeHeaders(e.target.checked)}
                 />
-                Include request headers
+                {t('panel.inspector.rawData.view.includeHeaders')}
               </label>
               <label className={`dt-morefilters-item${hasBody ? '' : ' dt-morefilters-item--disabled'}`}>
                 <input
@@ -233,16 +238,16 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
                   disabled={!hasBody}
                   onChange={(e) => setIncludeBody(e.target.checked)}
                 />
-                Include request body
+                {t('panel.inspector.rawData.view.includeBody')}
               </label>
               <label className="dt-morefilters-item">
                 <input type="checkbox" checked={redact} onChange={(e) => setRedact(e.target.checked)} />
-                Redact secrets
+                {t('panel.inspector.rawData.view.redactSecrets')}
               </label>
               {ruleFired && (
                 <>
                   <div className="dt-morefilters-divider" />
-                  <div className="dt-sortmode-heading">Rule-modified headers</div>
+                  <div className="dt-sortmode-heading">{t('panel.inspector.rawData.view.ruleModifiedHeading')}</div>
                   <label className="dt-morefilters-item">
                     <input
                       type="radio"
@@ -250,7 +255,7 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
                       checked={ruleMode === 'post'}
                       onChange={() => setRuleMode('post')}
                     />
-                    Post-rule (on the wire)
+                    {t('panel.inspector.rawData.view.postRule')}
                   </label>
                   <label className="dt-morefilters-item">
                     <input
@@ -259,7 +264,7 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
                       checked={ruleMode === 'original'}
                       onChange={() => setRuleMode('original')}
                     />
-                    Original (before rules)
+                    {t('panel.inspector.rawData.view.original')}
                   </label>
                 </>
               )}
@@ -270,7 +275,7 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
                 onClick={resetView}
                 disabled={viewActiveCount === 0}
               >
-                Reset to default
+                {t('panel.menu.resetToDefault')}
               </button>
             </ToolbarMenuPopover>
           </span>
@@ -291,17 +296,17 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
         onToggle={(e) => setHarOpen((e.currentTarget as HTMLDetailsElement).open)}
       >
         <summary>
-          <span className="dt-rawdata-summary-label">Raw HAR (JSON)</span>
-          <InfoTrigger content={HAR_INFO} />
+          <span className="dt-rawdata-summary-label">{t('panel.inspector.rawData.rawHar')}</span>
+          <InfoTrigger content={harInfoContent} />
           <span
             className="dt-rawdata-summary-controls"
             onClick={(e) => e.stopPropagation()}
           >
             <button type="button" className="dt-payload-toggle-btn" onClick={copyHar}>
-              {harCopied ? 'Copied' : 'Copy'}
+              {harCopied ? t('panel.inspector.rawData.copied') : t('panel.inspector.rawData.copy')}
             </button>
             <button type="button" className="dt-payload-toggle-btn" onClick={downloadHar}>
-              Download .har
+              {t('panel.inspector.rawData.downloadHar')}
             </button>
           </span>
         </summary>

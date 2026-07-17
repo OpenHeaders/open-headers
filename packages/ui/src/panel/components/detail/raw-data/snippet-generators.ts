@@ -9,6 +9,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { buildHarFromEntries } from '../../../data/har/har-export';
 
 export type SnippetFormat =
@@ -23,20 +24,35 @@ export type SnippetFormat =
 
 export interface SnippetFormatMeta {
   value: SnippetFormat;
-  label: string;
+  labelKey: MessageKey;
   group: 'shell' | 'js' | 'python' | 'win' | 'raw' | 'json';
   language: string;
 }
 
 export const SNIPPET_FORMATS: readonly SnippetFormatMeta[] = [
-  { value: 'curl-unix', label: 'cURL (bash)', group: 'shell', language: 'bash' },
-  { value: 'curl-windows', label: 'cURL (Windows)', group: 'shell', language: 'powershell' },
-  { value: 'fetch-browser', label: 'JavaScript — fetch (browser)', group: 'js', language: 'javascript' },
-  { value: 'fetch-node', label: 'JavaScript — fetch (Node)', group: 'js', language: 'javascript' },
-  { value: 'python-requests', label: 'Python — requests', group: 'python', language: 'python' },
-  { value: 'powershell', label: 'PowerShell — Invoke-WebRequest', group: 'win', language: 'powershell' },
-  { value: 'http-raw', label: 'HTTP — raw message', group: 'raw', language: 'http' },
-  { value: 'har', label: 'HAR — single entry', group: 'json', language: 'json' },
+  { value: 'curl-unix', labelKey: 'panel.inspector.rawData.format.curlUnix', group: 'shell', language: 'bash' },
+  {
+    value: 'curl-windows',
+    labelKey: 'panel.inspector.rawData.format.curlWindows',
+    group: 'shell',
+    language: 'powershell',
+  },
+  {
+    value: 'fetch-browser',
+    labelKey: 'panel.inspector.rawData.format.fetchBrowser',
+    group: 'js',
+    language: 'javascript',
+  },
+  { value: 'fetch-node', labelKey: 'panel.inspector.rawData.format.fetchNode', group: 'js', language: 'javascript' },
+  {
+    value: 'python-requests',
+    labelKey: 'panel.inspector.rawData.format.pythonRequests',
+    group: 'python',
+    language: 'python',
+  },
+  { value: 'powershell', labelKey: 'panel.inspector.rawData.format.powershell', group: 'win', language: 'powershell' },
+  { value: 'http-raw', labelKey: 'panel.inspector.rawData.format.httpRaw', group: 'raw', language: 'http' },
+  { value: 'har', labelKey: 'panel.inspector.rawData.format.har', group: 'json', language: 'json' },
 ] as const;
 
 interface NameValue {

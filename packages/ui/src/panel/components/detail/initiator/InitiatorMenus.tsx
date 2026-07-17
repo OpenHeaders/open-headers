@@ -1,3 +1,4 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
 import { MenuNonDefaultDot, ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 import type { SortMode } from './tree-model';
@@ -20,16 +21,17 @@ export function InitiatorMoreFiltersMenu({
   onToggleFailuresOnly: () => void;
   onToggleThirdPartyOnly: () => void;
 }) {
+  const t = useT();
   const activeCount = [failuresOnly, thirdPartyOnly].reduce((n, v) => n + (v ? 1 : 0), 0);
   return (
-    <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
+    <ToolbarMenuPopover label={t('panel.inspector.initiator.moreFilters.label')} activeCount={activeCount}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={failuresOnly} onChange={onToggleFailuresOnly} />
-        Failures only
+        {t('panel.inspector.initiator.moreFilters.failuresOnly')}
       </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={thirdPartyOnly} onChange={onToggleThirdPartyOnly} />
-        3rd-party only
+        {t('panel.inspector.initiator.moreFilters.thirdPartyOnly')}
       </label>
     </ToolbarMenuPopover>
   );
@@ -53,23 +55,24 @@ export function InitiatorViewMenu({
   onSortChange: (mode: SortMode) => void;
   onToggleShowInsights: () => void;
 }) {
+  const t = useT();
   return (
-    <ToolbarMenuPopover label="View" activeCount={modified.size}>
+    <ToolbarMenuPopover label={t('panel.inspector.initiator.view.label')} activeCount={modified.size}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">
-          Sort
+          {t('panel.inspector.initiator.view.sort')}
           <MenuNonDefaultDot show={modified.has('devpanelInitiator.sortMode')} />
         </span>
         <select value={sortMode} onChange={(e) => onSortChange(e.target.value as SortMode)}>
-          <option value="initiator">Initiator order</option>
-          <option value="chronological">Chronological</option>
-          <option value="largest">Largest subtree</option>
+          <option value="initiator">{t('panel.inspector.initiator.view.sortInitiator')}</option>
+          <option value="chronological">{t('panel.inspector.initiator.view.sortChronological')}</option>
+          <option value="largest">{t('panel.inspector.initiator.view.sortLargest')}</option>
         </select>
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
-        Show suggestions
+        {t('panel.inspector.initiator.view.showSuggestions')}
         <MenuNonDefaultDot show={modified.has('devpanelInitiator.showInsights')} />
       </label>
     </ToolbarMenuPopover>

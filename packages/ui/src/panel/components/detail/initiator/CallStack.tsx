@@ -1,4 +1,5 @@
 import { hostNavigation } from '@openheaders/core/navigation';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback, useMemo, useState } from 'react';
 import {
   type CallFrameLike,
@@ -35,14 +36,26 @@ export interface StackTrace {
   description?: string;
 }
 
+// Row copy resolved once per locale — the frame loop reads this object,
+// never `t()` (per-row law). The param-bearing titles are lazy formats.
+function buildStackRowLabels(t: Translate) {
+  return {
+    sourceMapNameTitle: (name: string) => t('panel.inspector.initiator.stack.sourceMapNameTitle', { name }),
+    originalTitle: (url: string, source: string) => t('panel.inspector.initiator.stack.originalTitle', { url, source }),
+  };
+}
+type StackRowLabels = ReturnType<typeof buildStackRowLabels>;
+
 function FrameRow({
   frame,
   pageOrigin,
   resolved,
+  labels,
 }: {
   frame: CallFrame;
   pageOrigin: string | null;
   resolved?: ResolvedFramePosition;
+  labels: StackRowLabels;
 }) {
   const meta = computeCallFrameMeta(frame, pageOrigin);
   const loc = computeFrameLocation(frame);
@@ -89,7 +102,7 @@ function FrameRow({
 
   return (
     <div className="dt-initiator-frame" data-noise={meta.isLikelyNoise ? 'true' : 'false'}>
-      <span className={nameClass} title={resolved?.name ? `Source-map name: ${resolved.name}` : undefined}>
+      <span className={nameClass} title={resolved?.name ? labels.sourceMapNameTitle(resolved.name) : undefined}>
         {displayName}
       </span>
       {displayFile &&
@@ -97,7 +110,7 @@ function FrameRow({
           <button
             type="button"
             className="dt-initiator-loc dt-initiator-loc--link"
-            title={hasResolvedFile ? `${frame.url} (original: ${resolved?.source ?? ''})` : frame.url}
+            title={hasResolvedFile ? labels.originalTitle(frame.url ?? '', resolved?.source ?? '') : frame.url}
             onClick={handleOpen}
           >
             <span className="dt-initiator-loc-at">@</span>
@@ -161,6 +174,8 @@ function frameMatchesQuery(frame: CallFrameLike, displayName: string, predicate:
 }
 
 export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin: string | null }) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildStackRowLabels(t), [t]);
   const sections = useMemo(() => flattenStack(stack), [stack]);
   const allFrames = useMemo(() => {
     const out: CallFrameLike[] = [];
@@ -213,16 +228,16 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
     <details className="dt-section" open>
       <summary>
         <span className="dt-initiator-stack-heading">
-          Request call stack
+          {t('panel.inspector.initiator.stack.heading')}
           <span className="dt-initiator-stack-count">
-            · {totalFrames} frame{totalFrames === 1 ? '' : 's'}
+            · {t('panel.inspector.initiator.stack.frameCount', { count: totalFrames })}
           </span>
           {resolvedCount > 0 && (
             <span
               className="dt-initiator-stack-count dt-initiator-stack-count--resolved"
-              title="Function names resolved via source maps"
+              title={t('panel.inspector.initiator.stack.resolvedTitle')}
             >
-              · {resolvedCount} resolved
+              · {t('panel.inspector.initiator.stack.resolvedCount', { count: resolvedCount })}
             </span>
           )}
         </span>
@@ -237,9 +252,11 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
                 e.stopPropagation();
                 setHideNoise((v) => !v);
               }}
-              title="Hide anonymous frames inside minified bundles"
+              title={t('panel.inspector.initiator.stack.noiseTitle')}
             >
-              {hideNoise ? `Show ${noiseCount} hidden` : `Hide ${noiseCount} noisy`}
+              {hideNoise
+                ? t('panel.inspector.initiator.stack.showHidden', { count: noiseCount })
+                : t('panel.inspector.initiator.stack.hideNoisy', { count: noiseCount })}
             </button>
           )}
           <button
@@ -250,9 +267,9 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
               e.stopPropagation();
               handleCopy();
             }}
-            title="Copy stack as text"
+            title={t('panel.inspector.initiator.stack.copyTitle')}
           >
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? t('panel.inspector.initiator.stack.copied') : t('panel.inspector.initiator.stack.copy')}
           </button>
         </span>
       </summary>
@@ -263,8 +280,8 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
           config={filterConfig}
           onConfigChange={setFilterConfig}
           hasError={filterPredicate.error}
-          placeholder="Filter frames (function name or URL)…"
-          ariaLabel="Filter call-stack frames"
+          placeholder={t('panel.inspector.initiator.stack.filterPlaceholder')}
+          ariaLabel={t('panel.inspector.initiator.stack.filterAria')}
         />
       </div>
       {(() => {
@@ -301,6 +318,7 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
                     frame={frame}
                     pageOrigin={pageOrigin}
                     resolved={resolvedNames.get(frameKey(frame as CallFrameLike))}
+                    labels={rowLabels}
                   />
                 ))}
               </div>
@@ -313,11 +331,13 @@ export function CallStack({ stack, pageOrigin }: { stack: StackTrace; pageOrigin
             {(!filterPredicate.empty || hideNoise) && (
               <div className="dt-initiator-stack-status">
                 {totalVisible === 0 ? (
-                  <span className="dt-col-muted">No frames match.</span>
+                  <span className="dt-col-muted">{t('panel.inspector.initiator.stack.noMatch')}</span>
                 ) : (
                   <span className="dt-col-muted">
-                    Showing {totalVisible} of {totalFrames} frame{totalFrames === 1 ? '' : 's'}
-                    {totalHidden > 0 ? ` (${totalHidden} hidden)` : ''}
+                    {t('panel.inspector.initiator.stack.showing', { shown: totalVisible, count: totalFrames })}
+                    {totalHidden > 0
+                      ? ` ${t('panel.inspector.initiator.stack.hiddenSuffix', { count: totalHidden })}`
+                      : ''}
                   </span>
                 )}
               </div>

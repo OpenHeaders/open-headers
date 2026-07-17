@@ -1,3 +1,4 @@
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useModifiedSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { useStickyAncestors } from '@openheaders/ui/shared/hooks/dom/useStickyAncestors';
@@ -14,7 +15,7 @@ import { HighlightedText } from '../HighlightedText';
 import { CascadeSummaryHeader } from './CascadeSummaryHeader';
 import { INITIATOR_VIEW_MENU_KEYS, InitiatorMoreFiltersMenu, InitiatorViewMenu } from './InitiatorMenus';
 import { InsightCallout } from './InsightCallout';
-import { RowChips } from './RowChips';
+import { buildInitiatorRowLabels, RowChips } from './RowChips';
 import { buildTree, flattenTree, type FlatRow } from './tree-model';
 import { shortUrl } from './utils';
 
@@ -29,6 +30,8 @@ export function InitiatorTreeView({
   pageOrigin: string | null;
   onOpenRequest?: (requestId: string) => void;
 }) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildInitiatorRowLabels(t), [t]);
   const [filter, setFilter] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   // Filter text stays per-tab (request-specific); the toggles + sort
@@ -61,7 +64,7 @@ export function InitiatorTreeView({
     () => computeCascadeSummary(row.lifecycle, getChildLifecycles, pageOrigin),
     [row.lifecycle, getChildLifecycles, pageOrigin],
   );
-  const insights = useMemo(() => computeCascadeInsights(summary), [summary]);
+  const insights = useMemo(() => computeCascadeInsights(t, summary), [t, summary]);
 
   // Build the effective query — the typed text parses under the match
   // config (regex mode makes it one pattern); the quick-toggle synthetic
@@ -208,12 +211,12 @@ export function InitiatorTreeView({
           config={filterConfig}
           onConfigChange={setFilterConfig}
           hasError={filterHasError}
-          placeholder="Filter — text, is:failed, is:third-party, type:js, status:404, size:>50kb"
-          ariaLabel="Filter initiator chain"
+          placeholder={t('panel.inspector.initiator.filterPlaceholder')}
+          ariaLabel={t('panel.inspector.initiator.filterAria')}
         />
         {filtering && (
           <span className="dt-initiator-chain-filter-count">
-            {rows.filter((r) => r.matches).length} match{rows.filter((r) => r.matches).length === 1 ? '' : 'es'}
+            {t('panel.inspector.initiator.matchCount', { count: rows.filter((r) => r.matches).length })}
           </span>
         )}
         <InitiatorMoreFiltersMenu
@@ -231,11 +234,16 @@ export function InitiatorTreeView({
         />
       </div>
       <details className="dt-section" open>
-        <summary ref={summaryRef}>Request initiator chain</summary>
+        <summary ref={summaryRef}>{t('panel.inspector.initiator.chainTree')}</summary>
         <CascadeSummaryHeader summary={summary} />
         {showInsights && insights.map((ins, i) => <InsightCallout key={`${ins.kind}-${i}`} insight={ins} />)}
         {/* biome-ignore lint/a11y/useSemanticElements: tree role is intentional */}
-        <div role="tree" aria-label="Request initiator chain" className="dt-initiator-chain" onKeyDown={onKeyDown}>
+        <div
+          role="tree"
+          aria-label={t('panel.inspector.initiator.chainTree')}
+          className="dt-initiator-chain"
+          onKeyDown={onKeyDown}
+        >
           {stickyAncestorKeys.length > 0 && (
             <div ref={stickyStackRef} className="dt-initiator-sticky-stack" aria-hidden="true">
               {stickyAncestorKeys.map((key, indexInStack) => {
@@ -319,7 +327,7 @@ export function InitiatorTreeView({
                       e.stopPropagation();
                       setExpandedFor(flat.key, !flat.expanded);
                     }}
-                    aria-label={flat.expanded ? 'Collapse' : 'Expand'}
+                    aria-label={flat.expanded ? rowLabels.collapse : rowLabels.expand}
                   >
                     {flat.expanded ? '▼' : '▶'}
                   </button>
@@ -334,7 +342,7 @@ export function InitiatorTreeView({
                 <span className={urlClass} title={flat.url}>
                   <HighlightedText text={shortUrl(flat.url)} query={filter.trim() ? filter.trim() : undefined} />
                 </span>
-                <RowChips meta={flat.meta} subtree={flat.subtree} />
+                <RowChips meta={flat.meta} subtree={flat.subtree} labels={rowLabels} />
               </div>
             );
           })}

@@ -1,4 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback } from 'react';
 import { useModifiedSettings, useResetSettings, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
@@ -43,6 +44,7 @@ interface TimingViewProps {
 }
 
 export default function TimingView({ row, connectionReuse, repeatStats, baselineMs }: TimingViewProps) {
+  const t = useT();
   const lc = row.lifecycle;
   const [showInsights, setShowInsights] = useSetting('devpanelTiming.showInsights');
   const [showContextStrip, setShowContextStrip] = useSetting('devpanelTiming.showContextStrip');
@@ -78,7 +80,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   // View menu rides its summary row, same as Raw Data's Export snippet.
   const timingSummary = (
     <summary>
-      <span className="dt-timing-summary-label">Timing</span>
+      <span className="dt-timing-summary-label">{t('panel.inspector.sections.timing')}</span>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: stops summary toggle only; the menu is its own button. */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: same. */}
       <span className="dt-timing-summary-controls" onClick={(e) => e.stopPropagation()}>
@@ -121,7 +123,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
         <details className="dt-section" open>
           {timingSummary}
           <span className="dt-col-muted" style={{ padding: 12, display: 'inline-block' }}>
-            No timing data available.
+            {t('panel.inspector.timing.noData')}
           </span>
         </details>
       </div>
@@ -152,8 +154,8 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
     }
   }
   const totalMs = ladder.durationMs;
-  const bottleneck = findBottleneck(elapsed, totalMs);
-  const warnings = findWarnings(elapsed, bottleneck?.phase ?? null);
+  const bottleneck = findBottleneck(t, elapsed, totalMs);
+  const warnings = findWarnings(t, elapsed, bottleneck?.phase ?? null);
   const serverTiming = parseServerTiming(har?.response?.headers);
   // The queue moment as an offset from the session baseline (the tab's zero) —
   // added to the ladder's local instants for the absolute "… at" readings, the
@@ -183,8 +185,11 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
           </span>
           <div className="dt-timing-insight-body">
             <div className="dt-timing-insight-headline">
-              <strong>{bottleneck.label}</strong> dominates this request — {formatMs(bottleneck.ms)} (
-              {bottleneck.percent.toFixed(0)}% of total).
+              <strong>{bottleneck.label}</strong>{' '}
+              {t('panel.inspector.timing.insight.dominatesTail', {
+                ms: formatMs(bottleneck.ms),
+                percent: bottleneck.percent.toFixed(0),
+              })}
             </div>
             <div className="dt-timing-insight-hint">
               {bottleneck.what}. {bottleneck.hint}
@@ -199,7 +204,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
           </span>
           <div className="dt-timing-insight-body">
             <div className="dt-timing-insight-headline">
-              <strong>{w.label}</strong> is unusually high — {formatMs(w.ms)}.
+              <strong>{w.label}</strong> {t('panel.inspector.timing.insight.unusuallyHighTail', { ms: formatMs(w.ms) })}
             </div>
             <div className="dt-timing-insight-hint">
               {w.what}. {w.hint}
@@ -234,7 +239,8 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
       {showTimingBar && (
         <div className="dt-timing-total">
           <span>
-            Total time <span className="dt-timing-where">(queued → ended)</span>
+            {t('panel.inspector.timing.totalTime')}{' '}
+            <span className="dt-timing-where">{t('panel.inspector.timing.totalWhere')}</span>
           </span>
           <span>{formatTimeMs(totalMs)}</span>
         </div>
@@ -242,7 +248,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
 
       {/* Streaming (response in, body still downloading): the host flags the
           unfinished request the same way. */}
-      {unfinished && <div className="dt-timing-caution">CAUTION: request is not finished yet!</div>}
+      {unfinished && <div className="dt-timing-caution">{t('panel.inspector.timing.caution')}</div>}
       </details>
 
       {showServerTiming && serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
@@ -265,22 +271,25 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
  * baseline (the tab's zero), matching the context strip's "Started".
  */
 function InFlightTiming({ lc, baselineMs }: { lc: RequestLifecycle; baselineMs: number | null }) {
+  const t = useT();
   const { queuedAtMs, startedAtMs, networkStarted } = computeInFlightTiming(lc, baselineMs ?? waterfallStartMs(lc));
   return (
     <>
       <div className="dt-timing-inflight-start">
-        <div>Queued at {formatRelativeStart(queuedAtMs)}</div>
-        {networkStarted && <div>Started at {formatRelativeStart(startedAtMs)}</div>}
+        <div>{t('panel.inspector.timing.queuedAt', { offset: formatRelativeStart(queuedAtMs) })}</div>
+        {networkStarted && (
+          <div>{t('panel.inspector.timing.startedAt', { offset: formatRelativeStart(startedAtMs) })}</div>
+        )}
       </div>
       {!networkStarted && (
         <div className="dt-kv" style={{ paddingTop: 4 }}>
           <span className="dt-kv-key" style={{ minWidth: 140 }}>
             Stalled:
           </span>
-          <span className="dt-kv-val dt-col-muted">in progress…</span>
+          <span className="dt-kv-val dt-col-muted">{t('panel.inspector.timing.inProgress')}</span>
         </div>
       )}
-      <div className="dt-timing-caution">CAUTION: request is not finished yet!</div>
+      <div className="dt-timing-caution">{t('panel.inspector.timing.caution')}</div>
     </>
   );
 }
@@ -302,26 +311,60 @@ function cacheTone(cache: CacheLabel | null): 'good' | 'muted' | undefined {
 }
 
 function TimingContextStrip({ context }: { context: ReturnType<typeof computeTimingContext> }) {
+  const t = useT();
   const chips: React.ReactNode[] = [];
-  if (context.httpVersion) chips.push(<ChipLabel key="http" label="Protocol" value={context.httpVersion} />);
+  if (context.httpVersion) {
+    chips.push(<ChipLabel key="http" label={t('panel.inspector.timing.chip.protocol')} value={context.httpVersion} />);
+  }
   if (context.connectionReuse.reused) {
+    const reused = t('panel.inspector.timing.chip.connectionReused');
+    const openedBy = context.connectionReuse.openedBy
+      ? ` · ${t('panel.inspector.timing.chip.openedBy', { url: shortUrl(context.connectionReuse.openedBy.url) })}`
+      : '';
     chips.push(
       <ChipLabel
         key="conn"
-        label="Connection"
-        value={`reused${context.connectionReuse.openedBy ? ` · opened by ${shortUrl(context.connectionReuse.openedBy.url)}` : ''}`}
+        label={t('panel.inspector.timing.chip.connection')}
+        value={`${reused}${openedBy}`}
         tone="good"
       />,
     );
   } else if (context.connectionReuse.connectionId) {
-    chips.push(<ChipLabel key="conn" label="Connection" value="new" />);
+    chips.push(
+      <ChipLabel
+        key="conn"
+        label={t('panel.inspector.timing.chip.connection')}
+        value={t('panel.inspector.timing.chip.connectionNew')}
+      />,
+    );
   }
-  if (context.cache) chips.push(<ChipLabel key="cache" label="Cache" value={context.cache} tone={cacheTone(context.cache)} />);
-  if (context.priority) chips.push(<ChipLabel key="prio" label="Priority" value={context.priority} />);
+  if (context.cache) {
+    chips.push(
+      <ChipLabel
+        key="cache"
+        label={t('panel.inspector.timing.chip.cache')}
+        value={context.cache}
+        tone={cacheTone(context.cache)}
+      />,
+    );
+  }
+  if (context.priority) {
+    chips.push(<ChipLabel key="prio" label={t('panel.inspector.timing.chip.priority')} value={context.priority} />);
+  }
   if (context.startedAtMs != null) {
-    chips.push(<ChipLabel key="start" label="Started" value={formatRelativeStart(context.startedAtMs)} />);
+    chips.push(
+      <ChipLabel
+        key="start"
+        label={t('panel.inspector.timing.chip.started')}
+        value={formatRelativeStart(context.startedAtMs)}
+      />,
+    );
   }
-  if (context.serverIp) chips.push(<ChipLabel key="ip" label="Server IP" value={context.serverIp} tone="muted" />);
+  if (context.serverIp) {
+    chips.push(
+      <ChipLabel key="ip" label={t('panel.inspector.timing.chip.serverIp')} value={context.serverIp} tone="muted" />,
+    );
+  }
   if (chips.length === 0) return null;
   return <div className="dt-timing-context-strip">{chips}</div>;
 }
@@ -338,6 +381,7 @@ function shortUrl(url: string): string {
 // ── Server Timing ────────────────────────────────────────────────────
 
 function ServerTimingSection({ metrics }: { metrics: readonly ServerTimingMetric[] }) {
+  const t = useT();
   const measured = metrics.filter((m) => m.duration != null && m.duration > 0);
   const total = measured.reduce((s, m) => s + (m.duration ?? 0), 0);
   const barTotal = Math.max(total, 1);
@@ -362,7 +406,7 @@ function ServerTimingSection({ metrics }: { metrics: readonly ServerTimingMetric
                 <span className="dt-server-timing-dur">{formatMs(m.duration)}</span>
               </>
             ) : (
-              <span className="dt-server-timing-dur dt-col-muted">no duration</span>
+              <span className="dt-server-timing-dur dt-col-muted">{t('panel.inspector.timing.noDuration')}</span>
             )}
           </div>
         ))}
@@ -380,20 +424,24 @@ function ServerTimingSection({ metrics }: { metrics: readonly ServerTimingMetric
  * it reads as a diagnostic line rather than a terse annotation.
  */
 function TransferRateSection({ rate }: { rate: TransferRate }) {
+  const t = useT();
   return (
     <details className="dt-section" open>
-      <summary>Transfer rate</summary>
+      <summary>{t('panel.inspector.timing.transferRate.heading')}</summary>
       <div className="dt-kv">
         <span className="dt-kv-key" style={{ minWidth: 140 }}>
-          Content downloaded:
+          {t('panel.inspector.timing.transferRate.contentDownloaded')}
         </span>
         <span className="dt-kv-val">
-          {formatSize(rate.bytes)} in {formatMs(rate.ms)}
+          {t('panel.inspector.timing.transferRate.amount', {
+            size: formatSize(rate.bytes),
+            duration: formatMs(rate.ms),
+          })}
         </span>
       </div>
       <div className="dt-kv">
         <span className="dt-kv-key" style={{ minWidth: 140 }}>
-          Effective rate:
+          {t('panel.inspector.timing.transferRate.effectiveRate')}
         </span>
         <span className="dt-kv-val">{rate.formatted}</span>
       </div>
@@ -404,24 +452,32 @@ function TransferRateSection({ rate }: { rate: TransferRate }) {
 // ── Repeat-URL comparison ────────────────────────────────────────────
 
 function RepeatStatsSection({ stats, url }: { stats: RepeatStats; url: string }) {
+  const t = useT();
+  // Cache-source words are Size-column parity vocabulary — the whole
+  // breakdown line stays raw (figures + parity words, ' · ' joined).
   const cacheBits: string[] = [];
   if (stats.cacheCounts.memory) cacheBits.push(`${stats.cacheCounts.memory} memory cache`);
   if (stats.cacheCounts.disk) cacheBits.push(`${stats.cacheCounts.disk} disk cache`);
   if (stats.cacheCounts.serviceWorker) cacheBits.push(`${stats.cacheCounts.serviceWorker} service worker`);
   if (stats.cacheCounts.miss) cacheBits.push(`${stats.cacheCounts.miss} miss`);
   const tone = stats.selectedIsSlowest ? 'warn' : stats.selectedIsFastest ? 'good' : undefined;
+  const selectedTag = stats.selectedIsSlowest
+    ? ` ${t('panel.inspector.timing.repeats.slowestTag')}`
+    : stats.selectedIsFastest
+      ? ` ${t('panel.inspector.timing.repeats.fastestTag')}`
+      : '';
   return (
     <details className="dt-section" open>
-      <summary>Repeats in this session</summary>
+      <summary>{t('panel.inspector.timing.repeats.heading')}</summary>
       <div className="dt-kv">
         <span className="dt-kv-key" style={{ minWidth: 140 }}>
-          URL hit count:
+          {t('panel.inspector.timing.repeats.hitCount')}
         </span>
         <span className="dt-kv-val">{stats.count}</span>
       </div>
       <div className="dt-kv">
         <span className="dt-kv-key" style={{ minWidth: 140 }}>
-          Fastest / median / slowest:
+          {t('panel.inspector.timing.repeats.fastestMedianSlowest')}
         </span>
         <span className="dt-kv-val">
           {formatMs(stats.fastestMs)} · {formatMs(stats.medianMs)} · {formatMs(stats.slowestMs)}
@@ -430,28 +486,24 @@ function RepeatStatsSection({ stats, url }: { stats: RepeatStats; url: string })
       {stats.selectedMs > 0 && (
         <div className="dt-kv">
           <span className="dt-kv-key" style={{ minWidth: 140 }}>
-            This request:
+            {t('panel.inspector.timing.repeats.thisRequest')}
           </span>
           <span className="dt-kv-val">
-            <ChipLabel
-              label=""
-              value={`${formatMs(stats.selectedMs)}${stats.selectedIsSlowest ? ' (slowest)' : stats.selectedIsFastest ? ' (fastest)' : ''}`}
-              tone={tone}
-            />
+            <ChipLabel label="" value={`${formatMs(stats.selectedMs)}${selectedTag}`} tone={tone} />
           </span>
         </div>
       )}
       {cacheBits.length > 0 && (
         <div className="dt-kv">
           <span className="dt-kv-key" style={{ minWidth: 140 }}>
-            Cache breakdown:
+            {t('panel.inspector.timing.repeats.cacheBreakdown')}
           </span>
           <span className="dt-kv-val">{cacheBits.join(' · ')}</span>
         </div>
       )}
       <div className="dt-kv dt-col-muted" style={{ marginTop: 4 }}>
         <span className="dt-kv-key" style={{ minWidth: 140 }}>
-          URL:
+          {t('panel.inspector.timing.repeats.url')}
         </span>
         <span className="dt-kv-val" title={url} style={{ wordBreak: 'break-all' }}>
           {url}

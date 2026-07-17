@@ -11,6 +11,7 @@
  * Both lists are derived; the view renders them as-is.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { TimingRungKey } from './timing-ladder';
 
 /** The minimal shape the insights read — one elapsed ladder rung. Decoupled from
@@ -22,57 +23,57 @@ export interface ElapsedRung {
   ms: number;
 }
 
-interface PhaseDiagnosis {
+interface PhaseCopy {
   /** What this phase represents in user-facing language. */
   what: string;
   /** Actionable next-step hint scoped to this phase. */
   hint: string;
-  /** ms threshold above which this phase is "unusually slow" even when not dominant. */
-  warnAboveMs: number;
 }
 
-const PHASE_DIAGNOSIS: Record<TimingRungKey, PhaseDiagnosis> = {
-  queueing: {
-    what: 'Request scheduler held this request',
-    hint: 'Too many concurrent requests competing for slots, or low priority.',
-    warnAboveMs: 50,
-  },
-  stalled: {
-    what: 'Waiting for an available connection',
-    hint: 'Connection-pool limit, proxy negotiation, or HTTP/1.1 head-of-line blocking.',
-    warnAboveMs: 50,
-  },
-  dns: {
-    what: 'DNS lookup',
-    hint: 'Affects only the first request to this domain. Consider DNS prefetch.',
-    warnAboveMs: 100,
-  },
-  connect: {
-    what: 'TCP handshake to the server',
-    hint: 'New connection — keep-alive or HTTP/2/3 multiplexing reuses one across requests.',
-    warnAboveMs: 300,
-  },
-  ssl: {
-    what: 'TLS handshake',
-    hint: 'Reduced by session resumption / 0-RTT (HTTP/3).',
-    warnAboveMs: 200,
-  },
-  send: {
-    what: 'Uploading the request body',
-    hint: 'Large request body or slow upstream — usually only visible on POST/PUT.',
-    warnAboveMs: 200,
-  },
-  wait: {
-    what: 'Server time to first byte',
-    hint: 'Backend processing. Look for backend timing in Server-Timing or DB query logs.',
-    warnAboveMs: 500,
-  },
-  receive: {
-    what: 'Downloading the response payload',
-    hint: 'Payload size or CDN throughput — check effective transfer rate.',
-    warnAboveMs: 1000,
-  },
+/** ms threshold above which each phase is "unusually slow" even when not dominant. */
+const PHASE_WARN_ABOVE_MS: Record<TimingRungKey, number> = {
+  queueing: 50,
+  stalled: 50,
+  dns: 100,
+  connect: 300,
+  ssl: 200,
+  send: 200,
+  wait: 500,
+  receive: 1000,
 };
+
+function phaseCopy(t: Translate, key: TimingRungKey): PhaseCopy {
+  switch (key) {
+    case 'queueing':
+      return {
+        what: t('panel.inspector.timing.phase.queueing.what'),
+        hint: t('panel.inspector.timing.phase.queueing.hint'),
+      };
+    case 'stalled':
+      return {
+        what: t('panel.inspector.timing.phase.stalled.what'),
+        hint: t('panel.inspector.timing.phase.stalled.hint'),
+      };
+    case 'dns':
+      return { what: t('panel.inspector.timing.phase.dns.what'), hint: t('panel.inspector.timing.phase.dns.hint') };
+    case 'connect':
+      return {
+        what: t('panel.inspector.timing.phase.connect.what'),
+        hint: t('panel.inspector.timing.phase.connect.hint'),
+      };
+    case 'ssl':
+      return { what: t('panel.inspector.timing.phase.ssl.what'), hint: t('panel.inspector.timing.phase.ssl.hint') };
+    case 'send':
+      return { what: t('panel.inspector.timing.phase.send.what'), hint: t('panel.inspector.timing.phase.send.hint') };
+    case 'wait':
+      return { what: t('panel.inspector.timing.phase.wait.what'), hint: t('panel.inspector.timing.phase.wait.hint') };
+    case 'receive':
+      return {
+        what: t('panel.inspector.timing.phase.receive.what'),
+        hint: t('panel.inspector.timing.phase.receive.hint'),
+      };
+  }
+}
 
 export interface TimingInsight {
   phase: TimingRungKey;
@@ -90,7 +91,7 @@ export interface TimingInsight {
  * answer, so we return null rather than picking a phase that's only
  * marginally biggest.
  */
-export function findBottleneck(phases: readonly ElapsedRung[], totalMs: number): TimingInsight | null {
+export function findBottleneck(t: Translate, phases: readonly ElapsedRung[], totalMs: number): TimingInsight | null {
   if (phases.length === 0 || totalMs <= 0) return null;
   const sorted = phases.slice().sort((a, b) => b.ms - a.ms);
   const top = sorted[0];
@@ -98,14 +99,14 @@ export function findBottleneck(phases: readonly ElapsedRung[], totalMs: number):
   const percent = (top.ms / totalMs) * 100;
   const dominates = percent >= 30 || top.ms >= runnerUp * 2;
   if (!dominates) return null;
-  const diag = PHASE_DIAGNOSIS[top.key];
+  const copy = phaseCopy(t, top.key);
   return {
     phase: top.key,
     label: top.label,
     ms: top.ms,
     percent,
-    what: diag.what,
-    hint: diag.hint,
+    what: copy.what,
+    hint: copy.hint,
   };
 }
 
@@ -115,21 +116,22 @@ export function findBottleneck(phases: readonly ElapsedRung[], totalMs: number):
  * same phase twice.
  */
 export function findWarnings(
+  t: Translate,
   phases: readonly ElapsedRung[],
   excludeKey: TimingRungKey | null,
 ): readonly TimingInsight[] {
   const out: TimingInsight[] = [];
   for (const p of phases) {
     if (p.key === excludeKey) continue;
-    const diag = PHASE_DIAGNOSIS[p.key];
-    if (p.ms < diag.warnAboveMs) continue;
+    if (p.ms < PHASE_WARN_ABOVE_MS[p.key]) continue;
+    const copy = phaseCopy(t, p.key);
     out.push({
       phase: p.key,
       label: p.label,
       ms: p.ms,
       percent: 0,
-      what: diag.what,
-      hint: diag.hint,
+      what: copy.what,
+      hint: copy.hint,
     });
   }
   return out;
