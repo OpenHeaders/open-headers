@@ -40,7 +40,6 @@ import {
   LockOutlined,
   ReloadOutlined,
   SendOutlined,
-  StopOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
@@ -63,6 +62,7 @@ import { Allotment } from 'allotment';
 import {
   App,
   Button,
+  ConfigProvider,
   Input,
   InputNumber,
   type MenuProps,
@@ -616,16 +616,27 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       placement="bottom"
       title={<ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.cancel')}</ShortcutHintTitle>}
     >
-      <Button
-        size="small"
-        danger
-        icon={<StopOutlined />}
-        onClick={handleCancelInvoke}
-        style={{ fontSize: 11 }}
-        data-testid="grpc-invoke-button"
-      >
-        {t('workbench.editors.grpc.invoke.cancel')}
-      </Button>
+      {/* Invoke morphs into Cancel — the HTTP Send/Stop treatment
+        verbatim: solid on the darkened error token with the square
+        stop glyph. */}
+      <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+        <Button
+          size="small"
+          type="primary"
+          danger
+          icon={
+            <span
+              aria-hidden="true"
+              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
+            />
+          }
+          onClick={handleCancelInvoke}
+          style={{ fontSize: 11 }}
+          data-testid="grpc-invoke-button"
+        >
+          {t('workbench.editors.grpc.invoke.cancel')}
+        </Button>
+      </ConfigProvider>
     </Tooltip>
   ) : (
     <Tooltip
