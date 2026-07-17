@@ -152,11 +152,11 @@ const PostmanKeySteps: React.FC = () => {
 
   // Cards are direct children of the stretch-aligned flex row: equal
   // widths via `flex: 1 1 0`, equal heights via the stretch. Inside,
-  // the numbered badge rides the left edge, vertically centered
-  // against the glyph + caption column.
+  // the numbered badge hugs the glyph's left edge, vertically centered
+  // against it, with the lettered caption lines below the pair.
   const stepCard: React.CSSProperties = {
     display: 'flex',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     gap: 8,
     padding: 8,
@@ -167,13 +167,11 @@ const PostmanKeySteps: React.FC = () => {
     minWidth: 0,
   };
 
-  const cardBody: React.CSSProperties = {
+  const glyphRow: React.CSSProperties = {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    minWidth: 0,
-    flex: 1,
+    gap: 4,
   };
 
   // Same sub-step idiom as the popup's Debug Network walkthrough:
@@ -206,34 +204,34 @@ const PostmanKeySteps: React.FC = () => {
 
   const steps: React.ReactNode[] = [
     <div key="menu" style={stepCard} data-testid="oh-postman-key-step-menu">
-      <span style={stepIndex}>1</span>
-      <div style={cardBody}>
+      <div style={glyphRow}>
+        <span style={stepIndex}>1</span>
         <AccountMenuGlyph />
-        {caption([
-          'In the Postman app or on postman.co,',
-          'open the top-right settings menu and choose Account settings.',
-        ])}
       </div>
+      {caption([
+        'In the Postman app or on postman.co,',
+        'open the top-right settings menu and choose Account settings.',
+      ])}
     </div>,
     <div key="generate" style={stepCard} data-testid="oh-postman-key-step-generate">
-      <span style={stepIndex}>2</span>
-      <div style={cardBody}>
+      <div style={glyphRow}>
+        <span style={stepIndex}>2</span>
         <GenerateKeyGlyph />
-        {caption(['Pick API keys in the sidebar,', 'then Generate API key.'])}
       </div>
+      {caption(['Pick API keys in the sidebar,', 'then Generate API key.'])}
     </div>,
     <div key="copy" style={stepCard} data-testid="oh-postman-key-step-copy">
-      <span style={stepIndex}>3</span>
-      <div style={cardBody}>
+      <div style={glyphRow}>
+        <span style={stepIndex}>3</span>
         <CopyKeyGlyph />
-        {caption(['Copy the key — it is shown only once —', 'and paste it above.'])}
       </div>
+      {caption(['Copy the key — it is shown only once —', 'and paste it above.'])}
     </div>,
   ];
 
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 32, width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 48, width: '100%' }}
       data-testid="oh-postman-key-steps"
     >
       {steps.map((step, i) => (
