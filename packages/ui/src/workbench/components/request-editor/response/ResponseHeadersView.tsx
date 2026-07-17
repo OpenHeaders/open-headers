@@ -107,7 +107,11 @@ const ResponseHeadersView: React.FC<{
   /** HTTP trailer fields, when the executing host captured any —
    *  rendered under a "Trailers" divider after the header rows. */
   trailers?: ExecutedRequestSnapshot['headers'];
-}> = ({ headers, trailers }) => {
+  /** Filter-box placeholder override — hosts whose rows aren't HTTP
+   *  headers (the gRPC Metadata/Trailers tabs) name their own field
+   *  vocabulary; default stays "Filter headers". */
+  filterPlaceholder?: string;
+}> = ({ headers, trailers, filterPlaceholder }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [query, setQuery] = useState('');
@@ -139,8 +143,8 @@ const ResponseHeadersView: React.FC<{
           size="small"
           allowClear
           prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
-          placeholder={t('workbench.editors.request.response.headers.filterPlaceholder')}
-          aria-label={t('workbench.editors.request.response.headers.filterPlaceholder')}
+          placeholder={filterPlaceholder ?? t('workbench.editors.request.response.headers.filterPlaceholder')}
+          aria-label={filterPlaceholder ?? t('workbench.editors.request.response.headers.filterPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ width: 220 }}

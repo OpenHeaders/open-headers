@@ -242,7 +242,10 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                     {t('workbench.editors.grpc.response.noMetadata')}
                   </Text>
                 ) : (
-                  <ResponseHeadersView headers={headers} />
+                  <ResponseHeadersView
+                    headers={headers}
+                    filterPlaceholder={t('workbench.editors.grpc.response.filterMetadata')}
+                  />
                 )}
               </div>
             ),
@@ -271,7 +274,10 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                         {t('workbench.editors.grpc.response.noTrailers')}
                       </Text>
                     ) : (
-                      <ResponseHeadersView headers={trailerRows} />
+                      <ResponseHeadersView
+                        headers={trailerRows}
+                        filterPlaceholder={t('workbench.editors.grpc.response.filterTrailers')}
+                      />
                     )}
                   </>
                 )}

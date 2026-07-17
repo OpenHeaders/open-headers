@@ -197,7 +197,10 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
                     {t('workbench.editors.grpc.response.noMetadata')}
                   </Text>
                 ) : (
-                  <ResponseHeadersView headers={metadataRows} />
+                  <ResponseHeadersView
+                    headers={metadataRows}
+                    filterPlaceholder={t('workbench.editors.grpc.response.filterMetadata')}
+                  />
                 )}
               </div>
             ),
@@ -220,7 +223,10 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
                     {t('workbench.editors.grpc.response.noTrailers')}
                   </Text>
                 ) : (
-                  <ResponseHeadersView headers={trailerRows} />
+                  <ResponseHeadersView
+                    headers={trailerRows}
+                    filterPlaceholder={t('workbench.editors.grpc.response.filterTrailers')}
+                  />
                 )}
               </div>
             ),

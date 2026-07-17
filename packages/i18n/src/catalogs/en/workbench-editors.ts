@@ -1421,6 +1421,8 @@ export const workbenchEditors = {
   'workbench.editors.grpc.response.tab.metadataCount': 'Metadata ({count})',
   'workbench.editors.grpc.response.tab.trailers': 'Trailers',
   'workbench.editors.grpc.response.tab.trailersCount': 'Trailers ({count})',
+  'workbench.editors.grpc.response.filterMetadata': 'Filter metadata',
+  'workbench.editors.grpc.response.filterTrailers': 'Filter trailers',
   'workbench.editors.grpc.response.duration': '{ms} ms',
   'workbench.editors.grpc.response.noStatus': 'No gRPC status',
   'workbench.editors.grpc.response.noMessage': 'The reply carried no response message.',
