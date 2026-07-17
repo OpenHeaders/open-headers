@@ -12,7 +12,7 @@
 
 import { getTranslator } from '@openheaders/i18n';
 import { COLUMN_DEFS } from '@openheaders/ui/panel/components/traffic/columns';
-import { type CellContext, renderCell } from '@openheaders/ui/panel/components/traffic/render-cell';
+import { buildCellMessages, type CellContext, renderCell } from '@openheaders/ui/panel/components/traffic/render-cell';
 import { classifyRequestState } from '@openheaders/ui/panel/data/request-state';
 import { buildRowAnnotationMessages } from '@openheaders/ui/panel/data/row-annotations';
 import { getSizeInfo } from '@openheaders/ui/panel/data/size-info';
@@ -45,6 +45,7 @@ const CTX: CellContext = {
   annotationCtx: { anchor: { latestNavStartedAtMs: NAV_AT, navStartsMs: [NAV_AT] }, source: 'cdp' },
   annotationMessages: buildRowAnnotationMessages(getTranslator('en')),
   onAnnotationJump: () => {},
+  cellMessages: buildCellMessages(getTranslator('en')),
 };
 
 // CDP variant: the latest page committed under loader L2; rows bound to the

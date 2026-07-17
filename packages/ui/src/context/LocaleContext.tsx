@@ -37,7 +37,7 @@ import { createContext, useContext, useEffect, useMemo } from 'react';
 /** Typed translation function — keys are checked against the English catalog. */
 export type Translate = (key: MessageKey, args?: MessageArgs) => string;
 
-interface LocaleContextValue {
+export interface LocaleContextValue {
   /** Resolved locale code (never `auto`). */
   locale: string;
   direction: LocaleDirection;

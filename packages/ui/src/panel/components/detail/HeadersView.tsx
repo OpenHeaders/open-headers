@@ -57,6 +57,11 @@ import { formatBytes } from './headers/utils';
 
 export type { HeaderLayoutMode, HeaderSortMode } from './headers/types';
 
+// Raw SectionLabel identifiers — the search plane and row highlight
+// join compare against them; HeaderSection localizes the display form.
+const RESPONSE_HEADERS_SECTION = 'Response Headers' as const;
+const REQUEST_HEADERS_SECTION = 'Request Headers' as const;
+
 export interface HeadersViewProps {
   row: InspectorRowWithFires;
   requestHeaders: readonly AnnotatedHeader[];
@@ -437,7 +442,7 @@ export function HeadersView({
       </details>
 
       <HeaderSection
-        label={t('panel.inspector.headers.section.response')}
+        label={RESPONSE_HEADERS_SECTION}
         direction="response"
         rows={responseHeaders}
         row={row}
@@ -457,7 +462,7 @@ export function HeadersView({
       />
 
       <HeaderSection
-        label={t('panel.inspector.headers.section.request')}
+        label={REQUEST_HEADERS_SECTION}
         direction="request"
         rows={requestHeaders}
         row={row}

@@ -1426,8 +1426,6 @@ export const panel = {
   'panel.inspector.headers.filterPlaceholder':
     'Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …',
   'panel.inspector.headers.filterAria': 'Filter headers',
-  'panel.inspector.headers.section.response': 'Response Headers',
-  'panel.inspector.headers.section.request': 'Request Headers',
   'panel.inspector.headers.footprintTitle': '{rules} — click to open Matched Rules',
 
   // General section + the rule-creation CTAs on its summary. The
@@ -1768,11 +1766,11 @@ export const panel = {
   'panel.inspector.cookies.filterAria': 'Filter cookies',
   'panel.inspector.cookies.empty': 'No cookies sent or received.',
 
-  // Section headers + table column headers. Set-Cookie attribute tokens
-  // (Domain / Path / Expires / SameSite / HttpOnly / Secure) are
-  // glossary vocabulary and stay raw where they label a column alone.
-  'panel.inspector.cookies.section.response': 'Response Cookies',
-  'panel.inspector.cookies.section.request': 'Request Cookies',
+  // Table column headers. Set-Cookie attribute tokens (Domain / Path /
+  // Expires / SameSite / HttpOnly / Secure) are glossary vocabulary and
+  // stay raw where they label a column alone. Section headers localize
+  // via the existing section.responseCookies/requestCookies keys — the
+  // `label` prop stays the raw identifier.
   'panel.inspector.cookies.col.name': 'Name',
   'panel.inspector.cookies.col.value': 'Value',
   'panel.inspector.cookies.col.scope': 'Scope',

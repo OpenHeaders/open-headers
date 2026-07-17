@@ -87,6 +87,11 @@ export interface CookiesViewProps {
 // the cookie enrichment helpers expect a defined shape with optional fields.
 const EMPTY_HAR = { request: undefined, response: undefined } as unknown as InspectorHarEntry;
 
+// Raw section-label identifiers — CookieSection compares against them
+// and localizes the display form itself.
+const RESPONSE_COOKIES_SECTION = 'Response Cookies' as const;
+const REQUEST_COOKIES_SECTION = 'Request Cookies' as const;
+
 // (i) content for the two CTA worlds — the override menu creates RULES
 // (virtual, rewrite matching requests in flight); Add cookie writes the
 // BROWSER JAR (a real cookie, same store as the browser's own cookie UI).
@@ -399,7 +404,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
       )}
 
       <CookieSection
-        label={t('panel.inspector.cookies.section.response')}
+        label={RESPONSE_COOKIES_SECTION}
         direction="response"
         rows={responseRows}
         problemNames={problemNames}
@@ -423,7 +428,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
       />
 
       <CookieSection
-        label={t('panel.inspector.cookies.section.request')}
+        label={REQUEST_COOKIES_SECTION}
         direction="request"
         rows={requestRows}
         problemNames={problemNames}
