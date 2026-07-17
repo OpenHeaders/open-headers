@@ -662,6 +662,29 @@ jobs:
           node scripts/generate-versions-manifest.mjs "$GITHUB_REF_NAME" > processed_files/versions.json
           cat processed_files/versions.json
 
+      # The store cron (check-store-versions.yml) keeps `extension.stores`
+      # live on the channel manifest; the generator builds fresh and would
+      # drop it until the next cron run. Carry the live object forward —
+      # fail-open: no live manifest or no stores means nothing to carry.
+      - name: Carry extension.stores forward from live manifest
+        run: |
+          CHANNEL=stable
+          if [ "${{ steps.release_type.outputs.is_prerelease }}" = "true" ]; then CHANNEL=beta; fi
+          if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/${CHANNEL}.json" -o live_versions.json; then
+            STORES=$(jq -c '.extension.stores // empty' live_versions.json)
+            if [ -n "$STORES" ]; then
+              node scripts/patch-versions-entry.mjs processed_files/versions.json extension \
+                "{\"stores\":${STORES}}" > versions_with_stores.json
+              mv versions_with_stores.json processed_files/versions.json
+              echo "Carried extension.stores: ${STORES}"
+              cat processed_files/versions.json
+            else
+              echo "Live ${CHANNEL} manifest has no extension.stores — nothing to carry"
+            fi
+          else
+            echo "No live ${CHANNEL} manifest — nothing to carry"
+          fi
+
       - name: Generate Release Body
         run: |
           VERSION=${GITHUB_REF_NAME/v/}
