@@ -17,7 +17,10 @@
  * desktop app" tooltip while compose/spec/examples stay usable) —
  * every call shape. In flight it
  * morphs to Cancel (`abortRequestSend` on the shared active-send
- * registry). Unary results render in `GrpcResponsePane`; streaming
+ * registry). Compose and result stack in a vertical Allotment split
+ * (the HTTP editor's discipline) — the sash bounds the fill message
+ * editor, and the result pane stays hidden until the first invoke.
+ * Unary results render in `GrpcResponsePane`; streaming
  * invokes render `GrpcStreamPane` — live message timeline fed from
  * `useLiveGrpcStream` while in flight, the snapshot's direction-tagged
  * capture once settled — and client/bidi streams grow Send message +
@@ -52,6 +55,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
+import { Allotment } from 'allotment';
 import { App, Button, Input, InputNumber, Select, type SelectProps, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -570,222 +574,253 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           )}
         </div>
 
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          size="small"
-          style={{ flex: 1, minHeight: 0, padding: '0 12px' }}
-          items={[
-            {
-              key: 'docs',
-              label: t('workbench.editors.grpc.tab.docs'),
-              children: (
-                <DocsTab
-                  value={draft.description}
-                  onChange={(description) => setDraft((d) => ({ ...d, description }))}
-                />
-              ),
-            },
-            {
-              key: 'message',
-              label: t('workbench.editors.grpc.tab.message'),
-              children: (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    {clientStreamActive && (
-                      <>
-                        <Button
-                          size="small"
-                          type="primary"
-                          icon={<SendOutlined />}
-                          onClick={() => void handleSendStreamMessage()}
-                          data-testid="grpc-stream-send"
-                        >
-                          {t('workbench.editors.grpc.stream.sendMessage')}
-                        </Button>
-                        <Button size="small" onClick={handleEndStreaming} data-testid="grpc-stream-end">
-                          {t('workbench.editors.grpc.stream.endStreaming')}
-                        </Button>
-                      </>
-                    )}
-                    <Tooltip title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}>
-                      <Button
-                        size="small"
-                        icon={<SendOutlined />}
-                        disabled={exampleText === null}
-                        onClick={handleUseExample}
-                        data-testid="grpc-use-example"
-                      >
-                        {t('workbench.editors.grpc.example.label')}
-                      </Button>
-                    </Tooltip>
-                  </div>
-                  <CodeEditor
-                    value={draft.message}
-                    onChange={(message) => setDraft((d) => ({ ...d, message }))}
-                    language="json"
-                    minHeight={260}
-                    placeholder={t('workbench.editors.grpc.messagePlaceholder')}
+        {/* Compose / response split — the HTTP editor's stacked
+          Allotment discipline: the sash bounds the message editor so it
+          can never overflow the response region. The response pane
+          stays hidden until the first invoke. The tab bar renders
+          OUTSIDE the scroll container (bar-only items; content switches
+          below) so it never participates in scrolling. */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <Allotment vertical proportionalLayout separator>
+            <Allotment.Pane minSize={220} preferredSize="55%">
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+                <div style={{ padding: '0 12px' }}>
+                  <Tabs
+                    activeKey={activeTab}
+                    onChange={setActiveTab}
+                    size="small"
+                    tabBarStyle={{ marginBottom: 0 }}
+                    items={[
+                      { key: 'docs', label: t('workbench.editors.grpc.tab.docs') },
+                      { key: 'message', label: t('workbench.editors.grpc.tab.message') },
+                      { key: 'metadata', label: t('workbench.editors.grpc.tab.metadata') },
+                      { key: 'auth', label: t('workbench.editors.grpc.tab.auth') },
+                      { key: 'service', label: t('workbench.editors.grpc.tab.serviceDefinition') },
+                      { key: 'settings', label: t('workbench.editors.grpc.tab.settings') },
+                    ]}
                   />
                 </div>
-              ),
-            },
-            {
-              key: 'metadata',
-              label: t('workbench.editors.grpc.tab.metadata'),
-              children: (
-                <KeyValueTable
-                  rows={draft.metadata}
-                  onChange={(metadata) => setDraft((d) => ({ ...d, metadata }))}
-                  keyPlaceholder={t('workbench.editors.grpc.metadata.keyPlaceholder')}
-                  valuePlaceholder={t('workbench.editors.grpc.metadata.valuePlaceholder')}
-                />
-              ),
-            },
-            {
-              key: 'auth',
-              label: t('workbench.editors.grpc.tab.auth'),
-              children: (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-                  <div>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                      {t('workbench.editors.grpc.auth.typeLabel')}
-                    </Text>
-                    <Select
-                      style={{ width: 220 }}
-                      value={draft.auth.type}
-                      options={[
-                        { value: 'none', label: t('workbench.editors.grpc.auth.typeNone') },
-                        { value: 'bearer', label: t('workbench.editors.grpc.auth.typeBearer') },
-                      ]}
-                      onChange={(type: 'none' | 'bearer') =>
-                        setDraft((d) => ({
-                          ...d,
-                          auth:
-                            type === 'bearer'
-                              ? { type: 'bearer', token: d.auth.type === 'bearer' ? d.auth.token : '' }
-                              : { type: 'none' },
-                        }))
-                      }
-                      data-testid="grpc-auth-type"
-                    />
-                  </div>
-                  {draft.auth.type === 'bearer' && (
-                    <div>
-                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                        {t('workbench.editors.grpc.auth.tokenLabel')}
-                      </Text>
-                      <Input
-                        style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                        placeholder={t('workbench.editors.grpc.auth.tokenPlaceholder')}
-                        value={draft.auth.token}
-                        onChange={(e) => setDraft((d) => ({ ...d, auth: { type: 'bearer', token: e.target.value } }))}
-                        data-testid="grpc-auth-token"
+                <div
+                  style={{
+                    flex: 1,
+                    overflow: 'auto',
+                    overscrollBehavior: 'none',
+                    padding: '0 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
+                    {activeTab === 'docs' && (
+                      <DocsTab
+                        value={draft.description}
+                        onChange={(description) => setDraft((d) => ({ ...d, description }))}
                       />
-                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-                        {t('workbench.editors.grpc.auth.help')}
-                      </Text>
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'service',
-              label: t('workbench.editors.grpc.tab.serviceDefinition'),
-              children: (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
-                  <div>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                      {t('workbench.editors.grpc.spec.selectLabel')}
-                    </Text>
-                    <Select
-                      style={{ width: '100%' }}
-                      placeholder={t('workbench.editors.grpc.spec.selectPlaceholder')}
-                      value={linkedSpec?.uid}
-                      options={protobufSpecs.map((s) => ({ value: s.uid, label: s.name }))}
-                      onChange={(specUid: string) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
-                      data-testid="grpc-spec-select"
-                    />
+                    )}
+                    {activeTab === 'message' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                          {clientStreamActive && (
+                            <>
+                              <Button
+                                size="small"
+                                type="primary"
+                                icon={<SendOutlined />}
+                                onClick={() => void handleSendStreamMessage()}
+                                data-testid="grpc-stream-send"
+                              >
+                                {t('workbench.editors.grpc.stream.sendMessage')}
+                              </Button>
+                              <Button size="small" onClick={handleEndStreaming} data-testid="grpc-stream-end">
+                                {t('workbench.editors.grpc.stream.endStreaming')}
+                              </Button>
+                            </>
+                          )}
+                          <Tooltip
+                            title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}
+                          >
+                            <Button
+                              size="small"
+                              icon={<SendOutlined />}
+                              disabled={exampleText === null}
+                              onClick={handleUseExample}
+                              data-testid="grpc-use-example"
+                            >
+                              {t('workbench.editors.grpc.example.label')}
+                            </Button>
+                          </Tooltip>
+                        </div>
+                        {/* Absolute inset host — a fill editor must not size
+                          its own flex parent (the BodyTab discipline). */}
+                        <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+                            <CodeEditor
+                              value={draft.message}
+                              onChange={(message) => setDraft((d) => ({ ...d, message }))}
+                              language="json"
+                              fill
+                              placeholder={t('workbench.editors.grpc.messagePlaceholder')}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {activeTab === 'metadata' && (
+                      <KeyValueTable
+                        rows={draft.metadata}
+                        onChange={(metadata) => setDraft((d) => ({ ...d, metadata }))}
+                        keyPlaceholder={t('workbench.editors.grpc.metadata.keyPlaceholder')}
+                        valuePlaceholder={t('workbench.editors.grpc.metadata.valuePlaceholder')}
+                      />
+                    )}
+                    {activeTab === 'auth' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
+                        <div>
+                          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                            {t('workbench.editors.grpc.auth.typeLabel')}
+                          </Text>
+                          <Select
+                            style={{ width: 220 }}
+                            value={draft.auth.type}
+                            options={[
+                              { value: 'none', label: t('workbench.editors.grpc.auth.typeNone') },
+                              { value: 'bearer', label: t('workbench.editors.grpc.auth.typeBearer') },
+                            ]}
+                            onChange={(type: 'none' | 'bearer') =>
+                              setDraft((d) => ({
+                                ...d,
+                                auth:
+                                  type === 'bearer'
+                                    ? { type: 'bearer', token: d.auth.type === 'bearer' ? d.auth.token : '' }
+                                    : { type: 'none' },
+                              }))
+                            }
+                            data-testid="grpc-auth-type"
+                          />
+                        </div>
+                        {draft.auth.type === 'bearer' && (
+                          <div>
+                            <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                              {t('workbench.editors.grpc.auth.tokenLabel')}
+                            </Text>
+                            <Input
+                              style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                              placeholder={t('workbench.editors.grpc.auth.tokenPlaceholder')}
+                              value={draft.auth.token}
+                              onChange={(e) =>
+                                setDraft((d) => ({ ...d, auth: { type: 'bearer', token: e.target.value } }))
+                              }
+                              data-testid="grpc-auth-token"
+                            />
+                            <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                              {t('workbench.editors.grpc.auth.help')}
+                            </Text>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {activeTab === 'service' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
+                        <div>
+                          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                            {t('workbench.editors.grpc.spec.selectLabel')}
+                          </Text>
+                          <Select
+                            style={{ width: '100%' }}
+                            placeholder={t('workbench.editors.grpc.spec.selectPlaceholder')}
+                            value={linkedSpec?.uid}
+                            options={protobufSpecs.map((s) => ({ value: s.uid, label: s.name }))}
+                            onChange={(specUid: string) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                            data-testid="grpc-spec-select"
+                          />
+                        </div>
+                        {derivation && (
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {t('workbench.editors.grpc.spec.summary', {
+                              services: derivation.groups.length,
+                              methods: derivation.groups.reduce((n, g) => n + g.options.length, 0),
+                            })}
+                          </Text>
+                        )}
+                        {derivation?.parseFailures.map((failure) => (
+                          <Text key={failure.path} type="warning" style={{ fontSize: 11 }}>
+                            {t('workbench.editors.grpc.spec.parseFailure', {
+                              path: failure.path,
+                              message: failure.message,
+                            })}
+                          </Text>
+                        ))}
+                        {derivation?.issues.map((issue) => (
+                          <Text
+                            key={`${issue.kind}:${issue.scope}:${issue.reference}`}
+                            type="warning"
+                            style={{ fontSize: 11 }}
+                          >
+                            {t('workbench.editors.grpc.spec.issue', { kind: issue.kind, reference: issue.reference })}
+                          </Text>
+                        ))}
+                      </div>
+                    )}
+                    {activeTab === 'settings' && (
+                      <div style={{ maxWidth: 560 }}>
+                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                          {t('workbench.editors.grpc.settings.timeoutLabel')}
+                        </Text>
+                        <InputNumber
+                          min={MIN_REQUEST_TIMEOUT_MS}
+                          max={MAX_REQUEST_TIMEOUT_MS}
+                          step={1000}
+                          value={draft.timeoutMs}
+                          onChange={(value) => setDraft((d) => ({ ...d, timeoutMs: value ?? undefined }))}
+                          placeholder={t('workbench.editors.grpc.settings.timeoutPlaceholder')}
+                          style={{ width: 220 }}
+                        />
+                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                          {t('workbench.editors.grpc.settings.timeoutHelp')}
+                        </Text>
+                        <div style={{ marginTop: 16 }}>
+                          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                            {t('workbench.editors.grpc.settings.sslVerifyLabel')}
+                          </Text>
+                          <Switch
+                            checked={draft.sslVerification}
+                            onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
+                            data-testid="grpc-ssl-verify"
+                          />
+                          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                            {t('workbench.editors.grpc.settings.sslVerifyHelp')}
+                          </Text>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {derivation && (
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {t('workbench.editors.grpc.spec.summary', {
-                        services: derivation.groups.length,
-                        methods: derivation.groups.reduce((n, g) => n + g.options.length, 0),
-                      })}
-                    </Text>
-                  )}
-                  {derivation?.parseFailures.map((failure) => (
-                    <Text key={failure.path} type="warning" style={{ fontSize: 11 }}>
-                      {t('workbench.editors.grpc.spec.parseFailure', { path: failure.path, message: failure.message })}
-                    </Text>
-                  ))}
-                  {derivation?.issues.map((issue) => (
-                    <Text key={`${issue.kind}:${issue.scope}:${issue.reference}`} type="warning" style={{ fontSize: 11 }}>
-                      {t('workbench.editors.grpc.spec.issue', { kind: issue.kind, reference: issue.reference })}
-                    </Text>
-                  ))}
                 </div>
-              ),
-            },
-            {
-              key: 'settings',
-              label: t('workbench.editors.grpc.tab.settings'),
-              children: (
-                <div style={{ maxWidth: 560 }}>
-                  <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                    {t('workbench.editors.grpc.settings.timeoutLabel')}
-                  </Text>
-                  <InputNumber
-                    min={MIN_REQUEST_TIMEOUT_MS}
-                    max={MAX_REQUEST_TIMEOUT_MS}
-                    step={1000}
-                    value={draft.timeoutMs}
-                    onChange={(value) => setDraft((d) => ({ ...d, timeoutMs: value ?? undefined }))}
-                    placeholder={t('workbench.editors.grpc.settings.timeoutPlaceholder')}
-                    style={{ width: 220 }}
+              </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={120} visible={response !== null || liveStream.live !== null}>
+              <div style={{ height: '100%', overflow: 'auto', overscrollBehavior: 'none' }}>
+                {responseShape === 'stream' ? (
+                  <GrpcStreamPane
+                    live={liveStream.live}
+                    snapshot={response}
+                    session={streamSession}
+                    registry={derivation?.registry ?? null}
+                    method={draft.method}
+                    target={invokedTarget}
                   />
-                  <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-                    {t('workbench.editors.grpc.settings.timeoutHelp')}
-                  </Text>
-                  <div style={{ marginTop: 16 }}>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                      {t('workbench.editors.grpc.settings.sslVerifyLabel')}
-                    </Text>
-                    <Switch
-                      checked={draft.sslVerification}
-                      onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
-                      data-testid="grpc-ssl-verify"
+                ) : (
+                  response !== null && (
+                    <GrpcResponsePane
+                      snapshot={response}
+                      registry={derivation?.registry ?? null}
+                      method={draft.method}
                     />
-                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-                      {t('workbench.editors.grpc.settings.sslVerifyHelp')}
-                    </Text>
-                  </div>
-                </div>
-              ),
-            },
-          ]}
-        />
-
-        {(response !== null || liveStream.live !== null) && (
-          <div style={{ maxHeight: '45%', overflow: 'auto', flexShrink: 0 }}>
-            {responseShape === 'stream' ? (
-              <GrpcStreamPane
-                live={liveStream.live}
-                snapshot={response}
-                session={streamSession}
-                registry={derivation?.registry ?? null}
-                method={draft.method}
-                target={invokedTarget}
-              />
-            ) : (
-              response !== null && (
-                <GrpcResponsePane snapshot={response} registry={derivation?.registry ?? null} method={draft.method} />
-              )
-            )}
-          </div>
-        )}
+                  )
+                )}
+              </div>
+            </Allotment.Pane>
+          </Allotment>
+        </div>
 
         {specFooter}
       </div>
