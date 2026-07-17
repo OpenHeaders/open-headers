@@ -1,7 +1,8 @@
 # Installs the standalone oh.exe, verified against the release's
-# SHA256SUMS.txt. The current release is resolved from the update feed
-# (updates.openheaders.io) - never from GitHub "latest" - and the
-# binary downloads from the release's assets.
+# SHA256SUMS.txt. Everything resolves through the update feed
+# (updates.openheaders.io): the current release from versions/stable.json,
+# the binary from the feed's dl/<tag>/ path - one first-party domain,
+# no GitHub reachability needed.
 #
 #   powershell -c "irm https://updates.openheaders.io/install.ps1 | iex"
 #
@@ -10,7 +11,6 @@
 #   OH_RELEASE_TAG    release tag to install (default: current stable)
 $ErrorActionPreference = 'Stop'
 
-$repo = 'OpenHeaders/open-headers'
 $feed = 'https://updates.openheaders.io'
 $installDir = if ($env:OH_INSTALL_DIR) { $env:OH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'OpenHeaders\bin' }
 
@@ -23,7 +23,7 @@ $tag = if ($env:OH_RELEASE_TAG) {
   }
   $versions.cli.tag
 }
-$baseUrl = "https://github.com/$repo/releases/download/$tag"
+$baseUrl = "$feed/dl/$tag"
 
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
   Write-Error "install-oh: only win-x64 binaries are published (this machine: $env:PROCESSOR_ARCHITECTURE) - use the Node channel instead: npm install -g @openheaders/cli"

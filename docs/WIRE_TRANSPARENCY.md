@@ -84,9 +84,11 @@ update requests.
   (`latest-mac.yml` / `latest-linux.yml` per platform) — a static
   pointer file read by electron-updater's generic provider. Only after
   the user chooses to download, the installer artifact itself is
-  fetched from the GitHub release-asset URL the pointer file carries
-  (GitHub is artifact storage; it appears only as data inside the
-  pointer, subject to GitHub's own logging).
+  fetched from the URL the pointer file carries — the feed's own
+  `dl/<tag>/` path on the same host. The entire update lifecycle
+  reaches exactly one first-party domain (`updates.openheaders.io`,
+  served by Cloudflare, subject to its hosting logs); GitHub hosts a
+  redundant human-browsable copy but is never contacted by the app.
 - **Request body**: none. These are plain HTTP `GET`s; no identifier,
   license, or machine information is attached beyond what any HTTP
   client sends.
