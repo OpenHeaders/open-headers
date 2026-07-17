@@ -666,31 +666,59 @@ jobs:
           I_EDGE=$(icon edge)
           I_SAFARI=$(icon safari)
 
+          # Tables lead, prose collapses into <details> — the reader is
+          # here for download links. Betas build no pkg/msi/mac-x64, so
+          # those rows/blocks only render on stable.
           {
             echo "## Desktop App v${VERSION}"
             echo ""
             echo "| Platform | Downloads |"
             echo "| --- | --- |"
-            echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) · [Intel (DMG)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg) |"
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) |"
+            else
+              echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) · [Intel (DMG)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg) |"
+            fi
             echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
             echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
             echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) · [ARM64 (deb)](${DL}/open-headers_${VERSION}_arm64.deb) |"
             echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
-            echo ""
-            echo "**Managed deployment (MDM / GPO):** [PKG Apple Silicon](${DL}/OpenHeaders-${VERSION}-mac-arm64.pkg) · [PKG Intel](${DL}/OpenHeaders-${VERSION}-mac-x64.pkg) · [MSI](${DL}/OpenHeaders-${VERSION}.msi)"
+            if [ "$IS_PRERELEASE" != "true" ]; then
+              echo ""
+              echo "<details><summary><b>Managed deployment (MDM / GPO)</b></summary>"
+              echo ""
+              echo "[PKG Apple Silicon](${DL}/OpenHeaders-${VERSION}-mac-arm64.pkg) · [PKG Intel](${DL}/OpenHeaders-${VERSION}-mac-x64.pkg) · [MSI](${DL}/OpenHeaders-${VERSION}.msi)"
+              echo ""
+              echo "</details>"
+            fi
           } >> release_body.md
 
           if [ -n "$EXT_VERSION" ]; then
+            STORE_CHROME="https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb"
+            STORE_FIREFOX="https://addons.mozilla.org/en-US/firefox/addon/open-headers/"
+            STORE_EDGE="https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo"
             {
               echo ""
               echo "## Browser Extension v${EXT_VERSION}"
               echo ""
-              echo "| Browser | Download |"
-              echo "| --- | --- |"
-              echo "| ${I_CHROME} Chrome | [open-headers-chrome-v${EXT_VERSION}.zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
-              echo "| ${I_FIREFOX} Firefox | [open-headers-firefox-v${EXT_VERSION}.zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
-              echo "| ${I_EDGE} Edge | [open-headers-edge-v${EXT_VERSION}.zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
-              echo "| ${I_SAFARI} Safari | [open-headers-safari-v${EXT_VERSION}.zip](${DL}/open-headers-safari-v${EXT_VERSION}.zip) |"
+              echo "| Browser | Store | Sideload (this release) |"
+              echo "| --- | --- | --- |"
+              echo "| ${I_CHROME} Chrome | [Chrome Web Store](${STORE_CHROME}) | [zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
+              echo "| ${I_FIREFOX} Firefox | [Firefox Add-ons](${STORE_FIREFOX}) | [zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
+              echo "| ${I_EDGE} Edge | [Edge Add-ons](${STORE_EDGE}) | [zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
+              echo "| ${I_SAFARI} Safari | — | [zip](${DL}/open-headers-safari-v${EXT_VERSION}.zip) |"
+              if [ "$IS_PRERELEASE" = "true" ]; then
+                echo ""
+                echo "Stores serve the current stable version; the zips above are this beta."
+              fi
+              echo ""
+              echo "<details><summary><b>Sideload installation</b></summary>"
+              echo ""
+              echo "1. Download the zip for your browser and extract it to a folder"
+              echo '2. Chrome/Edge: go to `chrome://extensions`, enable Developer mode, click Load unpacked'
+              echo '3. Firefox: go to `about:debugging#/runtime/this-firefox`, click Load Temporary Add-on'
+              echo ""
+              echo "</details>"
             } >> release_body.md
           fi
 
@@ -700,21 +728,8 @@ jobs:
           if [ -n "$BIN_FILES" ]; then
             {
               echo ""
-              echo "## CLI & Daemon (standalone binaries)"
-              echo ""
-              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). macOS binaries are signed and notarized; the Windows \`oh\` is unsigned — SmartScreen warns on first run (More info → Run anyway)."
-              echo ""
-              echo "Install script (verifies checksums, installs to \`~/.local/bin\`; add \`--with-daemon\` for \`ohd\`):"
-              echo ""
-              echo '```sh'
-              echo "curl -fsSL https://updates.openheaders.io/install.sh | sh"
-              echo '```'
-              echo ""
-              echo "Windows (PowerShell):"
-              echo ""
-              echo '```powershell'
-              echo "irm https://updates.openheaders.io/install.ps1 | iex"
-              echo '```'
+              OH_BIN_VERSION=$(echo "$BIN_FILES" | tr ' ' '\n' | grep '^oh-' | head -1 | sed -E 's/^oh-//; s/-(mac|linux|win)-(arm64|x64)(\.exe)?$//')
+              echo "## CLI & Daemon v${OH_BIN_VERSION}"
               echo ""
               echo "| Binary | Platform | Download |"
               echo "| --- | --- | --- |"
@@ -734,7 +749,25 @@ jobs:
                 echo "| ${BIN_NAME} | ${PLATFORM} | [${f}](${DL}/${f}) |"
               done
               echo ""
-              echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt) · Scripts: [install-oh.sh](${DL}/install-oh.sh) · [install-oh.ps1](${DL}/install-oh.ps1)"
+              echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
+              echo ""
+              echo "<details><summary><b>Install scripts & notes</b></summary>"
+              echo ""
+              echo "Install script (verifies checksums, installs to \`~/.local/bin\`; add \`--with-daemon\` for \`ohd\`):"
+              echo ""
+              echo '```sh'
+              echo "curl -fsSL https://updates.openheaders.io/install.sh | sh"
+              echo '```'
+              echo ""
+              echo "Windows (PowerShell):"
+              echo ""
+              echo '```powershell'
+              echo "irm https://updates.openheaders.io/install.ps1 | iex"
+              echo '```'
+              echo ""
+              echo "No Node.js required (\`npm install -g @openheaders/cli\` is the Node channel). macOS binaries are signed and notarized; the Windows \`oh\` is unsigned — SmartScreen warns on first run (More info → Run anyway). Script copies on this page: [install-oh.sh](${DL}/install-oh.sh) · [install-oh.ps1](${DL}/install-oh.ps1)"
+              echo ""
+              echo "</details>"
             } >> release_body.md
           fi
 
@@ -743,11 +776,13 @@ jobs:
           if [ -n "$OHD_DOCKER_VERSION" ]; then
             {
               echo ""
-              echo "## Docker (daemon)"
+              echo "<details><summary><b>Docker (daemon)</b></summary>"
               echo ""
               echo '```sh'
               echo "docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}"
               echo '```'
+              echo ""
+              echo "</details>"
             } >> release_body.md
           fi
 
