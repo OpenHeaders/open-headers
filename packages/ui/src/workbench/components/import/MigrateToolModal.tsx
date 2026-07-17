@@ -25,6 +25,7 @@ import {
 import { Alert, Button, Modal, Skeleton, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import DetectionDetailsTable from './migrate/DetectionDetailsTable';
 import PostmanPullStepper from './migrate/PostmanPullStepper';
 import { VENDOR_GLYPHS } from './migrate/vendor-icons';
@@ -47,6 +48,7 @@ interface ScanState {
 }
 
 const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onImportText, onOpenImportHub }) => {
+  const t = useT();
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scan, setScan] = useState<ScanState | null>(null);
@@ -71,9 +73,9 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
     setScanError(null);
     void Promise.all([hostBridge.call('oh.migration.detectTools'), hostBridge.call('oh.migration.scanToolData')])
       .then(([tools, data]) => setScan({ tools, data }))
-      .catch(() => setScanError('The scan could not run — try again, or use the import hub with an exported file.'))
+      .catch(() => setScanError(t('workbench.importExport.migrate.scanFailed')))
       .finally(() => setScanning(false));
-  }, []);
+  }, [t]);
 
   const importBackup = useCallback(
     (path: string) => {
@@ -83,12 +85,12 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
         .call('oh.migration.readBackup', { path })
         .then((result) => {
           if (result.text !== null) onImportText(result.text);
-          else setReadReason(result.reason ?? 'The backup file could not be read.');
+          else setReadReason(result.reason ?? t('workbench.importExport.migrate.backupReadFailed'));
         })
-        .catch(() => setReadReason('The backup file could not be read.'))
+        .catch(() => setReadReason(t('workbench.importExport.migrate.backupReadFailed')))
         .finally(() => setReadingPath(null));
     },
-    [onImportText],
+    [onImportText, t],
   );
 
   const importInsomniaData = useCallback(
@@ -99,12 +101,12 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
         .call('oh.migration.readInsomniaData', { dir })
         .then((result) => {
           if (result.text !== null) onImportText(result.text);
-          else setReadReason(result.reason ?? 'The local data could not be read.');
+          else setReadReason(result.reason ?? t('workbench.importExport.migrate.localReadFailed'));
         })
-        .catch(() => setReadReason('The local data could not be read.'))
+        .catch(() => setReadReason(t('workbench.importExport.migrate.localReadFailed')))
         .finally(() => setReadingPath(null));
     },
-    [onImportText],
+    [onImportText, t],
   );
 
   const renderVendorRow = (tool: MigrationTool): React.ReactNode => {
@@ -119,16 +121,22 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
           {displayName}
         </Text>
         <Text type={detected ? undefined : 'secondary'} style={{ fontSize: 12, width: 72 }}>
-          {scan === null ? '–' : detected ? 'Detected' : 'Not found'}
+          {scan === null
+            ? '–'
+            : detected
+              ? t('workbench.importExport.migrate.detected')
+              : t('workbench.importExport.migrate.notFound')}
         </Text>
-        {tool === 'postman' && pullOpen && <Button onClick={() => setPullOpen(false)}>Cancel</Button>}
+        {tool === 'postman' && pullOpen && (
+          <Button onClick={() => setPullOpen(false)}>{t('workbench.importExport.migrate.cancel')}</Button>
+        )}
       </div>
     );
   };
 
   return (
     <Modal
-      title="Migrate from another tool"
+      title={t('workbench.importExport.migrate.title')}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -140,16 +148,14 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
         <div style={{ textAlign: 'center', margin: '16px 0 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
             <Button type="primary" size="large" loading={scanning} onClick={runScan}>
-              Scan this computer
+              {t('workbench.importExport.migrate.scanCta')}
             </Button>
             <Button type="primary" size="large" onClick={() => setPullOpen(true)}>
-              Import from Postman account
+              {t('workbench.importExport.migrate.pullCta')}
             </Button>
           </div>
           <Paragraph type="secondary" style={{ fontSize: 12, maxWidth: 560, margin: '10px auto 0' }}>
-            Scanning checks a fixed list of application folders and reads only tool data files (backups and local
-            stores). It never opens credential, cookie, or session files, and nothing leaves this computer. Importing
-            anything is a separate, explicit step.
+            {t('workbench.importExport.migrate.scanNote')}
           </Paragraph>
           {scanError && (
             <Alert type="error" showIcon message={scanError} style={{ maxWidth: 560, margin: '10px auto 0' }} />

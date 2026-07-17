@@ -37,6 +37,7 @@ import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telem
 import { Alert, App as AntApp, Button, Divider, Input, type InputRef, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import ImportReportPanel from './ImportReportPanel';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
@@ -106,12 +107,15 @@ type Stage =
 
 // Committed input only lands here (picked file / hub hand-off), so a
 // parse failure beacons `import-parse-failed`.
-function parseCollectionText(text: string): Stage {
+function parseCollectionText(text: string, t: Translate): Stage {
   try {
     const result = parsePostman(text);
     return { kind: 'parsed', source: text, result, envFile: null };
   } catch (err) {
-    const msg = err instanceof PostmanParseError ? err.message : `Failed to read file: ${String(err)}`;
+    const msg =
+      err instanceof PostmanParseError
+        ? err.message
+        : t('workbench.importExport.postman.readFileFailed', { message: String(err) });
     trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return { kind: 'error', message: msg };
   }
@@ -134,6 +138,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const [stage, setStage] = useState<Stage>({ kind: 'empty' });
   const [collectionName, setCollectionName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -145,12 +150,12 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   // preview tree instead of the file picker.
   useEffect(() => {
     if (!open) return;
-    const stage = initialText ? parseCollectionText(initialText) : ({ kind: 'empty' } as const);
+    const stage = initialText ? parseCollectionText(initialText, t) : ({ kind: 'empty' } as const);
     setStage(stage);
     setCollectionName(stage.kind === 'parsed' ? stage.result.collectionName : '');
     setBusy(false);
     setDiff(null);
-  }, [open, initialText]);
+  }, [open, initialText, t]);
 
   // Keyboard flow starts at the collection-name field once parsed —
   // Enter there (or ⌘S anywhere) runs the import. Two triggers: the
@@ -196,16 +201,22 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     };
   }, [stage, findPreviousReport]);
 
-  const handleCollectionFilePicked = useCallback(async (file: File) => {
-    const text = await file.text().catch((err: Error) => err);
-    if (text instanceof Error) {
-      setStage({ kind: 'error', message: `Failed to read file: ${text.message}` });
-      return;
-    }
-    const stage = parseCollectionText(text);
-    setStage(stage);
-    if (stage.kind === 'parsed') setCollectionName(stage.result.collectionName);
-  }, []);
+  const handleCollectionFilePicked = useCallback(
+    async (file: File) => {
+      const text = await file.text().catch((err: Error) => err);
+      if (text instanceof Error) {
+        setStage({
+          kind: 'error',
+          message: t('workbench.importExport.postman.readFileFailed', { message: text.message }),
+        });
+        return;
+      }
+      const stage = parseCollectionText(text, t);
+      setStage(stage);
+      if (stage.kind === 'parsed') setCollectionName(stage.result.collectionName);
+    },
+    [t],
+  );
 
   const handleEnvFilePicked = useCallback(
     async (file: File) => {
@@ -214,11 +225,14 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         const result = parsePostmanEnvironment(text);
         setStage((prev) => (prev.kind === 'parsed' ? { ...prev, envFile: { source: text, result } } : prev));
       } catch (err) {
-        const msg = err instanceof PostmanParseError ? err.message : `Failed to read environment: ${String(err)}`;
+        const msg =
+          err instanceof PostmanParseError
+            ? err.message
+            : t('workbench.importExport.postman.readEnvFailed', { message: String(err) });
         message.error(msg);
       }
     },
-    [message],
+    [message, t],
   );
 
   const clearEnv = useCallback(() => {
@@ -236,7 +250,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       // 1. Create the target collection.
       const coll = await createCollection(collectionName.trim());
       if (!coll) {
-        message.error('Failed to create collection');
+        message.error(t('workbench.importExport.import.failedCreateCollection'));
         trackProductTelemetryEvent({ name: 'import_run', source: 'postman', ok: false });
         setBusy(false);
         return;
@@ -344,17 +358,21 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
         report,
       });
 
-      const summaryParts: string[] = [`Imported ${requestsImported} request${requestsImported === 1 ? '' : 's'}`];
+      const summaryParts: string[] = [t('workbench.importExport.import.importedRequests', { count: requestsImported })];
       if (result.folders.length > 0) {
-        summaryParts.push(`${result.folders.length} folder${result.folders.length === 1 ? '' : 's'}`);
+        summaryParts.push(t('workbench.importExport.postman.foldersCount', { count: result.folders.length }));
       }
-      if (environmentUid) summaryParts.push('1 environment');
+      if (environmentUid) summaryParts.push(t('workbench.importExport.postman.oneEnvironment'));
       if (report.summary.dropped > 0) {
-        summaryParts.push(`${report.summary.dropped} drop${report.summary.dropped === 1 ? '' : 's'}`);
+        summaryParts.push(t('workbench.importExport.import.dropsCount', { count: report.summary.dropped }));
       }
       message.success(summaryParts.join(' · '));
     } catch (err) {
-      message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      message.error(
+        t('workbench.importExport.import.importFailed', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
       trackProductTelemetryEvent({ name: 'import_run', source: 'postman', ok: false });
     } finally {
       setBusy(false);
@@ -372,6 +390,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
     createEnvironment,
     onImported,
     message,
+    t,
   ]);
 
   const confirmImport = useCallback(() => {
@@ -382,24 +401,28 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
 
   const importTooltip =
     stage.kind !== 'parsed'
-      ? 'Choose a collection file first'
+      ? t('workbench.importExport.postman.tooltipChooseFile')
       : !collectionName.trim()
-        ? 'Enter a collection name'
+        ? t('workbench.importExport.postman.tooltipEnterName')
         : saveLabel
-          ? `Import (${saveLabel})`
-          : 'Import';
+          ? t('workbench.importExport.import.importShortcutTooltip', { shortcut: saveLabel })
+          : t('workbench.importExport.import.importCta');
 
   return (
     <Modal
       open={open}
-      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM POSTMAN</span>}
+      title={
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>
+          {t('workbench.importExport.postman.title')}
+        </span>
+      }
       onCancel={onCancel}
       afterOpenChange={handleAfterOpenChange}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={onCancel} size="small" disabled={busy}>
-              Cancel
+              {t('workbench.importExport.import.cancel')}
             </Button>
             <Tooltip title={importTooltip}>
               <span>
@@ -412,7 +435,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
                   loading={busy}
                   style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
                 >
-                  Import
+                  {t('workbench.importExport.import.importCta')}
                 </Button>
               </span>
             </Tooltip>
@@ -429,8 +452,14 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
                 paddingTop: 6,
               }}
             >
-              {saveLabel && <span>{saveLabel} import</span>}
-              <span style={{ marginLeft: 'auto' }}>esc close</span>
+              {saveLabel && (
+                <span>
+                  {saveLabel} {t('workbench.importExport.import.hintImport')}
+                </span>
+              )}
+              <span style={{ marginLeft: 'auto' }}>
+                <kbd style={{ fontFamily: 'inherit' }}>esc</kbd> {t('workbench.importExport.import.hintClose')}
+              </span>
             </div>
           )}
         </div>
@@ -439,10 +468,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       destroyOnClose
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        Import a Postman Collection v2.1 JSON. Folder structure, collection variables, request docs and settings,
-        per-request auth (basic / bearer / api-key / OAuth 2.0), and request scripts (translated to the oh.* API
-        where possible) are preserved. AWS sigv4 and file uploads are tracked as drops. Optionally attach a Postman
-        environment file to land a matching Environment.
+        {t('workbench.importExport.postman.intro')}
       </Paragraph>
 
       {stage.kind === 'empty' && (
@@ -454,7 +480,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
           <Alert
             type="error"
             showIcon
-            message="Couldn't read this file"
+            message={t('workbench.importExport.import.cantReadFile')}
             description={stage.message}
             style={{ marginBottom: 12 }}
           />
@@ -465,14 +491,16 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       {stage.kind === 'parsed' && (
         <>
           <div style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>COLLECTION NAME</Text>
+            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+              {t('workbench.importExport.postman.collectionNameLabel')}
+            </Text>
             <Input
               ref={nameInputRef}
               size="small"
               value={collectionName}
               onChange={(e) => setCollectionName(e.target.value)}
               onPressEnter={confirmImport}
-              placeholder="Name for the new Collection"
+              placeholder={t('workbench.importExport.postman.collectionNamePlaceholder')}
               style={{ fontSize: 12 }}
             />
           </div>
@@ -501,14 +529,15 @@ interface PostmanFilePickerProps {
 }
 
 const PostmanFilePicker: React.FC<PostmanFilePickerProps> = ({ onPick, token, target }) => {
+  const t = useT();
   const heading =
     target === 'collection'
-      ? 'Drop a Postman Collection v2.1 JSON here, or click to pick one'
-      : 'Drop a Postman Environment JSON here (optional)';
+      ? t('workbench.importExport.postman.dropCollectionTitle')
+      : t('workbench.importExport.postman.dropEnvTitle');
   const subtext =
     target === 'collection'
-      ? 'Exported from Postman → Collection → ⋯ → Export (Collection v2.1)'
-      : 'Exported from Postman → Environments → ⋯ → Export';
+      ? t('workbench.importExport.postman.dropCollectionHint')
+      : t('workbench.importExport.postman.dropEnvHint');
   return (
     <label
       style={{
@@ -555,6 +584,7 @@ const ParsedPreview: React.FC<{
   result: PostmanParseResult;
   token: ReturnType<typeof theme.useToken>['token'];
 }> = ({ result, token }) => {
+  const t = useT();
   return (
     <div
       style={{
@@ -566,23 +596,23 @@ const ParsedPreview: React.FC<{
       }}
     >
       <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>
-        PARSED COLLECTION
+        {t('workbench.importExport.postman.parsedCollection')}
       </Text>
       <Space size={6} wrap>
         <Tag>
-          Requests: <strong>{result.requests.length}</strong>
+          {t('workbench.importExport.postman.requestsLabel')} <strong>{result.requests.length}</strong>
         </Tag>
         <Tag icon={<FolderOutlined />}>
-          Folders: <strong>{result.folders.length}</strong>
+          {t('workbench.importExport.postman.foldersLabel')} <strong>{result.folders.length}</strong>
         </Tag>
         <Tag>
-          Collection vars: <strong>{result.collectionVariables.length}</strong>
+          {t('workbench.importExport.postman.collectionVarsLabel')} <strong>{result.collectionVariables.length}</strong>
         </Tag>
       </Space>
       {result.folders.length > 0 && (
         <div style={{ marginTop: 8, maxHeight: 140, overflowY: 'auto', overscrollBehavior: 'none' }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Folder tree
+            {t('workbench.importExport.postman.folderTree')}
           </Text>
           <ul style={{ margin: '2px 0 0', paddingLeft: 14, fontSize: 11, color: token.colorTextSecondary }}>
             {result.folders.map((f) => (
@@ -603,11 +633,12 @@ const EnvironmentSlot: React.FC<{
   onClear: () => void;
   token: ReturnType<typeof theme.useToken>['token'];
 }> = ({ envFile, onPick, onClear, token }) => {
+  const t = useT();
   if (!envFile) {
     return (
       <div style={{ marginBottom: 12 }}>
         <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          OPTIONAL · ENVIRONMENT FILE
+          {t('workbench.importExport.postman.optionalEnvFile')}
         </Text>
         <PostmanFilePicker onPick={onPick} token={token} target="environment" />
       </div>
@@ -626,21 +657,24 @@ const EnvironmentSlot: React.FC<{
         <Space size={6}>
           <ExperimentOutlined />
           <Text strong style={{ fontSize: 12 }}>
-            Environment: {envFile.result.name}
+            {t('workbench.importExport.postman.environmentLabel', { name: envFile.result.name })}
           </Text>
-          <Tag>{envFile.result.variables.length} vars</Tag>
+          <Tag>{t('workbench.importExport.postman.varsCount', { count: envFile.result.variables.length })}</Tag>
           {envFile.result.variables.some((v) => v.type === 'secret') && (
-            <Tag color="gold">{envFile.result.variables.filter((v) => v.type === 'secret').length} secret</Tag>
+            <Tag color="gold">
+              {t('workbench.importExport.postman.secretCount', {
+                count: envFile.result.variables.filter((v) => v.type === 'secret').length,
+              })}
+            </Tag>
           )}
         </Space>
         <Button size="small" type="link" onClick={onClear}>
-          Remove
+          {t('workbench.importExport.postman.remove')}
         </Button>
       </div>
       {envFile.result.report.drops.length > 0 && (
         <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-          {envFile.result.report.drops.length} env variable
-          {envFile.result.report.drops.length === 1 ? '' : 's'} dropped (disabled entries)
+          {t('workbench.importExport.postman.envDropped', { count: envFile.result.report.drops.length })}
         </Text>
       )}
     </div>

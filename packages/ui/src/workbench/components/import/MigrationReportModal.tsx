@@ -16,6 +16,7 @@ import type { ImportReport, PostmanImportedWorkspace, PostmanImportSummary } fro
 import { App, Button, Checkbox, Collapse, Modal, Skeleton, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import ImportReportPanel from './ImportReportPanel';
 
 const { Text, Paragraph } = Typography;
@@ -111,11 +112,12 @@ export function serializeReport(
 
 const WorkspaceReportBody: React.FC<{ entry: WorkspaceReportEntry }> = ({ entry }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { report } = entry;
   if (report === null) {
     return (
       <Text type="secondary" style={{ fontSize: 12 }}>
-        No import report found for this workspace.
+        {t('workbench.importExport.report.noReport')}
       </Text>
     );
   }
@@ -124,7 +126,7 @@ const WorkspaceReportBody: React.FC<{ entry: WorkspaceReportEntry }> = ({ entry 
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <CheckCircleFilled style={{ color: token.colorSuccess }} />
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Everything imported cleanly — no drops or transforms.
+          {t('workbench.importExport.report.cleanImport')}
         </Text>
       </span>
     );
@@ -141,6 +143,7 @@ const MigrationReportModal: React.FC<{
 }> = ({ open, summary, onClose, onOpenWorkspace }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
+  const t = useT();
   const [entries, setEntries] = useState<WorkspaceReportEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [anonymize, setAnonymize] = useState(false);
@@ -149,9 +152,15 @@ const MigrationReportModal: React.FC<{
     if (!summary) return;
     navigator.clipboard
       .writeText(serializeReport(summary, entries, anonymize))
-      .then(() => message.success(anonymize ? 'Anonymized report copied as JSON' : 'Report copied as JSON'))
-      .catch(() => message.error('The report could not be copied.'));
-  }, [summary, entries, anonymize, message]);
+      .then(() =>
+        message.success(
+          anonymize
+            ? t('workbench.importExport.report.copyAnonymizedOk')
+            : t('workbench.importExport.report.copyOk'),
+        ),
+      )
+      .catch(() => message.error(t('workbench.importExport.report.copyFailed')));
+  }, [summary, entries, anonymize, message, t]);
 
   const downloadReport = useCallback(() => {
     if (!summary) return;
@@ -221,10 +230,18 @@ const MigrationReportModal: React.FC<{
             {workspace.workspaceName}
           </Text>
           <Text type="secondary" style={{ fontSize: 12, lineHeight: '22px', minWidth: 0 }}>
-            {workspace.collections} collections · {workspace.environments} environments · {workspace.requests}{' '}
-            requests{workspace.examples > 0 ? ` · ${workspace.examples} saved examples` : ''}
-            {workspace.globals > 0 ? ` · ${workspace.globals} global variables` : ''}
-            {notes > 0 ? ` · ${notes} note${notes === 1 ? '' : 's'}` : ''}
+            {t('workbench.importExport.report.countsLine', {
+              collections: workspace.collections,
+              environments: workspace.environments,
+              requests: workspace.requests,
+            })}
+            {workspace.examples > 0
+              ? ` · ${t('workbench.importExport.report.savedExamplesPart', { count: workspace.examples })}`
+              : ''}
+            {workspace.globals > 0
+              ? ` · ${t('workbench.importExport.report.globalVariablesPart', { count: workspace.globals })}`
+              : ''}
+            {notes > 0 ? ` · ${t('workbench.importExport.report.notesPart', { count: notes })}` : ''}
           </Text>
         </span>
       ),
@@ -236,7 +253,7 @@ const MigrationReportModal: React.FC<{
             onOpenWorkspace(workspace.workspaceId);
           }}
         >
-          Open workspace
+          {t('workbench.importExport.report.openWorkspace')}
         </Button>
       ),
       children: <WorkspaceReportBody entry={entry} />,
@@ -245,25 +262,25 @@ const MigrationReportModal: React.FC<{
 
   return (
     <Modal
-      title="Postman import report"
+      title={t('workbench.importExport.report.title')}
       open={open}
       onCancel={onClose}
       footer={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button icon={<CopyOutlined />} onClick={copyReport} disabled={loading || !summary}>
-            Copy report
+            {t('workbench.importExport.report.copyReport')}
           </Button>
           <Button icon={<DownloadOutlined />} onClick={downloadReport} disabled={loading || !summary}>
-            Download
+            {t('workbench.importExport.report.download')}
           </Button>
-          <Tooltip title="For sharing publicly (e.g. a GitHub issue): workspace names become “Workspace N” and rewritten values are redacted. Paths, reasons, and counts stay so the report is still debuggable.">
+          <Tooltip title={t('workbench.importExport.report.anonymizeTooltip')}>
             <Checkbox checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} style={{ fontSize: 12 }}>
-              Anonymize
+              {t('workbench.importExport.report.anonymize')}
             </Checkbox>
           </Tooltip>
           <div style={{ flex: 1 }} />
           <Button type="primary" onClick={onClose}>
-            Close
+            {t('workbench.importExport.report.close')}
           </Button>
         </div>
       }
@@ -276,33 +293,36 @@ const MigrationReportModal: React.FC<{
     >
       {summary && (
         <Paragraph style={{ marginBottom: 12 }}>
-          Imported <Text strong>{summary.collections}</Text> collection{summary.collections === 1 ? '' : 's'},{' '}
-          <Text strong>{summary.environments}</Text> environment{summary.environments === 1 ? '' : 's'}, and{' '}
-          <Text strong>{summary.requests}</Text> request{summary.requests === 1 ? '' : 's'}
+          {t('workbench.importExport.report.summaryImported')} <Text strong>{summary.collections}</Text>{' '}
+          {t('workbench.importExport.report.wordCollection', { count: summary.collections })},{' '}
+          <Text strong>{summary.environments}</Text>{' '}
+          {t('workbench.importExport.report.wordEnvironment', { count: summary.environments })},{' '}
+          {t('workbench.importExport.report.and')} <Text strong>{summary.requests}</Text>{' '}
+          {t('workbench.importExport.report.wordRequest', { count: summary.requests })}
           {summary.examples > 0 || summary.globals > 0 ? (
             <>
               {' '}
-              (with
+              {t('workbench.importExport.report.withOpen')}
               {summary.examples > 0 ? (
                 <>
                   {' '}
-                  <Text strong>{summary.examples}</Text> saved example{summary.examples === 1 ? '' : 's'}
+                  <Text strong>{summary.examples}</Text>{' '}
+                  {t('workbench.importExport.report.wordSavedExample', { count: summary.examples })}
                 </>
               ) : null}
-              {summary.examples > 0 && summary.globals > 0 ? ' and' : null}
+              {summary.examples > 0 && summary.globals > 0 ? ` ${t('workbench.importExport.report.and')}` : null}
               {summary.globals > 0 ? (
                 <>
                   {' '}
-                  <Text strong>{summary.globals}</Text> global variable{summary.globals === 1 ? '' : 's'}
+                  <Text strong>{summary.globals}</Text>{' '}
+                  {t('workbench.importExport.report.wordGlobalVariable', { count: summary.globals })}
                 </>
               ) : null}
               )
             </>
           ) : null}{' '}
-          into{' '}
-          <Text strong>
-            {summary.workspaces.length} workspace{summary.workspaces.length === 1 ? '' : 's'}
-          </Text>
+          {t('workbench.importExport.report.into')}{' '}
+          <Text strong>{t('workbench.importExport.report.wordWorkspace', { count: summary.workspaces.length })}</Text>
           .
         </Paragraph>
       )}

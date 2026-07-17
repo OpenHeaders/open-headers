@@ -40,8 +40,10 @@ import type { AuthConfig, Request, RequestHeader, Variable } from '@openheaders/
 import { generateUid } from '@openheaders/core/utils';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Alert, App as AntApp, Button, Divider, Input, Modal, Radio, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import ImportReportPanel from './ImportReportPanel';
 import { landSectionedCollections, type SectionedCollection } from './land-collections';
 import ReimportDiffPanel from './ReimportDiffPanel';
@@ -81,34 +83,22 @@ interface SectionedParse {
   report: ImportReport;
 }
 
-const SOURCE_LABELS: Record<SectionedSourceKind, { title: string; blurb: string }> = {
+const SOURCE_LABELS: Record<SectionedSourceKind, { title: MessageKey; blurb: MessageKey }> = {
   'postman-backup': {
-    title: 'IMPORT FROM POSTMAN BACKUP',
-    blurb:
-      'Import a Postman backup data dump. Collections, environments, globals, and header presets are recognized; ' +
-      'header presets land as unpublished header rules. Scripts, OAuth 2.0, AWS sigv4, and file uploads are tracked as drops.',
+    title: 'workbench.importExport.sectioned.titlePostmanBackup',
+    blurb: 'workbench.importExport.sectioned.blurbPostmanBackup',
   },
   insomnia: {
-    title: 'IMPORT FROM INSOMNIA',
-    blurb:
-      'Import an Insomnia export (v4 JSON or v5 YAML). Workspaces become collections with their folder trees; ' +
-      'environments flatten (sub-environments merge over their base) and {{ _.var }} references rewrite to {{var}}; ' +
-      'embedded API specs are kept as editable specifications linked to their generated collections.',
+    title: 'workbench.importExport.sectioned.titleInsomnia',
+    blurb: 'workbench.importExport.sectioned.blurbInsomnia',
   },
   bruno: {
-    title: 'IMPORT FROM BRUNO',
-    blurb:
-      'Import a Bruno .bru request or a whole collection folder. Method, headers, params, body, and ' +
-      'basic/bearer/api-key auth are preserved; a folder brings its folder tree, ordering, and environments; ' +
-      'scripts, tests, and docs blocks are tracked as drops.',
+    title: 'workbench.importExport.sectioned.titleBruno',
+    blurb: 'workbench.importExport.sectioned.blurbBruno',
   },
   openapi: {
-    title: 'IMPORT FROM OPENAPI',
-    blurb:
-      'Import an OpenAPI 3.x document (JSON or YAML). Operations become requests under {{baseUrl}}, tags become ' +
-      'folders, parameters and request bodies are preserved (schema-only bodies get a placeholder scaffold), and ' +
-      'security schemes map to auth — fill in the {{clientId}}/{{clientSecret}} placeholders after importing. ' +
-      'The document can also live on as an editable specification linked to the generated collection.',
+    title: 'workbench.importExport.sectioned.titleOpenapi',
+    blurb: 'workbench.importExport.sectioned.blurbOpenapi',
   },
 };
 
@@ -254,27 +244,32 @@ interface ImportSectionedModalProps {
 
 type Stage = { kind: 'empty' } | { kind: 'parsed'; source: string; result: SectionedParse } | { kind: 'error'; message: string };
 
-function toStageError(err: unknown): Stage {
+function toStageError(err: unknown, t: Translate): Stage {
   const known =
     err instanceof PostmanBackupParseError ||
     err instanceof InsomniaParseError ||
     err instanceof BrunoParseError ||
     err instanceof OpenApiParseError;
-  return { kind: 'error', message: known ? (err as Error).message : `Failed to read input: ${String(err)}` };
+  return {
+    kind: 'error',
+    message: known
+      ? (err as Error).message
+      : t('workbench.importExport.sectioned.readInputFailed', { message: String(err) }),
+  };
 }
 
 // Everything this modal parses is committed input (routed paste, picked
 // file or folder), so a parse failure beacons `import-parse-failed`.
-function parseText(sourceKind: SectionedSourceKind, text: string): Stage {
+function parseText(sourceKind: SectionedSourceKind, text: string, t: Translate): Stage {
   try {
     return { kind: 'parsed', source: text, result: parseSectioned(sourceKind, text) };
   } catch (err) {
     trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
-    return toStageError(err);
+    return toStageError(err, t);
   }
 }
 
-function parseFiles(files: BrunoFile[]): Stage {
+function parseFiles(files: BrunoFile[], t: Translate): Stage {
   try {
     // The re-import hash needs one stable string per folder — the same
     // folder re-picked must hash identically regardless of walk order.
@@ -285,7 +280,7 @@ function parseFiles(files: BrunoFile[]): Stage {
     return { kind: 'parsed', source, result: fromBrunoResult(parseBrunoFiles(files)) };
   } catch (err) {
     trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
-    return toStageError(err);
+    return toStageError(err, t);
   }
 }
 
@@ -312,6 +307,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const [stage, setStage] = useState<Stage>({ kind: 'empty' });
   const [collectionNames, setCollectionNames] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -325,16 +321,16 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   useEffect(() => {
     if (!open) return;
     const next = initialFiles
-      ? parseFiles(initialFiles)
+      ? parseFiles(initialFiles, t)
       : initialText
-        ? parseText(sourceKind, initialText)
+        ? parseText(sourceKind, initialText, t)
         : ({ kind: 'empty' } as const);
     setStage(next);
     setCollectionNames(next.kind === 'parsed' ? next.result.collections.map((c) => c.name) : []);
     setBusy(false);
     setDiff(null);
     setIncludeSpec(true);
-  }, [open, sourceKind, initialText, initialFiles]);
+  }, [open, sourceKind, initialText, initialFiles, t]);
 
   // Re-import-diff lookup on every parse — same contract as the other
   // stage-2 modals (keyed by sourceHash, nice-to-have on failure).
@@ -493,21 +489,31 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
 
       const summaryParts: string[] = [];
       if (requestsImported > 0) {
-        summaryParts.push(`${requestsImported} request${requestsImported === 1 ? '' : 's'}`);
+        summaryParts.push(t('workbench.importExport.sectioned.requestsPart', { count: requestsImported }));
       }
       if (specsImported > 0) {
-        summaryParts.push(`${specsImported} specification${specsImported === 1 ? '' : 's'}`);
+        summaryParts.push(t('workbench.importExport.sectioned.specificationsPart', { count: specsImported }));
       }
       if (environmentsImported > 0) {
-        summaryParts.push(`${environmentsImported} environment${environmentsImported === 1 ? '' : 's'}`);
+        summaryParts.push(t('workbench.importExport.sectioned.environmentsPart', { count: environmentsImported }));
       }
-      if (presetRules > 0) summaryParts.push(`${presetRules} header rule${presetRules === 1 ? '' : 's'} (unpublished)`);
+      if (presetRules > 0) {
+        summaryParts.push(t('workbench.importExport.sectioned.headerRulesPart', { count: presetRules }));
+      }
       if (report.summary.dropped > 0) {
-        summaryParts.push(`${report.summary.dropped} drop${report.summary.dropped === 1 ? '' : 's'}`);
+        summaryParts.push(t('workbench.importExport.import.dropsCount', { count: report.summary.dropped }));
       }
-      message.success(summaryParts.length > 0 ? `Imported ${summaryParts.join(' · ')}` : 'Import finished — nothing to bring over');
+      message.success(
+        summaryParts.length > 0
+          ? t('workbench.importExport.sectioned.importedLead', { parts: summaryParts.join(' · ') })
+          : t('workbench.importExport.sectioned.emptyFinish'),
+      );
     } catch (err) {
-      message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      message.error(
+        t('workbench.importExport.import.importFailed', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
       trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
     } finally {
       setBusy(false);
@@ -531,6 +537,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     createHeaderRules,
     onImported,
     message,
+    t,
   ]);
 
   const confirmImport = useCallback(() => {
@@ -542,23 +549,23 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   const labels = SOURCE_LABELS[sourceKind];
   const importTooltip =
     stage.kind !== 'parsed'
-      ? 'Nothing parsed yet'
+      ? t('workbench.importExport.sectioned.tooltipNothingParsed')
       : !canImport && !busy
-        ? 'Every collection needs a name'
+        ? t('workbench.importExport.sectioned.tooltipNeedsNames')
         : saveLabel
-          ? `Import (${saveLabel})`
-          : 'Import';
+          ? t('workbench.importExport.import.importShortcutTooltip', { shortcut: saveLabel })
+          : t('workbench.importExport.import.importCta');
 
   return (
     <Modal
       open={open}
-      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>{labels.title}</span>}
+      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>{t(labels.title)}</span>}
       onCancel={onCancel}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={onCancel} size="small" disabled={busy}>
-              Cancel
+              {t('workbench.importExport.import.cancel')}
             </Button>
             <Tooltip title={importTooltip}>
               <span>
@@ -570,7 +577,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
                   disabled={!canImport}
                   loading={busy}
                 >
-                  Import
+                  {t('workbench.importExport.import.importCta')}
                 </Button>
               </span>
             </Tooltip>
@@ -587,8 +594,14 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
                 paddingTop: 6,
               }}
             >
-              {saveLabel && <span>{saveLabel} import</span>}
-              <span style={{ marginLeft: 'auto' }}>esc close</span>
+              {saveLabel && (
+                <span>
+                  {saveLabel} {t('workbench.importExport.import.hintImport')}
+                </span>
+              )}
+              <span style={{ marginLeft: 'auto' }}>
+                <kbd style={{ fontFamily: 'inherit' }}>esc</kbd> {t('workbench.importExport.import.hintClose')}
+              </span>
             </div>
           )}
         </div>
@@ -597,11 +610,16 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
       destroyOnClose
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        {labels.blurb}
+        {t(labels.blurb)}
       </Paragraph>
 
       {stage.kind === 'error' && (
-        <Alert type="error" showIcon message="Couldn't read this import" description={stage.message} />
+        <Alert
+          type="error"
+          showIcon
+          message={t('workbench.importExport.sectioned.cantReadImport')}
+          description={stage.message}
+        />
       )}
 
       {stage.kind === 'parsed' && (
@@ -609,7 +627,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           {diff?.hasChanges && <ReimportDiffPanel diff={diff} />}
 
           {sourceKind === 'openapi' && createSpec !== undefined && stage.result.specs.length > 0 && (
-            <SectionBox title="IMPORT AS" token={token}>
+            <SectionBox title={t('workbench.importExport.sectioned.importAs')} token={token}>
               <Radio.Group
                 value={includeSpec ? 'spec-collection' : 'collection'}
                 onChange={(e) => setIncludeSpec(e.target.value === 'spec-collection')}
@@ -617,16 +635,16 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
               >
                 <Space direction="vertical" size={2}>
                   <Radio value="spec-collection" style={{ fontSize: 12 }}>
-                    Specification with a Collection
+                    {t('workbench.importExport.sectioned.specWithCollection')}
                   </Radio>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginLeft: 24 }}>
-                    The document lives on as an editable spec, linked to the generated collection.
+                    {t('workbench.importExport.sectioned.specWithCollectionHelp')}
                   </Text>
                   <Radio value="collection" style={{ fontSize: 12 }}>
-                    Collection
+                    {t('workbench.importExport.sectioned.collectionOnly')}
                   </Radio>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginLeft: 24 }}>
-                    Convert only — the document itself is not kept.
+                    {t('workbench.importExport.sectioned.collectionOnlyHelp')}
                   </Text>
                 </Space>
               </Radio.Group>
@@ -636,7 +654,12 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           {createSpec !== undefined &&
             (sourceKind !== 'openapi' || includeSpec) &&
             stage.result.specs.length > 0 && (
-              <SectionBox title={`SPECIFICATIONS · ${stage.result.specs.length}`} token={token}>
+              <SectionBox
+                title={t('workbench.importExport.sectioned.specificationsSection', {
+                  count: stage.result.specs.length,
+                })}
+                token={token}
+              >
                 <Space size={6} wrap>
                   {stage.result.specs.map((s, i) => (
                     <Tag key={i} icon={<FileTextOutlined />}>
@@ -648,7 +671,12 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
             )}
 
           {stage.result.collections.length > 0 && (
-            <SectionBox title={`COLLECTIONS · ${stage.result.collections.length}`} token={token}>
+            <SectionBox
+              title={t('workbench.importExport.sectioned.collectionsSection', {
+                count: stage.result.collections.length,
+              })}
+              token={token}
+            >
               {stage.result.collections.map((c, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Input
@@ -662,19 +690,19 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
                       })
                     }
                     onPressEnter={confirmImport}
-                    placeholder="Collection name"
+                    placeholder={t('workbench.importExport.sectioned.collectionNamePlaceholder')}
                     style={{ fontSize: 12, maxWidth: 280 }}
                   />
                   <Space size={6} wrap>
                     <Tag>
-                      Requests: <strong>{c.requests.length}</strong>
+                      {t('workbench.importExport.postman.requestsLabel')} <strong>{c.requests.length}</strong>
                     </Tag>
                     <Tag icon={<FolderOutlined />}>
-                      Folders: <strong>{c.folders.length}</strong>
+                      {t('workbench.importExport.postman.foldersLabel')} <strong>{c.folders.length}</strong>
                     </Tag>
                     {c.variables !== undefined && c.variables.length > 0 && (
                       <Tag>
-                        Collection vars: <strong>{c.variables.length}</strong>
+                        {t('workbench.importExport.postman.collectionVarsLabel')} <strong>{c.variables.length}</strong>
                       </Tag>
                     )}
                   </Space>
@@ -684,11 +712,16 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           )}
 
           {stage.result.environments.length > 0 && (
-            <SectionBox title={`ENVIRONMENTS · ${stage.result.environments.length}`} token={token}>
+            <SectionBox
+              title={t('workbench.importExport.sectioned.environmentsSection', {
+                count: stage.result.environments.length,
+              })}
+              token={token}
+            >
               <Space size={6} wrap>
                 {stage.result.environments.map((e, i) => (
                   <Tag key={i} icon={<ExperimentOutlined />}>
-                    {e.name} · {e.variables.length} var{e.variables.length === 1 ? '' : 's'}
+                    {e.name} · {t('workbench.importExport.sectioned.varsShort', { count: e.variables.length })}
                   </Tag>
                 ))}
               </Space>
@@ -696,17 +729,21 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           )}
 
           {stage.result.headerPresets.length > 0 && (
-            <SectionBox title={`HEADER PRESETS · ${stage.result.headerPresets.length}`} token={token}>
+            <SectionBox
+              title={t('workbench.importExport.sectioned.headerPresetsSection', {
+                count: stage.result.headerPresets.length,
+              })}
+              token={token}
+            >
               <Space size={6} wrap>
                 {stage.result.headerPresets.map((p, i) => (
                   <Tag key={i} icon={<TagsOutlined />}>
-                    {p.name} · {p.headers.length} header{p.headers.length === 1 ? '' : 's'}
+                    {p.name} · {t('workbench.importExport.sectioned.headersShort', { count: p.headers.length })}
                   </Tag>
                 ))}
               </Space>
               <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 6 }}>
-                Each preset lands as an unpublished header rule — add conditions and publish it when ready; nothing
-                touches live traffic until then.
+                {t('workbench.importExport.sectioned.presetsNote')}
               </Text>
             </SectionBox>
           )}
@@ -717,8 +754,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
               <Alert
                 type="info"
                 showIcon
-                message="Nothing importable in this file"
-                description="The file parsed, but every section was empty or dropped — see the import notes below."
+                message={t('workbench.importExport.sectioned.nothingImportable')}
+                description={t('workbench.importExport.sectioned.nothingImportableDesc')}
                 style={{ marginBottom: 12 }}
               />
             )}

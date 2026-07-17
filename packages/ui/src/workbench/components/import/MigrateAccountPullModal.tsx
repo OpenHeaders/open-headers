@@ -19,6 +19,7 @@ import { CheckCircleFilled } from '@ant-design/icons';
 import { App, Button, Divider, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import PostmanPullStepper, { type PostmanPullStepperPhase } from './migrate/PostmanPullStepper';
 import { PostmanGlyph } from './migrate/vendor-icons';
 
@@ -41,6 +42,7 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { modal } = App.useApp();
+  const t = useT();
   // Past the key step live work is on the line — the enumeration RPC
   // while listing, the workspace selection once the picker is up. Esc
   // is disabled so a stray key press can't discard either, and the X
@@ -56,27 +58,29 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
     // OK on the right; the destructive discard rides the red cancel slot
     // on the left. Esc is off so it can't fire the discard side unnoticed.
     modal.confirm({
-      title: 'Close the import?',
+      title: t('workbench.importExport.migrate.closeConfirmTitle'),
       ...(stepperPhase === 'listing'
         ? {
-            content:
-              'Your workspaces are still being listed — large accounts can take a minute. Closing abandons the listing.',
-            okText: 'Keep waiting',
+            content: t('workbench.importExport.migrate.closeListingContent'),
+            okText: t('workbench.importExport.migrate.closeListingOk'),
           }
         : {
-            content: 'Your workspace selection will be discarded. Nothing has been imported yet.',
-            okText: 'Keep selecting',
+            content: t('workbench.importExport.migrate.closeSelectingContent'),
+            okText: t('workbench.importExport.migrate.closeSelectingOk'),
           }),
-      cancelText: stepperPhase === 'listing' ? 'Close anyway' : 'Discard and close',
+      cancelText:
+        stepperPhase === 'listing'
+          ? t('workbench.importExport.migrate.closeAnyway')
+          : t('workbench.importExport.migrate.discardAndClose'),
       cancelButtonProps: { danger: true },
       keyboard: false,
       onCancel: onClose,
     });
-  }, [stepperPhase, modal, onClose]);
+  }, [stepperPhase, modal, onClose, t]);
 
   return (
     <Modal
-      title="Migrate from another tool"
+      title={t('workbench.importExport.migrate.title')}
       open={open}
       onCancel={handleCancel}
       footer={null}
@@ -87,28 +91,27 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '12px 0 12px' }}>
         <PostmanGlyph style={{ fontSize: 18 }} />
-        <Text strong>Import from your Postman account</Text>
+        <Text strong>{t('workbench.importExport.migrate.fromAccount')}</Text>
       </div>
       <PostmanPullStepper onStarted={onClose} onPhaseChange={setStepperPhase} />
 
       <Divider style={{ margin: '20px 0 12px' }} />
 
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 4 }}>
-        Have local Insomnia, Thunder Client, or Bruno data? Export it from the tool and drop the file in the{' '}
+        {t('workbench.importExport.migrate.localDataPrefix')}{' '}
         <Button type="link" size="small" style={{ padding: 0, fontSize: 12, height: 'auto' }} onClick={onOpenImportHub}>
-          import hub
-        </Button>
-        {' '}— or scan this computer with the Open Headers desktop app.
+          {t('workbench.importExport.migrate.importHub')}
+        </Button>{' '}
+        {t('workbench.importExport.migrate.localDataSuffix')}
       </Paragraph>
       {connected ? (
         <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <CheckCircleFilled style={{ color: token.colorSuccess }} />
-          Your desktop app is connected — choose “Migrate from another tool” there; progress mirrors here and the
-          imported workspaces sync over.
+          {t('workbench.importExport.migrate.desktopConnected')}
         </Text>
       ) : (
         <Text type="secondary" style={{ fontSize: 12 }}>
-          The scan needs the desktop app; once it runs there, the imported workspaces sync to this browser.
+          {t('workbench.importExport.migrate.desktopNeeded')}
         </Text>
       )}
     </Modal>

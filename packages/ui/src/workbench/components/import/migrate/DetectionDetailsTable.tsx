@@ -12,6 +12,8 @@
 import { type DataScanSkip, MIGRATION_TOOL_NAMES, type ToolDataFinding } from '@openheaders/core/import';
 import { Button, Table, Typography } from 'antd';
 import type React from 'react';
+import { getDateTimeFormat } from '@openheaders/i18n';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { VENDOR_GLYPHS } from './vendor-icons';
 
 const { Text } = Typography;
@@ -43,9 +45,10 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
   onImportInsomniaData,
   onOpenImportHub,
 }) => {
+  const { t, locale } = useLocale();
   const emptyText = scanned
-    ? 'No importable data stores were found on this computer.'
-    : 'Nothing scanned yet — “Scan this computer” lists importable data here.';
+    ? t('workbench.importExport.detection.emptyScanned')
+    : t('workbench.importExport.detection.emptyNotScanned');
 
   const rows: DetailRow[] = findings.map((finding) => ({
     key: finding.store === 'postman-backup' ? finding.path : finding.dir,
@@ -54,7 +57,7 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
 
   const columns = [
     {
-      title: 'Vendor',
+      title: t('workbench.importExport.detection.vendorCol'),
       key: 'vendor',
       width: 160,
       render: (_: unknown, row: DetailRow) => {
@@ -68,25 +71,38 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
       },
     },
     {
-      title: 'Data found',
+      title: t('workbench.importExport.detection.dataFoundCol'),
       key: 'data',
       width: 220,
       render: (_: unknown, row: DetailRow) =>
         row.finding.store === 'postman-backup' ? (
-          <Text style={{ fontSize: 12 }}>Backup from {new Date(row.finding.mtimeMs).toLocaleDateString()}</Text>
+          <Text style={{ fontSize: 12 }}>
+            {t('workbench.importExport.detection.backupFrom', {
+              date: getDateTimeFormat(locale).format(new Date(row.finding.mtimeMs)),
+            })}
+          </Text>
         ) : (
-          <Text style={{ fontSize: 12 }}>Local data</Text>
+          <Text style={{ fontSize: 12 }}>{t('workbench.importExport.detection.localData')}</Text>
         ),
     },
     {
-      title: 'Contents',
+      title: t('workbench.importExport.detection.contentsCol'),
       key: 'contents',
       render: (_: unknown, row: DetailRow) => {
         const { finding } = row;
         const contents =
           finding.store === 'postman-backup'
-            ? `${finding.counts.collections} collections · ${finding.counts.environments} environments · ${finding.counts.headerPresets} header presets · ${finding.counts.globals} globals`
-            : `${finding.counts.collections} collections · ${finding.counts.environments} environments · ${finding.counts.requests} requests`;
+            ? t('workbench.importExport.detection.backupContents', {
+                collections: finding.counts.collections,
+                environments: finding.counts.environments,
+                headerPresets: finding.counts.headerPresets,
+                globals: finding.counts.globals,
+              })
+            : t('workbench.importExport.detection.localContents', {
+                collections: finding.counts.collections,
+                environments: finding.counts.environments,
+                requests: finding.counts.requests,
+              });
         return (
           <Text type="secondary" style={{ fontSize: 12 }}>
             {contents}
@@ -105,7 +121,7 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
           const { path } = finding;
           return (
             <Button size="small" loading={readingPath === path} onClick={() => onImportBackup(path)}>
-              Import…
+              {t('workbench.importExport.detection.importCta')}
             </Button>
           );
         }
@@ -113,17 +129,17 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
         return (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <Button size="small" loading={readingPath === dir} onClick={() => onImportInsomniaData(dir)}>
-              Import…
+              {t('workbench.importExport.detection.importCta')}
             </Button>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Or export it (Preferences → Data → Export), then drop the file in the{' '}
+              {t('workbench.importExport.detection.exportFallbackPrefix')}{' '}
               <Button
                 type="link"
                 size="small"
                 style={{ padding: 0, fontSize: 12, height: 'auto' }}
                 onClick={onOpenImportHub}
               >
-                import hub
+                {t('workbench.importExport.migrate.importHub')}
               </Button>
             </Text>
           </div>
@@ -150,7 +166,7 @@ const DetectionDetailsTable: React.FC<DetectionDetailsTableProps> = ({
       />
       {skipped.length > 0 && (
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
-          {skipped.length} store file{skipped.length === 1 ? ' was' : 's were'} skipped — {skipped[0].reason}
+          {t('workbench.importExport.detection.skippedLead', { count: skipped.length })} {skipped[0].reason}
         </Text>
       )}
     </>

@@ -33,6 +33,7 @@ import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telem
 import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type CollectionPickerHandle, CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
@@ -97,13 +98,16 @@ const MAX_ENTRIES_DISPLAY = 200;
  * parse beacons `import-parse-failed` — mid-typing churn never lands
  * here.
  */
-function parseHarText(text: string): Stage {
+function parseHarText(text: string, t: Translate): Stage {
   try {
     const result = parseHar(text);
     const selection = new Set(result.entries.map((e) => e.index));
     return { kind: 'parsed', source: text, result, selection };
   } catch (err) {
-    const msg = err instanceof HarParseError ? err.message : `Failed to read HAR: ${String(err)}`;
+    const msg =
+      err instanceof HarParseError
+        ? err.message
+        : t('workbench.importExport.har.readFailed', { message: String(err) });
     trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return { kind: 'error', message: msg };
   }
@@ -122,6 +126,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const [stage, setStage] = useState<Stage>({ kind: 'empty' });
   const [targetCollectionId, setTargetCollectionId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -140,12 +145,12 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     const wasOpen = wasOpenRef.current;
     wasOpenRef.current = open;
     if (!open || wasOpen) return;
-    setStage(initialText ? parseHarText(initialText) : { kind: 'empty' });
+    setStage(initialText ? parseHarText(initialText, t) : { kind: 'empty' });
     setTargetCollectionId(initialCollectionId ?? collections[0]?.uid ?? NEW_COLLECTION_VALUE);
     setFilter('');
     setBusy(false);
     setDiff(null);
-  }, [open, initialCollectionId, initialText, collections]);
+  }, [open, initialCollectionId, initialText, collections, t]);
 
   // Keyboard flow starts at the picker's search — the HAR modal has no
   // name field, so that's where ↑↓/Enter/⌘S become live after parse.
@@ -194,14 +199,17 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
     };
   }, [stage, findPreviousReport]);
 
-  const handleFilePicked = useCallback(async (file: File) => {
-    const text = await file.text().catch((err: Error) => err);
-    if (text instanceof Error) {
-      setStage({ kind: 'error', message: `Failed to read HAR: ${text.message}` });
-      return;
-    }
-    setStage(parseHarText(text));
-  }, []);
+  const handleFilePicked = useCallback(
+    async (file: File) => {
+      const text = await file.text().catch((err: Error) => err);
+      if (text instanceof Error) {
+        setStage({ kind: 'error', message: t('workbench.importExport.har.readFailed', { message: text.message }) });
+        return;
+      }
+      setStage(parseHarText(text, t));
+    },
+    [t],
+  );
 
   const toggleEntry = useCallback((index: number) => {
     setStage((prev) => {
@@ -271,7 +279,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       if (collectionUid === NEW_COLLECTION_VALUE) {
         const collection = await createCollection(newCollectionName);
         if (!collection) {
-          message.error('Failed to create collection');
+          message.error(t('workbench.importExport.import.failedCreateCollection'));
           trackProductTelemetryEvent({ name: 'import_run', source: 'har', ok: false });
           return;
         }
@@ -302,19 +310,23 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       const report: ImportReport = { ...narrowed.report, sourceHash: hash };
       trackProductTelemetryEvent({ name: 'import_run', source: 'har', ok: true });
       onImported({ requestUids, collectionId: collectionUid, sourceHash: hash, report });
-      const summaryLine = requestUids.length === 1 ? 'Imported 1 request' : `Imported ${requestUids.length} requests`;
+      const summaryLine = t('workbench.importExport.import.importedRequests', { count: requestUids.length });
       message.success(
         report.summary.dropped + report.summary.transformed === 0
           ? summaryLine
-          : `${summaryLine} · ${report.summary.transformed} transform${report.summary.transformed === 1 ? '' : 's'}, ${report.summary.dropped} drop${report.summary.dropped === 1 ? '' : 's'}`,
+          : `${summaryLine} · ${t('workbench.importExport.import.transformsCount', { count: report.summary.transformed })}, ${t('workbench.importExport.import.dropsCount', { count: report.summary.dropped })}`,
       );
     } catch (err) {
-      message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      message.error(
+        t('workbench.importExport.import.importFailed', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
       trackProductTelemetryEvent({ name: 'import_run', source: 'har', ok: false });
     } finally {
       setBusy(false);
     }
-  }, [stage, targetCollectionId, selectedCount, createRequest, createCollection, newCollectionName, onImported, message]);
+  }, [stage, targetCollectionId, selectedCount, createRequest, createCollection, newCollectionName, onImported, message, t]);
 
   const confirmImport = useCallback(() => {
     if (canImport) void handleImport();
@@ -324,17 +336,21 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
 
   const importTooltip =
     stage.kind !== 'parsed'
-      ? 'Choose a .har file first'
+      ? t('workbench.importExport.har.tooltipChooseFile')
       : selectedCount === 0
-        ? 'Select at least one entry'
+        ? t('workbench.importExport.har.tooltipSelectEntry')
         : saveLabel
-          ? `Import (${saveLabel})`
-          : 'Import';
+          ? t('workbench.importExport.import.importShortcutTooltip', { shortcut: saveLabel })
+          : t('workbench.importExport.import.importCta');
 
   return (
     <Modal
       open={open}
-      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM HAR</span>}
+      title={
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>
+          {t('workbench.importExport.har.title')}
+        </span>
+      }
       onCancel={onCancel}
       afterOpenChange={handleAfterOpenChange}
       footer={
@@ -342,12 +358,15 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary" style={{ fontSize: 11 }}>
               {stage.kind === 'parsed'
-                ? `${selectedCount} of ${stage.result.entries.length} selected`
-                : 'Choose a .har file'}
+                ? t('workbench.importExport.har.footerSelected', {
+                    selected: selectedCount,
+                    total: stage.result.entries.length,
+                  })
+                : t('workbench.importExport.har.footerChooseFile')}
             </Text>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button onClick={onCancel} size="small" disabled={busy}>
-                Cancel
+                {t('workbench.importExport.import.cancel')}
               </Button>
               <Tooltip title={importTooltip}>
                 <span>
@@ -360,7 +379,9 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
                     loading={busy}
                     style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
                   >
-                    Import {selectedCount > 0 ? `(${selectedCount})` : ''}
+                    {selectedCount > 0
+                      ? t('workbench.importExport.import.importCtaCount', { count: selectedCount })
+                      : t('workbench.importExport.import.importCta')}
                   </Button>
                 </span>
               </Tooltip>
@@ -378,10 +399,16 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
                 paddingTop: 6,
               }}
             >
-              <span>↑↓ navigate</span>
-              <span>↵ select</span>
-              {saveLabel && <span>{saveLabel} import</span>}
-              <span style={{ marginLeft: 'auto' }}>esc close</span>
+              <span>↑↓ {t('workbench.importExport.import.hintNavigate')}</span>
+              <span>↵ {t('workbench.importExport.import.hintSelect')}</span>
+              {saveLabel && (
+                <span>
+                  {saveLabel} {t('workbench.importExport.import.hintImport')}
+                </span>
+              )}
+              <span style={{ marginLeft: 'auto' }}>
+                <kbd style={{ fontFamily: 'inherit' }}>esc</kbd> {t('workbench.importExport.import.hintClose')}
+              </span>
             </div>
           )}
         </div>
@@ -390,9 +417,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       destroyOnClose
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        Import a <code>.har</code> file (HTTP Archive) exported from DevTools or a proxy. Each entry becomes a destination
-        request in the chosen collection. Cookies and multipart uploads are dropped with tracking annotations; auth
-        headers are promoted to first-class auth types.
+        {t('workbench.importExport.har.introPrefix')} <code>.har</code> {t('workbench.importExport.har.introSuffix')}
       </Paragraph>
 
       {stage.kind === 'empty' && <HarFilePicker onPick={handleFilePicked} token={token} />}
@@ -402,7 +427,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
           <Alert
             type="error"
             showIcon
-            message="Couldn't read this file"
+            message={t('workbench.importExport.import.cantReadFile')}
             description={stage.message}
             style={{ marginBottom: 12 }}
           />
@@ -413,7 +438,9 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       {stage.kind === 'parsed' && (
         <>
           <div style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>IMPORT TO</Text>
+            <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+              {t('workbench.importExport.import.importTo')}
+            </Text>
             <CollectionPickerPanel
               ref={pickerRef}
               collections={collections}
@@ -429,17 +456,17 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <Input
               size="small"
-              placeholder="Filter by URL / method / name"
+              placeholder={t('workbench.importExport.har.filterPlaceholder')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               style={{ flex: 1, fontSize: 12 }}
               allowClear
             />
             <Button size="small" onClick={() => setAllSelection(true)}>
-              Select all
+              {t('workbench.importExport.har.selectAll')}
             </Button>
             <Button size="small" onClick={() => setAllSelection(false)}>
-              None
+              {t('workbench.importExport.har.selectNone')}
             </Button>
           </div>
 
@@ -467,8 +494,10 @@ interface HarFilePickerProps {
   token: ReturnType<typeof theme.useToken>['token'];
 }
 
-const HarFilePicker: React.FC<HarFilePickerProps> = ({ onPick, token }) => (
-  <label
+const HarFilePicker: React.FC<HarFilePickerProps> = ({ onPick, token }) => {
+  const t = useT();
+  return (
+    <label
     style={{
       display: 'flex',
       flexDirection: 'column',
@@ -488,22 +517,23 @@ const HarFilePicker: React.FC<HarFilePickerProps> = ({ onPick, token }) => (
       if (file) void onPick(file);
     }}
   >
-    <UploadOutlined style={{ fontSize: 24, color: token.colorTextSecondary }} />
-    <Text style={{ fontSize: 13 }}>Drop a .har file here, or click to pick one</Text>
-    <Text type="secondary" style={{ fontSize: 11 }}>
-      Exported from DevTools Network → right-click → Save all as HAR
-    </Text>
-    <input
-      type="file"
-      accept=".har,application/json"
-      onChange={(e) => {
-        const file = e.currentTarget.files?.[0];
-        if (file) void onPick(file);
-      }}
-      style={{ display: 'none' }}
-    />
-  </label>
-);
+      <UploadOutlined style={{ fontSize: 24, color: token.colorTextSecondary }} />
+      <Text style={{ fontSize: 13 }}>{t('workbench.importExport.har.dropTitle')}</Text>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {t('workbench.importExport.har.dropHint')}
+      </Text>
+      <input
+        type="file"
+        accept=".har,application/json"
+        onChange={(e) => {
+          const file = e.currentTarget.files?.[0];
+          if (file) void onPick(file);
+        }}
+        style={{ display: 'none' }}
+      />
+    </label>
+  );
+};
 
 // ── Entry list ──────────────────────────────────────────────────────
 
@@ -516,13 +546,14 @@ interface EntryListProps {
 }
 
 const EntryList: React.FC<EntryListProps> = ({ entries, selection, onToggle, token, totalCount }) => {
+  const t = useT();
   const truncated = entries.length > MAX_ENTRIES_DISPLAY;
   const shown = truncated ? entries.slice(0, MAX_ENTRIES_DISPLAY) : entries;
 
   if (totalCount === 0) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
-        <Text type="secondary">The file has no importable entries.</Text>
+        <Text type="secondary">{t('workbench.importExport.har.noImportableEntries')}</Text>
       </div>
     );
   }
@@ -539,7 +570,7 @@ const EntryList: React.FC<EntryListProps> = ({ entries, selection, onToggle, tok
     >
       {entries.length === 0 && (
         <div style={{ padding: 16, textAlign: 'center' }}>
-          <Text type="secondary">No entries match the filter.</Text>
+          <Text type="secondary">{t('workbench.importExport.har.noFilterMatch')}</Text>
         </div>
       )}
       {shown.map((entry) => (
@@ -589,7 +620,7 @@ const EntryList: React.FC<EntryListProps> = ({ entries, selection, onToggle, tok
       {truncated && (
         <div style={{ padding: '8px 10px', textAlign: 'center', background: token.colorFillAlter }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Showing first {MAX_ENTRIES_DISPLAY} of {totalCount}. Use the filter to narrow down.
+            {t('workbench.importExport.har.showingFirst', { shown: MAX_ENTRIES_DISPLAY, total: totalCount })}
           </Text>
         </div>
       )}
@@ -605,6 +636,7 @@ interface ReportPanelProps {
 }
 
 const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
+  const t = useT();
   const totalDrops = report.drops.length;
   const totalTransforms = report.transforms.length;
   if (totalDrops === 0 && totalTransforms === 0) return null;
@@ -615,11 +647,11 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           type="info"
           showIcon
           icon={<InfoCircleOutlined />}
-          message={`${totalTransforms} transform${totalTransforms === 1 ? '' : 's'} applied to the source`}
+          message={t('workbench.importExport.har.transformsApplied', { count: totalTransforms })}
           description={
-            <Tooltip title="Transforms rewrite source fields into normalized equivalents — e.g. promoting Authorization headers into first-class auth types.">
+            <Tooltip title={t('workbench.importExport.har.transformsTooltip')}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary, cursor: 'help' }}>
-                Hover for details · full list in the import-report export (Settings → Data)
+                {t('workbench.importExport.har.reportHover')}
               </span>
             </Tooltip>
           }
@@ -630,11 +662,11 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message={`${totalDrops} drop${totalDrops === 1 ? '' : 's'} recorded`}
+          message={t('workbench.importExport.har.dropsRecorded', { count: totalDrops })}
           description={
-            <Tooltip title="Drops are source fields that don't map to the model (cookies, multipart uploads, etc.). Each has a tracking annotation in the full report.">
+            <Tooltip title={t('workbench.importExport.har.dropsTooltip')}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary, cursor: 'help' }}>
-                Hover for details · full list in the import-report export (Settings → Data)
+                {t('workbench.importExport.har.reportHover')}
               </span>
             </Tooltip>
           }

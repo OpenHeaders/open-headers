@@ -19,6 +19,7 @@ import { ArrowDownOutlined, ArrowUpOutlined, CheckCircleOutlined, WarningOutline
 import type { ImportReportDiff } from '@openheaders/core/import';
 import { Alert, Space, Tag, Typography, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
@@ -46,6 +47,7 @@ function relativeAge(previousIso: string): string {
 
 const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const age = relativeAge(diff.previousImportedAt);
 
   // Decide headline tone. Regression wins over progress — the user
@@ -57,12 +59,12 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
 
   const headline =
     added > 0
-      ? `${added} new issue${added === 1 ? '' : 's'} since last import`
+      ? t('workbench.importExport.reimport.newIssues', { count: added })
       : resolved > 0
-        ? `${resolved} previously-unsupported entr${resolved === 1 ? 'y is' : 'ies are'} now handled`
+        ? t('workbench.importExport.reimport.nowHandled', { count: resolved })
         : summaryChanged
-          ? 'Counts changed since last import'
-          : 'Minor changes vs last import';
+          ? t('workbench.importExport.reimport.countsChanged')
+          : t('workbench.importExport.reimport.minorChanges');
 
   const tone: 'warning' | 'success' | 'info' = added > 0 ? 'warning' : resolved > 0 ? 'success' : 'info';
   const Icon = added > 0 ? WarningOutlined : resolved > 0 ? CheckCircleOutlined : ArrowUpOutlined;
@@ -79,7 +81,7 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
             {headline}
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            (previously imported {age})
+            {t('workbench.importExport.reimport.previouslyImported', { age })}
           </Text>
         </Space>
       }
@@ -88,7 +90,7 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
           <SummaryDeltaRow diff={diff} />
           {diff.drops.added.length > 0 && (
             <DetailList
-              heading={`New drops (${diff.drops.added.length})`}
+              heading={t('workbench.importExport.reimport.newDrops', { count: diff.drops.added.length })}
               tone="regression"
               items={diff.drops.added.map((d) => ({ path: d.path, detail: d.reason }))}
               token={token}
@@ -96,7 +98,7 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
           )}
           {diff.drops.resolved.length > 0 && (
             <DetailList
-              heading={`Drops resolved (${diff.drops.resolved.length})`}
+              heading={t('workbench.importExport.reimport.dropsResolved', { count: diff.drops.resolved.length })}
               tone="progress"
               items={diff.drops.resolved.map((d) => ({ path: d.path, detail: d.reason }))}
               token={token}
@@ -104,7 +106,7 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
           )}
           {diff.transforms.added.length > 0 && (
             <DetailList
-              heading={`New transforms (${diff.transforms.added.length})`}
+              heading={t('workbench.importExport.reimport.newTransforms', { count: diff.transforms.added.length })}
               tone="neutral"
               items={diff.transforms.added.map((t) => ({
                 path: t.path,
@@ -115,7 +117,9 @@ const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
           )}
           {diff.transforms.resolved.length > 0 && (
             <DetailList
-              heading={`Transforms no longer needed (${diff.transforms.resolved.length})`}
+              heading={t('workbench.importExport.reimport.transformsResolved', {
+                count: diff.transforms.resolved.length,
+              })}
               tone="progress"
               items={diff.transforms.resolved.map((t) => ({
                 path: t.path,

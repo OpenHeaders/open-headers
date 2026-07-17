@@ -40,6 +40,7 @@ import { Alert, App as AntApp, Button, Input, type InputRef, Modal, Tag, Tooltip
 import type { TextAreaRef } from 'antd/es/input/TextArea';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type CollectionPickerHandle, CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
@@ -134,6 +135,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
+  const t = useT();
   const [source, setSource] = useState('');
   const [name, setName] = useState('');
   const [nameDirty, setNameDirty] = useState(false);
@@ -186,10 +188,10 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       const { request, report } = parseCurl(trimmed);
       return { ok: true, request, report };
     } catch (err) {
-      const msg = err instanceof CurlParseError ? err.message : 'Could not parse — check the command and try again.';
+      const msg = err instanceof CurlParseError ? err.message : t('workbench.importExport.curl.parseFallback');
       return { ok: false, message: msg };
     }
-  }, [source]);
+  }, [source, t]);
 
   // A hub hand-off that fails to parse is committed input, not mid-typing
   // churn — beacon it once per open. Live typing never fires: the source
@@ -296,7 +298,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       if (collectionUid === NEW_COLLECTION_VALUE) {
         const collection = await createCollection(newCollectionName);
         if (!collection) {
-          message.error('Failed to create collection');
+          message.error(t('workbench.importExport.import.failedCreateCollection'));
           trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
           return;
         }
@@ -318,7 +320,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         seed,
       });
       if (!created) {
-        message.error('Failed to create request');
+        message.error(t('workbench.importExport.curl.failedCreateRequest'));
         trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
         return;
       }
@@ -333,18 +335,23 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
         sourceHash: hash,
         report,
       });
+      const importedLine = t('workbench.importExport.curl.importedName', { name: name.trim() });
       const summary =
         report.summary.dropped + report.summary.transformed === 0
-          ? `Imported "${name.trim()}"`
-          : `Imported "${name.trim()}" · ${report.summary.transformed} transform${report.summary.transformed === 1 ? '' : 's'}, ${report.summary.dropped} drop${report.summary.dropped === 1 ? '' : 's'}`;
+          ? importedLine
+          : `${importedLine} · ${t('workbench.importExport.import.transformsCount', { count: report.summary.transformed })}, ${t('workbench.importExport.import.dropsCount', { count: report.summary.dropped })}`;
       message.success(summary);
     } catch (err) {
-      message.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      message.error(
+        t('workbench.importExport.import.importFailed', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
       trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
     } finally {
       setBusy(false);
     }
-  }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message, sourceKind]);
+  }, [parsed, source, name, targetCollectionId, createRequest, createCollection, newCollectionName, onImported, message, sourceKind, t]);
 
   const confirmImport = useCallback(() => {
     if (canImport) void handleImport();
@@ -353,24 +360,28 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
   const saveLabel = useImportShortcut(open, canImport, confirmImport);
 
   const importTooltip = !parsed?.ok
-    ? 'Paste a curl command first'
+    ? t('workbench.importExport.curl.tooltipPasteFirst')
     : !name.trim()
-      ? 'Enter a name'
+      ? t('workbench.importExport.curl.tooltipEnterName')
       : saveLabel
-        ? `Import (${saveLabel})`
-        : 'Import';
+        ? t('workbench.importExport.import.importShortcutTooltip', { shortcut: saveLabel })
+        : t('workbench.importExport.import.importCta');
 
   return (
     <Modal
       open={open}
-      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT FROM CURL</span>}
+      title={
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>
+          {t('workbench.importExport.curl.title')}
+        </span>
+      }
       onCancel={onCancel}
       afterOpenChange={handleAfterOpenChange}
       footer={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={onCancel} size="small" disabled={busy}>
-              Cancel
+              {t('workbench.importExport.import.cancel')}
             </Button>
             <Tooltip title={importTooltip}>
               <span>
@@ -383,7 +394,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
                   loading={busy}
                   style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
                 >
-                  Import
+                  {t('workbench.importExport.import.importCta')}
                 </Button>
               </span>
             </Tooltip>
@@ -400,10 +411,16 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
                 paddingTop: 6,
               }}
             >
-              <span>↑↓ navigate</span>
-              <span>↵ select</span>
-              {saveLabel && <span>{saveLabel} import</span>}
-              <span style={{ marginLeft: 'auto' }}>esc close</span>
+              <span>↑↓ {t('workbench.importExport.import.hintNavigate')}</span>
+              <span>↵ {t('workbench.importExport.import.hintSelect')}</span>
+              {saveLabel && (
+                <span>
+                  {saveLabel} {t('workbench.importExport.import.hintImport')}
+                </span>
+              )}
+              <span style={{ marginLeft: 'auto' }}>
+                <kbd style={{ fontFamily: 'inherit' }}>esc</kbd> {t('workbench.importExport.import.hintClose')}
+              </span>
             </div>
           )}
         </div>
@@ -412,29 +429,31 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
       destroyOnClose
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-        Paste a <code>curl</code> command — e.g. "Copy as cURL" from browser DevTools or API docs.
+        {t('workbench.importExport.curl.introPrefix')} <code>curl</code> {t('workbench.importExport.curl.introSuffix')}
       </Paragraph>
 
       <Input.TextArea
         ref={sourceInputRef}
         value={source}
         onChange={(e) => setSource(e.target.value)}
-        placeholder={`curl -X POST 'https://api.openheaders.io/v1/things' \\
-  -H 'authorization: Bearer xyz' \\
-  -H 'content-type: application/json' \\
-  --data-raw '{"name":"hello"}'`}
+        placeholder={t('workbench.importExport.curl.sourcePlaceholder')}
         style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12, marginBottom: 10 }}
         autoSize={{ minRows: 4, maxRows: 8 }}
       />
 
       {parsed?.ok === false && (
-        <Alert type="error" showIcon message="Couldn't parse this command" description={parsed.message} />
+        <Alert
+          type="error"
+          showIcon
+          message={t('workbench.importExport.curl.cantParse')}
+          description={parsed.message}
+        />
       )}
 
       {parsed?.ok && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
-            <Text style={labelStyle}>NAME</Text>
+            <Text style={labelStyle}>{t('workbench.importExport.curl.nameLabel')}</Text>
             <Input
               ref={nameInputRef}
               size="small"
@@ -450,12 +469,12 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
                   pickerRef.current?.focusSearch();
                 }
               }}
-              placeholder="How this request appears in the sidebar"
+              placeholder={t('workbench.importExport.curl.namePlaceholder')}
               style={{ fontSize: 12 }}
             />
           </div>
           <div>
-            <Text style={labelStyle}>IMPORT TO</Text>
+            <Text style={labelStyle}>{t('workbench.importExport.import.importTo')}</Text>
             <CollectionPickerPanel
               ref={pickerRef}
               collections={collections}
@@ -485,11 +504,16 @@ interface ParsedPreviewProps {
 }
 
 const ParsedPreview: React.FC<ParsedPreviewProps> = ({ request, token }) => {
+  const t = useT();
   const meta = [
-    `${request.headers.length} header${request.headers.length === 1 ? '' : 's'}`,
-    `${request.params.length} query param${request.params.length === 1 ? '' : 's'}`,
-    request.body.type === 'none' ? 'no body' : `${request.body.type} body`,
-    request.auth.type === 'none' ? 'no auth' : `${request.auth.type} auth`,
+    t('workbench.importExport.curl.headersCount', { count: request.headers.length }),
+    t('workbench.importExport.curl.paramsCount', { count: request.params.length }),
+    request.body.type === 'none'
+      ? t('workbench.importExport.curl.noBody')
+      : t('workbench.importExport.curl.bodyType', { type: request.body.type }),
+    request.auth.type === 'none'
+      ? t('workbench.importExport.curl.noAuth')
+      : t('workbench.importExport.curl.authType', { type: request.auth.type }),
   ].join(' · ');
   return (
     <div
@@ -523,6 +547,7 @@ interface ReportPanelProps {
 }
 
 const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
+  const translate = useT();
   if (report.drops.length === 0 && report.transforms.length === 0) {
     return null;
   }
@@ -557,7 +582,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
         <div key={`d-${i}`} style={lineStyle}>
           <WarningOutlined style={{ color: token.colorWarning, fontSize: 12, flexShrink: 0, position: 'relative', top: 1 }} />
           <span style={{ minWidth: 0 }}>
-            <strong>{d.path}</strong> dropped
+            <strong>{d.path}</strong> {translate('workbench.importExport.curl.droppedWord')}
             <span style={{ color: token.colorTextTertiary, fontSize: 11 }}>
               {' '}
               — {d.reason}
