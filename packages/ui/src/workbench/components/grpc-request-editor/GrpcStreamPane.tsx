@@ -4,11 +4,13 @@
  * unary pane has a single decoded message. One pane across both
  * phases: live (STREAMING badge, timeline fed from the
  * `grpcStreamEvent` feed, metadata from the live head) and
- * materialized (status strip from the snapshot — non-zero, missing,
- * and stopped states rendered honestly — timeline fed from the
- * direction-tagged capture with the session's timestamps joined
- * positionally). Error snapshots (the call never produced a response
- * head) render the classified message alone, the unary pane's shape.
+ * materialized (snapshot status — non-zero, missing, and stopped
+ * states rendered honestly — timeline fed from the direction-tagged
+ * capture with the session's timestamps joined positionally). The
+ * header is ONE row in the HTTP ResponsePanel's format: tabs left,
+ * meta strip right-aligned in the tab bar. Error snapshots (the call
+ * never produced a response head) render the classified message under
+ * the plain Response title row, the unary pane's shape.
  */
 
 import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
@@ -97,46 +99,80 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session
     };
   }, [snapshot, live, session, target, t]);
 
-  // Pre-head failures render the classified message alone — the unary
-  // pane's shape; there was never a call to timeline.
+  // Pre-head failures render the classified message under the plain
+  // Response title row — the unary pane's shape; there was never a
+  // call to timeline.
   if (snapshot !== null && snapshot.error !== null) {
     return (
-      <div style={{ padding: '8px 12px' }} data-testid="grpc-response-error">
-        <Alert type="error" showIcon message={snapshot.error} />
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          background: token.colorBgContainer,
+        }}
+        data-testid="grpc-response-error"
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '6px 12px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <Text strong style={{ fontSize: 12 }}>
+            {t('workbench.editors.grpc.response.title')}
+          </Text>
+        </div>
+        <div style={{ padding: '8px 12px', overflow: 'auto' }}>
+          <Alert type="error" showIcon message={snapshot.error} />
+        </div>
       </div>
     );
   }
 
-  const statusStrip = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px 0' }}>
+  // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
+  // one-row header format.
+  const metaStrip = (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
-        <Tag color="processing" data-testid="grpc-streaming-badge">
+        <Tag color="processing" style={{ marginInlineEnd: 0 }} data-testid="grpc-streaming-badge">
           {t('workbench.editors.grpc.stream.streamingBadge')}
         </Tag>
       ) : (
         <>
+          {snapshot.grpcMessage !== undefined && snapshot.grpcMessage !== '' && (
+            <Text
+              type={snapshot.grpcStatus === 0 ? 'secondary' : 'danger'}
+              style={{ fontSize: 12, maxWidth: 320 }}
+              ellipsis
+            >
+              {snapshot.grpcMessage}
+            </Text>
+          )}
           {snapshot.grpcStatus === null ? (
-            <Tag color="default" data-testid="grpc-status-tag">
+            <Tag color="default" style={{ marginInlineEnd: 0 }} data-testid="grpc-status-tag">
               {t('workbench.editors.grpc.response.noStatus')}
             </Tag>
           ) : (
-            <Tag color={snapshot.grpcStatus === 0 ? 'success' : 'error'} data-testid="grpc-status-tag">
+            <Tag
+              color={snapshot.grpcStatus === 0 ? 'success' : 'error'}
+              style={{ marginInlineEnd: 0 }}
+              data-testid="grpc-status-tag"
+            >
               {grpcStatusLabel(snapshot.grpcStatus)}
             </Tag>
           )}
           {snapshot.stopped === true && (
-            <Tag color="warning" data-testid="grpc-stopped-tag">
+            <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="grpc-stopped-tag">
               {t('workbench.editors.grpc.stream.stoppedBadge')}
             </Tag>
           )}
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
             {t('workbench.editors.grpc.response.duration', { ms: snapshot.durationMs })}
           </Text>
-          {snapshot.grpcMessage !== undefined && snapshot.grpcMessage !== '' && (
-            <Text type={snapshot.grpcStatus === 0 ? 'secondary' : 'danger'} style={{ fontSize: 12 }} ellipsis>
-              {snapshot.grpcMessage}
-            </Text>
-          )}
         </>
       )}
     </div>
@@ -155,27 +191,47 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session
 
   return (
     <div
-      style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, background: token.colorBgContainer }}
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        minWidth: 0,
+        background: token.colorBgContainer,
+      }}
       data-testid="grpc-stream-pane"
     >
-      {statusStrip}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
         size="small"
-        style={{ padding: '0 12px' }}
+        className="rules-response-tabs"
+        style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        tabBarStyle={{ marginBottom: 0 }}
+        tabBarExtraContent={{ right: metaStrip }}
         items={[
           {
             key: 'timeline',
             label: t('workbench.editors.grpc.stream.tab.timeline'),
             children: (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 8 }}>
+              <div
+                style={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  padding: '8px 0',
+                  minHeight: 0,
+                }}
+              >
                 {notices.map((notice) => (
                   <Text key={notice} type="warning" style={{ fontSize: 11 }}>
                     {notice}
                   </Text>
                 ))}
-                <div style={{ height: 280, display: 'flex', flexDirection: 'column' }}>
+                {/* The timeline tracks the pane's height — the sash is
+                  the resize affordance, not a fixed inner height. */}
+                <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
                   <GrpcMessageTimeline
                     items={items}
                     count={count}
@@ -192,13 +248,19 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session
           {
             key: 'metadata',
             label: t('workbench.editors.grpc.response.tab.metadata'),
-            children: <MonoRows rows={headers} emptyLabel={t('workbench.editors.grpc.response.noMetadata')} />,
+            children: (
+              <div style={{ height: '100%', overflow: 'auto', padding: '8px 0' }}>
+                <MonoRows rows={headers} emptyLabel={t('workbench.editors.grpc.response.noMetadata')} />
+              </div>
+            ),
           },
           {
             key: 'trailers',
             label: t('workbench.editors.grpc.response.tab.trailers'),
             children: (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 8 }}>
+              <div
+                style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}
+              >
                 {snapshot === null ? (
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {t('workbench.editors.grpc.stream.trailersPending')}

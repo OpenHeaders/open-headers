@@ -19,7 +19,8 @@
  * morphs to Cancel (`abortRequestSend` on the shared active-send
  * registry). Compose and result stack in a vertical Allotment split
  * (the HTTP editor's discipline) — the sash bounds the fill message
- * editor, and the result pane stays hidden until the first invoke.
+ * editor, and the result pane is always attached (empty-state hint
+ * with the plain Response title row before the first invoke).
  * Unary results render in `GrpcResponsePane`; streaming
  * invokes render `GrpcStreamPane` — live message timeline fed from
  * `useLiveGrpcStream` while in flight, the snapshot's direction-tagged
@@ -65,6 +66,7 @@ import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import GrpcResponseEmptyState from './GrpcResponseEmptyState';
 import GrpcResponsePane from './GrpcResponsePane';
 import GrpcStreamPane from './GrpcStreamPane';
 import { type GrpcStreamSession, useLiveGrpcStream } from './useLiveGrpcStream';
@@ -576,10 +578,11 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
         {/* Compose / response split — the HTTP editor's stacked
           Allotment discipline: the sash bounds the message editor so it
-          can never overflow the response region. The response pane
-          stays hidden until the first invoke. The tab bar renders
-          OUTSIDE the scroll container (bar-only items; content switches
-          below) so it never participates in scrolling. */}
+          can never overflow the response region. The response pane is
+          always attached (empty-state hint before the first invoke).
+          The tab bar renders OUTSIDE the scroll container (bar-only
+          items; content switches below) so it never participates in
+          scrolling. */}
         <div style={{ flex: 1, minHeight: 0 }}>
           <Allotment vertical proportionalLayout separator>
             <Allotment.Pane minSize={220} preferredSize="55%">
@@ -797,27 +800,46 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                 </div>
               </div>
             </Allotment.Pane>
-            <Allotment.Pane minSize={120} visible={response !== null || liveStream.live !== null}>
-              <div style={{ height: '100%', overflow: 'auto', overscrollBehavior: 'none' }}>
-                {responseShape === 'stream' ? (
-                  <GrpcStreamPane
-                    live={liveStream.live}
-                    snapshot={response}
-                    session={streamSession}
-                    registry={derivation?.registry ?? null}
-                    method={draft.method}
-                    target={invokedTarget}
-                  />
-                ) : (
-                  response !== null && (
-                    <GrpcResponsePane
-                      snapshot={response}
-                      registry={derivation?.registry ?? null}
-                      method={draft.method}
-                    />
-                  )
-                )}
-              </div>
+            <Allotment.Pane minSize={120}>
+              {responseShape === 'stream' && (response !== null || liveStream.live !== null) ? (
+                <GrpcStreamPane
+                  live={liveStream.live}
+                  snapshot={response}
+                  session={streamSession}
+                  registry={derivation?.registry ?? null}
+                  method={draft.method}
+                  target={invokedTarget}
+                />
+              ) : response !== null ? (
+                <GrpcResponsePane snapshot={response} registry={derivation?.registry ?? null} method={draft.method} />
+              ) : (
+                // Always-attached result pane (the HTTP ResponsePanel
+                // posture): a stable target with the plain title row and
+                // an invoke hint before the first result.
+                <div
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    background: token.colorBgContainer,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '6px 12px',
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                  >
+                    <Text strong style={{ fontSize: 12 }}>
+                      {t('workbench.editors.grpc.response.title')}
+                    </Text>
+                  </div>
+                  <GrpcResponseEmptyState invoking={invoking} />
+                </div>
+              )}
             </Allotment.Pane>
           </Allotment>
         </div>

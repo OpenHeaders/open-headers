@@ -1,11 +1,13 @@
 /**
  * GrpcResponsePane — the invoke result surface under the gRPC editor's
- * compose tabs: the `0 OK · 128 ms` status strip (non-zero and missing
- * statuses rendered honestly), then Response / Metadata / Trailers.
- * The Response tab is a display-side decode over the captured frames
- * (see `response-decode.ts`); Metadata and Trailers list the reply's
- * fields verbatim. Error snapshots (the call never produced a
- * response head) render the classified message alone.
+ * compose tabs, in the HTTP ResponsePanel's format: the header is ONE
+ * row — Response / Metadata / Trailers tabs on the left, the
+ * `0 OK · 128 ms` meta strip right-aligned in the tab bar (non-zero
+ * and missing statuses rendered honestly). The Response tab is a
+ * display-side decode over the captured frames (see
+ * `response-decode.ts`); Metadata and Trailers list the reply's fields
+ * verbatim. Error snapshots (the call never produced a response head)
+ * render the classified message under the plain Response title row.
  */
 
 import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
@@ -65,31 +67,64 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
 
   if (snapshot.error !== null) {
     return (
-      <div style={{ padding: '8px 12px' }} data-testid="grpc-response-error">
-        <Alert type="error" showIcon message={snapshot.error} />
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          background: token.colorBgContainer,
+        }}
+        data-testid="grpc-response-error"
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '6px 12px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <Text strong style={{ fontSize: 12 }}>
+            {t('workbench.editors.grpc.response.title')}
+          </Text>
+        </div>
+        <div style={{ padding: '8px 12px', overflow: 'auto' }}>
+          <Alert type="error" showIcon message={snapshot.error} />
+        </div>
       </div>
     );
   }
 
-  const statusStrip = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px 0' }}>
-      {snapshot.grpcStatus === null ? (
-        <Tag color="default" data-testid="grpc-status-tag">
-          {t('workbench.editors.grpc.response.noStatus')}
-        </Tag>
-      ) : (
-        <Tag color={snapshot.grpcStatus === 0 ? 'success' : 'error'} data-testid="grpc-status-tag">
-          {grpcStatusLabel(snapshot.grpcStatus)}
-        </Tag>
-      )}
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        {t('workbench.editors.grpc.response.duration', { ms: snapshot.durationMs })}
-      </Text>
+  // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
+  // one-row header format.
+  const metaStrip = (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot.grpcMessage !== undefined && snapshot.grpcMessage !== '' && (
-        <Text type={snapshot.grpcStatus === 0 ? 'secondary' : 'danger'} style={{ fontSize: 12 }} ellipsis>
+        <Text
+          type={snapshot.grpcStatus === 0 ? 'secondary' : 'danger'}
+          style={{ fontSize: 12, maxWidth: 320 }}
+          ellipsis
+        >
           {snapshot.grpcMessage}
         </Text>
       )}
+      {snapshot.grpcStatus === null ? (
+        <Tag color="default" style={{ marginInlineEnd: 0 }} data-testid="grpc-status-tag">
+          {t('workbench.editors.grpc.response.noStatus')}
+        </Tag>
+      ) : (
+        <Tag
+          color={snapshot.grpcStatus === 0 ? 'success' : 'error'}
+          style={{ marginInlineEnd: 0 }}
+          data-testid="grpc-status-tag"
+        >
+          {grpcStatusLabel(snapshot.grpcStatus)}
+        </Tag>
+      )}
+      <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+        {t('workbench.editors.grpc.response.duration', { ms: snapshot.durationMs })}
+      </Text>
     </div>
   );
 
@@ -127,21 +162,32 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
 
   return (
     <div
-      style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, background: token.colorBgContainer }}
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        minWidth: 0,
+        background: token.colorBgContainer,
+      }}
       data-testid="grpc-response-pane"
     >
-      {statusStrip}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
         size="small"
-        style={{ padding: '0 12px' }}
+        className="rules-response-tabs"
+        style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        tabBarStyle={{ marginBottom: 0 }}
+        tabBarExtraContent={{ right: metaStrip }}
         items={[
           {
             key: 'response',
             label: t('workbench.editors.grpc.response.tab.response'),
             children: (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 8 }}>
+              <div
+                style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}
+              >
                 {notices.map((notice) => (
                   <Text key={notice} type="warning" style={{ fontSize: 11 }}>
                     {notice}
@@ -155,14 +201,18 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
             key: 'metadata',
             label: t('workbench.editors.grpc.response.tab.metadata'),
             children: (
-              <MonoRows rows={snapshot.headers} emptyLabel={t('workbench.editors.grpc.response.noMetadata')} />
+              <div style={{ height: '100%', overflow: 'auto', padding: '8px 0' }}>
+                <MonoRows rows={snapshot.headers} emptyLabel={t('workbench.editors.grpc.response.noMetadata')} />
+              </div>
             ),
           },
           {
             key: 'trailers',
             label: t('workbench.editors.grpc.response.tab.trailers'),
             children: (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 8 }}>
+              <div
+                style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}
+              >
                 {snapshot.grpcStatusSource === 'headers' && (
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     {t('workbench.editors.grpc.response.trailersOnly')}
