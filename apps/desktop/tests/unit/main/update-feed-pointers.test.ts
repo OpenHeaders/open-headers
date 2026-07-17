@@ -89,6 +89,29 @@ describe('generate-update-feed', () => {
     expect(existsSync(path.join(out, 'install.ps1'))).toBe(false);
   });
 
+  it('normalizes beta-named channel files to the latest names clients request', () => {
+    const { out, run } = stage('v2026.8.0-beta.1', {
+      'beta-mac.yml': LATEST_MAC_YML,
+      'beta.yml': LATEST_MAC_YML,
+      'builder-debug.yml': 'not: a feed file',
+      'versions.json': VERSIONS_JSON,
+    });
+    run();
+
+    expect(readdirSync(path.join(out, 'desktop/beta')).sort()).toEqual(['latest-mac.yml', 'latest.yml']);
+    const yml = readFileSync(path.join(out, 'desktop/beta/latest-mac.yml'), 'utf8');
+    expect(yml).toContain(`  - url: ${DOWNLOAD_BASE}/OpenHeaders-2026.7.2-mac-arm64.zip`);
+  });
+
+  it('fails when both channel spellings of one feed file are present', () => {
+    const { run } = stage('v2026.8.0-beta.1', {
+      'beta-mac.yml': LATEST_MAC_YML,
+      'latest-mac.yml': LATEST_MAC_YML,
+      'versions.json': VERSIONS_JSON,
+    });
+    expect(run).toThrow();
+  });
+
   it('is idempotent over already-absolute URLs', () => {
     const absolute = LATEST_MAC_YML.replaceAll(
       'url: OpenHeaders-2026.7.2-mac-arm64.zip',

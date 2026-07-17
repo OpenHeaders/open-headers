@@ -59,16 +59,24 @@ const base = downloadBase.replace(/\/+$/, '');
 
 // Desktop feed pointers — whatever OS legs produced artifacts. A leg
 // that failed simply leaves its previous pointer in place on the feed.
-const feedFiles = readdirSync(inputDir).filter((name) => /^latest.*\.yml$/.test(name));
+// electron-builder names the files after the version's channel
+// (`latest*.yml` stable, `beta*.yml` prerelease); in the feed layout
+// the channel is the PATH segment and clients always request the
+// `latest` names, so beta-named files are normalized on staging.
+const feedFiles = readdirSync(inputDir).filter((name) => /^(latest|beta)(-[a-z0-9-]+)?\.yml$/.test(name));
 if (feedFiles.length === 0) {
-  console.error('generate-update-feed: no latest*.yml in input — desktop pointers unchanged this release');
+  console.error('generate-update-feed: no feed yml files in input — desktop pointers unchanged this release');
 } else {
   const desktopDir = path.join(outputDir, 'desktop', channel);
   mkdirSync(desktopDir, { recursive: true });
+  const staged = new Set();
   for (const name of feedFiles) {
+    const stagedName = name.replace(/^beta/, 'latest');
+    if (staged.has(stagedName)) fail(`both channel spellings of ${stagedName} are present in the input`);
+    staged.add(stagedName);
     const rewritten = rewriteFeedYaml(readFileSync(path.join(inputDir, name), 'utf8'), base);
     if (!/url: https:\/\//.test(rewritten)) fail(`${name} has no absolute file URL after rewrite`);
-    writeFileSync(path.join(desktopDir, name), rewritten);
+    writeFileSync(path.join(desktopDir, stagedName), rewritten);
   }
 }
 

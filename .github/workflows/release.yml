@@ -554,12 +554,16 @@ jobs:
           mkdir -p processed_files
           VERSION=${GITHUB_REF_NAME/v/}
 
-          # Desktop artifacts
+          # Desktop artifacts. electron-builder names the update-info
+          # files after the version's channel (latest*.yml on stable,
+          # beta*.yml on prerelease) — copy both shapes; the feed
+          # generator normalizes them. builder-debug.yml stays behind.
           if [ -d "dist/desktop-windows-2022" ]; then
             cp dist/desktop-windows-2022/*.exe processed_files/ 2>/dev/null || true
             cp dist/desktop-windows-2022/*.msi processed_files/ 2>/dev/null || true
             cp dist/desktop-windows-2022/*.blockmap processed_files/ 2>/dev/null || true
             cp dist/desktop-windows-2022/latest.yml processed_files/ 2>/dev/null || true
+            cp dist/desktop-windows-2022/beta.yml processed_files/ 2>/dev/null || true
           fi
 
           if [ -d "dist/desktop-macos-latest" ]; then
@@ -568,6 +572,7 @@ jobs:
             cp dist/desktop-macos-latest/*.zip processed_files/ 2>/dev/null || true
             cp dist/desktop-macos-latest/*.blockmap processed_files/ 2>/dev/null || true
             cp dist/desktop-macos-latest/latest-mac.yml processed_files/ 2>/dev/null || true
+            cp dist/desktop-macos-latest/beta-mac.yml processed_files/ 2>/dev/null || true
           fi
 
           if [ -d "dist/desktop-ubuntu-latest" ]; then
@@ -577,6 +582,8 @@ jobs:
             cp dist/desktop-ubuntu-latest/install-open-headers.sh processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/latest-linux.yml processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/latest-linux-arm64.yml processed_files/ 2>/dev/null || true
+            cp dist/desktop-ubuntu-latest/beta-linux.yml processed_files/ 2>/dev/null || true
+            cp dist/desktop-ubuntu-latest/beta-linux-arm64.yml processed_files/ 2>/dev/null || true
           fi
 
           # Extension artifacts (zips only, not the version file)
