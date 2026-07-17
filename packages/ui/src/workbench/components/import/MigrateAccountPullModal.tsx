@@ -80,7 +80,7 @@ const MigrateAccountPullModal: React.FC<MigrateAccountPullModalProps> = ({
       open={open}
       onCancel={handleCancel}
       footer={null}
-      width={760}
+      width={880}
       maskClosable={false}
       keyboard={stepperPhase === 'key'}
       destroyOnHidden

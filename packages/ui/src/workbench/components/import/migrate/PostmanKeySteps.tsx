@@ -151,10 +151,12 @@ const PostmanKeySteps: React.FC = () => {
   };
 
   // Cards are direct children of the stretch-aligned flex row: equal
-  // widths via `flex: 1 1 0`, equal heights via the stretch.
+  // widths via `flex: 1 1 0`, equal heights via the stretch. Inside,
+  // the numbered badge rides the left edge, vertically centered
+  // against the glyph + caption column.
   const stepCard: React.CSSProperties = {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     padding: 8,
@@ -163,6 +165,15 @@ const PostmanKeySteps: React.FC = () => {
     background: token.colorBgContainer,
     flex: '1 1 0',
     minWidth: 0,
+  };
+
+  const cardBody: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+    flex: 1,
   };
 
   // Same sub-step idiom as the popup's Debug Network walkthrough:
@@ -182,41 +193,47 @@ const PostmanKeySteps: React.FC = () => {
     fontSize: 9,
   };
 
-  const caption = (index: number, lines: [string, string]): React.ReactNode => (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, textAlign: 'left', minWidth: 0 }}>
-      <span style={stepIndex}>{index}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-        {lines.map((line, i) => (
-          <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
-            <span style={subStepIndex}>{'ab'[i]}</span>
-            <Text style={{ fontSize: 11, lineHeight: '14px' }}>{line}</Text>
-          </div>
-        ))}
-      </div>
+  const caption = (lines: [string, string]): React.ReactNode => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', minWidth: 0 }}>
+      {lines.map((line, i) => (
+        <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
+          <span style={subStepIndex}>{'ab'[i]}</span>
+          <Text style={{ fontSize: 11, lineHeight: '14px' }}>{line}</Text>
+        </div>
+      ))}
     </div>
   );
 
   const steps: React.ReactNode[] = [
     <div key="menu" style={stepCard} data-testid="oh-postman-key-step-menu">
-      <AccountMenuGlyph />
-      {caption(1, [
-        'In the Postman app or on postman.co,',
-        'open the top-right settings menu and choose Account settings.',
-      ])}
+      <span style={stepIndex}>1</span>
+      <div style={cardBody}>
+        <AccountMenuGlyph />
+        {caption([
+          'In the Postman app or on postman.co,',
+          'open the top-right settings menu and choose Account settings.',
+        ])}
+      </div>
     </div>,
     <div key="generate" style={stepCard} data-testid="oh-postman-key-step-generate">
-      <GenerateKeyGlyph />
-      {caption(2, ['Pick API keys in the sidebar,', 'then Generate API key.'])}
+      <span style={stepIndex}>2</span>
+      <div style={cardBody}>
+        <GenerateKeyGlyph />
+        {caption(['Pick API keys in the sidebar,', 'then Generate API key.'])}
+      </div>
     </div>,
     <div key="copy" style={stepCard} data-testid="oh-postman-key-step-copy">
-      <CopyKeyGlyph />
-      {caption(3, ['Copy the key — it is shown only once —', 'and paste it above.'])}
+      <span style={stepIndex}>3</span>
+      <div style={cardBody}>
+        <CopyKeyGlyph />
+        {caption(['Copy the key — it is shown only once —', 'and paste it above.'])}
+      </div>
     </div>,
   ];
 
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 24, width: '100%' }}
+      style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 32, width: '100%' }}
       data-testid="oh-postman-key-steps"
     >
       {steps.map((step, i) => (

@@ -162,7 +162,7 @@ const MigrateToolModal: React.FC<MigrateToolModalProps> = ({ open, onClose, onIm
       </div>
 
       {pullOpen && (
-        <div style={{ maxWidth: 720, margin: '8px auto 0' }}>
+        <div style={{ maxWidth: 840, margin: '8px auto 0' }}>
           <PostmanPullStepper onStarted={onClose} />
         </div>
       )}
