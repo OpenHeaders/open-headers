@@ -362,7 +362,10 @@ export default defineConfig({
       },
       output: {
         entryFileNames: 'js/[name]/index.js',
-        chunkFileNames: 'js/chunks/[name].js',
+        // Release builds hash the chunk names — descriptive names map
+        // the internal architecture for anyone unzipping the package.
+        // Entry names stay readable: manifest.json references them.
+        chunkFileNames: isReleaseChannel ? 'js/chunks/[hash].js' : 'js/chunks/[name].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.names?.[0]?.endsWith('.css')) {
             return 'css/[name][extname]';
