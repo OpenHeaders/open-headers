@@ -19,8 +19,6 @@ export interface BuildInfo {
   version: string;
   /** 7-char git SHA. */
   commit: string;
-  /** Full 40-char git SHA. */
-  commitFull: string;
   /** `git rev-list --count HEAD` — monotonic, reflects code progress. */
   build: number;
   /** ISO-8601 UTC build time. */
@@ -32,7 +30,6 @@ export interface BuildInfo {
 const UNSET_BUILD_INFO: BuildInfo = {
   version: '0.0.0',
   commit: 'unknown',
-  commitFull: 'unknown',
   build: 0,
   date: '',
   channel: 'stable',

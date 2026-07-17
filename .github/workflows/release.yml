@@ -120,6 +120,10 @@ jobs:
         run: pnpm --filter @openheaders/desktop build
         env:
           NODE_ENV: production
+          # Shipped-artifact hardening (terser passes, strip-testid
+          # runtime, debug-console removal) — release pipeline only, so
+          # local production builds and the e2e target stay untouched.
+          OH_DESKTOP_CHANNEL: release
 
       - name: Setup macOS code signing
         if: matrix.os == 'macos-latest'

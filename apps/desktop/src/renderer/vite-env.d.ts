@@ -18,7 +18,6 @@ declare global {
   const __BUILD_INFO__: {
     version: string;
     commit: string;
-    commitFull: string;
     build: number;
     date: string;
     channel: 'stable' | 'beta';

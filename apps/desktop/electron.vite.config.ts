@@ -17,10 +17,22 @@ const pkgVersion = (JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
 const buildInfo = {
   version: pkgVersion,
   commit: git('rev-parse --short=7 HEAD', '0000000'),
-  commitFull: git('rev-parse HEAD', '0'.repeat(40)),
   build: Number.parseInt(git('rev-list --count HEAD', '0'), 10) || 0,
   date: new Date().toISOString(),
   channel: 'stable' as const,
+};
+
+// Shipped-artifact hardening, set by the release workflow only — local
+// production builds (incl. the Playwright e2e target) stay untouched.
+const isReleaseChannel = process.env.OH_DESKTOP_CHANNEL === 'release';
+const releaseTerserOptions = {
+  compress: {
+    passes: 2,
+    drop_debugger: true,
+    // Debug-level console calls compile out; warn/error stay for user
+    // bug reports. File diagnostics go through electron-log, untouched.
+    pure_funcs: ['console.log', 'console.debug', 'console.info'],
+  },
 };
 
 export default defineConfig({
@@ -68,6 +80,7 @@ export default defineConfig({
         },
       },
       minify: process.env.NODE_ENV === 'production' ? 'terser' : false,
+      ...(isReleaseChannel && { terserOptions: releaseTerserOptions }),
       sourcemap: process.env.NODE_ENV !== 'production',
     },
     resolve: {
@@ -109,6 +122,7 @@ export default defineConfig({
         },
       },
       minify: process.env.NODE_ENV === 'production' ? 'terser' : false,
+      ...(isReleaseChannel && { terserOptions: releaseTerserOptions }),
       sourcemap: process.env.NODE_ENV !== 'production',
     },
     resolve: {
@@ -168,6 +182,7 @@ export default defineConfig({
         },
       },
       minify: process.env.NODE_ENV === 'production' ? 'terser' : false,
+      ...(isReleaseChannel && { terserOptions: releaseTerserOptions }),
       sourcemap: process.env.NODE_ENV !== 'production',
     },
     plugins: [
@@ -184,6 +199,13 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
+        // Release packages route element creation through the
+        // strip-testid shim so e2e selectors never ship; the -actual
+        // alias gives the shim the real runtime without self-resolving.
+        ...(isReleaseChannel && {
+          'react/jsx-runtime-actual': resolve(__dirname, 'node_modules/react/jsx-runtime.js'),
+          'react/jsx-runtime': resolve(__dirname, 'src/renderer/bundling/strip-testid-jsx-runtime.ts'),
+        }),
         react: resolve(__dirname, 'node_modules/react'),
         'react-dom': resolve(__dirname, 'node_modules/react-dom'),
         scheduler: resolve(__dirname, 'node_modules/scheduler'),

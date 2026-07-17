@@ -20,7 +20,6 @@ function git(cmd: string, fallback: string): string {
 const buildInfo = {
   version: pkg.version,
   commit: git('rev-parse --short=7 HEAD', '0000000'),
-  commitFull: git('rev-parse HEAD', '0'.repeat(40)),
   build: Number.parseInt(git('rev-list --count HEAD', '0'), 10) || 0,
   date: new Date().toISOString(),
   channel: 'stable' as const,

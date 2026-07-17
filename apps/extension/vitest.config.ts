@@ -10,7 +10,6 @@ export default defineConfig({
     __BUILD_INFO__: JSON.stringify({
       version: '0.0.0-test',
       commit: 'test',
-      commitFull: 'test',
       build: 0,
       date: '1970-01-01T00:00:00Z',
       channel: 'stable',

@@ -10,7 +10,6 @@ describe('build-info', () => {
     const info: DaemonBuildInfo = {
       version: '2026.7.0',
       commit: 'a3f9c21',
-      commitFull: 'a3f9c21'.padEnd(40, '0'),
       build: 4523,
       date: '2026-07-09T14:23:00.000Z',
       channel: 'stable',
@@ -22,7 +21,6 @@ describe('build-info', () => {
     const info: DaemonBuildInfo = {
       version: '2026.7.0',
       commit: 'a3f9c21',
-      commitFull: 'a3f9c21'.padEnd(40, '0'),
       build: 0,
       date: '',
       channel: 'stable',

@@ -33,7 +33,6 @@ function git(cmd: string, fallback: string): string {
 const buildInfo = {
   version: pkgVersion,
   commit: git('rev-parse --short=7 HEAD', '0000000'),
-  commitFull: git('rev-parse HEAD', '0'.repeat(40)),
   build: Number.parseInt(git('rev-list --count HEAD', '0'), 10) || 0,
   date: new Date().toISOString(),
   channel,
@@ -184,10 +183,7 @@ function copyAssetsPlugin() {
       // Emit build metadata for the runtime About surface + log
       // prefixes. Lives next to manifest.json so it's reachable via
       // `chrome.runtime.getURL('build-info.json')`.
-      fs.writeFileSync(
-        path.resolve(outDir, 'build-info.json'),
-        `${JSON.stringify(buildInfo, null, 2)}\n`,
-      );
+      fs.writeFileSync(path.resolve(outDir, 'build-info.json'), `${JSON.stringify(buildInfo, null, 2)}\n`);
     },
   };
 }
@@ -298,6 +294,13 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@utils': path.resolve(__dirname, 'src/utils'),
+      // Release packages route element creation through the
+      // strip-testid shim so e2e selectors never ship; the -actual
+      // alias gives the shim the real runtime without self-resolving.
+      ...(isReleaseChannel && {
+        'react/jsx-runtime-actual': path.resolve(__dirname, 'node_modules/react/jsx-runtime.js'),
+        'react/jsx-runtime': path.resolve(__dirname, 'src/bundling/strip-testid-jsx-runtime.ts'),
+      }),
     },
   },
 
@@ -315,9 +318,12 @@ export default defineConfig({
     ...(!isDev && {
       terserOptions: {
         compress: {
-          passes: 1,
+          // Release: extra pass flattens harder, debug-level console
+          // calls compile out (warn/error stay for user bug reports).
+          passes: isReleaseChannel ? 2 : 1,
           drop_console: false,
-          drop_debugger: false,
+          drop_debugger: isReleaseChannel,
+          ...(isReleaseChannel && { pure_funcs: ['console.log', 'console.debug', 'console.info'] }),
         },
         mangle: isReleaseChannel
           ? true

@@ -12,7 +12,6 @@ import { createRequire } from 'node:module';
 export interface DaemonBuildInfo {
   version: string;
   commit: string;
-  commitFull: string;
   build: number;
   date: string;
   channel: 'stable' | 'beta';

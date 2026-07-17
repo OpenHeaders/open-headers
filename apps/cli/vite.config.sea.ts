@@ -21,7 +21,13 @@ export default defineConfig({
     ssr: true,
     outDir: 'dist-sea',
     emptyOutDir: true,
-    minify: 'esbuild',
+    // Terser over esbuild: the bundle ships embedded in the binary and
+    // is what `strings` surfaces — full mangling + an extra pass is the
+    // hardening budget here. Console stays: stdout is the CLI's UI.
+    minify: 'terser',
+    terserOptions: {
+      compress: { passes: 2 },
+    },
     rollupOptions: {
       input: { oh: 'src/cli.ts' },
       output: {

@@ -47,6 +47,7 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
   const dot = (
     <span
       data-testid={`wf-graph-run-${stepId}`}
+      data-graph-node-action=""
       data-run-state={state}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}

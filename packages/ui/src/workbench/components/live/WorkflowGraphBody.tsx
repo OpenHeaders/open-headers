@@ -164,10 +164,12 @@ const GRID_STEP = 16;
 
 const clampScale = (s: number): number => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
-/** Interactive graph elements the background pan must never claim. */
-const PAN_EXCLUDE_SELECTOR =
-  '[data-testid^="wf-graph-node"], [data-testid^="wf-graph-connect"], [data-testid^="wf-graph-edge"],' +
-  ' [data-testid="wf-graph-context-menu"], button';
+/**
+ * Interactive graph elements the background pan must never claim.
+ * Marked with dedicated runtime attributes — test ids are stripped
+ * from release builds, so behavior can never key off them.
+ */
+const PAN_EXCLUDE_SELECTOR = '[data-graph-interactive], button';
 
 /**
  * Clickable node children the card drag must never claim. Pointer
@@ -175,7 +177,7 @@ const PAN_EXCLUDE_SELECTOR =
  * press starting on the run dot or the edit pencil would silently
  * eat their click handlers if the drag captured it.
  */
-const NODE_DRAG_EXCLUDE_SELECTOR = '[data-testid^="wf-graph-run-"], [data-testid^="wf-graph-open-"]';
+const NODE_DRAG_EXCLUDE_SELECTOR = '[data-graph-node-action]';
 
 const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
   draft,
@@ -646,6 +648,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               <g key={`${edge.from}->${edge.to}`}>
                 <path
                   data-testid={`wf-graph-edge-${edge.from}-${edge.to}`}
+                  data-graph-interactive=""
                   data-selected={selected ? 'true' : undefined}
                   data-highlight={highlight ? 'true' : undefined}
                   d={d}
@@ -659,6 +662,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
                   // pointer-events re-enable under a none parent.
                   <path
                     data-testid={`wf-graph-edge-hit-${edge.from}-${edge.to}`}
+                    data-graph-interactive=""
                     d={d}
                     fill="none"
                     stroke="transparent"
@@ -738,6 +742,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
               <div
                 key={`connect-${node.step.uid}`}
                 data-testid={`wf-graph-connect-${node.step.id}`}
+                data-graph-interactive=""
                 title={t('workbench.editors.live.graph.connectTitle')}
                 onPointerDown={beginConnect(node.step.id)}
                 onPointerMove={moveConnect}
@@ -805,6 +810,7 @@ const WorkflowGraphBody: React.FC<WorkflowGraphBodyProps> = ({
       {menu !== null && menuActions.length > 0 && (
         <div
           data-testid="wf-graph-context-menu"
+          data-graph-interactive=""
           style={{
             position: 'absolute',
             left: menu.x,
@@ -1091,6 +1097,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
   return (
     <div
       data-testid={`wf-graph-node-${stepId}`}
+      data-graph-interactive=""
       data-selected={selected ? 'true' : undefined}
       data-cycle-target={cycleWarn ? 'true' : undefined}
       onClick={onSelect}
@@ -1183,6 +1190,7 @@ const GraphNodeCard: React.FC<GraphNodeCardProps> = ({
           <Tooltip title={t('workbench.editors.live.graph.editStepInForm')}>
             <EditOutlined
               data-testid={`wf-graph-open-${stepId}`}
+              data-graph-node-action=""
               style={{ fontSize: 11, color: token.colorPrimary }}
               onClick={(e) => {
                 e.stopPropagation();

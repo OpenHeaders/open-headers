@@ -12,7 +12,6 @@ declare const __APP_VERSION__: string;
 declare const __BUILD_INFO__: {
   version: string;
   commit: string;
-  commitFull: string;
   build: number;
   date: string;
   channel: 'stable' | 'beta';

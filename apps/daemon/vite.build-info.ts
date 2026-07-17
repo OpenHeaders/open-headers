@@ -13,7 +13,6 @@ import * as path from 'node:path';
 export interface BuildInfo {
   version: string;
   commit: string;
-  commitFull: string;
   build: number;
   date: string;
   channel: 'stable';
@@ -32,7 +31,6 @@ export function readBuildInfo(packageDir: string): BuildInfo {
   return {
     version: pkg.version,
     commit: git('rev-parse --short=7 HEAD', packageDir, '0000000'),
-    commitFull: git('rev-parse HEAD', packageDir, '0'.repeat(40)),
     build: Number.parseInt(git('rev-list --count HEAD', packageDir, '0'), 10) || 0,
     date: new Date().toISOString(),
     channel: 'stable',

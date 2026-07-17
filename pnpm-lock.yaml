@@ -27,6 +27,9 @@ importers:
       '@types/node':
         specifier: ^22.19.15
         version: 22.19.15
+      terser:
+        specifier: ^5.46.1
+        version: 5.46.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -58,6 +61,9 @@ importers:
       postject:
         specifier: ^1.0.0-alpha.6
         version: 1.0.0-alpha.6
+      terser:
+        specifier: ^5.46.1
+        version: 5.46.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
