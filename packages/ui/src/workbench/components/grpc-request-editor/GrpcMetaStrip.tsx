@@ -61,28 +61,41 @@ const GrpcMetaStrip: React.FC<{
 }> = ({ status, durationMs, stopped }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const statusColor = status === 0 ? token.colorSuccess : token.colorError;
+  // A caller-stopped call whose reply carried no status reads as
+  // 1 CANCELLED — the gRPC client-runtime semantic for a local cancel
+  // (display-side only; the capture keeps its honest null).
+  const displayStatus = status ?? (stopped === true ? 1 : null);
+  const statusColor = displayStatus === 0 ? token.colorSuccess : token.colorError;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-      {status === null ? (
+      {displayStatus === null ? (
         <Tag color="default" style={{ marginInlineEnd: 0 }} data-testid="grpc-status-tag">
           {t('workbench.editors.grpc.response.noStatus')}
         </Tag>
       ) : (
-        <InfoPopover content={grpcStatusInfoContent(t, status)} trigger="hover">
+        <InfoPopover content={grpcStatusInfoContent(t, displayStatus)} trigger="hover">
           <Tag
             color="default"
             style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0, cursor: 'help' }}
             data-testid="grpc-status-tag"
           >
-            {grpcStatusLabel(status)}
+            {grpcStatusLabel(displayStatus)}
           </Tag>
         </InfoPopover>
       )}
       {stopped === true && (
-        <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="grpc-stopped-tag">
-          {t('workbench.editors.grpc.stream.stoppedBadge')}
-        </Tag>
+        <InfoPopover
+          content={{
+            title: t('workbench.editors.grpc.stream.stoppedBadge'),
+            kicker: t('workbench.editors.request.response.meta.kicker'),
+            summary: t('workbench.editors.request.response.meta.streamedPartialSummary'),
+          }}
+          trigger="hover"
+        >
+          <Tag color="default" style={{ marginInlineEnd: 0, cursor: 'help' }} data-testid="grpc-stopped-tag">
+            {t('workbench.editors.grpc.stream.stoppedBadge')}
+          </Tag>
+        </InfoPopover>
       )}
       <MetaDot />
       <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>

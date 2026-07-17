@@ -132,6 +132,7 @@ export function useLiveGrpcStream(): {
         if (event.kind === 'head') {
           acc.head = { httpStatus: event.httpStatus, headers: event.headers };
           acc.connectedAt = Date.now();
+          acc.headAtMessage = event.afterMessages;
         } else if (event.kind === 'messages') {
           for (const item of event.items) {
             acc.items.push(item);
