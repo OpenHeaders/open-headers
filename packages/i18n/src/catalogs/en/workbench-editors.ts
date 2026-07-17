@@ -1369,7 +1369,6 @@ export const workbenchEditors = {
   'workbench.editors.grpc.tls.on': 'TLS on — click to switch to plaintext',
   'workbench.editors.grpc.tls.off': 'TLS off (plaintext) — click to switch to TLS',
   'workbench.editors.grpc.method.placeholder': 'Select a method',
-  'workbench.editors.grpc.method.noSpecPlaceholder': 'Link a Protobuf spec to pick a method',
   'workbench.editors.grpc.method.unresolvedGroup': 'Not in linked spec',
   'workbench.editors.grpc.method.unresolvedOption': '{rpc} (unresolved)',
   'workbench.editors.grpc.method.linkGroup': 'Link a Protobuf spec',

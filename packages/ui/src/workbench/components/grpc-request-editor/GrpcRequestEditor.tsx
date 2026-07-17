@@ -461,12 +461,11 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           />
           <Select
             style={{ width: 280 }}
-            placeholder={
-              linkedSpec
-                ? t('workbench.editors.grpc.method.placeholder')
-                : t('workbench.editors.grpc.method.noSpecPlaceholder')
-            }
-            value={draft.method ? methodKey(draft.method) : undefined}
+            placeholder={t('workbench.editors.grpc.method.placeholder')}
+            // null, not undefined — an undefined value flips the antd
+            // Select to uncontrolled, so a clicked link/import action
+            // option would linger as the displayed label.
+            value={draft.method ? methodKey(draft.method) : null}
             options={selectOptions}
             onChange={handleSelectChange}
             showSearch
