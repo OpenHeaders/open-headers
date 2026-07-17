@@ -28,6 +28,9 @@
       "dependsOn": ["^build"]
     },
     "lint": {},
+    "scan:i18n": {
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true

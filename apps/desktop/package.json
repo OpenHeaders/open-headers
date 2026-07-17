@@ -41,6 +41,7 @@
     "test:e2e": "pnpm exec playwright test",
     "test:e2e:headed": "pnpm exec playwright test --headed",
     "typecheck": "tsc --noEmit && tsc -p src/renderer/tsconfig.json --noEmit",
+    "scan:i18n": "node ../../scripts/scan.mjs src",
     "clean": "rm -rf dist-webpack dist .electron-vite"
   },
   "build": {

@@ -10,8 +10,11 @@
  */
 
 export const GLOSSARY: readonly string[] = [
-  // Brand + product proper nouns
+  // Brand + product proper nouns (incl. import-source products named in UI)
   'Open Headers',
+  'Postman',
+  'Insomnia',
+  'Bruno',
   // Protocol / wire vocabulary
   'HTTP',
   'HTTPS',

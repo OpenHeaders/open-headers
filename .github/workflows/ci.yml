@@ -44,6 +44,9 @@ jobs:
       - name: Typecheck all packages
         run: pnpm turbo typecheck
 
+      - name: i18n hardcoded-string scan
+        run: pnpm turbo scan:i18n
+
       - name: Test core
         run: |
           echo "### Core" >> $GITHUB_STEP_SUMMARY
