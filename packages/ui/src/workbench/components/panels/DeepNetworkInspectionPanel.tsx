@@ -7,6 +7,7 @@
 import { Segmented, Space, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
@@ -36,6 +37,11 @@ const HTTP2_LINES: string[] = [
   ':authority = api.example.com',
   '(+ decoded HPACK contents shown)',
 ];
+
+// Sample-feed annotation fragments — illustration data like the lines
+// above, split so the stream number can carry its own accent color.
+const CORRELATION_NOTE = "│  correlated with proxy's record ↓";
+const STREAM_LINE = { prefix: 'HTTP/2 stream', num: '5', suffix: 'HEADERS frame' } as const;
 
 const STATS: { label: string; value: string; tone: 'ok' | 'info' | 'warn' }[] = [
   { label: 'TCP retransmissions', value: '0', tone: 'ok' },
@@ -91,6 +97,7 @@ const TIERS: TierSpec[] = [
 type TrafficView = 'connection' | 'tiers';
 
 function DeepNetworkInspectionPlaceholder() {
+  const t = useT();
   const { token } = theme.useToken();
   const [view, setView] = useState<TrafficView>('tiers');
   const toneColor = (tone: 'ok' | 'info' | 'warn'): string =>
@@ -114,16 +121,15 @@ function DeepNetworkInspectionPlaceholder() {
       >
         <Space size={8} align="center" wrap>
           <Tag color="orange" style={{ margin: 0, fontWeight: 600 }}>
-            COMING SOON — DESKTOP APP
+            {t('workbench.deepNetwork.comingSoon')}
           </Tag>
           <Text strong style={{ fontSize: 13 }}>
-            Connection (L4) + HTTP (L7) inspection
+            {t('workbench.deepNetwork.heading')}
           </Text>
         </Space>
         <div style={{ marginTop: 4 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Connection health and full HTTP in one view — the layers you actually act on, easy to inspect and modify.
-            Not yet live; sample data shown below.
+            {t('workbench.deepNetwork.description')}
           </Text>
         </div>
         <div style={{ marginTop: 10 }}>
@@ -132,8 +138,8 @@ function DeepNetworkInspectionPlaceholder() {
             value={view}
             onChange={(v) => setView(v)}
             options={[
-              { label: 'Tier roadmap', value: 'tiers' },
-              { label: 'Connection view', value: 'connection' },
+              { label: t('workbench.deepNetwork.viewTiers'), value: 'tiers' },
+              { label: t('workbench.deepNetwork.viewConnection'), value: 'connection' },
             ]}
           />
         </div>
@@ -164,6 +170,7 @@ interface ConnectionViewProps {
 }
 
 function ConnectionView({ token, layerBadge, toneColor }: ConnectionViewProps) {
+  const t = useT();
   return (
     <>
         {CONNECTION_LINES.map((line) => (
@@ -175,14 +182,15 @@ function ConnectionView({ token, layerBadge, toneColor }: ConnectionViewProps) {
 
         <div style={{ margin: '8px 0 4px 54px', color: token.colorTextTertiary }}>│</div>
         <div style={{ margin: '0 0 4px 54px', color: token.colorTextTertiary, fontStyle: 'italic' }}>
-          │  correlated with proxy's record ↓
+          {CORRELATION_NOTE}
         </div>
         <div style={{ margin: '0 0 8px 54px', color: token.colorTextTertiary }}>│</div>
 
         <div style={{ display: 'flex', alignItems: 'baseline' }}>
           {layerBadge('L7')}
           <span style={{ color: token.colorText }}>
-            HTTP/2 stream <span style={{ color: token.colorPrimary, fontWeight: 600 }}>5</span> HEADERS frame
+            {STREAM_LINE.prefix} <span style={{ color: token.colorPrimary, fontWeight: 600 }}>{STREAM_LINE.num}</span>{' '}
+            {STREAM_LINE.suffix}
           </span>
         </div>
         <div
@@ -217,7 +225,7 @@ function ConnectionView({ token, layerBadge, toneColor }: ConnectionViewProps) {
 
         <div style={{ marginTop: 18 }}>
           <Text strong style={{ fontSize: 12 }}>
-            Stats
+            {t('workbench.deepNetwork.stats')}
           </Text>
           <div
             style={{
@@ -258,6 +266,7 @@ interface TierRoadmapViewProps {
 }
 
 function TierRoadmapView({ token }: TierRoadmapViewProps) {
+  const t = useT();
   const accent = (key: TierSpec['accentToken']): string =>
     key === 'colorInfo' ? token.colorInfo : token.colorPrimary;
 
@@ -284,22 +293,22 @@ function TierRoadmapView({ token }: TierRoadmapViewProps) {
             </Space>
             <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', rowGap: 6, columnGap: 12 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Solves
+                {t('workbench.deepNetwork.rowSolves')}
               </Text>
               <span style={{ fontStyle: 'italic', color: token.colorText }}>{tier.solves}</span>
 
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Trust required
+                {t('workbench.deepNetwork.rowTrust')}
               </Text>
               <span style={{ color: token.colorText }}>{tier.trust}</span>
 
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Power
+                {t('workbench.deepNetwork.rowPower')}
               </Text>
               <span style={{ color: token.colorText }}>{tier.power}</span>
 
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Friction
+                {t('workbench.deepNetwork.rowFriction')}
               </Text>
               <span style={{ color: token.colorText }}>{tier.friction}</span>
             </div>
@@ -314,7 +323,7 @@ function TierRoadmapView({ token }: TierRoadmapViewProps) {
               }}
             >
               <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>
-                You hit a wall:
+                {t('workbench.deepNetwork.wall')}
               </Text>
               <ul style={{ margin: '4px 0 6px 0', paddingLeft: 18 }}>
                 {tier.wall.map((q) => (
@@ -340,12 +349,17 @@ interface DeepNetworkInspectionPanelProps {
 }
 
 const DeepNetworkInspectionPanel: React.FC<DeepNetworkInspectionPanelProps> = ({ info, onHide }) => {
+  const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const { token } = theme.useToken();
 
   return (
     <div className="rules-bottom-panel">
-      <PanelHeader wiring={headerWiring} title={<strong>Deep Network Inspection</strong>} info={info} />
+      <PanelHeader
+        wiring={headerWiring}
+        title={<strong>{t('workbench.toolWindows.deepNetworkInspection')}</strong>}
+        info={info}
+      />
       <div className="rules-bottom-content is-fill" style={{ color: token.colorTextTertiary }}>
         <DeepNetworkInspectionPlaceholder />
       </div>

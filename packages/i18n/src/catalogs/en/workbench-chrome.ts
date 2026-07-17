@@ -697,6 +697,54 @@ export const workbenchChrome = {
     'Workspace-wide feed of inbound changes from peers, with classifier highlights for sensitive-field ' +
     'rotations, permission-scope expansions, and local-edit supersedes.',
 
+  // ── Deep Network Inspection placeholder panel. The sample connection
+  // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
+  // roadmap's quoted scenario copy ride raw as illustration data —
+  // only the panel chrome keys here. ──────────────────────────────────
+  'workbench.deepNetwork.comingSoon': 'COMING SOON — DESKTOP APP',
+  'workbench.deepNetwork.heading': 'Connection (L4) + HTTP (L7) inspection',
+  'workbench.deepNetwork.description':
+    'Connection health and full HTTP in one view — the layers you actually act on, easy to inspect and modify. ' +
+    'Not yet live; sample data shown below.',
+  'workbench.deepNetwork.viewTiers': 'Tier roadmap',
+  'workbench.deepNetwork.viewConnection': 'Connection view',
+  'workbench.deepNetwork.stats': 'Stats',
+  'workbench.deepNetwork.rowSolves': 'Solves',
+  'workbench.deepNetwork.rowTrust': 'Trust required',
+  'workbench.deepNetwork.rowPower': 'Power',
+  'workbench.deepNetwork.rowFriction': 'Friction',
+  'workbench.deepNetwork.wall': 'You hit a wall:',
+
+  // ── Activity feed panel + cards ─────────────────────────────────────
+  'workbench.activityFeed.reverted': 'Change reverted',
+  'workbench.activityFeed.revertFailed': 'Revert failed: {reason}',
+  'workbench.activityFeed.emptyTitle': 'No activity yet',
+  'workbench.activityFeed.emptyHint': 'Inbound changes from peers will appear here.',
+  'workbench.activityFeed.view': 'View',
+  'workbench.activityFeed.mute': 'Mute',
+  'workbench.activityFeed.unmute': 'Unmute',
+  'workbench.activityFeed.muteTip': 'Suppress further inbound activity rows for this entity. Past rows are kept.',
+  'workbench.activityFeed.unmuteTip': 'Stop suppressing inbound activity for this entity.',
+  'workbench.activityFeed.revert': 'Revert',
+  'workbench.activityFeed.revertTip':
+    'Apply the inverse of this change. Emits a new mutation that brings the entity back to its pre-inbound state.',
+  'workbench.activityFeed.revertUnavailableDelete': 'Deletes are permanent and cannot be reverted (§7.2 delete-wins).',
+  'workbench.activityFeed.revertUnavailable': 'This change cannot be reverted.',
+  'workbench.activityFeed.kind.created': 'Created',
+  'workbench.activityFeed.kind.createdTip': 'New entity arrived from a peer.',
+  'workbench.activityFeed.kind.edited': 'Edited',
+  'workbench.activityFeed.kind.editedTip': 'A peer edited fields on this entity.',
+  'workbench.activityFeed.kind.deleted': 'Deleted',
+  'workbench.activityFeed.kind.deletedTip': 'A peer deleted this entity.',
+  'workbench.activityFeed.kind.superseded': 'Overrode local edit',
+  'workbench.activityFeed.kind.supersededTip': 'An inbound mutation overrode your in-flight local edit.',
+  'workbench.activityFeed.kind.sensitiveRotation': 'Sensitive field rotated',
+  'workbench.activityFeed.kind.sensitiveRotationTip':
+    'A sensitive field (secret / token / sensitive header) was replaced.',
+  'workbench.activityFeed.kind.scopeWidened': 'Scope widened',
+  'workbench.activityFeed.kind.scopeWidenedTip':
+    'A rule condition was loosened — the rule now matches a wider URL/method set.',
+
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies
   // only the separating space. ────────────────────────────────────────

@@ -24,6 +24,7 @@ import { HistoryOutlined } from '@ant-design/icons';
 import { App as AntApp, Empty, List, Spin, theme } from 'antd';
 import { useCallback, useMemo } from 'react';
 import type { ActivityEntry } from '@openheaders/core/sync';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
@@ -47,6 +48,7 @@ interface ActivityFeedPanelProps {
 }
 
 const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ info, onClose, onViewEntity }) => {
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const { token } = theme.useToken();
   const workspaceId = useActiveWorkspaceId();
@@ -58,12 +60,12 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ info, onClose, on
     async (entry: ActivityEntry) => {
       const result = await revert(entry);
       if (result.ok) {
-        message.success('Change reverted');
+        message.success(t('workbench.activityFeed.reverted'));
       } else {
-        message.error(`Revert failed: ${humanizeRevertReason(result.reason)}`);
+        message.error(t('workbench.activityFeed.revertFailed', { reason: humanizeRevertReason(result.reason) }));
       }
     },
-    [revert, message],
+    [revert, message, t],
   );
   const handleCardSeen = useCallback(
     (entryIds: readonly string[]) => {
@@ -79,7 +81,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ info, onClose, on
       className="rules-right-panel rules-right-panel--activity"
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
-      <PanelHeader wiring={wiring} title={<strong>Activity</strong>} info={info} />
+      <PanelHeader wiring={wiring} title={<strong>{t('workbench.toolWindows.activity')}</strong>} info={info} />
       <div
         style={{
           flex: '1 1 auto',
@@ -115,9 +117,9 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ info, onClose, on
               imageStyle={{ height: 40 }}
               description={
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span>No activity yet</span>
+                  <span>{t('workbench.activityFeed.emptyTitle')}</span>
                   <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-                    Inbound changes from peers will appear here.
+                    {t('workbench.activityFeed.emptyHint')}
                   </span>
                 </div>
               }

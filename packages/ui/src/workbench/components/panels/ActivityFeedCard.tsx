@@ -12,9 +12,11 @@
  * `isViewableEntityType` in `activity-view-router.ts`.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ActivityEntry, ActivityEntryKind } from '@openheaders/core/sync';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { canRevertEntry, getEntryInverse, getEntryRevertUnavailableReason } from '@openheaders/ui/shared/hooks/activity/useActivityRevert';
 import { formatRelativeMs } from '../live/live-display';
 import type { ActivityFeedGroup } from './activity-feed-group';
@@ -69,9 +71,9 @@ function pickRevertEntry(group: ActivityFeedGroup): ActivityEntry | null {
 }
 
 interface KindMeta {
-  readonly label: string;
+  readonly labelKey: MessageKey;
   readonly color: string;
-  readonly tooltip: string;
+  readonly tooltipKey: MessageKey;
 }
 
 // Highlight kinds get a warning color; structural kinds use neutral
@@ -79,23 +81,35 @@ interface KindMeta {
 // shade reading is intentional — these are the rows users should care
 // about most.
 const KIND_META: Record<ActivityEntryKind, KindMeta> = {
-  'create-entity': { label: 'Created', color: 'green', tooltip: 'New entity arrived from a peer.' },
-  'edit-entity': { label: 'Edited', color: 'blue', tooltip: 'A peer edited fields on this entity.' },
-  'delete-entity': { label: 'Deleted', color: 'red', tooltip: 'A peer deleted this entity.' },
+  'create-entity': {
+    labelKey: 'workbench.activityFeed.kind.created',
+    color: 'green',
+    tooltipKey: 'workbench.activityFeed.kind.createdTip',
+  },
+  'edit-entity': {
+    labelKey: 'workbench.activityFeed.kind.edited',
+    color: 'blue',
+    tooltipKey: 'workbench.activityFeed.kind.editedTip',
+  },
+  'delete-entity': {
+    labelKey: 'workbench.activityFeed.kind.deleted',
+    color: 'red',
+    tooltipKey: 'workbench.activityFeed.kind.deletedTip',
+  },
   'supersede-local-edit': {
-    label: 'Overrode local edit',
+    labelKey: 'workbench.activityFeed.kind.superseded',
     color: 'orange',
-    tooltip: 'An inbound mutation overrode your in-flight local edit.',
+    tooltipKey: 'workbench.activityFeed.kind.supersededTip',
   },
   'sensitive-field-rotation': {
-    label: 'Sensitive field rotated',
+    labelKey: 'workbench.activityFeed.kind.sensitiveRotation',
     color: 'gold',
-    tooltip: 'A sensitive field (secret / token / sensitive header) was replaced.',
+    tooltipKey: 'workbench.activityFeed.kind.sensitiveRotationTip',
   },
   'permission-scope-expansion': {
-    label: 'Scope widened',
+    labelKey: 'workbench.activityFeed.kind.scopeWidened',
     color: 'volcano',
-    tooltip: 'A rule condition was loosened — the rule now matches a wider URL/method set.',
+    tooltipKey: 'workbench.activityFeed.kind.scopeWidenedTip',
   },
 };
 
@@ -118,6 +132,7 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
   onRevert,
   onSeen,
 }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const { primary, kinds, read } = group;
   const cardRef = useRef<HTMLDivElement>(null);
@@ -216,9 +231,9 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
         {kinds.map((kind) => {
           const meta = KIND_META[kind];
           return (
-            <Tooltip key={kind} title={meta.tooltip}>
+            <Tooltip key={kind} title={t(meta.tooltipKey)}>
               <Tag color={meta.color} style={{ marginInlineEnd: 0 }}>
-                {meta.label}
+                {t(meta.labelKey)}
               </Tag>
             </Tooltip>
           );
@@ -238,16 +253,12 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
               style={{ padding: 0, height: 'auto', fontSize: 12 }}
               onClick={() => onView?.(primary.entityType, primary.entityId)}
             >
-              View
+              {t('workbench.activityFeed.view')}
             </Button>
           )}
           {canMute && (
             <Tooltip
-              title={
-                isMuted
-                  ? 'Stop suppressing inbound activity for this entity.'
-                  : 'Suppress further inbound activity rows for this entity. Past rows are kept.'
-              }
+              title={isMuted ? t('workbench.activityFeed.unmuteTip') : t('workbench.activityFeed.muteTip')}
             >
               <Button
                 size="small"
@@ -257,7 +268,7 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
                   (isMuted ? onUnmute : onMute)?.(primary.entityType, primary.entityId)
                 }
               >
-                {isMuted ? 'Unmute' : 'Mute'}
+                {isMuted ? t('workbench.activityFeed.unmute') : t('workbench.activityFeed.mute')}
               </Button>
             </Tooltip>
           )}
@@ -265,10 +276,10 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
             <Tooltip
               title={
                 revertEnabled
-                  ? 'Apply the inverse of this change. Emits a new mutation that brings the entity back to its pre-inbound state.'
+                  ? t('workbench.activityFeed.revertTip')
                   : revertUnavailableReason === 'delete-irreversible'
-                    ? 'Deletes are permanent and cannot be reverted (§7.2 delete-wins).'
-                    : 'This change cannot be reverted.'
+                    ? t('workbench.activityFeed.revertUnavailableDelete')
+                    : t('workbench.activityFeed.revertUnavailable')
               }
             >
               <Button
@@ -278,7 +289,7 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
                 disabled={!revertEnabled}
                 onClick={() => revertEntry && onRevert?.(revertEntry)}
               >
-                Revert
+                {t('workbench.activityFeed.revert')}
               </Button>
             </Tooltip>
           )}
