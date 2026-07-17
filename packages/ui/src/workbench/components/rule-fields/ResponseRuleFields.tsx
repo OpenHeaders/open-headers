@@ -36,6 +36,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import CodeEditor from '../shared/CodeEditor';
+import FormatAwareBodyEditor from './FormatAwareBodyEditor';
 import { getDocId } from '../docs/doc-ids';
 import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
@@ -472,21 +473,16 @@ const ResponseRuleFields: React.FC = () => {
                     </EntityField>
                   </>
                 ) : (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip formName="responseStaticBody" schemaPath={paths.responseBody} />
-                    </div>
-                    <EntityField path={paths.responseBody}>
-                      <Form.Item name="responseStaticBody" style={{ marginBottom: 0 }}>
-                        <CodeEditor
-                          language="json"
-                          placeholder={RESPONSE_BODY_EXAMPLE}
-                          minHeight={160}
-                          valueDetection
-                        />
-                      </Form.Item>
-                    </EntityField>
-                  </>
+                  <EntityField path={paths.responseBody}>
+                    <Form.Item name="responseStaticBody" style={{ marginBottom: 0 }}>
+                      <FormatAwareBodyEditor
+                        placeholder={RESPONSE_BODY_EXAMPLE}
+                        minHeight={160}
+                        valueDetection
+                        extra={<ScalarConflictChip formName="responseStaticBody" schemaPath={paths.responseBody} />}
+                      />
+                    </Form.Item>
+                  </EntityField>
                 )}
               </>
             );

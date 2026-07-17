@@ -207,6 +207,10 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.fields.graphqlApi': 'GraphQL API',
   'workbench.editors.rule.fields.staticData': 'Static Data',
   'workbench.editors.rule.fields.dynamicJs': 'Dynamic (JavaScript)',
+  'workbench.editors.rule.fields.formatAwareBody.formatted': 'Formatted',
+  'workbench.editors.rule.fields.formatAwareBody.raw': 'Raw',
+  'workbench.editors.rule.fields.formatAwareBody.unavailableTooltip':
+    'Formatted view is available for JSON-shaped bodies only.',
   'workbench.editors.rule.fields.graphqlFilterLabel': 'GraphQL Operation (Request Payload Filter)',
   'workbench.editors.rule.fields.graphqlKeyPlaceholder': 'Key e.g. operationName',
   'workbench.editors.rule.fields.graphqlValuePlaceholder': 'value e.g. getUsers',

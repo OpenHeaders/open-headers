@@ -71,6 +71,10 @@ export function MessageQuickCreate({
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() => generateSmartRuleName({ kind: draft.type, url: draft.url ?? '' }, rules));
   const [seed] = useState<MessageQuickDraft>(() => seedMessageQuickDraft(draft));
+  // Seed payload ≠ captured payload ⇒ the popover is showing a
+  // formatted view of the wire text — surface the save-in-original-
+  // format hint.
+  const showFormatHint = seed.payload !== (draft.payload ?? '');
   const [quick, setQuick] = useState<MessageQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -83,7 +87,7 @@ export function MessageQuickCreate({
   const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildMessageRuleSeed(quickRef.current, name, cond.conditionsRef.current),
+    buildSeed: () => buildMessageRuleSeed(quickRef.current, name, cond.conditionsRef.current, draft.payload ?? ''),
     destination: dest.forSave,
     workspaceId,
     valid: messageQuickDraftValid(quick),
@@ -276,6 +280,7 @@ export function MessageQuickCreate({
                     ? 'panel.quickEditor.message.replacedEventsHint'
                     : 'panel.quickEditor.message.replacedFramesHint',
                 )}
+            {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
           </div>
         </>
       ) : (

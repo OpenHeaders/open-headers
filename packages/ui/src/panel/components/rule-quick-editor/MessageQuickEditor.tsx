@@ -81,9 +81,20 @@ export function MessageQuickEditor({
     [liveRule, localCollections],
   );
 
+  // The payload maps to its formatted VIEW (once per rule version — the
+  // memo, never per keystroke); the Save builders re-encode it against
+  // the stored wire text, so an untouched view keeps the stored bytes.
   const canonical = useMemo<MessageQuickEditDraft | null>(
     () => (messageRule ? seedMessageDraft(messageRule) : null),
     [messageRule],
+  );
+  const showFormatHint = useMemo(
+    () =>
+      canonical !== null &&
+      canonical.payload !== null &&
+      messageRule !== null &&
+      canonical.payload !== (messageRule.action.payload ?? ''),
+    [canonical, messageRule],
   );
   const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useActionDraft({ canonical });
 
@@ -190,6 +201,7 @@ export function MessageQuickEditor({
                     ? 'panel.quickEditor.message.replacedEventsHint'
                     : 'panel.quickEditor.message.replacedFramesHint',
                 )}
+            {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
           </div>
         </EntityScopeProvider>
       ) : editable ? (

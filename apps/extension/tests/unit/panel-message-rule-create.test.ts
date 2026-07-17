@@ -9,7 +9,9 @@
  * (payload never on drop, injectTrigger only on inject, empty event
  * name omitted), and the draft-bridge seeds must gate on what a rule
  * can actually select (text frames only for ws; default `message`
- * event name omitted for sse).
+ * event name omitted for sse). The payload is format-aware: the seed
+ * opens the formatted view, and Save / hand-off re-encode against the
+ * captured wire text (untouched view ⇒ the original bytes exactly).
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
@@ -75,6 +77,11 @@ describe('seedMessageQuickDraft', () => {
       injectTrigger: 'open',
     });
   });
+
+  it('seeds a captured payload as its formatted view', () => {
+    const draft: WsRuleDraft = { type: 'ws', url: WS_URL, payload: '{"op":"subscribe"}' };
+    expect(seedMessageQuickDraft(draft).payload).toBe('{\n  "op": "subscribe"\n}');
+  });
 });
 
 describe('buildMessageRuleSeed', () => {
@@ -89,7 +96,7 @@ describe('buildMessageRuleSeed', () => {
   };
 
   it('builds a ws seed carrying direction and filter', () => {
-    expect(buildMessageRuleSeed(wsQuick, 'WS messages · stream.openheaders.io', CONDITIONS)).toEqual({
+    expect(buildMessageRuleSeed(wsQuick, 'WS messages · stream.openheaders.io', CONDITIONS, '')).toEqual({
       name: 'WS messages · stream.openheaders.io',
       enabled: true,
       type: 'ws',
@@ -113,7 +120,7 @@ describe('buildMessageRuleSeed', () => {
       payload: '{"symbol":"BTC"}',
       injectTrigger: 'message',
     };
-    expect(buildMessageRuleSeed(sseQuick, 'SSE events', CONDITIONS)).toEqual({
+    expect(buildMessageRuleSeed(sseQuick, 'SSE events', CONDITIONS, '')).toEqual({
       name: 'SSE events',
       enabled: true,
       type: 'sse',
@@ -125,17 +132,31 @@ describe('buildMessageRuleSeed', () => {
         injectTrigger: 'message',
       },
     });
-    const action = buildMessageRuleSeed({ ...sseQuick, eventName: '  ' }, 'SSE events', CONDITIONS).action;
+    const action = buildMessageRuleSeed({ ...sseQuick, eventName: '  ' }, 'SSE events', CONDITIONS, '').action;
     expect('eventName' in action).toBe(false);
   });
 
   it('drop carries no payload and non-inject no trigger', () => {
-    const seed = buildMessageRuleSeed({ ...wsQuick, operation: 'drop' }, 'n', CONDITIONS);
+    const seed = buildMessageRuleSeed({ ...wsQuick, operation: 'drop' }, 'n', CONDITIONS, '');
     expect(seed.action).toEqual({
       operation: 'drop',
       direction: 'send',
       messageFilter: { matchType: 'contains', value: 'ping' },
     });
+  });
+
+  it('an untouched formatted payload view stores the captured bytes exactly', () => {
+    const draft: WsRuleDraft = { type: 'ws', url: WS_URL, payload: '{"op":"subscribe"}' };
+    const quick = seedMessageQuickDraft(draft);
+    const seed = buildMessageRuleSeed(quick, 'n', CONDITIONS, draft.payload ?? '');
+    expect(seed.action.payload).toBe('{"op":"subscribe"}');
+  });
+
+  it('a formatted-view edit re-encodes to the captured profile', () => {
+    const draft: WsRuleDraft = { type: 'ws', url: WS_URL, payload: '{"op":"subscribe"}' };
+    const quick = { ...seedMessageQuickDraft(draft), payload: '{\n  "op": "unsubscribe"\n}' };
+    const seed = buildMessageRuleSeed(quick, 'n', CONDITIONS, draft.payload ?? '');
+    expect(seed.action.payload).toBe('{"op":"unsubscribe"}');
   });
 });
 
@@ -174,6 +195,14 @@ describe('mergeQuickIntoMessageDraft', () => {
     const quick = seedMessageQuickDraft(draft);
     const merged = mergeQuickIntoMessageDraft(draft, { ...quick, operation: 'drop' });
     expect(merged.payload).toBeUndefined();
+  });
+
+  it('hands off the wire-profile payload — untouched view byte-exact, edits re-encoded', () => {
+    const draft: WsRuleDraft = { type: 'ws', url: WS_URL, payload: '{"old":1}' };
+    const quick = seedMessageQuickDraft(draft);
+    expect(mergeQuickIntoMessageDraft(draft, quick).payload).toBe('{"old":1}');
+    const edited = mergeQuickIntoMessageDraft(draft, { ...quick, payload: '{\n  "old": 2\n}' });
+    expect(edited.payload).toBe('{"old":2}');
   });
 });
 

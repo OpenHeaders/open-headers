@@ -17,7 +17,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
-import CodeEditor from '../shared/CodeEditor';
+import FormatAwareBodyEditor from './FormatAwareBodyEditor';
 import SectionInfo from '../shared/SectionInfo';
 
 const { Text } = Typography;
@@ -242,7 +242,7 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
                   </div>
                   <EntityField path={paths.messagePayload}>
                     <Form.Item name={f.payload} style={{ marginBottom: 0 }}>
-                      <CodeEditor language="json" placeholder={PAYLOAD_EXAMPLE} minHeight={120} />
+                      <FormatAwareBodyEditor placeholder={PAYLOAD_EXAMPLE} minHeight={120} />
                     </Form.Item>
                   </EntityField>
                 </div>

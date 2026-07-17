@@ -235,14 +235,14 @@ describe('ws/sse messages — seed and rebuild', () => {
     action: { operation: 'drop', direction: 'send' },
   };
 
-  it('seeds the payload for modify/inject and null for drop', () => {
-    expect(seedMessageDraft(wsRule)).toEqual({ payload: '{"type":"heartbeat"}' });
-    expect(seedMessageDraft(sseRule)).toEqual({ payload: '{"v":1}' });
+  it('seeds the formatted payload view for modify/inject and null for drop', () => {
+    expect(seedMessageDraft(wsRule)).toEqual({ payload: '{\n  "type": "heartbeat"\n}' });
+    expect(seedMessageDraft(sseRule)).toEqual({ payload: '{\n  "v": 1\n}' });
     expect(seedMessageDraft(dropRule)).toEqual({ payload: null });
   });
 
-  it('rebuilds the ws action preserving direction and filter', () => {
-    const updates = buildWsRuleUpdate({ ...wsRule, published: true }, { payload: '{"type":"ping"}' });
+  it('rebuilds the ws action preserving direction and filter, re-encoding to the stored profile', () => {
+    const updates = buildWsRuleUpdate({ ...wsRule, published: true }, { payload: '{\n  "type": "ping"\n}' });
     expect(updates.action).toEqual({
       operation: 'modify',
       direction: 'receive',
@@ -253,7 +253,7 @@ describe('ws/sse messages — seed and rebuild', () => {
   });
 
   it('rebuilds the sse action preserving event name and inject trigger', () => {
-    const updates = buildSseRuleUpdate(sseRule, { payload: '{"v":2}' }, CONDITIONS);
+    const updates = buildSseRuleUpdate(sseRule, { payload: '{\n  "v": 2\n}' }, CONDITIONS);
     expect(updates.action).toEqual({
       operation: 'inject',
       eventName: 'update',
@@ -261,6 +261,11 @@ describe('ws/sse messages — seed and rebuild', () => {
       injectTrigger: 'open',
     });
     expect(updates.conditions).toBe(CONDITIONS);
+  });
+
+  it('an untouched formatted payload view keeps the stored bytes exactly', () => {
+    const updates = buildWsRuleUpdate(wsRule, seedMessageDraft(wsRule));
+    expect(updates.action?.payload).toBe('{"type":"heartbeat"}');
   });
 
   it('is conditions-only for a drop rule — the action is left untouched', () => {

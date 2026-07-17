@@ -29,6 +29,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import CodeEditor from '../shared/CodeEditor';
+import FormatAwareBodyEditor from './FormatAwareBodyEditor';
 import { getDocId } from '../docs/doc-ids';
 import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
@@ -199,16 +200,16 @@ const RequestBodyRuleFields: React.FC = () => {
                     </EntityField>
                   </>
                 ) : (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip formName="requestStaticBody" schemaPath={paths.requestBody} />
-                    </div>
-                    <EntityField path={paths.requestBody}>
-                      <Form.Item name="requestStaticBody" style={{ marginBottom: 0 }}>
-                        <CodeEditor language="json" placeholder={PAYLOAD_EXAMPLE} minHeight={160} valueDetection />
-                      </Form.Item>
-                    </EntityField>
-                  </>
+                  <EntityField path={paths.requestBody}>
+                    <Form.Item name="requestStaticBody" style={{ marginBottom: 0 }}>
+                      <FormatAwareBodyEditor
+                        placeholder={PAYLOAD_EXAMPLE}
+                        minHeight={160}
+                        valueDetection
+                        extra={<ScalarConflictChip formName="requestStaticBody" schemaPath={paths.requestBody} />}
+                      />
+                    </Form.Item>
+                  </EntityField>
                 )}
               </>
             );
