@@ -16,10 +16,11 @@
 import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Alert, Tabs, Tag, Typography, theme } from 'antd';
+import { Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
+import GrpcResponseErrorState from './GrpcResponseErrorState';
 import { grpcInputTypeOf, grpcOutputTypeOf } from './response-decode';
 import type { GrpcStreamSession, LiveGrpcStream } from './useLiveGrpcStream';
 
@@ -126,9 +127,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session
             {t('workbench.editors.grpc.response.title')}
           </Text>
         </div>
-        <div style={{ padding: '8px 12px', overflow: 'auto' }}>
-          <Alert type="error" showIcon message={snapshot.error} />
-        </div>
+        <GrpcResponseErrorState status={null} detail={snapshot.error} />
       </div>
     );
   }

@@ -6,17 +6,20 @@
  * and missing statuses rendered honestly). The Response tab is a
  * display-side decode over the captured frames (see
  * `response-decode.ts`); Metadata and Trailers list the reply's fields
- * verbatim. Error snapshots (the call never produced a response head)
- * render the classified message under the plain Response title row.
+ * verbatim. A non-OK status with no reply message renders the friendly
+ * `GrpcResponseErrorState` in the Response tab; error snapshots (the
+ * call never produced a response head) render the same state's local
+ * flavor under the plain Response title row.
  */
 
 import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Alert, Tabs, Tag, Typography, theme } from 'antd';
+import { Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
+import GrpcResponseErrorState from './GrpcResponseErrorState';
 import { deriveGrpcMessageView, grpcOutputTypeOf } from './response-decode';
 
 const { Text } = Typography;
@@ -89,9 +92,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
             {t('workbench.editors.grpc.response.title')}
           </Text>
         </div>
-        <div style={{ padding: '8px 12px', overflow: 'auto' }}>
-          <Alert type="error" showIcon message={snapshot.error} />
-        </div>
+        <GrpcResponseErrorState status={null} detail={snapshot.error} />
       </div>
     );
   }
@@ -140,9 +141,16 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
 
   const messageBody =
     view.kind === 'none' ? (
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        {t('workbench.editors.grpc.response.noMessage')}
-      </Text>
+      snapshot.grpcStatus !== null && snapshot.grpcStatus !== 0 ? (
+        // A non-OK status with no reply message — the friendly error
+        // state carries the status + server message instead of a bare
+        // "no response message" line.
+        <GrpcResponseErrorState status={snapshot.grpcStatus} detail={snapshot.grpcMessage} />
+      ) : (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {t('workbench.editors.grpc.response.noMessage')}
+        </Text>
+      )
     ) : view.kind === 'compressed' ? (
       <Text type="secondary" style={{ fontSize: 12 }}>
         {t('workbench.editors.grpc.response.compressed')}

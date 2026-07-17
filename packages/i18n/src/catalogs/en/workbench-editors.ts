@@ -1382,6 +1382,11 @@ export const workbenchEditors = {
   'workbench.editors.grpc.response.title': 'Response',
   'workbench.editors.grpc.response.empty.prompt': 'Invoke a method to get a response.',
   'workbench.editors.grpc.response.empty.invoking': 'Invoking…',
+  'workbench.editors.grpc.response.error.title': 'Call failed',
+  'workbench.editors.grpc.response.error.localGuidance':
+    'The call never reached a reply. Check the target, TLS mode, and that the server is reachable.',
+  'workbench.editors.grpc.response.error.statusGuidance':
+    'The server answered with {status}. Check the message and invoke the method again.',
   'workbench.editors.grpc.response.tab.response': 'Response',
   'workbench.editors.grpc.response.tab.metadata': 'Metadata',
   'workbench.editors.grpc.response.tab.trailers': 'Trailers',

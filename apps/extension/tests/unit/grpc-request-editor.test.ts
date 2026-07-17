@@ -31,6 +31,7 @@ import {
   parseGrpcSelectValue,
   synthesizeExampleText,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/method-selector';
+import { humanizeGrpcStatus } from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcResponseErrorState';
 import { createImportedProtoSpecSeed } from '@openheaders/ui/workbench/components/specs/spec-scaffold';
 import { describe, expect, it } from 'vitest';
 
@@ -193,6 +194,15 @@ describe('createImportedProtoSpecSeed', () => {
     const derivation = deriveGrpcMethods(spec(LIBRARY_PROTO, { files: seed.files, rootFileUid: seed.rootFileUid }));
     expect(derivation.groups.map((g) => g.service)).toEqual(['library.v1.Library', 'library.v1.Audit']);
     expect(derivation.parseFailures).toEqual([]);
+  });
+});
+
+describe('humanizeGrpcStatus', () => {
+  it('prettifies status names and falls back to bare codes', () => {
+    expect(humanizeGrpcStatus(3)).toBe('Invalid argument');
+    expect(humanizeGrpcStatus(4)).toBe('Deadline exceeded');
+    expect(humanizeGrpcStatus(14)).toBe('Unavailable');
+    expect(humanizeGrpcStatus(42)).toBe('42');
   });
 });
 
