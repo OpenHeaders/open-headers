@@ -12,6 +12,9 @@ import { panel } from './panel';
 import { panelConsole } from './panel-console';
 import { panelDocs } from './panel-docs';
 import { panelInspector } from './panel-inspector';
+import { panelInspectorCookies } from './panel-inspector-cookies';
+import { panelInspectorHeaders } from './panel-inspector-headers';
+import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelNetwork } from './panel-network';
 import { panelQuickEditor } from './panel-quick-editor';
 import { panelStorage } from './panel-storage';
@@ -32,17 +35,25 @@ import { sharedWorkspace } from './shared-workspace';
 import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
+import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
+import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocs } from './workbench-docs';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsGrpc } from './workbench-editors-grpc';
+import { workbenchEditorsRequest } from './workbench-editors-request';
+import { workbenchEditorsRule } from './workbench-editors-rule';
+import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchImportExport } from './workbench-import-export';
 import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefs } from './workbench-settings-defs';
+import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
+import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
@@ -66,6 +77,9 @@ export const en = {
   ...panelConsole,
   ...panelDocs,
   ...panelInspector,
+  ...panelInspectorCookies,
+  ...panelInspectorHeaders,
+  ...panelInspectorStreams,
   ...panelNetwork,
   ...panelQuickEditor,
   ...panelStorage,
@@ -73,17 +87,25 @@ export const en = {
   ...web,
   ...workbench,
   ...workbenchChrome,
+  ...workbenchChromeSidebar,
+  ...workbenchChromeWorkspace,
   ...workbenchDaemonAdmin,
   ...workbenchDocs,
   ...workbenchDocsDebugMode,
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
+  ...workbenchEditorsGrpc,
+  ...workbenchEditorsRequest,
+  ...workbenchEditorsRule,
+  ...workbenchEditorsSpec,
   ...workbenchImportExport,
   ...workbenchLive,
   ...workbenchScriptPackages,
   ...workbenchSettings,
   ...workbenchSettingsDefs,
+  ...workbenchSettingsDefsDevpanel,
+  ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
   ...workbenchVariables,
 } as const satisfies Catalog;
