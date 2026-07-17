@@ -7,51 +7,58 @@
  */
 
 import { Card, Tag } from 'antd';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Anchor, DiagramFrame, DocHeading, DocParagraph, OnThisPage } from '@openheaders/ui/shared/docs/shared';
 import { FilterExample } from '../filter-example';
 
-const FILTER_ANCHORS = [
-  { id: 'filter-text', title: 'Text' },
-  { id: 'filter-negation', title: 'Negation' },
-  { id: 'filter-phrase', title: 'Exact Phrase' },
-  { id: 'filter-domain', title: 'Domain' },
-  { id: 'filter-status-code', title: 'Status Code' },
-  { id: 'filter-method', title: 'Method' },
-  { id: 'filter-mime-type', title: 'MIME Type' },
-  { id: 'filter-has-response-header', title: 'Response Header' },
-  { id: 'filter-larger-than', title: 'Larger Than' },
-  { id: 'filter-from-cache', title: 'From Cache' },
-  { id: 'filter-match-case', title: 'Match Case' },
-  { id: 'filter-whole-word', title: 'Whole Word' },
-  { id: 'filter-regex', title: 'Regex' },
-  { id: 'filter-other-inputs', title: 'Other Filter Inputs' },
+const FILTER_ANCHORS: { id: string; titleKey: MessageKey }[] = [
+  { id: 'filter-text', titleKey: 'panel.docs.filterSyntax.textTitle' },
+  { id: 'filter-negation', titleKey: 'panel.docs.filterSyntax.negationTitle' },
+  { id: 'filter-phrase', titleKey: 'panel.docs.filterSyntax.phraseTitle' },
+  { id: 'filter-domain', titleKey: 'panel.docs.filterSyntax.domainTitle' },
+  { id: 'filter-status-code', titleKey: 'panel.docs.filterSyntax.statusCodeTitle' },
+  { id: 'filter-method', titleKey: 'panel.docs.filterSyntax.methodTitle' },
+  { id: 'filter-mime-type', titleKey: 'panel.docs.filterSyntax.mimeTypeTitle' },
+  { id: 'filter-has-response-header', titleKey: 'panel.docs.filterSyntax.responseHeaderTitle' },
+  { id: 'filter-larger-than', titleKey: 'panel.docs.filterSyntax.largerThanTitle' },
+  { id: 'filter-from-cache', titleKey: 'panel.docs.filterSyntax.fromCacheTitle' },
+  { id: 'filter-match-case', titleKey: 'panel.docs.filterSyntax.matchCaseTitle' },
+  { id: 'filter-whole-word', titleKey: 'panel.docs.filterSyntax.wholeWordTitle' },
+  { id: 'filter-regex', titleKey: 'panel.docs.filterSyntax.regexTitle' },
+  { id: 'filter-other-inputs', titleKey: 'panel.docs.filterSyntax.otherInputsTitle' },
 ];
 
 const CARD_STYLE = { marginBottom: 8 } as const;
 
 export function FilterSyntaxSection() {
+  const t = useT();
   return (
     <div>
       <DocParagraph>
-        The traffic filter combines free text, <code>key:value</code> property filters, and three match toggles.
-        Terms separated by spaces must ALL match (AND), and every card below runs its filter over the same
-        five-request example capture — each diagram is one slice of that picture.
+        {t('panel.docs.filterSyntax.intro1Prefix')} <code>key:value</code>{' '}
+        {t('panel.docs.filterSyntax.intro1Suffix')}
       </DocParagraph>
       <DocParagraph>
-        Every filter input in the panel — Network, Console, Storage, Headers, Cookies, Initiator, Messages — carries
-        the same three toggles (<code>Aa</code> match case, <code>ab</code> whole word, <code>.*</code> regex) and a{' '}
-        <code>×</code> button that clears the text. Keyboard: <code>Alt+C</code> / <code>Alt+W</code> /{' '}
-        <code>Alt+R</code> flip the toggles while the input has focus.
+        {t('panel.docs.filterSyntax.intro2Prefix')} (<code>Aa</code>{' '}
+        {t('panel.docs.filterSyntax.intro2MatchCase')}, <code>ab</code>{' '}
+        {t('panel.docs.filterSyntax.intro2WholeWord')}, <code>.*</code>{' '}
+        {t('panel.docs.filterSyntax.intro2Regex')}) {t('panel.docs.filterSyntax.intro2Middle')} <code>×</code>{' '}
+        {t('panel.docs.filterSyntax.intro2Suffix')} {t('panel.docs.filterSyntax.intro2Kbd')} <code>Alt+C</code> /{' '}
+        <code>Alt+W</code> / <code>Alt+R</code> {t('panel.docs.filterSyntax.intro2KbdSuffix')}
       </DocParagraph>
-      <OnThisPage entries={FILTER_ANCHORS} />
+      <OnThisPage entries={FILTER_ANCHORS.map((a) => ({ id: a.id, title: t(a.titleKey) }))} />
 
-      <DocHeading>Text filters</DocHeading>
+      <DocHeading>{t('panel.docs.filterSyntax.headingText')}</DocHeading>
 
       <Anchor id="filter-text">
-        <Card title="Text" extra={<Tag color="blue">api users</Tag>} style={CARD_STYLE}>
-          A bare term keeps every request whose URL contains it. Several terms AND together — a request must contain
-          all of them, in any position.
-          <DiagramFrame caption="Two terms — only the request whose URL contains both “api” and “users” survives.">
+        <Card
+          title={t('panel.docs.filterSyntax.textTitle')}
+          extra={<Tag color="blue">api users</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.text1')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.textCaption')}>
             <FilterExample
               filter="api users"
               verdicts={[
@@ -67,10 +74,16 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-negation">
-        <Card title="Negation" extra={<Tag color="blue">-term</Tag>} style={CARD_STYLE}>
-          A leading <code>-</code> flips any token: <code>-analytics</code> hides matching requests instead of keeping
-          them. Works on property filters too — <code>-domain:ads.example</code>, <code>-is:from-cache</code>.
-          <DiagramFrame caption="Everything stays EXCEPT requests matching the negated term.">
+        <Card
+          title={t('panel.docs.filterSyntax.negationTitle')}
+          extra={<Tag color="blue">-term</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.negation1Prefix')} <code>-</code>{' '}
+          {t('panel.docs.filterSyntax.negation1Middle')} <code>-analytics</code>{' '}
+          {t('panel.docs.filterSyntax.negation1Middle2')} <code>-domain:ads.example</code>,{' '}
+          <code>-is:from-cache</code>.
+          <DiagramFrame caption={t('panel.docs.filterSyntax.negationCaption')}>
             <FilterExample
               filter="-analytics"
               verdicts={[
@@ -86,10 +99,10 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-phrase">
-        <Card title="Exact Phrase" extra={<Tag color="blue">"…"</Tag>} style={CARD_STYLE}>
-          Quotes make one token out of text that contains spaces, and keep characters like <code>?</code> or{' '}
-          <code>=</code> literal — useful for query strings.
-          <DiagramFrame caption="The quoted phrase matches as one contiguous piece of the URL.">
+        <Card title={t('panel.docs.filterSyntax.phraseTitle')} extra={<Tag color="blue">"…"</Tag>} style={CARD_STYLE}>
+          {t('panel.docs.filterSyntax.phrase1Prefix')} <code>?</code> {t('panel.docs.filterSyntax.phrase1Or')}{' '}
+          <code>=</code> {t('panel.docs.filterSyntax.phrase1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.phraseCaption')}>
             <FilterExample
               filter='"users?page=2"'
               verdicts={[
@@ -104,17 +117,21 @@ export function FilterSyntaxSection() {
         </Card>
       </Anchor>
 
-      <DocHeading>Property filters</DocHeading>
+      <DocHeading>{t('panel.docs.filterSyntax.headingProperty')}</DocHeading>
       <DocParagraph>
-        A <code>key:value</code> token checks one attribute of the request instead of the whole URL. Property filters
-        compose with text tokens and with each other — all of them must match.
+        {t('panel.docs.filterSyntax.propertyIntroPrefix')} <code>key:value</code>{' '}
+        {t('panel.docs.filterSyntax.propertyIntroSuffix')}
       </DocParagraph>
 
       <Anchor id="filter-domain">
-        <Card title="Domain" extra={<Tag color="green">domain:</Tag>} style={CARD_STYLE}>
-          Matches the hostname by substring, so an apex domain catches every subdomain — <code>api.</code>,{' '}
-          <code>cdn.</code>, <code>static.</code> — without wildcards.
-          <DiagramFrame caption="One value covers every openheaders.io subdomain; the third-party host misses.">
+        <Card
+          title={t('panel.docs.filterSyntax.domainTitle')}
+          extra={<Tag color="green">domain:</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.domain1Prefix')} <code>api.</code>, <code>cdn.</code>, <code>static.</code>{' '}
+          {t('panel.docs.filterSyntax.domain1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.domainCaption')}>
             <FilterExample
               filter="domain:openheaders.io"
               verdicts={[
@@ -130,10 +147,13 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-status-code">
-        <Card title="Status Code" extra={<Tag color="green">status-code:</Tag>} style={CARD_STYLE}>
-          Keeps requests whose response carried exactly this code. Pending and failed requests have no code, so they
-          never match.
-          <DiagramFrame caption="Only the 404 survives — the exact code, not a range.">
+        <Card
+          title={t('panel.docs.filterSyntax.statusCodeTitle')}
+          extra={<Tag color="green">status-code:</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.statusCode1')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.statusCodeCaption')}>
             <FilterExample
               filter="status-code:404"
               verdicts={[
@@ -149,10 +169,15 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-method">
-        <Card title="Method" extra={<Tag color="green">method:</Tag>} style={CARD_STYLE}>
-          Keeps requests using this HTTP verb, compared case-insensitively — <code>method:post</code> and{' '}
-          <code>method:POST</code> are the same filter.
-          <DiagramFrame caption="Only the POST survives.">
+        <Card
+          title={t('panel.docs.filterSyntax.methodTitle')}
+          extra={<Tag color="green">method:</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.method1Prefix')} <code>method:post</code>{' '}
+          {t('panel.docs.filterSyntax.method1And')} <code>method:POST</code>{' '}
+          {t('panel.docs.filterSyntax.method1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.methodCaption')}>
             <FilterExample
               filter="method:POST"
               verdicts={[
@@ -168,10 +193,15 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-mime-type">
-        <Card title="MIME Type" extra={<Tag color="green">mime-type:</Tag>} style={CARD_STYLE}>
-          Matches the response's content type by substring — <code>mime-type:json</code> catches{' '}
-          <code>application/json</code>, <code>mime-type:image</code> catches every image format.
-          <DiagramFrame caption="Both JSON responses survive; scripts, fonts and images miss.">
+        <Card
+          title={t('panel.docs.filterSyntax.mimeTypeTitle')}
+          extra={<Tag color="green">mime-type:</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.mime1Prefix')} <code>mime-type:json</code>{' '}
+          {t('panel.docs.filterSyntax.mime1Catches')} <code>application/json</code>, <code>mime-type:image</code>{' '}
+          {t('panel.docs.filterSyntax.mime1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.mimeCaption')}>
             <FilterExample
               filter="mime-type:json"
               verdicts={[
@@ -187,10 +217,14 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-has-response-header">
-        <Card title="Response Header" extra={<Tag color="green">has-response-header:</Tag>} style={CARD_STYLE}>
-          Keeps requests whose response carries a header with this exact name — the value doesn't matter. Handy for
-          spotting CDN cache behavior (<code>x-cache</code>) or missing security headers (negate it).
-          <DiagramFrame caption="Only the CDN response carries an x-cache header.">
+        <Card
+          title={t('panel.docs.filterSyntax.responseHeaderTitle')}
+          extra={<Tag color="green">has-response-header:</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.respHeader1Prefix')} (<code>x-cache</code>){' '}
+          {t('panel.docs.filterSyntax.respHeader1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.respHeaderCaption')}>
             <FilterExample
               filter="has-response-header:x-cache"
               verdicts={[
@@ -206,10 +240,13 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-larger-than">
-        <Card title="Larger Than" extra={<Tag color="green">larger-than:</Tag>} style={CARD_STYLE}>
-          Keeps requests that transferred more than N bytes. Suffixes scale the number: <code>larger-than:100k</code>,{' '}
-          <code>larger-than:1M</code>.
-          <DiagramFrame caption="Only the 128 kB bundle clears the 100k threshold.">
+        <Card
+          title={t('panel.docs.filterSyntax.largerThanTitle')}
+          extra={<Tag color="green">larger-than:</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.largerThan1')} <code>larger-than:100k</code>, <code>larger-than:1M</code>.
+          <DiagramFrame caption={t('panel.docs.filterSyntax.largerThanCaption')}>
             <FilterExample
               filter="larger-than:100k"
               verdicts={[
@@ -225,10 +262,15 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-from-cache">
-        <Card title="From Cache" extra={<Tag color="green">is:from-cache</Tag>} style={CARD_STYLE}>
-          Keeps responses the browser served from cache — a <code>304</code>, or a disk/memory cache hit that never
-          touched the network. Negate it (<code>-is:from-cache</code>) to see only what actually crossed the wire.
-          <DiagramFrame caption="Only the cached tracking pixel survives.">
+        <Card
+          title={t('panel.docs.filterSyntax.fromCacheTitle')}
+          extra={<Tag color="green">is:from-cache</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.fromCache1Prefix')} <code>304</code>
+          {t('panel.docs.filterSyntax.fromCache1Middle')} (<code>-is:from-cache</code>){' '}
+          {t('panel.docs.filterSyntax.fromCache1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.fromCacheCaption')}>
             <FilterExample
               filter="is:from-cache"
               verdicts={[
@@ -243,18 +285,19 @@ export function FilterSyntaxSection() {
         </Card>
       </Anchor>
 
-      <DocHeading>Match toggles</DocHeading>
+      <DocHeading>{t('panel.docs.filterSyntax.headingToggles')}</DocHeading>
       <DocParagraph>
-        The three buttons inside the input change how text tokens compare. They apply to free text (and{' '}
-        <code>name:</code>/<code>value:</code> style tokens on the detail tabs); <code>is:</code> and the other
-        property filters keep their own semantics.
+        {t('panel.docs.filterSyntax.togglesIntroPrefix')} <code>name:</code>/<code>value:</code>{' '}
+        {t('panel.docs.filterSyntax.togglesIntroMiddle')} <code>is:</code>{' '}
+        {t('panel.docs.filterSyntax.togglesIntroSuffix')}
       </DocParagraph>
 
       <Anchor id="filter-match-case">
-        <Card title="Match Case" extra={<Tag>Aa · Alt+C</Tag>} style={CARD_STYLE}>
-          Off (the default), <code>V1</code> and <code>v1</code> are the same filter. On, the term must match the URL's
-          exact casing.
-          <DiagramFrame caption="With Aa on, “Users” matches nothing — every URL in the capture is lowercase.">
+        <Card title={t('panel.docs.filterSyntax.matchCaseTitle')} extra={<Tag>Aa · Alt+C</Tag>} style={CARD_STYLE}>
+          {t('panel.docs.filterSyntax.matchCase1Prefix')} <code>V1</code>{' '}
+          {t('panel.docs.filterSyntax.matchCase1And')} <code>v1</code>{' '}
+          {t('panel.docs.filterSyntax.matchCase1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.matchCaseCaption')}>
             <FilterExample
               filter="Users"
               toggles={{ matchCase: true }}
@@ -271,10 +314,10 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-whole-word">
-        <Card title="Whole Word" extra={<Tag>ab · Alt+W</Tag>} style={CARD_STYLE}>
-          The term only matches at word boundaries — <code>/</code>, <code>.</code>, <code>?</code>, <code>=</code> and
-          friends count as boundaries. Use it when a short term is buried inside longer words.
-          <DiagramFrame caption="“user” no longer matches inside “users” — with ab off, request #7 would match.">
+        <Card title={t('panel.docs.filterSyntax.wholeWordTitle')} extra={<Tag>ab · Alt+W</Tag>} style={CARD_STYLE}>
+          {t('panel.docs.filterSyntax.wholeWord1Prefix')} <code>/</code>, <code>.</code>, <code>?</code>,{' '}
+          <code>=</code> {t('panel.docs.filterSyntax.wholeWord1Suffix')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.wholeWordCaption')}>
             <FilterExample
               filter="user"
               toggles={{ wholeWord: true }}
@@ -291,10 +334,13 @@ export function FilterSyntaxSection() {
       </Anchor>
 
       <Anchor id="filter-regex">
-        <Card title="Regex" extra={<Tag color="purple">.* · Alt+R</Tag>} style={CARD_STYLE}>
-          The whole input becomes one regular expression tested against the URL — property tokens are not parsed in
-          this mode. A pattern that doesn't compile turns the input red and hides nothing.
-          <DiagramFrame caption="One pattern, two file types: URLs ending in .js or .woff2.">
+        <Card
+          title={t('panel.docs.filterSyntax.regexTitle')}
+          extra={<Tag color="purple">.* · Alt+R</Tag>}
+          style={CARD_STYLE}
+        >
+          {t('panel.docs.filterSyntax.regex1')}
+          <DiagramFrame caption={t('panel.docs.filterSyntax.regexCaption')}>
             <FilterExample
               filter="\.(js|woff2)$"
               toggles={{ regexMode: true }}
@@ -310,35 +356,41 @@ export function FilterSyntaxSection() {
         </Card>
       </Anchor>
 
-      <DocHeading>Everywhere else</DocHeading>
+      <DocHeading>{t('panel.docs.filterSyntax.headingElsewhere')}</DocHeading>
 
       <Anchor id="filter-other-inputs">
-        <Card title="Other Filter Inputs" style={CARD_STYLE}>
+        <Card title={t('panel.docs.filterSyntax.otherInputsTitle')} style={CARD_STYLE}>
           <DocParagraph>
-            The detail tabs carry the same input with their own property keys; the toggles and <code>-</code> negation
-            work identically in each:
+            {t('panel.docs.filterSyntax.otherIntroPrefix')} <code>-</code>{' '}
+            {t('panel.docs.filterSyntax.otherIntroSuffix')}
           </DocParagraph>
           <DocParagraph>
-            <strong>Headers</strong> — <code>name:cookie</code>, <code>value:no-cache</code>, <code>is:rule</code>,{' '}
-            <code>is:security</code>, <code>is:overridable</code>, <code>is:request</code> / <code>is:response</code>.
+            <strong>{t('panel.inspector.sections.headers')}</strong> — <code>name:cookie</code>,{' '}
+            <code>value:no-cache</code>, <code>is:rule</code>, <code>is:security</code>,{' '}
+            <code>is:overridable</code>, <code>is:request</code> / <code>is:response</code>.
           </DocParagraph>
           <DocParagraph>
-            <strong>Cookies</strong> — <code>name:sess</code>, <code>value:</code>, <code>domain:</code>,{' '}
-            <code>path:</code>, <code>is:secure</code>, <code>is:samesite-none</code>, <code>is:third-party</code>,{' '}
-            <code>is:problem</code>.
+            <strong>{t('panel.inspector.sections.cookies')}</strong> — <code>name:sess</code>,{' '}
+            <code>value:</code>, <code>domain:</code>, <code>path:</code>, <code>is:secure</code>,{' '}
+            <code>is:samesite-none</code>,{' '}
+            <code>is:third-party</code>, <code>is:problem</code>.
           </DocParagraph>
           <DocParagraph>
-            <strong>Initiator</strong> — <code>is:failed</code>, <code>is:third-party</code>, <code>type:js</code>,{' '}
-            <code>status:404</code>, <code>size:&gt;50kb</code>.
+            <strong>{t('panel.inspector.sections.initiator')}</strong> — <code>is:failed</code>,{' '}
+            <code>is:third-party</code>, <code>type:js</code>, <code>status:404</code>, <code>size:&gt;50kb</code>.
           </DocParagraph>
           <DocParagraph>
-            <strong>Console, Storage, Messages, Call Stack</strong> — plain text with the three toggles; Storage also
-            counts matches per section on its navigation rail while you type.
+            <strong>{t('panel.docs.filterSyntax.otherPlainGroup')}</strong> —{' '}
+            {t('panel.docs.filterSyntax.otherPlainBody')}
           </DocParagraph>
           <DocParagraph>
-            <strong>Search</strong> — plain text (or a regex under <code>.*</code>) with the three toggles, submitted
-            with Enter. The <em>Network / Storage / Console</em> chips pick which data it scans — at least one stays
-            selected — and each result opens its source: the request tab, the storage section, or the Console.
+            <strong>{t('panel.toolWindows.search')}</strong> — {t('panel.docs.filterSyntax.otherSearchPrefix')}{' '}
+            <code>.*</code>
+            {t('panel.docs.filterSyntax.otherSearchMiddle')}{' '}
+            <em>
+              {t('panel.toolWindows.network')} / {t('panel.toolWindows.storage')} / {t('panel.toolWindows.console')}
+            </em>{' '}
+            {t('panel.docs.filterSyntax.otherSearchSuffix')}
           </DocParagraph>
         </Card>
       </Anchor>
