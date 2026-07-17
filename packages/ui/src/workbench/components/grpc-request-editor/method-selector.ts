@@ -19,12 +19,16 @@ import {
 } from '@openheaders/core/proto';
 import type { GrpcMethodRef, Spec } from '@openheaders/core/types';
 
-/** Call-shape glyph per streaming shape — the S1 outline vocabulary. */
-export const GRPC_STREAMING_GLYPHS: Record<ProtoStreamingShape, string> = {
-  unary: '→',
-  'server-streaming': '⇊',
-  'client-streaming': '⇈',
-  'bidi-streaming': '⇅',
+/**
+ * Call-shape glyph per streaming shape — an up/down arrow pair where a
+ * double-struck arrow marks the streaming direction(s), so the shape
+ * reads without relying on the selector's color accent alone.
+ */
+export const GRPC_STREAMING_ARROWS: Record<ProtoStreamingShape, string> = {
+  unary: '↑↓',
+  'server-streaming': '↑⇓',
+  'client-streaming': '⇑↓',
+  'bidi-streaming': '⇑⇓',
 };
 
 export interface GrpcMethodOption {

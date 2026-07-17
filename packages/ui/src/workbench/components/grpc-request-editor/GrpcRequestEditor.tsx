@@ -41,6 +41,7 @@ import {
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
+import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef, GrpcRequest as GrpcRequestEntity } from '@openheaders/core/types';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -51,7 +52,7 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
-import { App, Button, Input, InputNumber, Select, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Input, InputNumber, Select, type SelectProps, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -74,7 +75,7 @@ import {
   findMethodOption,
   GRPC_IMPORT_PROTO_VALUE,
   GRPC_SPEC_LINK_VALUE_PREFIX,
-  GRPC_STREAMING_GLYPHS,
+  GRPC_STREAMING_ARROWS,
   parseGrpcSelectValue,
   synthesizeExampleText,
 } from './method-selector';
@@ -154,15 +155,40 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const exampleText = useMemo(() => synthesizeExampleText(derivation, draft.method), [derivation, draft.method]);
 
   const selectOptions = useMemo(() => {
-    const groups: Array<{ label: string; options: Array<{ value: string; label: string }> } | { value: string; label: string }> =
-      [];
+    // Call-shape accent per streaming direction; the double-struck
+    // arrow in GRPC_STREAMING_ARROWS keeps the shape readable without
+    // the color.
+    const streamingColors: Record<ProtoStreamingShape, string> = {
+      unary: token.colorInfo,
+      'server-streaming': token.colorWarning,
+      'client-streaming': token.colorSuccess,
+      'bidi-streaming': token.colorError,
+    };
+    const glyph = (streaming: ProtoStreamingShape) => (
+      <span style={{ color: streamingColors[streaming], marginRight: 6 }}>{GRPC_STREAMING_ARROWS[streaming]}</span>
+    );
+    const groups: NonNullable<SelectProps['options']> = [];
     if (linkedSpec) {
       for (const group of derivation?.groups ?? []) {
         groups.push({
           label: group.service,
           options: group.options.map((option) => ({
             value: `${option.service}/${option.rpc}`,
-            label: `${GRPC_STREAMING_GLYPHS[option.streaming]} ${option.rpc}`,
+            label: (
+              <span>
+                {glyph(option.streaming)}
+                {option.rpc}
+              </span>
+            ),
+            // The closed field names the call Postman-style: short
+            // service name / rpc, glyph first.
+            selectedLabel: (
+              <span>
+                {glyph(option.streaming)}
+                {option.service.split('.').pop()} / {option.rpc}
+              </span>
+            ),
+            title: option.rpc,
           })),
         });
       }
@@ -175,28 +201,39 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           options: protobufSpecs.map((s) => ({
             value: `${GRPC_SPEC_LINK_VALUE_PREFIX}${s.uid}`,
             label: s.name,
+            selectedLabel: s.name,
+            title: s.name,
           })),
         });
       }
       if (workspaceId) {
-        groups.push({ value: GRPC_IMPORT_PROTO_VALUE, label: t('workbench.editors.grpc.method.importProto') });
+        const importLabel = t('workbench.editors.grpc.method.importProto');
+        groups.push({
+          value: GRPC_IMPORT_PROTO_VALUE,
+          label: importLabel,
+          selectedLabel: importLabel,
+          title: importLabel,
+        });
       }
     }
     // A persisted method the spec no longer declares stays visible as
     // an unresolved entry instead of silently blanking the select.
     if (draft.method && !selectedOption) {
+      const unresolvedLabel = t('workbench.editors.grpc.method.unresolvedOption', { rpc: draft.method.rpc });
       groups.push({
         label: t('workbench.editors.grpc.method.unresolvedGroup'),
         options: [
           {
             value: methodKey(draft.method),
-            label: t('workbench.editors.grpc.method.unresolvedOption', { rpc: draft.method.rpc }),
+            label: unresolvedLabel,
+            selectedLabel: unresolvedLabel,
+            title: draft.method.rpc,
           },
         ],
       });
     }
     return groups;
-  }, [linkedSpec, derivation, protobufSpecs, workspaceId, draft.method, selectedOption, t]);
+  }, [linkedSpec, derivation, protobufSpecs, workspaceId, draft.method, selectedOption, t, token]);
 
   const protoFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -469,6 +506,37 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
             options={selectOptions}
             onChange={handleSelectChange}
             showSearch
+            optionFilterProp="title"
+            optionLabelProp="selectedLabel"
+            popupRender={(menu) => (
+              <>
+                {menu}
+                {linkedSpec && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      marginTop: 4,
+                      padding: '4px 12px 0',
+                      borderTop: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {t('workbench.editors.grpc.specFooter.using', { name: linkedSpec.name })}
+                    </Text>
+                    <Tooltip title={t('workbench.editors.grpc.specFooter.refresh')}>
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={<ReloadOutlined style={{ fontSize: 11 }} />}
+                        onClick={() => setDerivationNonce((n) => n + 1)}
+                      />
+                    </Tooltip>
+                  </div>
+                )}
+              </>
+            )}
             data-testid="grpc-method-select"
           />
           <input

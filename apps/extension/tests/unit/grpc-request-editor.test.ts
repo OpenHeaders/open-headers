@@ -27,7 +27,7 @@ import {
   findMethodOption,
   GRPC_IMPORT_PROTO_VALUE,
   GRPC_SPEC_LINK_VALUE_PREFIX,
-  GRPC_STREAMING_GLYPHS,
+  GRPC_STREAMING_ARROWS,
   parseGrpcSelectValue,
   synthesizeExampleText,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/method-selector';
@@ -81,12 +81,12 @@ describe('deriveGrpcMethods', () => {
     expect(derivation.parseFailures).toEqual([]);
   });
 
-  it('carries one glyph per call shape', () => {
-    expect(GRPC_STREAMING_GLYPHS).toEqual({
-      unary: '→',
-      'server-streaming': '⇊',
-      'client-streaming': '⇈',
-      'bidi-streaming': '⇅',
+  it('carries one arrow pair per call shape, double-struck on the streaming side', () => {
+    expect(GRPC_STREAMING_ARROWS).toEqual({
+      unary: '↑↓',
+      'server-streaming': '↑⇓',
+      'client-streaming': '⇑↓',
+      'bidi-streaming': '⇑⇓',
     });
   });
 
