@@ -10,6 +10,7 @@ import type { Rule } from '@openheaders/core/types';
 import { isRuleDraft } from '@openheaders/core/utils';
 import { App as AntApp, Button } from 'antd';
 import { useCallback } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { applyRuleDelete } from '@openheaders/ui/shared/sync/rule-write-client';
 import type { WorkbenchTab } from '../types';
 
@@ -62,6 +63,7 @@ export function useTabLifecycle({
   // instance from the surrounding <App> wrapper fixes both colors and
   // component tokens inside the dialog.
   const { modal } = AntApp.useApp();
+  const t = useT();
 
   // ── Confirmation modal ──────────────────────────────────────────
 
@@ -69,11 +71,13 @@ export function useTabLifecycle({
     (tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> => {
       return new Promise((resolve) => {
         const instance = modal.confirm({
-          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Save changes?</span>,
+          title: (
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.tabbar.closeGuard.unsavedTitle')}</span>
+          ),
           width: 380,
           content: (
             <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.5 }}>
-              <strong>{tab.label}</strong> has unsaved changes. Save these changes to avoid losing your work.
+              <strong>{tab.label}</strong> {t('workbench.tabbar.closeGuard.unsavedBody')}
             </p>
           ),
           icon: null,
@@ -91,7 +95,7 @@ export function useTabLifecycle({
                   resolve('discard');
                 }}
               >
-                Don&apos;t save
+                {t('workbench.tabbar.closeGuard.dontSave')}
               </Button>
               <Button
                 size="small"
@@ -100,7 +104,7 @@ export function useTabLifecycle({
                   resolve('cancel');
                 }}
               >
-                Cancel
+                {t('workbench.tabbar.closeGuard.cancel')}
               </Button>
               <Button
                 size="small"
@@ -111,14 +115,14 @@ export function useTabLifecycle({
                   resolve('save');
                 }}
               >
-                Save changes
+                {t('workbench.tabbar.closeGuard.save')}
               </Button>
             </div>
           ),
         });
       });
     },
-    [modal],
+    [modal, t],
   );
 
   // Draft-rule discard prompt. The rule lives in storage from the
@@ -130,12 +134,11 @@ export function useTabLifecycle({
     (tab: { id: string; label: string }): Promise<'discard' | 'keep' | 'cancel'> => {
       return new Promise((resolve) => {
         const instance = modal.confirm({
-          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Discard draft?</span>,
+          title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.tabbar.closeGuard.draftTitle')}</span>,
           width: 380,
           content: (
             <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.5 }}>
-              <strong>{tab.label}</strong> hasn&apos;t been published yet. Discarding deletes the draft; keeping leaves
-              it in your sidebar to finish later.
+              <strong>{tab.label}</strong> {t('workbench.tabbar.closeGuard.draftBody')}
             </p>
           ),
           icon: null,
@@ -154,7 +157,7 @@ export function useTabLifecycle({
                   resolve('discard');
                 }}
               >
-                Discard
+                {t('workbench.tabbar.closeGuard.discard')}
               </Button>
               <Button
                 size="small"
@@ -163,7 +166,7 @@ export function useTabLifecycle({
                   resolve('cancel');
                 }}
               >
-                Cancel
+                {t('workbench.tabbar.closeGuard.cancel')}
               </Button>
               <Button
                 size="small"
@@ -173,14 +176,14 @@ export function useTabLifecycle({
                   resolve('keep');
                 }}
               >
-                Keep as draft
+                {t('workbench.tabbar.closeGuard.keep')}
               </Button>
             </div>
           ),
         });
       });
     },
-    [modal],
+    [modal, t],
   );
 
   // ── Single tab close with confirmation ──────────────────────────

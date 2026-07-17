@@ -193,6 +193,20 @@ export const workbenchChrome = {
   'workbench.tabbar.menu.unsplit': 'Unsplit',
   'workbench.tabbar.menu.unsplitAll': 'Unsplit All',
 
+  // ── Tab strip: close guard confirms (useTabLifecycle) ───────────────
+  // The dialog bodies follow a bolded tab label in the JSX, so they key
+  // as the sentence remainder (OnboardingTour bold-prefix idiom).
+  'workbench.tabbar.closeGuard.unsavedTitle': 'Save changes?',
+  'workbench.tabbar.closeGuard.unsavedBody': 'has unsaved changes. Save these changes to avoid losing your work.',
+  'workbench.tabbar.closeGuard.dontSave': 'Don’t save',
+  'workbench.tabbar.closeGuard.cancel': 'Cancel',
+  'workbench.tabbar.closeGuard.save': 'Save changes',
+  'workbench.tabbar.closeGuard.draftTitle': 'Discard draft?',
+  'workbench.tabbar.closeGuard.draftBody':
+    'hasn’t been published yet. Discarding deletes the draft; keeping leaves it in your sidebar to finish later.',
+  'workbench.tabbar.closeGuard.discard': 'Discard',
+  'workbench.tabbar.closeGuard.keep': 'Keep as draft',
+
   // ── Tab strip: bar chrome + search overlay ──────────────────────────
   'workbench.tabbar.createApiRequest': 'Create API Request',
   'workbench.tabbar.createItem': 'Create item',
