@@ -12,6 +12,8 @@
  */
 
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { MessageKey } from '@openheaders/i18n';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -119,24 +121,24 @@ interface StoragePanelProps {
   activeStorageTabId?: string | null;
 }
 
-const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string; icon: React.ReactNode }> = [
-  { value: 'local', label: 'Local storage', icon: <TableIcon /> },
-  { value: 'session', label: 'Session storage', icon: <TableIcon /> },
-  { value: 'cookies', label: 'Cookies', icon: <CookieIcon /> },
-  { value: 'indexeddb', label: 'IndexedDB', icon: <DatabaseIcon /> },
-  { value: 'cachestorage', label: 'Cache Storage', icon: <DatabaseIcon /> },
-  { value: 'quota', label: 'Usage', icon: <UsagePieIcon /> },
+const SECTIONS: ReadonlyArray<{ value: StorageSection; labelKey: MessageKey; icon: React.ReactNode }> = [
+  { value: 'local', labelKey: 'panel.storage.nav.local', icon: <TableIcon /> },
+  { value: 'session', labelKey: 'panel.storage.nav.session', icon: <TableIcon /> },
+  { value: 'cookies', labelKey: 'panel.storage.nav.cookies', icon: <CookieIcon /> },
+  { value: 'indexeddb', labelKey: 'panel.storage.nav.indexeddb', icon: <DatabaseIcon /> },
+  { value: 'cachestorage', labelKey: 'panel.storage.nav.cachestorage', icon: <DatabaseIcon /> },
+  { value: 'quota', labelKey: 'panel.storage.nav.quota', icon: <UsagePieIcon /> },
 ];
 
 function areaName(section: StorageSection): string {
   return section === 'session' ? 'sessionStorage' : 'localStorage';
 }
 
-const READ_ONLY_ADD_TITLES = {
-  indexeddb: 'IndexedDB is read-only here',
-  cachestorage: 'Cache Storage is read-only here',
-  quota: 'Usage is read-only',
-} as const;
+const READ_ONLY_ADD_TITLE_KEYS = {
+  indexeddb: 'panel.storage.addReadOnly.indexeddb',
+  cachestorage: 'panel.storage.addReadOnly.cachestorage',
+  quota: 'panel.storage.addReadOnly.quota',
+} as const satisfies Partial<Record<StorageSection, MessageKey>>;
 
 export function StoragePanel({
   onHide,
@@ -148,6 +150,7 @@ export function StoragePanel({
   onRevealConsumed,
   activeStorageTabId,
 }: StoragePanelProps) {
+  const t = useT();
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const [section, setSection] = useState<StorageSection>('local');
   const inspector = useStorageInspector(section);
@@ -517,7 +520,7 @@ export function StoragePanel({
     const common = { section, filterActive, matchingSections };
     if (section === 'cookies') {
       if (!sortedCookies) return null;
-      return buildStorageFooterStatus({
+      return buildStorageFooterStatus(t, {
         ...common,
         filteredCount: filteredCookies.length,
         totalCount: sortedCookies.length,
@@ -531,7 +534,7 @@ export function StoragePanel({
     if (section === 'indexeddb' || section === 'cachestorage') {
       const total = section === 'indexeddb' ? idb.databases?.length : cacheStorage.caches?.length;
       if (total === undefined) return null;
-      return buildStorageFooterStatus({
+      return buildStorageFooterStatus(t, {
         ...common,
         filteredCount: null,
         totalCount: total,
@@ -544,7 +547,7 @@ export function StoragePanel({
     }
     if (section === 'quota') {
       if (quota.quota === null) return null;
-      return buildStorageFooterStatus({
+      return buildStorageFooterStatus(t, {
         ...common,
         filteredCount: null,
         totalCount: 0,
@@ -556,7 +559,7 @@ export function StoragePanel({
       });
     }
     if (inspector.snapshot === null) return null;
-    return buildStorageFooterStatus({
+    return buildStorageFooterStatus(t, {
       ...common,
       filteredCount: filtered.length,
       totalCount: entries.length,
@@ -584,6 +587,7 @@ export function StoragePanel({
     quota.quota,
     filtered,
     entries,
+    t,
   ]);
   useEffect(() => {
     setStorageFooterStatus(footerStatus);
@@ -641,30 +645,34 @@ export function StoragePanel({
               ? inspector.clearArea
               : null;
 
+  // The scope-bar note — the same keyed count/alert vocabulary the
+  // footer line reads, ' · ' joined (independent-clause join).
   const scopeNote =
     section === 'cookies'
       ? [
-          sortedCookies ? `${filteredCookies.length} of ${sortedCookies.length} cookies` : '',
-          cookieWriteFailed ? ' · write failed' : '',
+          sortedCookies
+            ? t('panel.storage.count.cookiesOf', { shown: filteredCookies.length, count: sortedCookies.length })
+            : '',
+          cookieWriteFailed ? ` · ${t('panel.storage.note.writeFailed')}` : '',
         ].join('')
       : section === 'indexeddb'
         ? [
-            idb.databases ? `${idb.databases.length} ${idb.databases.length === 1 ? 'database' : 'databases'}` : '',
-            idb.mutationFailed ? ' · delete failed' : '',
+            idb.databases ? t('panel.storage.count.databases', { count: idb.databases.length }) : '',
+            idb.mutationFailed ? ` · ${t('panel.storage.note.deleteFailed')}` : '',
           ].join('')
         : section === 'cachestorage'
           ? [
-              cacheStorage.caches
-                ? `${cacheStorage.caches.length} ${cacheStorage.caches.length === 1 ? 'cache' : 'caches'}`
-                : '',
-              cacheStorage.mutationFailed ? ' · delete failed' : '',
+              cacheStorage.caches ? t('panel.storage.count.caches', { count: cacheStorage.caches.length }) : '',
+              cacheStorage.mutationFailed ? ` · ${t('panel.storage.note.deleteFailed')}` : '',
             ].join('')
           : [
-            inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
-            inspector.snapshot?.truncated ? ' · list truncated' : '',
-            inspector.readFailed ? ' · read failed — showing last data' : '',
-            inspector.writeFailed ? ' · write failed' : '',
-          ].join('');
+              inspector.snapshot
+                ? t('panel.storage.count.itemsOf', { shown: filtered.length, count: entries.length })
+                : '',
+              inspector.snapshot?.truncated ? ` · ${t('panel.storage.note.truncated')}` : '',
+              inspector.readFailed ? ` · ${t('panel.storage.note.readFailed')}` : '',
+              inspector.writeFailed ? ` · ${t('panel.storage.note.writeFailed')}` : '',
+            ].join('');
 
   return (
     <div className="dt-panel" ref={rootRef}>
@@ -672,7 +680,7 @@ export function StoragePanel({
         wiring={wiring}
         title={
           <div className="dt-header-filter-row">
-            <strong className="dt-header-panel-name">Storage</strong>
+            <strong className="dt-header-panel-name">{t('panel.toolWindows.storage')}</strong>
             <div className="dt-filter-separator" />
             <FilterInput
               value={textFilter}
@@ -680,7 +688,7 @@ export function StoragePanel({
               config={filterConfig}
               onConfigChange={setFilterConfig}
               hasError={filterPredicate.error}
-              ariaLabel="Filter storage entries"
+              ariaLabel={t('panel.storage.filterAria')}
             />
             <div className="dt-filter-separator" />
             {section === 'cookies' ? (
@@ -689,8 +697,8 @@ export function StoragePanel({
                   type="button"
                   className="dt-toolbar-icon"
                   disabled={!cookiesWritable}
-                  title="Add a cookie to the browser jar (including HttpOnly)"
-                  aria-label="Add cookie"
+                  title={t('panel.storage.addCookieTitle')}
+                  aria-label={t('panel.storage.addCookieAria')}
                 >
                   <PlusOutlined />
                 </button>
@@ -700,8 +708,8 @@ export function StoragePanel({
                 type="button"
                 className="dt-toolbar-icon"
                 disabled
-                title={READ_ONLY_ADD_TITLES[section]}
-                aria-label={READ_ONLY_ADD_TITLES[section]}
+                title={t(READ_ONLY_ADD_TITLE_KEYS[section])}
+                aria-label={t(READ_ONLY_ADD_TITLE_KEYS[section])}
               >
                 <PlusOutlined />
               </button>
@@ -711,8 +719,8 @@ export function StoragePanel({
                 className="dt-toolbar-icon"
                 onClick={() => setAdding(true)}
                 disabled={!canWrite}
-                title="Add entry"
-                aria-label="Add storage entry"
+                title={t('panel.storage.addEntryTitle')}
+                aria-label={t('panel.storage.addEntryAria')}
               >
                 <PlusOutlined />
               </button>
@@ -726,8 +734,8 @@ export function StoragePanel({
                 if (section === 'cachestorage') cacheStorage.refresh();
                 if (section === 'quota') quota.refresh();
               }}
-              title="Refresh"
-              aria-label="Refresh storage"
+              title={t('panel.storage.refreshTitle')}
+              aria-label={t('panel.storage.refreshAria')}
             >
               <ReloadOutlined />
             </button>
@@ -736,13 +744,13 @@ export function StoragePanel({
       />
       <FilterHiddenNote
         hint={filterHint}
-        message="Revealed row is hidden by the active filter"
+        message={t('panel.storage.revealedHidden')}
         onClearFilter={clearFilterForHint}
         onDismiss={dismissFilterHint}
       />
 
       <div className="dt-storage-layout">
-        <nav className="dt-storage-nav" aria-label="Storage type">
+        <nav className="dt-storage-nav" aria-label={t('panel.storage.nav.aria')}>
           {SECTIONS.map((s) => (
             <button
               key={s.value}
@@ -754,9 +762,12 @@ export function StoragePanel({
               onClick={() => setSection(s.value)}
             >
               <span className="dt-storage-nav-icon">{s.icon}</span>
-              {s.label}
+              {t(s.labelKey)}
               {navMatchCounts[s.value] !== undefined && navMatchCounts[s.value] !== 0 && (
-                <span className="dt-storage-nav-badge" title={`${navMatchCounts[s.value]} matches`}>
+                <span
+                  className="dt-storage-nav-badge"
+                  title={t('panel.storage.nav.badgeTitle', { count: navMatchCounts[s.value] ?? 0 })}
+                >
                   {navMatchCounts[s.value]}
                 </span>
               )}
@@ -771,7 +782,7 @@ export function StoragePanel({
                 className="dt-storage-scope-select"
                 value={inspector.selectedOrigin ?? ''}
                 onChange={(e) => inspector.selectOrigin(e.target.value)}
-                aria-label="Storage origin"
+                aria-label={t('panel.storage.originAria')}
               >
                 {inspector.scopes.map((s) => (
                   <option key={s.origin} value={s.origin}>
@@ -783,9 +794,13 @@ export function StoragePanel({
               {partition?.partitioned && (
                 <span
                   className="dt-storage-partition-chip"
-                  title={`Partitioned storage — this origin's data here is keyed under ${partition.topLevelSite ?? 'a partition'}.\nStorage key: ${partition.raw}`}
+                  title={t('panel.storage.partitionedTitle', {
+                    site: partition.topLevelSite ?? t('panel.storage.partitionFallback'),
+                    raw: partition.raw,
+                  })}
                 >
-                  partitioned{partition.topLevelSite ? ` · ${partition.topLevelSite}` : ''}
+                  {t('panel.storage.partitionedChip')}
+                  {partition.topLevelSite ? ` · ${partition.topLevelSite}` : ''}
                 </span>
               )}
               <span className="dt-storage-scope-note">{scopeNote}</span>
@@ -796,10 +811,10 @@ export function StoragePanel({
                   <span className="dt-storage-clear-group">
                     {sectionClearOutcome === 'ok' ? (
                       <span className="dt-storage-quota-clear-done" role="status">
-                        ✓ cleared
+                        {t('panel.storage.cleared')}
                       </span>
                     ) : sectionClearOutcome === 'fail' ? (
-                      <span className="dt-storage-quota-clear-failed">clear failed</span>
+                      <span className="dt-storage-quota-clear-failed">{t('panel.storage.clearFailed')}</span>
                     ) : null}
                     {sectionClear !== null &&
                       sectionClearOutcome !== 'pending' &&
@@ -851,10 +866,8 @@ export function StoragePanel({
                 )
               ) : (
                 <div className="dt-empty-hero">
-                  <strong>No inspectable origins</strong>
-                  <span className="dt-empty-hero-sub">
-                    This tab has no http(s) frames — browser-internal pages can’t be inspected.
-                  </span>
+                  <strong>{t('panel.storage.empty.noOriginsTitle')}</strong>
+                  <span className="dt-empty-hero-sub">{t('panel.storage.empty.noOriginsSub')}</span>
                 </div>
               )
             ) : (
@@ -876,25 +889,49 @@ export function StoragePanel({
   );
 }
 
-/** Two-step inline confirm — first click arms, second commits. */
-const CLEAR_ALL_WORDING: Partial<Record<StorageSection, { label: string; noun: string }>> = {
-  cookies: { label: 'Clear cookies', noun: 'cookie in this site’s jar' },
-  indexeddb: { label: 'Clear IndexedDB', noun: 'IndexedDB database' },
-  cachestorage: { label: 'Clear Cache Storage', noun: 'cache' },
+/** Two-step inline confirm — first click arms, second commits. The
+ *  per-section wording is whole-sentence keys (no noun stitching);
+ *  Usage never renders this button, so it falls back to the DOM areas. */
+const CLEAR_ALL_KEYS: Partial<
+  Record<StorageSection, { label: MessageKey; title: MessageKey; armedTitle: MessageKey }>
+> = {
+  local: {
+    label: 'panel.storage.clear.label.local',
+    title: 'panel.storage.clear.title.local',
+    armedTitle: 'panel.storage.clear.armedTitle.local',
+  },
+  session: {
+    label: 'panel.storage.clear.label.session',
+    title: 'panel.storage.clear.title.session',
+    armedTitle: 'panel.storage.clear.armedTitle.session',
+  },
+  cookies: {
+    label: 'panel.storage.clear.label.cookies',
+    title: 'panel.storage.clear.title.cookies',
+    armedTitle: 'panel.storage.clear.armedTitle.cookies',
+  },
+  indexeddb: {
+    label: 'panel.storage.clear.label.indexeddb',
+    title: 'panel.storage.clear.title.indexeddb',
+    armedTitle: 'panel.storage.clear.armedTitle.indexeddb',
+  },
+  cachestorage: {
+    label: 'panel.storage.clear.label.cachestorage',
+    title: 'panel.storage.clear.title.cachestorage',
+    armedTitle: 'panel.storage.clear.armedTitle.cachestorage',
+  },
 };
 
 function ClearAllButton({ section, onClear }: { section: StorageSection; onClear: () => Promise<boolean> }) {
+  const t = useT();
   const [armed, setArmed] = useState(false);
-  const wording = CLEAR_ALL_WORDING[section] ?? {
-    label: section === 'session' ? 'Clear session storage' : 'Clear local storage',
-    noun: `${areaName(section)} entry`,
-  };
-  const { label, noun } = wording;
+  const keys = CLEAR_ALL_KEYS[section] ?? CLEAR_ALL_KEYS.local;
+  if (!keys) return null;
   return (
     <button
       type="button"
       className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
-      title={armed ? `Deletes every ${noun} for this origin` : `Clear every ${noun}`}
+      title={armed ? t(keys.armedTitle) : t(keys.title)}
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -905,7 +942,7 @@ function ClearAllButton({ section, onClear }: { section: StorageSection; onClear
       }}
       onBlur={() => setArmed(false)}
     >
-      {armed ? 'Confirm clear?' : label}
+      {armed ? t('panel.storage.confirmClear') : t(keys.label)}
     </button>
   );
 }
@@ -931,6 +968,7 @@ function StorageBody({
   onOpenEntry,
   isEntryActive,
 }: StorageBodyProps) {
+  const t = useT();
   const { available, loading, selectedOrigin: origin } = inspector;
   const hasScopes = inspector.scopes.length > 0;
   const hasSnapshot = inspector.snapshot !== null;
@@ -938,30 +976,28 @@ function StorageBody({
   if (!available) {
     return (
       <div className="dt-empty-hero">
-        <strong>Storage inspection isn’t available here</strong>
-        <span className="dt-empty-hero-sub">This host doesn’t expose the inspected tab’s application storage.</span>
+        <strong>{t('panel.storage.empty.notAvailableTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.empty.notAvailableSub')}</span>
       </div>
     );
   }
   if (!hasScopes) {
     return (
       <div className="dt-empty-hero">
-        <strong>No inspectable origins</strong>
-        <span className="dt-empty-hero-sub">
-          This tab has no http(s) frames with DOM storage — browser-internal pages can’t be inspected.
-        </span>
+        <strong>{t('panel.storage.empty.noOriginsTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.empty.noOriginsDomSub')}</span>
       </div>
     );
   }
   if (loading && !hasSnapshot) {
-    return <div className="dt-empty">Loading…</div>;
+    return <div className="dt-empty">{t('panel.storage.empty.loading')}</div>;
   }
   if (!hasSnapshot) {
     return (
       <div className="dt-empty-hero">
-        <strong>Storage unavailable</strong>
+        <strong>{t('panel.storage.empty.unavailableTitle')}</strong>
         <span className="dt-empty-hero-sub">
-          The frame for {origin ?? 'this origin'} can’t be read right now — it may have navigated away.
+          {t('panel.storage.empty.unavailableSub', { origin: origin ?? t('panel.storage.thisOrigin') })}
         </span>
       </div>
     );
@@ -969,12 +1005,12 @@ function StorageBody({
   if (totalCount === 0 && !adding) {
     return (
       <div className="dt-empty">
-        No items in {areaName(section)} for {origin}.
+        {t('panel.storage.empty.noItems', { area: areaName(section), origin: origin ?? '' })}
       </div>
     );
   }
   if (entries.length === 0 && !adding) {
-    return <div className="dt-empty">No items match your filter.</div>;
+    return <div className="dt-empty">{t('panel.storage.empty.noItemsMatch')}</div>;
   }
   return (
     <StorageGrid
@@ -1015,34 +1051,35 @@ function CookiesBody({
   onOpen,
   isActive,
 }: CookiesBodyProps) {
+  const t = useT();
   const hasScopes = inspector.scopes.length > 0;
 
   if (!isCookieJarReadable()) {
     return (
       <div className="dt-empty-hero">
-        <strong>Cookies aren’t available here</strong>
-        <span className="dt-empty-hero-sub">This host doesn’t expose the browser cookie jar.</span>
+        <strong>{t('panel.storage.empty.cookiesUnavailableTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.empty.cookiesUnavailableSub')}</span>
       </div>
     );
   }
   if (!inspector.available || !hasScopes) {
     return (
       <div className="dt-empty-hero">
-        <strong>No inspectable origins</strong>
-        <span className="dt-empty-hero-sub">
-          This tab has no http(s) frames — browser-internal pages carry no site cookies.
-        </span>
+        <strong>{t('panel.storage.empty.noOriginsTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.empty.noOriginsCookiesSub')}</span>
       </div>
     );
   }
   if (cookies === null) {
-    return <div className="dt-empty">Loading…</div>;
+    return <div className="dt-empty">{t('panel.storage.empty.loading')}</div>;
   }
   if (cookies.length === 0) {
-    return <div className="dt-empty">No cookies for {inspector.selectedOrigin}.</div>;
+    return (
+      <div className="dt-empty">{t('panel.storage.empty.noCookies', { origin: inspector.selectedOrigin ?? '' })}</div>
+    );
   }
   if (filteredCookies.length === 0) {
-    return <div className="dt-empty">No cookies match your filter.</div>;
+    return <div className="dt-empty">{t('panel.storage.empty.noCookiesMatch')}</div>;
   }
   return (
     <CookiesSection

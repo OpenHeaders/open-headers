@@ -6,11 +6,13 @@
  * plumbing it passes down.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
+import { useMemo } from 'react';
 import { explainFilteredOut } from '../../data/cookies/cookie-enrich';
 import { type JarCookie, type JarCookieEdit, jarCookieRowKey, type SiteJarCookie } from '../../data/cookies/cookie-jar-cache';
 import { walkListSelection } from '../walk-list-selection';
-import { CookieJarRow } from './CookieJarRow';
+import { buildCookieRowLabels, CookieJarRow } from './CookieJarRow';
 import { JarCookieColumnInfo } from './JarCookieColumnInfo';
 import { StorageColumnHeaderCell } from './StorageColumnHeaderCell';
 
@@ -46,6 +48,8 @@ export function CookiesSection({
   onOpen,
   isActive,
 }: CookiesSectionProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildCookieRowLabels(t), [t]);
   const now = Date.now();
   const parsedScope = safeParseUrl(scopeUrl);
 
@@ -88,7 +92,7 @@ export function CookiesSection({
     <div
       className="dt-storage-grid dt-storage-grid--cookies"
       role="grid"
-      aria-label="Cookies"
+      aria-label={t('panel.storage.nav.cookies')}
       tabIndex={0}
       onKeyDown={handleGridKeyDown}
     >
@@ -112,6 +116,7 @@ export function CookiesSection({
           onOpen={onOpen ? () => onOpen(c) : undefined}
           onApplyEdit={onApplyEdit}
           onDelete={onDelete}
+          labels={rowLabels}
         />
       ))}
     </div>

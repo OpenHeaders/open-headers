@@ -4,8 +4,12 @@
  * popover leads with the cookie editor's canonical Set-Cookie example
  * (`CookieEditFieldInfo`'s card), each column lighting up its own
  * slice, so the grid and the editor teach against the same cookie.
+ * Titles stay the raw column nouns; the Sec corpus reuses the
+ * inspector cookie grid's keys — the SecurityGlyphs vocabulary is one
+ * referent on both surfaces.
  */
 
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { CookieExampleCard, type CookieExampleToken } from '../detail/cookies/CookieEditFieldInfo';
 
@@ -22,71 +26,82 @@ const HIGHLIGHT: Record<JarCookieColumnKey, readonly CookieExampleToken[]> = {
   sec: ['secure', 'httponly', 'samesite'],
 };
 
-const JAR_COOKIE_COLUMN_INFO: Record<JarCookieColumnKey, InfoPopoverContent> = {
-  name: {
-    title: 'Name',
-    kicker: 'Cookies',
-    summary:
-      'The cookie identifier. Browsers key on (name, domain, path) — the same name with a different scope is a separate cookie.',
-    description:
-      'A warning triangle marks a site-jar cookie the browser would NOT attach to a request to the inspected page — hover it for the reason (path scoped elsewhere, Secure-only on http, subdomain scoped, …).',
-    diagram: <CookieExampleCard highlight={HIGHLIGHT.name} />,
-  },
-  value: {
-    title: 'Value',
-    kicker: 'Cookies',
-    summary: 'The cookie payload — what the browser sends back in the Cookie header.',
-    description:
-      'Click a row to open the cookie as an editor tab with the full value and parsed views; the pencil edits inline.',
-    diagram: <CookieExampleCard highlight={HIGHLIGHT.value} />,
-  },
-  scope: {
-    title: 'Domain · Path',
-    kicker: 'Cookies',
-    summary: 'Where the browser attaches this cookie — its Domain plus, when narrower than /, its Path.',
-    description:
-      'A domain-wide cookie (stored with a leading dot) flows to subdomains too; a host-only cookie is pinned to exactly its host. The path is a prefix — /api means only requests under /api carry it.',
-    diagram: <CookieExampleCard highlight={HIGHLIGHT.scope} />,
-  },
-  expires: {
-    title: 'Expires',
-    kicker: 'Cookies',
-    summary: 'When the browser deletes the cookie, shown relative to now — hover for the absolute date.',
-    description: 'Session means no Expires / Max-Age — the browser drops the cookie when the session ends.',
-    diagram: <CookieExampleCard highlight={HIGHLIGHT.expires} />,
-  },
-  sec: {
-    title: 'Security (S H L)',
-    kicker: 'Cookies',
-    summary:
-      'Three glyphs collapse the Secure / HttpOnly / SameSite attributes into one cell. Color carries the meaning.',
-    diagram: <CookieExampleCard highlight={HIGHLIGHT.sec} />,
-    sections: [
-      {
-        heading: 'Glyphs',
-        items: [
-          { label: 'S', desc: 'Secure — sent only over HTTPS.' },
-          { label: 'H', desc: 'HttpOnly — not readable from JavaScript.' },
-          { label: 'L', desc: 'SameSite restriction (Lax / Strict / None).' },
-        ],
-      },
-      {
-        heading: 'Color',
-        items: [
-          { label: 'green', desc: 'On / strict — locked down.' },
-          { label: 'yellow', desc: 'Lax — sent on top-level cross-site GETs.' },
-          { label: 'red', desc: 'Missing where required (SameSite=None without Secure, __Host- without Secure, …) — browser will reject.' },
-          { label: 'gray', desc: 'Off / unspecified.' },
-        ],
-      },
-    ],
-  },
-};
+function jarCookieColumnInfo(t: Translate): Record<JarCookieColumnKey, InfoPopoverContent> {
+  const kicker = t('panel.storage.nav.cookies');
+  return {
+    name: {
+      title: 'Name',
+      kicker,
+      summary: t('panel.storage.cookieCol.name.summary'),
+      description: t('panel.storage.cookieCol.name.description'),
+      diagram: <CookieExampleCard highlight={HIGHLIGHT.name} />,
+    },
+    value: {
+      title: 'Value',
+      kicker,
+      summary: t('panel.storage.cookieCol.value.summary'),
+      description: t('panel.storage.cookieCol.value.description'),
+      diagram: <CookieExampleCard highlight={HIGHLIGHT.value} />,
+    },
+    scope: {
+      title: 'Domain · Path',
+      kicker,
+      summary: t('panel.storage.cookieCol.scope.summary'),
+      description: t('panel.storage.cookieCol.scope.description'),
+      diagram: <CookieExampleCard highlight={HIGHLIGHT.scope} />,
+    },
+    expires: {
+      title: 'Expires',
+      kicker,
+      summary: t('panel.storage.cookieCol.expires.summary'),
+      description: t('panel.storage.cookieCol.expires.description'),
+      diagram: <CookieExampleCard highlight={HIGHLIGHT.expires} />,
+    },
+    sec: {
+      title: 'Security (S H L)',
+      kicker,
+      summary: t('panel.inspector.cookies.columnInfo.sec.summary'),
+      diagram: <CookieExampleCard highlight={HIGHLIGHT.sec} />,
+      sections: [
+        {
+          heading: t('panel.inspector.cookies.columnInfo.sec.glyphsHeading'),
+          items: [
+            { label: 'S', desc: t('panel.inspector.cookies.columnInfo.sec.sDesc') },
+            { label: 'H', desc: t('panel.inspector.cookies.columnInfo.sec.hDesc') },
+            { label: 'L', desc: t('panel.inspector.cookies.columnInfo.sec.lDesc') },
+          ],
+        },
+        {
+          heading: t('panel.inspector.cookies.columnInfo.sec.colorHeading'),
+          items: [
+            {
+              label: t('panel.inspector.cookies.columnInfo.sec.green'),
+              desc: t('panel.inspector.cookies.columnInfo.sec.greenDesc'),
+            },
+            {
+              label: t('panel.inspector.cookies.columnInfo.sec.yellow'),
+              desc: t('panel.inspector.cookies.columnInfo.sec.yellowDesc'),
+            },
+            {
+              label: t('panel.inspector.cookies.columnInfo.sec.red'),
+              desc: t('panel.inspector.cookies.columnInfo.sec.redDesc'),
+            },
+            {
+              label: t('panel.inspector.cookies.columnInfo.sec.gray'),
+              desc: t('panel.inspector.cookies.columnInfo.sec.grayDesc'),
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
 
 export function JarCookieColumnInfo({ infoKey }: { infoKey: JarCookieColumnKey }) {
+  const t = useT();
   return (
     <InfoTrigger
-      content={JAR_COOKIE_COLUMN_INFO[infoKey]}
+      content={jarCookieColumnInfo(t)[infoKey]}
       className="dt-header-info-trigger dt-col-info-trigger"
     />
   );

@@ -15,8 +15,9 @@
  */
 
 import { CloseOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DomStorageArea, DomStorageEntry, DomStorageFullValue } from '../../data/storage/storage-inspector-host';
 import { walkListSelection } from '../walk-list-selection';
 import { DomStorageColumnInfo } from './DomStorageColumnInfo';
@@ -27,6 +28,18 @@ import { UndoableCellInput } from './UndoableCellInput';
 function formatLength(chars: number): string {
   if (chars < 1024) return `${chars} chars`;
   return `${(chars / 1024).toFixed(1)}k chars`;
+}
+
+// Row copy resolved once per locale — the entry loop reads this object,
+// never `t()` (per-row law). The param-bearing arias are lazy formats.
+function buildGridRowLabels(t: Translate) {
+  return {
+    editTitle: t('panel.storage.grid.editTitle'),
+    editAria: (key: string) => t('panel.storage.grid.editAria', { key }),
+    deleteTitle: t('panel.storage.grid.deleteTitle'),
+    deleteAria: (key: string) => t('panel.storage.grid.deleteAria', { key }),
+    clipped: (length: string) => t('panel.storage.grid.clipped', { length }),
+  };
 }
 
 type EditPhase = 'ready' | 'loading' | 'too-large' | 'fetch-failed';
@@ -77,6 +90,8 @@ export function StorageGrid({
   onOpenEntry,
   isEntryActive,
 }: StorageGridProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildGridRowLabels(t), [t]);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -172,7 +187,7 @@ export function StorageGrid({
     <div
       className="dt-storage-grid"
       role="grid"
-      aria-label="Storage entries"
+      aria-label={t('panel.storage.grid.aria')}
       ref={gridRef}
       tabIndex={0}
       onKeyDown={handleGridKeyDown}
@@ -223,14 +238,16 @@ export function StorageGrid({
             </span>
             <span className="dt-storage-value" role="gridcell" title={e.clipped ? undefined : e.value}>
               {e.value}
-              {e.clipped && <span className="dt-storage-clip-note"> … clipped ({formatLength(e.valueLength)})</span>}
+              {e.clipped && (
+                <span className="dt-storage-clip-note"> … {rowLabels.clipped(formatLength(e.valueLength))}</span>
+              )}
             </span>
             <span className="dt-storage-row-actions">
               <button
                 type="button"
                 className="dt-storage-action"
-                title="Edit this entry"
-                aria-label={`Edit ${e.key}`}
+                title={rowLabels.editTitle}
+                aria-label={rowLabels.editAria(e.key)}
                 onClick={(ev) => {
                   ev.stopPropagation();
                   startEdit(e);
@@ -241,8 +258,8 @@ export function StorageGrid({
               <button
                 type="button"
                 className="dt-storage-action"
-                title="Delete this entry"
-                aria-label={`Delete ${e.key}`}
+                title={rowLabels.deleteTitle}
+                aria-label={rowLabels.deleteAria(e.key)}
                 onClick={(ev) => {
                   ev.stopPropagation();
                   void onRemove(e.key);
@@ -264,6 +281,7 @@ interface AddRowProps {
 }
 
 function AddRow({ onCancel, onCommit }: AddRowProps) {
+  const t = useT();
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
   const keyRef = useRef<HTMLInputElement>(null);
@@ -292,14 +310,14 @@ function AddRow({ onCancel, onCommit }: AddRowProps) {
       <UndoableCellInput
         inputRef={keyRef}
         placeholder="Key"
-        aria-label="New entry key"
+        aria-label={t('panel.storage.grid.newKeyAria')}
         value={key}
         onValueChange={setKey}
         onKeyDown={onKeyDown}
       />
       <UndoableCellInput
         placeholder="Value"
-        aria-label="New entry value"
+        aria-label={t('panel.storage.grid.newValueAria')}
         value={value}
         onValueChange={setValue}
         onKeyDown={onKeyDown}
@@ -309,12 +327,18 @@ function AddRow({ onCancel, onCommit }: AddRowProps) {
           savable={savable}
           saving={false}
           dirty={dirty}
-          saveHint="Write the new entry to storage"
-          blockedHint="The key can't be empty"
+          saveHint={t('panel.storage.grid.addSaveHint')}
+          blockedHint={t('panel.storage.grid.emptyKeyHint')}
           isActiveDocument={false}
           onSave={commit}
         />
-        <button type="button" className="dt-storage-action" title="Cancel" aria-label="Cancel add" onClick={onCancel}>
+        <button
+          type="button"
+          className="dt-storage-action"
+          title={t('panel.storage.grid.cancelTitle')}
+          aria-label={t('panel.storage.grid.cancelAddAria')}
+          onClick={onCancel}
+        >
           <CloseOutlined />
         </button>
       </span>
@@ -331,6 +355,7 @@ interface EditRowProps {
 }
 
 function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps) {
+  const t = useT();
   // Focus the key input on mount (AddRow parity) — an edit opened from
   // the keyboard (Enter on the active row) must be typable immediately,
   // and Escape must land in the input to cancel.
@@ -363,7 +388,7 @@ function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps
     <div className="dt-storage-row dt-storage-row--editing" role="row">
       <UndoableCellInput
         inputRef={keyRef}
-        aria-label="Entry key"
+        aria-label={t('panel.storage.grid.keyAria')}
         value={editing.key}
         disabled={busy || blocked}
         onValueChange={(key) => onChange({ ...editing, key })}
@@ -371,9 +396,7 @@ function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps
       />
       {blocked ? (
         <span className="dt-storage-edit-note">
-          {editing.phase === 'too-large'
-            ? 'Too large to edit here — the full value exceeds the edit ceiling.'
-            : 'The full value can’t be read right now.'}
+          {editing.phase === 'too-large' ? t('panel.storage.grid.tooLarge') : t('panel.storage.grid.fetchFailed')}
         </span>
       ) : (
         // Keyed by phase so the clipped-entry input remounts once the
@@ -381,8 +404,8 @@ function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps
         // not the loading placeholder.
         <UndoableCellInput
           key={editing.phase}
-          aria-label="Entry value"
-          value={busy ? 'Loading full value…' : editing.value}
+          aria-label={t('panel.storage.grid.valueAria')}
+          value={busy ? t('panel.storage.grid.loadingFullValue') : editing.value}
           disabled={busy}
           onValueChange={(value) => onChange({ ...editing, value })}
           onKeyDown={onKeyDown}
@@ -393,12 +416,18 @@ function EditRow({ editing, saving, onChange, onCommit, onCancel }: EditRowProps
           savable={savable && !saving}
           saving={saving}
           dirty={dirty}
-          saveHint="Write the edited entry back to storage"
-          blockedHint="The key can't be empty"
+          saveHint={t('panel.storage.grid.editSaveHint')}
+          blockedHint={t('panel.storage.grid.emptyKeyHint')}
           isActiveDocument={false}
           onSave={onCommit}
         />
-        <button type="button" className="dt-storage-action" title="Cancel" aria-label="Cancel edit" onClick={onCancel}>
+        <button
+          type="button"
+          className="dt-storage-action"
+          title={t('panel.storage.grid.cancelTitle')}
+          aria-label={t('panel.storage.grid.cancelEditAria')}
+          onClick={onCancel}
+        >
           <CloseOutlined />
         </button>
       </span>

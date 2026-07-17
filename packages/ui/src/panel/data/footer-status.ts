@@ -55,38 +55,58 @@ function formatStorageBytes(bytes: number): string {
   return `${(megabytes / 1000).toFixed(1)} GB`;
 }
 
-const SECTION_NOUNS: Record<Exclude<StorageSection, 'quota'>, { one: string; many: string }> = {
-  local: { one: 'item', many: 'items' },
-  session: { one: 'item', many: 'items' },
-  cookies: { one: 'cookie', many: 'cookies' },
-  indexeddb: { one: 'database', many: 'databases' },
-  cachestorage: { one: 'cache', many: 'caches' },
-};
+/** The active section's count line — the same keyed count vocabulary
+ *  the panel's scope note reads. IndexedDB / Cache Storage count their
+ *  top-level nouns only (no `x of y` — their grids filter below the
+ *  top-level rows). */
+function sectionCountLine(
+  t: Translate,
+  section: Exclude<StorageSection, 'quota'>,
+  filteredCount: number | null,
+  totalCount: number,
+  filterActive: boolean,
+): string {
+  const shown = filterActive && filteredCount !== null ? filteredCount : null;
+  switch (section) {
+    case 'local':
+    case 'session':
+      return shown !== null
+        ? t('panel.storage.count.itemsOf', { shown, count: totalCount })
+        : t('panel.storage.count.items', { count: totalCount });
+    case 'cookies':
+      return shown !== null
+        ? t('panel.storage.count.cookiesOf', { shown, count: totalCount })
+        : t('panel.storage.count.cookies', { count: totalCount });
+    case 'indexeddb':
+      return t('panel.storage.count.databases', { count: totalCount });
+    case 'cachestorage':
+      return t('panel.storage.count.caches', { count: totalCount });
+  }
+}
 
-export function buildStorageFooterStatus(input: StorageFooterInput): StorageFooterStatus {
+export function buildStorageFooterStatus(t: Translate, input: StorageFooterInput): StorageFooterStatus {
   const matches =
     input.filterActive && input.section !== 'quota'
-      ? `${input.matchingSections} section${input.matchingSections === 1 ? ' matches' : 's match'}`
+      ? t('panel.storage.count.sectionsMatch', { count: input.matchingSections })
       : '';
   const alert = input.readFailed
-    ? 'read failed — showing last data'
+    ? t('panel.storage.note.readFailed')
     : input.writeFailed
-      ? 'write failed'
+      ? t('panel.storage.note.writeFailed')
       : input.deleteFailed
-        ? 'delete failed'
+        ? t('panel.storage.note.deleteFailed')
         : '';
   if (input.section === 'quota') {
     const summary =
       input.quotaUsage !== null && input.quotaTotal !== null
-        ? `${formatStorageBytes(input.quotaUsage)} of ${formatStorageBytes(input.quotaTotal)} used`
+        ? t('panel.storage.count.quotaUsed', {
+            used: formatStorageBytes(input.quotaUsage),
+            total: formatStorageBytes(input.quotaTotal),
+          })
         : '';
     return { summary, matches, alert };
   }
-  const noun = SECTION_NOUNS[input.section];
-  const summary =
-    input.filterActive && input.filteredCount !== null
-      ? `${input.filteredCount} of ${input.totalCount} ${input.totalCount === 1 ? noun.one : noun.many}`
-      : `${input.totalCount} ${input.totalCount === 1 ? noun.one : noun.many}`;
+  const summary = sectionCountLine(t, input.section, input.filteredCount, input.totalCount, input.filterActive);
   return { summary, matches, alert };
 }
 

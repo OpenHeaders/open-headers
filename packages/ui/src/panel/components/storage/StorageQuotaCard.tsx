@@ -20,48 +20,54 @@
  */
 
 import { hasCapability } from '@openheaders/core/capabilities';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import type { MessageKey } from '@openheaders/i18n';
 import { useState } from 'react';
 import type { SiteDataType } from '../../data/storage/storage-inspector-host';
 import type { StorageQuotaState } from '../../data/storage/use-storage-quota';
 import { formatSize } from '../traffic/formatters';
 import { CookieIcon, DatabaseIcon, TableIcon, WorkerGearIcon } from './StorageNavIcons';
 
-const STORAGE_TYPE_LABELS: Record<string, string> = {
-  indexeddb: 'IndexedDB',
-  cache_storage: 'Cache Storage',
-  service_workers: 'Service workers',
-  file_systems: 'File systems',
-  websql: 'WebSQL',
-  other: 'Other',
+/** Breakdown row labels — keyed where product copy, WebSQL stays the
+ *  raw proper noun; unknown wire types fall back to the raw token. */
+const STORAGE_TYPE_LABEL_KEYS: Record<string, MessageKey> = {
+  indexeddb: 'panel.storage.nav.indexeddb',
+  cache_storage: 'panel.storage.nav.cachestorage',
+  service_workers: 'panel.storage.quota.type.serviceWorkers',
+  file_systems: 'panel.storage.quota.type.fileSystems',
+  other: 'panel.storage.quota.type.other',
 };
 
-/* Labels, icons AND order mirror the storage rail. Session storage is
- * per-tab by nature (the browser's site-data clear can't reach it), so
- * its leg wipes the INSPECTED tab's frame — the note says so. */
+/* Labels, icons AND order mirror the storage rail (label keys reuse the
+ * nav keys). Session storage is per-tab by nature (the browser's
+ * site-data clear can't reach it), so its leg wipes the INSPECTED tab's
+ * frame — the note says so. */
 const SITE_DATA_CHOICES: ReadonlyArray<{
   type: SiteDataType;
-  label: string;
+  labelKey: MessageKey;
   icon: React.ReactNode;
-  note?: string;
+  noteKey?: MessageKey;
 }> = [
-  { type: 'localStorage', label: 'Local storage', icon: <TableIcon /> },
+  { type: 'localStorage', labelKey: 'panel.storage.nav.local', icon: <TableIcon /> },
   {
     type: 'sessionStorage',
-    label: 'Session storage',
+    labelKey: 'panel.storage.nav.session',
     icon: <TableIcon />,
-    note: 'Session storage is per-tab — this clears the inspected tab’s frame',
+    noteKey: 'panel.storage.quota.sessionNote',
   },
-  { type: 'cookies', label: 'Cookies', icon: <CookieIcon /> },
-  { type: 'indexedDB', label: 'IndexedDB', icon: <DatabaseIcon /> },
-  { type: 'cacheStorage', label: 'Cache Storage', icon: <DatabaseIcon /> },
-  { type: 'serviceWorkers', label: 'Service workers', icon: <WorkerGearIcon /> },
+  { type: 'cookies', labelKey: 'panel.storage.nav.cookies', icon: <CookieIcon /> },
+  { type: 'indexedDB', labelKey: 'panel.storage.nav.indexeddb', icon: <DatabaseIcon /> },
+  { type: 'cacheStorage', labelKey: 'panel.storage.nav.cachestorage', icon: <DatabaseIcon /> },
+  { type: 'serviceWorkers', labelKey: 'panel.storage.quota.type.serviceWorkers', icon: <WorkerGearIcon /> },
 ];
 
 /** MB the way the browser reads it — decimal, not 1024-based. */
 const BYTES_PER_MB = 1_000_000;
 
-function storageTypeLabel(storageType: string): string {
-  return STORAGE_TYPE_LABELS[storageType] ?? storageType.replace(/_/g, ' ');
+function storageTypeLabel(t: Translate, storageType: string): string {
+  if (storageType === 'websql') return 'WebSQL';
+  const key = STORAGE_TYPE_LABEL_KEYS[storageType];
+  return key !== undefined ? t(key) : storageType.replace(/_/g, ' ');
 }
 
 function percent(part: number, whole: number): number {
@@ -89,16 +95,15 @@ function simulationMaxMb(snapshot: { quota: number; overrideActive?: boolean }):
 }
 
 export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTargets = false }: StorageQuotaCardProps) {
+  const t = useT();
   const snapshot = quota.quota;
   if (snapshot === null) {
     return quota.loading ? (
-      <div className="dt-empty">Loading…</div>
+      <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
     ) : (
       <div className="dt-empty-hero">
-        <strong>Usage can’t be read</strong>
-        <span className="dt-empty-hero-sub">
-          The API only exists in secure contexts (https) — or this frame can’t be read right now.
-        </span>
+        <strong>{t('panel.storage.quota.cantReadTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.quota.cantReadSub')}</span>
       </div>
     );
   }
@@ -113,9 +118,11 @@ export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTarge
   return (
     <div className="dt-storage-quota">
       <div className="dt-storage-quota-total">
-        <span className="dt-storage-quota-usage">{formatSize(snapshot.usage)} used</span>
+        <span className="dt-storage-quota-usage">
+          {t('panel.storage.quota.used', { size: formatSize(snapshot.usage) })}
+        </span>
         <span className="dt-storage-quota-limit">
-          of {formatSize(snapshot.quota)} ({percentLabel}%)
+          {t('panel.storage.quota.ofTotal', { size: formatSize(snapshot.quota), percent: percentLabel })}
         </span>
       </div>
       <div className="dt-storage-quota-bar" role="progressbar" aria-valuenow={Math.round(usedPercent)}>
@@ -125,7 +132,7 @@ export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTarge
         <div className="dt-storage-quota-rows">
           {rows.map((row) => (
             <div className="dt-storage-quota-row" key={row.storageType}>
-              <span className="dt-storage-quota-row-label">{storageTypeLabel(row.storageType)}</span>
+              <span className="dt-storage-quota-row-label">{storageTypeLabel(t, row.storageType)}</span>
               <span className="dt-storage-quota-row-size">{formatSize(row.usage)}</span>
               <span className="dt-storage-quota-row-bar">
                 <span
@@ -137,9 +144,9 @@ export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTarge
           ))}
         </div>
       ) : snapshot.breakdown ? (
-        <div className="dt-storage-quota-hint">No per-type usage reported for this origin.</div>
+        <div className="dt-storage-quota-hint">{t('panel.storage.quota.noBreakdown')}</div>
       ) : hasCapability('cdpInspection') ? (
-        <div className="dt-storage-quota-hint">Enable Debug mode to see the per-type breakdown.</div>
+        <div className="dt-storage-quota-hint">{t('panel.storage.quota.debugHint')}</div>
       ) : null}
       {snapshot.breakdown && (
         <QuotaSimulationRow
@@ -151,23 +158,20 @@ export function StorageQuotaCard({ quota, excluded, onToggleType, highlightTarge
       )}
       {hasCapability('originDataClearing') && (
         <div className="dt-storage-quota-clear-types">
-          <span
-            className="dt-storage-quota-clear-types-caption"
-            title="Clear everything (top right) deletes exactly the checked data types for this origin"
-          >
-            Clear everything targets
+          <span className="dt-storage-quota-clear-types-caption" title={t('panel.storage.quota.targetsTitle')}>
+            {t('panel.storage.quota.targetsCaption')}
           </span>
-          {SITE_DATA_CHOICES.map(({ type, label, icon, note }) => (
+          {SITE_DATA_CHOICES.map(({ type, labelKey, icon, noteKey }) => (
             <label
               className={`dt-storage-quota-clear-type${
                 highlightTargets && !excluded.has(type) ? ' dt-storage-quota-clear-type--targeted' : ''
               }`}
               key={type}
-              title={note}
+              title={noteKey !== undefined ? t(noteKey) : undefined}
             >
               <input type="checkbox" checked={!excluded.has(type)} onChange={() => onToggleType(type)} />
               <span className="dt-storage-nav-icon">{icon}</span>
-              {label}
+              {t(labelKey)}
             </label>
           ))}
         </div>
@@ -192,15 +196,16 @@ export function ClearSiteDataControl({
    *  covers (nav rail sections + the card's checked types). */
   onHoverChange?: (hovering: boolean) => void;
 }) {
+  const t = useT();
   if (!hasCapability('originDataClearing') || quota.quota === null) return null;
   const selected = SITE_DATA_CHOICES.filter(({ type }) => !excluded.has(type)).map(({ type }) => type);
   return (
     <span className="dt-storage-clear-group">
       {quota.clearFailed ? (
-        <span className="dt-storage-quota-clear-failed">clear failed</span>
+        <span className="dt-storage-quota-clear-failed">{t('panel.storage.clearFailed')}</span>
       ) : quota.clearSucceeded ? (
         <span className="dt-storage-quota-clear-done" role="status">
-          ✓ cleared
+          {t('panel.storage.cleared')}
         </span>
       ) : null}
       <ClearSiteDataButton
@@ -229,6 +234,7 @@ function QuotaSimulationRow({
   maxMb: number;
   onOverride: (quotaBytes: number | null) => void;
 }) {
+  const t = useT();
   const [value, setValue] = useState('');
   const [invalid, setInvalid] = useState(false);
 
@@ -252,11 +258,8 @@ function QuotaSimulationRow({
 
   return (
     <div className="dt-storage-quota-simulate">
-      <label
-        className="dt-storage-quota-simulate-label"
-        title="Make the browser report and enforce a smaller quota for this origin — for testing how the page behaves when storage runs out"
-      >
-        Simulate custom quota
+      <label className="dt-storage-quota-simulate-label" title={t('panel.storage.quota.simulateTitle')}>
+        {t('panel.storage.quota.simulateLabel')}
         <input
           type="text"
           inputMode="decimal"
@@ -275,10 +278,10 @@ function QuotaSimulationRow({
       {value.trim() !== '' && (
         <>
           <button type="button" className="dt-storage-quota-simulate-reset" onClick={commit}>
-            Save
+            {t('panel.storage.quota.simulateSave')}
           </button>
           <button type="button" className="dt-storage-quota-simulate-reset" onClick={cancel}>
-            Cancel
+            {t('panel.storage.quota.simulateCancel')}
           </button>
         </>
       )}
@@ -286,19 +289,19 @@ function QuotaSimulationRow({
         <button
           type="button"
           className="dt-storage-quota-simulate-reset"
-          title="Remove the simulated quota"
+          title={t('panel.storage.quota.simulateResetTitle')}
           onClick={() => {
             cancel();
             onOverride(null);
           }}
         >
-          Reset
+          {t('panel.storage.quota.simulateReset')}
         </button>
       )}
       {invalid ? (
-        <span className="dt-storage-quota-clear-failed">enter 0–{maxMb} MB</span>
+        <span className="dt-storage-quota-clear-failed">{t('panel.storage.quota.simulateRange', { max: maxMb })}</span>
       ) : overrideFailed ? (
-        <span className="dt-storage-quota-clear-failed">simulation failed</span>
+        <span className="dt-storage-quota-clear-failed">{t('panel.storage.quota.simulateFailed')}</span>
       ) : null}
     </div>
   );
@@ -314,15 +317,14 @@ function ClearSiteDataButton({
   disabled: boolean;
   onHoverChange?: (hovering: boolean) => void;
 }) {
+  const t = useT();
   const [armed, setArmed] = useState(false);
   return (
     <button
       type="button"
       className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
       disabled={disabled}
-      title={
-        armed ? 'Deletes the checked data types for this origin' : 'Clear the checked data types for this origin'
-      }
+      title={armed ? t('panel.storage.quota.clearArmedTitle') : t('panel.storage.quota.clearTitle')}
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -339,7 +341,7 @@ function ClearSiteDataButton({
         onHoverChange?.(false);
       }}
     >
-      {armed ? 'Confirm clear?' : 'Clear everything'}
+      {armed ? t('panel.storage.confirmClear') : t('panel.storage.quota.clearEverything')}
     </button>
   );
 }

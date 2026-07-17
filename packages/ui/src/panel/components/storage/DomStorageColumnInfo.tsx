@@ -5,9 +5,12 @@
  * header that opens an `<InfoPopover>`, every popover leading with the
  * same canonical example rendered as a compact card. The column's own
  * slice of that example is the highlighted token, so reading across
- * the popovers builds one coherent picture of a single entry.
+ * the popovers builds one coherent picture of a single entry. Titles
+ * stay the raw column nouns; the localStorage / sessionStorage globals
+ * ride raw inside the keyed copy.
  */
 
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { DomStorageArea } from '../../data/storage/storage-inspector-host';
 
@@ -21,20 +24,28 @@ const EX = {
 
 type TokenId = keyof typeof EX;
 
-function ExampleCard({ column, area }: { column: DomStorageColumnKey; area: DomStorageArea }) {
+function ExampleCard({
+  column,
+  area,
+  caption,
+}: {
+  column: DomStorageColumnKey;
+  area: DomStorageArea;
+  caption: string;
+}) {
   const tok = (id: TokenId, text: string) => (
     <span className={`dt-col-eg-tok${column === id ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
   return (
     <div className="dt-col-eg">
-      <div className="dt-col-eg-cap">Example write</div>
+      <div className="dt-col-eg-cap">{caption}</div>
       <div className="dt-col-eg-card">
         <div className="dt-col-eg-line">
           {area === 'session' ? 'sessionStorage' : 'localStorage'}
           <span className="dt-col-eg-sep">.setItem(</span>
         </div>
         <div className="dt-col-eg-line">
-          {'  '}
+          {'  '}
           {tok('key', EX.key)}
           <span className="dt-col-eg-sep">, </span>
           {tok('value', EX.value)}
@@ -47,33 +58,33 @@ function ExampleCard({ column, area }: { column: DomStorageColumnKey; area: DomS
   );
 }
 
-function domStorageColumnInfo(area: DomStorageArea): Record<DomStorageColumnKey, InfoPopoverContent> {
+function domStorageColumnInfo(t: Translate, area: DomStorageArea): Record<DomStorageColumnKey, InfoPopoverContent> {
   const areaName = area === 'session' ? 'sessionStorage' : 'localStorage';
+  const kicker = t(area === 'session' ? 'panel.storage.nav.session' : 'panel.storage.nav.local');
+  const caption = t('panel.storage.domCol.exampleCaption');
   return {
     key: {
       title: 'Key',
-      kicker: area === 'session' ? 'Session storage' : 'Local storage',
-      summary: `The entry's name — a case-sensitive string, unique within this origin's ${areaName}. Writing an existing key overwrites its value.`,
-      description:
-        'Renaming an entry here writes the new key first, then removes the old one — a failed write never loses the original.',
-      diagram: <ExampleCard column="key" area={area} />,
+      kicker,
+      summary: t('panel.storage.domCol.key.summary', { area: areaName }),
+      description: t('panel.storage.domCol.key.description'),
+      diagram: <ExampleCard column="key" area={area} caption={caption} />,
     },
     value: {
       title: 'Value',
-      kicker: area === 'session' ? 'Session storage' : 'Local storage',
-      summary:
-        'The stored payload — always a string; pages keep structured data serialized, usually as JSON.',
-      description:
-        'The grid shows a one-line preview and clips very long values — opening or editing an entry fetches the full text. Click a row to open it as an editor tab; double-click (or the pencil) edits inline.',
-      diagram: <ExampleCard column="value" area={area} />,
+      kicker,
+      summary: t('panel.storage.domCol.value.summary'),
+      description: t('panel.storage.domCol.value.description'),
+      diagram: <ExampleCard column="value" area={area} caption={caption} />,
     },
   };
 }
 
 export function DomStorageColumnInfo({ infoKey, area }: { infoKey: DomStorageColumnKey; area: DomStorageArea }) {
+  const t = useT();
   return (
     <InfoTrigger
-      content={domStorageColumnInfo(area)[infoKey]}
+      content={domStorageColumnInfo(t, area)[infoKey]}
       className="dt-header-info-trigger dt-col-info-trigger"
     />
   );

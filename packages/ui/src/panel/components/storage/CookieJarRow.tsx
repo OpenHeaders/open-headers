@@ -9,11 +9,28 @@
  */
 
 import { DeleteOutlined, EditOutlined, WarningOutlined } from '@ant-design/icons';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { jarCookieToEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JarCookie, JarCookieEdit } from '../../data/cookies/cookie-jar-cache';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
 import { SecurityGlyphs } from '../detail/cookies/SecurityGlyphs';
+
+// Row copy resolved once per locale — the cookie loop reads this
+// object, never `t()` (per-row law). Data-plane not-sent reasons ride
+// as raw holes inside the keyed sentences.
+export function buildCookieRowLabels(t: Translate) {
+  return {
+    notSentTitle: (reason: string) => t('panel.storage.cookieRow.notSentTitle', { reason }),
+    notSentAria: (name: string, reason: string) => t('panel.storage.cookieRow.notSentAria', { name, reason }),
+    partitionedUnder: (key: string) => t('panel.storage.cookieRow.partitionedUnder', { key }),
+    editTitle: t('panel.storage.cookieRow.editTitle'),
+    editAria: (name: string) => t('panel.storage.cookieRow.editAria', { name }),
+    deleteTitle: t('panel.storage.cookieRow.deleteTitle'),
+    deleteAria: (name: string) => t('panel.storage.cookieRow.deleteAria', { name }),
+  };
+}
+export type CookieRowLabels = ReturnType<typeof buildCookieRowLabels>;
 
 interface CookieJarRowProps {
   cookie: JarCookie;
@@ -35,6 +52,7 @@ interface CookieJarRowProps {
   onOpen?: (cookie: JarCookie) => void;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
+  labels: CookieRowLabels;
 }
 
 export function CookieJarRow({
@@ -48,9 +66,12 @@ export function CookieJarRow({
   onOpen,
   onApplyEdit,
   onDelete,
+  labels,
 }: CookieJarRowProps) {
   const scope = `${cookie.domain}${cookie.path && cookie.path !== '/' ? ` ${cookie.path}` : ''}`;
-  const scopeTitle = `${cookie.domain}${cookie.path || '/'}${cookie.partitionKey ? `\nPartitioned under ${cookie.partitionKey}` : ''}`;
+  const scopeTitle = `${cookie.domain}${cookie.path || '/'}${
+    cookie.partitionKey ? `\n${labels.partitionedUnder(cookie.partitionKey)}` : ''
+  }`;
   return (
     // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
     <div
@@ -64,8 +85,8 @@ export function CookieJarRow({
         {notSentReason !== undefined && (
           <WarningOutlined
             className="dt-storage-cookie-warn"
-            title={`Not sent to this page — ${notSentReason}`}
-            aria-label={`Cookie ${cookie.name} is not sent to this page: ${notSentReason}`}
+            title={labels.notSentTitle(notSentReason)}
+            aria-label={labels.notSentAria(cookie.name, notSentReason)}
           />
         )}
         {cookie.name}
@@ -102,8 +123,8 @@ export function CookieJarRow({
             <button
               type="button"
               className="dt-storage-action"
-              title="Edit this cookie in the browser jar"
-              aria-label={`Edit cookie ${cookie.name}`}
+              title={labels.editTitle}
+              aria-label={labels.editAria(cookie.name)}
             >
               <EditOutlined />
             </button>
@@ -111,8 +132,8 @@ export function CookieJarRow({
           <button
             type="button"
             className="dt-storage-action"
-            title="Delete this cookie from the browser jar"
-            aria-label={`Delete cookie ${cookie.name}`}
+            title={labels.deleteTitle}
+            aria-label={labels.deleteAria(cookie.name)}
             onClick={() => onDelete(cookie)}
           >
             <DeleteOutlined />

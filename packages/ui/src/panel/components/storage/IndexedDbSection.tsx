@@ -13,7 +13,9 @@
  */
 
 import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
+import { useMemo } from 'react';
 import { idbRecordMatches, idbStoreMatches } from '../../data/storage/storage-filter';
 import type { IdbDatabase, IdbRecord } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
@@ -42,29 +44,62 @@ interface IndexedDbSectionProps {
   isRecordActive?: (database: string, store: string, primaryKeyWire: string) => boolean;
 }
 
-function storeMeta(store: IdbDatabase['objectStores'][number]): string {
-  const key = store.keyPath ? `key: ${store.keyPath}` : store.autoIncrement ? 'auto-increment keys' : 'out-of-line keys';
-  return store.indexNames.length > 0 ? `${key} · ${store.indexNames.length} ${store.indexNames.length === 1 ? 'index' : 'indexes'}` : key;
+// Row copy resolved once per locale — the database/store/record loops
+// read this object, never `t()` (per-row law). Names and key previews
+// ride as raw holes.
+function buildIdbRowLabels(t: Translate) {
+  return {
+    versionTitle: (version: string) => t('panel.storage.idb.versionTitle', { version }),
+    storeCount: (count: number) => t('panel.storage.idb.storeCount', { count }),
+    metaKeyPath: (path: string) => t('panel.storage.idb.metaKeyPath', { path }),
+    metaAutoIncrement: t('panel.storage.idb.metaAutoIncrement'),
+    metaOutOfLine: t('panel.storage.idb.metaOutOfLine'),
+    indexCount: (count: number) => t('panel.storage.idb.indexCount', { count }),
+    deleteDbTitle: (name: string) => t('panel.storage.idb.deleteDbTitle', { name }),
+    deleteDbConfirmTitle: (name: string) => t('panel.storage.idb.deleteDbConfirmTitle', { name }),
+    deleteDbAria: (name: string) => t('panel.storage.idb.deleteDbAria', { name }),
+    openStoreTitle: (database: string, store: string) => t('panel.storage.idb.openStoreTitle', { database, store }),
+    clearStoreTitle: (store: string) => t('panel.storage.idb.clearStoreTitle', { store }),
+    clearStoreConfirmTitle: (database: string, store: string) =>
+      t('panel.storage.idb.clearStoreConfirmTitle', { database, store }),
+    clearStoreAria: (store: string) => t('panel.storage.idb.clearStoreAria', { store }),
+    confirmClear: t('panel.storage.confirmClear'),
+    noStores: t('panel.storage.idb.noStores'),
+    openRecordTitle: t('panel.storage.idb.openRecordTitle'),
+    keyCellTitle: (key: string, primaryKey: string) => t('panel.storage.idb.keyCellTitle', { key, primaryKey }),
+    deleteRecordTitle: t('panel.storage.idb.deleteRecordTitle'),
+    deleteRecordAria: (key: string) => t('panel.storage.idb.deleteRecordAria', { key }),
+  };
+}
+type IdbRowLabels = ReturnType<typeof buildIdbRowLabels>;
+
+function storeMeta(labels: IdbRowLabels, store: IdbDatabase['objectStores'][number]): string {
+  const key = store.keyPath
+    ? labels.metaKeyPath(store.keyPath)
+    : store.autoIncrement
+      ? labels.metaAutoIncrement
+      : labels.metaOutOfLine;
+  return store.indexNames.length > 0 ? `${key} · ${labels.indexCount(store.indexNames.length)}` : key;
 }
 
 export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSectionProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildIdbRowLabels(t), [t]);
   if (idb.selection) {
     return <RecordsView idb={idb} filter={filter} onOpenRecord={onOpenRecord} isRecordActive={isRecordActive} />;
   }
   if (idb.databases === null) {
     return idb.loading ? (
-      <div className="dt-empty">Loading…</div>
+      <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
     ) : (
       <div className="dt-empty-hero">
-        <strong>IndexedDB can’t be read</strong>
-        <span className="dt-empty-hero-sub">
-          This frame doesn’t expose its databases right now — it may have navigated away.
-        </span>
+        <strong>{t('panel.storage.idb.cantReadTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.idb.cantReadSub')}</span>
       </div>
     );
   }
   if (idb.databases.length === 0) {
-    return <div className="dt-empty">No IndexedDB databases for this origin.</div>;
+    return <div className="dt-empty">{t('panel.storage.idb.noDatabases')}</div>;
   }
 
   return (
@@ -81,17 +116,15 @@ export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordActive }: 
               <span className="dt-storage-idb-db-name" title={db.name}>
                 {db.name}
               </span>
-              <span className="dt-storage-idb-version" title={`Database version ${db.version}`}>
+              <span className="dt-storage-idb-version" title={rowLabels.versionTitle(String(db.version))}>
                 v{db.version}
               </span>
-              <span className="dt-storage-meta">
-                {db.objectStores.length} {db.objectStores.length === 1 ? 'store' : 'stores'}
-              </span>
+              <span className="dt-storage-meta">{rowLabels.storeCount(db.objectStores.length)}</span>
               <ArmedIconButton
                 icon={<DeleteOutlined />}
-                title={`Delete the ${db.name} database`}
-                confirmTitle={`Deletes ${db.name} and every store in it — a page holding it open blocks the delete`}
-                ariaLabel={`Delete database ${db.name}`}
+                title={rowLabels.deleteDbTitle(db.name)}
+                confirmTitle={rowLabels.deleteDbConfirmTitle(db.name)}
+                ariaLabel={rowLabels.deleteDbAria(db.name)}
                 onConfirm={() => idb.deleteDatabase(db.name)}
               />
             </div>
@@ -101,25 +134,27 @@ export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordActive }: 
                   type="button"
                   className="dt-storage-idb-store"
                   onClick={() => idb.selectStore(db.name, s.name)}
-                  title={`Open ${db.name} › ${s.name}`}
+                  title={rowLabels.openStoreTitle(db.name, s.name)}
                 >
                   <span className="dt-storage-idb-icon">
                     <TableIcon />
                   </span>
                   {s.name}
-                  <span className="dt-storage-meta">{storeMeta(s)}</span>
+                  <span className="dt-storage-meta">{storeMeta(rowLabels, s)}</span>
                 </button>
                 <ArmedIconButton
                   icon={<ClearOutlined />}
-                  title={`Clear all records in ${s.name}`}
-                  confirmTitle={`Deletes every record in ${db.name} › ${s.name}`}
-                  confirmLabel="Confirm clear?"
-                  ariaLabel={`Clear store ${s.name}`}
+                  title={rowLabels.clearStoreTitle(s.name)}
+                  confirmTitle={rowLabels.clearStoreConfirmTitle(db.name, s.name)}
+                  confirmLabel={rowLabels.confirmClear}
+                  ariaLabel={rowLabels.clearStoreAria(s.name)}
                   onConfirm={() => idb.clearStore(db.name, s.name)}
                 />
               </div>
             ))}
-            {db.objectStores.length === 0 && <div className="dt-storage-meta dt-storage-idb-empty">no object stores</div>}
+            {db.objectStores.length === 0 && (
+              <div className="dt-storage-meta dt-storage-idb-empty">{rowLabels.noStores}</div>
+            )}
           </div>
         );
       })}
@@ -128,6 +163,8 @@ export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordActive }: 
 }
 
 function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSectionProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildIdbRowLabels(t), [t]);
   const selection = idb.selection;
   if (!selection) return null;
   const storeShape = idb.databases
@@ -184,7 +221,13 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
   return (
     <>
       <div className="dt-storage-crumb">
-        <button type="button" className="dt-storage-action" title="Back to databases" aria-label="Back to databases" onClick={idb.closeStore}>
+        <button
+          type="button"
+          className="dt-storage-action"
+          title={t('panel.storage.idb.backTitle')}
+          aria-label={t('panel.storage.idb.backTitle')}
+          onClick={idb.closeStore}
+        >
           <LeftOutlined />
         </button>
         <span className="dt-storage-crumb-path" title={`${selection.database} › ${selection.store}`}>
@@ -195,13 +238,13 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
             className="dt-storage-scope-select dt-storage-idb-index-select"
             value={idb.index ?? ''}
             onChange={(e) => idb.setIndex(e.target.value === '' ? null : e.target.value)}
-            aria-label="Record cursor"
-            title="Read the store through one of its indexes — the key column becomes the index key"
+            aria-label={t('panel.storage.idb.cursorAria')}
+            title={t('panel.storage.idb.cursorTitle')}
           >
-            <option value="">primary key</option>
+            <option value="">{t('panel.storage.idb.primaryKeyOption')}</option>
             {storeShape.indexNames.map((n) => (
               <option key={n} value={n}>
-                index: {n}
+                {t('panel.storage.idb.indexOption', { name: n })}
               </option>
             ))}
           </select>
@@ -210,19 +253,19 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
           <button
             type="button"
             className="dt-storage-action"
-            title="Previous page"
-            aria-label="Previous page"
+            title={t('panel.storage.pager.prevTitle')}
+            aria-label={t('panel.storage.pager.prevTitle')}
             disabled={idb.page === 0}
             onClick={() => idb.setPage(idb.page - 1)}
           >
             <LeftOutlined />
           </button>
-          <span className="dt-storage-meta">page {idb.page + 1}</span>
+          <span className="dt-storage-meta">{t('panel.storage.pager.page', { page: idb.page + 1 })}</span>
           <button
             type="button"
             className="dt-storage-action"
-            title="Next page"
-            aria-label="Next page"
+            title={t('panel.storage.pager.nextTitle')}
+            aria-label={t('panel.storage.pager.nextTitle')}
             disabled={!pageData?.truncated}
             onClick={() => idb.setPage(idb.page + 1)}
           >
@@ -231,14 +274,15 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
         </span>
       </div>
       {pageData === null ? (
-        <div className="dt-empty">Loading…</div>
+        <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
       ) : pageData.records.length === 0 ? (
         <div className="dt-empty">
-          No records in {selection.store}
-          {idb.page > 0 ? ' on this page' : ''}.
+          {idb.page > 0
+            ? t('panel.storage.idb.noRecordsPage', { store: selection.store })
+            : t('panel.storage.idb.noRecords', { store: selection.store })}
         </div>
       ) : records.length === 0 ? (
-        <div className="dt-empty">No records match your filter.</div>
+        <div className="dt-empty">{t('panel.storage.idb.noRecordsMatch')}</div>
       ) : (
         // role="grid" + focusable container, StorageGrid's anatomy: the
         // rows are plain divs (the per-row tabIndex/Enter this grid
@@ -248,7 +292,7 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
         <div
           className="dt-storage-grid dt-storage-grid--idb"
           role="grid"
-          aria-label="IndexedDB records"
+          aria-label={t('panel.storage.idb.gridAria')}
           tabIndex={0}
           onKeyDown={handleGridKeyDown}
         >
@@ -267,10 +311,14 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
                 aria-selected={active}
                 data-entry-index={i}
                 key={`${idb.page}:${i}:${r.primaryKeyPreview}`}
-                title={wireKey !== undefined ? 'Open this record in the editor' : undefined}
+                title={wireKey !== undefined ? rowLabels.openRecordTitle : undefined}
                 onClick={() => openRecord(r)}
               >
-                <span className="dt-storage-key" role="gridcell" title={`Key: ${r.keyPreview}\nPrimary key: ${r.primaryKeyPreview}`}>
+                <span
+                  className="dt-storage-key"
+                  role="gridcell"
+                  title={rowLabels.keyCellTitle(r.keyPreview, r.primaryKeyPreview)}
+                >
                   {r.keyPreview}
                 </span>
                 <span className="dt-storage-value" role="gridcell" title={r.valuePreview}>
@@ -281,8 +329,8 @@ function RecordsView({ idb, filter, onOpenRecord, isRecordActive }: IndexedDbSec
                     <button
                       type="button"
                       className="dt-storage-action"
-                      title="Delete this record"
-                      aria-label={`Delete record ${r.primaryKeyPreview}`}
+                      title={rowLabels.deleteRecordTitle}
+                      aria-label={rowLabels.deleteRecordAria(r.primaryKeyPreview)}
                       onClick={(e) => {
                         e.stopPropagation();
                         idb.deleteRecord(wireKey);

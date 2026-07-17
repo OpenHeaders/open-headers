@@ -6,13 +6,14 @@
  * disarms.
  */
 
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useState } from 'react';
 
 export function ArmedIconButton({
   icon,
   title,
   confirmTitle,
-  confirmLabel = 'Confirm delete?',
+  confirmLabel,
   ariaLabel,
   onConfirm,
 }: {
@@ -24,13 +25,14 @@ export function ArmedIconButton({
   ariaLabel: string;
   onConfirm: () => void;
 }) {
+  const t = useT();
   const [armed, setArmed] = useState(false);
   return (
     <button
       type="button"
       className={`dt-storage-action${armed ? ' dt-storage-action--armed' : ''}`}
       title={armed ? confirmTitle : title}
-      aria-label={armed ? `${ariaLabel} — click again to confirm` : ariaLabel}
+      aria-label={armed ? t('panel.storage.confirmSuffixAria', { action: ariaLabel }) : ariaLabel}
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -41,7 +43,7 @@ export function ArmedIconButton({
       }}
       onBlur={() => setArmed(false)}
     >
-      {armed ? confirmLabel : icon}
+      {armed ? (confirmLabel ?? t('panel.storage.confirmDelete')) : icon}
     </button>
   );
 }

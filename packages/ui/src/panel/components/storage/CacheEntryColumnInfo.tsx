@@ -2,9 +2,11 @@
  * Per-column `(i)` info-popover content for the Storage tool window's
  * Cache Storage entries grid — the network table's `NetworkColumnInfo`
  * idiom: every popover leads with the same canonical stored entry, the
- * column's own slice highlighted.
+ * column's own slice highlighted. Titles stay the raw column nouns;
+ * the example payload rides raw.
  */
 
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
 export type CacheEntryColumnKey = 'request' | 'method' | 'size' | 'time';
@@ -19,13 +21,13 @@ const EX = {
 
 type TokenId = keyof typeof EX;
 
-function ExampleCard({ column }: { column: CacheEntryColumnKey }) {
+function ExampleCard({ column, caption }: { column: CacheEntryColumnKey; caption: string }) {
   const tok = (id: TokenId, text: string, extra = '') => (
     <span className={`dt-col-eg-tok${extra ? ` ${extra}` : ''}${column === id ? ' dt-col-eg-hl' : ''}`}>{text}</span>
   );
   return (
     <div className="dt-col-eg">
-      <div className="dt-col-eg-cap">Example entry</div>
+      <div className="dt-col-eg-cap">{caption}</div>
       <div className="dt-col-eg-card">
         <div className="dt-col-eg-line">
           {tok('method', EX.method, 'dt-col-eg-method')} {tok('request', EX.request)}
@@ -40,43 +42,46 @@ function ExampleCard({ column }: { column: CacheEntryColumnKey }) {
   );
 }
 
-const CACHE_ENTRY_COLUMN_INFO: Record<CacheEntryColumnKey, InfoPopoverContent> = {
-  request: {
-    title: 'Request',
-    kicker: 'Cache Storage',
-    summary: "The stored request's URL — the key the cache matches fetches against.",
-    description:
-      'Hovering a row adds a bounded preview of the stored request headers. Click a row to open the stored response as an editor tab; the grid keeps metadata only.',
-    diagram: <ExampleCard column="request" />,
-  },
-  method: {
-    title: 'Method',
-    kicker: 'Cache Storage',
-    summary: 'The stored request\'s HTTP method — part of the cache key alongside the URL.',
-    description: 'Almost always GET: the Cache API rejects put / add for other methods.',
-    diagram: <ExampleCard column="method" />,
-  },
-  size: {
-    title: 'Size',
-    kicker: 'Cache Storage',
-    summary: "The stored response's size, read from its content-length header.",
-    description:
-      'An em dash means the stored response carries no content-length — the body is still there, in the entry\'s editor tab.',
-    diagram: <ExampleCard column="size" />,
-  },
-  time: {
-    title: 'Time',
-    kicker: 'Cache Storage',
-    summary: 'When the response was stored in the cache.',
-    description: 'Only derivable on attached tabs — an em dash means the host couldn\'t read it for this scope.',
-    diagram: <ExampleCard column="time" />,
-  },
-};
+function cacheEntryColumnInfo(t: Translate): Record<CacheEntryColumnKey, InfoPopoverContent> {
+  const kicker = t('panel.storage.nav.cachestorage');
+  const caption = t('panel.storage.cacheCol.exampleCaption');
+  return {
+    request: {
+      title: 'Request',
+      kicker,
+      summary: t('panel.storage.cacheCol.request.summary'),
+      description: t('panel.storage.cacheCol.request.description'),
+      diagram: <ExampleCard column="request" caption={caption} />,
+    },
+    method: {
+      title: 'Method',
+      kicker,
+      summary: t('panel.storage.cacheCol.method.summary'),
+      description: t('panel.storage.cacheCol.method.description'),
+      diagram: <ExampleCard column="method" caption={caption} />,
+    },
+    size: {
+      title: 'Size',
+      kicker,
+      summary: t('panel.storage.cacheCol.size.summary'),
+      description: t('panel.storage.cacheCol.size.description'),
+      diagram: <ExampleCard column="size" caption={caption} />,
+    },
+    time: {
+      title: 'Time',
+      kicker,
+      summary: t('panel.storage.cacheCol.time.summary'),
+      description: t('panel.storage.cacheCol.time.description'),
+      diagram: <ExampleCard column="time" caption={caption} />,
+    },
+  };
+}
 
 export function CacheEntryColumnInfo({ infoKey }: { infoKey: CacheEntryColumnKey }) {
+  const t = useT();
   return (
     <InfoTrigger
-      content={CACHE_ENTRY_COLUMN_INFO[infoKey]}
+      content={cacheEntryColumnInfo(t)[infoKey]}
       className="dt-header-info-trigger dt-col-info-trigger"
     />
   );

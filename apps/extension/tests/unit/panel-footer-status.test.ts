@@ -23,6 +23,8 @@ import {
 } from '@openheaders/ui/panel/data/stores/footer-status-store';
 import { afterEach, describe, expect, it } from 'vitest';
 
+const t = getTranslator(DEFAULT_LOCALE);
+
 function storageInput(overrides: Partial<StorageFooterInput> = {}): StorageFooterInput {
   return {
     section: 'local',
@@ -41,7 +43,7 @@ function storageInput(overrides: Partial<StorageFooterInput> = {}): StorageFoote
 
 describe('buildStorageFooterStatus', () => {
   it('shows the plain total while no filter is typed', () => {
-    const status = buildStorageFooterStatus(storageInput());
+    const status = buildStorageFooterStatus(t, storageInput());
     expect(status.summary).toBe('64 items');
     expect(status.matches).toBe('');
     expect(status.alert).toBe('');
@@ -49,6 +51,7 @@ describe('buildStorageFooterStatus', () => {
 
   it('shows `x of y` plus the cross-section match note while filtering', () => {
     const status = buildStorageFooterStatus(
+      t,
       storageInput({ filteredCount: 12, filterActive: true, matchingSections: 3 }),
     );
     expect(status.summary).toBe('12 of 64 items');
@@ -57,6 +60,7 @@ describe('buildStorageFooterStatus', () => {
 
   it('singularizes nouns and the match note', () => {
     const status = buildStorageFooterStatus(
+      t,
       storageInput({ section: 'cookies', filteredCount: 1, totalCount: 1, filterActive: true, matchingSections: 1 }),
     );
     expect(status.summary).toBe('1 of 1 cookie');
@@ -65,6 +69,7 @@ describe('buildStorageFooterStatus', () => {
 
   it('keeps the top-level noun total for sections that filter below it', () => {
     const status = buildStorageFooterStatus(
+      t,
       storageInput({
         section: 'indexeddb',
         filteredCount: null,
@@ -79,6 +84,7 @@ describe('buildStorageFooterStatus', () => {
 
   it('renders the Usage section as a quota line without a match note', () => {
     const status = buildStorageFooterStatus(
+      t,
       storageInput({ section: 'quota', quotaUsage: 4_200_000, quotaTotal: 10_000_000, filterActive: true }),
     );
     expect(status.summary).toBe('4.2 MB of 10.0 MB used');
@@ -87,18 +93,19 @@ describe('buildStorageFooterStatus', () => {
 
   it('rolls quota bytes through B / kB / GB tiers', () => {
     const status = buildStorageFooterStatus(
+      t,
       storageInput({ section: 'quota', quotaUsage: 512, quotaTotal: 2_000_000_000 }),
     );
     expect(status.summary).toBe('512 B of 2.0 GB used');
   });
 
   it('surfaces write / delete failures and lets read failures win', () => {
-    expect(buildStorageFooterStatus(storageInput({ writeFailed: true })).alert).toBe('write failed');
+    expect(buildStorageFooterStatus(t, storageInput({ writeFailed: true })).alert).toBe('write failed');
     expect(
-      buildStorageFooterStatus(storageInput({ section: 'cachestorage', filteredCount: null, deleteFailed: true }))
+      buildStorageFooterStatus(t, storageInput({ section: 'cachestorage', filteredCount: null, deleteFailed: true }))
         .alert,
     ).toBe('delete failed');
-    expect(buildStorageFooterStatus(storageInput({ readFailed: true, writeFailed: true })).alert).toBe(
+    expect(buildStorageFooterStatus(t, storageInput({ readFailed: true, writeFailed: true })).alert).toBe(
       'read failed — showing last data',
     );
   });
@@ -116,8 +123,6 @@ describe('countConsoleLevels', () => {
 });
 
 describe('searchFooterLine', () => {
-  const t = getTranslator(DEFAULT_LOCALE);
-
   it('is empty while idle so the footer falls back to the Network line', () => {
     expect(searchFooterLine(t, { status: 'idle', done: 0, total: 0, matches: 0, files: 0, elapsedMs: 0 })).toBe('');
   });

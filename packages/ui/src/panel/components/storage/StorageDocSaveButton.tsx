@@ -10,6 +10,7 @@
  */
 
 import { SaveOutlined } from '@ant-design/icons';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useTabActive } from '@openheaders/ui/shared/awareness/TabActiveContext';
 import { isMac } from '@openheaders/ui/shared/platform';
@@ -64,12 +65,14 @@ export function StorageDocSaveButton({
   // Bound while the document is active even when there's nothing to
   // commit — ⌘S must never fall through to the browser's save dialog —
   // but it only ACTS when a save can land.
+  const t = useT();
   const savableRef = useRef(savable && !saving);
   savableRef.current = savable && !saving;
   useSaveShortcut(isActiveDocument, () => {
     if (savableRef.current) onSave();
   });
-  const hint = savable ? saveHint : dirty ? (blockedHint ?? 'No changes to save') : 'No changes to save';
+  const noChanges = t('panel.storage.save.noChanges');
+  const hint = savable ? saveHint : dirty ? (blockedHint ?? noChanges) : noChanges;
   return (
     <Tooltip title={savable ? <ShortcutHintTitle label={SAVE_SHORTCUT_LABEL}>{hint}</ShortcutHintTitle> : hint}>
       <span className="dt-storagedoc-save-wrap">
@@ -80,7 +83,7 @@ export function StorageDocSaveButton({
           onClick={onSave}
         >
           <SaveOutlined aria-hidden="true" />
-          Save
+          {t('panel.storage.save.label')}
         </button>
       </span>
     </Tooltip>

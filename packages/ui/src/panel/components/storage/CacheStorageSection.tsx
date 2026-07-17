@@ -14,7 +14,9 @@
  */
 
 import { DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type React from 'react';
+import { useMemo } from 'react';
 import { cacheEntryMatches, cacheMatches } from '../../data/storage/storage-filter';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
 import type { TextPredicate } from '../../data/text-match';
@@ -33,29 +35,43 @@ interface CacheStorageSectionProps {
   isEntryActive?: (url: string, method: string) => boolean;
 }
 
+// Row copy resolved once per locale — the cache/entry loops read this
+// object, never `t()` (per-row law). Names and URLs ride as raw holes.
+function buildCacheRowLabels(t: Translate) {
+  return {
+    openTitle: (name: string) => t('panel.storage.cache.openTitle', { name }),
+    deleteTitle: (name: string) => t('panel.storage.cache.deleteTitle', { name }),
+    deleteConfirmTitle: (name: string) => t('panel.storage.cache.deleteConfirmTitle', { name }),
+    deleteAria: (name: string) => t('panel.storage.cache.deleteAria', { name }),
+    deleteEntryTitle: t('panel.storage.cache.deleteEntryTitle'),
+    deleteEntryConfirmTitle: t('panel.storage.cache.deleteEntryConfirmTitle'),
+    deleteEntryAria: (url: string) => t('panel.storage.cache.deleteEntryAria', { url }),
+  };
+}
+
 export function CacheStorageSection({ cache, filter, onOpenEntry, isEntryActive }: CacheStorageSectionProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildCacheRowLabels(t), [t]);
   if (cache.selectedCache !== null) {
     return <EntriesView cache={cache} filter={filter} onOpenEntry={onOpenEntry} isEntryActive={isEntryActive} />;
   }
   if (cache.caches === null) {
     return cache.loading ? (
-      <div className="dt-empty">Loading…</div>
+      <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
     ) : (
       <div className="dt-empty-hero">
-        <strong>Cache Storage can’t be read</strong>
-        <span className="dt-empty-hero-sub">
-          The API only exists in secure contexts (https) — or this frame can’t be read right now.
-        </span>
+        <strong>{t('panel.storage.cache.cantReadTitle')}</strong>
+        <span className="dt-empty-hero-sub">{t('panel.storage.cache.cantReadSub')}</span>
       </div>
     );
   }
   if (cache.caches.length === 0) {
-    return <div className="dt-empty">No caches for this origin.</div>;
+    return <div className="dt-empty">{t('panel.storage.cache.noCaches')}</div>;
   }
 
   const caches = filter.empty ? cache.caches : cache.caches.filter((c) => cacheMatches(c, filter));
   if (caches.length === 0) {
-    return <div className="dt-empty">No caches match your filter.</div>;
+    return <div className="dt-empty">{t('panel.storage.cache.noCachesMatch')}</div>;
   }
 
   return (
@@ -66,15 +82,15 @@ export function CacheStorageSection({ cache, filter, onOpenEntry, isEntryActive 
             type="button"
             className="dt-storage-cache-open"
             onClick={() => cache.selectCache(c.name)}
-            title={`Open the ${c.name} cache`}
+            title={rowLabels.openTitle(c.name)}
           >
             {c.name}
           </button>
           <ArmedIconButton
             icon={<DeleteOutlined />}
-            title={`Delete the ${c.name} cache`}
-            confirmTitle={`Deletes ${c.name} and every entry in it`}
-            ariaLabel={`Delete cache ${c.name}`}
+            title={rowLabels.deleteTitle(c.name)}
+            confirmTitle={rowLabels.deleteConfirmTitle(c.name)}
+            ariaLabel={rowLabels.deleteAria(c.name)}
             onConfirm={() => cache.deleteCache(c.name)}
           />
         </div>
@@ -84,6 +100,8 @@ export function CacheStorageSection({ cache, filter, onOpenEntry, isEntryActive 
 }
 
 function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorageSectionProps) {
+  const t = useT();
+  const rowLabels = useMemo(() => buildCacheRowLabels(t), [t]);
   const name = cache.selectedCache;
   if (name === null) return null;
 
@@ -124,8 +142,8 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
         <button
           type="button"
           className="dt-storage-action"
-          title="Back to caches"
-          aria-label="Back to caches"
+          title={t('panel.storage.cache.backTitle')}
+          aria-label={t('panel.storage.cache.backTitle')}
           onClick={cache.closeCache}
         >
           <LeftOutlined />
@@ -137,19 +155,19 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
           <button
             type="button"
             className="dt-storage-action"
-            title="Previous page"
-            aria-label="Previous page"
+            title={t('panel.storage.pager.prevTitle')}
+            aria-label={t('panel.storage.pager.prevTitle')}
             disabled={cache.page === 0}
             onClick={() => cache.setPage(cache.page - 1)}
           >
             <LeftOutlined />
           </button>
-          <span className="dt-storage-meta">page {cache.page + 1}</span>
+          <span className="dt-storage-meta">{t('panel.storage.pager.page', { page: cache.page + 1 })}</span>
           <button
             type="button"
             className="dt-storage-action"
-            title="Next page"
-            aria-label="Next page"
+            title={t('panel.storage.pager.nextTitle')}
+            aria-label={t('panel.storage.pager.nextTitle')}
             disabled={!pageData?.truncated}
             onClick={() => cache.setPage(cache.page + 1)}
           >
@@ -158,14 +176,15 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
         </span>
       </div>
       {pageData === null ? (
-        <div className="dt-empty">Loading…</div>
+        <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
       ) : pageData.entries.length === 0 ? (
         <div className="dt-empty">
-          No entries in {name}
-          {cache.page > 0 ? ' on this page' : ''}.
+          {cache.page > 0
+            ? t('panel.storage.cache.noEntriesPage', { name })
+            : t('panel.storage.cache.noEntries', { name })}
         </div>
       ) : entries.length === 0 ? (
-        <div className="dt-empty">No entries match your filter.</div>
+        <div className="dt-empty">{t('panel.storage.cache.noEntriesMatch')}</div>
       ) : (
         // role="grid" + focusable container, StorageGrid's anatomy: the
         // rows are plain divs, so a row click focuses the grid as the
@@ -174,7 +193,7 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
         <div
           className="dt-storage-grid dt-storage-grid--caches"
           role="grid"
-          aria-label="Cache entries"
+          aria-label={t('panel.storage.cache.gridAria')}
           tabIndex={0}
           onKeyDown={handleGridKeyDown}
         >
@@ -214,9 +233,9 @@ function EntriesView({ cache, filter, onOpenEntry, isEntryActive }: CacheStorage
               <span className="dt-storage-row-actions" onClick={(ev) => ev.stopPropagation()}>
                 <ArmedIconButton
                   icon={<DeleteOutlined />}
-                  title="Delete this entry"
-                  confirmTitle="Deletes the stored response — click again to confirm"
-                  ariaLabel={`Delete entry ${e.url}`}
+                  title={rowLabels.deleteEntryTitle}
+                  confirmTitle={rowLabels.deleteEntryConfirmTitle}
+                  ariaLabel={rowLabels.deleteEntryAria(e.url)}
                   onConfirm={() => cache.deleteEntry(e.url, e.method)}
                 />
               </span>
