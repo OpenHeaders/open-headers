@@ -25,6 +25,7 @@ import { sharedWorkspace } from './shared-workspace';
 import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
+import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocs } from './workbench-docs';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchImportExport } from './workbench-import-export';
@@ -52,6 +53,7 @@ export const en = {
   ...web,
   ...workbench,
   ...workbenchChrome,
+  ...workbenchDaemonAdmin,
   ...workbenchDocs,
   ...workbenchEditors,
   ...workbenchImportExport,

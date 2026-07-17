@@ -21,6 +21,8 @@ import { Button, Select, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
+import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 
 type AuditRpcRequest = {
   actorUserId?: string;
@@ -59,31 +61,31 @@ interface AuditFilters {
   sinceMs?: number;
 }
 
-const CAPABILITY_OPTIONS = [
-  { value: 'daemon.admission', label: 'Admission (connect)' },
-  { value: 'daemon.admin', label: 'Admin plane' },
-  { value: 'daemon.sso-grant', label: 'SSO grant (mapping)' },
-  { value: 'daemon.sso-revoke', label: 'SSO revoke (mapping)' },
-  { value: 'workspace.read', label: 'Workspace read' },
-  { value: 'workspace.write', label: 'Workspace write' },
-  { value: 'workspace.list', label: 'Workspace list' },
-] as const;
+const CAPABILITY_OPTIONS: ReadonlyArray<{ value: string; labelKey: MessageKey }> = [
+  { value: 'daemon.admission', labelKey: 'workbench.daemonAdmin.audit.capAdmission' },
+  { value: 'daemon.admin', labelKey: 'workbench.daemonAdmin.audit.capAdminPlane' },
+  { value: 'daemon.sso-grant', labelKey: 'workbench.daemonAdmin.audit.capSsoGrant' },
+  { value: 'daemon.sso-revoke', labelKey: 'workbench.daemonAdmin.audit.capSsoRevoke' },
+  { value: 'workspace.read', labelKey: 'workbench.daemonAdmin.audit.capWorkspaceRead' },
+  { value: 'workspace.write', labelKey: 'workbench.daemonAdmin.audit.capWorkspaceWrite' },
+  { value: 'workspace.list', labelKey: 'workbench.daemonAdmin.audit.capWorkspaceList' },
+];
 
-const RANGE_OPTIONS = [
-  { value: 3_600_000, label: 'Last hour' },
-  { value: 86_400_000, label: 'Last 24 hours' },
-  { value: 7 * 86_400_000, label: 'Last 7 days' },
-  { value: 30 * 86_400_000, label: 'Last 30 days' },
-] as const;
+const RANGE_OPTIONS: ReadonlyArray<{ value: number; labelKey: MessageKey }> = [
+  { value: 3_600_000, labelKey: 'workbench.daemonAdmin.audit.rangeLastHour' },
+  { value: 86_400_000, labelKey: 'workbench.daemonAdmin.audit.rangeLast24Hours' },
+  { value: 7 * 86_400_000, labelKey: 'workbench.daemonAdmin.audit.rangeLast7Days' },
+  { value: 30 * 86_400_000, labelKey: 'workbench.daemonAdmin.audit.rangeLast30Days' },
+];
 
 /** Console page size; the server clamps to its own cap independently. */
 const PAGE_LIMIT = 100;
 /** Export walks the cursor in server-max pages. */
 const EXPORT_PAGE_LIMIT = 500;
 
-function formatTime(iso: string): string {
+function formatTime(locale: string, iso: string): string {
   try {
-    return new Date(iso).toLocaleString();
+    return getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(iso));
   } catch {
     return iso;
   }
@@ -105,6 +107,7 @@ const DaemonAuditReports: React.FC<{
   workspaceName: (id: string) => string;
   workspaceOptions: ReadonlyArray<{ value: string; label: string }>;
 }> = ({ users, workspaceName, workspaceOptions }) => {
+  const { t, locale } = useLocale();
   const { token } = theme.useToken();
   const [filters, setFilters] = useState<AuditFilters>({});
   const [rows, setRows] = useState<readonly AuditRow[] | null>(null);
@@ -173,49 +176,54 @@ const DaemonAuditReports: React.FC<{
 
   const columns = [
     {
-      title: 'Time',
+      title: t('workbench.daemonAdmin.audit.colTime'),
       dataIndex: 'occurredAt',
       width: 170,
-      render: (iso: string) => <span style={{ whiteSpace: 'nowrap' }}>{formatTime(iso)}</span>,
+      render: (iso: string) => <span style={{ whiteSpace: 'nowrap' }}>{formatTime(locale, iso)}</span>,
     },
     {
-      title: 'Event',
+      title: t('workbench.daemonAdmin.audit.colEvent'),
       key: 'event',
       width: 170,
       render: (_: unknown, row: AuditRow) => {
         if (row.capability === 'daemon.admission') {
           return row.decision.allow ? (
-            <Tag color="blue">Admission</Tag>
+            <Tag color="blue">{t('workbench.daemonAdmin.audit.eventAdmission')}</Tag>
           ) : (
             <Tooltip title={row.decision.reason}>
-              <Tag color="orange">Admission refused</Tag>
+              <Tag color="orange">{t('workbench.daemonAdmin.audit.eventAdmissionRefused')}</Tag>
             </Tooltip>
           );
         }
-        if (row.capability === 'daemon.sso-grant') return <Tag color="blue">SSO grant</Tag>;
-        if (row.capability === 'daemon.sso-revoke') return <Tag color="purple">SSO revoke</Tag>;
+        if (row.capability === 'daemon.sso-grant')
+          return <Tag color="blue">{t('workbench.daemonAdmin.audit.eventSsoGrant')}</Tag>;
+        if (row.capability === 'daemon.sso-revoke')
+          return <Tag color="purple">{t('workbench.daemonAdmin.audit.eventSsoRevoke')}</Tag>;
         return row.decision.allow ? (
-          <Tag color="green">Allow</Tag>
+          <Tag color="green">{t('workbench.daemonAdmin.audit.eventAllow')}</Tag>
         ) : (
           <Tooltip title={row.decision.reason}>
-            <Tag color="red">Deny{row.decision.reason ? ` · ${row.decision.reason}` : ''}</Tag>
+            <Tag color="red">
+              {t('workbench.daemonAdmin.audit.eventDeny')}
+              {row.decision.reason ? ` · ${row.decision.reason}` : ''}
+            </Tag>
           </Tooltip>
         );
       },
     },
     {
-      title: 'Capability',
+      title: t('workbench.daemonAdmin.audit.colCapability'),
       dataIndex: 'capability',
       width: 150,
       render: (capability: string) => <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{capability}</span>,
     },
     {
-      title: 'Workspace',
+      title: t('workbench.daemonAdmin.audit.colWorkspace'),
       dataIndex: 'workspaceId',
       render: (workspaceId: string | undefined) => (workspaceId ? workspaceName(workspaceId) : '—'),
     },
     {
-      title: 'Actor',
+      title: t('workbench.daemonAdmin.audit.colActor'),
       dataIndex: 'actorUserId',
       render: (actorUserId: string) => (
         <Tooltip title={actorUserId}>
@@ -238,11 +246,10 @@ const DaemonAuditReports: React.FC<{
             color: token.colorTextSecondary,
           }}
         >
-          Reports
+          {t('workbench.daemonAdmin.audit.sectionTitle')}
         </h3>
         <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-          Every permission decision this daemon makes, and each device admission, as a filterable audit trail. Export
-          honors the active filters.
+          {t('workbench.daemonAdmin.audit.sectionHint')}
         </div>
       </header>
       <div
@@ -257,7 +264,7 @@ const DaemonAuditReports: React.FC<{
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           <Select
             size="small"
-            placeholder="Actor"
+            placeholder={t('workbench.daemonAdmin.audit.filterActor')}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -269,30 +276,30 @@ const DaemonAuditReports: React.FC<{
           />
           <Select
             size="small"
-            placeholder="Capability"
+            placeholder={t('workbench.daemonAdmin.audit.filterCapability')}
             allowClear
             style={{ minWidth: 160 }}
             value={filters.capability}
-            options={[...CAPABILITY_OPTIONS]}
+            options={CAPABILITY_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             onChange={(v) => setFilters((f) => ({ ...f, capability: v }))}
             data-testid="daemon-audit-filter-capability"
           />
           <Select
             size="small"
-            placeholder="Decision"
+            placeholder={t('workbench.daemonAdmin.audit.filterDecision')}
             allowClear
             style={{ width: 100 }}
             value={filters.decision}
             options={[
-              { value: 'allow', label: 'Allow' },
-              { value: 'deny', label: 'Deny' },
+              { value: 'allow', label: t('workbench.daemonAdmin.audit.decisionAllow') },
+              { value: 'deny', label: t('workbench.daemonAdmin.audit.decisionDeny') },
             ]}
             onChange={(v) => setFilters((f) => ({ ...f, decision: v }))}
             data-testid="daemon-audit-filter-decision"
           />
           <Select
             size="small"
-            placeholder="Workspace"
+            placeholder={t('workbench.daemonAdmin.audit.filterWorkspace')}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -303,16 +310,16 @@ const DaemonAuditReports: React.FC<{
           />
           <Select
             size="small"
-            placeholder="Any time"
+            placeholder={t('workbench.daemonAdmin.audit.filterAnyTime')}
             allowClear
             style={{ width: 130 }}
             value={filters.sinceMs}
-            options={[...RANGE_OPTIONS]}
+            options={RANGE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             onChange={(v) => setFilters((f) => ({ ...f, sinceMs: v }))}
           />
           <div style={{ flex: 1 }} />
           <Button size="small" onClick={() => void load()} loading={loading} data-testid="daemon-audit-refresh">
-            Refresh
+            {t('workbench.daemonAdmin.audit.refresh')}
           </Button>
           <Button
             size="small"
@@ -321,7 +328,7 @@ const DaemonAuditReports: React.FC<{
             disabled={rows === null || rows.length === 0}
             data-testid="daemon-audit-export"
           >
-            Export JSONL
+            {t('workbench.daemonAdmin.audit.exportJsonl')}
           </Button>
         </div>
         {error && (
@@ -336,12 +343,12 @@ const DaemonAuditReports: React.FC<{
           dataSource={rows ? [...rows] : []}
           loading={rows === null}
           pagination={false}
-          locale={{ emptyText: 'No audit rows match.' }}
+          locale={{ emptyText: t('workbench.daemonAdmin.audit.emptyText') }}
         />
         {nextCursor && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
             <Button size="small" onClick={() => void load(nextCursor)} loading={loading} data-testid="daemon-audit-load-more">
-              Load more
+              {t('workbench.daemonAdmin.audit.loadMore')}
             </Button>
           </div>
         )}
