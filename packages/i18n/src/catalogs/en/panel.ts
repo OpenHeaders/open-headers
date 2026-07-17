@@ -472,6 +472,25 @@ export const panel = {
   'panel.valueDoc.detachedSub':
     'The rule or the modification holding this value was deleted, or the operation no longer carries a value.',
 
+  // ── Rule editor-tab document (RuleEditorTab) ───────────────────────
+  // Rule names ride raw as data; status codes and MIME values stay raw.
+  'panel.ruleDoc.crumbKind': 'Response override',
+  'panel.ruleDoc.nameLabel': 'Rule name',
+  'panel.ruleDoc.saveHint': 'Save the override rule — it stays published in the same step',
+  'panel.ruleDoc.saveHintCreate': 'Create the rule and publish it',
+  'panel.ruleDoc.blockedHintDetached': 'The rule this document belonged to is gone',
+  'panel.ruleDoc.rereadTitle': 'Re-read the rule',
+  'panel.ruleDoc.rereadConfirm': 'Discards your edits — click again to re-read',
+  'panel.ruleDoc.rereadAria': 'Discard edits and re-read the rule',
+  'panel.ruleDoc.openRuleTitle': 'Open this rule in the workspace editor',
+  'panel.ruleDoc.openRule': 'Open in workspace',
+  'panel.ruleDoc.saveFailed.notFound': 'Rule not found — it may have been deleted.',
+  'panel.ruleDoc.saveFailed.write': 'Save failed — the rule rejected the write.',
+  'panel.ruleDoc.detachedTitle': 'Rule no longer exists',
+  'panel.ruleDoc.detachedSub': 'The override rule this document was editing was deleted.',
+  'panel.ruleDoc.dynamicTitle': 'Dynamic body rule',
+  'panel.ruleDoc.dynamicSub': 'JavaScript response bodies are edited in the workspace editor.',
+
   // ── Value expander (headers / cookies detail readout) ──────────────
   // JWT part and claim names (Header / Payload / Signature / iat / nbf
   // / exp) are spec vocabulary and stay raw via the glossary.

@@ -23,6 +23,31 @@ export interface ResponseQuickDraft {
   responseBody: string;
 }
 
+/**
+ * WIRE-space twin of `buildResponseRuleUpdate` for the rule-editor tab
+ * document: its `FormatAwareBodyEditor` form value is already wire text
+ * (encoded per edit, Raw mode verbatim), so the body stores AS IS — a
+ * second encode here would re-profile a deliberate Raw-mode edit. Same
+ * conditions gating and same-batch `published` carry as the popover
+ * builder.
+ */
+export function buildResponseRuleWireUpdate(
+  rule: ResponseRule,
+  draft: ResponseQuickDraft,
+  conditions?: RuleCondition[],
+): Partial<ResponseRule> {
+  return {
+    action: {
+      ...rule.action,
+      statusCode: draft.statusCode,
+      contentType: draft.contentType,
+      responseBody: draft.responseBody,
+    },
+    ...(conditions ? { conditions } : {}),
+    ...(rule.published === true ? { published: true } : {}),
+  };
+}
+
 /** `conditions` joins the batch only when the popover's Conditions row
  *  is dirty — an untouched row never clobbers a concurrent conditions
  *  edit from another surface. */

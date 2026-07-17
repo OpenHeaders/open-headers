@@ -17,7 +17,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { formatBody } from '@openheaders/ui/shared/body-format';
+import { encodeBodyForWire, formatBody } from '@openheaders/ui/shared/body-format';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -27,6 +27,7 @@ import { App, Tag, theme } from 'antd';
 import { useMemo } from 'react';
 import { buildResponseRuleUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import { useOpenRuleEditorDocument } from '../../data/rule-editor-document-intent';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
@@ -120,6 +121,33 @@ export function ResponseQuickEditor({
     void openWorkspace({ kind: 'edit-rule', uid: liveRule.uid }, 'devpanel').then(() => onClose());
   };
 
+  // In-panel escalation: the rule opens as an edit-mode editor-tab
+  // document; unsaved form state rides along (body re-encoded to wire —
+  // the document's form value is wire text). Editable rules only —
+  // dynamic-body rules keep their workspace-only escalation.
+  const openRuleEditorDocument = useOpenRuleEditorDocument();
+  const openInTab =
+    openRuleEditorDocument === null || !editable || responseRule === null
+      ? undefined
+      : () => {
+          openRuleEditorDocument({
+            mode: 'edit',
+            ruleUid: responseRule.uid,
+            ruleName: responseRule.name,
+            ...(isDirty
+              ? {
+                  handOff: {
+                    statusCode: draftRef.current.statusCode,
+                    contentType: draftRef.current.contentType,
+                    responseBody: encodeBodyForWire(responseRule.action.responseBody, draftRef.current.responseBody),
+                    ...(condDraft.isDirty ? { conditions: condDraft.conditionsRef.current } : {}),
+                  },
+                }
+              : {}),
+          });
+          onClose();
+        };
+
   const isNetwork = responseRule?.action.responseSource === 'network';
 
   return (
@@ -145,6 +173,7 @@ export function ResponseQuickEditor({
         ) : undefined
       }
       onOpenInEditor={openInEditor}
+      onOpenInTab={openInTab}
       save={editable ? { saving, canSave, saveLabel, onSave: () => void handleSave() } : undefined}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

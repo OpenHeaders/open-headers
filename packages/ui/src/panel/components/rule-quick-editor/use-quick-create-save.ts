@@ -24,7 +24,7 @@
 
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid, type RuleSeed, toFolderName } from '@openheaders/core/utils';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
@@ -65,6 +65,90 @@ export interface QuickCreateSaveApi {
   saveLabel: string;
 }
 
+/** One committed mint: the rule's identity, and whether the second
+ *  (publication) step landed or the rule degraded to a draft. */
+export interface QuickCreateSaveOutcome {
+  ruleUid: string;
+  published: boolean;
+}
+
+export interface PerformQuickCreateSaveArgs {
+  /** Builds the full rule seed from the CURRENT form state. */
+  buildSeed: () => RuleSeed;
+  destination: QuickCreateDestination;
+  /** Workspace any auto-minted collection/folder lands in. */
+  workspaceId: string | null;
+  mutator: UseRuleMutatorApi;
+  message: MessageApi;
+  t: Translate;
+}
+
+/**
+ * The create-save chain itself, shared by the popover hook and the
+ * rule-editor tab document: resolve the destination (minting the
+ * default collection / domain folder where missing), create the rule,
+ * cross the publication gate. Toasts fire here so every caller reports
+ * identically; the outcome is null when nothing was minted.
+ */
+export async function performQuickCreateSave({
+  buildSeed,
+  destination,
+  workspaceId,
+  mutator,
+  message,
+  t,
+}: PerformQuickCreateSaveArgs): Promise<QuickCreateSaveOutcome | null> {
+  if (!workspaceId) {
+    message.error(t('panel.quickEditor.toast.noWorkspace'));
+    return null;
+  }
+  const writeOpts = { workspaceId, surfaceId: 'devpanel' };
+
+  let collection = destination.collection;
+  if (!collection) {
+    // First rule in a collection-less workspace: mint the default
+    // collection instead of bouncing the user to the workbench.
+    const collectionResult = await applyCollectionCreate({ name: NEW_RULES_COLLECTION_NAME }, writeOpts);
+    if (!collectionResult.ok) {
+      message.error(t('panel.quickEditor.toast.collectionCreateFailed'));
+      return null;
+    }
+    collection = { uid: collectionResult.collection.uid, path: collectionResult.collection.path };
+  }
+
+  let parentPath = destination.folderPath ?? collection.path;
+  if (!destination.folderPath && destination.newFolderName) {
+    const folderUid = generateUid();
+    const folderResult = await applyFolderCreate(
+      {
+        folderUid,
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: collection.uid },
+        name: destination.newFolderName,
+      },
+      writeOpts,
+    );
+    if (folderResult.ok) {
+      parentPath = `${collection.path}/${toFolderName(destination.newFolderName, folderUid)}`;
+    } else {
+      message.warning(t('panel.quickEditor.toast.folderCreateFailed', { name: destination.newFolderName }));
+    }
+  }
+
+  const created = await mutator.createRule(buildSeed(), parentPath);
+  if (!created.ok) {
+    const detail = created.reason === 'other' ? created.message : undefined;
+    message.error(detail ?? t('panel.quickEditor.toast.createFailed'));
+    return null;
+  }
+  const published = await mutator.publishRule(created.rule.uid);
+  if (!published.ok) {
+    message.warning(t('panel.quickEditor.toast.createdDraft'));
+    return { ruleUid: created.rule.uid, published: false };
+  }
+  message.success(t('panel.quickEditor.toast.created'));
+  return { ruleUid: created.rule.uid, published: true };
+}
+
 export function useQuickCreateSave({
   buildSeed,
   destination,
@@ -80,56 +164,8 @@ export function useQuickCreateSave({
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (!workspaceId) {
-        message.error(t('panel.quickEditor.toast.noWorkspace'));
-        return;
-      }
-      const writeOpts = { workspaceId, surfaceId: 'devpanel' };
-
-      let collection = destination.collection;
-      if (!collection) {
-        // First rule in a collection-less workspace: mint the default
-        // collection instead of bouncing the user to the workbench.
-        const collectionResult = await applyCollectionCreate({ name: NEW_RULES_COLLECTION_NAME }, writeOpts);
-        if (!collectionResult.ok) {
-          message.error(t('panel.quickEditor.toast.collectionCreateFailed'));
-          return;
-        }
-        collection = { uid: collectionResult.collection.uid, path: collectionResult.collection.path };
-      }
-
-      let parentPath = destination.folderPath ?? collection.path;
-      if (!destination.folderPath && destination.newFolderName) {
-        const folderUid = generateUid();
-        const folderResult = await applyFolderCreate(
-          {
-            folderUid,
-            parent: { type: COLLECTION_ENTITY_TYPE, uid: collection.uid },
-            name: destination.newFolderName,
-          },
-          writeOpts,
-        );
-        if (folderResult.ok) {
-          parentPath = `${collection.path}/${toFolderName(destination.newFolderName, folderUid)}`;
-        } else {
-          message.warning(t('panel.quickEditor.toast.folderCreateFailed', { name: destination.newFolderName }));
-        }
-      }
-
-      const created = await mutator.createRule(buildSeed(), parentPath);
-      if (!created.ok) {
-        const detail = created.reason === 'other' ? created.message : undefined;
-        message.error(detail ?? t('panel.quickEditor.toast.createFailed'));
-        return;
-      }
-      const published = await mutator.publishRule(created.rule.uid);
-      if (!published.ok) {
-        message.warning(t('panel.quickEditor.toast.createdDraft'));
-        onClose();
-        return;
-      }
-      message.success(t('panel.quickEditor.toast.created'));
-      onClose();
+      const outcome = await performQuickCreateSave({ buildSeed, destination, workspaceId, mutator, message, t });
+      if (outcome !== null) onClose();
     } finally {
       setSaving(false);
     }

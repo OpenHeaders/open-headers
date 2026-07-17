@@ -10,7 +10,10 @@
  */
 
 import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
-import { buildResponseRuleUpdate } from '@openheaders/ui/panel/data/rule-create/response-rule-edit';
+import {
+  buildResponseRuleUpdate,
+  buildResponseRuleWireUpdate,
+} from '@openheaders/ui/panel/data/rule-create/response-rule-edit';
 import { describe, expect, it } from 'vitest';
 
 function makeRule(over: Partial<ResponseRule> = {}): ResponseRule {
@@ -108,5 +111,46 @@ describe('buildResponseRuleUpdate — wire re-encoding', () => {
       responseBody: '{\n  "users": [],\n  "total": 0\n}',
     };
     expect(buildResponseRuleUpdate(rule, draft).action?.responseBody).toBe(stored);
+  });
+});
+
+describe('buildResponseRuleWireUpdate — the rule-editor tab document', () => {
+  const stored = '{"users":[],"total":0}';
+
+  it('stores the wire-space draft body VERBATIM — a Raw-mode profile change is honored', () => {
+    // The tab's FormatAwareBodyEditor already encoded the form value; a
+    // deliberately re-indented Raw edit must not snap back to the
+    // stored profile.
+    const rule = makeRule({ published: true, action: { ...makeRule().action, responseBody: stored } });
+    const rawEdit = '{\n    "users": [],\n    "total": 0\n}';
+    const updates = buildResponseRuleWireUpdate(rule, {
+      statusCode: 200,
+      contentType: 'application/json',
+      responseBody: rawEdit,
+    });
+    expect(updates.action?.responseBody).toBe(rawEdit);
+    expect(updates.action?.statusCode).toBe(200);
+    expect(updates.published).toBe(true);
+  });
+
+  it('an untouched wire draft stores the stored bytes exactly', () => {
+    const rule = makeRule({ action: { ...makeRule().action, responseBody: stored } });
+    const updates = buildResponseRuleWireUpdate(rule, {
+      statusCode: 0,
+      contentType: 'application/json',
+      responseBody: stored,
+    });
+    expect(updates.action?.responseBody).toBe(stored);
+    expect('published' in updates).toBe(false);
+  });
+
+  it('gates conditions and preserves unsurfaced action fields like the popover builder', () => {
+    const conditions: RuleCondition[] = [{ uid: 'c1', type: 'request-domains', values: ['openheaders.io'] }];
+    const withConditions = buildResponseRuleWireUpdate(makeRule({ published: true }), DRAFT, conditions);
+    expect(withConditions.conditions).toBe(conditions);
+    const without = buildResponseRuleWireUpdate(makeRule(), DRAFT);
+    expect('conditions' in without).toBe(false);
+    expect(without.action?.responseSource).toBe('network');
+    expect(without.action?.responseHeaders).toEqual({ 'x-served-by': 'openheaders.io' });
   });
 });

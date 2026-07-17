@@ -80,6 +80,11 @@ export interface QuickEditorShellProps {
    *  link when the rule is gone); create mode passes `true` — there is
    *  no live rule yet but the link hands off the current draft. */
   canOpenInEditor?: boolean;
+  /** In-panel escalation: open this rule (or the current create draft)
+   *  as a full editor-tab document. Rendered beside the workspace link
+   *  when supplied — per-type bodies pass it only where a tab document
+   *  exists (response rules today) and an opener is registered. */
+  onOpenInTab?: () => void;
   /** Save affordance — omitted when the body isn't editable. */
   save?: QuickEditorSave;
   onMouseEnter?: () => void;
@@ -102,6 +107,7 @@ export function QuickEditorShell({
   conditions,
   onOpenInEditor,
   canOpenInEditor,
+  onOpenInTab,
   save,
   onMouseEnter,
   onMouseLeave,
@@ -397,15 +403,22 @@ export function QuickEditorShell({
           borderTop: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
-        <Button
-          type="link"
-          size="small"
-          onClick={onOpenInEditor}
-          style={{ padding: 0, fontSize: 11 }}
-          disabled={!(canOpenInEditor ?? !!liveRule)}
-        >
-          {t('panel.quickEditor.openInWorkspace')}
-        </Button>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          {onOpenInTab && (
+            <Button type="link" size="small" onClick={onOpenInTab} style={{ padding: 0, fontSize: 11 }}>
+              {t('panel.quickEditor.openInTab')}
+            </Button>
+          )}
+          <Button
+            type="link"
+            size="small"
+            onClick={onOpenInEditor}
+            style={{ padding: 0, fontSize: 11 }}
+            disabled={!(canOpenInEditor ?? !!liveRule)}
+          >
+            {t('panel.quickEditor.openInWorkspace')}
+          </Button>
+        </span>
         {save && (
           <Tooltip
             title={<ShortcutHintTitle label={save.saveLabel}>{t('panel.quickEditor.saveButton')}</ShortcutHintTitle>}

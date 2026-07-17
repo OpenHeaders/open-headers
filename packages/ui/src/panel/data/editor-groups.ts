@@ -7,7 +7,13 @@
  * tree. Same architectural pattern as the workspace editor-groups.
  */
 
-import { cookieTabId, domStorageEntryTabId, type InspectorTab, type InspectorTabPatch } from './inspector-tab';
+import {
+  cookieTabId,
+  domStorageEntryTabId,
+  type InspectorTab,
+  type InspectorTabPatch,
+  ruleEditorTabId,
+} from './inspector-tab';
 
 export type EditorOrientation = 'horizontal' | 'vertical';
 
@@ -163,6 +169,39 @@ export function updateTabInLeaf(
       return {
         ...leaf,
         tabs: renamedTabs,
+        activeTabId: leaf.activeTabId === tab.id ? nextTab.id : leaf.activeTabId,
+      };
+    } else if (tab.kind === 'rule-editor' && updates.ruleUid !== undefined) {
+      // Committed rule binding: the first Save minted the rule — re-key
+      // a draft tab to the uid and drop the seed payloads (create draft
+      // / popover hand-off); the document now reads the live mirror. An
+      // edit-mode save re-lands the same id and still sheds its
+      // hand-off. A mint always produces a FRESH uid, so the new id can
+      // never collide with an open tab.
+      const nextId = ruleEditorTabId(updates.ruleUid);
+      const shedsPayload = tab.draft !== undefined || tab.handOff !== undefined || tab.draftName !== undefined;
+      const dirtyChanges = updates.dirty !== undefined && (tab.dirty ?? false) !== updates.dirty;
+      const labelChanges = updates.label !== undefined && updates.label !== tab.label;
+      if (nextId === tab.id && !shedsPayload && !dirtyChanges && !labelChanges) return leaf;
+      const {
+        draft: _draft,
+        draftName: _draftName,
+        draftConditions: _draftConditions,
+        handOff: _handOff,
+        ...kept
+      } = tab;
+      nextTab = {
+        ...kept,
+        ...(updates.dirty !== undefined ? { dirty: updates.dirty } : {}),
+        ...(updates.label !== undefined ? { label: updates.label } : {}),
+        ruleUid: updates.ruleUid,
+        id: nextId,
+      };
+      const rekeyedTabs = leaf.tabs.slice();
+      rekeyedTabs[idx] = nextTab;
+      return {
+        ...leaf,
+        tabs: rekeyedTabs,
         activeTabId: leaf.activeTabId === tab.id ? nextTab.id : leaf.activeTabId,
       };
     } else if (tab.kind === 'cookie' && updates.cookieKey !== undefined && cookieTabId(updates.cookieKey) !== tab.id) {

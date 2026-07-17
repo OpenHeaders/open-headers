@@ -45,6 +45,30 @@ export function mergeQuickIntoResponseDraft(draft: ResponseRuleDraft, quick: Res
   };
 }
 
+function assembleResponseRuleSeed(
+  draft: ResponseRuleDraft,
+  quick: ResponseQuickDraft,
+  name: string,
+  conditions: RuleCondition[],
+  responseBody: string,
+): ResponseRuleSeed {
+  return {
+    name,
+    enabled: true,
+    type: 'response',
+    conditions,
+    action: {
+      responseSource: draft.responseSource ?? 'mock',
+      bodyType: draft.bodyType ?? 'static',
+      responseBody,
+      statusCode: quick.statusCode,
+      contentType: quick.contentType,
+      responseHeaders: draft.responseHeaders ?? {},
+      resourceType: draft.resourceType ?? 'rest',
+    },
+  };
+}
+
 /**
  * Build the full rule seed for `applyRuleCreate`. Conditions pass
  * through unchanged from the popover's Conditions row (seeded via
@@ -56,19 +80,21 @@ export function buildResponseRuleSeed(
   name: string,
   conditions: RuleCondition[],
 ): ResponseRuleSeed {
-  return {
-    name,
-    enabled: true,
-    type: 'response',
-    conditions,
-    action: {
-      responseSource: draft.responseSource ?? 'mock',
-      bodyType: draft.bodyType ?? 'static',
-      responseBody: encodeBodyForWire(draft.responseBody ?? '', quick.responseBody),
-      statusCode: quick.statusCode,
-      contentType: quick.contentType,
-      responseHeaders: draft.responseHeaders ?? {},
-      resourceType: draft.resourceType ?? 'rest',
-    },
-  };
+  const responseBody = encodeBodyForWire(draft.responseBody ?? '', quick.responseBody);
+  return assembleResponseRuleSeed(draft, quick, name, conditions, responseBody);
+}
+
+/**
+ * WIRE-space twin for the rule-editor tab document: its
+ * `FormatAwareBodyEditor` form value is already wire text (encoded per
+ * edit, Raw mode verbatim), so the body seeds AS IS — a second encode
+ * would re-profile a deliberate Raw-mode edit.
+ */
+export function buildResponseRuleSeedFromWire(
+  draft: ResponseRuleDraft,
+  quick: ResponseQuickDraft,
+  name: string,
+  conditions: RuleCondition[],
+): ResponseRuleSeed {
+  return assembleResponseRuleSeed(draft, quick, name, conditions, quick.responseBody);
 }

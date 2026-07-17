@@ -22,6 +22,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Tag } from 'antd';
 import { useRef, useState } from 'react';
+import { useOpenRuleEditorDocument } from '../../data/rule-editor-document-intent';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import { buildResponseRuleSeed, mergeQuickIntoResponseDraft, seedQuickDraft } from '../../data/rule-create/response-rule-create';
@@ -97,6 +98,23 @@ export function ResponseQuickCreate({
       .catch((err: Error) => message.error(err.message));
   };
 
+  // In-panel escalation: the current form state (body wire-encoded by
+  // the merge) opens as a create-mode editor-tab document. Gated on the
+  // tab-group owner having registered an opener (see the intent seam).
+  const openRuleEditorDocument = useOpenRuleEditorDocument();
+  const openInTab =
+    openRuleEditorDocument === null
+      ? undefined
+      : () => {
+          openRuleEditorDocument({
+            mode: 'create',
+            name,
+            draft: mergeQuickIntoResponseDraft(draft, quickRef.current),
+            ...(cond.isDirty ? { conditions: cond.conditionsRef.current } : {}),
+          });
+          onClose();
+        };
+
   const isNetwork = draft.responseSource === 'network';
 
   return (
@@ -117,6 +135,7 @@ export function ResponseQuickCreate({
       conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
+      onOpenInTab={openInTab}
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

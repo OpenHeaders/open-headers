@@ -14,6 +14,7 @@
 import type { ResponseRuleDraft, RuleCondition } from '@openheaders/core/types';
 import {
   buildResponseRuleSeed,
+  buildResponseRuleSeedFromWire,
   mergeQuickIntoResponseDraft,
   seedQuickDraft,
 } from '@openheaders/ui/panel/data/rule-create/response-rule-create';
@@ -161,5 +162,39 @@ describe('buildResponseRuleSeed — action + identity', () => {
     expect(seed.action.responseSource).toBe('mock');
     expect(seed.action.bodyType).toBe('static');
     expect(seed.action.resourceType).toBe('rest');
+  });
+});
+
+describe('buildResponseRuleSeedFromWire — the rule-editor tab document', () => {
+  it('seeds the wire-space body VERBATIM — a Raw-mode profile change is honored', () => {
+    // The tab's FormatAwareBodyEditor already encoded the form value; a
+    // deliberately re-indented Raw edit must not snap back to the
+    // captured profile.
+    const draft = makeDraft({ responseBody: '{"users":[]}' });
+    const rawEdit = '{\n    "users": []\n}';
+    const seed = buildResponseRuleSeedFromWire(draft, { ...QUICK, responseBody: rawEdit }, 'Rule', CONDITIONS);
+    expect(seed.action.responseBody).toBe(rawEdit);
+  });
+
+  it('an untouched wire body seeds the captured bytes exactly', () => {
+    const draft = makeDraft({ responseBody: '{"users":[],"total":0}' });
+    const quick = { statusCode: 0, contentType: 'application/json', responseBody: '{"users":[],"total":0}' };
+    expect(buildResponseRuleSeedFromWire(draft, quick, 'Rule', CONDITIONS).action.responseBody).toBe(
+      '{"users":[],"total":0}',
+    );
+  });
+
+  it('shares the popover seed assembly: identity, conditions and unsurfaced fields', () => {
+    const seed = buildResponseRuleSeedFromWire(makeDraft(), QUICK, 'Mock users', CONDITIONS);
+    expect(seed.name).toBe('Mock users');
+    expect(seed.enabled).toBe(true);
+    expect(seed.type).toBe('response');
+    expect(seed.conditions).toBe(CONDITIONS);
+    expect(seed.action.statusCode).toBe(404);
+    expect(seed.action.contentType).toBe('text/plain');
+    expect(seed.action.responseSource).toBe('network');
+    expect(seed.action.bodyType).toBe('static');
+    expect(seed.action.resourceType).toBe('rest');
+    expect('published' in seed).toBe(false);
   });
 });

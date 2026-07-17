@@ -25,6 +25,7 @@ export const panelQuickEditor = {
   'panel.quickEditor.enabledOn': 'Enabled',
   'panel.quickEditor.enabledOff': 'Disabled',
   'panel.quickEditor.ruleEnabledAria': 'Rule enabled',
+  'panel.quickEditor.openInTab': 'Open in tab',
   'panel.quickEditor.openInWorkspace': 'Open in workspace →',
   'panel.quickEditor.saveButton': 'Save',
   'panel.quickEditor.openToInspect': 'Open in workspace to inspect or change this rule.',

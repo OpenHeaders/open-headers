@@ -1,4 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { ResponseRuleDraft, RuleCondition } from '@openheaders/core/types';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import type { JarCookieKey } from './cookies/cookie-jar-cache';
 import type { DomStorageArea } from './storage/storage-inspector-host';
@@ -29,7 +30,8 @@ export type InspectorTab =
   | DomStorageEntryInspectorTab
   | CookieInspectorTab
   | CacheEntryInspectorTab
-  | RuleValueInspectorTab;
+  | RuleValueInspectorTab
+  | RuleEditorInspectorTab;
 
 export interface RequestInspectorTab {
   kind: 'request';
@@ -142,10 +144,56 @@ export interface RuleValueInspectorTab {
   dirty?: boolean;
 }
 
+/** Popover hand-off riding a rule-editor tab open: the quick editor's
+ *  unsaved form state, pre-applied as the document's draft so escalating
+ *  mid-edit loses nothing. The body is WIRE text — the popover encodes
+ *  its formatted view through `encodeBodyForWire` before handing off. */
+export interface RuleEditorHandOff {
+  statusCode: number;
+  contentType: string;
+  responseBody: string;
+  /** Present only when the popover's conditions row was dirty. */
+  conditions?: RuleCondition[];
+}
+
+/** One response-override rule opened as a full editor-tab document —
+ *  the quick popover's in-panel escalation (the workspace link's
+ *  stay-in-DevTools sibling). Named for the general case; response
+ *  rules today. */
+export interface RuleEditorInspectorTab {
+  kind: 'rule-editor';
+  id: string;
+  /** Rule name at open time — pill/crumb seed (the live name may
+   *  drift; the document body renders the live one). */
+  label: string;
+  /** Edit mode: the rule's uid — the document reads the CANONICAL rule
+   *  through the live sync mirror. Create mode: null until the first
+   *  Save mints the rule and a `ruleUid` patch re-keys the tab. */
+  ruleUid: string | null;
+  /** Create mode: the captured draft the first Save mints from. Tabs
+   *  are in-memory state (nothing survives a reload), so the draft
+   *  travels with its tab. Dropped on re-key. */
+  draft?: ResponseRuleDraft;
+  /** Create mode: pre-filled rule name (editable in the document). */
+  draftName?: string;
+  /** Create mode: conditions carried from the popover's edited row —
+   *  absent means the document derives them from the draft. */
+  draftConditions?: RuleCondition[];
+  /** Edit mode: popover hand-off (see `RuleEditorHandOff`). Dropped on
+   *  the post-save re-key. */
+  handOff?: RuleEditorHandOff;
+  timestamp: number;
+  /** Mirror of the editor body's unsaved-draft state — drives the tab
+   *  pill's dirty dot and the close guard. Never persisted (drafts are
+   *  component state and don't survive a reload). */
+  dirty?: boolean;
+}
+
 /** Per-tab view state callers patch in place. Each field applies to
  *  matching tab kinds only (`activeSection` → request, `dirty` →
  *  document kinds, `entryKey` → dom-storage-entry, `cookieKey` →
- *  cookie); the tree transform drops fields foreign to the tab's kind. */
+ *  cookie, `ruleUid`/`label` → rule-editor); the tree transform drops
+ *  fields foreign to the tab's kind. */
 export interface InspectorTabPatch {
   activeSection?: DetailSection;
   dirty?: boolean;
@@ -155,6 +203,11 @@ export interface InspectorTabPatch {
   /** Committed cookie identity change — same identity-move semantics
    *  as `entryKey`, over the jar key. */
   cookieKey?: JarCookieKey;
+  /** Committed rule binding (rule-editor): first Save minted the rule —
+   *  re-key a draft tab to the uid and drop the seed payloads. */
+  ruleUid?: string;
+  /** Rule-editor re-key only: the minted rule's final name. */
+  label?: string;
 }
 
 /** Does this tab carry an unsaved editor draft? (Request tabs never do,
@@ -359,6 +412,57 @@ export function buildRuleValueTab(input: BuildRuleValueTabInput): RuleValueInspe
   };
 }
 
+/** Rule identity IS the tab identity — re-opening the same rule
+ *  activates the existing tab instead of spawning a duplicate. */
+export function ruleEditorTabId(ruleUid: string): string {
+  return `ruleeditor:${ruleUid}`;
+}
+
+/** Create-mode identity: every capture escalation is its own document
+ *  (there is no rule to dedupe against until Save mints one). */
+export function ruleEditorDraftTabId(nonce: string): string {
+  return `ruleeditor:draft:${nonce}`;
+}
+
+export interface BuildRuleEditorTabInput {
+  ruleUid: string;
+  ruleName: string;
+  handOff?: RuleEditorHandOff;
+  timestamp: number;
+}
+
+export function buildRuleEditorTab(input: BuildRuleEditorTabInput): RuleEditorInspectorTab {
+  return {
+    kind: 'rule-editor',
+    id: ruleEditorTabId(input.ruleUid),
+    label: input.ruleName,
+    ruleUid: input.ruleUid,
+    ...(input.handOff !== undefined ? { handOff: input.handOff } : {}),
+    timestamp: input.timestamp,
+  };
+}
+
+export interface BuildRuleEditorDraftTabInput {
+  nonce: string;
+  name: string;
+  draft: ResponseRuleDraft;
+  conditions?: RuleCondition[];
+  timestamp: number;
+}
+
+export function buildRuleEditorDraftTab(input: BuildRuleEditorDraftTabInput): RuleEditorInspectorTab {
+  return {
+    kind: 'rule-editor',
+    id: ruleEditorDraftTabId(input.nonce),
+    label: input.name,
+    ruleUid: null,
+    draft: input.draft,
+    draftName: input.name,
+    ...(input.conditions !== undefined ? { draftConditions: input.conditions } : {}),
+    timestamp: input.timestamp,
+  };
+}
+
 /** The DOM storage area's display name (`localStorage` / `sessionStorage`). */
 export function domStorageAreaName(area: DomStorageArea): string {
   return area === 'session' ? 'sessionStorage' : 'localStorage';
@@ -371,6 +475,7 @@ export function tabTitle(tab: InspectorTab): string {
   if (tab.kind === 'cookie') return `${tab.cookieKey.domain}${tab.cookieKey.path} › ${tab.cookieKey.name}`;
   if (tab.kind === 'cache-entry') return `${tab.cache} › ${tab.url}`;
   if (tab.kind === 'rule-value') return `${tab.headerName} › ${tab.direction} header value`;
+  if (tab.kind === 'rule-editor') return `${tab.label} › response override rule`;
   return `${domStorageAreaName(tab.area)} › ${tab.entryKey}`;
 }
 
@@ -386,5 +491,6 @@ export function tabSearchText(tab: InspectorTab): string {
   if (tab.kind === 'cookie') return `${tab.cookieKey.name} ${tab.cookieKey.domain} ${tab.cookieKey.path}`;
   if (tab.kind === 'cache-entry') return `${tab.cache} ${tab.url} ${tab.method}`;
   if (tab.kind === 'rule-value') return `${tab.headerName} ${tab.direction} header value`;
+  if (tab.kind === 'rule-editor') return `${tab.label} response override rule`;
   return `${domStorageAreaName(tab.area)} ${tab.entryKey}`;
 }

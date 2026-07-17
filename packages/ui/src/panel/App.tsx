@@ -2,7 +2,7 @@ import 'allotment/dist/style.css';
 import { GlobalOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
+import { generateUid, isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import {
   EnvironmentProvider,
   FilesProvider,
@@ -88,15 +88,23 @@ import {
   buildCookieTab,
   buildDomStorageEntryTab,
   buildIdbRecordTab,
+  buildRuleEditorDraftTab,
+  buildRuleEditorTab,
   buildRuleValueTab,
   type InspectorTab,
   tabPillLabel,
 } from './data/inspector-tab';
 import {
+  type RuleEditorDocumentTarget,
+  RuleEditorDocumentIntentProvider,
+  useRegisterRuleEditorDocumentOpener,
+} from './data/rule-editor-document-intent';
+import {
   type RuleValueDocumentTarget,
   useRegisterValueDocumentOpener,
   ValueDocumentIntentProvider,
 } from './data/value-document-intent';
+import { RuleEditorTab } from './components/rule-editor-document/RuleEditorTab';
 import { ValueDocumentTab } from './components/value-document/ValueDocumentTab';
 import { jarCookieToKey } from './data/cookies/cookie-edit';
 import type { JarCookieKey } from './data/cookies/cookie-jar-cache';
@@ -202,9 +210,11 @@ export default function App({ resolveIdentity }: AppProps) {
                                               from the host's tree position and reach the editor
                                               tab group only through this intent seam. */}
                                           <ValueDocumentIntentProvider>
-                                            <RulePopoverProvider>
-                                              <PanelContent />
-                                            </RulePopoverProvider>
+                                            <RuleEditorDocumentIntentProvider>
+                                              <RulePopoverProvider>
+                                                <PanelContent />
+                                              </RulePopoverProvider>
+                                            </RuleEditorDocumentIntentProvider>
                                           </ValueDocumentIntentProvider>
                                         </VariablePopoverProvider>
                                       </InfoPopoverContainerProvider>
@@ -564,6 +574,35 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [groups],
   );
   useRegisterValueDocumentOpener(openValueDocument);
+  // Rule-editor documents ride the same seam: edit mode keys on the
+  // rule uid (re-open activates), create mode mints a fresh draft nonce
+  // per escalation (nothing to dedupe against until Save re-keys).
+  const openRuleEditorDocument = useCallback(
+    (target: RuleEditorDocumentTarget) => {
+      if (target.mode === 'edit') {
+        groups.addTab(
+          buildRuleEditorTab({
+            ruleUid: target.ruleUid,
+            ruleName: target.ruleName,
+            ...(target.handOff !== undefined ? { handOff: target.handOff } : {}),
+            timestamp: Date.now(),
+          }),
+        );
+        return;
+      }
+      groups.addTab(
+        buildRuleEditorDraftTab({
+          nonce: generateUid(),
+          name: target.name,
+          draft: target.draft,
+          ...(target.conditions !== undefined ? { conditions: target.conditions } : {}),
+          timestamp: Date.now(),
+        }),
+      );
+    },
+    [groups],
+  );
+  useRegisterRuleEditorDocumentOpener(openRuleEditorDocument);
   // The ACTIVE editor tab's document identity — the Storage window
   // highlights exactly that one row, tracking tab switches.
   const activeStorageTabId = useMemo(() => {
@@ -669,6 +708,22 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       }
       if (tab.kind === 'cache-entry') {
         return <CacheEntryEditorTab tab={tab} onRevealInStorage={revealCacheInStorage} />;
+      }
+      if (tab.kind === 'rule-editor') {
+        return (
+          <RuleEditorTab
+            tab={tab}
+            isActiveDocument={tab.id === groups.activeTabId}
+            onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
+            // First Save minted the rule (or an edit save shed its
+            // hand-off) — re-key the tab to the committed binding.
+            onRekeyed={(ruleUid, label) => groups.updateTab(tab.id, { ruleUid, label, dirty: false })}
+            registerSave={(save) => {
+              if (save) storageSaveRefs.current.set(tab.id, save);
+              else storageSaveRefs.current.delete(tab.id);
+            }}
+          />
+        );
       }
       if (tab.kind === 'rule-value') {
         return (
