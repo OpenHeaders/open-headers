@@ -6,7 +6,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { claimOidcToken, consumeOidcHash, describeOidcError, fetchOidcMeta } from '@/host/oidc-login';
+import { getTranslator } from '@openheaders/i18n';
+import { claimOidcToken, consumeOidcHash, fetchOidcMeta, oidcErrorKey } from '@/host/oidc-login';
 
 function stubFetch(response: { status?: number; contentType?: string; body?: unknown }): typeof fetch {
   return vi.fn(async () => {
@@ -82,10 +83,33 @@ describe('claimOidcToken', () => {
   });
 });
 
-describe('describeOidcError', () => {
-  it('maps the actionable reasons and falls back generically', () => {
-    expect(describeOidcError('unknown-user')).toMatch(/no user for your email/);
-    expect(describeOidcError('user-deactivated')).toMatch(/deactivated/);
-    expect(describeOidcError('anything-else')).toMatch(/Single sign-on failed/);
+describe('oidcErrorKey', () => {
+  it('maps every refusal reason to its own message key', () => {
+    expect(oidcErrorKey('unknown-user')).toBe('web.oidcError.unknownUser');
+    expect(oidcErrorKey('user-deactivated')).toBe('web.oidcError.userDeactivated');
+    expect(oidcErrorKey('email-unverified')).toBe('web.oidcError.emailUnverified');
+    expect(oidcErrorKey('provider-unavailable')).toBe('web.oidcError.providerUnavailable');
+    expect(oidcErrorKey('seat-limit-reached')).toBe('web.oidcError.seatLimitReached');
+    expect(oidcErrorKey('personal-seats-disabled')).toBe('web.oidcError.personalSeatsDisabled');
+    expect(oidcErrorKey('personal-license-invalid')).toBe('web.oidcError.personalLicenseInvalid');
+    expect(oidcErrorKey('personal-license-identity-mismatch')).toBe('web.oidcError.personalLicenseIdentityMismatch');
+    expect(oidcErrorKey('personal-license-no-identity')).toBe('web.oidcError.personalLicenseNoIdentity');
+  });
+
+  it('falls back to the generic SSO-failed line, including claim failures', () => {
+    expect(oidcErrorKey('anything-else')).toBe('web.oidcError.failed');
+    expect(oidcErrorKey('rejected')).toBe('web.oidcError.failed');
+    expect(oidcErrorKey('unknown')).toBe('web.oidcError.failed');
+  });
+
+  it('resolves to the exact English sentences', () => {
+    const t = getTranslator('en');
+    expect(t(oidcErrorKey('unknown-user'))).toBe(
+      'Signed in, but this daemon has no user for your email. Ask the daemon admin to add you.',
+    );
+    expect(t(oidcErrorKey('seat-limit-reached'))).toBe(
+      'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin — or get in now with your own individual seat.',
+    );
+    expect(t(oidcErrorKey('anything-else'))).toBe('Single sign-on failed. Try again, or connect with a pairing token instead.');
   });
 });

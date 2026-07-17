@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@openheaders/core": "workspace:*",
+    "@openheaders/i18n": "workspace:*",
     "@openheaders/oracle": "workspace:*",
     "@openheaders/oracle-host-browser": "workspace:*",
     "@openheaders/ui": "workspace:*",

@@ -13,6 +13,7 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
+import type { MessageKey } from '@openheaders/i18n';
 
 const SCOPE = 'OidcLogin';
 
@@ -93,29 +94,29 @@ export async function claimOidcToken(code: string): Promise<string | null> {
   }
 }
 
-/** Human-readable line for the gate when an SSO attempt failed. */
-export function describeOidcError(reason: string): string {
+/** Message key for the gate's error line when an SSO attempt failed. */
+export function oidcErrorKey(reason: string): MessageKey {
   switch (reason) {
     case 'unknown-user':
-      return 'Signed in, but this daemon has no user for your email. Ask the daemon admin to add you.';
+      return 'web.oidcError.unknownUser';
     case 'user-deactivated':
-      return 'Signed in, but your user on this daemon is deactivated. Ask the daemon admin.';
+      return 'web.oidcError.userDeactivated';
     case 'email-unverified':
-      return 'Your identity provider reports the email as unverified. Verify it and try again.';
+      return 'web.oidcError.emailUnverified';
     case 'provider-unavailable':
-      return 'The identity provider could not be reached. Try again in a moment.';
+      return 'web.oidcError.providerUnavailable';
     case 'seat-limit-reached':
-      return 'Signed in, but this daemon has no free seats for a new user. Ask the daemon admin — or get in now with your own individual seat.';
+      return 'web.oidcError.seatLimitReached';
     case 'personal-seats-disabled':
-      return 'Individual seats are disabled on this daemon. Ask the daemon admin about a seat.';
+      return 'web.oidcError.personalSeatsDisabled';
     case 'personal-license-invalid':
-      return 'That individual seat key is not usable — it is invalid, expired, or not an individual seat. Check the key and try again.';
+      return 'web.oidcError.personalLicenseInvalid';
     case 'personal-license-identity-mismatch':
-      return 'That individual seat belongs to a different email. It only admits the address it was purchased with.';
+      return 'web.oidcError.personalLicenseIdentityMismatch';
     case 'personal-license-no-identity':
-      return 'Your sign-in carried no email to match the individual seat against. Ask the daemon admin.';
+      return 'web.oidcError.personalLicenseNoIdentity';
     default:
-      return 'Single sign-on failed. Try again, or connect with a pairing token instead.';
+      return 'web.oidcError.failed';
   }
 }
 

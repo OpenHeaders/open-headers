@@ -14,11 +14,11 @@ import {
   type SurfaceIdentityHandle,
 } from '@openheaders/ui/shared/awareness/surface-identity';
 
-export function resolveWorkbenchIdentity(initialLabel?: string): SurfaceIdentityHandle {
+export function resolveWorkbenchIdentity(initialContext?: string): SurfaceIdentityHandle {
   return buildIdentity({
     appId: 'web',
     surfaceKind: 'workbench',
-    initialLabel,
-    observeLabel: observeDocumentTitle,
+    initialContext,
+    observeContext: observeDocumentTitle,
   });
 }

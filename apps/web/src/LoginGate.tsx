@@ -15,11 +15,12 @@
  * mounts the local workbench with no gate at all.
  */
 
+import { useT } from '@openheaders/ui/context';
 import { Alert, Button, Divider, Input, Typography } from 'antd';
 import { useState } from 'react';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { submitDaemonToken } from '@/host/join-gate';
-import { isSeatRefusalReason, startOidcLogin } from '@/host/oidc-login';
+import { isSeatRefusalReason, oidcErrorKey, startOidcLogin } from '@/host/oidc-login';
 import { submitPasswordLogin } from '@/host/password-login';
 import { showTransitionOverlay } from '@/transition-overlay';
 
@@ -42,9 +43,7 @@ export interface LoginGateProps {
   ssoProvider?: string | null;
   /** The daemon offers local password login (no OIDC, at least one user holds a password). */
   passwordEnabled?: boolean;
-  /** Error carried into the gate (e.g. a failed SSO round-trip). */
-  initialError?: string | null;
-  /** Raw refusal reason behind `initialError` — drives the personal-seat redeem affordance. */
+  /** Refusal reason of a failed SSO round-trip carried into the gate — keyed to its message here. */
   initialErrorReason?: string | null;
 }
 
@@ -54,15 +53,17 @@ export function LoginGate({
   onSkip,
   ssoProvider,
   passwordEnabled,
-  initialError,
   initialErrorReason,
 }: LoginGateProps): React.JSX.Element {
+  const t = useT();
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [personalKey, setPersonalKey] = useState('');
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(initialError ?? null);
+  const [error, setError] = useState<string | null>(
+    initialErrorReason != null ? t(oidcErrorKey(initialErrorReason)) : null,
+  );
   // The seat wall is the conversion moment: offer the self-serve way in.
   const seatBlocked = Boolean(ssoProvider) && isSeatRefusalReason(initialErrorReason);
 
@@ -73,14 +74,13 @@ export function LoginGate({
     const result = await submitDaemonToken(wire, token);
     setPending(false);
     if (result.ok) {
+      // Mask the gate→workbench gap (join → adopt → workspace promote)
+      // so the accepted login doesn't sit on a frozen gate.
+      showTransitionOverlay(t('web.overlay.signingIn'));
       onJoined();
       return;
     }
-    setError(
-      result.reason === 'rejected'
-        ? 'The daemon rejected this token. Check it and try again.'
-        : 'The daemon did not answer. Check that it is running and try again.',
-    );
+    setError(t(result.reason === 'rejected' ? 'web.gate.errorTokenRejected' : 'web.gate.errorTokenOffline'));
   };
 
   const canSubmitPassword = email.trim().length > 0 && password.length > 0;
@@ -98,30 +98,27 @@ export function LoginGate({
     const result = secret ? await submitDaemonToken(wire, secret) : null;
     setPending(false);
     if (result?.ok) {
+      showTransitionOverlay(t('web.overlay.signingIn'));
       onJoined();
       return;
     }
-    setError(
-      secret === null
-        ? 'Sign-in failed. Check the email and password and try again.'
-        : 'The daemon did not accept the session. Try again.',
-    );
+    setError(t(secret === null ? 'web.gate.errorPasswordRefused' : 'web.gate.errorSessionRefused'));
   };
 
   return (
     <div style={CARD_STYLE} data-testid="login-gate">
       <Typography.Title level={4} style={{ margin: 0 }}>
-        {managedLogin ? 'Sign in to this daemon' : 'Pair with this daemon'}
+        {t(managedLogin ? 'web.gate.titleSignIn' : 'web.gate.titlePair')}
       </Typography.Title>
       <Typography.Paragraph style={{ margin: 0 }} type="secondary">
         {ssoProvider ? (
-          <>Sign in with {ssoProvider}, or paste a pairing token below.</>
+          t('web.gate.introSso', { provider: ssoProvider })
         ) : passwordEnabled ? (
-          'Sign in with the email and password the daemon admin set for you, or paste a pairing token below.'
+          t('web.gate.introPassword')
         ) : (
           <>
-            This OpenHeaders daemon requires a pairing token. Mint one on the machine running it with{' '}
-            <Typography.Text code>ohd show-token</Typography.Text> and paste it below.
+            {t('web.gate.introTokenPrefix')} <Typography.Text code>ohd show-token</Typography.Text>{' '}
+            {t('web.gate.introTokenSuffix')}
           </>
         )}
       </Typography.Paragraph>
@@ -133,16 +130,16 @@ export function LoginGate({
             onClick={() => {
               // Full-page redirect to the IdP — cover the beat before the
               // browser navigates so the click isn't a dead press.
-              showTransitionOverlay(`Taking you to ${ssoProvider}…`);
+              showTransitionOverlay(t('web.overlay.takingYouTo', { provider: ssoProvider }));
               startOidcLogin();
             }}
             disabled={pending}
             data-testid="login-gate-sso"
           >
-            Sign in with {ssoProvider}
+            {t('web.gate.ssoButton', { provider: ssoProvider })}
           </Button>
           <Divider plain style={{ margin: 0 }}>
-            or
+            {t('web.gate.or')}
           </Divider>
         </>
       )}
@@ -152,14 +149,14 @@ export function LoginGate({
             autoFocus
             type="email"
             data-testid="login-gate-email"
-            placeholder="Email"
+            placeholder={t('web.gate.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={pending}
           />
           <Input.Password
             data-testid="login-gate-password"
-            placeholder="Password"
+            placeholder={t('web.gate.passwordPlaceholder')}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onPressEnter={() => void submitPassword()}
@@ -173,17 +170,17 @@ export function LoginGate({
             onClick={() => void submitPassword()}
             data-testid="login-gate-password-submit"
           >
-            Sign in
+            {t('web.gate.signIn')}
           </Button>
           <Divider plain style={{ margin: 0 }}>
-            or
+            {t('web.gate.or')}
           </Divider>
         </>
       )}
       <Input.Password
         autoFocus={!managedLogin}
         data-testid="login-gate-token"
-        placeholder="Pairing token"
+        placeholder={t('web.gate.tokenPlaceholder')}
         value={token}
         onChange={(e) => setToken(e.target.value)}
         onPressEnter={() => void submit()}
@@ -193,15 +190,14 @@ export function LoginGate({
       {seatBlocked && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="login-gate-personal-seat">
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Have an individual seat? Paste its key to sign in without waiting on a free team seat — it admits the email it
-            was purchased with. Get one at{' '}
+            {t('web.gate.seatIntroPrefix')}{' '}
             <Typography.Link href="https://openheaders.io/pricing" target="_blank">
               openheaders.io/pricing
             </Typography.Link>
-            .
+            {t('web.gate.seatIntroSuffix')}
           </Typography.Text>
           <Input.Password
-            placeholder="Individual seat key (oh-license.…)"
+            placeholder={t('web.gate.seatKeyPlaceholder')}
             value={personalKey}
             onChange={(e) => setPersonalKey(e.target.value)}
             disabled={pending}
@@ -211,12 +207,12 @@ export function LoginGate({
             block
             disabled={pending || personalKey.trim().length === 0}
             onClick={() => {
-              showTransitionOverlay(`Taking you to ${ssoProvider}…`);
+              showTransitionOverlay(t('web.overlay.takingYouTo', { provider: ssoProvider ?? '' }));
               startOidcLogin(undefined, { personalLicense: personalKey });
             }}
             data-testid="login-gate-personal-submit"
           >
-            Sign in with individual seat
+            {t('web.gate.seatSignIn')}
           </Button>
         </div>
       )}
@@ -228,11 +224,11 @@ export function LoginGate({
         onClick={() => void submit()}
         data-testid="login-gate-submit"
       >
-        Connect
+        {t('web.gate.connect')}
       </Button>
       {!managedLogin && (
         <Button type="link" block onClick={onSkip} disabled={pending} data-testid="login-gate-skip">
-          Skip — work locally
+          {t('web.gate.workLocally')}
         </Button>
       )}
     </div>

@@ -6,6 +6,8 @@
  * blank page, explain the two supported ways in.
  */
 
+import { bootTranslator } from '@/boot-locale';
+
 const WRAP_STYLE: React.CSSProperties = {
   maxWidth: 460,
   margin: '18vh auto 0',
@@ -15,21 +17,20 @@ const WRAP_STYLE: React.CSSProperties = {
 };
 
 export function InsecureContextNotice(): React.JSX.Element {
+  const t = bootTranslator();
   return (
     <div style={WRAP_STYLE} data-testid="insecure-context-notice">
-      <h3 style={{ marginTop: 0 }}>This page needs a secure connection</h3>
-      <p>
-        The OpenHeaders Workbench keeps all of its data in this browser profile and needs the browser's cryptography
-        APIs, which are only available on secure origins.
-      </p>
-      <p>Open it one of these ways instead:</p>
+      <h3 style={{ marginTop: 0 }}>{t('web.insecure.title')}</h3>
+      <p>{t('web.insecure.intro')}</p>
+      <p>{t('web.insecure.waysIn')}</p>
       <ul>
         <li>
-          Over HTTPS — put the daemon behind a TLS reverse proxy (see “Behind a reverse proxy” in the daemon's README)
-          and open <code>https://&lt;your-host&gt;/</code>.
+          {t('web.insecure.httpsPrefix')} <code>https://&lt;your-host&gt;/</code>
+          {t('web.insecure.httpsSuffix')}
         </li>
         <li>
-          On the daemon's own machine at <code>http://127.0.0.1:&lt;port&gt;/</code>.
+          {t('web.insecure.loopbackPrefix')} <code>http://127.0.0.1:&lt;port&gt;/</code>
+          {t('web.insecure.loopbackSuffix')}
         </li>
       </ul>
     </div>

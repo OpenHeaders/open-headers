@@ -13,11 +13,12 @@ import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
+import { bootTranslator } from '@/boot-locale';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
 import { watchDaemonScriptPosture } from '@/host/install-script-posture';
 import { awaitPostJoinAdoption, decideGate, submitDaemonToken } from '@/host/join-gate';
-import { claimOidcToken, consumeOidcHash, describeOidcError, fetchOidcMeta } from '@/host/oidc-login';
+import { claimOidcToken, consumeOidcHash, fetchOidcMeta } from '@/host/oidc-login';
 import { fetchPasswordMeta } from '@/host/password-login';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { InsecureContextNotice } from '@/InsecureContextNotice';
@@ -93,18 +94,19 @@ if (!window.isSecureContext) {
   // on WELCOME accept.
   const oidcResult = consumeOidcHash();
   let ssoJoined = false;
-  let ssoError: string | null = null;
   let ssoErrorReason: string | null = null;
   if (oidcResult?.kind === 'claim') {
-    showTransitionOverlay('Signing you in…');
+    // Pre-provider beat — the settings picker isn't readable yet, so
+    // the overlay label resolves from the browser's own preferences.
+    showTransitionOverlay(bootTranslator()('web.overlay.signingIn'));
     const secret = await claimOidcToken(oidcResult.code);
     if (secret && (await submitDaemonToken(wire, secret)).ok) {
       ssoJoined = true;
     } else {
-      ssoError = describeOidcError(secret ? 'rejected' : 'unknown');
+      // Both map to the generic SSO-failed line in the gate.
+      ssoErrorReason = secret ? 'rejected' : 'unknown';
     }
   } else if (oidcResult?.kind === 'error') {
-    ssoError = describeOidcError(oidcResult.reason);
     ssoErrorReason = oidcResult.reason;
   }
 
@@ -118,7 +120,7 @@ if (!window.isSecureContext) {
     // the first workbench tab pins to the adopted scope.
     await awaitPostJoinAdoption(wire);
     mountWorkbench();
-  } else if (ssoError !== null || (await decideGate()) === 'gate') {
+  } else if (ssoErrorReason !== null || (await decideGate()) === 'gate') {
     const oidcMeta = await fetchOidcMeta();
     // Password login is composed daemon-side only when no OIDC provider
     // is configured, so the probes are mutually exclusive by contract.
@@ -128,12 +130,10 @@ if (!window.isSecureContext) {
         wire={wire}
         ssoProvider={oidcMeta.enabled ? (oidcMeta.provider ?? 'SSO') : null}
         passwordEnabled={passwordMeta.enabled}
-        initialError={ssoError}
         initialErrorReason={ssoErrorReason}
         onJoined={() => {
-          // Mask the gate→workbench gap (join → adopt → workspace
-          // promote) so the accepted login doesn't sit on a frozen gate.
-          showTransitionOverlay('Signing you in…');
+          // The gate showed the signing-in overlay before calling in;
+          // it stays up across join → adopt → workspace promote.
           void awaitPostJoinAdoption(wire).then(mountWorkbench);
         }}
         onSkip={() => renderShell(<Workbench resolveIdentity={resolveWorkbenchIdentity} />)}
