@@ -12,6 +12,7 @@ import { CloseOutlined, ExclamationCircleOutlined, InfoCircleOutlined, WarningOu
 import { Popover, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 export type ChipTone = 'info' | 'warn' | 'error';
 
@@ -42,6 +43,7 @@ export default StatusChips;
 
 const Chip: React.FC<{ chip: StatusChip }> = ({ chip }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const palette = palettes(chip.tone, token);
   const Icon =
@@ -69,7 +71,7 @@ const Chip: React.FC<{ chip: StatusChip }> = ({ chip }) => {
                   fontFamily: 'inherit',
                 }}
               >
-                Dismiss
+                {t('workbench.importExport.chips.dismiss')}
               </button>
             </div>
           )}

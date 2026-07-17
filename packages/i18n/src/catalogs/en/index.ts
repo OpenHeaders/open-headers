@@ -27,6 +27,7 @@ import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchDocs } from './workbench-docs';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchImportExport } from './workbench-import-export';
 import { workbenchLive } from './workbench-live';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchVariables } from './workbench-variables';
@@ -53,6 +54,7 @@ export const en = {
   ...workbenchChrome,
   ...workbenchDocs,
   ...workbenchEditors,
+  ...workbenchImportExport,
   ...workbenchLive,
   ...workbenchSettings,
   ...workbenchVariables,

@@ -16,6 +16,7 @@ import type { WorkspaceExport } from '@openheaders/core/workspace-export';
 import { Input, Segmented, Select, Space, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
@@ -38,6 +39,7 @@ const TargetControl: React.FC<{
    *  strip); `'small'` is the default for in-card uses. */
   size?: 'small' | 'middle';
 }> = ({ target, onChange, workspaces, activeWorkspaceId, envelope, size = 'small' }) => {
+  const t = useT();
   const exportName = envelope.workspace.name;
 
   // Local name buffer so the user can type freely without re-render
@@ -59,16 +61,16 @@ const TargetControl: React.FC<{
   const selectedOrg = catalogue.find((d) => d.id === selectedOrgId);
 
   const options = [
-    { label: 'Current', value: 'current', disabled: !activeWorkspaceId },
-    { label: 'New', value: 'new' },
-    { label: 'Pick existing', value: 'picked', disabled: workspaces.length === 0 },
+    { label: t('workbench.importExport.target.current'), value: 'current', disabled: !activeWorkspaceId },
+    { label: t('workbench.importExport.target.new'), value: 'new' },
+    { label: t('workbench.importExport.target.pickExisting'), value: 'picked', disabled: workspaces.length === 0 },
   ];
 
   const labelFontSize = size === 'middle' ? 13 : 12;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <Text strong style={{ fontSize: labelFontSize }}>
-        Import into
+        {t('workbench.importExport.target.importInto')}
       </Text>
       <Segmented
         size={size}
@@ -93,7 +95,7 @@ const TargetControl: React.FC<{
           disabled
           style={{ width: 260 }}
           options={workspaces.map((w) => ({ label: w.name, value: w.id }))}
-          placeholder="No active workspace"
+          placeholder={t('workbench.importExport.target.noActiveWorkspace')}
         />
       )}
       {target.mode === 'new' && (
@@ -128,8 +130,8 @@ const TargetControl: React.FC<{
               />
               <Text type="secondary" style={{ fontSize: labelFontSize - 1 }}>
                 {selectedOrg && !selectedOrg.isHome
-                  ? `Lands on ${selectedOrg.name} and syncs to its devices`
-                  : 'Stays on this device'}
+                  ? t('workbench.importExport.target.landsOnOrg', { name: selectedOrg.name })
+                  : t('workbench.importExport.target.staysLocal')}
               </Text>
             </>
           )}
@@ -142,7 +144,7 @@ const TargetControl: React.FC<{
           onChange={(id) => onChange({ mode: 'picked', workspaceId: id })}
           style={{ width: 260 }}
           options={workspaces.map((w) => ({ label: w.name, value: w.id }))}
-          placeholder="Select a workspace"
+          placeholder={t('workbench.importExport.target.selectWorkspace')}
         />
       )}
     </div>

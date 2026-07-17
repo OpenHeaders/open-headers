@@ -11,6 +11,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Checkbox, Space, Typography, theme } from 'antd';
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ImportTargetSelection } from './TargetControl';
 
 const { Text } = Typography;
@@ -53,51 +54,52 @@ export const AdvancedTogglesList: React.FC<AdvancedTogglesListProps> = ({
   onRefuseUidCollisionChange,
   targetMode,
 }) => {
+  const t = useT();
   return (
     <Space direction="vertical" size={10} style={{ width: '100%' }}>
       <Toggle
         checked={backupRestore}
         onChange={onBackupRestoreChange}
-        label="This is mine — prefer update by uid"
-        help="Switches uid-matched collisions from “add as new” to “replace existing”. Skipped for entities edited locally since the export was made."
+        label={t('workbench.importExport.advanced.backupRestoreLabel')}
+        help={t('workbench.importExport.advanced.backupRestoreHelp')}
       />
       <Toggle
         checked={trustExport}
         onChange={onTrustExportChange}
-        label="Trust this export — keep enabled flags"
-        help="Imported rules / live workflows / live variables land disabled by default. Enable this only when you trust the sender."
+        label={t('workbench.importExport.advanced.trustExportLabel')}
+        help={t('workbench.importExport.advanced.trustExportHelp')}
       />
       <Toggle
         checked={stripScripts}
         onChange={onStripScriptsChange}
-        label="Strip request scripts on import"
-        help="Removes pre-request and post-response scripts from every imported request. Recommended when the sender is unfamiliar."
+        label={t('workbench.importExport.advanced.stripScriptsLabel')}
+        help={t('workbench.importExport.advanced.stripScriptsHelp')}
       />
       <Toggle
         checked={omitOAuthConfigs}
         onChange={onOmitOAuthConfigsChange}
-        label="Omit OAuth configs"
-        help="By default, OAuth2 configs ride with the request (token endpoint, client id, scopes — never client secret or tokens). With this on, every OAuth2 request lands with auth set to none."
+        label={t('workbench.importExport.advanced.omitOAuthLabel')}
+        help={t('workbench.importExport.advanced.omitOAuthHelp')}
       />
       <Toggle
         checked={keepTargetCollectionOrder}
         onChange={onKeepTargetCollectionOrderChange}
-        label="Keep target collection order on update"
-        help="By default, an updated collection takes the export's child order. With this on, your existing target ordering is preserved."
+        label={t('workbench.importExport.advanced.keepOrderLabel')}
+        help={t('workbench.importExport.advanced.keepOrderHelp')}
       />
       <Toggle
         checked={includeWorkspaceSettings}
         onChange={onIncludeWorkspaceSettingsChange}
         disabled
-        label="Include workspace-level settings"
-        help="Reserved for a future allowlist of workspace-semantic settings. The current allowlist is empty — nothing ships through this toggle in v1."
+        label={t('workbench.importExport.advanced.workspaceSettingsLabel')}
+        help={t('workbench.importExport.advanced.workspaceSettingsHelp')}
       />
       {targetMode === 'new' && (
         <Toggle
           checked={refuseUidCollision}
           onChange={onRefuseUidCollisionChange}
-          label="Refuse on workspace.uid collision"
-          help="By default, importing into a new workspace silently regenerates the workspace uid on collision. With this on, an existing workspace with the same uid blocks the import."
+          label={t('workbench.importExport.advanced.refuseUidCollisionLabel')}
+          help={t('workbench.importExport.advanced.refuseUidCollisionHelp')}
         />
       )}
     </Space>
@@ -130,6 +132,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
   targetMode,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   return (
     <div
       style={{
@@ -151,12 +154,12 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
         }}
       >
         <Text strong style={{ fontSize: 13 }}>
-          Advanced
+          {t('workbench.importExport.advanced.title')}
         </Text>
         <button
           type="button"
           onClick={onToggle}
-          aria-label="Close advanced panel"
+          aria-label={t('workbench.importExport.advanced.closeAria')}
           style={{
             background: 'transparent',
             border: 'none',

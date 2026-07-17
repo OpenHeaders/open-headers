@@ -18,6 +18,7 @@ import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { App as AntApp } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
@@ -90,6 +91,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   const workspacesApi = useWorkspaces();
   const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
   const { message } = AntApp.useApp();
+  const t = useT();
 
   const [importCurlOpen, setImportCurlOpen] = useState(false);
   const [importCurlContext, setImportCurlContext] = useState<
@@ -136,13 +138,13 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           setImportPreviewState({
             open: true,
             rawText: null,
-            initialError: `Couldn't read ${next.name}: ${err.message}`,
+            initialError: t('workbench.importExport.modals.readFailed', { name: next.name, message: err.message }),
             source: 'file',
           }),
         );
       return rest;
     });
-  }, []);
+  }, [t]);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const [importSourceModalOpen, setImportSourceModalOpen] = useState(false);
   // Hand-off: when the preview modal becomes visible, the source modal
@@ -200,7 +202,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           setImportPreviewState({
             open: true,
             rawText: null,
-            initialError: `Couldn't read ${first.name}: ${err.message}`,
+            initialError: t('workbench.importExport.modals.readFailed', { name: first.name, message: err.message }),
             source: 'file',
           }),
         );
@@ -211,7 +213,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
       root.removeEventListener('dragover', onDragOver);
       root.removeEventListener('drop', onDrop);
     };
-  }, [dropTargetRef]);
+  }, [dropTargetRef, t]);
 
   const openImportCurl = useCallback(
     (ctx?: { collectionId?: string; initialSource?: string; sourceKind?: 'curl' | 'url' }) => {
@@ -382,7 +384,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
     async (picked: PickedFile[]) => {
       const importable = stripBrunoRootPrefix(picked).filter((p) => isBrunoImportPath(p.path));
       if (importable.length === 0) {
-        message.warning('No Bruno files in that folder — expected .bru files or a bruno.json.');
+        message.warning(t('workbench.importExport.modals.noBrunoFiles'));
         return;
       }
       const files: BrunoFile[] = [];
@@ -395,13 +397,13 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         }
       }
       if (unreadable > 0) {
-        message.warning(`${unreadable} file${unreadable === 1 ? '' : 's'} could not be read and were skipped.`);
+        message.warning(t('workbench.importExport.modals.unreadableSkipped', { count: unreadable }));
       }
       if (files.length === 0) return;
       setImportSourceModalOpen(false);
       setImportSectionedState({ open: true, kind: 'bruno', files });
     },
-    [message],
+    [message, t],
   );
 
   useImperativeHandle(
@@ -649,8 +651,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         activeWorkspaceId={editingScopeWorkspaceId}
         onCancel={() => advanceImportQueue()}
         onImported={({ targetWorkspaceId, importedCount, sourceLabel }) => {
-          const summary = `Imported ${importedCount} entit${importedCount === 1 ? 'y' : 'ies'} from "${sourceLabel}"`;
-          message.success(summary);
+          message.success(t('workbench.importExport.modals.importedSummary', { count: importedCount, label: sourceLabel }));
           advanceImportQueue();
           // If the target isn't the editing-scope workspace, offer
           // to switch — `onSwitchWorkspace` is mode-aware so the

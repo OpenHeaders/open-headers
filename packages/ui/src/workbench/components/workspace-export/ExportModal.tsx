@@ -33,8 +33,10 @@ import {
 } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import type { MessageKey } from '@openheaders/i18n';
 import type { ExportSelection } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { downloadYaml } from './download-yaml';
 
 const { Text, Paragraph } = Typography;
@@ -85,20 +87,28 @@ function buildFilename(workspaceName: string, scope: ExportModalScope): string {
  * PBKDF2 + 600k iterations carries the cost. This drives a visual cue
  * so users don't pick "1234".
  */
-function passphraseStrength(pass: string): { score: number; label: string } {
-  if (!pass) return { score: 0, label: 'enter a passphrase' };
+function passphraseStrength(pass: string): { score: number; labelKey: MessageKey } {
+  if (!pass) return { score: 0, labelKey: 'workbench.importExport.export.strengthEmpty' };
   let score = 0;
   if (pass.length >= 8) score += 25;
   if (pass.length >= 16) score += 25;
   if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 15;
   if (/\d/.test(pass)) score += 15;
   if (/[^A-Za-z0-9]/.test(pass)) score += 20;
-  const label = score < 40 ? 'weak' : score < 70 ? 'fair' : score < 90 ? 'good' : 'strong';
-  return { score: Math.min(100, score), label };
+  const labelKey: MessageKey =
+    score < 40
+      ? 'workbench.importExport.export.strengthWeak'
+      : score < 70
+        ? 'workbench.importExport.export.strengthFair'
+        : score < 90
+          ? 'workbench.importExport.export.strengthGood'
+          : 'workbench.importExport.export.strengthStrong';
+  return { score: Math.min(100, score), labelKey };
 }
 
 const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceName, scope, onCancel }) => {
   const { message } = AntApp.useApp();
+  const t = useT();
   const [busy, setBusy] = useState(false);
 
   const [vaultMode, setVaultMode] = useState<VaultMode>('omitted');
@@ -133,7 +143,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
         ...(vaultMode === 'encrypted' ? { passphrase, ...(passphraseHint ? { passphraseHint } : {}) } : {}),
       });
       if (!resp?.success || !resp.yaml) {
-        message.error(resp?.error ?? 'Export failed');
+        message.error(resp?.error ?? t('workbench.importExport.export.exportFailed'));
         return null;
       }
       const fingerprints =
@@ -142,7 +152,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
           : null;
       return { yaml: resp.yaml, fingerprints };
     },
-    [scope, workspaceId, message, vaultMode, passphrase, passphraseHint, strictLiteral],
+    [scope, workspaceId, message, t, vaultMode, passphrase, passphraseHint, strictLiteral],
   );
 
   const onDownload = useCallback(async () => {
@@ -154,31 +164,35 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       downloadYaml(filename, result.yaml);
       if (result.fingerprints) {
         setLastFingerprints(result.fingerprints);
-        message.success(`Exported ${filename} — share fingerprints with recipient`);
+        message.success(t('workbench.importExport.export.exportedShareFingerprints', { filename }));
       } else {
-        message.success(`Exported ${filename}`);
+        message.success(t('workbench.importExport.export.exported', { filename }));
         onCancel();
       }
     } finally {
       setBusy(false);
     }
-  }, [fetchYaml, filename, message, onCancel, vaultOk]);
+  }, [fetchYaml, filename, message, t, onCancel, vaultOk]);
 
   const scopeLabel =
-    scope.kind === 'workspace' ? <Tag color="blue">Whole workspace</Tag> : <Tag color="purple">{scope.label}</Tag>;
+    scope.kind === 'workspace' ? (
+      <Tag color="blue">{t('workbench.importExport.export.scopeWholeWorkspace')}</Tag>
+    ) : (
+      <Tag color="purple">{scope.label}</Tag>
+    );
 
   return (
     <Modal
-      title="Export"
+      title={t('workbench.importExport.export.title')}
       open={open}
       onCancel={onCancel}
       destroyOnHidden
       width={620}
       footer={
         <Space>
-          <Button onClick={onCancel}>Cancel</Button>
+          <Button onClick={onCancel}>{t('workbench.importExport.export.cancel')}</Button>
           <Button type="primary" icon={<DownloadOutlined />} onClick={onDownload} loading={busy} disabled={!vaultOk}>
-            Download
+            {t('workbench.importExport.export.download')}
           </Button>
         </Space>
       }
@@ -186,22 +200,22 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <div>
           <Paragraph style={{ marginBottom: 4 }}>
-            <Text strong>Source: </Text>
+            <Text strong>{t('workbench.importExport.export.sourceLabel')} </Text>
             <Text>{workspaceName}</Text>
           </Paragraph>
           <Paragraph style={{ marginBottom: 4 }}>
-            <Text strong>Scope: </Text>
+            <Text strong>{t('workbench.importExport.export.scopeLabel')} </Text>
             {scopeLabel}
           </Paragraph>
           <Paragraph style={{ marginBottom: 0 }}>
-            <Text strong>Filename: </Text>
+            <Text strong>{t('workbench.importExport.export.filenameLabel')} </Text>
             <Text code>{filename}</Text>
           </Paragraph>
         </div>
 
         <div>
           <Text strong style={{ display: 'block', marginBottom: 6 }}>
-            Vault secrets
+            {t('workbench.importExport.export.vaultSecrets')}
           </Text>
           <Radio.Group
             value={vaultMode}
@@ -210,24 +224,24 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
               setLastFingerprints(null);
             }}
           >
-            <Radio value="omitted">Omit (default)</Radio>
+            <Radio value="omitted">{t('workbench.importExport.export.vaultOmit')}</Radio>
             <Radio value="encrypted">
-              <LockOutlined /> Encrypted (passphrase)
+              <LockOutlined /> {t('workbench.importExport.export.vaultEncrypted')}
             </Radio>
-            <Radio value="plaintext">Plaintext (advanced)</Radio>
+            <Radio value="plaintext">{t('workbench.importExport.export.vaultPlaintext')}</Radio>
           </Radio.Group>
         </div>
 
         {vaultMode === 'encrypted' && (
           <div>
             <Input.Password
-              placeholder="Passphrase"
+              placeholder={t('workbench.importExport.export.passphrasePlaceholder')}
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
               autoComplete="new-password"
             />
             <Input.Password
-              placeholder="Confirm passphrase"
+              placeholder={t('workbench.importExport.export.confirmPassphrasePlaceholder')}
               value={confirmPassphrase}
               onChange={(e) => setConfirmPassphrase(e.target.value)}
               autoComplete="new-password"
@@ -235,7 +249,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
               style={{ marginTop: 6 }}
             />
             <Input
-              placeholder="Optional hint (visible to recipient — never the passphrase itself)"
+              placeholder={t('workbench.importExport.export.hintPlaceholder')}
               value={passphraseHint}
               onChange={(e) => setPassphraseHint(e.target.value)}
               maxLength={2048}
@@ -249,8 +263,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
                 strokeColor={strength.score < 40 ? '#ff4d4f' : strength.score < 70 ? '#faad14' : '#52c41a'}
               />
               <Text type="secondary" style={{ fontSize: 11 }}>
-                Passphrase strength: {strength.label}. Share the passphrase out-of-band (Signal, password manager,
-                voice). Anyone with the passphrase can read every secret in this export.
+                {t('workbench.importExport.export.strengthNote', { label: t(strength.labelKey) })}
               </Text>
             </div>
           </div>
@@ -261,11 +274,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
             type="error"
             showIcon
             icon={<WarningOutlined />}
-            title="Plaintext secrets are readable by anyone who sees this file"
+            title={t('workbench.importExport.export.plaintextTitle')}
             description={
               <div>
                 <Paragraph style={{ marginBottom: 8 }}>
-                  Use only when sharing with a system you fully trust (e.g. backup to your own encrypted drive).
+                  {t('workbench.importExport.export.plaintextUseOnly')}
                 </Paragraph>
                 <Paragraph style={{ marginBottom: 8 }}>
                   <Button
@@ -278,11 +291,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
                       setLastFingerprints(null);
                     }}
                   >
-                    Switch to encrypted (recommended)
+                    {t('workbench.importExport.export.switchToEncrypted')}
                   </Button>
                 </Paragraph>
                 <Checkbox checked={plaintextAcknowledged} onChange={(e) => setPlaintextAcknowledged(e.target.checked)}>
-                  I understand the risks
+                  {t('workbench.importExport.export.acknowledgeRisks')}
                 </Checkbox>
               </div>
             }
@@ -293,19 +306,19 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
           <Alert
             type="success"
             showIcon
-            title="Encrypted — share these fingerprints with the recipient"
+            title={t('workbench.importExport.export.fingerprintsTitle')}
             description={
               <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12 }}>
                 <div>
-                  <Text strong>Ciphertext fingerprint: </Text>
+                  <Text strong>{t('workbench.importExport.export.ciphertextFingerprint')} </Text>
                   <Text code>{lastFingerprints.ciphertext}</Text>
                 </div>
                 <div>
-                  <Text strong>Key fingerprint: </Text>
+                  <Text strong>{t('workbench.importExport.export.keyFingerprint')} </Text>
                   <Text code>{lastFingerprints.key}</Text>
                 </div>
                 <Paragraph type="secondary" style={{ marginTop: 6, marginBottom: 0, fontSize: 11 }}>
-                  After the recipient enters the passphrase, they'll see the same key fingerprint if it matches yours.
+                  {t('workbench.importExport.export.fingerprintMatchNote')}
                 </Paragraph>
               </div>
             }
@@ -318,16 +331,12 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
             items={[
               {
                 key: 'advanced',
-                label: 'Advanced',
+                label: t('workbench.importExport.export.advanced'),
                 children: (
                   <Checkbox checked={strictLiteral} onChange={(e) => setStrictLiteral(e.target.checked)}>
-                    <Text strong>Strict literal — export only what I selected</Text>
+                    <Text strong>{t('workbench.importExport.export.strictLiteralLabel')}</Text>
                     <div style={{ fontSize: 11 }}>
-                      <Text type="secondary">
-                        By default, picking a collection or folder pulls in every descendant plus parent containers so
-                        the import stands on its own. With strict literal on, only the picked uids ship — the recipient
-                        sees missing-deps for anything you didn't include.
-                      </Text>
+                      <Text type="secondary">{t('workbench.importExport.export.strictLiteralHelp')}</Text>
                     </div>
                   </Checkbox>
                 ),
@@ -338,8 +347,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
 
         <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
           <InfoCircleOutlined style={{ marginRight: 6 }} />
-          OAuth client secrets are always omitted regardless of vault mode. The recipient enters their own at first
-          auth.
+          {t('workbench.importExport.export.oauthNote')}
         </Paragraph>
       </Space>
     </Modal>

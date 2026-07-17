@@ -38,6 +38,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import { useUiTheme } from '@openheaders/ui/context';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { renderWorkspacePrefix } from '../workspace/workspace-prefix';
@@ -98,6 +99,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { isDarkMode, monacoTheme } = useUiTheme();
+  const { t, locale } = useLocale();
 
   // Phase 7.3.5: merge editor is the import surface. The legacy
   // diff/strategy-chips body is gone; this modal now serves as the
@@ -257,7 +259,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       .then((res) => {
         if (cancelled || seq !== requestSeq.current) return;
         if (!res.success || !res.diff || !res.missingDeps || !res.snapshotHash) {
-          setPreviewError(res.error ?? 'Preview failed');
+          setPreviewError(res.error ?? t('workbench.importExport.preview.previewFailed'));
           setPreview(null);
           return;
         }
@@ -281,7 +283,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [effectiveEnvelope, target, backupRestore]);
+  }, [effectiveEnvelope, target, backupRestore, t]);
 
   // Fetch per-uid snapshots from the most recent import into the
   // resolved target. Re-runs whenever the target changes; no-op for
@@ -382,6 +384,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   // workspace claim the entire body height.
   const statusChips = parsed
     ? buildImportStatusChips({
+        t,
+        locale,
         envelope: parsed.envelope,
         drops: parsed.drops,
         dedup,
@@ -489,7 +493,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               </Text>
             </>
           ) : (
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>
+              {t('workbench.importExport.preview.fallbackTitle')}
+            </span>
           )}
         </div>
         <div style={{ flex: 1 }} />
@@ -500,7 +506,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             size="small"
             icon={<CloseOutlined />}
             onClick={onCancel}
-            aria-label="Close import preview"
+            aria-label={t('workbench.importExport.preview.closeAria')}
           />
         </div>
       </div>
@@ -529,12 +535,12 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           <Empty
             description={
               source === 'file'
-                ? 'Drop a .openheaders.yaml file to preview it.'
-                : 'Paste a workspace export to preview it.'
+                ? t('workbench.importExport.preview.emptyFile')
+                : t('workbench.importExport.preview.emptyClipboard')
             }
           />
         ) : (
-          <Spin size="large" tip="Preparing import…" />
+          <Spin size="large" tip={t('workbench.importExport.preview.preparing')} />
         )}
       </div>
 
@@ -543,12 +549,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       <div style={{ ...stripStyle, justifyContent: 'space-between' }}>
         <Text type="secondary" style={{ fontSize: 11 }}>
           {parsed
-            ? `Export ${parsed.envelope.exportId} · ${parsed.envelope.scope}`
+            ? t('workbench.importExport.preview.footerExportInfo', {
+                id: parsed.envelope.exportId,
+                scope: parsed.envelope.scope,
+              })
             : source === 'file'
-              ? 'Pick a file to preview'
-              : 'No data'}
+              ? t('workbench.importExport.preview.footerPickFile')
+              : t('workbench.importExport.preview.footerNoData')}
         </Text>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onCancel}>{t('workbench.importExport.preview.cancel')}</Button>
       </div>
       {mergePreviewOpen && preview ? (
         <MergeConflictModal
@@ -574,7 +583,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                   (omitOAuthConfigs ? 1 : 0) +
                   (keepTargetCollectionOrder ? 1 : 0) +
                   (refuseUidCollision ? 1 : 0);
-                return count > 0 ? `Advanced (${count})` : 'Advanced';
+                return count > 0
+                  ? t('workbench.importExport.preview.advancedCount', { count })
+                  : t('workbench.importExport.preview.advanced');
               })()}
             </Button>
           }
@@ -587,7 +598,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               {parsed && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    Import into:
+                    {t('workbench.importExport.preview.importInto')}
                   </Text>
                   <TargetControl
                     target={target}
@@ -637,8 +648,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 <Alert
                   type="warning"
                   showIcon
-                  message="Workspace changed since this preview opened"
-                  description="Reopen Import Preview to refresh the diff, then retry."
+                  message={t('workbench.importExport.preview.staleTitle')}
+                  description={t('workbench.importExport.preview.staleDescription')}
                 />
               )}
             </div>
@@ -649,7 +660,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             // `applyEntity` shape `buildImportMergeSession` defaults to.
             const files = buildMergeFiles();
             return {
-              title: `Import — ${files.length} ${files.length === 1 ? 'item' : 'items'}`,
+              title: t('workbench.importExport.preview.mergeTitle', { count: files.length }),
               files,
               onApply: handleMergeApply,
               onCancel: closeMergeModal,
@@ -664,7 +675,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       <Drawer
         open={mergeAdvancedOpen}
         onClose={() => setMergeAdvancedOpen(false)}
-        title="Advanced"
+        title={t('workbench.importExport.preview.advanced')}
         placement="right"
         width={360}
         zIndex={1200}

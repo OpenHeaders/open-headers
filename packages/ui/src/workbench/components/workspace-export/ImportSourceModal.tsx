@@ -25,6 +25,7 @@ import { detectImportSource } from '@openheaders/core/import';
 import { Button, Input, Modal, Skeleton, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { BrunoGlyph, InsomniaGlyph, PostmanGlyph } from '../import/migrate/vendor-icons';
 import { type PickedFile, pickedFromEntries, pickedFromInput } from './picked-files';
 
@@ -70,6 +71,7 @@ const ImportSourceModal: React.FC<Props> = ({
   focusTriggerAfterClose = true,
 }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -128,9 +130,17 @@ const ImportSourceModal: React.FC<Props> = ({
           background: token.colorBgLayout,
         }}
       >
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT</span>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>
+          {t('workbench.importExport.hub.title')}
+        </span>
         <div style={{ flex: 1 }} />
-        <Button type="text" size="small" icon={<CloseOutlined />} onClick={onCancel} aria-label="Close import" />
+        <Button
+          type="text"
+          size="small"
+          icon={<CloseOutlined />}
+          onClick={onCancel}
+          aria-label={t('workbench.importExport.hub.closeAria')}
+        />
       </div>
 
       <div style={{ padding: '6px 6px 12px 6px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -150,7 +160,7 @@ const ImportSourceModal: React.FC<Props> = ({
             aria-live="polite"
           >
             <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
-              Reading file…
+              {t('workbench.importExport.hub.readingFile')}
             </Text>
             <Skeleton active title={false} paragraph={{ rows: 5, width: ['72%', '54%', '68%', '60%', '78%'] }} />
           </div>
@@ -164,7 +174,7 @@ const ImportSourceModal: React.FC<Props> = ({
                 <Input.TextArea
                   autoFocus
                   value={pasteText}
-                  placeholder="Paste a curl command or URL"
+                  placeholder={t('workbench.importExport.hub.pastePlaceholder')}
                   autoSize={{ minRows: 1, maxRows: 6 }}
                   style={{ fontFamily: 'var(--ant-font-family-code)', fontSize: 12 }}
                   onPaste={() => {
@@ -195,15 +205,14 @@ const ImportSourceModal: React.FC<Props> = ({
                     size="small"
                     icon={<ArrowRightOutlined />}
                     onClick={submitText}
-                    aria-label="Continue import"
+                    aria-label={t('workbench.importExport.hub.continueAria')}
                     style={{ marginTop: 2 }}
                   />
                 )}
               </div>
               {pasteText.trim().length > 0 && !recognized && (
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-                  Not recognized yet — paste a curl command, a URL, a HAR, a Postman / Insomnia / Bruno export, an
-                  OpenAPI document, or a workspace export.
+                  {t('workbench.importExport.hub.notRecognized')}
                 </Text>
               )}
             </div>
@@ -211,7 +220,7 @@ const ImportSourceModal: React.FC<Props> = ({
             <div
               // Drop target only — the OS pickers open exclusively from
               // the explicit Browse buttons.
-              aria-label="Drop an importable file or folder here"
+              aria-label={t('workbench.importExport.hub.dropAria')}
               onDragEnter={(e) => {
                 e.preventDefault();
                 setDragActive(true);
@@ -251,7 +260,7 @@ const ImportSourceModal: React.FC<Props> = ({
                 style={{ fontSize: 40, color: dragActive ? token.colorPrimary : token.colorTextTertiary }}
               />
               <Text strong style={{ fontSize: 14 }}>
-                Drop a file or folder to import
+                {t('workbench.importExport.hub.dropTitle')}
               </Text>
               <ul
                 style={{
@@ -262,26 +271,26 @@ const ImportSourceModal: React.FC<Props> = ({
                   textAlign: 'left',
                 }}
               >
-                <li>HAR capture</li>
-                <li>Postman collection or backup</li>
-                <li>Insomnia export</li>
+                <li>{t('workbench.importExport.hub.kindHar')}</li>
+                <li>{t('workbench.importExport.hub.kindPostman')}</li>
+                <li>{t('workbench.importExport.hub.kindInsomnia')}</li>
                 <li>
-                  Bruno <code>.bru</code> file or collection folder
+                  Bruno <code>.bru</code> {t('workbench.importExport.hub.kindBrunoSuffix')}
                 </li>
-                <li>OpenAPI 3.x document</li>
+                <li>{t('workbench.importExport.hub.kindOpenapi')}</li>
                 <li>
-                  <code>.openheaders.yaml</code> workspace export
+                  <code>.openheaders.yaml</code> {t('workbench.importExport.hub.kindWorkspaceSuffix')}
                 </li>
               </ul>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                The format is recognized automatically.
+                {t('workbench.importExport.hub.autoDetected')}
               </Text>
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                 <Button type="primary" icon={<UploadOutlined />} onClick={pickFile}>
-                  Browse files…
+                  {t('workbench.importExport.hub.browseFiles')}
                 </Button>
                 <Button icon={<FolderOpenOutlined />} onClick={pickFolder}>
-                  Browse folder…
+                  {t('workbench.importExport.hub.browseFolder')}
                 </Button>
               </div>
               <input
@@ -316,14 +325,14 @@ const ImportSourceModal: React.FC<Props> = ({
             {onMigrate && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
-                  Switching from{' '}
+                  {t('workbench.importExport.hub.switchingFrom')}{' '}
                   <span style={{ whiteSpace: 'nowrap' }}>
                     <PostmanGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Postman,
                   </span>{' '}
                   <span style={{ whiteSpace: 'nowrap' }}>
                     <InsomniaGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Insomnia,
                   </span>{' '}
-                  or{' '}
+                  {t('workbench.importExport.hub.switchingOr')}{' '}
                   <span style={{ whiteSpace: 'nowrap' }}>
                     <BrunoGlyph style={{ fontSize: 13, verticalAlign: '-0.125em' }} /> Bruno?
                   </span>
@@ -340,7 +349,7 @@ const ImportSourceModal: React.FC<Props> = ({
                     />
                   }
                 >
-                  Migrate from another tool
+                  {t('workbench.importExport.hub.migrateCta')}
                 </Button>
               </div>
             )}

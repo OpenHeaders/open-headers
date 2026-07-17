@@ -16,12 +16,16 @@ import {
 import { Tag, Typography } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { getDateTimeFormat } from '@openheaders/i18n';
 import type { DedupMatchesResult } from '@openheaders/core/types';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type { StatusChip } from './StatusChips';
 
 const { Text } = Typography;
 
 interface Args {
+  t: Translate;
+  locale: string;
   envelope: WorkspaceExport;
   drops: ImportDrop[];
   dedup: DedupMatchesResult | null;
@@ -35,6 +39,7 @@ interface Args {
 }
 
 export function buildImportStatusChips(args: Args): StatusChip[] {
+  const { t } = args;
   const out: StatusChip[] = [];
 
   // ── Plaintext vault warning ─────────────────────────────────────
@@ -42,13 +47,11 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
     out.push({
       key: 'plaintext-vault',
       tone: 'warn',
-      label: 'Plaintext secrets',
+      label: t('workbench.importExport.chips.plaintextLabel'),
       details: (
         <div>
-          <strong>This export contains plaintext vault secrets.</strong>
-          <p style={{ margin: '6px 0 0' }}>
-            Anyone with this file can read every secret it carries. Consider re-issuing as encrypted before forwarding.
-          </p>
+          <strong>{t('workbench.importExport.chips.plaintextTitle')}</strong>
+          <p style={{ margin: '6px 0 0' }}>{t('workbench.importExport.chips.plaintextBody')}</p>
         </div>
       ),
     });
@@ -59,19 +62,21 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
     out.push({
       key: 'drops',
       tone: 'warn',
-      label: `${args.drops.length} skipped`,
+      label: t('workbench.importExport.chips.skippedLabel', { count: args.drops.length }),
       details: (
         <div>
-          <strong>
-            {args.drops.length} entit{args.drops.length === 1 ? 'y' : 'ies'} couldn't be parsed and will be skipped.
-          </strong>
+          <strong>{t('workbench.importExport.chips.skippedTitle', { count: args.drops.length })}</strong>
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
             {args.drops.slice(0, 8).map((d, i) => (
               <li key={`${d.path}-${i}`} style={{ fontSize: 11, marginBottom: 2 }}>
                 <Text code>{d.path}</Text> — {d.reason}
               </li>
             ))}
-            {args.drops.length > 8 && <li style={{ fontSize: 11 }}>…and {args.drops.length - 8} more</li>}
+            {args.drops.length > 8 && (
+              <li style={{ fontSize: 11 }}>
+                {t('workbench.importExport.chips.andMore', { count: args.drops.length - 8 })}
+              </li>
+            )}
           </ul>
         </div>
       ),
@@ -96,15 +101,17 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
         out.push({
           key: 'dedup-same',
           tone: 'info',
-          label: 'Already imported here',
+          label: t('workbench.importExport.chips.dedupSameLabel'),
           onDismiss: args.onDismissDedup,
           details: (
             <div>
               <strong>
-                You imported this export ({sameTarget.exportId}) here on{' '}
-                {new Date(sameTarget.importedAt).toLocaleDateString()}.
+                {t('workbench.importExport.chips.dedupSameTitle', {
+                  id: sameTarget.exportId,
+                  date: getDateTimeFormat(args.locale).format(new Date(sameTarget.importedAt)),
+                })}
               </strong>
-              <p style={{ margin: '6px 0 0' }}>Re-importing it will apply your current per-entity strategy choices.</p>
+              <p style={{ margin: '6px 0 0' }}>{t('workbench.importExport.chips.dedupSameBody')}</p>
               {diff && <DedupChangesSummary diff={diff} />}
             </div>
           ),
@@ -113,14 +120,17 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
         out.push({
           key: 'dedup-other',
           tone: 'info',
-          label: 'Imported elsewhere',
+          label: t('workbench.importExport.chips.dedupOtherLabel'),
           onDismiss: args.onDismissDedup,
           details: (
             <div>
               <strong>
-                You also imported export {otherTarget.exportId} into "{otherTarget.workspaceName}".
+                {t('workbench.importExport.chips.dedupOtherTitle', {
+                  id: otherTarget.exportId,
+                  name: otherTarget.workspaceName,
+                })}
               </strong>
-              <p style={{ margin: '6px 0 0' }}>That workspace is unaffected by this import.</p>
+              <p style={{ margin: '6px 0 0' }}>{t('workbench.importExport.chips.dedupOtherBody')}</p>
             </div>
           ),
         });
@@ -128,12 +138,12 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
         out.push({
           key: 'dedup-uid',
           tone: 'info',
-          label: 'Source already exists',
+          label: t('workbench.importExport.chips.dedupUidLabel'),
           onDismiss: args.onDismissDedup,
           details: (
             <div>
-              <strong>A workspace from this source already exists ("{uidMatch.workspaceName}").</strong>
-              <p style={{ margin: '6px 0 0' }}>Switch the target above to refresh it, or import as a new copy.</p>
+              <strong>{t('workbench.importExport.chips.dedupUidTitle', { name: uidMatch.workspaceName })}</strong>
+              <p style={{ margin: '6px 0 0' }}>{t('workbench.importExport.chips.dedupUidBody')}</p>
             </div>
           ),
         });
@@ -146,13 +156,11 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
     out.push({
       key: 'stale',
       tone: 'warn',
-      label: 'Data changed',
+      label: t('workbench.importExport.chips.staleLabel'),
       details: (
         <div>
-          <strong>The target workspace was modified by another tab.</strong>
-          <p style={{ margin: '6px 0 0' }}>
-            The collision tree below has been refreshed — review and click Import again.
-          </p>
+          <strong>{t('workbench.importExport.chips.staleTitle')}</strong>
+          <p style={{ margin: '6px 0 0' }}>{t('workbench.importExport.chips.staleBody')}</p>
         </div>
       ),
     });
@@ -163,10 +171,10 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
     out.push({
       key: 'preview-error',
       tone: 'error',
-      label: 'Preview failed',
+      label: t('workbench.importExport.chips.previewErrorLabel'),
       details: (
         <div>
-          <strong>Couldn't compute collision diff.</strong>
+          <strong>{t('workbench.importExport.chips.previewErrorTitle')}</strong>
           <p style={{ margin: '6px 0 0', fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 11 }}>
             {args.previewError}
           </p>
@@ -180,27 +188,27 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
     out.push({
       key: 'missing-deps',
       tone: 'warn',
-      label: `${args.missingDeps.length} unresolved`,
+      label: t('workbench.importExport.chips.unresolvedLabel', { count: args.missingDeps.length }),
       details: (
         <div>
-          <strong>
-            {args.missingDeps.length} unresolved reference{args.missingDeps.length === 1 ? '' : 's'}.
-          </strong>
-          <p style={{ margin: '6px 0', fontSize: 11 }}>
-            These names don't resolve in the export or the target. Imports will land as broken bindings — rebind once
-            the missing entity appears.
-          </p>
+          <strong>{t('workbench.importExport.chips.unresolvedTitle', { count: args.missingDeps.length })}</strong>
+          <p style={{ margin: '6px 0', fontSize: 11 }}>{t('workbench.importExport.chips.unresolvedBody')}</p>
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             {args.missingDeps.slice(0, 8).map((d) => (
               <li key={`${d.type}:${d.name}`} style={{ fontSize: 11, marginBottom: 2 }}>
                 <Tag style={{ marginRight: 4 }}>{d.type}</Tag>
                 <Text>{d.name}</Text>
-                <Text type="secondary"> · referenced by {d.referencedBy.length}</Text>
+                <Text type="secondary">
+                  {' · '}
+                  {t('workbench.importExport.chips.referencedBy', { count: d.referencedBy.length })}
+                </Text>
               </li>
             ))}
             {args.missingDeps.length > 8 && (
               <li style={{ fontSize: 11 }}>
-                <Text type="secondary">…and {args.missingDeps.length - 8} more</Text>
+                <Text type="secondary">
+                  {t('workbench.importExport.chips.andMore', { count: args.missingDeps.length - 8 })}
+                </Text>
               </li>
             )}
           </ul>
@@ -213,14 +221,19 @@ export function buildImportStatusChips(args: Args): StatusChip[] {
 }
 
 const DedupChangesSummary: React.FC<{ diff: ImportSinceLastDiff }> = ({ diff }) => {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const interesting = diff.sections.filter((s) => s.prior > 0 || s.incoming > 0);
   return (
     <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
       <div style={{ fontSize: 11 }}>
-        Then: <strong>{diff.totals.prior}</strong> · Now: <strong>{diff.totals.incoming}</strong> ·{' '}
-        <span style={{ color: '#1677ff' }}>{diff.totals.new} new</span> · {diff.totals.kept} kept ·{' '}
-        {diff.totals.removed} removed
+        {t('workbench.importExport.chips.summaryThen')} <strong>{diff.totals.prior}</strong> ·{' '}
+        {t('workbench.importExport.chips.summaryNow')} <strong>{diff.totals.incoming}</strong> ·{' '}
+        <span style={{ color: '#1677ff' }}>
+          {t('workbench.importExport.chips.summaryNew', { count: diff.totals.new })}
+        </span>{' '}
+        · {t('workbench.importExport.chips.summaryKept', { count: diff.totals.kept })} ·{' '}
+        {t('workbench.importExport.chips.summaryRemoved', { count: diff.totals.removed })}
       </div>
       {interesting.length > 0 && (
         <button
@@ -237,7 +250,9 @@ const DedupChangesSummary: React.FC<{ diff: ImportSinceLastDiff }> = ({ diff }) 
             fontSize: 11,
           }}
         >
-          {expanded ? 'Hide breakdown' : 'Show per-section breakdown'}
+          {expanded
+            ? t('workbench.importExport.chips.hideBreakdown')
+            : t('workbench.importExport.chips.showBreakdown')}
         </button>
       )}
       {expanded && (
@@ -245,8 +260,18 @@ const DedupChangesSummary: React.FC<{ diff: ImportSinceLastDiff }> = ({ diff }) 
           {interesting.map((s) => (
             <li key={s.type} style={{ fontSize: 11 }}>
               {s.type}: {s.prior} → {s.incoming}
-              {s.newUids.length > 0 && <span style={{ color: '#1677ff' }}> (+{s.newUids.length} new)</span>}
-              {s.removedUids.length > 0 && <span style={{ color: '#888' }}> ({s.removedUids.length} removed)</span>}
+              {s.newUids.length > 0 && (
+                <span style={{ color: '#1677ff' }}>
+                  {' '}
+                  {t('workbench.importExport.chips.sectionNew', { count: s.newUids.length })}
+                </span>
+              )}
+              {s.removedUids.length > 0 && (
+                <span style={{ color: '#888' }}>
+                  {' '}
+                  {t('workbench.importExport.chips.sectionRemoved', { count: s.removedUids.length })}
+                </span>
+              )}
             </li>
           ))}
         </ul>
