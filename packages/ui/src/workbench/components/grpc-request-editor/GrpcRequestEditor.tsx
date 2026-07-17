@@ -36,6 +36,7 @@
 
 import {
   CaretRightOutlined,
+  CheckOutlined,
   LockOutlined,
   ReloadOutlined,
   SendOutlined,
@@ -59,10 +60,23 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { Allotment } from 'allotment';
-import { App, Button, Input, InputNumber, Select, type SelectProps, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
+import {
+  App,
+  Button,
+  Input,
+  InputNumber,
+  type MenuProps,
+  Select,
+  type SelectProps,
+  Switch,
+  Tabs,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useSettingValue } from '../../settings/hooks';
+import { useSetting } from '../../settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorHeader from '../shell/EditorHeader';
@@ -114,6 +128,27 @@ const emptyGrpcDraft = (): GrpcDraft => ({
 const methodKey = (m: GrpcMethodRef): string => `${m.service}/${m.rpc}`;
 
 const INVOKE_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
+
+/** One Settings-tab row: label + description on the left, the control
+ *  right-aligned — the HTTP editor tabs' vocabulary at the density of
+ *  a per-request settings sheet. */
+const SettingRow: React.FC<{ label: string; description: string; control: React.ReactNode }> = ({
+  label,
+  description,
+  control,
+}) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, padding: '10px 0' }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Text strong style={{ fontSize: 12 }}>
+        {label}
+      </Text>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {description}
+      </Text>
+    </div>
+    <div style={{ flexShrink: 0 }}>{control}</div>
+  </div>
+);
 
 const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   grpcRequestUid,
@@ -314,7 +349,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // Opt-in Postman posture: a message that isn't valid JSON invokes
   // anyway as an EMPTY message and the server answers. Default off —
   // the executor rejects before the wire with the exact parse error.
-  const sendInvalidMessage = useSettingValue('requests.grpcSendInvalidMessage');
+  const [sendInvalidMessage, setSendInvalidMessage] = useSetting('requests.grpcSendInvalidMessage');
 
   const handleInvoke = useCallback(async () => {
     if (!entity || invoking) return;
@@ -551,6 +586,24 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     </div>
   );
 
+  // Editor-specific ⋯ items — the send-invalid-message posture toggles
+  // right where Invoke lives (it's the same app-wide setting the
+  // Settings tab row and Settings → Requests write).
+  const overflowItems: MenuProps['items'] = [
+    {
+      key: 'grpc-send-invalid-message',
+      label: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', flex: 1 }}>
+          <span style={{ flex: 1 }}>{t('workbench.settings.def.requests.grpcSendInvalidMessage.label')}</span>
+          {sendInvalidMessage && (
+            <CheckOutlined style={{ fontSize: 10, color: token.colorPrimary, marginLeft: 12 }} />
+          )}
+        </span>
+      ),
+      onClick: () => setSendInvalidMessage(!sendInvalidMessage),
+    },
+  ];
+
   const headerActions = invoking ? (
     <Tooltip
       placement="bottom"
@@ -643,7 +696,12 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           outline: 'none',
         }}
       >
-        <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+        <EditorHeader
+          title={headerTitle}
+          actions={headerActions}
+          overflowItems={overflowItems}
+          shell={shell.headerProps}
+        />
 
         {/* Compose / response split — the HTTP editor's stacked
           Allotment discipline: the sash bounds the message editor so it
@@ -870,35 +928,47 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                       </div>
                     )}
                     {activeTab === 'settings' && (
-                      <div style={{ maxWidth: 560 }}>
-                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                          {t('workbench.editors.grpc.settings.timeoutLabel')}
-                        </Text>
-                        <InputNumber
-                          min={MIN_REQUEST_TIMEOUT_MS}
-                          max={MAX_REQUEST_TIMEOUT_MS}
-                          step={1000}
-                          value={draft.timeoutMs}
-                          onChange={(value) => setDraft((d) => ({ ...d, timeoutMs: value ?? undefined }))}
-                          placeholder={t('workbench.editors.grpc.settings.timeoutPlaceholder')}
-                          style={{ width: 220 }}
+                      <div style={{ maxWidth: 720 }}>
+                        <SettingRow
+                          label={t('workbench.editors.grpc.settings.sslVerifyLabel')}
+                          description={t('workbench.editors.grpc.settings.sslVerifyHelp')}
+                          control={
+                            <Switch
+                              checked={draft.sslVerification}
+                              onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
+                              data-testid="grpc-ssl-verify"
+                            />
+                          }
                         />
-                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-                          {t('workbench.editors.grpc.settings.timeoutHelp')}
-                        </Text>
-                        <div style={{ marginTop: 16 }}>
-                          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                            {t('workbench.editors.grpc.settings.sslVerifyLabel')}
-                          </Text>
-                          <Switch
-                            checked={draft.sslVerification}
-                            onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
-                            data-testid="grpc-ssl-verify"
-                          />
-                          <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
-                            {t('workbench.editors.grpc.settings.sslVerifyHelp')}
-                          </Text>
-                        </div>
+                        <SettingRow
+                          label={t('workbench.editors.grpc.settings.timeoutLabel')}
+                          description={t('workbench.editors.grpc.settings.timeoutHelp')}
+                          control={
+                            <InputNumber
+                              min={MIN_REQUEST_TIMEOUT_MS}
+                              max={MAX_REQUEST_TIMEOUT_MS}
+                              step={1000}
+                              value={draft.timeoutMs}
+                              onChange={(value) => setDraft((d) => ({ ...d, timeoutMs: value ?? undefined }))}
+                              placeholder={t('workbench.editors.grpc.settings.timeoutPlaceholder')}
+                              style={{ width: 160 }}
+                            />
+                          }
+                        />
+                        {/* App-wide invoke posture — the SAME setting as
+                          Settings → Requests and the header ⋯ toggle, not a
+                          per-request field. */}
+                        <SettingRow
+                          label={t('workbench.settings.def.requests.grpcSendInvalidMessage.label')}
+                          description={t('workbench.settings.def.requests.grpcSendInvalidMessage.description')}
+                          control={
+                            <Switch
+                              checked={sendInvalidMessage}
+                              onChange={setSendInvalidMessage}
+                              data-testid="grpc-send-invalid-message"
+                            />
+                          }
+                        />
                       </div>
                     )}
                   </div>
