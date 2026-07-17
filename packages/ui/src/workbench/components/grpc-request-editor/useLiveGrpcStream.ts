@@ -124,6 +124,12 @@ export function useLiveGrpcStream(): {
     (sendId: string) => {
       endStream();
       accRef.current = { sendId, startedAt: Date.now(), head: null, items: [], timestamps: [], lastSeq: -1 };
+      // Commit the empty state NOW — the stream pane keys off a
+      // non-null live feed, and a client-streaming call produces no
+      // wire event until the user sends: without this seed the editor
+      // sits on the invoking spinner instead of the timeline's
+      // "Request sent" row.
+      commit();
       unsubscribeRef.current = hostBridge.subscribe('grpcStreamEvent', (event: GrpcStreamEventWire) => {
         const acc = accRef.current;
         if (!acc || event.sendId !== acc.sendId) return;
@@ -143,7 +149,7 @@ export function useLiveGrpcStream(): {
         scheduleCommit();
       });
     },
-    [endStream, scheduleCommit],
+    [endStream, commit, scheduleCommit],
   );
 
   // Unmount: drop the subscription and any pending frame.

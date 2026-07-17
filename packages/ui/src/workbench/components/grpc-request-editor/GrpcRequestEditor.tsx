@@ -93,6 +93,7 @@ import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import { ExampleChip } from '../shared/ExampleChip';
 import GrpcResponseEmptyState from './GrpcResponseEmptyState';
 import GrpcResponsePane from './GrpcResponsePane';
 import GrpcStreamPane from './GrpcStreamPane';
@@ -141,6 +142,8 @@ const emptyGrpcDraft = (): GrpcDraft => ({
 const methodKey = (m: GrpcMethodRef): string => `${m.service}/${m.rpc}`;
 
 const INVOKE_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
+const SEND_MESSAGE_SHORTCUT = isMac ? '⇧⌘↵' : 'Ctrl+Shift+Enter';
+const END_STREAMING_SHORTCUT = isMac ? '⇧⌘E' : 'Ctrl+Shift+E';
 
 /** One Settings-tab row: label + description on the left, the control
  *  right-aligned — the HTTP editor tabs' vocabulary at the density of
@@ -494,32 +497,14 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
             ? t('workbench.editors.grpc.invoke.needsUrl')
             : null;
 
-  // ⌘/Ctrl+Enter invokes from anywhere in the editor — same gate as
-  // the Invoke button, and the same MORPH: while a call is in flight
-  // the chord cancels it instead. Capture phase so Invoke owns the
-  // chord even when focus sits inside the Monaco message editor, which
-  // would otherwise claim ⌘+Enter for insert-line-below.
-  const handleEditorKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (invoking) {
-        handleCancelInvoke();
-        return;
-      }
-      if (invokeDisabledReason !== null) return;
-      void handleInvoke();
-    },
-    [invoking, invokeDisabledReason, handleCancelInvoke, handleInvoke],
-  );
-
   // ── In-flight upstream controls (client/bidi streams) ────────────
-  const clientStreamActive =
-    invoking &&
-    responseShape === 'stream' &&
+  // The controls SHOW for every client/bidi method (the CTA-scaffold
+  // posture: a visible, disabled affordance teaches the flow) and
+  // ENABLE only while a stream is open.
+  const clientStreamShape =
     selectedOption !== null &&
     (selectedOption.streaming === 'client-streaming' || selectedOption.streaming === 'bidi-streaming');
+  const clientStreamActive = invoking && responseShape === 'stream' && clientStreamShape;
 
   // Send the CURRENT compose text as one upstream message — the
   // executor encodes it against the rpc's request type, and an encode
@@ -540,6 +525,49 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     if (!sendId) return;
     hostBridge.call('endGrpcClientStream', { sendId }).catch(() => {});
   }, []);
+
+  // ⌘/Ctrl+Enter invokes from anywhere in the editor — same gate as
+  // the Invoke button, and the same MORPH: while a call is in flight
+  // the chord cancels it instead. The Shift variants ride the open
+  // stream only: ⌘/Ctrl+Shift+Enter sends the compose text upstream,
+  // ⌘/Ctrl+Shift+E half-closes — dead keys outside a live client/bidi
+  // stream. Capture phase so the chords win even when focus sits
+  // inside the Monaco message editor, which would otherwise claim
+  // ⌘+Enter for insert-line-below.
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.shiftKey && (e.key === 'Enter' || e.key.toLowerCase() === 'e')) {
+        if (!clientStreamActive) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+          void handleSendStreamMessage();
+        } else {
+          handleEndStreaming();
+        }
+        return;
+      }
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (invoking) {
+        handleCancelInvoke();
+        return;
+      }
+      if (invokeDisabledReason !== null) return;
+      void handleInvoke();
+    },
+    [
+      invoking,
+      invokeDisabledReason,
+      clientStreamActive,
+      handleSendStreamMessage,
+      handleEndStreaming,
+      handleCancelInvoke,
+      handleInvoke,
+    ],
+  );
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -840,27 +868,10 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                     {activeTab === 'message' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
                         {/* Toolbar row ABOVE the editor (the ScriptsTab
-                          discipline): stream controls while a client/bidi
-                          stream is open, then the labelled Find / Replace /
-                          Beautify cluster — out of the buffer so they never
-                          cover long first lines. */}
+                          discipline): the labelled Find / Replace /
+                          Beautify cluster — out of the buffer so it never
+                          covers long first lines. */}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-                          {clientStreamActive && (
-                            <>
-                              <Button
-                                size="small"
-                                type="primary"
-                                icon={<SendOutlined />}
-                                onClick={() => void handleSendStreamMessage()}
-                                data-testid="grpc-stream-send"
-                              >
-                                {t('workbench.editors.grpc.stream.sendMessage')}
-                              </Button>
-                              <Button size="small" onClick={handleEndStreaming} data-testid="grpc-stream-end">
-                                {t('workbench.editors.grpc.stream.endStreaming')}
-                              </Button>
-                            </>
-                          )}
                           <CodeEditorActions
                             target={messageActionsRef}
                             language="json"
@@ -909,7 +920,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                               <Button
                                 size="small"
                                 type="text"
-                                icon={<SendOutlined />}
+                                icon={<ExampleChip />}
                                 disabled={exampleText === null}
                                 onClick={handleUseExample}
                                 data-testid="grpc-use-example"
@@ -918,6 +929,69 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                               </Button>
                             </Tooltip>
                           </div>
+                          {/* Stream controls, bottom-RIGHT of the same
+                            surface: Send message + End streaming for every
+                            client/bidi method, enabled only while the
+                            stream is open — the compose text is what Send
+                            writes upstream, so the controls live on it.
+                            Bare buttons, no pill chrome — they carry their
+                            own fills. */}
+                          {clientStreamShape && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                bottom: 22,
+                                right: 26,
+                                zIndex: 12,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                              }}
+                            >
+                              <Tooltip
+                                title={
+                                  clientStreamActive ? (
+                                    <ShortcutHintTitle label={END_STREAMING_SHORTCUT}>
+                                      {t('workbench.editors.grpc.stream.endStreaming')}
+                                    </ShortcutHintTitle>
+                                  ) : (
+                                    t('workbench.editors.grpc.stream.controlsIdle')
+                                  )
+                                }
+                              >
+                                <Button
+                                  size="small"
+                                  disabled={!clientStreamActive}
+                                  onClick={handleEndStreaming}
+                                  data-testid="grpc-stream-end"
+                                >
+                                  {t('workbench.editors.grpc.stream.endStreaming')}
+                                </Button>
+                              </Tooltip>
+                              <Tooltip
+                                title={
+                                  clientStreamActive ? (
+                                    <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
+                                      {t('workbench.editors.grpc.stream.sendMessage')}
+                                    </ShortcutHintTitle>
+                                  ) : (
+                                    t('workbench.editors.grpc.stream.controlsIdle')
+                                  )
+                                }
+                              >
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  icon={<SendOutlined />}
+                                  disabled={!clientStreamActive}
+                                  onClick={() => void handleSendStreamMessage()}
+                                  data-testid="grpc-stream-send"
+                                >
+                                  {t('workbench.editors.grpc.stream.sendMessage')}
+                                </Button>
+                              </Tooltip>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

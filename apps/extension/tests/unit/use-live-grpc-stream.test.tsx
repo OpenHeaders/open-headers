@@ -71,6 +71,15 @@ afterEach(() => {
 const msg = (direction: 'up' | 'down', atMs: number) => ({ direction, dataBase64: 'AA==', compressed: false, atMs });
 
 describe('useLiveGrpcStream', () => {
+  it('commits an empty live state at beginStream — the client-stream pane needs it before any wire event', () => {
+    const { result } = renderHook(() => useLiveGrpcStream());
+    act(() => result.current.beginStream('send-1'));
+    expect(result.current.live).not.toBeNull();
+    expect(result.current.live?.head).toBeNull();
+    expect(result.current.live?.count).toBe(0);
+    expect(result.current.live?.startedAt).toBeGreaterThan(0);
+  });
+
   it('carries the head event afterMessages into headAtMessage — the live interleave position', () => {
     const { result } = renderHook(() => useLiveGrpcStream());
     act(() => result.current.beginStream('send-1'));
