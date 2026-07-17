@@ -8,19 +8,30 @@
  * the seam in `cookie-jar-cache` does the write.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { JarCookie, JarCookieEdit, JarCookieKey } from './cookie-jar-cache';
 import { type CookieRow, jarToRow } from './cookie-model';
 
 export type CookieSameSiteValue = 'unspecified' | 'no_restriction' | 'lax' | 'strict';
 
-/** Display vocabulary for the SameSite enum — the edit grid's options
- *  and the conflict chips read the same labels. */
-export const COOKIE_SAME_SITE_LABELS: Record<CookieSameSiteValue, string> = {
-  unspecified: 'Unspecified',
-  no_restriction: 'None (cross-site)',
-  lax: 'Lax',
-  strict: 'Strict',
-};
+export const COOKIE_SAME_SITE_VALUES: readonly CookieSameSiteValue[] = [
+  'unspecified',
+  'no_restriction',
+  'lax',
+  'strict',
+];
+
+/** Display vocabulary for the SameSite enum — the edit grid's options,
+ *  the conflict chips AND the merge parse-back read the same labels, so
+ *  the round-trip can never drift on wording. */
+export function cookieSameSiteLabels(t: Translate): Record<CookieSameSiteValue, string> {
+  return {
+    unspecified: t('panel.inspector.cookies.edit.sameSite.unspecified'),
+    no_restriction: t('panel.inspector.cookies.edit.sameSite.noRestriction'),
+    lax: t('panel.inspector.cookies.edit.sameSite.lax'),
+    strict: t('panel.inspector.cookies.edit.sameSite.strict'),
+  };
+}
 
 export interface CookieEditFormValues {
   name: string;
@@ -283,8 +294,12 @@ export const COOKIE_CONFLICT_FIELDS = [
 
 export type CookieConflictField = (typeof COOKIE_CONFLICT_FIELDS)[number];
 
-function expiresDisplay(v: CookieEditFormValues): string {
-  return v.session ? 'Session' : expirationToLocalInput(v.expirationDate);
+function expiresDisplay(t: Translate, v: CookieEditFormValues): string {
+  return v.session ? t('panel.inspector.cookies.edit.session') : expirationToLocalInput(v.expirationDate);
+}
+
+function flagDisplay(t: Translate, on: boolean): string {
+  return on ? t('panel.inspector.cookies.edit.flagOn') : t('panel.inspector.cookies.edit.flagOff');
 }
 
 /**
@@ -292,17 +307,17 @@ function expiresDisplay(v: CookieEditFormValues): string {
  * strings, so the same projection drives both the three-way comparison
  * and the chip popover's base/theirs rendering.
  */
-export function editFormConflictProjection(v: CookieEditFormValues): Record<CookieConflictField, string> {
+export function editFormConflictProjection(t: Translate, v: CookieEditFormValues): Record<CookieConflictField, string> {
   return {
     name: v.name,
     value: v.value,
     domain: v.domain,
     path: v.path,
-    expires: expiresDisplay(v),
-    sameSite: COOKIE_SAME_SITE_LABELS[v.sameSite],
-    httpOnly: v.httpOnly ? 'On' : 'Off',
-    secure: v.secure ? 'On' : 'Off',
-    hostOnly: v.hostOnly ? 'On' : 'Off',
+    expires: expiresDisplay(t, v),
+    sameSite: cookieSameSiteLabels(t)[v.sameSite],
+    httpOnly: flagDisplay(t, v.httpOnly),
+    secure: flagDisplay(t, v.secure),
+    hostOnly: flagDisplay(t, v.hostOnly),
   };
 }
 
@@ -314,36 +329,38 @@ export function editFormConflictProjection(v: CookieEditFormValues): Record<Cook
  * and throws an honest message on anything else; the merge modal
  * renders the thrown message inline and stays open.
  */
-export function editFormFromConflictText(form: CookieEditFormValues, text: string): CookieEditFormValues {
+export function editFormFromConflictText(t: Translate, form: CookieEditFormValues, text: string): CookieEditFormValues {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('The merged result isn’t valid JSON — fix the syntax and complete the merge again.');
+    throw new Error(t('panel.inspector.cookies.edit.merge.invalidJson'));
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('The merged result must be a JSON object with the cookie’s fields.');
+    throw new Error(t('panel.inspector.cookies.edit.merge.notObject'));
   }
   const record = parsed as Record<string, unknown>;
+  const on = t('panel.inspector.cookies.edit.flagOn');
+  const off = t('panel.inspector.cookies.edit.flagOff');
+  const sessionWord = t('panel.inspector.cookies.edit.session');
+  const sameSiteLabels = cookieSameSiteLabels(t);
   const fieldText = (field: CookieConflictField): string => {
     const value = record[field];
-    if (typeof value !== 'string') throw new Error(`"${field}" must be present as a string.`);
+    if (typeof value !== 'string') throw new Error(t('panel.inspector.cookies.edit.merge.fieldMissing', { field }));
     return value;
   };
   const fieldFlag = (field: 'httpOnly' | 'secure' | 'hostOnly'): boolean => {
     const value = fieldText(field);
-    if (value !== 'On' && value !== 'Off') throw new Error(`"${field}" must be "On" or "Off".`);
-    return value === 'On';
+    if (value !== on && value !== off) {
+      throw new Error(t('panel.inspector.cookies.edit.merge.flagOnOff', { field, on, off }));
+    }
+    return value === on;
   };
   const sameSiteText = fieldText('sameSite');
-  const sameSite = (Object.keys(COOKIE_SAME_SITE_LABELS) as CookieSameSiteValue[]).find(
-    (value) => COOKIE_SAME_SITE_LABELS[value] === sameSiteText,
-  );
+  const sameSite = COOKIE_SAME_SITE_VALUES.find((value) => sameSiteLabels[value] === sameSiteText);
   if (sameSite === undefined) {
-    const labels = Object.values(COOKIE_SAME_SITE_LABELS)
-      .map((l) => `"${l}"`)
-      .join(', ');
-    throw new Error(`"sameSite" must be one of ${labels}.`);
+    const labels = COOKIE_SAME_SITE_VALUES.map((value) => `"${sameSiteLabels[value]}"`).join(', ');
+    throw new Error(t('panel.inspector.cookies.edit.merge.sameSiteOneOf', { labels }));
   }
   const expiresText = fieldText('expires');
   const next: CookieEditFormValues = {
@@ -356,15 +373,15 @@ export function editFormFromConflictText(form: CookieEditFormValues, text: strin
     httpOnly: fieldFlag('httpOnly'),
     secure: fieldFlag('secure'),
     hostOnly: fieldFlag('hostOnly'),
-    session: expiresText === 'Session',
+    session: expiresText === sessionWord,
   };
-  if (expiresText === 'Session') {
+  if (expiresText === sessionWord) {
     delete next.expirationDate;
     return next;
   }
   const expiration = expirationFromLocalInput(expiresText);
   if (expiration === undefined) {
-    throw new Error('"expires" must be "Session" or a date like 2026-07-09T14:30.');
+    throw new Error(t('panel.inspector.cookies.edit.merge.expiresInvalid', { session: sessionWord }));
   }
   next.expirationDate = expiration;
   return next;
@@ -430,17 +447,19 @@ export function isEditFormValid(v: CookieEditFormValues): boolean {
  * combination is writable: `__Host-` needs Secure + no Domain attribute
  * + path `/`; `__Secure-` needs Secure; `SameSite=None` needs Secure.
  */
-export function editFormConstraintError(v: CookieEditFormValues): string | null {
+export function editFormConstraintError(t: Translate, v: CookieEditFormValues): string | null {
   const name = v.name.trim();
   if (name.startsWith('__Host-')) {
-    if (!v.secure) return '__Host- cookies must have the Secure flag on.';
-    if (!v.hostOnly) return '__Host- cookies can’t carry a Domain attribute — turn “Host only” on.';
-    if ((v.path.trim() || '/') !== '/') return '__Host- cookies must use path “/”.';
+    if (!v.secure) return t('panel.inspector.cookies.edit.constraint.hostSecure');
+    if (!v.hostOnly) return t('panel.inspector.cookies.edit.constraint.hostDomain');
+    if ((v.path.trim() || '/') !== '/') return t('panel.inspector.cookies.edit.constraint.hostPath');
   } else if (name.startsWith('__Secure-') && !v.secure) {
-    return '__Secure- cookies must have the Secure flag on.';
+    return t('panel.inspector.cookies.edit.constraint.securePrefix');
   }
   if (v.sameSite === 'no_restriction' && !v.secure) {
-    return 'SameSite “None (cross-site)” requires the Secure flag.';
+    return t('panel.inspector.cookies.edit.constraint.sameSiteNone', {
+      label: t('panel.inspector.cookies.edit.sameSite.noRestriction'),
+    });
   }
   return null;
 }

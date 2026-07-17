@@ -13,6 +13,7 @@
 
 import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CacheEntryInspectorTab } from '../../data/inspector-tab';
 import type { CacheEntryDocument } from '../../data/storage/storage-inspector-host';
@@ -61,6 +62,7 @@ interface CacheEntryEditorTabProps {
 }
 
 export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditorTabProps) {
+  const t = useT();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [headerFilter, setHeaderFilter] = useState('');
   const [headerFilterConfig, setHeaderFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
@@ -176,16 +178,16 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
         <span className="dt-storagedoc-toolbar-spacer" />
         <ArmedIconButton
           icon={<DeleteOutlined />}
-          title="Delete this entry from the cache"
-          confirmTitle="Deletes the stored response — click again to confirm"
-          ariaLabel="Delete cache entry"
+          title={t('panel.storage.doc.cache.deleteTitle')}
+          confirmTitle={t('panel.storage.doc.cache.deleteConfirmTitle')}
+          ariaLabel={t('panel.storage.doc.cache.deleteAria')}
           onConfirm={() => void handleDelete()}
         />
         <button
           type="button"
           className="dt-storage-action"
-          title="Re-read the stored response"
-          aria-label="Refresh cache entry"
+          title={t('panel.storage.doc.cache.refreshTitle')}
+          aria-label={t('panel.storage.doc.cache.refreshAria')}
           onClick={() => void fetchDocument()}
         >
           <ReloadOutlined />
@@ -193,25 +195,23 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
         <button
           type="button"
           className="dt-storagedoc-reveal"
-          title={`Open the ${cache} cache in the Storage tool window`}
+          title={t('panel.storage.doc.cache.revealTitle', { cache })}
           onClick={() => onRevealInStorage(cache)}
         >
-          Reveal in Storage
+          {t('panel.storage.doc.reveal')}
         </button>
       </div>
       {deleteFailed && (
         <div className="dt-storagedoc-note dt-storagedoc-note--error" role="alert">
-          Delete failed — the entry may already be gone.
+          {t('panel.storage.doc.cache.deleteFailed')}
         </div>
       )}
       {slot === 'loading' ? (
-        <div className="dt-empty">Loading…</div>
+        <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
       ) : slot === 'unavailable' ? (
         <div className="dt-empty-hero">
-          <strong>Cache entry no longer available</strong>
-          <span className="dt-empty-hero-sub">
-            It may have been deleted, or the frame can’t be read right now — Refresh retries.
-          </span>
+          <strong>{t('panel.storage.doc.cache.unavailableTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.storage.doc.unavailableSub')}</span>
         </div>
       ) : (
         <>
@@ -225,7 +225,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
           </div>
           {slot.bodyTruncated === true && (
             <div className="dt-storagedoc-note">
-              Body truncated at the size cap — {formatSize(slot.bodyLength)} stored.
+              {t('panel.storage.doc.cache.truncatedNote', { size: formatSize(slot.bodyLength) })}
             </div>
           )}
           <details
@@ -234,7 +234,9 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
             onToggle={(e) => setHeadersOpen((e.currentTarget as HTMLDetailsElement).open)}
           >
             <summary>
-              <span className="dt-cachedoc-summary-label">Response headers ({slot.headers.length})</span>
+              <span className="dt-cachedoc-summary-label">
+                {t('panel.storage.doc.cache.headersSummary', { count: slot.headers.length })}
+              </span>
               <span className="dt-cachedoc-summary-controls" onClick={(e) => e.stopPropagation()}>
                 <FilterInput
                   value={headerFilter}
@@ -242,8 +244,8 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
                   config={headerFilterConfig}
                   onConfigChange={setHeaderFilterConfig}
                   hasError={headerPredicate.error}
-                  placeholder="Filter headers"
-                  ariaLabel="Filter response headers"
+                  placeholder={t('panel.storage.doc.cache.filterPlaceholder')}
+                  ariaLabel={t('panel.storage.doc.cache.filterAria')}
                 />
               </span>
             </summary>
@@ -252,7 +254,9 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
             <div className="dt-cachedoc-headers-list">
               {filteredHeaders.length === 0 ? (
                 <div className="dt-storage-meta">
-                  {slot.headers.length === 0 ? 'No headers stored.' : 'No headers match your filter.'}
+                  {slot.headers.length === 0
+                    ? t('panel.storage.doc.cache.noHeaders')
+                    : t('panel.storage.doc.cache.noHeadersMatch')}
                 </div>
               ) : (
                 filteredHeaders.map((h, i) => (
@@ -270,19 +274,24 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
             onToggle={(e) => setBodyOpen((e.currentTarget as HTMLDetailsElement).open)}
           >
             <summary>
-              <span className="dt-cachedoc-summary-label">Response body</span>
+              <span className="dt-cachedoc-summary-label">{t('panel.storage.doc.cache.bodySummary')}</span>
               <span className="dt-storage-meta">{formatSize(slot.bodyLength)}</span>
             </summary>
           </details>
           {bodyOpen &&
             (isImage ? (
-              <div className="dt-cachedoc-image" aria-label="Stored image body">
-                <img src={`data:${contentType};base64,${slot.body}`} alt={`Stored response body for ${url}`} />
+              <div className="dt-cachedoc-image" aria-label={t('panel.storage.doc.cache.imageAria')}>
+                <img
+                  src={`data:${contentType};base64,${slot.body}`}
+                  alt={t('panel.storage.doc.cache.imageAlt', { url })}
+                />
               </div>
             ) : slot.bodyBase64 === true ? (
-              <div className="dt-storagedoc-note">Binary body — {formatSize(slot.bodyLength)} stored.</div>
+              <div className="dt-storagedoc-note">
+                {t('panel.storage.doc.cache.binaryBody', { size: formatSize(slot.bodyLength) })}
+              </div>
             ) : slot.body.length === 0 ? (
-              <div className="dt-storagedoc-note">Empty body.</div>
+              <div className="dt-storagedoc-note">{t('panel.storage.doc.cache.emptyBody')}</div>
             ) : (
               <div className="dt-storagedoc-source">
                 <Suspense fallback={<Skeleton />}>

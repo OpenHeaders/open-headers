@@ -78,10 +78,10 @@ export function useCookieConflictTier({
   // Compares the form and the live canonical on their flat string
   // projections against a seed-time baseline the wholesale canonical
   // advance never touches.
-  const conflictForm = useMemo(() => editFormConflictProjection(values), [values]);
+  const conflictForm = useMemo(() => editFormConflictProjection(t, values), [t, values]);
   const conflictCanonical = useMemo(
-    () => (canonical === null ? null : editFormConflictProjection(canonical)),
-    [canonical],
+    () => (canonical === null ? null : editFormConflictProjection(t, canonical)),
+    [t, canonical],
   );
   const {
     conflicts,
@@ -96,9 +96,9 @@ export function useCookieConflictTier({
 
   const seed = useCallback(
     (next: CookieEditFormValues) => {
-      seedConflicts(editFormConflictProjection(next));
+      seedConflicts(editFormConflictProjection(t, next));
     },
-    [seedConflicts],
+    [t, seedConflicts],
   );
 
   // Latest-canonical mirror — take-theirs fires from chips rendered a
@@ -176,7 +176,7 @@ export function useCookieConflictTier({
   // diverges again. The form stays dirty; Save commits to the jar.
   const handleResolveReview = useCallback(
     (text: string) => {
-      const next = editFormFromConflictText(valuesRef.current, text);
+      const next = editFormFromConflictText(t, valuesRef.current, text);
       setValues(next);
       onMergeApplied?.();
       for (const field of conflicts.keys()) dismissConflict(field);

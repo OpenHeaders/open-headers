@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import {
   applyConflictFieldFromCanonical,
   type CookieEditFormValues,
@@ -21,6 +22,8 @@ import {
 import { type CookieRow, jarToRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import { describe, expect, it } from 'vitest';
+
+const t = getTranslator(DEFAULT_LOCALE);
 
 function makeRow(over: Partial<CookieRow> = {}): CookieRow {
   return {
@@ -315,26 +318,26 @@ describe('editFormConstraintError (PB2 pre-validation)', () => {
   const base = { ...emptyEditForm({ domain: 'openheaders.io', secure: true }), name: 'sid' };
 
   it('passes an unconstrained cookie', () => {
-    expect(editFormConstraintError(base)).toBeNull();
+    expect(editFormConstraintError(t, base)).toBeNull();
   });
 
   it('__Host- requires Secure, no Domain attribute and path /', () => {
     const host = { ...base, name: '__Host-sid', hostOnly: true, path: '/', secure: true };
-    expect(editFormConstraintError(host)).toBeNull();
-    expect(editFormConstraintError({ ...host, secure: false })).toMatch(/Secure/);
-    expect(editFormConstraintError({ ...host, hostOnly: false })).toMatch(/Domain/);
-    expect(editFormConstraintError({ ...host, path: '/api' })).toMatch(/path/);
+    expect(editFormConstraintError(t, host)).toBeNull();
+    expect(editFormConstraintError(t, { ...host, secure: false })).toMatch(/Secure/);
+    expect(editFormConstraintError(t, { ...host, hostOnly: false })).toMatch(/Domain/);
+    expect(editFormConstraintError(t, { ...host, path: '/api' })).toMatch(/path/);
   });
 
   it('__Secure- requires Secure', () => {
-    expect(editFormConstraintError({ ...base, name: '__Secure-sid', secure: true })).toBeNull();
-    expect(editFormConstraintError({ ...base, name: '__Secure-sid', secure: false })).toMatch(/Secure/);
+    expect(editFormConstraintError(t, { ...base, name: '__Secure-sid', secure: true })).toBeNull();
+    expect(editFormConstraintError(t, { ...base, name: '__Secure-sid', secure: false })).toMatch(/Secure/);
   });
 
   it('SameSite=None requires Secure', () => {
     const none = { ...base, sameSite: 'no_restriction' as const };
-    expect(editFormConstraintError({ ...none, secure: true })).toBeNull();
-    expect(editFormConstraintError({ ...none, secure: false })).toMatch(/Secure/);
+    expect(editFormConstraintError(t, { ...none, secure: true })).toBeNull();
+    expect(editFormConstraintError(t, { ...none, secure: false })).toMatch(/Secure/);
   });
 });
 
@@ -384,7 +387,7 @@ describe('editFormConflictProjection', () => {
   };
 
   it('projects text fields raw and flags/enums to their display vocabulary', () => {
-    const proj = editFormConflictProjection(form);
+    const proj = editFormConflictProjection(t, form);
     expect(proj.name).toBe('sid');
     expect(proj.value).toBe('abc');
     expect(proj.domain).toBe('openheaders.io');
@@ -397,9 +400,9 @@ describe('editFormConflictProjection', () => {
   });
 
   it('folds session + expirationDate into ONE expires leaf', () => {
-    const dated = editFormConflictProjection({ ...form, session: false, expirationDate: 4102444800 });
+    const dated = editFormConflictProjection(t, { ...form, session: false, expirationDate: 4102444800 });
     expect(dated.expires).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
-    expect(dated.expires).not.toBe(editFormConflictProjection(form).expires);
+    expect(dated.expires).not.toBe(editFormConflictProjection(t, form).expires);
   });
 });
 
@@ -444,17 +447,18 @@ describe('editFormFromConflictText (merge-dialog parse-back)', () => {
   };
 
   function textOf(values: CookieEditFormValues): string {
-    return JSON.stringify(editFormConflictProjection(values), null, 2);
+    return JSON.stringify(editFormConflictProjection(t, values), null, 2);
   }
 
   it('round-trips its own projection, session and dated', () => {
-    expect(editFormFromConflictText(form, textOf(form))).toEqual(form);
+    expect(editFormFromConflictText(t, form, textOf(form))).toEqual(form);
     const dated = { ...form, session: false, expirationDate: 4102444800 };
-    expect(editFormFromConflictText(form, textOf(dated))).toEqual(dated);
+    expect(editFormFromConflictText(t, form, textOf(dated))).toEqual(dated);
   });
 
   it('parses the display vocabulary back to typed fields', () => {
     const merged = editFormFromConflictText(
+      t,
       form,
       textOf({ ...form, value: 'theirs', httpOnly: true, secure: false, sameSite: 'strict' }),
     );
@@ -466,25 +470,25 @@ describe('editFormFromConflictText (merge-dialog parse-back)', () => {
 
   it('a Session expires drops a stale expirationDate', () => {
     const dated = { ...form, session: false, expirationDate: 4102444800 };
-    const merged = editFormFromConflictText(dated, textOf(form));
+    const merged = editFormFromConflictText(t, dated, textOf(form));
     expect(merged.session).toBe(true);
     expect(merged.expirationDate).toBeUndefined();
   });
 
   it('carries non-projected fields (partitionKey, storeId) from the form', () => {
-    const merged = editFormFromConflictText(form, textOf({ ...form, value: 'theirs' }));
+    const merged = editFormFromConflictText(t, form, textOf({ ...form, value: 'theirs' }));
     expect(merged.partitionKey).toBe('https://openheaders.io');
     expect(merged.storeId).toBe('1');
   });
 
   it('throws honest messages on malformed input', () => {
-    expect(() => editFormFromConflictText(form, 'not json')).toThrow(/valid JSON/);
-    expect(() => editFormFromConflictText(form, '[]')).toThrow(/JSON object/);
-    const proj = editFormConflictProjection(form) as Record<string, string>;
+    expect(() => editFormFromConflictText(t, form, 'not json')).toThrow(/valid JSON/);
+    expect(() => editFormFromConflictText(t, form, '[]')).toThrow(/JSON object/);
+    const proj = editFormConflictProjection(t, form) as Record<string, string>;
     const { name: _dropped, ...missing } = proj;
-    expect(() => editFormFromConflictText(form, JSON.stringify(missing))).toThrow(/"name"/);
-    expect(() => editFormFromConflictText(form, JSON.stringify({ ...proj, httpOnly: 'yes' }))).toThrow(/"On" or "Off"/);
-    expect(() => editFormFromConflictText(form, JSON.stringify({ ...proj, sameSite: 'Laxish' }))).toThrow(/sameSite/);
-    expect(() => editFormFromConflictText(form, JSON.stringify({ ...proj, expires: 'someday' }))).toThrow(/expires/);
+    expect(() => editFormFromConflictText(t, form, JSON.stringify(missing))).toThrow(/"name"/);
+    expect(() => editFormFromConflictText(t, form, JSON.stringify({ ...proj, httpOnly: 'yes' }))).toThrow(/"On" or "Off"/);
+    expect(() => editFormFromConflictText(t, form, JSON.stringify({ ...proj, sameSite: 'Laxish' }))).toThrow(/sameSite/);
+    expect(() => editFormFromConflictText(t, form, JSON.stringify({ ...proj, expires: 'someday' }))).toThrow(/expires/);
   });
 });

@@ -1764,9 +1764,10 @@ export const panel = {
   'panel.inspector.cookies.statusRail.greyDesc': 'Added or edited from this panel during this session.',
 
   // Add / edit popover. Title reuses the toolbar CTA (names-its-
-  // control); `COOKIE_SAME_SITE_LABELS`, the constraint sentences and
-  // the conflict projection vocabulary stay raw (merge round-trip +
-  // validation plane — converts with the storage-document station).
+  // control). The SameSite labels, On/Off flag words and the Session
+  // expires word are ROUND-TRIP vocabulary: the conflict projection
+  // renders them and the merge dialog parses them back, so display and
+  // parse read the same keys (cookie-edit.ts is t-first on both sides).
   'panel.inspector.cookies.edit.editTitle': 'Edit cookie',
   'panel.inspector.cookies.edit.valueChanged': 'value changed',
   'panel.inspector.cookies.edit.goneNote':
@@ -1782,6 +1783,31 @@ export const panel = {
   'panel.inspector.cookies.edit.valuePlaceholder': 'value or {{variable}}',
   'panel.inspector.cookies.edit.session': 'Session',
   'panel.inspector.cookies.edit.onDate': 'On date',
+  'panel.inspector.cookies.edit.sameSite.unspecified': 'Unspecified',
+  'panel.inspector.cookies.edit.sameSite.noRestriction': 'None (cross-site)',
+  'panel.inspector.cookies.edit.sameSite.lax': 'Lax',
+  'panel.inspector.cookies.edit.sameSite.strict': 'Strict',
+  'panel.inspector.cookies.edit.flagOn': 'On',
+  'panel.inspector.cookies.edit.flagOff': 'Off',
+  // Pre-write constraint sentences — the __Host- / __Secure- prefixes
+  // and path “/” ride raw inside; the SameSite label feeds through a
+  // hole so the sentence can never drift from the select option.
+  'panel.inspector.cookies.edit.constraint.hostSecure': '__Host- cookies must have the Secure flag on.',
+  'panel.inspector.cookies.edit.constraint.hostDomain':
+    '__Host- cookies can’t carry a Domain attribute — turn “Host only” on.',
+  'panel.inspector.cookies.edit.constraint.hostPath': '__Host- cookies must use path “/”.',
+  'panel.inspector.cookies.edit.constraint.securePrefix': '__Secure- cookies must have the Secure flag on.',
+  'panel.inspector.cookies.edit.constraint.sameSiteNone': 'SameSite “{label}” requires the Secure flag.',
+  // Merge parse-back errors — rendered inline in the merge modal. The
+  // quoted field names are the JSON projection's raw keys; the quoted
+  // vocabulary words feed through holes from the keys above.
+  'panel.inspector.cookies.edit.merge.invalidJson':
+    'The merged result isn’t valid JSON — fix the syntax and complete the merge again.',
+  'panel.inspector.cookies.edit.merge.notObject': 'The merged result must be a JSON object with the cookie’s fields.',
+  'panel.inspector.cookies.edit.merge.fieldMissing': '"{field}" must be present as a string.',
+  'panel.inspector.cookies.edit.merge.flagOnOff': '"{field}" must be "{on}" or "{off}".',
+  'panel.inspector.cookies.edit.merge.sameSiteOneOf': '"sameSite" must be one of {labels}.',
+  'panel.inspector.cookies.edit.merge.expiresInvalid': '"expires" must be "{session}" or a date like 2026-07-09T14:30.',
 
   // Edit-form field (i) corpus — titles are the raw attribute names;
   // the shared template note keys once and composes with ' '.
@@ -2614,4 +2640,104 @@ export const panel = {
     "A one-line preview of the record's structured-clone value, serialized in the page.",
   'panel.storage.idbCol.value.description':
     'Click a row to open the full record as an editor tab with the expandable tree; the grid keeps only the preview.',
+  // Storage editor-tab documents. Shared doc chrome first (same control
+  // across the four tabs); per-document copy keys separately even where
+  // the English coincides (separate referents). Crumbs, status lines,
+  // the Key row label and localStorage/sessionStorage names stay raw.
+  'panel.storage.doc.reveal': 'Reveal in Storage',
+  'panel.storage.doc.refreshConfirm': 'Discards your edits — click again to refresh',
+  'panel.storage.doc.discardEdits': 'Discard my edits',
+  'panel.storage.doc.openMergeView': 'Open merge view',
+  'panel.storage.doc.preview': 'Preview',
+  'panel.storage.doc.source': 'Source',
+  'panel.storage.doc.unavailableSub':
+    'It may have been deleted, or the frame can’t be read right now — Refresh retries.',
+  'panel.storage.doc.clippedSuffix': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '… ({count} more character)', other: '… ({count} more characters)' }),
+  // Cookie document.
+  'panel.storage.doc.cookie.saveFailed.collision':
+    'A cookie with that name, domain and path already exists — saving would overwrite it. Pick a different identity.',
+  'panel.storage.doc.cookie.saveFailed.write': 'Save failed — the browser jar rejected the write.',
+  'panel.storage.doc.cookie.saveFailed.remove':
+    'The new cookie was written but the original couldn’t be removed — both exist. Refresh re-reads the jar.',
+  'panel.storage.doc.cookie.saveHint': 'Write the edited cookie back to the browser jar',
+  'panel.storage.doc.cookie.blockedHint': 'The form is incomplete or a reference doesn’t resolve',
+  'panel.storage.doc.cookie.refreshTitle': 'Re-read the cookie',
+  'panel.storage.doc.cookie.refreshAria': 'Refresh cookie',
+  'panel.storage.doc.cookie.revealTitle': 'Open Cookies in the Storage tool window',
+  'panel.storage.doc.cookie.readOnlyNote':
+    'This host’s cookie jar is read-only — the document reflects the jar but can’t write back.',
+  'panel.storage.doc.cookie.goneNote':
+    'This cookie was deleted in the browser — your unsaved edits are kept. Save writes it back.',
+  'panel.storage.doc.cookie.unavailableTitle': 'Cookie no longer in the jar',
+  'panel.storage.doc.cookie.unavailableSub':
+    'It may have been deleted or expired, or the jar can’t be read on this host — Refresh retries.',
+  // DOM storage entry document.
+  'panel.storage.doc.dom.saveFailed.collision':
+    'An entry with that key already exists — saving would overwrite it. Pick a different key.',
+  'panel.storage.doc.dom.saveFailed.gone': 'The entry can’t be reached — it may have been deleted. Refresh re-checks.',
+  'panel.storage.doc.dom.saveFailed.quota':
+    'Save failed — the storage quota was exceeded. The original entry is unchanged.',
+  'panel.storage.doc.dom.saveFailed.write': 'Save failed — the write was rejected.',
+  'panel.storage.doc.dom.modeAria': 'Entry view mode',
+  'panel.storage.doc.dom.previewTitle': 'Collapsible tree over the parsed value',
+  'panel.storage.doc.dom.previewNeedsJson': 'Preview needs a JSON value',
+  'panel.storage.doc.dom.sourceTitle': 'Raw value view',
+  'panel.storage.doc.dom.saveHint': 'Write the edited entry back to storage',
+  'panel.storage.doc.dom.blockedHint': 'The key can’t be empty',
+  'panel.storage.doc.dom.refreshTitle': 'Re-read the entry',
+  'panel.storage.doc.dom.refreshAria': 'Refresh entry',
+  'panel.storage.doc.dom.revealTitle': 'Open {area} in the Storage tool window',
+  'panel.storage.doc.dom.keyAria': 'Entry key',
+  'panel.storage.doc.dom.conflictNote': 'The value changed in the browser while you were editing.',
+  'panel.storage.doc.dom.mergeToast': 'Merge applied to the draft — Save writes it to the browser',
+  'panel.storage.doc.dom.goneNote':
+    'This entry was deleted in the browser — your unsaved edits are kept. Save writes it back.',
+  'panel.storage.doc.dom.unavailableTitle': 'Entry no longer available',
+  'panel.storage.doc.dom.tooLargeTitle': 'Too large to open',
+  'panel.storage.doc.dom.tooLargeSub': 'The value is past the editor’s ceiling and stays read-only.',
+  'panel.storage.doc.dom.previewAria': 'Entry value tree',
+  // IndexedDB record document.
+  'panel.storage.doc.idb.saveFailed.parse': 'Not valid JSON — fix the syntax and save again.',
+  'panel.storage.doc.idb.saveFailed.keyChanged':
+    'The key changed — saving would create a new record. Restore the original key.',
+  'panel.storage.doc.idb.saveFailed.gone': 'The record can’t be reached — it may have been deleted. Refresh re-checks.',
+  'panel.storage.doc.idb.saveFailed.write': 'Save failed — the write was rejected.',
+  'panel.storage.doc.idb.modeAria': 'Record view mode',
+  'panel.storage.doc.idb.previewTitle': 'Collapsible tree over the record value',
+  'panel.storage.doc.idb.previewNeedsDoc': 'Preview needs a well-formed document',
+  'panel.storage.doc.idb.sourceTitle': 'Full-document source view',
+  'panel.storage.doc.idb.saveHint': 'Write the edited value back to the record',
+  'panel.storage.doc.idb.refreshTitle': 'Re-read the record',
+  'panel.storage.doc.idb.refreshAria': 'Refresh record',
+  'panel.storage.doc.idb.revealTitle': 'Open {database} › {store} in the Storage tool window',
+  'panel.storage.doc.idb.truncatedNote': 'Truncated at the size cap — read-only.',
+  'panel.storage.doc.idb.nonJsonNote':
+    'Contains non-JSON types (Date, Map, binary, …) — shown as a read-only rendering.',
+  'panel.storage.doc.idb.conflictNote': 'The record changed in the browser while you were editing.',
+  'panel.storage.doc.idb.mergeToast': 'Merge applied to the draft — Save writes it to the record',
+  'panel.storage.doc.idb.goneNote':
+    'This record was deleted or changed shape in the browser — your unsaved edits are kept. Save writes them back.',
+  'panel.storage.doc.idb.unavailableTitle': 'Record no longer available',
+  'panel.storage.doc.idb.previewAria': 'Record value tree',
+  // Cache Storage entry document (read-only; delete is the only mutation).
+  'panel.storage.doc.cache.deleteTitle': 'Delete this entry from the cache',
+  'panel.storage.doc.cache.deleteConfirmTitle': 'Deletes the stored response — click again to confirm',
+  'panel.storage.doc.cache.deleteAria': 'Delete cache entry',
+  'panel.storage.doc.cache.refreshTitle': 'Re-read the stored response',
+  'panel.storage.doc.cache.refreshAria': 'Refresh cache entry',
+  'panel.storage.doc.cache.revealTitle': 'Open the {cache} cache in the Storage tool window',
+  'panel.storage.doc.cache.deleteFailed': 'Delete failed — the entry may already be gone.',
+  'panel.storage.doc.cache.unavailableTitle': 'Cache entry no longer available',
+  'panel.storage.doc.cache.truncatedNote': 'Body truncated at the size cap — {size} stored.',
+  'panel.storage.doc.cache.headersSummary': 'Response headers ({count})',
+  'panel.storage.doc.cache.filterPlaceholder': 'Filter headers',
+  'panel.storage.doc.cache.filterAria': 'Filter response headers',
+  'panel.storage.doc.cache.noHeaders': 'No headers stored.',
+  'panel.storage.doc.cache.noHeadersMatch': 'No headers match your filter.',
+  'panel.storage.doc.cache.bodySummary': 'Response body',
+  'panel.storage.doc.cache.imageAria': 'Stored image body',
+  'panel.storage.doc.cache.imageAlt': 'Stored response body for {url}',
+  'panel.storage.doc.cache.binaryBody': 'Binary body — {size} stored.',
+  'panel.storage.doc.cache.emptyBody': 'Empty body.',
 } as const satisfies Catalog;

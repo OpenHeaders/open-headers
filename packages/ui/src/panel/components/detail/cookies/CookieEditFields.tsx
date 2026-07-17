@@ -20,19 +20,16 @@ import { TemplateInput } from '@openheaders/ui/workbench/components/template-inp
 import { Radio, Select, Switch } from 'antd';
 import { type ReactNode, useMemo } from 'react';
 import {
-  COOKIE_SAME_SITE_LABELS,
+  COOKIE_SAME_SITE_VALUES,
   type CookieConflictField,
   type CookieEditFormValues,
   type CookieSameSiteValue,
+  cookieSameSiteLabels,
   expirationFromLocalInput,
   expirationToLocalInput,
 } from '../../../data/cookies/cookie-edit';
 import { containsUnresolvedRef } from '../../../data/rule-create/rule-applicability';
 import { CookieEditFieldInfo } from './CookieEditFieldInfo';
-
-const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = (
-  Object.keys(COOKIE_SAME_SITE_LABELS) as CookieSameSiteValue[]
-).map((value) => ({ value, label: COOKIE_SAME_SITE_LABELS[value] }));
 
 export interface ResolvedField {
   isTemplate: boolean;
@@ -107,6 +104,10 @@ interface CookieEditFieldsProps {
 
 export function CookieEditFields({ values, fields, set, busy, readOnly = false, affixes }: CookieEditFieldsProps) {
   const t = useT();
+  const sameSiteOptions = useMemo<Array<{ value: CookieSameSiteValue; label: string }>>(() => {
+    const labels = cookieSameSiteLabels(t);
+    return COOKIE_SAME_SITE_VALUES.map((value) => ({ value, label: labels[value] }));
+  }, [t]);
   const textField = (
     key: 'name' | 'value' | 'domain' | 'path',
     placeholder: string,
@@ -202,7 +203,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
         <Select<CookieSameSiteValue>
           value={values.sameSite}
           onChange={(v) => set('sameSite', v)}
-          options={SAME_SITE_OPTIONS}
+          options={sameSiteOptions}
           disabled={busy || readOnly}
           size="small"
           popupMatchSelectWidth={false}

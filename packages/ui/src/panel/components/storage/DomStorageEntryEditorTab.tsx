@@ -18,6 +18,8 @@
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { App } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,11 +56,11 @@ type ViewMode = 'source' | 'preview';
 /** `write` is the value-only save's unreasoned failure. */
 type SaveFailure = DomStorageRenameFailure | 'write';
 
-const SAVE_FAILURE_NOTES: Record<SaveFailure, string> = {
-  collision: 'An entry with that key already exists — saving would overwrite it. Pick a different key.',
-  gone: 'The entry can’t be reached — it may have been deleted. Refresh re-checks.',
-  quota: 'Save failed — the storage quota was exceeded. The original entry is unchanged.',
-  write: 'Save failed — the write was rejected.',
+const SAVE_FAILURE_NOTES: Record<SaveFailure, MessageKey> = {
+  collision: 'panel.storage.doc.dom.saveFailed.collision',
+  gone: 'panel.storage.doc.dom.saveFailed.gone',
+  quota: 'panel.storage.doc.dom.saveFailed.quota',
+  write: 'panel.storage.doc.dom.saveFailed.write',
 };
 
 interface DomStorageEntryEditorTabProps {
@@ -86,6 +88,7 @@ export function DomStorageEntryEditorTab({
   registerSave,
   isActiveDocument,
 }: DomStorageEntryEditorTabProps) {
+  const t = useT();
   const { message } = App.useApp();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
@@ -275,12 +278,12 @@ export function DomStorageEntryEditorTab({
       setValueDraft(text);
       setSaveError(null);
       dismissConflict('value');
-      message.success('Merge applied to the draft — Save writes it to the browser');
+      message.success(t('panel.storage.doc.dom.mergeToast'));
     },
-    [dismissConflict, message],
+    [dismissConflict, message, t],
   );
 
-  const errorNote = saveError === null ? null : SAVE_FAILURE_NOTES[saveError];
+  const errorNote = saveError === null ? null : t(SAVE_FAILURE_NOTES[saveError]);
   const crumbTitle = `${domStorageAreaName(area)} › ${entryKey}`;
 
   return (
@@ -289,7 +292,7 @@ export function DomStorageEntryEditorTab({
         {/* View modes live LEFT with the document identity; the action
             cluster (Save/Refresh/Reveal) stays right — different
             domains, different sides. */}
-        <span className="dt-storagedoc-modes" role="tablist" aria-label="Entry view mode">
+        <span className="dt-storagedoc-modes" role="tablist" aria-label={t('panel.storage.doc.dom.modeAria')}>
           <button
             type="button"
             className="dt-storagedoc-mode"
@@ -297,10 +300,10 @@ export function DomStorageEntryEditorTab({
             aria-selected={effectiveMode === 'preview'}
             data-active={effectiveMode === 'preview'}
             disabled={!canPreview}
-            title={canPreview ? 'Collapsible tree over the parsed value' : 'Preview needs a JSON value'}
+            title={canPreview ? t('panel.storage.doc.dom.previewTitle') : t('panel.storage.doc.dom.previewNeedsJson')}
             onClick={() => setMode('preview')}
           >
-            Preview
+            {t('panel.storage.doc.preview')}
           </button>
           <button
             type="button"
@@ -308,10 +311,10 @@ export function DomStorageEntryEditorTab({
             role="tab"
             aria-selected={effectiveMode === 'source'}
             data-active={effectiveMode === 'source'}
-            title="Raw value view"
+            title={t('panel.storage.doc.dom.sourceTitle')}
             onClick={() => setMode('source')}
           >
-            Source
+            {t('panel.storage.doc.source')}
           </button>
         </span>
         <span className="dt-storagedoc-crumb" title={crumbTitle}>
@@ -323,8 +326,8 @@ export function DomStorageEntryEditorTab({
             savable={savable}
             saving={saving}
             dirty={dirty}
-            saveHint="Write the edited entry back to storage"
-            blockedHint="The key can’t be empty"
+            saveHint={t('panel.storage.doc.dom.saveHint')}
+            blockedHint={t('panel.storage.doc.dom.blockedHint')}
             isActiveDocument={isActiveDocument}
             onSave={() => void handleSave()}
           />
@@ -332,17 +335,17 @@ export function DomStorageEntryEditorTab({
         {dirty ? (
           <ArmedIconButton
             icon={<ReloadOutlined />}
-            title="Re-read the entry"
-            confirmTitle="Discards your edits — click again to refresh"
-            ariaLabel="Refresh entry"
+            title={t('panel.storage.doc.dom.refreshTitle')}
+            confirmTitle={t('panel.storage.doc.refreshConfirm')}
+            ariaLabel={t('panel.storage.doc.dom.refreshAria')}
             onConfirm={() => void fetchDocument()}
           />
         ) : (
           <button
             type="button"
             className="dt-storage-action"
-            title="Re-read the entry"
-            aria-label="Refresh entry"
+            title={t('panel.storage.doc.dom.refreshTitle')}
+            aria-label={t('panel.storage.doc.dom.refreshAria')}
             onClick={() => void fetchDocument()}
           >
             <ReloadOutlined />
@@ -351,10 +354,10 @@ export function DomStorageEntryEditorTab({
         <button
           type="button"
           className="dt-storagedoc-reveal"
-          title={`Open ${domStorageAreaName(area)} in the Storage tool window`}
+          title={t('panel.storage.doc.dom.revealTitle', { area: domStorageAreaName(area) })}
           onClick={() => onRevealInStorage(area)}
         >
-          Reveal in Storage
+          {t('panel.storage.doc.reveal')}
         </button>
       </div>
       {doc !== null && (
@@ -363,7 +366,7 @@ export function DomStorageEntryEditorTab({
           <input
             type="text"
             className="dt-storage-cell-input"
-            aria-label="Entry key"
+            aria-label={t('panel.storage.doc.dom.keyAria')}
             value={keyText}
             onChange={(e) => {
               setKeyDraft(e.target.value);
@@ -374,16 +377,16 @@ export function DomStorageEntryEditorTab({
       )}
       {valueConflict !== null && (
         <div className="dt-storagedoc-note dt-storagedoc-note--conflict">
-          The value changed in the browser while you were editing.
+          {t('panel.storage.doc.dom.conflictNote')}
           <ConflictDiffChip
-            theirs={clipConflictValue(valueConflict.theirs)}
-            base={clipConflictValue(valueConflict.base)}
-            local={clipConflictValue(sourceText)}
+            theirs={clipConflictValue(t, valueConflict.theirs)}
+            base={clipConflictValue(t, valueConflict.base)}
+            local={clipConflictValue(t, sourceText)}
             onTakeTheirs={() => setValueDraft(null)}
             onKeepMine={() => dismissConflict('value')}
           />
           <button type="button" className="dt-storagedoc-note-action" onClick={() => setReviewOpen(true)}>
-            Open merge view
+            {t('panel.storage.doc.openMergeView')}
           </button>
         </div>
       )}
@@ -402,7 +405,7 @@ export function DomStorageEntryEditorTab({
       )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">
-          This entry was deleted in the browser — your unsaved edits are kept. Save writes it back.
+          {t('panel.storage.doc.dom.goneNote')}
           <button
             type="button"
             className="dt-storagedoc-note-action"
@@ -412,7 +415,7 @@ export function DomStorageEntryEditorTab({
               setSlot('unavailable');
             }}
           >
-            Discard my edits
+            {t('panel.storage.doc.discardEdits')}
           </button>
         </div>
       )}
@@ -422,21 +425,19 @@ export function DomStorageEntryEditorTab({
         </div>
       )}
       {slot === 'loading' ? (
-        <div className="dt-empty">Loading…</div>
+        <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
       ) : slot === 'unavailable' ? (
         <div className="dt-empty-hero">
-          <strong>Entry no longer available</strong>
-          <span className="dt-empty-hero-sub">
-            It may have been deleted, or the frame can’t be read right now — Refresh retries.
-          </span>
+          <strong>{t('panel.storage.doc.dom.unavailableTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.storage.doc.unavailableSub')}</span>
         </div>
       ) : slot === 'too-large' ? (
         <div className="dt-empty-hero">
-          <strong>Too large to open</strong>
-          <span className="dt-empty-hero-sub">The value is past the editor’s ceiling and stays read-only.</span>
+          <strong>{t('panel.storage.doc.dom.tooLargeTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.storage.doc.dom.tooLargeSub')}</span>
         </div>
       ) : effectiveMode === 'preview' ? (
-        <div className="dt-storagedoc-preview" aria-label="Entry value tree">
+        <div className="dt-storagedoc-preview" aria-label={t('panel.storage.doc.dom.previewAria')}>
           <JsonTree value={previewValue} defaultExpandedDepth={2} />
         </div>
       ) : (

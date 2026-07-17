@@ -173,7 +173,7 @@ function CookieEditFormBody({
   // Name / Domain must block like a literal empty would. Same for the
   // prefix/Secure constraints: the jar would reject the write, so the
   // form blocks with the reason inline instead.
-  const constraintError = editFormConstraintError(resolvedForm);
+  const constraintError = editFormConstraintError(t, resolvedForm);
   const valid = isEditFormValid(resolvedForm) && constraintError === null;
   // A gone cookie is savable even when clean — Save re-creates it.
   const canSave = valid && !anyUnresolved && (mode === 'add' || dirty || gone);

@@ -18,6 +18,8 @@
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { App } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -49,11 +51,11 @@ type DocumentSlot = 'loading' | 'unavailable' | RecordDocument;
 
 type ViewMode = 'source' | 'preview';
 
-const WRITE_FAILURE_NOTES: Record<IdbRecordWriteFailure, string> = {
-  parse: 'Not valid JSON — fix the syntax and save again.',
-  'key-changed': 'The key changed — saving would create a new record. Restore the original key.',
-  gone: 'The record can’t be reached — it may have been deleted. Refresh re-checks.',
-  write: 'Save failed — the write was rejected.',
+const WRITE_FAILURE_NOTES: Record<IdbRecordWriteFailure, MessageKey> = {
+  parse: 'panel.storage.doc.idb.saveFailed.parse',
+  'key-changed': 'panel.storage.doc.idb.saveFailed.keyChanged',
+  gone: 'panel.storage.doc.idb.saveFailed.gone',
+  write: 'panel.storage.doc.idb.saveFailed.write',
 };
 
 interface IdbRecordEditorTabProps {
@@ -77,6 +79,7 @@ export function IdbRecordEditorTab({
   registerSave,
   isActiveDocument,
 }: IdbRecordEditorTabProps) {
+  const t = useT();
   const { message } = App.useApp();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
@@ -240,20 +243,20 @@ export function IdbRecordEditorTab({
       setDraftText(text);
       setSaveError(null);
       dismissConflict('text');
-      message.success('Merge applied to the draft — Save writes it to the record');
+      message.success(t('panel.storage.doc.idb.mergeToast'));
     },
-    [dismissConflict, message],
+    [dismissConflict, message, t],
   );
 
   const note =
     doc === null
       ? null
       : doc.truncated
-        ? 'Truncated at the size cap — read-only.'
+        ? t('panel.storage.doc.idb.truncatedNote')
         : doc.editable
           ? null
-          : 'Contains non-JSON types (Date, Map, binary, …) — shown as a read-only rendering.';
-  const errorNote = saveError === null ? null : WRITE_FAILURE_NOTES[saveError];
+          : t('panel.storage.doc.idb.nonJsonNote');
+  const errorNote = saveError === null ? null : t(WRITE_FAILURE_NOTES[saveError]);
 
   return (
     <div className="dt-storagedoc">
@@ -261,7 +264,7 @@ export function IdbRecordEditorTab({
         {/* View modes live LEFT with the document identity; the action
             cluster (Save/Refresh/Reveal) stays right — different
             domains, different sides. */}
-        <span className="dt-storagedoc-modes" role="tablist" aria-label="Record view mode">
+        <span className="dt-storagedoc-modes" role="tablist" aria-label={t('panel.storage.doc.idb.modeAria')}>
           <button
             type="button"
             className="dt-storagedoc-mode"
@@ -269,10 +272,10 @@ export function IdbRecordEditorTab({
             aria-selected={effectiveMode === 'preview'}
             data-active={effectiveMode === 'preview'}
             disabled={!canPreview}
-            title={canPreview ? 'Collapsible tree over the record value' : 'Preview needs a well-formed document'}
+            title={canPreview ? t('panel.storage.doc.idb.previewTitle') : t('panel.storage.doc.idb.previewNeedsDoc')}
             onClick={() => setMode('preview')}
           >
-            Preview
+            {t('panel.storage.doc.preview')}
           </button>
           <button
             type="button"
@@ -280,10 +283,10 @@ export function IdbRecordEditorTab({
             role="tab"
             aria-selected={effectiveMode === 'source'}
             data-active={effectiveMode === 'source'}
-            title="Full-document source view"
+            title={t('panel.storage.doc.idb.sourceTitle')}
             onClick={() => setMode('source')}
           >
-            Source
+            {t('panel.storage.doc.source')}
           </button>
         </span>
         <span className="dt-storagedoc-crumb" title={`${database} › ${store} › ${tab.keyPreview}`}>
@@ -295,7 +298,7 @@ export function IdbRecordEditorTab({
             savable={dirty}
             saving={saving}
             dirty={dirty}
-            saveHint="Write the edited value back to the record"
+            saveHint={t('panel.storage.doc.idb.saveHint')}
             isActiveDocument={isActiveDocument}
             onSave={() => void handleSave()}
           />
@@ -303,17 +306,17 @@ export function IdbRecordEditorTab({
         {dirty ? (
           <ArmedIconButton
             icon={<ReloadOutlined />}
-            title="Re-read the record"
-            confirmTitle="Discards your edits — click again to refresh"
-            ariaLabel="Refresh record"
+            title={t('panel.storage.doc.idb.refreshTitle')}
+            confirmTitle={t('panel.storage.doc.refreshConfirm')}
+            ariaLabel={t('panel.storage.doc.idb.refreshAria')}
             onConfirm={() => void fetchDocument()}
           />
         ) : (
           <button
             type="button"
             className="dt-storage-action"
-            title="Re-read the record"
-            aria-label="Refresh record"
+            title={t('panel.storage.doc.idb.refreshTitle')}
+            aria-label={t('panel.storage.doc.idb.refreshAria')}
             onClick={() => void fetchDocument()}
           >
             <ReloadOutlined />
@@ -322,25 +325,25 @@ export function IdbRecordEditorTab({
         <button
           type="button"
           className="dt-storagedoc-reveal"
-          title={`Open ${database} › ${store} in the Storage tool window`}
+          title={t('panel.storage.doc.idb.revealTitle', { database, store })}
           onClick={() => onRevealInStorage(database, store)}
         >
-          Reveal in Storage
+          {t('panel.storage.doc.reveal')}
         </button>
       </div>
       {note !== null && <div className="dt-storagedoc-note">{note}</div>}
       {textConflict !== null && (
         <div className="dt-storagedoc-note dt-storagedoc-note--conflict">
-          The record changed in the browser while you were editing.
+          {t('panel.storage.doc.idb.conflictNote')}
           <ConflictDiffChip
-            theirs={clipConflictValue(textConflict.theirs)}
-            base={clipConflictValue(textConflict.base)}
-            local={clipConflictValue(sourceText)}
+            theirs={clipConflictValue(t, textConflict.theirs)}
+            base={clipConflictValue(t, textConflict.base)}
+            local={clipConflictValue(t, sourceText)}
             onTakeTheirs={() => setDraftText(null)}
             onKeepMine={() => dismissConflict('text')}
           />
           <button type="button" className="dt-storagedoc-note-action" onClick={() => setReviewOpen(true)}>
-            Open merge view
+            {t('panel.storage.doc.openMergeView')}
           </button>
         </div>
       )}
@@ -359,7 +362,7 @@ export function IdbRecordEditorTab({
       )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">
-          This record was deleted or changed shape in the browser — your unsaved edits are kept. Save writes them back.
+          {t('panel.storage.doc.idb.goneNote')}
           <button
             type="button"
             className="dt-storagedoc-note-action"
@@ -368,7 +371,7 @@ export function IdbRecordEditorTab({
               setSlot('unavailable');
             }}
           >
-            Discard my edits
+            {t('panel.storage.doc.discardEdits')}
           </button>
         </div>
       )}
@@ -378,18 +381,16 @@ export function IdbRecordEditorTab({
         </div>
       )}
       {slot === 'loading' ? (
-        <div className="dt-empty">Loading…</div>
+        <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
       ) : slot === 'unavailable' ? (
         <div className="dt-empty-hero">
-          <strong>Record no longer available</strong>
-          <span className="dt-empty-hero-sub">
-            It may have been deleted, or the frame can’t be read right now — Refresh retries.
-          </span>
+          <strong>{t('panel.storage.doc.idb.unavailableTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.storage.doc.unavailableSub')}</span>
         </div>
       ) : effectiveMode === 'preview' ? (
         <div
           className={`dt-storagedoc-preview${previewValue === undefined ? ' dt-storagedoc-preview--tree' : ''}`}
-          aria-label="Record value tree"
+          aria-label={t('panel.storage.doc.idb.previewAria')}
         >
           {previewValue !== undefined ? (
             <JsonTree value={previewValue} defaultExpandedDepth={2} />

@@ -18,6 +18,8 @@
  */
 
 import { ReloadOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type CookieEditFormValues,
@@ -61,11 +63,10 @@ type DocumentSlot = 'loading' | 'unavailable' | CookieDocument;
 
 type SaveFailure = 'collision' | 'write' | 'remove';
 
-const SAVE_FAILURE_NOTES: Record<SaveFailure, string> = {
-  collision:
-    'A cookie with that name, domain and path already exists — saving would overwrite it. Pick a different identity.',
-  write: 'Save failed — the browser jar rejected the write.',
-  remove: 'The new cookie was written but the original couldn’t be removed — both exist. Refresh re-reads the jar.',
+const SAVE_FAILURE_NOTES: Record<SaveFailure, MessageKey> = {
+  collision: 'panel.storage.doc.cookie.saveFailed.collision',
+  write: 'panel.storage.doc.cookie.saveFailed.write',
+  remove: 'panel.storage.doc.cookie.saveFailed.remove',
 };
 
 interface CookieEditorTabProps {
@@ -93,6 +94,7 @@ export function CookieEditorTab({
   registerSave,
   isActiveDocument,
 }: CookieEditorTabProps) {
+  const t = useT();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [values, setValues] = useState<CookieEditFormValues>(emptyEditForm);
   const [saving, setSaving] = useState(false);
@@ -187,7 +189,7 @@ export function CookieEditorTab({
   // Validity runs on the RESOLVED form — a `{{var}}` resolving to '' in
   // Name / Domain must block like a literal empty would. The prefix/
   // Secure constraints block the same way, with the reason shown inline.
-  const constraintError = editFormConstraintError(resolvedForm);
+  const constraintError = editFormConstraintError(t, resolvedForm);
   const savable = dirty && writable && !anyUnresolved && isEditFormValid(resolvedForm) && constraintError === null;
 
   useEffect(() => {
@@ -264,14 +266,14 @@ export function CookieEditorTab({
     return () => registerSave?.(null);
   }, [registerSave, handleSave]);
 
-  const errorNote = saveError === null ? null : SAVE_FAILURE_NOTES[saveError];
+  const errorNote = saveError === null ? null : t(SAVE_FAILURE_NOTES[saveError]);
   const crumbTitle = `${cookieKey.domain}${cookieKey.path} › ${cookieKey.name}`;
 
   return (
     <div className="dt-storagedoc">
       <div className="dt-storagedoc-toolbar">
         <span className="dt-storagedoc-crumb" title={crumbTitle}>
-          Cookies › {cookieKey.domain}
+          {t('panel.storage.nav.cookies')} › {cookieKey.domain}
           {cookieKey.path} › <span className="dt-storagedoc-crumb-key">{cookieKey.name}</span>
         </span>
         <span className="dt-storagedoc-toolbar-spacer" />
@@ -280,8 +282,8 @@ export function CookieEditorTab({
             savable={savable}
             saving={saving}
             dirty={dirty}
-            saveHint="Write the edited cookie back to the browser jar"
-            blockedHint="The form is incomplete or a reference doesn’t resolve"
+            saveHint={t('panel.storage.doc.cookie.saveHint')}
+            blockedHint={t('panel.storage.doc.cookie.blockedHint')}
             isActiveDocument={isActiveDocument}
             onSave={() => void handleSave()}
           />
@@ -289,17 +291,17 @@ export function CookieEditorTab({
         {dirty ? (
           <ArmedIconButton
             icon={<ReloadOutlined />}
-            title="Re-read the cookie"
-            confirmTitle="Discards your edits — click again to refresh"
-            ariaLabel="Refresh cookie"
+            title={t('panel.storage.doc.cookie.refreshTitle')}
+            confirmTitle={t('panel.storage.doc.refreshConfirm')}
+            ariaLabel={t('panel.storage.doc.cookie.refreshAria')}
             onConfirm={() => void fetchDocument()}
           />
         ) : (
           <button
             type="button"
             className="dt-storage-action"
-            title="Re-read the cookie"
-            aria-label="Refresh cookie"
+            title={t('panel.storage.doc.cookie.refreshTitle')}
+            aria-label={t('panel.storage.doc.cookie.refreshAria')}
             onClick={() => void fetchDocument()}
           >
             <ReloadOutlined />
@@ -308,24 +310,22 @@ export function CookieEditorTab({
         <button
           type="button"
           className="dt-storagedoc-reveal"
-          title="Open Cookies in the Storage tool window"
+          title={t('panel.storage.doc.cookie.revealTitle')}
           onClick={() => onRevealInStorage()}
         >
-          Reveal in Storage
+          {t('panel.storage.doc.reveal')}
         </button>
       </div>
       {conflictTier.banner}
       {conflictTier.dialog}
       {doc !== null && !writable && (
-        <div className="dt-storagedoc-note">
-          This host’s cookie jar is read-only — the document reflects the jar but can’t write back.
-        </div>
+        <div className="dt-storagedoc-note">{t('panel.storage.doc.cookie.readOnlyNote')}</div>
       )}
       {doc?.gone === true && (
         <div className="dt-storagedoc-note">
-          This cookie was deleted in the browser — your unsaved edits are kept. Save writes it back.
+          {t('panel.storage.doc.cookie.goneNote')}
           <button type="button" className="dt-storagedoc-note-action" onClick={() => setSlot('unavailable')}>
-            Discard my edits
+            {t('panel.storage.doc.discardEdits')}
           </button>
         </div>
       )}
@@ -338,13 +338,11 @@ export function CookieEditorTab({
         <div className="dt-storagedoc-note dt-storagedoc-note--error">{constraintError}</div>
       )}
       {slot === 'loading' ? (
-        <div className="dt-empty">Loading…</div>
+        <div className="dt-empty">{t('panel.storage.empty.loading')}</div>
       ) : slot === 'unavailable' ? (
         <div className="dt-empty-hero">
-          <strong>Cookie no longer in the jar</strong>
-          <span className="dt-empty-hero-sub">
-            It may have been deleted or expired, or the jar can’t be read on this host — Refresh retries.
-          </span>
+          <strong>{t('panel.storage.doc.cookie.unavailableTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.storage.doc.cookie.unavailableSub')}</span>
         </div>
       ) : (
         <div className="dt-storagedoc-cookieform dt-scrollbar">

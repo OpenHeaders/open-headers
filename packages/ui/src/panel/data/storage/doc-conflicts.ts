@@ -37,6 +37,7 @@
  * conflict.
  */
 
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface DocFieldConflict {
@@ -144,7 +145,7 @@ export function useStorageDocConflicts<F extends string>({
 /** Chip-popover display cap for value documents — a multi-kilobyte
  *  localStorage blob would otherwise dump whole into the popover. The
  *  resolution actions always use the real value, never the clipped one. */
-export function clipConflictValue(value: string, max = 2000): string {
+export function clipConflictValue(t: Translate, value: string, max = 2000): string {
   if (value.length <= max) return value;
-  return `${value.slice(0, max)}… (${value.length - max} more characters)`;
+  return `${value.slice(0, max)}${t('panel.storage.doc.clippedSuffix', { count: value.length - max })}`;
 }
