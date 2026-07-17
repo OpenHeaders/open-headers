@@ -12,6 +12,7 @@
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
 import { Button, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../backend';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { requestSecretsRelaunch } from '../hooks/useSecretsStorageState';
@@ -58,19 +59,24 @@ export function productStatusInlineActions(
   entry: StatusEntry | undefined,
 ): React.ReactNode {
   if (subsystem === 'secrets' && entry?.state === 'red' && entry.context?.cipher === 'unavailable') {
-    return (
-      <Button
-        size="small"
-        onClick={requestSecretsRelaunch}
-        data-testid="secrets-status-relaunch"
-        style={{ fontSize: 11, height: 20, padding: '0 6px' }}
-      >
-        Relaunch app
-      </Button>
-    );
+    return <SecretsRelaunchAction />;
   }
   return null;
 }
+
+const SecretsRelaunchAction: React.FC = () => {
+  const t = useT();
+  return (
+    <Button
+      size="small"
+      onClick={requestSecretsRelaunch}
+      data-testid="secrets-status-relaunch"
+      style={{ fontSize: 11, height: 20, padding: '0 6px' }}
+    >
+      {t('shared.chrome.status.relaunchApp')}
+    </Button>
+  );
+};
 
 /**
  * Per-backend breakdown under the `sync` row — the worst-of pill names
@@ -99,8 +105,9 @@ const BackendSyncRow: React.FC<{ record: BackendConnection; entry: BackendSyncSt
   record,
   entry,
 }) => {
+  const t = useT();
   const label = record.label.trim() || record.url;
-  const { tagColor, message } = backendRowVisual(record, entry);
+  const { tagColor, message } = backendRowVisual(record, entry, t);
   return (
     <Tooltip title={`${record.url} — ${message}`} placement="top">
       <div>
@@ -113,9 +120,10 @@ const BackendSyncRow: React.FC<{ record: BackendConnection; entry: BackendSyncSt
 function backendRowVisual(
   record: BackendConnection,
   entry: BackendSyncStatus | undefined,
+  t: Translate,
 ): { tagColor: string; message: string } {
-  if (!record.enabled) return { tagColor: 'default', message: 'Off' };
-  if (!entry) return { tagColor: 'warning', message: 'Connecting…' };
+  if (!record.enabled) return { tagColor: 'default', message: t('shared.chrome.status.backendOff') };
+  if (!entry) return { tagColor: 'warning', message: t('shared.chrome.status.backendConnecting') };
   const tagColor = entry.state === 'red' ? 'error' : entry.state === 'yellow' ? 'warning' : 'success';
   return { tagColor, message: entry.message };
 }
@@ -130,19 +138,18 @@ function backendRowVisual(
  * before measurement.
  */
 const BootRegressionCallout: React.FC = () => {
+  const t = useT();
   const { verdict, baselinePending } = useBootRegression();
   if (baselinePending) return null;
   if (!verdict.regressed) return null;
-  const tooltip =
-    `Three consecutive cold wakes exceeded baseline by ≥20%. ` +
-    `Recent boot.interactive samples (ms): ${verdict.offending.join(', ')}.`;
+  const tooltip = t('shared.chrome.status.coldStartTooltip', { samples: verdict.offending.join(', ') });
   return (
     <Tooltip title={tooltip} placement="top">
       <div>
         <ExtrasRow
           tagColor="orange"
-          label="Cold start"
-          message="Performance regression detected — see diagnostic export"
+          label={t('shared.chrome.status.coldStart')}
+          message={t('shared.chrome.status.coldStartMessage')}
         />
       </div>
     </Tooltip>

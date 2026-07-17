@@ -20,6 +20,7 @@ import { Button, Popconfirm, Progress, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   type BackgroundTask,
   setBackgroundTasksPanelOpen,
@@ -43,6 +44,7 @@ function taskProgress(task: BackgroundTask, width?: number): React.ReactNode {
 }
 
 const BackgroundTasksIndicator: React.FC = () => {
+  const t = useT();
   const { token } = theme.useToken();
   const tasks = useBackgroundTasks();
   const panelOpen = useBackgroundTasksPanelOpen();
@@ -97,26 +99,26 @@ const BackgroundTasksIndicator: React.FC = () => {
     task.cancel ? (
       <Popconfirm
         title={task.cancel.confirm}
-        okText="Stop"
+        okText={t('shared.chrome.tasks.stop')}
         okButtonProps={{ danger: true }}
-        cancelText="Keep running"
+        cancelText={t('shared.chrome.tasks.keepRunning')}
         onConfirm={() => task.cancel?.run()}
         placement="topRight"
       >
-        {circleClose((e) => e.stopPropagation(), 'Stop background task')}
+        {circleClose((e) => e.stopPropagation(), t('shared.chrome.tasks.stopTaskAria'))}
       </Popconfirm>
     ) : (
       circleClose((e) => {
         e.stopPropagation();
         setHiddenIds((prev) => new Set(prev).add(task.id));
-      }, 'Hide background task')
+      }, t('shared.chrome.tasks.hideTaskAria'))
     );
 
   const panel = panelOpen
     ? createPortal(
         <div
           role="dialog"
-          aria-label="Processes"
+          aria-label={t('shared.chrome.tasks.processes')}
           style={{
             position: 'fixed',
             right: 10,
@@ -135,10 +137,12 @@ const BackgroundTasksIndicator: React.FC = () => {
           }}
         >
           <div style={{ position: 'relative', marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, textAlign: 'center' }}>Processes</div>
+            <div style={{ fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+              {t('shared.chrome.tasks.processes')}
+            </div>
             <button
               type="button"
-              aria-label="Hide processes panel"
+              aria-label={t('shared.chrome.tasks.hidePanelAria')}
               onClick={() => setPanelOpen(false)}
               style={{
                 position: 'absolute',
@@ -162,7 +166,7 @@ const BackgroundTasksIndicator: React.FC = () => {
           {visible.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
               <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 13 }} />
-              <span style={{ color: token.colorTextSecondary }}>All background tasks completed</span>
+              <span style={{ color: token.colorTextSecondary }}>{t('shared.chrome.tasks.allCompleted')}</span>
             </div>
           ) : (
             visible.map((task) => (
@@ -219,7 +223,7 @@ const BackgroundTasksIndicator: React.FC = () => {
                     {task.footnote.hint && (
                       <Tooltip title={task.footnote.hint}>
                         <InfoCircleOutlined
-                          aria-label="About this note"
+                          aria-label={t('shared.chrome.tasks.aboutNoteAria')}
                           style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
                         />
                       </Tooltip>
@@ -263,7 +267,9 @@ const BackgroundTasksIndicator: React.FC = () => {
           // While the panel is up, the slot becomes its dismiss affordance
           // instead of echoing the task the panel already shows.
           <span style={{ fontSize: 10, color: token.colorTextSecondary }}>
-            {visible.length > 0 ? `Hide processes (${visible.length})` : 'Hide processes'}
+            {visible.length > 0
+              ? t('shared.chrome.tasks.hideProcessesCount', { count: visible.length })
+              : t('shared.chrome.tasks.hideProcesses')}
           </span>
         ) : anchor ? (
           <>
@@ -286,7 +292,7 @@ const BackgroundTasksIndicator: React.FC = () => {
             {taskClose(anchor)}
           </>
         ) : (
-          <span style={{ fontSize: 10, color: token.colorTextTertiary }}>Processes</span>
+          <span style={{ fontSize: 10, color: token.colorTextTertiary }}>{t('shared.chrome.tasks.processes')}</span>
         )}
       </div>
       {panel}

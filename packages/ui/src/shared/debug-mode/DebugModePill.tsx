@@ -35,7 +35,9 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { CdpRosterTab, CdpScopeMode } from '@openheaders/core/types';
 import { readCdpPinnedTabs, readCdpRoster } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useChordLabel } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { Badge, Button, ConfigProvider, Popover, Select, Switch, Tooltip, Typography, theme } from 'antd';
@@ -56,13 +58,10 @@ import { useDebugModeShortcut } from './useDebugModeShortcut';
  */
 export const DEBUG_DOCS_SECTION_ID = 'debug-mode';
 
-/** Shown when the control renders disabled on a browser without the protocol. */
-export const DEBUG_UNAVAILABLE_HINT = 'Debug mode is available in Chrome and Edge.';
-
-const SCOPE_OPTIONS: { label: string; value: CdpScopeMode }[] = [
-  { label: 'Where DevTools is open', value: 'devtools' },
-  { label: 'The focused tab', value: 'active' },
-  { label: 'Both', value: 'both' },
+const SCOPE_OPTIONS: { labelKey: MessageKey; value: CdpScopeMode }[] = [
+  { labelKey: 'shared.chrome.debug.scopeDevtools', value: 'devtools' },
+  { labelKey: 'shared.chrome.debug.scopeActive', value: 'active' },
+  { labelKey: 'shared.chrome.debug.scopeBoth', value: 'both' },
 ];
 
 /**
@@ -94,6 +93,7 @@ export interface DebugModePillProps {
 }
 
 export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, className, placement = 'top', onOpenDocs }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const { snapshot } = useStatus();
   const [enabled, setEnabled] = useSetting('inspection.cdpEnabled');
@@ -110,18 +110,18 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
   if (!hasCapability('cdpInspection')) {
     if (getCurrentHost() !== 'extension') return null;
     return (
-      <Tooltip title={DEBUG_UNAVAILABLE_HINT}>
+      <Tooltip title={t('shared.chrome.debug.unavailableHint')}>
         <span
           className={className ?? 'rules-statusbar-item'}
-          aria-label={`Debug mode — ${DEBUG_UNAVAILABLE_HINT}`}
+          aria-label={`${t('shared.chrome.debug.title')} — ${t('shared.chrome.debug.unavailableHint')}`}
           aria-disabled
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.45, cursor: 'not-allowed' }}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span className="rules-dot" style={{ background: token.colorTextTertiary }} />
-            Debug mode
+            {t('shared.chrome.debug.title')}
           </span>
-          <Switch size="small" disabled checked={false} aria-label="Toggle debug mode" />
+          <Switch size="small" disabled checked={false} aria-label={t('shared.chrome.debug.toggleAria')} />
         </span>
       </Tooltip>
     );
@@ -139,16 +139,16 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
   const title = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
       <Typography.Text strong style={{ fontSize: 12 }}>
-        Debug mode
+        {t('shared.chrome.debug.title')}
       </Typography.Text>
       {onOpenDocs && (
-        <Tooltip title="About debug mode">
+        <Tooltip title={t('shared.chrome.debug.aboutTooltip')}>
           <Button
             type="text"
             size="small"
             icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
             onClick={() => onOpenDocs(DEBUG_DOCS_SECTION_ID)}
-            aria-label="Open debug mode documentation"
+            aria-label={t('shared.chrome.debug.openDocsAria')}
             style={{ padding: '0 4px', height: 20, minWidth: 'auto' }}
           />
         </Tooltip>
@@ -167,11 +167,11 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
         <span
           className={className ?? 'rules-statusbar-item'}
           role="button"
-          aria-label="Debug mode controls"
+          aria-label={t('shared.chrome.debug.controlsAria')}
           style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           <span className="rules-dot" style={{ background: dotColor }} />
-          Debug mode
+          {t('shared.chrome.debug.title')}
         </span>
       </Popover>
       {/* Mount the switch only after settings hydrate, else it animates from the
@@ -181,11 +181,11 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
           <Tooltip
             title={
               <ShortcutHintTitle label={toggleLabel}>
-                {enabled ? 'Turn off debug mode' : 'Turn on debug mode'}
+                {enabled ? t('shared.chrome.debug.turnOff') : t('shared.chrome.debug.turnOn')}
               </ShortcutHintTitle>
             }
           >
-            <Switch size="small" checked={enabled} onChange={setEnabled} aria-label="Toggle debug mode" />
+            <Switch size="small" checked={enabled} onChange={setEnabled} aria-label={t('shared.chrome.debug.toggleAria')} />
           </Tooltip>
         )}
       </span>
@@ -200,6 +200,7 @@ interface DebugModeControlsProps {
 }
 
 const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource, enabled }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const [scope, setScope] = useSetting('inspection.cdpScope');
   const tabId = useControlTabId(tabSource);
@@ -241,19 +242,24 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
             </Typography.Text>
           </div>
         )}
-        <ControlRow label="Attach to" token={token}>
+        <ControlRow label={t('shared.chrome.debug.attachTo')} token={token}>
           <Select
             size="small"
             value={scope}
             onChange={(value: CdpScopeMode) => setScope(value)}
-            options={SCOPE_OPTIONS}
+            options={SCOPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
             style={{ width: 190 }}
           />
         </ControlRow>
 
         {showPin && (
-          <ControlRow label="Include this browser tab" token={token}>
-            <Switch size="small" checked={pinnedHere} onChange={togglePin} aria-label="Pin this browser tab" />
+          <ControlRow label={t('shared.chrome.debug.includeThisTab')} token={token}>
+            <Switch
+              size="small"
+              checked={pinnedHere}
+              onChange={togglePin}
+              aria-label={t('shared.chrome.debug.pinThisTabAria')}
+            />
           </ControlRow>
         )}
 
@@ -263,7 +269,7 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Typography.Text style={{ fontSize: 10, color: token.colorTextTertiary }}>
-                Attached tabs
+                {t('shared.chrome.debug.attachedTabs')}
               </Typography.Text>
               {roster.length > 0 && (
                 <Badge
@@ -280,7 +286,7 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
               ))
             ) : (
               <Typography.Text style={{ fontSize: 11, color: token.colorTextTertiary, padding: '2px 4px' }}>
-                No tabs attached yet
+                {t('shared.chrome.debug.noTabsAttached')}
               </Typography.Text>
             )}
           </div>
@@ -288,8 +294,7 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
 
         <div style={{ marginTop: 2, paddingTop: 8, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
           <Typography.Text style={{ fontSize: 10, color: token.colorTextTertiary }}>
-            While debug mode is on, the browser's banner “OH started debugging this browser” shows on every tab — not just the
-            ones it's attached to.
+            {t('shared.chrome.debug.bannerNote')}
           </Typography.Text>
         </div>
       </div>
@@ -318,12 +323,17 @@ interface RosterRowProps {
 }
 
 const RosterRow: React.FC<RosterRowProps> = ({ tab, token, isCurrent }) => {
+  const t = useT();
   const handle = { kind: 'chrome-tab' as const, tabId: tab.tabId, windowId: tab.windowId, url: tab.url || undefined };
   // The tab you're already on isn't a "switch to" target — it's highlighted
   // instead, not clickable and with no jump affordance.
   const navigable = !isCurrent && isPeerNavigable(handle);
-  const label = tab.title || tab.url || `Tab ${tab.tabId}`;
-  const tooltip = isCurrent ? "You're on this tab" : navigable ? `Switch to ${tab.url || label}` : tab.url || label;
+  const label = tab.title || tab.url || t('shared.chrome.debug.tabFallback', { id: tab.tabId });
+  const tooltip = isCurrent
+    ? t('shared.chrome.debug.onThisTab')
+    : navigable
+      ? t('shared.chrome.debug.switchTo', { target: tab.url || label })
+      : tab.url || label;
   return (
     <Tooltip title={tooltip} placement="top">
       <button
@@ -346,7 +356,9 @@ const RosterRow: React.FC<RosterRowProps> = ({ tab, token, isCurrent }) => {
         }}
       >
         {tab.pinned && <PushpinFilled style={{ fontSize: 10, color: token.colorTextTertiary, flex: '0 0 auto' }} />}
-        <span style={{ fontSize: 11, color: token.colorTextTertiary, flex: '0 0 auto' }}>Tab #{tab.index + 1}</span>
+        <span style={{ fontSize: 11, color: token.colorTextTertiary, flex: '0 0 auto' }}>
+          {t('shared.chrome.debug.tabNumber', { number: tab.index + 1 })}
+        </span>
         <span style={{ flex: 1, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {label}
         </span>

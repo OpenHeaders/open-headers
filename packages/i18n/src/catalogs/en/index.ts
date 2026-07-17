@@ -12,6 +12,7 @@ import { panel } from './panel';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
+import { sharedChrome } from './shared-chrome';
 import { sharedComponents } from './shared-components';
 import { sharedConflicts } from './shared-conflicts';
 import { sharedHeaderValidation } from './shared-header-validation';
@@ -37,6 +38,7 @@ import { workbenchVariables } from './workbench-variables';
 export const en = {
   ...shared,
   ...sharedAwareness,
+  ...sharedChrome,
   ...sharedComponents,
   ...sharedConflicts,
   ...sharedHeaderValidation,

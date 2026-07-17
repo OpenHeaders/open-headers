@@ -7,53 +7,56 @@
  */
 
 import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { Popover } from 'antd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { EditorLifecycleStatus } from './types';
 
 type StatusKey = Exclude<EditorLifecycleStatus, null> | 'live';
 
 interface StatusStyle {
-  label: string;
+  labelKey: MessageKey;
   fg: string;
   border: string;
   bg: string;
-  body: string;
+  bodyKey: MessageKey;
 }
 
 const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
   scratch: {
-    label: 'Scratch',
+    labelKey: 'shared.chrome.lifecycle.scratch',
     fg: '#7a7a7a',
     border: '#bfbfbf',
     bg: 'rgba(140,140,140,0.10)',
-    body: 'Unsaved draft. Nothing is persisted until you Save.',
+    bodyKey: 'shared.chrome.lifecycle.scratchBody',
   },
   unresolved: {
-    label: 'Unresolved',
+    labelKey: 'shared.chrome.lifecycle.unresolved',
     fg: '#cf1322',
     border: '#ffa39e',
     bg: 'rgba(255,77,79,0.10)',
-    body: 'Has {{ref}}s that don’t resolve in the active scope.',
+    bodyKey: 'shared.chrome.lifecycle.unresolvedBody',
   },
   draft: {
-    label: 'Draft',
+    labelKey: 'shared.chrome.lifecycle.draft',
     fg: '#7a7a7a',
     border: '#bfbfbf',
     bg: 'rgba(140,140,140,0.10)',
-    body: 'Saved but not Live yet — missing required fields, or not yet published.',
+    bodyKey: 'shared.chrome.lifecycle.draftBody',
   },
   live: {
-    label: 'Live',
+    labelKey: 'shared.chrome.lifecycle.live',
     fg: '#389e0d',
     border: '#b7eb8f',
     bg: 'rgba(82,196,26,0.12)',
-    body: 'Published and active.',
+    bodyKey: 'shared.chrome.lifecycle.liveBody',
   },
 };
 
 const STATUS_ORDER: StatusKey[] = ['scratch', 'draft', 'unresolved', 'live'];
 
 function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
+  const t = useT();
   return (
     <span
       style={{
@@ -72,16 +75,17 @@ function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
     >
       {active && <CheckCircleFilled style={{ fontSize: 9, color: s.fg }} />}
       {!active && <ExclamationCircleFilled style={{ fontSize: 9, opacity: 0.35, color: s.fg }} />}
-      {s.label}
+      {t(s.labelKey)}
     </span>
   );
 }
 
 function LifecyclePopoverContent({ current }: { current: StatusKey }) {
+  const t = useT();
   return (
     <div style={{ minWidth: 280, maxWidth: 320 }}>
       <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--ant-color-text-secondary)' }}>
-        Lifecycle states
+        {t('shared.chrome.lifecycle.title')}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {STATUS_ORDER.map((key) => {
@@ -109,7 +113,7 @@ function LifecyclePopoverContent({ current }: { current: StatusKey }) {
                   fontWeight: active ? 500 : 400,
                 }}
               >
-                {style.body}
+                {t(style.bodyKey)}
               </span>
             </div>
           );

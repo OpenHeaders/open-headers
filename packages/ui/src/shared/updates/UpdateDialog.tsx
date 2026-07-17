@@ -18,6 +18,7 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { Button, Modal, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { releasePageUrl, writeIgnoredVersion } from './release-notes';
 import { closeUpdateDialog, useUpdateDialogOpen } from './store';
 
@@ -29,6 +30,7 @@ interface UpdateDialogProps {
 const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 'inherit' };
 
 const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const open = useUpdateDialogOpen();
   const [state, setState] = useState<AppUpdateState | null>(null);
@@ -77,13 +79,15 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
       case 'downloading':
         return (
           <Button type="primary" loading disabled>
-            {state.progressPercent !== null ? `Downloading… ${state.progressPercent}%` : 'Downloading…'}
+            {state.progressPercent !== null
+              ? t('shared.chrome.updates.downloadingPercent', { percent: state.progressPercent })
+              : t('shared.chrome.updates.downloading')}
           </Button>
         );
       case 'downloaded':
         return (
           <Button type="primary" onClick={() => void bridge?.call('oh.updates.install')}>
-            Restart to Install
+            {t('shared.chrome.updates.restartToInstall')}
           </Button>
         );
       default:
@@ -95,7 +99,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
               void bridge?.call('oh.updates.download');
             }}
           >
-            Download
+            {t('shared.chrome.updates.download')}
           </Button>
         );
     }
@@ -107,7 +111,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
       onCancel={closeUpdateDialog}
       centered
       width={520}
-      title="Open Headers Update"
+      title={t('shared.chrome.updates.title')}
       footer={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Button
@@ -116,22 +120,22 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
               closeUpdateDialog();
             }}
           >
-            Ignore This Update
+            {t('shared.chrome.updates.ignore')}
           </Button>
           <div style={{ flex: 1 }} />
-          <Button onClick={closeUpdateDialog}>Remind Me Later</Button>
+          <Button onClick={closeUpdateDialog}>{t('shared.chrome.updates.remindLater')}</Button>
           {primary}
         </div>
       }
     >
       <div style={{ fontSize: 13 }}>
         <div style={{ marginBottom: 8 }}>
-          <strong>v{version}</strong> is now available!
+          <strong>v{version}</strong> {t('shared.chrome.updates.nowAvailableSuffix')}
         </div>
         <div style={{ marginBottom: 14 }}>
-          For more details, see the{' '}
+          {t('shared.chrome.updates.moreDetailsPrefix')}{' '}
           <Button type="link" size="small" style={LINK_STYLE} onClick={openReleaseNotes}>
-            release notes
+            {t('shared.chrome.updates.releaseNotes')}
           </Button>
           .
         </div>
@@ -143,7 +147,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
             paddingTop: 10,
           }}
         >
-          Updating {state.currentVersion} to {version}.{' '}
+          {t('shared.chrome.updates.updatingTo', { from: state.currentVersion, to: version })}{' '}
           <Button
             type="link"
             size="small"
@@ -153,7 +157,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
               onConfigureUpdates();
             }}
           >
-            Configure updates…
+            {t('shared.chrome.updates.configure')}
           </Button>
         </div>
       </div>

@@ -24,6 +24,7 @@
 import { WarningOutlined } from '@ant-design/icons';
 import { hasCapability } from '@openheaders/core/capabilities';
 import { readCdpRoster } from '@openheaders/core/types';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -38,6 +39,7 @@ interface DebugModeDormantNoticeProps {
 }
 
 export const DebugModeDormantNotice: React.FC<DebugModeDormantNoticeProps> = ({ tabSource, hasRealizableRule }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const { snapshot } = useStatus();
   const cdpEnabled = useSettingValue('inspection.cdpEnabled');
@@ -54,16 +56,13 @@ export const DebugModeDormantNotice: React.FC<DebugModeDormantNoticeProps> = ({ 
   if (inScope) return null;
 
   return (
-    <Tooltip
-      placement="top"
-      title="Debug mode is on, but this tab is outside its scope — your debug-tier rules' nav / worker / OOPIF effects are dormant here. Bring it into scope from Debug mode (change the scope or pin this tab). They still run over page requests (xhr/fetch)."
-    >
+    <Tooltip placement="top" title={t('shared.chrome.debug.dormantTooltip')}>
       <span
         className="rules-statusbar-item"
         style={{ color: token.colorWarning, display: 'inline-flex', alignItems: 'center', gap: 4 }}
       >
         <WarningOutlined style={{ fontSize: 11 }} />
-        Tab out of scope
+        {t('shared.chrome.debug.tabOutOfScope')}
       </span>
     </Tooltip>
   );

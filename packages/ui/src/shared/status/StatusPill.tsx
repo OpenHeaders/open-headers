@@ -26,6 +26,7 @@ import { useStatus } from '../hooks/useStatus';
 import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
@@ -136,6 +137,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   onOpenDocs,
   label,
 }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const { snapshot, worst } = useStatus();
   // In `row` density each subsystem pill carries its own hover tooltip
@@ -144,8 +146,8 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   const [popoverOpen, setPopoverOpen] = React.useState(false);
   const hasEntries = Object.values(snapshot).some(Boolean);
   const color = worst === 'red' ? token.colorError : worst === 'yellow' ? token.colorWarning : token.colorSuccess;
-  const summary = buildSummary(snapshot, worst);
-  const ariaLabel = `System status: ${summary}`;
+  const summary = buildSummary(t, snapshot, worst);
+  const ariaLabel = t('shared.chrome.status.aria', { summary });
 
   const body = (
     <StatusPopoverBody
@@ -174,17 +176,17 @@ export const StatusPill: React.FC<StatusPillProps> = ({
           }}
         />
         <Typography.Text strong style={{ fontSize: 12 }}>
-          System status
+          {t('shared.chrome.status.title')}
         </Typography.Text>
       </div>
       {onOpenDocs && (
-        <Tooltip title="About this panel">
+        <Tooltip title={t('shared.chrome.status.aboutTooltip')}>
           <Button
             type="text"
             size="small"
             icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
             onClick={() => onOpenDocs(STATUS_DOCS_SECTION_ID)}
-            aria-label="Open system status documentation"
+            aria-label={t('shared.chrome.status.openDocsAria')}
             style={{ padding: '0 4px', height: 20, minWidth: 'auto' }}
           />
         </Tooltip>
@@ -259,17 +261,17 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   );
 };
 
-function buildSummary(snapshot: StatusSnapshot, worst: StatusLevel): string {
+function buildSummary(t: Translate, snapshot: StatusSnapshot, worst: StatusLevel): string {
   if (worst === 'green') {
-    return 'Healthy';
+    return t('shared.chrome.status.healthy');
   }
   for (const sub of SUBSYSTEM_ORDER) {
     const entry = snapshot[sub];
     if (entry?.state === worst) {
-      return `${SUBSYSTEM_LABELS[sub]}: ${truncate(entry.message, 50)}`;
+      return `${t(SUBSYSTEM_LABELS[sub])}: ${truncate(entry.message, 50)}`;
     }
   }
-  return worst === 'red' ? 'Failure' : 'Issues';
+  return worst === 'red' ? t('shared.chrome.status.failure') : t('shared.chrome.status.issues');
 }
 
 function truncate(s: string, max: number): string {
@@ -292,6 +294,7 @@ interface SubsystemPillProps {
  * label + dot, and a per-subsystem tooltip with the latest message.
  */
 const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, token, suppressTooltip }) => {
+  const t = useT();
   const entry = snapshot[subsystem];
   const state: StatusLevel | null = entry?.state ?? null;
   const dotColor =
@@ -302,7 +305,7 @@ const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, toke
         : state === 'green'
           ? token.colorSuccess
           : token.colorTextTertiary;
-  const tipBody = entry?.message ?? 'No events yet';
+  const tipBody = entry?.message ?? t('shared.chrome.status.noEvents');
   return (
     <Tooltip title={tipBody} placement="top" open={suppressTooltip ? false : undefined}>
       <span
@@ -323,7 +326,7 @@ const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, toke
             background: dotColor,
           }}
         />
-        {SUBSYSTEM_LABELS[subsystem]}
+        {t(SUBSYSTEM_LABELS[subsystem])}
       </span>
     </Tooltip>
   );
@@ -379,6 +382,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
   renderSubsystemExtras,
   renderSubsystemInlineAction,
 }) => {
+  const t = useT();
   // Collect extras first (same iteration order as the standard rows)
   // so the block of product callouts is stable across renders and
   // always sits BELOW every built-in subsystem row. Prevents a sync
@@ -416,10 +420,10 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
           // row block visually tight.
           <SubsystemRow key={sub} token={token}>
             <Tag color={color} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0 }}>
-              {SUBSYSTEM_LABELS[sub]}
+              {t(SUBSYSTEM_LABELS[sub])}
             </Tag>
             <Typography.Text style={{ fontSize: 11, flex: 1, color: token.colorText }}>
-              {entry?.message ?? 'No events yet'}
+              {entry?.message ?? t('shared.chrome.status.noEvents')}
             </Typography.Text>
             {inlineAction}
           </SubsystemRow>
@@ -438,9 +442,11 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
  * footer's pixel budget on small surfaces.
  */
 const BuildInfoFooter: React.FC<{ token: ReturnType<typeof theme.useToken>['token'] }> = ({ token }) => {
+  const t = useT();
   const info = getBuildInfo();
-  const label = info.channel === 'beta' ? `${info.version} (beta)` : info.version;
-  const buildDetail = info.build > 0 ? ` · build ${info.build}` : '';
+  const label =
+    info.channel === 'beta' ? t('shared.chrome.status.versionBeta', { version: info.version }) : info.version;
+  const buildDetail = info.build > 0 ? ` · ${t('shared.chrome.status.buildNumber', { build: info.build })}` : '';
   const commitDetail = info.commit && info.commit !== '—' ? ` · ${info.commit}` : '';
   return (
     <div
@@ -455,7 +461,7 @@ const BuildInfoFooter: React.FC<{ token: ReturnType<typeof theme.useToken>['toke
         textOverflow: 'ellipsis',
       }}
     >
-      Open Headers · {label}
+      {t('shared.chrome.status.buildLine', { version: label })}
       {buildDetail}
       {commitDetail}
     </div>

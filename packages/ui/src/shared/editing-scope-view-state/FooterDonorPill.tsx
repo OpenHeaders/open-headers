@@ -10,6 +10,7 @@ import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import type { EditingScopeViewStateApi } from './types';
 
@@ -17,11 +18,11 @@ interface FooterDonorPillProps<T> {
   perTab: EditingScopeViewStateApi<T>;
 }
 
-const TOOLTIP_DONOR = `Default ${instanceLabel()} — new ${instanceLabelPlural()} inherit layout from here.`;
-const TOOLTIP_NON_DONOR = `Another ${instanceLabel()} is the default donor — new ${instanceLabelPlural()} inherit from there.`;
-
 export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.ReactElement {
+  const t = useT();
   const { token } = theme.useToken();
+  const unit = instanceLabel();
+  const units = instanceLabelPlural();
   const { isDonor } = perTab;
   // Suppress the hover tooltip while the click popover is open so the
   // two popups never overlap on the same trigger.
@@ -42,12 +43,12 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
     <div style={{ minWidth: 240, maxWidth: 320 }}>
       <Typography.Paragraph style={{ marginBottom: 8, fontSize: 12 }}>
         {isDonor
-          ? `This ${instanceLabel()} is the current default. New ${instanceLabelPlural()} inherit this layout.`
-          : `Another ${instanceLabel()} is the current default. New ${instanceLabelPlural()} inherit that ${instanceLabel()}’s layout.`}
+          ? t('shared.chrome.donor.isDonorBody', { unit, units })
+          : t('shared.chrome.donor.nonDonorBody', { unit, units })}
       </Typography.Paragraph>
       <Space size={4}>
         <Button size="small" icon={<ReloadOutlined />} onClick={perTab.resetToDefaults}>
-          Reset layout to defaults
+          {t('shared.chrome.donor.reset')}
         </Button>
       </Space>
     </div>
@@ -56,7 +57,11 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
   return (
     <Popover content={popoverContent} placement="topRight" trigger={['click']} onOpenChange={setPopoverOpen}>
       <Tooltip
-        title={isDonor ? TOOLTIP_DONOR : TOOLTIP_NON_DONOR}
+        title={
+          isDonor
+            ? t('shared.chrome.donor.defaultTooltip', { unit, units })
+            : t('shared.chrome.donor.nonDefaultTooltip', { unit, units })
+        }
         placement="top"
         open={popoverOpen ? false : undefined}
       >
@@ -66,8 +71,8 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
           tabIndex={0}
           aria-label={
             isDonor
-              ? `Default ${instanceLabel()} for new-${instanceLabel()} inheritance`
-              : `Not the default ${instanceLabel()} for new-${instanceLabel()} inheritance`
+              ? t('shared.chrome.donor.defaultAria', { unit })
+              : t('shared.chrome.donor.nonDefaultAria', { unit })
           }
           style={{
             display: 'inline-flex',
@@ -83,7 +88,9 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
           }}
         >
           <ShareAltOutlined style={{ fontSize: 10 }} />
-          <span>{isDonor ? `Default ${instanceLabel()}` : 'Inherits layout'}</span>
+          <span>
+            {isDonor ? t('shared.chrome.donor.defaultLabel', { unit }) : t('shared.chrome.donor.inheritsLabel')}
+          </span>
         </span>
       </Tooltip>
     </Popover>

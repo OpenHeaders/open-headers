@@ -13,6 +13,7 @@
  */
 
 import type { StatusLevel, StatusSnapshot, StatusSubsystem } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 
 export type { StatusEntry, StatusLevel, StatusSnapshot, StatusSubsystem } from '@openheaders/core/types';
 
@@ -22,15 +23,15 @@ export type StatusListener = (snapshot: StatusSnapshot) => void;
 
 /** Display label for each subsystem. Kept here so the pill render and
  *  the settings/log render stay in lockstep. */
-export const SUBSYSTEM_LABELS: Record<StatusSubsystem, string> = {
-  sync: 'Sync',
-  rules: 'Rules',
-  requests: 'Requests',
-  permissions: 'Permissions',
-  secrets: 'Secrets',
-  live: 'Live',
-  activity: 'Activity',
-  cdp: 'Debug mode',
+export const SUBSYSTEM_LABELS: Record<StatusSubsystem, MessageKey> = {
+  sync: 'shared.chrome.status.subsystemSync',
+  rules: 'shared.chrome.status.subsystemRules',
+  requests: 'shared.chrome.status.subsystemRequests',
+  permissions: 'shared.chrome.status.subsystemPermissions',
+  secrets: 'shared.chrome.status.subsystemSecrets',
+  live: 'shared.chrome.status.subsystemLive',
+  activity: 'shared.chrome.status.subsystemActivity',
+  cdp: 'shared.chrome.status.subsystemDebugMode',
 };
 
 /** Worst-state aggregator (red > yellow > green). Used for the compact

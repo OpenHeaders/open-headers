@@ -28,6 +28,7 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { Button, Input, type InputRef, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { readIgnoredVersion } from '../updates/release-notes';
 
 const UPDATE_ACK_KEY = 'oh.gearUpdateAck';
@@ -75,6 +76,7 @@ interface SettingsGearMenuProps {
 }
 
 const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, openSettingsLabel }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -146,9 +148,15 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       // Version-only labels — the popover is narrow and the product
       // name adds nothing the surrounding chrome doesn't already say.
       const byPhase = {
-        available: { label: `Download ${update.version}`, icon: <DownloadOutlined /> },
-        downloading: { label: `Downloading ${update.version}…`, icon: <SyncOutlined spin /> },
-        downloaded: { label: `Restart to Install ${update.version}`, icon: <ReloadOutlined /> },
+        available: { label: t('shared.chrome.gearMenu.downloadVersion', { version: update.version }), icon: <DownloadOutlined /> },
+        downloading: {
+          label: t('shared.chrome.gearMenu.downloadingVersion', { version: update.version }),
+          icon: <SyncOutlined spin />,
+        },
+        downloaded: {
+          label: t('shared.chrome.gearMenu.restartToInstallVersion', { version: update.version }),
+          icon: <ReloadOutlined />,
+        },
       } as const;
       out.push([
         {
@@ -176,7 +184,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     out.push([
       {
         key: 'settings',
-        label: 'Settings…',
+        label: t('shared.chrome.gearMenu.settings'),
         icon: <SettingOutlined />,
         hint: openSettingsLabel ?? undefined,
         run: () => {
@@ -186,7 +194,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       },
       {
         key: 'keyboard',
-        label: 'Keyboard Shortcuts…',
+        label: t('shared.chrome.gearMenu.keyboardShortcuts'),
         run: () => {
           close();
           onOpenSettings({ categoryId: 'keyboard' });
@@ -194,7 +202,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       },
       {
         key: 'appearance',
-        label: 'Appearance…',
+        label: t('shared.chrome.gearMenu.appearance'),
         run: () => {
           close();
           onOpenSettings({ categoryId: 'appearance' });
@@ -204,7 +212,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     out.push([
       {
         key: 'about',
-        label: 'About Open Headers',
+        label: t('shared.chrome.gearMenu.about'),
         run: () => {
           close();
           onOpenSettings({ categoryId: 'about' });
@@ -217,7 +225,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       out.push([
         {
           key: 'signout',
-          label: 'Sign out',
+          label: t('shared.chrome.gearMenu.signOut'),
           icon: <LogoutOutlined />,
           run: () => {
             close();
@@ -227,7 +235,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       ]);
     }
     return out;
-  }, [update, onOpenSettings, openSettingsLabel]);
+  }, [update, onOpenSettings, openSettingsLabel, t]);
 
   const flat = useMemo(() => groups.flat(), [groups]);
   const trimmed = query.trim().toLowerCase();
@@ -342,7 +350,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
             setQuery(e.target.value);
             setActiveIndex(0);
           }}
-          placeholder="Search"
+          placeholder={t('shared.chrome.gearMenu.searchPlaceholder')}
           style={{ marginBottom: 6 }}
         />
       )}
@@ -350,7 +358,9 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
         visible.length > 0 ? (
           visible.map(renderItem)
         ) : (
-          <div style={{ padding: '10px 10px', fontSize: 12, color: token.colorTextTertiary }}>No matches</div>
+          <div style={{ padding: '10px 10px', fontSize: 12, color: token.colorTextTertiary }}>
+            {t('shared.chrome.gearMenu.noMatches')}
+          </div>
         )
       ) : (
         groups.map((group, gi) => (
@@ -377,9 +387,9 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
     >
       {/* Force-hide the tooltip while the menu is open — otherwise both
           popups stack under the gear. */}
-      <Tooltip title="Settings" placement="bottomRight" open={open ? false : undefined}>
+      <Tooltip title={t('shared.chrome.gearMenu.settingsTooltip')} placement="bottomRight" open={open ? false : undefined}>
         <div style={{ position: 'relative', display: 'inline-flex' }}>
-          <Button size="small" type="text" icon={<SettingOutlined />} aria-label="Settings menu" />
+          <Button size="small" type="text" icon={<SettingOutlined />} aria-label={t('shared.chrome.gearMenu.settingsMenuAria')} />
           {showDot && (
             <span
               aria-hidden
