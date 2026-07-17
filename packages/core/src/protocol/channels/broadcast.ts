@@ -26,6 +26,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncGrpcRequestPostState,
+  SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
@@ -380,6 +381,11 @@ export interface BridgeBroadcastContract {
      * flat record — no itemId map.
      */
     responseExamplePostState?: SyncResponseExamplePostState;
+    /**
+     * Post-commit projection for gRPC response-example envelopes.
+     * Frozen flat record — no itemId map.
+     */
+    grpcResponseExamplePostState?: SyncGrpcResponseExamplePostState;
     /**
      * Post-commit projection for spec envelopes. Carries the live
      * member view of the `files` set alongside the entity.

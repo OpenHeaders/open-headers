@@ -23,6 +23,7 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnviron
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useAllGrpcResponseExamples } from '@openheaders/ui/shared/hooks/readers/useGrpcResponseExamples';
 import { useAllResponseExamples } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
@@ -318,6 +319,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // All examples in the editing-scope workspace — feeds the live tab
   // display-label lookup for response-example viewer tabs.
   const responseExamples = useAllResponseExamples(editingScopeWorkspaceId);
+  // All gRPC examples in the editing-scope workspace — the sibling feed
+  // for grpc-response-example viewer tabs.
+  const grpcResponseExamples = useAllGrpcResponseExamples(editingScopeWorkspaceId);
   // All specs in the editing-scope workspace — feeds the spec-edit tab
   // display-label lookup and the deleted-spec tab cleanup.
   const specs = useSpecs(editingScopeWorkspaceId);
@@ -523,6 +527,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openGrpcRequestEditTab,
     openCreateGrpcRequestTab,
     openResponseExampleTab,
+    openGrpcResponseExampleTab,
     openDuplicateRuleScratch,
     openDuplicateRequestScratch,
     openLiveVariableEdit,
@@ -893,6 +898,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     liveVariables: liveVarsApi.variables,
     liveWorkflows: liveWorkflowsApi.workflows,
     responseExamples,
+    grpcRequests: requestsApi.grpcRequests,
+    grpcResponseExamples,
     specs,
     workspaces: workspacesApi.workspaces,
     editingScopeWorkspaceId,
@@ -1063,6 +1070,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openScriptPackages={openScriptPackages}
         openDuplicateRequestScratch={openDuplicateRequestScratch}
         openResponseExampleTab={openResponseExampleTab}
+        openGrpcResponseExampleTab={openGrpcResponseExampleTab}
+        openGrpcRequestEditTab={openGrpcRequestEditTab}
         handleSwitchWorkspace={handleSwitchWorkspace}
         onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
         onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -1099,6 +1108,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateLiveWorkflow,
       openDuplicateRequestScratch,
       openResponseExampleTab,
+      openGrpcResponseExampleTab,
+      openGrpcRequestEditTab,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,
@@ -1258,6 +1269,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openResponseExampleTab={openResponseExampleTab}
+        openGrpcResponseExampleTab={openGrpcResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
@@ -1302,6 +1314,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openGrpcRequestEditTab,
       openCreateGrpcRequestTab,
       openResponseExampleTab,
+      openGrpcResponseExampleTab,
       openLiveWorkflowEdit,
       openCreateLiveWorkflow,
       liveWorkflowsApi.workflows,

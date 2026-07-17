@@ -21,6 +21,7 @@ import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
+import { ExampleChip } from '../shared/ExampleChip';
 import CodeEditor from '../shared/CodeEditor';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
@@ -33,9 +34,15 @@ interface GrpcResponsePaneProps {
   registry: ProtoRegistry | null;
   method: GrpcMethodRef | undefined;
   onClear: () => void;
+  /**
+   * "Save Response" — snapshot the settled exchange as an example under
+   * the gRPC request (the HTTP ResponsePanel's placement: the `e.g.`
+   * button in the tab bar's right slot). Undefined hides the button.
+   */
+  onSaveResponse?: () => void;
 }
 
-const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry, method, onClear }) => {
+const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry, method, onClear, onSaveResponse }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('response');
@@ -84,6 +91,11 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       <GrpcMetaStrip status={snapshot.grpcStatus} durationMs={snapshot.durationMs} />
+      {onSaveResponse && (
+        <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} data-testid="grpc-save-response">
+          {t('workbench.editors.grpc.response.saveResponse')}
+        </Button>
+      )}
       <Dropdown
         trigger={['click']}
         overlayStyle={{ minWidth: 180 }}

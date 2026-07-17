@@ -98,6 +98,7 @@ export type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncGrpcRequestPostState,
+  SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,

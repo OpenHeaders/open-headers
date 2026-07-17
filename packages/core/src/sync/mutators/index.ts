@@ -92,6 +92,17 @@ export {
   type GrpcMetadataPairRow,
 } from './grpc-request';
 export {
+  type CreateGrpcResponseExampleArgs,
+  createGrpcResponseExample,
+  type DeleteGrpcResponseExampleArgs,
+  deleteGrpcResponseExample,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  GRPC_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+  type GrpcResponseExampleScalarPath,
+  type SetGrpcResponseExampleFieldArgs,
+  setGrpcResponseExampleField,
+} from './grpc-response-example';
+export {
   LAYOUT_STATE_ENTITY_TYPE,
   LAYOUT_STATE_ID,
   LAYOUT_STATE_MUTATOR_VERSION,

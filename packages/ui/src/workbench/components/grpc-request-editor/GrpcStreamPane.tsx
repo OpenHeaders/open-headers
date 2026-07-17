@@ -21,6 +21,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
+import { ExampleChip } from '../shared/ExampleChip';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
@@ -41,6 +42,12 @@ interface GrpcStreamPaneProps {
   /** Call target — `/service/rpc` for the lifecycle rows. */
   target: string;
   onClear: () => void;
+  /**
+   * "Save Response" — snapshot the SETTLED stream capture as an example
+   * under the gRPC request. Rendered only once the snapshot is in
+   * (never mid-flight); undefined hides the button.
+   */
+  onSaveResponse?: () => void;
 }
 
 const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
@@ -51,6 +58,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   method,
   target,
   onClear,
+  onSaveResponse,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -133,6 +141,11 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             durationMs={snapshot.durationMs}
             stopped={snapshot.stopped === true}
           />
+          {onSaveResponse && (
+            <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} data-testid="grpc-save-response">
+              {t('workbench.editors.grpc.response.saveResponse')}
+            </Button>
+          )}
           <Dropdown
             trigger={['click']}
             overlayStyle={{ minWidth: 180 }}

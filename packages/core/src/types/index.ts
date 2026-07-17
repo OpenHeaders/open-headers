@@ -74,6 +74,12 @@ export type {
   GrpcSpecLink,
 } from './grpc-request';
 export type {
+  CapturedGrpcMessageFrame,
+  CapturedGrpcRequest,
+  CapturedGrpcResponse,
+  GrpcResponseExample,
+} from './grpc-response-example';
+export type {
   HarEventSourceMessage,
   HarSourceMessage,
   HarWebSocketMessage,

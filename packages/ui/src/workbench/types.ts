@@ -43,6 +43,7 @@ export type TabMode =
   | 'request-create'
   | 'grpc-edit'
   | 'response-example'
+  | 'grpc-response-example'
   | 'rule-create'
   | 'live-variable-edit'
   | 'live-variable-create'
@@ -135,10 +136,14 @@ export interface WorkbenchTab {
    *  response-example tabs: the parent request's uid (drives the
    *  breadcrumb trail through the request tree). */
   requestUid?: string;
-  /** For grpc-edit tabs: the GrpcRequest uid being edited. */
+  /** For grpc-edit tabs: the GrpcRequest uid being edited. For
+   *  grpc-response-example tabs: the parent gRPC request's uid (drives
+   *  the breadcrumb trail through the request tree). */
   grpcRequestUid?: string;
   /** For response-example tabs: the frozen example being viewed. */
   responseExampleUid?: string;
+  /** For grpc-response-example tabs: the captured example being viewed. */
+  grpcResponseExampleUid?: string;
   /**
    * For request-create tabs minted by an example's "Try" action: the
    * source example's name at fork time. Chrome-only provenance — it

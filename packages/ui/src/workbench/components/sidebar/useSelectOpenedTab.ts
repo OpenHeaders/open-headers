@@ -46,6 +46,8 @@ interface UseSelectOpenedTabParams {
    *  example isn't in the mirror yet (the auto-select retry covers the
    *  create-broadcast race). */
   resolveResponseExampleParent?: (exampleUid: string) => string | null;
+  /** Parent gRPC request uid for a gRPC response-example uid. */
+  resolveGrpcResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -76,6 +78,7 @@ export function useSelectOpenedTab({
   templateCollectionTrees,
   requestCollectionTrees,
   resolveResponseExampleParent,
+  resolveGrpcResponseExampleParent,
   containerRef,
   setExpandedKeys,
   setSectionsExpanded,
@@ -128,24 +131,32 @@ export function useSelectOpenedTab({
       }, 50);
       return true;
     } else if (
-      (activeTabId.startsWith('request-') || activeTabId.startsWith('resp-example-')) &&
+      (activeTabId.startsWith('request-') ||
+        activeTabId.startsWith('resp-example-') ||
+        activeTabId.startsWith('grpc-request-') ||
+        activeTabId.startsWith('grpc-example-')) &&
       view === 'api-requests'
     ) {
       nodeId = activeTabId;
       // Example nodes nest under their parent request row — reveal the
       // request's ancestor chain AND expand the request row itself so
       // the example child is visible (e.g. right after Save Response).
-      const isExample = activeTabId.startsWith('resp-example-');
-      const targetUid = isExample
+      // Both leaf families (HTTP + gRPC) share the tree; the parent
+      // node-id prefix follows the family.
+      const isExample = activeTabId.startsWith('resp-example-') || activeTabId.startsWith('grpc-example-');
+      const parentPrefix = activeTabId.startsWith('grpc-') ? 'grpc-request-' : 'request-';
+      const targetUid = activeTabId.startsWith('resp-example-')
         ? (resolveResponseExampleParent?.(activeTabId.replace('resp-example-', '')) ?? null)
-        : activeTabId.replace('request-', '');
+        : activeTabId.startsWith('grpc-example-')
+          ? (resolveGrpcResponseExampleParent?.(activeTabId.replace('grpc-example-', '')) ?? null)
+          : activeTabId.replace(parentPrefix, '');
       if (!targetUid) return false;
       let found: { ancestors: string[] } | null = null;
       for (const col of requestCollectionTrees) {
         const colKey = `req-col-${col.uid}`;
         const walk = (nodes: TreeNode[], trail: string[]): string[] | null => {
           for (const n of nodes) {
-            if (n.type === 'request' && n.uid === targetUid) return trail;
+            if ((n.type === 'request' || n.type === 'grpc-request') && n.uid === targetUid) return trail;
             if (n.type === 'folder') {
               const r = walk(n.children, [...trail, `req-folder-${n.uid}`]);
               if (r) return r;
@@ -155,7 +166,7 @@ export function useSelectOpenedTab({
         };
         const result = walk(col.tree, [colKey]);
         if (result) {
-          found = { ancestors: isExample ? [...result, `request-${targetUid}`] : result };
+          found = { ancestors: isExample ? [...result, `${parentPrefix}${targetUid}`] : result };
           break;
         }
       }
@@ -275,6 +286,7 @@ export function useSelectOpenedTab({
     templateCollectionTrees,
     requestCollectionTrees,
     resolveResponseExampleParent,
+    resolveGrpcResponseExampleParent,
     view,
     containerRef,
     setExpandedKeys,

@@ -39,6 +39,7 @@ import {
   FOLDER_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_METADATA_PATH,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   LAYOUT_STATE_ENTITY_TYPE,
   LIVE_FALLBACK_PRIORITY_ENTITY_TYPE,
   LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
@@ -81,6 +82,7 @@ import { createExtensionWorkspaceCache } from './caches/extension-workspace-cach
 import { createFilesCache } from './caches/files-cache';
 import { createFolderCache } from './caches/folder-cache';
 import { createGrpcRequestCache } from './caches/grpc-request-cache';
+import { createGrpcResponseExampleCache } from './caches/grpc-response-example-cache';
 import { createLayoutStateCache } from './caches/layout-state-cache';
 import { createLiveFallbackPriorityCache } from './caches/live-fallback-priority-cache';
 import { createLiveValueCache } from './caches/live-value-cache';
@@ -110,6 +112,10 @@ import {
 import { projectFilesPostState, projectFilesSingleton } from './post-state/files-post-state';
 import { projectFolderByUid, projectFolderPostState } from './post-state/folder-post-state';
 import { projectGrpcRequestByUid, projectGrpcRequestPostState } from './post-state/grpc-request-post-state';
+import {
+  projectGrpcResponseExampleByUid,
+  projectGrpcResponseExamplePostState,
+} from './post-state/grpc-response-example-post-state';
 import { projectLayoutStatePostState, projectLayoutStateSingleton } from './post-state/layout-state-post-state';
 import {
   projectLiveFallbackPriorityPostState,
@@ -410,6 +416,14 @@ export const SPEC_REGISTRATION = flatEntity({
   setPaths: [SPEC_FILES_PATH],
 });
 
+export const GRPC_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
+  entityType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  createCache: createGrpcResponseExampleCache,
+  postStateKey: 'grpcResponseExamplePostState',
+  projectPostState: projectGrpcResponseExamplePostState,
+  projectByUid: projectGrpcResponseExampleByUid,
+});
+
 export const RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
   createCache: createResponseExampleCache,
@@ -507,6 +521,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   RESPONSE_EXAMPLE_REGISTRATION,
+  GRPC_RESPONSE_EXAMPLE_REGISTRATION,
   TEMPLATE_REGISTRATION,
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,

@@ -2,12 +2,19 @@ import { FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/ic
 import type { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import {
   GRPC_REQUEST_ENTITY_TYPE,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { GrpcRequest, Request, ResponseExample, TreeNode as CoreTreeNode } from '@openheaders/core/types';
+import type {
+  GrpcRequest,
+  GrpcResponseExample,
+  Request,
+  ResponseExample,
+  TreeNode as CoreTreeNode,
+} from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -34,6 +41,11 @@ interface UseRequestTreeNodesParams {
   renameResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
   duplicateResponseExample: (uid: string) => Promise<unknown> | unknown;
   deleteResponseExample: (uid: string) => Promise<unknown> | unknown;
+  /** Saved gRPC examples grouped by parent gRPC request uid, capture order. */
+  grpcResponseExamplesByRequest: ReadonlyMap<string, GrpcResponseExample[]>;
+  renameGrpcResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
+  duplicateGrpcResponseExample: (uid: string) => Promise<unknown> | unknown;
+  deleteGrpcResponseExample: (uid: string) => Promise<unknown> | unknown;
   draftsByLocationRequest: Map<string, WorkbenchTab[]>;
   buildRequestDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
   expandedKeys: ReadonlySet<string>;
@@ -60,6 +72,8 @@ interface UseRequestTreeNodesParams {
   onCreateGrpcRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
+  /** Open a saved gRPC response example in its viewer tab. */
+  onSelectGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
   onExportEntity?: (entity: SidebarExportEntity) => void;
   /** Open the request-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -207,19 +221,24 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             undefined,
             t,
           );
+          const grpcExamples = p.grpcResponseExamplesByRequest.get(node.uid) ?? [];
+          const hasGrpcExamples = grpcExamples.length > 0;
           items.push({
             id: gid,
             kind: 'leaf',
             label: node.name,
             depth,
-            expandable: false,
+            expandable: hasGrpcExamples,
             parentId,
             icon: grpcTag(!grpcComplete),
             badge: grpcBadge,
             canRename: true,
             canDelete: true,
             canAddChild: false,
+            // Same idiom as request rows: opening also toggles the
+            // example children when the request has any.
             onOpen: () => {
+              if (hasGrpcExamples) p.toggleExpand(gid);
               p.onSelectGrpcRequest?.(node.uid, node.name);
             },
             onRename: async (name: string) => {
@@ -231,6 +250,36 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
+          if (hasGrpcExamples && (p.expandedKeys.has(gid) || lowerFilter !== '')) {
+            for (const example of grpcExamples) {
+              items.push({
+                id: `grpc-example-${example.uid}`,
+                kind: 'leaf',
+                label: example.name,
+                depth: depth + 1,
+                expandable: false,
+                parentId: gid,
+                icon: exampleTag(),
+                canRename: true,
+                canDelete: true,
+                canAddChild: false,
+                onOpen: () => {
+                  p.onSelectGrpcResponseExample?.(example.uid, example.name, example.grpcRequestUid);
+                },
+                onRename: async (name: string) => {
+                  void p.renameGrpcResponseExample(example.uid, name);
+                },
+                onDuplicate: () => {
+                  void p.duplicateGrpcResponseExample(example.uid);
+                },
+                onDelete: () =>
+                  p.confirmDelete(example.name, () => {
+                    void p.deleteGrpcResponseExample(example.uid);
+                  }),
+                awareness: { entityType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: example.uid },
+              });
+            }
+          }
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
@@ -351,12 +400,17 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onSelectRequest,
       p.onCreateRequest,
       p.onSelectResponseExample,
+      p.onSelectGrpcResponseExample,
       p.dirtyRequestUids,
       p.scriptsReviewPendingUids,
       p.responseExamplesByRequest,
       p.renameResponseExample,
       p.duplicateResponseExample,
       p.deleteResponseExample,
+      p.grpcResponseExamplesByRequest,
+      p.renameGrpcResponseExample,
+      p.duplicateGrpcResponseExample,
+      p.deleteGrpcResponseExample,
       p.draftsByLocationRequest,
       p.buildRequestDraftNode,
       p.setExpandedKeys,

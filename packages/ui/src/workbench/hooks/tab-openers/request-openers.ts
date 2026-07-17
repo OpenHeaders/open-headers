@@ -37,6 +37,7 @@ export type RequestOpeners = Pick<
   | 'openCreateGrpcRequestTab'
   | 'openDuplicateRequestScratch'
   | 'openResponseExampleTab'
+  | 'openGrpcResponseExampleTab'
 >;
 
 export function useRequestOpeners(
@@ -353,6 +354,28 @@ export function useRequestOpeners(
     [allTabs, addTab, switchTab],
   );
 
+  const openGrpcResponseExampleTab = useCallback(
+    (uid: string, name: string, grpcRequestUid: string) => {
+      // Matches the sidebar example-node id so the active tab drives
+      // the row highlight without extra selection plumbing.
+      const id = `grpc-example-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'grpc-response-example',
+        grpcResponseExampleUid: uid,
+        grpcRequestUid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
   return {
     openRequestCollectionOverview,
     openRequestFolderOverview,
@@ -367,5 +390,6 @@ export function useRequestOpeners(
     openCreateGrpcRequestTab,
     openDuplicateRequestScratch,
     openResponseExampleTab,
+    openGrpcResponseExampleTab,
   };
 }

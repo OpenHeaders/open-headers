@@ -128,7 +128,7 @@ export function tabIcon(
     tab.mode === 'template-collection-vars'
   )
     return scopeBadge('collection');
-  if (tab.mode === 'response-example') {
+  if (tab.mode === 'response-example' || tab.mode === 'grpc-response-example') {
     // Example marker — the shared "e.g." chip, tertiary-tinted because
     // examples are records, not runnable requests.
     return (

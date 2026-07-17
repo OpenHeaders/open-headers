@@ -44,6 +44,8 @@ interface UseSidebarInteractionParams {
   requestCollectionTrees: readonly { uid: string; tree: CoreTreeNode[] }[];
   /** Parent request uid for a response-example uid — see useSelectOpenedTab. */
   resolveResponseExampleParent?: (exampleUid: string) => string | null;
+  /** Parent gRPC request uid for a gRPC response-example uid. */
+  resolveGrpcResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   toggleExpand: (key: string) => void;
   setRenamingId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -81,6 +83,7 @@ export function useSidebarInteraction({
   templateCollectionTrees,
   requestCollectionTrees,
   resolveResponseExampleParent,
+  resolveGrpcResponseExampleParent,
   containerRef,
   toggleExpand,
   setRenamingId,
@@ -201,6 +204,7 @@ export function useSidebarInteraction({
     templateCollectionTrees,
     requestCollectionTrees,
     resolveResponseExampleParent,
+    resolveGrpcResponseExampleParent,
     containerRef,
     setExpandedKeys,
     setSectionsExpanded,

@@ -32,6 +32,7 @@ export * from './mirrors/files-sync-mirror';
 export type { SyncBroadcastPayload } from './mirrors/flat-entity-mirror';
 export * from './mirrors/flat-entity-mirror';
 export * from './mirrors/folder-sync-mirror';
+export * from './mirrors/grpc-response-example-sync-mirror';
 export * from './mirrors/layout-state-sync-mirror';
 export * from './mirrors/live-fallback-priority-sync-mirror';
 export * from './mirrors/live-variable-sync-mirror';

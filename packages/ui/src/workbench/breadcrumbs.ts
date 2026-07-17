@@ -12,7 +12,7 @@
  * tab strip and the breadcrumb so they can never disagree.
  */
 
-import type { CollectionTree, Request, Rule, TreeNode } from '@openheaders/core/types';
+import type { CollectionTree, GrpcRequest, Request, Rule, TreeNode } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from './types';
 
@@ -47,6 +47,7 @@ export function computeBreadcrumbs(
   requests: readonly Request[],
   templateCollectionTrees: readonly CollectionTree[],
   t: Translate,
+  grpcRequests: readonly GrpcRequest[] = [],
 ): string[] {
   if (!tab) return [];
 
@@ -106,6 +107,28 @@ export function computeBreadcrumbs(
     // trail with the example's own label.
     if (tab.requestUid) {
       const req = requests.find((r) => r.uid === tab.requestUid);
+      if (req) {
+        const hit = computeRequestTrail(req.uid, requestCollectionTrees);
+        if (hit) {
+          return [
+            t('workbench.shell.breadcrumbs.apiRequests'),
+            hit.collectionName,
+            ...hit.folderTrail,
+            req.name,
+            displayLabel,
+          ];
+        }
+        return [t('workbench.shell.breadcrumbs.apiRequests'), req.name, displayLabel];
+      }
+    }
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
+  }
+  if (tab.mode === 'grpc-response-example') {
+    // Captured gRPC example under a gRPC request — the response-example
+    // treatment applied to the sibling family (the tree holds both leaf
+    // kinds, and `computeRequestTrail` matches either by uid).
+    if (tab.grpcRequestUid) {
+      const req = grpcRequests.find((r) => r.uid === tab.grpcRequestUid);
       if (req) {
         const hit = computeRequestTrail(req.uid, requestCollectionTrees);
         if (hit) {
@@ -254,7 +277,7 @@ export function computeRequestTrail(
     const folderTrail: string[] = [];
     const find = (nodes: TreeNode[]): boolean => {
       for (const n of nodes) {
-        if (n.type === 'request' && n.uid === requestUid) return true;
+        if ((n.type === 'request' || n.type === 'grpc-request') && n.uid === requestUid) return true;
         if (n.type === 'folder') {
           folderTrail.push(n.name);
           if (find(n.children)) return true;

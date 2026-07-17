@@ -21,11 +21,17 @@ import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCa
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useGrpcResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useGrpcResponseExamples';
 import { useResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useDriftedSpecUids } from '../specs/use-spec-drift';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
+import {
+  applyGrpcResponseExampleDelete,
+  applyGrpcResponseExampleDuplicate,
+  applyGrpcResponseExampleRename,
+} from '@openheaders/ui/shared/sync/grpc-response-example-write-client';
 import {
   applyResponseExampleDelete,
   applyResponseExampleDuplicate,
@@ -132,6 +138,8 @@ interface SidebarProps {
   onCreateGrpcRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
+  /** Open a saved gRPC response example in its viewer tab. */
+  onSelectGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
   /** Opens the import hub (single "Import…" entry; formats auto-detected). */
   onImport?: (context?: { collectionId?: string }) => void;
   filterRef?: React.Ref<InputRef>;
@@ -189,6 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectGrpcRequest,
   onCreateGrpcRequest,
   onSelectResponseExample,
+  onSelectGrpcResponseExample,
   onImport,
   filterRef,
   dirtyRuleUids,
@@ -396,6 +405,51 @@ const Sidebar: React.FC<SidebarProps> = ({
     [responseExamplesByRequest],
   );
 
+  // ── gRPC response examples (child nodes under gRPC request rows) ──
+  const grpcResponseExamplesByRequest = useGrpcResponseExamplesByRequest(activeWorkspaceId);
+  const renameGrpcResponseExample = useCallback(
+    async (uid: string, name: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyGrpcResponseExampleRename(uid, name, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.renameExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const duplicateGrpcResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyGrpcResponseExampleDuplicate(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.duplicateExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const deleteGrpcResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyGrpcResponseExampleDelete(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.deleteExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const resolveGrpcResponseExampleParent = useCallback(
+    (exampleUid: string): string | null => {
+      for (const [grpcRequestUid, examples] of grpcResponseExamplesByRequest) {
+        if (examples.some((e) => e.uid === exampleUid)) return grpcRequestUid;
+      }
+      return null;
+    },
+    [grpcResponseExamplesByRequest],
+  );
+
   // ── Specs (workspace-level API specification documents) ──────────
   const specs = useSpecs(activeWorkspaceId);
   const createSpecEntity = useCallback(
@@ -510,6 +564,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameResponseExample,
     duplicateResponseExample,
     deleteResponseExample,
+    grpcResponseExamplesByRequest,
+    renameGrpcResponseExample,
+    duplicateGrpcResponseExample,
+    deleteGrpcResponseExample,
     draftsByLocationRequest: draftsByLocation.request,
     buildRequestDraftNode,
     expandedKeys,
@@ -532,6 +590,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelectGrpcRequest,
     onCreateGrpcRequest,
     onSelectResponseExample,
+    onSelectGrpcResponseExample,
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
     onOpenRequestCollectionOverview,
@@ -678,6 +737,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     templateCollectionTrees,
     requestCollectionTrees,
     resolveResponseExampleParent,
+    resolveGrpcResponseExampleParent,
     containerRef,
     toggleExpand,
     setRenamingId,

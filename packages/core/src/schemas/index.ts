@@ -15,6 +15,13 @@ export {
   MAX_GRPC_URL_LENGTH,
 } from './grpc-request';
 export {
+  CapturedGrpcFieldSchema,
+  CapturedGrpcMessageFrameSchema,
+  CapturedGrpcRequestSchema,
+  CapturedGrpcResponseSchema,
+  GrpcResponseExampleSchema,
+} from './grpc-response-example';
+export {
   OrgSchema,
   SessionSchema,
   SessionSourceSchema,

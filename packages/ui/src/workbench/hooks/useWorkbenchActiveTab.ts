@@ -1,6 +1,7 @@
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
+  GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
@@ -20,6 +21,8 @@ import type {
   CollectionTree,
   Environment,
   ExtensionWorkspace,
+  GrpcRequest,
+  GrpcResponseExample,
   LiveVariable,
   LiveWorkflow,
   Request,
@@ -54,6 +57,8 @@ interface UseWorkbenchActiveTabOptions {
   liveVariables: LiveVariable[];
   liveWorkflows: LiveWorkflow[];
   responseExamples: readonly ResponseExample[];
+  grpcRequests: readonly GrpcRequest[];
+  grpcResponseExamples: readonly GrpcResponseExample[];
   specs: readonly Spec[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
@@ -96,6 +101,8 @@ export function useWorkbenchActiveTab({
   liveVariables,
   liveWorkflows,
   responseExamples,
+  grpcRequests,
+  grpcResponseExamples,
   specs,
   workspaces,
   editingScopeWorkspaceId,
@@ -127,6 +134,10 @@ export function useWorkbenchActiveTab({
       case 'response-example':
         return activeTab.responseExampleUid
           ? { entityType: RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.responseExampleUid }
+          : null;
+      case 'grpc-response-example':
+        return activeTab.grpcResponseExampleUid
+          ? { entityType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.grpcResponseExampleUid }
           : null;
       case 'template-edit':
         return activeTab.templateUid ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid } : null;
@@ -194,6 +205,7 @@ export function useWorkbenchActiveTab({
       liveVariables,
       liveWorkflows,
       responseExamples,
+      grpcResponseExamples,
       specs,
     }),
     [
@@ -207,6 +219,7 @@ export function useWorkbenchActiveTab({
       liveVariables,
       liveWorkflows,
       responseExamples,
+      grpcResponseExamples,
       specs,
     ],
   );
@@ -226,6 +239,7 @@ export function useWorkbenchActiveTab({
       requests,
       templateCollectionTrees,
       t,
+      grpcRequests,
     );
     const scratchLabel = scratchLabelForMode(activeTab.mode, t);
     if (scratchLabel && base.length >= 2) {
@@ -239,6 +253,7 @@ export function useWorkbenchActiveTab({
     localCollectionTrees,
     requestCollectionTrees,
     requests,
+    grpcRequests,
     templateCollectionTrees,
     t,
   ]);

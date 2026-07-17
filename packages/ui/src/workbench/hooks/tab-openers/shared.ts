@@ -148,6 +148,12 @@ export interface UseTabOpenersApi {
    * highlight follows the active tab.
    */
   openResponseExampleTab: (uid: string, name: string, requestUid: string) => void;
+  /**
+   * Open a saved gRPC response example in its viewer tab. Tab id
+   * `grpc-example-<uid>` matches the sidebar node id so selection
+   * highlight follows the active tab.
+   */
+  openGrpcResponseExampleTab: (uid: string, name: string, grpcRequestUid: string) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**

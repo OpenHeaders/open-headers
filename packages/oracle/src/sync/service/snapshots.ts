@@ -9,6 +9,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncGrpcRequestPostState,
+  SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
@@ -36,6 +37,7 @@ import {
   FOLDER_REGISTRATION,
   flatSnapshot,
   GRPC_REQUEST_REGISTRATION,
+  GRPC_RESPONSE_EXAMPLE_REGISTRATION,
   LAYOUT_STATE_REGISTRATION,
   LIVE_FALLBACK_PRIORITY_REGISTRATION,
   LIVE_VALUE_REGISTRATION,
@@ -162,6 +164,11 @@ export function snapshotScriptPackagePostStates(workspaceId?: string): SyncScrip
 export function snapshotResponseExamplePostStates(workspaceId?: string): SyncResponseExamplePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, RESPONSE_EXAMPLE_REGISTRATION) : [];
+}
+
+export function snapshotGrpcResponseExamplePostStates(workspaceId?: string): SyncGrpcResponseExamplePostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, GRPC_RESPONSE_EXAMPLE_REGISTRATION) : [];
 }
 
 export function snapshotSpecPostStates(workspaceId?: string): SyncSpecPostState[] {

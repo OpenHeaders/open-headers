@@ -75,7 +75,17 @@ import {
   theme,
 } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  applyGrpcResponseExampleCreate,
+  nextGrpcExampleName,
+} from '@openheaders/ui/shared/sync/grpc-response-example-write-client';
+import { getGrpcResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/grpc-response-example-sync-mirror';
+import {
+  capturedGrpcRequestFromDraft,
+  capturedGrpcResponseFromSnapshot,
+} from '../grpc-response-example/grpc-example-draft';
+import { subscribeGrpcPrefill } from './grpc-prefill-bus';
 import { useSetting } from '../../settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
@@ -92,6 +102,7 @@ import {
   canonicalGrpcRequestProjection,
   draftFromGrpcRequest,
   type GrpcDraft,
+  metadataToRows,
 } from './draft';
 import {
   deriveGrpcMethods,
@@ -108,6 +119,8 @@ const { Text } = Typography;
 interface GrpcRequestEditorProps {
   grpcRequestUid: string;
   workspaceId: string | null;
+  /** Open a saved gRPC response example's viewer tab (after "Save Response"). */
+  onOpenGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -153,6 +166,7 @@ const SettingRow: React.FC<{ label: string; description: string; control: React.
 const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   grpcRequestUid,
   workspaceId,
+  onOpenGrpcResponseExample,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -181,6 +195,27 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     populate: (e) => setDraft(draftFromGrpcRequest(e)),
   });
   const isDirty = reprime.isDirty;
+
+  // "Open in Request" hand-off from a saved example's viewer — the
+  // captured request block lands as unsaved draft edits (auth and
+  // specLink stay whatever the entity carries; the capture never held
+  // them).
+  useEffect(
+    () =>
+      subscribeGrpcPrefill(grpcRequestUid, (captured) => {
+        setDraft((d) => ({
+          ...d,
+          url: captured.url,
+          tls: captured.tls,
+          sslVerification: captured.sslVerification,
+          method: captured.method,
+          metadata: metadataToRows(captured.metadata),
+          message: captured.message,
+          timeoutMs: captured.timeoutMs,
+        }));
+      }),
+    [grpcRequestUid],
+  );
 
   // ── Spec binding + method derivation ────────────────────────────
   const protobufSpecs = useMemo(() => specs.filter((s) => s.format === 'protobuf'), [specs]);
@@ -410,6 +445,45 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     setResponse(null);
     setStreamSession(null);
   }, []);
+
+  // Save Response — freeze the settled exchange as an example under
+  // this request. Captures the AUTHORED compose state (draft rows as
+  // edited, variable refs unresolved) plus the executed snapshot's
+  // facts; auth is deliberately excluded (see the GrpcResponseExample
+  // schema). gRPC requests are context-create-only (always persisted),
+  // so there is no needs-save gate — the button shows whenever a
+  // non-error result is on screen.
+  const handleSaveResponse = useCallback(async () => {
+    if (!entity || !workspaceId || !response || response.error !== null) return;
+    const mirror = getGrpcResponseExampleSyncMirrorForWorkspace(workspaceId);
+    await mirror.hydrated;
+    const name = nextGrpcExampleName(mirror, entity.uid, entity.name);
+    const result = await applyGrpcResponseExampleCreate(
+      {
+        grpcRequestPath: entity.path,
+        example: {
+          grpcRequestUid: entity.uid,
+          name,
+          capturedAt: new Date().toISOString(),
+          request: capturedGrpcRequestFromDraft(draft),
+          response: capturedGrpcResponseFromSnapshot(response),
+        },
+      },
+      { workspaceId, surfaceId: 'workbench' },
+    );
+    if (result.ok) {
+      toast.success(t('workbench.editors.grpc.toast.savedExample', { name }));
+      onOpenGrpcResponseExample?.(result.grpcResponseExample.uid, name, entity.uid);
+    } else {
+      toast.error(
+        'message' in result && result.message
+          ? t('workbench.editors.grpc.toast.saveExampleFailedDetail', { message: result.message })
+          : t('workbench.editors.grpc.toast.saveExampleFailed'),
+      );
+    }
+  }, [entity, workspaceId, response, draft, toast, onOpenGrpcResponseExample, t]);
+
+  const canSaveResponse = workspaceId !== null && response !== null && response.error === null;
 
   const invokeDisabledReason =
     requestRuntimeKind !== 'node' && !companionSeam
@@ -1003,6 +1077,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   method={draft.method}
                   target={invokedTarget}
                   onClear={handleClearResponse}
+                  onSaveResponse={canSaveResponse ? () => void handleSaveResponse() : undefined}
                 />
               ) : response !== null ? (
                 <GrpcResponsePane
@@ -1010,6 +1085,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   registry={derivation?.registry ?? null}
                   method={draft.method}
                   onClear={handleClearResponse}
+                  onSaveResponse={canSaveResponse ? () => void handleSaveResponse() : undefined}
                 />
               ) : (
                 // Always-attached result pane (the HTTP ResponsePanel

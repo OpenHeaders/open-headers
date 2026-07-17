@@ -18,6 +18,7 @@ import type {
   FileRef,
   Folder,
   GrpcRequest,
+  GrpcResponseExample,
   LiveFallbackPriorityMember,
   LiveValueRecord,
   LiveVariable,
@@ -374,6 +375,16 @@ export interface SyncResponseExamplePostState {
 }
 
 /**
+ * Post-commit projection for a gRPC response-example envelope. Frozen
+ * flat record (no set-modeled paths), so the payload carries only the
+ * projected entity — the {@link SyncResponseExamplePostState} sibling
+ * for the GrpcRequest family.
+ */
+export interface SyncGrpcResponseExamplePostState {
+  grpcResponseExample: GrpcResponseExample;
+}
+
+/**
  * Post-commit projection for a spec envelope. Carries the materialized
  * {@link Spec} plus the live member view of the one set-modeled path
  * (`files`, identity = file uid) so renderer-side mirrors can emit
@@ -665,6 +676,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   responseExamplePostState?: SyncResponseExamplePostState;
+  /**
+   * Populated for gRPC response-example envelopes whose batch left a
+   * materialized example in place. Tombstoned examples and rolled-back
+   * batches leave it `undefined`.
+   */
+  grpcResponseExamplePostState?: SyncGrpcResponseExamplePostState;
   /**
    * Populated for spec envelopes whose batch left a materialized spec
    * in place. Tombstoned specs and rolled-back batches leave it

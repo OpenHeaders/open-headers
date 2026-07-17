@@ -14,11 +14,16 @@ import {
   buildGrpcDeleteBatch,
   buildGrpcUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/grpc-request-mutations';
+import { buildDeleteGrpcResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
 import type { GrpcRequest } from '@openheaders/core/types';
 import {
   type GrpcRequestSyncMirror,
   getGrpcRequestSyncMirrorForWorkspace,
 } from '../../context/mirrors/grpc-request-sync-mirror';
+import {
+  type GrpcResponseExampleSyncMirror,
+  getGrpcResponseExampleSyncMirrorForWorkspace,
+} from '../../context/mirrors/grpc-response-example-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -39,6 +44,8 @@ export type GrpcRequestSimpleResult = SyncSimpleResult;
 export interface GrpcRequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: GrpcRequestSyncMirror;
+  /** Override the response-example mirror the delete cascade reads (tests). */
+  exampleMirror?: GrpcResponseExampleSyncMirror;
 }
 
 /**
@@ -109,7 +116,16 @@ export async function applyGrpcRequestDelete(
   const mirror = resolveMirror(opts, getGrpcRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
   if (!mirror.getGrpcRequestMirror(grpcRequestUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  // Cascade: a deleted gRPC request must not leave orphan response
+  // examples behind (the HTTP request-store's invariant, applied at
+  // this family's renderer-direct write site).
+  const exampleMirror = opts.exampleMirror ?? getGrpcResponseExampleSyncMirrorForWorkspace(opts.workspaceId);
+  await exampleMirror.hydrated;
+  const handle = resolveRendererContext(opts);
+  for (const example of exampleMirror.listGrpcResponseExamplesForRequest(grpcRequestUid)) {
+    await applySyncPayload(buildDeleteGrpcResponseExampleBatch(example.uid, handle.next()));
+  }
+  const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildGrpcDeleteBatch(grpcRequestUid, ctx);
   return applySyncPayload(payload);
 }

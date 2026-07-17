@@ -13,6 +13,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncGrpcRequestPostState,
+  SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
   SyncLiveFallbackPriorityPostState,
   SyncLiveVariablePostState,
@@ -216,6 +217,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotResponseExamples': {
     req: { workspaceId?: string };
     res: { entries: SyncResponseExamplePostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full gRPC response-example oracle
+   * state. Each entry carries `{ grpcResponseExample }` — frozen flat
+   * record so no itemId map rides along.
+   */
+  'oh.sync.snapshotGrpcResponseExamples': {
+    req: { workspaceId?: string };
+    res: { entries: SyncGrpcResponseExamplePostState[] };
   };
   /**
    * Snapshot the active workspace's full spec oracle state. Each entry

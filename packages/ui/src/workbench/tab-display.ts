@@ -27,6 +27,7 @@
 import type {
   CollectionTree,
   Environment,
+  GrpcResponseExample,
   LiveVariable,
   LiveWorkflow,
   Request,
@@ -50,6 +51,7 @@ export interface TabDisplayLookups {
   liveVariables: readonly LiveVariable[];
   liveWorkflows: readonly LiveWorkflow[];
   responseExamples: readonly ResponseExample[];
+  grpcResponseExamples: readonly GrpcResponseExample[];
   specs: readonly Spec[];
 }
 
@@ -96,6 +98,11 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
     case 'response-example': {
       if (!tab.responseExampleUid) return tab.label;
       const example = lookups.responseExamples.find((e) => e.uid === tab.responseExampleUid);
+      return example ? example.name : tab.label;
+    }
+    case 'grpc-response-example': {
+      if (!tab.grpcResponseExampleUid) return tab.label;
+      const example = lookups.grpcResponseExamples.find((e) => e.uid === tab.grpcResponseExampleUid);
       return example ? example.name : tab.label;
     }
     case 'live-variable-edit': {

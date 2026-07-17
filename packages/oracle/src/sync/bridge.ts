@@ -48,6 +48,7 @@ export type EntityPostState = Partial<
     | 'liveWorkflowPostState'
     | 'scriptPackagePostState'
     | 'responseExamplePostState'
+    | 'grpcResponseExamplePostState'
     | 'specPostState'
     | 'liveValuePostState'
     | 'liveFallbackPriorityPostState'

@@ -78,6 +78,7 @@ interface WorkbenchToolWindowProps {
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
+  openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
 
   // Shell-local handlers.
@@ -137,6 +138,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openGrpcRequestEditTab,
   openCreateGrpcRequestTab,
   openResponseExampleTab,
+  openGrpcResponseExampleTab,
   openLiveVariableEdit,
   handleDeleteRule,
   handleCloseTab,
@@ -193,6 +195,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onCreateGrpcRequest={openCreateGrpcRequestTab}
           onSelectResponseExample={openResponseExampleTab}
+          onSelectGrpcResponseExample={openGrpcResponseExampleTab}
           onImport={(ctx) => importExportRef.current?.openImportSource(ctx)}
           filterRef={(node: InputRef | null) => {
             if (node) sidebarFilterRefs.current.set(id as SidebarView, node);

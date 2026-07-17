@@ -31,6 +31,7 @@ import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
+import GrpcResponseExampleView from '../grpc-response-example/GrpcResponseExampleView';
 import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
 import SpecEditorTab from '../specs/SpecEditorTab';
@@ -84,6 +85,8 @@ interface WorkbenchTabBodyProps {
   openScriptPackages: UseTabOpenersApi['openScriptPackages'];
   openDuplicateRequestScratch: UseTabOpenersApi['openDuplicateRequestScratch'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
+  openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
+  openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -132,6 +135,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openScriptPackages,
   openDuplicateRequestScratch,
   openResponseExampleTab,
+  openGrpcResponseExampleTab,
+  openGrpcRequestEditTab,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -416,6 +421,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <GrpcRequestEditor
         grpcRequestUid={tab.grpcRequestUid}
         workspaceId={editingScopeWorkspaceId}
+        onOpenGrpcResponseExample={openGrpcResponseExampleTab}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
@@ -455,6 +461,17 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
         onSaveDraft={(draftData) => onRequestSaveDraft(tab.id, draftData)}
+      />
+    );
+  }
+  if (tab.mode === 'grpc-response-example' && tab.grpcResponseExampleUid) {
+    return (
+      <GrpcResponseExampleView
+        exampleUid={tab.grpcResponseExampleUid}
+        workspaceId={editingScopeWorkspaceId}
+        onOpenGrpcRequest={openGrpcRequestEditTab}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
     );
   }

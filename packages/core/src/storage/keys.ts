@@ -33,6 +33,7 @@ import type {
   Environment,
   ExtensionWorkspace,
   GrpcRequest,
+  GrpcResponseExample,
   LiveFallbackPrioritySnapshot,
   LiveVariable,
   LiveWorkflow,
@@ -451,6 +452,12 @@ export interface WorkspaceKeys {
    */
   responseExamples: StorageKey<ResponseExample[]>;
   /**
+   * gRPC response examples — captured gRPC exchange snapshots saved
+   * under a GrpcRequest via "Save Response" (the `responseExamples`
+   * sibling for the gRPC entity family).
+   */
+  grpcResponseExamples: StorageKey<GrpcResponseExample[]>;
+  /**
    * Specs — first-class API specification documents (name + verbatim
    * source-file set) a collection can be generated from.
    */
@@ -591,6 +598,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
     scriptPackages: storageKey<ScriptPackage[]>(`${p}.scriptPackages`),
     responseExamples: storageKey<ResponseExample[]>(`${p}.responseExamples`),
+    grpcResponseExamples: storageKey<GrpcResponseExample[]>(`${p}.grpcResponseExamples`),
     specs: storageKey<Spec[]>(`${p}.specs`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),

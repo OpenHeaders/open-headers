@@ -109,6 +109,7 @@ const emptyLookups: TabDisplayLookups = {
   liveVariables: [],
   liveWorkflows: [],
   responseExamples: [],
+  grpcResponseExamples: [],
   specs: [],
 };
 
