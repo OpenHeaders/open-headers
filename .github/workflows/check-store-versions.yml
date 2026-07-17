@@ -75,13 +75,14 @@ jobs:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          STORES_PATCH: ${{ steps.stores.outputs.patch }}
         run: |
           if ! curl -fsS "https://updates.openheaders.io/versions/stable.json" -o current.json; then
             echo '{}' > current.json
           fi
 
           node scripts/patch-versions-entry.mjs current.json extension \
-            "{\"stores\":${{ steps.stores.outputs.patch }}}" > patched.json
+            "{\"stores\":${STORES_PATCH}}" > patched.json
 
           if cmp -s current.json patched.json; then
             echo "Store versions unchanged — nothing to upload"
