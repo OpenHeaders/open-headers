@@ -29,24 +29,22 @@ export type GrpcMessageView =
   | { kind: 'none' };
 
 /**
- * Derive the Response tab's message view from the first captured frame.
- * `outputType` is the selected rpc's resolved response type full name
- * (null when the method or spec doesn't resolve); `registry` is the
- * editor's live derivation.
+ * Derive one captured frame's view. `type` is the message type the
+ * frame should decode as — the rpc's response type for received
+ * frames, its request type for sent ones (null when the method or
+ * spec doesn't resolve); `registry` is the editor's live derivation.
  */
-export function deriveGrpcMessageView(
-  snapshot: ExecutedGrpcSnapshot,
+export function deriveGrpcFrameView(
+  frame: { dataBase64: string; compressed: boolean },
   registry: ProtoRegistry | null,
-  outputType: string | null,
+  type: string | null,
 ): GrpcMessageView {
-  const frame = snapshot.messages[0];
-  if (frame === undefined) return { kind: 'none' };
   if (frame.compressed) return { kind: 'compressed' };
   const bytes = decodeBase64Bytes(frame.dataBase64);
   if (bytes === null) return { kind: 'raw', base64: frame.dataBase64 };
-  if (registry !== null && outputType !== null && registry.messages.has(outputType)) {
+  if (registry !== null && type !== null && registry.messages.has(type)) {
     try {
-      return { kind: 'schema', text: JSON.stringify(decodeMessage(registry, outputType, bytes), null, 2) };
+      return { kind: 'schema', text: JSON.stringify(decodeMessage(registry, type, bytes), null, 2) };
     } catch {
       // Bytes that don't parse as the declared type fall through to the
       // structural view — the capture stays authoritative over the spec.
@@ -55,6 +53,21 @@ export function deriveGrpcMessageView(
   const structural = decodeBinaryPreview('protobuf', bytes);
   if (structural !== null) return { kind: 'structural', text: printStructural(structural.value) };
   return { kind: 'raw', base64: frame.dataBase64 };
+}
+
+/**
+ * Derive the Response tab's message view from the first captured frame.
+ * `outputType` is the selected rpc's resolved response type full name
+ * (null when the method or spec doesn't resolve).
+ */
+export function deriveGrpcMessageView(
+  snapshot: ExecutedGrpcSnapshot,
+  registry: ProtoRegistry | null,
+  outputType: string | null,
+): GrpcMessageView {
+  const frame = snapshot.messages[0];
+  if (frame === undefined) return { kind: 'none' };
+  return deriveGrpcFrameView(frame, registry, outputType);
 }
 
 /**
@@ -93,4 +106,16 @@ export function grpcOutputTypeOf(
   if (registry === null || method === undefined) return null;
   const service = registry.services.find((s) => s.fullName === method.service);
   return service?.rpcs.find((r) => r.name === method.rpc)?.outputType ?? null;
+}
+
+/** The selected rpc's resolved request-type full name — sent (↑)
+ *  timeline frames decode as it. Null when the method / spec doesn't
+ *  resolve. */
+export function grpcInputTypeOf(
+  registry: ProtoRegistry | null,
+  method: { service: string; rpc: string } | undefined,
+): string | null {
+  if (registry === null || method === undefined) return null;
+  const service = registry.services.find((s) => s.fullName === method.service);
+  return service?.rpcs.find((r) => r.name === method.rpc)?.inputType ?? null;
 }

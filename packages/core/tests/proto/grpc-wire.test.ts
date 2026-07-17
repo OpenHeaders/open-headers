@@ -6,6 +6,7 @@
  */
 
 import {
+  createGrpcFrameReader,
   decodeGrpcMessage,
   encodeGrpcTimeout,
   extractGrpcStatus,
@@ -63,6 +64,49 @@ describe('gRPC message framing', () => {
 
   it('reads an empty body as zero complete frames', () => {
     expect(readGrpcFrames(bytes())).toEqual({ frames: [], incomplete: false });
+  });
+});
+
+describe('createGrpcFrameReader', () => {
+  it('completes frames per push and carries a split frame across chunks', () => {
+    const reader = createGrpcFrameReader();
+    const one = writeGrpcFrame(bytes(1, 2, 3));
+    const two = writeGrpcFrame(bytes(9), true);
+    const joined = new Uint8Array([...one, ...two]);
+    const first = reader.push(joined.subarray(0, one.byteLength + 3));
+    expect(first).toHaveLength(1);
+    expect([...first[0].data]).toEqual([1, 2, 3]);
+    expect(reader.pendingBytes()).toBe(3);
+    const second = reader.push(joined.subarray(one.byteLength + 3));
+    expect(second).toHaveLength(1);
+    expect(second[0].flag).toBe(1);
+    expect([...second[0].data]).toEqual([9]);
+    expect(reader.pendingBytes()).toBe(0);
+  });
+
+  it('handles a frame split inside the 5-byte prefix', () => {
+    const reader = createGrpcFrameReader();
+    const frame = writeGrpcFrame(bytes(7, 8));
+    expect(reader.push(frame.subarray(0, 2))).toHaveLength(0);
+    expect(reader.pendingBytes()).toBe(2);
+    const done = reader.push(frame.subarray(2));
+    expect(done).toHaveLength(1);
+    expect([...done[0].data]).toEqual([7, 8]);
+  });
+
+  it('completes several frames arriving in one chunk', () => {
+    const reader = createGrpcFrameReader();
+    const chunk = new Uint8Array([...writeGrpcFrame(bytes()), ...writeGrpcFrame(bytes(4)), ...bytes(0, 0)]);
+    const frames = reader.push(chunk);
+    expect(frames.map((f) => f.data.byteLength)).toEqual([0, 1]);
+    expect(reader.pendingBytes()).toBe(2);
+  });
+
+  it('returns frame copies that survive later pushes', () => {
+    const reader = createGrpcFrameReader();
+    const [frame] = reader.push(writeGrpcFrame(bytes(5, 6)));
+    reader.push(writeGrpcFrame(bytes(1)));
+    expect([...frame.data]).toEqual([5, 6]);
   });
 });
 

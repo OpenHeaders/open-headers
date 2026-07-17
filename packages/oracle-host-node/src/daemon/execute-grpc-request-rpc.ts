@@ -20,6 +20,7 @@
  * executor is called directly.
  */
 
+import { type GrpcStreamEventWire, hostBridge } from '@openheaders/core/bridge';
 import { GrpcRequestSchema, SpecSchema } from '@openheaders/core/schemas';
 import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
 import { errorGrpcSnapshot, executeGrpcInvoke } from '@openheaders/oracle/live/grpc-exec/execute';
@@ -39,11 +40,21 @@ export interface ExecuteGrpcRequestRpcResult {
 // with the HTTP handler's.
 const nodeGrpcTransport = createNodeGrpcTransport();
 
+/**
+ * Default live-frame sink for an in-process caller — the host's local
+ * broadcast, the `execute-request-rpc.ts` twin. A peer-forwarded
+ * invoke passes its own sink instead (Phase F).
+ */
+function broadcastGrpcStreamFrameLocally(event: GrpcStreamEventWire): void {
+  hostBridge.broadcast('grpcStreamEvent', event);
+}
+
 /** Handle one `executeGrpcRequest` bridge message. `grpcRequestUid`
  *  takes precedence over `draft` (the channel contract). */
 export async function handleExecuteGrpcRequestRpc(
   message: Record<string, unknown>,
   transport: GrpcTransport = nodeGrpcTransport,
+  emitStreamEvent: (event: GrpcStreamEventWire) => void = broadcastGrpcStreamFrameLocally,
 ): Promise<ExecuteGrpcRequestRpcResult> {
   const grpcRequestUid = typeof message.grpcRequestUid === 'string' ? message.grpcRequestUid : undefined;
   const draft = message.draft as GrpcRequest | undefined;
@@ -92,6 +103,7 @@ export async function handleExecuteGrpcRequestRpc(
       transport,
       spec,
       ...(sendId !== undefined ? { sendId } : {}),
+      emitStreamEvent,
     });
     return { success: true, snapshot };
   } catch (err) {

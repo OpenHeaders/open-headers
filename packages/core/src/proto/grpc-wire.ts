@@ -52,6 +52,52 @@ export function readGrpcFrames(bytes: Uint8Array): { frames: GrpcWireFrame[]; in
 }
 
 /**
+ * Incremental twin of {@link readGrpcFrames} for streaming reads: push
+ * wire chunks as they arrive and collect complete frames per push; a
+ * frame split across chunks waits in the carry until its bytes are in.
+ * `pendingBytes()` after the stream ends is the cut-tail signal — a
+ * non-empty carry means the body ended mid-frame.
+ */
+export interface GrpcFrameReader {
+  /** Feed the next wire chunk; returns the frames it completed (own
+   *  copies — safe to retain past the next push). */
+  push(chunk: Uint8Array): GrpcWireFrame[];
+  /** Bytes buffered awaiting a complete frame. */
+  pendingBytes(): number;
+}
+
+export function createGrpcFrameReader(): GrpcFrameReader {
+  let carry = new Uint8Array(0);
+  return {
+    push(chunk: Uint8Array): GrpcWireFrame[] {
+      let joined: Uint8Array;
+      if (carry.byteLength === 0) {
+        joined = chunk;
+      } else {
+        joined = new Uint8Array(carry.byteLength + chunk.byteLength);
+        joined.set(carry, 0);
+        joined.set(chunk, carry.byteLength);
+      }
+      const view = new DataView(joined.buffer, joined.byteOffset, joined.byteLength);
+      const frames: GrpcWireFrame[] = [];
+      let at = 0;
+      while (at + 5 <= joined.byteLength) {
+        const length = view.getUint32(at + 1, false);
+        if (at + 5 + length > joined.byteLength) break;
+        // Sliced, not subarrayed — the joined buffer is transient.
+        frames.push({ flag: joined[at], data: joined.slice(at + 5, at + 5 + length) });
+        at += 5 + length;
+      }
+      carry = at < joined.byteLength ? joined.slice(at) : new Uint8Array(0);
+      return frames;
+    },
+    pendingBytes(): number {
+      return carry.byteLength;
+    },
+  };
+}
+
+/**
  * Encode a millisecond deadline as the `grpc-timeout` header value —
  * at most 8 ASCII digits plus a unit. Milliseconds up to 8 digits ride
  * verbatim; longer deadlines climb the unit ladder (rounding UP so the

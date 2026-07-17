@@ -6,7 +6,10 @@
  * trailers), the trailers-only reply shape, the `grpc-timeout` carry +
  * local deadline abort, the pre-head Stop abort, the body cap, the
  * mid-body materialization law (post-head severs resolve partial, no
- * throw), and connect-failure classification.
+ * throw), and connect-failure classification. The `openStream` twin
+ * pins the bidi round trip (incremental echo, upstream frames,
+ * half-close → trailers → onEnd), the pre-head failure/deadline/abort
+ * paths through onEnd, and the post-head abort settling clean.
  */
 
 import {
@@ -186,5 +189,133 @@ describe('createNodeGrpcTransport — real wire', () => {
   it('rejects a malformed authority before dialing', async () => {
     await expect(transport.invoke(request('not a host'))).rejects.toThrow(/Invalid target/);
     await expect(transport.invoke(request('host:443/extra/path'))).rejects.toThrow(/host or host:port/);
+  });
+});
+
+/** Incremental server: the handler owns the stream from arrival —
+ *  no buffering, the streaming legs' shape. */
+async function startStreamingServer(
+  handle: (stream: ServerHttp2Stream, headers: IncomingHttpHeaders) => void,
+): Promise<{ authority: string }> {
+  const server = createHttp2Server();
+  server.on('stream', (stream, headers) => handle(stream, headers));
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('no port');
+  return { authority: `127.0.0.1:${address.port}` };
+}
+
+interface StreamRun {
+  heads: Array<{ httpStatus: number; headers: Array<{ key: string; value: string }> }>;
+  chunks: Uint8Array[];
+  trailers: Array<Array<{ key: string; value: string }>>;
+  ended: Promise<GrpcTransportError | undefined>;
+}
+
+function openStreamRun(
+  authority: string,
+  overrides: { timeoutMs?: number } = {},
+  signal?: AbortSignal,
+): { run: StreamRun; writer: ReturnType<NonNullable<typeof transport.openStream>> } {
+  const openStream = transport.openStream;
+  if (!openStream) throw new Error('node transport must implement openStream');
+  const heads: StreamRun['heads'] = [];
+  const chunks: Uint8Array[] = [];
+  const trailers: StreamRun['trailers'] = [];
+  let resolveEnd: (error?: GrpcTransportError) => void = () => {};
+  const ended = new Promise<GrpcTransportError | undefined>((resolve) => {
+    resolveEnd = resolve;
+  });
+  const writer = openStream(
+    { authority, tls: false, path: '/library.v1.Library/Chat', metadata: [], ...overrides },
+    {
+      onHead: (httpStatus, incoming) => heads.push({ httpStatus, headers: incoming.map((h) => ({ ...h })) }),
+      onData: (chunk) => chunks.push(chunk.slice()),
+      onTrailers: (incoming) => trailers.push(incoming.map((h) => ({ ...h }))),
+      onEnd: (error) => resolveEnd(error),
+    },
+    signal,
+  );
+  return { run: { heads, chunks, trailers, ended }, writer };
+}
+
+describe('createNodeGrpcTransport — openStream real wire', () => {
+  it('runs a bidi echo: upstream frames out as written, echoes back incrementally', async () => {
+    const { authority } = await startStreamingServer((stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+      stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0', 'grpc-message': 'OK' }));
+      stream.on('data', (chunk: Buffer) => stream.write(chunk));
+      stream.on('end', () => stream.end());
+    });
+    const { run, writer } = openStreamRun(authority);
+    writer.sendMessage(new Uint8Array([1, 2, 3]));
+    writer.sendMessage(new Uint8Array([9]));
+    writer.halfClose();
+    const error = await run.ended;
+    expect(error).toBeUndefined();
+    expect(run.heads).toHaveLength(1);
+    expect(run.heads[0].httpStatus).toBe(200);
+    expect(run.heads[0].headers).toContainEqual({ key: 'content-type', value: 'application/grpc+proto' });
+    const echoed = readGrpcFrames(new Uint8Array(Buffer.concat(run.chunks.map((c) => Buffer.from(c)))));
+    expect(echoed.incomplete).toBe(false);
+    expect(echoed.frames.map((f) => [...f.data])).toEqual([[1, 2, 3], [9]]);
+    expect(run.trailers).toEqual([
+      [
+        { key: 'grpc-status', value: '0' },
+        { key: 'grpc-message', value: 'OK' },
+      ],
+    ]);
+  });
+
+  it('classifies a refused connection through onEnd', async () => {
+    const { run } = openStreamRun('127.0.0.1:1');
+    const error = await run.ended;
+    expect(error).toBeInstanceOf(GrpcTransportError);
+    expect(error?.message).toMatch(/Connection refused/);
+  });
+
+  it('reports a malformed authority through onEnd with a no-op writer', async () => {
+    const { run, writer } = openStreamRun('host:443/extra/path');
+    writer.sendMessage(new Uint8Array([1]));
+    writer.halfClose();
+    const error = await run.ended;
+    expect(error?.message).toMatch(/host or host:port/);
+  });
+
+  it('names the deadline when it elapses before a response head', async () => {
+    const { authority } = await startStreamingServer(() => {
+      // Never respond — the local deadline must fire.
+    });
+    const { run } = openStreamRun(authority, { timeoutMs: 150 });
+    const error = await run.ended;
+    expect(error?.message).toMatch(/deadline of 150 ms elapsed/);
+  });
+
+  it('settles clean on a post-head abort — arrived frames stand', async () => {
+    const { authority } = await startStreamingServer((stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' });
+      stream.write(Buffer.from(writeGrpcFrame(new Uint8Array([7]))));
+      // Hold the stream open; the caller aborts.
+    });
+    const controller = new AbortController();
+    const { run } = openStreamRun(authority, {}, controller.signal);
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
+    controller.abort();
+    const error = await run.ended;
+    expect(error).toBeUndefined();
+    expect(run.heads).toHaveLength(1);
+    expect(run.chunks.length).toBeGreaterThan(0);
+  });
+
+  it('throws the abort message through onEnd when the Stop fires pre-head', async () => {
+    const { authority } = await startStreamingServer(() => {
+      // Hold the stream open; the caller aborts.
+    });
+    const controller = new AbortController();
+    const { run } = openStreamRun(authority, {}, controller.signal);
+    setTimeout(() => controller.abort(), 50);
+    const error = await run.ended;
+    expect(error?.message).toMatch(/aborted before a response/);
   });
 });

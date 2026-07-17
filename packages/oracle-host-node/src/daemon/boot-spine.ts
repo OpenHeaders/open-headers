@@ -79,6 +79,10 @@ import {
 } from '@openheaders/oracle/entity/request-scripts-review-store';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
+import {
+  endActiveGrpcClientStream,
+  sendActiveGrpcStreamMessage,
+} from '@openheaders/oracle/live/grpc-exec/stream-plane';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
@@ -746,6 +750,17 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // `success: false` = no such send (already settled, never started).
     if (type === 'abortRequestSend') {
       return { success: typeof message.sendId === 'string' && stopActiveSend(message.sendId) };
+    }
+    // Upstream riders for an in-flight gRPC client/bidi stream — the
+    // executor's active-stream registry encodes and writes / half-
+    // closes; a settled or unknown id answers `success: false`.
+    if (type === 'sendGrpcStreamMessage') {
+      return typeof message.sendId === 'string' && typeof message.messageText === 'string'
+        ? sendActiveGrpcStreamMessage(message.sendId, message.messageText)
+        : { success: false, error: 'No stream id or message provided' };
+    }
+    if (type === 'endGrpcClientStream') {
+      return { success: typeof message.sendId === 'string' && endActiveGrpcClientStream(message.sendId) };
     }
     // Workspace-export import — the host-neutral orchestrator (the
     // extension SW answers the same channels). Local surface = the

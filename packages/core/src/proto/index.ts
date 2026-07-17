@@ -14,11 +14,13 @@ export {
 } from './codec';
 export { synthesizeExampleMessage } from './example';
 export {
+  createGrpcFrameReader,
   decodeGrpcMessage,
   encodeGrpcTimeout,
   extractGrpcStatus,
   GRPC_STATUS_NAMES,
   type GrpcCallStatus,
+  type GrpcFrameReader,
   type GrpcMetadataField,
   type GrpcWireFrame,
   grpcStatusLabel,

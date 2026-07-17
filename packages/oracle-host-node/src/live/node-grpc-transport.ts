@@ -2,9 +2,13 @@
  * Node gRPC transport — the node hosts' implementation of the engine's
  * {@link GrpcTransport} seam, hand-rolled over `node:http2` (no
  * `@grpc/grpc-js`, per the S1 fork ratification). One HTTP/2 session
- * per invoke: a unary call is user-initiated and cheap, so pooling is
- * a demand-gated residual, and a fresh session keeps the failure
- * story per-call.
+ * per call — unary `invoke` and the streaming `openStream` twin alike:
+ * a call is user-initiated and cheap, so pooling is a demand-gated
+ * residual, and a fresh session keeps the failure story per-call.
+ * `openStream` hands raw framed body chunks to the executor's
+ * callbacks (frame unwrapping is the executor's core-proto pass) and
+ * returns the upstream writer; the deadline and abort discipline is
+ * `invoke`'s verbatim, settling through `onEnd` exactly once.
  *
  * Wire ceremony owned here:
  *   - `POST /{service}/{rpc}` with `content-type: application/grpc+proto`
@@ -35,11 +39,14 @@
 import { type ClientHttp2Session, type ClientHttp2Stream, connect, constants } from 'node:http2';
 import { encodeGrpcTimeout, writeGrpcFrame } from '@openheaders/core/proto';
 import {
+  type GrpcStreamCallbacks,
+  type GrpcStreamWriter,
   type GrpcTransport,
   GrpcTransportError,
   type GrpcTransportHeader,
   type GrpcTransportRequest,
   type GrpcTransportResponse,
+  type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
 
 /** Node's incoming header shape flattened to seam headers — repeated
@@ -59,7 +66,9 @@ function seamHeadersOf(record: Record<string, string | string[] | undefined>): G
 
 /** Outgoing headers: the ceremony fields plus the request's metadata,
  *  repeated keys folded into arrays (Node's repeat encoding). */
-function buildOutgoingHeaders(request: GrpcTransportRequest): Record<string, string | string[]> {
+function buildOutgoingHeaders(
+  request: Pick<GrpcTransportRequest, 'path' | 'metadata' | 'timeoutMs'>,
+): Record<string, string | string[]> {
   const headers: Record<string, string | string[]> = {
     ':method': 'POST',
     ':path': request.path,
@@ -266,6 +275,121 @@ export function createNodeGrpcTransport(): GrpcTransport {
         stream.write(Buffer.from(writeGrpcFrame(request.message)));
         stream.end();
       });
+    },
+
+    openStream(
+      request: GrpcTransportStreamRequest,
+      callbacks: GrpcStreamCallbacks,
+      signal?: AbortSignal,
+    ): GrpcStreamWriter {
+      const scheme = request.tls ? 'https' : 'http';
+      let target: URL | null = null;
+      try {
+        const parsed = new URL(`${scheme}://${request.authority}`);
+        if (parsed.pathname === '/' && parsed.search === '' && parsed.username === '') target = parsed;
+      } catch {
+        // Reported below — openStream must return a writer, so the
+        // failure surfaces through onEnd instead of a throw.
+      }
+      if (target === null) {
+        queueMicrotask(() =>
+          callbacks.onEnd(new GrpcTransportError(`The target must be host or host:port — got "${request.authority}".`)),
+        );
+        return { sendMessage: () => {}, halfClose: () => {} };
+      }
+
+      let ended = false;
+      let headArrived = false;
+      let deadlineExpired = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let stream: ClientHttp2Stream | null = null;
+
+      const session: ClientHttp2Session = connect(target.origin);
+
+      const cleanup = (): void => {
+        if (timer !== null) clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        session.close();
+      };
+      const endWithError = (err: unknown): void => {
+        if (ended) return;
+        ended = true;
+        cleanup();
+        if (deadlineExpired) {
+          callbacks.onEnd(
+            new GrpcTransportError(`Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`),
+          );
+          return;
+        }
+        if (signal?.aborted) {
+          callbacks.onEnd(new GrpcTransportError('Call aborted before a response arrived.'));
+          return;
+        }
+        callbacks.onEnd(new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err)));
+      };
+      const endComplete = (): void => {
+        if (ended) return;
+        ended = true;
+        cleanup();
+        callbacks.onEnd();
+      };
+      const abortExchange = (): void => {
+        // Same discipline as unary: once the head is in, arrived data
+        // materializes — the close settles without an error.
+        stream?.close(constants.NGHTTP2_CANCEL);
+        session.destroy();
+        if (!headArrived) endWithError(new Error('aborted'));
+        else endComplete();
+      };
+      const onAbort = (): void => abortExchange();
+
+      if (request.timeoutMs !== undefined) {
+        timer = setTimeout(() => {
+          deadlineExpired = true;
+          abortExchange();
+        }, request.timeoutMs);
+      }
+      if (signal !== undefined) {
+        if (signal.aborted) {
+          session.destroy();
+          queueMicrotask(() => endWithError(new Error('aborted')));
+          return { sendMessage: () => {}, halfClose: () => {} };
+        }
+        signal.addEventListener('abort', onAbort);
+      }
+
+      session.on('error', endWithError);
+      stream = session.request(buildOutgoingHeaders(request));
+      stream.on('error', (err: unknown) => {
+        if (headArrived) endComplete();
+        else endWithError(err);
+      });
+      stream.on('response', (incoming) => {
+        headArrived = true;
+        const status = incoming[':status'];
+        callbacks.onHead(typeof status === 'number' ? status : 0, seamHeadersOf(incoming));
+      });
+      stream.on('trailers', (incoming) => {
+        callbacks.onTrailers(seamHeadersOf(incoming));
+      });
+      stream.on('data', (chunk: Buffer) => {
+        callbacks.onData(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
+      });
+      stream.on('close', () => {
+        if (headArrived) endComplete();
+        else endWithError(new Error(`stream closed (HTTP/2 code ${stream?.rstCode ?? 'unknown'})`));
+      });
+
+      return {
+        sendMessage(message: Uint8Array): void {
+          if (ended || stream === null || stream.destroyed || stream.writableEnded) return;
+          stream.write(Buffer.from(writeGrpcFrame(message)));
+        },
+        halfClose(): void {
+          if (ended || stream === null || stream.destroyed || stream.writableEnded) return;
+          stream.end();
+        },
+      };
     },
   };
 }

@@ -24,6 +24,8 @@ export type {
   DomStorageRenameFailureWire,
   EnvironmentsSnapshot,
   FolderDescriptor,
+  GrpcStreamEventWire,
+  GrpcStreamMessageWire,
   IdbDatabaseWire,
   IdbObjectStoreWire,
   IdbRecordDocumentWire,

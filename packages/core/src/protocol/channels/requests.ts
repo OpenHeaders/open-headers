@@ -67,6 +67,43 @@ export type RequestStreamEventWire =
     }
   | { sendId: string; seq: number; kind: 'done' };
 
+/**
+ * One live message of an in-flight gRPC stream, direction-tagged: the
+ * message timeline's row unit. `atMs` is the executing host's arrival
+ * (↓) / write (↑) wall-clock — SESSION-ONLY display data riding the
+ * wire event, never persisted (the SSE timestamps law).
+ */
+export interface GrpcStreamMessageWire {
+  direction: 'up' | 'down';
+  /** The message payload, encoded and UNFRAMED, base64. */
+  dataBase64: string;
+  /** The frame's compression flag as received (↓); always false for ↑
+   *  (v1 never compresses). Flag honesty — never a rewrite. */
+  compressed: boolean;
+  /** Epoch ms on the executing host. */
+  atMs: number;
+}
+
+/**
+ * One live frame of an in-flight gRPC streaming call — the
+ * `grpcStreamEvent` broadcast's payload, a SIBLING of
+ * `RequestStreamEventWire` (per-message, direction-tagged semantics
+ * the HTTP chunk shape cannot carry; the HTTP contract stays
+ * untouched). Same discipline: display-only hints superseded by the
+ * resolving `executeGrpcRequest` snapshot, `seq` per-send monotonic,
+ * message frames flush-batched by the executing host.
+ */
+export type GrpcStreamEventWire =
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'head';
+      httpStatus: number;
+      headers: Array<{ key: string; value: string }>;
+    }
+  | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
+  | { sendId: string; seq: number; kind: 'end' };
+
 export interface RequestRpc {
   getLocalRequests: {
     req: Record<string, never>;
@@ -207,6 +244,29 @@ export interface RequestRpc {
       sendId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedGrpcSnapshot; error?: string };
+  };
+  /**
+   * Write one upstream message into an in-flight gRPC client/bidi
+   * stream, keyed by the invoke's `sendId`. `messageText` is the
+   * compose editor's JSON — the EXECUTOR encodes it against the call's
+   * input type, so an encode mismatch fails this RPC alone and never
+   * kills the stream. `success: false` names the reason: no such
+   * stream (settled, unknown id, host without the streaming twin) or
+   * the encode error.
+   */
+  sendGrpcStreamMessage: {
+    req: { sendId: string; messageText: string };
+    res: { success: boolean; error?: string };
+  };
+  /**
+   * Half-close the client side of an in-flight gRPC client/bidi stream
+   * — "End Streaming". The server's replies (and trailers) keep
+   * arriving; the resolving `executeGrpcRequest` RPC settles when the
+   * call completes. `success: false` = no such stream.
+   */
+  endGrpcClientStream: {
+    req: { sendId: string };
+    res: { success: boolean };
   };
   /**
    * Stop an in-flight interactive send by its caller-minted `sendId`.

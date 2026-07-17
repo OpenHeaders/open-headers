@@ -91,6 +91,52 @@ export class GrpcTransportError extends Error {
   }
 }
 
+/**
+ * The streaming twin's request: {@link GrpcTransportRequest} minus the
+ * message and the body cap — upstream messages ride the returned
+ * {@link GrpcStreamWriter} (a server-stream call writes its one
+ * composed message and half-closes immediately; client/bidi write on
+ * user action), and the response byte cap is the EXECUTOR's to enforce
+ * (it counts `onData` bytes and aborts past the cap — the framing
+ * twin of the unary law that keeps wire policy from forking per host).
+ */
+export interface GrpcTransportStreamRequest {
+  authority: string;
+  tls: boolean;
+  path: string;
+  metadata: ReadonlyArray<GrpcTransportHeader>;
+  timeoutMs?: number;
+}
+
+/**
+ * Observer for one streaming call, plain data per callback so the
+ * contract holds across a forwarding wire. Delivery discipline:
+ * `onHead` at most once, then `onData` per wire chunk (raw FRAMED
+ * bytes — frame unwrapping stays a core-proto call the executor runs),
+ * `onTrailers` at most once, and `onEnd` EXACTLY once on every path —
+ * completion, abort, deadline, connection loss. An `onEnd` without a
+ * prior `onHead` carries the classified pre-head failure.
+ */
+export interface GrpcStreamCallbacks {
+  onHead(httpStatus: number, headers: ReadonlyArray<GrpcTransportHeader>): void;
+  onData(chunk: Uint8Array): void;
+  onTrailers(trailers: ReadonlyArray<GrpcTransportHeader>): void;
+  onEnd(error?: GrpcTransportError): void;
+}
+
+/**
+ * The client side of an open streaming call. Writes after half-close
+ * or call end are quiet no-ops — the executor's registry unregisters
+ * on settle, so a late RPC rider already answers "no such stream".
+ */
+export interface GrpcStreamWriter {
+  /** Write one message, encoded but UNFRAMED — the transport wraps
+   *  the 5-byte frame (flag 0; v1 never compresses upstream). */
+  sendMessage(message: Uint8Array): void;
+  /** Half-close the client side — the end of the request stream. */
+  halfClose(): void;
+}
+
 export interface GrpcTransport {
   /**
    * One unary exchange. `signal` aborts the whole call (the Stop
@@ -99,4 +145,19 @@ export interface GrpcTransport {
    * partial bytes (record what arrived).
    */
   invoke(request: GrpcTransportRequest, signal?: AbortSignal): Promise<GrpcTransportResponse>;
+  /**
+   * Open one streaming call (any non-unary shape — the executor
+   * drives the per-shape ceremony through the writer). `signal`
+   * aborts the whole call; after the head arrived an abort still
+   * settles through `onEnd()` with no error, so the executor records
+   * what arrived. OPTIONAL: a host without a streaming-capable stack
+   * simply doesn't implement it, and unary keeps working — the
+   * executor answers streaming invokes with a structured capability
+   * gap.
+   */
+  openStream?(
+    request: GrpcTransportStreamRequest,
+    callbacks: GrpcStreamCallbacks,
+    signal?: AbortSignal,
+  ): GrpcStreamWriter;
 }

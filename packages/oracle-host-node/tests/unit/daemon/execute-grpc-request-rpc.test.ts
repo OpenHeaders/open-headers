@@ -431,6 +431,44 @@ describe('handleExecuteGrpcRequestRpc — pre-wire gates', () => {
   });
 });
 
+describe('handleExecuteGrpcRequestRpc — streaming shapes', () => {
+  it('runs a server-streaming invoke through the stream leg and emits live frames', async () => {
+    seedStorage([], [makeSpec()]);
+    const transport: GrpcTransport = {
+      invoke: () => Promise.reject(new Error('unary invoke not expected')),
+      openStream(_request, callbacks) {
+        const sent: Uint8Array[] = [];
+        queueMicrotask(() => {
+          callbacks.onHead(200, [{ key: 'content-type', value: 'application/grpc+proto' }]);
+          const reply = encodeMessage(REGISTRY, 'library.v1.Book', { name: 'books/1', title: 'One', pages: '1' });
+          callbacks.onData(writeGrpcFrame(reply));
+          callbacks.onTrailers([{ key: 'grpc-status', value: '0' }]);
+          callbacks.onEnd();
+        });
+        return {
+          sendMessage: (message) => sent.push(message),
+          halfClose: () => {},
+        };
+      },
+    };
+    const events: Array<{ kind: string }> = [];
+    const result = await handleExecuteGrpcRequestRpc(
+      {
+        draft: makeGrpcRequest({ method: { service: 'library.v1.Library', rpc: 'WatchBooks' } }),
+        sendId: 'send-stream-1',
+      },
+      transport,
+      (event) => events.push(event),
+    );
+    const snapshot = result.snapshot;
+    if (!snapshot) throw new Error('no snapshot');
+    expect(snapshot.error).toBeNull();
+    expect(snapshot.grpcStatus).toBe(0);
+    expect(snapshot.messages.map((m) => m.direction)).toEqual(['up', 'down']);
+    expect(events.map((e) => e.kind)).toEqual(['head', 'messages', 'end']);
+  });
+});
+
 describe('handleExecuteGrpcRequestRpc — sendId spine', () => {
   it('registers the send for Stop and maps the abort onto the snapshot', async () => {
     seedStorage([], [makeSpec()]);

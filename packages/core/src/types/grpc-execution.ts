@@ -12,13 +12,18 @@
  * nothing here is ever rewritten to make a reply look well-formed.
  */
 
-/** One response message frame, unwrapped from the wire: the payload
+/** One message frame of the call, unwrapped from the wire: the payload
  *  bytes base64-encoded and the frame's compression flag as received
  *  (v1 negotiates no compression, so a compressed frame renders as a
- *  diagnostic rather than decoding). */
+ *  diagnostic rather than decoding). Streaming calls record BOTH
+ *  directions in call order — `direction` tags each frame ('up' =
+ *  client-sent, 'down' = server-sent); absent = 'down', the unary
+ *  capture's shape. Timestamps are deliberately NOT here: message
+ *  times are session-only display data (the SSE precedent). */
 export interface ExecutedGrpcMessageFrame {
   dataBase64: string;
   compressed: boolean;
+  direction?: 'up' | 'down';
 }
 
 export interface ExecutedGrpcSnapshot {
@@ -53,6 +58,10 @@ export interface ExecutedGrpcSnapshot {
   /** Framed body bytes read off the wire before any truncation. */
   bodyBytes: number;
   durationMs: number;
+  /** True when the user stopped a streaming call after the response
+   *  head — the capture holds what arrived (unary aborts before a head
+   *  map onto `error` instead). */
+  stopped?: boolean;
   /** Non-null when the call failed before producing a response. */
   error: string | null;
 }

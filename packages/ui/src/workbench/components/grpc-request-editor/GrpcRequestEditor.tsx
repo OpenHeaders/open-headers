@@ -7,11 +7,16 @@
  * cached), Message / Metadata / Service definition / Settings tabs,
  * and "Use Example Message" wiring `synthesizeExampleMessage` into the
  * Message tab. Invoke fires the CURRENT compose state (saved or not)
- * through the `executeGrpcRequest` channel on node hosts — unary
- * methods only in this phase; other states keep an honest disabled
- * tooltip. In flight it morphs to Cancel (`abortRequestSend` on the
- * shared active-send registry); the result renders in
- * `GrpcResponsePane` below the compose tabs, editor-local only.
+ * through the `executeGrpcRequest` channel on node hosts — every call
+ * shape; browser hosts keep an honest disabled tooltip. In flight it
+ * morphs to Cancel (`abortRequestSend` on the shared active-send
+ * registry). Unary results render in `GrpcResponsePane`; streaming
+ * invokes render `GrpcStreamPane` — live message timeline fed from
+ * `useLiveGrpcStream` while in flight, the snapshot's direction-tagged
+ * capture once settled — and client/bidi streams grow Send message +
+ * End streaming controls on the Message tab, riding the
+ * `sendGrpcStreamMessage` / `endGrpcClientStream` channels keyed by
+ * the in-flight sendId. All editor-local, below the compose tabs.
  *
  * Dirty derives from form-vs-canonical equality via `useReprime`
  * (never setDirty); saves flow through the RequestsContext's
@@ -45,6 +50,8 @@ import { grpcTag } from '../sidebar/icons';
 import EditorHeader from '../shell/EditorHeader';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import GrpcResponsePane from './GrpcResponsePane';
+import GrpcStreamPane from './GrpcStreamPane';
+import { type GrpcStreamSession, useLiveGrpcStream } from './useLiveGrpcStream';
 import {
   buildGrpcRequestUpdates,
   canonicalGrpcRequestProjection,
@@ -166,11 +173,19 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     setActiveTab('message');
   }, [exampleText]);
 
-  // ── Invoke (Phase D — unary, node hosts) ─────────────────────────
+  // ── Invoke (node hosts; unary + the three streaming shapes) ──────
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const [invoking, setInvoking] = useState(false);
   const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);
+  // Which pane renders the result — stamped at invoke time from the
+  // method's shape, so a method re-pick mid-flight can't flip it.
+  const [responseShape, setResponseShape] = useState<'unary' | 'stream'>('unary');
+  const [streamSession, setStreamSession] = useState<GrpcStreamSession | null>(null);
+  // The in-flight call's target — the timeline's lifecycle rows keep
+  // naming what was actually invoked.
+  const [invokedTarget, setInvokedTarget] = useState('');
   const activeSendIdRef = useRef<string | null>(null);
+  const liveStream = useLiveGrpcStream();
 
   const handleInvoke = useCallback(async () => {
     if (!entity || invoking) return;
@@ -184,11 +199,23 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       description: entity.description,
       ...buildGrpcRequestUpdates(draft),
     };
+    const streaming = selectedOption !== null && selectedOption.streaming !== 'unary';
     const sendId = crypto.randomUUID();
     activeSendIdRef.current = sendId;
     setInvoking(true);
     setResponse(null);
+    setStreamSession(null);
+    setResponseShape(streaming ? 'stream' : 'unary');
+    if (streaming && draft.method) {
+      setInvokedTarget(`/${draft.method.service}/${draft.method.rpc}`);
+      liveStream.beginStream(sendId);
+    }
     const snapshot = await executeGrpc({ draft: draftEntity, sendId });
+    if (streaming) {
+      const session = liveStream.takeSession();
+      setStreamSession(session === null ? null : { ...session, endedAt: Date.now() });
+      liveStream.endStream();
+    }
     activeSendIdRef.current = null;
     setInvoking(false);
     if (snapshot === null) {
@@ -196,7 +223,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       return;
     }
     setResponse(snapshot);
-  }, [entity, invoking, draft, executeGrpc, toast, t]);
+  }, [entity, invoking, draft, selectedOption, executeGrpc, liveStream, toast, t]);
 
   // Cancel morphs from Invoke while in flight — the host aborts the
   // exchange and the pending RPC above resolves with what arrived.
@@ -211,11 +238,36 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       ? t('workbench.editors.grpc.invoke.browserHost')
       : !selectedOption
         ? t('workbench.editors.grpc.invoke.needsMethod')
-        : selectedOption.streaming !== 'unary'
-          ? t('workbench.editors.grpc.invoke.streamingLater')
-          : draft.url.trim() === ''
-            ? t('workbench.editors.grpc.invoke.needsUrl')
-            : null;
+        : draft.url.trim() === ''
+          ? t('workbench.editors.grpc.invoke.needsUrl')
+          : null;
+
+  // ── In-flight upstream controls (client/bidi streams) ────────────
+  const clientStreamActive =
+    invoking &&
+    responseShape === 'stream' &&
+    selectedOption !== null &&
+    (selectedOption.streaming === 'client-streaming' || selectedOption.streaming === 'bidi-streaming');
+
+  // Send the CURRENT compose text as one upstream message — the
+  // executor encodes it against the rpc's request type, and an encode
+  // mismatch reports here without touching the open stream.
+  const handleSendStreamMessage = useCallback(async () => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    const result = await hostBridge
+      .call('sendGrpcStreamMessage', { sendId, messageText: draft.message })
+      .catch(() => null);
+    if (result === null || !result.success) {
+      toast.error(result?.error ?? t('workbench.editors.grpc.stream.sendFailed'));
+    }
+  }, [draft.message, toast, t]);
+
+  const handleEndStreaming = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('endGrpcClientStream', { sendId }).catch(() => {});
+  }, []);
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -377,7 +429,23 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
               label: t('workbench.editors.grpc.tab.message'),
               children: (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    {clientStreamActive && (
+                      <>
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<SendOutlined />}
+                          onClick={() => void handleSendStreamMessage()}
+                          data-testid="grpc-stream-send"
+                        >
+                          {t('workbench.editors.grpc.stream.sendMessage')}
+                        </Button>
+                        <Button size="small" onClick={handleEndStreaming} data-testid="grpc-stream-end">
+                          {t('workbench.editors.grpc.stream.endStreaming')}
+                        </Button>
+                      </>
+                    )}
                     <Tooltip title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}>
                       <Button
                         size="small"
@@ -477,9 +545,22 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           ]}
         />
 
-        {response !== null && (
+        {(response !== null || liveStream.live !== null) && (
           <div style={{ maxHeight: '45%', overflow: 'auto', flexShrink: 0 }}>
-            <GrpcResponsePane snapshot={response} registry={derivation?.registry ?? null} method={draft.method} />
+            {responseShape === 'stream' ? (
+              <GrpcStreamPane
+                live={liveStream.live}
+                snapshot={response}
+                session={streamSession}
+                registry={derivation?.registry ?? null}
+                method={draft.method}
+                target={invokedTarget}
+              />
+            ) : (
+              response !== null && (
+                <GrpcResponsePane snapshot={response} registry={derivation?.registry ?? null} method={draft.method} />
+              )
+            )}
           </div>
         )}
 

@@ -1,27 +1,33 @@
 /**
- * gRPC invoke executor — host-neutral orchestration of one unary call:
+ * gRPC invoke executor — host-neutral orchestration of one call:
  * resolve `{{ref}}` templates through the SAME 4-scope pipeline HTTP
  * sends ride, build the protobuf registry from the linked spec's LIVE
  * files (ids-only specLink — nothing cached), encode the composed
  * message, hand the wire exchange to the injected {@link GrpcTransport},
- * and map what came back onto an {@link ExecutedGrpcSnapshot}.
+ * and map what came back onto an {@link ExecutedGrpcSnapshot}. Unary
+ * calls run the buffered exchange here; the three streaming shapes
+ * pass the same pre-wire gates and delegate the wire to
+ * `execute-stream.ts` (a host without the transport's `openStream`
+ * twin answers streaming invokes with a structured capability gap —
+ * unary keeps working, the additive law).
  *
  * Failure discipline: everything that can go wrong before the wire —
- * no spec linked, method unresolved against the spec, a non-unary
- * shape, malformed message JSON, an encode mismatch, unresolved
- * variables — returns a STRUCTURED error snapshot naming the gap,
- * never a throw. On the wire, a non-zero grpc-status is a normal
- * response (the surface renders it honestly); only a call that never
- * produced a response head maps onto `error`.
+ * no spec linked, method unresolved against the spec, malformed
+ * message JSON, an encode mismatch, unresolved variables — returns a
+ * STRUCTURED error snapshot naming the gap, never a throw. On the
+ * wire, a non-zero grpc-status is a normal response (the surface
+ * renders it honestly); only a call that never produced a response
+ * head maps onto `error`.
  *
  * The sendId spine is the HTTP executor's: the caller-minted id
  * registers a Stop hook in the shared active-send registry, so
  * `abortRequestSend` cancels a gRPC invoke exactly like an HTTP send.
  * No live frames are emitted for unary — the resolving RPC's snapshot
- * carries the whole reply; the stream-frame emitter joins in Phase E
- * where a message timeline actually consumes it.
+ * carries the whole reply; streaming shapes feed the `grpcStreamEvent`
+ * emitter the message timeline consumes.
  */
 
+import type { GrpcStreamEventWire } from '@openheaders/core/bridge';
 import {
   buildRegistry,
   encodeMessage,
@@ -37,6 +43,7 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { executeGrpcStream } from './execute-stream';
 import { type GrpcTransport, GrpcTransportError, type GrpcTransportHeader } from './transport';
 
 /** Response-body cap — the HTTP executor's default, same memory law. */
@@ -59,8 +66,13 @@ export interface ExecuteGrpcInvokeOptions {
    *  handler; `null` when the request has no link or the spec is gone. */
   spec: Spec | null;
   /** Caller-minted id — registers the Stop hook on the shared
-   *  active-send registry (`abortRequestSend`). */
+   *  active-send registry (`abortRequestSend`); for streaming shapes
+   *  it also keys the upstream-rider registry. */
   sendId?: string;
+  /** Live-frame sink for streaming shapes (`grpcStreamEvent`
+   *  broadcasts); frames only flow when `sendId` is present too.
+   *  Unary never emits — the resolving snapshot carries the reply. */
+  emitStreamEvent?: (event: GrpcStreamEventWire) => void;
 }
 
 export async function executeGrpcInvoke(
@@ -97,9 +109,9 @@ export async function executeGrpcInvoke(
       `The spec "${options.spec.name}" does not declare ${method.service}/${method.rpc}. Re-pick the method.`,
     );
   }
-  if (rpc.streaming !== 'unary') {
+  if (rpc.streaming !== 'unary' && options.transport.openStream === undefined) {
     return errorGrpcSnapshot(
-      `${method.rpc} is a ${rpc.streaming} method — only unary methods can be invoked in this version.`,
+      `${method.rpc} is a ${rpc.streaming} method — this host cannot open gRPC streams. Invoke it from a host with a native HTTP/2 stack.`,
     );
   }
   if (rpc.inputType === null || !registry.messages.has(rpc.inputType)) {
@@ -146,20 +158,48 @@ export async function executeGrpcInvoke(
   if (!authority) return errorGrpcSnapshot('URL is empty');
 
   // ── Message encode against the resolved input type ──
-  let composed: unknown;
-  try {
-    composed = messageText.trim() === '' ? {} : JSON.parse(messageText);
-  } catch (err) {
-    return errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`);
-  }
-  let encoded: Uint8Array;
-  try {
-    encoded = encodeMessage(registry, rpc.inputType, composed);
-  } catch (err) {
-    if (err instanceof ProtoCodecError) {
-      return errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`);
+  // Client/bidi streams skip it: the composed text is what the Send
+  // control writes LATER through `sendGrpcStreamMessage` — the invoke
+  // itself opens an empty request stream.
+  const encodesAtInvoke = rpc.streaming === 'unary' || rpc.streaming === 'server-streaming';
+  let encoded: Uint8Array | null = null;
+  if (encodesAtInvoke) {
+    let composed: unknown;
+    try {
+      composed = messageText.trim() === '' ? {} : JSON.parse(messageText);
+    } catch (err) {
+      return errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`);
     }
-    throw err;
+    try {
+      encoded = encodeMessage(registry, rpc.inputType, composed);
+    } catch (err) {
+      if (err instanceof ProtoCodecError) {
+        return errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  // ── Streaming shapes: the stream executor owns the wire from here ──
+  if (rpc.streaming !== 'unary') {
+    return executeGrpcStream({
+      transport: options.transport,
+      authority,
+      tls: request.tls !== false,
+      path: `/${method.service}/${method.rpc}`,
+      metadata,
+      ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+      registry,
+      inputType: rpc.inputType,
+      shape: rpc.streaming,
+      initialMessage: rpc.streaming === 'server-streaming' ? encoded : null,
+      ...(options.sendId !== undefined ? { sendId: options.sendId } : {}),
+      ...(options.emitStreamEvent !== undefined ? { emitEvent: options.emitStreamEvent } : {}),
+      maxBodyBytes: MAX_BODY_BYTES,
+    });
+  }
+  if (encoded === null) {
+    return errorGrpcSnapshot('The unary message failed to encode.');
   }
 
   // ── Wire exchange on the sendId spine ──
