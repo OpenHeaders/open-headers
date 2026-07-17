@@ -83,6 +83,8 @@ export const GLOSSARY: readonly string[] = [
   'Payload',
   'Timing',
   'Initiator',
+  'Connection Start',
+  'Stalled',
   // Architecture component names (backend-details scenes)
   'sync-engine',
   'rule-engine',

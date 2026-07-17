@@ -12,6 +12,7 @@
 import { App as AntApp, Button } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { findLeaf } from './editor-groups';
 import type { InspectorTab } from './inspector-tab';
 import { tabIsDirty, tabPillLabel } from './inspector-tab';
@@ -32,16 +33,21 @@ export function useTabCloseGuard(
   saveRefs: React.RefObject<TabSaveRefMap>,
 ): TabCloseGuardApi {
   const { modal } = AntApp.useApp();
+  const t = useT();
 
   const confirmUnsaved = useCallback(
     (tab: InspectorTab): Promise<'discard' | 'save' | 'cancel'> => {
       return new Promise((resolve) => {
         const instance = modal.confirm({
-          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Save changes?</span>,
+          title: (
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              {t('panel.inspector.tabBar.closeGuard.unsavedTitle')}
+            </span>
+          ),
           width: 380,
           content: (
             <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.5 }}>
-              <strong>{tabPillLabel(tab)}</strong> has unsaved changes. Save these changes to avoid losing your work.
+              <strong>{tabPillLabel(tab)}</strong> {t('panel.inspector.tabBar.closeGuard.unsavedBody')}
             </p>
           ),
           icon: null,
@@ -59,7 +65,7 @@ export function useTabCloseGuard(
                   resolve('discard');
                 }}
               >
-                Don&apos;t save
+                {t('panel.inspector.tabBar.closeGuard.dontSave')}
               </Button>
               <Button
                 size="small"
@@ -68,7 +74,7 @@ export function useTabCloseGuard(
                   resolve('cancel');
                 }}
               >
-                Cancel
+                {t('panel.inspector.tabBar.closeGuard.cancel')}
               </Button>
               <Button
                 size="small"
@@ -79,14 +85,14 @@ export function useTabCloseGuard(
                   resolve('save');
                 }}
               >
-                Save changes
+                {t('panel.inspector.tabBar.closeGuard.save')}
               </Button>
             </div>
           ),
         });
       });
     },
-    [modal],
+    [modal, t],
   );
 
   // One tab through the guard; resolves whether it actually closed.

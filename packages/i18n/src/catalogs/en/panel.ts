@@ -700,6 +700,18 @@ export const panel = {
   'panel.network.aboutTypeFilters': 'About request type filters',
   'panel.network.aboutSorting': 'About sorting',
 
+  // Traffic table cells — resolved once per locale into the CellMessages
+  // bundle (the row render loop is hot and never calls t() itself).
+  'panel.network.cell.workerGearTitle': "Request issued by the origin's service worker",
+  'panel.network.cell.jumpToPreflight': 'Jump to preflight request',
+  'panel.network.cell.selectPreflightInitiator': 'Select the request that initiated this preflight',
+  'panel.network.cell.pendingTitle': 'Request not finished yet',
+  'panel.network.cell.pending': 'Pending',
+  'panel.network.gridAria': 'Network requests',
+  'panel.network.noMatches': 'No matching requests.',
+  'panel.network.reloadPage': 'Reload page',
+  'panel.network.startRecording': 'Start recording',
+
   // View ▾ menu
   'panel.network.view.label': 'View',
   'panel.network.view.layout': 'Layout',
@@ -1264,6 +1276,14 @@ export const panel = {
   'panel.inspector.tabBar.noClosedTabsMatch': 'No closed tabs match your search',
   'panel.inspector.tabBar.recentlyClosed': 'Recently Closed ({count})',
   'panel.inspector.tabBar.recentlyClosedFiltered': 'Recently Closed ({matched} of {total})',
+
+  // Dirty-close confirm (useTabCloseGuard) — the body follows a bolded
+  // tab label in the JSX, so it keys as the sentence remainder.
+  'panel.inspector.tabBar.closeGuard.unsavedTitle': 'Save changes?',
+  'panel.inspector.tabBar.closeGuard.unsavedBody': 'has unsaved changes. Save these changes to avoid losing your work.',
+  'panel.inspector.tabBar.closeGuard.dontSave': 'Don’t save',
+  'panel.inspector.tabBar.closeGuard.cancel': 'Cancel',
+  'panel.inspector.tabBar.closeGuard.save': 'Save changes',
 
   // Tab context menu. Direction words are split directions, not the
   // layout menu's alignment nouns — separate referents, separate keys.

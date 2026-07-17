@@ -1,4 +1,5 @@
 import { hostNavigation } from '@openheaders/core/navigation';
+import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { ConnectionOpener } from '../../data/connection-openers';
 import { currentHarEntry, effectiveResourceType, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import {
@@ -26,6 +27,26 @@ import { getRole, type PreflightIndex } from './preflight-pairs';
 import ResourceIcon from './ResourceIcon';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
 import { WaterfallBar, type WaterfallScale } from './WaterfallBar';
+
+/** Cell copy resolved once per locale — the row render loop is hot and
+ *  never calls `t()` itself (the `annotationMessages` idiom). */
+export interface CellMessages {
+  workerGearTitle: string;
+  jumpToPreflight: string;
+  selectPreflightInitiator: string;
+  pendingTitle: string;
+  pending: string;
+}
+
+export function buildCellMessages(t: Translate): CellMessages {
+  return {
+    workerGearTitle: t('panel.network.cell.workerGearTitle'),
+    jumpToPreflight: t('panel.network.cell.jumpToPreflight'),
+    selectPreflightInitiator: t('panel.network.cell.selectPreflightInitiator'),
+    pendingTitle: t('panel.network.cell.pendingTitle'),
+    pending: t('panel.network.cell.pending'),
+  };
+}
 
 export interface CellContext {
   waterfall: WaterfallScale;
@@ -56,6 +77,8 @@ export interface CellContext {
   annotationMessages: RowAnnotationMessages;
   /** Open the row's inspector tab at the annotation's detail section. */
   onAnnotationJump: (requestId: string) => void;
+  /** Cell copy resolved once per locale — see {@link CellMessages}. */
+  cellMessages: CellMessages;
 }
 
 /**
@@ -81,7 +104,7 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
         {/* Worker-issued rows carry the browser's gear glyph before the name
             (its own ⚙ prefix for requests a service worker fired itself). */}
         {lc.issuedByWorker !== undefined && (
-          <span className="dt-col-name-gear" title="Request issued by the origin's service worker">
+          <span className="dt-col-name-gear" title={ctx.cellMessages.workerGearTitle}>
             ⚙
           </span>
         )}
@@ -104,7 +127,7 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
               e.stopPropagation();
               ctx.onJumpTo(role.peerId);
             }}
-            title="Jump to preflight request"
+            title={ctx.cellMessages.jumpToPreflight}
           >
             Preflight
           </button>
@@ -159,14 +182,14 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
               e.stopPropagation();
               ctx.onJumpTo(role.peerId);
             }}
-            title="Select the request that initiated this preflight"
+            title={ctx.cellMessages.selectPreflightInitiator}
           >
             Preflight
           </button>
           <span
             className="dt-preflight-info"
             aria-hidden="true"
-            title="Select the request that initiated this preflight"
+            title={ctx.cellMessages.selectPreflightInitiator}
           >
             ⓘ
           </span>
@@ -240,8 +263,8 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
       // coupled with the Status cell's held "(pending)" above. The preserved
       // "(unknown)" branch ran first, so this only catches current-page rows.
       return (
-        <span className="dt-col-cache" title="Request not finished yet">
-          Pending
+        <span className="dt-col-cache" title={ctx.cellMessages.pendingTitle}>
+          {ctx.cellMessages.pending}
         </span>
       );
     }

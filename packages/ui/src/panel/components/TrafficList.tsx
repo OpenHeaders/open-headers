@@ -33,7 +33,7 @@ import { type FilterHiddenHint, FilterHiddenNote } from './FilterHiddenNote';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
 import { AnnotationRailHeader, FireRailHeader } from './traffic/RailHeaders';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
-import { type CellContext } from './traffic/render-cell';
+import { buildCellMessages, type CellContext } from './traffic/render-cell';
 import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
 import { NetworkColumnInfo } from './traffic/NetworkColumnInfo';
 import { sortIndicator } from './traffic/sort';
@@ -423,6 +423,7 @@ export function TrafficList({
   // row loop and read these pre-resolved strings off the cell context.
   const t = useT();
   const annotationMessages = useMemo(() => buildRowAnnotationMessages(t), [t]);
+  const cellMessages = useMemo(() => buildCellMessages(t), [t]);
 
   // Connection-opener index over the full row set (not the filtered view) so a
   // reused-connection row can name its opener even when that row is scrolled out.
@@ -456,6 +457,7 @@ export function TrafficList({
       annotationCtx: { anchor: superseded, source: cdpEnhanced ? 'cdp' : 'heuristic' },
       annotationMessages,
       onAnnotationJump,
+      cellMessages,
     }),
     [
       waterfallScale,
@@ -467,6 +469,7 @@ export function TrafficList({
       resolvedInitiators,
       annotationMessages,
       onAnnotationJump,
+      cellMessages,
     ],
   );
 
@@ -579,7 +582,7 @@ export function TrafficList({
         ref={tableRef}
         onScroll={handleTableScroll}
         role="listbox"
-        aria-label="Network requests"
+        aria-label={t('panel.network.gridAria')}
         tabIndex={0}
         onKeyDown={handleTableKeyDown}
       >
@@ -645,11 +648,11 @@ export function TrafficList({
               className="dt-btn dt-btn-primary"
               onClick={recording ? onReloadPage : onStartRecording}
             >
-              {recording ? 'Reload page' : 'Start recording'}
+              {recording ? t('panel.network.reloadPage') : t('panel.network.startRecording')}
             </button>
           </div>
         ) : (
-          <div className="dt-empty">No matching requests.</div>
+          <div className="dt-empty">{t('panel.network.noMatches')}</div>
         ))}
       {rowMenu && selectedRow && (
         <RequestContextMenu
