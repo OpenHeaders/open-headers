@@ -1,13 +1,14 @@
 /**
  * Example-message synthesis — a message type rendered as a
  * canonical-JSON example the composer can start from ("Use Example
- * Message"). Deterministic and always encodable: scalars take their
- * zero-ish values (64-bit integers as strings per the F3 exact
- * lane), repeated fields and maps carry one sample entry, each oneof
- * picks its first arm, enums take their first declared value, and
- * the well-known types show their canonical JSON forms. Recursive
- * message cycles cut to an empty object; unresolved fields are
- * omitted.
+ * Message"). Deterministic and always encodable: scalars take
+ * field-aware samples (strings echo the field's JSON name, numbers
+ * are 1 — 64-bit integers as '1' per the F3 exact lane, bools true;
+ * bytes stay '' to remain valid base64), repeated fields and maps
+ * carry one sample entry, each oneof picks its first arm, enums take
+ * their first declared value, and the well-known types show their
+ * canonical JSON forms. Recursive message cycles cut to an empty
+ * object; unresolved fields are omitted.
  */
 
 import type { ProtoJsonValue } from './codec';
@@ -34,28 +35,29 @@ const WELL_KNOWN_EXAMPLES: ReadonlyMap<string, ProtoJsonValue> = new Map<string,
   ['google.protobuf.BytesValue', ''],
 ]);
 
-function scalarSample(scalar: ProtoScalarType): ProtoJsonValue {
+function scalarSample(scalar: ProtoScalarType, jsonName: string): ProtoJsonValue {
   switch (scalar) {
     case 'int64':
     case 'uint64':
     case 'sint64':
     case 'fixed64':
     case 'sfixed64':
-      return '0';
+      return '1';
     case 'bool':
-      return false;
+      return true;
     case 'string':
+      return jsonName;
     case 'bytes':
       return '';
     default:
-      return 0;
+      return 1;
   }
 }
 
 function mapKeySample(keyType: ProtoMapKeyType): string {
   if (keyType === 'string') return 'key';
-  if (keyType === 'bool') return 'false';
-  return '0';
+  if (keyType === 'bool') return 'true';
+  return '1';
 }
 
 /** Synthesize a canonical-JSON example for a message type. Throws
@@ -94,7 +96,7 @@ function exampleForMessage(registry: ProtoRegistry, fullName: string, stack: Set
 function fieldSample(registry: ProtoRegistry, field: RegistryField, stack: Set<string>): ProtoJsonValue {
   switch (field.type.kind) {
     case 'scalar':
-      return scalarSample(field.type.scalar);
+      return scalarSample(field.type.scalar, field.jsonName);
     case 'enum': {
       const entry = registry.enums.get(field.type.enum);
       return entry !== undefined && entry.values.length > 0 ? entry.values[0].name : 0;

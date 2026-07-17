@@ -56,7 +56,7 @@ describe('buildProtoCollectionPlan', () => {
     const getBook = library?.requests[0];
     expect(getBook?.seed.method).toEqual({ service: 'library.v1.Library', rpc: 'GetBook' });
     expect(getBook?.seed.specLink).toEqual({ specUid: 'spc00001' });
-    expect(JSON.parse(getBook?.seed.message ?? '')).toEqual({ name: '' });
+    expect(JSON.parse(getBook?.seed.message ?? '')).toEqual({ name: 'name' });
   });
 
   it('omits the message when the rpc input type does not resolve', () => {

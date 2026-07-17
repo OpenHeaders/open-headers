@@ -1,8 +1,9 @@
 /**
  * Example-message synthesis — "Use Example Message" ground truth.
  *
- * Pins the Phase B synthesis contract: deterministic zero-ish
- * scalars (64-bit as strings), one sample entry per repeated field
+ * Pins the synthesis contract: deterministic field-aware scalars
+ * (strings echo the field's JSON name, numbers are 1 — 64-bit as
+ * '1', bools true, bytes ''), one sample entry per repeated field
  * and map, the first arm per oneof, first declared enum value,
  * well-known canonical JSON samples, cycle cuts to `{}`, and
  * unresolved fields omitted. Every example must ENCODE cleanly —
@@ -57,14 +58,14 @@ describe('synthesizeExampleMessage', () => {
   it('synthesizes the full canonical-JSON shape for a message', () => {
     const registry = registryOf(BOOK);
     expect(synthesizeExampleMessage(registry, 'openheaders.library.v1.Book')).toEqual({
-      id: '',
-      authors: [''],
+      id: 'id',
+      authors: ['authors'],
       genre: 'GENRE_UNSPECIFIED',
       publishedAt: '2026-01-01T00:00:00Z',
-      labels: { key: '' },
-      reviewsById: { '0': { reviewer: '', stars: 0 } },
-      printRun: '0',
-      inStock: false,
+      labels: { key: 'labels' },
+      reviewsById: { '1': { reviewer: 'reviewer', stars: 1 } },
+      printRun: '1',
+      inStock: true,
     });
   });
 
@@ -80,7 +81,7 @@ package openheaders.graph;
 message Node { string name = 1; Node next = 2; }
 `);
     expect(synthesizeExampleMessage(registry, 'openheaders.graph.Node')).toEqual({
-      name: '',
+      name: 'name',
       next: {},
     });
   });
@@ -111,7 +112,7 @@ message Sampler {
 package openheaders.gap;
 message Holder { string id = 1; Missing thing = 2; }
 `);
-    expect(synthesizeExampleMessage(registry, 'openheaders.gap.Holder')).toEqual({ id: '' });
+    expect(synthesizeExampleMessage(registry, 'openheaders.gap.Holder')).toEqual({ id: 'id' });
     expect(() => synthesizeExampleMessage(registry, 'openheaders.gap.Nope')).toThrowError(ProtoCodecError);
   });
 });
