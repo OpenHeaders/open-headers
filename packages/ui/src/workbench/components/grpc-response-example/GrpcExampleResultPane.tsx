@@ -28,7 +28,7 @@ import {
   grpcOutputTypeOf,
   withoutGrpcStatusPair,
 } from '../grpc-request-editor/response-decode';
-import { isStreamCapture } from './grpc-example-draft';
+import { headPositionOf, isStreamCapture } from './grpc-example-draft';
 
 const { Text } = Typography;
 
@@ -62,6 +62,7 @@ const GrpcExampleResultPane: React.FC<GrpcExampleResultPaneProps> = ({ response,
     return {
       target,
       headArrived: true,
+      headAtMessage: headPositionOf(response),
       endedBy: response.stopped === true ? 'stop' : 'complete',
       ...(response.grpcStatus !== null
         ? { statusLabel: grpcStatusLabel(response.grpcStatus) }
@@ -70,7 +71,7 @@ const GrpcExampleResultPane: React.FC<GrpcExampleResultPaneProps> = ({ response,
         ? { endedMessage: response.grpcMessage }
         : {}),
     };
-  }, [method, response.stopped, response.grpcStatus, response.grpcMessage, t]);
+  }, [method, response, t]);
 
   const notices: string[] = [];
   if (!stream && response.messages.length > 1) {

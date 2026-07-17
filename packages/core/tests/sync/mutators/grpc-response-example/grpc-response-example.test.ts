@@ -72,10 +72,18 @@ describe('GrpcResponseExampleSchema', () => {
             { dataBase64: 'CgE=', compressed: false, direction: 'up' },
             { dataBase64: 'CgI=', compressed: false, direction: 'down' },
           ],
+          headAtMessage: 1,
           stopped: true,
         },
       }),
     ).not.toThrow();
+  });
+
+  it('rejects a negative head position', () => {
+    const e = example();
+    expect(() =>
+      v.parse(GrpcResponseExampleSchema, { ...e, response: { ...e.response, headAtMessage: -1 } }),
+    ).toThrow();
   });
 
   it('accepts a truncated body with its cap recorded', () => {

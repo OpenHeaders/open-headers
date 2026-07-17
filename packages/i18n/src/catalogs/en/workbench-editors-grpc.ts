@@ -144,6 +144,12 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterReceived': 'Received',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} message', other: '{count} messages' }),
+  'workbench.editors.grpc.timeline.sortOrder': 'Sort and group',
+  'workbench.editors.grpc.timeline.newestFirst': 'Newest first',
+  'workbench.editors.grpc.timeline.oldestFirst': 'Oldest first',
+  'workbench.editors.grpc.timeline.groupByType': 'Group by message type',
+  'workbench.editors.grpc.timeline.rowsPerGroup': 'Rows per group',
+  'workbench.editors.grpc.timeline.noLimit': 'No limit',
   'workbench.editors.grpc.timeline.clearMessages': 'Clear messages (display only)',
   'workbench.editors.grpc.timeline.newMessages': 'New messages',
   'workbench.editors.grpc.timeline.sentAria': 'Sent message',

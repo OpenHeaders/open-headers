@@ -74,6 +74,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         ...(live !== null ? { startedAt: live.startedAt } : {}),
         headArrived: live !== null && live.head !== null,
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
+        ...(live?.headAtMessage !== undefined ? { headAtMessage: live.headAtMessage } : {}),
       };
     }
     return {
@@ -81,6 +82,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
       ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
       headArrived: snapshot.error === null,
       ...(session?.connectedAt !== undefined ? { connectedAt: session.connectedAt } : {}),
+      ...(snapshot.headAtMessage !== undefined ? { headAtMessage: snapshot.headAtMessage } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'complete',
       ...(session?.endedAt !== undefined ? { endedAt: session.endedAt } : {}),
       ...(snapshot.grpcStatus !== null

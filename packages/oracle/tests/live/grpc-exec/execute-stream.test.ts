@@ -111,6 +111,8 @@ describe('executeGrpcStream — server-streaming ceremony', () => {
     expect(snapshot.grpcStatus).toBe(0);
     expect(snapshot.grpcStatusSource).toBe('trailers');
     expect(snapshot.messages.map((m) => m.direction)).toEqual(['up', 'down', 'down']);
+    // The ↑ request message preceded the head in call order — recorded.
+    expect(snapshot.headAtMessage).toBe(1);
     expect(snapshot.stopped).toBeUndefined();
     expect(snapshot.bodyBytes).toBe(writeGrpcFrame(encodedNote('one')).byteLength * 2);
   });
@@ -208,6 +210,7 @@ describe('executeGrpcStream — settle paths', () => {
     const snapshot = await pending;
     expect(snapshot.error).toBe('Connection refused by grpc.openheaders.io:443.');
     expect(snapshot.httpStatus).toBe(0);
+    expect(snapshot.headAtMessage).toBeUndefined();
   });
 
   it('a stop before the head maps onto the stopped error message', async () => {
@@ -251,6 +254,10 @@ describe('executeGrpcStream — live event feed', () => {
     await pending;
     expect(events.map((e) => e.kind)).toEqual(['head', 'messages', 'end']);
     expect(events.map((e) => e.seq)).toEqual([0, 1, 2]);
+    if (events[0].kind !== 'head') throw new Error('expected head frame');
+    // The ↑ rider preceded the head; the position rides the wire event
+    // so pooled messages can't distort the interleave order.
+    expect(events[0].afterMessages).toBe(1);
     if (events[1].kind !== 'messages') throw new Error('expected messages frame');
     expect(events[1].items.map((m) => m.direction)).toEqual(['up', 'down']);
     expect(events[1].items.every((m) => m.atMs > 0)).toBe(true);

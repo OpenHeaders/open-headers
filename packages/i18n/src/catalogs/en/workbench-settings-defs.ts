@@ -342,6 +342,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'SSE Events: Rows per Group',
   'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
     'When grouping by event name, show only this many of each group’s newest events — the window slides as new events arrive, so several groups stay watchable at once. 0 shows every event. The list toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'gRPC Messages: Newest First',
+  'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
+    'Order of the gRPC message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'gRPC Messages: Group by Message Type',
+  'workbench.settings.def.requests.grpcMessagesGroupByType.description':
+    'Cluster the gRPC message timeline under collapsible message-type headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC Messages: Rows per Group',
+  'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
+    'When grouping by message type, show only this many of each group’s newest messages — the window slides as new messages arrive, so several groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: Send Invalid Messages',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'When the gRPC message is not valid JSON, invoke anyway with an empty message and let the server answer — usually INVALID_ARGUMENT. Off by default: the invoke fails before the wire with the exact parse error.',

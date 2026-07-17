@@ -28,8 +28,11 @@ const FLUSH_MAX_MESSAGES = 256;
 // ── Stream-frame emitter ────────────────────────────────────────────
 
 export interface GrpcStreamEmitter {
-  /** Push the response head as soon as it arrives — one frame. */
-  head(httpStatus: number, headers: ReadonlyArray<{ key: string; value: string }>): void;
+  /** Push the response head as soon as it arrives — one frame.
+   *  `afterMessages` = messages already recorded in CALL order when the
+   *  head arrived; it rides the wire event so consumers can interleave
+   *  the head correctly even though pooled messages arrive after it. */
+  head(httpStatus: number, headers: ReadonlyArray<{ key: string; value: string }>, afterMessages: number): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: GrpcStreamMessageWire): void;
   /** Settle the emitter (any end path): flush pending messages, then
@@ -57,9 +60,9 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
   };
 
   return {
-    head(httpStatus, headers) {
+    head(httpStatus, headers, afterMessages) {
       if (settled) return;
-      emit({ sendId, seq: seq++, kind: 'head', httpStatus, headers: headers.map((h) => ({ ...h })) });
+      emit({ sendId, seq: seq++, kind: 'head', httpStatus, headers: headers.map((h) => ({ ...h })), afterMessages });
     },
     message(message) {
       if (settled) return;

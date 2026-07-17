@@ -69,6 +69,9 @@ export const CapturedGrpcResponseSchema = v.object({
   trailers: v.array(CapturedGrpcFieldSchema),
   /** Message frames in call order, both directions for streams. */
   messages: v.array(CapturedGrpcMessageFrameSchema),
+  /** How many of `messages` preceded the response head in call order —
+   *  the timeline's "Response received" interleave position. */
+  headAtMessage: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
   /** True when the body ended mid-frame at capture. */
   incompleteTail: v.optional(v.boolean()),
   /** True when the response exceeded the executor's byte cap. */

@@ -26,6 +26,7 @@ import {
   grpcExampleDraftFingerprint,
   grpcExampleSignature,
   grpcExampleToDraft,
+  headPositionOf,
   isStreamCapture,
 } from '@openheaders/ui/workbench/components/grpc-response-example/grpc-example-draft';
 import { type TabDisplayLookups, tabDisplayLabel } from '@openheaders/ui/workbench/tab-display';
@@ -179,6 +180,7 @@ describe('capturedGrpcResponseFromSnapshot', () => {
         { dataBase64: 'CgE=', compressed: false, direction: 'up' },
         { dataBase64: 'CgI=', compressed: true, direction: 'down' },
       ],
+      headAtMessage: 1,
       incompleteTail: true,
       bodyTruncated: true,
       bodyCapBytes: 1024,
@@ -195,8 +197,33 @@ describe('capturedGrpcResponseFromSnapshot', () => {
     expect(captured.incompleteTail).toBe(true);
     expect(captured.bodyTruncated).toBe(true);
     expect(captured.bodyCapBytes).toBe(1024);
+    expect(captured.headAtMessage).toBe(1);
     expect(captured.stopped).toBe(true);
     expect('executedOn' in captured).toBe(false);
+  });
+});
+
+describe('headPositionOf', () => {
+  it('reads the recorded position when the capture carries one', () => {
+    expect(headPositionOf({ ...example.response, headAtMessage: 2 })).toBe(2);
+  });
+
+  it('derives the first ↓ frame for pre-position captures — head precedes it on the wire', () => {
+    expect(
+      headPositionOf({
+        ...example.response,
+        messages: [
+          { dataBase64: 'CgE=', compressed: false, direction: 'up' },
+          { dataBase64: 'CgI=', compressed: false, direction: 'down' },
+        ],
+      }),
+    ).toBe(1);
+    expect(
+      headPositionOf({
+        ...example.response,
+        messages: [{ dataBase64: 'CgE=', compressed: false, direction: 'up' }],
+      }),
+    ).toBe(1);
   });
 });
 

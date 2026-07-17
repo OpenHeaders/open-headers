@@ -43,6 +43,9 @@ export interface LiveGrpcStream {
   startedAt: number;
   /** When the head arrived — the "Response received" row's time. */
   connectedAt?: number;
+  /** Messages that preceded the head in CALL order — the executor's
+   *  stamp off the head event, immune to message-batch pooling. */
+  headAtMessage?: number;
   /** Append-only message log; reference-stable, `count` committed. */
   items: GrpcStreamMessageWire[];
   count: number;
@@ -56,6 +59,7 @@ interface GrpcStreamAccumulator {
   startedAt: number;
   head: LiveGrpcStream['head'];
   connectedAt?: number;
+  headAtMessage?: number;
   items: GrpcStreamMessageWire[];
   timestamps: number[];
   lastSeq: number;
@@ -86,6 +90,7 @@ export function useLiveGrpcStream(): {
       head: acc.head,
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
+      ...(acc.headAtMessage !== undefined ? { headAtMessage: acc.headAtMessage } : {}),
       items: acc.items,
       count: acc.items.length,
       timestamps: acc.timestamps,

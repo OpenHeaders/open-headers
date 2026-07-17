@@ -78,6 +78,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
     const controller = new AbortController();
     let stopped = false;
     let headArrived = false;
+    let headAtMessage = 0;
     let settledResolve = false;
     let httpStatus = 0;
     let headers: Array<{ key: string; value: string }> = [];
@@ -137,6 +138,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         ...(status.message !== undefined ? { grpcMessage: status.message } : {}),
         grpcStatusSource: status.source,
         messages,
+        headAtMessage,
         ...(reader.pendingBytes() > 0 ? { incompleteTail: true } : {}),
         bodyTruncated: truncated,
         ...(truncated ? { bodyCapBytes: params.maxBodyBytes } : {}),
@@ -162,9 +164,10 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         {
           onHead: (status, incoming) => {
             headArrived = true;
+            headAtMessage = messages.length;
             httpStatus = status;
             headers = incoming.map((h) => ({ key: h.key, value: h.value }));
-            emitter?.head(httpStatus, headers);
+            emitter?.head(httpStatus, headers, headAtMessage);
           },
           onData: (chunk) => {
             if (truncated) return;

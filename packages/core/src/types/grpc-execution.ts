@@ -47,6 +47,10 @@ export interface ExecutedGrpcSnapshot {
   /** Unwrapped response message frames in wire order — one entry for a
    *  well-behaved unary reply; extras are captured and surfaced. */
   messages: ExecutedGrpcMessageFrame[];
+  /** How many of `messages` preceded the response head in CALL order —
+   *  where "Response received" interleaves into the timeline. Absent on
+   *  unary captures (no timeline) and calls that never produced a head. */
+  headAtMessage?: number;
   /** True when the body ended mid-frame (capped read, severed
    *  connection) — `messages` holds the complete frames that arrived. */
   incompleteTail?: boolean;

@@ -9,44 +9,66 @@
  * search box + message count on the left, controls on the right; rows
  * read glyph · name chip · preview · right-aligned session time. The
  * gRPC-specific parts stay: direction glyphs (↑ sent / ↓ received), a
- * direction filter, and lifecycle rows (Request sent at the top;
- * Response received once the head is in; Call completed / stopped /
- * failed at the bottom). The name chip is the frame's DECLARED type —
- * the rpc's request type for ↑, response type for ↓ — on the stable
- * badge palette; the wire-grammar `message` fallback (untranslated,
- * the SSE precedent) covers an unresolved method. Chip names join the
- * search haystack alongside the decoded previews.
- * Arrival order, oldest first — a call is a conversation, and new
- * messages land at the bottom edge the view follows until the user
- * scrolls away (then the jump pill floats instead of content moving
- * under them).
+ * direction filter, and lifecycle rows. The name chip is the frame's
+ * DECLARED type — the rpc's request type for ↑, response type for ↓ —
+ * on the stable badge palette; the wire-grammar `message` fallback
+ * (untranslated, the SSE precedent) covers an unresolved method. Chip
+ * names join the search haystack alongside the decoded previews.
+ *
+ * The timeline is ONE event log in true call order: "Request sent" and
+ * "Call completed / stopped / failed" sit at the chronological edges,
+ * and "Response received" INTERLEAVES at `lifecycle.headAtMessage` —
+ * the executor's recorded count of messages that preceded the response
+ * head in call order (a server stream's ↑ request message renders
+ * BEFORE the head; a bidi call's later ↑ messages after it). The
+ * position is recorded truth riding the head event and the capture,
+ * never inferred display-side.
+ *
+ * Sort and grouping are the SSE list's anatomy on gRPC's own
+ * `requests.grpcMessages*` SETTINGS (global, toolbar-written — the
+ * choices survive Invoke/Cancel remounts): newest-first by default
+ * with an arrival-order flip; "Group by message type" is CLUSTERING,
+ * not sorting — rows partition under collapsible type headers
+ * (arrival order intact within each group, group order ANCHORED to
+ * first appearance), an optional per-group row limit keeps each
+ * group's N newest rows watchable (headers keep real totals), and the
+ * group spanning the viewport top pins its header as a clickable
+ * sticky overlay. Grouped mode is not a timeline, so the head row
+ * joins "Request sent" at the chronological edge instead of
+ * interleaving.
  *
  * Rows expand into a mini viewer over the frame's decoded payload —
  * schema-driven canonical JSON against the rpc's request type (↑) or
  * response type (↓), the structural decode when the type doesn't
  * resolve, raw base64 otherwise (`deriveGrpcFrameView`, the F5.2
- * display-only posture). Search and Clear are display-only — the
- * capture is never touched. Per-item derivations cache on item
- * identity and reset when the registry or the resolved types change.
- * Timestamps are session-only (the ratified Phase E law): absent — on
- * a re-opened saved exchange — rows simply render no time.
+ * display-only posture). Search, filter and Clear are display-only —
+ * the capture is never touched. Per-item derivations cache on item
+ * identity and reset when the registry or the resolved types change;
+ * group identity is a closed function of the row's direction (two chip
+ * identities), so the grouping pass is one linear walk of primitive
+ * work. Timestamps are session-only (the ratified Phase E law):
+ * absent — on a re-opened saved exchange — rows simply render no time.
  */
 
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
+  CaretRightOutlined,
   CheckCircleOutlined,
+  CheckOutlined,
   ClearOutlined,
   DisconnectOutlined,
   SearchOutlined,
   SendOutlined,
+  SortAscendingOutlined,
 } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
-import { Button, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, Input, Popover, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
 import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
@@ -57,8 +79,9 @@ const { Text } = Typography;
  *  full payload. */
 const PREVIEW_MAX_CHARS = 400;
 
-/** Pinned border-box height of every single-line row — the virtual
- *  window's arithmetic depends on heights being exact by construction. */
+/** Pinned border-box height of every single-line row (message, group
+ *  header, lifecycle) — the virtual window's arithmetic depends on
+ *  heights being exact by construction. */
 const SINGLE_ROW_PX = 28;
 /** Pinned height of an expanded row's mini viewer (180px editor +
  *  1px divider). */
@@ -78,7 +101,7 @@ export interface GrpcTimelineItem {
   compressed: boolean;
 }
 
-/** How the call ended — drives the bottom lifecycle row. */
+/** How the call ended — drives the ended lifecycle row. */
 export type GrpcTimelineEndedBy = 'complete' | 'stop' | 'error';
 
 export interface GrpcTimelineLifecycle {
@@ -90,6 +113,10 @@ export interface GrpcTimelineLifecycle {
   headArrived: boolean;
   /** Session-only head-arrival time. */
   connectedAt?: number;
+  /** Messages preceding the response head in CALL order — where the
+   *  "Response received" row interleaves. Recorded by the executor
+   *  (head event / snapshot / capture); absent reads as 0. */
+  headAtMessage?: number;
   /** Absent while frames are still arriving — the live phase. */
   endedBy?: GrpcTimelineEndedBy;
   endedAt?: number;
@@ -119,6 +146,7 @@ interface GrpcMessageTimelineProps {
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
   | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'header'; name: string; count: number; collapsed: boolean }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -234,11 +262,29 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const t = useT();
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
+  // Sort-menu visibility is controlled: selecting an option keeps the
+  // menu OPEN (the app's popover convention — only an outside click or
+  // a trigger re-click closes), and the trigger's tooltip suppresses
+  // while the menu shows.
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [wrapLines, setWrapLines] = useState(true);
+  // Sort direction and grouping are SETTINGS — global, user-owned,
+  // written by this toolbar and the Settings page alike; an Invoke/
+  // Cancel remount never resets them.
+  const [newestFirst, setNewestFirst] = useSetting('requests.grpcMessagesNewestFirst');
+  const [groupByType, setGroupByType] = useSetting('requests.grpcMessagesGroupByType');
+  // Watch-several-groups-at-once: each group shows only its N newest
+  // rows (the window slides as messages arrive); 0 = no limit.
+  const [groupRowLimit, setGroupRowLimit] = useSetting('requests.grpcMessagesGroupRowLimit');
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // The group whose rows span the viewport top — its header pins as an
+  // overlay (a CSS-sticky header would virtualize out of the DOM), so
+  // the group identity + total stay visible and collapsible mid-scroll.
+  const [stickyGroup, setStickyGroup] = useState<string | null>(null);
 
   const derive = useMemo(
     () => makeFrameDerivations(registry, inputType, outputType),
@@ -247,26 +293,29 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
 
   // Per-direction name chips — a closed function of the resolved rpc
   // types, so every ↑ row shares one chip identity and every ↓ row the
-  // other.
+  // other. Group identity rides the same two chips.
   const chips = useMemo(
     () => ({ up: mintChip(inputType), down: mintChip(outputType) }),
     [inputType, outputType],
   );
 
-  // New messages land at the bottom edge; while the user reads away
-  // from it, a jump pill floats instead of content shifting.
+  const chipOf = (item: GrpcTimelineItem): DirectionChip => (item.direction === 'up' ? chips.up : chips.down);
+
+  // When the user has scrolled away from the edge where new rows land
+  // and more messages commit, a jump pill floats over the list instead
+  // of the content moving under them.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const awayFromBottomRef = useRef(false);
+  const awayFromNewEdgeRef = useRef(false);
   const prevCountRef = useRef(count);
   // Identity anchor recorded on every scroll — restored after list
   // mutations so content never shifts under a reading user.
   const anchorRef = useRef<{ key: string; offset: number } | null>(null);
   const [hasNewMessages, setHasNewMessages] = useState(false);
 
-  const jumpToNewest = () => {
+  const jumpToNewest = (toNewest: boolean) => {
     const el = scrollerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-    awayFromBottomRef.current = false;
+    if (el) el.scrollTop = toNewest ? 0 : el.scrollHeight;
+    awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
     setHasNewMessages(false);
   };
@@ -280,21 +329,30 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     setDirectionFilter('all');
     setClearedCount(0);
     setExpanded(new Set<number>());
+    setCollapsedGroups(new Set<string>());
     setHasNewMessages(false);
-    awayFromBottomRef.current = false;
+    awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
   }, [items]);
+
+  // Flipping the order lands the user at the new edge, pill cleared.
+  useEffect(() => {
+    jumpToNewest(newestFirst);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: jumpToNewest reads only refs.
+  }, [newestFirst]);
 
   useEffect(() => {
     const grew = count > prevCountRef.current;
     prevCountRef.current = count;
-    if (grew && awayFromBottomRef.current) setHasNewMessages(true);
+    if (grew && awayFromNewEdgeRef.current) setHasNewMessages(true);
   }, [count]);
 
   // Every message index passing the search + direction filter, arrival
-  // order — one linear pass of primitive work per commit/keystroke.
-  // The haystack is the chip name + the decoded preview.
-  const displayRows = useMemo(() => {
+  // (call) order ascending — one linear pass of primitive work per
+  // commit/keystroke. The haystack is the chip name + the decoded
+  // preview.
+  const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const chipNeedles = { up: chips.up.name.toLowerCase(), down: chips.down.name.toLowerCase() };
     const rows: number[] = [];
@@ -314,22 +372,135 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     return rows;
   }, [items, count, clearedCount, search, directionFilter, derive, chips]);
 
+  const displayRows = useMemo(
+    () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
+    [visibleRows, newestFirst],
+  );
+
+  // Partition the display rows under message-type headers. Group order
+  // ANCHORS to each type's first appearance in the log — a group never
+  // trades places once minted (new messages only change its contents);
+  // only a brand-new type mints a group, at the new edge. The sort
+  // direction flips the reading of that fixed order, and rows within a
+  // group keep the direction's arrival order.
+  const groups = useMemo(() => {
+    if (!groupByType) return null;
+    const firstSeen = new Map<string, number>();
+    for (let i = clearedCount; i < count; i++) {
+      const name = chipOf(items[i]).name;
+      if (!firstSeen.has(name)) firstSeen.set(name, i);
+    }
+    const byName = new Map<string, number[]>();
+    for (const index of displayRows) {
+      const name = chipOf(items[index]).name;
+      const bucket = byName.get(name);
+      if (bucket) bucket.push(index);
+      else byName.set(name, [index]);
+    }
+    const anchored = [...byName.entries()].sort((a, b) => (firstSeen.get(a[0]) ?? 0) - (firstSeen.get(b[0]) ?? 0));
+    return newestFirst ? anchored.reverse() : anchored;
+    // biome-ignore lint/correctness/useExhaustiveDependencies: chipOf derives from chips, which IS a dep.
+  }, [displayRows, groupByType, items, count, clearedCount, newestFirst, chips]);
+
   const filtering = search.trim() !== '' || directionFilter !== 'all';
   const live = lifecycle.endedBy === undefined;
 
-  const entries = useMemo(() => {
+  // The flat display list the virtual window runs over. The timeline
+  // is ONE event log: ungrouped, "Response received" interleaves at
+  // the recorded head position among the rows (flipping with the
+  // sort); grouped mode is clustering, so the head row joins "Request
+  // sent" at the chronological edge instead. Waiting/no-match notices
+  // sit at the edge new rows land on. O(display rows) pushes per
+  // commit; each group's entry-index range feeds the sticky header.
+  const { entries, groupRanges } = useMemo(() => {
     const out: ListEntry[] = [];
-    out.push({ key: 'sent', kind: 'sent' });
-    if (lifecycle.headArrived) out.push({ key: 'connected', kind: 'connected' });
-    if (live && count === 0) out.push({ key: 'waiting', kind: 'waiting' });
-    if (filtering && displayRows.length === 0 && count > clearedCount) out.push({ key: 'none', kind: 'noMatches' });
-    for (const index of displayRows) {
+    const ranges: Array<{ name: string; startEntry: number; endEntry: number }> = [];
+    const pushRow = (index: number) => {
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
+    };
+    const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
+    const notice: ListEntry | null =
+      live && count === 0
+        ? { key: 'waiting', kind: 'waiting' }
+        : filtering && displayRows.length === 0 && count > clearedCount
+          ? { key: 'none', kind: 'noMatches' }
+          : null;
+
+    // Top chronological edge.
+    if (newestFirst) {
+      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (notice) out.push(notice);
+    } else {
+      out.push({ key: 'sent', kind: 'sent' });
+      if (groups !== null && headAt !== null) out.push({ key: 'connected', kind: 'connected' });
     }
-    if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
-    return out;
-  }, [lifecycle.headArrived, lifecycle.endedBy, live, count, clearedCount, filtering, displayRows, expanded]);
+
+    if (groups !== null) {
+      for (const [name, indexes] of groups) {
+        const startEntry = out.length;
+        const collapsed = collapsedGroups.has(name);
+        out.push({ key: `h${name}`, kind: 'header', name, count: indexes.length, collapsed });
+        if (!collapsed) {
+          // displayRows order puts a group's newest member first in
+          // newest-first and last in oldest-first — the limit window
+          // slices the newest end either way.
+          const shown =
+            groupRowLimit > 0
+              ? newestFirst
+                ? indexes.slice(0, groupRowLimit)
+                : indexes.slice(-groupRowLimit)
+              : indexes;
+          for (const index of shown) pushRow(index);
+        }
+        ranges.push({ name, startEntry, endEntry: out.length });
+      }
+    } else {
+      // One event log in call order: walk ascending, drop the head row
+      // where the executor recorded it, then read the whole sequence
+      // in the sort direction.
+      const tokens: Array<number | 'connected'> = [];
+      let connectedPushed = false;
+      for (const index of visibleRows) {
+        if (headAt !== null && !connectedPushed && index >= headAt) {
+          tokens.push('connected');
+          connectedPushed = true;
+        }
+        tokens.push(index);
+      }
+      if (headAt !== null && !connectedPushed) tokens.push('connected');
+      if (newestFirst) tokens.reverse();
+      for (const token of tokens) {
+        if (token === 'connected') out.push({ key: 'connected', kind: 'connected' });
+        else pushRow(token);
+      }
+    }
+
+    // Bottom chronological edge.
+    if (newestFirst) {
+      if (groups !== null && headAt !== null) out.push({ key: 'connected', kind: 'connected' });
+      out.push({ key: 'sent', kind: 'sent' });
+    } else {
+      if (notice) out.push(notice);
+      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+    }
+    return { entries: out, groupRanges: ranges };
+  }, [
+    newestFirst,
+    lifecycle.headArrived,
+    lifecycle.headAtMessage,
+    lifecycle.endedBy,
+    live,
+    count,
+    clearedCount,
+    filtering,
+    visibleRows,
+    displayRows,
+    groups,
+    expanded,
+    collapsedGroups,
+    groupRowLimit,
+  ]);
 
   const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
 
@@ -339,15 +510,16 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     entries.length > 0,
   );
 
-  // Follow the bottom edge unless the user scrolled away; a reading
-  // user keeps the row under their viewport top exactly where it was.
-  // Skipped on an unlaid-out (jsdom) viewport, where everything
-  // renders anyway.
+  // Restore the identity anchor before paint after every list change:
+  // following the new edge pins to it (top for newest-first, bottom
+  // for oldest-first); a reading user keeps the row under their
+  // viewport top exactly where it was. Skipped on an unlaid-out
+  // (jsdom) viewport, where everything renders anyway.
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el || el.clientHeight === 0) return;
-    if (!awayFromBottomRef.current) {
-      const edgeTop = Math.max(0, (prefix[prefix.length - 1] ?? 0) - el.clientHeight);
+    if (!awayFromNewEdgeRef.current) {
+      const edgeTop = newestFirst ? 0 : Math.max(0, (prefix[prefix.length - 1] ?? 0) - el.clientHeight);
       if (Math.abs(el.scrollTop - edgeTop) > 1) {
         el.scrollTop = edgeTop;
         onWindowScroll();
@@ -363,7 +535,35 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       el.scrollTop = next;
       onWindowScroll();
     }
-  }, [entries, prefix, onWindowScroll]);
+  }, [entries, prefix, newestFirst, onWindowScroll]);
+
+  // Which group's rows span the viewport top — its header pins as the
+  // sticky overlay. Recomputed on scroll and after list mutations;
+  // meaningless (null) on an unlaid-out viewport.
+  const updateStickyGroup = (el: HTMLElement) => {
+    if (el.clientHeight === 0 || groupRanges.length === 0) {
+      setStickyGroup(null);
+      return;
+    }
+    const idx = entryIndexAt(prefix, el.scrollTop);
+    const range = groupRanges.find((r) => idx >= r.startEntry && idx < r.endEntry);
+    setStickyGroup(range ? range.name : null);
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: updateStickyGroup derives from entries/prefix, which ARE the deps.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (el) updateStickyGroup(el);
+  }, [entries, prefix]);
+
+  const toggleGroup = (name: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const toggleRow = (index: number) => {
     setExpanded((prev) => {
@@ -397,6 +597,63 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         {formatMessageTime(ts)}
       </span>
     ) : null;
+
+  const chipTag = (chip: DirectionChip, testid: string): React.ReactNode => (
+    <Tag
+      data-testid={testid}
+      color={chip.resolved ? chipColor(chip.name) : undefined}
+      style={{
+        marginInlineEnd: 0,
+        fontSize: 11,
+        lineHeight: '18px',
+        flexShrink: 0,
+        ...(chip.resolved ? {} : { fontStyle: 'italic', color: token.colorTextTertiary }),
+      }}
+    >
+      {chip.name}
+    </Tag>
+  );
+
+  /** A group's chip identity — resolved styling follows the direction
+   *  chip carrying that name. */
+  const groupChip = (name: string): DirectionChip =>
+    chips.up.name === name ? chips.up : chips.down.name === name ? chips.down : { name, resolved: true };
+
+  /** One group-header row — shared by the in-list entry and the sticky
+   *  overlay (same anatomy, same collapse action, distinct testid). */
+  const renderGroupHeaderRow = (
+    name: string,
+    memberCount: number,
+    collapsed: boolean,
+    testid: string,
+    key?: string,
+  ): React.ReactNode => (
+    <div
+      key={key}
+      role="button"
+      tabIndex={0}
+      aria-expanded={!collapsed}
+      data-testid={testid}
+      onClick={() => toggleGroup(name)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleGroup(name);
+        }
+      }}
+      style={{ ...singleRowStyle, background: token.colorFillQuaternary, cursor: 'pointer' }}
+    >
+      <CaretRightOutlined
+        aria-hidden
+        rotate={collapsed ? 0 : 90}
+        style={{ fontSize: 10, color: token.colorTextTertiary }}
+      />
+      {chipTag(groupChip(name), 'grpc-timeline-group-badge')}
+      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+        {t('workbench.editors.grpc.timeline.messageCount', { count: memberCount })}
+      </Text>
+    </div>
+  );
 
   const renderEntry = (entry: ListEntry): React.ReactNode => {
     switch (entry.kind) {
@@ -446,6 +703,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             <span>{t('workbench.editors.grpc.timeline.noMatches')}</span>
           </div>
         );
+      case 'header':
+        return renderGroupHeaderRow(entry.name, entry.count, entry.collapsed, 'grpc-timeline-group-header', entry.key);
       case 'row': {
         const item = items[entry.index];
         const up = item.direction === 'up';
@@ -480,19 +739,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 style={{ fontSize: 10, color: token.colorPrimary, flexShrink: 0 }}
               />
             )}
-            <Tag
-              data-testid="grpc-timeline-message-badge"
-              color={chip.resolved ? chipColor(chip.name) : undefined}
-              style={{
-                marginInlineEnd: 0,
-                fontSize: 11,
-                lineHeight: '18px',
-                flexShrink: 0,
-                ...(chip.resolved ? {} : { fontStyle: 'italic', color: token.colorTextTertiary }),
-              }}
-            >
-              {chip.name}
-            </Tag>
+            {chipTag(chip, 'grpc-timeline-message-badge')}
             <span
               style={{
                 ...cellFont,
@@ -553,6 +800,17 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     }
   };
 
+  // The pinned header overlay's source group — resolved fresh so the
+  // count and collapse state track the live list.
+  const stickySource = stickyGroup !== null && groups !== null ? groups.find(([n]) => n === stickyGroup) : undefined;
+
+  const menuOptionLabel = (label: string, checked: boolean): React.ReactNode => (
+    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      {label}
+      {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
+    </span>
+  );
+
   return (
     <div
       data-testid="grpc-message-timeline"
@@ -584,6 +842,64 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             { value: 'down', label: `↓ ${t('workbench.editors.grpc.timeline.filterReceived')}` },
           ]}
         />
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          open={sortMenuOpen}
+          onOpenChange={(open, info) => {
+            // Menu-item clicks keep the popover open; only the trigger
+            // and outside clicks change visibility.
+            if (info.source === 'menu') return;
+            setSortMenuOpen(open);
+          }}
+          menu={{
+            items: [
+              {
+                key: 'newest',
+                label: menuOptionLabel(t('workbench.editors.grpc.timeline.newestFirst'), newestFirst),
+                onClick: () => setNewestFirst(true),
+              },
+              {
+                key: 'oldest',
+                label: menuOptionLabel(t('workbench.editors.grpc.timeline.oldestFirst'), !newestFirst),
+                onClick: () => setNewestFirst(false),
+              },
+              { type: 'divider' },
+              {
+                key: 'group',
+                label: menuOptionLabel(t('workbench.editors.grpc.timeline.groupByType'), groupByType),
+                onClick: () => setGroupByType(!groupByType),
+              },
+              {
+                key: 'group-limit',
+                label: t('workbench.editors.grpc.timeline.rowsPerGroup'),
+                disabled: !groupByType,
+                children: [0, 5, 10, 25, 50].map((n) => ({
+                  key: `group-limit-${n}`,
+                  label: menuOptionLabel(
+                    n === 0 ? t('workbench.editors.grpc.timeline.noLimit') : String(n),
+                    groupRowLimit === n,
+                  ),
+                  onClick: () => setGroupRowLimit(n),
+                })),
+              },
+            ],
+          }}
+        >
+          <Tooltip
+            title={t('workbench.editors.grpc.timeline.sortOrder')}
+            placement="bottom"
+            open={sortMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<SortAscendingOutlined />}
+              data-testid="grpc-timeline-sort"
+              aria-label={t('workbench.editors.grpc.timeline.sortOrder')}
+            />
+          </Tooltip>
+        </Dropdown>
         <Tooltip
           title={
             wrapLines
@@ -613,17 +929,39 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         </Tooltip>
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        {stickySource !== undefined && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 1,
+              right: 1,
+              zIndex: 1,
+              background: token.colorBgContainer,
+              borderTopLeftRadius: 4,
+              borderTopRightRadius: 4,
+              overflow: 'hidden',
+            }}
+          >
+            {renderGroupHeaderRow(
+              stickySource[0],
+              stickySource[1].length,
+              collapsedGroups.has(stickySource[0]),
+              'grpc-timeline-sticky-header',
+            )}
+          </div>
+        )}
         {hasNewMessages && (
           <Button
             size="small"
             type="primary"
             shape="round"
-            icon={<ArrowDownOutlined />}
+            icon={newestFirst ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
             data-testid="grpc-timeline-new-messages"
-            onClick={jumpToNewest}
+            onClick={() => jumpToNewest(newestFirst)}
             style={{
               position: 'absolute',
-              bottom: 8,
+              ...(newestFirst ? { top: 8 } : { bottom: 8 }),
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 2,
@@ -638,8 +976,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           ref={scrollerRef}
           onScroll={(e) => {
             const el = e.currentTarget;
-            const away = el.scrollHeight - el.scrollTop - el.clientHeight > 4;
-            awayFromBottomRef.current = away;
+            const away = newestFirst ? el.scrollTop > 4 : el.scrollHeight - el.scrollTop - el.clientHeight > 4;
+            awayFromNewEdgeRef.current = away;
             if (away) {
               const idx = entryIndexAt(prefix, el.scrollTop);
               const entry = entries[idx];
@@ -648,6 +986,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               anchorRef.current = null;
               setHasNewMessages(false);
             }
+            updateStickyGroup(el);
             onWindowScroll();
           }}
           className="rules-thin-scrollbar"

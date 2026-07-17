@@ -81,6 +81,7 @@ export function capturedGrpcResponseFromSnapshot(snapshot: ExecutedGrpcSnapshot)
       compressed: m.compressed,
       ...(m.direction === undefined ? {} : { direction: m.direction }),
     })),
+    ...(snapshot.headAtMessage === undefined ? {} : { headAtMessage: snapshot.headAtMessage }),
     ...(snapshot.incompleteTail === undefined ? {} : { incompleteTail: snapshot.incompleteTail }),
     bodyTruncated: snapshot.bodyTruncated,
     ...(snapshot.bodyCapBytes === undefined ? {} : { bodyCapBytes: snapshot.bodyCapBytes }),
@@ -97,6 +98,19 @@ export function capturedGrpcResponseFromSnapshot(snapshot: ExecutedGrpcSnapshot)
  */
 export function isStreamCapture(response: CapturedGrpcResponse): boolean {
   return response.messages.some((m) => m.direction !== undefined);
+}
+
+/**
+ * Where "Response received" interleaves into the captured frame order:
+ * the recorded position when the capture carries one, else the first ↓
+ * frame's index — response headers always precede the first received
+ * message on the wire, so the derivation is exact for captures saved
+ * before the position was recorded.
+ */
+export function headPositionOf(response: CapturedGrpcResponse): number {
+  if (response.headAtMessage !== undefined) return response.headAtMessage;
+  const firstDown = response.messages.findIndex((m) => (m.direction ?? 'down') === 'down');
+  return firstDown >= 0 ? firstDown : response.messages.length;
 }
 
 /** Uid-free structural fingerprint over everything editable. */

@@ -14,6 +14,9 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.sseEventsGroupByName': boolean;
     'requests.sseEventsGroupRowLimit': number;
     'requests.grpcSendInvalidMessage': boolean;
+    'requests.grpcMessagesNewestFirst': boolean;
+    'requests.grpcMessagesGroupByType': boolean;
+    'requests.grpcMessagesGroupRowLimit': number;
   }
 }
 
@@ -76,6 +79,46 @@ registerSetting({
   category: 'requests',
   tags: ['sse', 'stream', 'events', 'group', 'cluster', 'name'],
   scope: 'user',
+});
+
+// The gRPC message timeline's order and grouping — the SSE trio's
+// sibling (own keys: the two lists are independent surfaces), written
+// by the timeline's own toolbar too.
+registerSetting({
+  key: 'requests.grpcMessagesNewestFirst',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.grpcMessagesNewestFirst.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcMessagesNewestFirst.description',
+  category: 'requests',
+  tags: ['grpc', 'stream', 'messages', 'timeline', 'sort', 'order', 'newest', 'oldest'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'requests.grpcMessagesGroupByType',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.grpcMessagesGroupByType.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcMessagesGroupByType.description',
+  category: 'requests',
+  tags: ['grpc', 'stream', 'messages', 'timeline', 'group', 'cluster', 'type'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'requests.grpcMessagesGroupRowLimit',
+  type: 'number',
+  default: 0,
+  schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
+  labelKey: 'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description',
+  category: 'requests',
+  tags: ['grpc', 'stream', 'messages', 'timeline', 'group', 'limit', 'rows', 'watch'],
+  scope: 'user',
+  numberRange: { min: 0, max: 100, step: 1 },
 });
 
 // Watch-several-groups-at-once mode: each group shows only its N

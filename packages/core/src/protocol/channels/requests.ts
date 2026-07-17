@@ -100,6 +100,11 @@ export type GrpcStreamEventWire =
       kind: 'head';
       httpStatus: number;
       headers: Array<{ key: string; value: string }>;
+      /** How many messages preceded the head in CALL order, stamped by
+       *  the executor — the timeline's interleave position. Message
+       *  batching means the head event can outrun pooled ↑ frames on
+       *  the wire; this count is the order truth. */
+      afterMessages: number;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
   | { sendId: string; seq: number; kind: 'end' };

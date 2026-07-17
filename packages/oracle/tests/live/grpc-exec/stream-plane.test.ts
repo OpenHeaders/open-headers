@@ -32,11 +32,11 @@ describe('createGrpcStreamEmitter', () => {
   it('emits the head immediately and pools messages until the flush window', () => {
     const events: GrpcStreamEventWire[] = [];
     const emitter = createGrpcStreamEmitter('send-1', (e) => events.push(e));
-    emitter.head(200, [{ key: 'content-type', value: 'application/grpc+proto' }]);
+    emitter.head(200, [{ key: 'content-type', value: 'application/grpc+proto' }], 1);
     emitter.message(msg('down'));
     emitter.message(msg('down'));
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ kind: 'head', httpStatus: 200, seq: 0 });
+    expect(events[0]).toMatchObject({ kind: 'head', httpStatus: 200, seq: 0, afterMessages: 1 });
     vi.advanceTimersByTime(100);
     expect(events).toHaveLength(2);
     expect(events[1]).toMatchObject({ kind: 'messages', seq: 1 });
@@ -61,7 +61,7 @@ describe('createGrpcStreamEmitter', () => {
     expect(events.map((e) => e.kind)).toEqual(['messages', 'end']);
     expect(events.map((e) => e.seq)).toEqual([0, 1]);
     emitter.message(msg('down'));
-    emitter.head(200, []);
+    emitter.head(200, [], 0);
     emitter.end();
     expect(events).toHaveLength(2);
   });
