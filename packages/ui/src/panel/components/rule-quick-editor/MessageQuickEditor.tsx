@@ -34,6 +34,9 @@ import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
 
+// JSON format example — raw by design across the rule editors.
+const PAYLOAD_EXAMPLE = '{"key": "value"}';
+
 const OPERATION_LABEL_KEY = {
   modify: 'workbench.editors.rule.fields.message.opReplace',
   inject: 'workbench.editors.rule.fields.message.opInject',
@@ -165,7 +168,7 @@ export function MessageQuickEditor({
               allowClear
               value={draft.payload ?? ''}
               onChange={(v) => updateDraft({ payload: v })}
-              placeholder={'{"key": "value"}'}
+              placeholder={PAYLOAD_EXAMPLE}
               suggestionContext={{ collectionId }}
               style={{
                 width: '100%',

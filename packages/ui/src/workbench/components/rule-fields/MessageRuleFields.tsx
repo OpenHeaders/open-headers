@@ -22,6 +22,9 @@ import SectionInfo from '../shared/SectionInfo';
 
 const { Text } = Typography;
 
+// JSON format example — raw by design across the rule editors.
+const PAYLOAD_EXAMPLE = '{"key": "value"}';
+
 interface MessageRuleFieldsProps {
   kind: 'ws' | 'sse';
 }
@@ -239,7 +242,7 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
                   </div>
                   <EntityField path={paths.messagePayload}>
                     <Form.Item name={f.payload} style={{ marginBottom: 0 }}>
-                      <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={120} />
+                      <CodeEditor language="json" placeholder={PAYLOAD_EXAMPLE} minHeight={120} />
                     </Form.Item>
                   </EntityField>
                 </div>

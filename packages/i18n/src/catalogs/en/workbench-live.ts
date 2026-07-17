@@ -370,6 +370,7 @@ export const workbenchLive = {
   'workbench.editors.live.fromRequests.hint': 'Each selected request becomes a workflow step, in the order shown.',
 
   // ── Extractor picker (capture extraction kinds) ─────────────────────
+  'workbench.editors.live.extractor.groupPlaceholder': 'group',
   'workbench.editors.live.extractor.groupBody': 'Response body',
   'workbench.editors.live.extractor.groupResponse': 'Response',
   'workbench.editors.live.extractor.wholeBody': 'Whole body',

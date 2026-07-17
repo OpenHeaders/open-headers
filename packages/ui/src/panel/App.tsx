@@ -702,7 +702,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       }
       const row = data.lookupByRequestId.get(tab.requestId);
       if (!row) {
-        return <div className="dt-editor-empty">Request no longer available (cleared or navigated away)</div>;
+        return <div className="dt-editor-empty">{t('panel.inspector.detailEmpty.requestGone')}</div>;
       }
       const isActiveTab = tab.id === groups.activeTabId;
       return (
@@ -761,6 +761,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       searchSection,
       searchLineNumber,
       searchMatchIndex,
+      t,
     ],
   );
 
@@ -770,11 +771,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         {/* Single span: the container is a flex centerer, which would
           * swallow the whitespace between its anonymous text items. */}
         <span>
-          Select a request from the <GlobalOutlined aria-hidden="true" /> Network panel to inspect
+          {t('panel.inspector.detailEmpty.selectPrefix')} <GlobalOutlined aria-hidden="true" />{' '}
+          {t('panel.inspector.detailEmpty.selectSuffix')}
         </span>
       </div>
     ),
-    [],
+    [t],
   );
 
   const activeTab = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);

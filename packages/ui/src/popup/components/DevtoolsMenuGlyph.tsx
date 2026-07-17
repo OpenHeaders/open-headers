@@ -125,7 +125,7 @@ export const DevtoolsMenuGlyph: React.FC = () => {
       {/* "Developer ▸" highlighted row */}
       <rect x={viewItem ? viewItem.x - 2 : 12} y={menuBarH + 38} width={48} height={10} fill={FILL_SECONDARY} stroke={BORDER} />
       <text x={(viewItem ? viewItem.x - 2 : 12) + 4} y={menuBarH + 45} fontSize={6} fontWeight={700} fill={TEXT}>
-        Developer
+        {t('popup.debug.menuGlyphDeveloper')}
       </text>
       <text x={(viewItem ? viewItem.x - 2 : 12) + 44} y={menuBarH + 45} textAnchor="end" fontSize={7} fill={TEXT_DIM}>
         ▸
@@ -135,7 +135,7 @@ export const DevtoolsMenuGlyph: React.FC = () => {
       <rect x={subX} y={menuBarH + 34} width={subW} height={30} rx={2} fill={BG_CONTAINER} stroke={BORDER} />
       <rect x={subX} y={menuBarH + 37} width={subW} height={9} fill={PRIMARY} />
       <text x={subX + 4} y={menuBarH + 43.5} fontSize={6} fontWeight={700} fill="#fff">
-        Developer Tools
+        {t('popup.debug.menuGlyphDeveloperTools')}
       </text>
       {[0, 1].map((i) => (
         <rect

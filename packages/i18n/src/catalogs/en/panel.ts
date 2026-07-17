@@ -1210,6 +1210,17 @@ export const panel = {
     'Remove All strips the entire query string — the other operations in this rule will be ignored.',
   'panel.quickEditor.auth.challengesHint':
     'Answers server (401) and proxy (407) authentication challenges on matching requests.',
+  // Placeholder examples carry the `{{ns.NAME}}` reference syntax raw
+  // inside the keyed value (args-less t() skips interpolation).
+  'panel.quickEditor.auth.usernamePlaceholder': 'e.g. dev-user or {{env.PROXY_USER}}',
+  'panel.quickEditor.auth.passwordPlaceholder': 'e.g. {{vault.STAGING_PW}}',
+
+  // ── Inspector detail empty states ────────────────────────────────────
+  // The select prompt flanks an inline Network-panel glyph, so it keys
+  // as prefix + suffix fragments.
+  'panel.inspector.detailEmpty.requestGone': 'Request no longer available (cleared or navigated away)',
+  'panel.inspector.detailEmpty.selectPrefix': 'Select a request from the',
+  'panel.inspector.detailEmpty.selectSuffix': 'Network panel to inspect',
 
   // ── Rule hover popover (fire-snapshot plane) ─────────────────────────
   // Raw by design: header names/values, `{{template}}` text, the
@@ -1415,6 +1426,8 @@ export const panel = {
   'panel.inspector.headers.filterPlaceholder':
     'Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …',
   'panel.inspector.headers.filterAria': 'Filter headers',
+  'panel.inspector.headers.section.response': 'Response Headers',
+  'panel.inspector.headers.section.request': 'Request Headers',
   'panel.inspector.headers.footprintTitle': '{rules} — click to open Matched Rules',
 
   // General section + the rule-creation CTAs on its summary. The
@@ -2294,6 +2307,9 @@ export const panel = {
   // Column / rail (i) corpora — titles are raw column nouns; kickers
   // reuse the section-tab keys; the fire-rail kicker is the raw brand.
   'panel.inspector.messages.columnInfo.exampleCaption': 'Example frame',
+  // Fragment between the length and time tokens in the example card's
+  // meta line ('42 chars · 18:00:01').
+  'panel.inspector.messages.columnInfo.exampleChars': 'chars ·',
   'panel.inspector.messages.columnInfo.data.summary': 'The frame payload — text frames show their content verbatim.',
   'panel.inspector.messages.columnInfo.data.description':
     'Select a row to open the payload viewer: a JSON tree when the text parses, a Base64 / Hex / UTF-8 viewer for binary frames.',

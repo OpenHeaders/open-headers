@@ -18,6 +18,9 @@ import { AutoComplete, Select, theme } from 'antd';
 import { type ReactNode, useMemo } from 'react';
 import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 
+// JSON format example — raw by design across the rule editors.
+const RESPONSE_BODY_EXAMPLE = '{"message": "custom response", "data": []}';
+
 export interface ResponseQuickFieldsProps {
   draft: ResponseQuickDraft;
   updateDraft: (patch: Partial<ResponseQuickDraft>) => void;
@@ -104,7 +107,7 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
             allowClear
             value={draft.responseBody}
             onChange={(v) => updateDraft({ responseBody: v })}
-            placeholder={'{"message": "custom response", "data": []}'}
+            placeholder={RESPONSE_BODY_EXAMPLE}
             suggestionContext={{ collectionId }}
             style={{
               width: '100%',

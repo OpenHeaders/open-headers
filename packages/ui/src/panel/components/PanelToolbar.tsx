@@ -38,6 +38,9 @@ const SettingsModalLazy = lazy(() =>
   import('@openheaders/ui/workbench/settings/ui').then((m) => ({ default: m.SettingsModal })),
 );
 
+// The brand name stacked one word per line — proper noun, never localized.
+const BRAND_TITLE_LINES = ['Open', 'Headers'] as const;
+
 function IconRecord({ active }: { active: boolean }) {
   return active ? (
     <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
@@ -199,8 +202,11 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
         <img src={hostAssets.resolveUrl('images/logo-pixel.svg')} alt="Open Headers" className="dt-brand-logo" />
         {showToolWindowLabels && (
           <span className="dt-brand-title">
-            <span className="dt-brand-title-line">Open</span>
-            <span className="dt-brand-title-line">Headers</span>
+            {BRAND_TITLE_LINES.map((line) => (
+              <span key={line} className="dt-brand-title-line">
+                {line}
+              </span>
+            ))}
           </span>
         )}
       </div>

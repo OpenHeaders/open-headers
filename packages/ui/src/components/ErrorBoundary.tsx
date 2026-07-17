@@ -1,5 +1,6 @@
 import { Button, Result } from 'antd';
 import React from 'react';
+import { LocaleContext } from '@openheaders/ui/context/LocaleContext';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -11,6 +12,12 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Class component — reads `t` off the context object. When mounted
+  // above the LocaleProvider the context default (English) applies,
+  // which is the right fallback for a crashed tree anyway.
+  static contextType = LocaleContext;
+  declare context: React.ContextType<typeof LocaleContext>;
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -33,15 +40,16 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   render(): React.ReactNode {
     if (this.state.hasError) {
+      const { t } = this.context;
       return (
         <div style={{ padding: '20px' }}>
           <Result
             status="error"
-            title="Something went wrong"
-            subTitle="There was an error loading the popup. Please try closing and reopening it."
+            title={t('shared.errorBoundary.title')}
+            subTitle={t('shared.errorBoundary.subtitle')}
             extra={
               <Button type="primary" onClick={() => window.location.reload()}>
-                Reload
+                {t('shared.errorBoundary.reload')}
               </Button>
             }
           />

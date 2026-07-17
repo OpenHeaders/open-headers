@@ -151,7 +151,7 @@ export function AuthQuickEditor({
                 allowClear
                 value={draft.username ?? ''}
                 onChange={(v) => updateDraft({ username: v })}
-                placeholder="e.g. dev-user or {{env.PROXY_USER}}"
+                placeholder={t('panel.quickEditor.auth.usernamePlaceholder')}
                 suggestionContext={{ collectionId }}
                 flagUnresolved
                 style={{ width: '100%' }}
@@ -172,7 +172,7 @@ export function AuthQuickEditor({
                 allowClear
                 value={draft.password ?? ''}
                 onChange={(v) => updateDraft({ password: v })}
-                placeholder="e.g. {{vault.STAGING_PW}}"
+                placeholder={t('panel.quickEditor.auth.passwordPlaceholder')}
                 suggestionContext={{ collectionId }}
                 flagUnresolved
                 style={{ width: '100%' }}

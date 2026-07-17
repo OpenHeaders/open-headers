@@ -745,6 +745,22 @@ export const workbenchChrome = {
   'workbench.activityFeed.kind.scopeWidenedTip':
     'A rule condition was loosened — the rule now matches a wider URL/method set.',
 
+  // ── Shared markdown widgets (toolbar + highlighted code block) ──────
+  'workbench.markdown.heading': 'Heading',
+  'workbench.markdown.bold': 'Bold',
+  'workbench.markdown.italic': 'Italic',
+  'workbench.markdown.strikethrough': 'Strikethrough',
+  'workbench.markdown.codeBlock': 'Code block',
+  'workbench.markdown.link': 'Link',
+  'workbench.markdown.bulletedList': 'Bulleted list',
+  'workbench.markdown.numberedList': 'Numbered list',
+  'workbench.markdown.table': 'Table',
+  'workbench.markdown.copyCode': 'Copy code',
+  'workbench.markdown.copied': 'Copied',
+
+  // ── Two-tone icon picker ────────────────────────────────────────────
+  'workbench.iconPicker.searchPlaceholder': 'Search icons...',
+
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies
   // only the separating space. ────────────────────────────────────────

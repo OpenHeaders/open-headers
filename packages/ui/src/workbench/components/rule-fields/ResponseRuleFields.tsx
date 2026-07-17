@@ -45,6 +45,9 @@ import { CONTENT_TYPE_OPTIONS, STATUS_CODES } from './status-codes';
 
 const { Text } = Typography;
 
+// JSON format example — raw by design across the rule editors.
+const RESPONSE_BODY_EXAMPLE = '{"message": "custom response", "data": []}';
+
 // network + dynamic — the real response is fetched, then transformed.
 export const RESPONSE_MODIFY_TEMPLATE = `function modifyResponse(args) {
   const { method, url, response, responseType, requestHeaders, requestData, responseJSON } = args;
@@ -477,7 +480,7 @@ const ResponseRuleFields: React.FC = () => {
                       <Form.Item name="responseStaticBody" style={{ marginBottom: 0 }}>
                         <CodeEditor
                           language="json"
-                          placeholder={'{"message": "custom response", "data": []}'}
+                          placeholder={RESPONSE_BODY_EXAMPLE}
                           minHeight={160}
                           valueDetection
                         />

@@ -10,6 +10,9 @@ import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/inf
 import { useMemo } from 'react';
 import type { SseColumnKey } from './sse-grid';
 
+// SSE wire field name preceding the example id — protocol vocabulary.
+const SSE_ID_FIELD = 'id';
+
 /** The single event every column popover illustrates. */
 const EX = {
   id: '42',
@@ -33,8 +36,7 @@ function ExampleCard({ column }: { column: SseColumnKey }) {
           {tok('type', EX.type)} {tok('data', EX.data)}
         </div>
         <div className="dt-col-eg-line dt-col-eg-meta">
-          {'id '}
-          {tok('id', EX.id)}
+          {SSE_ID_FIELD} {tok('id', EX.id)}
           {' · '}
           {tok('time', EX.time)}
         </div>

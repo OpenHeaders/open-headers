@@ -26,6 +26,9 @@ import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
 
+// JSON format example — raw by design across the rule editors.
+const GRAPHQL_BODY_EXAMPLE = '{"query": "…", "variables": {}}';
+
 export interface RequestBodyQuickEditorProps {
   anchorEl: HTMLElement;
   /** Live rule at open time — refreshed from the sync mirror below. */
@@ -140,7 +143,7 @@ export function RequestBodyQuickEditor({
               allowClear
               value={draft.requestBody ?? ''}
               onChange={(v) => updateDraft({ requestBody: v })}
-              placeholder={'{"query": "…", "variables": {}}'}
+              placeholder={GRAPHQL_BODY_EXAMPLE}
               suggestionContext={{ collectionId }}
               style={{
                 width: '100%',

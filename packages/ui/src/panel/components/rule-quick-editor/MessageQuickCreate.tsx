@@ -39,6 +39,9 @@ import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
+// JSON format example — raw by design across the rule editors.
+const PAYLOAD_EXAMPLE = '{"key": "value"}';
+
 export interface MessageQuickCreateProps {
   anchorEl: HTMLElement;
   /** Captured frame/event draft built by the row action (`rule-draft-bridge`). */
@@ -252,7 +255,7 @@ export function MessageQuickCreate({
             allowClear
             value={quick.payload}
             onChange={(v) => patch({ payload: v })}
-            placeholder={'{"key": "value"}'}
+            placeholder={PAYLOAD_EXAMPLE}
             suggestionContext={{ collectionId }}
             style={{
               width: '100%',

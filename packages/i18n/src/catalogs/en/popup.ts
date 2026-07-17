@@ -428,4 +428,8 @@ export const popup = {
   'popup.debug.menuGlyphAria': 'Open View menu → Developer → Developer Tools',
   'popup.debug.tabGlyphAria':
     'DevTools docked with Open Headers tab selected — sidebars, network list and multi-tab split panes',
+  // Menu-glyph mock labels — the browser's own menu rows, which the
+  // browser localizes, so the mock localizes with them.
+  'popup.debug.menuGlyphDeveloper': 'Developer',
+  'popup.debug.menuGlyphDeveloperTools': 'Developer Tools',
 } as const satisfies Catalog;

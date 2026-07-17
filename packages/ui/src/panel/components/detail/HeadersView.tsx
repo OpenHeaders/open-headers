@@ -437,7 +437,7 @@ export function HeadersView({
       </details>
 
       <HeaderSection
-        label="Response Headers"
+        label={t('panel.inspector.headers.section.response')}
         direction="response"
         rows={responseHeaders}
         row={row}
@@ -457,7 +457,7 @@ export function HeadersView({
       />
 
       <HeaderSection
-        label="Request Headers"
+        label={t('panel.inspector.headers.section.request')}
         direction="request"
         rows={requestHeaders}
         row={row}

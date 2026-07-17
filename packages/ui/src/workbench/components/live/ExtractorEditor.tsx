@@ -100,7 +100,7 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
             size={size}
             style={{ width: 90, flexShrink: 0 }}
             min={0}
-            placeholder="group"
+            placeholder={t('workbench.editors.live.extractor.groupPlaceholder')}
             value={value.group}
             onChange={(group) =>
               onChange({

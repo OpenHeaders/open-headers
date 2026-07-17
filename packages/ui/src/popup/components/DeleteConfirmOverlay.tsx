@@ -35,16 +35,16 @@ const DeleteConfirmOverlay: React.FC<DeleteConfirmOverlayProps> = ({ pendingDele
       <span className="delete-confirm-name">{t('popup.deleteConfirm.title', { name: displayName })}</span>
       <div className="delete-confirm-actions">
         <span className="delete-confirm-action delete-action">
-          <span className="kbd-key" style={{ fontSize: 10, minWidth: 18 }}>
+          <kbd className="kbd-key" style={{ fontSize: 10, minWidth: 18 }}>
             d
-          </span>
+          </kbd>
           <span>{t('popup.deleteConfirm.confirm')}</span>
         </span>
         <div className="delete-confirm-divider" />
         <span className="delete-confirm-action">
-          <span className="kbd-key" style={{ fontSize: 10, minWidth: 28 }}>
+          <kbd className="kbd-key" style={{ fontSize: 10, minWidth: 28 }}>
             esc
-          </span>
+          </kbd>
           <span>{t('popup.deleteConfirm.cancel')}</span>
         </span>
       </div>

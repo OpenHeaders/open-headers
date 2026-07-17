@@ -18,6 +18,11 @@ export const shared = {
   'shared.count.rules': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} rule', other: '{count} rules' }),
 
+  // ── Top-level error boundary ─────────────────────────────────────────
+  'shared.errorBoundary.title': 'Something went wrong',
+  'shared.errorBoundary.subtitle': 'There was an error loading the popup. Please try closing and reopening it.',
+  'shared.errorBoundary.reload': 'Reload',
+
   // ── Connection-probe notices ─────────────────────────────────────────
   // Fired by every surface that verifies a back-end wire (Test
   // connection, the probe-gated enable switch).

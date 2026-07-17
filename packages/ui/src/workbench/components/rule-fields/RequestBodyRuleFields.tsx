@@ -36,6 +36,9 @@ import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictC
 
 const { Text } = Typography;
 
+// JSON format example — raw by design across the rule editors.
+const PAYLOAD_EXAMPLE = '{"key": "value"}';
+
 export const REQUEST_BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
   const { method, url, body, bodyAsJson } = args;
   // Change request body below depending upon request attributes received in args
@@ -202,7 +205,7 @@ const RequestBodyRuleFields: React.FC = () => {
                     </div>
                     <EntityField path={paths.requestBody}>
                       <Form.Item name="requestStaticBody" style={{ marginBottom: 0 }}>
-                        <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} valueDetection />
+                        <CodeEditor language="json" placeholder={PAYLOAD_EXAMPLE} minHeight={160} valueDetection />
                       </Form.Item>
                     </EntityField>
                   </>

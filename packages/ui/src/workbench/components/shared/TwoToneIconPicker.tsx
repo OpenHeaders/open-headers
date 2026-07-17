@@ -151,6 +151,7 @@ import {
 import { Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { createElement, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 // ── Icon registry ─────────────────────────────────────────────────
 
@@ -343,6 +344,7 @@ interface TwoToneIconPickerProps {
 }
 
 const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -359,7 +361,7 @@ const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search icons..."
+        placeholder={t('workbench.iconPicker.searchPlaceholder')}
         style={{
           width: '100%',
           padding: '4px 8px',

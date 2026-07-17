@@ -438,7 +438,8 @@ function RedirectChainFacts({ response }: { response: ExecutedRequestSnapshot })
           </span>
           <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
             → {hop.status}
-            {hop.statusText ? ` ${hop.statusText}` : ''} · Location: {hop.location}
+            {hop.statusText ? ` ${hop.statusText}` : ''}
+            {' · '}Location: {hop.location}
           </span>
           {hop.methodChangedTo !== undefined && (
             <span style={noteLine}>

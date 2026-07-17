@@ -53,6 +53,11 @@ const RAW_FORMAT_OPTIONS: ReadonlyArray<{ value: RawFormat; label: string }> = [
 ];
 type RadioValue = 'none' | 'form-data' | 'form-urlencoded' | 'raw' | 'graphql';
 
+// Body-mode names are format vocabulary shown verbatim, like their
+// form-data / x-www-form-urlencoded siblings.
+const MODE_NONE = 'none';
+const MODE_RAW = 'raw';
+
 interface BodyTabProps {
   body: RequestBody;
   onChange: (body: RequestBody) => void;
@@ -169,10 +174,10 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           encodings. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minHeight: 28 }}>
         <Radio.Group value={radio} onChange={(e) => switchRadio(e.target.value as RadioValue)}>
-          <Radio value="none">none</Radio>
+          <Radio value="none">{MODE_NONE}</Radio>
           <Radio value="form-data">form-data</Radio>
           <Radio value="form-urlencoded">x-www-form-urlencoded</Radio>
-          <Radio value="raw">raw</Radio>
+          <Radio value="raw">{MODE_RAW}</Radio>
           <Radio value="graphql">GraphQL</Radio>
         </Radio.Group>
         {radio === 'raw' && (

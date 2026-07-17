@@ -85,6 +85,10 @@ export const GLOSSARY: readonly string[] = [
   'Initiator',
   'Connection Start',
   'Stalled',
+  'DOMContentLoaded',
+  'Server Timing',
+  // Encoding names
+  'Base64',
   // Architecture component names (backend-details scenes)
   'sync-engine',
   'rule-engine',

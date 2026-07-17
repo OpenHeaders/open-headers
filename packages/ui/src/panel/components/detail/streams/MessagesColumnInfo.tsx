@@ -46,9 +46,7 @@ function ExampleCard({ column }: { column: WsColumnKey | 'dir' }) {
           {tok('dir', EX.dir, 'dt-col-eg-method')} {tok('data', EX.data)}
         </div>
         <div className="dt-col-eg-line dt-col-eg-meta">
-          {tok('length', EX.length)}
-          {' chars · '}
-          {tok('time', EX.time)}
+          {tok('length', EX.length)} {t('panel.inspector.messages.columnInfo.exampleChars')} {tok('time', EX.time)}
         </div>
       </div>
     </div>

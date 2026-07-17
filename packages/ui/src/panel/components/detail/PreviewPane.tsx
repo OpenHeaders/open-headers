@@ -7,6 +7,9 @@ import Skeleton from './Skeleton';
 // Lazy-loaded — keeps Monaco out of the panel's initial chunk graph.
 const CodeViewer = lazy(() => import('./CodeViewer'));
 
+// Font-preview specimen rows — Latin glyph runs, not prose.
+const FONT_SPECIMEN_ROWS = ['ABCDEFGHIJKLM', 'NOPQRSTUVWXYZ', 'abcdefghijklm', 'nopqrstuvwxyz', '0123456789'] as const;
+
 function isJsonMime(mime: string): boolean {
   return /\bjson\b/i.test(mime);
 }
@@ -220,11 +223,11 @@ export default function PreviewPane({ state, mime, size, action }: PreviewPanePr
       <>
         <style>{`@font-face { font-family: 'dt-preview-font'; src: url('${fontUrl}'); }`}</style>
         <div className="dt-font-glyphs" style={{ fontFamily: 'dt-preview-font' }}>
-          <div className="dt-font-glyph-row">ABCDEFGHIJKLM</div>
-          <div className="dt-font-glyph-row">NOPQRSTUVWXYZ</div>
-          <div className="dt-font-glyph-row">abcdefghijklm</div>
-          <div className="dt-font-glyph-row">nopqrstuvwxyz</div>
-          <div className="dt-font-glyph-row">0123456789</div>
+          {FONT_SPECIMEN_ROWS.map((row) => (
+            <div key={row} className="dt-font-glyph-row">
+              {row}
+            </div>
+          ))}
         </div>
       </>
     );

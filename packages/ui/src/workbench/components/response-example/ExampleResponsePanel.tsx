@@ -238,7 +238,9 @@ const ExampleResponsePanel: React.FC<ExampleResponsePanelProps> = ({
                 placement="bottom"
               >
                 <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' }}>
-                  {meta.durationMs} ms · {formatBytes(meta.bodyBytes)}
+                  {`${meta.durationMs} ms`}
+                  {' · '}
+                  {formatBytes(meta.bodyBytes)}
                 </Text>
               </Tooltip>
               <Dropdown trigger={['click']} menu={{ items: layoutMenuItems }} overlayStyle={{ minWidth: 220 }}>

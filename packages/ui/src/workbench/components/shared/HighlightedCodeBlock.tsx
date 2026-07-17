@@ -21,6 +21,7 @@ import { Button, Tooltip } from 'antd';
 import * as monacoEdCore from 'monaco-editor/esm/vs/editor/edcore.main';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import '../monaco/bootstrap';
 
 /** Fence info-string → registered Monaco language id. */
@@ -78,6 +79,7 @@ interface HighlightedCodeBlockProps {
 }
 
 const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({ code, lang }) => {
+  const t = useT();
   const { monacoTheme } = useUiTheme();
   const [lines, setLines] = useState<TokenSpan[][] | null>(null);
   const [copied, setCopied] = useState(false);
@@ -132,12 +134,12 @@ const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({ code, lang 
           : code}
       </code>
       {lang && <span className="oh-markdown-code-lang">{lang}</span>}
-      <Tooltip title={copied ? 'Copied' : 'Copy'} placement="left">
+      <Tooltip title={copied ? t('workbench.markdown.copied') : t('shared.action.copy')} placement="left">
         <Button
           size="small"
           type="text"
           className="oh-markdown-code-copy"
-          aria-label="Copy code"
+          aria-label={t('workbench.markdown.copyCode')}
           icon={copied ? <CheckOutlined /> : <CopyOutlined />}
           onClick={copy}
         />

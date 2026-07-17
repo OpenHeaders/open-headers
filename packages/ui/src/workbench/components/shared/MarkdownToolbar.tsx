@@ -16,9 +16,11 @@ import {
   TableOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import {
   insertCodeBlock,
@@ -35,45 +37,45 @@ const MOD = isMac ? '⌘' : 'Ctrl+';
 interface ToolButton {
   key: string;
   icon: React.ReactNode;
-  /** Tooltip body — a `ShortcutHintTitle` when the action has a chord. */
-  tip: React.ReactNode;
-  /** Plain-text accessible label (tooltips may carry markup). */
-  aria: string;
+  /** Tooltip + accessible-label copy; the tooltip wraps it in a
+   *  `ShortcutHintTitle` when the action has a chord. */
+  labelKey: MessageKey;
+  /** Keyboard chord shown beside the tooltip label, when the action has one. */
+  chord?: string;
   run: (editor: MarkdownEditor) => void;
 }
 
 const GROUPS: ToolButton[][] = [
   [
-    { key: 'heading', icon: <FontSizeOutlined />, tip: 'Heading', aria: 'Heading', run: toggleHeading },
+    { key: 'heading', icon: <FontSizeOutlined />, labelKey: 'workbench.markdown.heading', run: toggleHeading },
     {
       key: 'bold',
       icon: <BoldOutlined />,
-      tip: <ShortcutHintTitle label={`${MOD}B`}>Bold</ShortcutHintTitle>,
-      aria: 'Bold',
+      labelKey: 'workbench.markdown.bold',
+      chord: `${MOD}B`,
       run: (ed) => toggleWrap(ed, '**', 'bold'),
     },
     {
       key: 'italic',
       icon: <ItalicOutlined />,
-      tip: <ShortcutHintTitle label={`${MOD}I`}>Italic</ShortcutHintTitle>,
-      aria: 'Italic',
+      labelKey: 'workbench.markdown.italic',
+      chord: `${MOD}I`,
       run: (ed) => toggleWrap(ed, '*', 'italic'),
     },
     {
       key: 'strike',
       icon: <StrikethroughOutlined />,
-      tip: 'Strikethrough',
-      aria: 'Strikethrough',
+      labelKey: 'workbench.markdown.strikethrough',
       run: (ed) => toggleWrap(ed, '~~', 'text'),
     },
   ],
   [
-    { key: 'code', icon: <CodeOutlined />, tip: 'Code block', aria: 'Code block', run: insertCodeBlock },
+    { key: 'code', icon: <CodeOutlined />, labelKey: 'workbench.markdown.codeBlock', run: insertCodeBlock },
     {
       key: 'link',
       icon: <LinkOutlined />,
-      tip: <ShortcutHintTitle label={`${MOD}K`}>Link</ShortcutHintTitle>,
-      aria: 'Link',
+      labelKey: 'workbench.markdown.link',
+      chord: `${MOD}K`,
       run: insertLink,
     },
   ],
@@ -81,18 +83,16 @@ const GROUPS: ToolButton[][] = [
     {
       key: 'ul',
       icon: <UnorderedListOutlined />,
-      tip: 'Bulleted list',
-      aria: 'Bulleted list',
+      labelKey: 'workbench.markdown.bulletedList',
       run: (ed) => toggleLinePrefix(ed, '- '),
     },
     {
       key: 'ol',
       icon: <OrderedListOutlined />,
-      tip: 'Numbered list',
-      aria: 'Numbered list',
+      labelKey: 'workbench.markdown.numberedList',
       run: (ed) => toggleLinePrefix(ed, (i) => `${i + 1}. `),
     },
-    { key: 'table', icon: <TableOutlined />, tip: 'Table', aria: 'Table', run: insertTable },
+    { key: 'table', icon: <TableOutlined />, labelKey: 'workbench.markdown.table', run: insertTable },
   ],
 ];
 
@@ -102,6 +102,7 @@ interface MarkdownToolbarProps {
 }
 
 const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({ editor }) => {
+  const t = useT();
   const { token } = theme.useToken();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -114,12 +115,18 @@ const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({ editor }) => {
             />
           )}
           {group.map((btn) => (
-            <Tooltip key={btn.key} title={btn.tip} placement="top">
+            <Tooltip
+              key={btn.key}
+              title={
+                btn.chord ? <ShortcutHintTitle label={btn.chord}>{t(btn.labelKey)}</ShortcutHintTitle> : t(btn.labelKey)
+              }
+              placement="top"
+            >
               <Button
                 size="small"
                 type="text"
                 icon={btn.icon}
-                aria-label={btn.aria}
+                aria-label={t(btn.labelKey)}
                 disabled={!editor}
                 onClick={() => {
                   if (editor) btn.run(editor);

@@ -34,6 +34,9 @@ import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
+// JSON format example — raw by design across the rule editors.
+const GRAPHQL_BODY_EXAMPLE = '{"query": "…", "variables": {}}';
+
 export interface RequestBodyQuickCreateProps {
   anchorEl: HTMLElement;
   /** Captured-request draft built by the CTA (`rule-draft-bridge`). */
@@ -130,7 +133,7 @@ export function RequestBodyQuickCreate({
         allowClear
         value={quick.requestBody}
         onChange={(v) => setQuick({ requestBody: v })}
-        placeholder={'{"query": "…", "variables": {}}'}
+        placeholder={GRAPHQL_BODY_EXAMPLE}
         suggestionContext={{ collectionId }}
         style={{
           width: '100%',

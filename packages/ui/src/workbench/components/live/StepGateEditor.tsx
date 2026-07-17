@@ -30,6 +30,10 @@ import { useCallback, useMemo } from 'react';
 
 // ── Clause-kind catalog (enabled + future) ────────────────────────
 
+// Regex format example shown in the capture-pattern placeholder — raw
+// by design, like the JSON body examples across the rule editors.
+const GATE_PATTERN_EXAMPLE = '^Bearer .+$';
+
 interface ClauseKindDef {
   value: StepGateClauseKind | FutureClauseKind;
   labelKey: MessageKey;
@@ -464,7 +468,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
           <Input
             size="small"
             style={{ flex: 1, minWidth: 100, fontFamily: 'monospace' }}
-            placeholder="^Bearer .+$"
+            placeholder={GATE_PATTERN_EXAMPLE}
             status={captureError?.issue === 'gate-invalid-regex' ? 'error' : undefined}
             data-testid={`gate-clause-${index}-pattern`}
             value={clause.pattern}
