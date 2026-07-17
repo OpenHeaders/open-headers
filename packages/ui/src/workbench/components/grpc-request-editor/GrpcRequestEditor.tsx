@@ -63,6 +63,7 @@ import { App, Button, Input, InputNumber, Select, type SelectProps, Switch, Tabs
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
+import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
@@ -244,6 +245,10 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   }, [linkedSpec, derivation, protobufSpecs, workspaceId, draft.method, selectedOption, t, token]);
 
   const protoFileInputRef = useRef<HTMLInputElement>(null);
+  // Imperative surface of the mounted message editor — drives the
+  // labelled Find / Replace / Beautify cluster in the toolbar row
+  // above it (the ScriptsTab discipline).
+  const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
 
   const handleProtoFilePicked = useCallback(
     async (file: File) => {
@@ -671,8 +676,13 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                       />
                     )}
                     {activeTab === 'message' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
+                        {/* Toolbar row ABOVE the editor (the ScriptsTab
+                          discipline): stream controls while a client/bidi
+                          stream is open, then the labelled Find / Replace /
+                          Beautify cluster — out of the buffer so they never
+                          cover long first lines. */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
                           {clientStreamActive && (
                             <>
                               <Button
@@ -689,19 +699,14 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                               </Button>
                             </>
                           )}
-                          <Tooltip
-                            title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}
-                          >
-                            <Button
-                              size="small"
-                              icon={<SendOutlined />}
-                              disabled={exampleText === null}
-                              onClick={handleUseExample}
-                              data-testid="grpc-use-example"
-                            >
-                              {t('workbench.editors.grpc.example.label')}
-                            </Button>
-                          </Tooltip>
+                          <CodeEditorActions
+                            target={messageActionsRef}
+                            language="json"
+                            labels
+                            findText={t('workbench.editors.scriptEditor.find')}
+                            replaceText={t('workbench.editors.scriptEditor.replace')}
+                            formatText={t('workbench.editors.scriptEditor.beautify')}
+                          />
                         </div>
                         {/* Absolute inset host — a fill editor must not size
                           its own flex parent (the BodyTab discipline). */}
@@ -712,8 +717,44 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                               onChange={(message) => setDraft((d) => ({ ...d, message }))}
                               language="json"
                               fill
+                              actions="external"
+                              actionsRef={messageActionsRef}
                               placeholder={t('workbench.editors.grpc.messagePlaceholder')}
                             />
+                          </div>
+                          {/* Floating action pill INSIDE the editor surface,
+                            bottom-left — the ScriptsTab's Packages/Snippets
+                            bar mirrored to the opposite corner. */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              bottom: 22,
+                              left: 26,
+                              zIndex: 12,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2,
+                              padding: '2px 4px',
+                              background: token.colorBgElevated,
+                              border: `1px solid ${token.colorBorderSecondary}`,
+                              borderRadius: 8,
+                              boxShadow: token.boxShadowTertiary,
+                            }}
+                          >
+                            <Tooltip
+                              title={exampleText === null ? t('workbench.editors.grpc.example.needsMethod') : undefined}
+                            >
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<SendOutlined />}
+                                disabled={exampleText === null}
+                                onClick={handleUseExample}
+                                data-testid="grpc-use-example"
+                              >
+                                {t('workbench.editors.grpc.example.label')}
+                              </Button>
+                            </Tooltip>
                           </div>
                         </div>
                       </div>
