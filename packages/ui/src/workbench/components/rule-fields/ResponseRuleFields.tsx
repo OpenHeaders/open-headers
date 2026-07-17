@@ -35,6 +35,7 @@ import { AutoComplete, Button, Form, Input, Radio, Segmented, Select, Typography
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
+import { detectLanguage } from '@openheaders/ui/shared/mime';
 import CodeEditor from '../shared/CodeEditor';
 import FormatAwareBodyEditor from './FormatAwareBodyEditor';
 import { getDocId } from '../docs/doc-ids';
@@ -426,12 +427,15 @@ const ResponseRuleFields: React.FC = () => {
         <Form.Item
           noStyle
           shouldUpdate={(prev, cur) =>
-            prev.responseBodyType !== cur.responseBodyType || prev.responseSource !== cur.responseSource
+            prev.responseBodyType !== cur.responseBodyType ||
+            prev.responseSource !== cur.responseSource ||
+            prev.responseContentType !== cur.responseContentType
           }
         >
           {({ getFieldValue }) => {
             const isDynamic = getFieldValue('responseBodyType') === 'dynamic';
             const isNetwork = getFieldValue('responseSource') === 'network';
+            const bodyLanguage = detectLanguage(String(getFieldValue('responseContentType') ?? '')) ?? 'json';
             return (
               <>
                 {isDynamic && (
@@ -476,6 +480,7 @@ const ResponseRuleFields: React.FC = () => {
                   <EntityField path={paths.responseBody}>
                     <Form.Item name="responseStaticBody" style={{ marginBottom: 0 }}>
                       <FormatAwareBodyEditor
+                        language={bodyLanguage}
                         placeholder={RESPONSE_BODY_EXAMPLE}
                         minHeight={160}
                         valueDetection

@@ -22,6 +22,7 @@ import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { encodeBodyForWire, formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
+import type { LanguageId } from '../../languages/registry';
 import CodeEditor from '../shared/CodeEditor';
 
 type BodyViewMode = 'formatted' | 'raw';
@@ -46,6 +47,10 @@ interface FormatAwareBodyEditorProps {
   /** Wire-profile body text — injected by the host `Form.Item`. */
   value?: string;
   onChange?: (value: string) => void;
+  /** Monaco language for the body's coloring — derive it from the
+   *  rule's content-type (`detectLanguage`) so an HTML/JS/CSS body
+   *  highlights like the response viewers do. Defaults to json. */
+  language?: LanguageId;
   placeholder?: string;
   minHeight?: number;
   valueDetection?: boolean;
@@ -56,6 +61,7 @@ interface FormatAwareBodyEditorProps {
 const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
   value = '',
   onChange,
+  language = 'json',
   placeholder,
   minHeight = 160,
   valueDetection = false,
@@ -137,7 +143,7 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
         {extra}
       </div>
       <CodeEditor
-        language="json"
+        language={language}
         value={state.mode === 'formatted' ? state.view : value}
         onChange={state.mode === 'formatted' ? handleFormattedChange : handleRawChange}
         placeholder={placeholder}

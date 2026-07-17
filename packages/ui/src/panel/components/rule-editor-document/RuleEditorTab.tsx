@@ -37,6 +37,7 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, AutoComplete, Input, Select, theme } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuleEditorInspectorTab } from '../../data/inspector-tab';
+import { detectLanguage } from '../../data/mime';
 import { buildResponseRuleSeedFromWire } from '../../data/rule-create/response-rule-create';
 import { buildResponseRuleWireUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 import Skeleton from '../detail/Skeleton';
@@ -338,6 +339,7 @@ export function RuleEditorTab({ tab, onDirtyChange, registerSave, isActiveDocume
               <FormatAwareBodyEditor
                 value={draft.responseBody}
                 onChange={(v) => updateDraft({ responseBody: v })}
+                language={detectLanguage(draft.contentType) ?? 'json'}
                 minHeight={280}
               />
             </Suspense>
