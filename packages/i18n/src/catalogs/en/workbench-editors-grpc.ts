@@ -29,35 +29,44 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.response.empty.prompt': 'Invoke a method to get a response.',
   'workbench.editors.grpc.response.empty.invoking': 'Invoking…',
   'workbench.editors.grpc.status.kicker': 'gRPC status',
+  // Canonical gRPC status vocabulary — the official per-code
+  // descriptions, verbatim, so the pill popover reads exactly like the
+  // protocol documentation.
   'workbench.editors.grpc.status.desc.unknownCode': 'A non-standard status code outside the gRPC vocabulary.',
-  'workbench.editors.grpc.status.desc.OK': 'The call completed successfully.',
-  'workbench.editors.grpc.status.desc.CANCELLED': 'The operation was cancelled, typically by the caller.',
+  'workbench.editors.grpc.status.desc.OK':
+    'Status code 0 OK is a standard response for successfully invoking a gRPC method.',
+  'workbench.editors.grpc.status.desc.CANCELLED':
+    'Status code 1 CANCELLED is returned if the operation is cancelled by the caller.',
   'workbench.editors.grpc.status.desc.UNKNOWN':
-    'An unknown error occurred — often a server-side exception the runtime could not classify.',
+    "Status code 2 UNKNOWN is returned if the operation couldn't be completed because of an unknown error. For example, this error may be returned when a Status value received from another address space belongs to an error space that is not known in this address space. Also errors raised by APIs that do not return enough error information may be converted to this error.",
   'workbench.editors.grpc.status.desc.INVALID_ARGUMENT':
-    'The client specified an invalid argument — problematic regardless of system state, such as a malformed name.',
+    'Status code 3 INVALID_ARGUMENT is returned if the client has specified an invalid argument. This stands for arguments that are problematic regardless of the state of the system (e.g. a malformed file name).',
   'workbench.editors.grpc.status.desc.DEADLINE_EXCEEDED':
-    'The deadline expired before the operation completed. The work may still have finished on the server.',
-  'workbench.editors.grpc.status.desc.NOT_FOUND': 'A requested entity was not found.',
-  'workbench.editors.grpc.status.desc.ALREADY_EXISTS': 'The entity the client tried to create already exists.',
+    'Status code 4 DEADLINE_EXCEEDED is returned if the deadline expires before the operation could be completed. For operations that change the state of the system, this error may be returned even if the operation has completed successfully. For example, a successful response from a server could have been delayed long.',
+  'workbench.editors.grpc.status.desc.NOT_FOUND':
+    'Status code 5 NOT_FOUND is returned if a requested entity (e.g., file or directory) was not found.',
+  'workbench.editors.grpc.status.desc.ALREADY_EXISTS':
+    'Status code 6 ALREADY_EXISTS is returned if the entity you attempted to create (e.g., file or directory) already exists.',
   'workbench.editors.grpc.status.desc.PERMISSION_DENIED':
-    'The caller does not have permission for this operation — authenticated, but not allowed.',
+    'Status code 7 PERMISSION_DENIED is returned if the caller does not have permission to execute the specified operation. This error code does not imply the request is valid or the requested entity exists or satisfies other pre-conditions.',
   'workbench.editors.grpc.status.desc.RESOURCE_EXHAUSTED':
-    'A resource has been exhausted — a per-user quota, or a system limit such as disk space.',
+    'Status code 8 RESOURCE_EXHAUSTED is returned if a per-user quota, or perhaps the entire file system is out of space.',
   'workbench.editors.grpc.status.desc.FAILED_PRECONDITION':
-    'The system is not in the state the operation requires — for example deleting a non-empty directory.',
+    "Status code 9 FAILED_PRECONDITION is returned if the operation was rejected because of the system not being in the required state for the operation's execution. For example, the directory to be deleted is non-empty, an rmdir operation is applied to a non-directory, etc.",
   'workbench.editors.grpc.status.desc.ABORTED':
-    'The operation was aborted, typically over a concurrency conflict. Retrying the whole sequence may help.',
+    'Status code 10 ABORTED is returned if the operation was aborted, typically due to a concurrency issue such as a sequencer check failure or transaction abort.',
   'workbench.editors.grpc.status.desc.OUT_OF_RANGE':
-    'The operation ran past the valid range — unlike INVALID_ARGUMENT, this depends on the system state.',
-  'workbench.editors.grpc.status.desc.UNIMPLEMENTED': 'The operation is not implemented or supported by this service.',
+    'Status code 11 OUT_OF_RANGE is returned if the operation was attempted past the valid range. For example, seeking or reading past end-of-file.',
+  'workbench.editors.grpc.status.desc.UNIMPLEMENTED':
+    'Status code 12 UNIMPLEMENTED is returned if the operation is not implemented or is not supported/enabled in this service.',
   'workbench.editors.grpc.status.desc.INTERNAL':
-    'An internal error — an invariant the underlying system expects was broken.',
+    "Status code 13 INTERNAL is returned if there's an internal error. This means that some invariants expected by the underlying system have been broken.",
   'workbench.editors.grpc.status.desc.UNAVAILABLE':
-    'The service is currently unavailable — usually transient. Check the target and TLS mode, or retry.',
-  'workbench.editors.grpc.status.desc.DATA_LOSS': 'Unrecoverable data loss or corruption.',
+    'Status code 14 UNAVAILABLE is returned if the service is currently unavailable.',
+  'workbench.editors.grpc.status.desc.DATA_LOSS':
+    'Status code 15 DATA_LOSS is returned if there is an irrecoverable data loss or corruption.',
   'workbench.editors.grpc.status.desc.UNAUTHENTICATED':
-    'The request lacks valid authentication credentials for the operation.',
+    'Status code 16 UNAUTHENTICATED is returned if the request does not have valid authentication credentials for the operation.',
   'workbench.editors.grpc.response.error.title': 'Call failed',
   'workbench.editors.grpc.response.error.localGuidance':
     'The call never reached a reply. Check the target, TLS mode, and that the server is reachable.',
