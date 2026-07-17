@@ -747,12 +747,12 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               {up ? (
                 <ArrowUpOutlined
                   aria-label={t('workbench.editors.grpc.timeline.sentAria')}
-                  style={{ fontSize: 11, color: token.colorWarning }}
+                  style={{ fontSize: 11, color: token.colorTextSecondary }}
                 />
               ) : (
                 <ArrowDownOutlined
                   aria-label={t('workbench.editors.grpc.timeline.receivedAria')}
-                  style={{ fontSize: 11, color: token.colorPrimary }}
+                  style={{ fontSize: 11, color: token.colorTextSecondary }}
                 />
               )}
             </span>
