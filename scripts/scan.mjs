@@ -33,9 +33,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const ATTRIBUTES = new Set(['title', 'placeholder', 'label', 'aria-label', 'alt', 'description', 'tooltip']);
 const MESSAGE_OBJECTS = new Set(['message', 'notification']);
 const MESSAGE_METHODS = new Set(['success', 'error', 'info', 'warning', 'loading', 'open']);
-const RAW_CONTAINERS = new Set(['code', 'pre', 'kbd', 'samp']);
+// `Kbd` is the shared key-cap component — same raw boundary as <kbd>.
+const RAW_CONTAINERS = new Set(['code', 'pre', 'kbd', 'samp', 'Kbd']);
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'out', 'tests', 'e2e', '__mocks__', 'coverage', 'dev']);
-const EXEMPT_PATHS = ['/docs/diagrams/'];
+// ConsoleSettingInfo's fake console transcript is an illustration —
+// its internals stay raw under the same boundary as docs diagrams.
+const EXEMPT_PATHS = ['/docs/diagrams/', '/panel/components/ConsoleSettingInfo.tsx'];
 
 function fail(message) {
   console.error(`scan: ${message}`);

@@ -14,6 +14,7 @@
  */
 
 import { useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JwtParts, ValueIntrospection } from '../../data/value-introspect';
 
@@ -100,6 +101,7 @@ function decodedBodyFor(i: ValueIntrospection): React.ReactNode {
 }
 
 export function ValueExpander({ introspection }: { introspection: ValueIntrospection }) {
+  const t = useT();
   const i = introspection;
   const [showRaw, setShowRaw] = useState(false);
 
@@ -110,7 +112,7 @@ export function ValueExpander({ introspection }: { introspection: ValueIntrospec
 
   const rawBody = (
     <div className="dt-value-expand-decoded">
-      {hasDecoded && <div className="dt-value-expand-label">Raw</div>}
+      {hasDecoded && <div className="dt-value-expand-label">{t('panel.valueExpander.raw')}</div>}
       <pre className="dt-value-expand-pre dt-scrollbar">{i.value}</pre>
     </div>
   );
@@ -124,14 +126,14 @@ export function ValueExpander({ introspection }: { introspection: ValueIntrospec
             className={`dt-value-expand-tab${showRaw ? '' : ' dt-value-expand-tab--active'}`}
             onClick={() => setShowRaw(false)}
           >
-            Decoded
+            {t('panel.valueExpander.decoded')}
           </button>
           <button
             type="button"
             className={`dt-value-expand-tab${showRaw ? ' dt-value-expand-tab--active' : ''}`}
             onClick={() => setShowRaw(true)}
           >
-            Raw
+            {t('panel.valueExpander.raw')}
           </button>
         </div>
       )}

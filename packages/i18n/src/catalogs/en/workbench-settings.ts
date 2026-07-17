@@ -1656,4 +1656,18 @@ export const workbenchSettings = {
     'Wire-protocol version this extension speaks with the desktop app. Mismatched peers are rejected with a clear update prompt.',
   'workbench.settings.def.about.browser.label': 'Browser',
   'workbench.settings.def.about.browser.description': 'Detected browser and platform.',
+
+  // ── Backend-details scene pills ────────────────────────────────────
+  // Architecture component names (sync-engine · rule-engine · oracle ·
+  // vault) are glossary vocabulary and ride raw inside the pills; only
+  // the connective text keys here.
+  'workbench.settings.backendDetails.backEndTitle': 'Back-end = {engine}',
+  'workbench.settings.backendDetails.servedOn': 'served on {via}',
+  'workbench.settings.backendDetails.apiClientsTitle': 'API clients = {count}',
+  'workbench.settings.backendDetails.frontEndTitle': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Front-end = {count} hosted surface',
+      other: 'Front-end = {count} hosted surfaces',
+    }),
+  'workbench.settings.backendDetails.optIn': '(opt-in)',
 } as const satisfies Catalog;

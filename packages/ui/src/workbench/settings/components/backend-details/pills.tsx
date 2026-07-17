@@ -4,6 +4,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   FILL_BLUE,
   FILL_GREEN,
@@ -60,6 +61,7 @@ export const BackEndPill: React.FC<{
   engine: string;
   where: string;
 }> = ({ x, y, w, h = 76, engine, where }) => {
+  const t = useT();
   const bulletX = x + 30;
   const textX = x + 36;
   return (
@@ -67,15 +69,15 @@ export const BackEndPill: React.FC<{
       <rect x={x} y={y} width={w} height={h} rx={6} fill={FILL_GREEN} stroke={STROKE_GREEN} strokeWidth={1.5} />
       <circle cx={x + 16} cy={y + 18} r={4} fill={OH_GREEN} />
       <text x={x + 28} y={y + 22} fontSize={10.5} fontWeight={700} fill={TEXT}>
-        Back-end = {engine}
+        {t('workbench.settings.backendDetails.backEndTitle', { engine })}
       </text>
       <circle cx={bulletX} cy={y + 36} r={1.4} fill={TEXT_DIM} />
       <text x={textX} y={y + 39} fontSize={8.5} fill={TEXT_DIM}>
-        sync-engine · rule-engine
+        <tspan>sync-engine</tspan> · <tspan>rule-engine</tspan>
       </text>
       <circle cx={bulletX} cy={y + 50} r={1.4} fill={TEXT_DIM} />
       <text x={textX} y={y + 53} fontSize={8.5} fill={TEXT_DIM}>
-        oracle · vault
+        <tspan>oracle</tspan> · <tspan>vault</tspan>
       </text>
       <circle cx={bulletX} cy={y + 64} r={1.4} fill={TEXT_DIM} />
       <text x={textX} y={y + 67} fontSize={8.5} fill={TEXT_DIM}>
@@ -115,6 +117,7 @@ interface FrontEndPillProps {
 }
 
 export const FrontEndPill: React.FC<FrontEndPillProps> = ({ x, y, w, items, apiClients, surfacesOptional }) => {
+  const t = useT();
   // Vertical rhythm with explicit paddings so title + glyphs + labels
   // have visible breathing room from the rect edges:
   //   top pad → title (~14) → gap → glyph (32) → label (14) → [via?]
@@ -162,10 +165,10 @@ export const FrontEndPill: React.FC<FrontEndPillProps> = ({ x, y, w, items, apiC
       {/* Left section title + surfaces */}
       <circle cx={x + 16} cy={y + padTop + 6} r={4} fill={STROKE_BLUE} />
       <text x={x + 28} y={y + padTop + 10} fontSize={10.5} fontWeight={700} fill={TEXT}>
-        {`Front-end = ${items.length} hosted surface${items.length === 1 ? '' : 's'}`}
+        {t('workbench.settings.backendDetails.frontEndTitle', { count: items.length })}
         {surfacesOptional && (
           <tspan fontWeight={400} fontStyle="italic" fill={TEXT_DIM}>
-            {'  (opt-in)'}
+            {`  ${t('workbench.settings.backendDetails.optIn')}`}
           </tspan>
         )}
       </text>
@@ -186,7 +189,7 @@ export const FrontEndPill: React.FC<FrontEndPillProps> = ({ x, y, w, items, apiC
                 fontStyle="italic"
                 fill={TEXT_DIM}
               >
-                served on {it.via}
+                {t('workbench.settings.backendDetails.servedOn', { via: it.via })}
               </text>
             )}
           </g>
@@ -198,7 +201,7 @@ export const FrontEndPill: React.FC<FrontEndPillProps> = ({ x, y, w, items, apiC
         <g>
           <circle cx={rightStartX - 4} cy={apiBulletCy} r={4} fill={STROKE_BLUE} />
           <text x={rightStartX + 8} y={apiTitleY} fontSize={10.5} fontWeight={700} fill={TEXT}>
-            API clients = {apiClients.length}
+            {t('workbench.settings.backendDetails.apiClientsTitle', { count: apiClients.length })}
           </text>
           {apiClients.map((c, i) => {
             const cx = rightStartX + i * (chipW + chipGap);

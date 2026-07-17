@@ -48,6 +48,12 @@ export const GLOSSARY: readonly string[] = [
   'Cookie',
   'Set-Cookie',
   'User-Agent',
+  // JWT part + registered-claim names (RFC 7519 vocabulary)
+  'Header',
+  'Signature',
+  'iat',
+  'nbf',
+  'exp',
   // DevTools parity vocabulary
   'Waterfall',
   'Preflight',
@@ -55,6 +61,11 @@ export const GLOSSARY: readonly string[] = [
   'Payload',
   'Timing',
   'Initiator',
+  // Architecture component names (backend-details scenes)
+  'sync-engine',
+  'rule-engine',
+  'oracle',
+  'vault',
   // Scripting surface
   'oh.require',
   // Units that ride the Chrome parity timing scale

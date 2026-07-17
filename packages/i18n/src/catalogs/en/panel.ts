@@ -2866,4 +2866,10 @@ export const panel = {
   'panel.storage.doc.cache.imageAlt': 'Stored response body for {url}',
   'panel.storage.doc.cache.binaryBody': 'Binary body — {size} stored.',
   'panel.storage.doc.cache.emptyBody': 'Empty body.',
+
+  // ── Value expander (headers / cookies detail readout) ──────────────
+  // JWT part and claim names (Header / Payload / Signature / iat / nbf
+  // / exp) are spec vocabulary and stay raw via the glossary.
+  'panel.valueExpander.decoded': 'Decoded',
+  'panel.valueExpander.raw': 'Raw',
 } as const satisfies Catalog;
