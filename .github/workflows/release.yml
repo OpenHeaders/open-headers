@@ -16,7 +16,7 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
   # Where release artifacts land; the update feed's pointer files carry
   # absolute URLs into this repo's release pages (DISTRIBUTION_PLAN §3).
-  RELEASE_REPO: OpenHeaders/open-headers-releases
+  RELEASE_REPO: OpenHeaders/open-headers
   R2_BUCKET: oh-updates
 
 jobs:
@@ -729,14 +729,14 @@ jobs:
             } >> release_body.md
           fi
 
-      # Artifacts + the electron-updater feed files (latest*.yml) land on
-      # the public releases repo — the app's update check stays anonymous
-      # (no token) while the source repo stays private.
+      # Artifacts land on the public flagship repo — the update feed's
+      # pointer files carry absolute URLs into its release pages, so
+      # update checks stay anonymous while the source repo stays private.
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.RELEASES_PAT }}
-          repository: OpenHeaders/open-headers-releases
+          repository: ${{ env.RELEASE_REPO }}
           tag_name: "${{ github.ref_name }}"
           draft: false
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
@@ -806,56 +806,3 @@ jobs:
               --no-progress
           done
 
-      # The extension mirror-publish targets the real public extension
-      # repo — it must never fire from a private/mirror build of this
-      # workflow.
-      - name: Generate extension release body
-        if: github.repository == 'OpenHeaders/open-headers-app' && needs.build-extension.result == 'success'
-        run: |
-          EXT_VERSION="${{ steps.ext_ver.outputs.version }}"
-          IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
-          EXT_TAG="v${EXT_VERSION}"
-          DL="https://github.com/OpenHeaders/open-headers-browser-extension/releases/download/${EXT_TAG}"
-
-          ICONS="https://raw.githubusercontent.com/OpenHeaders/open-headers-releases/main/assets"
-          icon() { echo "<img src=\"${ICONS}/$1.svg\" width=\"16\" align=\"center\">"; }
-
-          {
-            echo "<p align=\"center\"><img src=\"${ICONS}/logo.svg\" width=\"88\" alt=\"Open Headers\"></p>"
-            echo ""
-          } > ext_release_body.md
-
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            echo '> **This is a beta build for early testing.** It may contain bugs.' >> ext_release_body.md
-            echo '' >> ext_release_body.md
-          fi
-
-          {
-            echo "## Browser Extension Downloads"
-            echo ""
-            echo "| Browser | Download |"
-            echo "| --- | --- |"
-            echo "| $(icon chrome) Chrome | [open-headers-chrome-v${EXT_VERSION}.zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
-            echo "| $(icon firefox) Firefox | [open-headers-firefox-v${EXT_VERSION}.zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
-            echo "| $(icon edge) Edge | [open-headers-edge-v${EXT_VERSION}.zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
-            echo "| $(icon safari) Safari | [open-headers-safari-v${EXT_VERSION}.zip](${DL}/open-headers-safari-v${EXT_VERSION}.zip) |"
-            echo ""
-            echo "### Installation"
-            echo "1. Download the zip for your browser"
-            echo "2. Extract to a folder"
-            echo '3. Chrome/Edge: Go to `chrome://extensions`, enable Developer mode, click Load unpacked'
-            echo '4. Firefox: Go to `about:debugging#/runtime/this-firefox`, click Load Temporary Add-on'
-          } >> ext_release_body.md
-
-      - name: Publish extension to browser extension repo
-        if: github.repository == 'OpenHeaders/open-headers-app' && needs.build-extension.result == 'success'
-        uses: softprops/action-gh-release@v2
-        with:
-          token: ${{ secrets.EXTENSION_REPO_PAT }}
-          repository: OpenHeaders/open-headers-browser-extension
-          tag_name: "v${{ steps.ext_ver.outputs.version }}"
-          draft: false
-          prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
-          name: "v${{ steps.ext_ver.outputs.version }}"
-          files: dist/extension-packages/*.zip
-          body_path: ext_release_body.md

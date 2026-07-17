@@ -34,5 +34,5 @@ export function writeIgnoredVersion(version: string): void {
  * reached a user.
  */
 export function releasePageUrl(version: string): string {
-  return `https://github.com/OpenHeaders/open-headers-releases/releases/tag/v${version}`;
+  return `https://github.com/OpenHeaders/open-headers/releases/tag/v${version}`;
 }

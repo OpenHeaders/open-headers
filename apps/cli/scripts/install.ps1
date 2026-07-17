@@ -10,7 +10,7 @@
 #   OH_RELEASE_TAG    release tag to install (default: current stable)
 $ErrorActionPreference = 'Stop'
 
-$repo = 'OpenHeaders/open-headers-releases'
+$repo = 'OpenHeaders/open-headers'
 $feed = 'https://updates.openheaders.io'
 $installDir = if ($env:OH_INSTALL_DIR) { $env:OH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'OpenHeaders\bin' }
 

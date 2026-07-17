@@ -112,7 +112,7 @@ jobs:
             echo '' >> release_body.md
           fi
 
-          REPO_BASE="https://github.com/OpenHeaders/open-headers-browser-extension/releases/download/${EXT_REPO_TAG}"
+          REPO_BASE="https://github.com/OpenHeaders/open-headers/releases/download/${EXT_REPO_TAG}"
           {
             echo "## Browser Extension Downloads"
             echo ""
@@ -128,11 +128,14 @@ jobs:
             echo '4. Firefox: Go to `about:debugging#/runtime/this-firefox`, click Load Temporary Add-on'
           } >> release_body.md
 
-      - name: Publish to extension repo
+      # Extension-only releases land on the same public flagship repo
+      # as the full release train (DISTRIBUTION_PLAN §2) — the `v*-ext`
+      # source tag maps to a plain `vX.Y.Z` extension tag there.
+      - name: Publish to flagship repo
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.EXTENSION_REPO_PAT }}
-          repository: OpenHeaders/open-headers-browser-extension
+          token: ${{ secrets.RELEASES_PAT }}
+          repository: OpenHeaders/open-headers
           tag_name: ${{ steps.ext_repo.outputs.tag }}
           draft: false
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}

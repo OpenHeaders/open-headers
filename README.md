@@ -3,8 +3,8 @@
 ![Open Headers Logo](./apps/desktop/build/icon128.png)
 
 [![CI](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenHeaders/open-headers-app/actions/workflows/ci.yml)
-[![GitHub release](https://img.shields.io/github/v/release/OpenHeaders/open-headers-releases)](https://github.com/OpenHeaders/open-headers-releases/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/OpenHeaders/open-headers-releases/total)](https://github.com/OpenHeaders/open-headers-releases/releases)
+[![GitHub release](https://img.shields.io/github/v/release/OpenHeaders/open-headers)](https://github.com/OpenHeaders/open-headers/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/OpenHeaders/open-headers/total)](https://github.com/OpenHeaders/open-headers/releases)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 

@@ -33,7 +33,7 @@ export function versionsManifestUrl(channel: UpdateChannel): string {
  * printed URL: release-notes links derive from it because the feed's
  * pointer files name assets on this repo's release pages.
  */
-export const RELEASES_REPO = 'OpenHeaders/open-headers-releases';
+export const RELEASES_REPO = 'OpenHeaders/open-headers';
 
 export function releaseNotesUrl(version: string): string {
   return `https://github.com/${RELEASES_REPO}/releases/tag/v${version}`;

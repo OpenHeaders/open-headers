@@ -24,8 +24,6 @@ describe('update feed URLs', () => {
   });
 
   it('release notes link to the offered version tag page', () => {
-    expect(releaseNotesUrl('2026.8.0')).toBe(
-      'https://github.com/OpenHeaders/open-headers-releases/releases/tag/v2026.8.0',
-    );
+    expect(releaseNotesUrl('2026.8.0')).toBe('https://github.com/OpenHeaders/open-headers/releases/tag/v2026.8.0');
   });
 });

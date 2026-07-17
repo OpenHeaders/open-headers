@@ -12,7 +12,7 @@ import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const SCRIPT = path.resolve(__dirname, '../../../../../scripts/generate-update-feed.mjs');
-const DOWNLOAD_BASE = 'https://github.com/OpenHeaders/open-headers-releases/releases/download/v2026.7.2';
+const DOWNLOAD_BASE = 'https://github.com/OpenHeaders/open-headers/releases/download/v2026.7.2';
 
 const LATEST_MAC_YML = [
   'version: 2026.7.2',

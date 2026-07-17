@@ -23,7 +23,7 @@ import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { createChildWindow, getMainWindow, showMainWindow } from './window-manager';
 
 const HOMEPAGE_URL = 'https://openheaders.io';
-const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-releases/issues/new';
+const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers/issues/new';
 const EULA_URL = 'https://openheaders.io/eula';
 
 export function openSettingsSurface(): void {

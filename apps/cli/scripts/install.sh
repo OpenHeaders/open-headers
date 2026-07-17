@@ -12,7 +12,7 @@
 #   OH_RELEASE_TAG     release tag to install (default: current stable)
 set -eu
 
-REPO="OpenHeaders/open-headers-releases"
+REPO="OpenHeaders/open-headers"
 FEED="https://updates.openheaders.io"
 INSTALL_DIR="${OH_INSTALL_DIR:-$HOME/.local/bin}"
 TAG="${OH_RELEASE_TAG:-}"

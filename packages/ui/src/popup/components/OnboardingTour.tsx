@@ -142,9 +142,9 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         closeIcon: isFirefox ? (
           <CloseOutlined style={{ fontSize: 14 }} />
         ) : (
-          <span className="kbd-key" style={{ fontSize: 13, height: 24, minWidth: 32, padding: '0 6px' }}>
+          <kbd className="kbd-key" style={{ fontSize: 13, height: 24, minWidth: 32, padding: '0 6px' }}>
             Esc
-          </span>
+          </kbd>
         ),
       },
     }),
@@ -658,7 +658,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers-releases');
+                    hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers');
                   }}
                   style={{
                     cursor: 'pointer',
