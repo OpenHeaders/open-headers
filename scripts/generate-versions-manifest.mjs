@@ -58,12 +58,18 @@ if (!tag?.startsWith('v')) fail(`expected the release tag as argument, got '${ta
 // stable channel it names the store-submitted version; the beta entry
 // is kept fresh by the extension-only release lane, which patches it
 // without a full release train.
+// A beta tag suffixes the extension version the same way the build job
+// does (base + tag's -beta.N) — the zips on the release page carry
+// that suffixed version in their names.
+const betaSuffix = tag.match(/(-beta\.\d+)$/)?.[1] ?? '';
+const extBase = readJson('apps/extension/package.json').version.replace(/-beta\.\d+$/, '');
+
 const severityByApp = readJson('.github/release-severity.json');
 const latestByApp = {
   desktop: tag.slice(1),
   daemon: readJson('apps/daemon/package.json').version,
   cli: readJson('apps/cli/package.json').version,
-  extension: readJson('apps/extension/package.json').version,
+  extension: `${extBase}${betaSuffix}`,
 };
 
 const manifest = {};
