@@ -20,6 +20,7 @@ import { Alert, Button, Checkbox, Input, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { setBackgroundTasksPanelOpen } from '@openheaders/ui/shared/background-tasks';
+import PostmanKeySteps from './PostmanKeySteps';
 
 const { Text, Paragraph } = Typography;
 
@@ -200,6 +201,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
           </div>
         )}
         {listReason && <Alert type="error" showIcon message={listReason} style={{ margin: '8px auto 0', maxWidth: 520 }} />}
+        <PostmanKeySteps />
       </div>
     );
   }
