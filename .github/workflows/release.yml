@@ -564,37 +564,6 @@ jobs:
           echo "version=$EXT_VERSION" >> $GITHUB_OUTPUT
           echo "Extension version: $EXT_VERSION"
 
-      # Secrets are not readable in step `if:` expressions; missing R2
-      # credentials degrade to GitHub-hosted downloads instead of
-      # failing the release.
-      - name: Check R2 credentials
-        id: r2
-        run: |
-          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
-            echo "enabled=true" >> $GITHUB_OUTPUT
-          else
-            echo "enabled=false" >> $GITHUB_OUTPUT
-            echo "::warning::R2 secrets not configured — feed not updated, downloads served from GitHub"
-          fi
-        env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-
-      # The single authority for where downloads live. With R2, every
-      # printed and machine-read download URL is an own-domain form
-      # (DISTRIBUTION_PLAN §3) — corporate networks only ever need
-      # openheaders.io reachable. Artifacts also land on the GitHub
-      # release page as a human-browsable redundant copy.
-      - name: Determine download base
-        id: dl_base
-        run: |
-          if [ "${{ steps.r2.outputs.enabled }}" = "true" ]; then
-            echo "url=https://updates.openheaders.io/dl/${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-          else
-            echo "url=https://github.com/${RELEASE_REPO}/releases/download/${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Process artifacts for release
         run: |
           mkdir -p processed_files
@@ -668,8 +637,9 @@ jobs:
           EXT_VERSION="${{ steps.ext_ver.outputs.version }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
           REPO="$RELEASE_REPO"
+          TAG="$GITHUB_REF_NAME"
 
-          DL="${{ steps.dl_base.outputs.url }}"
+          DL="https://github.com/${REPO}/releases/download/${TAG}"
           ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
 
           {
@@ -816,44 +786,9 @@ jobs:
             } >> release_body.md
           fi
 
-      # Release bytes live on the feed bucket under an immutable
-      # per-tag path — Cloudflare's edge caches them (a zone Cache Rule
-      # keys /dl/* without query strings), R2 egress is free, and
-      # corporate networks never need github.com. Uploaded BEFORE the
-      # release and the pointer files exist, so no published URL can
-      # name missing bytes. Pointer/channel files are excluded — their
-      # home is desktop/<channel>/ and versions/.
-      - name: Upload release artifacts to R2
-        if: steps.r2.outputs.enabled == 'true'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-        run: |
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          find processed_files -maxdepth 1 -type f \
-            ! -name 'latest*.yml' ! -name 'beta*.yml' ! -name 'versions.json' | while read -r file; do
-            NAME="$(basename "$file")"
-            case "$NAME" in
-              *.txt) TYPE="text/plain; charset=utf-8" ;;
-              *.sh) TYPE="text/x-shellscript; charset=utf-8" ;;
-              *.ps1) TYPE="text/plain; charset=utf-8" ;;
-              *.zip) TYPE="application/zip" ;;
-              *) TYPE="application/octet-stream" ;;
-            esac
-            # Per-tag paths never change — cache as immutable.
-            aws s3 cp "$file" "s3://${R2_BUCKET}/dl/${GITHUB_REF_NAME}/${NAME}" \
-              --endpoint-url "$ENDPOINT" --region auto \
-              --content-type "$TYPE" \
-              --cache-control "public, max-age=31536000, immutable" \
-              --no-progress
-          done
-
-      # The GitHub release page stays the human-browsable home and a
-      # redundant copy of every artifact — machine contracts point at
-      # the feed.
+      # Artifacts land on the public flagship repo — the update feed's
+      # pointer files carry absolute URLs into its release pages, so
+      # update checks stay anonymous while the source repo stays private.
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -871,16 +806,32 @@ jobs:
 
       # The update feed: static pointer files on R2 behind
       # updates.openheaders.io (DISTRIBUTION_PLAN §3). The yml/json
-      # pointers carry absolute URLs to this release's artifacts (the
-      # feed's own dl/ path, or the GitHub assets when R2 is off), so
-      # staging happens only after the bytes exist. A beta tag stages
+      # pointers carry absolute URLs to this release's GitHub assets, so
+      # staging happens only after the release exists. A beta tag stages
       # only beta/ paths — stable pointers can never move.
       - name: Stage update feed pointers
         run: |
           node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
-            "${{ steps.dl_base.outputs.url }}" \
+            "https://github.com/${RELEASE_REPO}/releases/download/${GITHUB_REF_NAME}" \
             processed_files feed
           find feed -type f | sort
+
+      # Secrets are not readable in step `if:` expressions; missing R2
+      # credentials skip the upload with a warning instead of failing
+      # the release.
+      - name: Check R2 credentials
+        id: r2
+        run: |
+          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::R2 secrets not configured — update feed not uploaded this release"
+          fi
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       - name: Upload update feed to R2
         if: steps.r2.outputs.enabled == 'true'

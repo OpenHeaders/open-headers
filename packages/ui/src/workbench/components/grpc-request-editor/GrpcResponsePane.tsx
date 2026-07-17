@@ -5,8 +5,9 @@
  * `0 OK · 128 ms` meta strip right-aligned in the tab bar (non-zero
  * and missing statuses rendered honestly). The Response tab is a
  * display-side decode over the captured frames (see
- * `response-decode.ts`); Metadata and Trailers list the reply's fields
- * verbatim. A non-OK status with no reply message renders the friendly
+ * `response-decode.ts`); Metadata and Trailers render the reply's
+ * fields in the shared filterable name/value grid
+ * (`ResponseHeadersView`), counts on the tab labels. A non-OK status with no reply message renders the friendly
  * `GrpcResponseErrorState` in the Response tab; error snapshots (the
  * call never produced a response head) render the same state's local
  * flavor under the plain Response title row.
@@ -19,6 +20,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
 import CodeEditor from '../shared/CodeEditor';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
@@ -32,34 +34,6 @@ interface GrpcResponsePaneProps {
   method: GrpcMethodRef | undefined;
   onClear: () => void;
 }
-
-const MonoRows: React.FC<{ rows: ReadonlyArray<{ key: string; value: string }>; emptyLabel: string }> = ({
-  rows,
-  emptyLabel,
-}) => {
-  const { token } = theme.useToken();
-  if (rows.length === 0) {
-    return (
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        {emptyLabel}
-      </Text>
-    );
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
-      {rows.map((row, i) => (
-        <div
-          // Wire order is the identity — repeated keys are legal.
-          key={`${row.key}:${i}`}
-          style={{ display: 'flex', gap: 8, fontFamily: "'SF Mono', monospace", fontSize: 12, lineHeight: '20px' }}
-        >
-          <span style={{ color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>{row.key}:</span>
-          <span style={{ wordBreak: 'break-all' }}>{row.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry, method, onClear }) => {
   const { token } = theme.useToken();
@@ -208,26 +182,42 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
           },
           {
             key: 'metadata',
-            label: t('workbench.editors.grpc.response.tab.metadata'),
+            label:
+              snapshot.headers.length > 0
+                ? t('workbench.editors.grpc.response.tab.metadataCount', { count: snapshot.headers.length })
+                : t('workbench.editors.grpc.response.tab.metadata'),
             children: (
-              <div style={{ height: '100%', overflow: 'auto', padding: '8px 0' }}>
-                <MonoRows rows={snapshot.headers} emptyLabel={t('workbench.editors.grpc.response.noMetadata')} />
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {snapshot.headers.length === 0 ? (
+                  <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
+                    {t('workbench.editors.grpc.response.noMetadata')}
+                  </Text>
+                ) : (
+                  <ResponseHeadersView headers={snapshot.headers} />
+                )}
               </div>
             ),
           },
           {
             key: 'trailers',
-            label: t('workbench.editors.grpc.response.tab.trailers'),
+            label:
+              snapshot.trailers.length > 0
+                ? t('workbench.editors.grpc.response.tab.trailersCount', { count: snapshot.trailers.length })
+                : t('workbench.editors.grpc.response.tab.trailers'),
             children: (
-              <div
-                style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}
-              >
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, gap: 6 }}>
                 {snapshot.grpcStatusSource === 'headers' && (
-                  <Text type="secondary" style={{ fontSize: 11 }}>
+                  <Text type="secondary" style={{ fontSize: 11, paddingTop: 8 }}>
                     {t('workbench.editors.grpc.response.trailersOnly')}
                   </Text>
                 )}
-                <MonoRows rows={snapshot.trailers} emptyLabel={t('workbench.editors.grpc.response.noTrailers')} />
+                {snapshot.trailers.length === 0 ? (
+                  <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
+                    {t('workbench.editors.grpc.response.noTrailers')}
+                  </Text>
+                ) : (
+                  <ResponseHeadersView headers={snapshot.trailers} />
+                )}
               </div>
             ),
           },

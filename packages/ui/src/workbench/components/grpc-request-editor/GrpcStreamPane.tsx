@@ -20,6 +20,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
@@ -41,34 +42,6 @@ interface GrpcStreamPaneProps {
   target: string;
   onClear: () => void;
 }
-
-const MonoRows: React.FC<{ rows: ReadonlyArray<{ key: string; value: string }>; emptyLabel: string }> = ({
-  rows,
-  emptyLabel,
-}) => {
-  const { token } = theme.useToken();
-  if (rows.length === 0) {
-    return (
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        {emptyLabel}
-      </Text>
-    );
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
-      {rows.map((row, i) => (
-        <div
-          // Wire order is the identity — repeated keys are legal.
-          key={`${row.key}:${i}`}
-          style={{ display: 'flex', gap: 8, fontFamily: "'SF Mono', monospace", fontSize: 12, lineHeight: '20px' }}
-        >
-          <span style={{ color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>{row.key}:</span>
-          <span style={{ wordBreak: 'break-all' }}>{row.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   live,
@@ -255,35 +228,48 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
           },
           {
             key: 'metadata',
-            label: t('workbench.editors.grpc.response.tab.metadata'),
+            label:
+              headers.length > 0
+                ? t('workbench.editors.grpc.response.tab.metadataCount', { count: headers.length })
+                : t('workbench.editors.grpc.response.tab.metadata'),
             children: (
-              <div style={{ height: '100%', overflow: 'auto', padding: '8px 0' }}>
-                <MonoRows rows={headers} emptyLabel={t('workbench.editors.grpc.response.noMetadata')} />
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {headers.length === 0 ? (
+                  <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
+                    {t('workbench.editors.grpc.response.noMetadata')}
+                  </Text>
+                ) : (
+                  <ResponseHeadersView headers={headers} />
+                )}
               </div>
             ),
           },
           {
             key: 'trailers',
-            label: t('workbench.editors.grpc.response.tab.trailers'),
+            label:
+              snapshot !== null && snapshot.trailers.length > 0
+                ? t('workbench.editors.grpc.response.tab.trailersCount', { count: snapshot.trailers.length })
+                : t('workbench.editors.grpc.response.tab.trailers'),
             children: (
-              <div
-                style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}
-              >
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, gap: 6 }}>
                 {snapshot === null ? (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
                     {t('workbench.editors.grpc.stream.trailersPending')}
                   </Text>
                 ) : (
                   <>
                     {snapshot.grpcStatusSource === 'headers' && (
-                      <Text type="secondary" style={{ fontSize: 11 }}>
+                      <Text type="secondary" style={{ fontSize: 11, paddingTop: 8 }}>
                         {t('workbench.editors.grpc.response.trailersOnly')}
                       </Text>
                     )}
-                    <MonoRows
-                      rows={snapshot.trailers}
-                      emptyLabel={t('workbench.editors.grpc.response.noTrailers')}
-                    />
+                    {snapshot.trailers.length === 0 ? (
+                      <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
+                        {t('workbench.editors.grpc.response.noTrailers')}
+                      </Text>
+                    ) : (
+                      <ResponseHeadersView headers={snapshot.trailers} />
+                    )}
                   </>
                 )}
               </div>

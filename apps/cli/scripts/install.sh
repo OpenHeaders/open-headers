@@ -1,9 +1,8 @@
 #!/bin/sh
 # Installs the standalone `oh` binary (and `ohd` with --with-daemon),
-# verified against the release's SHA256SUMS.txt. Everything resolves
-# through the update feed (updates.openheaders.io): the current release
-# from `versions/stable.json`, the binaries from the feed's `dl/<tag>/`
-# paths — one own-first-party domain, no GitHub reachability needed.
+# verified against the release's SHA256SUMS.txt. The current release is
+# resolved from the update feed (updates.openheaders.io) — never from
+# GitHub "latest" — and binaries download from the release's assets.
 #
 #   curl -fsSL https://updates.openheaders.io/install.sh | sh
 #
@@ -13,6 +12,7 @@
 #   OH_RELEASE_TAG     release tag to install (default: current stable)
 set -eu
 
+REPO="OpenHeaders/open-headers"
 FEED="https://updates.openheaders.io"
 INSTALL_DIR="${OH_INSTALL_DIR:-$HOME/.local/bin}"
 TAG="${OH_RELEASE_TAG:-}"
@@ -84,7 +84,7 @@ if [ -z "$TAG" ]; then
     exit 1
   fi
 fi
-BASE_URL="${FEED}/dl/${TAG}"
+BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
 # ── Resolve assets from the release's checksum manifest ───────────────
 
