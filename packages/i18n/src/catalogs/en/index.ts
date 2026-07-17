@@ -9,6 +9,12 @@ import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
+import { panelConsole } from './panel-console';
+import { panelDocs } from './panel-docs';
+import { panelInspector } from './panel-inspector';
+import { panelNetwork } from './panel-network';
+import { panelQuickEditor } from './panel-quick-editor';
+import { panelStorage } from './panel-storage';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -28,11 +34,16 @@ import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocs } from './workbench-docs';
+import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
+import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchImportExport } from './workbench-import-export';
 import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
+import { workbenchSettingsDefs } from './workbench-settings-defs';
+import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
 export const en = {
@@ -52,17 +63,28 @@ export const en = {
   ...desktop,
   ...extension,
   ...panel,
+  ...panelConsole,
+  ...panelDocs,
+  ...panelInspector,
+  ...panelNetwork,
+  ...panelQuickEditor,
+  ...panelStorage,
   ...popup,
   ...web,
   ...workbench,
   ...workbenchChrome,
   ...workbenchDaemonAdmin,
   ...workbenchDocs,
+  ...workbenchDocsDebugMode,
+  ...workbenchDocsSystemStatus,
+  ...workbenchDocsVariables,
   ...workbenchEditors,
   ...workbenchImportExport,
   ...workbenchLive,
   ...workbenchScriptPackages,
   ...workbenchSettings,
+  ...workbenchSettingsDefs,
+  ...workbenchSettingsPanes,
   ...workbenchVariables,
 } as const satisfies Catalog;
 
