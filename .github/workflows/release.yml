@@ -451,9 +451,11 @@ jobs:
           path: release-binaries/*
 
   build-extension:
-    # Public-repo releases only: the desktop release loop on a private
-    # mirror doesn't need extension zips (the store owns distribution).
-    if: ${{ !contains(github.ref_name, '-ext') && github.repository == 'OpenHeaders/open-headers-app' }}
+    # Every release ships the extension zips — stable AND beta (beta
+    # testers sideload the freshest build). These are the fully mangled
+    # OH_EXT_CHANNEL=release artifacts, deliberately DISTINCT from the
+    # review-permissive store submissions (built without the flag).
+    if: ${{ !contains(github.ref_name, '-ext') }}
     runs-on: ubuntu-latest
 
     steps:
