@@ -47,6 +47,7 @@ import type { Monaco } from '@monaco-editor/react';
 import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
 import GenerateCollectionModal from './GenerateCollectionModal';
+import GenerateProtoCollectionModal from './GenerateProtoCollectionModal';
 import SpecOutlinePane from './SpecOutlinePane';
 import { attachSpecEditorServices } from './spec-editor-services';
 import { SPEC_FORMAT_LABELS } from './spec-format-labels';
@@ -259,11 +260,13 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   // Vendor parity: the toolbar button reads "Generate Collection"
   // until a link exists, then flips to a "Collections" popover listing
   // every generated collection (one spec → many links); per-link
-  // in-sync badges + Update ride Phase F. Protobuf specs carry no
-  // generate affordance yet — collection generation from proto
-  // services lands with the gRPC client's close-out phase.
+  // in-sync badges + Update ride Phase F. Protobuf specs generate
+  // GrpcRequest rows through their own modal; the drift badge is
+  // hash-based and format-neutral, but Update (spec-diff re-plan) is
+  // an OpenAPI flow — proto links keep the button disabled.
+  const isProtobuf = spec.format === 'protobuf';
   const generateAction =
-    spec.format === 'protobuf' ? null : linkedCollections.length === 0 ? (
+    linkedCollections.length === 0 ? (
       <Button
         size="small"
         onClick={() => setGenerateOpen(true)}
@@ -305,15 +308,17 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
                       />
                     )}
                   </Tooltip>
-                  <Button
-                    size="small"
-                    style={{ fontSize: 11 }}
-                    disabled={!drifted}
-                    onClick={() => setUpdateTarget(c)}
-                    data-testid={`spec-link-update-${c.uid}`}
-                  >
-                    {t('workbench.editors.spec.update.button')}
-                  </Button>
+                  <Tooltip title={isProtobuf ? t('workbench.editors.spec.update.protoUnavailable') : undefined}>
+                    <Button
+                      size="small"
+                      style={{ fontSize: 11 }}
+                      disabled={!drifted || isProtobuf}
+                      onClick={() => setUpdateTarget(c)}
+                      data-testid={`spec-link-update-${c.uid}`}
+                    >
+                      {t('workbench.editors.spec.update.button')}
+                    </Button>
+                  </Tooltip>
                 </div>
               );
             })}
@@ -390,13 +395,23 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
             </Allotment.Pane>
           </Allotment>
         </div>
-        <GenerateCollectionModal
-          open={generateOpen}
-          spec={spec}
-          content={rootFile.content}
-          editorDirty={isDirty}
-          onCancel={() => setGenerateOpen(false)}
-        />
+        {isProtobuf ? (
+          <GenerateProtoCollectionModal
+            open={generateOpen}
+            spec={spec}
+            content={rootFile.content}
+            editorDirty={isDirty}
+            onCancel={() => setGenerateOpen(false)}
+          />
+        ) : (
+          <GenerateCollectionModal
+            open={generateOpen}
+            spec={spec}
+            content={rootFile.content}
+            editorDirty={isDirty}
+            onCancel={() => setGenerateOpen(false)}
+          />
+        )}
         {updateTarget !== null && (
           <UpdateCollectionModal
             open

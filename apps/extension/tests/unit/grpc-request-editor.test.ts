@@ -184,6 +184,16 @@ describe('grpc draft projections', () => {
     expect(updates.sslVerification).toBe(true);
   });
 
+  it('normalizes absent description to an empty string — clearing docs round-trips', () => {
+    const draft = draftFromGrpcRequest(entity);
+    expect(draft.description).toBe('');
+    expect(buildGrpcRequestUpdates(draft).description).toBe('');
+    const documented: GrpcRequest = { ...entity, description: '# Create Book\nCreates one book.' };
+    const updates = buildGrpcRequestUpdates(draftFromGrpcRequest(documented));
+    expect(updates).toEqual(canonicalGrpcRequestProjection(documented));
+    expect(updates.description).toBe('# Create Book\nCreates one book.');
+  });
+
   it('round-trips a bearer credential and a verify-off knob through the projections', () => {
     const secured: GrpcRequest = {
       ...entity,

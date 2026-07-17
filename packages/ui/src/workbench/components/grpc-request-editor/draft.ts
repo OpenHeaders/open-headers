@@ -12,6 +12,10 @@ import type { GrpcAuth, GrpcMetadataPair, GrpcMethodRef, GrpcRequest, GrpcSpecLi
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 export interface GrpcDraft {
+  /** Docs-tab markdown; always concrete in the form (`''` = no docs) —
+   *  the save patch emits it verbatim so clearing round-trips (an
+   *  update skips only `undefined` values, the `auth` posture). */
+  description: string;
   url: string;
   tls: boolean;
   method: GrpcMethodRef | undefined;
@@ -28,6 +32,7 @@ export interface GrpcDraft {
 }
 
 export interface GrpcRequestUpdates {
+  description: string;
   url: string;
   tls: boolean;
   method: GrpcMethodRef | undefined;
@@ -65,6 +70,7 @@ export function rowsToMetadata(rows: KeyValueRow[]): GrpcMetadataPair[] {
 
 export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
   return {
+    description: req.description ?? '',
     url: req.url,
     tls: req.tls ?? true,
     method: req.method,
@@ -79,6 +85,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
 
 export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
   return {
+    description: draft.description,
     url: draft.url,
     tls: draft.tls,
     method: draft.method,

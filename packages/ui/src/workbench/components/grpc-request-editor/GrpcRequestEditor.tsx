@@ -53,6 +53,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { grpcTag } from '../sidebar/icons';
 import EditorHeader from '../shell/EditorHeader';
+import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import GrpcResponsePane from './GrpcResponsePane';
 import GrpcStreamPane from './GrpcStreamPane';
@@ -80,6 +81,7 @@ interface GrpcRequestEditorProps {
 }
 
 const emptyGrpcDraft = (): GrpcDraft => ({
+  description: '',
   url: '',
   tls: true,
   method: undefined,
@@ -208,7 +210,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       uid: entity.uid,
       path: entity.path,
       name: entity.name,
-      description: entity.description,
       ...buildGrpcRequestUpdates(draft),
     };
     const streaming = selectedOption !== null && selectedOption.streaming !== 'unary';
@@ -438,6 +439,16 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           size="small"
           style={{ flex: 1, minHeight: 0, padding: '0 12px' }}
           items={[
+            {
+              key: 'docs',
+              label: t('workbench.editors.grpc.tab.docs'),
+              children: (
+                <DocsTab
+                  value={draft.description}
+                  onChange={(description) => setDraft((d) => ({ ...d, description }))}
+                />
+              ),
+            },
             {
               key: 'message',
               label: t('workbench.editors.grpc.tab.message'),

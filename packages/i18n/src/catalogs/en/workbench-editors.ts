@@ -1270,7 +1270,17 @@ export const workbenchEditors = {
   'workbench.editors.spec.generate.failed': 'Could not create the collection.',
   'workbench.editors.spec.generate.linkFailed':
     'The collection was generated, but recording its spec link failed — it will not appear in this list.',
+  'workbench.editors.spec.generateProto.blurb':
+    'Generate a collection from this specification. Service methods become gRPC requests with their example messages pre-filled, grouped in a folder per service. The collection stays linked to this spec.',
+  'workbench.editors.spec.generateProto.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} gRPC request', other: '{count} gRPC requests' }),
+  'workbench.editors.spec.generateProto.servicesCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} service', other: '{count} services' }),
+  'workbench.editors.spec.generateProto.empty': 'The document declares no service methods to generate from.',
+  'workbench.editors.spec.generateProto.partial': 'Generated with gaps — {created} created, {failed} failed.',
   'workbench.editors.spec.update.button': 'Update',
+  'workbench.editors.spec.update.protoUnavailable':
+    'Updating from a Protobuf spec is not available yet — generate a fresh collection to pick up changes.',
   'workbench.editors.spec.update.inSyncBadge': 'In sync with the saved document',
   'workbench.editors.spec.update.driftedBadge': 'The specification changed since the last update',
   'workbench.editors.spec.update.modalTitle': 'UPDATE COLLECTION',
@@ -1387,6 +1397,7 @@ export const workbenchEditors = {
     '{count} message frames arrived — a unary reply carries one; showing the first.',
   'workbench.editors.grpc.response.incompleteTail': 'The response ended mid-frame; complete frames shown.',
   'workbench.editors.grpc.response.truncated': 'Response capped at {bytes} bytes.',
+  'workbench.editors.grpc.tab.docs': 'Docs',
   'workbench.editors.grpc.tab.message': 'Message',
   'workbench.editors.grpc.tab.metadata': 'Metadata',
   'workbench.editors.grpc.tab.serviceDefinition': 'Service definition',
