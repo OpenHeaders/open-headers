@@ -17,14 +17,15 @@ import type { Host } from '../../../../shared/host-vocabulary';
 
 export type ReservedKind = 'browser' | 'system';
 
-// Browser-tab hosts only. New window/tab/close/open (the hostChord
+// Browser-tab hosts only. New window/tab/close (the hostChord
 // fallback set), reload, address bar, bookmark — plus the shift
-// variants of the window/tab family.
+// variants of the window/tab family. `mod+o` is absent on purpose:
+// browsers deliver it to the page and honor preventDefault, and the
+// Import binding claims it on every host.
 const BROWSER_RESERVED: ReadonlySet<string> = new Set([
   'mod+n',
   'mod+t',
   'mod+w',
-  'mod+o',
   'mod+r',
   'mod+l',
   'mod+d',

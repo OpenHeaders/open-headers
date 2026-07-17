@@ -223,10 +223,11 @@ registerSetting({
 registerSetting({
   key: 'keyboard.import',
   type: 'keybinding',
-  // Browser: `mod+o` opens the browser's file picker, so the extension
-  // falls back to `alt+o`. Desktop owns the chord.
-  default: 'alt+o',
-  getDefault: presetAware('keyboard.import', hostChord('mod+o', 'alt+o')),
+  // `mod+o` on every host: unlike the window/tab family, browsers
+  // deliver Cmd/Ctrl+O to the page and honor preventDefault, so the
+  // shortcut loop suppresses the native file picker and opens Import.
+  default: 'mod+o',
+  getDefault: presetAware('keyboard.import', 'mod+o'),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.import.label',
   descriptionKey: 'workbench.settings.def.keyboard.import.description',
