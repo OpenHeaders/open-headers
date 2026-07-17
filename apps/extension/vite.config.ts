@@ -136,10 +136,16 @@ function stripTestIdPropsPlugin(): Plugin {
       if ((id.includes('node_modules') && !id.includes('@openheaders')) || !code.includes('data-testid')) return null;
       const ranges: Array<[number, number]> = [];
       walk(this.parse(code), (node) => {
-        if (node.type !== 'Property') return;
-        const key = node.key;
-        if (isNode(key) && key.type === 'Literal' && (key as { value?: unknown }).value === 'data-testid') {
-          ranges.push([node.start, node.end]);
+        // Object LITERALS only — a `'data-testid'` key in a destructuring
+        // pattern is a read/exclusion (the runtime shim's own), not an
+        // attribute definition.
+        if (node.type !== 'ObjectExpression' || !Array.isArray(node.properties)) return;
+        for (const property of node.properties) {
+          if (!isNode(property) || property.type !== 'Property') continue;
+          const key = property.key;
+          if (isNode(key) && key.type === 'Literal' && (key as { value?: unknown }).value === 'data-testid') {
+            ranges.push([property.start, property.end]);
+          }
         }
       });
       if (ranges.length === 0) return null;
