@@ -1,18 +1,21 @@
 #!/bin/sh
-# Installs the standalone `oh` binary (and `ohd` with --with-daemon)
-# from the latest GitHub release, verified against SHA256SUMS.txt.
+# Installs the standalone `oh` binary (and `ohd` with --with-daemon),
+# verified against the release's SHA256SUMS.txt. The current release is
+# resolved from the update feed (updates.openheaders.io) — never from
+# GitHub "latest" — and binaries download from the release's assets.
 #
-#   curl -fsSL https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/install-oh.sh | sh
+#   curl -fsSL https://updates.openheaders.io/install.sh | sh
 #
 # Options / environment:
 #   --with-daemon      also install the ohd daemon binary
 #   OH_INSTALL_DIR     install directory (default: ~/.local/bin)
-#   OH_RELEASE_TAG     release tag to install (default: latest)
+#   OH_RELEASE_TAG     release tag to install (default: current stable)
 set -eu
 
 REPO="OpenHeaders/open-headers-releases"
+FEED="https://updates.openheaders.io"
 INSTALL_DIR="${OH_INSTALL_DIR:-$HOME/.local/bin}"
-TAG="${OH_RELEASE_TAG:-latest}"
+TAG="${OH_RELEASE_TAG:-}"
 WITH_DAEMON=0
 
 for arg in "$@"; do
@@ -24,12 +27,6 @@ for arg in "$@"; do
       ;;
   esac
 done
-
-if [ "$TAG" = "latest" ]; then
-  BASE_URL="https://github.com/${REPO}/releases/latest/download"
-else
-  BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
-fi
 
 # ── Platform → published binary leg ───────────────────────────────────
 
@@ -76,6 +73,18 @@ fi
 
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
+
+# ── Resolve the release tag from the update feed ──────────────────────
+
+if [ -z "$TAG" ]; then
+  fetch "${FEED}/versions/stable.json" "${TMP_DIR}/versions.json"
+  TAG=$(sed -n '/"cli": {/,/}/p' "${TMP_DIR}/versions.json" | sed -n 's/.*"tag": *"\([^"]*\)".*/\1/p' | head -1)
+  if [ -z "$TAG" ]; then
+    echo "install-oh: could not resolve the current release from ${FEED}/versions/stable.json" >&2
+    exit 1
+  fi
+fi
+BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
 # ── Resolve assets from the release's checksum manifest ───────────────
 

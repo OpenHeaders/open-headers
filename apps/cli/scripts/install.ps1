@@ -1,22 +1,29 @@
-# Installs the standalone oh.exe from the latest GitHub release,
-# verified against SHA256SUMS.txt.
+# Installs the standalone oh.exe, verified against the release's
+# SHA256SUMS.txt. The current release is resolved from the update feed
+# (updates.openheaders.io) - never from GitHub "latest" - and the
+# binary downloads from the release's assets.
 #
-#   powershell -c "irm https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/install-oh.ps1 | iex"
+#   powershell -c "irm https://updates.openheaders.io/install.ps1 | iex"
 #
 # Environment:
 #   OH_INSTALL_DIR    install directory (default: %LOCALAPPDATA%\OpenHeaders\bin)
-#   OH_RELEASE_TAG    release tag to install (default: latest)
+#   OH_RELEASE_TAG    release tag to install (default: current stable)
 $ErrorActionPreference = 'Stop'
 
 $repo = 'OpenHeaders/open-headers-releases'
-$tag = if ($env:OH_RELEASE_TAG) { $env:OH_RELEASE_TAG } else { 'latest' }
+$feed = 'https://updates.openheaders.io'
 $installDir = if ($env:OH_INSTALL_DIR) { $env:OH_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'OpenHeaders\bin' }
 
-$baseUrl = if ($tag -eq 'latest') {
-  "https://github.com/$repo/releases/latest/download"
+$tag = if ($env:OH_RELEASE_TAG) {
+  $env:OH_RELEASE_TAG
 } else {
-  "https://github.com/$repo/releases/download/$tag"
+  $versions = Invoke-RestMethod -Uri "$feed/versions/stable.json" -UseBasicParsing
+  if (-not $versions.cli.tag) {
+    Write-Error "install-oh: could not resolve the current release from $feed/versions/stable.json"
+  }
+  $versions.cli.tag
 }
+$baseUrl = "https://github.com/$repo/releases/download/$tag"
 
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
   Write-Error "install-oh: only win-x64 binaries are published (this machine: $env:PROCESSOR_ARCHITECTURE) - use the Node channel instead: npm install -g @openheaders/cli"

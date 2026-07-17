@@ -79,15 +79,17 @@ Check-and-notify only — the app never self-installs
 Linux AppImage; dev builds, deb/rpm installs, and the daemon make no
 update requests.
 
-- **Endpoint**: the public releases repository,
-  `https://github.com/OpenHeaders/open-headers-releases` — standard
-  electron-updater GitHub-provider `GET`s: the latest-release metadata
-  (`latest.yml` / `latest-mac.yml` / `latest-linux.yml`) and, only after
-  the user chooses to download, the installer artifact itself.
+- **Endpoint**: the update feed,
+  `GET https://updates.openheaders.io/desktop/stable/latest.yml`
+  (`latest-mac.yml` / `latest-linux.yml` per platform) — a static
+  pointer file read by electron-updater's generic provider. Only after
+  the user chooses to download, the installer artifact itself is
+  fetched from the GitHub release-asset URL the pointer file carries
+  (GitHub is artifact storage; it appears only as data inside the
+  pointer, subject to GitHub's own logging).
 - **Request body**: none. These are plain HTTP `GET`s; no identifier,
   license, or machine information is attached beyond what any HTTP
-  client sends (the served host is GitHub, subject to GitHub's own
-  logging).
+  client sends.
 - **Cadence**: at most once a day (±10 min jitter) plus explicit
   "Check now" clicks. Downloads happen only on user action (or with the
   user's opt-in `updates.autoDownload`); installs only on explicit
@@ -98,14 +100,13 @@ update requests.
 
 ## 3. Severity manifest
 
-A small static severity manifest (`versions.json`) published alongside
-each release on the same public releases repository —
-`{ latest, severity, minimumSafeVersion }` per app, so a security
-release can escalate loudly (red badge, entry banner). Severity is
-authored by a human before each release, never derived from anything
-about your install.
+A small static severity manifest published to the update feed on each
+release — `{ latest, tag, severity, minimumSafeVersion }` per app, so a
+security release can escalate loudly (red badge, entry banner).
+Severity is authored by a human before each release, never derived
+from anything about your install.
 
-- **Endpoint**: `GET https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/versions.json`
+- **Endpoint**: `GET https://updates.openheaders.io/versions/stable.json`
 - **Request body**: none — a plain HTTP `GET` of a static file; no
   identifier, license, or machine information is attached. The
   comparison against your running version happens locally.

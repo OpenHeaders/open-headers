@@ -286,9 +286,8 @@
       ]
     },
     "publish": {
-      "provider": "github",
-      "owner": "OpenHeaders",
-      "repo": "open-headers-releases"
+      "provider": "generic",
+      "url": "https://updates.openheaders.io/desktop/stable"
     }
   },
   "dependencies": {

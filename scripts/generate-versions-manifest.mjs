@@ -5,9 +5,12 @@
  * `/releases/latest/download/versions.json` — a URL GitHub resolves to
  * the newest non-prerelease, so beta tags never move the manifest.
  *
- * Shape, per app: `{ latest, severity, minimumSafeVersion? }`.
+ * Shape, per app: `{ latest, tag, severity, minimumSafeVersion? }`.
  * `latest` comes from each app's own package.json (the desktop's from
- * the tag — that is its version axis). `severity` and the optional
+ * the tag — that is its version axis); `tag` is the release tag whose
+ * page hosts the app's assets, so consumers (the install scripts)
+ * construct absolute download URLs without ever resolving GitHub
+ * "latest" (DISTRIBUTION_PLAN §3). `severity` and the optional
  * `minimumSafeVersion` come from `.github/release-severity.json`, an
  * authored file: escalation is a human decision made before tagging,
  * never inferred. A `security` release must name its safe floor.
@@ -70,7 +73,7 @@ for (const app of APPS) {
   if (minimumSafeVersion && compareVersions(minimumSafeVersion, latest) > 0) {
     fail(`'${app}' minimumSafeVersion ${minimumSafeVersion} is above latest ${latest}`);
   }
-  manifest[app] = { latest, severity, ...(minimumSafeVersion ? { minimumSafeVersion } : {}) };
+  manifest[app] = { latest, tag, severity, ...(minimumSafeVersion ? { minimumSafeVersion } : {}) };
 }
 
 console.log(JSON.stringify(manifest, null, 2));

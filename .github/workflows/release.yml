@@ -14,6 +14,10 @@ permissions:
 # Node heap.
 env:
   NODE_OPTIONS: --max-old-space-size=4096
+  # Where release artifacts land; the update feed's pointer files carry
+  # absolute URLs into this repo's release pages (DISTRIBUTION_PLAN §3).
+  RELEASE_REPO: OpenHeaders/open-headers-releases
+  R2_BUCKET: oh-updates
 
 jobs:
   build-desktop:
@@ -610,7 +614,7 @@ jobs:
           VERSION=${GITHUB_REF_NAME/v/}
           EXT_VERSION="${{ steps.ext_ver.outputs.version }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
-          REPO="OpenHeaders/open-headers-releases"
+          REPO="$RELEASE_REPO"
           TAG="$GITHUB_REF_NAME"
 
           DL="https://github.com/${REPO}/releases/download/${TAG}"
@@ -681,13 +685,13 @@ jobs:
               echo "Install script (verifies checksums, installs to \`~/.local/bin\`; add \`--with-daemon\` for \`ohd\`):"
               echo ""
               echo '```sh'
-              echo "curl -fsSL https://github.com/${REPO}/releases/latest/download/install-oh.sh | sh"
+              echo "curl -fsSL https://updates.openheaders.io/install.sh | sh"
               echo '```'
               echo ""
               echo "Windows (PowerShell):"
               echo ""
               echo '```powershell'
-              echo "irm https://github.com/${REPO}/releases/latest/download/install-oh.ps1 | iex"
+              echo "irm https://updates.openheaders.io/install.ps1 | iex"
               echo '```'
               echo ""
               echo "| Binary | Platform | Download |"
@@ -742,6 +746,65 @@ jobs:
           body_path: release_body.md
           generate_release_notes: false
           append_body: true
+
+      # The update feed: static pointer files on R2 behind
+      # updates.openheaders.io (DISTRIBUTION_PLAN §3). The yml/json
+      # pointers carry absolute URLs to this release's GitHub assets, so
+      # staging happens only after the release exists. A beta tag stages
+      # only beta/ paths — stable pointers can never move.
+      - name: Stage update feed pointers
+        run: |
+          node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
+            "https://github.com/${RELEASE_REPO}/releases/download/${GITHUB_REF_NAME}" \
+            processed_files feed
+          find feed -type f | sort
+
+      # Secrets are not readable in step `if:` expressions; missing R2
+      # credentials skip the upload with a warning instead of failing
+      # the release.
+      - name: Check R2 credentials
+        id: r2
+        run: |
+          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::R2 secrets not configured — update feed not uploaded this release"
+          fi
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Upload update feed to R2
+        if: steps.r2.outputs.enabled == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          # aws-cli ≥ 2.23 defaults to CRC32 request checksums, which
+          # R2's S3 layer rejects.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          find feed -type f | while read -r file; do
+            KEY="${file#feed/}"
+            case "$file" in
+              *.yml)  TYPE="text/yaml" ;;
+              *.json) TYPE="application/json" ;;
+              *.ps1)  TYPE="text/plain; charset=utf-8" ;;
+              *.sh)   TYPE="text/x-shellscript; charset=utf-8" ;;
+              *)      TYPE="application/octet-stream" ;;
+            esac
+            # Short cache so a fresh release is visible within minutes
+            # of the pointer upload — clients check at most daily.
+            aws s3 cp "$file" "s3://${R2_BUCKET}/${KEY}" \
+              --endpoint-url "$ENDPOINT" --region auto \
+              --content-type "$TYPE" \
+              --cache-control "public, max-age=300, must-revalidate" \
+              --no-progress
+          done
 
       # The extension mirror-publish targets the real public extension
       # repo — it must never fire from a private/mirror build of this

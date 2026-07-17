@@ -1,14 +1,20 @@
 /**
  * Client half of the severity manifest (`docs/UPDATES_PLAN.md` §4).
  *
- * `versions.json` is a static release asset published by the release
- * workflow (`scripts/generate-versions-manifest.mjs`); GitHub resolves
- * the `latest` download URL to the newest non-prerelease, so beta tags
- * never move what clients read. The fetch shares the update check's
- * posture exactly: an anonymous `GET` of a static file, no payload, no
- * identifier — and it only ever runs from the update service's check,
- * so the same off switches (`updates.check: off`,
- * `OH_DISABLE_UPDATE_CHECKS=1`, unsupported builds) gate it.
+ * `versions/<channel>.json` is a static pointer file on the update feed
+ * (`update-feed.ts`), written by the release workflow
+ * (`scripts/generate-versions-manifest.mjs` shape, uploaded per channel
+ * by `scripts/generate-update-feed.mjs`) — a stable tag only ever moves
+ * `versions/stable.json`, so beta tags never move what this reads. The
+ * fetch shares the update check's posture exactly: an anonymous `GET`
+ * of a static file, no payload, no identifier — and it only ever runs
+ * from the update service's check, so the same off switches
+ * (`updates.check: off`, `OH_DISABLE_UPDATE_CHECKS=1`, unsupported
+ * builds) gate it.
+ *
+ * Severity always reads the STABLE manifest, regardless of channel —
+ * the security floor is a property of the stable line, and a beta
+ * install below it must still escalate (`docs/DISTRIBUTION_PLAN.md` §4).
  *
  * Severity is authored by a human before tagging, never inferred; a
  * `security` entry always names its `minimumSafeVersion` floor (the
@@ -16,9 +22,9 @@
  */
 
 import type { AppUpdateSeverity } from '@openheaders/core/bridge';
+import { versionsManifestUrl } from './update-feed';
 
-export const VERSIONS_MANIFEST_URL =
-  'https://github.com/OpenHeaders/open-headers-releases/releases/latest/download/versions.json';
+export const VERSIONS_MANIFEST_URL = versionsManifestUrl('stable');
 
 /** The desktop entry of the published manifest, validated. */
 export interface SeverityInfo {

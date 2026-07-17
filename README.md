@@ -20,7 +20,7 @@ Open Headers is a privacy-focused desktop app that works with browser extensions
 
 ## Quick Start
 
-1. Download the app for your platform from [Releases](https://github.com/OpenHeaders/open-headers-releases/releases)
+1. Download the app for your platform from [openheaders.io](https://openheaders.io)
 2. Install the browser extension:
    - [Chrome](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)
    - [Edge](https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo)

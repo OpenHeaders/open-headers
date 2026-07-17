@@ -16,6 +16,7 @@ import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
 import { createLogger } from './bootstrap/logger';
 import { markQuitting } from './bootstrap/quit-state';
 import { getMainWindow } from './bootstrap/window-manager';
+import { desktopFeedUrl, releaseNotesUrl } from './update-feed';
 import type { AvailableUpdate, UpdaterPort } from './update-service';
 
 /**
@@ -42,15 +43,26 @@ function toAvailableUpdate(info: UpdateInfo): AvailableUpdate {
   return {
     version: info.version,
     // The feed's releaseNotes field is inline HTML/markdown, not a URL.
-    // The feed host IS the public releases repo, so the offered
-    // version's tag page exists by construction.
-    releaseNotesUrl: `https://github.com/OpenHeaders/open-headers-releases/releases/tag/v${info.version}`,
+    // The pointer files name assets on the releases repo, so the
+    // offered version's tag page exists by construction.
+    releaseNotesUrl: releaseNotesUrl(info.version),
   };
 }
 
 export function createElectronUpdaterPort(): UpdaterPort {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Generic provider over the own-domain pointer feed (update-feed.ts).
+  // Channel is hardcoded stable until the `updates.channel` setting
+  // lands (DISTRIBUTION_PLAN §8 Phase 3). The pointer files carry
+  // absolute GitHub asset URLs; multi-range requests are off because
+  // GitHub's asset CDN only honors single ranges (differential
+  // downloads still work — one range per chunk run).
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: desktopFeedUrl('stable'),
+    useMultipleRangeRequest: false,
+  });
 
   // electron-updater's internals (feed resolution, differential
   // download, signature validation) log through this hook — route them
