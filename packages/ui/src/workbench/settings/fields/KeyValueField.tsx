@@ -10,6 +10,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Input, Space } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUntypedSetting } from '../hooks';
 import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
@@ -39,6 +40,7 @@ function fromRows(rows: Row[]): Record<string, string> {
 }
 
 const KeyValueField: React.FC<KeyValueFieldProps> = ({ def }) => {
+  const t = useT();
   const [storeValue, setStoreValue] = useUntypedSetting(def.key);
   const [rows, setRows] = useState<Row[]>(() => toRows(storeValue));
 
@@ -67,7 +69,7 @@ const KeyValueField: React.FC<KeyValueFieldProps> = ({ def }) => {
         {rows.map((row, i) => (
           <Space.Compact key={`${i}-${row.key}`} style={{ width: '100%' }}>
             <Input
-              placeholder="key"
+              placeholder={t('workbench.settings.fields.keyValue.keyPlaceholder')}
               value={row.key}
               onChange={(e) => {
                 const next = [...rows];
@@ -77,7 +79,7 @@ const KeyValueField: React.FC<KeyValueFieldProps> = ({ def }) => {
               onBlur={() => commit(rows)}
             />
             <Input
-              placeholder="value"
+              placeholder={t('workbench.settings.fields.keyValue.valuePlaceholder')}
               value={row.value}
               onChange={(e) => {
                 const next = [...rows];
@@ -96,7 +98,7 @@ const KeyValueField: React.FC<KeyValueFieldProps> = ({ def }) => {
           </Space.Compact>
         ))}
         <Button icon={<PlusOutlined />} onClick={() => commit([...rows, { key: '', value: '' }])} block>
-          Add entry
+          {t('workbench.settings.fields.keyValue.addEntry')}
         </Button>
       </Space>
     </FieldRow>

@@ -20,6 +20,15 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingsShell from './SettingsShell';
 import { SettingsHostContext } from './settings-host-context';
 
+// Strip every Ant default that contributes vertical chrome:
+// .ant-modal has padding-bottom: 24, .ant-modal-content has 20+20.
+// Without these overrides our body height + Ant's chrome exceeds
+// 100vh when maximized and the modal-wrap (or page) gains a scrollbar.
+const MODAL_CHROME_CSS = `
+  .settings-modal { padding-bottom: 0 !important; }
+  .settings-modal .ant-modal-content { padding: 0 !important; }
+`;
+
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -73,14 +82,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       }}
       className="settings-modal"
     >
-      {/* Strip every Ant default that contributes vertical chrome:
-          .ant-modal has padding-bottom: 24, .ant-modal-content has 20+20.
-          Without these overrides our body height + Ant's chrome exceeds
-          100vh when maximized and the modal-wrap (or page) gains a scrollbar. */}
-      <style>{`
-        .settings-modal { padding-bottom: 0 !important; }
-        .settings-modal .ant-modal-content { padding: 0 !important; }
-      `}</style>
+      <style>{MODAL_CHROME_CSS}</style>
       <div
         style={{
           display: 'flex',

@@ -26,20 +26,20 @@ export const RemoteSelfHostedDetail: React.FC = () => {
 
       {/* ── Row 1 ─────────────────────────────────────────────── */}
 
-      <LaptopContainer x={20} y={12} w={200} h={108} label="Laptop">
+      <LaptopContainer x={20} y={12} w={200} h={108} label={t('workbench.settings.backendDetails.device.laptop')}>
         <BrowserWindow x={30} y={22} w={180} h={24} chromeH={11} corner="Browser" />
         <BrowserWindow x={30} y={52} w={180} h={24} chromeH={11} corner="Browser" />
         <BrowserWindow x={30} y={82} w={180} h={24} chromeH={11} corner="Desktop App" />
       </LaptopContainer>
 
-      <DesktopContainer x={380} y={12} w={200} h={76} label="Desktop">
+      <DesktopContainer x={380} y={12} w={200} h={76} label={t('workbench.settings.backendDetails.device.desktop')}>
         <BrowserWindow x={392} y={24} w={176} h={24} chromeH={12} corner="Desktop App" />
         <BrowserWindow x={392} y={54} w={176} h={24} chromeH={12} corner="Browser" />
       </DesktopContainer>
 
       {/* ── Row 2 ─────────────────────────────────────────────── */}
 
-      <DesktopContainer x={20} y={148} w={200} h={72} label="Workstation">
+      <DesktopContainer x={20} y={148} w={200} h={72} label={t('workbench.settings.backendDetails.device.workstation')}>
         <BrowserWindow
           x={30}
           y={160}
@@ -115,7 +115,7 @@ export const RemoteSelfHostedDetail: React.FC = () => {
         </BrowserWindow>
       </DesktopContainer>
 
-      <ServerContainer x={320} y={148} w={260} h={234} label="Remote server">
+      <ServerContainer x={320} y={148} w={260} h={234} label={t('workbench.settings.backendDetails.device.remoteServer')}>
         <FrontEndPill
           x={332}
           y={178}

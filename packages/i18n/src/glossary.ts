@@ -15,6 +15,10 @@ export const GLOSSARY: readonly string[] = [
   'Postman',
   'Insomnia',
   'Bruno',
+  // Browser proper nouns (backend-details window titles)
+  'Chrome',
+  'Firefox',
+  'Edge',
   // Protocol / wire vocabulary
   'HTTP',
   'HTTPS',

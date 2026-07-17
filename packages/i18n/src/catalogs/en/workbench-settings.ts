@@ -1670,4 +1670,50 @@ export const workbenchSettings = {
       other: 'Front-end = {count} hosted surfaces',
     }),
   'workbench.settings.backendDetails.optIn': '(opt-in)',
+
+  // ── Backend-details device-frame labels ────────────────────────────
+  // The scene diagrams' device-container labels are user-facing scene
+  // vocabulary and key here. Inner window corners ("Browser" / "CLI"),
+  // the CI/CD YAML mock, prompt glyphs, and engine/where pill args stay
+  // raw as diagram internals. Browser window titles (Chrome / Firefox /
+  // Edge) are glossary proper nouns; the in-browser combined title keys
+  // with the brand vocabulary raw inside the value.
+  'workbench.settings.backendDetails.device.laptop': 'Laptop',
+  'workbench.settings.backendDetails.device.desktop': 'Desktop',
+  'workbench.settings.backendDetails.device.workstation': 'Workstation',
+  'workbench.settings.backendDetails.device.localServer': 'Local server',
+  'workbench.settings.backendDetails.device.remoteServer': 'Remote server',
+  'workbench.settings.backendDetails.device.yourDevice': 'Your device',
+  'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
+
+  // ── Settings field widgets ─────────────────────────────────────────
+  'workbench.settings.fields.files.renameTooltip': 'Rename file',
+  'workbench.settings.fields.files.renameMissing': 'File no longer exists in this workspace',
+  'workbench.settings.fields.files.renameFailed': 'Could not rename file',
+  'workbench.settings.fields.files.renameFailedReason': 'Could not rename file: {message}',
+  'workbench.settings.fields.files.colFilename': 'Filename',
+  'workbench.settings.fields.files.colSize': 'Size',
+  'workbench.settings.fields.files.colMime': 'MIME',
+  'workbench.settings.fields.files.colHash': 'Hash',
+  'workbench.settings.fields.files.colActions': 'Actions',
+  'workbench.settings.fields.files.download': 'Download',
+  'workbench.settings.fields.files.deleteTitle': 'Delete {filename}?',
+  'workbench.settings.fields.files.deleteWarning': 'Multipart parts referencing this file will error on send.',
+  'workbench.settings.fields.files.loading': 'Loading files…',
+  'workbench.settings.fields.files.empty': 'No files yet — use the Upload File action above.',
+  'workbench.settings.fields.keyValue.keyPlaceholder': 'key',
+  'workbench.settings.fields.keyValue.valuePlaceholder': 'value',
+  'workbench.settings.fields.keyValue.addEntry': 'Add entry',
+  'workbench.settings.fields.keybinding.pressCombo': 'Press a key combo…',
+  'workbench.settings.fields.keybinding.record': 'Record',
+  'workbench.settings.fields.keybinding.cancel': 'Cancel',
+
+  // ── Product-telemetry toggle row ───────────────────────────────────
+  'workbench.settings.telemetryRow.viewEvents': 'View events',
+  'workbench.settings.telemetryRow.modalTitle': 'Telemetry events this session',
+  'workbench.settings.telemetryRow.sessionOn': 'Session {sessionId} — counting is on',
+  'workbench.settings.telemetryRow.sessionOff': 'Session {sessionId} — counting is off',
+  'workbench.settings.telemetryRow.install': 'Install {installId} (random — identifies this install, not you)',
+  'workbench.settings.telemetryRow.noInstall': 'No install identifier — counting is off',
+  'workbench.settings.telemetryRow.empty': 'No telemetry events recorded this session.',
 } as const satisfies Catalog;

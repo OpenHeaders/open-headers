@@ -23,7 +23,7 @@ export const DesktopAppDetail: React.FC = () => {
     >
       <ArrowDefs id={ID} />
 
-      <DesktopContainer x={30} y={18} w={540} h={280} label="Your device">
+      <DesktopContainer x={30} y={18} w={540} h={280} label={t('workbench.settings.backendDetails.device.yourDevice')}>
         {/* Screen content lives inside the inset (y ∈ [28, 188]). The
             monitor's height was tightened so the screen wraps the
             content with even margins — no big empty band at the bottom. */}

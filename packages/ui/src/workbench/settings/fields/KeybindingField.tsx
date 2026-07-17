@@ -11,6 +11,7 @@ import { CloseOutlined } from '@ant-design/icons';
 import { Button, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUntypedSetting } from '../hooks';
 import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
@@ -34,6 +35,7 @@ function formatChord(chord: string): string {
 }
 
 const KeybindingField: React.FC<KeybindingFieldProps> = ({ def }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const [value, setValue] = useUntypedSetting(def.key);
   const { recording, toggle } = useChordCapture(setValue);
@@ -52,7 +54,7 @@ const KeybindingField: React.FC<KeybindingFieldProps> = ({ def }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {recording ? (
           <Tag color="processing" style={{ fontFamily: 'system-ui, sans-serif' }}>
-            Press a key combo…
+            {t('workbench.settings.fields.keybinding.pressCombo')}
           </Tag>
         ) : (
           <Tag
@@ -68,7 +70,9 @@ const KeybindingField: React.FC<KeybindingFieldProps> = ({ def }) => {
           </Tag>
         )}
         <Button size="small" onClick={toggle}>
-          {recording ? 'Cancel' : 'Record'}
+          {recording
+            ? t('workbench.settings.fields.keybinding.cancel')
+            : t('workbench.settings.fields.keybinding.record')}
         </Button>
         {typeof value === 'string' && value.length > 0 && (
           <Button size="small" type="text" icon={<CloseOutlined />} onClick={clear} />

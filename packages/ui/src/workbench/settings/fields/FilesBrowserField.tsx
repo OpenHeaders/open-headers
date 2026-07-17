@@ -22,6 +22,7 @@ import { App, Button, Empty, Popconfirm, Space, Table, Tooltip, Typography, them
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { ResolvedSettingDef } from '../types';
 import FieldRow from './FieldRow';
 
@@ -42,6 +43,7 @@ interface Row {
 
 const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const { files, isReady, deleteFile, renameFile, readFile } = useFiles();
   const { message } = App.useApp();
 
@@ -52,12 +54,16 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
       const result = await renameFile(fileId, trimmed);
       if (result.ok) return;
       if (result.reason === 'not-found') {
-        message.error('File no longer exists in this workspace');
+        message.error(t('workbench.settings.fields.files.renameMissing'));
         return;
       }
-      message.error(`Could not rename file${result.message ? `: ${result.message}` : ''}`);
+      message.error(
+        result.message
+          ? t('workbench.settings.fields.files.renameFailedReason', { message: result.message })
+          : t('workbench.settings.fields.files.renameFailed'),
+      );
     },
-    [renameFile, message],
+    [renameFile, message, t],
   );
 
   const rows = useMemo<Row[]>(
@@ -86,7 +92,7 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
 
   const columns: ColumnsType<Row> = [
     {
-      title: 'Filename',
+      title: t('workbench.settings.fields.files.colFilename'),
       dataIndex: 'filename',
       key: 'filename',
       render: (name: string, row: Row) => (
@@ -94,7 +100,7 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
           <FileOutlined />
           <Text
             editable={{
-              tooltip: 'Rename file',
+              tooltip: t('workbench.settings.fields.files.renameTooltip'),
               onChange: (next) => void handleRename(row.fileId, name, next),
               autoSize: { minRows: 1, maxRows: 1 },
               triggerType: ['icon', 'text'],
@@ -107,14 +113,14 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
       ),
     },
     {
-      title: 'Size',
+      title: t('workbench.settings.fields.files.colSize'),
       dataIndex: 'size',
       key: 'size',
       width: 110,
       render: (n: number) => <Text type="secondary">{formatBytes(n)}</Text>,
     },
     {
-      title: 'MIME',
+      title: t('workbench.settings.fields.files.colMime'),
       dataIndex: 'mimeType',
       key: 'mimeType',
       width: 160,
@@ -122,7 +128,7 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
         m ? <code style={{ fontSize: 11 }}>{m}</code> : <Text type="secondary">—</Text>,
     },
     {
-      title: 'Hash',
+      title: t('workbench.settings.fields.files.colHash'),
       dataIndex: 'hash',
       key: 'hash',
       width: 140,
@@ -133,17 +139,17 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
       ),
     },
     {
-      title: 'Actions',
+      title: t('workbench.settings.fields.files.colActions'),
       key: 'actions',
       width: 140,
       render: (_: unknown, row: Row) => (
         <Space size={4}>
           <Button size="small" icon={<DownloadOutlined />} onClick={() => void handleDownload(row)}>
-            Download
+            {t('workbench.settings.fields.files.download')}
           </Button>
           <Popconfirm
-            title={`Delete ${row.filename}?`}
-            description="Multipart parts referencing this file will error on send."
+            title={t('workbench.settings.fields.files.deleteTitle', { filename: row.filename })}
+            description={t('workbench.settings.fields.files.deleteWarning')}
             okButtonProps={{ danger: true }}
             onConfirm={() => {
               void deleteFile(row.fileId);
@@ -179,9 +185,9 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               !isReady ? (
-                <Text type="secondary">Loading files…</Text>
+                <Text type="secondary">{t('workbench.settings.fields.files.loading')}</Text>
               ) : (
-                <Text type="secondary">No files yet — use the Upload File action above.</Text>
+                <Text type="secondary">{t('workbench.settings.fields.files.empty')}</Text>
               )
             }
           />

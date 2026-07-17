@@ -14,8 +14,16 @@ export const InBrowserDetail: React.FC = () => {
       role="img"
       aria-label={t('workbench.settings.backendPane.detail.aria.in-browser')}
     >
-      <DesktopContainer x={30} y={18} w={540} h={280} label="Your device">
-        <BrowserWindow x={56} y={42} w={488} h={240} chromeH={20} title="Open Headers — Chrome / Edge / Firefox" corner="Browser">
+      <DesktopContainer x={30} y={18} w={540} h={280} label={t('workbench.settings.backendDetails.device.yourDevice')}>
+        <BrowserWindow
+          x={56}
+          y={42}
+          w={488}
+          h={240}
+          chromeH={20}
+          title={t('workbench.settings.backendDetails.inBrowserTitle')}
+          corner="Browser"
+        >
           <FrontEndPill
             x={70}
             y={82}
