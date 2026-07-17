@@ -745,7 +745,6 @@ jobs:
           I_CHROME=$(icon chrome)
           I_FIREFOX=$(icon firefox)
           I_EDGE=$(icon edge)
-          I_SAFARI=$(icon safari)
 
           # Tables lead, prose collapses into <details> — the reader is
           # here for download links. Betas build no pkg/msi/mac-x64, so
@@ -787,7 +786,6 @@ jobs:
               echo "| ${I_CHROME} Chrome | [Chrome Web Store](${STORE_CHROME}) | [zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
               echo "| ${I_FIREFOX} Firefox | [Firefox Add-ons](${STORE_FIREFOX}) | [zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
               echo "| ${I_EDGE} Edge | [Edge Add-ons](${STORE_EDGE}) | [zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
-              echo "| ${I_SAFARI} Safari | — | [zip](${DL}/open-headers-safari-v${EXT_VERSION}.zip) |"
               if [ "$IS_PRERELEASE" = "true" ]; then
                 echo ""
                 echo "Stores serve the current stable version; the zips above are this beta."

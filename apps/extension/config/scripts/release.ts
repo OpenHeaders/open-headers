@@ -17,7 +17,9 @@ const ROOT = path.resolve(__dirname, '../..');
 const DIST = path.join(ROOT, 'dist');
 const RELEASES = path.join(ROOT, 'releases');
 const VERSION: string = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
-const BROWSERS = ['chrome', 'firefox', 'edge', 'safari'] as const;
+// Safari is not a supported target yet — release zips cover the three
+// store browsers only (`pnpm build` still builds all four for dev).
+const BROWSERS = ['chrome', 'firefox', 'edge'] as const;
 
 const skipBuild = process.argv.includes('--skip-build');
 
@@ -56,9 +58,15 @@ async function build(): Promise<void> {
     return;
   }
 
-  console.log('  Building all browsers...\n');
+  console.log('  Building release browsers...\n');
   try {
-    execSync('npm run build', { cwd: ROOT, stdio: 'inherit', env: { ...process.env, NODE_ENV: 'production' } });
+    for (const browser of BROWSERS) {
+      execSync(`npm run build:${browser}`, {
+        cwd: ROOT,
+        stdio: 'inherit',
+        env: { ...process.env, NODE_ENV: 'production' },
+      });
+    }
     console.log();
   } catch {
     console.error('\n  Build failed. Fix errors above and retry.\n');
