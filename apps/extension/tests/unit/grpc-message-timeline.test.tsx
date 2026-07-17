@@ -2,7 +2,10 @@
 /**
  * GrpcMessageTimeline — the streaming invoke's message-list surface.
  * Pins the ratified Phase E laws: one row per captured frame in
- * arrival order (oldest first, a conversation) with direction glyphs;
+ * arrival order (oldest first, a conversation) with direction glyphs
+ * and a name chip carrying the frame's DECLARED type's short name
+ * (request type for ↑, response type for ↓; the wire-grammar `message`
+ * fallback when the method doesn't resolve);
  * lifecycle rows derived from props — Request sent at the top,
  * Response received once the head is in, Call completed/stopped at
  * the bottom with the status label — never invented; session-only
@@ -107,6 +110,17 @@ describe('GrpcMessageTimeline rows', () => {
     expect(rows[1].querySelector('[aria-label="Received message"]')).not.toBeNull();
   });
 
+  it('chips each row with the declared type short name, message when unresolved', () => {
+    const { unmount } = renderTimeline();
+    const badges = screen.getAllByTestId('grpc-timeline-message-badge');
+    expect(badges.map((badge) => badge.textContent)).toEqual(['Ask', 'Reply', 'Reply']);
+    unmount();
+    renderTimeline({ inputType: null, outputType: null });
+    for (const badge of screen.getAllByTestId('grpc-timeline-message-badge')) {
+      expect(badge.textContent).toBe('message');
+    }
+  });
+
   it('renders session timestamps when provided and none otherwise', () => {
     const { unmount } = renderTimeline({ timestamps: [1_700_000_000_100, 1_700_000_000_200, 1_700_000_000_300] });
     expect(screen.getAllByTestId('grpc-timeline-message-time')).toHaveLength(3);
@@ -170,10 +184,15 @@ describe('GrpcMessageTimeline toolbar', () => {
     expect(screen.getAllByTestId('grpc-timeline-message-row')).toHaveLength(3);
   });
 
-  it('searches decoded previews and clears display-only, lifecycle intact', () => {
+  it('searches decoded previews and chip names, clears display-only, lifecycle intact', () => {
     renderTimeline();
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'pong' } });
     expect(screen.getAllByTestId('grpc-timeline-message-row')).toHaveLength(1);
+    // Chip names are part of the haystack — 'ask' hits only ↑ rows.
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'ask' } });
+    const chipMatches = screen.getAllByTestId('grpc-timeline-message-row');
+    expect(chipMatches).toHaveLength(1);
+    expect(chipMatches[0].textContent).toContain('ping');
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId('grpc-timeline-clear'));
     expect(screen.queryAllByTestId('grpc-timeline-message-row')).toHaveLength(0);

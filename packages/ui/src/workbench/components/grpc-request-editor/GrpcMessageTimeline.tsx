@@ -5,10 +5,17 @@
  * snapshot's direction-tagged frames, session timestamps joined
  * positionally). A SIBLING of the SSE event list on the same shared
  * recipes — `useVirtualRowWindow`, pinned row heights, append-only
- * item identity, jump pill — with the anatomy a gRPC call needs:
- * direction glyphs (↑ sent / ↓ received), a direction filter, and
- * lifecycle rows (Request sent at the top; Response received once the
- * head is in; Call completed / stopped / failed at the bottom).
+ * item identity, jump pill — and the SSE list's row/toolbar anatomy:
+ * search box + message count on the left, controls on the right; rows
+ * read glyph · name chip · preview · right-aligned session time. The
+ * gRPC-specific parts stay: direction glyphs (↑ sent / ↓ received), a
+ * direction filter, and lifecycle rows (Request sent at the top;
+ * Response received once the head is in; Call completed / stopped /
+ * failed at the bottom). The name chip is the frame's DECLARED type —
+ * the rpc's request type for ↑, response type for ↓ — on the stable
+ * badge palette; the wire-grammar `message` fallback (untranslated,
+ * the SSE precedent) covers an unresolved method. Chip names join the
+ * search haystack alongside the decoded previews.
  * Arrival order, oldest first — a call is a conversation, and new
  * messages land at the bottom edge the view follows until the user
  * scrolls away (then the jump pill floats instead of content moving
@@ -35,7 +42,7 @@ import {
   SendOutlined,
 } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
-import { Button, Input, Segmented, Tooltip, Typography, theme } from 'antd';
+import { Button, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -116,6 +123,29 @@ type ListEntry =
   | { key: string; kind: 'viewer'; index: number };
 
 type DirectionFilter = 'all' | 'up' | 'down';
+
+/** Stable chip palette — the same type name always lands on the same
+ *  color within and across calls (the SSE badge recipe). */
+const CHIP_COLORS = ['blue', 'green', 'purple', 'magenta', 'cyan', 'volcano', 'geekblue', 'orange'] as const;
+
+function chipColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return CHIP_COLORS[hash % CHIP_COLORS.length];
+}
+
+/** One direction's name chip — the declared type's short name when the
+ *  method resolves, the wire-grammar `message` fallback otherwise. */
+interface DirectionChip {
+  name: string;
+  resolved: boolean;
+}
+
+function mintChip(qualifiedType: string | null): DirectionChip {
+  if (qualifiedType === null || qualifiedType === '') return { name: 'message', resolved: false };
+  const lastDot = qualifiedType.lastIndexOf('.');
+  return { name: lastDot >= 0 ? qualifiedType.slice(lastDot + 1) : qualifiedType, resolved: true };
+}
 
 /** Session timestamps are wall-clock local times — HH:MM:SS.mmm. */
 function formatMessageTime(ts: number): string {
@@ -215,6 +245,14 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     [registry, inputType, outputType],
   );
 
+  // Per-direction name chips — a closed function of the resolved rpc
+  // types, so every ↑ row shares one chip identity and every ↓ row the
+  // other.
+  const chips = useMemo(
+    () => ({ up: mintChip(inputType), down: mintChip(outputType) }),
+    [inputType, outputType],
+  );
+
   // New messages land at the bottom edge; while the user reads away
   // from it, a jump pill floats instead of content shifting.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -255,17 +293,26 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
 
   // Every message index passing the search + direction filter, arrival
   // order — one linear pass of primitive work per commit/keystroke.
+  // The haystack is the chip name + the decoded preview.
   const displayRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const chipNeedles = { up: chips.up.name.toLowerCase(), down: chips.down.name.toLowerCase() };
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
-      if (directionFilter !== 'all' && (item.direction ?? 'down') !== directionFilter) continue;
-      if (needle !== '' && !derive.previewOf(item).toLowerCase().includes(needle)) continue;
+      const direction = item.direction ?? 'down';
+      if (directionFilter !== 'all' && direction !== directionFilter) continue;
+      if (
+        needle !== '' &&
+        !chipNeedles[direction].includes(needle) &&
+        !derive.previewOf(item).toLowerCase().includes(needle)
+      ) {
+        continue;
+      }
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, derive]);
+  }, [items, count, clearedCount, search, directionFilter, derive, chips]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all';
   const live = lifecycle.endedBy === undefined;
@@ -402,6 +449,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       case 'row': {
         const item = items[entry.index];
         const up = item.direction === 'up';
+        const chip = up ? chips.up : chips.down;
         const isExpanded = expanded.has(entry.index);
         const ts = timestamps?.[entry.index];
         const view = derive.viewOf(item);
@@ -432,6 +480,19 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 style={{ fontSize: 10, color: token.colorPrimary, flexShrink: 0 }}
               />
             )}
+            <Tag
+              data-testid="grpc-timeline-message-badge"
+              color={chip.resolved ? chipColor(chip.name) : undefined}
+              style={{
+                marginInlineEnd: 0,
+                fontSize: 11,
+                lineHeight: '18px',
+                flexShrink: 0,
+                ...(chip.resolved ? {} : { fontStyle: 'italic', color: token.colorTextTertiary }),
+              }}
+            >
+              {chip.name}
+            </Tag>
             <span
               style={{
                 ...cellFont,
@@ -506,8 +567,12 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           data-testid="grpc-timeline-search"
-          style={{ maxWidth: 240 }}
+          style={{ maxWidth: 260 }}
         />
+        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+          {t('workbench.editors.grpc.timeline.messageCount', { count: count - clearedCount })}
+        </Text>
+        <span style={{ marginLeft: 'auto' }} />
         <Segmented
           size="small"
           value={directionFilter}
@@ -519,10 +584,6 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             { value: 'down', label: `↓ ${t('workbench.editors.grpc.timeline.filterReceived')}` },
           ]}
         />
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          {t('workbench.editors.grpc.timeline.messageCount', { count: count - clearedCount })}
-        </Text>
-        <span style={{ marginLeft: 'auto' }} />
         <Tooltip
           title={
             wrapLines
