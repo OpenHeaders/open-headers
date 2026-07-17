@@ -15,8 +15,25 @@ import {
   deriveGrpcMessageView,
   grpcOutputTypeOf,
   printStructural,
+  withoutGrpcStatusPair,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/response-decode';
 import { describe, expect, it } from 'vitest';
+
+describe('withoutGrpcStatusPair', () => {
+  it('drops only the status mechanism pair, case-insensitively', () => {
+    expect(
+      withoutGrpcStatusPair([
+        { key: 'grpc-status', value: '3' },
+        { key: 'Grpc-Message', value: 'name%20is%20required.' },
+        { key: 'content-type', value: 'application/grpc+proto' },
+        { key: 'x-request-id', value: 'abc' },
+      ]),
+    ).toEqual([
+      { key: 'content-type', value: 'application/grpc+proto' },
+      { key: 'x-request-id', value: 'abc' },
+    ]);
+  });
+});
 
 const PROTO = `syntax = "proto3";
 package library.v1;

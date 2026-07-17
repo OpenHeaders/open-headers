@@ -97,6 +97,21 @@ export function printStructural(value: unknown, indent = 0): string {
   return String(value);
 }
 
+/**
+ * Drop the `grpc-status` / `grpc-message` pair from a metadata field
+ * list — that pair IS the status mechanism, already surfaced decoded
+ * as the status pill and error chip, so the Metadata/Trailers grids
+ * show only the fields beyond it (the Postman convention).
+ */
+export function withoutGrpcStatusPair(
+  rows: ReadonlyArray<{ key: string; value: string }>,
+): Array<{ key: string; value: string }> {
+  return rows.filter((row) => {
+    const key = row.key.toLowerCase();
+    return key !== 'grpc-status' && key !== 'grpc-message';
+  });
+}
+
 /** The selected rpc's resolved response-type full name, or null when
  *  the method / spec doesn't resolve it. */
 export function grpcOutputTypeOf(

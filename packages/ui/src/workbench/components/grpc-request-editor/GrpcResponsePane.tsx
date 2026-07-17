@@ -24,7 +24,7 @@ import ResponseHeadersView from '../request-editor/response/ResponseHeadersView'
 import CodeEditor from '../shared/CodeEditor';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
-import { deriveGrpcMessageView, grpcOutputTypeOf } from './response-decode';
+import { deriveGrpcMessageView, grpcOutputTypeOf, withoutGrpcStatusPair } from './response-decode';
 
 const { Text } = Typography;
 
@@ -44,6 +44,10 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
     () => deriveGrpcMessageView(snapshot, registry, grpcOutputTypeOf(registry, method)),
     [snapshot, registry, method],
   );
+  // The grids show fields beyond the status pair — the pair itself is
+  // the pill + error chip (the Postman convention).
+  const metadataRows = useMemo(() => withoutGrpcStatusPair(snapshot.headers), [snapshot.headers]);
+  const trailerRows = useMemo(() => withoutGrpcStatusPair(snapshot.trailers), [snapshot.trailers]);
 
   if (snapshot.error !== null) {
     return (
@@ -183,17 +187,17 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
           {
             key: 'metadata',
             label:
-              snapshot.headers.length > 0
-                ? t('workbench.editors.grpc.response.tab.metadataCount', { count: snapshot.headers.length })
+              metadataRows.length > 0
+                ? t('workbench.editors.grpc.response.tab.metadataCount', { count: metadataRows.length })
                 : t('workbench.editors.grpc.response.tab.metadata'),
             children: (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                {snapshot.headers.length === 0 ? (
+                {metadataRows.length === 0 ? (
                   <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
                     {t('workbench.editors.grpc.response.noMetadata')}
                   </Text>
                 ) : (
-                  <ResponseHeadersView headers={snapshot.headers} />
+                  <ResponseHeadersView headers={metadataRows} />
                 )}
               </div>
             ),
@@ -201,8 +205,8 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
           {
             key: 'trailers',
             label:
-              snapshot.trailers.length > 0
-                ? t('workbench.editors.grpc.response.tab.trailersCount', { count: snapshot.trailers.length })
+              trailerRows.length > 0
+                ? t('workbench.editors.grpc.response.tab.trailersCount', { count: trailerRows.length })
                 : t('workbench.editors.grpc.response.tab.trailers'),
             children: (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, gap: 6 }}>
@@ -211,12 +215,12 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
                     {t('workbench.editors.grpc.response.trailersOnly')}
                   </Text>
                 )}
-                {snapshot.trailers.length === 0 ? (
+                {trailerRows.length === 0 ? (
                   <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
                     {t('workbench.editors.grpc.response.noTrailers')}
                   </Text>
                 ) : (
-                  <ResponseHeadersView headers={snapshot.trailers} />
+                  <ResponseHeadersView headers={trailerRows} />
                 )}
               </div>
             ),

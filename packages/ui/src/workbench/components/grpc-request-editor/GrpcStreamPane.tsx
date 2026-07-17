@@ -24,7 +24,7 @@ import ResponseHeadersView from '../request-editor/response/ResponseHeadersView'
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
-import { grpcInputTypeOf, grpcOutputTypeOf } from './response-decode';
+import { grpcInputTypeOf, grpcOutputTypeOf, withoutGrpcStatusPair } from './response-decode';
 import type { GrpcStreamSession, LiveGrpcStream } from './useLiveGrpcStream';
 
 const { Text } = Typography;
@@ -168,7 +168,10 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   const items = snapshot?.messages ?? live?.items ?? [];
   const count = snapshot?.messages.length ?? live?.count ?? 0;
   const timestamps = snapshot !== null ? session?.messageTimestamps : live?.timestamps;
-  const headers = snapshot?.headers ?? live?.head?.headers ?? [];
+  // The grids show fields beyond the status pair — the pair itself is
+  // the pill + error chip (the Postman convention).
+  const headers = withoutGrpcStatusPair(snapshot?.headers ?? live?.head?.headers ?? []);
+  const trailerRows = withoutGrpcStatusPair(snapshot?.trailers ?? []);
 
   return (
     <div
@@ -247,8 +250,8 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
           {
             key: 'trailers',
             label:
-              snapshot !== null && snapshot.trailers.length > 0
-                ? t('workbench.editors.grpc.response.tab.trailersCount', { count: snapshot.trailers.length })
+              trailerRows.length > 0
+                ? t('workbench.editors.grpc.response.tab.trailersCount', { count: trailerRows.length })
                 : t('workbench.editors.grpc.response.tab.trailers'),
             children: (
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, gap: 6 }}>
@@ -263,12 +266,12 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                         {t('workbench.editors.grpc.response.trailersOnly')}
                       </Text>
                     )}
-                    {snapshot.trailers.length === 0 ? (
+                    {trailerRows.length === 0 ? (
                       <Text type="secondary" style={{ fontSize: 12, padding: '8px 0' }}>
                         {t('workbench.editors.grpc.response.noTrailers')}
                       </Text>
                     ) : (
-                      <ResponseHeadersView headers={snapshot.trailers} />
+                      <ResponseHeadersView headers={trailerRows} />
                     )}
                   </>
                 )}
