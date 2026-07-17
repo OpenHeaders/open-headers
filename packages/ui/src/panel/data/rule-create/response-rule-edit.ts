@@ -7,9 +7,15 @@
  * publication gesture, skipping `applyRuleUpdate`'s streaming-edit
  * auto-unpublish, so the tweaked override takes effect on the next
  * request instead of silently dropping the rule to draft.
+ *
+ * The draft body is the popover's formatted VIEW; the update re-encodes
+ * it against the rule's stored body (`encodeBodyForWire`): untouched
+ * view ⇒ the stored bytes exactly, edited view ⇒ the stored body's
+ * serialization profile.
  */
 
 import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
+import { encodeBodyForWire } from '@openheaders/ui/shared/body-format';
 
 export interface ResponseQuickDraft {
   statusCode: number;
@@ -30,7 +36,7 @@ export function buildResponseRuleUpdate(
       ...rule.action,
       statusCode: draft.statusCode,
       contentType: draft.contentType,
-      responseBody: draft.responseBody,
+      responseBody: encodeBodyForWire(rule.action.responseBody, draft.responseBody),
     },
     ...(conditions ? { conditions } : {}),
     // Keep a published rule published in the SAME batch (see file header).

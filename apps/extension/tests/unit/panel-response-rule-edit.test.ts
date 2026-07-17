@@ -86,3 +86,27 @@ describe('buildResponseRuleUpdate — action rebuild', () => {
     expect(updates.action?.resourceType).toBe('rest');
   });
 });
+
+describe('buildResponseRuleUpdate — wire re-encoding', () => {
+  const stored = '{"users":[],"total":0}';
+
+  it('re-encodes a formatted-view edit to the stored profile', () => {
+    const rule = makeRule({ action: { ...makeRule().action, responseBody: stored } });
+    const draft = {
+      statusCode: 0,
+      contentType: 'application/json',
+      responseBody: '{\n  "users": [],\n  "total": 7\n}',
+    };
+    expect(buildResponseRuleUpdate(rule, draft).action?.responseBody).toBe('{"users":[],"total":7}');
+  });
+
+  it('an untouched formatted view keeps the stored bytes exactly', () => {
+    const rule = makeRule({ action: { ...makeRule().action, responseBody: stored } });
+    const draft = {
+      statusCode: 404,
+      contentType: 'application/json',
+      responseBody: '{\n  "users": [],\n  "total": 0\n}',
+    };
+    expect(buildResponseRuleUpdate(rule, draft).action?.responseBody).toBe(stored);
+  });
+});

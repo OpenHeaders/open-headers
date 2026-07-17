@@ -66,6 +66,9 @@ export function RequestBodyQuickCreate({
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() => generateSmartRuleName({ kind: 'request-body', url: draft.url ?? '' }, rules));
   const [seed] = useState<RequestBodyQuickDraft>(() => seedRequestBodyQuickDraft(draft));
+  // Seed body ≠ captured body ⇒ the popover is showing a formatted
+  // view of the wire text — surface the save-in-original-format hint.
+  const showFormatHint = seed.requestBody !== (draft.requestBody ?? '');
   const [quick, setQuick] = useState<RequestBodyQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -144,6 +147,7 @@ export function RequestBodyQuickCreate({
       />
       <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
         {t('panel.quickEditor.requestBody.hint')}
+        {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
       </div>
     </QuickEditorShell>
   );

@@ -12,7 +12,7 @@
  * wire format.
  */
 
-import type { BodyProfile } from './profile';
+import { type BodyProfile, detectBodyProfile } from './profile';
 import { tokenizeJsonish } from './tokenize';
 
 /** Can this body carry the formatted-view affordance? */
@@ -74,4 +74,18 @@ export function reformatBody(text: string, profile: BodyProfile): string {
   const body = profile.kind === 'minified' ? minifyBody(text) : formatBody(text, profile.indent);
   if (profile.trailingNewline && !body.endsWith('\n')) return `${body}\n`;
   return body;
+}
+
+/**
+ * Save-time wire encoding for a body edited in the formatted view.
+ * An untouched view returns the ORIGINAL bytes exactly — the verbatim
+ * short-circuit: a no-edit save must serve what the wire served. An
+ * edited view re-emits in the original's profile; unformattable text
+ * passes through as typed. One-shot per save/hand-off — never called
+ * per keystroke.
+ */
+export function encodeBodyForWire(originalText: string, viewText: string): string {
+  if (viewText === originalText) return originalText;
+  if (viewText === formatBody(originalText)) return originalText;
+  return reformatBody(viewText, detectBodyProfile(originalText));
 }

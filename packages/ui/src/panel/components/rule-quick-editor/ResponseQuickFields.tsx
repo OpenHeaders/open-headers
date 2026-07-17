@@ -29,9 +29,18 @@ export interface ResponseQuickFieldsProps {
   /** Collection that owns (or will own) the rule — scopes the body's
    *  `{{collection.X}}` suggestions. */
   collectionId?: string;
+  /** The body field is showing a formatted view of the wire text —
+   *  renders the save-in-original-format hint under it. */
+  showFormatHint?: boolean;
 }
 
-export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionId }: ResponseQuickFieldsProps) {
+export function ResponseQuickFields({
+  draft,
+  updateDraft,
+  entityUid,
+  collectionId,
+  showFormatHint,
+}: ResponseQuickFieldsProps) {
   const t = useT();
   const { token } = theme.useToken();
   const statusOptions = useMemo(
@@ -116,6 +125,11 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
               fontSize: 12,
             }}
           />,
+        )}
+        {showFormatHint && (
+          <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
+            {t('panel.quickEditor.formatAwareBody.hint')}
+          </div>
         )}
       </div>
     </>

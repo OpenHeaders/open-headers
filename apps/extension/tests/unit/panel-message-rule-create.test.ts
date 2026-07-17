@@ -17,8 +17,8 @@ import type { RuleCondition, SseRuleDraft, WsRuleDraft } from '@openheaders/core
 import {
   buildMessageRuleSeed,
   type MessageQuickDraft,
-  messageQuickDraftValid,
   mergeQuickIntoMessageDraft,
+  messageQuickDraftValid,
   seedMessageQuickDraft,
 } from '@openheaders/ui/panel/data/rule-create/message-rule-create';
 import {
@@ -203,7 +203,7 @@ describe('buildWsDraftFromFrame / buildWsDraftFromConnection', () => {
       direction: 'send',
       messageFilter: { matchType: 'contains', value: '{"op":"subscribe"}' },
     });
-    expect(text.payload).toContain('"subscribe"');
+    expect(text.payload).toBe('{"op":"subscribe"}');
     const binary = buildWsDraftFromFrame(lc, { type: 'receive', opcode: 2, data: 'aGVsbG8=' });
     expect(binary).toEqual({ type: 'ws', url: WS_URL, operation: 'modify', direction: 'receive' });
   });
@@ -227,7 +227,7 @@ describe('buildSseDraftFromEvent / buildSseDraftFromConnection', () => {
       eventName: 'price',
       messageFilter: { matchType: 'contains', value: '{"symbol":"BTC","usd":1}' },
     });
-    expect(draft.payload).toContain('"BTC"');
+    expect(draft.payload).toBe('{"symbol":"BTC","usd":1}');
   });
 
   it('omits the default message event name', () => {

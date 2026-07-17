@@ -4,5 +4,12 @@
 // build their formatted-view/encode-on-save split on this.
 
 export { type BodyProfile, detectBodyProfile, UNKNOWN_BODY_PROFILE } from './profile';
-export { DEFAULT_BODY_INDENT, formatBody, isFormattableBody, minifyBody, reformatBody } from './reformat';
+export {
+  DEFAULT_BODY_INDENT,
+  encodeBodyForWire,
+  formatBody,
+  isFormattableBody,
+  minifyBody,
+  reformatBody,
+} from './reformat';
 export { type JsonishToken, type JsonishTokenKind, MAX_TOKENIZE_LENGTH, tokenizeJsonish } from './tokenize';

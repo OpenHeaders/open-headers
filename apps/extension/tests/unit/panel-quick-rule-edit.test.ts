@@ -157,6 +157,16 @@ describe('buildRequestBodyRuleUpdate', () => {
     const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{"a":2}' });
     expect('published' in updates).toBe(false);
   });
+
+  it('re-encodes a formatted-view edit to the stored profile', () => {
+    const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{\n  "a": 2\n}' });
+    expect(updates.action?.requestBody).toBe('{"a":2}');
+  });
+
+  it('an untouched formatted view keeps the stored bytes exactly', () => {
+    const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{\n  "a": 1\n}' });
+    expect(updates.action?.requestBody).toBe('{"a":1}');
+  });
 });
 
 describe('inject — seed and rebuild', () => {
@@ -244,7 +254,12 @@ describe('ws/sse messages — seed and rebuild', () => {
 
   it('rebuilds the sse action preserving event name and inject trigger', () => {
     const updates = buildSseRuleUpdate(sseRule, { payload: '{"v":2}' }, CONDITIONS);
-    expect(updates.action).toEqual({ operation: 'inject', eventName: 'update', payload: '{"v":2}', injectTrigger: 'open' });
+    expect(updates.action).toEqual({
+      operation: 'inject',
+      eventName: 'update',
+      payload: '{"v":2}',
+      injectTrigger: 'open',
+    });
     expect(updates.conditions).toBe(CONDITIONS);
   });
 
@@ -263,7 +278,10 @@ describe('buildAuthRuleUpdate', () => {
   };
 
   it('applies both credentials and keeps a published rule published', () => {
-    const updates = buildAuthRuleUpdate({ ...rule, published: true }, { username: 'qa-user', password: '{{vault.QA_PW}}' });
+    const updates = buildAuthRuleUpdate(
+      { ...rule, published: true },
+      { username: 'qa-user', password: '{{vault.QA_PW}}' },
+    );
     expect(updates.action).toEqual({ username: 'qa-user', password: '{{vault.QA_PW}}' });
     expect(updates.published).toBe(true);
   });

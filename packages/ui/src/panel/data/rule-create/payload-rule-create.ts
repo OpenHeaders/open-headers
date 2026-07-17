@@ -6,6 +6,11 @@
  * this seed and publishes it in the same flow. Conditions pass through
  * unchanged from the popover's Conditions row (seeded via
  * `buildDraftConditions`, edited in place).
+ *
+ * The captured request body is VERBATIM wire text; the popover edits a
+ * formatted VIEW (`formatBody` at seed, once) and every exit re-encodes
+ * through `encodeBodyForWire` — untouched view ⇒ the original bytes
+ * exactly, edited view ⇒ the original's serialization profile.
  */
 
 import type {
@@ -17,6 +22,7 @@ import type {
   RuleCondition,
 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { encodeBodyForWire, formatBody } from '@openheaders/ui/shared/body-format';
 
 export type RequestBodyRuleSeed = Omit<RequestBodyRule, 'uid' | 'path' | 'schemaVersion'>;
 export type QueryParamRuleSeed = Omit<QueryParamRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -27,18 +33,20 @@ export interface RequestBodyQuickDraft {
   requestBody: string;
 }
 
-/** Seed the editable field from the captured outgoing body. */
+/** Seed the editable field from the captured outgoing body — opens as
+ *  its formatted view. */
 export function seedRequestBodyQuickDraft(draft: RequestBodyRuleDraft): RequestBodyQuickDraft {
-  return { requestBody: draft.requestBody ?? '' };
+  return { requestBody: formatBody(draft.requestBody ?? '') };
 }
 
 /** Fold the popover's edit back into the handoff draft so the "Open in
- *  workspace" link carries the CURRENT form state. */
+ *  workspace" link carries the CURRENT form state — body re-encoded to
+ *  the wire profile. */
 export function mergeQuickIntoRequestBodyDraft(
   draft: RequestBodyRuleDraft,
   quick: RequestBodyQuickDraft,
 ): RequestBodyRuleDraft {
-  return { ...draft, requestBody: quick.requestBody };
+  return { ...draft, requestBody: encodeBodyForWire(draft.requestBody ?? '', quick.requestBody) };
 }
 
 export function buildRequestBodyRuleSeed(
@@ -54,7 +62,7 @@ export function buildRequestBodyRuleSeed(
     conditions,
     action: {
       bodyType: draft.bodyType ?? 'static',
-      requestBody: quick.requestBody,
+      requestBody: encodeBodyForWire(draft.requestBody ?? '', quick.requestBody),
       resourceType: draft.resourceType ?? 'rest',
     },
   };

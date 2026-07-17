@@ -17,6 +17,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { formatBody } from '@openheaders/ui/shared/body-format';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -74,16 +75,23 @@ export function ResponseQuickEditor({
   const isDynamic = responseRule?.action.bodyType === 'dynamic';
   const editable = !!responseRule && !isDynamic;
 
+  // The body maps to its formatted VIEW (once per rule version — the
+  // memo, never per keystroke); the Save builder re-encodes it against
+  // the stored wire text, so an untouched view keeps the stored bytes.
   const canonical = useMemo<ResponseQuickDraft | null>(
     () =>
       responseRule && !isDynamic
         ? {
             statusCode: responseRule.action.statusCode,
             contentType: responseRule.action.contentType,
-            responseBody: responseRule.action.responseBody,
+            responseBody: formatBody(responseRule.action.responseBody),
           }
         : null,
     [responseRule, isDynamic],
+  );
+  const showFormatHint = useMemo(
+    () => canonical !== null && responseRule !== null && canonical.responseBody !== responseRule.action.responseBody,
+    [canonical, responseRule],
   );
   const { draft, draftRef, updateDraft, isDirty: fieldsDirty } = useActionDraft({ canonical });
 
@@ -148,6 +156,7 @@ export function ResponseQuickEditor({
           updateDraft={updateDraft}
           entityUid={liveRule.uid}
           collectionId={collectionId}
+          showFormatHint={showFormatHint}
         />
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>

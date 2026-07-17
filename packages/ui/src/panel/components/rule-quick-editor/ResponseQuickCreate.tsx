@@ -65,6 +65,9 @@ export function ResponseQuickCreate({
     generateSmartRuleName({ kind: 'response', url: draft.url ?? '', responseSource: draft.responseSource }, rules),
   );
   const [seed] = useState<ResponseQuickDraft>(() => seedQuickDraft(draft));
+  // Seed body ≠ captured body ⇒ the popover is showing a formatted
+  // view of the wire text — surface the save-in-original-format hint.
+  const showFormatHint = seed.responseBody !== (draft.responseBody ?? '');
   const [quick, setQuick] = useState<ResponseQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -119,7 +122,12 @@ export function ResponseQuickCreate({
       onMouseLeave={onMouseLeave}
       visible={visible}
     >
-      <ResponseQuickFields draft={quick} updateDraft={updateQuick} collectionId={collectionId} />
+      <ResponseQuickFields
+        draft={quick}
+        updateDraft={updateQuick}
+        collectionId={collectionId}
+        showFormatHint={showFormatHint}
+      />
     </QuickEditorShell>
   );
 }

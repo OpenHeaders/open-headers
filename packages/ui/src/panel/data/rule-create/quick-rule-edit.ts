@@ -40,6 +40,7 @@ import {
   validateHeaderValue,
 } from '@openheaders/core/utils';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { encodeBodyForWire } from '@openheaders/ui/shared/body-format';
 import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import { type QueryParamQuickRow, queryParamEntryFromRow } from './payload-rule-create';
 
@@ -110,14 +111,17 @@ export interface RequestBodyQuickEditDraft {
 }
 
 /** The action rebuild preserves the fields the compact editor doesn't
- *  surface (body type, resource type, GraphQL filter). */
+ *  surface (body type, resource type, GraphQL filter). The draft body
+ *  is the popover's formatted VIEW — re-encoded against the stored
+ *  body, so an untouched view keeps the stored bytes exactly and an
+ *  edit lands in the stored body's serialization profile. */
 export function buildRequestBodyRuleUpdate(
   rule: RequestBodyRule,
   draft: RequestBodyQuickEditDraft,
   conditions?: RuleCondition[],
 ): Partial<RequestBodyRule> {
   return {
-    action: { ...rule.action, requestBody: draft.requestBody },
+    action: { ...rule.action, requestBody: encodeBodyForWire(rule.action.requestBody, draft.requestBody) },
     ...quickEditBase(rule, conditions),
   };
 }

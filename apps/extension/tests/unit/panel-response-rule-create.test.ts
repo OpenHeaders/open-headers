@@ -51,6 +51,16 @@ describe('seedQuickDraft', () => {
     });
   });
 
+  it('seeds a minified capture as its formatted view', () => {
+    const draft = makeDraft({ responseBody: '{"users":[],"total":0}' });
+    expect(seedQuickDraft(draft).responseBody).toBe('{\n  "users": [],\n  "total": 0\n}');
+  });
+
+  it('seeds non-JSON bodies verbatim', () => {
+    const draft = makeDraft({ responseBody: '<html>openheaders.io</html>', contentType: 'text/html' });
+    expect(seedQuickDraft(draft).responseBody).toBe('<html>openheaders.io</html>');
+  });
+
   it('defaults missing fields to keep-original / empty', () => {
     const draft = makeDraft({ statusCode: undefined, contentType: undefined, responseBody: undefined });
     expect(seedQuickDraft(draft)).toEqual({ statusCode: 0, contentType: '', responseBody: '' });
@@ -66,6 +76,17 @@ describe('mergeQuickIntoResponseDraft', () => {
     expect(merged.url).toBe('https://api.openheaders.io/v1/users?page=2');
     expect(merged.requestMethods).toEqual(['GET']);
     expect(merged.responseSource).toBe('network');
+  });
+
+  it('hands off a formatted-view edit re-encoded to the wire profile', () => {
+    const draft = makeDraft({ responseBody: '{"users":[]}' });
+    const quick = { ...seedQuickDraft(draft), responseBody: '{\n  "users": [\n    "oh"\n  ]\n}' };
+    expect(mergeQuickIntoResponseDraft(draft, quick).responseBody).toBe('{"users":["oh"]}');
+  });
+
+  it('an untouched formatted view hands off the captured bytes exactly', () => {
+    const draft = makeDraft({ responseBody: '{"users":[],"total":0}' });
+    expect(mergeQuickIntoResponseDraft(draft, seedQuickDraft(draft)).responseBody).toBe('{"users":[],"total":0}');
   });
 });
 
@@ -104,6 +125,18 @@ describe('buildResponseRuleSeed — action + identity', () => {
     expect(seed.action.statusCode).toBe(404);
     expect(seed.action.contentType).toBe('text/plain');
     expect(seed.action.responseBody).toBe('not found');
+  });
+
+  it('re-encodes a formatted-view edit to the captured wire profile', () => {
+    const draft = makeDraft({ responseBody: '{"users":[]}' });
+    const quick = { ...seedQuickDraft(draft), responseBody: '{\n  "users": [\n    1\n  ]\n}' };
+    expect(buildResponseRuleSeed(draft, quick, 'Rule', CONDITIONS).action.responseBody).toBe('{"users":[1]}');
+  });
+
+  it('an untouched formatted view saves the captured bytes exactly', () => {
+    const draft = makeDraft({ responseBody: '{"users":[],"total":0}' });
+    const seed = buildResponseRuleSeed(draft, seedQuickDraft(draft), 'Rule', CONDITIONS);
+    expect(seed.action.responseBody).toBe('{"users":[],"total":0}');
   });
 
   it('carries the captured fields the compact editor does not surface', () => {

@@ -83,6 +83,7 @@ export const panelQuickEditor = {
   'panel.quickEditor.block.blockRequestsTo': 'Block requests to',
   'panel.quickEditor.block.createHint':
     'Matching requests are canceled before they leave the browser — the page sees a network error.',
+  'panel.quickEditor.formatAwareBody.hint': 'Formatted for editing — saved in the original body’s format.',
   'panel.quickEditor.response.tagModify': 'Modify',
   'panel.quickEditor.response.tagMock': 'Mock',
   'panel.quickEditor.response.dynamicBody':

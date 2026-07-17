@@ -8,6 +8,12 @@
  * captured body (and, for responses, status + content-type), so
  * "Override Response" / "Override request body" open pre-filled with the
  * real payload the user is looking at rather than a blank mock.
+ *
+ * Captured bodies and payloads seed VERBATIM — the stored rule body is
+ * served byte-for-byte, so the draft must carry the wire bytes. The
+ * editors format for display and re-encode on save (`body-format`);
+ * formatting at seed time would silently change what a no-edit save
+ * serves.
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
@@ -66,18 +72,6 @@ export function buildBlockDraftFromRequest(lc: RequestLifecycle): BlockRuleDraft
   return { type: 'block', url: lc.url };
 }
 
-/** Pretty-print a JSON body so the editor opens already formatted —
- *  non-JSON (and unparseable) bodies pass through untouched. */
-function formatDraftBody(body: string): string {
-  const trimmed = body.trim();
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return body;
-  try {
-    return JSON.stringify(JSON.parse(trimmed), null, 2);
-  } catch {
-    return body;
-  }
-}
-
 /** Build an "override response" draft seeded from the captured response —
  *  the editor opens in network mode (the real request is still sent; only
  *  the reply is replaced), keeps the original status code (`0` sentinel),
@@ -94,7 +88,7 @@ export function buildResponseDraftFromRequest(
     responseSource: 'network',
     bodyType: 'static',
     statusCode: 0,
-    responseBody: formatDraftBody(captured.responseBody ?? ''),
+    responseBody: captured.responseBody ?? '',
     contentType: captured.contentType ?? '',
     resourceType: captured.resourceType ?? 'rest',
   };
@@ -113,7 +107,7 @@ export function buildRequestBodyDraftFromRequest(
     url: lc.url,
     ...(method ? { requestMethods: method } : {}),
     bodyType: 'static',
-    requestBody: formatDraftBody(captured.requestBody ?? ''),
+    requestBody: captured.requestBody ?? '',
     resourceType: captured.resourceType ?? 'rest',
   };
 }
@@ -169,7 +163,7 @@ export function buildWsDraftFromFrame(
   return {
     ...base,
     ...(filterValue ? { messageFilter: { matchType: 'contains', value: filterValue } } : {}),
-    payload: formatDraftBody(frame.data),
+    payload: frame.data,
   };
 }
 
@@ -194,7 +188,7 @@ export function buildSseDraftFromEvent(lc: RequestLifecycle, event: { eventName:
     operation: 'modify',
     ...(event.eventName && event.eventName !== 'message' ? { eventName: event.eventName } : {}),
     ...(filterValue ? { messageFilter: { matchType: 'contains', value: filterValue } } : {}),
-    payload: formatDraftBody(event.data),
+    payload: event.data,
   };
 }
 

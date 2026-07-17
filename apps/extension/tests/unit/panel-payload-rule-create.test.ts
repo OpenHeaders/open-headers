@@ -55,18 +55,30 @@ function makeParamDraft(over: Partial<QueryParamRuleDraft> = {}): QueryParamRule
 }
 
 describe('seedRequestBodyQuickDraft', () => {
-  it('seeds the captured body and defaults to empty', () => {
-    expect(seedRequestBodyQuickDraft(makeBodyDraft())).toEqual({ requestBody: '{"name":"oh"}' });
+  it('seeds the captured body as its formatted view and defaults to empty', () => {
+    expect(seedRequestBodyQuickDraft(makeBodyDraft())).toEqual({ requestBody: '{\n  "name": "oh"\n}' });
     expect(seedRequestBodyQuickDraft(makeBodyDraft({ requestBody: undefined }))).toEqual({ requestBody: '' });
+  });
+
+  it('seeds non-JSON bodies verbatim', () => {
+    expect(seedRequestBodyQuickDraft(makeBodyDraft({ requestBody: 'name=oh&plan=pro' }))).toEqual({
+      requestBody: 'name=oh&plan=pro',
+    });
   });
 });
 
 describe('mergeQuickIntoRequestBodyDraft', () => {
-  it('folds the edited body, preserving the capture context', () => {
-    const merged = mergeQuickIntoRequestBodyDraft(makeBodyDraft(), { requestBody: '{"name":"edited"}' });
+  it('folds the edited body re-encoded to the wire profile, preserving the capture context', () => {
+    const merged = mergeQuickIntoRequestBodyDraft(makeBodyDraft(), { requestBody: '{\n  "name": "edited"\n}' });
     expect(merged.requestBody).toBe('{"name":"edited"}');
     expect(merged.url).toBe(URL);
     expect(merged.resourceType).toBe('rest');
+  });
+
+  it('an untouched formatted view hands off the captured bytes exactly', () => {
+    const draft = makeBodyDraft();
+    const merged = mergeQuickIntoRequestBodyDraft(draft, seedRequestBodyQuickDraft(draft));
+    expect(merged.requestBody).toBe('{"name":"oh"}');
   });
 });
 
@@ -76,6 +88,17 @@ describe('buildRequestBodyRuleSeed', () => {
     expect(seed.type).toBe('request-body');
     expect(seed.conditions).toBe(CONDITIONS);
     expect(seed.action).toEqual({ bodyType: 'static', requestBody: '{"n":1}', resourceType: 'rest' });
+  });
+
+  it('re-encodes a formatted-view edit to the captured wire profile', () => {
+    const seed = buildRequestBodyRuleSeed(makeBodyDraft(), { requestBody: '{\n  "n": 1\n}' }, 'Rule', CONDITIONS);
+    expect(seed.action.requestBody).toBe('{"n":1}');
+  });
+
+  it('an untouched formatted view saves the captured bytes exactly', () => {
+    const draft = makeBodyDraft();
+    const seed = buildRequestBodyRuleSeed(draft, seedRequestBodyQuickDraft(draft), 'Rule', CONDITIONS);
+    expect(seed.action.requestBody).toBe('{"name":"oh"}');
   });
 
   it('names the rule, enables it, and leaves publication to the write client', () => {

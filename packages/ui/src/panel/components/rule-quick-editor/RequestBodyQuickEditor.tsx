@@ -10,6 +10,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { RequestBodyRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { formatBody } from '@openheaders/ui/shared/body-format';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -65,9 +66,16 @@ export function RequestBodyQuickEditor({
     [liveRule, localCollections],
   );
 
+  // The body maps to its formatted VIEW (once per rule version — the
+  // memo, never per keystroke); the Save builder re-encodes it against
+  // the stored wire text, so an untouched view keeps the stored bytes.
   const canonical = useMemo<RequestBodyQuickEditDraft | null>(
-    () => (bodyRule && !isDynamic ? { requestBody: bodyRule.action.requestBody } : null),
+    () => (bodyRule && !isDynamic ? { requestBody: formatBody(bodyRule.action.requestBody) } : null),
     [bodyRule, isDynamic],
+  );
+  const showFormatHint = useMemo(
+    () => canonical !== null && bodyRule !== null && canonical.requestBody !== bodyRule.action.requestBody,
+    [canonical, bodyRule],
   );
   const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useActionDraft({ canonical });
 
@@ -155,6 +163,7 @@ export function RequestBodyQuickEditor({
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {t('panel.quickEditor.requestBody.hint')}
+            {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
           </div>
         </EntityScopeProvider>
       ) : (

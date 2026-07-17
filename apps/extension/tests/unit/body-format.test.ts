@@ -16,6 +16,7 @@
 
 import {
   detectBodyProfile,
+  encodeBodyForWire,
   formatBody,
   isFormattableBody,
   MAX_TOKENIZE_LENGTH,
@@ -239,6 +240,35 @@ describe('reformatBody', () => {
       const profile = detectBodyProfile(origin);
       expect(reformatBody(formatBody(origin), profile)).toBe(origin);
     }
+  });
+});
+
+describe('encodeBodyForWire', () => {
+  it('an untouched formatted view returns the original bytes exactly', () => {
+    expect(encodeBodyForWire(MINIFIED, formatBody(MINIFIED))).toBe(MINIFIED);
+    expect(encodeBodyForWire(`${MINIFIED}\n`, formatBody(`${MINIFIED}\n`))).toBe(`${MINIFIED}\n`);
+  });
+
+  it('an identical view returns the original bytes exactly (non-JSON included)', () => {
+    expect(encodeBodyForWire('plain text', 'plain text')).toBe('plain text');
+    expect(encodeBodyForWire(PRETTY, PRETTY)).toBe(PRETTY);
+  });
+
+  it('re-emits an edited view in the original profile', () => {
+    const edited = formatBody(MINIFIED).replace('"GET"', '"PUT"');
+    expect(encodeBodyForWire(MINIFIED, edited)).toBe(MINIFIED.replace('"GET"', '"PUT"'));
+    expect(encodeBodyForWire('{\n    "a": 1\n}', '{ "a": 2 }')).toBe('{\n    "a": 2\n}');
+  });
+
+  it('passes unformattable edits through as typed', () => {
+    expect(encodeBodyForWire(MINIFIED, 'broken {')).toBe('broken {');
+    expect(encodeBodyForWire('plain text', 'edited text')).toBe('edited text');
+  });
+
+  it('preserves template atoms through the round-trip', () => {
+    const original = '{"count":{{live.count}}}';
+    const edited = formatBody(original).replace('{{live.count}}', '{{live.total}}');
+    expect(encodeBodyForWire(original, edited)).toBe('{"count":{{live.total}}}');
   });
 });
 
