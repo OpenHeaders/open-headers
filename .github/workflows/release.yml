@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  # Signing dry-run: manual dispatch builds ONLY the windows desktop
+  # leg with the full stable eSigner path (sign → re-hash → blockmap →
+  # signature check) and uploads the artifact — no binaries/extension
+  # legs, no release job, nothing published.
+  workflow_dispatch:
 
 # packages: write — the ubuntu binaries leg pushes the ohd image to ghcr.
 permissions:
@@ -31,7 +36,8 @@ jobs:
         # windows-2022 (not -latest): windows-latest ships Visual Studio 2026,
         # which the node-gyp bundled with electron-builder cannot detect, so
         # the native-module rebuild fails. VS 2022 stays detectable here.
-        os: [macos-latest, windows-2022, ubuntu-latest]
+        # A signing dry-run (workflow_dispatch) builds the windows leg only.
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["windows-2022"]') || fromJSON('["macos-latest", "windows-2022", "ubuntu-latest"]') }}
 
     steps:
       - name: Checkout code
@@ -139,7 +145,10 @@ jobs:
           fi
         shell: bash
 
+      # A dispatch dry-run has a branch ref, not a tag — the build uses
+      # the version already in package.json.
       - name: Verify desktop version matches tag
+        if: github.event_name != 'workflow_dispatch'
         run: |
           TAG="${GITHUB_REF_NAME/v/}"
           PKG_VERSION=$(node -p "require('./apps/desktop/package.json').version")
@@ -267,6 +276,21 @@ jobs:
           Set-Content -Path $latestYmlPath -Value $content -NoNewline
         shell: pwsh
 
+      # An invalid signature must fail the leg — publishing a
+      # broken-signed Setup.exe whose hash the feed pointer carries is
+      # worse than publishing unsigned.
+      - name: Verify Authenticode signature
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        run: |
+          $sig = Get-AuthenticodeSignature "apps/desktop/dist/${{ steps.find-exe.outputs.EXE_FILENAME }}"
+          $sig | Format-List Status, StatusMessage
+          if ($sig.SignerCertificate) { $sig.SignerCertificate | Format-List Subject, Issuer, NotAfter }
+          if ($sig.Status -ne 'Valid') {
+            Write-Error "Authenticode signature status: $($sig.Status)"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
         working-directory: apps/desktop
@@ -305,7 +329,7 @@ jobs:
   # package.json (the extension precedent) — the tag stays the
   # desktop's version axis.
   build-binaries:
-    if: ${{ !contains(github.ref_name, '-ext') }}
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -455,7 +479,7 @@ jobs:
     # testers sideload the freshest build). These are the fully mangled
     # OH_EXT_CHANNEL=release artifacts, deliberately DISTINCT from the
     # review-permissive store submissions (built without the flag).
-    if: ${{ !contains(github.ref_name, '-ext') }}
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -532,7 +556,7 @@ jobs:
     # Runs as long as the workflow wasn't cancelled — a failed OS leg or
     # a skipped extension job still yields a release from the legs that
     # produced artifacts.
-    if: ${{ !contains(github.ref_name, '-ext') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
     needs: [build-desktop, build-extension, build-binaries]
     runs-on: ubuntu-latest
 
