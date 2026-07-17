@@ -197,6 +197,26 @@ function isJsonDocument(content: string): boolean {
  * extension follows the document's syntax so language derivation
  * (invariant #15) reads it right.
  */
+/**
+ * Seed for `applySpecCreate` from an imported .proto file (the gRPC
+ * editor's method-selector import action). The source lands verbatim
+ * as the single root file under its original file name, so intra-file
+ * import paths keep meaning what they meant on disk.
+ */
+export function createImportedProtoSpecSeed(
+  name: string,
+  fileName: string,
+  content: string,
+): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
+  const rootFileUid = generateUid();
+  return {
+    name,
+    format: 'protobuf',
+    rootFileUid,
+    files: [{ uid: rootFileUid, fileName, content }],
+  };
+}
+
 export function createImportedSpecSeed(
   name: string,
   content: string,

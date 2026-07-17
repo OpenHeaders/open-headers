@@ -4,7 +4,10 @@
  * Editor shell: host URL + TLS lock, method selector grouped by
  * service with call-shape glyphs (derived live from the linked
  * Protobuf spec via `deriveGrpcMethods` — ids-only specLink, nothing
- * cached), Message / Metadata / Service definition / Settings tabs,
+ * cached; while no spec is linked the same selector is the entry
+ * point, offering workspace protobuf specs to link inline and an
+ * import-a-.proto action that mints a spec and links it),
+ * Message / Metadata / Service definition / Settings tabs,
  * and "Use Example Message" wiring `synthesizeExampleMessage` into the
  * Message tab. Invoke fires the CURRENT compose state (saved or not)
  * through the `executeGrpcRequest` channel — answered in-process on
@@ -47,12 +50,14 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
+import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { App, Button, Input, InputNumber, Select, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import { grpcTag } from '../sidebar/icons';
 import EditorHeader from '../shell/EditorHeader';
+import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import GrpcResponsePane from './GrpcResponsePane';
@@ -67,7 +72,10 @@ import {
 import {
   deriveGrpcMethods,
   findMethodOption,
+  GRPC_IMPORT_PROTO_VALUE,
+  GRPC_SPEC_LINK_VALUE_PREFIX,
   GRPC_STREAMING_GLYPHS,
+  parseGrpcSelectValue,
   synthesizeExampleText,
 } from './method-selector';
 
@@ -145,14 +153,35 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const selectedOption = findMethodOption(derivation, draft.method);
   const exampleText = useMemo(() => synthesizeExampleText(derivation, draft.method), [derivation, draft.method]);
 
-  const methodOptions = useMemo(() => {
-    const groups = (derivation?.groups ?? []).map((group) => ({
-      label: group.service,
-      options: group.options.map((option) => ({
-        value: `${option.service}/${option.rpc}`,
-        label: `${GRPC_STREAMING_GLYPHS[option.streaming]} ${option.rpc}`,
-      })),
-    }));
+  const selectOptions = useMemo(() => {
+    const groups: Array<{ label: string; options: Array<{ value: string; label: string }> } | { value: string; label: string }> =
+      [];
+    if (linkedSpec) {
+      for (const group of derivation?.groups ?? []) {
+        groups.push({
+          label: group.service,
+          options: group.options.map((option) => ({
+            value: `${option.service}/${option.rpc}`,
+            label: `${GRPC_STREAMING_GLYPHS[option.streaming]} ${option.rpc}`,
+          })),
+        });
+      }
+    } else {
+      // No spec linked — the selector IS the entry point: link a
+      // workspace protobuf spec inline, or import a .proto file as one.
+      if (protobufSpecs.length > 0) {
+        groups.push({
+          label: t('workbench.editors.grpc.method.linkGroup'),
+          options: protobufSpecs.map((s) => ({
+            value: `${GRPC_SPEC_LINK_VALUE_PREFIX}${s.uid}`,
+            label: s.name,
+          })),
+        });
+      }
+      if (workspaceId) {
+        groups.push({ value: GRPC_IMPORT_PROTO_VALUE, label: t('workbench.editors.grpc.method.importProto') });
+      }
+    }
     // A persisted method the spec no longer declares stays visible as
     // an unresolved entry instead of silently blanking the select.
     if (draft.method && !selectedOption) {
@@ -167,13 +196,43 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       });
     }
     return groups;
-  }, [derivation, draft.method, selectedOption, t]);
+  }, [linkedSpec, derivation, protobufSpecs, workspaceId, draft.method, selectedOption, t]);
 
-  const handleMethodChange = useCallback((value: string) => {
-    const slash = value.lastIndexOf('/');
-    if (slash <= 0) return;
-    const method: GrpcMethodRef = { service: value.substring(0, slash), rpc: value.substring(slash + 1) };
-    setDraft((d) => ({ ...d, method }));
+  const protoFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleProtoFilePicked = useCallback(
+    async (file: File) => {
+      if (!workspaceId) return;
+      const text = await file.text().catch((err: Error) => err);
+      if (text instanceof Error) {
+        toast.error(t('workbench.editors.grpc.spec.importReadFailed', { message: text.message }));
+        return;
+      }
+      const name = file.name.replace(/\.proto$/i, '') || file.name;
+      const result = await applySpecCreate(
+        { spec: createImportedProtoSpecSeed(name, file.name, text) },
+        { workspaceId, surfaceId: 'workbench' },
+      );
+      if (!result.ok) {
+        toast.error(t('workbench.editors.grpc.spec.importFailed'));
+        return;
+      }
+      setDraft((d) => ({ ...d, specLink: { specUid: result.spec.uid } }));
+    },
+    [workspaceId, toast, t],
+  );
+
+  const handleSelectChange = useCallback((value: string) => {
+    const action = parseGrpcSelectValue(value);
+    if (action === null) return;
+    if (action.kind === 'method') {
+      const method: GrpcMethodRef = action.method;
+      setDraft((d) => ({ ...d, method }));
+    } else if (action.kind === 'link-spec') {
+      setDraft((d) => ({ ...d, specLink: { specUid: action.specUid } }));
+    } else {
+      protoFileInputRef.current?.click();
+    }
   }, []);
 
   const handleUseExample = useCallback(() => {
@@ -408,11 +467,22 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                 : t('workbench.editors.grpc.method.noSpecPlaceholder')
             }
             value={draft.method ? methodKey(draft.method) : undefined}
-            options={methodOptions}
-            onChange={handleMethodChange}
-            disabled={!linkedSpec && !draft.method}
+            options={selectOptions}
+            onChange={handleSelectChange}
             showSearch
             data-testid="grpc-method-select"
+          />
+          <input
+            ref={protoFileInputRef}
+            type="file"
+            accept=".proto"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              e.currentTarget.value = '';
+              if (file) void handleProtoFilePicked(file);
+            }}
+            data-testid="grpc-import-proto-input"
           />
           {invoking ? (
             <Button danger icon={<StopOutlined />} onClick={handleCancelInvoke} data-testid="grpc-invoke-button">

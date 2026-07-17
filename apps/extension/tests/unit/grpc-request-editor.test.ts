@@ -3,7 +3,10 @@
  *
  *   - `method-selector.ts` — registry-fed grouped options with the S1
  *     call-shape glyph metadata, unresolved-reference surfacing (never
- *     a crash), and the "Use Example Message" synthesis plumbing.
+ *     a crash), the "Use Example Message" synthesis plumbing, and the
+ *     selector's value routing (method / link-spec / import-proto).
+ *   - `spec-scaffold.ts` — the imported-.proto spec seed the selector's
+ *     import action mints.
  *   - `draft.ts` — draft ⇄ entity projections whose fingerprints drive
  *     derived dirty (form-vs-canonical equality).
  *   - `local-tree-builder.ts` — both request kinds sharing the
@@ -22,9 +25,13 @@ import {
 import {
   deriveGrpcMethods,
   findMethodOption,
+  GRPC_IMPORT_PROTO_VALUE,
+  GRPC_SPEC_LINK_VALUE_PREFIX,
   GRPC_STREAMING_GLYPHS,
+  parseGrpcSelectValue,
   synthesizeExampleText,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/method-selector';
+import { createImportedProtoSpecSeed } from '@openheaders/ui/workbench/components/specs/spec-scaffold';
 import { describe, expect, it } from 'vitest';
 
 const LIBRARY_PROTO = [
@@ -140,6 +147,52 @@ describe('findMethodOption + synthesizeExampleText', () => {
     ].join('\n');
     const derivation = deriveGrpcMethods(spec(broken));
     expect(synthesizeExampleText(derivation, { service: 'library.v1.Library', rpc: 'Get' })).toBeNull();
+  });
+});
+
+describe('parseGrpcSelectValue', () => {
+  it('routes a method key to its service/rpc ref', () => {
+    expect(parseGrpcSelectValue('library.v1.Library/ListBooks')).toEqual({
+      kind: 'method',
+      method: { service: 'library.v1.Library', rpc: 'ListBooks' },
+    });
+  });
+
+  it('routes a spec-link value to its uid', () => {
+    expect(parseGrpcSelectValue(`${GRPC_SPEC_LINK_VALUE_PREFIX}spec0001`)).toEqual({
+      kind: 'link-spec',
+      specUid: 'spec0001',
+    });
+  });
+
+  it('routes the import action', () => {
+    expect(parseGrpcSelectValue(GRPC_IMPORT_PROTO_VALUE)).toEqual({ kind: 'import-proto' });
+  });
+
+  it('returns null on malformed values', () => {
+    expect(parseGrpcSelectValue('no-slash')).toBeNull();
+    expect(parseGrpcSelectValue('/leading')).toBeNull();
+    expect(parseGrpcSelectValue('trailing/')).toBeNull();
+    expect(parseGrpcSelectValue(GRPC_SPEC_LINK_VALUE_PREFIX)).toBeNull();
+  });
+});
+
+describe('createImportedProtoSpecSeed', () => {
+  it('lands the source verbatim as the root file under its original name', () => {
+    const seed = createImportedProtoSpecSeed('book_service', 'book_service.proto', LIBRARY_PROTO);
+    expect(seed.format).toBe('protobuf');
+    expect(seed.name).toBe('book_service');
+    expect(seed.files).toHaveLength(1);
+    expect(seed.files[0].fileName).toBe('book_service.proto');
+    expect(seed.files[0].content).toBe(LIBRARY_PROTO);
+    expect(seed.rootFileUid).toBe(seed.files[0].uid);
+  });
+
+  it('mints a derivable spec — methods group straight from the imported file', () => {
+    const seed = createImportedProtoSpecSeed('library', 'library.proto', LIBRARY_PROTO);
+    const derivation = deriveGrpcMethods(spec(LIBRARY_PROTO, { files: seed.files, rootFileUid: seed.rootFileUid }));
+    expect(derivation.groups.map((g) => g.service)).toEqual(['library.v1.Library', 'library.v1.Audit']);
+    expect(derivation.parseFailures).toEqual([]);
   });
 });
 

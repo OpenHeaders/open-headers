@@ -17,7 +17,7 @@ import {
   parseProto,
   synthesizeExampleMessage,
 } from '@openheaders/core/proto';
-import type { Spec } from '@openheaders/core/types';
+import type { GrpcMethodRef, Spec } from '@openheaders/core/types';
 
 /** Call-shape glyph per streaming shape — the S1 outline vocabulary. */
 export const GRPC_STREAMING_GLYPHS: Record<ProtoStreamingShape, string> = {
@@ -97,6 +97,33 @@ export function findMethodOption(
     }
   }
   return null;
+}
+
+/**
+ * The header selector doubles as the spec entry point while no spec is
+ * linked: alongside method keys (`service/rpc`) it offers workspace
+ * protobuf specs (`spec:<uid>`) and the import-a-.proto action. One
+ * value vocabulary, routed here — service full names are proto
+ * identifiers (dots, no colons), so the prefixes can't collide.
+ */
+export const GRPC_SPEC_LINK_VALUE_PREFIX = 'spec:';
+export const GRPC_IMPORT_PROTO_VALUE = 'action:import-proto';
+
+export type GrpcSelectAction =
+  | { kind: 'method'; method: GrpcMethodRef }
+  | { kind: 'link-spec'; specUid: string }
+  | { kind: 'import-proto' };
+
+/** Route a selector value to its action; null on a malformed value. */
+export function parseGrpcSelectValue(value: string): GrpcSelectAction | null {
+  if (value === GRPC_IMPORT_PROTO_VALUE) return { kind: 'import-proto' };
+  if (value.startsWith(GRPC_SPEC_LINK_VALUE_PREFIX)) {
+    const specUid = value.substring(GRPC_SPEC_LINK_VALUE_PREFIX.length);
+    return specUid === '' ? null : { kind: 'link-spec', specUid };
+  }
+  const slash = value.lastIndexOf('/');
+  if (slash <= 0 || slash === value.length - 1) return null;
+  return { kind: 'method', method: { service: value.substring(0, slash), rpc: value.substring(slash + 1) } };
 }
 
 /**
