@@ -30,6 +30,7 @@ import { workbenchDocs } from './workbench-docs';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchImportExport } from './workbench-import-export';
 import { workbenchLive } from './workbench-live';
+import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchVariables } from './workbench-variables';
 
@@ -58,6 +59,7 @@ export const en = {
   ...workbenchEditors,
   ...workbenchImportExport,
   ...workbenchLive,
+  ...workbenchScriptPackages,
   ...workbenchSettings,
   ...workbenchVariables,
 } as const satisfies Catalog;

@@ -19,6 +19,7 @@ import type { ScriptPackage } from '@openheaders/core/types';
 import { App, Button, Empty, Input, Popconfirm, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useScriptPackages } from '../../../shared/hooks/readers/useScriptPackages';
 import {
   applyScriptPackageCreate,
@@ -56,6 +57,7 @@ interface PackageLibraryProps {
 type Selection = { kind: 'none' } | { kind: 'create' } | { kind: 'edit'; uid: string };
 
 const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyChange, registerSaveRef }) => {
+  const t = useT();
   const { token } = theme.useToken();
   const { message, modal } = App.useApp();
   const packages = useScriptPackages(workspaceId);
@@ -94,9 +96,9 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
     (next: Selection, nextDraft: PackageDraft) => {
       if (isDirty) {
         modal.confirm({
-          title: 'Discard unsaved changes?',
-          content: 'The current package has unsaved edits. Switching discards them.',
-          okText: 'Discard',
+          title: t('workbench.scriptPackages.discardTitle'),
+          content: t('workbench.scriptPackages.discardContent'),
+          okText: t('workbench.scriptPackages.discardOk'),
           okButtonProps: { danger: true },
           onOk: () => {
             setSelection(next);
@@ -108,14 +110,14 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
       setSelection(next);
       setDraft(nextDraft);
     },
-    [isDirty, modal],
+    [isDirty, modal, t],
   );
 
   const save = useCallback(async () => {
     if (!workspaceId || !isDirty) return;
     const name = draft.name.trim();
     if (!name) {
-      message.error('Package name is required — it is the oh.require key.');
+      message.error(t('workbench.scriptPackages.nameRequired'));
       return;
     }
     const payload = {
@@ -132,17 +134,19 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
           : null;
     if (!result) return;
     if (result.ok) {
-      message.success('Package saved');
+      message.success(t('workbench.scriptPackages.saved'));
       setSelection({ kind: 'edit', uid: result.scriptPackage.uid });
       setDraft(draftOf(result.scriptPackage));
       return;
     }
     if (result.reason === 'duplicate-name') {
-      message.error(`A package named “${name}” already exists in this workspace.`);
+      message.error(t('workbench.scriptPackages.duplicateName', { name }));
       return;
     }
-    message.error(result.reason === 'not-found' ? 'Package not found — it may have been deleted.' : 'Save failed');
-  }, [workspaceId, isDirty, draft, selection, message]);
+    message.error(
+      result.reason === 'not-found' ? t('workbench.scriptPackages.notFound') : t('workbench.scriptPackages.saveFailed'),
+    );
+  }, [workspaceId, isDirty, draft, selection, message, t]);
 
   // Cmd+S routes through the tab shell's save registry.
   useEffect(() => {
@@ -156,16 +160,20 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
       if (!workspaceId) return;
       const result = await applyScriptPackageDelete(uid, { workspaceId, surfaceId: SURFACE_ID });
       if (result.ok) {
-        message.success('Package deleted');
+        message.success(t('workbench.scriptPackages.deleted'));
         if (selection.kind === 'edit' && selection.uid === uid) {
           setSelection({ kind: 'none' });
           setDraft(EMPTY_DRAFT);
         }
         return;
       }
-      message.error(result.reason === 'not-found' ? 'Package not found — it may have been deleted.' : 'Delete failed');
+      message.error(
+        result.reason === 'not-found'
+          ? t('workbench.scriptPackages.notFound')
+          : t('workbench.scriptPackages.deleteFailed'),
+      );
     },
-    [workspaceId, selection, message],
+    [workspaceId, selection, message, t],
   );
 
   const codeBlock = (code: string) => (
@@ -186,17 +194,17 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
 
   const primer = (
     <div style={{ maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Text strong>Reuse scripts across requests with packages</Text>
+      <Text strong>{t('workbench.scriptPackages.primer.title')}</Text>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Text type="secondary">1. Create a package with some reusable code.</Text>
+        <Text type="secondary">{t('workbench.scriptPackages.primer.step1')}</Text>
         {codeBlock(`function add(a, b) {\n  return a + b;\n}`)}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Text type="secondary">2. Export the functions you want to reuse.</Text>
+        <Text type="secondary">{t('workbench.scriptPackages.primer.step2')}</Text>
         {codeBlock(`module.exports = { add };`)}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Text type="secondary">3. Use oh.require to load the package in your request scripts.</Text>
+        <Text type="secondary">{t('workbench.scriptPackages.primer.step3')}</Text>
         {codeBlock(`const myPackage = oh.require('package_name');\nmyPackage.add(1, 2);`)}
       </div>
     </div>
@@ -209,34 +217,35 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
           value={draft.name}
           onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
           placeholder="package_name"
-          aria-label="Package name"
+          aria-label={t('workbench.scriptPackages.nameAria')}
           style={{ maxWidth: 260 }}
         />
         <Input
           value={draft.description}
           onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-          placeholder="Description (optional)"
-          aria-label="Package description"
+          placeholder={t('workbench.scriptPackages.descriptionPlaceholder')}
+          aria-label={t('workbench.scriptPackages.descriptionAria')}
           style={{ flex: 1 }}
         />
         <Button type="primary" disabled={!isDirty} onClick={() => void save()}>
-          Save
+          {t('workbench.scriptPackages.save')}
         </Button>
         {selection.kind === 'edit' && (
           <Popconfirm
-            title="Delete this package?"
-            description="Scripts calling oh.require on it will start failing."
-            okText="Delete"
+            title={t('workbench.scriptPackages.deleteTitle')}
+            description={t('workbench.scriptPackages.deleteDescription')}
+            okText={t('workbench.scriptPackages.delete')}
             okButtonProps={{ danger: true }}
             onConfirm={() => void remove(selection.uid)}
           >
-            <Button danger>Delete</Button>
+            <Button danger>{t('workbench.scriptPackages.delete')}</Button>
           </Popconfirm>
         )}
       </div>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        Load it from a script with <Text code>oh.require('{draft.name.trim() || 'package_name'}')</Text> — export the
-        public surface via <Text code>module.exports</Text>.
+        {t('workbench.scriptPackages.loadFromScriptPrefix')}{' '}
+        <Text code>oh.require('{draft.name.trim() || 'package_name'}')</Text>{' '}
+        {t('workbench.scriptPackages.exportViaInfix')} <Text code>module.exports</Text>.
       </Text>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <CodeEditor
@@ -244,7 +253,7 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
           value={draft.source}
           onChange={(source) => setDraft((d) => ({ ...d, source }))}
           minHeight={320}
-          placeholder="Write reusable JavaScript, then export with module.exports."
+          placeholder={t('workbench.scriptPackages.sourcePlaceholder')}
           variableAutoComplete={false}
         />
       </div>
@@ -264,21 +273,21 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text strong>Package Library</Text>
+          <Text strong>{t('workbench.scriptPackages.title')}</Text>
           <Button
             size="small"
             type="text"
             icon={<PlusOutlined />}
             onClick={() => select({ kind: 'create' }, EMPTY_DRAFT)}
           >
-            New
+            {t('workbench.scriptPackages.new')}
           </Button>
         </div>
         <Input
           size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Find packages..."
+          placeholder={t('workbench.scriptPackages.searchPlaceholder')}
           prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
           allowClear
         />
@@ -286,7 +295,9 @@ const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyCha
           {filtered.length === 0 && (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={packages.length === 0 ? 'No packages yet' : 'No package found'}
+              description={
+                packages.length === 0 ? t('workbench.scriptPackages.emptyNone') : t('workbench.scriptPackages.emptyNoMatch')
+              }
               style={{ marginTop: 24 }}
             />
           )}
