@@ -292,6 +292,7 @@ export function RuleEditorTab({ tab, onDirtyChange, registerSave, isActiveDocume
               <div style={fieldLabelStyle}>{t('panel.ruleDoc.nameLabel')}</div>
               <Input
                 size="small"
+                data-testid="oh-ruledoc-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={tab.draftName}
