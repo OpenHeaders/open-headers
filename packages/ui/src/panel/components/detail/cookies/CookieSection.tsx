@@ -308,19 +308,19 @@ export function CookieSection({
               </th>
               <th>
                 <span className="dt-cookie-col-head">
-                  Name
+                  {t('panel.inspector.cookies.col.name')}
                   <CookieColumnInfo infoKey="name" />
                 </span>
               </th>
               <th>
                 <span className="dt-cookie-col-head">
-                  Value
+                  {t('panel.inspector.cookies.col.value')}
                   <CookieColumnInfo infoKey="value" />
                 </span>
               </th>
               <th>
                 <span className="dt-cookie-col-head">
-                  Scope
+                  {t('panel.inspector.cookies.col.scope')}
                   <CookieColumnInfo infoKey="scope" />
                 </span>
               </th>
@@ -332,13 +332,13 @@ export function CookieSection({
               </th>
               <th className="dt-col-right">
                 <span className="dt-cookie-col-head dt-cookie-col-head--right">
-                  Size
+                  {t('panel.inspector.cookies.col.size')}
                   <CookieColumnInfo infoKey="size" />
                 </span>
               </th>
               <th className="dt-col-center">
                 <span className="dt-cookie-col-head dt-cookie-col-head--center">
-                  Sec
+                  {t('panel.inspector.cookies.col.sec')}
                   <CookieColumnInfo infoKey="sec" />
                 </span>
               </th>

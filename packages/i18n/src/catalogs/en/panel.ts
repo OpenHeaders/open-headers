@@ -1734,6 +1734,17 @@ export const panel = {
   'panel.inspector.cookies.filterAria': 'Filter cookies',
   'panel.inspector.cookies.empty': 'No cookies sent or received.',
 
+  // Section headers + table column headers. Set-Cookie attribute tokens
+  // (Domain / Path / Expires / SameSite / HttpOnly / Secure) are
+  // glossary vocabulary and stay raw where they label a column alone.
+  'panel.inspector.cookies.section.response': 'Response Cookies',
+  'panel.inspector.cookies.section.request': 'Request Cookies',
+  'panel.inspector.cookies.col.name': 'Name',
+  'panel.inspector.cookies.col.value': 'Value',
+  'panel.inspector.cookies.col.scope': 'Scope',
+  'panel.inspector.cookies.col.size': 'Size',
+  'panel.inspector.cookies.col.sec': 'Sec',
+
   // Footprint strip — independent clauses joined with raw ' · '.
   'panel.inspector.cookies.footprint.sent': '{count} sent · {bytes} B',
   'panel.inspector.cookies.footprint.set': '{count} set · {bytes} B',
@@ -1905,6 +1916,9 @@ export const panel = {
   'panel.inspector.cookies.edit.save': 'Save',
   'panel.inspector.cookies.edit.unresolved': 'Doesn’t resolve — create the variable or fix the reference.',
   'panel.inspector.cookies.edit.writes': 'Writes: {value}',
+  'panel.inspector.cookies.edit.field.name': 'Name',
+  'panel.inspector.cookies.edit.field.value': 'Value',
+  'panel.inspector.cookies.edit.field.hostOnly': 'Host-only',
   'panel.inspector.cookies.edit.namePlaceholder': 'cookie name',
   'panel.inspector.cookies.edit.valuePlaceholder': 'value or {{variable}}',
   'panel.inspector.cookies.edit.session': 'Session',
@@ -2606,6 +2620,12 @@ export const panel = {
   'panel.storage.empty.cookiesUnavailableSub': 'This host doesn’t expose the browser cookie jar.',
   'panel.storage.empty.noCookies': 'No cookies for {origin}.',
   'panel.storage.empty.noCookiesMatch': 'No cookies match your filter.',
+  // Jar cookie grid column headers — 'Domain · Path' carries the raw
+  // attribute vocabulary inside the keyed value.
+  'panel.storage.cookies.col.name': 'Name',
+  'panel.storage.cookies.col.value': 'Value',
+  'panel.storage.cookies.col.scope': 'Domain · Path',
+  'panel.storage.cookies.col.sec': 'Sec',
   // DOM storage grid.
   'panel.storage.grid.aria': 'Storage entries',
   'panel.storage.grid.clipped': 'clipped ({length})',

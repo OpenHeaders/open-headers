@@ -399,7 +399,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
       )}
 
       <CookieSection
-        label="Response Cookies"
+        label={t('panel.inspector.cookies.section.response')}
         direction="response"
         rows={responseRows}
         problemNames={problemNames}
@@ -423,7 +423,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader, onOpenC
       />
 
       <CookieSection
-        label="Request Cookies"
+        label={t('panel.inspector.cookies.section.request')}
         direction="request"
         rows={requestRows}
         problemNames={problemNames}

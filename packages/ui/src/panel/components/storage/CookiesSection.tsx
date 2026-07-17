@@ -97,11 +97,23 @@ export function CookiesSection({
       onKeyDown={handleGridKeyDown}
     >
       <div className="dt-storage-grid-header" role="row">
-        <StorageColumnHeaderCell label="Name" info={<JarCookieColumnInfo infoKey="name" />} />
-        <StorageColumnHeaderCell label="Value" info={<JarCookieColumnInfo infoKey="value" />} />
-        <StorageColumnHeaderCell label="Domain · Path" info={<JarCookieColumnInfo infoKey="scope" />} />
+        <StorageColumnHeaderCell
+          label={t('panel.storage.cookies.col.name')}
+          info={<JarCookieColumnInfo infoKey="name" />}
+        />
+        <StorageColumnHeaderCell
+          label={t('panel.storage.cookies.col.value')}
+          info={<JarCookieColumnInfo infoKey="value" />}
+        />
+        <StorageColumnHeaderCell
+          label={t('panel.storage.cookies.col.scope')}
+          info={<JarCookieColumnInfo infoKey="scope" />}
+        />
         <StorageColumnHeaderCell label="Expires" info={<JarCookieColumnInfo infoKey="expires" />} />
-        <StorageColumnHeaderCell label="Sec" info={<JarCookieColumnInfo infoKey="sec" />} />
+        <StorageColumnHeaderCell
+          label={t('panel.storage.cookies.col.sec')}
+          info={<JarCookieColumnInfo infoKey="sec" />}
+        />
       </div>
       {cookies.map((c, i) => (
         <CookieJarRow

@@ -132,7 +132,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
     <div className="dt-cookie-edit-form">
       <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
         <span className="dt-cookie-edit-label">
-          Name
+          {t('panel.inspector.cookies.edit.field.name')}
           <CookieEditFieldInfo infoKey="name" />
           {affixes?.name}
         </span>
@@ -141,7 +141,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
 
       <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
         <span className="dt-cookie-edit-label">
-          Value
+          {t('panel.inspector.cookies.edit.field.value')}
           <CookieEditFieldInfo infoKey="value" />
           {affixes?.value}
         </span>
@@ -230,7 +230,7 @@ export function CookieEditFields({ values, fields, set, busy, readOnly = false, 
         <label className="dt-cookie-edit-toggle">
           <Switch checked={values.hostOnly} onChange={(v) => set('hostOnly', v)} size="small" disabled={busy || readOnly} />
           <span>
-            Host-only
+            {t('panel.inspector.cookies.edit.field.hostOnly')}
             <CookieEditFieldInfo infoKey="hostonly" />
             {affixes?.hostOnly}
           </span>
