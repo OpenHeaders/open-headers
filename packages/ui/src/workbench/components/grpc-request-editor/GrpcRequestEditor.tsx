@@ -404,6 +404,13 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     hostBridge.call('abortRequestSend', { sendId }).catch(() => {});
   }, []);
 
+  // "Clear response" (the result pane's ⋯ menu) — back to the
+  // empty-state pane; the compose side is untouched.
+  const handleClearResponse = useCallback(() => {
+    setResponse(null);
+    setStreamSession(null);
+  }, []);
+
   const invokeDisabledReason =
     requestRuntimeKind !== 'node' && !companionSeam
       ? t('workbench.editors.grpc.invoke.browserHost')
@@ -984,9 +991,15 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   registry={derivation?.registry ?? null}
                   method={draft.method}
                   target={invokedTarget}
+                  onClear={handleClearResponse}
                 />
               ) : response !== null ? (
-                <GrpcResponsePane snapshot={response} registry={derivation?.registry ?? null} method={draft.method} />
+                <GrpcResponsePane
+                  snapshot={response}
+                  registry={derivation?.registry ?? null}
+                  method={draft.method}
+                  onClear={handleClearResponse}
+                />
               ) : (
                 // Always-attached result pane (the HTTP ResponsePanel
                 // posture): a stable target with the plain title row and

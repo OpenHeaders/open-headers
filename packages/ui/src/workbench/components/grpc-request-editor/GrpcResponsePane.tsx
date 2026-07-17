@@ -12,13 +12,15 @@
  * flavor under the plain Response title row.
  */
 
-import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
+import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
+import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Tabs, Tag, Typography, theme } from 'antd';
+import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
+import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
 import { deriveGrpcMessageView, grpcOutputTypeOf } from './response-decode';
 
@@ -28,6 +30,7 @@ interface GrpcResponsePaneProps {
   snapshot: ExecutedGrpcSnapshot;
   registry: ProtoRegistry | null;
   method: GrpcMethodRef | undefined;
+  onClear: () => void;
 }
 
 const MonoRows: React.FC<{ rows: ReadonlyArray<{ key: string; value: string }>; emptyLabel: string }> = ({
@@ -58,7 +61,7 @@ const MonoRows: React.FC<{ rows: ReadonlyArray<{ key: string; value: string }>; 
   );
 };
 
-const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry, method }) => {
+const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry, method, onClear }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('response');
@@ -98,34 +101,32 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
   }
 
   // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
-  // one-row header format.
+  // one-row header format: status pill (hover popover with the code's
+  // meaning) · duration, then the ⋯ actions menu.
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-      {snapshot.grpcMessage !== undefined && snapshot.grpcMessage !== '' && (
-        <Text
-          type={snapshot.grpcStatus === 0 ? 'secondary' : 'danger'}
-          style={{ fontSize: 12, maxWidth: 320 }}
-          ellipsis
-        >
-          {snapshot.grpcMessage}
-        </Text>
-      )}
-      {snapshot.grpcStatus === null ? (
-        <Tag color="default" style={{ marginInlineEnd: 0 }} data-testid="grpc-status-tag">
-          {t('workbench.editors.grpc.response.noStatus')}
-        </Tag>
-      ) : (
-        <Tag
-          color={snapshot.grpcStatus === 0 ? 'success' : 'error'}
-          style={{ marginInlineEnd: 0 }}
-          data-testid="grpc-status-tag"
-        >
-          {grpcStatusLabel(snapshot.grpcStatus)}
-        </Tag>
-      )}
-      <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-        {t('workbench.editors.grpc.response.duration', { ms: snapshot.durationMs })}
-      </Text>
+      <GrpcMetaStrip status={snapshot.grpcStatus} durationMs={snapshot.durationMs} />
+      <Dropdown
+        trigger={['click']}
+        overlayStyle={{ minWidth: 180 }}
+        menu={{
+          items: [
+            {
+              key: 'clear',
+              icon: <ClearOutlined />,
+              label: t('workbench.editors.request.response.clearResponse'),
+              onClick: onClear,
+            },
+          ],
+        }}
+      >
+        <Button
+          size="small"
+          type="text"
+          icon={<EllipsisOutlined />}
+          aria-label={t('workbench.editors.request.response.moreActionsAria')}
+        />
+      </Dropdown>
     </div>
   );
 

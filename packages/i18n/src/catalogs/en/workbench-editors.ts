@@ -1382,11 +1382,40 @@ export const workbenchEditors = {
   'workbench.editors.grpc.response.title': 'Response',
   'workbench.editors.grpc.response.empty.prompt': 'Invoke a method to get a response.',
   'workbench.editors.grpc.response.empty.invoking': 'Invoking…',
+  'workbench.editors.grpc.status.kicker': 'gRPC status',
+  'workbench.editors.grpc.status.desc.unknownCode': 'A non-standard status code outside the gRPC vocabulary.',
+  'workbench.editors.grpc.status.desc.OK': 'The call completed successfully.',
+  'workbench.editors.grpc.status.desc.CANCELLED': 'The operation was cancelled, typically by the caller.',
+  'workbench.editors.grpc.status.desc.UNKNOWN':
+    'An unknown error occurred — often a server-side exception the runtime could not classify.',
+  'workbench.editors.grpc.status.desc.INVALID_ARGUMENT':
+    'The client specified an invalid argument — problematic regardless of system state, such as a malformed name.',
+  'workbench.editors.grpc.status.desc.DEADLINE_EXCEEDED':
+    'The deadline expired before the operation completed. The work may still have finished on the server.',
+  'workbench.editors.grpc.status.desc.NOT_FOUND': 'A requested entity was not found.',
+  'workbench.editors.grpc.status.desc.ALREADY_EXISTS': 'The entity the client tried to create already exists.',
+  'workbench.editors.grpc.status.desc.PERMISSION_DENIED':
+    'The caller does not have permission for this operation — authenticated, but not allowed.',
+  'workbench.editors.grpc.status.desc.RESOURCE_EXHAUSTED':
+    'A resource has been exhausted — a per-user quota, or a system limit such as disk space.',
+  'workbench.editors.grpc.status.desc.FAILED_PRECONDITION':
+    'The system is not in the state the operation requires — for example deleting a non-empty directory.',
+  'workbench.editors.grpc.status.desc.ABORTED':
+    'The operation was aborted, typically over a concurrency conflict. Retrying the whole sequence may help.',
+  'workbench.editors.grpc.status.desc.OUT_OF_RANGE':
+    'The operation ran past the valid range — unlike INVALID_ARGUMENT, this depends on the system state.',
+  'workbench.editors.grpc.status.desc.UNIMPLEMENTED': 'The operation is not implemented or supported by this service.',
+  'workbench.editors.grpc.status.desc.INTERNAL':
+    'An internal error — an invariant the underlying system expects was broken.',
+  'workbench.editors.grpc.status.desc.UNAVAILABLE':
+    'The service is currently unavailable — usually transient. Check the target and TLS mode, or retry.',
+  'workbench.editors.grpc.status.desc.DATA_LOSS': 'Unrecoverable data loss or corruption.',
+  'workbench.editors.grpc.status.desc.UNAUTHENTICATED':
+    'The request lacks valid authentication credentials for the operation.',
   'workbench.editors.grpc.response.error.title': 'Call failed',
   'workbench.editors.grpc.response.error.localGuidance':
     'The call never reached a reply. Check the target, TLS mode, and that the server is reachable.',
-  'workbench.editors.grpc.response.error.statusGuidance':
-    'The server answered with {status}. Check the message and invoke the method again.',
+  'workbench.editors.grpc.response.error.statusGuidance': 'Check the message and invoke the method again.',
   'workbench.editors.grpc.response.tab.response': 'Response',
   'workbench.editors.grpc.response.tab.metadata': 'Metadata',
   'workbench.editors.grpc.response.tab.trailers': 'Trailers',

@@ -13,13 +13,15 @@
  * the plain Response title row, the unary pane's shape.
  */
 
+import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
 import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Tabs, Tag, Typography, theme } from 'antd';
+import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
+import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
 import { grpcInputTypeOf, grpcOutputTypeOf } from './response-decode';
 import type { GrpcStreamSession, LiveGrpcStream } from './useLiveGrpcStream';
@@ -37,6 +39,7 @@ interface GrpcStreamPaneProps {
   method: GrpcMethodRef | undefined;
   /** Call target — `/service/rpc` for the lifecycle rows. */
   target: string;
+  onClear: () => void;
 }
 
 const MonoRows: React.FC<{ rows: ReadonlyArray<{ key: string; value: string }>; emptyLabel: string }> = ({
@@ -67,7 +70,15 @@ const MonoRows: React.FC<{ rows: ReadonlyArray<{ key: string; value: string }>; 
   );
 };
 
-const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session, registry, method, target }) => {
+const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
+  live,
+  snapshot,
+  session,
+  registry,
+  method,
+  target,
+  onClear,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
@@ -133,7 +144,9 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session
   }
 
   // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
-  // one-row header format.
+  // one-row header format: STREAMING while live; the shared strip
+  // (status pill popover · duration) plus the ⋯ actions menu once
+  // settled.
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
@@ -142,36 +155,32 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({ live, snapshot, session
         </Tag>
       ) : (
         <>
-          {snapshot.grpcMessage !== undefined && snapshot.grpcMessage !== '' && (
-            <Text
-              type={snapshot.grpcStatus === 0 ? 'secondary' : 'danger'}
-              style={{ fontSize: 12, maxWidth: 320 }}
-              ellipsis
-            >
-              {snapshot.grpcMessage}
-            </Text>
-          )}
-          {snapshot.grpcStatus === null ? (
-            <Tag color="default" style={{ marginInlineEnd: 0 }} data-testid="grpc-status-tag">
-              {t('workbench.editors.grpc.response.noStatus')}
-            </Tag>
-          ) : (
-            <Tag
-              color={snapshot.grpcStatus === 0 ? 'success' : 'error'}
-              style={{ marginInlineEnd: 0 }}
-              data-testid="grpc-status-tag"
-            >
-              {grpcStatusLabel(snapshot.grpcStatus)}
-            </Tag>
-          )}
-          {snapshot.stopped === true && (
-            <Tag color="warning" style={{ marginInlineEnd: 0 }} data-testid="grpc-stopped-tag">
-              {t('workbench.editors.grpc.stream.stoppedBadge')}
-            </Tag>
-          )}
-          <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-            {t('workbench.editors.grpc.response.duration', { ms: snapshot.durationMs })}
-          </Text>
+          <GrpcMetaStrip
+            status={snapshot.grpcStatus}
+            durationMs={snapshot.durationMs}
+            stopped={snapshot.stopped === true}
+          />
+          <Dropdown
+            trigger={['click']}
+            overlayStyle={{ minWidth: 180 }}
+            menu={{
+              items: [
+                {
+                  key: 'clear',
+                  icon: <ClearOutlined />,
+                  label: t('workbench.editors.request.response.clearResponse'),
+                  onClick: onClear,
+                },
+              ],
+            }}
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<EllipsisOutlined />}
+              aria-label={t('workbench.editors.request.response.moreActionsAria')}
+            />
+          </Dropdown>
         </>
       )}
     </div>

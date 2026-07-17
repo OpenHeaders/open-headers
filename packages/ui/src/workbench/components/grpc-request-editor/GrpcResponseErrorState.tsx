@@ -64,7 +64,7 @@ const GrpcResponseErrorState: React.FC<{
       </Text>
       <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }}>
         {status !== null
-          ? t('workbench.editors.grpc.response.error.statusGuidance', { status: grpcStatusLabel(status) })
+          ? t('workbench.editors.grpc.response.error.statusGuidance')
           : t('workbench.editors.grpc.response.error.localGuidance')}
       </Text>
       {detail !== undefined && detail !== '' && (
