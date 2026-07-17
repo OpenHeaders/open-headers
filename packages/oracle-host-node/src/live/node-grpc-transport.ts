@@ -16,8 +16,10 @@
  *     (compression flag 0 — v1 negotiates no compression, and the flag
  *     is never claimed falsely: F5.2 flag honesty).
  *   - TLS per the request's flag: `https://` connect (verified against
- *     the system roots) or cleartext h2c. Prior-knowledge h2c — gRPC
- *     servers speak HTTP/2 directly, no upgrade dance.
+ *     the system roots unless the request's `sslVerification: false`
+ *     opts out — the self-signed dev-server knob) or cleartext h2c.
+ *     Prior-knowledge h2c — gRPC servers speak HTTP/2 directly, no
+ *     upgrade dance.
  *   - Deadline: `grpc-timeout` header (so the SERVER can enforce it)
  *     plus a local abort spanning connect, response head, and body
  *     read — the HTTP transport's one-deadline discipline.
@@ -48,6 +50,18 @@ import {
   type GrpcTransportResponse,
   type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
+
+/**
+ * TLS connect options for one session: verify against the system roots
+ * unless the request explicitly opted out (`sslVerification: false` —
+ * the self-signed dev-server knob). Cleartext connects ignore it.
+ */
+function sessionOptions(request: {
+  tls: boolean;
+  sslVerification?: boolean;
+}): { rejectUnauthorized: false } | undefined {
+  return request.tls && request.sslVerification === false ? { rejectUnauthorized: false } : undefined;
+}
 
 /** Node's incoming header shape flattened to seam headers — repeated
  *  keys entry-wise, HTTP/2 pseudo-headers (`:status` etc.) excluded. */
@@ -179,7 +193,7 @@ export function createNodeGrpcTransport(): GrpcTransport {
         let timer: ReturnType<typeof setTimeout> | null = null;
         let stream: ClientHttp2Stream | null = null;
 
-        const session: ClientHttp2Session = connect(target.origin);
+        const session: ClientHttp2Session = connect(target.origin, sessionOptions(request));
 
         const cleanup = (): void => {
           if (timer !== null) clearTimeout(timer);
@@ -304,7 +318,7 @@ export function createNodeGrpcTransport(): GrpcTransport {
       let timer: ReturnType<typeof setTimeout> | null = null;
       let stream: ClientHttp2Stream | null = null;
 
-      const session: ClientHttp2Session = connect(target.origin);
+      const session: ClientHttp2Session = connect(target.origin, sessionOptions(request));
 
       const cleanup = (): void => {
         if (timer !== null) clearTimeout(timer);

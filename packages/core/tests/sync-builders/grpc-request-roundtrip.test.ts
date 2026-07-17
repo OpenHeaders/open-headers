@@ -1,8 +1,8 @@
 /**
  * GrpcRequest sync round-trip: seed → materialize → project, plus the
  * update-batch shapes — scalar `setField` leaves, per-leaf flatten-diff
- * for `method` / `specLink`, and minimum set-diff envelopes for
- * `metadata` rows.
+ * for `method` / `auth` / `specLink`, and minimum set-diff envelopes
+ * for `metadata` rows.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -43,6 +43,7 @@ function liveField(store: InMemoryDocumentStore, uid: string): GrpcLiveFieldValu
     const r = m ? projectGrpcRequest(m) : null;
     if (!r) return undefined;
     if (path === 'method') return r.method;
+    if (path === 'auth') return r.auth;
     if (path === 'specLink') return r.specLink;
     return undefined;
   };
@@ -141,6 +142,43 @@ describe('grpc request update batches', () => {
 
     applyBatch(store, payload);
     expect(materialized(store, 'grpc0001').method).toEqual({ service: 'library.v1.Library', rpc: 'ListBooks' });
+  });
+
+  it('routes the bearer credential through the per-leaf flatten-diff and clears it to none', () => {
+    const store = new InMemoryDocumentStore(grpcSchemas);
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+
+    const setBearer = buildGrpcUpdateBatch(
+      'grpc0001',
+      { auth: { type: 'bearer', token: '{{vault.api_token}}' } },
+      ctx(2_000),
+      noSets,
+      liveField(store, 'grpc0001'),
+    );
+    const paths = setBearer.batch.mutations.map((m) => (m.body.kind === 'setField' ? m.body.path : m.body.kind));
+    expect(paths).not.toContain('auth');
+    expect(paths).toContain('auth.token');
+    applyBatch(store, setBearer);
+    expect(materialized(store, 'grpc0001').auth).toEqual({ type: 'bearer', token: '{{vault.api_token}}' });
+
+    // Clearing lands as the concrete none shape (the editor's law) —
+    // the flatten-diff tombstones the token leaf.
+    applyBatch(
+      store,
+      buildGrpcUpdateBatch('grpc0001', { auth: { type: 'none' } }, ctx(3_000), noSets, liveField(store, 'grpc0001')),
+    );
+    expect(materialized(store, 'grpc0001').auth).toEqual({ type: 'none' });
+  });
+
+  it('persists the sslVerification knob as a scalar setField leaf', () => {
+    const store = new InMemoryDocumentStore(grpcSchemas);
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000)));
+
+    applyBatch(
+      store,
+      buildGrpcUpdateBatch('grpc0001', { sslVerification: false }, ctx(2_000), noSets, liveField(store, 'grpc0001')),
+    );
+    expect(materialized(store, 'grpc0001').sslVerification).toBe(false);
   });
 
   it('persists a spec re-link through the per-leaf flatten-diff', () => {

@@ -7,8 +7,12 @@
  * cached), Message / Metadata / Service definition / Settings tabs,
  * and "Use Example Message" wiring `synthesizeExampleMessage` into the
  * Message tab. Invoke fires the CURRENT compose state (saved or not)
- * through the `executeGrpcRequest` channel on node hosts — every call
- * shape; browser hosts keep an honest disabled tooltip. In flight it
+ * through the `executeGrpcRequest` channel — answered in-process on
+ * node hosts and forwarded to a connected companion on extension
+ * surfaces (the `grpcCompanionInvoke` capability + live connection
+ * state gate the button; disconnected keeps an honest "connect the
+ * desktop app" tooltip while compose/spec/examples stay usable) —
+ * every call shape. In flight it
  * morphs to Cancel (`abortRequestSend` on the shared active-send
  * registry). Unary results render in `GrpcResponsePane`; streaming
  * invokes render `GrpcStreamPane` — live message timeline fed from
@@ -41,8 +45,9 @@ import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openhea
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
-import { App, Button, Input, InputNumber, Select, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Input, InputNumber, Select, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -80,8 +85,10 @@ const emptyGrpcDraft = (): GrpcDraft => ({
   method: undefined,
   message: '',
   metadata: [],
+  auth: { type: 'none' },
   specLink: undefined,
   timeoutMs: undefined,
+  sslVerification: true,
 });
 
 const methodKey = (m: GrpcMethodRef): string => `${m.service}/${m.rpc}`;
@@ -173,8 +180,13 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     setActiveTab('message');
   }, [exampleText]);
 
-  // ── Invoke (node hosts; unary + the three streaming shapes) ──────
+  // ── Invoke (node hosts + companion-forwarding hosts) ─────────────
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  // Extension surfaces forward invokes to a connected companion (the
+  // desktop app) — the seam is static; whether a companion is actually
+  // connected is live state, so the gate reads both.
+  const companionSeam = requestRuntimeKind !== 'node' && (getCapability('grpcCompanionInvoke')?.() ?? false);
+  const { isConnected } = useRules();
   const [invoking, setInvoking] = useState(false);
   const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);
   // Which pane renders the result — stamped at invoke time from the
@@ -234,13 +246,15 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   }, []);
 
   const invokeDisabledReason =
-    requestRuntimeKind !== 'node'
+    requestRuntimeKind !== 'node' && !companionSeam
       ? t('workbench.editors.grpc.invoke.browserHost')
-      : !selectedOption
-        ? t('workbench.editors.grpc.invoke.needsMethod')
-        : draft.url.trim() === ''
-          ? t('workbench.editors.grpc.invoke.needsUrl')
-          : null;
+      : companionSeam && !isConnected
+        ? t('workbench.editors.grpc.invoke.connectCompanion')
+        : !selectedOption
+          ? t('workbench.editors.grpc.invoke.needsMethod')
+          : draft.url.trim() === ''
+            ? t('workbench.editors.grpc.invoke.needsUrl')
+            : null;
 
   // ── In-flight upstream controls (client/bidi streams) ────────────
   const clientStreamActive =
@@ -481,6 +495,54 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
               ),
             },
             {
+              key: 'auth',
+              label: t('workbench.editors.grpc.tab.auth'),
+              children: (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                      {t('workbench.editors.grpc.auth.typeLabel')}
+                    </Text>
+                    <Select
+                      style={{ width: 220 }}
+                      value={draft.auth.type}
+                      options={[
+                        { value: 'none', label: t('workbench.editors.grpc.auth.typeNone') },
+                        { value: 'bearer', label: t('workbench.editors.grpc.auth.typeBearer') },
+                      ]}
+                      onChange={(type: 'none' | 'bearer') =>
+                        setDraft((d) => ({
+                          ...d,
+                          auth:
+                            type === 'bearer'
+                              ? { type: 'bearer', token: d.auth.type === 'bearer' ? d.auth.token : '' }
+                              : { type: 'none' },
+                        }))
+                      }
+                      data-testid="grpc-auth-type"
+                    />
+                  </div>
+                  {draft.auth.type === 'bearer' && (
+                    <div>
+                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                        {t('workbench.editors.grpc.auth.tokenLabel')}
+                      </Text>
+                      <Input
+                        style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                        placeholder={t('workbench.editors.grpc.auth.tokenPlaceholder')}
+                        value={draft.auth.token}
+                        onChange={(e) => setDraft((d) => ({ ...d, auth: { type: 'bearer', token: e.target.value } }))}
+                        data-testid="grpc-auth-token"
+                      />
+                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                        {t('workbench.editors.grpc.auth.help')}
+                      </Text>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
               key: 'service',
               label: t('workbench.editors.grpc.tab.serviceDefinition'),
               children: (
@@ -539,6 +601,19 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
                     {t('workbench.editors.grpc.settings.timeoutHelp')}
                   </Text>
+                  <div style={{ marginTop: 16 }}>
+                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                      {t('workbench.editors.grpc.settings.sslVerifyLabel')}
+                    </Text>
+                    <Switch
+                      checked={draft.sslVerification}
+                      onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
+                      data-testid="grpc-ssl-verify"
+                    />
+                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                      {t('workbench.editors.grpc.settings.sslVerifyHelp')}
+                    </Text>
+                  </div>
                 </div>
               ),
             },

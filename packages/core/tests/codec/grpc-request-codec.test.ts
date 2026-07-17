@@ -41,7 +41,11 @@ describe('serializeGrpcRequest', () => {
   });
 
   it('orders manifest fields metadata-top (invariant #6)', () => {
-    const out = serializeGrpcRequest(freshDocument(grpcRequest({ description: 'ordered' })));
+    const out = serializeGrpcRequest(
+      freshDocument(
+        grpcRequest({ description: 'ordered', auth: { type: 'bearer', token: 't' }, sslVerification: false }),
+      ),
+    );
     const keys = Object.keys(YAML.parse(out.grpcYaml) as Record<string, unknown>);
     expect(keys).toEqual([
       'schemaVersion',
@@ -52,8 +56,10 @@ describe('serializeGrpcRequest', () => {
       'tls',
       'method',
       'metadata',
+      'auth',
       'specLink',
       'timeoutMs',
+      'sslVerification',
     ]);
   });
 });
@@ -80,6 +86,16 @@ describe('parseGrpcRequest', () => {
     });
     const out = serializeGrpcRequest(freshDocument(entity));
     const parsed = parseGrpcRequest(out.grpcYaml, { path: entity.path, siblings: [] });
+    expect(parsed.value).toEqual(entity);
+  });
+
+  it('round-trips the bearer credential and the verify-off knob', () => {
+    const entity = grpcRequest({ auth: { type: 'bearer', token: '{{vault.api_token}}' }, sslVerification: false });
+    const out = serializeGrpcRequest(freshDocument(entity));
+    const parsed = parseGrpcRequest(out.grpcYaml, {
+      path: entity.path,
+      siblings: out.messageFile ? [out.messageFile] : [],
+    });
     expect(parsed.value).toEqual(entity);
   });
 

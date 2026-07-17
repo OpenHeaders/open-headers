@@ -1409,6 +1409,19 @@ export const workbenchEditors = {
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'No limit',
   'workbench.editors.grpc.settings.timeoutHelp':
     'Wall-clock ceiling on the whole call — sent as the gRPC deadline and enforced locally.',
+  'workbench.editors.grpc.settings.sslVerifyLabel': 'SSL certificate verification',
+  'workbench.editors.grpc.settings.sslVerifyHelp':
+    'Verify the server certificate against the system roots. Turn off for self-signed development servers.',
+  'workbench.editors.grpc.tab.auth': 'Authorization',
+  'workbench.editors.grpc.auth.typeLabel': 'Type',
+  'workbench.editors.grpc.auth.typeNone': 'No auth',
+  'workbench.editors.grpc.auth.typeBearer': 'Bearer token',
+  'workbench.editors.grpc.auth.tokenLabel': 'Token',
+  'workbench.editors.grpc.auth.tokenPlaceholder': 'Token or {{variable}}',
+  'workbench.editors.grpc.auth.help':
+    'Sent as authorization: Bearer <token> metadata on the call. An explicit authorization metadata row takes precedence.',
+  'workbench.editors.grpc.invoke.connectCompanion':
+    'Connect the desktop app to invoke — composing and saving works here.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': 'Stopped',

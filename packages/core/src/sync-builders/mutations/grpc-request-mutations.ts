@@ -5,7 +5,7 @@
  * `(batch, sideEffects)` pairs as pure transforms — no oracle reads,
  * no IO. The one set-modeled field (`metadata`) routes through the
  * shared {@link synthesizeSetDiff} minimum-envelope synthesizer;
- * object-valued scalars (`method`, `specLink`) route through
+ * object-valued scalars (`method`, `auth`, `specLink`) route through
  * {@link synthesizeFieldDiff} so edits share create's per-leaf
  * representation and a cleared object tombstones its leaves.
  *
@@ -34,7 +34,7 @@ export interface GrpcRequestMutationPayload {
 /** Live-itemId reader for the `metadata` set path — see {@link request-mutations}' LiveSetEntries. */
 export type GrpcLiveSetEntries = (grpcRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** Current materialized value reader for object-valued scalar paths (`method`, `specLink`). */
+/** Current materialized value reader for object-valued scalar paths (`method`, `auth`, `specLink`). */
 export type GrpcLiveFieldValue = (grpcRequestUid: string, path: string) => unknown;
 
 /** New gRPC request → seed batch. No side effects. */
@@ -51,8 +51,8 @@ export function buildGrpcDeleteBatch(grpcRequestUid: string, ctx: MutatorContext
 /**
  * Translate a `Partial<Omit<GrpcRequest, 'uid'|'path'>>` patch into a
  * single batch. Scalar fields → one `setField` per leaf; `metadata` →
- * minimum diff via {@link synthesizeSetDiff}; `method` / `specLink` →
- * per-leaf flatten-diff via {@link synthesizeFieldDiff}.
+ * minimum diff via {@link synthesizeSetDiff}; `method` / `auth` /
+ * `specLink` → per-leaf flatten-diff via {@link synthesizeFieldDiff}.
  */
 export function buildGrpcUpdateBatch(
   grpcRequestUid: string,
@@ -79,7 +79,7 @@ export function buildGrpcUpdateBatch(
       continue;
     }
 
-    // Object-valued scalars (`method`, `specLink`) — emit a per-leaf
+    // Object-valued scalars (`method`, `auth`, `specLink`) — emit a per-leaf
     // flatten-diff so the edit shares create's representation.
     if (value !== null && typeof value === 'object') {
       bodies.push(

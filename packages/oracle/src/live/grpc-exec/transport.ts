@@ -36,6 +36,10 @@ export interface GrpcTransportRequest {
   authority: string;
   /** TLS channel flag; `false` = cleartext HTTP/2 (h2c). */
   tls: boolean;
+  /** Verify the server certificate against the system roots. Absent =
+   *  verify (the safe default); `false` accepts self-signed servers.
+   *  Meaningful only when `tls` is true. */
+  sslVerification?: boolean;
   /** Request path: `/{service full name}/{rpc}`. */
   path: string;
   /** Custom metadata, already resolved and filtered of the fields the
@@ -103,6 +107,8 @@ export class GrpcTransportError extends Error {
 export interface GrpcTransportStreamRequest {
   authority: string;
   tls: boolean;
+  /** See {@link GrpcTransportRequest.sslVerification}. */
+  sslVerification?: boolean;
   path: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;

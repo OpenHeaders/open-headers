@@ -8,7 +8,7 @@
  * (derived dirty — never setDirty).
  */
 
-import type { GrpcMetadataPair, GrpcMethodRef, GrpcRequest, GrpcSpecLink } from '@openheaders/core/types';
+import type { GrpcAuth, GrpcMetadataPair, GrpcMethodRef, GrpcRequest, GrpcSpecLink } from '@openheaders/core/types';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 export interface GrpcDraft {
@@ -17,8 +17,14 @@ export interface GrpcDraft {
   method: GrpcMethodRef | undefined;
   message: string;
   metadata: KeyValueRow[];
+  /** Always concrete in the form (`{type:'none'}` = no credential) —
+   *  the save patch emits it verbatim, so clearing a bearer token
+   *  round-trips (an update skips only `undefined` values). */
+  auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
   timeoutMs: number | undefined;
+  /** Concrete like `auth` — absent on the entity reads as `true`. */
+  sslVerification: boolean;
 }
 
 export interface GrpcRequestUpdates {
@@ -27,8 +33,10 @@ export interface GrpcRequestUpdates {
   method: GrpcMethodRef | undefined;
   message: string;
   metadata: GrpcMetadataPair[];
+  auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
   timeoutMs: number | undefined;
+  sslVerification: boolean;
 }
 
 export function metadataToRows(pairs: readonly GrpcMetadataPair[]): KeyValueRow[] {
@@ -62,8 +70,10 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     method: req.method,
     message: req.message,
     metadata: metadataToRows(req.metadata),
+    auth: req.auth ?? { type: 'none' },
     specLink: req.specLink,
     timeoutMs: req.timeoutMs,
+    sslVerification: req.sslVerification ?? true,
   };
 }
 
@@ -74,8 +84,10 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     method: draft.method,
     message: draft.message,
     metadata: rowsToMetadata(draft.metadata),
+    auth: draft.auth,
     specLink: draft.specLink,
     timeoutMs: draft.timeoutMs,
+    sslVerification: draft.sslVerification,
   };
 }
 

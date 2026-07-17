@@ -62,6 +62,18 @@ export interface ExecutedGrpcSnapshot {
    *  head — the capture holds what arrived (unary aborts before a head
    *  map onto `error` instead). */
   stopped?: boolean;
+  /**
+   * The remote host that executed this invoke on the caller's behalf —
+   * a peer-forwarded dispatch answered by a connected back-end. Stamped
+   * by the ANSWERING host at run time (the HTTP snapshot's twin: the
+   * egress IP / locale the target saw belongs to that machine, not this
+   * surface's). Absent = the invoke executed on this surface's own host.
+   */
+  executedOn?: {
+    kind: 'backend';
+    /** The executing machine's hostname label. */
+    name: string;
+  };
   /** Non-null when the call failed before producing a response. */
   error: string | null;
 }

@@ -238,6 +238,20 @@ export interface Capabilities {
   requestRuntime?: () => RequestRuntimeKind;
 
   /**
+   * Declares that this surface FORWARDS gRPC invokes to a connected
+   * companion (the desktop app / daemon) over the backend wire — the
+   * browser has no HTTP/2 stack that surfaces trailers, so the seam is
+   * the extension's only invoke path. Registered only by extension
+   * surfaces; node-runtime surfaces (desktop, web) answer through
+   * their own execution plane and leave it absent. The gRPC editor
+   * keys its Invoke gate off this together with LIVE connection state:
+   * capability present + companion connected → Invoke enabled;
+   * present + disconnected → an honest "connect the desktop app"
+   * affordance (compose/spec/examples stay fully usable either way).
+   */
+  grpcCompanionInvoke?: () => boolean;
+
+  /**
    * Declares that the surface's answering host RUNS pre-request /
    * post-response scripts, and names its default posture (`'safe'` —
    * every host defaults secure). Registered only by node-runtime

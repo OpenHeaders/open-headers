@@ -224,15 +224,19 @@ export interface RequestRpc {
   /**
    * Invoke a gRPC request — the GrpcRequest entity's executor plane,
    * a sibling of `executeRequest` keyed off the entity kind (session-
-   * shaped protocols never ride the HTTP channel). Unary only in this
-   * phase; answered by hosts with a node HTTP/2 stack (the desktop
-   * main process, the daemon) — browser hosts leave it unhandled and
-   * the editor's Invoke stays gated off the `requestRuntime`
-   * capability. `requestUid` takes precedence over `draft`; the
-   * `workspaceId` / `environmentId` semantics are `executeRequest`'s
-   * verbatim. `sendId` registers the exchange with the SAME active-
-   * send registry, so `abortRequestSend` cancels a gRPC invoke too —
-   * no live frames are emitted for unary (the resolving snapshot
+   * shaped protocols never ride the HTTP channel). Every call shape;
+   * EXECUTED by hosts with a node HTTP/2 stack (the desktop main
+   * process, the daemon). Browser hosts FORWARD the channel to a
+   * connected companion over the backend wire (the extension SW's
+   * grpc handlers; the editor's Invoke gates off the
+   * `grpcCompanionInvoke` capability + live connection state), and
+   * the web tab forwards it to its serving daemon like
+   * `executeRequest`. `grpcRequestUid` takes precedence over `draft`;
+   * the `workspaceId` / `environmentId` semantics are
+   * `executeRequest`'s verbatim. `sendId` registers the exchange with
+   * the SAME active-send registry, so `abortRequestSend` cancels a
+   * gRPC invoke too; streaming shapes push live `grpcStreamEvent`
+   * frames tagged with it (unary emits none — the resolving snapshot
    * carries the whole reply).
    */
   executeGrpcRequest: {

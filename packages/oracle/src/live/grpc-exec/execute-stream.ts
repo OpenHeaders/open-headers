@@ -42,6 +42,8 @@ export interface GrpcStreamExecuteParams {
   transport: GrpcTransport;
   authority: string;
   tls: boolean;
+  /** See {@link GrpcTransportRequest.sslVerification}. */
+  sslVerification?: boolean;
   path: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;
@@ -152,6 +154,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         {
           authority: params.authority,
           tls: params.tls,
+          ...(params.sslVerification !== undefined ? { sslVerification: params.sslVerification } : {}),
           path: params.path,
           metadata: params.metadata,
           ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),

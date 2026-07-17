@@ -147,6 +147,15 @@ export async function executeGrpcInvoke(
     if (key.startsWith(':') || RESERVED_METADATA_KEYS.has(key.toLowerCase())) continue;
     metadata.push({ key, value: resolveStr(row.value) });
   }
+  // Auth injection — the credential becomes an `authorization` metadata
+  // pair here, at the SAME resolve pass user rows ride, so the injected
+  // value is host-neutral (in-process and forwarded invokes inject
+  // identically). An explicit user `authorization` row wins: injecting
+  // beside it would send the field twice.
+  if (request.auth?.type === 'bearer' && !metadata.some((m) => m.key.toLowerCase() === 'authorization')) {
+    const token = resolveStr(request.auth.token);
+    if (token.trim() !== '') metadata.push({ key: 'authorization', value: `Bearer ${token}` });
+  }
   const messageText = resolveStr(request.message);
   if (unresolved.size > 0) {
     return errorGrpcSnapshot(
@@ -186,6 +195,7 @@ export async function executeGrpcInvoke(
       transport: options.transport,
       authority,
       tls: request.tls !== false,
+      ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
       path: `/${method.service}/${method.rpc}`,
       metadata,
       ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
@@ -218,6 +228,7 @@ export async function executeGrpcInvoke(
       {
         authority,
         tls: request.tls !== false,
+        ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
         path: `/${method.service}/${method.rpc}`,
         metadata,
         message: encoded,

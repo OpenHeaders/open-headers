@@ -1,10 +1,13 @@
 /**
  * Workbench request channels over the web tab's single wire —
- * `executeRequest` (and its `abortRequestSend` stop counterpart) and
- * the cookie-jar channels travel to the serving daemon and answer from
- * its spine (the tab oracle has no network transport and no jar). The
- * daemon's live `requestStreamEvent` frames for a forwarded send come
- * back down the same wire — `wire-request-stream.ts` claims them.
+ * `executeRequest` / `executeGrpcRequest` (with the `abortRequestSend`
+ * stop counterpart and the gRPC upstream riders `sendGrpcStreamMessage`
+ * / `endGrpcClientStream`) and the cookie-jar channels travel to the
+ * serving daemon and answer from its spine (the tab oracle has no
+ * network transport and no jar). The daemon's live `requestStreamEvent`
+ * / `grpcStreamEvent` frames for a forwarded send come back down the
+ * same wire — `wire-request-stream.ts` / `wire-grpc-stream.ts` claim
+ * them.
  *
  * The daemon resolves an unstated workspace to ITS runtime-Active one
  * and an unstated environment to ITS active pointer — both host-local
@@ -25,8 +28,9 @@
  * `CookieJarRow` hides itself on rejection by design.
  */
 
-import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
+import type { ExecutedGrpcSnapshot, ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
+import { errorGrpcSnapshot } from '@openheaders/oracle/live/grpc-exec/execute';
 import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { callWireRpc, registerWireRpcChannels } from './wire-rpc';
@@ -38,6 +42,9 @@ const EXECUTE_TIMEOUT_MARGIN_MS = 15_000;
 
 const FORWARDED_CHANNELS = [
   'executeRequest',
+  'executeGrpcRequest',
+  'sendGrpcStreamMessage',
+  'endGrpcClientStream',
   'abortRequestSend',
   'getCookieJarSummary',
   'clearCookieJar',
@@ -85,6 +92,29 @@ async function forwardExecuteRequest(message: Record<string, unknown>): Promise<
   }
 }
 
+interface ExecuteGrpcRequestResult {
+  success: boolean;
+  snapshot?: ExecutedGrpcSnapshot;
+  error?: string;
+}
+
+/** The gRPC Invoke's forwarding twin — same stamps, same margin, same
+ *  error-snapshot degrade (the response pane states what happened). */
+async function forwardExecuteGrpcRequest(message: Record<string, unknown>): Promise<ExecuteGrpcRequestResult> {
+  const stamped = { ...withWorkspaceStamp(message) };
+  if (stamped.environmentId === undefined && typeof stamped.workspaceId === 'string') {
+    stamped.environmentId = getActiveEnvironmentId();
+  }
+  const draft = stamped.draft as { timeoutMs?: number } | undefined;
+  const timeoutMs =
+    (typeof draft?.timeoutMs === 'number' ? draft.timeoutMs : EXECUTE_DEFAULT_TIMEOUT_MS) + EXECUTE_TIMEOUT_MARGIN_MS;
+  try {
+    return (await callWireRpc(stamped, { timeoutMs })) as ExecuteGrpcRequestResult;
+  } catch (err) {
+    return { success: true, snapshot: errorGrpcSnapshot((err as Error).message) };
+  }
+}
+
 /**
  * Forward one workbench request channel up the wire. Only call for
  * channels {@link isForwardedRequestsChannel} owns.
@@ -92,6 +122,9 @@ async function forwardExecuteRequest(message: Record<string, unknown>): Promise<
 export async function forwardRequestsRpc(message: Record<string, unknown>): Promise<unknown> {
   if (message.type === 'executeRequest') {
     return forwardExecuteRequest(message);
+  }
+  if (message.type === 'executeGrpcRequest') {
+    return forwardExecuteGrpcRequest(message);
   }
   return callWireRpc(withWorkspaceStamp(message));
 }

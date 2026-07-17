@@ -20,6 +20,7 @@ import {
   renameRequestFolder,
   updateRequest,
 } from '@openheaders/oracle/entity/request-store';
+import { wsRequest } from '../../../ws-request';
 import { executeRequest, executeRequestDraft } from '../../request-executor';
 import { stopActiveSend } from '../../request-executor/send-stream';
 import type { HandlerMap } from '../types';
@@ -182,6 +183,21 @@ export const requestHandlers: HandlerMap = {
 
   abortRequestSend: ({ message, respond }) => {
     const sendId = message.sendId as string | undefined;
-    respond({ success: sendId !== undefined && stopActiveSend(sendId) });
+    if (sendId === undefined) {
+      respond({ success: false });
+      return;
+    }
+    // Local sends first (HTTP runs in this SW). A miss may be a
+    // forwarded gRPC invoke whose exchange lives on the companion —
+    // the sendId-authorized stop rides the backend wire; a dead wire
+    // or unknown id answers the same honest `false`.
+    if (stopActiveSend(sendId)) {
+      respond({ success: true });
+      return;
+    }
+    wsRequest<{ success: boolean }>({ type: 'abortRequestSend', sendId })
+      .then((result) => respond(result))
+      .catch(() => respond({ success: false }));
+    return true;
   },
 };

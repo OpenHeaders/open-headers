@@ -61,6 +61,11 @@ if (getBrowserAPI().runtime.getManifest().permissions?.includes('browsingData'))
   registerCapability('originDataClearing', () => true);
 }
 
+// gRPC invokes forward to a connected companion over the backend wire
+// (the SW's grpc handlers) — the seam exists on every extension
+// surface; LIVE connection state gates the editor's Invoke separately.
+registerCapability('grpcCompanionInvoke', () => true);
+
 // In-app daemon pairing (WS-A2): exchange a typed 6-digit code for an
 // auth token over a direct localhost/LAN HTTP fetch. Unlike the caps
 // above it doesn't relay through the SW — a one-shot pairing fetch needs

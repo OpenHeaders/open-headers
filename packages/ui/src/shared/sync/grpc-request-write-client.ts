@@ -77,6 +77,7 @@ export async function applyGrpcRequestUpdate(
       const snap = mirror.getGrpcRequestMirror(uid)?.grpcRequest;
       if (!snap) return undefined;
       if (path === 'method') return snap.method;
+      if (path === 'auth') return snap.auth;
       if (path === 'specLink') return snap.specLink;
       return undefined;
     },

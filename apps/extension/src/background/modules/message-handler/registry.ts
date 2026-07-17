@@ -10,6 +10,7 @@ import { connectionHandlers } from './handlers/connection';
 import { environmentHandlers } from './handlers/environments';
 import { exportImportHandlers } from './handlers/export-import';
 import { fileHandlers } from './handlers/files';
+import { grpcHandlers } from './handlers/grpc';
 import { importReportHandlers } from './handlers/import-reports';
 import { liveHandlers } from './handlers/live';
 import { migrationHandlers } from './handlers/migration';
@@ -33,6 +34,7 @@ export const registry: HandlerMap = {
   ...navigationHandlers,
   ...environmentHandlers,
   ...requestHandlers,
+  ...grpcHandlers,
   ...ruleHandlers,
   ...telemetryHandlers,
   ...templateHandlers,

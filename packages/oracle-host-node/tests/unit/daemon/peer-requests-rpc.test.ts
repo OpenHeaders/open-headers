@@ -1,16 +1,17 @@
 /**
- * Peer-facing request-execution plane — the gating laws over the six
- * workbench channels: `executeRequest` refuses (honestly, naming the
- * setting) while `backend.allowPeerExecute` is off, with no identity
- * resolution and no audit row; past the opt-in, every channel resolves
- * the peer's snapshot fresh, gates on the workspace capability
- * (`workspace.write` for send + clear + per-entry delete,
- * `workspace.read` for the summary and the script-posture fact),
- * audits the decision, and only then reaches the handler.
- * `abortRequestSend` rides ahead of the capability tier (the
- * caller-minted sendId is the authorization); a forwarded send's live
- * frames fan to the calling user's peers only. The target workspace is
- * the frame's, falling back to the host's active one.
+ * Peer-facing request-execution plane — the gating laws over the nine
+ * workbench channels: `executeRequest` / `executeGrpcRequest` refuse
+ * (honestly, naming the setting) while `backend.allowPeerExecute` is
+ * off, with no identity resolution and no audit row; past the opt-in,
+ * every channel resolves the peer's snapshot fresh, gates on the
+ * workspace capability (`workspace.write` for send + clear + per-entry
+ * delete, `workspace.read` for the summary and the script-posture
+ * fact), audits the decision, and only then reaches the handler.
+ * `abortRequestSend` and the gRPC upstream riders ride ahead of the
+ * capability tier (the caller-minted sendId is the authorization); a
+ * forwarded send's live frames fan to the calling user's peers only.
+ * The target workspace is the frame's, falling back to the host's
+ * active one.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -45,8 +46,10 @@ vi.mock('../../../src/live/cookie-jar', () => ({
   peekCookieJar: (key: string) => h.jars.get(key),
 }));
 
-import type { RequestStreamEventWire } from '@openheaders/core/bridge';
+import type { GrpcStreamEventWire, RequestStreamEventWire } from '@openheaders/core/bridge';
+import { registerActiveGrpcStream } from '@openheaders/oracle/live/grpc-exec/stream-plane';
 import { registerActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
+import type { ExecuteGrpcRequestRpcResult } from '../../../src/daemon/execute-grpc-request-rpc';
 import type { ExecuteRequestRpcResult } from '../../../src/daemon/execute-request-rpc';
 import { createPeerRequestsRpc, PEER_EXECUTE_DISABLED_MESSAGE } from '../../../src/daemon/peer-requests-rpc';
 import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
@@ -65,10 +68,13 @@ beforeEach(() => {
 });
 
 describe('createPeerRequestsRpc — ownership', () => {
-  it('owns exactly the six request channels', () => {
+  it('owns exactly the nine request channels', () => {
     const rpc = createPeerRequestsRpc();
     expect(rpc.owns('executeRequest')).toBe(true);
+    expect(rpc.owns('executeGrpcRequest')).toBe(true);
     expect(rpc.owns('abortRequestSend')).toBe(true);
+    expect(rpc.owns('sendGrpcStreamMessage')).toBe(true);
+    expect(rpc.owns('endGrpcClientStream')).toBe(true);
     expect(rpc.owns('getCookieJarSummary')).toBe(true);
     expect(rpc.owns('clearCookieJar')).toBe(true);
     expect(rpc.owns('deleteCookieJarEntry')).toBe(true);
@@ -232,6 +238,126 @@ describe('createPeerRequestsRpc — executeRequest', () => {
       },
     ]);
     expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+describe('createPeerRequestsRpc — executeGrpcRequest', () => {
+  it('shares the executeRequest opt-in — refuses with no identity resolution, audit, or handler call', async () => {
+    h.settings = {};
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeGrpcRequest: execute });
+    await expect(rpc.dispatch({ type: 'executeGrpcRequest', draft: {} }, PEER)).rejects.toThrow(
+      PEER_EXECUTE_DISABLED_MESSAGE,
+    );
+    expect(h.resolveSnapshot).not.toHaveBeenCalled();
+    expect(h.audits).toHaveLength(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('gates on workspace.write for the frame workspace as the peer, audited, then dispatches', async () => {
+    const executed: ExecuteGrpcRequestRpcResult = { success: true };
+    const execute = vi.fn(async () => executed);
+    const rpc = createPeerRequestsRpc({ executeGrpcRequest: execute });
+    const message = { type: 'executeGrpcRequest', draft: {}, workspaceId: 'ws-tab' };
+    await expect(rpc.dispatch(message, PEER)).resolves.toBe(executed);
+    expect(h.hasCapability).toHaveBeenCalledWith({ kind: 'fake-snapshot' }, 'workspace.write', {
+      workspaceId: 'ws-tab',
+    });
+    expect(h.audits).toEqual([
+      { actorUserId: 'user-1', capability: 'workspace.write', workspaceId: 'ws-tab', decision: { allow: true } },
+    ]);
+    expect(execute).toHaveBeenCalledWith(message, expect.any(Function));
+  });
+
+  it("hands the handler a sink that fans grpcStreamEvent frames to the calling user's peers", async () => {
+    const frames: Array<{ frame: Record<string, unknown>; opts?: { filterPeer?: (peer: PeerSummary) => boolean } }> =
+      [];
+    setWsPeerServer({
+      broadcastFrame: (frame: Record<string, unknown>, opts?: { filterPeer?: (peer: PeerSummary) => boolean }) => {
+        frames.push({ frame, ...(opts !== undefined ? { opts } : {}) });
+      },
+    } as unknown as OracleWsServer);
+    try {
+      const event = { sendId: 's-1', seq: 0, kind: 'end' };
+      const execute = vi.fn(
+        async (_message: Record<string, unknown>, emitStreamEvent: (e: GrpcStreamEventWire) => void) => {
+          emitStreamEvent(event as GrpcStreamEventWire);
+          return { success: true };
+        },
+      );
+      const rpc = createPeerRequestsRpc({ executeGrpcRequest: execute });
+      await rpc.dispatch({ type: 'executeGrpcRequest', draft: {} }, PEER);
+      expect(frames).toHaveLength(1);
+      expect(frames[0].frame).toEqual({ type: 'grpcStreamEvent', payload: event });
+      const filterPeer = frames[0].opts?.filterPeer;
+      expect(filterPeer?.({ userId: 'user-1' } as PeerSummary)).toBe(true);
+      expect(filterPeer?.({ userId: 'user-2' } as PeerSummary)).toBe(false);
+    } finally {
+      setWsPeerServer(null);
+    }
+  });
+
+  it('stamps executedOn onto the returned snapshot — this host dialed the gRPC target', async () => {
+    const snapshot = { httpStatus: 200, grpcStatus: 0, error: null };
+    const execute = vi.fn(async () => ({ success: true, snapshot }) as unknown as ExecuteGrpcRequestRpcResult);
+    const rpc = createPeerRequestsRpc({ executeGrpcRequest: execute });
+    const result = (await rpc.dispatch({ type: 'executeGrpcRequest', draft: {} }, PEER)) as ExecuteGrpcRequestRpcResult;
+    expect(result.snapshot?.executedOn?.kind).toBe('backend');
+    expect(result.snapshot?.httpStatus).toBe(200);
+  });
+});
+
+describe('createPeerRequestsRpc — gRPC upstream riders', () => {
+  it('writes into a registered stream by its sendId without identity resolution or an audit row', async () => {
+    const sent: string[] = [];
+    const unregister = registerActiveGrpcStream('grpc-abc', {
+      send: (messageText: string) => {
+        sent.push(messageText);
+        return { success: true };
+      },
+      end: () => {},
+    });
+    try {
+      const rpc = createPeerRequestsRpc();
+      await expect(
+        rpc.dispatch({ type: 'sendGrpcStreamMessage', sendId: 'grpc-abc', messageText: '{"x":1}' }, PEER),
+      ).resolves.toEqual({ success: true });
+      expect(sent).toEqual(['{"x":1}']);
+      expect(h.resolveSnapshot).not.toHaveBeenCalled();
+      expect(h.audits).toHaveLength(0);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('half-closes a registered stream and answers false for unknown ids', async () => {
+    let ended = false;
+    const unregister = registerActiveGrpcStream('grpc-abc', {
+      send: () => ({ success: true }),
+      end: () => {
+        ended = true;
+      },
+    });
+    try {
+      const rpc = createPeerRequestsRpc();
+      await expect(rpc.dispatch({ type: 'endGrpcClientStream', sendId: 'grpc-abc' }, PEER)).resolves.toEqual({
+        success: true,
+      });
+      expect(ended).toBe(true);
+      await expect(rpc.dispatch({ type: 'endGrpcClientStream', sendId: 'unknown' }, PEER)).resolves.toEqual({
+        success: false,
+      });
+    } finally {
+      unregister();
+    }
+  });
+
+  it('answers a structured refusal for a malformed send frame', async () => {
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'sendGrpcStreamMessage', sendId: 'grpc-abc' }, PEER)).resolves.toEqual({
+      success: false,
+      error: 'No stream id or message provided',
+    });
   });
 });
 

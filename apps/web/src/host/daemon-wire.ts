@@ -46,6 +46,7 @@ import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { handleInboundWireFrame } from './wire-inbound';
 import { handleIncomingMigrationPullFrame } from './wire-migration-mirror';
 import { applyPeerVectorToPendingOut, flushPendingOut, forwardAwarenessOverWire, setWireSender } from './wire-outbound';
+import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
 import { handleIncomingRequestStreamFrame } from './wire-request-stream';
 import { handleWireRpcResponseFrame, setWireRpcSender } from './wire-rpc';
 
@@ -217,6 +218,8 @@ export function installDaemonWire(): DaemonWire {
       if (handleIncomingMigrationPullFrame(frame)) return;
       // Live send-stream frames for a forwarded Send — same posture.
       if (handleIncomingRequestStreamFrame(frame)) return;
+      // Live gRPC stream frames for a forwarded Invoke — same posture.
+      if (handleIncomingGrpcStreamFrame(frame)) return;
       const claimed = await handleInboundWireFrame(frame);
       if (claimed) return;
       const type = (frame as { type?: unknown })?.type;

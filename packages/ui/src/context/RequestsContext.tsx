@@ -166,10 +166,12 @@ export interface RequestsContextValue {
     sendId?: string;
   }) => Promise<ExecutedRequestSnapshot | null>;
 
-  /** gRPC Invoke — the GrpcRequest entity's executor channel; answered
-   *  only by node-runtime hosts (the editor gates the button off the
-   *  `requestRuntime` capability). `sendId` joins the same active-send
-   *  registry, so the in-flight call cancels via `abortRequestSend`. */
+  /** gRPC Invoke — the GrpcRequest entity's executor channel; executed
+   *  on node-runtime hosts and forwarded to a connected companion on
+   *  extension surfaces (the editor gates the button off the
+   *  `requestRuntime` / `grpcCompanionInvoke` capabilities). `sendId`
+   *  joins the same active-send registry, so the in-flight call
+   *  cancels via `abortRequestSend`. */
   executeGrpc: (input: {
     grpcRequestUid?: string;
     draft?: GrpcRequest;
@@ -493,8 +495,10 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         metadata: input.seed?.metadata ?? [],
         ...(input.seed?.description !== undefined ? { description: input.seed.description } : {}),
         ...(input.seed?.method !== undefined ? { method: input.seed.method } : {}),
+        ...(input.seed?.auth !== undefined ? { auth: input.seed.auth } : {}),
         ...(input.seed?.specLink !== undefined ? { specLink: input.seed.specLink } : {}),
         ...(input.seed?.timeoutMs !== undefined ? { timeoutMs: input.seed.timeoutMs } : {}),
+        ...(input.seed?.sslVerification !== undefined ? { sslVerification: input.seed.sslVerification } : {}),
       };
       const result = await applyGrpcRequestCreate(created, { workspaceId: wsId, surfaceId });
       return result.ok ? created : null;

@@ -172,6 +172,29 @@ describe('grpc draft projections', () => {
     const pairs = rowsToMetadata(rows);
     expect(pairs).toEqual([{ uid: 'meta0001', key: 'x-api-key', value: 'v', description: undefined, enabled: true }]);
   });
+
+  it('normalizes absent auth and sslVerification to concrete form values — clearing round-trips', () => {
+    const draft = draftFromGrpcRequest(entity);
+    expect(draft.auth).toEqual({ type: 'none' });
+    expect(draft.sslVerification).toBe(true);
+    // The save patch always carries both, so a cleared bearer lands as
+    // {type:'none'} rather than an undefined the update batch skips.
+    const updates = buildGrpcRequestUpdates(draft);
+    expect(updates.auth).toEqual({ type: 'none' });
+    expect(updates.sslVerification).toBe(true);
+  });
+
+  it('round-trips a bearer credential and a verify-off knob through the projections', () => {
+    const secured: GrpcRequest = {
+      ...entity,
+      auth: { type: 'bearer', token: '{{vault.api_token}}' },
+      sslVerification: false,
+    };
+    const updates = buildGrpcRequestUpdates(draftFromGrpcRequest(secured));
+    expect(updates).toEqual(canonicalGrpcRequestProjection(secured));
+    expect(updates.auth).toEqual({ type: 'bearer', token: '{{vault.api_token}}' });
+    expect(updates.sslVerification).toBe(false);
+  });
 });
 
 describe('buildRequestCollectionTrees with grpc requests', () => {

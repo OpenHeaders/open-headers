@@ -1,7 +1,9 @@
 /**
  * Peer-facing request-execution plane — answers the workbench request
- * channels (`executeRequest` + its `abortRequestSend` stop counterpart,
- * the cookie-jar trio, and the script-posture fact) for WS peers, with
+ * channels (`executeRequest` / `executeGrpcRequest` + the
+ * `abortRequestSend` stop counterpart and the gRPC upstream riders
+ * `sendGrpcStreamMessage` / `endGrpcClientStream`, the cookie-jar trio,
+ * and the script-posture fact) for WS peers, with
  * the per-frame gating law the peer admin plane established: the PEER's
  * identity snapshot resolves fresh on every call (a revocation bites
  * the next frame), the decision gates on a workspace CAPABILITY as the
@@ -9,7 +11,7 @@
  *
  * Tiering mirrors the MCP execute precedent, in order:
  *
- *   1. `executeRequest` only: the daemon-side opt-in
+ *   1. `executeRequest` / `executeGrpcRequest`: the daemon-side opt-in
  *      (`backend.allowPeerExecute`, default OFF, read fresh from the
  *      settings record per frame) — network egress on a peer's behalf
  *      is an operator decision, never implied by pairing. The refusal
@@ -26,7 +28,7 @@
  * is the operator by construction.
  */
 
-import type { RequestStreamEventWire } from '@openheaders/core/bridge';
+import type { GrpcStreamEventWire, RequestStreamEventWire } from '@openheaders/core/bridge';
 import {
   type Capability,
   emitAuditEntry,
@@ -34,10 +36,15 @@ import {
   resolveDaemonPeerIdentitySnapshot,
 } from '@openheaders/core/identity';
 import { hostStorage, OH } from '@openheaders/core/storage';
+import {
+  endActiveGrpcClientStream,
+  sendActiveGrpcStreamMessage,
+} from '@openheaders/oracle/live/grpc-exec/stream-plane';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
+import { type ExecuteGrpcRequestRpcResult, handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 import { hostDisplayLabel } from './host-os';
 import { getHostScriptCapability } from './script-capability';
@@ -49,6 +56,10 @@ export const PEER_EXECUTE_DISABLED_MESSAGE =
 
 const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
   executeRequest: 'workspace.write',
+  // The GrpcRequest entity's Invoke — same tier as the HTTP send: it
+  // is network egress on a peer's behalf, so it shares the opt-in AND
+  // the write capability.
+  executeGrpcRequest: 'workspace.write',
   getCookieJarSummary: 'workspace.read',
   clearCookieJar: 'workspace.write',
   deleteCookieJarEntry: 'workspace.write',
@@ -64,6 +75,11 @@ export interface PeerRequestsRpcOptions {
     message: Record<string, unknown>,
     emitStreamFrame: (event: RequestStreamEventWire) => void,
   ) => Promise<ExecuteRequestRpcResult>;
+  /** Injectable for tests; defaults to the real gRPC handler. */
+  executeGrpcRequest?: (
+    message: Record<string, unknown>,
+    emitStreamEvent: (event: GrpcStreamEventWire) => void,
+  ) => Promise<ExecuteGrpcRequestRpcResult>;
 }
 
 async function peerExecuteAllowed(): Promise<boolean> {
@@ -88,15 +104,35 @@ function peerStreamFrameSink(userId: string): (event: RequestStreamEventWire) =>
   };
 }
 
+/** The gRPC twin — `grpcStreamEvent` frames for a forwarded streaming
+ *  invoke fan back under the same same-user law and drop-safety. */
+function peerGrpcStreamFrameSink(userId: string): (event: GrpcStreamEventWire) => void {
+  return (event) => {
+    getWsPeerServer()?.broadcastFrame(
+      { type: 'grpcStreamEvent', payload: event },
+      { filterPeer: (peer) => peer.userId === userId },
+    );
+  };
+}
+
 export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsPeerRpcHooks {
   const executeRequest =
     options.executeRequest ??
     ((message: Record<string, unknown>, emitStreamFrame: (event: RequestStreamEventWire) => void) =>
       handleExecuteRequestRpc(message, undefined, emitStreamFrame));
+  const executeGrpcRequest =
+    options.executeGrpcRequest ??
+    ((message: Record<string, unknown>, emitStreamEvent: (event: GrpcStreamEventWire) => void) =>
+      handleExecuteGrpcRequestRpc(message, undefined, emitStreamEvent));
 
   return {
     owns(type: string): boolean {
-      return type === 'abortRequestSend' || type in CAPABILITY_BY_CHANNEL;
+      return (
+        type === 'abortRequestSend' ||
+        type === 'sendGrpcStreamMessage' ||
+        type === 'endGrpcClientStream' ||
+        type in CAPABILITY_BY_CHANNEL
+      );
     },
     async dispatch(message: Record<string, unknown>, peer: WsPeerRpcContext): Promise<unknown> {
       const type = message.type as string;
@@ -111,11 +147,22 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
       if (type === 'abortRequestSend') {
         return { success: typeof message.sendId === 'string' && stopActiveSend(message.sendId) };
       }
+      // The gRPC upstream riders share that posture verbatim: keyed by
+      // the caller's own sendId, they write into / half-close only the
+      // caller's open stream — sendId-authorized, no capability row.
+      if (type === 'sendGrpcStreamMessage') {
+        return typeof message.sendId === 'string' && typeof message.messageText === 'string'
+          ? sendActiveGrpcStreamMessage(message.sendId, message.messageText)
+          : { success: false, error: 'No stream id or message provided' };
+      }
+      if (type === 'endGrpcClientStream') {
+        return { success: typeof message.sendId === 'string' && endActiveGrpcClientStream(message.sendId) };
+      }
 
       // Opt-in tier first — like the MCP tier gate it refuses before
       // any identity resolution and emits no audit row (no capability
       // decision was made).
-      if (type === 'executeRequest' && !(await peerExecuteAllowed())) {
+      if ((type === 'executeRequest' || type === 'executeGrpcRequest') && !(await peerExecuteAllowed())) {
         throw new Error(PEER_EXECUTE_DISABLED_MESSAGE);
       }
 
@@ -140,6 +187,14 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           // time on success and error snapshots alike; refusals throw
           // above and carry no snapshot to stamp.
           const result = await executeRequest(message, peerStreamFrameSink(peer.userId));
+          return result.snapshot
+            ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
+            : result;
+        }
+        case 'executeGrpcRequest': {
+          // Same egress-attribution stamp as the HTTP branch — this
+          // machine dialed the gRPC target on the peer's behalf.
+          const result = await executeGrpcRequest(message, peerGrpcStreamFrameSink(peer.userId));
           return result.snapshot
             ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
             : result;

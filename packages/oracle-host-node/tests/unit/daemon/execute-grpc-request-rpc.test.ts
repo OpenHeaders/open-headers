@@ -495,3 +495,55 @@ describe('handleExecuteGrpcRequestRpc — sendId spine', () => {
     expect(stopActiveSend('send-2')).toBe(false);
   });
 });
+
+describe('handleExecuteGrpcRequestRpc — auth injection', () => {
+  it('injects a bearer credential as authorization metadata, template-resolved', async () => {
+    h.vault.mockImplementation(() => ({
+      schemaVersion: 5,
+      secrets: [{ uid: 'sec00001', kind: 'string', name: 'api_token', value: 'tok-123' }],
+    }));
+    seedStorage([], [makeSpec()]);
+    const { transport, sent } = captureTransport();
+    const draft = makeGrpcRequest({ auth: { type: 'bearer', token: '{{vault.api_token}}' } });
+    const result = await handleExecuteGrpcRequestRpc({ draft }, transport);
+    expect(result.snapshot?.error).toBeNull();
+    expect(sent().metadata).toContainEqual({ key: 'authorization', value: 'Bearer tok-123' });
+  });
+
+  it('lets an explicit authorization metadata row win over the credential', async () => {
+    seedStorage([], [makeSpec()]);
+    const { transport, sent } = captureTransport();
+    const draft = makeGrpcRequest({
+      auth: { type: 'bearer', token: 'ignored' },
+      metadata: [{ uid: 'md000001', key: 'Authorization', value: 'Bearer explicit' }],
+    });
+    await handleExecuteGrpcRequestRpc({ draft }, transport);
+    const rows = sent().metadata.filter((m) => m.key.toLowerCase() === 'authorization');
+    expect(rows).toEqual([{ key: 'Authorization', value: 'Bearer explicit' }]);
+  });
+
+  it('injects nothing for type none or an empty resolved token', async () => {
+    seedStorage([], [makeSpec()]);
+    const first = captureTransport();
+    await handleExecuteGrpcRequestRpc({ draft: makeGrpcRequest({ auth: { type: 'none' } }) }, first.transport);
+    expect(first.sent().metadata).toHaveLength(0);
+    const second = captureTransport();
+    await handleExecuteGrpcRequestRpc(
+      { draft: makeGrpcRequest({ auth: { type: 'bearer', token: '  ' } }) },
+      second.transport,
+    );
+    expect(second.sent().metadata).toHaveLength(0);
+  });
+});
+
+describe('handleExecuteGrpcRequestRpc — TLS verification knob', () => {
+  it('carries sslVerification: false to the transport and omits it when unset', async () => {
+    seedStorage([], [makeSpec()]);
+    const off = captureTransport();
+    await handleExecuteGrpcRequestRpc({ draft: makeGrpcRequest({ sslVerification: false }) }, off.transport);
+    expect(off.sent().sslVerification).toBe(false);
+    const unset = captureTransport();
+    await handleExecuteGrpcRequestRpc({ draft: makeGrpcRequest() }, unset.transport);
+    expect(unset.sent().sslVerification).toBeUndefined();
+  });
+});

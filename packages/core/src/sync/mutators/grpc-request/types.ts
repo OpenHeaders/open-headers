@@ -6,11 +6,11 @@
  *   - `metadata` — metadata pair rows (`{ key, value, description?, enabled? }`)
  *
  * Every other field — `name`, `description`, `url`, `tls`, `method`,
- * `message`, `specLink`, `timeoutMs` — flows through `setField`
- * scalars. `method` and `specLink` are small objects; they route
- * through the per-leaf flatten-diff at the write site (the same
- * treatment `auth` / `body` get on the HTTP request) so edits share
- * create's leaf representation.
+ * `message`, `auth`, `specLink`, `timeoutMs`, `sslVerification` —
+ * flows through `setField` scalars. `method`, `auth`, and `specLink`
+ * are small objects; they route through the per-leaf flatten-diff at
+ * the write site (the same treatment `auth` / `body` get on the HTTP
+ * request) so edits share create's leaf representation.
  *
  * No side effects: gRPC requests don't feed DNR and don't touch the
  * variables resolver.

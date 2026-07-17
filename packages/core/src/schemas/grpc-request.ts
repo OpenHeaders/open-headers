@@ -52,6 +52,23 @@ export const GrpcMetadataPairSchema = v.object({
 });
 
 /**
+ * Call credential — deliberately a SUBSET of the HTTP `AuthConfigSchema`
+ * (bearer is the gRPC idiom: the token rides the `authorization`
+ * metadata field). The executor injects the resolved pair at invoke
+ * time, so the credential is host-neutral — an in-process and a
+ * forwarded invoke inject identically. Absent = `none`. Wider auth
+ * shapes (basic, OAuth2, inherit) are demand-gated.
+ */
+export const GrpcAuthSchema = v.variant('type', [
+  v.object({ type: v.literal('none') }),
+  v.object({
+    type: v.literal('bearer'),
+    /** Token text; templates welcome (`{{token}}` resolves at invoke). */
+    token: v.string(),
+  }),
+]);
+
+/**
  * Binding to the Protobuf spec that feeds the method selector —
  * ids-only identity (the spec may be deleted later; the editor derives
  * link health at read time). Deliberately NOT the collection's
@@ -83,6 +100,8 @@ export const GrpcRequestSchema = v.object({
    */
   message: v.string(),
   metadata: v.array(GrpcMetadataPairSchema),
+  /** Call credential injected into metadata at invoke. Absent = none. */
+  auth: v.optional(GrpcAuthSchema),
   specLink: v.optional(GrpcSpecLinkSchema),
   /**
    * Wall-clock ceiling (ms) on the whole call — becomes the gRPC
@@ -90,6 +109,12 @@ export const GrpcRequestSchema = v.object({
    * HTTP request's timeout knob.
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Verify the server's TLS certificate against the system roots —
+   * the HTTP request's knob, TLS-channel calls only. Absent = verify
+   * (the safe default); `false` accepts self-signed dev servers.
+   */
+  sslVerification: v.optional(v.boolean()),
 });
 
 /**

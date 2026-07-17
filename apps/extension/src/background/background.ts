@@ -74,6 +74,7 @@ import { installStorageListeners } from './bootstrap/storage-listeners';
 import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
 import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
 import { setRulesPaused } from './dnr-manager';
+import { installGrpcStreamRelay } from './grpc-stream-relay';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import {
@@ -115,6 +116,9 @@ const syncWiring = installWsFrameRouting();
 installStatusReporters({ syncWiring });
 installProductTelemetrySyncBeacons(syncWiring);
 installActivityBroadcasts();
+// Forwarded gRPC invokes: the companion's live grpcStreamEvent frames
+// come back down the backend wire — relay them to the local broadcast.
+installGrpcStreamRelay();
 // Dev seams for the playground's probes/runners — inert unless the
 // driver sets the parity-hook flag (see the module docs).
 installParityRuleImport();

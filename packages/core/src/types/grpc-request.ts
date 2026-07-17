@@ -6,7 +6,8 @@
  * a discriminant on the HTTP request). On disk, each gRPC request is a
  * folder containing:
  *   grpc.yaml      — schemaVersion, uid, name, url, tls, method,
- *                    metadata, specLink, timeoutMs
+ *                    metadata, auth, specLink, timeoutMs,
+ *                    sslVerification
  *   message.json   — request message as canonical protobuf JSON
  *
  * The 8-char uid is embedded in `grpc.yaml` and mirrored in the folder
@@ -17,6 +18,7 @@
 
 import type * as v from 'valibot';
 import type {
+  GrpcAuthSchema,
   GrpcMetadataPairSchema,
   GrpcMethodRefSchema,
   GrpcRequestSchema,
@@ -29,6 +31,9 @@ export type GrpcMethodRef = v.InferOutput<typeof GrpcMethodRefSchema>;
 
 /** One metadata pair (custom header) sent on the call. */
 export type GrpcMetadataPair = v.InferOutput<typeof GrpcMetadataPairSchema>;
+
+/** Call credential injected into metadata at invoke (bearer subset). */
+export type GrpcAuth = v.InferOutput<typeof GrpcAuthSchema>;
 
 /** Ids-only binding to the Protobuf spec feeding the method selector. */
 export type GrpcSpecLink = v.InferOutput<typeof GrpcSpecLinkSchema>;

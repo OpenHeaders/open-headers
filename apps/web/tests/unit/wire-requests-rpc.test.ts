@@ -45,8 +45,11 @@ describe('wire-requests-rpc', () => {
     });
   });
 
-  it('owns exactly the three forwarded channels', () => {
+  it('owns exactly the forwarded channels', () => {
     expect(isForwardedRequestsChannel('executeRequest')).toBe(true);
+    expect(isForwardedRequestsChannel('executeGrpcRequest')).toBe(true);
+    expect(isForwardedRequestsChannel('sendGrpcStreamMessage')).toBe(true);
+    expect(isForwardedRequestsChannel('endGrpcClientStream')).toBe(true);
     expect(isForwardedRequestsChannel('getCookieJarSummary')).toBe(true);
     expect(isForwardedRequestsChannel('clearCookieJar')).toBe(true);
     expect(isForwardedRequestsChannel('getStatusSnapshot')).toBe(false);
@@ -115,6 +118,38 @@ describe('wire-requests-rpc', () => {
     };
     expect(result.success).toBe(true);
     expect(result.snapshot?.error).toBe('daemon wire is not connected');
+  });
+
+  it('stamps a gRPC Invoke like a Send — workspace + verbatim tri-state environment', async () => {
+    h.activeEnvironmentId = null;
+    const call = forwardRequestsRpc({ type: 'executeGrpcRequest', draft: { url: 'grpc.openheaders.io:443' } });
+    await Promise.resolve();
+    expect(sent[0]).toMatchObject({ type: 'executeGrpcRequest', workspaceId: 'ws-tab', environmentId: null });
+    handleWireRpcResponseFrame({
+      type: 'executeGrpcRequest:response',
+      payload: { success: true, snapshot: { httpStatus: 200 } },
+    });
+    await expect(call).resolves.toEqual({ success: true, snapshot: { httpStatus: 200 } });
+  });
+
+  it('maps a daemon refusal of a gRPC Invoke to an error snapshot, never a rejection', async () => {
+    const call = forwardRequestsRpc({ type: 'executeGrpcRequest', draft: {} });
+    await Promise.resolve();
+    handleWireRpcResponseFrame({
+      type: 'executeGrpcRequest:response',
+      __error: 'Sending requests from connected devices is disabled on this host. Enable it in Settings → Backend.',
+    });
+    const result = (await call) as { success: boolean; snapshot?: { error: string | null } };
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toMatch(/disabled on this host/);
+  });
+
+  it('forwards the gRPC upstream riders by sendId and relays their answers', async () => {
+    const call = forwardRequestsRpc({ type: 'sendGrpcStreamMessage', sendId: 's-1', messageText: '{"x":1}' });
+    await Promise.resolve();
+    expect(sent[0]).toMatchObject({ type: 'sendGrpcStreamMessage', sendId: 's-1', messageText: '{"x":1}' });
+    handleWireRpcResponseFrame({ type: 'sendGrpcStreamMessage:response', payload: { success: true } });
+    await expect(call).resolves.toEqual({ success: true });
   });
 
   it('stamps jar channels with the tab workspace and passes the payload through', async () => {

@@ -122,8 +122,10 @@ export const GRPC_REQUEST_FIELD_ORDER = [
   'tls',
   'method',
   'metadata',
+  'auth',
   'specLink',
   'timeoutMs',
+  'sslVerification',
 ] as const;
 
 /**
