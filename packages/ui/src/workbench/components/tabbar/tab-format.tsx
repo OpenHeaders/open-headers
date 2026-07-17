@@ -137,6 +137,24 @@ export function tabIcon(
       </span>
     );
   }
+  if (tab.mode === 'grpc-edit') {
+    // gRPC tabs carry the sidebar leaf's cased tag — NOT the rule-icon
+    // fallback, which uppercases unknown type codes into "GRPC".
+    return (
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: 'var(--oh-method-grpc, #0b5cad)',
+          fontFamily: "'SF Mono', monospace",
+          minWidth: options?.compact ? undefined : 36,
+          display: 'inline-block',
+        }}
+      >
+        gRPC
+      </span>
+    );
+  }
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact
     // color-coded marker readable at tab-strip density.

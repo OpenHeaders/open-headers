@@ -5,12 +5,16 @@
  * reachable from the start.
  */
 
-import { LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Typography, theme } from 'antd';
 import type React from 'react';
+import { ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { isMac } from '@openheaders/ui/shared/platform';
 
 const { Text } = Typography;
+
+const INVOKE_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
 
 const GrpcResponseEmptyState: React.FC<{ invoking: boolean }> = ({ invoking }) => {
   const { token } = theme.useToken();
@@ -39,10 +43,11 @@ const GrpcResponseEmptyState: React.FC<{ invoking: boolean }> = ({ invoking }) =
         </>
       ) : (
         <>
-          <ThunderboltOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
+          <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t('workbench.editors.grpc.response.empty.prompt')}
           </Text>
+          <ShortcutKbd label={INVOKE_SHORTCUT} surface="page" size={22} />
         </>
       )}
     </div>

@@ -35,11 +35,11 @@
  */
 
 import {
+  CaretRightOutlined,
   LockOutlined,
   ReloadOutlined,
   SendOutlined,
   StopOutlined,
-  ThunderboltOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
@@ -48,8 +48,10 @@ import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef, GrpcRequest as GrpcRequestEntity } from '@openheaders/core/types';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openheaders/ui/shared/awareness';
+import { isMac } from '@openheaders/ui/shared/platform';
+import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
@@ -61,7 +63,6 @@ import { App, Button, Input, InputNumber, Select, type SelectProps, Switch, Tabs
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
-import { grpcTag } from '../sidebar/icons';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
@@ -110,6 +111,8 @@ const emptyGrpcDraft = (): GrpcDraft => ({
 
 const methodKey = (m: GrpcMethodRef): string => `${m.service}/${m.rpc}`;
 
+const INVOKE_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
+
 const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   grpcRequestUid,
   workspaceId,
@@ -119,7 +122,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const localInstanceId = useLocalInstanceId();
   const { grpcRequests, updateGrpcRequest, executeGrpc } = useRequests();
   const specs = useSpecs(workspaceId);
 
@@ -359,6 +361,26 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
             ? t('workbench.editors.grpc.invoke.needsUrl')
             : null;
 
+  // ⌘/Ctrl+Enter invokes from anywhere in the editor — same gate as
+  // the Invoke button, and the same MORPH: while a call is in flight
+  // the chord cancels it instead. Capture phase so Invoke owns the
+  // chord even when focus sits inside the Monaco message editor, which
+  // would otherwise claim ⌘+Enter for insert-line-below.
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (invoking) {
+        handleCancelInvoke();
+        return;
+      }
+      if (invokeDisabledReason !== null) return;
+      void handleInvoke();
+    },
+    [invoking, invokeDisabledReason, handleCancelInvoke, handleInvoke],
+  );
+
   // ── In-flight upstream controls (client/bidi streams) ────────────
   const clientStreamActive =
     invoking &&
@@ -425,19 +447,130 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   const issueCount = (derivation?.issues.length ?? 0) + (derivation?.parseFailures.length ?? 0);
 
+  // Header consolidates the full target row (the HTTP editor's
+  // discipline): TLS lock + authority + method selector in the title
+  // slot (the input grows), Invoke in the actions slot next to the
+  // standardized Save. No separate target row below — the tab pill
+  // already carries the request's identity.
   const headerTitle = (
-    <>
-      {grpcTag()}
-      <Text strong style={{ fontSize: 13 }}>
-        {entity.name}
-      </Text>
-      <PresenceBadge
-        entityType={GRPC_REQUEST_ENTITY_TYPE}
-        entityId={entity.uid}
-        excludeInstanceId={localInstanceId}
-        style={{ marginLeft: 6 }}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+      <Tooltip title={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}>
+        <Button
+          icon={
+            draft.tls ? (
+              <LockOutlined style={{ color: token.colorSuccess }} />
+            ) : (
+              <UnlockOutlined style={{ color: token.colorWarning }} />
+            )
+          }
+          onClick={() => setDraft((d) => ({ ...d, tls: !d.tls }))}
+          aria-label={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}
+        />
+      </Tooltip>
+      <Input
+        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+        placeholder={t('workbench.editors.grpc.urlPlaceholder')}
+        value={draft.url}
+        onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+        data-testid="grpc-url-input"
       />
-    </>
+      <Select
+        style={{ width: 280, flexShrink: 0 }}
+        placeholder={t('workbench.editors.grpc.method.placeholder')}
+        // null, not undefined — an undefined value flips the antd
+        // Select to uncontrolled, so a clicked link/import action
+        // option would linger as the displayed label.
+        value={draft.method ? methodKey(draft.method) : null}
+        options={selectOptions}
+        onChange={handleSelectChange}
+        showSearch
+        optionFilterProp="title"
+        optionLabelProp="selectedLabel"
+        popupRender={(menu) => (
+          <>
+            {menu}
+            {linkedSpec && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  marginTop: 4,
+                  padding: '4px 12px 0',
+                  borderTop: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.grpc.specFooter.using', { name: linkedSpec.name })}
+                </Text>
+                <Tooltip title={t('workbench.editors.grpc.specFooter.refresh')}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<ReloadOutlined style={{ fontSize: 11 }} />}
+                    onClick={() => setDerivationNonce((n) => n + 1)}
+                  />
+                </Tooltip>
+              </div>
+            )}
+          </>
+        )}
+        data-testid="grpc-method-select"
+      />
+      <input
+        ref={protoFileInputRef}
+        type="file"
+        accept=".proto"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.currentTarget.files?.[0];
+          e.currentTarget.value = '';
+          if (file) void handleProtoFilePicked(file);
+        }}
+        data-testid="grpc-import-proto-input"
+      />
+    </div>
+  );
+
+  const headerActions = invoking ? (
+    <Tooltip
+      placement="bottom"
+      title={<ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.cancel')}</ShortcutHintTitle>}
+    >
+      <Button
+        size="small"
+        danger
+        icon={<StopOutlined />}
+        onClick={handleCancelInvoke}
+        style={{ fontSize: 11 }}
+        data-testid="grpc-invoke-button"
+      >
+        {t('workbench.editors.grpc.invoke.cancel')}
+      </Button>
+    </Tooltip>
+  ) : (
+    <Tooltip
+      placement="bottom"
+      title={
+        invokeDisabledReason ?? (
+          <ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.label')}</ShortcutHintTitle>
+        )
+      }
+    >
+      <span style={{ display: 'inline-flex' }}>
+        <Button
+          size="small"
+          type="primary"
+          icon={<CaretRightOutlined />}
+          disabled={invokeDisabledReason !== null}
+          onClick={() => void handleInvoke()}
+          style={{ fontSize: 11 }}
+          data-testid="grpc-invoke-button"
+        >
+          {t('workbench.editors.grpc.invoke.label')}
+        </Button>
+      </span>
+    </Tooltip>
   );
 
   const specFooter = (
@@ -477,104 +610,21 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-      <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-        <EditorHeader title={headerTitle} shell={shell.headerProps} />
-
-        {/* Target row: TLS lock + authority + method + Invoke. */}
-        <div style={{ display: 'flex', gap: 8, padding: '10px 12px 6px' }}>
-          <Tooltip title={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}>
-            <Button
-              icon={
-                draft.tls ? (
-                  <LockOutlined style={{ color: token.colorSuccess }} />
-                ) : (
-                  <UnlockOutlined style={{ color: token.colorWarning }} />
-                )
-              }
-              onClick={() => setDraft((d) => ({ ...d, tls: !d.tls }))}
-              aria-label={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}
-            />
-          </Tooltip>
-          <Input
-            style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-            placeholder={t('workbench.editors.grpc.urlPlaceholder')}
-            value={draft.url}
-            onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
-            data-testid="grpc-url-input"
-          />
-          <Select
-            style={{ width: 280 }}
-            placeholder={t('workbench.editors.grpc.method.placeholder')}
-            // null, not undefined — an undefined value flips the antd
-            // Select to uncontrolled, so a clicked link/import action
-            // option would linger as the displayed label.
-            value={draft.method ? methodKey(draft.method) : null}
-            options={selectOptions}
-            onChange={handleSelectChange}
-            showSearch
-            optionFilterProp="title"
-            optionLabelProp="selectedLabel"
-            popupRender={(menu) => (
-              <>
-                {menu}
-                {linkedSpec && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      marginTop: 4,
-                      padding: '4px 12px 0',
-                      borderTop: `1px solid ${token.colorBorderSecondary}`,
-                    }}
-                  >
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {t('workbench.editors.grpc.specFooter.using', { name: linkedSpec.name })}
-                    </Text>
-                    <Tooltip title={t('workbench.editors.grpc.specFooter.refresh')}>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={<ReloadOutlined style={{ fontSize: 11 }} />}
-                        onClick={() => setDerivationNonce((n) => n + 1)}
-                      />
-                    </Tooltip>
-                  </div>
-                )}
-              </>
-            )}
-            data-testid="grpc-method-select"
-          />
-          <input
-            ref={protoFileInputRef}
-            type="file"
-            accept=".proto"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.currentTarget.files?.[0];
-              e.currentTarget.value = '';
-              if (file) void handleProtoFilePicked(file);
-            }}
-            data-testid="grpc-import-proto-input"
-          />
-          {invoking ? (
-            <Button danger icon={<StopOutlined />} onClick={handleCancelInvoke} data-testid="grpc-invoke-button">
-              {t('workbench.editors.grpc.invoke.cancel')}
-            </Button>
-          ) : (
-            <Tooltip title={invokeDisabledReason ?? undefined}>
-              <Button
-                type="primary"
-                icon={<ThunderboltOutlined />}
-                disabled={invokeDisabledReason !== null}
-                onClick={() => void handleInvoke()}
-                data-testid="grpc-invoke-button"
-              >
-                {t('workbench.editors.grpc.invoke.label')}
-              </Button>
-            </Tooltip>
-          )}
-        </div>
+      {/* tabIndex -1: clicks on non-focusable space inside the editor
+        keep focus within so the ⌘/Ctrl+Enter chord always reaches the
+        capture handler. */}
+      <div
+        tabIndex={-1}
+        onKeyDownCapture={handleEditorKeyDown}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          background: token.colorBgContainer,
+          height: '100%',
+          outline: 'none',
+        }}
+      >
+        <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
 
         {/* Compose / response split — the HTTP editor's stacked
           Allotment discipline: the sash bounds the message editor so it
