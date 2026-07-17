@@ -345,6 +345,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesNewestFirst.label': 'gRPC Messages: Newest First',
   'workbench.settings.def.requests.grpcMessagesNewestFirst.description':
     'Order of the gRPC message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcMessagesShowTypes.label': 'gRPC Messages: Show Message Types',
+  'workbench.settings.def.requests.grpcMessagesShowTypes.description':
+    'Tag every timeline row with its declared protobuf message type. Off by default — an rpc’s types are fixed per direction, so the direction badge already tells rows apart. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'gRPC Messages: Group by Message Type',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     'Cluster the gRPC message timeline under collapsible message-type headers, arrival order kept within each group. The timeline toolbar changes this same setting.',

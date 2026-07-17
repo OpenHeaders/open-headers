@@ -30,7 +30,7 @@ import GrpcMessageTimeline, {
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
@@ -56,6 +56,7 @@ afterEach(() => {
   cleanup();
   // The sort/group choices are GLOBAL settings — reset between tests.
   resetSetting('requests.grpcMessagesNewestFirst');
+  resetSetting('requests.grpcMessagesShowTypes');
   resetSetting('requests.grpcMessagesGroupByType');
   resetSetting('requests.grpcMessagesGroupRowLimit');
 });
@@ -141,8 +142,14 @@ describe('GrpcMessageTimeline rows', () => {
     expect(rows[1].querySelector('[aria-label="Received message"]')).not.toBeNull();
   });
 
-  it('chips each row with the declared type short name, message when unresolved', () => {
+  it('hides per-row type chips by default — the direction badge already tells rows apart', () => {
+    renderTimeline();
+    expect(screen.queryAllByTestId('grpc-timeline-message-badge')).toHaveLength(0);
+  });
+
+  it('chips each row with the declared type short name when opted in, message when unresolved', () => {
     setSetting('requests.grpcMessagesNewestFirst', false);
+    setSetting('requests.grpcMessagesShowTypes', true);
     const { unmount } = renderTimeline();
     const badges = screen.getAllByTestId('grpc-timeline-message-badge');
     expect(badges.map((badge) => badge.textContent)).toEqual(['Ask', 'Reply', 'Reply']);
@@ -224,8 +231,11 @@ describe('GrpcMessageTimeline toolbar', () => {
     renderTimeline();
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'pong' } });
     expect(screen.getAllByTestId('grpc-timeline-message-row')).toHaveLength(1);
-    // Chip names are part of the haystack — 'ask' hits only ↑ rows.
+    // Chip names join the haystack only while type chips are SHOWN —
+    // search matches what the user can see.
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'ask' } });
+    expect(screen.queryAllByTestId('grpc-timeline-message-row')).toHaveLength(0);
+    act(() => setSetting('requests.grpcMessagesShowTypes', true));
     const chipMatches = screen.getAllByTestId('grpc-timeline-message-row');
     expect(chipMatches).toHaveLength(1);
     expect(chipMatches[0].textContent).toContain('ping');

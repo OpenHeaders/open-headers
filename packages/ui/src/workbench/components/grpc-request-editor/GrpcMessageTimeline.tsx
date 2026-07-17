@@ -12,8 +12,12 @@
  * direction filter, and lifecycle rows. The name chip is the frame's
  * DECLARED type — the rpc's request type for ↑, response type for ↓ —
  * on the stable badge palette; the wire-grammar `message` fallback
- * (untranslated, the SSE precedent) covers an unresolved method. Chip
- * names join the search haystack alongside the decoded previews.
+ * (untranslated, the SSE precedent) covers an unresolved method.
+ * Per-row chips are OPT-IN via the sort menu ("Show message types",
+ * off by default — the Postman posture: types are fixed per direction,
+ * so the direction badge already tells rows apart); group headers
+ * always carry the tag. Chip names join the search haystack only while
+ * shown — search matches what the user can see.
  *
  * The timeline is ONE event log in true call order: "Request sent" and
  * "Call completed / stopped / failed" sit at the chronological edges,
@@ -274,6 +278,10 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // written by this toolbar and the Settings page alike; an Invoke/
   // Cancel remount never resets them.
   const [newestFirst, setNewestFirst] = useSetting('requests.grpcMessagesNewestFirst');
+  // Per-row type chips are opt-in (the Postman posture): an rpc's types
+  // are fixed per direction, so the direction badge already tells rows
+  // apart. Group headers always keep the tag — it names the cluster.
+  const [showTypes, setShowTypes] = useSetting('requests.grpcMessagesShowTypes');
   const [groupByType, setGroupByType] = useSetting('requests.grpcMessagesGroupByType');
   // Watch-several-groups-at-once: each group shows only its N newest
   // rows (the window slides as messages arrive); 0 = no limit.
@@ -348,11 +356,14 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
 
   // Every message index passing the search + direction filter, arrival
   // (call) order ascending — one linear pass of primitive work per
-  // commit/keystroke. The haystack is the chip name + the decoded
-  // preview.
+  // commit/keystroke. The haystack is the decoded preview, plus the
+  // chip name while type chips are SHOWN — search matches what the
+  // user can see.
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const chipNeedles = { up: chips.up.name.toLowerCase(), down: chips.down.name.toLowerCase() };
+    const chipNeedles = showTypes
+      ? { up: chips.up.name.toLowerCase(), down: chips.down.name.toLowerCase() }
+      : null;
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
@@ -360,7 +371,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       if (directionFilter !== 'all' && direction !== directionFilter) continue;
       if (
         needle !== '' &&
-        !chipNeedles[direction].includes(needle) &&
+        !(chipNeedles !== null && chipNeedles[direction].includes(needle)) &&
         !derive.previewOf(item).toLowerCase().includes(needle)
       ) {
         continue;
@@ -368,7 +379,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, derive, chips]);
+  }, [items, count, clearedCount, search, directionFilter, derive, chips, showTypes]);
 
   const displayRows = useMemo(
     () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
@@ -741,7 +752,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 height: 18,
                 borderRadius: 4,
                 flexShrink: 0,
-                background: up ? token.colorWarningBg : token.colorPrimaryBg,
+                background: up ? token.colorWarningBgHover : token.colorPrimaryBg,
               }}
             >
               {up ? (
@@ -756,7 +767,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 />
               )}
             </span>
-            {chipTag(chip, 'grpc-timeline-message-badge')}
+            {showTypes && chipTag(chip, 'grpc-timeline-message-badge')}
             <span
               style={{
                 ...cellFont,
@@ -887,6 +898,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 onClick: () => setNewestFirst(false),
               },
               { type: 'divider' },
+              {
+                key: 'show-types',
+                label: menuOptionLabel(t('workbench.editors.grpc.timeline.showTypes'), showTypes),
+                onClick: () => setShowTypes(!showTypes),
+              },
               {
                 key: 'group',
                 label: menuOptionLabel(t('workbench.editors.grpc.timeline.groupByType'), groupByType),

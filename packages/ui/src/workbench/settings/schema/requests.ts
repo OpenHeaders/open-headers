@@ -15,6 +15,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.sseEventsGroupRowLimit': number;
     'requests.grpcSendInvalidMessage': boolean;
     'requests.grpcMessagesNewestFirst': boolean;
+    'requests.grpcMessagesShowTypes': boolean;
     'requests.grpcMessagesGroupByType': boolean;
     'requests.grpcMessagesGroupRowLimit': number;
   }
@@ -93,6 +94,22 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.requests.grpcMessagesNewestFirst.description',
   category: 'requests',
   tags: ['grpc', 'stream', 'messages', 'timeline', 'sort', 'order', 'newest', 'oldest'],
+  scope: 'user',
+});
+
+// Per-row declared-type chips are OFF by default (the Postman posture —
+// an rpc's types are fixed per direction, so the direction badge
+// already carries the information); group headers always keep the type
+// tag, where it names the cluster.
+registerSetting({
+  key: 'requests.grpcMessagesShowTypes',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.grpcMessagesShowTypes.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcMessagesShowTypes.description',
+  category: 'requests',
+  tags: ['grpc', 'stream', 'messages', 'timeline', 'type', 'chip', 'badge'],
   scope: 'user',
 });
 

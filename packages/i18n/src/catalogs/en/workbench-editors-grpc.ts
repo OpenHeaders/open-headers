@@ -147,6 +147,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.sortOrder': 'Sort and group',
   'workbench.editors.grpc.timeline.newestFirst': 'Newest first',
   'workbench.editors.grpc.timeline.oldestFirst': 'Oldest first',
+  'workbench.editors.grpc.timeline.showTypes': 'Show message types',
   'workbench.editors.grpc.timeline.groupByType': 'Group by message type',
   'workbench.editors.grpc.timeline.rowsPerGroup': 'Rows per group',
   'workbench.editors.grpc.timeline.noLimit': 'No limit',
