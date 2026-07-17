@@ -2802,7 +2802,7 @@ export const panel = {
   // Storage editor-tab documents. Shared doc chrome first (same control
   // across the four tabs); per-document copy keys separately even where
   // the English coincides (separate referents). Crumbs, status lines,
-  // the Key row label and localStorage/sessionStorage names stay raw.
+  // and localStorage/sessionStorage names stay raw.
   'panel.storage.doc.reveal': 'Reveal in Storage',
   'panel.storage.doc.refreshConfirm': 'Discards your edits — click again to refresh',
   'panel.storage.doc.discardEdits': 'Discard my edits',
@@ -2900,6 +2900,38 @@ export const panel = {
   'panel.storage.doc.cache.imageAlt': 'Stored response body for {url}',
   'panel.storage.doc.cache.binaryBody': 'Binary body — {size} stored.',
   'panel.storage.doc.cache.emptyBody': 'Empty body.',
+
+  // ── Rule-value editor-tab document (ValueDocumentTab) ──────────────
+  // The crumb's rule/header names ride raw as data; 'Rules' is its
+  // fallback when the rule is gone.
+  'panel.valueDoc.crumbFallback': 'Rules',
+  'panel.valueDoc.saveHint': 'Re-encode the edited value and write it back to the rule',
+  'panel.valueDoc.blockedHintInvalid': 'The edited text can’t encode for this value type',
+  'panel.valueDoc.blockedHintDetached': 'The rule field this value belonged to is gone',
+  'panel.valueDoc.rereadTitle': 'Re-read the value from the rule',
+  'panel.valueDoc.rereadConfirm': 'Discards your edits — click again to re-read',
+  'panel.valueDoc.rereadAria': 'Discard edits and re-read value',
+  'panel.valueDoc.openRuleTitle': 'Open this rule in the workspace editor',
+  'panel.valueDoc.openRule': 'Open rule in workspace',
+  'panel.valueDoc.driftNote':
+    'The value changed in the rule while you were editing — your unsaved edits are kept. Save overwrites it.',
+  'panel.valueDoc.undetectedNote':
+    'The field no longer holds a value this editor can encode — your unsaved edits are kept for copy-out.',
+  'panel.valueDoc.detachedNote':
+    'The rule field this value belonged to is gone — your unsaved edits are kept for copy-out.',
+  'panel.valueDoc.discardEdits': 'Discard my edits',
+  'panel.valueDoc.saveFailed.detached':
+    'The modification this value belonged to is gone from the rule — there is nothing to write to.',
+  'panel.valueDoc.saveFailed.notFound': 'Rule not found — it may have been deleted.',
+  'panel.valueDoc.saveFailed.write': 'Save failed — the rule rejected the write.',
+  'panel.valueDoc.encodedPreview': 'Encoded preview',
+  'panel.valueDoc.cannotEncode': 'Cannot encode — the edited value is not valid for this type',
+  'panel.valueDoc.undetectedTitle': 'No longer an encoded value',
+  'panel.valueDoc.undetectedSub':
+    'The field’s current value doesn’t match a decoder — edit it in the rule editor instead.',
+  'panel.valueDoc.detachedTitle': 'Value no longer in the rule',
+  'panel.valueDoc.detachedSub':
+    'The rule or the modification holding this value was deleted, or the operation no longer carries a value.',
 
   // ── Value expander (headers / cookies detail readout) ──────────────
   // JWT part and claim names (Header / Payload / Signature / iat / nbf

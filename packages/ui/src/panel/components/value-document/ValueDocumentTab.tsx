@@ -17,6 +17,7 @@
  */
 
 import { ExportOutlined, ReloadOutlined } from '@ant-design/icons';
+import type { MessageKey } from '@openheaders/i18n';
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -61,10 +62,10 @@ interface Draft {
 
 type SaveFailure = 'detached' | 'not-found' | 'write';
 
-const SAVE_FAILURE_NOTES: Record<SaveFailure, string> = {
-  detached: 'The modification this value belonged to is gone from the rule — there is nothing to write to.',
-  'not-found': 'Rule not found — it may have been deleted.',
-  write: 'Save failed — the rule rejected the write.',
+const SAVE_FAILURE_NOTES: Record<SaveFailure, MessageKey> = {
+  detached: 'panel.valueDoc.saveFailed.detached',
+  'not-found': 'panel.valueDoc.saveFailed.notFound',
+  write: 'panel.valueDoc.saveFailed.write',
 };
 
 interface ValueDocumentTabProps {
@@ -193,14 +194,15 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
   }, [canonical]);
   const liveHeaderName = canonical.kind === 'detached' ? tab.headerName : canonical.mod.headerName;
   const ruleName = canonical.kind === 'detached' ? null : canonical.rule.name;
-  const crumbTitle = `${ruleName ?? 'Rules'} › ${liveHeaderName}`;
+  const crumbName = ruleName ?? t('panel.valueDoc.crumbFallback');
+  const crumbTitle = `${crumbName} › ${liveHeaderName}`;
   const showEditor = canonical.kind === 'detected' || dirty;
 
   return (
     <div className="dt-storagedoc">
       <div className="dt-storagedoc-toolbar">
         <span className="dt-storagedoc-crumb" title={crumbTitle}>
-          {ruleName ?? 'Rules'} › <span className="dt-storagedoc-crumb-key">{liveHeaderName}</span>
+          {crumbName} › <span className="dt-storagedoc-crumb-key">{liveHeaderName}</span>
           {title !== null && <span className="dt-storage-meta"> · {title}</span>}
         </span>
         <span className="dt-storagedoc-toolbar-spacer" />
@@ -208,11 +210,11 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
           savable={savable}
           saving={saving}
           dirty={dirty}
-          saveHint="Re-encode the edited value and write it back to the rule"
+          saveHint={t('panel.valueDoc.saveHint')}
           blockedHint={
             canonical.kind === 'detected'
-              ? 'The edited text can’t encode for this value type'
-              : 'The rule field this value belonged to is gone'
+              ? t('panel.valueDoc.blockedHintInvalid')
+              : t('panel.valueDoc.blockedHintDetached')
           }
           isActiveDocument={isActiveDocument}
           onSave={() => void handleSave()}
@@ -220,42 +222,40 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
         {dirty && (
           <ArmedIconButton
             icon={<ReloadOutlined />}
-            title="Re-read the value from the rule"
-            confirmTitle="Discards your edits — click again to re-read"
-            ariaLabel="Discard edits and re-read value"
+            title={t('panel.valueDoc.rereadTitle')}
+            confirmTitle={t('panel.valueDoc.rereadConfirm')}
+            ariaLabel={t('panel.valueDoc.rereadAria')}
             onConfirm={discardDraft}
           />
         )}
         <button
           type="button"
           className="dt-storagedoc-reveal"
-          title="Open this rule in the workspace editor"
+          title={t('panel.valueDoc.openRuleTitle')}
           onClick={openInWorkspace}
         >
-          <ExportOutlined aria-hidden="true" /> Open rule in workspace
+          <ExportOutlined aria-hidden="true" /> {t('panel.valueDoc.openRule')}
         </button>
       </div>
       {drifted && (
         <div className="dt-storagedoc-note">
-          The value changed in the rule while you were editing — your unsaved edits are kept. Save overwrites it.
+          {t('panel.valueDoc.driftNote')}
           <button type="button" className="dt-storagedoc-note-action" onClick={discardDraft}>
-            Discard my edits
+            {t('panel.valueDoc.discardEdits')}
           </button>
         </div>
       )}
       {detachedUnderDraft && (
         <div className="dt-storagedoc-note">
-          {canonical.kind === 'undetected'
-            ? 'The field no longer holds a value this editor can encode — your unsaved edits are kept for copy-out.'
-            : 'The rule field this value belonged to is gone — your unsaved edits are kept for copy-out.'}
+          {canonical.kind === 'undetected' ? t('panel.valueDoc.undetectedNote') : t('panel.valueDoc.detachedNote')}
           <button type="button" className="dt-storagedoc-note-action" onClick={discardDraft}>
-            Discard my edits
+            {t('panel.valueDoc.discardEdits')}
           </button>
         </div>
       )}
       {saveError !== null && (
         <div className="dt-storagedoc-note dt-storagedoc-note--error" role="alert">
-          {SAVE_FAILURE_NOTES[saveError]}
+          {t(SAVE_FAILURE_NOTES[saveError])}
         </div>
       )}
       {showEditor ? (
@@ -282,13 +282,11 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
             </div>
           )}
           {dirty && canonical.kind === 'detected' && (
-            <div className="dt-valuedoc-preview" aria-label="Encoded preview">
-              <span className="dt-valuedoc-preview-label">Encoded preview</span>
+            <div className="dt-valuedoc-preview" aria-label={t('panel.valueDoc.encodedPreview')}>
+              <span className="dt-valuedoc-preview-label">{t('panel.valueDoc.encodedPreview')}</span>
               <div className="dt-valuedoc-preview-body dt-scrollbar">
                 {encoded === null ? (
-                  <span className="dt-valuedoc-preview-error">
-                    Cannot encode — the edited value is not valid for this type
-                  </span>
+                  <span className="dt-valuedoc-preview-error">{t('panel.valueDoc.cannotEncode')}</span>
                 ) : (
                   encoded
                 )}
@@ -298,17 +296,13 @@ export function ValueDocumentTab({ tab, onDirtyChange, registerSave, isActiveDoc
         </>
       ) : canonical.kind === 'undetected' ? (
         <div className="dt-empty-hero">
-          <strong>No longer an encoded value</strong>
-          <span className="dt-empty-hero-sub">
-            The field’s current value doesn’t match a decoder — edit it in the rule editor instead.
-          </span>
+          <strong>{t('panel.valueDoc.undetectedTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.valueDoc.undetectedSub')}</span>
         </div>
       ) : (
         <div className="dt-empty-hero">
-          <strong>Value no longer in the rule</strong>
-          <span className="dt-empty-hero-sub">
-            The rule or the modification holding this value was deleted, or the operation no longer carries a value.
-          </span>
+          <strong>{t('panel.valueDoc.detachedTitle')}</strong>
+          <span className="dt-empty-hero-sub">{t('panel.valueDoc.detachedSub')}</span>
         </div>
       )}
     </div>
