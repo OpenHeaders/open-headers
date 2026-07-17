@@ -110,10 +110,6 @@ export const panelQuickEditor = {
     'Remove All strips the entire query string — the other operations in this rule will be ignored.',
   'panel.quickEditor.auth.challengesHint':
     'Answers server (401) and proxy (407) authentication challenges on matching requests.',
-  // Placeholder examples carry the `{{ns.NAME}}` reference syntax raw
-  // inside the keyed value (args-less t() skips interpolation).
-  'panel.quickEditor.auth.usernamePlaceholder': 'e.g. dev-user or {{env.PROXY_USER}}',
-  'panel.quickEditor.auth.passwordPlaceholder': 'e.g. {{vault.STAGING_PW}}',
 
   // ── Rule hover popover (fire-snapshot plane) ─────────────────────────
   // Raw by design: header names/values, `{{template}}` text, the

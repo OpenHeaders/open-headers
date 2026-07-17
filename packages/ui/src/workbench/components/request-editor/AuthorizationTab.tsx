@@ -276,7 +276,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
                 size="small"
                 value={auth.key}
                 onChange={(next) => onChange({ ...auth, key: next })}
-                placeholder="e.g. X-API-Key"
+                placeholder={t('workbench.editors.request.auth.keyPlaceholder')}
                 style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               />
             </LabeledRow>

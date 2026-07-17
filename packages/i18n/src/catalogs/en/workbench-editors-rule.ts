@@ -410,5 +410,9 @@ export const workbenchEditorsRule = {
     'Answers a server (401) or proxy (407) authentication challenge on matching requests. Reference a vault secret — e.g.',
   'workbench.editors.rule.fields.auth.introAfter': "— so the credential isn't stored in the rule.",
   'workbench.editors.rule.fields.auth.username': 'Username',
+  // Placeholder examples carry the `{{ns.NAME}}` reference syntax raw
+  // inside the keyed value (args-less t() skips interpolation).
+  'workbench.editors.rule.fields.auth.usernamePlaceholder': 'e.g. dev-user or {{env.PROXY_USER}}',
   'workbench.editors.rule.fields.auth.password': 'Password',
+  'workbench.editors.rule.fields.auth.passwordPlaceholder': 'e.g. {{vault.STAGING_PW}}',
 } as const satisfies Catalog;

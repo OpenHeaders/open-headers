@@ -61,7 +61,7 @@ const AuthRuleFields: React.FC = () => {
         <EntityField path={paths.authUsername}>
           <Form.Item name="authUsername" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
             <DetectedValueInput
-              placeholder="e.g. dev-user or {{env.PROXY_USER}}"
+              placeholder={t('workbench.editors.rule.fields.auth.usernamePlaceholder')}
               wrap
               maxRows={4}
               resizable
@@ -80,7 +80,13 @@ const AuthRuleFields: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <EntityField path={paths.authPassword}>
           <Form.Item name="authPassword" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-            <DetectedValueInput placeholder="e.g. {{vault.STAGING_PW}}" wrap maxRows={4} resizable allowClear />
+            <DetectedValueInput
+              placeholder={t('workbench.editors.rule.fields.auth.passwordPlaceholder')}
+              wrap
+              maxRows={4}
+              resizable
+              allowClear
+            />
           </Form.Item>
         </EntityField>
         <ScalarConflictChip formName="authPassword" schemaPath={paths.authPassword} />

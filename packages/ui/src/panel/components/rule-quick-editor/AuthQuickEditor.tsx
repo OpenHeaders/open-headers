@@ -151,7 +151,7 @@ export function AuthQuickEditor({
                 allowClear
                 value={draft.username ?? ''}
                 onChange={(v) => updateDraft({ username: v })}
-                placeholder={t('panel.quickEditor.auth.usernamePlaceholder')}
+                placeholder={t('workbench.editors.rule.fields.auth.usernamePlaceholder')}
                 suggestionContext={{ collectionId }}
                 flagUnresolved
                 style={{ width: '100%' }}
@@ -172,7 +172,7 @@ export function AuthQuickEditor({
                 allowClear
                 value={draft.password ?? ''}
                 onChange={(v) => updateDraft({ password: v })}
-                placeholder={t('panel.quickEditor.auth.passwordPlaceholder')}
+                placeholder={t('workbench.editors.rule.fields.auth.passwordPlaceholder')}
                 suggestionContext={{ collectionId }}
                 flagUnresolved
                 style={{ width: '100%' }}

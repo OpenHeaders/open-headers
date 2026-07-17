@@ -463,7 +463,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 tokenSeparators={[' ', ',']}
                 value={auth.scopes}
                 onChange={(scopes: string[]) => onChange({ ...auth, scopes })}
-                placeholder="e.g. read:org"
+                placeholder={t('workbench.editors.request.oauth.scopePlaceholder')}
               />
             </LabeledRow>
           )}
