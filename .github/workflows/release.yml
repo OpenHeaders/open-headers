@@ -160,10 +160,17 @@ jobs:
           node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('apps/desktop/package.json'));p.version='$TAG';fs.writeFileSync('apps/desktop/package.json',JSON.stringify(p,null,2)+'\n')"
         shell: bash
 
+      # Betas skip the enterprise formats (pkg/msi) and mac-x64 — beta
+      # testers use dmg/zip/Setup.exe; stable tags ship everything.
       - name: Build macOS
         if: matrix.os == 'macos-latest'
         working-directory: apps/desktop
-        run: pnpm dist:mac
+        run: |
+          if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
+            pnpm dist:mac:beta
+          else
+            pnpm dist:mac
+          fi
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -173,7 +180,13 @@ jobs:
       - name: Build Windows
         if: matrix.os == 'windows-2022'
         working-directory: apps/desktop
-        run: pnpm dist:win:unsigned
+        shell: bash
+        run: |
+          if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
+            pnpm dist:win:unsigned:beta
+          else
+            pnpm dist:win:unsigned
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
