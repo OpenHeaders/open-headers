@@ -11,7 +11,7 @@
  * law). Read-only — the capture is a record, so there is no Clear.
  */
 
-import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
+import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { CapturedGrpcResponse, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tabs, Tooltip, Typography, theme } from 'antd';
@@ -58,20 +58,15 @@ const GrpcExampleResultPane: React.FC<GrpcExampleResultPaneProps> = ({ response,
   }, [response.messages, registry, outputType]);
 
   const lifecycle = useMemo((): GrpcTimelineLifecycle => {
-    const target = method ? `/${method.service}/${method.rpc}` : '';
     return {
-      target,
       headArrived: true,
       headAtMessage: headPositionOf(response),
       endedBy: response.stopped === true ? 'stop' : 'complete',
-      ...(response.grpcStatus !== null
-        ? { statusLabel: grpcStatusLabel(response.grpcStatus) }
-        : { statusLabel: t('workbench.editors.grpc.response.noStatus') }),
       ...(response.grpcMessage !== undefined && response.grpcStatus !== 0 && response.grpcMessage !== ''
         ? { endedMessage: response.grpcMessage }
         : {}),
     };
-  }, [method, response, t]);
+  }, [method, response]);
 
   const notices: string[] = [];
   if (!stream && response.messages.length > 1) {

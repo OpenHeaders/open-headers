@@ -14,7 +14,7 @@
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
-import { grpcStatusLabel, type ProtoRegistry } from '@openheaders/core/proto';
+import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
@@ -39,8 +39,6 @@ interface GrpcStreamPaneProps {
   session: GrpcStreamSession | null;
   registry: ProtoRegistry | null;
   method: GrpcMethodRef | undefined;
-  /** Call target — `/service/rpc` for the lifecycle rows. */
-  target: string;
   onClear: () => void;
   /**
    * "Save Response" — snapshot the SETTLED stream capture as an example
@@ -56,7 +54,6 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   session,
   registry,
   method,
-  target,
   onClear,
   onSaveResponse,
 }) => {
@@ -70,7 +67,6 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   const lifecycle = useMemo((): GrpcTimelineLifecycle => {
     if (snapshot === null) {
       return {
-        target,
         ...(live !== null ? { startedAt: live.startedAt } : {}),
         headArrived: live !== null && live.head !== null,
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
@@ -78,21 +74,17 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
       };
     }
     return {
-      target,
       ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
       headArrived: snapshot.error === null,
       ...(session?.connectedAt !== undefined ? { connectedAt: session.connectedAt } : {}),
       ...(snapshot.headAtMessage !== undefined ? { headAtMessage: snapshot.headAtMessage } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'complete',
       ...(session?.endedAt !== undefined ? { endedAt: session.endedAt } : {}),
-      ...(snapshot.grpcStatus !== null
-        ? { statusLabel: grpcStatusLabel(snapshot.grpcStatus) }
-        : { statusLabel: t('workbench.editors.grpc.response.noStatus') }),
       ...(snapshot.grpcMessage !== undefined && snapshot.grpcStatus !== 0 && snapshot.grpcMessage !== ''
         ? { endedMessage: snapshot.grpcMessage }
         : {}),
     };
-  }, [snapshot, live, session, target, t]);
+  }, [snapshot, live, session]);
 
   // Pre-head failures render the classified message under the plain
   // Response title row — the unary pane's shape; there was never a

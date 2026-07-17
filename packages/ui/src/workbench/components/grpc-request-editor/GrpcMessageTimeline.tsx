@@ -58,12 +58,12 @@ import {
   CheckOutlined,
   ClearOutlined,
   DisconnectOutlined,
+  InfoCircleOutlined,
   SearchOutlined,
-  SendOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
-import { Button, Dropdown, Input, Popover, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -105,8 +105,6 @@ export interface GrpcTimelineItem {
 export type GrpcTimelineEndedBy = 'complete' | 'stop' | 'error';
 
 export interface GrpcTimelineLifecycle {
-  /** Call target — `/service/rpc` on the invoked authority. */
-  target: string;
   /** Session-only invoke-departure time. */
   startedAt?: number;
   /** True once the response head arrived. */
@@ -120,9 +118,9 @@ export interface GrpcTimelineLifecycle {
   /** Absent while frames are still arriving — the live phase. */
   endedBy?: GrpcTimelineEndedBy;
   endedAt?: number;
-  /** `0 OK`-style status label riding the completed row. */
-  statusLabel?: string;
-  /** Failure text riding `endedBy: 'error'`. */
+  /** Failure text riding `endedBy: 'error'`. The status code itself
+   *  deliberately does NOT ride the ended row — the meta strip's pill
+   *  owns it (no duplicate info, the Postman posture). */
   endedMessage?: string;
 }
 
@@ -660,9 +658,9 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       case 'sent':
         return (
           <div key={entry.key} data-testid="grpc-timeline-sent-row" style={lifecycleRowStyle}>
-            <SendOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.grpc.timeline.requestSent', { target: lifecycle.target })}
+              {t('workbench.editors.grpc.timeline.requestSent')}
             </span>
             {lifecycleTime(lifecycle.startedAt)}
           </div>
@@ -670,7 +668,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       case 'connected':
         return (
           <div key={entry.key} data-testid="grpc-timeline-connected-row" style={lifecycleRowStyle}>
-            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.grpc.timeline.responseReceived')}
             </span>
@@ -681,10 +679,13 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         if (lifecycle.endedBy === undefined) return null;
         return (
           <div key={entry.key} data-testid="grpc-timeline-ended-row" style={lifecycleRowStyle}>
-            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycle.endedBy === 'complete' ? (
+              <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            ) : (
+              <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            )}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {endedLabel(lifecycle.endedBy, t)}
-              {lifecycle.statusLabel ? ` · ${lifecycle.statusLabel}` : ''}
               {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
@@ -728,17 +729,33 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             }}
             style={{ ...singleRowStyle, cursor: 'pointer' }}
           >
-            {up ? (
-              <ArrowUpOutlined
-                aria-label={t('workbench.editors.grpc.timeline.sentAria')}
-                style={{ fontSize: 10, color: token.colorSuccess, flexShrink: 0 }}
-              />
-            ) : (
-              <ArrowDownOutlined
-                aria-label={t('workbench.editors.grpc.timeline.receivedAria')}
-                style={{ fontSize: 10, color: token.colorPrimary, flexShrink: 0 }}
-              />
-            )}
+            {/* Boxed direction badge — ↑ amber, ↓ blue on their tinted
+                backgrounds (the Postman anatomy; the tint tokens adapt
+                per theme), so the two directions read apart at a glance. */}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                flexShrink: 0,
+                background: up ? token.colorWarningBg : token.colorPrimaryBg,
+              }}
+            >
+              {up ? (
+                <ArrowUpOutlined
+                  aria-label={t('workbench.editors.grpc.timeline.sentAria')}
+                  style={{ fontSize: 11, color: token.colorWarning }}
+                />
+              ) : (
+                <ArrowDownOutlined
+                  aria-label={t('workbench.editors.grpc.timeline.receivedAria')}
+                  style={{ fontSize: 11, color: token.colorPrimary }}
+                />
+              )}
+            </span>
             {chipTag(chip, 'grpc-timeline-message-badge')}
             <span
               style={{
@@ -831,17 +848,22 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           {t('workbench.editors.grpc.timeline.messageCount', { count: count - clearedCount })}
         </Text>
         <span style={{ marginLeft: 'auto' }} />
-        <Segmented
-          size="small"
-          value={directionFilter}
-          onChange={(value) => setDirectionFilter(value as DirectionFilter)}
-          data-testid="grpc-timeline-direction-filter"
-          options={[
-            { value: 'all', label: t('workbench.editors.grpc.timeline.filterAll') },
-            { value: 'up', label: `↑ ${t('workbench.editors.grpc.timeline.filterSent')}` },
-            { value: 'down', label: `↓ ${t('workbench.editors.grpc.timeline.filterReceived')}` },
-          ]}
-        />
+        {/* Switching the filter is a data change, not a spatial move —
+            the thumb slide only delays the row swap, so motion is off
+            for this control (the antd motion token, scoped). */}
+        <ConfigProvider theme={{ token: { motion: false } }}>
+          <Segmented
+            size="small"
+            value={directionFilter}
+            onChange={(value) => setDirectionFilter(value as DirectionFilter)}
+            data-testid="grpc-timeline-direction-filter"
+            options={[
+              { value: 'all', label: t('workbench.editors.grpc.timeline.filterAll') },
+              { value: 'up', label: `↑ ${t('workbench.editors.grpc.timeline.filterSent')}` },
+              { value: 'down', label: `↓ ${t('workbench.editors.grpc.timeline.filterReceived')}` },
+            ]}
+          />
+        </ConfigProvider>
         <Dropdown
           trigger={['click']}
           placement="bottomRight"

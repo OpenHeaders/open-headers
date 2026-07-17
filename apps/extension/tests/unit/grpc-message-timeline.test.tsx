@@ -89,7 +89,6 @@ const down = (answer: string): GrpcTimelineItem => ({
 const ITEMS: GrpcTimelineItem[] = [up('ping'), down('pong'), down('done')];
 
 const LIVE_LIFECYCLE: GrpcTimelineLifecycle = {
-  target: '/library.v1.Library/Chat',
   startedAt: 1_700_000_000_000,
   headArrived: true,
   connectedAt: 1_700_000_000_050,
@@ -186,21 +185,24 @@ describe('GrpcMessageTimeline rows', () => {
 describe('GrpcMessageTimeline lifecycle rows', () => {
   it('derives sent, connected, and ended rows from props — never invented', () => {
     const { unmount } = renderTimeline();
-    expect(screen.getByTestId('grpc-timeline-sent-row').textContent).toContain('/library.v1.Library/Chat');
+    // The bare label — no call path (the Postman posture).
+    expect(screen.getByTestId('grpc-timeline-sent-row').textContent).toContain('Request sent');
     expect(screen.getByTestId('grpc-timeline-connected-row')).toBeTruthy();
     expect(screen.queryByTestId('grpc-timeline-ended-row')).toBeNull();
     unmount();
     renderTimeline({
-      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'complete', endedAt: 1_700_000_001_000, statusLabel: '0 OK' },
+      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'complete', endedAt: 1_700_000_001_000 },
     });
     const ended = screen.getByTestId('grpc-timeline-ended-row');
+    // The bare label — the meta strip's pill owns the status code, so
+    // the row never duplicates it (the Postman posture).
     expect(ended.textContent).toContain('Call completed');
-    expect(ended.textContent).toContain('0 OK');
+    expect(ended.textContent).not.toContain('OK');
   });
 
   it('labels a stopped call and omits the connected row before the head', () => {
     renderTimeline({
-      lifecycle: { target: '/library.v1.Library/Chat', headArrived: false, endedBy: 'stop' },
+      lifecycle: { headArrived: false, endedBy: 'stop' },
     });
     expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
     expect(screen.getByTestId('grpc-timeline-ended-row').textContent).toContain('Call stopped');
@@ -238,7 +240,7 @@ describe('GrpcMessageTimeline sort + head interleave', () => {
   it('interleaves Response received at the recorded head position, oldest-first', () => {
     setSetting('requests.grpcMessagesNewestFirst', false);
     renderTimeline({
-      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'complete', statusLabel: '0 OK' },
+      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'complete' },
     });
     // The ↑ ping was sent BEFORE the head arrived (headAtMessage 1).
     expect(rowSequence()).toEqual(['sent', 'ping', 'connected', 'pong', 'done', 'ended']);
@@ -246,7 +248,7 @@ describe('GrpcMessageTimeline sort + head interleave', () => {
 
   it('newest-first (the default) reads the same event log top-down reversed', () => {
     renderTimeline({
-      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'complete', statusLabel: '0 OK' },
+      lifecycle: { ...LIVE_LIFECYCLE, endedBy: 'complete' },
     });
     expect(rowSequence()).toEqual(['ended', 'done', 'pong', 'connected', 'ping', 'sent']);
   });

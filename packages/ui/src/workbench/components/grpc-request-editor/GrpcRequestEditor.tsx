@@ -16,7 +16,7 @@
  * state gate the button; disconnected keeps an honest "connect the
  * desktop app" tooltip while compose/spec/examples stay usable) —
  * every call shape. In flight it
- * morphs to Cancel (`abortRequestSend` on the shared active-send
+ * morphs to Stop (`abortRequestSend` on the shared active-send
  * registry). Compose and result stack in a vertical Allotment split
  * (the HTTP editor's discipline) — the sash bounds the fill message
  * editor, and the result pane is always attached (empty-state hint
@@ -377,7 +377,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const [streamSession, setStreamSession] = useState<GrpcStreamSession | null>(null);
   // The in-flight call's target — the timeline's lifecycle rows keep
   // naming what was actually invoked.
-  const [invokedTarget, setInvokedTarget] = useState('');
   const activeSendIdRef = useRef<string | null>(null);
   const liveStream = useLiveGrpcStream();
 
@@ -413,7 +412,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     setStreamSession(null);
     setResponseShape(streaming ? 'stream' : 'unary');
     if (streaming && draft.method) {
-      setInvokedTarget(`/${draft.method.service}/${draft.method.rpc}`);
       liveStream.beginStream(sendId);
     }
     const snapshot = await executeGrpc({ draft: draftEntity, sendId });
@@ -688,7 +686,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const headerActions = invoking ? (
     <Tooltip
       placement="bottom"
-      title={<ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.cancel')}</ShortcutHintTitle>}
+      title={<ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.stop')}</ShortcutHintTitle>}
     >
       {/* Invoke morphs into Cancel — the HTTP Send/Stop treatment
         verbatim: solid on the darkened error token with the square
@@ -708,7 +706,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           style={{ fontSize: 11 }}
           data-testid="grpc-invoke-button"
         >
-          {t('workbench.editors.grpc.invoke.cancel')}
+          {t('workbench.editors.grpc.invoke.stop')}
         </Button>
       </ConfigProvider>
     </Tooltip>
@@ -1075,7 +1073,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                   session={streamSession}
                   registry={derivation?.registry ?? null}
                   method={draft.method}
-                  target={invokedTarget}
                   onClear={handleClearResponse}
                   onSaveResponse={canSaveResponse ? () => void handleSaveResponse() : undefined}
                 />
