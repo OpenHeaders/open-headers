@@ -32,7 +32,14 @@ import type {
   SseRule,
   WsRule,
 } from '../types/rule';
-import { getHeaderOperationCapability, type HeaderDirection, validateHeaderName, validateHeaderValue } from './headers';
+import {
+  getHeaderOperationCapability,
+  type HeaderDirection,
+  type HeaderValidationCode,
+  type HeaderValidationParams,
+  validateHeaderName,
+  validateHeaderValue,
+} from './headers';
 
 // ── Public types ────────────────────────────────────────────────
 
@@ -77,6 +84,11 @@ export interface ActionValueIssue {
   severity: ActionValueSeverity;
   /** Human-readable explanation suitable for inline display. */
   message: string;
+  /** Structured id of the sentence when the issue originates in the
+   *  header plane (`headers.ts`) — UI resolves it via the keyed mirror
+   *  instead of rendering the raw English `message`. */
+  code?: HeaderValidationCode;
+  params?: HeaderValidationParams;
 }
 
 // ── Public dispatch ─────────────────────────────────────────────
@@ -159,6 +171,8 @@ function validateHeaderAction(rule: HeaderRule): ActionValueIssue[] {
             kind: 'invalid-header-name',
             severity: 'error',
             message: nameValidation.message ?? 'Invalid header name.',
+            code: nameValidation.code,
+            params: nameValidation.params,
           });
         }
       }
@@ -174,6 +188,8 @@ function validateHeaderAction(rule: HeaderRule): ActionValueIssue[] {
           kind: 'invalid-header-operation',
           severity: 'error',
           message: capability.reason ?? `Operation '${mod.operation}' is not allowed for "${headerName}".`,
+          code: capability.code,
+          params: capability.params,
         });
       }
 
@@ -191,6 +207,8 @@ function validateHeaderAction(rule: HeaderRule): ActionValueIssue[] {
               kind: 'invalid-header-value',
               severity: 'error',
               message: valueValidation.message ?? 'Invalid header value.',
+              code: valueValidation.code,
+              params: valueValidation.params,
             });
           }
         }
@@ -410,6 +428,8 @@ function validateResponseAction(rule: ResponseRule): ActionValueIssue[] {
         kind: 'invalid-header-name',
         severity: 'error',
         message: v.message ?? 'Invalid response header name.',
+        code: v.code,
+        params: v.params,
       });
     }
   }

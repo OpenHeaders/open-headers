@@ -1,4 +1,4 @@
-import { sanitizeHeaderValue, validateHeaderName, validateHeaderValue } from '@utils/header-validator';
+import { sanitizeHeaderValue, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------

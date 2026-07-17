@@ -47,6 +47,8 @@ export type {
   HeaderDirection,
   HeaderNameValidation,
   HeaderOperationCapability,
+  HeaderValidationCode,
+  HeaderValidationParams,
   HeaderValueValidation,
 } from './headers';
 export {

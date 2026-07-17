@@ -31,6 +31,7 @@ import { Form, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 
 interface ActionValueBannerProps {
   ruleType: RuleType;
@@ -110,9 +111,9 @@ export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }
 
 /**
  * Kind → catalog key for every action issue whose copy converted. The
- * header-plane kinds (name / value / operation) delegate to core's
- * shared `headers.ts` messages and render raw until that plane
- * converts alongside the panel surface.
+ * header-plane kinds (name / value / operation) are absent by design:
+ * their issues carry core's structured `code`/`params` and resolve
+ * through the shared `headerValidationMessage` mirror instead.
  */
 const ACTION_ISSUE_KEY: Partial<Record<ActionValueIssueKind, MessageKey>> = {
   'redirect-url-whitespace': 'workbench.editors.rule.actionIssue.redirectWhitespace',
@@ -135,7 +136,7 @@ function dedupeMessages(issues: readonly ActionValueIssue[], t: Translate): stri
   const out: string[] = [];
   for (const issue of issues) {
     const key = ACTION_ISSUE_KEY[issue.kind];
-    const line = key ? t(key) : issue.message;
+    const line = key ? t(key) : headerValidationMessage(t, issue);
     if (seen.has(line)) continue;
     seen.add(line);
     out.push(line);

@@ -14,26 +14,76 @@ import type { HeaderOperation } from '../types/rule';
 
 // ── Validation result types ─────────────────────────────────────────
 
+export type HeaderDirection = 'request' | 'response';
+
+/**
+ * Structured id for every human-readable sentence this module mints.
+ * Core keeps composing the raw English `message`/`reason`/`warning`
+ * (the operational-plane fallback for SW logs and non-UI consumers);
+ * UI surfaces resolve the code through the keyed mirror in
+ * `@openheaders/ui/shared/headers` so the sentences translate.
+ */
+export type HeaderValidationCode =
+  | 'name-empty'
+  | 'name-whitespace-only'
+  | 'name-too-long'
+  | 'name-protected'
+  | 'name-invalid-characters'
+  | 'name-templated'
+  | 'name-referrer-spelling'
+  | 'value-empty'
+  | 'value-whitespace-only'
+  | 'value-too-long'
+  | 'value-null-bytes'
+  | 'value-line-folding'
+  | 'value-line-breaks'
+  | 'value-control-characters'
+  | 'value-content-type-format'
+  | 'value-non-ascii'
+  | 'append-not-allowlisted';
+
+/** Values embedded in the composed sentence, carried structurally so
+ *  the keyed mirror re-interpolates them per locale. */
+export interface HeaderValidationParams {
+  /** Header name quoted in the sentence (protected / allowlist). */
+  name?: string;
+  /** Length ceiling in the too-long sentences. */
+  max?: number;
+  /** Traffic direction named in the allowlist sentence. */
+  direction?: HeaderDirection;
+}
+
 export interface HeaderNameValidation {
   valid: boolean;
   sanitized?: string;
   warning?: string;
+  /** Structured id of `warning`, when present. */
+  warningCode?: HeaderValidationCode;
   message: string;
+  /** Structured id of `message`, when invalid. */
+  code?: HeaderValidationCode;
+  params?: HeaderValidationParams;
 }
 
 export interface HeaderValueValidation {
   valid: boolean;
   message?: string;
   warning?: string;
+  /** Structured id of `warning`, when present. */
+  warningCode?: HeaderValidationCode;
+  /** Structured id of `message`, when invalid. */
+  code?: HeaderValidationCode;
+  params?: HeaderValidationParams;
 }
-
-export type HeaderDirection = 'request' | 'response';
 
 export interface HeaderOperationCapability {
   /** Whether this (direction × operation × header) combo is valid. */
   allowed: boolean;
   /** Human-readable reason when !allowed. Empty when allowed. */
   reason: string;
+  /** Structured id of `reason`, when !allowed. */
+  code?: HeaderValidationCode;
+  params?: HeaderValidationParams;
   /** When !allowed, the best alternative operation the user should use instead. */
   suggestion?: HeaderOperation;
 }
@@ -117,17 +167,22 @@ const TEMPLATE_SEGMENT = /\{\{[^}]*\}\}/g;
  */
 export function validateHeaderName(name: string, isResponse = false): HeaderNameValidation {
   if (!name) {
-    return { valid: false, message: 'Header name cannot be empty' };
+    return { valid: false, code: 'name-empty', message: 'Header name cannot be empty' };
   }
 
   const trimmedName = name.trim();
 
   if (!trimmedName) {
-    return { valid: false, message: 'Header name cannot be only whitespace' };
+    return { valid: false, code: 'name-whitespace-only', message: 'Header name cannot be only whitespace' };
   }
 
   if (trimmedName.length > 256) {
-    return { valid: false, message: 'Header name is too long (max 256 characters)' };
+    return {
+      valid: false,
+      code: 'name-too-long',
+      params: { max: 256 },
+      message: 'Header name is too long (max 256 characters)',
+    };
   }
 
   const hasTemplate = TEMPLATE_SEGMENT.test(trimmedName);
@@ -141,6 +196,8 @@ export function validateHeaderName(name: string, isResponse = false): HeaderName
     if (forbiddenSet.has(lowerName)) {
       return {
         valid: false,
+        code: 'name-protected',
+        params: { name: trimmedName },
         message: `"${trimmedName}" is a protected header that cannot be modified by extensions`,
       };
     }
@@ -153,18 +210,22 @@ export function validateHeaderName(name: string, isResponse = false): HeaderName
   if (literalPart.length > 0 && !validHeaderNameRegex.test(literalPart)) {
     return {
       valid: false,
+      code: 'name-invalid-characters',
       message: "Header name contains invalid characters. Only letters, numbers, and -_.~!#$%&'*+^`| are allowed",
     };
   }
 
   let warning: string | undefined;
+  let warningCode: HeaderValidationCode | undefined;
   if (hasTemplate) {
     warning = 'Header name uses templates — resolved value is validated at request time.';
+    warningCode = 'name-templated';
   } else if (lowerName === 'referrer') {
     warning = 'Note: The correct spelling is "Referer" (single r)';
+    warningCode = 'name-referrer-spelling';
   }
 
-  return { valid: true, sanitized: trimmedName, warning, message: '' };
+  return { valid: true, sanitized: trimmedName, warning, warningCode, message: '' };
 }
 
 /**
@@ -172,37 +233,50 @@ export function validateHeaderName(name: string, isResponse = false): HeaderName
  */
 export function validateHeaderValue(value: string, headerName = ''): HeaderValueValidation {
   if (value === undefined || value === null || value === '') {
-    return { valid: false, message: 'Header value cannot be empty' };
+    return { valid: false, code: 'value-empty', message: 'Header value cannot be empty' };
   }
 
   if (!value.trim()) {
-    return { valid: false, message: 'Header value cannot be only whitespace' };
+    return { valid: false, code: 'value-whitespace-only', message: 'Header value cannot be only whitespace' };
   }
 
   if (value.length > 8192) {
-    return { valid: false, message: 'Header value is too long (max 8192 characters)' };
+    return {
+      valid: false,
+      code: 'value-too-long',
+      params: { max: 8192 },
+      message: 'Header value is too long (max 8192 characters)',
+    };
   }
 
   if (value.includes('\0')) {
-    return { valid: false, message: 'Header value cannot contain null bytes' };
+    return { valid: false, code: 'value-null-bytes', message: 'Header value cannot contain null bytes' };
   }
 
   if (/\r\n[\t ]/.test(value)) {
-    return { valid: false, message: 'Header value cannot contain line folding (CRLF followed by space/tab)' };
+    return {
+      valid: false,
+      code: 'value-line-folding',
+      message: 'Header value cannot contain line folding (CRLF followed by space/tab)',
+    };
   }
 
   if (/[\r\n]/.test(value)) {
-    return { valid: false, message: 'Header value cannot contain line breaks' };
+    return { valid: false, code: 'value-line-breaks', message: 'Header value cannot contain line breaks' };
   }
 
   // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — RFC 7230 header value validation
   if (/[\x00-\x08\x0A-\x1F\x7F]/.test(value)) {
-    return { valid: false, message: 'Header value contains invalid control characters' };
+    return {
+      valid: false,
+      code: 'value-control-characters',
+      message: 'Header value contains invalid control characters',
+    };
   }
 
   if (headerName.toLowerCase() === 'content-type') {
     if (!/^[\w\-/+.]+/.test(value)) {
-      return { valid: false, message: 'Content-Type header has invalid format' };
+      return { valid: false, code: 'value-content-type-format', message: 'Content-Type header has invalid format' };
     }
   }
 
@@ -210,6 +284,7 @@ export function validateHeaderValue(value: string, headerName = ''): HeaderValue
     return {
       valid: true,
       warning: 'Header value contains non-ASCII characters that may cause compatibility issues',
+      warningCode: 'value-non-ascii',
       message: '',
     };
   }
@@ -393,6 +468,8 @@ export function getHeaderOperationCapability(
     return {
       allowed: false,
       reason: nameValidation.message,
+      code: nameValidation.code,
+      params: nameValidation.params,
       suggestion: operation === 'add' ? 'override' : undefined,
     };
   }
@@ -407,6 +484,8 @@ export function getHeaderOperationCapability(
     return {
       allowed: false,
       reason: `Append is only supported on standard multi-value ${direction} headers. "${trimmed}" is not in Chrome's appendable allowlist — use Override instead, or switch to Merge for a script-based append.`,
+      code: 'append-not-allowlisted',
+      params: { name: trimmed, direction },
       suggestion: 'override',
     };
   }

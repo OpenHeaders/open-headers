@@ -14,6 +14,7 @@
 
 import type { HeaderRuleDraft } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -202,17 +203,17 @@ export function HeaderQuickCreate({
       )}
       {!nameValidation.valid && (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-          {nameValidation.message || t('panel.quickEditor.validation.invalidName')}
+          {headerValidationMessage(t, nameValidation) || t('panel.quickEditor.validation.invalidName')}
         </div>
       )}
       {!valueValidation.valid && (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-          {valueValidation.message || t('panel.quickEditor.validation.invalidValue')}
+          {headerValidationMessage(t, valueValidation) || t('panel.quickEditor.validation.invalidValue')}
         </div>
       )}
       {capability && !capability.allowed && (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-          {capability.reason}
+          {headerValidationMessage(t, capability)}
           {capability.suggestion && (
             <Button
               type="link"

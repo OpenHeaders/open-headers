@@ -33,6 +33,7 @@ import { Button, Form, Input, Select, Tabs, Typography } from 'antd';
 import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, TabPresenceBadge, useActionPaths, useEntityScope } from '@openheaders/ui/shared/awareness';
+import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import DocInfo from '../shared/DocInfo';
@@ -427,7 +428,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }
                             >
                               <WarningOutlined style={{ fontSize: 11, marginTop: 2 }} />
                               <span style={{ flex: 1 }}>
-                                {capability.reason}
+                                {headerValidationMessage(t, capability)}
                                 {capability.suggestion && (
                                   <>
                                     {' '}

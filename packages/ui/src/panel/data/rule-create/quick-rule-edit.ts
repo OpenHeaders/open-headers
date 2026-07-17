@@ -40,6 +40,7 @@ import {
   validateHeaderValue,
 } from '@openheaders/core/utils';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import { type QueryParamQuickRow, queryParamEntryFromRow } from './payload-rule-create';
 
 /** The shared tail of every quick-edit payload — the conditions-when-
@@ -286,8 +287,9 @@ export interface HeaderModRowIssue {
 /** First broken row, or null when every row would save cleanly. Same
  *  validators (and the same template pass-through — `{{…}}` resolves at
  *  runtime) as the single-mod popover and the workbench editor. Core
- *  validator sentences ride raw; only the UI fallbacks are keyed, so
- *  the caller passes its `useT()` translator (shared-module rule). */
+ *  sentences resolve keyed through the shared `headerValidationMessage`
+ *  mirror, so the caller passes its `useT()` translator
+ *  (shared-module rule). */
 export function firstHeaderModRowIssue(t: Translate, rows: readonly HeaderModQuickRow[]): HeaderModRowIssue | null {
   for (const row of rows) {
     const trimmed = row.headerName.trim();
@@ -295,17 +297,23 @@ export function firstHeaderModRowIssue(t: Translate, rows: readonly HeaderModQui
     if (!trimmed.includes('{{')) {
       const nameValidation = validateHeaderName(trimmed, row.direction === 'response');
       if (!nameValidation.valid) {
-        return { uid: row.uid, message: nameValidation.message || t('panel.quickEditor.validation.invalidName') };
+        return {
+          uid: row.uid,
+          message: headerValidationMessage(t, nameValidation) || t('panel.quickEditor.validation.invalidName'),
+        };
       }
       const capability = getHeaderOperationCapability(row.direction, row.operation, row.headerName);
       if (!capability.allowed) {
-        return { uid: row.uid, message: capability.reason, suggestion: capability.suggestion };
+        return { uid: row.uid, message: headerValidationMessage(t, capability), suggestion: capability.suggestion };
       }
     }
     if (row.operation !== 'remove' && row.value && !row.value.includes('{{')) {
       const valueValidation = validateHeaderValue(row.value, trimmed);
       if (!valueValidation.valid) {
-        return { uid: row.uid, message: valueValidation.message || t('panel.quickEditor.validation.invalidValue') };
+        return {
+          uid: row.uid,
+          message: headerValidationMessage(t, valueValidation) || t('panel.quickEditor.validation.invalidValue'),
+        };
       }
     }
   }

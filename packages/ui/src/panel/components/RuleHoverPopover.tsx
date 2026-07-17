@@ -39,6 +39,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import {
   ConflictDiffChip,
   EntityField,
@@ -459,12 +460,12 @@ export function RuleHoverPopover({
               it in one click. Name / value errors are read-only. */}
           {!nameValidation.valid && (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-              {nameValidation.message || t('panel.quickEditor.validation.invalidName')}
+              {headerValidationMessage(t, nameValidation) || t('panel.quickEditor.validation.invalidName')}
             </div>
           )}
           {!valueValidation.valid && (
             <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
-              {valueValidation.message || t('panel.quickEditor.validation.invalidValue')}
+              {headerValidationMessage(t, valueValidation) || t('panel.quickEditor.validation.invalidValue')}
             </div>
           )}
           {capability && !capability.allowed && (
@@ -476,7 +477,7 @@ export function RuleHoverPopover({
                 lineHeight: 1.4,
               }}
             >
-              {capability.reason}
+              {headerValidationMessage(t, capability)}
               {capability.suggestion && (
                 <Button
                   type="link"
