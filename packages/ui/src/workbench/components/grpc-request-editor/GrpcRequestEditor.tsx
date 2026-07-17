@@ -62,6 +62,7 @@ import { Allotment } from 'allotment';
 import { App, Button, Input, InputNumber, Select, type SelectProps, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useSettingValue } from '../../settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorHeader from '../shell/EditorHeader';
@@ -310,16 +311,29 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const activeSendIdRef = useRef<string | null>(null);
   const liveStream = useLiveGrpcStream();
 
+  // Opt-in Postman posture: a message that isn't valid JSON invokes
+  // anyway as an EMPTY message and the server answers. Default off —
+  // the executor rejects before the wire with the exact parse error.
+  const sendInvalidMessage = useSettingValue('requests.grpcSendInvalidMessage');
+
   const handleInvoke = useCallback(async () => {
     if (!entity || invoking) return;
     // The CURRENT compose state invokes — saved or not (the HTTP
     // editor's draft-send law); identity fields ride along verbatim.
+    const updates = buildGrpcRequestUpdates(draft);
+    if (sendInvalidMessage && updates.message.trim() !== '') {
+      try {
+        JSON.parse(updates.message);
+      } catch {
+        updates.message = '';
+      }
+    }
     const draftEntity: GrpcRequestEntity = {
       schemaVersion: 5,
       uid: entity.uid,
       path: entity.path,
       name: entity.name,
-      ...buildGrpcRequestUpdates(draft),
+      ...updates,
     };
     const streaming = selectedOption !== null && selectedOption.streaming !== 'unary';
     const sendId = crypto.randomUUID();
@@ -345,7 +359,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       return;
     }
     setResponse(snapshot);
-  }, [entity, invoking, draft, selectedOption, executeGrpc, liveStream, toast, t]);
+  }, [entity, invoking, draft, sendInvalidMessage, selectedOption, executeGrpc, liveStream, toast, t]);
 
   // Cancel morphs from Invoke while in flight — the host aborts the
   // exchange and the pending RPC above resolves with what arrived.

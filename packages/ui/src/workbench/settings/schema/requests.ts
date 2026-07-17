@@ -13,6 +13,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.sseEventsNewestFirst': boolean;
     'requests.sseEventsGroupByName': boolean;
     'requests.sseEventsGroupRowLimit': number;
+    'requests.grpcSendInvalidMessage': boolean;
   }
 }
 
@@ -32,6 +33,22 @@ registerSetting({
   tags: ['response', 'body', 'truncate', 'limit', 'size', 'cap'],
   scope: 'user',
   numberRange: { min: 1, max: getCurrentHost() === 'desktop' ? 100 : 10, step: 1 },
+});
+
+// gRPC invoke pre-flight: by default a message that isn't valid JSON
+// fails BEFORE the wire with the exact parse error. Opting in sends
+// the call anyway with an EMPTY message, letting the server answer
+// (typically INVALID_ARGUMENT) — the Postman posture.
+registerSetting({
+  key: 'requests.grpcSendInvalidMessage',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.grpcSendInvalidMessage.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcSendInvalidMessage.description',
+  category: 'requests',
+  tags: ['grpc', 'invoke', 'message', 'json', 'validate', 'invalid', 'preflight'],
+  scope: 'user',
 });
 
 // The SSE event list's order and grouping — written by the list's own

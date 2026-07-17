@@ -1342,6 +1342,9 @@ export const workbenchSettings = {
   'workbench.settings.def.requests.sseEventsGroupRowLimit.label': 'SSE Events: Rows per Group',
   'workbench.settings.def.requests.sseEventsGroupRowLimit.description':
     'When grouping by event name, show only this many of each group’s newest events — the window slides as new events arrive, so several groups stay watchable at once. 0 shows every event. The list toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: Send Invalid Messages',
+  'workbench.settings.def.requests.grpcSendInvalidMessage.description':
+    'When the gRPC message is not valid JSON, invoke anyway with an empty message and let the server answer — usually INVALID_ARGUMENT. Off by default: the invoke fails before the wire with the exact parse error.',
 
   // ── Rules Engine category defs ─────────────────────────────────────
   'workbench.settings.def.rulesEngine.paused.label': 'Pause Rule Execution',
