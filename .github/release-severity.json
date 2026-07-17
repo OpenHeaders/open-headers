@@ -1,5 +1,6 @@
 {
   "desktop": { "severity": "normal" },
   "daemon": { "severity": "normal" },
-  "cli": { "severity": "normal" }
+  "cli": { "severity": "normal" },
+  "extension": { "severity": "normal" }
 }

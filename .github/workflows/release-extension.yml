@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  R2_BUCKET: oh-updates
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -142,3 +145,53 @@ jobs:
           name: ${{ steps.ext_repo.outputs.tag }}
           files: apps/extension/releases/*.zip
           body_path: release_body.md
+
+      - name: Check R2 credentials
+        id: r2
+        run: |
+          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::R2 secrets not configured — versions manifest not updated this release"
+          fi
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      # Patch ONLY the extension entry of the channel's versions
+      # manifest — the desktop/cli/daemon entries ride through
+      # untouched, so this lane can never move another app's contract.
+      - name: Update extension entry on the update feed
+        if: steps.r2.outputs.enabled == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          if [[ "${{ github.ref_name }}" =~ -ext-beta\.[0-9]+$ ]]; then
+            CHANNEL=beta
+          else
+            CHANNEL=stable
+          fi
+          EXT_VERSION="${{ steps.parse_tag.outputs.version }}"
+          EXT_TAG="${{ steps.ext_repo.outputs.tag }}"
+
+          # Current manifest from the feed; a channel that has never
+          # published starts from an empty object.
+          if ! curl -fsS "https://updates.openheaders.io/versions/${CHANNEL}.json" -o current.json; then
+            echo '{}' > current.json
+          fi
+
+          node scripts/patch-versions-entry.mjs current.json extension \
+            "{\"latest\":\"${EXT_VERSION}\",\"tag\":\"${EXT_TAG}\",\"severity\":\"normal\"}" > patched.json
+          cat patched.json
+
+          aws s3 cp patched.json "s3://${R2_BUCKET}/versions/${CHANNEL}.json" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --region auto \
+            --content-type "application/json" \
+            --cache-control "public, max-age=300, must-revalidate" \
+            --no-progress

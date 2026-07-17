@@ -1,0 +1,96 @@
+# Keeps `versions/stable.json`'s extension entry honest about what the
+# browser stores actually serve (store review lags a submitted release
+# by days). Polls the stores' own machine endpoints — the same update
+# contracts the browsers use, no page scraping — and patches ONLY the
+# `extension.stores` object on the feed when something changed. A store
+# whose lookup fails keeps its previous value (the patch merges
+# key-wise, never blanks).
+name: Check Store Versions
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  R2_BUCKET: oh-updates
+  CHROME_EXT_ID: ablaikadpbfblkmhpmbbnbbfjoibeejb
+  EDGE_EXT_ID: gnbibobkkddlflknjkgcmokdlpddegpo
+  FIREFOX_SLUG: open-headers
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check R2 credentials
+        id: r2
+        run: |
+          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::R2 secrets not configured — store versions not published"
+          fi
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Look up published store versions
+        if: steps.r2.outputs.enabled == 'true'
+        id: stores
+        run: |
+          # Chrome speaks the CRX update-check protocol (the response's
+          # <updatecheck version="..."> is the live version); Edge and
+          # Firefox expose store-listing JSON.
+          CHROME=$(curl -fsS --max-time 30 "https://clients2.google.com/service/update2/crx?response=updatecheck&acceptformat=crx3&prodversion=138.0.0.0&x=id%3D${CHROME_EXT_ID}%26uc" 2>/dev/null \
+            | sed -n 's/.*updatecheck[^>]*version="\([0-9][0-9.]*\)".*/\1/p' | head -1)
+          EDGE=$(curl -fsS --max-time 30 "https://microsoftedge.microsoft.com/addons/getproductdetailsbycrxid/${EDGE_EXT_ID}" 2>/dev/null | jq -r '.version // empty')
+          FIREFOX=$(curl -fsS --max-time 30 "https://addons.mozilla.org/api/v5/addons/addon/${FIREFOX_SLUG}/" 2>/dev/null | jq -r '.current_version.version // empty')
+
+          PATCH='{}'
+          for pair in "chrome=$CHROME" "edge=$EDGE" "firefox=$FIREFOX"; do
+            KEY="${pair%%=*}"; VALUE="${pair#*=}"
+            if [ -n "$VALUE" ]; then
+              PATCH=$(echo "$PATCH" | jq -c --arg k "$KEY" --arg v "$VALUE" '. + {($k): $v}')
+            else
+              echo "::warning::${KEY} store lookup failed — keeping the previous value"
+            fi
+          done
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          echo "Store versions: $PATCH"
+
+      - name: Update feed when versions changed
+        if: steps.r2.outputs.enabled == 'true' && steps.stores.outputs.patch != '{}'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          if ! curl -fsS "https://updates.openheaders.io/versions/stable.json" -o current.json; then
+            echo '{}' > current.json
+          fi
+
+          node scripts/patch-versions-entry.mjs current.json extension \
+            "{\"stores\":${{ steps.stores.outputs.patch }}}" > patched.json
+
+          if cmp -s current.json patched.json; then
+            echo "Store versions unchanged — nothing to upload"
+            exit 0
+          fi
+          cat patched.json
+
+          aws s3 cp patched.json "s3://${R2_BUCKET}/versions/stable.json" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --region auto \
+            --content-type "application/json" \
+            --cache-control "public, max-age=300, must-revalidate" \
+            --no-progress

@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SEVERITIES = new Set(['normal', 'security']);
-const APPS = ['desktop', 'daemon', 'cli'];
+const APPS = ['desktop', 'daemon', 'cli', 'extension'];
 
 function fail(message) {
   console.error(`generate-versions-manifest: ${message}`);
@@ -53,11 +53,17 @@ function compareVersions(a, b) {
 const tag = process.argv[2];
 if (!tag?.startsWith('v')) fail(`expected the release tag as argument, got '${tag}'`);
 
+// The extension entry exists for the website's download surfaces (the
+// extension itself never checks for updates — stores own that). On the
+// stable channel it names the store-submitted version; the beta entry
+// is kept fresh by the extension-only release lane, which patches it
+// without a full release train.
 const severityByApp = readJson('.github/release-severity.json');
 const latestByApp = {
   desktop: tag.slice(1),
   daemon: readJson('apps/daemon/package.json').version,
   cli: readJson('apps/cli/package.json').version,
+  extension: readJson('apps/extension/package.json').version,
 };
 
 const manifest = {};
