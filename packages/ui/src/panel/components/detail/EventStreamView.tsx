@@ -62,6 +62,7 @@ import { SSE_COLUMNS, sseColumnMinWidth, sseGridTemplate } from './streams/sse-g
 import { type SseDisplayEvent, sseDisplayEvents } from './streams/sse-events';
 import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import StreamGridToolbar from './streams/StreamGridToolbar';
+import { StreamRowViewAction } from './streams/StreamRowViewAction';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
@@ -455,6 +456,7 @@ export default function EventStreamView({ lifecycle, source, fires, rulesByUid }
                       {ev.atMs != null ? formatStreamTime(ev.atMs) : ''}
                     </span>
                     <span className="dt-sse-row-actions">
+                      <StreamRowViewAction payload={ev.data} />
                       <button
                         type="button"
                         className="dt-btn dt-btn-primary dt-ws-action dt-ws-action--icon"

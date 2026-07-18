@@ -577,3 +577,15 @@ describe('EventStreamView — empty states and truncation', () => {
     expect(screen.getByText(/3 older events dropped/)).toBeTruthy();
   });
 });
+
+describe('EventStreamView — row view eye', () => {
+  it('a detected event payload gets the view eye; plain events stay bare', () => {
+    renderView(
+      makeSseLifecycle([
+        sse({ atMs: 1, data: btoa('sse-event@openheaders.io says hi!') }),
+        sse({ atMs: 2, data: 'plain event payload' }),
+      ]),
+    );
+    expect(screen.getAllByRole('button', { name: 'View decoded — Base64 value' })).toHaveLength(1);
+  });
+});

@@ -72,6 +72,7 @@ import MessagePreview from './streams/MessagePreview';
 import { MessagesColumnInfo, wsDirectionInfo, wsFireRailInfo } from './streams/MessagesColumnInfo';
 import { MESSAGES_VIEW_MENU_KEYS, MessagesViewMenu } from './streams/MessagesViewMenu';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
+import { StreamRowViewAction } from './streams/StreamRowViewAction';
 import { buildTextPredicate, DEFAULT_TEXT_MATCH_CONFIG, type TextMatchConfig } from '../../data/text-match';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
@@ -82,6 +83,7 @@ import {
   frameDataLabel,
   frameLengthLabel,
   opcodeDescription,
+  WS_OPCODE_TEXT,
   WS_SYNTHETIC_INDEX_BASE,
   type WsDisplayFrame,
   wsDisplayFrames,
@@ -491,6 +493,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       {formatStreamTime(m.atMs)}
                     </span>
                     <span className="dt-ws-row-actions">
+                      {m.type !== 'error' && m.opcode === WS_OPCODE_TEXT && <StreamRowViewAction payload={m.data} />}
                       <button
                         type="button"
                         className="dt-btn dt-btn-primary dt-ws-action dt-ws-action--icon"

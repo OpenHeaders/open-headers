@@ -651,3 +651,19 @@ describe('MessagesView — empty states and truncation', () => {
     expect(screen.getByText(/3 older frames dropped/)).toBeTruthy();
   });
 });
+
+describe('MessagesView — row view eye', () => {
+  it('a detected text payload gets the view eye; plain and binary rows stay bare', () => {
+    renderView(
+      makeWsLifecycle([
+        ws({ atMs: 1, data: btoa('ws-frame@openheaders.io says hi!') }),
+        ws({ atMs: 2, data: 'plain text frame' }),
+        ws({ atMs: 3, opcode: 2, data: '3q2+7w==' }),
+      ]),
+    );
+    // Exactly one eye — the base64 TEXT frame; the plain frame has no
+    // registry hit and the binary frame's cell is an opcode label, not
+    // its payload.
+    expect(screen.getAllByRole('button', { name: 'View decoded — Base64 value' })).toHaveLength(1);
+  });
+});
