@@ -36,6 +36,7 @@ import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
 import { workbench } from './workbench';
+import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const es = {
@@ -68,5 +69,6 @@ export const es = {
   ...tui,
   ...web,
   ...workbench,
+  ...workbenchDocsDebugMode,
   ...workbenchScriptPackages,
 } as const satisfies Catalog;
