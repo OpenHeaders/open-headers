@@ -214,6 +214,23 @@ describe('inject — seed and rebuild', () => {
     const updates = buildInjectRuleUpdate(codeRule, { code: 'console.log(2);' }, CONDITIONS);
     expect(updates.conditions).toBe(CONDITIONS);
   });
+
+  it('leaves the action untouched when the draft holds the other shape (source flipped elsewhere)', () => {
+    // The popover seeded {code} but another surface flipped the rule to
+    // url-source mid-edit — patching would blank the fresh sourceUrl.
+    const updates = buildInjectRuleUpdate({ ...urlRule, published: true }, { code: 'console.log(2);' }, CONDITIONS);
+    expect('action' in updates).toBe(false);
+    expect(updates.conditions).toBe(CONDITIONS);
+    expect(updates.published).toBe(true);
+    // And the mirror case: a {sourceUrl} draft against a code-source rule.
+    const mirrored = buildInjectRuleUpdate(codeRule, { sourceUrl: 'https://openheaders.io/x.js' });
+    expect('action' in mirrored).toBe(false);
+  });
+
+  it('honors a deliberate blank-out — an empty string is a value, not a missing field', () => {
+    const updates = buildInjectRuleUpdate(codeRule, { code: '' });
+    expect(updates.action?.code).toBe('');
+  });
 });
 
 describe('ws/sse messages — seed and rebuild', () => {

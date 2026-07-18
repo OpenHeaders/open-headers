@@ -20,6 +20,7 @@ import {
   seedQueryParamQuickRows,
   seedRequestBodyQuickDraft,
 } from '@openheaders/ui/panel/data/rule-create/payload-rule-create';
+import { applyQueryParamDraftOverlay } from '@openheaders/ui/workbench/draft-conditions';
 import { describe, expect, it } from 'vitest';
 
 const URL = 'https://api.openheaders.io/v1/users?page=2&sort=name';
@@ -160,6 +161,27 @@ describe('mergeQuickIntoQueryParamDraft', () => {
       { operation: 'remove-all', param: '' },
     ]);
     expect(merged.url).toBe(URL);
+  });
+});
+
+describe('hand-off → workbench overlay leg', () => {
+  it('the overlay mints exactly one uid per handed-off row — no double-mint, values verbatim', () => {
+    const rows: QueryParamQuickRow[] = [
+      { uid: 'popover-u1', operation: 'override', param: 'page', value: '%41' },
+      { uid: 'popover-u2', operation: 'remove', param: 'sort', value: '' },
+    ];
+    const merged = mergeQuickIntoQueryParamDraft(makeParamDraft(), rows);
+    // The merged draft is deliberately uid-less — a pre-entity draft has
+    // no persisted row identity; the editor owns it from overlay time.
+    expect(merged.params?.every((p) => !('uid' in p))).toBe(true);
+    const overlay: Record<string, unknown> = {};
+    applyQueryParamDraftOverlay(overlay, merged);
+    const overlayRows = overlay.queryParams as Array<{ uid: string; param: string; value: string; operation: string }>;
+    expect(overlayRows).toHaveLength(2);
+    expect(overlayRows[0]).toMatchObject({ operation: 'override', param: 'page', value: '%41' });
+    expect(overlayRows[1]).toMatchObject({ operation: 'remove', param: 'sort', value: '' });
+    expect(overlayRows[0].uid).toBeTruthy();
+    expect(overlayRows[0].uid).not.toBe(overlayRows[1].uid);
   });
 });
 

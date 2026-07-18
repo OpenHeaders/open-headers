@@ -11,7 +11,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { QueryParamRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
+import { EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -125,7 +125,12 @@ export function QueryParamQuickEditor({
     >
       {editable ? (
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
-          <QueryParamQuickRows rows={draft.rows ?? []} setRows={setRows} collectionId={collectionId} />
+          <QueryParamQuickRows
+            rows={draft.rows ?? []}
+            setRows={setRows}
+            collectionId={collectionId}
+            fieldPath={RULE_FIELD.queryParam}
+          />
         </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>

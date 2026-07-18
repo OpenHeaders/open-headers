@@ -14,7 +14,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
+import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -180,26 +180,30 @@ export function HeaderQuickEditor({
                   style={{ width: 96, flexShrink: 0 }}
                   dropdownStyle={{ zIndex: 1090 }}
                 />
-                <Select
-                  size="small"
-                  value={row.operation}
-                  onChange={(operation) => updateRow(row.uid, { operation })}
-                  options={headerOperationOptions(t)}
-                  style={{ width: 116, flexShrink: 0 }}
-                  dropdownStyle={{ zIndex: 1090 }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <TemplateInput
+                <EntityField path={RULE_FIELD.headerMod(row.direction, row.uid, 'operation')}>
+                  <Select
                     size="small"
-                    wrap
-                    maxRows={4}
-                    resizable
-                    allowClear
-                    value={row.headerName}
-                    onChange={(v) => updateRow(row.uid, { headerName: v })}
-                    placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
-                    suggestionContext={{ collectionId }}
+                    value={row.operation}
+                    onChange={(operation) => updateRow(row.uid, { operation })}
+                    options={headerOperationOptions(t)}
+                    style={{ width: 116, flexShrink: 0 }}
+                    dropdownStyle={{ zIndex: 1090 }}
                   />
+                </EntityField>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <EntityField path={RULE_FIELD.headerMod(row.direction, row.uid, 'headerName')}>
+                    <TemplateInput
+                      size="small"
+                      wrap
+                      maxRows={4}
+                      resizable
+                      allowClear
+                      value={row.headerName}
+                      onChange={(v) => updateRow(row.uid, { headerName: v })}
+                      placeholder={t('workbench.editors.rule.fields.header.namePlaceholder')}
+                      suggestionContext={{ collectionId }}
+                    />
+                  </EntityField>
                 </div>
                 <Button
                   type="text"
@@ -213,44 +217,48 @@ export function HeaderQuickEditor({
               {row.operation !== 'remove' && (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <DetectedValueInput
-                      editorVariant="compact"
-                      onOpenDocument={documentOpenerFor(row)}
-                      size="small"
-                      wrap
-                      maxRows={4}
-                      resizable
-                      allowClear
-                      value={row.value}
-                      onChange={(v) => updateRow(row.uid, { value: v })}
-                      placeholder={t(
-                        row.operation === 'merge'
-                          ? 'workbench.editors.rule.fields.header.appendValuePlaceholder'
-                          : 'workbench.editors.rule.fields.header.valuePlaceholder',
-                      )}
-                      suggestionContext={{ collectionId }}
-                      style={{ width: '100%' }}
-                    />
+                    <EntityField path={RULE_FIELD.headerMod(row.direction, row.uid, 'value')}>
+                      <DetectedValueInput
+                        editorVariant="compact"
+                        onOpenDocument={documentOpenerFor(row)}
+                        size="small"
+                        wrap
+                        maxRows={4}
+                        resizable
+                        allowClear
+                        value={row.value}
+                        onChange={(v) => updateRow(row.uid, { value: v })}
+                        placeholder={t(
+                          row.operation === 'merge'
+                            ? 'workbench.editors.rule.fields.header.appendValuePlaceholder'
+                            : 'workbench.editors.rule.fields.header.valuePlaceholder',
+                        )}
+                        suggestionContext={{ collectionId }}
+                        style={{ width: '100%' }}
+                      />
+                    </EntityField>
                   </div>
                   {row.operation === 'merge' && (
-                    <input
-                      type="text"
-                      value={row.mergeSeparator ?? ''}
-                      onChange={(e) => updateRow(row.uid, { mergeSeparator: e.target.value })}
-                      placeholder="; "
-                      title={t('panel.quickEditor.header.mergeSeparatorTitle')}
-                      style={{
-                        width: 36,
-                        textAlign: 'center',
-                        fontFamily: token.fontFamilyCode,
-                        fontSize: 12,
-                        border: `1px solid ${token.colorBorder}`,
-                        borderRadius: token.borderRadius,
-                        padding: '0 4px',
-                        height: 24,
-                        flexShrink: 0,
-                      }}
-                    />
+                    <EntityField path={RULE_FIELD.headerMod(row.direction, row.uid, 'mergeSeparator')}>
+                      <input
+                        type="text"
+                        value={row.mergeSeparator ?? ''}
+                        onChange={(e) => updateRow(row.uid, { mergeSeparator: e.target.value })}
+                        placeholder="; "
+                        title={t('panel.quickEditor.header.mergeSeparatorTitle')}
+                        style={{
+                          width: 36,
+                          textAlign: 'center',
+                          fontFamily: token.fontFamilyCode,
+                          fontSize: 12,
+                          border: `1px solid ${token.colorBorder}`,
+                          borderRadius: token.borderRadius,
+                          padding: '0 4px',
+                          height: 24,
+                          flexShrink: 0,
+                        }}
+                      />
+                    </EntityField>
                   )}
                 </div>
               )}

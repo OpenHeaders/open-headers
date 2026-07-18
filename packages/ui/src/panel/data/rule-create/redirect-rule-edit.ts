@@ -10,6 +10,7 @@
  */
 
 import type { RedirectRule, RuleCondition } from '@openheaders/core/types';
+import { quickEditBase } from './quick-rule-edit';
 
 export interface RedirectQuickEditDraft {
   redirectTo: string;
@@ -28,8 +29,6 @@ export function buildRedirectRuleUpdate(
       ...rule.action,
       redirectTo: draft.redirectTo,
     },
-    ...(conditions ? { conditions } : {}),
-    // Keep a published rule published in the SAME batch (see file header).
-    ...(rule.published === true ? { published: true } : {}),
+    ...quickEditBase(rule, conditions),
   };
 }

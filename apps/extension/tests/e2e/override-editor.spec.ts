@@ -42,6 +42,17 @@
  *      frame bytes exactly
  *   7  sse event override — the EventStream grid's per-event Override,
  *      same invariant against a captured event's data
+ *
+ * P7 scalar legs — the CTAs whose wire effect is cheaply assertable via
+ * the playground (query-param stays unit-pinned: the accepted DNR
+ * re-encode normalization makes byte assertions there dishonest):
+ *
+ *   8  header override — the Headers-tab row's Override seeds the
+ *      hovered name/value verbatim, and the edited value is what the
+ *      extension actually sends (`/echo`'s reflected headers)
+ *   9  redirect — the `Redirect ▾` CTA seeds the domain-scoped variable
+ *      reference (save-gated while unresolved); a literal target
+ *      redirects on the wire (`fetch(...).url` is the landing URL)
  */
 
 import path from 'node:path';
@@ -76,6 +87,17 @@ const WS_URL_PATH = '/net/ws-echo';
 const WS_FRAME_BODY = '{"marker":"OH_WS_FIDELITY","big":9007199254740993,"pi":1.0,"op":"subscribe"}';
 const SSE_PATH = '/net/sse/4?ms=50';
 const SSE_EVENT_BODY = '{"seq":2}';
+
+// Leg 8: /echo reflects the request headers — the echoed header is the
+// wire truth for what the extension actually sent.
+const HEADER_ECHO_PATH = '/echo?case=oh-ovr-header';
+const PROBE_HEADER = 'x-oh-probe';
+const PROBE_HEADER_ORIGINAL = 'original-value';
+const PROBE_HEADER_OVERRIDE = 'oh-overridden-value';
+// Leg 9: fetch follows the DNR redirect, so `res.url` is the wire truth
+// for where the request landed.
+const REDIRECT_ECHO_PATH = '/echo?case=oh-ovr-redirect';
+const REDIRECT_TARGET = 'http://127.0.0.1:3000/probe/json?case=oh-redirect-landed';
 
 // Leg 4: the tab document's Raw-mode body is stored AS IS (the
 // wire-space builder law), so the served bytes are exactly this line.
@@ -169,7 +191,13 @@ interface StoredRule {
   type: string;
   name?: string;
   published?: boolean;
-  action?: { responseBody?: string; requestBody?: string; payload?: string };
+  action?: {
+    responseBody?: string;
+    requestBody?: string;
+    payload?: string;
+    redirectTo?: string;
+    requestHeaders?: Array<{ operation: string; headerName: string; value?: string }>;
+  };
 }
 
 /** The stored response rule whose body is byte-equal to `body`. */
@@ -188,6 +216,28 @@ async function findRequestBodyRuleByBody(body: string): Promise<StoredRule | und
 async function findMessageRuleByPayload(type: 'ws' | 'sse', payload: string): Promise<StoredRule | undefined> {
   const res = await workbench.rpc<{ rules: StoredRule[] }>('getLocalRules');
   return res.rules.find((r) => r.type === type && r.action?.payload === payload);
+}
+
+/** The stored header rule carrying a request mod with this exact value. */
+async function findHeaderRuleByValue(value: string): Promise<StoredRule | undefined> {
+  const res = await workbench.rpc<{ rules: StoredRule[] }>('getLocalRules');
+  return res.rules.find((r) => r.type === 'header' && (r.action?.requestHeaders ?? []).some((m) => m.value === value));
+}
+
+/** The stored redirect rule whose target is byte-equal to `target`. */
+async function findRedirectRuleByTarget(target: string): Promise<StoredRule | undefined> {
+  const res = await workbench.rpc<{ rules: StoredRule[] }>('getLocalRules');
+  return res.rules.find((r) => r.type === 'redirect' && r.action?.redirectTo === target);
+}
+
+/** Single-line bulk replace in one of the popover's contentEditable
+ *  template fields (header value / redirect target) — same
+ *  no-stray-Escape discipline as the Monaco fills. */
+async function fillEditable(field: Locator, text: string): Promise<void> {
+  await field.click();
+  await panelPage.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await panelPage.keyboard.press('Backspace');
+  await panelPage.keyboard.insertText(text);
 }
 
 /** The rule-editor document body (the active editor-group document). */
@@ -558,4 +608,97 @@ test('an sse event override seeds the event verbatim and a no-edit Save stores t
   await expect
     .poll(async () => (await findMessageRuleByPayload('sse', SSE_EVENT_BODY))?.published, { timeout: 15_000 })
     .toBe(true);
+});
+
+/** GET /echo with the probe header set by the page and return the header
+ *  the server received — the wire truth for what was actually sent. */
+function fetchEchoHeader(): Promise<string | null> {
+  return playgroundPage.evaluate(
+    async ({ p, name, value }: { p: string; name: string; value: string }) => {
+      const res = await fetch(p, { headers: { [name]: value }, cache: 'no-store' });
+      const json = (await res.json()) as { headers: Record<string, string | undefined> };
+      return json.headers[name] ?? null;
+    },
+    { p: HEADER_ECHO_PATH, name: PROBE_HEADER, value: PROBE_HEADER_ORIGINAL },
+  );
+}
+
+test('a header-row Override seeds name and value verbatim and the edited value rides the wire', async () => {
+  test.setTimeout(90_000);
+  await expect(async () => {
+    expect(await fetchEchoHeader()).toBe(PROBE_HEADER_ORIGINAL);
+    await expect(rowFor('oh-ovr-header')).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+  await rowFor('oh-ovr-header').click();
+  await openSection('Headers');
+
+  // The probe header's request-header row — actions are hover-revealed
+  // (same hit-test gate as the ws/sse rows).
+  const headerRow = panelPage.locator('.dt-kv-row').filter({ hasText: PROBE_HEADER }).first();
+  await expect(headerRow).toBeVisible({ timeout: 15_000 });
+  await headerRow.hover();
+  await headerRow.locator('button').filter({ hasText: 'Override' }).click();
+  await expect(popover()).toBeVisible();
+
+  // Verbatim seed: the clicked row's name and value, untouched.
+  await expect(popover()).toContainText(PROBE_HEADER);
+  const valueField = popover().locator('[contenteditable="true"]').filter({ hasText: PROBE_HEADER_ORIGINAL }).first();
+  await expect(valueField).toBeVisible();
+
+  await fillEditable(valueField, PROBE_HEADER_OVERRIDE);
+  const save = popover().getByRole('button', { name: /Save$/ });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
+  await expect
+    .poll(async () => (await findHeaderRuleByValue(PROBE_HEADER_OVERRIDE))?.published, { timeout: 15_000 })
+    .toBe(true);
+
+  // Wire truth: the page keeps sending the ORIGINAL value; the echo
+  // reflects the override the extension applied.
+  await expect.poll(() => fetchEchoHeader(), { timeout: 20_000 }).toBe(PROBE_HEADER_OVERRIDE);
+});
+
+/** GET the redirect-covered path and reflect where it landed. */
+function fetchRedirected(): Promise<{ url: string; text: string }> {
+  return playgroundPage.evaluate(async (p: string) => {
+    const res = await fetch(p, { cache: 'no-store' });
+    const text = await res.text();
+    return { url: res.url, text };
+  }, REDIRECT_ECHO_PATH);
+}
+
+test('the Redirect CTA gates on its unresolved variable seed and a literal target redirects on the wire', async () => {
+  test.setTimeout(90_000);
+  await expect(async () => {
+    await fetchServed(REDIRECT_ECHO_PATH);
+    await expect(rowFor('oh-ovr-redirect')).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+  await rowFor('oh-ovr-redirect').click();
+  await openSection('Headers');
+
+  await panelPage.locator('.dt-header-general-ctas button').filter({ hasText: 'Redirect' }).click();
+  await panelPage.getByRole('menuitem', { name: /Redirect URL/ }).click();
+  await expect(popover()).toBeVisible();
+
+  // Variant-aware seed: the domain-scoped variable reference; while it
+  // doesn't resolve, the save gate holds (a published redirect with an
+  // unresolvable template would silently never fire).
+  await expect(popover()).toContainText('redirect_url_127_0_0_1');
+  await expect(popover().getByRole('button', { name: /Save$/ })).toBeDisabled();
+
+  const target = popover().locator('[contenteditable="true"]').filter({ hasText: 'redirect_url' }).first();
+  await fillEditable(target, REDIRECT_TARGET);
+  const save = popover().getByRole('button', { name: /Save$/ });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
+  await expect
+    .poll(async () => (await findRedirectRuleByTarget(REDIRECT_TARGET))?.published, { timeout: 15_000 })
+    .toBe(true);
+
+  // Wire truth: the fetch lands on the redirect target.
+  await expect.poll(async () => (await fetchRedirected()).url, { timeout: 20_000 }).toBe(REDIRECT_TARGET);
+  const landed = await fetchRedirected();
+  expect(landed.text).toContain('OH_PROBE_JSON_OK');
 });

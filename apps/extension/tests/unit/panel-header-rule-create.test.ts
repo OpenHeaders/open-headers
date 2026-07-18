@@ -49,6 +49,29 @@ describe('seedHeaderQuickDraft', () => {
       value: '',
     });
   });
+
+  it('seeds the captured name and value VERBATIM — no trim or case drift', () => {
+    const draft = makeDraft({
+      responseHeaders: [{ operation: 'override', headerName: 'X-Custom-Header', value: '  spaced value\t' }],
+    });
+    expect(seedHeaderQuickDraft(draft, 'response')).toEqual({
+      operation: 'override',
+      headerName: 'X-Custom-Header',
+      value: '  spaced value\t',
+    });
+  });
+
+  it('keeps a captured merge separator on the seed', () => {
+    const draft = makeDraft({
+      responseHeaders: [{ operation: 'merge', headerName: 'vary', value: 'accept', mergeSeparator: '; ' }],
+    });
+    expect(seedHeaderQuickDraft(draft, 'response')).toEqual({
+      operation: 'merge',
+      headerName: 'vary',
+      value: 'accept',
+      mergeSeparator: '; ',
+    });
+  });
 });
 
 describe('mergeQuickIntoHeaderDraft', () => {
@@ -71,6 +94,17 @@ describe('mergeQuickIntoHeaderDraft', () => {
       'response',
     );
     expect(merged.responseHeaders).toEqual([{ operation: 'remove', headerName: 'cache-control' }]);
+  });
+
+  it('carries the merge separator through the hand-off', () => {
+    const merged = mergeQuickIntoHeaderDraft(
+      makeDraft(),
+      { operation: 'merge', headerName: 'vary', value: 'accept', mergeSeparator: '; ' },
+      'response',
+    );
+    expect(merged.responseHeaders).toEqual([
+      { operation: 'merge', headerName: 'vary', value: 'accept', mergeSeparator: '; ' },
+    ]);
   });
 });
 

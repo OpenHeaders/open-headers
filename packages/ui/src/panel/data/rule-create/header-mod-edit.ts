@@ -16,6 +16,7 @@
  */
 
 import type { HeaderModification, HeaderRule, RuleCondition } from '@openheaders/core/types';
+import { quickEditBase } from './quick-rule-edit';
 
 export interface HeaderModDraft {
   operation: HeaderModification['operation'];
@@ -66,9 +67,7 @@ export function buildHeaderModUpdate(
       requestHeaders: direction === 'request' ? next : rule.action.requestHeaders,
       responseHeaders: direction === 'response' ? next : rule.action.responseHeaders,
     },
-    ...(conditions ? { conditions } : {}),
-    // Keep a published rule published in the SAME batch (see file header).
-    ...(rule.published === true ? { published: true } : {}),
+    ...quickEditBase(rule, conditions),
   };
   return { ok: true, updates };
 }
@@ -101,7 +100,7 @@ export function buildHeaderModValueUpdate(
       requestHeaders: direction === 'request' ? next : rule.action.requestHeaders,
       responseHeaders: direction === 'response' ? next : rule.action.responseHeaders,
     },
-    ...(rule.published === true ? { published: true } : {}),
+    ...quickEditBase(rule),
   };
   return { ok: true, updates };
 }

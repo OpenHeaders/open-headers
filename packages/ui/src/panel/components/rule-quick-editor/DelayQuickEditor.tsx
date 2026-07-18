@@ -9,7 +9,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { DelayRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
+import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
@@ -105,22 +105,24 @@ export function DelayQuickEditor({
       visible={visible}
     >
       {editable ? (
-        <>
+        <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
               {t('workbench.editors.rule.fields.delay.label')}
             </Text>
-            <InputNumber
-              size="small"
-              min={1}
-              max={30000}
-              step={100}
-              addonAfter="ms"
-              style={{ width: 160 }}
-              placeholder="1000"
-              value={draft.delayMs}
-              onChange={(v) => updateDraft({ delayMs: v })}
-            />
+            <EntityField path={RULE_FIELD.delayMs}>
+              <InputNumber
+                size="small"
+                min={1}
+                max={30000}
+                step={100}
+                addonAfter="ms"
+                style={{ width: 160 }}
+                placeholder="1000"
+                value={draft.delayMs}
+                onChange={(v) => updateDraft({ delayMs: v })}
+              />
+            </EntityField>
             <Text type="secondary" style={{ fontSize: 11 }}>
               {t('workbench.editors.rule.fields.delay.maxNote')}
             </Text>
@@ -128,7 +130,7 @@ export function DelayQuickEditor({
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {t('panel.quickEditor.delay.hint')}
           </div>
-        </>
+        </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
           {t('panel.quickEditor.openToInspect')}

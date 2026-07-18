@@ -44,8 +44,13 @@ import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import { type QueryParamQuickRow, queryParamEntryFromRow } from './payload-rule-create';
 
 /** The shared tail of every quick-edit payload — the conditions-when-
- *  dirty rule and the publication carry (see file header). */
-function quickEditBase(rule: Rule, conditions?: RuleCondition[]): Partial<Pick<Rule, 'conditions' | 'published'>> {
+ *  dirty rule and the publication carry (see file header). Exported so
+ *  the sibling edit builders (`redirect-rule-edit.ts`,
+ *  `header-mod-edit.ts`) share the one implementation. */
+export function quickEditBase(
+  rule: Rule,
+  conditions?: RuleCondition[],
+): Partial<Pick<Rule, 'conditions' | 'published'>> {
   return {
     ...(conditions ? { conditions } : {}),
     ...(rule.published === true ? { published: true } : {}),
@@ -140,15 +145,26 @@ export function seedInjectDraft(rule: InjectRule): InjectQuickEditDraft {
 }
 
 /** The action rebuild preserves the fields the compact editor doesn't
- *  surface (language, code source, position, CSP bypass). */
+ *  surface (language, code source, position, CSP bypass). The patched
+ *  field follows the rule's LIVE code source; when the draft doesn't
+ *  carry that field — another surface flipped the source while this
+ *  popover held the other shape — the action stays untouched rather
+ *  than blanking the freshly-set field (mod-detached parity). */
 export function buildInjectRuleUpdate(
   rule: InjectRule,
   draft: InjectQuickEditDraft,
   conditions?: RuleCondition[],
 ): Partial<InjectRule> {
-  const actionPatch = rule.action.source === 'url' ? { sourceUrl: draft.sourceUrl ?? '' } : { code: draft.code ?? '' };
+  const actionPatch =
+    rule.action.source === 'url'
+      ? draft.sourceUrl !== undefined
+        ? { sourceUrl: draft.sourceUrl }
+        : null
+      : draft.code !== undefined
+        ? { code: draft.code }
+        : null;
   return {
-    action: { ...rule.action, ...actionPatch },
+    ...(actionPatch ? { action: { ...rule.action, ...actionPatch } } : {}),
     ...quickEditBase(rule, conditions),
   };
 }
