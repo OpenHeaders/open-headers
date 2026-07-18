@@ -16,9 +16,11 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import type { PostmanWorkspacePreview } from '@openheaders/core/import';
+import type { MessageKey } from '@openheaders/i18n';
 import { Alert, Button, Checkbox, Input, type InputRef, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { setBackgroundTasksPanelOpen } from '@openheaders/ui/shared/background-tasks';
 import PostmanKeySteps from './PostmanKeySteps';
 
@@ -29,15 +31,15 @@ const { Text, Paragraph } = Typography;
  * environment counts), so there is no real progress to stream — a quip
  * ticker with an elapsed timer keeps the wait honest instead.
  */
-const LISTING_QUIPS = [
-  'Contacting your Postman account',
-  'Counting collections',
-  'Weighing environments',
-  'Wrangling workspaces',
-  'Alphabetizing folders',
-  'Sniffing out requests',
-  'Untangling variables',
-  'Stacking headers',
+const LISTING_QUIP_KEYS: readonly MessageKey[] = [
+  'workbench.importExport.pull.quipContacting',
+  'workbench.importExport.pull.quipCounting',
+  'workbench.importExport.pull.quipWeighing',
+  'workbench.importExport.pull.quipWrangling',
+  'workbench.importExport.pull.quipAlphabetizing',
+  'workbench.importExport.pull.quipSniffing',
+  'workbench.importExport.pull.quipUntangling',
+  'workbench.importExport.pull.quipStacking',
 ];
 
 const QUIP_SECONDS = 3;
@@ -48,6 +50,7 @@ const STAR_FRAME_MS = 300;
 
 const WorkingTicker: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
   const [tick, setTick] = useState(0);
   const [frame, setFrame] = useState(0);
 
@@ -60,7 +63,7 @@ const WorkingTicker: React.FC = () => {
     };
   }, []);
 
-  const quip = LISTING_QUIPS[Math.floor(tick / QUIP_SECONDS) % LISTING_QUIPS.length];
+  const quip = t(LISTING_QUIP_KEYS[Math.floor(tick / QUIP_SECONDS) % LISTING_QUIP_KEYS.length]);
   const elapsed = tick >= 60 ? `${Math.floor(tick / 60)}m ${tick % 60}s` : `${tick}s`;
   return (
     <Text type="secondary" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center' }}>
@@ -110,6 +113,7 @@ interface PostmanPullStepperProps {
 }
 
 const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPhaseChange }) => {
+  const t = useT();
   const [apiKey, setApiKey] = useState('');
   const [listing, setListing] = useState(false);
   const [listReason, setListReason] = useState<string | null>(null);
@@ -151,9 +155,9 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
           setListReason(result.reason);
         }
       })
-      .catch(() => setListReason('The workspaces could not be listed.'))
+      .catch(() => setListReason(t('workbench.importExport.pull.listFailed')))
       .finally(() => setListing(false));
-  }, [apiKey]);
+  }, [apiKey, t]);
 
   const startPull = useCallback(() => {
     const key = apiKey.trim();
@@ -170,12 +174,12 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
           setBackgroundTasksPanelOpen(true);
           onStarted();
         } else {
-          setStartReason(result.reason ?? 'The import could not start.');
+          setStartReason(result.reason ?? t('workbench.importExport.pull.startFailed'));
         }
       })
-      .catch(() => setStartReason('The import could not start.'))
+      .catch(() => setStartReason(t('workbench.importExport.pull.startFailed')))
       .finally(() => setStarting(false));
-  }, [apiKey, selected, onStarted]);
+  }, [apiKey, selected, onStarted, t]);
 
   const toggle = useCallback((id: string, checked: boolean) => {
     setSelected((current) => (checked ? [...current, id] : current.filter((entry) => entry !== id)));
@@ -185,7 +189,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
     return (
       <div style={{ textAlign: 'center' }}>
         <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-          Paste a Postman API key (Settings → API keys) to list your workspaces and pick which ones to import.
+          {t('workbench.importExport.pull.keyIntro')}
         </Paragraph>
         <div style={{ display: 'flex', gap: 8, maxWidth: 520, margin: '0 auto' }}>
           <Input.Password
@@ -196,7 +200,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
             onPressEnter={listAccountWorkspaces}
             placeholder="PMAK-…"
             autoComplete="off"
-            aria-label="Postman API key"
+            aria-label={t('workbench.importExport.pull.keyAria')}
             style={{ flex: 1 }}
           />
           <Button
@@ -205,7 +209,7 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
             disabled={apiKey.trim().length === 0}
             onClick={listAccountWorkspaces}
           >
-            List workspaces
+            {t('workbench.importExport.pull.listCta')}
           </Button>
         </div>
         {listing && (
@@ -222,12 +226,12 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
   return (
     <div>
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-        Each selected Postman workspace lands in its own workspace, keeping its exact name, with an end-of-run report.
+        {t('workbench.importExport.pull.pickIntro')}
       </Paragraph>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
         {workspaces.length === 0 ? (
           <Text type="secondary" style={{ fontSize: 12 }}>
-            No workspaces found on this account.
+            {t('workbench.importExport.pull.noWorkspaces')}
           </Text>
         ) : (
           workspaces.map((workspace) => (
@@ -238,7 +242,10 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
             >
               <Text strong>{workspace.name}</Text>{' '}
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {workspace.collections} collections · {workspace.environments} environments
+                {t('workbench.importExport.pull.workspaceCounts', {
+                  collections: workspace.collections,
+                  environments: workspace.environments,
+                })}
               </Text>
             </Checkbox>
           ))
@@ -246,10 +253,10 @@ const PostmanPullStepper: React.FC<PostmanPullStepperProps> = ({ onStarted, onPh
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Button type="primary" loading={starting} disabled={selected.length === 0} onClick={startPull}>
-          Import selected
+          {t('workbench.importExport.pull.importCta')}
         </Button>
         <Button type="text" onClick={() => setWorkspaces(null)}>
-          Back
+          {t('workbench.importExport.pull.back')}
         </Button>
       </div>
       {startReason && <Alert type="error" showIcon message={startReason} style={{ marginTop: 8 }} />}

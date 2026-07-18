@@ -12,6 +12,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
@@ -44,97 +45,107 @@ const FrameChrome: React.FC = () => (
 );
 
 /** Step 1 — postman.co with the top-right account menu open on Account settings. */
-const AccountMenuGlyph: React.FC = () => (
-  <svg viewBox="0 0 120 62" width={GLYPH_W} height={GLYPH_H} aria-hidden="true" style={{ flexShrink: 0 }}>
-    <rect x={1} y={1} width={118} height={60} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
-    <FrameChrome />
-    {/* Address bar with the postman.co URL */}
-    <rect x={6} y={12} width={108} height={9} rx={4.5} fill={FILL_TERTIARY} />
-    <text x={13} y={18.4} fontSize={5.5} fill={TEXT_DIM} fontFamily={MONO}>
-      postman.co
-    </text>
-    {/* Top-right gear — the menu's anchor */}
-    <circle cx={106} cy={26} r={4} fill="none" stroke={PRIMARY} strokeWidth={1.4} />
-    <circle cx={106} cy={26} r={1.4} fill={PRIMARY} />
-    {/* Dropdown anchored under the gear: caret notch, panel, two dim
-        menu rows, separator, then the hover-lit "Account settings" row */}
-    <rect x={52} y={32.5} width={62} height={26} rx={3} fill={BG_CONTAINER} stroke={BORDER} />
-    <path d="M 102.5 33 L 106 29.8 L 109.5 33" fill={BG_CONTAINER} stroke={BORDER} strokeWidth={0.8} />
-    <rect x={57} y={36.5} width={30} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
-    <rect x={57} y={42} width={38} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
-    <line x1={52} y1={46.5} x2={114} y2={46.5} stroke={BORDER} strokeWidth={0.6} />
-    <rect x={53.5} y={48} width={59} height={9} rx={2} fill={FILL_TERTIARY} />
-    <text x={57} y={54.3} fontSize={5.2} fontWeight={700} fill={TEXT}>
-      Account settings
-    </text>
-    {/* Faded page body behind the menu */}
-    <g opacity={0.4}>
-      {[0, 1].map((i) => (
-        <rect key={i} x={8} y={30 + i * 7} width={40 - i * 12} height={3} rx={1.5} fill={FILL_TERTIARY} />
-      ))}
-    </g>
-  </svg>
-);
+const AccountMenuGlyph: React.FC = () => {
+  const t = useT();
+  return (
+    <svg viewBox="0 0 120 62" width={GLYPH_W} height={GLYPH_H} aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x={1} y={1} width={118} height={60} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
+      <FrameChrome />
+      {/* Address bar with the postman.co URL */}
+      <rect x={6} y={12} width={108} height={9} rx={4.5} fill={FILL_TERTIARY} />
+      <text x={13} y={18.4} fontSize={5.5} fill={TEXT_DIM} fontFamily={MONO}>
+        postman.co
+      </text>
+      {/* Top-right gear — the menu's anchor */}
+      <circle cx={106} cy={26} r={4} fill="none" stroke={PRIMARY} strokeWidth={1.4} />
+      <circle cx={106} cy={26} r={1.4} fill={PRIMARY} />
+      {/* Dropdown anchored under the gear: caret notch, panel, two dim
+          menu rows, separator, then the hover-lit "Account settings" row */}
+      <rect x={52} y={32.5} width={62} height={26} rx={3} fill={BG_CONTAINER} stroke={BORDER} />
+      <path d="M 102.5 33 L 106 29.8 L 109.5 33" fill={BG_CONTAINER} stroke={BORDER} strokeWidth={0.8} />
+      <rect x={57} y={36.5} width={30} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
+      <rect x={57} y={42} width={38} height={2.8} rx={1.4} fill={FILL_SECONDARY} />
+      <line x1={52} y1={46.5} x2={114} y2={46.5} stroke={BORDER} strokeWidth={0.6} />
+      <rect x={53.5} y={48} width={59} height={9} rx={2} fill={FILL_TERTIARY} />
+      <text x={57} y={54.3} fontSize={5.2} fontWeight={700} fill={TEXT}>
+        {t('workbench.importExport.pull.steps.glyphAccountSettings')}
+      </text>
+      {/* Faded page body behind the menu */}
+      <g opacity={0.4}>
+        {[0, 1].map((i) => (
+          <rect key={i} x={8} y={30 + i * 7} width={40 - i * 12} height={3} rx={1.5} fill={FILL_TERTIARY} />
+        ))}
+      </g>
+    </svg>
+  );
+};
 
 /** Step 2 — the API keys settings page with Generate API key lit. */
-const GenerateKeyGlyph: React.FC = () => (
-  <svg viewBox="0 0 120 62" width={GLYPH_W} height={GLYPH_H} aria-hidden="true" style={{ flexShrink: 0 }}>
-    <rect x={1} y={1} width={118} height={60} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
-    <FrameChrome />
-    {/* Left sidebar — dim rows, "API keys" lit at the bottom */}
-    <rect x={1} y={9} width={34} height={52} fill={FILL_SECONDARY} opacity={0.6} />
-    {[0, 1, 2].map((i) => (
-      <rect key={i} x={6} y={15 + i * 8} width={22 - i * 4} height={3} rx={1.5} fill={FILL_TERTIARY} />
-    ))}
-    <rect x={4} y={39} width={28} height={9} rx={2} fill={BG_CONTAINER} stroke={PRIMARY} strokeWidth={0.8} />
-    <text x={7} y={45.4} fontSize={5} fontWeight={700} fill={TEXT}>
-      API keys
-    </text>
-    {/* Page heading + Generate API key button */}
-    <rect x={42} y={15} width={30} height={3.4} rx={1.7} fill={FILL_SECONDARY} />
-    <rect x={42} y={22} width={48} height={2.6} rx={1.3} fill={FILL_TERTIARY} />
-    <rect x={64} y={30} width={50} height={11} rx={2.5} fill={POSTMAN_ORANGE} />
-    <text x={89} y={37.4} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#fff">
-      Generate API key
-    </text>
-    {/* Existing key rows, faded */}
-    <g opacity={0.4}>
-      {[0, 1].map((i) => (
-        <rect key={i} x={42} y={47 + i * 6} width={72 - i * 18} height={3} rx={1.5} fill={FILL_TERTIARY} />
+const GenerateKeyGlyph: React.FC = () => {
+  const t = useT();
+  return (
+    <svg viewBox="0 0 120 62" width={GLYPH_W} height={GLYPH_H} aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x={1} y={1} width={118} height={60} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
+      <FrameChrome />
+      {/* Left sidebar — dim rows, "API keys" lit at the bottom */}
+      <rect x={1} y={9} width={34} height={52} fill={FILL_SECONDARY} opacity={0.6} />
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={6} y={15 + i * 8} width={22 - i * 4} height={3} rx={1.5} fill={FILL_TERTIARY} />
       ))}
-    </g>
-  </svg>
-);
+      <rect x={4} y={39} width={28} height={9} rx={2} fill={BG_CONTAINER} stroke={PRIMARY} strokeWidth={0.8} />
+      <text x={7} y={45.4} fontSize={5} fontWeight={700} fill={TEXT}>
+        {t('workbench.importExport.pull.steps.glyphApiKeys')}
+      </text>
+      {/* Page heading + Generate API key button */}
+      <rect x={42} y={15} width={30} height={3.4} rx={1.7} fill={FILL_SECONDARY} />
+      <rect x={42} y={22} width={48} height={2.6} rx={1.3} fill={FILL_TERTIARY} />
+      <rect x={64} y={30} width={50} height={11} rx={2.5} fill={POSTMAN_ORANGE} />
+      <text x={89} y={37.4} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#fff">
+        {t('workbench.importExport.pull.steps.glyphGenerate')}
+      </text>
+      {/* Existing key rows, faded */}
+      <g opacity={0.4}>
+        {[0, 1].map((i) => (
+          <rect key={i} x={42} y={47 + i * 6} width={72 - i * 18} height={3} rx={1.5} fill={FILL_TERTIARY} />
+        ))}
+      </g>
+    </svg>
+  );
+};
 
 /** Step 3 — the one-time "Copy your API key" dialog with the PMAK value. */
-const CopyKeyGlyph: React.FC = () => (
-  <svg viewBox="0 0 120 62" width={GLYPH_W} height={GLYPH_H} aria-hidden="true" style={{ flexShrink: 0 }}>
-    <rect x={1} y={1} width={118} height={60} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
-    <FrameChrome />
-    {/* Centered dialog */}
-    <rect x={14} y={13} width={92} height={44} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
-    <rect x={20} y={18} width={44} height={3.4} rx={1.7} fill={FILL_SECONDARY} />
-    {/* One-time warning stripe */}
-    <rect x={20} y={25} width={80} height={8} rx={2} fill={WARNING} opacity={0.18} />
-    <path d="M 24 31 L 26.5 26.5 L 29 31 Z" fill={WARNING} />
-    <rect x={32} y={28} width={56} height={2.4} rx={1.2} fill={FILL_SECONDARY} />
-    {/* Key field with the PMAK value + copy icon */}
-    <rect x={20} y={37} width={80} height={9} rx={2} fill={FILL_TERTIARY} />
-    <text x={24} y={43.4} fontSize={5.5} fontWeight={700} fill={TEXT} fontFamily={MONO}>
-      PMAK-6a59e…
-    </text>
-    <rect x={88} y={39} width={5} height={5} rx={1} fill="none" stroke={TEXT_DIM} strokeWidth={0.9} />
-    <rect x={90} y={41} width={5} height={5} rx={1} fill={FILL_TERTIARY} stroke={TEXT_DIM} strokeWidth={0.9} />
-    {/* Copy to Clipboard — the step's action */}
-    <rect x={54} y={49} width={46} height={6.5} rx={2} fill={POSTMAN_ORANGE} />
-    <text x={77} y={53.8} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#fff">
-      Copy to Clipboard
-    </text>
-  </svg>
-);
+const CopyKeyGlyph: React.FC = () => {
+  const t = useT();
+  return (
+    <svg viewBox="0 0 120 62" width={GLYPH_W} height={GLYPH_H} aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x={1} y={1} width={118} height={60} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
+      <FrameChrome />
+      {/* Centered dialog */}
+      <rect x={14} y={13} width={92} height={44} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
+      <rect x={20} y={18} width={44} height={3.4} rx={1.7} fill={FILL_SECONDARY} />
+      {/* One-time warning stripe */}
+      <rect x={20} y={25} width={80} height={8} rx={2} fill={WARNING} opacity={0.18} />
+      <path d="M 24 31 L 26.5 26.5 L 29 31 Z" fill={WARNING} />
+      <rect x={32} y={28} width={56} height={2.4} rx={1.2} fill={FILL_SECONDARY} />
+      {/* Key field with the PMAK value + copy icon */}
+      <rect x={20} y={37} width={80} height={9} rx={2} fill={FILL_TERTIARY} />
+      <text x={24} y={43.4} fontSize={5.5} fontWeight={700} fill={TEXT} fontFamily={MONO}>
+        PMAK-6a59e…
+      </text>
+      <rect x={88} y={39} width={5} height={5} rx={1} fill="none" stroke={TEXT_DIM} strokeWidth={0.9} />
+      <rect x={90} y={41} width={5} height={5} rx={1} fill={FILL_TERTIARY} stroke={TEXT_DIM} strokeWidth={0.9} />
+      {/* Copy to Clipboard — the step's action */}
+      <rect x={54} y={49} width={46} height={6.5} rx={2} fill={POSTMAN_ORANGE} />
+      <text x={77} y={53.8} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#fff">
+        {t('workbench.importExport.pull.steps.glyphCopy')}
+      </text>
+    </svg>
+  );
+};
 
 const PostmanKeySteps: React.FC = () => {
   const { token } = theme.useToken();
+  const t = useT();
 
   const stepIndex: React.CSSProperties = {
     flexShrink: 0,
@@ -208,24 +219,21 @@ const PostmanKeySteps: React.FC = () => {
         <span style={stepIndex}>1</span>
         <AccountMenuGlyph />
       </div>
-      {caption([
-        'In the Postman app or on postman.co,',
-        'open the top-right settings menu and choose Account settings.',
-      ])}
+      {caption([t('workbench.importExport.pull.steps.menuA'), t('workbench.importExport.pull.steps.menuB')])}
     </div>,
     <div key="generate" style={stepCard} data-testid="oh-postman-key-step-generate">
       <div style={glyphRow}>
         <span style={stepIndex}>2</span>
         <GenerateKeyGlyph />
       </div>
-      {caption(['Pick API keys in the sidebar,', 'then Generate API key.'])}
+      {caption([t('workbench.importExport.pull.steps.generateA'), t('workbench.importExport.pull.steps.generateB')])}
     </div>,
     <div key="copy" style={stepCard} data-testid="oh-postman-key-step-copy">
       <div style={glyphRow}>
         <span style={stepIndex}>3</span>
         <CopyKeyGlyph />
       </div>
-      {caption(['Copy the key — it is shown only once —', 'and paste it above.'])}
+      {caption([t('workbench.importExport.pull.steps.copyA'), t('workbench.importExport.pull.steps.copyB')])}
     </div>,
   ];
 

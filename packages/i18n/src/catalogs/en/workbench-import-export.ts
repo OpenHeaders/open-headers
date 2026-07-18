@@ -415,6 +415,41 @@ export const workbenchImportExport = {
   'workbench.importExport.migrate.closeAnyway': 'Close anyway',
   'workbench.importExport.migrate.discardAndClose': 'Discard and close',
 
+  // ── Postman account pull (PostmanPullStepper + PostmanKeySteps) ────
+  // The steps.glyph* values depict Postman's own UI inside the
+  // walkthrough glyphs — translate to match Postman's UI language
+  // where it localizes; otherwise keep the English labels.
+  'workbench.importExport.pull.keyIntro':
+    'Paste a Postman API key to list your workspaces and pick which ones to import.',
+  'workbench.importExport.pull.keyAria': 'Postman API key',
+  'workbench.importExport.pull.listCta': 'List workspaces',
+  'workbench.importExport.pull.listFailed': 'The workspaces could not be listed.',
+  'workbench.importExport.pull.startFailed': 'The import could not start.',
+  'workbench.importExport.pull.quipContacting': 'Contacting your Postman account',
+  'workbench.importExport.pull.quipCounting': 'Counting collections',
+  'workbench.importExport.pull.quipWeighing': 'Weighing environments',
+  'workbench.importExport.pull.quipWrangling': 'Wrangling workspaces',
+  'workbench.importExport.pull.quipAlphabetizing': 'Alphabetizing folders',
+  'workbench.importExport.pull.quipSniffing': 'Sniffing out requests',
+  'workbench.importExport.pull.quipUntangling': 'Untangling variables',
+  'workbench.importExport.pull.quipStacking': 'Stacking headers',
+  'workbench.importExport.pull.pickIntro':
+    'Each selected Postman workspace lands in its own workspace, keeping its exact name, with an end-of-run report.',
+  'workbench.importExport.pull.noWorkspaces': 'No workspaces found on this account.',
+  'workbench.importExport.pull.workspaceCounts': '{collections} collections · {environments} environments',
+  'workbench.importExport.pull.importCta': 'Import selected',
+  'workbench.importExport.pull.back': 'Back',
+  'workbench.importExport.pull.steps.menuA': 'In the Postman app or https://postman.co',
+  'workbench.importExport.pull.steps.menuB': 'Settings menu → Account settings',
+  'workbench.importExport.pull.steps.generateA': 'Left sidebar → API keys',
+  'workbench.importExport.pull.steps.generateB': 'Generate API key',
+  'workbench.importExport.pull.steps.copyA': 'Put a random name → Generate API key',
+  'workbench.importExport.pull.steps.copyB': 'Copy the key → Paste it above',
+  'workbench.importExport.pull.steps.glyphAccountSettings': 'Account settings',
+  'workbench.importExport.pull.steps.glyphApiKeys': 'API keys',
+  'workbench.importExport.pull.steps.glyphGenerate': 'Generate API key',
+  'workbench.importExport.pull.steps.glyphCopy': 'Copy to Clipboard',
+
   // ── Detection details table ────────────────────────────────────────
   'workbench.importExport.detection.vendorCol': 'Vendor',
   'workbench.importExport.detection.dataFoundCol': 'Data found',
