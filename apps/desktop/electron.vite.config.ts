@@ -95,6 +95,22 @@ function stripTestIdPropsPlugin(): Plugin {
     },
   };
 }
+/**
+ * License-enforcement modules are emitted as their own main-process
+ * chunk (`license-core.js`) in every build, so the graph shape never
+ * differs between channels; release builds then compile that chunk to
+ * V8 bytecode (`scripts/build/compile-license-bytecode.mjs`) and leave
+ * a require stub in its place. Matches both source and dist paths of
+ * the workspace packages (vite resolves the `import` condition to
+ * `src/`, but keep `dist/` covered).
+ */
+const licenseModulePatterns = [
+  /[\\/](?:packages|@openheaders)[\\/]core[\\/](?:src|dist)[\\/]licensing[\\/]/,
+  /[\\/](?:packages|@openheaders)[\\/]core[\\/](?:src|dist)[\\/]identity[\\/]daemon-users\.(?:ts|js)/,
+  /[\\/](?:packages|@openheaders)[\\/]oracle-host-node[\\/](?:src|dist)[\\/]daemon[\\/]license-(?:slot|refresh-agent)\.(?:ts|js)/,
+];
+const isLicenseModule = (id: string): boolean => licenseModulePatterns.some((pattern) => pattern.test(id));
+
 const releaseTerserOptions = {
   compress: {
     passes: 2,
@@ -138,6 +154,9 @@ export default defineConfig({
       rollupOptions: {
         output: {
           entryFileNames: '[name].js',
+          // The bytecode compile step needs a stable filename to find.
+          chunkFileNames: (chunk) => (chunk.name === 'license-core' ? 'license-core.js' : '[name]-[hash].js'),
+          manualChunks: (id) => (isLicenseModule(id) ? 'license-core' : undefined),
         },
         onwarn(warning, warn) {
           // Suppress mixed static/dynamic import warnings — these are intentional lazy-load patterns

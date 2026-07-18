@@ -106,6 +106,9 @@ importers:
       better-sqlite3:
         specifier: ^12.10.0
         version: 12.10.0
+      bytenode:
+        specifier: ^1.6.0
+        version: 1.6.0
       chokidar:
         specifier: ^3.5.3
         version: 3.6.0
@@ -2572,6 +2575,10 @@ packages:
 
   builder-util@25.1.7:
     resolution: {integrity: sha512-7jPjzBwEGRbwNcep0gGNpLXG9P94VA3CPAZQCzxkFXiV2GMQKlziMbY//rXPI7WKfhsvGgFXjTcXdBEwgXw9ww==}
+
+  bytenode@1.6.0:
+    resolution: {integrity: sha512-4FAoCc0ixe18UCqlQr1hJKb3o6tNN6J35e+NCu62W87sVqGkW+6lL0FEwv0hYojqDM/6SunCllc9mZOYnDhjhA==}
+    hasBin: true
 
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
@@ -7075,6 +7082,8 @@ snapshots:
       temp-file: 3.4.0
     transitivePeerDependencies:
       - supports-color
+
+  bytenode@1.6.0: {}
 
   bytes@3.1.2: {}
 

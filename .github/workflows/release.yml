@@ -28,6 +28,14 @@ jobs:
   build-desktop:
     if: ${{ !contains(github.ref_name, '-ext') }}
     runs-on: ${{ matrix.os }}
+    # Shipped-artifact hardening (terser passes, strip-testid runtime,
+    # debug-console removal, license-chunk bytecode) — release pipeline
+    # only, so local production builds and the e2e target stay
+    # untouched. Job-level because the dist:* scripts rebuild via
+    # predist: a step-level env on an earlier build step gets its
+    # output silently overwritten by that rebuild.
+    env:
+      OH_DESKTOP_CHANNEL: release
     strategy:
       # One OS leg failing must not cancel the others — the release job
       # publishes whatever legs produced artifacts.
@@ -120,10 +128,6 @@ jobs:
         run: pnpm --filter @openheaders/desktop build
         env:
           NODE_ENV: production
-          # Shipped-artifact hardening (terser passes, strip-testid
-          # runtime, debug-console removal) — release pipeline only, so
-          # local production builds and the e2e target stay untouched.
-          OH_DESKTOP_CHANNEL: release
 
       - name: Setup macOS code signing
         if: matrix.os == 'macos-latest'
