@@ -15,6 +15,7 @@ import { panelInspectorCookies } from './panel-inspector-cookies';
 import { panelInspectorHeaders } from './panel-inspector-headers';
 import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelNetwork } from './panel-network';
+import { panelStorage } from './panel-storage';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -40,6 +41,7 @@ export const es = {
   ...panelInspectorHeaders,
   ...panelInspectorStreams,
   ...panelNetwork,
+  ...panelStorage,
   ...popup,
   ...shared,
   ...sharedAwareness,
