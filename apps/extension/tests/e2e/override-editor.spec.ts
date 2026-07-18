@@ -107,13 +107,16 @@ async function popoverBodyText(): Promise<string> {
   return (await popoverBody().locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
 }
 
-/** Single-line bulk replace in the popover's Monaco body. */
+/** Single-line bulk replace in the popover's Monaco body. NO
+ *  suggest-dismissing Escape — it would bubble to the popover shell and
+ *  close it under the next click (the fillMonacoWithin modal trap); the
+ *  Save click below lands outside Monaco, which closes a stray suggest
+ *  widget harmlessly. */
 async function fillPopoverBody(text: string): Promise<void> {
   await popoverBody().click();
   await panelPage.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await panelPage.keyboard.press('Backspace');
   await panelPage.keyboard.insertText(text);
-  await panelPage.keyboard.press('Escape');
 }
 
 /** Newest traffic row whose text carries `marker`. */
