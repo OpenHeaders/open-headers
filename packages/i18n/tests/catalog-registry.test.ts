@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getCatalog, getTranslator, isCatalogLoaded, loadCatalog } from '../src/catalog-registry';
 import { en } from '../src/catalogs/en';
 import { DEFAULT_LOCALE, LOCALES, PSEUDO_LOCALE } from '../src/locales';
+import { createTranslator } from '../src/runtime';
 import type { Catalog } from '../src/types';
 
 describe('getCatalog', () => {
@@ -49,15 +50,18 @@ describe('loadCatalog', () => {
     expect(getTranslator('fr')('shared.count.rules', { count: 2 })).toBe('2 règles');
   });
 
-  it('falls back to English per key while a locale catalog is partial', async () => {
+  it('falls back to English per key while a locale catalog is partial', () => {
+    const partial: Catalog = { 'shared.action.save': 'Enregistrer' };
+    const t = createTranslator('fr', partial, en);
+    expect(t('shared.action.save')).toBe('Enregistrer');
+    expect(t('shared.action.cancel')).toBe(en['shared.action.cancel']);
+  });
+
+  it('serves French for every string key once the catalog is complete', async () => {
     await loadCatalog('fr');
     const frCatalog = getCatalog('fr');
-    const source: Catalog = en;
-    const pending = Object.keys(source).find((key) => !(key in frCatalog) && typeof source[key] === 'string');
-    expect(pending).toBeDefined();
-    if (pending !== undefined) {
-      expect(getTranslator('fr')(pending)).toBe(source[pending]);
-    }
+    const pending = Object.keys(en).filter((key) => !(key in frCatalog));
+    expect(pending).toEqual([]);
   });
 });
 
