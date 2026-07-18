@@ -7,7 +7,9 @@
  * ConfigProvider (ThemeProvider's inner ConfigProvider inherits it, so
  * mount order is LocaleProvider outside ThemeProvider). Switching
  * language swaps the catalog in place — no reload; other open surfaces
- * follow through the settings store's cross-context sync.
+ * follow through the settings store's cross-context sync. Code-split
+ * locale catalogs load on demand: English renders for the load tick,
+ * then the translator swaps in.
  *
  * The pre-provider default translates through the English catalog, so
  * components render correctly in tests and in trees mounted without
@@ -20,10 +22,13 @@ import {
   DEFAULT_LOCALE,
   getLocaleDef,
   getTranslator,
+  isCatalogLoaded,
+  loadCatalog,
   type LocaleDirection,
   type MessageArgs,
   type MessageKey,
   resolveLocale,
+  type Translator,
 } from '@openheaders/i18n';
 // Concrete module, not the settings barrel — same chunk-level
 // import-cycle constraint as ThemeContext.
@@ -32,7 +37,7 @@ import { ConfigProvider } from 'antd';
 import type { Locale as AntdLocale } from 'antd/es/locale';
 import enUS from 'antd/locale/en_US';
 import type React from 'react';
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 /** Typed translation function — keys are checked against the English catalog. */
 export type Translate = (key: MessageKey, args?: MessageArgs) => string;
@@ -77,7 +82,28 @@ export const LocaleProvider: React.FC<LocaleProviderProps> = ({ children }) => {
 
   const direction: LocaleDirection = getLocaleDef(locale)?.direction ?? 'ltr';
 
-  const value = useMemo<LocaleContextValue>(() => ({ locale, direction, t: getTranslator(locale) }), [locale, direction]);
+  // Code-split locales arrive async: English renders during the load
+  // tick, then the loaded translator swaps in via this state. English
+  // and pseudo (and already-loaded locales) keep the synchronous path.
+  const [loadedTranslator, setLoadedTranslator] = useState<Translator>();
+  useEffect(() => {
+    if (isCatalogLoaded(locale)) return undefined;
+    let alive = true;
+    loadCatalog(locale).then(
+      () => {
+        if (alive) setLoadedTranslator(() => getTranslator(locale));
+      },
+      // A failed chunk load leaves the English fallback in place.
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [locale]);
+
+  const t = loadedTranslator !== undefined && loadedTranslator.locale === locale ? loadedTranslator : getTranslator(locale);
+
+  const value = useMemo<LocaleContextValue>(() => ({ locale, direction, t }), [locale, direction, t]);
 
   // Mirror the resolved locale onto the document so plain-CSS surfaces
   // and the browser's own behaviors (spellcheck, hyphenation) follow.
