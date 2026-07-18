@@ -39,6 +39,7 @@ export type EntityPostState = Partial<
     | 'folderPostState'
     | 'requestPostState'
     | 'grpcRequestPostState'
+    | 'websocketRequestPostState'
     | 'requestCollectionPostState'
     | 'requestFolderPostState'
     | 'templatePostState'

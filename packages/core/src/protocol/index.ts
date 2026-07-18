@@ -117,6 +117,7 @@ export type {
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
   SyncVaultPostState,
+  SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
 } from './sync-bridge';
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';

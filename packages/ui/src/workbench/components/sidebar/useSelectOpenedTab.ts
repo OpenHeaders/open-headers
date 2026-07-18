@@ -134,7 +134,8 @@ export function useSelectOpenedTab({
       (activeTabId.startsWith('request-') ||
         activeTabId.startsWith('resp-example-') ||
         activeTabId.startsWith('grpc-request-') ||
-        activeTabId.startsWith('grpc-example-')) &&
+        activeTabId.startsWith('grpc-example-') ||
+        activeTabId.startsWith('websocket-request-')) &&
       view === 'api-requests'
     ) {
       nodeId = activeTabId;
@@ -144,7 +145,11 @@ export function useSelectOpenedTab({
       // Both leaf families (HTTP + gRPC) share the tree; the parent
       // node-id prefix follows the family.
       const isExample = activeTabId.startsWith('resp-example-') || activeTabId.startsWith('grpc-example-');
-      const parentPrefix = activeTabId.startsWith('grpc-') ? 'grpc-request-' : 'request-';
+      const parentPrefix = activeTabId.startsWith('grpc-')
+        ? 'grpc-request-'
+        : activeTabId.startsWith('websocket-request-')
+          ? 'websocket-request-'
+          : 'request-';
       const targetUid = activeTabId.startsWith('resp-example-')
         ? (resolveResponseExampleParent?.(activeTabId.replace('resp-example-', '')) ?? null)
         : activeTabId.startsWith('grpc-example-')
@@ -156,7 +161,11 @@ export function useSelectOpenedTab({
         const colKey = `req-col-${col.uid}`;
         const walk = (nodes: TreeNode[], trail: string[]): string[] | null => {
           for (const n of nodes) {
-            if ((n.type === 'request' || n.type === 'grpc-request') && n.uid === targetUid) return trail;
+            if (
+              (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
+              n.uid === targetUid
+            )
+              return trail;
             if (n.type === 'folder') {
               const r = walk(n.children, [...trail, `req-folder-${n.uid}`]);
               if (r) return r;

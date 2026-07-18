@@ -71,6 +71,14 @@ function makeRequestsValue(overrides: Partial<RequestsContextValue> = {}): Reque
     createGrpcRequest: vi.fn(async () => null),
     updateGrpcRequest: vi.fn(async () => ({ ok: false as const, reason: 'other' as const, message: 'not wired' })),
     deleteGrpcRequest: vi.fn(async () => false),
+    websocketRequests: [],
+    createWebSocketRequest: vi.fn(async () => null),
+    updateWebSocketRequest: vi.fn(async () => ({
+      ok: false as const,
+      reason: 'other' as const,
+      message: 'not wired',
+    })),
+    deleteWebSocketRequest: vi.fn(async () => false),
     createCollection: vi.fn(async () => null),
     renameCollection: vi.fn(async () => false),
     deleteCollection: vi.fn(async () => false),
@@ -97,6 +105,7 @@ function renderCollectionOverview(): { onSelectGrpcRequest: ReturnType<typeof vi
         collectionUid="col00001"
         onSelectRequest={vi.fn()}
         onSelectGrpcRequest={onSelectGrpcRequest}
+        onSelectWebSocketRequest={vi.fn()}
         onCreateRequest={vi.fn()}
         onOpenFolderOverview={vi.fn()}
       />
@@ -113,6 +122,7 @@ function renderFolderOverview(): { onSelectGrpcRequest: ReturnType<typeof vi.fn>
         folderUid="fld00001"
         onSelectRequest={vi.fn()}
         onSelectGrpcRequest={onSelectGrpcRequest}
+        onSelectWebSocketRequest={vi.fn()}
         onCreateRequest={vi.fn()}
         onOpenFolderOverview={vi.fn()}
       />

@@ -33,6 +33,7 @@ export type {
   SpecLink,
   TemplateNode,
   TreeNode,
+  WebSocketRequestNode,
 } from './collection';
 export type {
   JsonArray,
@@ -302,6 +303,16 @@ export type { ActiveRule, RuleVerdict, SilentMatchRecord } from './verdict';
 // ── View mode (popup vs sidepanel) ────────────────────────────────
 export type { ViewMode } from './view-mode';
 export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';
+// ── WebSocket request ──────────────────────────────────────────────
+export type {
+  WebSocketFlavor,
+  WebSocketHeaderPair,
+  WebSocketMessageFormat,
+  WebSocketQueryParam,
+  WebSocketRequest,
+  WebSocketRequestSeed,
+  WebSocketSpecLink,
+} from './websocket-request';
 // ── Workspace ──────────────────────────────────────────────────────
 export type { Workspace, WorkspaceSection } from './workspace';
 // ── Workspace export selection ─────────────────────────────────────

@@ -229,6 +229,8 @@ export const workbenchChrome = {
   'workbench.shell.tabLabel.collectionAuth': '{name} · Authorization',
   'workbench.shell.tabLabel.newRequest': 'New Request',
   'workbench.shell.tabLabel.newGrpcRequest': 'New gRPC Request',
+  'workbench.shell.tabLabel.newWebSocketRequest': 'New WebSocket Request',
+  'workbench.shell.tabLabel.newSocketIoRequest': 'New Socket.IO Request',
   'workbench.shell.tabLabel.newWorkflow': 'New Workflow',
   'workbench.shell.tabLabel.newLiveVariable': 'New Live Variable',
 

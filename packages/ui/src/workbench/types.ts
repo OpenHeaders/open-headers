@@ -42,6 +42,7 @@ export type TabMode =
   | 'request-edit'
   | 'request-create'
   | 'grpc-edit'
+  | 'websocket-edit'
   | 'response-example'
   | 'grpc-response-example'
   | 'rule-create'
@@ -140,6 +141,8 @@ export interface WorkbenchTab {
    *  grpc-response-example tabs: the parent gRPC request's uid (drives
    *  the breadcrumb trail through the request tree). */
   grpcRequestUid?: string;
+  /** For websocket-edit tabs: the WebSocketRequest uid being edited. */
+  websocketRequestUid?: string;
   /** For response-example tabs: the frozen example being viewed. */
   responseExampleUid?: string;
   /** For grpc-response-example tabs: the captured example being viewed. */

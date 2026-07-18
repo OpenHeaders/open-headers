@@ -71,6 +71,9 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
   VAULT_PATH,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_HEADERS_PATH,
+  WEBSOCKET_REQUEST_PARAMS_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
@@ -101,6 +104,7 @@ import { createTemplateCache } from './caches/template-cache';
 import { createTemplateCollectionCache } from './caches/template-collection-cache';
 import { createTemplateFolderCache } from './caches/template-folder-cache';
 import { createVaultCache } from './caches/vault-cache';
+import { createWebSocketRequestCache } from './caches/websocket-request-cache';
 import { createWorkspaceVariablesCache } from './caches/workspace-variables-cache';
 import type { EntityOracle } from './oracle';
 import { projectCollectionByUid, projectCollectionPostState } from './post-state/collection-post-state';
@@ -143,6 +147,10 @@ import {
 import { projectTemplateFolderByUid, projectTemplateFolderPostState } from './post-state/template-folder-post-state';
 import { projectTemplateByUid, projectTemplatePostState } from './post-state/template-post-state';
 import { projectVaultPostState, projectVaultSingleton } from './post-state/vault-post-state';
+import {
+  projectWebSocketRequestByUid,
+  projectWebSocketRequestPostState,
+} from './post-state/websocket-request-post-state';
 import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
@@ -348,6 +356,15 @@ export const GRPC_REQUEST_REGISTRATION = flatEntity({
   setPaths: [GRPC_REQUEST_METADATA_PATH],
 });
 
+export const WEBSOCKET_REQUEST_REGISTRATION = flatEntity({
+  entityType: WEBSOCKET_REQUEST_ENTITY_TYPE,
+  createCache: createWebSocketRequestCache,
+  postStateKey: 'websocketRequestPostState',
+  projectPostState: projectWebSocketRequestPostState,
+  projectByUid: projectWebSocketRequestByUid,
+  setPaths: [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH],
+});
+
 export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   entityType: REQUEST_COLLECTION_ENTITY_TYPE,
   createCache: createRequestCollectionCache,
@@ -518,6 +535,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   VAULT_REGISTRATION,
   REQUEST_REGISTRATION,
   GRPC_REQUEST_REGISTRATION,
+  WEBSOCKET_REQUEST_REGISTRATION,
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   RESPONSE_EXAMPLE_REGISTRATION,

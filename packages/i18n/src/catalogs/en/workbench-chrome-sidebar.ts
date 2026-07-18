@@ -58,6 +58,8 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.menu.addRule': 'Add Rule',
   'workbench.sidebar.menu.addRequest': 'Add Request',
   'workbench.sidebar.menu.addGrpcRequest': 'Add gRPC Request',
+  'workbench.sidebar.menu.addWebSocketRequest': 'Add WebSocket Request',
+  'workbench.sidebar.menu.addSocketIoRequest': 'Add Socket.IO Request',
   'workbench.sidebar.menu.addFolder': 'Add Folder',
   'workbench.sidebar.menu.rename': 'Rename',
   'workbench.sidebar.menu.editVariables': 'Edit Variables',

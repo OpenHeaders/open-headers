@@ -31,6 +31,7 @@ import type {
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
   SyncVaultPostState,
+  SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import type { FieldOrigin, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
@@ -64,6 +65,7 @@ export interface OracleSyncBroadcastEvent {
   folderPostState?: SyncFolderPostState;
   requestPostState?: SyncRequestPostState;
   grpcRequestPostState?: SyncGrpcRequestPostState;
+  websocketRequestPostState?: SyncWebSocketRequestPostState;
   requestCollectionPostState?: SyncRequestCollectionPostState;
   requestFolderPostState?: SyncRequestFolderPostState;
   templatePostState?: SyncTemplatePostState;

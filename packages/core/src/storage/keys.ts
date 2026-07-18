@@ -48,6 +48,7 @@ import type {
   Template,
   Vault,
   ViewMode,
+  WebSocketRequest,
   WorkspaceRoleAssignment,
   WorkspaceVariables,
 } from '../types';
@@ -396,6 +397,7 @@ export interface WorkspaceKeys {
   folders: StorageKey<PersistedLocalFolder[]>;
   requests: StorageKey<Request[]>;
   grpcRequests: StorageKey<GrpcRequest[]>;
+  websocketRequests: StorageKey<WebSocketRequest[]>;
   requestCollections: StorageKey<Collection[]>;
   requestFolders: StorageKey<PersistedLocalFolder[]>;
   templates: StorageKey<Template[]>;
@@ -577,6 +579,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     folders: storageKey<PersistedLocalFolder[]>(`${p}.folders`),
     requests: storageKey<Request[]>(`${p}.requests`),
     grpcRequests: storageKey<GrpcRequest[]>(`${p}.grpcRequests`),
+    websocketRequests: storageKey<WebSocketRequest[]>(`${p}.websocketRequests`),
     requestCollections: storageKey<Collection[]>(`${p}.requestCollections`),
     requestFolders: storageKey<PersistedLocalFolder[]>(`${p}.requestFolders`),
     templates: storageKey<Template[]>(`${p}.templates`),

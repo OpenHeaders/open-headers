@@ -78,6 +78,33 @@ export function grpcTag(muted = false): React.ReactNode {
   );
 }
 
+/** Compact WebSocket tag used as the leaf "icon" for WebSocket request
+ *  rows — same footprint as {@link methodTag} so all kinds align in
+ *  the tree. The label follows the flavor (WS / SIO — the Postman
+ *  request-family anatomy). `muted` greys the tag to signal an
+ *  incomplete (draft) request. */
+export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.ReactNode {
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-ws, #0f766e)';
+  return createElement(
+    'span',
+    {
+      key: 'websocket',
+      style: {
+        display: 'inline-block',
+        minWidth: 44,
+        fontSize: 9,
+        fontWeight: 700,
+        color,
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'right',
+        opacity: muted ? 0.7 : 1,
+        flexShrink: 0,
+      },
+    },
+    flavor === 'socketio' ? 'SIO' : 'WS',
+  );
+}
+
 /** The shared "e.g." chip, right-aligned inside the {@link methodTag}
  *  footprint so example labels align with sibling request labels. */
 export function exampleTag(): React.ReactNode {

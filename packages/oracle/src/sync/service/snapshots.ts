@@ -28,6 +28,7 @@ import type {
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
   SyncVaultPostState,
+  SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import {
@@ -57,6 +58,7 @@ import {
   TEMPLATE_FOLDER_REGISTRATION,
   TEMPLATE_REGISTRATION,
   VAULT_REGISTRATION,
+  WEBSOCKET_REQUEST_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
 } from '../entity-registry';
 import type { EntityOracle } from '../oracle';
@@ -124,6 +126,11 @@ export function snapshotRequestPostStates(workspaceId?: string): SyncRequestPost
 export function snapshotGrpcRequestPostStates(workspaceId?: string): SyncGrpcRequestPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, GRPC_REQUEST_REGISTRATION) : [];
+}
+
+export function snapshotWebSocketRequestPostStates(workspaceId?: string): SyncWebSocketRequestPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, WEBSOCKET_REQUEST_REGISTRATION) : [];
 }
 
 export function snapshotRequestCollectionPostStates(workspaceId?: string): SyncRequestCollectionPostState[] {

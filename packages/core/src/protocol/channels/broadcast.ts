@@ -45,6 +45,7 @@ import type {
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
   SyncVaultPostState,
+  SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
@@ -332,6 +333,13 @@ export interface BridgeBroadcastContract {
      * round-tripping.
      */
     grpcRequestPostState?: SyncGrpcRequestPostState;
+    /**
+     * Post-commit projection for WebSocketRequest envelopes. Renderer
+     * mirrors fold this so the WebSocket editor sees post-commit shape
+     * + live itemIds for the set-modeled `headers` / `params` paths
+     * without round-tripping.
+     */
+    websocketRequestPostState?: SyncWebSocketRequestPostState;
     /**
      * Post-commit projection for request-collection envelopes (Phase B).
      * Mirrors fold this so the request sidebar sees post-commit shape

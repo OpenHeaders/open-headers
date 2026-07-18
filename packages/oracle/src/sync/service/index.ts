@@ -88,6 +88,7 @@ export {
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,
   snapshotVaultPostStates,
+  snapshotWebSocketRequestPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from './snapshots';
 export {

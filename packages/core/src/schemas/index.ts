@@ -176,6 +176,17 @@ export {
   WorkspaceVariablesSchema,
 } from './variable';
 export {
+  MAX_WEBSOCKET_URL_LENGTH,
+  WebSocketFlavorSchema,
+  WebSocketHeaderPairSchema,
+  WebSocketMessageFormatSchema,
+  WebSocketQueryParamSchema,
+  WebSocketRequestSchema,
+  WebSocketRequestSeedSchema,
+  WebSocketSpecLinkSchema,
+  WebSocketUrlSchema,
+} from './websocket-request';
+export {
   ExtensionWorkspaceImportedFromSchema,
   ExtensionWorkspaceKindSchema,
   ExtensionWorkspaceSchema,

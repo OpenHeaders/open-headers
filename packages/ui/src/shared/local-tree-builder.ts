@@ -25,6 +25,7 @@ import type {
   Rule,
   Template,
   TreeNode,
+  WebSocketRequest,
 } from '@openheaders/core/types';
 
 function parentPathOf(path: string): string {
@@ -79,14 +80,20 @@ export function buildRequestCollectionTrees(
   folders: PersistedLocalFolder[],
   requests: Request[],
   grpcRequests: GrpcRequest[] = [],
+  websocketRequests: WebSocketRequest[] = [],
 ): CollectionTree[] {
-  // Both request kinds share the collection tree (S8 scope law:
-  // collections hold both). Leaves are merged per parent — HTTP
-  // requests first, gRPC requests after, each in array order.
-  type RequestLeaf = { kind: 'http'; entity: Request } | { kind: 'grpc'; entity: GrpcRequest };
+  // All request kinds share the collection tree (S8 scope law:
+  // collections hold every request family). Leaves are merged per
+  // parent — HTTP requests first, then gRPC, then WebSocket, each in
+  // array order.
+  type RequestLeaf =
+    | { kind: 'http'; entity: Request }
+    | { kind: 'grpc'; entity: GrpcRequest }
+    | { kind: 'websocket'; entity: WebSocketRequest };
   const leaves: RequestLeaf[] = [
     ...requests.map((entity): RequestLeaf => ({ kind: 'http', entity })),
     ...grpcRequests.map((entity): RequestLeaf => ({ kind: 'grpc', entity })),
+    ...websocketRequests.map((entity): RequestLeaf => ({ kind: 'websocket', entity })),
   ];
   return collections.map((collection) => ({
     ...collection,
@@ -104,7 +111,15 @@ export function buildRequestCollectionTrees(
               path: leaf.entity.path,
               method: leaf.entity.method,
             }
-          : { type: 'grpc-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path },
+          : leaf.kind === 'grpc'
+            ? { type: 'grpc-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path }
+            : {
+                type: 'websocket-request',
+                uid: leaf.entity.uid,
+                name: leaf.entity.name,
+                path: leaf.entity.path,
+                flavor: leaf.entity.flavor,
+              },
     ),
   }));
 }

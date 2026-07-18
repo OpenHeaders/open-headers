@@ -374,6 +374,16 @@ export {
   VAULT_PATH,
 } from './vault';
 export {
+  type DeleteWebSocketRequestArgs,
+  deleteWebSocketRequest,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_HEADERS_PATH,
+  WEBSOCKET_REQUEST_MUTATOR_VERSION,
+  WEBSOCKET_REQUEST_PARAMS_PATH,
+  type WebSocketHeaderPairRow,
+  type WebSocketQueryParamRow,
+} from './websocket-request';
+export {
   invalidateResolverIntent as workspaceVariablesInvalidateResolverIntent,
   type RemoveWorkspaceVarArgs,
   removeWorkspaceVar,

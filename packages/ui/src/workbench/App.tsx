@@ -526,6 +526,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateRequestTab,
     openGrpcRequestEditTab,
     openCreateGrpcRequestTab,
+    openWebSocketRequestEditTab,
+    openCreateWebSocketRequestTab,
     openResponseExampleTab,
     openGrpcResponseExampleTab,
     openDuplicateRuleScratch,
@@ -1072,6 +1074,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openResponseExampleTab={openResponseExampleTab}
         openGrpcResponseExampleTab={openGrpcResponseExampleTab}
         openGrpcRequestEditTab={openGrpcRequestEditTab}
+        openWebSocketRequestEditTab={openWebSocketRequestEditTab}
         handleSwitchWorkspace={handleSwitchWorkspace}
         onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
         onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -1110,6 +1113,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openResponseExampleTab,
       openGrpcResponseExampleTab,
       openGrpcRequestEditTab,
+      openWebSocketRequestEditTab,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,
@@ -1268,6 +1272,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateRequestTab={openCreateRequestTab}
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
+        openWebSocketRequestEditTab={openWebSocketRequestEditTab}
+        openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
         openResponseExampleTab={openResponseExampleTab}
         openGrpcResponseExampleTab={openGrpcResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
@@ -1313,6 +1319,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateRequestTab,
       openGrpcRequestEditTab,
       openCreateGrpcRequestTab,
+      openWebSocketRequestEditTab,
+      openCreateWebSocketRequestTab,
       openResponseExampleTab,
       openGrpcResponseExampleTab,
       openLiveWorkflowEdit,

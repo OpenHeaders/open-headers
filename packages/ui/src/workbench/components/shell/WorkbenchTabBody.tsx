@@ -28,6 +28,7 @@ import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
 import AncestorAuthEditor from '../auth/AncestorAuthEditor';
 import AncestorScriptsEditor from '../scripts/AncestorScriptsEditor';
 import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
+import WebSocketRequestEditor from '../websocket-request-editor/WebSocketRequestEditor';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
@@ -87,6 +88,7 @@ interface WorkbenchTabBodyProps {
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
+  openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -137,6 +139,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openResponseExampleTab,
   openGrpcResponseExampleTab,
   openGrpcRequestEditTab,
+  openWebSocketRequestEditTab,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -177,6 +180,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           collectionUid={tab.entityId}
           onSelectRequest={openRequestEditTab}
           onSelectGrpcRequest={openGrpcRequestEditTab}
+          onSelectWebSocketRequest={openWebSocketRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenCollectionVariables={openRequestCollectionVariables}
@@ -223,6 +227,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           folderUid={tab.entityId}
           onSelectRequest={openRequestEditTab}
           onSelectGrpcRequest={openGrpcRequestEditTab}
+          onSelectWebSocketRequest={openWebSocketRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenFolderScripts={openRequestFolderScripts}
@@ -424,6 +429,16 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         grpcRequestUid={tab.grpcRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenGrpcResponseExample={openGrpcResponseExampleTab}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
+  }
+  if (tab.mode === 'websocket-edit' && tab.websocketRequestUid) {
+    return (
+      <WebSocketRequestEditor
+        websocketRequestUid={tab.websocketRequestUid}
+        workspaceId={editingScopeWorkspaceId}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

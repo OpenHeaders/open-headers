@@ -31,6 +31,7 @@ import type {
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
   SyncVaultPostState,
+  SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
 } from '../sync-bridge';
 
@@ -131,6 +132,16 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotGrpcRequests': {
     req: { workspaceId?: string };
     res: { entries: SyncGrpcRequestPostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full WebSocketRequest oracle state.
+   * Same semantics as `oh.sync.snapshotRequests` —
+   * `(websocketRequest, setItemIds)` per uid, matching the broadcast
+   * `websocketRequestPostState` payload.
+   */
+  'oh.sync.snapshotWebSocketRequests': {
+    req: { workspaceId?: string };
+    res: { entries: SyncWebSocketRequestPostState[] };
   };
   /**
    * Snapshot the active workspace's full request-collection oracle

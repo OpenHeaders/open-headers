@@ -41,11 +41,24 @@ export interface ContainerAddMenuOptions {
   onAddRequest?: () => void;
   /** Requests side — "Add gRPC Request" item (sibling entity kind). */
   onAddGrpcRequest?: () => void;
+  /** Requests side — "Add WebSocket Request" item (session-shaped
+   *  sibling entity kind, raw flavor). */
+  onAddWebSocketRequest?: () => void;
+  /** Requests side — "Add Socket.IO Request" item (same entity kind,
+   *  socketio flavor — the two-entry family anatomy). */
+  onAddSocketIoRequest?: () => void;
   onAddFolder: () => void;
 }
 
 export function containerAddMenuItems(
-  { onAddRule, onAddRequest, onAddGrpcRequest, onAddFolder }: ContainerAddMenuOptions,
+  {
+    onAddRule,
+    onAddRequest,
+    onAddGrpcRequest,
+    onAddWebSocketRequest,
+    onAddSocketIoRequest,
+    onAddFolder,
+  }: ContainerAddMenuOptions,
   t: Translate,
 ): ItemType[] {
   const items: ItemType[] = [];
@@ -71,6 +84,22 @@ export function containerAddMenuItems(
       icon: createElement(PlusOutlined),
       label: t('workbench.sidebar.menu.addGrpcRequest'),
       onClick: onAddGrpcRequest,
+    });
+  }
+  if (onAddWebSocketRequest) {
+    items.push({
+      key: 'add-websocket-request',
+      icon: createElement(PlusOutlined),
+      label: t('workbench.sidebar.menu.addWebSocketRequest'),
+      onClick: onAddWebSocketRequest,
+    });
+  }
+  if (onAddSocketIoRequest) {
+    items.push({
+      key: 'add-socketio-request',
+      icon: createElement(PlusOutlined),
+      label: t('workbench.sidebar.menu.addSocketIoRequest'),
+      onClick: onAddSocketIoRequest,
     });
   }
   items.push({

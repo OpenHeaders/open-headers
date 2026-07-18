@@ -68,6 +68,15 @@ export interface GrpcRequestNode {
   path: string;
 }
 
+export interface WebSocketRequestNode {
+  type: 'websocket-request';
+  uid: string;
+  name: string;
+  path: string;
+  /** Wire-family discriminant — drives the leaf tag (WS vs Socket.IO). */
+  flavor: 'raw' | 'socketio';
+}
+
 export interface RuleNode {
   type: 'rule';
   uid: string;
@@ -86,7 +95,7 @@ export interface TemplateNode {
   icon: string;
 }
 
-export type TreeNode = FolderNode | RequestNode | GrpcRequestNode | RuleNode | TemplateNode;
+export type TreeNode = FolderNode | RequestNode | GrpcRequestNode | WebSocketRequestNode | RuleNode | TemplateNode;
 
 /** Collection with its full sidebar tree loaded. */
 export interface CollectionTree extends Collection {

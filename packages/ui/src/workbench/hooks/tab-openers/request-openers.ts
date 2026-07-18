@@ -5,10 +5,17 @@
  */
 
 import type { Collection, Request } from '@openheaders/core/types';
-import { buildEmptyGrpcRequest, buildEmptyRequest, generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  buildEmptyGrpcRequest,
+  buildEmptyRequest,
+  buildEmptyWebSocketRequest,
+  generateUid,
+  toFolderName,
+} from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { applyGrpcRequestCreate } from '@openheaders/ui/shared/sync/grpc-request-write-client';
 import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
+import { applyWebSocketRequestCreate } from '@openheaders/ui/shared/sync/websocket-request-write-client';
 import { useCallback } from 'react';
 import { resolveContextParentPath, type TabOpenerContext, type UseTabOpenersApi } from './shared';
 
@@ -35,6 +42,8 @@ export type RequestOpeners = Pick<
   | 'openCreateRequestTab'
   | 'openGrpcRequestEditTab'
   | 'openCreateGrpcRequestTab'
+  | 'openWebSocketRequestEditTab'
+  | 'openCreateWebSocketRequestTab'
   | 'openDuplicateRequestScratch'
   | 'openResponseExampleTab'
   | 'openGrpcResponseExampleTab'
@@ -307,6 +316,72 @@ export function useRequestOpeners(
     [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
   );
 
+  const openWebSocketRequestEditTab = useCallback(
+    (uid: string, name: string, flavor: 'raw' | 'socketio' = 'raw', autoRename = false) => {
+      const id = `websocket-request-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        // Tab icon reads `ruleType` as a free-form type hint — the
+        // WS / SIO tag mirrors the sidebar leaf tag.
+        ruleType: flavor === 'socketio' ? 'SIO' : 'WS',
+        dirty: false,
+        mode: 'websocket-edit',
+        websocketRequestUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab, setPendingRenameTabId],
+  );
+
+  const openCreateWebSocketRequestTab = useCallback(
+    (context: { collectionId?: string; folderPath?: string; flavor: 'raw' | 'socketio' }) => {
+      // Context-create only — no draft mode: the gesture always comes
+      // from a container's "+" menu, so the destination is known and
+      // the entity persists immediately (born clean, like the gRPC
+      // context-create path). The menu entry pre-sets the flavor.
+      const parentPath = resolveContextParentPath(context, requestCollections);
+      if (!workspaceId || !parentPath) return;
+      const baseName =
+        context.flavor === 'socketio'
+          ? t('workbench.shell.tabLabel.newSocketIoRequest')
+          : t('workbench.shell.tabLabel.newWebSocketRequest');
+      const existingNames = new Set<string>();
+      for (const tab of allTabs) existingNames.add(tab.label);
+      let draftName = baseName;
+      let counter = 2;
+      while (existingNames.has(draftName)) {
+        draftName = `${baseName} (${counter++})`;
+      }
+      const uid = generateUid();
+      const seed = buildEmptyWebSocketRequest({
+        uid,
+        name: draftName,
+        path: `${parentPath}/${toFolderName(draftName, uid)}`,
+        flavor: context.flavor,
+      });
+      const tabId = `websocket-request-${uid}`;
+      void applyWebSocketRequestCreate(seed, { workspaceId, surfaceId }).then((result) => {
+        if (!result.ok) return;
+        addTab({
+          id: tabId,
+          label: draftName,
+          ruleType: context.flavor === 'socketio' ? 'SIO' : 'WS',
+          dirty: false,
+          mode: 'websocket-edit',
+          websocketRequestUid: uid,
+        });
+        setPendingRenameTabId(tabId);
+      });
+    },
+    [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
+  );
+
   const openDuplicateRequestScratch = useCallback(
     (
       content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
@@ -388,6 +463,8 @@ export function useRequestOpeners(
     openCreateRequestTab,
     openGrpcRequestEditTab,
     openCreateGrpcRequestTab,
+    openWebSocketRequestEditTab,
+    openCreateWebSocketRequestTab,
     openDuplicateRequestScratch,
     openResponseExampleTab,
     openGrpcResponseExampleTab,

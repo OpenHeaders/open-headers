@@ -48,6 +48,7 @@ export {
   SPEC_FIELD_ORDER,
   TEMPLATE_FIELD_ORDER,
   VAULT_FIELD_ORDER,
+  WEBSOCKET_REQUEST_FIELD_ORDER,
   WORKSPACE_FIELD_ORDER,
   WORKSPACE_VARIABLES_FIELD_ORDER,
 } from './ordering';
@@ -62,4 +63,14 @@ export { parseSpec, parseSpecInline, serializeSpec } from './spec';
 export type { TemplateCodecContext } from './template';
 export { canonicalizeTemplate, parseTemplate, serializeTemplate } from './template';
 export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';
+export type {
+  WebSocketRequestCodecContext,
+  WebSocketRequestSerializeOutput,
+  WebSocketRequestSiblingFile,
+} from './websocket-request';
+export {
+  canonicalizeWebSocketRequest,
+  parseWebSocketRequest,
+  serializeWebSocketRequest,
+} from './websocket-request';
 export { parseWorkspace, serializeWorkspace } from './workspace';

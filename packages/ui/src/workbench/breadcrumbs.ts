@@ -102,6 +102,13 @@ export function computeBreadcrumbs(
     }
     return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
   }
+  if (tab.mode === 'websocket-edit' && tab.websocketRequestUid) {
+    const hit = computeRequestTrail(tab.websocketRequestUid, requestCollectionTrees);
+    if (hit) {
+      return [t('workbench.shell.breadcrumbs.apiRequests'), hit.collectionName, ...hit.folderTrail, displayLabel];
+    }
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
+  }
   if (tab.mode === 'response-example') {
     // Frozen example under a request — extend the parent request's
     // trail with the example's own label.
@@ -277,7 +284,11 @@ export function computeRequestTrail(
     const folderTrail: string[] = [];
     const find = (nodes: TreeNode[]): boolean => {
       for (const n of nodes) {
-        if ((n.type === 'request' || n.type === 'grpc-request') && n.uid === requestUid) return true;
+        if (
+          (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
+          n.uid === requestUid
+        )
+          return true;
         if (n.type === 'folder') {
           folderTrail.push(n.name);
           if (find(n.children)) return true;

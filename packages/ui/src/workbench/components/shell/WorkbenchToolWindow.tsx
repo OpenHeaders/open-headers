@@ -77,6 +77,8 @@ interface WorkbenchToolWindowProps {
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
+  openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
+  openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
@@ -137,6 +139,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateRequestTab,
   openGrpcRequestEditTab,
   openCreateGrpcRequestTab,
+  openWebSocketRequestEditTab,
+  openCreateWebSocketRequestTab,
   openResponseExampleTab,
   openGrpcResponseExampleTab,
   openLiveVariableEdit,
@@ -194,6 +198,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onCreateRequest={openCreateRequestTab}
           onSelectGrpcRequest={openGrpcRequestEditTab}
           onCreateGrpcRequest={openCreateGrpcRequestTab}
+          onSelectWebSocketRequest={openWebSocketRequestEditTab}
+          onCreateWebSocketRequest={openCreateWebSocketRequestTab}
           onSelectResponseExample={openResponseExampleTab}
           onSelectGrpcResponseExample={openGrpcResponseExampleTab}
           onImport={(ctx) => importExportRef.current?.openImportSource(ctx)}

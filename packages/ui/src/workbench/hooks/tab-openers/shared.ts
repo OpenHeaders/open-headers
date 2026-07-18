@@ -123,6 +123,19 @@ export interface UseTabOpenersApi {
    * persisted immediately and opened as `grpc-edit` (born clean).
    */
   openCreateGrpcRequestTab: (context: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a WebSocketRequest in its dedicated edit tab. */
+  openWebSocketRequestEditTab: (uid: string, name: string, flavor?: 'raw' | 'socketio', autoRename?: boolean) => void;
+  /**
+   * Context-create a WebSocket request. Same posture as
+   * {@link openCreateGrpcRequestTab} — no draft mode, persisted
+   * immediately, opened as `websocket-edit` (born clean). The creation
+   * menu's two entries (WebSocket / Socket.IO) pre-set `flavor`.
+   */
+  openCreateWebSocketRequestTab: (context: {
+    collectionId?: string;
+    folderPath?: string;
+    flavor: 'raw' | 'socketio';
+  }) => void;
   /**
    * Open a fresh `rule-create` scratch seeded with another tab's current
    * rule content ("Duplicate Tab"). The copy is a scratch regardless of

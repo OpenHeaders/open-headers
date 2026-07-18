@@ -7,6 +7,7 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type {
   GrpcRequest,
@@ -14,13 +15,14 @@ import type {
   Request,
   ResponseExample,
   TreeNode as CoreTreeNode,
+  WebSocketRequest,
 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
-import { composeBadge, exampleTag, grpcTag, iconEl, methodTag } from './icons';
+import { composeBadge, exampleTag, grpcTag, iconEl, methodTag, websocketTag } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
@@ -30,6 +32,7 @@ interface UseRequestTreeNodesParams {
   requestCollections: readonly { uid: string; path: string }[];
   allRequests: readonly Request[];
   allGrpcRequests: readonly GrpcRequest[];
+  allWebSocketRequests: readonly WebSocketRequest[];
   resolver: ReturnType<typeof useVariableResolver>;
   dirtyRequestUids?: ReadonlySet<string>;
   /** Post-import: imported request uids whose scripts the user hasn't
@@ -58,6 +61,8 @@ interface UseRequestTreeNodesParams {
   deleteRequest: (uid: string) => Promise<unknown> | unknown;
   updateGrpcRequestData: (uid: string, patch: Partial<GrpcRequest>) => Promise<unknown> | unknown;
   deleteGrpcRequest: (uid: string) => Promise<unknown> | unknown;
+  updateWebSocketRequestData: (uid: string, patch: Partial<WebSocketRequest>) => Promise<unknown> | unknown;
+  deleteWebSocketRequest: (uid: string) => Promise<unknown> | unknown;
   createRequestFolderRpc: (
     name: string,
     parentPath: string,
@@ -70,6 +75,14 @@ interface UseRequestTreeNodesParams {
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
   onSelectGrpcRequest?: (uid: string, name: string, autoRename?: boolean) => void;
   onCreateGrpcRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
+  onSelectWebSocketRequest?: (uid: string, name: string, flavor?: 'raw' | 'socketio', autoRename?: boolean) => void;
+  /** Context-create with the pre-set flavor — the creation menu's two
+   *  entries (WebSocket / Socket.IO) both land here. */
+  onCreateWebSocketRequest?: (context: {
+    collectionId?: string;
+    folderPath?: string;
+    flavor: 'raw' | 'socketio';
+  }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
@@ -128,6 +141,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             });
             p.onCreateGrpcRequest?.({ collectionId, folderPath: node.path });
           };
+          const onAddWebSocketRequest = (flavor: 'raw' | 'socketio') => {
+            p.setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(fid);
+              return next;
+            });
+            p.onCreateWebSocketRequest?.({ collectionId, folderPath: node.path, flavor });
+          };
           // Post-import ancestor-script review badge — same treatment
           // as request rows: warning chip until the user opens the
           // folder's Scripts editor.
@@ -174,6 +195,12 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               {
                 onAddRequest,
                 ...(p.onCreateGrpcRequest ? { onAddGrpcRequest } : {}),
+                ...(p.onCreateWebSocketRequest
+                  ? {
+                      onAddWebSocketRequest: () => onAddWebSocketRequest('raw'),
+                      onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
+                    }
+                  : {}),
                 onAddFolder,
               },
               t,
@@ -280,6 +307,44 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               });
             }
           }
+        } else if (node.type === 'websocket-request') {
+          if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+          const wid = `websocket-request-${node.uid}`;
+          const fullWs = p.allWebSocketRequests.find((r) => r.uid === node.uid);
+          // A WebSocket request is complete once it has a target URL —
+          // until then it renders as a draft, mirroring the sibling
+          // request kinds' completeness treatment.
+          const wsComplete = !fullWs || fullWs.url.trim().length > 0;
+          const wsBadge = composeBadge(
+            wsComplete ? null : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
+            p.dirtyRequestUids?.has(node.uid) ?? false,
+            undefined,
+            t,
+          );
+          items.push({
+            id: wid,
+            kind: 'leaf',
+            label: node.name,
+            depth,
+            expandable: false,
+            parentId,
+            icon: websocketTag(node.flavor, !wsComplete),
+            badge: wsBadge,
+            canRename: true,
+            canDelete: true,
+            canAddChild: false,
+            onOpen: () => {
+              p.onSelectWebSocketRequest?.(node.uid, node.name, node.flavor);
+            },
+            onRename: async (name: string) => {
+              void p.updateWebSocketRequestData(node.uid, { name });
+            },
+            onDelete: () =>
+              p.confirmDelete(node.name, () => {
+                void p.deleteWebSocketRequest(node.uid);
+              }),
+            awareness: { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, entityId: node.uid },
+          });
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
@@ -382,10 +447,15 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     [
       p.allRequests,
       p.allGrpcRequests,
+      p.allWebSocketRequests,
       p.updateGrpcRequestData,
       p.deleteGrpcRequest,
       p.onSelectGrpcRequest,
       p.onCreateGrpcRequest,
+      p.updateWebSocketRequestData,
+      p.deleteWebSocketRequest,
+      p.onSelectWebSocketRequest,
+      p.onCreateWebSocketRequest,
       p.requestCollections,
       p.resolver,
       p.expandedKeys,
@@ -427,7 +497,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
 
     const hasRequestMatch = (nodes: CoreTreeNode[]): boolean => {
       for (const n of nodes) {
-        if ((n.type === 'request' || n.type === 'grpc-request') && n.name.toLowerCase().includes(lowerFilter))
+        if (
+          (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') &&
+          n.name.toLowerCase().includes(lowerFilter)
+        )
           return true;
         if (n.type === 'folder') {
           if (n.name.toLowerCase().includes(lowerFilter)) return true;
@@ -459,6 +532,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           return next;
         });
         p.onCreateGrpcRequest?.({ collectionId: collection.uid });
+      };
+      const onAddWebSocketRequest = (flavor: 'raw' | 'socketio') => {
+        p.setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          next.add(colId);
+          return next;
+        });
+        p.onCreateWebSocketRequest?.({ collectionId: collection.uid, flavor });
       };
       const onAddFolder = () => {
         void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
@@ -519,6 +600,12 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           {
             onAddRequest,
             ...(p.onCreateGrpcRequest ? { onAddGrpcRequest } : {}),
+            ...(p.onCreateWebSocketRequest
+              ? {
+                  onAddWebSocketRequest: () => onAddWebSocketRequest('raw'),
+                  onAddSocketIoRequest: () => onAddWebSocketRequest('socketio'),
+                }
+              : {}),
             onAddFolder,
           },
           t,

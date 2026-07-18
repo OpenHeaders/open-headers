@@ -97,6 +97,7 @@ import {
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,
   snapshotVaultPostStates,
+  snapshotWebSocketRequestPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '../sync/service';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
@@ -201,6 +202,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
       'oh.sync.snapshotFolders',
       'oh.sync.snapshotRequests',
       'oh.sync.snapshotGrpcRequests',
+      'oh.sync.snapshotWebSocketRequests',
       'oh.sync.snapshotRequestCollections',
       'oh.sync.snapshotRequestFolders',
       'oh.sync.snapshotTemplates',
@@ -325,6 +327,7 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
   'oh.sync.snapshotFolders': (ws) => ({ entries: snapshotFolderPostStates(ws) }),
   'oh.sync.snapshotRequests': (ws) => ({ entries: snapshotRequestPostStates(ws) }),
   'oh.sync.snapshotGrpcRequests': (ws) => ({ entries: snapshotGrpcRequestPostStates(ws) }),
+  'oh.sync.snapshotWebSocketRequests': (ws) => ({ entries: snapshotWebSocketRequestPostStates(ws) }),
   'oh.sync.snapshotRequestCollections': (ws) => ({ entries: snapshotRequestCollectionPostStates(ws) }),
   'oh.sync.snapshotRequestFolders': (ws) => ({ entries: snapshotRequestFolderPostStates(ws) }),
   'oh.sync.snapshotTemplates': (ws) => ({ entries: snapshotTemplatePostStates(ws) }),

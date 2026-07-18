@@ -129,6 +129,27 @@ export const GRPC_REQUEST_FIELD_ORDER = [
 ] as const;
 
 /**
+ * WebSocket request manifest (`websocket.yaml`): identity + target +
+ * flavor + rows + spec binding. The compose draft never serializes
+ * into the manifest — it fans out into the format-matched message
+ * sibling (see `websocket-request.ts`).
+ */
+export const WEBSOCKET_REQUEST_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'description',
+  'url',
+  'flavor',
+  'subprotocols',
+  'headers',
+  'params',
+  'messageFormat',
+  'specLink',
+  'timeoutMs',
+] as const;
+
+/**
  * `path` is excluded from persisted YAML on purpose — it's the folder
  * name on disk (slug-uid), derivable from the filesystem. The runtime
  * Rule / Collection / Request value carries `path`; the codec strips it

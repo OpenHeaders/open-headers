@@ -136,6 +136,15 @@ interface SidebarProps {
   onSelectGrpcRequest?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Context-create a gRPC request from a container's "+" menu. */
   onCreateGrpcRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a WebSocket request's edit tab (session-shaped sibling entity). */
+  onSelectWebSocketRequest?: (uid: string, name: string, flavor?: 'raw' | 'socketio', autoRename?: boolean) => void;
+  /** Context-create a WebSocket request — the "+" menu's two entries
+   *  (WebSocket / Socket.IO) pre-set the flavor. */
+  onCreateWebSocketRequest?: (context: {
+    collectionId?: string;
+    folderPath?: string;
+    flavor: 'raw' | 'socketio';
+  }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
@@ -196,6 +205,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateRequest,
   onSelectGrpcRequest,
   onCreateGrpcRequest,
+  onSelectWebSocketRequest,
+  onCreateWebSocketRequest,
   onSelectResponseExample,
   onSelectGrpcResponseExample,
   onImport,
@@ -285,12 +296,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     requests: allRequests,
     grpcRequests: allGrpcRequests,
+    websocketRequests: allWebSocketRequests,
     collections: requestCollections,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
     deleteRequest,
     updateGrpcRequest: updateGrpcRequestData,
     deleteGrpcRequest,
+    updateWebSocketRequest: updateWebSocketRequestData,
+    deleteWebSocketRequest,
     createCollection: createRequestCollectionRpc,
     renameCollection: renameRequestCollectionRpc,
     deleteCollection: deleteRequestCollectionRpc,
@@ -557,6 +571,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     requestCollections,
     allRequests,
     allGrpcRequests,
+    allWebSocketRequests,
     resolver,
     dirtyRequestUids,
     scriptsReviewPendingUids,
@@ -580,6 +595,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteRequest,
     updateGrpcRequestData,
     deleteGrpcRequest,
+    updateWebSocketRequestData,
+    deleteWebSocketRequest,
     createRequestFolderRpc,
     renameRequestFolderRpc,
     deleteRequestFolderRpc,
@@ -589,6 +606,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateRequest,
     onSelectGrpcRequest,
     onCreateGrpcRequest,
+    onSelectWebSocketRequest,
+    onCreateWebSocketRequest,
     onSelectResponseExample,
     onSelectGrpcResponseExample,
     onExportEntity,

@@ -155,6 +155,24 @@ export function tabIcon(
       </span>
     );
   }
+  if (tab.mode === 'websocket-edit') {
+    // WebSocket tabs carry the sidebar leaf's flavor tag (WS / SIO) —
+    // the gRPC treatment applied to the session-shaped sibling.
+    return (
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: 'var(--oh-method-ws, #0f766e)',
+          fontFamily: "'SF Mono', monospace",
+          minWidth: options?.compact ? undefined : 36,
+          display: 'inline-block',
+        }}
+      >
+        {tab.ruleType === 'SIO' ? 'SIO' : 'WS'}
+      </span>
+    );
+  }
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact
     // color-coded marker readable at tab-strip density.

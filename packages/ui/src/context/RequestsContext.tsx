@@ -34,7 +34,15 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { Collection, CollectionTree, GrpcRequest, Request, SpecLink, Variable } from '@openheaders/core/types';
+import type {
+  Collection,
+  CollectionTree,
+  GrpcRequest,
+  Request,
+  SpecLink,
+  Variable,
+  WebSocketRequest,
+} from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -64,6 +72,12 @@ import {
   applyGrpcRequestUpdate,
   type GrpcRequestUpdates,
 } from '../shared/sync/grpc-request-write-client';
+import {
+  applyWebSocketRequestCreate,
+  applyWebSocketRequestDelete,
+  applyWebSocketRequestUpdate,
+  type WebSocketRequestUpdates,
+} from '../shared/sync/websocket-request-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
 import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
@@ -76,6 +90,9 @@ export type GrpcRequestWriteResult =
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
+/** Structured ack for WebSocket request writes — same anatomy as {@link GrpcRequestWriteResult}. */
+export type WebSocketRequestWriteResult = GrpcRequestWriteResult;
+
 export interface RequestsContextValue {
   requests: Request[];
   /**
@@ -84,6 +101,12 @@ export interface RequestsContextValue {
    * system surfaces have no gRPC gesture and leave it empty.
    */
   grpcRequests: GrpcRequest[];
+  /**
+   * WebSocket requests — the session-shaped sibling entity kind
+   * sharing the collection tree. Same population rules as
+   * {@link grpcRequests}.
+   */
+  websocketRequests: WebSocketRequest[];
   collections: Collection[];
   /**
    * Flat request-folder list. Populated on the override branch
@@ -122,6 +145,23 @@ export interface RequestsContextValue {
   }) => Promise<GrpcRequest | null>;
   updateGrpcRequest: (grpcRequestUid: string, updates: GrpcRequestUpdates) => Promise<GrpcRequestWriteResult>;
   deleteGrpcRequest: (grpcRequestUid: string) => Promise<boolean>;
+
+  /**
+   * WebSocket request CRUD — override branch only (the workbench is
+   * the only surface with WebSocket gestures); the legacy branch
+   * resolves null/false. `seed.flavor` distinguishes the creation
+   * menu's WebSocket / Socket.IO entries (absent = raw).
+   */
+  createWebSocketRequest: (input: {
+    name: string;
+    parentPath: string;
+    seed?: Partial<WebSocketRequest>;
+  }) => Promise<WebSocketRequest | null>;
+  updateWebSocketRequest: (
+    webSocketRequestUid: string,
+    updates: WebSocketRequestUpdates,
+  ) => Promise<WebSocketRequestWriteResult>;
+  deleteWebSocketRequest: (webSocketRequestUid: string) => Promise<boolean>;
 
   createCollection: (name: string) => Promise<Collection | null>;
   renameCollection: (collectionUid: string, name: string) => Promise<boolean>;
@@ -187,6 +227,7 @@ export interface RequestsContextValue {
 const defaultContextValue: RequestsContextValue = {
   requests: [],
   grpcRequests: [],
+  websocketRequests: [],
   collections: [],
   folders: [],
   collectionTrees: [],
@@ -198,6 +239,9 @@ const defaultContextValue: RequestsContextValue = {
   createGrpcRequest: () => Promise.resolve(null),
   updateGrpcRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
   deleteGrpcRequest: () => Promise.resolve(false),
+  createWebSocketRequest: () => Promise.resolve(null),
+  updateWebSocketRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
+  deleteWebSocketRequest: () => Promise.resolve(false),
   createCollection: () => Promise.resolve(null),
   renameCollection: () => Promise.resolve(false),
   deleteCollection: () => Promise.resolve(false),
@@ -236,6 +280,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const isOverridden = activeWorkspaceIdOverride !== undefined;
   const [requests, setRequests] = useState<Request[]>([]);
   const [grpcRequests, setGrpcRequests] = useState<GrpcRequest[]>([]);
+  const [websocketRequests, setWebSocketRequests] = useState<WebSocketRequest[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [folders, setFolders] = useState<PersistedLocalFolder[]>([]);
   const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
@@ -298,6 +343,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     if (!wsId) {
       setRequests([]);
       setGrpcRequests([]);
+      setWebSocketRequests([]);
       setCollections([]);
       setFolders([]);
       setCollectionTrees([]);
@@ -308,12 +354,19 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     setIsReady(false);
     let currentRequests: Request[] = [];
     let currentGrpcRequests: GrpcRequest[] = [];
+    let currentWebSocketRequests: WebSocketRequest[] = [];
     let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
     const recomputeTrees = () => {
       setCollectionTrees(
-        buildRequestCollectionTrees(currentCollections, currentFolders, currentRequests, currentGrpcRequests),
+        buildRequestCollectionTrees(
+          currentCollections,
+          currentFolders,
+          currentRequests,
+          currentGrpcRequests,
+          currentWebSocketRequests,
+        ),
       );
     };
 
@@ -325,6 +378,11 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     const unsubGrpcRequests = hostStorage.subscribe(wsKeys(wsId).grpcRequests, (record) => {
       currentGrpcRequests = record ?? [];
       setGrpcRequests(currentGrpcRequests);
+      recomputeTrees();
+    });
+    const unsubWebSocketRequests = hostStorage.subscribe(wsKeys(wsId).websocketRequests, (record) => {
+      currentWebSocketRequests = record ?? [];
+      setWebSocketRequests(currentWebSocketRequests);
       recomputeTrees();
     });
     const unsubCollections = hostStorage.subscribe(wsKeys(wsId).requestCollections, (record) => {
@@ -341,16 +399,19 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     void Promise.all([
       hostStorage.get(wsKeys(wsId).requests),
       hostStorage.get(wsKeys(wsId).grpcRequests),
+      hostStorage.get(wsKeys(wsId).websocketRequests),
       hostStorage.get(wsKeys(wsId).requestCollections),
       hostStorage.get(wsKeys(wsId).requestFolders),
-    ]).then(([reqRecord, grpcRecord, colRecord, foldersRecord]) => {
+    ]).then(([reqRecord, grpcRecord, wsRecord, colRecord, foldersRecord]) => {
       if (overrideIdRef.current !== wsId) return;
       currentRequests = reqRecord ?? [];
       currentGrpcRequests = grpcRecord ?? [];
+      currentWebSocketRequests = wsRecord ?? [];
       currentCollections = colRecord ?? [];
       currentFolders = foldersRecord ?? [];
       setRequests(currentRequests);
       setGrpcRequests(currentGrpcRequests);
+      setWebSocketRequests(currentWebSocketRequests);
       setCollections(currentCollections);
       setFolders(currentFolders);
       recomputeTrees();
@@ -360,6 +421,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     return () => {
       unsubRequests();
       unsubGrpcRequests();
+      unsubWebSocketRequests();
       unsubCollections();
       unsubFolders();
     };
@@ -523,6 +585,61 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       const wsId = activeWorkspaceIdOverride ?? null;
       if (!wsId) return false;
       const result = await applyGrpcRequestDelete(grpcRequestUid, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const createWebSocketRequest = useCallback<RequestsContextValue['createWebSocketRequest']>(
+    async (input) => {
+      if (!isOverridden) return null;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return null;
+      const uid = generateUid();
+      const created: WebSocketRequest = {
+        schemaVersion: 5,
+        uid,
+        path: `${input.parentPath}/${toFolderName(input.name, uid)}`,
+        name: input.name,
+        url: input.seed?.url ?? '',
+        flavor: input.seed?.flavor ?? 'raw',
+        subprotocols: input.seed?.subprotocols ?? [],
+        headers: input.seed?.headers ?? [],
+        params: input.seed?.params ?? [],
+        message: input.seed?.message ?? '',
+        ...(input.seed?.description !== undefined ? { description: input.seed.description } : {}),
+        ...(input.seed?.messageFormat !== undefined ? { messageFormat: input.seed.messageFormat } : {}),
+        ...(input.seed?.specLink !== undefined ? { specLink: input.seed.specLink } : {}),
+        ...(input.seed?.timeoutMs !== undefined ? { timeoutMs: input.seed.timeoutMs } : {}),
+      };
+      const result = await applyWebSocketRequestCreate(created, { workspaceId: wsId, surfaceId });
+      return result.ok ? created : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const updateWebSocketRequest = useCallback<RequestsContextValue['updateWebSocketRequest']>(
+    async (webSocketRequestUid, updates) => {
+      if (!isOverridden) return { ok: false, reason: 'other', message: 'no provider' };
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return { ok: false, reason: 'other', message: 'no workspace' };
+      const result = await applyWebSocketRequestUpdate(webSocketRequestUid, updates, {
+        workspaceId: wsId,
+        surfaceId,
+      });
+      if (result.ok) return { ok: true };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message ?? '' };
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const deleteWebSocketRequest = useCallback<RequestsContextValue['deleteWebSocketRequest']>(
+    async (webSocketRequestUid) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyWebSocketRequestDelete(webSocketRequestUid, { workspaceId: wsId, surfaceId });
       return result.ok;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -749,6 +866,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     () => ({
       requests,
       grpcRequests,
+      websocketRequests,
       collections,
       folders,
       collectionTrees,
@@ -760,6 +878,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createGrpcRequest,
       updateGrpcRequest,
       deleteGrpcRequest,
+      createWebSocketRequest,
+      updateWebSocketRequest,
+      deleteWebSocketRequest,
       createCollection,
       renameCollection,
       deleteCollection,
@@ -778,6 +899,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [
       requests,
       grpcRequests,
+      websocketRequests,
       collections,
       folders,
       collectionTrees,
@@ -789,6 +911,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createGrpcRequest,
       updateGrpcRequest,
       deleteGrpcRequest,
+      createWebSocketRequest,
+      updateWebSocketRequest,
+      deleteWebSocketRequest,
       createCollection,
       renameCollection,
       deleteCollection,

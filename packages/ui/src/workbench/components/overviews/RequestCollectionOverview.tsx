@@ -32,6 +32,7 @@ interface RequestCollectionOverviewProps {
   collectionUid: string;
   onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
   onSelectGrpcRequest: (uid: string, name: string) => void;
+  onSelectWebSocketRequest: (uid: string, name: string, flavor?: 'raw' | 'socketio') => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -43,15 +44,16 @@ interface ContentRow {
   key: string;
   uid: string;
   name: string;
-  kind: 'folder' | 'request' | 'grpc-request';
+  kind: 'folder' | 'request' | 'grpc-request' | 'websocket-request';
   method?: HttpMethod;
+  flavor?: 'raw' | 'socketio';
   childCount?: number;
 }
 
 function countRequestsDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
-    if (n.type === 'request' || n.type === 'grpc-request') count++;
+    if (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request') count++;
     else if (n.type === 'folder') count += countRequestsDeep(n.children);
   }
   return count;
@@ -93,10 +95,26 @@ export const GrpcMark: React.FC = () => (
   </span>
 );
 
+/** The sidebar leaf's monospace WebSocket mark — flavor-labelled
+ *  (WS / SIO), same footprint as {@link GrpcMark}. */
+export const WebSocketMark: React.FC<{ flavor?: 'raw' | 'socketio' }> = ({ flavor }) => (
+  <span
+    style={{
+      fontSize: 9,
+      fontWeight: 700,
+      color: 'var(--oh-method-ws, #0f766e)',
+      fontFamily: "'SF Mono', monospace",
+    }}
+  >
+    {flavor === 'socketio' ? 'SIO' : 'WS'}
+  </span>
+);
+
 const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   collectionUid,
   onSelectRequest,
   onSelectGrpcRequest,
+  onSelectWebSocketRequest,
   onCreateRequest,
   onOpenFolderOverview,
   onOpenCollectionVariables,
@@ -135,6 +153,9 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
       if (node.type === 'grpc-request') {
         return { key: node.uid, uid: node.uid, name: node.name, kind: 'grpc-request' };
       }
+      if (node.type === 'websocket-request') {
+        return { key: node.uid, uid: node.uid, name: node.name, kind: 'websocket-request', flavor: node.flavor };
+      }
       // The tree only carries request-family nodes alongside folders
       // for a request collection; defensive fall-through if it doesn't.
       if (node.type !== 'request') return { key: node.uid, uid: node.uid, name: node.name, kind: 'folder' };
@@ -154,11 +175,13 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
         onSelectRequest(row.uid, row.name, row.method);
       } else if (row.kind === 'grpc-request') {
         onSelectGrpcRequest(row.uid, row.name);
+      } else if (row.kind === 'websocket-request') {
+        onSelectWebSocketRequest(row.uid, row.name, row.flavor);
       } else if (row.kind === 'folder') {
         onOpenFolderOverview(row.uid, row.name);
       }
     },
-    [onSelectRequest, onSelectGrpcRequest, onOpenFolderOverview],
+    [onSelectRequest, onSelectGrpcRequest, onSelectWebSocketRequest, onOpenFolderOverview],
   );
 
   const columns: ColumnsType<ContentRow> = useMemo(
@@ -187,6 +210,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
             );
           }
           if (row.kind === 'grpc-request') return <GrpcMark />;
+          if (row.kind === 'websocket-request') return <WebSocketMark flavor={row.flavor} />;
           if (!row.method) return null;
           return (
             <Tag color={METHOD_COLOR[row.method] ?? 'default'} style={{ fontSize: 11, margin: 0 }}>
