@@ -166,6 +166,10 @@
     "./proto": {
       "import": "./src/proto/index.ts",
       "default": "./dist/proto/index.js"
+    },
+    "./asyncapi": {
+      "import": "./src/asyncapi/index.ts",
+      "default": "./dist/asyncapi/index.js"
     }
   },
   "scripts": {

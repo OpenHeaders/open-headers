@@ -8,19 +8,19 @@
  * a multi-file set from day one so multi-file `$ref` resolution lands
  * without a schema migration.
  *
- * `format` is an extensible vocabulary — OpenAPI 3.x plus Protobuf 3
- * (the gRPC client's service-definition source); other formats
- * (AsyncAPI, GraphQL, …) are an additive picklist change. File syntax
- * (YAML vs JSON vs proto) is NOT stored: the file extension is the
- * single source of truth, same posture as request body files
- * (invariant #15).
+ * `format` is an extensible vocabulary — OpenAPI 3.x, Protobuf 3 (the
+ * gRPC client's service-definition source), and AsyncAPI (the
+ * event-driven spec plane behind the WebSocket client); other formats
+ * (GraphQL, …) are an additive picklist change. File syntax (YAML vs
+ * JSON vs proto) is NOT stored: the file extension is the single
+ * source of truth, same posture as request body files (invariant #15).
  */
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 
 /** Supported spec formats. Extensible vocabulary — additive only. */
-export const SPEC_FORMATS = ['openapi-3.0', 'openapi-3.1', 'protobuf'] as const;
+export const SPEC_FORMATS = ['openapi-3.0', 'openapi-3.1', 'protobuf', 'asyncapi'] as const;
 
 export const SpecFormatSchema = v.picklist(SPEC_FORMATS);
 

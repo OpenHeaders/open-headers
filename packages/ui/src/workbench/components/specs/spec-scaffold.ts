@@ -8,8 +8,11 @@
  * The Protobuf template is a proto3 library sample covering all four
  * rpc call shapes plus nested/enum/map/oneof anatomy, so the outline
  * and the future method selector demonstrate themselves on a fresh
- * spec. Creation only ever mints the single root file; the schema's
- * multi-file shape is exercised by future phases.
+ * spec. The AsyncAPI template is a 3.0 live-events sample covering
+ * servers (protocol chips) / channels / send+receive operations /
+ * component messages and schemas with `$ref`s, so every outline group
+ * demonstrates itself. Creation only ever mints the single root file;
+ * the schema's multi-file shape is exercised by future phases.
  */
 
 import type { Spec, SpecFormat } from '@openheaders/core/types';
@@ -158,8 +161,98 @@ message ChatMessage {
 }
 `;
 
+export const ASYNCAPI_30_SCAFFOLD = `asyncapi: 3.0.0
+info:
+  title: Live Events API
+  version: 1.0.0
+  description: Real-time event stream over WebSocket
+
+servers:
+  production:
+    host: ws.openheaders.io
+    protocol: wss
+    description: Public event stream
+  development:
+    host: localhost:8080
+    protocol: ws
+    description: Local playground
+
+channels:
+  events:
+    address: /ws/events
+    description: The event feed — subscribe, then events arrive.
+    messages:
+      subscribe:
+        $ref: '#/components/messages/Subscribe'
+      event:
+        $ref: '#/components/messages/Event'
+  control:
+    address: /ws/control
+    messages:
+      ping:
+        name: ping
+        payload:
+          type: object
+          properties:
+            op:
+              const: ping
+
+operations:
+  sendSubscribe:
+    action: send
+    channel:
+      $ref: '#/channels/events'
+    summary: Subscribe to one or more event topics
+  onEvent:
+    action: receive
+    channel:
+      $ref: '#/channels/events'
+    summary: An event arrives on a subscribed topic
+  sendPing:
+    action: send
+    channel:
+      $ref: '#/channels/control'
+    summary: Keep the session alive
+
+components:
+  messages:
+    Subscribe:
+      summary: Topic subscription request
+      payload:
+        type: object
+        required:
+          - topics
+        properties:
+          topics:
+            type: array
+            items:
+              type: string
+            examples:
+              - [orders, trades]
+          format:
+            enum: [full, compact]
+            default: full
+    Event:
+      summary: One event on a subscribed topic
+      payload:
+        $ref: '#/components/schemas/Event'
+  schemas:
+    Event:
+      type: object
+      required:
+        - topic
+        - sequence
+      properties:
+        topic:
+          type: string
+        sequence:
+          type: integer
+        payload:
+          type: object
+`;
+
 /** The formats the sidebar's create menu offers. */
-export type SpecCreateFormat = Extract<SpecFormat, 'openapi-3.1' | 'protobuf'>;
+export type SpecCreateFormat = Extract<SpecFormat, 'openapi-3.1' | 'protobuf' | 'asyncapi'>;
 
 /**
  * Seed for `applySpecCreate`: a named spec of the chosen format
@@ -172,7 +265,8 @@ export function createBlankSpecSeed(
 ): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
   const rootFileUid = generateUid();
   const fileName = format === 'protobuf' ? PROTO_SPEC_ROOT_FILE_NAME : SPEC_ROOT_FILE_NAME;
-  const content = format === 'protobuf' ? PROTO3_SCAFFOLD : OPENAPI_31_SCAFFOLD;
+  const content =
+    format === 'protobuf' ? PROTO3_SCAFFOLD : format === 'asyncapi' ? ASYNCAPI_30_SCAFFOLD : OPENAPI_31_SCAFFOLD;
   return {
     name,
     format,

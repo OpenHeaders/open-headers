@@ -12,6 +12,7 @@
  * Files group is entity data (`spec.files`), composed by the pane.
  */
 
+import type { AsyncApiOperationAction } from '@openheaders/core/asyncapi';
 import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { Pair, YAMLMap, YAMLSeq } from 'yaml';
 import { isMap, isScalar, isSeq, parseDocument } from 'yaml';
@@ -31,7 +32,10 @@ export type SpecOutlineKind =
   | 'service'
   | 'rpc'
   | 'message'
-  | 'enum';
+  | 'enum'
+  // AsyncAPI documents (`asyncapi-outline.ts` derives these; server /
+  // operation / message / schema kinds are shared).
+  | 'channel';
 
 export interface SpecOutlineNode {
   /** Stable tree key — kind-prefixed path so expansion survives recomputes. */
@@ -50,6 +54,10 @@ export interface SpecOutlineNode {
   method?: string;
   /** Call shape from the `stream` keywords — rpc nodes only. */
   streaming?: ProtoStreamingShape;
+  /** Operation direction — AsyncAPI operation nodes only. */
+  action?: AsyncApiOperationAction;
+  /** Wire protocol chip — AsyncAPI server nodes only. */
+  protocol?: string;
   children: SpecOutlineNode[];
 }
 

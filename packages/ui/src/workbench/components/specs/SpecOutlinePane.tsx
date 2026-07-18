@@ -2,14 +2,16 @@
  * SpecOutlinePane — the spec editor's structure rail (vendor parity:
  * Servers / Tags / Paths / Components / Security / Files for OpenAPI,
  * Package / Imports / Services / Messages / Enums / Files for
- * Protobuf; left of the code editor).
+ * Protobuf, Servers / Channels / Operations / Components / Files for
+ * AsyncAPI; left of the code editor).
  *
  * Pure presentation over the derived outline groups (parse-on-idle
  * result — never stored, never recomputed here) plus the entity's file
  * set for the Files group. Clicking a row hands its character offset
  * to the host, which moves the editor caret; group headers with a
  * source position navigate too. Rpc rows render a call-shape glyph
- * from their streaming metadata.
+ * from their streaming metadata; AsyncAPI operation rows a direction
+ * glyph from their action, server rows a protocol chip.
  *
  * Add affordances (S6, YAML roots only): hover "+" on insertable group
  * headers and path rows (affordance-visibility rules — hover on
@@ -32,8 +34,10 @@ import {
   PartitionOutlined,
   PlusOutlined,
   SafetyOutlined,
+  SwapOutlined,
   TagsOutlined,
 } from '@ant-design/icons';
+import type { AsyncApiOperationAction } from '@openheaders/core/asyncapi';
 import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { SpecFile } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
@@ -74,6 +78,9 @@ const GROUP_LABEL_KEYS: Record<string, MessageKey> = {
   services: 'workbench.editors.spec.outline.groups.services',
   messages: 'workbench.editors.spec.outline.groups.messages',
   enums: 'workbench.editors.spec.outline.groups.enums',
+  channels: 'workbench.editors.spec.outline.groups.channels',
+  operations: 'workbench.editors.spec.outline.groups.operations',
+  'components:messages': 'workbench.editors.spec.outline.groups.messages',
   files: 'workbench.editors.spec.outline.groups.files',
 };
 
@@ -92,6 +99,17 @@ const STREAMING_LABEL_KEYS: Record<ProtoStreamingShape, MessageKey> = {
   'bidi-streaming': 'workbench.editors.spec.outline.streaming.bidi',
 };
 
+/** Direction glyph per AsyncAPI operation action. */
+const ACTION_GLYPHS: Record<AsyncApiOperationAction, string> = {
+  send: '↑',
+  receive: '↓',
+};
+
+const ACTION_LABEL_KEYS: Record<AsyncApiOperationAction, MessageKey> = {
+  send: 'workbench.editors.spec.outline.action.send',
+  receive: 'workbench.editors.spec.outline.action.receive',
+};
+
 const GROUP_KEYS = Object.keys(GROUP_LABEL_KEYS);
 
 /** Group-header prefix icons (vendor parity — every group carries one). */
@@ -108,6 +126,9 @@ const GROUP_ICONS: Record<string, React.ReactNode> = {
   services: <ApiOutlined />,
   messages: <MailOutlined />,
   enums: <OrderedListOutlined />,
+  channels: <NodeIndexOutlined />,
+  operations: <SwapOutlined />,
+  'components:messages': <MailOutlined />,
   files: <FolderOutlined />,
 };
 
@@ -186,6 +207,43 @@ function entryTitle(node: SpecOutlineNode, wiring: AffordanceWiring): React.Reac
           </span>
         </Tooltip>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.label}</span>
+      </span>
+    );
+  }
+  if (node.kind === 'operation' && node.action !== undefined) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, fontSize: 11, minWidth: 0 }}>
+        <Tooltip title={wiring.t(ACTION_LABEL_KEYS[node.action])} placement="right">
+          <span
+            style={{ fontSize: 10, fontWeight: 700, fontFamily: "'SF Mono', monospace", flexShrink: 0 }}
+            data-testid={`spec-outline-op-${node.action}`}
+          >
+            {ACTION_GLYPHS[node.action]}
+          </span>
+        </Tooltip>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.label}</span>
+      </span>
+    );
+  }
+  if (node.kind === 'server' && node.protocol !== undefined) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, minWidth: 0 }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.label}</span>
+        <span
+          style={{
+            fontSize: 8,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            padding: '0 4px',
+            borderRadius: 3,
+            border: '1px solid var(--ant-color-border-secondary, #eee)',
+            color: 'var(--ant-color-text-tertiary, #999)',
+            flexShrink: 0,
+          }}
+          data-testid={`spec-outline-server-protocol-${node.protocol}`}
+        >
+          {node.protocol.toUpperCase()}
+        </span>
       </span>
     );
   }

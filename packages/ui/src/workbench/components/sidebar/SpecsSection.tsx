@@ -1,7 +1,7 @@
 /**
  * SpecsSection — the `api-requests` view's SPECS group, listing the
  * workspace's API specification documents. Header `+` opens a format
- * menu (OpenAPI 3.1 / Protobuf 3) and creates a new spec from that
+ * menu (OpenAPI 3.1 / Protobuf 3 / AsyncAPI 3.0) and creates a new spec from that
  * format's blank scaffold; the body lists the spec nodes. Owns only
  * its own `theme.useToken()` read; the node list, the create action,
  * and the expansion state arrive as props.
@@ -17,7 +17,7 @@ import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
 import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
 
-const CREATE_FORMATS: readonly SpecCreateFormat[] = ['openapi-3.1', 'protobuf'];
+const CREATE_FORMATS: readonly SpecCreateFormat[] = ['openapi-3.1', 'protobuf', 'asyncapi'];
 
 interface SpecsSectionProps {
   sectionsExpanded: Record<string, boolean>;

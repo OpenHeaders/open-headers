@@ -7,13 +7,17 @@
  * through `parseOpenApi` out of the box (the vendor scaffold shows
  * 0 errors / 0 warnings on creation — ours must too). The protobuf
  * seed (gRPC epic Phase A) carries `index.proto` and parses through
- * the census parser with all four call shapes present.
+ * the census parser with all four call shapes present. The asyncapi
+ * seed (WebSocket epic Phase A) carries `index.yaml` and censuses
+ * issue-free with every outline group populated.
  */
 
+import { parseAsyncApi } from '@openheaders/core/asyncapi';
 import { parseOpenApi } from '@openheaders/core/import';
 import { parseProto } from '@openheaders/core/proto';
 import { SpecSchema } from '@openheaders/core/schemas';
 import {
+  ASYNCAPI_30_SCAFFOLD,
   createBlankSpecSeed,
   OPENAPI_31_SCAFFOLD,
   PROTO_SPEC_ROOT_FILE_NAME,
@@ -60,6 +64,28 @@ describe('createBlankSpecSeed', () => {
     expect(seed.files[0].content).toBe(PROTO3_SCAFFOLD);
     const spec = { ...seed, schemaVersion: 5, uid: 'spec0002', path: 'specs/my-proto-spec-spec0002' };
     expect(() => v.parse(SpecSchema, spec)).not.toThrow();
+  });
+
+  it('seeds a single root index.yaml carrying the AsyncAPI 3.0 template', () => {
+    const seed = createBlankSpecSeed('My Events Spec', 'asyncapi');
+    expect(seed.format).toBe('asyncapi');
+    expect(seed.files).toHaveLength(1);
+    expect(seed.files[0].uid).toBe(seed.rootFileUid);
+    expect(seed.files[0].fileName).toBe(SPEC_ROOT_FILE_NAME);
+    expect(seed.files[0].content).toBe(ASYNCAPI_30_SCAFFOLD);
+    const spec = { ...seed, schemaVersion: 5, uid: 'spec0003', path: 'specs/my-events-spec-spec0003' };
+    expect(() => v.parse(SpecSchema, spec)).not.toThrow();
+  });
+
+  it('asyncapi template censuses issue-free with every outline group populated', () => {
+    const census = parseAsyncApi(ASYNCAPI_30_SCAFFOLD);
+    expect(census.issues).toEqual([]);
+    expect(census.title).toBe('Live Events API');
+    expect(census.servers.map((s) => s.protocol)).toEqual(['wss', 'ws']);
+    expect(census.channels).toHaveLength(2);
+    expect(census.operations.map((o) => o.action)).toEqual(['send', 'receive', 'send']);
+    expect(census.componentMessages.length).toBeGreaterThan(0);
+    expect(census.componentSchemas.length).toBeGreaterThan(0);
   });
 
   it('proto template parses through the census parser with all four call shapes', () => {

@@ -263,8 +263,10 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   // in-sync badges + Update ride Phase F. Protobuf specs generate
   // GrpcRequest rows through their own modal; the drift badge is
   // hash-based and format-neutral, but Update (spec-diff re-plan) is
-  // an OpenAPI flow — proto links keep the button disabled.
+  // an OpenAPI flow — proto links keep the button disabled. AsyncAPI
+  // specs hide generation entirely (a WS-client-phase go/no-go).
   const isProtobuf = spec.format === 'protobuf';
+  const isAsyncApi = spec.format === 'asyncapi';
   const generateAction =
     linkedCollections.length === 0 ? (
       <Button
@@ -345,7 +347,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
 
   const headerActions = (
     <>
-      {generateAction}
+      {!isAsyncApi && generateAction}
       <Tooltip
         title={t(outlineOpen ? 'workbench.editors.spec.outline.hide' : 'workbench.editors.spec.outline.show')}
         placement="bottom"
@@ -376,7 +378,11 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
                 files={spec.files}
                 rootFileUid={spec.rootFileUid}
                 onNavigate={handleNavigate}
-                canInsert={specFileLanguage(rootFile.fileName) === 'yaml'}
+                // Add affordances splice OpenAPI snippets — YAML roots
+                // of OpenAPI specs only (AsyncAPI shares the group
+                // keys but not the snippets; proto roots already fail
+                // the language check).
+                canInsert={specFileLanguage(rootFile.fileName) === 'yaml' && !isAsyncApi}
                 onInsert={handleInsert}
               />
             </Allotment.Pane>

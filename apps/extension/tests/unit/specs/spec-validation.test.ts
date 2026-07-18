@@ -5,10 +5,14 @@
  * are warnings, the blank scaffolds validate clean (vendor parity:
  * 0 errors / 0 warnings on creation), file syntax derives from the
  * extension (invariant #15), and validation dispatches on the spec's
- * format — protobuf sources run the census parser.
+ * format — protobuf and asyncapi sources run their census parsers.
  */
 
-import { OPENAPI_31_SCAFFOLD, PROTO3_SCAFFOLD } from '@openheaders/ui/workbench/components/specs/spec-scaffold';
+import {
+  ASYNCAPI_30_SCAFFOLD,
+  OPENAPI_31_SCAFFOLD,
+  PROTO3_SCAFFOLD,
+} from '@openheaders/ui/workbench/components/specs/spec-scaffold';
 import {
   specFileLanguage,
   specFileSyntaxLabel,
@@ -74,6 +78,29 @@ describe('validateSpecSource', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain('line 2');
     expect(result.warnings).toEqual([]);
+  });
+
+  it('asyncapi scaffold validates clean through the census parser', () => {
+    const result = validateSpecSource(ASYNCAPI_30_SCAFFOLD, 'asyncapi');
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('reports a non-AsyncAPI document as an error', () => {
+    const result = validateSpecSource('openapi: 3.1.0\ninfo:\n  title: Not AsyncAPI\n', 'asyncapi');
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('asyncapi');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('surfaces asyncapi census issues as warnings', () => {
+    const result = validateSpecSource(
+      'asyncapi: 3.0.0\nchannels:\n  events:\n    messages:\n      lost:\n        $ref: "#/components/messages/Nope"\n',
+      'asyncapi',
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('channels.events.messages.lost');
   });
 });
 

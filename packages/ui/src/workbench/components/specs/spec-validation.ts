@@ -8,7 +8,10 @@
  * valid but a generated collection would lose those spots. Protobuf
  * runs the census parser: structural failures are errors, and a
  * parseable document reports clean (import resolution across a file
- * set is a later phase). Local only: no network, no external linters.
+ * set is a later phase). AsyncAPI runs its census parser: a document
+ * that is not an AsyncAPI mapping at all is an error; census issues
+ * (unresolved `$ref`s, unknown channels, malformed entries) surface as
+ * warnings. Local only: no network, no external linters.
  *
  * `useSpecAnalysis` debounces the pure checks behind an idle delay so
  * typing never parses per keystroke (performance law); each idle tick
@@ -23,11 +26,13 @@
  * mapping the editor body and header badge share.
  */
 
+import { type AsyncApiIssue, AsyncApiParseError, parseAsyncApi } from '@openheaders/core/asyncapi';
 import { OpenApiParseError, parseOpenApi, SCHEMA_ONLY_RESPONSES_DROP_PATH } from '@openheaders/core/import';
 import { ProtoParseError, parseProto } from '@openheaders/core/proto';
 import type { SpecFormat } from '@openheaders/core/types';
 import { useEffect, useState } from 'react';
 import type { LanguageId } from '../../languages/registry';
+import { buildAsyncApiOutline } from './asyncapi-outline';
 import { buildProtoOutline } from './proto-outline';
 import { buildSpecOutline, type SpecOutlineNode, specOutlineGroups } from './spec-outline';
 
@@ -54,7 +59,26 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** Census issue → validation-strip line. */
+function asyncApiIssueLine(issue: AsyncApiIssue): string {
+  const messages: Record<AsyncApiIssue['kind'], string> = {
+    'unresolved-ref': 'reference does not resolve',
+    'unknown-channel': 'names no known channel',
+    'invalid-node': 'malformed entry',
+    'unsupported-version': 'unsupported AsyncAPI version',
+  };
+  return `${issue.scope}: ${messages[issue.kind]} (${issue.reference})`;
+}
+
 export function validateSpecSource(content: string, format: SpecFormat): SpecValidationResult {
+  if (format === 'asyncapi') {
+    try {
+      const census = parseAsyncApi(content);
+      return { errors: [], warnings: census.issues.map(asyncApiIssueLine) };
+    } catch (err) {
+      return { errors: [err instanceof AsyncApiParseError ? err.message : errorMessage(err)], warnings: [] };
+    }
+  }
   if (format === 'protobuf') {
     try {
       parseProto(content);
@@ -85,6 +109,7 @@ export function validateSpecSource(content: string, format: SpecFormat): SpecVal
 /** Outline groups for the structure pane, format-dispatched. Null when
  *  the buffer does not parse (caller keeps the last good tree). */
 export function buildSpecOutlineGroups(content: string, format: SpecFormat): SpecOutlineNode[] | null {
+  if (format === 'asyncapi') return buildAsyncApiOutline(content);
   if (format === 'protobuf') return buildProtoOutline(content);
   const outline = buildSpecOutline(content);
   return outline === null ? null : specOutlineGroups(outline);
