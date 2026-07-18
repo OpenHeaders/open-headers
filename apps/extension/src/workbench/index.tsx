@@ -25,6 +25,12 @@ import '@openheaders/ui/workbench/styles/rules.less';
 // `getActiveWorkspaceId`) — so register just the pairing one here.
 registerCapability('pairWithCode', pairWithCode);
 
+// gRPC invokes forward to a connected companion over the backend wire —
+// the seam exists on every extension surface, and the gRPC editor is a
+// workbench tab, so the curated entry must carry it too; LIVE connection
+// state gates the editor's Invoke separately.
+registerCapability('grpcCompanionInvoke', () => true);
+
 // Debug mode (opt-in CDP path) is registered by `install-cdp-capability`
 // imported above — gated on the runtime exposing the debugging protocol.
 
