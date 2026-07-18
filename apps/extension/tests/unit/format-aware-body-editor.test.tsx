@@ -123,6 +123,16 @@ describe('FormatAwareBodyEditor — raw view', () => {
   });
 });
 
+describe('FormatAwareBodyEditor — format-mode info', () => {
+  it('renders the (i) beside the toggle; the popover explains the Save re-encode', async () => {
+    render(<FormatAwareBodyEditor value={WIRE} onChange={vi.fn()} />);
+    const trigger = screen.getByRole('button', { name: 'About Formatted view' });
+    fireEvent.click(trigger);
+    expect(await screen.findByText('Formatted view')).toBeTruthy();
+    expect(await screen.findByText(/re-encoded into the original wire format/)).toBeTruthy();
+  });
+});
+
 describe('FormatAwareBodyEditor — external value changes', () => {
   it('reseeds the view when the value changes externally', () => {
     const { rerender } = render(<FormatAwareBodyEditor value={WIRE} onChange={vi.fn()} />);

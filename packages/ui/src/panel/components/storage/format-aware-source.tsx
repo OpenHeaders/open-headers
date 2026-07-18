@@ -26,6 +26,7 @@
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { encodeBodyForWire, formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useRef, useState } from 'react';
 
 export type SourceFormatMode = 'formatted' | 'raw';
@@ -109,35 +110,49 @@ interface FormatModeToggleProps {
   mode: SourceFormatMode;
   formattable: boolean;
   onModeChange: (mode: SourceFormatMode) => void;
+  /** View-only host (the cache document) — the (i) copy drops the Save
+   *  re-encode sentence because there is no Save there. */
+  viewOnly?: boolean;
 }
 
-export function FormatModeToggle({ mode, formattable, onModeChange }: FormatModeToggleProps) {
+export function FormatModeToggle({ mode, formattable, onModeChange, viewOnly = false }: FormatModeToggleProps) {
   const t = useT();
+  const modeInfo = useMemo<InfoPopoverContent>(
+    () => ({
+      title: t('panel.storage.doc.formatInfoTitle'),
+      summary: t('panel.storage.doc.formatInfoSummary'),
+      description: viewOnly ? t('panel.storage.doc.formatInfoViewOnly') : t('panel.storage.doc.formatInfoDescription'),
+    }),
+    [t, viewOnly],
+  );
   return (
-    <span className="dt-storagedoc-modes" role="radiogroup" aria-label={t('panel.storage.doc.formatAria')}>
-      <button
-        type="button"
-        className="dt-storagedoc-mode"
-        role="radio"
-        aria-checked={mode === 'formatted'}
-        data-active={mode === 'formatted'}
-        disabled={!formattable}
-        title={formattable ? t('panel.storage.doc.formattedTitle') : t('panel.storage.doc.formatUnavailable')}
-        onClick={() => onModeChange('formatted')}
-      >
-        {t('panel.storage.doc.formatted')}
-      </button>
-      <button
-        type="button"
-        className="dt-storagedoc-mode"
-        role="radio"
-        aria-checked={mode === 'raw'}
-        data-active={mode === 'raw'}
-        title={t('panel.storage.doc.rawTitle')}
-        onClick={() => onModeChange('raw')}
-      >
-        {t('panel.storage.doc.raw')}
-      </button>
-    </span>
+    <>
+      <span className="dt-storagedoc-modes" role="radiogroup" aria-label={t('panel.storage.doc.formatAria')}>
+        <button
+          type="button"
+          className="dt-storagedoc-mode"
+          role="radio"
+          aria-checked={mode === 'formatted'}
+          data-active={mode === 'formatted'}
+          disabled={!formattable}
+          title={formattable ? t('panel.storage.doc.formattedTitle') : t('panel.storage.doc.formatUnavailable')}
+          onClick={() => onModeChange('formatted')}
+        >
+          {t('panel.storage.doc.formatted')}
+        </button>
+        <button
+          type="button"
+          className="dt-storagedoc-mode"
+          role="radio"
+          aria-checked={mode === 'raw'}
+          data-active={mode === 'raw'}
+          title={t('panel.storage.doc.rawTitle')}
+          onClick={() => onModeChange('raw')}
+        >
+          {t('panel.storage.doc.raw')}
+        </button>
+      </span>
+      <InfoTrigger content={modeInfo} />
+    </>
   );
 }

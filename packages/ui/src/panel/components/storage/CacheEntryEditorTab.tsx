@@ -298,6 +298,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
                     mode={bodyEffectiveFormat}
                     formattable={bodyFormattable}
                     onModeChange={setBodyFormat}
+                    viewOnly
                   />
                 </span>
               )}

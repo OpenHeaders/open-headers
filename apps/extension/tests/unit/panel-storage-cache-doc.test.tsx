@@ -17,7 +17,20 @@ import type { CacheEntryDocument, StorageInspectorHost } from '@openheaders/ui/p
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { formatBody } from '@openheaders/ui/shared/body-format';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The format-mode (i) popover mounts antd's resize observer.
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
   default: ({ value, language, readOnly }: { value: string; language: string; readOnly?: boolean }) => (
@@ -324,6 +337,16 @@ describe('CacheEntryEditorTab', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: 'Formatted' }));
     expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe(formatBody('{"a":1}'));
+  });
+
+  it('the format toggle carries the (i) with the view-only copy — no Save sentence', async () => {
+    installHost(vi.fn(() => Promise.resolve<CacheEntryDocument | null>(JSON_DOC)));
+    render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    fireEvent.click(screen.getByRole('button', { name: 'About Formatted view' }));
+    expect(await screen.findByText(/read-only.*Formatted never changes them/)).toBeTruthy();
+    expect(screen.queryByText(/Save writes/)).toBeNull();
   });
 
   it('a non-JSON text body stays Raw with Formatted disabled; a truncated body fails open the same way', async () => {

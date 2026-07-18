@@ -594,6 +594,15 @@ describe('DomStorageEntryEditorTab', () => {
     expect(save.hasAttribute('disabled')).toBe(true);
   });
 
+  it('the format toggle carries the (i) — its popover explains the Save re-encode', async () => {
+    installHost(vi.fn(() => fullValue('{"nested":{"ok":true}}')));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    fireEvent.click(screen.getByRole('button', { name: 'About Formatted view' }));
+    expect(await screen.findByText(/re-encoded into the original stored format/)).toBeTruthy();
+  });
+
   it('a formatted-space edit saves re-encoded in the stored profile; a revert re-arms the verbatim short-circuit', async () => {
     const WIRE = '{"nested":{"ok":true}}';
     const write = vi.fn(() => Promise.resolve(true));

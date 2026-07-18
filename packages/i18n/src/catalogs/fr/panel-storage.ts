@@ -347,6 +347,13 @@ export const panelStorage = {
   'panel.storage.doc.formattedTitle': 'Formaté pour la lecture — Enregistrer conserve le format stocké',
   'panel.storage.doc.rawTitle': 'Le texte stocké exact',
   'panel.storage.doc.formatUnavailable': "La vue formatée n'est disponible que pour les valeurs de forme JSON",
+  'panel.storage.doc.formatInfoTitle': 'Vue formatée',
+  'panel.storage.doc.formatInfoSummary':
+    'Formaté est une vue de lecture — seule la mise en forme des espaces change. Le texte stocké reste inchangé.',
+  'panel.storage.doc.formatInfoDescription':
+    "Les modifications faites en mode Formaté sont réencodées dans le format stocké d'origine, et Enregistrer écrit ce texte — sans modification, Enregistrer écrit exactement les octets d'origine. Brut est les octets eux-mêmes.",
+  'panel.storage.doc.formatInfoViewOnly':
+    'Ce document est en lecture seule — Brut est les octets stockés exacts, et Formaté ne les modifie jamais.',
   'panel.storage.doc.unavailableSub':
     "L'élément a peut-être été supprimé, ou le cadre ne peut pas être lu pour le moment — Actualiser réessaie.",
   'panel.storage.doc.clippedSuffix': ({ count }, locale) =>

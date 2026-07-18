@@ -22,6 +22,7 @@ import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { encodeBodyForWire, formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { LanguageId } from '../../languages/registry';
 import CodeEditor from '../shared/CodeEditor';
 
@@ -69,6 +70,14 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
 }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const modeInfo = useMemo<InfoPopoverContent>(
+    () => ({
+      title: t('workbench.editors.rule.fields.formatAwareBody.infoTitle'),
+      summary: t('workbench.editors.rule.fields.formatAwareBody.infoSummary'),
+      description: t('workbench.editors.rule.fields.formatAwareBody.infoDescription'),
+    }),
+    [t],
+  );
   const [state, setState] = useState<BodyViewState>(() => seedBodyViewState(value));
   const lastEmittedRef = useRef(value);
 
@@ -109,37 +118,40 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <ConfigProvider
-          // The stock thumb is near-invisible against the dark editors —
-          // the accent selection keeps the active mode legible on both
-          // themes (scoped-provider idiom, see QuickConditionsRow).
-          theme={{
-            components: {
-              Segmented: {
-                itemSelectedBg: token.colorPrimary,
-                itemSelectedColor: token.colorTextLightSolid,
-              },
-            },
-          }}
-        >
-          <Tooltip
-            title={formattable ? undefined : t('workbench.editors.rule.fields.formatAwareBody.unavailableTooltip')}
-          >
-            <Segmented
-              size="small"
-              value={state.mode}
-              onChange={(mode) => handleModeChange(mode as BodyViewMode)}
-              options={[
-                {
-                  value: 'formatted',
-                  label: t('workbench.editors.rule.fields.formatAwareBody.formatted'),
-                  disabled: !formattable,
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <ConfigProvider
+            // The stock thumb is near-invisible against the dark editors —
+            // the accent selection keeps the active mode legible on both
+            // themes (scoped-provider idiom, see QuickConditionsRow).
+            theme={{
+              components: {
+                Segmented: {
+                  itemSelectedBg: token.colorPrimary,
+                  itemSelectedColor: token.colorTextLightSolid,
                 },
-                { value: 'raw', label: t('workbench.editors.rule.fields.formatAwareBody.raw') },
-              ]}
-            />
-          </Tooltip>
-        </ConfigProvider>
+              },
+            }}
+          >
+            <Tooltip
+              title={formattable ? undefined : t('workbench.editors.rule.fields.formatAwareBody.unavailableTooltip')}
+            >
+              <Segmented
+                size="small"
+                value={state.mode}
+                onChange={(mode) => handleModeChange(mode as BodyViewMode)}
+                options={[
+                  {
+                    value: 'formatted',
+                    label: t('workbench.editors.rule.fields.formatAwareBody.formatted'),
+                    disabled: !formattable,
+                  },
+                  { value: 'raw', label: t('workbench.editors.rule.fields.formatAwareBody.raw') },
+                ]}
+              />
+            </Tooltip>
+          </ConfigProvider>
+          <InfoTrigger content={modeInfo} />
+        </span>
         {extra}
       </div>
       <CodeEditor

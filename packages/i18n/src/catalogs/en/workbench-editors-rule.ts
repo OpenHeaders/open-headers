@@ -211,6 +211,11 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.fields.formatAwareBody.raw': 'Raw',
   'workbench.editors.rule.fields.formatAwareBody.unavailableTooltip':
     'Formatted view is available for JSON-shaped bodies only.',
+  'workbench.editors.rule.fields.formatAwareBody.infoTitle': 'Formatted view',
+  'workbench.editors.rule.fields.formatAwareBody.infoSummary':
+    'Formatted is a reading view — it only re-flows whitespace. The wire text is unchanged.',
+  'workbench.editors.rule.fields.formatAwareBody.infoDescription':
+    'Edits in Formatted mode are re-encoded into the original wire format, and Save writes that wire text — a no-edit Save writes the exact original bytes. Raw is the bytes themselves.',
   'workbench.editors.rule.fields.graphqlFilterLabel': 'GraphQL Operation (Request Payload Filter)',
   'workbench.editors.rule.fields.graphqlKeyPlaceholder': 'Key e.g. operationName',
   'workbench.editors.rule.fields.graphqlValuePlaceholder': 'value e.g. getUsers',
