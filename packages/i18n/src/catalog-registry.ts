@@ -21,7 +21,9 @@ import type { Catalog } from './types';
  * evaluation, so surfaces that never call `loadCatalog` (the extension
  * service worker renders English) never fetch one.
  */
-const loaders: Readonly<Record<string, () => Promise<Catalog>>> = {};
+const loaders: Readonly<Record<string, () => Promise<Catalog>>> = {
+  fr: async () => (await import('./catalogs/fr')).fr,
+};
 
 let pseudoCatalog: Catalog | undefined;
 const loadedCatalogs = new Map<string, Catalog>();

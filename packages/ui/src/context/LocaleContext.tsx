@@ -36,6 +36,7 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { ConfigProvider } from 'antd';
 import type { Locale as AntdLocale } from 'antd/es/locale';
 import enUS from 'antd/locale/en_US';
+import frFR from 'antd/locale/fr_FR';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
@@ -54,6 +55,7 @@ export interface LocaleContextValue {
 // component chrome — antd strings are not part of the extraction QA.
 const ANTD_LOCALES: Readonly<Record<string, AntdLocale>> = {
   en: enUS,
+  fr: frFR,
   pseudo: enUS,
 };
 

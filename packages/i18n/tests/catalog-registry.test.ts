@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getCatalog, getTranslator, isCatalogLoaded, loadCatalog } from '../src/catalog-registry';
 import { en } from '../src/catalogs/en';
 import { DEFAULT_LOCALE, LOCALES, PSEUDO_LOCALE } from '../src/locales';
+import type { Catalog } from '../src/types';
 
 describe('getCatalog', () => {
   it('returns the source catalog for the default locale', () => {
@@ -14,10 +15,16 @@ describe('getCatalog', () => {
     expect(getCatalog(PSEUDO_LOCALE)).toBe(first);
   });
 
-  it('keeps every locale catalog key-identical to English (parity gate)', () => {
-    const sourceKeys = Object.keys(en).sort();
+  it('keeps every locale catalog inside the English key set (parity gate)', async () => {
+    // Real locales land file by file, so their catalogs may be a subset
+    // of English (per-key fallback covers the rest); keys English does
+    // not have are always a bug. Per-file key parity is enforced by
+    // scripts/lint-locales.mjs.
+    const sourceKeys = new Set(Object.keys(en));
     for (const def of LOCALES) {
-      expect(Object.keys(getCatalog(def.code)).sort(), `catalog "${def.code}"`).toEqual(sourceKeys);
+      await loadCatalog(def.code);
+      const foreign = Object.keys(getCatalog(def.code)).filter((key) => !sourceKeys.has(key));
+      expect(foreign, `catalog "${def.code}"`).toEqual([]);
     }
   });
 });
@@ -32,6 +39,25 @@ describe('loadCatalog', () => {
     expect(isCatalogLoaded('xx')).toBe(true);
     await expect(loadCatalog('xx')).resolves.toBeUndefined();
     expect(getCatalog('xx')).toBe(en);
+  });
+
+  it('loads the French chunk and swaps the memoized translator', async () => {
+    await loadCatalog('fr');
+    expect(isCatalogLoaded('fr')).toBe(true);
+    expect(getCatalog('fr')).not.toBe(en);
+    expect(getTranslator('fr')('shared.action.save')).toBe('Enregistrer');
+    expect(getTranslator('fr')('shared.count.rules', { count: 2 })).toBe('2 règles');
+  });
+
+  it('falls back to English per key while a locale catalog is partial', async () => {
+    await loadCatalog('fr');
+    const frCatalog = getCatalog('fr');
+    const source: Catalog = en;
+    const pending = Object.keys(source).find((key) => !(key in frCatalog) && typeof source[key] === 'string');
+    expect(pending).toBeDefined();
+    if (pending !== undefined) {
+      expect(getTranslator('fr')(pending)).toBe(source[pending]);
+    }
   });
 });
 
