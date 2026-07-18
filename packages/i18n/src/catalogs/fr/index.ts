@@ -35,6 +35,7 @@ import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { web } from './web';
 import { workbench } from './workbench';
+import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
@@ -76,6 +77,7 @@ export const fr = {
   ...popup,
   ...web,
   ...workbench,
+  ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
   ...workbenchDaemonAdmin,
   ...workbenchDocsDebugMode,
