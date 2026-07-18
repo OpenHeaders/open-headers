@@ -112,16 +112,16 @@ export interface RequestBodyQuickEditDraft {
 
 /** The action rebuild preserves the fields the compact editor doesn't
  *  surface (body type, resource type, GraphQL filter). The draft body
- *  is the popover's formatted VIEW — re-encoded against the stored
- *  body, so an untouched view keeps the stored bytes exactly and an
- *  edit lands in the stored body's serialization profile. */
+ *  is WIRE text (`FormatAwareBodyEditor` encodes per edit; Raw mode is
+ *  verbatim), so it stores AS IS — a re-encode here would re-profile a
+ *  deliberate Raw-mode edit. */
 export function buildRequestBodyRuleUpdate(
   rule: RequestBodyRule,
   draft: RequestBodyQuickEditDraft,
   conditions?: RuleCondition[],
 ): Partial<RequestBodyRule> {
   return {
-    action: { ...rule.action, requestBody: encodeBodyForWire(rule.action.requestBody, draft.requestBody) },
+    action: { ...rule.action, requestBody: draft.requestBody },
     ...quickEditBase(rule, conditions),
   };
 }

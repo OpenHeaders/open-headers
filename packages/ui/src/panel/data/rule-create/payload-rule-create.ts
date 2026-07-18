@@ -7,10 +7,11 @@
  * unchanged from the popover's Conditions row (seeded via
  * `buildDraftConditions`, edited in place).
  *
- * The captured request body is VERBATIM wire text; the popover edits a
- * formatted VIEW (`formatBody` at seed, once) and every exit re-encodes
- * through `encodeBodyForWire` — untouched view ⇒ the original bytes
- * exactly, edited view ⇒ the original's serialization profile.
+ * The request-body plane is WIRE-space (response parity): the body field
+ * is a `FormatAwareBodyEditor`, whose form value is already wire text
+ * (encoded per edit, Raw mode verbatim). Seeds carry the captured bytes
+ * AS IS and every exit — Save, the workspace hand-off — stores the field
+ * verbatim; a re-encode here would re-profile a deliberate Raw-mode edit.
  */
 
 import type {
@@ -22,7 +23,6 @@ import type {
   RuleCondition,
 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { encodeBodyForWire, formatBody } from '@openheaders/ui/shared/body-format';
 
 export type RequestBodyRuleSeed = Omit<RequestBodyRule, 'uid' | 'path' | 'schemaVersion'>;
 export type QueryParamRuleSeed = Omit<QueryParamRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -33,20 +33,20 @@ export interface RequestBodyQuickDraft {
   requestBody: string;
 }
 
-/** Seed the editable field from the captured outgoing body — opens as
- *  its formatted view. */
+/** Seed the editable field from the captured outgoing body — the body
+ *  carries the captured wire bytes verbatim (the editor formats its own
+ *  view). */
 export function seedRequestBodyQuickDraft(draft: RequestBodyRuleDraft): RequestBodyQuickDraft {
-  return { requestBody: formatBody(draft.requestBody ?? '') };
+  return { requestBody: draft.requestBody ?? '' };
 }
 
 /** Fold the popover's edit back into the handoff draft so the "Open in
- *  workspace" link carries the CURRENT form state — body re-encoded to
- *  the wire profile. */
+ *  workspace" link carries the CURRENT form state. Wire in, wire out. */
 export function mergeQuickIntoRequestBodyDraft(
   draft: RequestBodyRuleDraft,
   quick: RequestBodyQuickDraft,
 ): RequestBodyRuleDraft {
-  return { ...draft, requestBody: encodeBodyForWire(draft.requestBody ?? '', quick.requestBody) };
+  return { ...draft, requestBody: quick.requestBody };
 }
 
 export function buildRequestBodyRuleSeed(
@@ -62,7 +62,7 @@ export function buildRequestBodyRuleSeed(
     conditions,
     action: {
       bodyType: draft.bodyType ?? 'static',
-      requestBody: encodeBodyForWire(draft.requestBody ?? '', quick.requestBody),
+      requestBody: quick.requestBody,
       resourceType: draft.resourceType ?? 'rest',
     },
   };

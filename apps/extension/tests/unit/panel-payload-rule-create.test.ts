@@ -55,8 +55,8 @@ function makeParamDraft(over: Partial<QueryParamRuleDraft> = {}): QueryParamRule
 }
 
 describe('seedRequestBodyQuickDraft', () => {
-  it('seeds the captured body as its formatted view and defaults to empty', () => {
-    expect(seedRequestBodyQuickDraft(makeBodyDraft())).toEqual({ requestBody: '{\n  "name": "oh"\n}' });
+  it('seeds the captured wire bytes verbatim and defaults to empty', () => {
+    expect(seedRequestBodyQuickDraft(makeBodyDraft())).toEqual({ requestBody: '{"name":"oh"}' });
     expect(seedRequestBodyQuickDraft(makeBodyDraft({ requestBody: undefined }))).toEqual({ requestBody: '' });
   });
 
@@ -68,14 +68,14 @@ describe('seedRequestBodyQuickDraft', () => {
 });
 
 describe('mergeQuickIntoRequestBodyDraft', () => {
-  it('folds the edited body re-encoded to the wire profile, preserving the capture context', () => {
+  it('folds the wire-space body as is, preserving the capture context', () => {
     const merged = mergeQuickIntoRequestBodyDraft(makeBodyDraft(), { requestBody: '{\n  "name": "edited"\n}' });
-    expect(merged.requestBody).toBe('{"name":"edited"}');
+    expect(merged.requestBody).toBe('{\n  "name": "edited"\n}');
     expect(merged.url).toBe(URL);
     expect(merged.resourceType).toBe('rest');
   });
 
-  it('an untouched formatted view hands off the captured bytes exactly', () => {
+  it('an untouched draft hands off the captured bytes exactly', () => {
     const draft = makeBodyDraft();
     const merged = mergeQuickIntoRequestBodyDraft(draft, seedRequestBodyQuickDraft(draft));
     expect(merged.requestBody).toBe('{"name":"oh"}');
@@ -90,12 +90,12 @@ describe('buildRequestBodyRuleSeed', () => {
     expect(seed.action).toEqual({ bodyType: 'static', requestBody: '{"n":1}', resourceType: 'rest' });
   });
 
-  it('re-encodes a formatted-view edit to the captured wire profile', () => {
+  it('stores the wire-space draft body AS IS — a Raw-mode profile change is honored', () => {
     const seed = buildRequestBodyRuleSeed(makeBodyDraft(), { requestBody: '{\n  "n": 1\n}' }, 'Rule', CONDITIONS);
-    expect(seed.action.requestBody).toBe('{"n":1}');
+    expect(seed.action.requestBody).toBe('{\n  "n": 1\n}');
   });
 
-  it('an untouched formatted view saves the captured bytes exactly', () => {
+  it('an untouched draft saves the captured bytes exactly', () => {
     const draft = makeBodyDraft();
     const seed = buildRequestBodyRuleSeed(draft, seedRequestBodyQuickDraft(draft), 'Rule', CONDITIONS);
     expect(seed.action.requestBody).toBe('{"name":"oh"}');

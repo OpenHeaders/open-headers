@@ -10,22 +10,25 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { RequestBodyRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { formatBody } from '@openheaders/ui/shared/body-format';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { App, Tag, theme } from 'antd';
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { buildRequestBodyRuleUpdate, type RequestBodyQuickEditDraft } from '../../data/rule-create/quick-rule-edit';
-import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import Skeleton from '../detail/Skeleton';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
+
+// Lazy like every other Monaco consumer — a static import here would
+// pull Monaco into the panel's initial chunk.
+const FormatAwareBodyEditor = lazy(
+  () => import('@openheaders/ui/workbench/components/rule-fields/FormatAwareBodyEditor'),
+);
 
 // JSON format example — raw by design across the rule editors.
 const GRAPHQL_BODY_EXAMPLE = '{"query": "…", "variables": {}}';
@@ -60,22 +63,12 @@ export function RequestBodyQuickEditor({
   const isDynamic = bodyRule?.action.bodyType === 'dynamic';
   const editable = !!bodyRule && !isDynamic;
 
-  const { localCollections } = useRules();
-  const collectionId = useMemo(
-    () => findRuleCollectionId(liveRule, localCollections),
-    [liveRule, localCollections],
-  );
-
-  // The body maps to its formatted VIEW (once per rule version — the
-  // memo, never per keystroke); the Save builder re-encodes it against
-  // the stored wire text, so an untouched view keeps the stored bytes.
+  // The draft record lives in WIRE space (the body editor formats its
+  // own view and encodes per edit — response-popover parity), so derived
+  // dirty and the Save payload read the stored text unchanged.
   const canonical = useMemo<RequestBodyQuickEditDraft | null>(
-    () => (bodyRule && !isDynamic ? { requestBody: formatBody(bodyRule.action.requestBody) } : null),
+    () => (bodyRule && !isDynamic ? { requestBody: bodyRule.action.requestBody } : null),
     [bodyRule, isDynamic],
-  );
-  const showFormatHint = useMemo(
-    () => canonical !== null && bodyRule !== null && canonical.requestBody !== bodyRule.action.requestBody,
-    [canonical, bodyRule],
   );
   const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useActionDraft({ canonical });
 
@@ -144,26 +137,17 @@ export function RequestBodyQuickEditor({
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
           <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.requestBody.bodyLabel')}</div>
           <EntityField path={RULE_FIELD.requestBody}>
-            <TemplateInput
-              multiline
-              maxRows={12}
-              resizable
-              allowClear
-              value={draft.requestBody ?? ''}
-              onChange={(v) => updateDraft({ requestBody: v })}
-              placeholder={GRAPHQL_BODY_EXAMPLE}
-              suggestionContext={{ collectionId }}
-              style={{
-                width: '100%',
-                minHeight: 120,
-                fontFamily: token.fontFamilyCode,
-                fontSize: 12,
-              }}
-            />
+            <Suspense fallback={<Skeleton />}>
+              <FormatAwareBodyEditor
+                value={draft.requestBody ?? ''}
+                onChange={(v) => updateDraft({ requestBody: v })}
+                placeholder={GRAPHQL_BODY_EXAMPLE}
+                minHeight={120}
+              />
+            </Suspense>
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {t('panel.quickEditor.requestBody.hint')}
-            {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
           </div>
         </EntityScopeProvider>
       ) : (

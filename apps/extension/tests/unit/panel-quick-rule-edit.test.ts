@@ -158,13 +158,13 @@ describe('buildRequestBodyRuleUpdate', () => {
     expect('published' in updates).toBe(false);
   });
 
-  it('re-encodes a formatted-view edit to the stored profile', () => {
+  it('stores the wire-space draft body AS IS — a Raw-mode profile change is honored', () => {
     const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{\n  "a": 2\n}' });
-    expect(updates.action?.requestBody).toBe('{"a":2}');
+    expect(updates.action?.requestBody).toBe('{\n  "a": 2\n}');
   });
 
-  it('an untouched formatted view keeps the stored bytes exactly', () => {
-    const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{\n  "a": 1\n}' });
+  it('an untouched draft keeps the stored bytes exactly', () => {
+    const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{"a":1}' });
     expect(updates.action?.requestBody).toBe('{"a":1}');
   });
 });
