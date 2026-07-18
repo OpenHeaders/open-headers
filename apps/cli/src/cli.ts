@@ -17,6 +17,8 @@ import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
 import { EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
 import { bootCliProductTelemetry } from './product-telemetry';
 import { findReadCommand, READ_COMMANDS } from './read-commands';
+import { bootUpdateNotify } from './update-check';
+import { commandUpgrade } from './upgrade';
 import { CLI_VERSION } from './version';
 import { findWriteCommand, WRITE_COMMANDS } from './write-commands';
 
@@ -44,6 +46,7 @@ Commands:
   status                        Probe the daemon's /mcp surface (running / disabled / bad token)
   connect --token <secret>      Validate and save the daemon URL + token for later runs
   channel [stable|beta]         Show or set the release line version checks follow
+  upgrade [--channel <line>]    Download and install the newest release of this binary
   completion bash|zsh           Print a shell completion script (source it from your profile)
 ${readLines.join('\n')}
 ${writeLines.join('\n')}
@@ -59,6 +62,7 @@ Options:
   --collection <uid>        vars set only: target that collection's variable scope
   --secret                  vars set only: store the value as a masked secret
   --env <name-or-uid>       request send / workflow run: environment to resolve variables under
+  --channel <stable|beta>   upgrade only: release line to install from (persists like oh channel)
 
 Exit codes: 0 ok · 1 operation failed · 2 usage · 3 daemon unreachable or MCP disabled · 4 auth/tier denied
 `;
@@ -73,10 +77,17 @@ async function main(): Promise<void> {
   // the exit flush in the finally is best-effort and abort-capped, so
   // telemetry can never change a command's outcome or hold it open.
   const telemetry = await bootCliProductTelemetry();
+  // Update availability notify (DISTRIBUTION_PLAN.md §5): prints from
+  // the 24h cache only, TTY-and-flag gated; the ≤1/day feed refresh
+  // rides in the background and is capped in the exit flush like the
+  // telemetry channel — it can never change a command's outcome.
+  const updateNotify = await bootUpdateNotify(argv);
+  if (updateNotify.line !== null) console.error(updateNotify.line);
   try {
     await runCommand(argv, first);
   } finally {
     await telemetry.finish();
+    await updateNotify.finish();
   }
 }
 
@@ -102,6 +113,8 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
     lines = await commandConnect(argv.slice(1));
   } else if (first === 'channel') {
     lines = await commandChannel(argv.slice(1));
+  } else if (first === 'upgrade') {
+    lines = await commandUpgrade(argv.slice(1));
   } else {
     const readSpec = findReadCommand(first, argv[1]);
     const toolSpec = readSpec ? undefined : (findWriteCommand(first, argv[1]) ?? findExecCommand(first, argv[1]));
