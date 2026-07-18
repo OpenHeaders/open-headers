@@ -47,6 +47,9 @@ export const tui = {
   'tui.footer.retryNow': 'reintentar',
   'tui.footer.palette': 'paleta',
   'tui.footer.help': 'ayuda',
+  'tui.footer.toggle': 'alternar',
+  'tui.footer.publish': 'publicar',
+  'tui.footer.switch': 'cambiar',
 
   // ── Help overlay (`?` cheatsheet) ──────────────────────────────────
   'tui.help.title': 'Teclado',
@@ -61,12 +64,21 @@ export const tui = {
   'tui.help.filterPane': 'filtrar panel',
   'tui.help.thisHelp': 'esta ayuda',
   'tui.help.palette': 'paleta de comandos',
+  'tui.help.openSwitch': 'abrir / cambiar',
+  'tui.help.toggleRule': 'alternar regla',
+  'tui.help.publish': 'publicar/despublicar',
   'tui.help.note': 'Las mismas teclas que la aplicación cuando el terminal lo permite.',
   'tui.help.close': 'cerrar',
 
   // ── Command palette (Ctrl+K) ───────────────────────────────────────
   'tui.palette.action.refresh': 'Actualizar ahora',
   'tui.palette.action.help': 'Abrir la ayuda',
+  'tui.palette.action.switchWorkspace': 'Cambiar de espacio de trabajo…',
+  'tui.palette.action.switchEnvironment': 'Cambiar de entorno…',
+  'tui.palette.action.toggleRule': 'Activar/desactivar la regla',
+  'tui.palette.action.publishRule': 'Publicar / despublicar la regla',
+  'tui.palette.picker.workspace': 'Cambiar de espacio de trabajo',
+  'tui.palette.picker.environment': 'Cambiar de entorno',
   'tui.palette.empty': 'ningún comando coincide',
   'tui.palette.run': 'ejecutar',
 
@@ -76,6 +88,7 @@ export const tui = {
   // ── Notices ────────────────────────────────────────────────────────
   'tui.notice.yanked': 'uid copiado al portapapeles',
   'tui.notice.staleData': 'mostrando los últimos datos conocidos — reconectando…',
+  'tui.notice.writeLost': 'cambio no aplicado — daemon inaccesible',
 
   // ── Empty states ───────────────────────────────────────────────────
   'tui.empty.rules.title': 'Aún no hay reglas en este espacio de trabajo.',
@@ -93,7 +106,7 @@ export const tui = {
   'tui.detail.uid': 'uid',
   'tui.detail.state.published': 'publicada — activa en las extensiones de navegador conectadas',
   'tui.detail.state.draft': 'borrador — sin efecto en el tráfico real',
-  'tui.detail.editingNote': 'La edición se hace en la aplicación OpenHeaders — la TUI lee.',
+  'tui.detail.editingNote': 'La edición se hace en la aplicación OpenHeaders — la TUI lee y alterna.',
   'tui.detail.loading': 'cargando…',
 
   // ── Environment drill-in ───────────────────────────────────────────

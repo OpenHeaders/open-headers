@@ -127,24 +127,37 @@ interface PaneRenderInput {
   readonly dimmed: boolean;
 }
 
-function workspaceLine(row: WorkspaceRow, ctx: ViewContext, width: number, plain: boolean): string {
+/** Switch/toggle in flight — the row's trailing mark (apply-from-ack pending state). */
+function pendingMark(ctx: ViewContext, plain: boolean): string {
+  const glyphs = ctx.caps.glyphs;
+  return ` ${plain ? glyphs.ellipsis : paint(glyphs.ellipsis, 'warn', ctx.caps.colorTier)}`;
+}
+
+function workspaceLine(row: WorkspaceRow, ctx: ViewContext, width: number, plain: boolean, pending: boolean): string {
   const { t, caps } = ctx;
   const sep = caps.glyphs.separator;
-  const left = `${row.name} (${row.kind})${row.active ? ' *' : ''}`;
+  const left = `${row.name} (${row.kind})${row.active ? ' *' : ''}${pending ? pendingMark(ctx, plain) : ''}`;
   const suffix = row.loaded ? '' : `${sep} ${t('tui.row.notLoaded')}`;
   const right = plain || suffix === '' ? suffix : paint(suffix, 'dim', caps.colorTier);
   return spreadRow(left, right, width, caps.glyphs.ellipsis);
 }
 
-function environmentLine(row: EnvironmentRow, ctx: ViewContext, width: number, plain: boolean): string {
+function environmentLine(
+  row: EnvironmentRow,
+  ctx: ViewContext,
+  width: number,
+  plain: boolean,
+  pending: boolean,
+): string {
   const { t, caps } = ctx;
-  if (row.none) return padToWidth(`${row.name}${row.active ? ' *' : ''}`, width, caps.glyphs.ellipsis);
+  const left = `${row.name}${row.active ? ' *' : ''}${pending ? pendingMark(ctx, plain) : ''}`;
+  if (row.none) return padToWidth(left, width, caps.glyphs.ellipsis);
   const count = `(${t('tui.row.vars', { count: row.varCount })})`;
   const right = plain ? count : paint(count, 'dim', caps.colorTier);
-  return spreadRow(`${row.name}${row.active ? ' *' : ''}`, right, width, caps.glyphs.ellipsis);
+  return spreadRow(left, right, width, caps.glyphs.ellipsis);
 }
 
-function ruleLine(row: RuleRow, ctx: ViewContext, width: number, plain: boolean): string {
+function ruleLine(row: RuleRow, ctx: ViewContext, width: number, plain: boolean, pending: boolean): string {
   const { t, caps } = ctx;
   const tier = caps.colorTier;
   const glyphs = caps.glyphs;
@@ -154,13 +167,14 @@ function ruleLine(row: RuleRow, ctx: ViewContext, width: number, plain: boolean)
   const word = (row.enabled ? t('tui.row.on') : t('tui.row.off')).padEnd(3);
   const draftText = row.published ? '' : ` ${t('tui.row.draft')}`;
   const draft = plain || draftText === '' ? draftText : paint(draftText, 'warn', tier);
-  return spreadRow(`${dot} ${word} ${row.name}${draft}`, `[${row.type}]`, width, glyphs.ellipsis);
+  const mark = pending ? ` ${plain ? glyphs.ellipsis : paint(glyphs.ellipsis, 'warn', tier)}` : '';
+  return spreadRow(`${dot} ${word} ${row.name}${draft}${mark}`, `[${row.type}]`, width, glyphs.ellipsis);
 }
 
-function paneRowLine(row: PaneRow, ctx: ViewContext, width: number, plain: boolean): string {
-  if (row.pane === 'workspaces') return workspaceLine(row, ctx, width, plain);
-  if (row.pane === 'environments') return environmentLine(row, ctx, width, plain);
-  return ruleLine(row, ctx, width, plain);
+function paneRowLine(row: PaneRow, ctx: ViewContext, width: number, plain: boolean, pending: boolean): string {
+  if (row.pane === 'workspaces') return workspaceLine(row, ctx, width, plain, pending);
+  if (row.pane === 'environments') return environmentLine(row, ctx, width, plain, pending);
+  return ruleLine(row, ctx, width, plain, pending);
 }
 
 function emptyPaneLines(pane: PaneId, ctx: ViewContext, width: number, height: number): string[] {
@@ -218,7 +232,8 @@ function paneBoxRows(app: TuiApp, input: PaneRenderInput, ctx: ViewContext): str
       const isSelected = i === selected && input.focused;
       const marker = i === selected ? glyphs.selected : ' '.repeat(markerWidth);
       const plain = isSelected || input.dimmed;
-      const content = paneRowLine(rows[i], ctx, Math.max(0, innerWidth - markerWidth - 1), plain);
+      const pending = app.state.pendingWrite?.pane === pane && app.state.pendingWrite.identity === rows[i].identity;
+      const content = paneRowLine(rows[i], ctx, Math.max(0, innerWidth - markerWidth - 1), plain, pending);
       let line = `${marker} ${content}`;
       if (isSelected) line = reverse(padToWidth(line, innerWidth, glyphs.ellipsis));
       else if (input.dimmed) line = paint(padToWidth(line, innerWidth, glyphs.ellipsis), 'dim', caps.colorTier);
@@ -251,7 +266,7 @@ function statusLineText(app: TuiApp, ctx: ViewContext): string {
     const matches = app.visibleRows(state.filter.pane).length;
     return t('tui.filter.line', { query: state.filter.query, count: matches, sep: caps.glyphs.borders.horizontal });
   }
-  if (state.notice !== null) return paint(state.notice.text, 'warn', caps.colorTier);
+  if (state.notice !== null) return paint(state.notice.text, state.notice.severity, caps.colorTier);
   if (state.phase === 'degraded') return paint(t('tui.notice.staleData'), 'warn', caps.colorTier);
   if (state.phase === 'denied' && state.lastError !== null) return paint(state.lastError, 'error', caps.colorTier);
   return '';
@@ -263,7 +278,22 @@ function dashboardLegend(app: TuiApp, ctx: ViewContext): LegendEntry[] {
   const { t, caps } = ctx;
   const pane = app.focus.focusedPane;
   const entries: LegendEntry[] = [{ cap: moveCap(ctx), label: t('tui.footer.move') }];
-  if (pane !== 'workspaces') entries.push({ cap: caps.glyphs.keyEnter, label: t('tui.footer.open') });
+  if (pane === 'rules') {
+    entries.push({ cap: caps.glyphs.keyEnter, label: t('tui.footer.open') });
+    entries.push({ cap: caps.glyphs.keySpace, label: t('tui.footer.toggle') });
+    entries.push({ cap: 'p', label: t('tui.footer.publish') });
+  } else {
+    // ⏎ echoes the selected row (ratified S8): switch a non-active
+    // workspace/environment, open the active environment's variables.
+    const index = app.selectedIndex(pane);
+    const row = index === -1 ? undefined : app.visibleRows(pane)[index];
+    if (row !== undefined && row.pane !== 'rules') {
+      if (!row.active) entries.push({ cap: caps.glyphs.keyEnter, label: t('tui.footer.switch') });
+      else if (row.pane === 'environments' && !row.none) {
+        entries.push({ cap: caps.glyphs.keyEnter, label: t('tui.footer.open') });
+      }
+    }
+  }
   entries.push({ cap: '/', label: t('tui.footer.filter') });
   entries.push({ cap: '^K', label: t('tui.footer.palette') });
   entries.push({ cap: 'r', label: t('tui.footer.refresh') });
@@ -275,9 +305,14 @@ function dashboardLegend(app: TuiApp, ctx: ViewContext): LegendEntry[] {
 }
 
 function detailLegend(ruleDetail: boolean, ctx: ViewContext): LegendEntry[] {
-  const { t } = ctx;
-  const entries: LegendEntry[] = [{ cap: moveCap(ctx), label: t('tui.footer.scroll') }];
-  if (ruleDetail) entries.push({ cap: 'y', label: t('tui.footer.yank') });
+  const { t, caps } = ctx;
+  const entries: LegendEntry[] = [];
+  if (ruleDetail) {
+    entries.push({ cap: caps.glyphs.keySpace, label: t('tui.footer.toggle') });
+    entries.push({ cap: 'p', label: t('tui.footer.publish') });
+    entries.push({ cap: 'y', label: t('tui.footer.yank') });
+  }
+  entries.push({ cap: moveCap(ctx), label: t('tui.footer.scroll') });
   entries.push({ cap: 'esc', label: t('tui.footer.back') });
   entries.push({ cap: 'r', label: t('tui.footer.refresh') });
   entries.push({ cap: '?', label: t('tui.footer.help') });
@@ -490,8 +525,7 @@ function helpColumnLines(groups: readonly HelpGroup[]): string[] {
 }
 
 /**
- * The §4.3 cheatsheet body — only the verbs that exist today (no ␣/p
- * until Phase 4; footer honesty carries into the overlay). Exactly
+ * The §4.3 cheatsheet body — the full Phase 4 verb set. Exactly
  * HELP_BODY_LINES rows; layout.ts sizes the box from that count.
  */
 function helpBodyLines(ctx: ViewContext, innerWidth: number): string[] {
@@ -520,7 +554,9 @@ function helpBodyLines(ctx: ViewContext, innerWidth: number): string[] {
     {
       title: t('tui.help.group.act'),
       entries: [
-        { cap: glyphs.keyEnter, label: t('tui.footer.open') },
+        { cap: glyphs.keyEnter, label: t('tui.help.openSwitch') },
+        { cap: glyphs.keySpace, label: t('tui.help.toggleRule') },
+        { cap: 'p', label: t('tui.help.publish') },
         { cap: 'y', label: t('tui.footer.yank') },
         { cap: 'r', label: t('tui.footer.refresh') },
       ],
@@ -558,7 +594,7 @@ function paletteBodyLines(app: TuiApp, ctx: ViewContext, innerWidth: number): st
   const markerWidth = visibleWidth(glyphs.selected);
   for (let i = 0; i < matches.length; i += 1) {
     const marker = i === selected ? glyphs.selected : ' '.repeat(markerWidth);
-    const line = ` ${marker} ${t(matches[i].labelKey)}`;
+    const line = ` ${marker} ${matches[i].label}`;
     lines.push(i === selected ? reverse(padToWidth(line, innerWidth, glyphs.ellipsis)) : line);
   }
   return lines;
@@ -607,12 +643,19 @@ function composeOverlay(app: TuiApp, base: string[], size: TerminalSize, ctx: Vi
   }
   const layout = computePaletteLayout(size, app.paletteMatches().length);
   if (layout === null) return base;
+  const picker = overlay.kind === 'palette' ? overlay.picker : null;
+  const paletteTitle =
+    picker === 'workspace'
+      ? t('tui.palette.picker.workspace')
+      : picker === 'environment'
+        ? t('tui.palette.picker.environment')
+        : '^K';
   const box = makeBox(paletteBodyLines(app, ctx, Math.max(0, layout.rect.width - 2)), {
     width: layout.rect.width,
     height: layout.rect.height,
     glyphs,
     tier: caps.colorTier,
-    title: '^K',
+    title: paletteTitle,
     bottomLabel: `${glyphs.keyEnter} ${t('tui.palette.run')} ${glyphs.separator} ${closeLabel}`,
     focused: true,
   });

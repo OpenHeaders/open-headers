@@ -45,6 +45,9 @@ export const tui = {
   'tui.footer.retryNow': 'retry now',
   'tui.footer.palette': 'palette',
   'tui.footer.help': 'help',
+  'tui.footer.toggle': 'toggle',
+  'tui.footer.publish': 'publish',
+  'tui.footer.switch': 'switch',
 
   // ── Help overlay (`?` cheatsheet) ──────────────────────────────────
   'tui.help.title': 'Keyboard',
@@ -59,12 +62,21 @@ export const tui = {
   'tui.help.filterPane': 'filter pane',
   'tui.help.thisHelp': 'this help',
   'tui.help.palette': 'command palette',
+  'tui.help.openSwitch': 'open / switch',
+  'tui.help.toggleRule': 'toggle rule',
+  'tui.help.publish': 'publish/unpub',
   'tui.help.note': 'Same keys as the app where the terminal allows it.',
   'tui.help.close': 'close',
 
   // ── Command palette (Ctrl+K) ───────────────────────────────────────
   'tui.palette.action.refresh': 'Refresh now',
   'tui.palette.action.help': 'Open help',
+  'tui.palette.action.switchWorkspace': 'Switch workspace…',
+  'tui.palette.action.switchEnvironment': 'Switch environment…',
+  'tui.palette.action.toggleRule': 'Toggle rule enabled',
+  'tui.palette.action.publishRule': 'Publish / unpublish rule',
+  'tui.palette.picker.workspace': 'Switch workspace',
+  'tui.palette.picker.environment': 'Switch environment',
   'tui.palette.empty': 'no matching commands',
   'tui.palette.run': 'run',
 
@@ -74,6 +86,7 @@ export const tui = {
   // ── Notices ────────────────────────────────────────────────────────
   'tui.notice.yanked': 'uid copied to clipboard',
   'tui.notice.staleData': 'showing last known data — reconnecting…',
+  'tui.notice.writeLost': 'change not applied — daemon unreachable',
 
   // ── Empty states ───────────────────────────────────────────────────
   'tui.empty.rules.title': 'No rules in this workspace yet.',
@@ -90,7 +103,7 @@ export const tui = {
   'tui.detail.uid': 'uid',
   'tui.detail.state.published': 'published — live on connected browser extensions',
   'tui.detail.state.draft': 'draft — no effect on live traffic',
-  'tui.detail.editingNote': 'Editing lives in the OpenHeaders app — the TUI reads.',
+  'tui.detail.editingNote': 'Editing lives in the OpenHeaders app — the TUI reads and toggles.',
   'tui.detail.loading': 'loading…',
 
   // ── Environment drill-in ───────────────────────────────────────────

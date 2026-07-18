@@ -71,7 +71,7 @@ export interface FixtureCall {
   readonly calls: { tool: string; args: Record<string, unknown> }[];
 }
 
-/** Serves the snapshot payloads; `rules_get` answers with a full rule. */
+/** Serves the snapshot payloads; write tools mutate the snapshot like the daemon would. */
 export function makeToolCaller(snapshot: DashboardSnapshot = makeSnapshot()): FixtureCall {
   const calls: { tool: string; args: Record<string, unknown> }[] = [];
   const call: ToolCaller = async (tool, args) => {
@@ -86,6 +86,45 @@ export function makeToolCaller(snapshot: DashboardSnapshot = makeSnapshot()): Fi
       return JSON.stringify({
         workspaceId: snapshot.rules.workspaceId,
         rule: { ...row, conditions: [{ url: 'https://api.openheaders.io/*' }] },
+      });
+    }
+    if (tool === 'rules_toggle') {
+      const row = snapshot.rules.rules.find((rule) => rule.uid === args.uid);
+      if (row === undefined) throw new Error(`no rule with uid '${String(args.uid)}'`);
+      row.enabled = args.enabled === true;
+      return JSON.stringify({
+        workspaceId: snapshot.rules.workspaceId,
+        uid: row.uid,
+        enabled: row.enabled,
+        published: row.published,
+      });
+    }
+    if (tool === 'rules_update') {
+      const row = snapshot.rules.rules.find((rule) => rule.uid === args.uid);
+      if (row === undefined) throw new Error(`no rule with uid '${String(args.uid)}'`);
+      const updates = args.updates as { published?: boolean };
+      if (typeof updates.published === 'boolean') row.published = updates.published;
+      return JSON.stringify({ workspaceId: snapshot.rules.workspaceId, rule: { ...row } });
+    }
+    if (tool === 'environments_switch') {
+      const target = args.environmentId as string | null;
+      const env = target === null ? null : snapshot.environments.environments.find((entry) => entry.uid === target);
+      if (env === undefined) throw new Error(`no environment with uid '${String(target)}'`);
+      snapshot.environments.activeEnvironmentId = env === null ? null : env.uid;
+      return JSON.stringify({
+        workspaceId: snapshot.environments.workspaceId,
+        environment: env === null ? null : { uid: env.uid, name: env.name },
+      });
+    }
+    if (tool === 'workspaces_switch') {
+      const ws = snapshot.workspaces.workspaces.find((entry) => entry.id === args.workspaceId);
+      if (ws === undefined) throw new Error(`no workspace with id '${String(args.workspaceId)}'`);
+      const previous = snapshot.workspaces.activeWorkspaceId;
+      snapshot.workspaces.activeWorkspaceId = ws.id;
+      for (const entry of snapshot.workspaces.workspaces) entry.active = entry.id === ws.id;
+      return JSON.stringify({
+        previousWorkspaceId: previous,
+        workspace: { id: ws.id, name: ws.name, loaded: ws.loaded },
       });
     }
     throw new Error(`unexpected tool ${tool}`);

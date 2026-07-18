@@ -160,6 +160,88 @@ describe('runTui', () => {
     await done;
   });
 
+  it('space toggles through rules_toggle, applies the ack, and refetches', async () => {
+    const tty = makeFakeTty();
+    const fixture = makeToolCaller();
+    const done = runTui(tty, { ...OPTIONS, call: fixture.call });
+    await flush();
+    tty.input.emit('3');
+    tty.input.emit(' ');
+    await flush();
+    const toggles = fixture.calls.filter((entry) => entry.tool === 'rules_toggle');
+    expect(toggles).toEqual([{ tool: 'rules_toggle', args: { uid: 'rule-auth', enabled: false } }]);
+    // Reconcile refetch followed the ack; the fixture snapshot now says off.
+    expect(fixture.calls.filter((entry) => entry.tool === 'rules_list').length).toBeGreaterThanOrEqual(2);
+    expect(tty.output.written()).toContain('off auth-header-inject');
+    tty.input.emit('q');
+    await done;
+  });
+
+  it('p publishes through rules_update; a switch rides environments_switch', async () => {
+    const tty = makeFakeTty();
+    const fixture = makeToolCaller();
+    const done = runTui(tty, { ...OPTIONS, call: fixture.call });
+    await flush();
+    tty.input.emit('3');
+    tty.input.emit('p');
+    await flush();
+    expect(fixture.calls.filter((entry) => entry.tool === 'rules_update')).toEqual([
+      { tool: 'rules_update', args: { uid: 'rule-auth', updates: { published: false } } },
+    ]);
+    tty.input.emit('2');
+    tty.input.emit('j');
+    tty.input.emit('\r');
+    await flush();
+    expect(fixture.calls.filter((entry) => entry.tool === 'environments_switch')).toEqual([
+      { tool: 'environments_switch', args: { environmentId: 'env-prod' } },
+    ]);
+    expect(tty.output.written()).toContain('env: production');
+    tty.input.emit('q');
+    await done;
+  });
+
+  it('a write denial renders verbatim as a sticky notice and is never retried', async () => {
+    const tty = makeFakeTty();
+    const fixture = makeToolCaller();
+    let writeAttempts = 0;
+    const call: ToolCaller = async (tool, args) => {
+      if (tool === 'rules_toggle') {
+        writeAttempts += 1;
+        throw new AuthError('permission denied: write tools are disabled on this host');
+      }
+      return fixture.call(tool, args);
+    };
+    const done = runTui(tty, { ...OPTIONS, call });
+    await flush();
+    tty.input.emit('3');
+    tty.input.emit(' ');
+    await flush();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(writeAttempts).toBe(1);
+    expect(tty.output.written()).toContain('permission denied: write tools are disabled on this host');
+    // The dashboard stays up: reads keep polling around the denied write.
+    expect(tty.output.written()).toContain('auth-header-inject');
+    tty.input.emit('q');
+    await done;
+  });
+
+  it('an unreachable write shows the write-lost notice and reconciles', async () => {
+    const tty = makeFakeTty();
+    const fixture = makeToolCaller();
+    const call: ToolCaller = async (tool, args) => {
+      if (tool === 'rules_toggle') throw new UnreachableError('no daemon');
+      return fixture.call(tool, args);
+    };
+    const done = runTui(tty, { ...OPTIONS, call });
+    await flush();
+    tty.input.emit('3');
+    tty.input.emit(' ');
+    await flush();
+    expect(tty.output.written()).toContain('change not applied — daemon unreachable');
+    tty.input.emit('q');
+    await done;
+  });
+
   it('a lone Esc resolves through the timer without side effects', async () => {
     const tty = makeFakeTty();
     const fixture = makeToolCaller();

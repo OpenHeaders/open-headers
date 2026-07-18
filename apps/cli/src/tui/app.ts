@@ -6,9 +6,9 @@
  * state; nothing here writes to the terminal.
  */
 
-import type { DashboardSnapshot, RuleDetail } from './data';
+import type { DashboardSnapshot, RuleDetail, RuleWriteAck } from './data';
 import { createFocusRing, type FocusRing } from './focus';
-import type { TuiMessageKey, TuiTranslator } from './i18n';
+import type { TuiTranslator } from './i18n';
 import type { TuiInputEvent } from './input';
 import {
   computeDashboardLayout,
@@ -67,42 +67,60 @@ export interface HelpOverlay {
   readonly kind: 'help';
 }
 
+export type PalettePicker = 'workspace' | 'environment';
+
 export interface PaletteOverlay {
   readonly kind: 'palette';
   query: string;
   /** Index within the current matches; clamped on read. */
   selected: number;
+  /** Second-stage picker (§4.4 `…` entries), or null on the action stage. */
+  picker: PalettePicker | null;
 }
 
 export type OverlayState = HelpOverlay | PaletteOverlay;
 
-export type PaletteActionId = 'refresh' | 'open-help';
-
-export interface PaletteAction {
-  readonly id: PaletteActionId;
-  readonly labelKey: TuiMessageKey;
-}
+export type PaletteActionId =
+  | 'switch-workspace'
+  | 'switch-environment'
+  | 'toggle-rule'
+  | 'publish-rule'
+  | 'refresh'
+  | 'open-help';
 
 /**
- * The named actions that exist today (§4.4) — the CLI verb vocabulary
- * in palette clothing. Switch workspace/environment joins in Phase 4;
- * omitted until then (footer honesty carries into the palette).
+ * One palette row — a named action (the CLI verb vocabulary in palette
+ * clothing, §4.4) or a second-stage picker target. Labels are resolved
+ * at build time: action labels from the catalog, picker labels are
+ * data (names render verbatim).
  */
-export const PALETTE_ACTIONS: readonly PaletteAction[] = [
-  { id: 'refresh', labelKey: 'tui.palette.action.refresh' },
-  { id: 'open-help', labelKey: 'tui.palette.action.help' },
-];
+export type PaletteItem =
+  | { readonly kind: 'action'; readonly id: PaletteActionId; readonly label: string }
+  | { readonly kind: 'workspace'; readonly id: string; readonly label: string; readonly active: boolean }
+  | { readonly kind: 'environment'; readonly id: string | null; readonly label: string; readonly active: boolean };
 
 export interface Notice {
   readonly text: string;
-  readonly expiresAt: number;
+  /** Null = sticky (policy denial) — stays until the next keypress. */
+  readonly expiresAt: number | null;
+  readonly severity: 'warn' | 'error';
+}
+
+/** The in-flight write's row — one write at a time, marker rendered per row. */
+export interface PendingWrite {
+  readonly pane: PaneId;
+  readonly identity: string;
 }
 
 export type Effect =
   | { readonly type: 'quit' }
   | { readonly type: 'refresh' }
   | { readonly type: 'fetch-rule'; readonly uid: string }
-  | { readonly type: 'yank'; readonly text: string };
+  | { readonly type: 'yank'; readonly text: string }
+  | { readonly type: 'toggle-rule'; readonly uid: string; readonly enabled: boolean }
+  | { readonly type: 'publish-rule'; readonly uid: string; readonly published: boolean }
+  | { readonly type: 'switch-workspace'; readonly workspaceId: string }
+  | { readonly type: 'switch-environment'; readonly environmentId: string | null };
 
 /** How long a status-bar notice stays up. */
 export const NOTICE_MS = 4000;
@@ -118,6 +136,7 @@ export interface TuiAppState {
   detail: DetailScreen | null;
   overlay: OverlayState | null;
   notice: Notice | null;
+  pendingWrite: PendingWrite | null;
   /** Daemon copy, verbatim — park screen / denial notice. */
   lastError: string | null;
   lastSyncedAt: number | null;
@@ -142,6 +161,12 @@ export interface TuiApp {
   applyDenied(message: string): void;
   applyToolError(message: string): void;
   applyRuleDetail(detail: RuleDetail): void;
+  applyRuleWriteAck(ack: RuleWriteAck): void;
+  applyEnvironmentSwitchAck(environmentId: string | null): void;
+  applyWorkspaceSwitchAck(workspaceId: string): void;
+  /** Write-tier policy denial: sticky verbatim notice, dashboard stays up. */
+  applyWriteDenied(message: string): void;
+  applyWriteFailed(message: string): void;
   setRefreshing(): void;
   setNextRetryAt(at: number | null): void;
   /** Expire the notice; returns true when the frame went dirty. */
@@ -150,8 +175,8 @@ export interface TuiApp {
   visibleRows(pane: PaneId): readonly PaneRow[];
   selectedIndex(pane: PaneId): number;
   statusLineActive(): boolean;
-  /** Palette actions matching the current query (substring, case-insensitive). */
-  paletteMatches(): readonly PaletteAction[];
+  /** Palette rows matching the current query (substring, case-insensitive). */
+  paletteMatches(): readonly PaletteItem[];
   /** Clamped selection index within paletteMatches(), or -1 when empty. */
   paletteSelected(): number;
 }
@@ -172,6 +197,7 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     detail: null,
     overlay: null,
     notice: null,
+    pendingWrite: null,
     lastError: null,
     lastSyncedAt: null,
     nextRetryAt: null,
@@ -247,9 +273,19 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
   }
 
   function showNotice(text: string): void {
-    state.notice = { text, expiresAt: now() + NOTICE_MS };
+    state.notice = { text, expiresAt: now() + NOTICE_MS, severity: 'warn' };
   }
 
+  function beginWrite(pane: PaneId, identity: string, effect: Effect): Effect[] {
+    state.pendingWrite = { pane, identity };
+    return [effect];
+  }
+
+  /**
+   * ⏎ carries two verbs (ratified S8): a non-active workspace/environment
+   * row switches; the active environment row opens the variables drill
+   * (switch-to-active is a no-op). Rules always drill.
+   */
   function openSelected(pane: PaneId): Effect[] {
     const index = selectedIndex(pane);
     if (index === -1) return [];
@@ -260,11 +296,46 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     }
     if (pane === 'environments') {
       const env = visibleEnvironmentRows()[index];
+      if (!env.active) {
+        if (state.pendingWrite !== null) return [];
+        return beginWrite(pane, env.identity, { type: 'switch-environment', environmentId: env.none ? null : env.uid });
+      }
       if (env.none) return [];
       state.detail = { kind: 'env', uid: env.uid, scroll: 0 };
+      return [];
     }
-    // Workspace rows have no drill-in in v1; ⏎ switch is Phase 4.
-    return [];
+    const workspace = visibleWorkspaceRows()[index];
+    if (workspace.active || state.pendingWrite !== null) return [];
+    return beginWrite(pane, workspace.identity, { type: 'switch-workspace', workspaceId: workspace.id });
+  }
+
+  function toggleSelectedRule(): Effect[] {
+    if (state.pendingWrite !== null) return [];
+    const index = selectedIndex('rules');
+    if (index === -1) return [];
+    const rule = visibleRuleRows()[index];
+    return beginWrite('rules', rule.identity, { type: 'toggle-rule', uid: rule.uid, enabled: !rule.enabled });
+  }
+
+  function publishSelectedRule(): Effect[] {
+    if (state.pendingWrite !== null) return [];
+    const index = selectedIndex('rules');
+    if (index === -1) return [];
+    const rule = visibleRuleRows()[index];
+    return beginWrite('rules', rule.identity, { type: 'publish-rule', uid: rule.uid, published: !rule.published });
+  }
+
+  /** Space/p inside the rule drill-in — current flags from the row list (ack-patched). */
+  function writeDetailRule(kind: 'toggle' | 'publish'): Effect[] {
+    const detail = state.detail;
+    if (detail === null || detail.kind !== 'rule' || state.pendingWrite !== null) return [];
+    const row = state.rows.rules.find((rule) => rule.uid === detail.uid);
+    if (row === undefined) return [];
+    const effect: Effect =
+      kind === 'toggle'
+        ? { type: 'toggle-rule', uid: row.uid, enabled: !row.enabled }
+        : { type: 'publish-rule', uid: row.uid, published: !row.published };
+    return beginWrite('rules', row.identity, effect);
   }
 
   function yankSelected(pane: PaneId): Effect[] {
@@ -327,6 +398,10 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
       case 'G':
         scrollDetail(detailBodyLength(), bodyHeight);
         return [];
+      case 'space':
+        return writeDetailRule('toggle');
+      case 'p':
+        return writeDetailRule('publish');
       case 'y': {
         const detail = state.detail;
         if (detail !== null && detail.kind === 'rule') {
@@ -393,7 +468,7 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
   }
 
   function openPalette(): void {
-    state.overlay = { kind: 'palette', query: '', selected: 0 };
+    state.overlay = { kind: 'palette', query: '', selected: 0, picker: null };
     focus.pushModal('palette');
   }
 
@@ -402,11 +477,49 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     focus.popModal();
   }
 
-  function paletteMatches(): readonly PaletteAction[] {
+  /**
+   * The action stage (§4.4): switch pickers always, toggle/publish only
+   * when the rules pane has a selected row (they act on it — ratified
+   * S8), then refresh + help. Picker stages list the pane's own rows.
+   */
+  function paletteItems(): PaletteItem[] {
+    const overlay = state.overlay;
+    const picker = overlay !== null && overlay.kind === 'palette' ? overlay.picker : null;
+    if (picker === 'workspace') {
+      return state.rows.workspaces.map((ws) => ({
+        kind: 'workspace' as const,
+        id: ws.id,
+        label: `${ws.name} (${ws.kind})${ws.active ? ' *' : ''}`,
+        active: ws.active,
+      }));
+    }
+    if (picker === 'environment') {
+      return state.rows.environments.map((env) => ({
+        kind: 'environment' as const,
+        id: env.none ? null : env.uid,
+        label: `${env.name}${env.active ? ' *' : ''}`,
+        active: env.active,
+      }));
+    }
+    const items: PaletteItem[] = [
+      { kind: 'action', id: 'switch-workspace', label: t('tui.palette.action.switchWorkspace') },
+      { kind: 'action', id: 'switch-environment', label: t('tui.palette.action.switchEnvironment') },
+    ];
+    if (selectedIndex('rules') !== -1) {
+      items.push({ kind: 'action', id: 'toggle-rule', label: t('tui.palette.action.toggleRule') });
+      items.push({ kind: 'action', id: 'publish-rule', label: t('tui.palette.action.publishRule') });
+    }
+    items.push({ kind: 'action', id: 'refresh', label: t('tui.palette.action.refresh') });
+    items.push({ kind: 'action', id: 'open-help', label: t('tui.palette.action.help') });
+    return items;
+  }
+
+  function paletteMatches(): readonly PaletteItem[] {
     const overlay = state.overlay;
     const query = overlay !== null && overlay.kind === 'palette' ? overlay.query.trim().toLowerCase() : '';
-    if (query === '') return PALETTE_ACTIONS;
-    return PALETTE_ACTIONS.filter((action) => t(action.labelKey).toLowerCase().includes(query));
+    const items = paletteItems();
+    if (query === '') return items;
+    return items.filter((item) => item.label.toLowerCase().includes(query));
   }
 
   function paletteSelected(): number {
@@ -416,11 +529,48 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     return count === 0 ? -1 : Math.max(0, Math.min(overlay.selected, count - 1));
   }
 
-  function runPaletteAction(action: PaletteAction): Effect[] {
-    closeOverlay();
-    if (action.id === 'refresh') return [{ type: 'refresh' }];
-    openHelp();
-    return [];
+  function enterPicker(picker: PalettePicker): void {
+    const overlay = state.overlay;
+    if (overlay === null || overlay.kind !== 'palette') return;
+    overlay.picker = picker;
+    overlay.query = '';
+    overlay.selected = 0;
+  }
+
+  function runPaletteItem(item: PaletteItem): Effect[] {
+    if (item.kind === 'workspace') {
+      closeOverlay();
+      if (item.active || state.pendingWrite !== null) return [];
+      return beginWrite('workspaces', item.id, { type: 'switch-workspace', workspaceId: item.id });
+    }
+    if (item.kind === 'environment') {
+      closeOverlay();
+      if (item.active || state.pendingWrite !== null) return [];
+      const identity = state.rows.environments.find((env) => (env.none ? null : env.uid) === item.id)?.identity;
+      if (identity === undefined) return [];
+      return beginWrite('environments', identity, { type: 'switch-environment', environmentId: item.id });
+    }
+    switch (item.id) {
+      case 'switch-workspace':
+        enterPicker('workspace');
+        return [];
+      case 'switch-environment':
+        enterPicker('environment');
+        return [];
+      case 'toggle-rule':
+        closeOverlay();
+        return toggleSelectedRule();
+      case 'publish-rule':
+        closeOverlay();
+        return publishSelectedRule();
+      case 'refresh':
+        closeOverlay();
+        return [{ type: 'refresh' }];
+      default:
+        closeOverlay();
+        openHelp();
+        return [];
+    }
   }
 
   function movePaletteSelection(delta: number): void {
@@ -450,9 +600,12 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     }
     switch (key) {
       case 'escape':
-        // Innermost-first: a typed query clears before the palette closes.
+        // Innermost-first: typed query, then the picker stage, then the palette.
         if (overlay.query !== '') {
           overlay.query = '';
+          overlay.selected = 0;
+        } else if (overlay.picker !== null) {
+          overlay.picker = null;
           overlay.selected = 0;
         } else {
           closeOverlay();
@@ -460,7 +613,7 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
         return [];
       case 'enter': {
         const index = paletteSelected();
-        return index === -1 ? [] : runPaletteAction(paletteMatches()[index]);
+        return index === -1 ? [] : runPaletteItem(paletteMatches()[index]);
       }
       case 'up':
         movePaletteSelection(-1);
@@ -512,7 +665,7 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     const index = row - layout.firstActionRow;
     if (index >= 0 && index < Math.min(matches.length, layout.visibleActions)) {
       // Click selects; click on the already-selected action runs it (§2.1).
-      if (index === paletteSelected()) return runPaletteAction(matches[index]);
+      if (index === paletteSelected()) return runPaletteItem(matches[index]);
       overlay.selected = index;
     }
     return [];
@@ -572,6 +725,10 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
         return [];
       case 'enter':
         return openSelected(pane);
+      case 'space':
+        return pane === 'rules' ? toggleSelectedRule() : [];
+      case 'p':
+        return pane === 'rules' ? publishSelectedRule() : [];
       case 'y':
         return yankSelected(pane);
       case '?':
@@ -634,6 +791,11 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
   }
 
   function handleEvent(event: TuiInputEvent, size: TerminalSize): Effect[] {
+    // A sticky denial notice stays until the user acts (ratified S8):
+    // the next keypress or click clears it and then does its normal work.
+    if (state.notice !== null && state.notice.expiresAt === null) {
+      if (event.type === 'key' || event.action === 'press') state.notice = null;
+    }
     if (event.type === 'mouse') {
       // SGR coordinates are 1-based; the frame is 0-based.
       const column = event.x - 1;
@@ -704,8 +866,65 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     }
   }
 
+  // ── Write acks — apply-from-ack (ratified S8): the daemon's post-write
+  // state renders directly; the follow-up refetch reconciles the rest. ──
+
+  function applyRuleWriteAck(ack: RuleWriteAck): void {
+    state.pendingWrite = null;
+    state.rows = {
+      ...state.rows,
+      rules: state.rows.rules.map((rule) =>
+        rule.uid === ack.uid ? { ...rule, enabled: ack.enabled, published: ack.published } : rule,
+      ),
+    };
+  }
+
+  function applyEnvironmentSwitchAck(environmentId: string | null): void {
+    state.pendingWrite = null;
+    state.rows = {
+      ...state.rows,
+      environments: state.rows.environments.map((env) => ({
+        ...env,
+        active: env.none ? environmentId === null : env.uid === environmentId,
+      })),
+    };
+    if (state.snapshot !== null) {
+      state.snapshot = {
+        ...state.snapshot,
+        environments: { ...state.snapshot.environments, activeEnvironmentId: environmentId },
+      };
+    }
+  }
+
+  function applyWorkspaceSwitchAck(workspaceId: string): void {
+    state.pendingWrite = null;
+    state.rows = {
+      ...state.rows,
+      workspaces: state.rows.workspaces.map((ws) => ({ ...ws, active: ws.id === workspaceId })),
+    };
+    if (state.snapshot !== null) {
+      state.snapshot = {
+        ...state.snapshot,
+        workspaces: {
+          ...state.snapshot.workspaces,
+          workspaces: state.snapshot.workspaces.workspaces.map((ws) => ({ ...ws, active: ws.id === workspaceId })),
+        },
+      };
+    }
+  }
+
+  function applyWriteDenied(message: string): void {
+    state.pendingWrite = null;
+    state.notice = { text: message, expiresAt: null, severity: 'error' };
+  }
+
+  function applyWriteFailed(message: string): void {
+    state.pendingWrite = null;
+    showNotice(message);
+  }
+
   function tick(nowMs: number): boolean {
-    if (state.notice !== null && state.notice.expiresAt <= nowMs) {
+    if (state.notice !== null && state.notice.expiresAt !== null && state.notice.expiresAt <= nowMs) {
       state.notice = null;
       return true;
     }
@@ -722,6 +941,11 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     applyDenied,
     applyToolError,
     applyRuleDetail,
+    applyRuleWriteAck,
+    applyEnvironmentSwitchAck,
+    applyWorkspaceSwitchAck,
+    applyWriteDenied,
+    applyWriteFailed,
     setRefreshing() {
       state.refreshing = true;
     },

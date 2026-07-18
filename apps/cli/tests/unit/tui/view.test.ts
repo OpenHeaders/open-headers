@@ -183,13 +183,13 @@ describe('view', () => {
     expect(joined).toContain('Same keys as the app where the terminal allows it.');
   });
 
-  it('help overlay renders only the verbs that exist — no toggle or publish yet', () => {
+  it('help overlay teaches the Phase 4 verbs: toggle, publish, open / switch', () => {
     const fx = makeReadyApp();
     fx.app.handleEvent(key('?'), SIZE);
     const joined = viewTui(fx.app, SIZE, fx.ctx()).map(stripSgr).join('\n');
-    expect(joined).not.toContain('toggle');
-    expect(joined).not.toContain('publish');
-    expect(joined).not.toContain('switch');
+    expect(joined).toContain('open / switch');
+    expect(joined).toContain('toggle rule');
+    expect(joined).toContain('publish/unpub');
   });
 
   it('the base frame outside the modal rectangle is dim-washed', () => {
@@ -213,11 +213,67 @@ describe('view', () => {
     const text = frame.map(stripSgr);
     const joined = text.join('\n');
     expect(joined).toContain('^K');
-    expect(joined).toContain('▸ Refresh now');
+    expect(joined).toContain('▸ Switch workspace…');
+    expect(joined).toContain('Switch environment…');
+    expect(joined).toContain('Toggle rule enabled');
+    expect(joined).toContain('Publish / unpublish rule');
+    expect(joined).toContain('Refresh now');
     expect(joined).toContain('Open help');
     expect(joined).toContain('⏎ run · esc close');
-    const selectedRow = frame.find((row) => row.includes('Refresh now'));
+    const selectedRow = frame.find((row) => row.includes('Switch workspace…'));
     expect(selectedRow).toContain('\x1b[7m');
+  });
+
+  it('the second-stage picker titles the box and lists rows with the active marker', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('k', { ctrl: true }), SIZE);
+    fx.app.handleEvent(key('enter'), SIZE);
+    const joined = strip(viewTui(fx.app, SIZE, fx.ctx())).join('\n');
+    expect(joined).toContain('Switch workspace');
+    expect(joined).toContain('▸ team-a (git) *');
+    expect(joined).toContain('personal (local)');
+    expect(joined).not.toContain('Refresh now');
+  });
+
+  it('a pending write marks its row; the ack state renders directly', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('3'), SIZE);
+    fx.app.handleEvent(key('space'), SIZE);
+    let joined = strip(viewTui(fx.app, SIZE, fx.ctx())).join('\n');
+    expect(joined).toContain('● on  auth-header-inject …');
+    fx.app.applyRuleWriteAck({ uid: 'rule-auth', enabled: false, published: true });
+    joined = strip(viewTui(fx.app, SIZE, fx.ctx())).join('\n');
+    expect(joined).not.toContain('auth-header-inject …');
+    expect(joined).toContain('○ off auth-header-inject');
+  });
+
+  it('a sticky write denial owns the status line in the error paint', () => {
+    const fx = makeReadyApp();
+    fx.app.applyWriteDenied('permission denied: write tools are disabled on this host');
+    const text = strip(viewTui(fx.app, SIZE, fx.ctx()));
+    expect(text[21]).toContain('permission denied: write tools are disabled on this host');
+    expect(text[0]).toContain('● connected');
+  });
+
+  it('footer legends: rules pane advertises toggle/publish; ⏎ echoes the selected row', () => {
+    const fx = makeReadyApp();
+    // Workspaces pane, active row selected — no ⏎ verb.
+    let footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).not.toContain('⏎');
+    fx.app.handleEvent(key('down'), SIZE);
+    footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).toContain('⏎ switch');
+    fx.app.handleEvent(key('2'), SIZE);
+    footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).toContain('⏎ open');
+    fx.app.handleEvent(key('3'), SIZE);
+    footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).toContain('␣ toggle');
+    expect(footer).toContain('p publish');
+    fx.app.handleEvent(key('enter'), SIZE);
+    footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).toContain('␣ toggle');
+    expect(footer).toContain('p publish');
   });
 
   it('palette filtering narrows the action list and shows the honest empty line', () => {

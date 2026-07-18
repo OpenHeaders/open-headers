@@ -45,6 +45,9 @@ export const tui = {
   'tui.footer.retryNow': 'réessayer',
   'tui.footer.palette': 'palette',
   'tui.footer.help': 'aide',
+  'tui.footer.toggle': 'basculer',
+  'tui.footer.publish': 'publier',
+  'tui.footer.switch': 'changer',
 
   // ── Help overlay (`?` cheatsheet) ──────────────────────────────────
   'tui.help.title': 'Clavier',
@@ -59,12 +62,21 @@ export const tui = {
   'tui.help.filterPane': 'filtrer le volet',
   'tui.help.thisHelp': 'cette aide',
   'tui.help.palette': 'palette de commandes',
+  'tui.help.openSwitch': 'ouvrir / changer',
+  'tui.help.toggleRule': 'basculer la règle',
+  'tui.help.publish': 'publier/dépublier',
   'tui.help.note': "Les mêmes touches que l'application quand le terminal le permet.",
   'tui.help.close': 'fermer',
 
   // ── Command palette (Ctrl+K) ───────────────────────────────────────
   'tui.palette.action.refresh': 'Actualiser maintenant',
   'tui.palette.action.help': "Ouvrir l'aide",
+  'tui.palette.action.switchWorkspace': "Changer d'espace de travail…",
+  'tui.palette.action.switchEnvironment': "Changer d'environnement…",
+  'tui.palette.action.toggleRule': 'Activer/désactiver la règle',
+  'tui.palette.action.publishRule': 'Publier / dépublier la règle',
+  'tui.palette.picker.workspace': "Changer d'espace de travail",
+  'tui.palette.picker.environment': "Changer d'environnement",
   'tui.palette.empty': 'aucune commande correspondante',
   'tui.palette.run': 'exécuter',
 
@@ -74,6 +86,7 @@ export const tui = {
   // ── Notices ────────────────────────────────────────────────────────
   'tui.notice.yanked': 'uid copié dans le presse-papiers',
   'tui.notice.staleData': 'affichage des dernières données connues — reconnexion…',
+  'tui.notice.writeLost': 'modification non appliquée — daemon injoignable',
 
   // ── Empty states ───────────────────────────────────────────────────
   'tui.empty.rules.title': 'Aucune règle dans cet espace de travail pour le moment.',
@@ -92,7 +105,7 @@ export const tui = {
   'tui.detail.uid': 'uid',
   'tui.detail.state.published': 'publiée — active sur les extensions de navigateur connectées',
   'tui.detail.state.draft': 'brouillon — sans effet sur le trafic réel',
-  'tui.detail.editingNote': "La modification se fait dans l'application OpenHeaders — le TUI lit.",
+  'tui.detail.editingNote': "La modification se fait dans l'application OpenHeaders — le TUI lit et bascule.",
   'tui.detail.loading': 'chargement…',
 
   // ── Environment drill-in ───────────────────────────────────────────

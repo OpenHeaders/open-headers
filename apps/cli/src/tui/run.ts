@@ -17,7 +17,15 @@ import { callTool } from '../rpc';
 import { createTuiApp, type Effect } from './app';
 import { detectCapabilities, type EnvLike } from './capability';
 import { osc52Copy } from './clipboard';
-import { fetchDashboardSnapshot, fetchRuleDetail, type ToolCaller } from './data';
+import {
+  fetchDashboardSnapshot,
+  fetchRuleDetail,
+  publishRule,
+  switchEnvironment,
+  switchWorkspace,
+  type ToolCaller,
+  toggleRule,
+} from './data';
 import { createTuiTranslator } from './i18n';
 import { createInputDecoder, ESCAPE_TIMEOUT_MS, type TuiInputEvent } from './input';
 import { measureTerminal, watchResize } from './resize';
@@ -177,6 +185,67 @@ export async function runTui(io: TuiIo, options: TuiRunOptions = {}): Promise<vo
       render();
     }
 
+    function refreshNow(): void {
+      if (pollTimer !== undefined) {
+        clearTimeout(pollTimer);
+        pollTimer = undefined;
+      }
+      void refresh();
+    }
+
+    /**
+     * One write, apply-from-ack: the ack's state renders immediately,
+     * then a snapshot refetch reconciles (and re-pulls an open rule
+     * drill-in). A policy denial renders verbatim as a sticky notice and
+     * is never retried; any other failure shows its copy and refetches
+     * so the panes return to daemon truth.
+     */
+    async function performWrite(
+      effect: Extract<Effect, { type: 'toggle-rule' | 'publish-rule' | 'switch-workspace' | 'switch-environment' }>,
+    ): Promise<void> {
+      try {
+        if (effect.type === 'toggle-rule') {
+          const ack = await toggleRule(toolCall, effect.uid, effect.enabled);
+          if (closed) return;
+          app.applyRuleWriteAck(ack);
+        } else if (effect.type === 'publish-rule') {
+          const ack = await publishRule(toolCall, effect.uid, effect.published);
+          if (closed) return;
+          app.applyRuleWriteAck(ack);
+        } else if (effect.type === 'switch-environment') {
+          const ack = await switchEnvironment(toolCall, effect.environmentId);
+          if (closed) return;
+          app.applyEnvironmentSwitchAck(ack.environmentId);
+        } else {
+          const ack = await switchWorkspace(toolCall, effect.workspaceId);
+          if (closed) return;
+          app.applyWorkspaceSwitchAck(ack.workspaceId);
+        }
+        const detail = app.state.detail;
+        if (
+          (effect.type === 'toggle-rule' || effect.type === 'publish-rule') &&
+          detail?.kind === 'rule' &&
+          detail.uid === effect.uid
+        ) {
+          void loadRuleDetail(effect.uid);
+        }
+        refreshNow();
+      } catch (err) {
+        if (closed) return;
+        if (err instanceof AuthError) {
+          app.applyWriteDenied(err.message);
+        } else if (err instanceof UnreachableError) {
+          app.applyWriteFailed(t('tui.notice.writeLost'));
+          refreshNow();
+        } else {
+          app.applyWriteFailed(err instanceof Error ? err.message : String(err));
+          refreshNow();
+        }
+      } finally {
+        render();
+      }
+    }
+
     function runEffects(effects: readonly Effect[]): void {
       for (const effect of effects) {
         if (effect.type === 'quit') {
@@ -184,15 +253,13 @@ export async function runTui(io: TuiIo, options: TuiRunOptions = {}): Promise<vo
           return;
         }
         if (effect.type === 'refresh') {
-          if (pollTimer !== undefined) {
-            clearTimeout(pollTimer);
-            pollTimer = undefined;
-          }
-          void refresh();
+          refreshNow();
         } else if (effect.type === 'fetch-rule') {
           void loadRuleDetail(effect.uid);
         } else if (effect.type === 'yank') {
           output.write(osc52Copy(effect.text));
+        } else {
+          void performWrite(effect);
         }
       }
     }

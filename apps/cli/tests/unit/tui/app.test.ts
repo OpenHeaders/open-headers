@@ -90,21 +90,38 @@ describe('app', () => {
     expect(app.state.detail).toBeNull();
   });
 
-  it('Enter on an environment opens its drill-in; the No environment row does not', () => {
+  it('Enter on the active environment opens its drill-in; a non-active row switches', () => {
     const app = makeApp();
     app.handleEvent(key('2'), SIZE);
     app.handleEvent(key('enter'), SIZE);
     expect(app.state.detail).toMatchObject({ kind: 'env', uid: 'env-staging' });
     app.handleEvent(key('escape'), SIZE);
+    app.handleEvent(key('down'), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'switch-environment', environmentId: 'env-prod' }]);
+    expect(app.state.detail).toBeNull();
+    expect(app.state.pendingWrite).toEqual({ pane: 'environments', identity: 'env-prod' });
+  });
+
+  it('Enter on the No environment row switches to null; active none row is inert', () => {
+    const app = makeApp();
+    app.handleEvent(key('2'), SIZE);
     app.handleEvent(key('G'), SIZE);
-    app.handleEvent(key('enter'), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'switch-environment', environmentId: null }]);
+    app.applyEnvironmentSwitchAck(null);
+    expect(app.state.pendingWrite).toBeNull();
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([]);
     expect(app.state.detail).toBeNull();
   });
 
-  it('workspace rows have no drill-in in v1 (switch is Phase 4)', () => {
+  it('Enter switches a non-active workspace; the active one is inert', () => {
     const app = makeApp();
     expect(app.handleEvent(key('enter'), SIZE)).toEqual([]);
     expect(app.state.detail).toBeNull();
+    app.handleEvent(key('down'), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'switch-workspace', workspaceId: 'ws-personal' }]);
+    expect(app.state.pendingWrite).toEqual({ pane: 'workspaces', identity: 'ws-personal' });
+    // One write at a time: a second Enter while pending is a no-op.
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([]);
   });
 
   it('y yanks the selected rule uid and confirms in the status bar', () => {
@@ -213,14 +230,21 @@ describe('app', () => {
     expect(app.handleEvent(key('c', { ctrl: true }), SIZE)).toEqual([{ type: 'quit' }]);
   });
 
-  it('Ctrl+K opens the palette with every action; typing narrows by substring', () => {
+  it('Ctrl+K opens the palette with the full Phase 4 action set; typing narrows by substring', () => {
     const app = makeApp();
     app.handleEvent(key('k', { ctrl: true }), SIZE);
-    expect(app.state.overlay).toMatchObject({ kind: 'palette', query: '' });
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', query: '', picker: null });
     expect(app.focus.modal).toBe('palette');
-    expect(app.paletteMatches().map((action) => action.id)).toEqual(['refresh', 'open-help']);
+    expect(app.paletteMatches().map((item) => (item.kind === 'action' ? item.id : item.kind))).toEqual([
+      'switch-workspace',
+      'switch-environment',
+      'toggle-rule',
+      'publish-rule',
+      'refresh',
+      'open-help',
+    ]);
     for (const char of ['h', 'e', 'l']) app.handleEvent(key(char), SIZE);
-    expect(app.paletteMatches().map((action) => action.id)).toEqual(['open-help']);
+    expect(app.paletteMatches().map((item) => item.label)).toEqual(['Open help']);
     app.handleEvent(key('x'), SIZE);
     expect(app.paletteMatches()).toEqual([]);
     expect(app.paletteSelected()).toBe(-1);
@@ -228,9 +252,22 @@ describe('app', () => {
     expect(app.state.overlay).toMatchObject({ kind: 'palette' });
   });
 
+  it('toggle/publish leave the palette when the rules pane has no selectable row', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('/'), SIZE);
+    for (const char of ['z', 'z']) app.handleEvent(key(char), SIZE);
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    const ids = app.paletteMatches().map((item) => (item.kind === 'action' ? item.id : item.kind));
+    expect(ids).not.toContain('toggle-rule');
+    expect(ids).not.toContain('publish-rule');
+  });
+
   it('Enter runs the selected action: Refresh now emits the refresh effect', () => {
     const app = makeApp();
     app.handleEvent(key('k', { ctrl: true }), SIZE);
+    for (const char of ['r', 'e', 'f']) app.handleEvent(key(char), SIZE);
+    expect(app.paletteMatches().map((item) => item.label)).toEqual(['Refresh now']);
     expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'refresh' }]);
     expect(app.state.overlay).toBeNull();
     expect(app.focus.modal).toBeNull();
@@ -239,11 +276,56 @@ describe('app', () => {
   it('Open help closes the palette and opens the help overlay', () => {
     const app = makeApp();
     app.handleEvent(key('k', { ctrl: true }), SIZE);
-    app.handleEvent(key('down'), SIZE);
-    expect(app.paletteSelected()).toBe(1);
+    for (const char of ['h', 'e', 'l', 'p']) app.handleEvent(key(char), SIZE);
+    expect(app.paletteSelected()).toBe(0);
     app.handleEvent(key('enter'), SIZE);
     expect(app.state.overlay).toMatchObject({ kind: 'help' });
     expect(app.focus.modal).toBe('help');
+  });
+
+  it('palette toggle/publish act on the selected rules row', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    for (const char of ['t', 'o', 'g', 'g']) app.handleEvent(key(char), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'toggle-rule', uid: 'rule-auth', enabled: false }]);
+    expect(app.state.overlay).toBeNull();
+    expect(app.state.pendingWrite).toEqual({ pane: 'rules', identity: 'rule-auth' });
+  });
+
+  it('the switch pickers list rows; Enter switches, Esc steps back innermost-first', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    app.handleEvent(key('enter'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', picker: 'workspace', query: '' });
+    expect(app.paletteMatches().map((item) => item.label)).toEqual(['team-a (git) *', 'personal (local)']);
+    app.handleEvent(key('down'), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'switch-workspace', workspaceId: 'ws-personal' }]);
+    expect(app.state.overlay).toBeNull();
+    expect(app.state.pendingWrite).toEqual({ pane: 'workspaces', identity: 'ws-personal' });
+    app.state.pendingWrite = null;
+
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    app.handleEvent(key('down'), SIZE);
+    app.handleEvent(key('enter'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', picker: 'environment' });
+    expect(app.paletteMatches().map((item) => item.label)).toEqual(['staging *', 'production', 'No environment']);
+    app.handleEvent(key('a'), SIZE);
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', picker: 'environment', query: '' });
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', picker: null });
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toBeNull();
+  });
+
+  it('picking the already-active row closes the picker without a write', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    app.handleEvent(key('enter'), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([]);
+    expect(app.state.overlay).toBeNull();
+    expect(app.state.pendingWrite).toBeNull();
   });
 
   it('Esc in the palette clears a typed query first, then closes', () => {
@@ -288,15 +370,89 @@ describe('app', () => {
     app.handleEvent(click(2, 2), SIZE);
     expect(app.state.overlay).toBeNull();
     app.handleEvent(key('k', { ctrl: true }), SIZE);
-    // 80×24: palette rect y=9 h=5 → first action on frame row 11 (1-based y=12).
-    app.handleEvent(click(20, 13), SIZE);
+    // 80×24, 6 actions: palette rect y=7 h=9 → second action on frame row 10 (1-based y=11).
+    app.handleEvent(click(20, 11), SIZE);
     expect(app.paletteSelected()).toBe(1);
-    expect(app.handleEvent(click(20, 13), SIZE)).toEqual([]);
-    expect(app.state.overlay).toMatchObject({ kind: 'help' });
-    app.handleEvent(key('escape'), SIZE);
-    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    expect(app.handleEvent(click(20, 11), SIZE)).toEqual([]);
+    // Click-run on Switch environment… enters the second-stage picker.
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', picker: 'environment' });
     app.handleEvent(click(2, 2), SIZE);
     expect(app.state.overlay).toBeNull();
+  });
+
+  it('space toggles and p publishes the selected rule; writes serialize', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    expect(app.handleEvent(key('space'), SIZE)).toEqual([{ type: 'toggle-rule', uid: 'rule-auth', enabled: false }]);
+    expect(app.state.pendingWrite).toEqual({ pane: 'rules', identity: 'rule-auth' });
+    // Write keys are no-ops while one is in flight; movement stays live.
+    expect(app.handleEvent(key('space'), SIZE)).toEqual([]);
+    expect(app.handleEvent(key('p'), SIZE)).toEqual([]);
+    app.handleEvent(key('down'), SIZE);
+    expect(app.selectedIndex('rules')).toBe(1);
+    app.applyRuleWriteAck({ uid: 'rule-auth', enabled: false, published: true });
+    expect(app.state.pendingWrite).toBeNull();
+    expect(app.state.rows.rules[0]).toMatchObject({ enabled: false, published: true });
+    expect(app.handleEvent(key('p'), SIZE)).toEqual([{ type: 'publish-rule', uid: 'rule-legacy', published: false }]);
+  });
+
+  it('space and p outside the rules pane are inert', () => {
+    const app = makeApp();
+    expect(app.handleEvent(key('space'), SIZE)).toEqual([]);
+    expect(app.handleEvent(key('p'), SIZE)).toEqual([]);
+    expect(app.state.pendingWrite).toBeNull();
+  });
+
+  it('space/p inside the rule drill-in write against the drilled rule', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('enter'), SIZE);
+    expect(app.handleEvent(key('space'), SIZE)).toEqual([{ type: 'toggle-rule', uid: 'rule-auth', enabled: false }]);
+    app.applyRuleWriteAck({ uid: 'rule-auth', enabled: false, published: true });
+    expect(app.handleEvent(key('p'), SIZE)).toEqual([{ type: 'publish-rule', uid: 'rule-auth', published: false }]);
+    expect(app.state.detail).toMatchObject({ kind: 'rule', uid: 'rule-auth' });
+  });
+
+  it('switch acks re-mark the active rows and patch the snapshot header truth', () => {
+    const app = makeApp();
+    app.applyEnvironmentSwitchAck('env-prod');
+    expect(app.state.rows.environments.map((env) => env.active)).toEqual([false, true, false]);
+    expect(app.state.snapshot?.environments.activeEnvironmentId).toBe('env-prod');
+    app.applyWorkspaceSwitchAck('ws-personal');
+    expect(app.state.rows.workspaces.map((ws) => ws.active)).toEqual([false, true]);
+    expect(app.state.snapshot?.workspaces.workspaces.map((ws) => ws.active)).toEqual([false, true]);
+  });
+
+  it('a write denial is a sticky verbatim notice: no phase flip, cleared by the next keypress', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('space'), SIZE);
+    app.applyWriteDenied('permission denied: write tools are disabled on this host');
+    expect(app.state.pendingWrite).toBeNull();
+    expect(app.state.phase).toBe('ready');
+    expect(app.state.notice).toEqual({
+      text: 'permission denied: write tools are disabled on this host',
+      expiresAt: null,
+      severity: 'error',
+    });
+    // Sticky: the tick never expires it…
+    expect(app.tick(10_000_000)).toBe(false);
+    expect(app.state.notice).not.toBeNull();
+    // …the next keypress clears it and still does its own work.
+    app.handleEvent(key('down'), SIZE);
+    expect(app.state.notice).toBeNull();
+    expect(app.selectedIndex('rules')).toBe(1);
+  });
+
+  it('a failed write clears the pending marker and shows a timed notice', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('space'), SIZE);
+    app.applyWriteFailed('change not applied — daemon unreachable');
+    expect(app.state.pendingWrite).toBeNull();
+    expect(app.state.notice).toMatchObject({ severity: 'warn' });
+    expect(app.tick(200_000)).toBe(true);
+    expect(app.state.notice).toBeNull();
   });
 
   it('wheel moves the palette selection while the modal is open', () => {
