@@ -35,11 +35,13 @@ import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { web } from './web';
 import { workbench } from './workbench';
+import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchScriptPackages } from './workbench-script-packages';
+import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 
 export const fr = {
   ...desktop,
@@ -70,9 +72,11 @@ export const fr = {
   ...popup,
   ...web,
   ...workbench,
+  ...workbenchChromeWorkspace,
   ...workbenchDaemonAdmin,
   ...workbenchDocsDebugMode,
   ...workbenchDocsVariables,
   ...workbenchEditors,
   ...workbenchScriptPackages,
+  ...workbenchSettingsDefsKeyboard,
 } as const satisfies Catalog;
