@@ -12,7 +12,14 @@
  */
 
 import { getBackends } from '@openheaders/core/backends';
-import { getTranslator, resolveLocale, type Translator } from '@openheaders/i18n';
+import {
+  createTranslator,
+  en,
+  getTranslator,
+  resolveLocale,
+  STATIC_EXTENSION_CATALOGS,
+  type Translator,
+} from '@openheaders/i18n';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import type { BadgeState } from '@/types/browser';
@@ -30,10 +37,23 @@ let lastBadgeInput: BadgeUpdateInput | null = null;
 
 // Tooltips follow the settings locale, not the browser UI locale: the
 // service worker has no React root, so it reads the persisted language
-// setting and threads the runtime Translator directly.
+// setting and threads the runtime Translator directly. The SW cannot
+// dynamic-import, so translated locales resolve through the statically
+// bundled badge slice (English catalog as per-key fallback) instead of
+// the registry's lazy-chunk path.
+const staticTranslators = new Map<string, Translator>();
+
 function badgeTranslator(): Translator {
   const preferences = typeof navigator !== 'undefined' ? navigator.languages : [];
-  return getTranslator(resolveLocale(getSetting('general.language'), preferences));
+  const locale = resolveLocale(getSetting('general.language'), preferences);
+  const slice = STATIC_EXTENSION_CATALOGS[locale];
+  if (!slice) return getTranslator(locale);
+  let translator = staticTranslators.get(locale);
+  if (!translator) {
+    translator = createTranslator(locale, slice, en);
+    staticTranslators.set(locale, translator);
+  }
+  return translator;
 }
 
 // Re-title in place when the user switches language. The repaint guard

@@ -43,8 +43,22 @@ vi.mock('@openheaders/core/backends', () => ({
   ]),
 }));
 
+import { get } from '@openheaders/ui/workbench/settings/store';
 import type { BadgeUpdateInput } from '@/background/modules/badge-manager';
 import { resetBadgeState, updateExtensionBadge } from '@/background/modules/badge-manager';
+
+function mockLanguageSetting(language: string): void {
+  vi.mocked(get).mockImplementation((key: string) => {
+    switch (key) {
+      case 'backend.showBadgeWhenDisconnected':
+        return true;
+      case 'general.language':
+        return language;
+      default:
+        return false;
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 //  Helpers
@@ -247,6 +261,40 @@ describe('updateExtensionBadge', () => {
 
       localeListeners[0]();
       expect(action.setTitle).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Static locale slice (SW cannot dynamic-import) ──
+
+  describe('static locale slice', () => {
+    it('renders the French badge tooltip from the statically bundled slice', async () => {
+      const action = getActionMock();
+      mockLanguageSetting('fr');
+
+      await updateExtensionBadge(makeInput({ matchedRuleCount: 3, configuredRuleCount: 7 }));
+      expect(action.setTitle).toHaveBeenCalledWith({
+        title: 'Open Headers - Actif\n3 de vos 7 règles ont correspondu à des requêtes sur cette page',
+      });
+
+      mockLanguageSetting('en');
+    });
+
+    it('re-titles into French when the language setting switches after an English paint', async () => {
+      const action = getActionMock();
+
+      await updateExtensionBadge(makeInput({ isPaused: true }));
+      expect(action.setTitle).toHaveBeenLastCalledWith({
+        title: 'Open Headers - Paused\nRules execution is paused',
+      });
+
+      mockLanguageSetting('fr');
+      localeListeners[0]();
+      await Promise.resolve();
+      expect(action.setTitle).toHaveBeenLastCalledWith({
+        title: "Open Headers - Suspendu\nL'exécution des règles est suspendue",
+      });
+
+      mockLanguageSetting('en');
     });
   });
 

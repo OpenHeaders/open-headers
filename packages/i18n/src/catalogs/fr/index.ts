@@ -7,6 +7,8 @@
  */
 
 import type { Catalog } from '../../types';
+import { desktop } from './desktop';
+import { extension } from './extension';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -21,8 +23,11 @@ import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
+import { web } from './web';
 
 export const fr = {
+  ...desktop,
+  ...extension,
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
@@ -37,4 +42,5 @@ export const fr = {
   ...sharedResolutionHints,
   ...sharedWorkspace,
   ...popup,
+  ...web,
 } as const satisfies Catalog;

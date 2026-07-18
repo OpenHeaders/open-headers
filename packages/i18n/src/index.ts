@@ -7,6 +7,7 @@
 
 export { getCatalog, getTranslator, isCatalogLoaded, loadCatalog } from './catalog-registry';
 export { en, type MessageKey } from './catalogs/en';
+export { STATIC_EXTENSION_CATALOGS } from './catalogs/static-extension';
 export { GLOSSARY, isGlossaryTerm } from './glossary';
 export { DEFAULT_LOCALE, getLocaleDef, LOCALE_CODES, LOCALES, PSEUDO_LOCALE, resolveLocale } from './locales';
 export { pseudoizeCatalog, pseudoizeString } from './pseudo';
