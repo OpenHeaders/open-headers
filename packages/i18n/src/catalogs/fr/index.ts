@@ -11,11 +11,13 @@ import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
 import { panelConsole } from './panel-console';
+import { panelDocs } from './panel-docs';
 import { panelInspector } from './panel-inspector';
 import { panelInspectorCookies } from './panel-inspector-cookies';
 import { panelInspectorHeaders } from './panel-inspector-headers';
 import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelNetwork } from './panel-network';
+import { panelQuickEditor } from './panel-quick-editor';
 import { panelStorage } from './panel-storage';
 import { popup } from './popup';
 import { shared } from './shared';
@@ -38,11 +40,13 @@ export const fr = {
   ...extension,
   ...panel,
   ...panelConsole,
+  ...panelDocs,
   ...panelInspector,
   ...panelInspectorCookies,
   ...panelInspectorHeaders,
   ...panelInspectorStreams,
   ...panelNetwork,
+  ...panelQuickEditor,
   ...panelStorage,
   ...shared,
   ...sharedAwareness,
