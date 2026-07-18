@@ -114,11 +114,17 @@ export const WebSocketRequestSchema = v.object({
   messageFormat: v.optional(WebSocketMessageFormatSchema),
   specLink: v.optional(WebSocketSpecLinkSchema),
   /**
-   * Wall-clock ceiling (ms) on the connection handshake — becomes the
-   * open-timeout once the transport lands (Phase C). Same bounds as
-   * the HTTP request's timeout knob.
+   * Wall-clock ceiling (ms) on the connection handshake — the
+   * transport's open deadline. An OPEN session has no ceiling. Same
+   * bounds as the HTTP request's timeout knob.
    */
   timeoutMs: v.optional(RequestTimeoutMsSchema),
+  /**
+   * Verify the server certificate against the system roots. Absent =
+   * verify (the safe default); `false` accepts self-signed `wss:`
+   * servers. Node-host capability, like custom handshake headers.
+   */
+  sslVerification: v.optional(v.boolean()),
 });
 
 /**

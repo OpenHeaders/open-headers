@@ -35,6 +35,9 @@ export interface WebSocketDraft {
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
   timeoutMs: number | undefined;
+  /** Concrete in the form — absent on the entity reads as verify-on
+   *  (the safe default the transport applies). */
+  sslVerification: boolean;
 }
 
 export interface WebSocketRequestUpdates {
@@ -47,6 +50,7 @@ export interface WebSocketRequestUpdates {
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
   timeoutMs: number | undefined;
+  sslVerification: boolean;
 }
 
 export function headersToRows(pairs: readonly WebSocketHeaderPair[]): KeyValueRow[] {
@@ -111,6 +115,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     messageFormat: req.messageFormat ?? 'text',
     specLink: req.specLink,
     timeoutMs: req.timeoutMs,
+    sslVerification: req.sslVerification ?? true,
   };
 }
 
@@ -125,6 +130,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     messageFormat: draft.messageFormat,
     specLink: draft.specLink,
     timeoutMs: draft.timeoutMs,
+    sslVerification: draft.sslVerification,
   };
 }
 

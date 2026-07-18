@@ -50,7 +50,7 @@ import type {
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
-import type { GrpcStreamEventWire, RequestStreamEventWire } from './requests';
+import type { GrpcStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
 
@@ -160,6 +160,14 @@ export interface BridgeBroadcastContract {
    * only hints superseded by the resolving RPC's snapshot.
    */
   grpcStreamEvent: GrpcStreamEventWire;
+  /**
+   * Live frames of an open WebSocket session (open, direction-tagged
+   * message batches, end) — the message timeline's feed, the
+   * `grpcStreamEvent` sibling for the WebSocketRequest executor plane.
+   * Same discipline: tagged with the caller-minted `sendId`, display-
+   * only hints superseded by the resolving RPC's snapshot.
+   */
+  wsStreamEvent: WsStreamEventWire;
   /**
    * Host-shell navigation request: open the Settings surface, optionally
    * at a category or a specific setting. Emitted by the desktop main

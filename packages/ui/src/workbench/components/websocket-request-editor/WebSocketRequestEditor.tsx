@@ -1,17 +1,25 @@
 /**
  * WebSocketRequestEditor — tab body for one WebSocketRequest entity.
  *
- * Phase B editor shell: scheme lock + ws/wss URL in the header title
- * slot with Connect present but DISABLED (the session plane is the
- * next phase — the tooltip says so honestly), Docs / Message /
- * Headers / Params / AsyncAPI / Settings tabs below. The Message tab
- * is the compose stub for the raw flavor (text/JSON display toggle;
- * the payload travels verbatim either way). Headers carry the
- * node-only honesty line — browsers cannot set custom handshake
- * headers, so the extension surfaces the limit instead of silently
- * dropping rows. The AsyncAPI tab binds the ids-only specLink (the
- * gRPC service-definition tab precedent) and summarizes the census
- * live from the spec's current files — nothing cached.
+ * Editor shell: scheme lock + ws/wss URL in the header title slot,
+ * Docs / Message / Headers / Params / AsyncAPI / Settings tabs. The
+ * Message tab is the compose surface for the raw flavor (text/JSON
+ * display toggle; the payload travels verbatim either way). Headers
+ * carry the node-only honesty line. The AsyncAPI tab binds the
+ * ids-only specLink and summarizes the census live from the spec's
+ * current files — nothing cached.
+ *
+ * Connect opens the live session through the `executeWebSocketRequest`
+ * channel — answered in-process on node hosts (`requestRuntime`
+ * gates the button; browser surfaces keep the honest disabled copy
+ * until the extension's native leg lands). In flight it MORPHS to
+ * Disconnect (the clean close 1000 via the `closeWsSession` rider),
+ * and the Message tab grows a Send control riding `sendWsMessage` —
+ * enabled only while the session is open. Compose and result stack
+ * in a vertical Allotment split (the gRPC editor's discipline): the
+ * result pane is always attached — empty-state hint before the first
+ * connect, `WsSessionPane` with the live timeline while open, the
+ * settled snapshot's capture after.
  *
  * Dirty derives from form-vs-canonical equality via `useReprime`
  * (never setDirty); saves flow through the RequestsContext's
@@ -19,18 +27,37 @@
  * hood).
  */
 
-import { LinkOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { DisconnectOutlined, LinkOutlined, LockOutlined, SendOutlined, UnlockOutlined } from '@ant-design/icons';
 import { type AsyncApiCensus, AsyncApiParseError, parseAsyncApi } from '@openheaders/core/asyncapi';
+import { hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
+import type { ExecutedWsSnapshot, WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
-import { App, Button, Input, InputNumber, Segmented, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import { isMac } from '@openheaders/ui/shared/platform';
+import { Allotment } from 'allotment';
+import {
+  App,
+  Button,
+  ConfigProvider,
+  Input,
+  InputNumber,
+  Segmented,
+  Select,
+  Switch,
+  Tabs,
+  Tag,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -44,8 +71,13 @@ import {
   draftFromWebSocketRequest,
   type WebSocketDraft,
 } from './draft';
+import { useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
+import WsSessionPane from './WsSessionPane';
 
 const { Text } = Typography;
+
+const CONNECT_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
+const SEND_MESSAGE_SHORTCUT = isMac ? '⇧⌘↵' : 'Ctrl+Shift+Enter';
 
 interface WebSocketRequestEditorProps {
   websocketRequestUid: string;
@@ -64,6 +96,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   messageFormat: 'text',
   specLink: undefined,
   timeoutMs: undefined,
+  sslVerification: true,
 });
 
 /** One Settings-tab row — the gRPC editor's SettingRow vocabulary. */
@@ -104,7 +137,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { websocketRequests, updateWebSocketRequest } = useRequests();
+  const { websocketRequests, updateWebSocketRequest, executeWebSocket } = useRequests();
   const specs = useSpecs(workspaceId);
 
   const entity = useMemo(
@@ -150,6 +183,107 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   }, [linkedSpec]);
 
   const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+
+  // ── Session (node hosts) ─────────────────────────────────────────
+  const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const [inFlight, setInFlight] = useState(false);
+  const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
+  const [timing, setTiming] = useState<WsSessionTiming | null>(null);
+  const activeSendIdRef = useRef<string | null>(null);
+  const liveSession = useLiveWsSession();
+
+  const handleConnect = useCallback(async () => {
+    if (!entity || inFlight) return;
+    // The CURRENT compose state connects — saved or not (the HTTP
+    // editor's draft-send law); identity fields ride along verbatim.
+    const draftEntity: WebSocketRequestEntity = {
+      schemaVersion: 5,
+      uid: entity.uid,
+      path: entity.path,
+      name: entity.name,
+      flavor: entity.flavor,
+      ...buildWebSocketRequestUpdates(draft),
+    };
+    const sendId = crypto.randomUUID();
+    activeSendIdRef.current = sendId;
+    setInFlight(true);
+    setSnapshot(null);
+    setTiming(null);
+    liveSession.beginSession(sendId);
+    const settled = await executeWebSocket({ draft: draftEntity, sendId });
+    const session = liveSession.takeSession();
+    setTiming(session === null ? null : { ...session, endedAt: Date.now() });
+    liveSession.endSession();
+    activeSendIdRef.current = null;
+    setInFlight(false);
+    if (settled === null) {
+      toast.error(t('workbench.editors.websocket.session.connectFailed'));
+      return;
+    }
+    setSnapshot(settled);
+  }, [entity, inFlight, draft, executeWebSocket, liveSession, toast, t]);
+
+  // Disconnect morphs from Connect while the session is open — the
+  // clean close 1000; the pending RPC above resolves with the
+  // whole-session snapshot once the close handshake settles.
+  const handleDisconnect = useCallback(() => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    hostBridge.call('closeWsSession', { sendId }).catch(() => {});
+  }, []);
+
+  // Send the CURRENT compose text as one message — the executor
+  // resolves {{refs}} through the resolver it built at Connect, and a
+  // resolve failure reports here without touching the open session.
+  const handleSendMessage = useCallback(async () => {
+    const sendId = activeSendIdRef.current;
+    if (!sendId) return;
+    const result = await hostBridge.call('sendWsMessage', { sendId, messageText: draft.message }).catch(() => null);
+    if (result === null || !result.success) {
+      toast.error(result?.error ?? t('workbench.editors.websocket.session.sendFailed'));
+    }
+  }, [draft.message, toast, t]);
+
+  const handleClearSession = useCallback(() => {
+    setSnapshot(null);
+    setTiming(null);
+  }, []);
+
+  const connectDisabledReason =
+    requestRuntimeKind !== 'node'
+      ? t('workbench.editors.websocket.connect.browserHost')
+      : draft.url.trim() === ''
+        ? t('workbench.editors.websocket.connect.needsUrl')
+        : null;
+
+  const sessionOpen = inFlight && liveSession.live?.open !== null && liveSession.live !== null;
+
+  // ⌘/Ctrl+Enter connects from anywhere in the editor — the same gate
+  // as the Connect button, and the same MORPH: while the session is
+  // in flight the chord disconnects. ⌘/Ctrl+Shift+Enter sends the
+  // compose text — a dead key outside an open session. Capture phase
+  // so the chords win inside the Monaco message editor too.
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter') return;
+      if (e.shiftKey) {
+        if (!sessionOpen) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void handleSendMessage();
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (inFlight) {
+        handleDisconnect();
+        return;
+      }
+      if (connectDisabledReason !== null) return;
+      void handleConnect();
+    },
+    [sessionOpen, inFlight, connectDisabledReason, handleSendMessage, handleDisconnect, handleConnect],
+  );
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -228,14 +362,49 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     </div>
   );
 
-  const headerActions = (
-    <Tooltip placement="bottom" title={t('workbench.editors.websocket.connect.disabledPhase')}>
+  // Connect morphs into Disconnect while the session is in flight —
+  // the Invoke→Stop treatment: solid on the darkened error token.
+  const headerActions = inFlight ? (
+    <Tooltip
+      placement="bottom"
+      title={
+        <ShortcutHintTitle label={CONNECT_SHORTCUT}>
+          {t('workbench.editors.websocket.connect.disconnect')}
+        </ShortcutHintTitle>
+      }
+    >
+      <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+        <Button
+          size="small"
+          type="primary"
+          danger
+          icon={<DisconnectOutlined />}
+          onClick={handleDisconnect}
+          style={{ fontSize: 11 }}
+          data-testid="websocket-connect-button"
+        >
+          {t('workbench.editors.websocket.connect.disconnect')}
+        </Button>
+      </ConfigProvider>
+    </Tooltip>
+  ) : (
+    <Tooltip
+      placement="bottom"
+      title={
+        connectDisabledReason ?? (
+          <ShortcutHintTitle label={CONNECT_SHORTCUT}>
+            {t('workbench.editors.websocket.connect.label')}
+          </ShortcutHintTitle>
+        )
+      }
+    >
       <span style={{ display: 'inline-flex' }}>
         <Button
           size="small"
           type="primary"
           icon={<LinkOutlined />}
-          disabled
+          disabled={connectDisabledReason !== null}
+          onClick={() => void handleConnect()}
           style={{ fontSize: 11 }}
           data-testid="websocket-connect-button"
         >
@@ -272,7 +441,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
+      {/* tabIndex -1: clicks on non-focusable space inside the editor
+        keep focus within so the ⌘/Ctrl+Enter chord always reaches the
+        capture handler. */}
       <div
+        tabIndex={-1}
+        onKeyDownCapture={handleEditorKeyDown}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -283,9 +457,16 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       >
         <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
 
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flex: 1 }}>
-          <div style={{ padding: '0 12px' }}>
-            <Tabs
+        {/* Compose / session split — the gRPC editor's stacked
+          Allotment discipline: the sash bounds the message editor,
+          and the session pane is always attached (empty-state hint
+          before the first connect). */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <Allotment vertical proportionalLayout separator>
+            <Allotment.Pane minSize={220} preferredSize="55%">
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+                <div style={{ padding: '0 12px' }}>
+                  <Tabs
               activeKey={activeTab}
               onChange={setActiveTab}
               size="small"
@@ -358,6 +539,45 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         placeholder={t('workbench.editors.websocket.messagePlaceholder')}
                       />
                     </div>
+                    {/* Send control, bottom-right of the compose
+                      surface (the gRPC stream-controls anatomy): a
+                      visible affordance that ENABLES only while the
+                      session is open — the compose text is what Send
+                      writes, so the control lives on it. */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 22,
+                        right: 26,
+                        zIndex: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Tooltip
+                        title={
+                          sessionOpen ? (
+                            <ShortcutHintTitle label={SEND_MESSAGE_SHORTCUT}>
+                              {t('workbench.editors.websocket.session.sendMessage')}
+                            </ShortcutHintTitle>
+                          ) : (
+                            t('workbench.editors.websocket.session.sendIdle')
+                          )
+                        }
+                      >
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<SendOutlined />}
+                          disabled={!sessionOpen}
+                          onClick={() => void handleSendMessage()}
+                          data-testid="websocket-send-message"
+                        >
+                          {t('workbench.editors.websocket.session.sendMessage')}
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
               )}
@@ -424,6 +644,17 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
               {activeTab === 'settings' && (
                 <div style={{ maxWidth: 720 }}>
                   <SettingRow
+                    label={t('workbench.editors.websocket.settings.sslVerifyLabel')}
+                    description={t('workbench.editors.websocket.settings.sslVerifyHelp')}
+                    control={
+                      <Switch
+                        checked={draft.sslVerification}
+                        onChange={(sslVerification) => setDraft((d) => ({ ...d, sslVerification }))}
+                        data-testid="websocket-ssl-verify"
+                      />
+                    }
+                  />
+                  <SettingRow
                     label={t('workbench.editors.websocket.settings.subprotocolsLabel')}
                     description={t('workbench.editors.websocket.settings.subprotocolsHelp')}
                     control={
@@ -460,6 +691,45 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
               )}
             </div>
           </div>
+              </div>
+            </Allotment.Pane>
+            <Allotment.Pane minSize={120}>
+              {liveSession.live !== null || snapshot !== null ? (
+                <WsSessionPane live={liveSession.live} snapshot={snapshot} timing={timing} onClear={handleClearSession} />
+              ) : (
+                // Always-attached session pane (the gRPC editor's
+                // posture): a stable target with the plain title row
+                // and a connect hint before the first session.
+                <div
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    background: token.colorBgContainer,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '6px 12px',
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                  >
+                    <Text strong style={{ fontSize: 12 }}>
+                      {t('workbench.editors.websocket.session.title')}
+                    </Text>
+                  </div>
+                  <div style={{ padding: '16px 12px' }} data-testid="ws-session-empty">
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {t('workbench.editors.websocket.session.emptyHint')}
+                    </Text>
+                  </div>
+                </div>
+              )}
+            </Allotment.Pane>
+          </Allotment>
         </div>
 
         {specFooter}

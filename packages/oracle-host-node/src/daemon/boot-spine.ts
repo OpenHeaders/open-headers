@@ -84,6 +84,7 @@ import {
   sendActiveGrpcStreamMessage,
 } from '@openheaders/oracle/live/grpc-exec/stream-plane';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
+import { closeActiveWsSession, sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -128,6 +129,7 @@ import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervi
 import { composePeerRpc } from './compose-peer-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
+import { handleExecuteWebSocketRequestRpc } from './execute-websocket-request-rpc';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { createHealthzHandler } from './healthz';
 import { detectNodeHostOs } from './host-os';
@@ -761,6 +763,23 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     if (type === 'endGrpcClientStream') {
       return { success: typeof message.sendId === 'string' && endActiveGrpcClientStream(message.sendId) };
+    }
+    // Workbench WebSocket Connect — the WebSocketRequest entity's
+    // executor plane, same in-process answer posture; the RPC resolves
+    // when the session settles.
+    if (type === 'executeWebSocketRequest') {
+      return await handleExecuteWebSocketRequestRpc(message);
+    }
+    // Riders for an open WebSocket session — the executor's
+    // active-session registry resolves and writes / starts the clean
+    // close; a settled or unknown id answers `success: false`.
+    if (type === 'sendWsMessage') {
+      return typeof message.sendId === 'string' && typeof message.messageText === 'string'
+        ? sendActiveWsSessionMessage(message.sendId, message.messageText)
+        : { success: false, error: 'No session id or message provided' };
+    }
+    if (type === 'closeWsSession') {
+      return { success: typeof message.sendId === 'string' && closeActiveWsSession(message.sendId) };
     }
     // Workspace-export import — the host-neutral orchestrator (the
     // extension SW answers the same channels). Local surface = the

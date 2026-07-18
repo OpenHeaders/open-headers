@@ -18,6 +18,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.grpcMessagesShowTypes': boolean;
     'requests.grpcMessagesGroupByType': boolean;
     'requests.grpcMessagesGroupRowLimit': number;
+    'requests.wsMessagesNewestFirst': boolean;
   }
 }
 
@@ -136,6 +137,22 @@ registerSetting({
   tags: ['grpc', 'stream', 'messages', 'timeline', 'group', 'limit', 'rows', 'watch'],
   scope: 'user',
   numberRange: { min: 0, max: 100, step: 1 },
+});
+
+// The WebSocket message timeline's order — the gRPC key's sibling
+// (own key: the lists are independent surfaces), written by the
+// timeline's own toolbar too. WS payloads carry no declared types, so
+// the show-types / group-by-type knobs have no WS twin.
+registerSetting({
+  key: 'requests.wsMessagesNewestFirst',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.wsMessagesNewestFirst.label',
+  descriptionKey: 'workbench.settings.def.requests.wsMessagesNewestFirst.description',
+  category: 'requests',
+  tags: ['websocket', 'ws', 'session', 'messages', 'timeline', 'sort', 'order', 'newest', 'oldest'],
+  scope: 'user',
 });
 
 // Watch-several-groups-at-once mode: each group shows only its N

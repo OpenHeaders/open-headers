@@ -88,6 +88,8 @@ export type {
   GrpcStreamMessageWire,
   RequestStreamEventWire,
   RequestStreamHeadWire,
+  WsStreamEventWire,
+  WsStreamMessageWire,
 } from './requests';
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';

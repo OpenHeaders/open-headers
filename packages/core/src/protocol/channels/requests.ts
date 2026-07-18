@@ -9,9 +9,11 @@ import type {
   CollectionTree,
   ExecutedGrpcSnapshot,
   ExecutedRequestSnapshot,
+  ExecutedWsSnapshot,
   GrpcRequest,
   Request,
   RequestSeed,
+  WebSocketRequest,
 } from '../../types';
 import type { FolderDescriptor } from './common';
 
@@ -107,6 +109,47 @@ export type GrpcStreamEventWire =
       afterMessages: number;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
+  | { sendId: string; seq: number; kind: 'end' };
+
+/**
+ * One live message of an open WebSocket session, direction-tagged: the
+ * message timeline's row unit. Payload base64 whether the frame was
+ * text or binary (`binary` records the wire frame type — a text view
+ * is a decode, never a guess). `atMs` is the executing host's arrival
+ * (↓) / write (↑) wall-clock — SESSION-ONLY display data riding the
+ * wire event, never persisted (the SSE timestamps law).
+ */
+export interface WsStreamMessageWire {
+  direction: 'up' | 'down';
+  dataBase64: string;
+  binary: boolean;
+  /** Epoch ms on the executing host. */
+  atMs: number;
+}
+
+/**
+ * One live frame of an open WebSocket session — the `wsStreamEvent`
+ * broadcast's payload, the `grpcStreamEvent` sibling for the
+ * WebSocketRequest executor plane (own channel; neither the HTTP nor
+ * the gRPC contract changes). Same discipline: display-only hints
+ * superseded by the resolving `executeWebSocketRequest` snapshot,
+ * `seq` per-send monotonic, message frames flush-batched by the
+ * executing host; `open` and `end` emit immediately (single and
+ * load-bearing). Unlike gRPC there is no interleave count on `open` —
+ * a WebSocket client cannot write before the handshake settles, so no
+ * message can precede it in call order.
+ */
+export type WsStreamEventWire =
+  | {
+      sendId: string;
+      seq: number;
+      kind: 'open';
+      /** The subprotocol the server selected; empty when none. */
+      protocol: string;
+      /** Negotiated extensions; empty when none. */
+      extensions: string;
+    }
+  | { sendId: string; seq: number; kind: 'messages'; items: WsStreamMessageWire[] }
   | { sendId: string; seq: number; kind: 'end' };
 
 export interface RequestRpc {
@@ -274,6 +317,54 @@ export interface RequestRpc {
    * call completes. `success: false` = no such stream.
    */
   endGrpcClientStream: {
+    req: { sendId: string };
+    res: { success: boolean };
+  };
+  /**
+   * Open a WebSocket session for a WebSocketRequest — the entity's
+   * executor plane, a sibling of `executeGrpcRequest` keyed off the
+   * entity kind. EXECUTED by hosts with a node network stack (the
+   * desktop main process, the daemon); browser surfaces keep the
+   * honest disabled posture until the extension's native leg lands.
+   * `webSocketRequestUid` takes precedence over `draft`; the
+   * `workspaceId` / `environmentId` semantics are `executeRequest`'s
+   * verbatim. `sendId` is REQUIRED: it keys the open session for the
+   * `sendWsMessage` / `closeWsSession` riders, registers with the
+   * SAME active-send registry (`abortRequestSend` = Stop-abort,
+   * materializes what arrived), and tags the live `wsStreamEvent`
+   * frames. The RPC resolves when the session SETTLES (server close,
+   * Disconnect, Stop, or pre-open failure) — the streaming-invoke
+   * posture — with the whole-session snapshot.
+   */
+  executeWebSocketRequest: {
+    req: {
+      webSocketRequestUid?: string;
+      draft?: WebSocketRequest;
+      environmentId?: string | null;
+      workspaceId?: string;
+      sendId: string;
+    };
+    res: { success: boolean; snapshot?: ExecutedWsSnapshot; error?: string };
+  };
+  /**
+   * Write one message into an open WebSocket session, keyed by the
+   * connect's `sendId`. `messageText` is the compose editor's text —
+   * the EXECUTOR resolves {{variables}} through the resolver it built
+   * at Connect (same scope), so an unresolved reference fails this RPC
+   * alone and never closes the session. `success: false` names the
+   * reason: no such session (settled, unknown id) or the resolve error.
+   */
+  sendWsMessage: {
+    req: { sendId: string; messageText: string };
+    res: { success: boolean; error?: string };
+  };
+  /**
+   * Disconnect an open WebSocket session — the clean close (code
+   * 1000). The resolving `executeWebSocketRequest` RPC settles with
+   * the snapshot once the close handshake completes. `success: false`
+   * = no such session.
+   */
+  closeWsSession: {
     req: { sendId: string };
     res: { success: boolean };
   };

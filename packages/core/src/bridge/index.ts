@@ -53,6 +53,8 @@ export type {
   StorageQuotaWire,
   StorageScopeWire,
   WorkspaceSnapshot,
+  WsStreamEventWire,
+  WsStreamMessageWire,
 } from '../protocol/channels';
 
 // The typed channel registry the `HostBridge` contract is generic over.

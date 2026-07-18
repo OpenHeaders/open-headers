@@ -54,6 +54,14 @@ describe('websocket draft projections', () => {
     expect(updates.timeoutMs).toBe(30_000);
   });
 
+  it('reads an absent sslVerification as verify-on and carries an explicit opt-out', () => {
+    expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest())).sslVerification).toBe(true);
+    expect(
+      buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ sslVerification: false })))
+        .sslVerification,
+    ).toBe(false);
+  });
+
   it('never carries the flavor — creation fixes it, the editor cannot flip it', () => {
     const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ flavor: 'socketio' })));
     expect('flavor' in updates).toBe(false);

@@ -95,6 +95,7 @@ function makeRequestsValue(overrides: Partial<RequestsContextValue> = {}): Reque
     setCollectionSpecLink: vi.fn(async () => true),
     execute: vi.fn(async () => null),
     executeGrpc: vi.fn(async () => null),
+    executeWebSocket: vi.fn(async () => null),
     ...overrides,
   };
 }

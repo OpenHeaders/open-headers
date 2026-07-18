@@ -147,6 +147,7 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
   'messageFormat',
   'specLink',
   'timeoutMs',
+  'sslVerification',
 ] as const;
 
 /**
