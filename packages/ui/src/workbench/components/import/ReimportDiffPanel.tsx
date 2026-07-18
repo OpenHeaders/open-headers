@@ -17,9 +17,10 @@
 
 import { ArrowDownOutlined, ArrowUpOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import type { ImportReportDiff } from '@openheaders/core/import';
+import { getRelativeTimeFormat } from '@openheaders/i18n';
 import { Alert, Space, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 
 const { Text } = Typography;
 
@@ -27,28 +28,27 @@ interface ReimportDiffPanelProps {
   diff: ImportReportDiff;
 }
 
-function relativeAge(previousIso: string): string {
+function relativeAge(previousIso: string, locale: string): string {
   const then = Date.parse(previousIso);
   if (Number.isNaN(then)) return 'previously';
   const delta = Date.now() - then;
-  if (delta < 0) return 'just now';
   const minutes = Math.round(delta / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  if (delta < 0 || minutes < 1) return getRelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'second');
+  const format = getRelativeTimeFormat(locale, { numeric: 'always' });
+  if (minutes < 60) return format.format(-minutes, 'minute');
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) return format.format(-hours, 'hour');
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  if (days < 30) return format.format(-days, 'day');
   const months = Math.round(days / 30);
-  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
-  const years = Math.round(months / 12);
-  return `${years} year${years === 1 ? '' : 's'} ago`;
+  if (months < 12) return format.format(-months, 'month');
+  return format.format(-Math.round(months / 12), 'year');
 }
 
 const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
   const { token } = theme.useToken();
-  const t = useT();
-  const age = relativeAge(diff.previousImportedAt);
+  const { t, locale } = useLocale();
+  const age = relativeAge(diff.previousImportedAt, locale);
 
   // Decide headline tone. Regression wins over progress — the user
   // needs to see new drops most urgently.

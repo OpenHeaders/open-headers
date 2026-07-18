@@ -9,7 +9,7 @@
  */
 
 import { DeleteOutlined, EditOutlined, EyeOutlined, WarningOutlined } from '@ant-design/icons';
-import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { useMemo } from 'react';
 import { introspectWithAuthScheme } from '../../data/auth-scheme';
@@ -72,6 +72,7 @@ export function CookieJarRow({
   onDelete,
   labels,
 }: CookieJarRowProps) {
+  const { locale } = useLocale();
   // Same registry pass the cookies TAB rows run — memoized per row (the
   // jar renders unwindowed, potentially hundreds of rows). The hit feeds
   // the hint glyph and the read-only view icon; depth beyond the modal
@@ -118,7 +119,7 @@ export function CookieJarRow({
           role="gridcell"
           title={formatAbsoluteExpiry(cookie.expirationDate, cookie.session)}
         >
-          {formatRelativeExpiry(cookie.expirationDate, cookie.session, now)}
+          {formatRelativeExpiry(cookie.expirationDate, cookie.session, now, locale)}
         </span>
         <span className="dt-storage-cookie-sec" role="gridcell">
           <SecurityGlyphs row={cookie} />

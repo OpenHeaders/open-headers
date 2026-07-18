@@ -11,7 +11,7 @@
  */
 
 import type { SurfaceKind } from '@openheaders/core/protocol';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { Tooltip } from 'antd';
 import type React from 'react';
 import { formatAgo } from './format-ago';
@@ -48,7 +48,7 @@ export interface SurfaceChipProps {
 }
 
 const SurfaceChip: React.FC<SurfaceChipProps> = ({ kind, labelContext, agoMs, size = 'normal', iconOnly = false }) => {
-  const t = useT();
+  const { t, locale } = useLocale();
   const fontSize = size === 'small' ? 11 : 12;
   const dotSize = size === 'small' ? 6 : 8;
   return (
@@ -56,7 +56,7 @@ const SurfaceChip: React.FC<SurfaceChipProps> = ({ kind, labelContext, agoMs, si
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize, lineHeight: 1.4 }}>
         <SurfaceDot kind={kind} size={dotSize} />
         {!iconOnly && <span>{t(surfaceKindLabel(kind))}</span>}
-        <span style={{ opacity: 0.6 }}>· {formatAgo(agoMs)}</span>
+        <span style={{ opacity: 0.6 }}>· {formatAgo(agoMs, locale)}</span>
       </span>
     </Tooltip>
   );

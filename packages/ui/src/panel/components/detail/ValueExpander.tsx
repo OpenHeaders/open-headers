@@ -14,12 +14,13 @@
  */
 
 import { useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { COMPACT_VALUE_TITLE_KEYS } from '@openheaders/ui/shared/value-detection';
 import { formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JwtParts, ValueIntrospection } from '../../data/value-introspect';
 
 function JwtClaims({ jwt }: { jwt: JwtParts }) {
+  const { locale } = useLocale();
   const now = Date.now();
   return (
     <div className="dt-value-jwt">
@@ -34,12 +35,12 @@ function JwtClaims({ jwt }: { jwt: JwtParts }) {
           <div className="dt-value-jwt-claims">
             {jwt.iatSec != null && (
               <span>
-                iat <em>{formatRelativeExpiry(jwt.iatSec, false, now)}</em>
+                iat <em>{formatRelativeExpiry(jwt.iatSec, false, now, locale)}</em>
               </span>
             )}
             {jwt.nbfSec != null && (
               <span>
-                nbf <em>{formatRelativeExpiry(jwt.nbfSec, false, now)}</em>
+                nbf <em>{formatRelativeExpiry(jwt.nbfSec, false, now, locale)}</em>
               </span>
             )}
             {jwt.expSec != null && (
@@ -52,7 +53,7 @@ function JwtClaims({ jwt }: { jwt: JwtParts }) {
                       : ''
                 }
               >
-                exp <em>{formatRelativeExpiry(jwt.expSec, false, now)}</em>
+                exp <em>{formatRelativeExpiry(jwt.expSec, false, now, locale)}</em>
               </span>
             )}
           </div>

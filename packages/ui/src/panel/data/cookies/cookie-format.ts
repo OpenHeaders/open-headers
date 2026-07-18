@@ -2,24 +2,29 @@
  * Pure formatters for cookie display. No React, no DOM — easy to test.
  */
 
+import { getRelativeTimeFormat } from '@openheaders/i18n';
+
+const NARROW_ALWAYS: Intl.RelativeTimeFormatOptions = { style: 'narrow', numeric: 'always' };
+
+// 'Session' stays literal — it round-trips with the edit form's session
+// label and the "{session}" merge hole in the cookies catalog.
 export function formatRelativeExpiry(
   expirationDateSec: number | undefined,
   isSession: boolean | undefined,
-  now: number = Date.now(),
+  now: number,
+  locale: string,
 ): string {
   if (isSession || expirationDateSec == null) return 'Session';
+  const format = getRelativeTimeFormat(locale, NARROW_ALWAYS);
   const deltaMs = expirationDateSec * 1000 - now;
-  const absMs = Math.abs(deltaMs);
-  const sec = Math.round(absMs / 1000);
-  const past = deltaMs < 0;
-  let s: string;
-  if (sec < 60) s = `${sec}s`;
-  else if (sec < 3600) s = `${Math.round(sec / 60)}m`;
-  else if (sec < 86400) s = `${Math.round(sec / 3600)}h`;
-  else if (sec < 86400 * 30) s = `${Math.round(sec / 86400)}d`;
-  else if (sec < 86400 * 365) s = `${Math.round(sec / (86400 * 30))}mo`;
-  else s = `${Math.round(sec / (86400 * 365))}y`;
-  return past ? `${s} ago` : `in ${s}`;
+  const sec = Math.round(Math.abs(deltaMs) / 1000);
+  const sign = deltaMs < 0 ? -1 : 1;
+  if (sec < 60) return format.format(sign * sec, 'second');
+  if (sec < 3600) return format.format(sign * Math.round(sec / 60), 'minute');
+  if (sec < 86400) return format.format(sign * Math.round(sec / 3600), 'hour');
+  if (sec < 86400 * 30) return format.format(sign * Math.round(sec / 86400), 'day');
+  if (sec < 86400 * 365) return format.format(sign * Math.round(sec / (86400 * 30)), 'month');
+  return format.format(sign * Math.round(sec / (86400 * 365)), 'year');
 }
 
 export function formatAbsoluteExpiry(expirationDateSec: number | undefined, isSession: boolean | undefined): string {

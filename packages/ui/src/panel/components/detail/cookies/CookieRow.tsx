@@ -17,7 +17,7 @@
  */
 
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { useState } from 'react';
 import { deleteKeyForRow, editCanonicalForRow } from '../../../data/cookies/cookie-edit';
@@ -105,7 +105,7 @@ export function CookieRow({
   onApplyEdit,
   onDelete,
 }: Props) {
-  const t = useT();
+  const { t, locale } = useLocale();
   const [expanded, setExpanded] = useState(false);
   // Edit opens on the LIVE jar entry (that's what Save writes) — when
   // its value differs from what this row captured, say so in the form
@@ -142,7 +142,7 @@ export function CookieRow({
   const expiresCell =
     expiresFormat === 'absolute'
       ? formatAbsoluteExpiry(row.expirationDate, row.session)
-      : formatRelativeExpiry(row.expirationDate, row.session, now);
+      : formatRelativeExpiry(row.expirationDate, row.session, now, locale);
   const scope =
     row.domain || row.path
       ? `${row.domain ?? ''}${row.path && row.path !== '/' ? ` ${row.path}` : row.domain ? ' /' : (row.path ?? '')}`
