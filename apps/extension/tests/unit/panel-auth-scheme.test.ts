@@ -1,4 +1,5 @@
 import { introspectWithAuthScheme, splitAuthScheme } from '@openheaders/ui/panel/data/auth-scheme';
+import { introspectionDetected } from '@openheaders/ui/panel/data/value-introspect';
 import { describe, expect, it } from 'vitest';
 
 function b64url(s: string): string {
@@ -57,5 +58,13 @@ describe('introspectWithAuthScheme', () => {
   it('introspects a scheme-less value normally', () => {
     expect(introspectWithAuthScheme('{"a":1}').kind).toBe('json');
     expect(introspectWithAuthScheme('xlg').kind).toBe('plain');
+  });
+
+  it('introspectionDetected peels the prefixed wrapper to the credential hit', () => {
+    const jwt = introspectionDetected(introspectWithAuthScheme(`Bearer ${makeJwt()}`));
+    expect(jwt?.type).toBe('jwt');
+    const cred = Buffer.from('user:password123').toString('base64');
+    const b64 = introspectionDetected(introspectWithAuthScheme(`Basic ${cred}`));
+    expect(b64?.type).toBe('base64');
   });
 });

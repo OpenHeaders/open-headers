@@ -15,6 +15,7 @@
 
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { COMPACT_VALUE_TITLE_KEYS } from '@openheaders/ui/shared/value-detection';
 import { formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JwtParts, ValueIntrospection } from '../../data/value-introspect';
 
@@ -67,6 +68,16 @@ function JwtClaims({ jwt }: { jwt: JwtParts }) {
   );
 }
 
+function DecodedGeneric({ i }: { i: Extract<ValueIntrospection, { kind: 'decoded' }> }) {
+  const t = useT();
+  return (
+    <div className="dt-value-expand-decoded">
+      <div className="dt-value-expand-label">{t(COMPACT_VALUE_TITLE_KEYS[i.type])}</div>
+      <pre className="dt-value-expand-pre dt-scrollbar">{i.decoded}</pre>
+    </div>
+  );
+}
+
 function decodedBodyFor(i: ValueIntrospection): React.ReactNode {
   if (i.kind === 'prefixed') {
     // A recognized scheme (e.g. `Bearer`) in front of a decodable
@@ -97,6 +108,7 @@ function decodedBodyFor(i: ValueIntrospection): React.ReactNode {
       </div>
     );
   }
+  if (i.kind === 'decoded') return <DecodedGeneric i={i} />;
   return null;
 }
 

@@ -424,7 +424,8 @@
   z-index: 1;
   transition: opacity 80ms ease-out;
 }
-.dt-kv-row:hover .dt-kv-row-actions {
+.dt-kv-row:hover .dt-kv-row-actions,
+.dt-kv-row:focus-within .dt-kv-row-actions {
   opacity: 1;
   pointer-events: auto;
 }

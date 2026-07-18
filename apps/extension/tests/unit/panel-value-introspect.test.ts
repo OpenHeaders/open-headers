@@ -1,4 +1,8 @@
-import { introspectionHasDepth, introspectValue } from '@openheaders/ui/panel/data/value-introspect';
+import {
+  introspectionDetected,
+  introspectionHasDepth,
+  introspectValue,
+} from '@openheaders/ui/panel/data/value-introspect';
 import { describe, expect, it } from 'vitest';
 
 function b64url(s: string): string {
@@ -61,13 +65,35 @@ describe('introspectValue', () => {
     expect(introspectValue(binary.toString('base64')).kind).toBe('plain');
   });
 
-  it('maps registry kinds without an expander view to plain', () => {
-    expect(introspectValue('no-cache, max-age=0').kind).toBe('plain');
-    expect(introspectValue('1720000000').kind).toBe('plain');
+  it('maps every other registry kind to the generic decoded rendering', () => {
+    const cc = introspectValue('no-cache, max-age=0');
+    expect(cc.kind).toBe('decoded');
+    if (cc.kind === 'decoded') {
+      expect(cc.type).toBe('cache-control');
+      expect(cc.decoded).toBe('no-cache\nmax-age=0');
+    }
+    const ts = introspectValue('1720000000');
+    expect(ts.kind).toBe('decoded');
+    if (ts.kind === 'decoded') {
+      expect(ts.type).toBe('timestamp');
+      expect(ts.decoded).toBe('2024-07-03T09:46:40Z');
+    }
+    const qs = introspectValue('a=1&b=two');
+    expect(qs.kind).toBe('decoded');
+    if (qs.kind === 'decoded') expect(qs.type).toBe('query-string');
   });
 
   it('introspectionHasDepth is true only for non-plain', () => {
     expect(introspectionHasDepth(introspectValue('xlg'))).toBe(false);
     expect(introspectionHasDepth(introspectValue('Europe%2FMadrid'))).toBe(true);
+    expect(introspectionHasDepth(introspectValue('no-cache, max-age=0'))).toBe(true);
+  });
+
+  it('introspectionDetected surfaces the registry hit, null for plain', () => {
+    expect(introspectionDetected(introspectValue('xlg'))).toBeNull();
+    const hit = introspectionDetected(introspectValue('1720000000'));
+    expect(hit?.type).toBe('timestamp');
+    const b64 = introspectionDetected(introspectValue(Buffer.from('hello world hello world hello').toString('base64')));
+    expect(b64?.type).toBe('base64');
   });
 });

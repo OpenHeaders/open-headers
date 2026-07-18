@@ -1,4 +1,4 @@
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, EyeOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
@@ -20,8 +20,9 @@ import type { HeaderRowMeta } from '../../../data/headers/header-filter';
 import { formatHeaderName, type HeaderNameCase } from '../../../data/headers/header-name-case';
 import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-create/rule-applicability';
 import type { RulesByUid } from '../../../data/rule-create/use-rules-lookup';
+import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';
-import { introspectionHasDepth } from '../../../data/value-introspect';
+import { introspectionDetected, introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';
 import { useRulePopover } from '../../RulePopoverHost';
 import { ValueExpander } from '../ValueExpander';
@@ -145,6 +146,10 @@ export function AttributedHeaderRow({
   // JSON / base64 values via the shared expander.
   const [expanded, setExpanded] = useState(false);
   const introspection = useMemo(() => introspectWithAuthScheme(value), [value]);
+  // View icon on detected rows — opens the SHARED modals read-only (JWT
+  // viewer / encoded-value modal). Reuses the introspection's registry
+  // hit, so no second detection pass runs for the icon.
+  const { viewProps, viewerModal } = useValueViewAction(introspectionDetected(introspection));
   // Overflow is measured on `value`, the raw source — the resolved display
   // text differs, but the ResizeObserver reads the live element regardless.
   // The span never wraps now, so the measure stays valid across toggles.
@@ -326,6 +331,20 @@ export function AttributedHeaderRow({
         {isOhRow && chips}
         {isOhRow && editedChip}
         <span className="dt-kv-row-actions">
+          {'onValueView' in viewProps && (
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
+              title={viewProps.viewTooltip}
+              aria-label={viewProps.viewTooltip}
+              onClick={(e) => {
+                e.stopPropagation();
+                viewProps.onValueView();
+              }}
+            >
+              <EyeOutlined />
+            </button>
+          )}
           <button
             type="button"
             className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
@@ -366,6 +385,7 @@ export function AttributedHeaderRow({
           <ValueExpander introspection={introspection} />
         </div>
       )}
+      {viewerModal}
     </>
   );
 }

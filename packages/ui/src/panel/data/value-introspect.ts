@@ -1,16 +1,24 @@
 /**
- * Pure introspection of an arbitrary string value — detects JWTs, JSON,
- * base64 blobs, and percent-encoding. Drives the inline value expander
- * shared by the headers and cookies tabs.
+ * Pure introspection of an arbitrary string value — runs the shared
+ * value-detection registry (the same rules that put edit icons on
+ * workbench rails) and maps the hit onto the panel's view vocabulary.
+ * Drives the inline value expander shared by the headers and cookies
+ * tabs, and carries the registry hit itself so row surfaces can open
+ * the shared viewer modals on it.
  *
- * Detection runs the shared value-detection registry (the same rules
- * that put edit icons on workbench rails), then maps the hit onto the
- * panel's view vocabulary: kinds the expander has a decoded rendering
- * for keep their depth; everything else is `plain`. The original raw
+ * JWT / JSON / URL-encoded / base64 keep their dedicated renderings
+ * (parsed claims, JSON tree text, decoded panes); every other registry
+ * kind maps to the generic `decoded` rendering — the compact codec's
+ * single-text seed under the shared per-type title. The original raw
  * value is always preserved.
  */
 
-import { decodeJWT, detectValueType } from '@openheaders/ui/shared/value-detection';
+import {
+  compactDecodedText,
+  decodeJWT,
+  type DetectedValue,
+  detectValueType,
+} from '@openheaders/ui/shared/value-detection';
 
 export interface JwtParts {
   header: unknown;
@@ -26,10 +34,16 @@ export interface JwtParts {
 
 export type ValueIntrospection =
   | { kind: 'plain'; value: string }
-  | { kind: 'url-encoded'; value: string; decoded: string }
-  | { kind: 'json'; value: string; parsed: unknown }
-  | { kind: 'jwt'; value: string; jwt: JwtParts }
-  | { kind: 'base64'; value: string; decoded: string }
+  | { kind: 'url-encoded'; value: string; decoded: string; detected: DetectedValue }
+  | { kind: 'json'; value: string; parsed: unknown; detected: DetectedValue }
+  | { kind: 'jwt'; value: string; jwt: JwtParts; detected: DetectedValue }
+  | { kind: 'base64'; value: string; decoded: string; detected: DetectedValue }
+  // Any other registry kind (timestamp, http-date, csp, hsts,
+  // cache-control, link, auth-params, accept-list, query-string,
+  // cookie, hex, data-uri, json-string, content-disposition) — the
+  // expander renders the compact codec's decoded seed text under the
+  // shared per-type title.
+  | { kind: 'decoded'; value: string; type: DetectedValue['type']; decoded: string; detected: DetectedValue }
   // A recognized leading label (e.g. an HTTP auth scheme) wrapping the
   // introspection of the remainder. Structural only — the core
   // `introspectValue` never emits it; a composing layer that owns the
@@ -75,27 +89,35 @@ export function introspectValue(rawValue: string): ValueIntrospection {
   switch (hit.type) {
     case 'jwt': {
       const jwt = jwtParts(hit.token);
-      return jwt ? { kind: 'jwt', value: rawValue, jwt } : { kind: 'plain', value: rawValue };
+      return jwt ? { kind: 'jwt', value: rawValue, jwt, detected: hit } : { kind: 'plain', value: rawValue };
     }
     case 'url-encoded': {
       // A URL-decode revealing JSON reads better as JSON.
       const parsed = tryParseJson(hit.decoded);
-      if (parsed != null) return { kind: 'json', value: rawValue, parsed };
-      return { kind: 'url-encoded', value: rawValue, decoded: hit.decoded };
+      if (parsed != null) return { kind: 'json', value: rawValue, parsed, detected: hit };
+      return { kind: 'url-encoded', value: rawValue, decoded: hit.decoded, detected: hit };
     }
     case 'json':
-      return { kind: 'json', value: rawValue, parsed: JSON.parse(hit.decoded) };
+      return { kind: 'json', value: rawValue, parsed: JSON.parse(hit.decoded), detected: hit };
     case 'base64':
-      return { kind: 'base64', value: rawValue, decoded: hit.decoded };
+      return { kind: 'base64', value: rawValue, decoded: hit.decoded, detected: hit };
     default:
-      // Recognized by the registry (cookie list, CSP, timestamp, …)
-      // but the expander has no decoded rendering for it.
-      return { kind: 'plain', value: rawValue };
+      // Every remaining registry kind renders through the compact
+      // codec's single-text seed (iso for epoch/date types, the
+      // line-oriented decoded text for list types).
+      return { kind: 'decoded', value: rawValue, type: hit.type, decoded: compactDecodedText(hit), detected: hit };
   }
 }
 
 export function introspectionHasDepth(i: ValueIntrospection): boolean {
   return i.kind !== 'plain';
+}
+
+/** The registry hit behind an introspection — peels a `prefixed`
+ *  wrapper to the credential's own hit. Null for plain values. */
+export function introspectionDetected(i: ValueIntrospection): DetectedValue | null {
+  if (i.kind === 'prefixed') return introspectionDetected(i.inner);
+  return i.kind === 'plain' ? null : i.detected;
 }
 
 /** The encoding kind to surface as a one-glyph hint — peels a `prefixed`

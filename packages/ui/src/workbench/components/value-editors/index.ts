@@ -21,3 +21,4 @@ export {
 } from './monaco-jwt-links';
 export { type MonacoJwtEditResult, useMonacoJwtEdit } from './useMonacoJwtEdit';
 export { useValueEditAction, type ValueEditActionResult } from './useValueEditAction';
+export { useValueViewAction, type ValueViewActionResult } from './useValueViewAction';
