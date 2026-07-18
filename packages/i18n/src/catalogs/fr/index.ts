@@ -38,9 +38,11 @@ import { workbench } from './workbench';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchScriptPackages } from './workbench-script-packages';
+import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 
 export const fr = {
@@ -75,8 +77,10 @@ export const fr = {
   ...workbenchChromeWorkspace,
   ...workbenchDaemonAdmin,
   ...workbenchDocsDebugMode,
+  ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
   ...workbenchScriptPackages,
+  ...workbenchSettings,
   ...workbenchSettingsDefsKeyboard,
 } as const satisfies Catalog;
