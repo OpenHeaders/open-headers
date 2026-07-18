@@ -37,6 +37,7 @@ import { tui } from './tui';
 import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchScriptPackages } from './workbench-script-packages';
 
@@ -71,6 +72,7 @@ export const es = {
   ...web,
   ...workbench,
   ...workbenchDocsDebugMode,
+  ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchScriptPackages,
 } as const satisfies Catalog;
