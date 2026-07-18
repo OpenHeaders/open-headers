@@ -14,10 +14,17 @@ describe('compareCalVer', () => {
     expect(compareCalVer('2026.7.11', '2026.7.11')).toBe(0);
   });
 
-  it('treats missing segments as zero and strips beta suffixes', () => {
+  it('treats missing segments as zero', () => {
     expect(compareCalVer('2026.7', '2026.7.0')).toBe(0);
-    expect(compareCalVer('2026.8.0-beta.1', '2026.8.0')).toBe(0);
     expect(compareCalVer('2026.7.11-beta.2', '2026.8.0')).toBeLessThan(0);
+  });
+
+  it('orders betas below their release and numerically among themselves', () => {
+    expect(compareCalVer('2026.8.0-beta.1', '2026.8.0')).toBeLessThan(0);
+    expect(compareCalVer('2026.8.0', '2026.8.0-beta.4')).toBeGreaterThan(0);
+    expect(compareCalVer('2026.8.0-beta.2', '2026.8.0-beta.10')).toBeLessThan(0);
+    expect(compareCalVer('2026.8.0-beta.3', '2026.8.0-beta.3')).toBe(0);
+    expect(compareCalVer('2026.8.0-beta.9', '2026.8.1-beta.1')).toBeLessThan(0);
   });
 });
 

@@ -34,22 +34,32 @@ export interface SeverityInfo {
 }
 
 /**
- * Numeric segment-wise CalVer compare over the base version (beta
- * suffix stripped) — the generator's ordering, mirrored so client and
- * pipeline can never disagree on what "below the floor" means.
+ * Numeric segment-wise CalVer compare, prerelease-aware: on an equal
+ * base a `-beta.N` sorts below the plain release and betas order by N —
+ * the updater's semver ordering, so a floor of `2026.8.0` escalates a
+ * `2026.8.0-beta.N` install. Mirrors the generator's ordering so client
+ * and pipeline can never disagree on what "below the floor" means.
  */
 export function compareCalVer(a: string, b: string): number {
-  const segments = (v: string) =>
-    v
-      .replace(/-beta\.\d+$/, '')
-      .split('.')
-      .map(Number);
-  const [as, bs] = [segments(a), segments(b)];
-  for (let i = 0; i < Math.max(as.length, bs.length); i++) {
-    const diff = (as[i] ?? 0) - (bs[i] ?? 0);
+  const parse = (v: string): { base: number[]; beta: number | null } => {
+    const match = /-beta\.(\d+)$/.exec(v);
+    return {
+      base: v
+        .replace(/-beta\.\d+$/, '')
+        .split('.')
+        .map(Number),
+      beta: match ? Number(match[1]) : null,
+    };
+  };
+  const [pa, pb] = [parse(a), parse(b)];
+  for (let i = 0; i < Math.max(pa.base.length, pb.base.length); i++) {
+    const diff = (pa.base[i] ?? 0) - (pb.base[i] ?? 0);
     if (diff !== 0) return diff;
   }
-  return 0;
+  if (pa.beta === null && pb.beta === null) return 0;
+  if (pa.beta === null) return 1;
+  if (pb.beta === null) return -1;
+  return pa.beta - pb.beta;
 }
 
 function isVersionString(value: unknown): value is string {
