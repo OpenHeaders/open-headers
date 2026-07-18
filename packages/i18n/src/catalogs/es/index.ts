@@ -12,6 +12,7 @@ import { extension } from './extension';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
 import { sharedChrome } from './shared-chrome';
+import { sharedComponents } from './shared-components';
 import { sharedConflicts } from './shared-conflicts';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
@@ -28,6 +29,7 @@ export const es = {
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
+  ...sharedComponents,
   ...sharedConflicts,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
