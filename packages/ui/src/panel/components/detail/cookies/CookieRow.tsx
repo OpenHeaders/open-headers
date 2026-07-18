@@ -27,6 +27,7 @@ import type { JarCookieEdit, JarCookieKey } from '../../../data/cookies/cookie-j
 import type { CookieRow as CookieRowModel } from '../../../data/cookies/cookie-model';
 import type { CookieRole } from '../../../data/cookies/cookie-role';
 import { introspectionDetected, introspectionHint, type ValueIntrospection } from '../../../data/value-introspect';
+import { useOpenValueViewDocument } from '../../../data/value-view-intent';
 import { CookieChips } from './CookieChips';
 import { CookieEditPopover } from './CookieEditPopover';
 import { CookieValueExpander } from './CookieValueExpander';
@@ -123,9 +124,14 @@ export function CookieRow({
   // the Value cell truncates a long one).
   const canExpand = row.value.length > 0;
   const hintKind = introspectionHint(introspection);
-  // View icon on detected values — opens the SHARED modals read-only,
-  // reusing the row's registry hit (no second detection pass).
-  const { viewProps, viewerModal } = useValueViewAction(introspectionDetected(introspection));
+  // View icon on detected values — anchors the glance popover,
+  // escalating to the SHARED modals read-only or the value-view tab
+  // document, reusing the row's registry hit (no second detection pass).
+  const openValueView = useOpenValueViewDocument();
+  const { viewProps, glance, viewerModal } = useValueViewAction(introspectionDetected(introspection), {
+    openAsTab: openValueView,
+    sourceLabel: row.name,
+  });
   const indicator = cookieRowIndicator(!!row.edited, ruleTouched);
 
   const valueText = decodeValues ? urlDecodeSafe(row.value) : row.value;
@@ -227,17 +233,17 @@ export function CookieRow({
             {hintKind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
           </span>
           <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
-            {'onValueView' in viewProps && (
-              <button
-                type="button"
-                className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
-                title={viewProps.viewTooltip}
-                aria-label={viewProps.viewTooltip}
-                onClick={viewProps.onValueView}
-              >
-                <EyeOutlined />
-              </button>
-            )}
+            {'viewTooltip' in viewProps &&
+              glance(
+                <button
+                  type="button"
+                  className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
+                  title={viewProps.viewTooltip}
+                  aria-label={viewProps.viewTooltip}
+                >
+                  <EyeOutlined />
+                </button>,
+              )}
             <button
               type="button"
               className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"

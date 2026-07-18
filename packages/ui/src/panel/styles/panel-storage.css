@@ -652,6 +652,22 @@
   font-style: italic;
 }
 
+/* Value-view snapshot document — pane labels above the JWT's stacked
+ * header/payload viewers, and a bounded header pane (the header object
+ * is a couple of lines; the payload owns the remaining height). */
+.dt-valueview-pane-label {
+  flex: 0 0 auto;
+  padding: 6px 10px 2px;
+  color: var(--dt-text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+}
+
+.dt-valueview-pane--header {
+  flex: 0 0 120px;
+}
+
 /* Cookie document body — the shared attribute grid, padded and
  * scrollable so a short pane never clips the toggles row. */
 .dt-storagedoc-cookieform {

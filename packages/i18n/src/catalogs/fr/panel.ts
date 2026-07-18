@@ -498,6 +498,12 @@ export const panel = {
   'panel.valueDoc.detachedSub':
     "La règle ou la modification portant cette valeur a été supprimée, ou l'opération ne porte plus de valeur.",
 
+  // ── Value-view snapshot document (ValueViewDocumentTab) ────────────
+  'panel.valueView.snapshotNote': 'Instantané',
+  'panel.valueView.snapshotTitle':
+    "Capturé à l'ouverture de ce document — il ne suit pas les modifications ultérieures.",
+  'panel.valueView.encodedValue': 'Valeur encodée',
+
   // ── Rule editor-tab document (RuleEditorTab) ───────────────────────
   'panel.ruleDoc.crumbKind': 'Substitution de réponse',
   'panel.ruleDoc.nameLabel': 'Nom de la règle',

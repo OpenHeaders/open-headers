@@ -42,6 +42,8 @@ import {
 } from '@openheaders/ui/shared/notifications';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
+import { COMPACT_VALUE_TITLE_KEYS } from '@openheaders/ui/shared/value-detection';
+import type { ValueViewTabTarget } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
@@ -91,6 +93,7 @@ import {
   buildRuleEditorDraftTab,
   buildRuleEditorTab,
   buildRuleValueTab,
+  buildValueViewTab,
   type InspectorTab,
   tabPillLabel,
 } from './data/inspector-tab';
@@ -104,8 +107,10 @@ import {
   useRegisterValueDocumentOpener,
   ValueDocumentIntentProvider,
 } from './data/value-document-intent';
+import { useRegisterValueViewOpener, ValueViewIntentProvider } from './data/value-view-intent';
 import { RuleEditorTab } from './components/rule-editor-document/RuleEditorTab';
 import { ValueDocumentTab } from './components/value-document/ValueDocumentTab';
+import { ValueViewDocumentTab } from './components/value-view/ValueViewDocumentTab';
 import { jarCookieToKey } from './data/cookies/cookie-edit';
 import type { JarCookieKey } from './data/cookies/cookie-jar-cache';
 import type { DomStorageArea } from './data/storage/storage-inspector-host';
@@ -210,11 +215,13 @@ export default function App({ resolveIdentity }: AppProps) {
                                               from the host's tree position and reach the editor
                                               tab group only through this intent seam. */}
                                           <ValueDocumentIntentProvider>
-                                            <RuleEditorDocumentIntentProvider>
-                                              <RulePopoverProvider>
-                                                <PanelContent />
-                                              </RulePopoverProvider>
-                                            </RuleEditorDocumentIntentProvider>
+                                            <ValueViewIntentProvider>
+                                              <RuleEditorDocumentIntentProvider>
+                                                <RulePopoverProvider>
+                                                  <PanelContent />
+                                                </RulePopoverProvider>
+                                              </RuleEditorDocumentIntentProvider>
+                                            </ValueViewIntentProvider>
                                           </ValueDocumentIntentProvider>
                                         </VariablePopoverProvider>
                                       </InfoPopoverContainerProvider>
@@ -574,6 +581,24 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [groups],
   );
   useRegisterValueDocumentOpener(openValueDocument);
+  // Value-view snapshot documents ride the same seam shape — the eye's
+  // glance popover lives on row surfaces far from the tab-group owner.
+  // Every escalation is its own snapshot tab (nonce identity).
+  const openValueViewDocument = useCallback(
+    (target: ValueViewTabTarget) => {
+      groups.addTab(
+        buildValueViewTab({
+          nonce: generateUid(),
+          detected: target.detected,
+          typeTitle: t(COMPACT_VALUE_TITLE_KEYS[target.detected.type]),
+          ...(target.sourceLabel !== undefined ? { sourceLabel: target.sourceLabel } : {}),
+          timestamp: Date.now(),
+        }),
+      );
+    },
+    [groups, t],
+  );
+  useRegisterValueViewOpener(openValueViewDocument);
   // Rule-editor documents ride the same seam: edit mode keys on the
   // rule uid (re-open activates), create mode mints a fresh draft nonce
   // per escalation (nothing to dedupe against until Save re-keys).
@@ -708,6 +733,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       }
       if (tab.kind === 'cache-entry') {
         return <CacheEntryEditorTab tab={tab} onRevealInStorage={revealCacheInStorage} />;
+      }
+      if (tab.kind === 'value-view') {
+        return <ValueViewDocumentTab tab={tab} />;
       }
       if (tab.kind === 'rule-editor') {
         return (

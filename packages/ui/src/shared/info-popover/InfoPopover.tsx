@@ -76,7 +76,11 @@ function InfoPopoverBody({ content, onActionClick }: { content: InfoPopoverConte
     // actions stay pinned, and the middle scrolls. Critical for the
     // DevTools panel where the host frame can be ~200px tall and a
     // freely-sizing popover would overflow off-screen.
-    <div className="oh-info-popover">
+    // Clicks stop here: the overlay is DOM-portaled away from the
+    // trigger but still React-bubbles through it, and triggers sit
+    // inside clickable rows (expander toggles, document-open rows).
+    // biome-ignore lint/a11y/noStaticElementInteractions: click containment only
+    <div className="oh-info-popover" onClick={(e) => e.stopPropagation()}>
       <div className="oh-info-popover-header">
         <div className="oh-info-popover-header-text">
           {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}

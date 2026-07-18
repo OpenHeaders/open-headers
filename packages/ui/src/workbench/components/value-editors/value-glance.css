@@ -1,0 +1,28 @@
+/* ── Value glance popover preview ──────────────────────────
+ * The compact decoded block inside the eye's glance popover. Clamped
+ * to a few lines — the glance is orientation, not the reading surface;
+ * the footer CTAs open the depth the user picks.
+ */
+.oh-value-glance-pre {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.oh-value-glance-more {
+  color: var(--ant-color-text-tertiary);
+  font-size: 11px;
+  padding: 2px 0 0;
+}
+.oh-value-glance-sig {
+  color: var(--ant-color-text-tertiary);
+  font-style: italic;
+  font-size: 11px;
+  margin-top: 6px;
+}

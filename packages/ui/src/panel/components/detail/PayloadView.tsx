@@ -5,6 +5,7 @@ import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { detectValueType } from '@openheaders/ui/shared/value-detection';
 import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
+import { useOpenValueViewDocument } from '../../data/value-view-intent';
 import { useRulePopover } from '../RulePopoverHost';
 import { type DualMode, DualModeButtons, SwapSidesButton } from './DualViewControls';
 import { HighlightedText } from './HighlightedText';
@@ -37,7 +38,11 @@ function buildUrlEncodedString(params: Array<{ name: string; value: string }>): 
  */
 function PayloadRow({ name, value, highlight }: { name: string; value: string; highlight?: string }) {
   const detected = useMemo(() => detectValueType(value), [value]);
-  const { viewProps, viewerModal } = useValueViewAction(detected);
+  const openValueView = useOpenValueViewDocument();
+  const { viewProps, glance, viewerModal } = useValueViewAction(detected, {
+    openAsTab: openValueView,
+    sourceLabel: name,
+  });
   return (
     <div className="dt-payload-row">
       <span className="dt-payload-key">
@@ -45,17 +50,17 @@ function PayloadRow({ name, value, highlight }: { name: string; value: string; h
       </span>
       <span className="dt-payload-val">
         <HighlightedText text={value} query={highlight} />
-        {'onValueView' in viewProps && (
-          <button
-            type="button"
-            className="dt-btn dt-btn-primary dt-payload-view-btn"
-            title={viewProps.viewTooltip}
-            aria-label={viewProps.viewTooltip}
-            onClick={viewProps.onValueView}
-          >
-            <EyeOutlined />
-          </button>
-        )}
+        {'viewTooltip' in viewProps &&
+          glance(
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary dt-payload-view-btn"
+              title={viewProps.viewTooltip}
+              aria-label={viewProps.viewTooltip}
+            >
+              <EyeOutlined />
+            </button>,
+          )}
       </span>
       {viewerModal}
     </div>

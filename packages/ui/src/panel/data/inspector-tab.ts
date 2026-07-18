@@ -1,6 +1,7 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { ResponseRuleDraft, RuleCondition } from '@openheaders/core/types';
 import type { HeaderDirection } from '@openheaders/core/utils';
+import type { DetectedValue } from '@openheaders/ui/shared/value-detection';
 import type { JarCookieKey } from './cookies/cookie-jar-cache';
 import type { DomStorageArea } from './storage/storage-inspector-host';
 
@@ -31,7 +32,8 @@ export type InspectorTab =
   | CookieInspectorTab
   | CacheEntryInspectorTab
   | RuleValueInspectorTab
-  | RuleEditorInspectorTab;
+  | RuleEditorInspectorTab
+  | ValueViewInspectorTab;
 
 export interface RequestInspectorTab {
   kind: 'request';
@@ -189,6 +191,24 @@ export interface RuleEditorInspectorTab {
   dirty?: boolean;
 }
 
+/** One detected value opened as a read-only snapshot document — the
+ *  eye glance's tab escalation. Pure SNAPSHOT at open: the source row
+ *  may scroll away, refilter, or change; the document decodes from the
+ *  captured hit and never live-binds the surface it came from. Tabs are
+ *  in-memory state, so carrying the hit itself is safe (nothing
+ *  survives a reload — same as rule-editor drafts). */
+export interface ValueViewInspectorTab {
+  kind: 'value-view';
+  id: string;
+  label: string;
+  /** The registry hit captured when the glance escalated. */
+  detected: DetectedValue;
+  /** The opening surface's name for the value (header / cookie / param
+   *  name) — absent for anonymous buffers. */
+  sourceLabel?: string;
+  timestamp: number;
+}
+
 /** Per-tab view state callers patch in place. Each field applies to
  *  matching tab kinds only (`activeSection` → request, `dirty` →
  *  document kinds, `entryKey` → dom-storage-entry, `cookieKey` →
@@ -211,9 +231,9 @@ export interface InspectorTabPatch {
 }
 
 /** Does this tab carry an unsaved editor draft? (Request tabs never do,
- *  and cache-entry documents are read-only.) */
+ *  and cache-entry / value-view documents are read-only.) */
 export function tabIsDirty(tab: InspectorTab): boolean {
-  return tab.kind !== 'request' && tab.kind !== 'cache-entry' && tab.dirty === true;
+  return tab.kind !== 'request' && tab.kind !== 'cache-entry' && tab.kind !== 'value-view' && tab.dirty === true;
 }
 
 export interface ClosedTab {
@@ -463,6 +483,34 @@ export function buildRuleEditorDraftTab(input: BuildRuleEditorDraftTabInput): Ru
   };
 }
 
+/** Every glance escalation is its own snapshot document — there is no
+ *  durable identity to dedupe against (same as rule-editor drafts). */
+export function valueViewTabId(nonce: string): string {
+  return `valueview:${nonce}`;
+}
+
+export interface BuildValueViewTabInput {
+  nonce: string;
+  detected: DetectedValue;
+  /** Localized per-type title (e.g. "Base64 value") — the label
+   *  fallback for anonymous buffers; resolved by the caller (this
+   *  module has no translator). */
+  typeTitle: string;
+  sourceLabel?: string;
+  timestamp: number;
+}
+
+export function buildValueViewTab(input: BuildValueViewTabInput): ValueViewInspectorTab {
+  return {
+    kind: 'value-view',
+    id: valueViewTabId(input.nonce),
+    label: input.sourceLabel ?? input.typeTitle,
+    detected: input.detected,
+    ...(input.sourceLabel !== undefined ? { sourceLabel: input.sourceLabel } : {}),
+    timestamp: input.timestamp,
+  };
+}
+
 /** The DOM storage area's display name (`localStorage` / `sessionStorage`). */
 export function domStorageAreaName(area: DomStorageArea): string {
   return area === 'session' ? 'sessionStorage' : 'localStorage';
@@ -476,6 +524,7 @@ export function tabTitle(tab: InspectorTab): string {
   if (tab.kind === 'cache-entry') return `${tab.cache} › ${tab.url}`;
   if (tab.kind === 'rule-value') return `${tab.headerName} › ${tab.direction} header value`;
   if (tab.kind === 'rule-editor') return `${tab.label} › response override rule`;
+  if (tab.kind === 'value-view') return `${tab.label} › value snapshot`;
   return `${domStorageAreaName(tab.area)} › ${tab.entryKey}`;
 }
 
@@ -492,5 +541,6 @@ export function tabSearchText(tab: InspectorTab): string {
   if (tab.kind === 'cache-entry') return `${tab.cache} ${tab.url} ${tab.method}`;
   if (tab.kind === 'rule-value') return `${tab.headerName} ${tab.direction} header value`;
   if (tab.kind === 'rule-editor') return `${tab.label} response override rule`;
+  if (tab.kind === 'value-view') return `${tab.label} ${tab.detected.type} value snapshot`;
   return `${domStorageAreaName(tab.area)} ${tab.entryKey}`;
 }

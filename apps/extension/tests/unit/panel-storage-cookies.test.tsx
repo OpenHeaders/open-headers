@@ -217,6 +217,32 @@ describe('CookiesSection value affordance', () => {
     fireEvent.click(screen.getByLabelText('View decoded — Unix timestamp'));
     expect(onOpen).not.toHaveBeenCalled();
   });
+
+  it('the eye opens the glance popover first — preview visible, no modal, glance clicks stay off the row', async () => {
+    const onOpen = vi.fn();
+    render(
+      <CookiesSection
+        cookies={[makeCookie({ name: 'ts', value: '1720000000' })]}
+        scopeUrl={URL_MAIN}
+        writable={false}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+        onOpen={onOpen}
+        isActive={() => false}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('View decoded — Unix timestamp'));
+    // Glance, not modal: the compact decoded preview with the modal
+    // demoted to an explicit CTA.
+    expect(await screen.findByText('2024-07-03T09:46:40Z')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const modalCta = screen.getByRole('button', { name: 'Open as modal' });
+    // The popover portals outside the row div but still React-bubbles —
+    // its body stops clicks so a CTA press never opens the row document.
+    fireEvent.click(modalCta);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(await screen.findByTestId('code-editor')).toBeTruthy();
+  });
 });
 
 describe('CookiesSection editor-tab gestures', () => {

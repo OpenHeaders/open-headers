@@ -150,6 +150,12 @@ export const sharedComponents = {
   'shared.valueEditors.editJwt': 'Edit JWT',
   'shared.valueEditors.viewJwt': 'View JWT',
 
+  // ── Value editors: glance popover ──────────────────────────────────
+  'shared.valueEditors.glance.title': 'Decoded value',
+  'shared.valueEditors.glance.openModal': 'Open as modal',
+  'shared.valueEditors.glance.moreClaims': '+{count} more',
+  'shared.valueEditors.glance.signatureElided': 'Signature not shown — open the document or modal for the full token.',
+
   // ── Value editors: pair grid ───────────────────────────────────────
   'shared.valueEditors.grid.name': 'Name',
   'shared.valueEditors.grid.key': 'Key',

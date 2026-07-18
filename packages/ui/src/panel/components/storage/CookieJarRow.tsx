@@ -17,6 +17,7 @@ import { jarCookieToEditForm, jarCookieToKey } from '../../data/cookies/cookie-e
 import { formatAbsoluteExpiry, formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JarCookie, JarCookieEdit } from '../../data/cookies/cookie-jar-cache';
 import { introspectionDetected, introspectionHint } from '../../data/value-introspect';
+import { useOpenValueViewDocument } from '../../data/value-view-intent';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
 import { SecurityGlyphs } from '../detail/cookies/SecurityGlyphs';
 
@@ -79,8 +80,12 @@ export function CookieJarRow({
   // stays with the editor-tab document the row click opens.
   const introspection = useMemo(() => introspectWithAuthScheme(cookie.value), [cookie.value]);
   const hintKind = introspectionHint(introspection);
-  const { viewProps, viewerModal } = useValueViewAction(introspectionDetected(introspection));
-  const hasView = 'onValueView' in viewProps;
+  const openValueView = useOpenValueViewDocument();
+  const { viewProps, glance, viewerModal } = useValueViewAction(introspectionDetected(introspection), {
+    openAsTab: openValueView,
+    sourceLabel: cookie.name,
+  });
+  const hasView = 'viewTooltip' in viewProps;
   const scope = `${cookie.domain}${cookie.path && cookie.path !== '/' ? ` ${cookie.path}` : ''}`;
   const scopeTitle = `${cookie.domain}${cookie.path || '/'}${
     cookie.partitionKey ? `\n${labels.partitionedUnder(cookie.partitionKey)}` : ''
@@ -127,17 +132,17 @@ export function CookieJarRow({
         {(writable || hasView) && (
           // biome-ignore lint/a11y/noStaticElementInteractions: swallows row-open clicks under the action lane
           <span className="dt-storage-row-actions" onClick={(ev) => ev.stopPropagation()}>
-            {hasView && (
-              <button
-                type="button"
-                className="dt-storage-action"
-                title={viewProps.viewTooltip}
-                aria-label={viewProps.viewTooltip}
-                onClick={viewProps.onValueView}
-              >
-                <EyeOutlined />
-              </button>
-            )}
+            {hasView &&
+              glance(
+                <button
+                  type="button"
+                  className="dt-storage-action"
+                  title={viewProps.viewTooltip}
+                  aria-label={viewProps.viewTooltip}
+                >
+                  <EyeOutlined />
+                </button>,
+              )}
             {writable && (
               <>
                 <CookieEditPopover

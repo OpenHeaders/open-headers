@@ -140,6 +140,13 @@ export const sharedComponents = {
   'shared.valueEditors.editJwt': 'Modifier le JWT',
   'shared.valueEditors.viewJwt': 'Afficher le JWT',
 
+  // ── Value editors: glance popover ──────────────────────────────────
+  'shared.valueEditors.glance.title': 'Valeur décodée',
+  'shared.valueEditors.glance.openModal': 'Ouvrir en fenêtre modale',
+  'shared.valueEditors.glance.moreClaims': '+{count} autres',
+  'shared.valueEditors.glance.signatureElided':
+    'Signature masquée — ouvrez le document ou la fenêtre modale pour le jeton complet.',
+
   // ── Value editors: pair grid ───────────────────────────────────────
   'shared.valueEditors.grid.name': 'Nom',
   'shared.valueEditors.grid.key': 'Clé',

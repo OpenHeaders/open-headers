@@ -472,6 +472,13 @@ export const panel = {
   'panel.valueDoc.detachedSub':
     'The rule or the modification holding this value was deleted, or the operation no longer carries a value.',
 
+  // ── Value-view snapshot document (ValueViewDocumentTab) ────────────
+  // The crumb's source name rides raw as data; the type title comes
+  // from the shared value-editor title keys.
+  'panel.valueView.snapshotNote': 'Snapshot',
+  'panel.valueView.snapshotTitle': 'Captured when this document was opened — it does not track later changes.',
+  'panel.valueView.encodedValue': 'Encoded value',
+
   // ── Rule editor-tab document (RuleEditorTab) ───────────────────────
   // Rule names ride raw as data; status codes and MIME values stay raw.
   'panel.ruleDoc.crumbKind': 'Response override',

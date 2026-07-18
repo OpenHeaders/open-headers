@@ -21,6 +21,7 @@ import { formatHeaderName, type HeaderNameCase } from '../../../data/headers/hea
 import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-create/rule-applicability';
 import type { RulesByUid } from '../../../data/rule-create/use-rules-lookup';
 import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
+import { useOpenValueViewDocument } from '../../../data/value-view-intent';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';
 import { introspectionDetected, introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';
@@ -146,10 +147,15 @@ export function AttributedHeaderRow({
   // JSON / base64 values via the shared expander.
   const [expanded, setExpanded] = useState(false);
   const introspection = useMemo(() => introspectWithAuthScheme(value), [value]);
-  // View icon on detected rows — opens the SHARED modals read-only (JWT
-  // viewer / encoded-value modal). Reuses the introspection's registry
-  // hit, so no second detection pass runs for the icon.
-  const { viewProps, viewerModal } = useValueViewAction(introspectionDetected(introspection));
+  // View icon on detected rows — anchors the glance popover, escalating
+  // to the SHARED modals read-only or the value-view tab document.
+  // Reuses the introspection's registry hit, so no second detection
+  // pass runs for the icon.
+  const openValueView = useOpenValueViewDocument();
+  const { viewProps, glance, viewerModal } = useValueViewAction(introspectionDetected(introspection), {
+    openAsTab: openValueView,
+    sourceLabel: displayName,
+  });
   // Overflow is measured on `value`, the raw source — the resolved display
   // text differs, but the ResizeObserver reads the live element regardless.
   // The span never wraps now, so the measure stays valid across toggles.
@@ -331,20 +337,18 @@ export function AttributedHeaderRow({
         {isOhRow && chips}
         {isOhRow && editedChip}
         <span className="dt-kv-row-actions">
-          {'onValueView' in viewProps && (
-            <button
-              type="button"
-              className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
-              title={viewProps.viewTooltip}
-              aria-label={viewProps.viewTooltip}
-              onClick={(e) => {
-                e.stopPropagation();
-                viewProps.onValueView();
-              }}
-            >
-              <EyeOutlined />
-            </button>
-          )}
+          {'viewTooltip' in viewProps &&
+            glance(
+              <button
+                type="button"
+                className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
+                title={viewProps.viewTooltip}
+                aria-label={viewProps.viewTooltip}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <EyeOutlined />
+              </button>,
+            )}
           <button
             type="button"
             className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
