@@ -245,11 +245,13 @@ function paneBoxRows(app: TuiApp, input: PaneRenderInput, ctx: ViewContext): str
 function statusLineText(app: TuiApp, ctx: ViewContext): string {
   const { t, caps } = ctx;
   const { state } = app;
-  if (state.notice !== null) return paint(state.notice.text, 'warn', caps.colorTier);
+  // The filter query outranks a notice: while the user types, the echo is
+  // their only feedback — a lingering yank notice must not swallow it.
   if (state.filter !== null) {
     const matches = app.visibleRows(state.filter.pane).length;
     return t('tui.filter.line', { query: state.filter.query, count: matches, sep: caps.glyphs.borders.horizontal });
   }
+  if (state.notice !== null) return paint(state.notice.text, 'warn', caps.colorTier);
   if (state.phase === 'degraded') return paint(t('tui.notice.staleData'), 'warn', caps.colorTier);
   if (state.phase === 'denied' && state.lastError !== null) return paint(state.lastError, 'error', caps.colorTier);
   return '';

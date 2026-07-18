@@ -63,6 +63,17 @@ describe('view', () => {
     expect(text.join('\n')).not.toContain('legacy-token');
   });
 
+  it('the filter query line outranks an active notice on the status line', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('3'), SIZE);
+    fx.app.handleEvent(key('y'), SIZE);
+    fx.app.handleEvent(key('/'), SIZE);
+    for (const char of ['a', 'u']) fx.app.handleEvent(key(char), SIZE);
+    const text = strip(viewTui(fx.app, SIZE, fx.ctx()));
+    expect(text[21]).toContain('filter: /au ─ 1 matches');
+    expect(text.join('\n')).not.toContain('uid copied');
+  });
+
   it('below 80 columns only the focused pane renders, under a digit tab row', () => {
     const fx = makeReadyApp();
     const frame = strip(viewTui(fx.app, { columns: 60, rows: 20 }, fx.ctx()));
