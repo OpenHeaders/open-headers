@@ -10,6 +10,10 @@ import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
+import { panelInspector } from './panel-inspector';
+import { panelInspectorCookies } from './panel-inspector-cookies';
+import { panelInspectorHeaders } from './panel-inspector-headers';
+import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelNetwork } from './panel-network';
 import { popup } from './popup';
 import { shared } from './shared';
@@ -31,6 +35,10 @@ export const fr = {
   ...desktop,
   ...extension,
   ...panel,
+  ...panelInspector,
+  ...panelInspectorCookies,
+  ...panelInspectorHeaders,
+  ...panelInspectorStreams,
   ...panelNetwork,
   ...shared,
   ...sharedAwareness,
