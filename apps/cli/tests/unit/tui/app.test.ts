@@ -188,4 +188,134 @@ describe('app', () => {
     app.applySnapshot(snapshot);
     expect(app.state.detail).toBeNull();
   });
+
+  it('? opens the help overlay on the modal stack; Esc or ? closes it', () => {
+    const app = makeApp();
+    app.handleEvent(key('?'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'help' });
+    expect(app.focus.modal).toBe('help');
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toBeNull();
+    expect(app.focus.modal).toBeNull();
+    app.handleEvent(key('?'), SIZE);
+    app.handleEvent(key('?'), SIZE);
+    expect(app.state.overlay).toBeNull();
+  });
+
+  it('an open modal captures the keys: pane focus and quit stay inert', () => {
+    const app = makeApp();
+    app.handleEvent(key('?'), SIZE);
+    expect(app.handleEvent(key('q'), SIZE)).toEqual([]);
+    app.handleEvent(key('tab'), SIZE);
+    app.handleEvent(key('3'), SIZE);
+    expect(app.focus.focusedPane).toBe('workspaces');
+    expect(app.state.overlay).toMatchObject({ kind: 'help' });
+    expect(app.handleEvent(key('c', { ctrl: true }), SIZE)).toEqual([{ type: 'quit' }]);
+  });
+
+  it('Ctrl+K opens the palette with every action; typing narrows by substring', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', query: '' });
+    expect(app.focus.modal).toBe('palette');
+    expect(app.paletteMatches().map((action) => action.id)).toEqual(['refresh', 'open-help']);
+    for (const char of ['h', 'e', 'l']) app.handleEvent(key(char), SIZE);
+    expect(app.paletteMatches().map((action) => action.id)).toEqual(['open-help']);
+    app.handleEvent(key('x'), SIZE);
+    expect(app.paletteMatches()).toEqual([]);
+    expect(app.paletteSelected()).toBe(-1);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([]);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette' });
+  });
+
+  it('Enter runs the selected action: Refresh now emits the refresh effect', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    expect(app.handleEvent(key('enter'), SIZE)).toEqual([{ type: 'refresh' }]);
+    expect(app.state.overlay).toBeNull();
+    expect(app.focus.modal).toBeNull();
+  });
+
+  it('Open help closes the palette and opens the help overlay', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    app.handleEvent(key('down'), SIZE);
+    expect(app.paletteSelected()).toBe(1);
+    app.handleEvent(key('enter'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'help' });
+    expect(app.focus.modal).toBe('help');
+  });
+
+  it('Esc in the palette clears a typed query first, then closes', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    app.handleEvent(key('r'), SIZE);
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette', query: '' });
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toBeNull();
+  });
+
+  it('the palette opens over an active filter and Esc returns to it innermost-first', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('/'), SIZE);
+    app.handleEvent(key('a'), SIZE);
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'palette' });
+    expect(app.state.filter).toMatchObject({ query: 'a', entering: true });
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toBeNull();
+    expect(app.state.filter).toMatchObject({ query: 'a', entering: true });
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.filter).toBeNull();
+  });
+
+  it('? in a drill-in overlays help and Esc pops back to the intact detail', () => {
+    const app = makeApp();
+    app.handleEvent(key('3'), SIZE);
+    app.handleEvent(key('enter'), SIZE);
+    app.handleEvent(key('?'), SIZE);
+    expect(app.state.overlay).toMatchObject({ kind: 'help' });
+    app.handleEvent(key('escape'), SIZE);
+    expect(app.state.overlay).toBeNull();
+    expect(app.state.detail).toMatchObject({ kind: 'rule', uid: 'rule-auth' });
+  });
+
+  it('click outside a modal dismisses it; click selects then runs a palette action', () => {
+    const app = makeApp();
+    app.handleEvent(key('?'), SIZE);
+    app.handleEvent(click(2, 2), SIZE);
+    expect(app.state.overlay).toBeNull();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    // 80×24: palette rect y=9 h=5 → first action on frame row 11 (1-based y=12).
+    app.handleEvent(click(20, 13), SIZE);
+    expect(app.paletteSelected()).toBe(1);
+    expect(app.handleEvent(click(20, 13), SIZE)).toEqual([]);
+    expect(app.state.overlay).toMatchObject({ kind: 'help' });
+    app.handleEvent(key('escape'), SIZE);
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    app.handleEvent(click(2, 2), SIZE);
+    expect(app.state.overlay).toBeNull();
+  });
+
+  it('wheel moves the palette selection while the modal is open', () => {
+    const app = makeApp();
+    app.handleEvent(key('k', { ctrl: true }), SIZE);
+    const wheel = (action: 'wheel-up' | 'wheel-down'): MouseEvent => ({
+      type: 'mouse',
+      action,
+      button: 'none',
+      x: 20,
+      y: 12,
+      ctrl: false,
+      alt: false,
+      shift: false,
+    });
+    app.handleEvent(wheel('wheel-down'), SIZE);
+    expect(app.paletteSelected()).toBe(1);
+    app.handleEvent(wheel('wheel-up'), SIZE);
+    expect(app.paletteSelected()).toBe(0);
+    expect(app.selectedIndex('workspaces')).toBe(0);
+  });
 });

@@ -6,15 +6,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { detectCapabilities } from '../../../src/tui/capability';
+import { createTuiTranslator } from '../../../src/tui/i18n';
 import type { KeyEvent } from '../../../src/tui/input';
-import { visibleWidth } from '../../../src/tui/screen';
+import { stripSgr, visibleWidth } from '../../../src/tui/screen';
 import { viewTui } from '../../../src/tui/view';
-import { makeReadyApp, makeRulesPayload, makeSnapshot } from './fixtures';
+import { makeReadyApp, makeRulesPayload, makeSnapshot, TEST_ENV } from './fixtures';
 
 const SIZE = { columns: 80, rows: 24 };
 
-function key(name: string): KeyEvent {
-  return { type: 'key', key: name, ctrl: false, alt: false, shift: false };
+function key(name: string, mods?: Partial<Pick<KeyEvent, 'ctrl' | 'alt' | 'shift'>>): KeyEvent {
+  return { type: 'key', key: name, ctrl: false, alt: false, shift: false, ...mods };
 }
 
 function strip(frame: string[]): string[] {
@@ -139,5 +141,84 @@ describe('view', () => {
     fx.app.applyDenied('permission denied: rules_list');
     const text = strip(viewTui(fx.app, SIZE, fx.ctx()));
     expect(text[21]).toContain('permission denied: rules_list');
+  });
+
+  it('footer legends advertise ^K palette and ? help on dashboard and drill-in', () => {
+    const fx = makeReadyApp();
+    let footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).toContain('^K palette');
+    expect(footer).toContain('? help');
+    fx.app.handleEvent(key('3'), SIZE);
+    fx.app.handleEvent(key('enter'), SIZE);
+    footer = strip(viewTui(fx.app, SIZE, fx.ctx()))[23];
+    expect(footer).toContain('? help');
+  });
+
+  it('help overlay: cheatsheet box over the base frame, exact widths kept', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('?'), SIZE);
+    const frame = viewTui(fx.app, SIZE, fx.ctx());
+    expect(frame).toHaveLength(24);
+    for (const row of frame) expect(visibleWidth(row)).toBeLessThanOrEqual(80);
+    const text = frame.map(stripSgr);
+    const joined = text.join('\n');
+    expect(joined).toContain('Keyboard');
+    expect(joined).toContain('Navigate');
+    expect(joined).toContain('Act');
+    expect(joined).toContain('Find');
+    expect(joined).toContain('Session');
+    expect(joined).toContain('command palette');
+    expect(joined).toContain('esc close');
+    expect(joined).toContain('Same keys as the app where the terminal allows it.');
+  });
+
+  it('help overlay renders only the verbs that exist — no toggle or publish yet', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('?'), SIZE);
+    const joined = viewTui(fx.app, SIZE, fx.ctx()).map(stripSgr).join('\n');
+    expect(joined).not.toContain('toggle');
+    expect(joined).not.toContain('publish');
+    expect(joined).not.toContain('switch');
+  });
+
+  it('the base frame outside the modal rectangle is dim-washed', () => {
+    const fx = makeReadyApp(makeSnapshot(), 100_000);
+    const t = createTuiTranslator(TEST_ENV);
+    const caps = detectCapabilities(TEST_ENV);
+    fx.app.handleEvent(key('?'), SIZE);
+    const frame = viewTui(fx.app, SIZE, { caps, t, now: 100_000 });
+    // Header row (above the overlay box) carries the dim wash.
+    expect(frame[0]).toContain('\x1b[38;2;140;140;140m');
+    // A row inside the overlay rectangle keeps plain overlay cells.
+    const helpRow = frame.find((row) => row.includes('Navigate'));
+    expect(helpRow).toBeDefined();
+  });
+
+  it('palette overlay: input line, actions, selection marker, run legend', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('k', { ctrl: true }), SIZE);
+    const frame = viewTui(fx.app, SIZE, fx.ctx());
+    for (const row of frame) expect(visibleWidth(row)).toBeLessThanOrEqual(80);
+    const text = frame.map(stripSgr);
+    const joined = text.join('\n');
+    expect(joined).toContain('^K');
+    expect(joined).toContain('▸ Refresh now');
+    expect(joined).toContain('Open help');
+    expect(joined).toContain('⏎ run · esc close');
+    const selectedRow = frame.find((row) => row.includes('Refresh now'));
+    expect(selectedRow).toContain('\x1b[7m');
+  });
+
+  it('palette filtering narrows the action list and shows the honest empty line', () => {
+    const fx = makeReadyApp();
+    fx.app.handleEvent(key('k', { ctrl: true }), SIZE);
+    for (const char of ['h', 'e', 'l']) fx.app.handleEvent(key(char), SIZE);
+    let joined = strip(viewTui(fx.app, SIZE, fx.ctx())).join('\n');
+    expect(joined).toContain('> hel');
+    expect(joined).toContain('Open help');
+    expect(joined).not.toContain('Refresh now');
+    fx.app.handleEvent(key('z'), SIZE);
+    joined = strip(viewTui(fx.app, SIZE, fx.ctx())).join('\n');
+    expect(joined).toContain('no matching commands');
   });
 });

@@ -81,6 +81,37 @@ export function visibleWidth(text: string): number {
   return cells;
 }
 
+/** Remove SGR sequences — a styled row reduced to its plain cells (overlay dim wash). */
+export function stripSgr(text: string): string {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const afterSgr = isSgrStart(text, i);
+    if (afterSgr !== -1) {
+      i = afterSgr;
+      continue;
+    }
+    const step = (text.codePointAt(i) ?? 0) > 0xffff ? 2 : 1;
+    out += text.slice(i, i + step);
+    i += step;
+  }
+  return out;
+}
+
+/** Cells [start, end) of a plain (SGR-free) string — overlay row splicing. */
+export function sliceCells(text: string, start: number, end: number): string {
+  let out = '';
+  let cell = 0;
+  let i = 0;
+  while (i < text.length && cell < end) {
+    const step = (text.codePointAt(i) ?? 0) > 0xffff ? 2 : 1;
+    if (cell >= start) out += text.slice(i, i + step);
+    cell += 1;
+    i += step;
+  }
+  return out;
+}
+
 /**
  * Clip a styled string to `width` display cells, ellipsis at the cell
  * edge (design §5.3: truncation, never wrapping). SGR sequences pass

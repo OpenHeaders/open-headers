@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createScreenRenderer, truncateToWidth, visibleWidth } from '../../../src/tui/screen';
+import { createScreenRenderer, sliceCells, stripSgr, truncateToWidth, visibleWidth } from '../../../src/tui/screen';
 import { makeFakeTty } from './fake-tty';
 
 function rowAt(line: number, content: string): string {
@@ -123,5 +123,33 @@ describe('truncateToWidth', () => {
 
   it('returns empty for zero width', () => {
     expect(truncateToWidth('abc', 0)).toBe('');
+  });
+});
+
+describe('stripSgr', () => {
+  it('removes SGR sequences and keeps every visible cell', () => {
+    expect(stripSgr('\x1b[38;2;82;196;26m● on\x1b[0m auth')).toBe('● on auth');
+    expect(stripSgr('plain')).toBe('plain');
+  });
+
+  it('keeps astral code points whole', () => {
+    expect(stripSgr('\x1b[7ma\u{1f600}b\x1b[0m')).toBe('a\u{1f600}b');
+  });
+});
+
+describe('sliceCells', () => {
+  it('slices [start, end) by display cell', () => {
+    expect(sliceCells('abcdef', 0, 3)).toBe('abc');
+    expect(sliceCells('abcdef', 2, 4)).toBe('cd');
+    expect(sliceCells('abcdef', 4, Number.MAX_SAFE_INTEGER)).toBe('ef');
+  });
+
+  it('counts astral code points as one cell without splitting them', () => {
+    expect(sliceCells('a\u{1f600}b', 1, 2)).toBe('\u{1f600}');
+    expect(sliceCells('a\u{1f600}b', 2, 3)).toBe('b');
+  });
+
+  it('returns empty when the range misses the string', () => {
+    expect(sliceCells('abc', 5, 9)).toBe('');
   });
 });

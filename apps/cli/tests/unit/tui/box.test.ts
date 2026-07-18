@@ -61,4 +61,27 @@ describe('box', () => {
     expect(visibleWidth(padToWidth('abcdefgh', 6))).toBe(6);
     expect(centerLine('ab', 6)).toBe('  ab  ');
   });
+
+  it('embeds a bottom label centered in the bottom border (overlays)', () => {
+    const rows = makeBox([], {
+      width: 20,
+      height: 3,
+      glyphs: UNICODE_GLYPHS,
+      tier: 'none',
+      bottomLabel: 'esc close',
+    });
+    expect(rows[2]).toBe('└─── esc close ────┘');
+    expect(visibleWidth(rows[2])).toBe(20);
+  });
+
+  it('a bottom label wider than the box truncates instead of overflowing', () => {
+    const rows = makeBox([], {
+      width: 12,
+      height: 3,
+      glyphs: UNICODE_GLYPHS,
+      tier: 'none',
+      bottomLabel: 'enter run - esc close',
+    });
+    expect(visibleWidth(rows[2])).toBe(12);
+  });
 });

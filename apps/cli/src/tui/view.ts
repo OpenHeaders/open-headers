@@ -23,13 +23,16 @@ import type { TuiTranslator } from './i18n';
 import {
   computeDashboardLayout,
   computeDetailLayout,
+  computeHelpLayout,
+  computePaletteLayout,
+  HELP_BODY_LINES,
   PANE_ORDER,
   type PaneId,
   paneBodyHeight,
   type Rect,
 } from './layout';
 import type { EnvironmentRow, PaneRow, RuleRow, WorkspaceRow } from './rows';
-import { visibleWidth } from './screen';
+import { sliceCells, stripSgr, visibleWidth } from './screen';
 import { paint, reverse } from './style';
 import type { TerminalSize } from './tty';
 
@@ -260,9 +263,12 @@ function dashboardLegend(app: TuiApp, ctx: ViewContext): LegendEntry[] {
   const entries: LegendEntry[] = [{ cap: moveCap(ctx), label: t('tui.footer.move') }];
   if (pane !== 'workspaces') entries.push({ cap: caps.glyphs.keyEnter, label: t('tui.footer.open') });
   entries.push({ cap: '/', label: t('tui.footer.filter') });
+  entries.push({ cap: '^K', label: t('tui.footer.palette') });
   entries.push({ cap: 'r', label: t('tui.footer.refresh') });
-  if (pane === 'rules') entries.push({ cap: 'y', label: t('tui.footer.yank') });
+  entries.push({ cap: '?', label: t('tui.footer.help') });
   entries.push({ cap: 'q', label: t('tui.footer.quit') });
+  // Lowest priority — the first entry a narrow terminal drops (? help teaches it).
+  if (pane === 'rules') entries.push({ cap: 'y', label: t('tui.footer.yank') });
   return entries;
 }
 
@@ -272,6 +278,7 @@ function detailLegend(ruleDetail: boolean, ctx: ViewContext): LegendEntry[] {
   if (ruleDetail) entries.push({ cap: 'y', label: t('tui.footer.yank') });
   entries.push({ cap: 'esc', label: t('tui.footer.back') });
   entries.push({ cap: 'r', label: t('tui.footer.refresh') });
+  entries.push({ cap: '?', label: t('tui.footer.help') });
   return entries;
 }
 
@@ -454,11 +461,169 @@ function composePark(app: TuiApp, size: TerminalSize, ctx: ViewContext): string[
   return frame;
 }
 
+// ── Overlays (help cheatsheet, command palette) ──────────────────────
+
+interface HelpEntry {
+  readonly cap: string;
+  readonly label: string;
+}
+
+interface HelpGroup {
+  readonly title: string;
+  readonly entries: readonly HelpEntry[];
+}
+
+/** One column stack: group titles with cap-aligned entries, blank line between groups. */
+function helpColumnLines(groups: readonly HelpGroup[]): string[] {
+  const capWidth = Math.max(...groups.flatMap((group) => group.entries.map((entry) => visibleWidth(entry.cap))));
+  const lines: string[] = [];
+  for (const group of groups) {
+    if (lines.length > 0) lines.push('');
+    lines.push(group.title);
+    for (const entry of group.entries) {
+      lines.push(` ${entry.cap}${' '.repeat(Math.max(0, capWidth - visibleWidth(entry.cap)))}  ${entry.label}`);
+    }
+  }
+  return lines;
+}
+
+/**
+ * The §4.3 cheatsheet body — only the verbs that exist today (no ␣/p
+ * until Phase 4; footer honesty carries into the overlay). Exactly
+ * HELP_BODY_LINES rows; layout.ts sizes the box from that count.
+ */
+function helpBodyLines(ctx: ViewContext, innerWidth: number): string[] {
+  const { t, caps } = ctx;
+  const glyphs = caps.glyphs;
+  const left = helpColumnLines([
+    {
+      title: t('tui.help.group.navigate'),
+      entries: [
+        { cap: `${moveCap(ctx)} / jk`, label: t('tui.footer.move') },
+        { cap: 'g / G', label: t('tui.help.topBottom') },
+        { cap: `${glyphs.keyPageUp} / ${glyphs.keyPageDown}`, label: t('tui.help.page') },
+        { cap: `${glyphs.keyTab} / 1 2 3`, label: t('tui.help.focusPane') },
+        { cap: 'esc', label: t('tui.help.backClear') },
+      ],
+    },
+    {
+      title: t('tui.help.group.find'),
+      entries: [
+        { cap: '/', label: t('tui.help.filterPane') },
+        { cap: '?', label: t('tui.help.thisHelp') },
+      ],
+    },
+  ]);
+  const right = helpColumnLines([
+    {
+      title: t('tui.help.group.act'),
+      entries: [
+        { cap: glyphs.keyEnter, label: t('tui.footer.open') },
+        { cap: 'y', label: t('tui.footer.yank') },
+        { cap: 'r', label: t('tui.footer.refresh') },
+      ],
+    },
+    {
+      title: t('tui.help.group.session'),
+      entries: [
+        { cap: '^K', label: t('tui.help.palette') },
+        { cap: 'q', label: t('tui.footer.quit') },
+      ],
+    },
+  ]);
+  const leftWidth = Math.floor(innerWidth / 2);
+  const merged: string[] = [];
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    merged.push(` ${padToWidth(left[i] ?? '', Math.max(0, leftWidth - 1), glyphs.ellipsis)}${right[i] ?? ''}`);
+  }
+  merged.push('');
+  merged.push(` ${paint(t('tui.help.note'), 'dim', caps.colorTier)}`);
+  return merged;
+}
+
+function paletteBodyLines(app: TuiApp, ctx: ViewContext, innerWidth: number): string[] {
+  const { t, caps } = ctx;
+  const glyphs = caps.glyphs;
+  const overlay = app.state.overlay;
+  const query = overlay !== null && overlay.kind === 'palette' ? overlay.query : '';
+  const lines: string[] = [` > ${query}${reverse(' ')}`];
+  const matches = app.paletteMatches();
+  if (matches.length === 0) {
+    lines.push(` ${paint(t('tui.palette.empty'), 'dim', caps.colorTier)}`);
+    return lines;
+  }
+  const selected = app.paletteSelected();
+  const markerWidth = visibleWidth(glyphs.selected);
+  for (let i = 0; i < matches.length; i += 1) {
+    const marker = i === selected ? glyphs.selected : ' '.repeat(markerWidth);
+    const line = ` ${marker} ${t(matches[i].labelKey)}`;
+    lines.push(i === selected ? reverse(padToWidth(line, innerWidth, glyphs.ellipsis)) : line);
+  }
+  return lines;
+}
+
+/** Dim-wash a base row (stale-data treatment) — SGR stripped first so the wash is uniform. */
+function washRow(row: string, ctx: ViewContext): string {
+  const plain = stripSgr(row);
+  return plain === '' ? '' : paint(plain, 'dim', ctx.caps.colorTier);
+}
+
+/** Overwrite the modal's rectangle over the dim-washed base frame (§4.3). */
+function spliceOverlay(base: string[], box: string[], rect: Rect, ctx: ViewContext): string[] {
+  const tier = ctx.caps.colorTier;
+  return base.map((row, index) => {
+    if (index < rect.y || index >= rect.y + rect.height) return washRow(row, ctx);
+    const plain = stripSgr(row);
+    const left = sliceCells(plain, 0, rect.x);
+    const right = sliceCells(plain, rect.x + rect.width, Number.MAX_SAFE_INTEGER);
+    const washedLeft = left === '' ? '' : paint(left, 'dim', tier);
+    const washedRight = right === '' ? '' : paint(right, 'dim', tier);
+    return washedLeft + (box[index - rect.y] ?? '') + washedRight;
+  });
+}
+
+function composeOverlay(app: TuiApp, base: string[], size: TerminalSize, ctx: ViewContext): string[] {
+  const { t, caps } = ctx;
+  const overlay = app.state.overlay;
+  if (overlay === null) return base;
+  const glyphs = caps.glyphs;
+  const closeLabel = `esc ${t('tui.help.close')}`;
+  if (overlay.kind === 'help') {
+    const rect = computeHelpLayout(size);
+    if (rect === null) return base;
+    const body = helpBodyLines(ctx, Math.max(0, rect.width - 2)).slice(0, HELP_BODY_LINES);
+    const box = makeBox(body, {
+      width: rect.width,
+      height: rect.height,
+      glyphs,
+      tier: caps.colorTier,
+      title: t('tui.help.title'),
+      bottomLabel: closeLabel,
+      focused: true,
+    });
+    return spliceOverlay(base, box, rect, ctx);
+  }
+  const layout = computePaletteLayout(size, app.paletteMatches().length);
+  if (layout === null) return base;
+  const box = makeBox(paletteBodyLines(app, ctx, Math.max(0, layout.rect.width - 2)), {
+    width: layout.rect.width,
+    height: layout.rect.height,
+    glyphs,
+    tier: caps.colorTier,
+    title: '^K',
+    bottomLabel: `${glyphs.keyEnter} ${t('tui.palette.run')} ${glyphs.separator} ${closeLabel}`,
+    focused: true,
+  });
+  return spliceOverlay(base, box, layout.rect, ctx);
+}
+
 export function viewTui(app: TuiApp, size: TerminalSize, ctx: ViewContext): string[] {
   if (size.rows < 3 || size.columns < 8) {
     return [padToWidth(ctx.t('tui.header.product'), Math.max(0, size.columns), ctx.caps.glyphs.ellipsis)];
   }
-  if (app.state.phase === 'parked') return composePark(app, size, ctx);
-  if (app.state.detail !== null) return composeDetail(app, size, ctx);
-  return composeDashboard(app, size, ctx);
+  let base: string[];
+  if (app.state.phase === 'parked') base = composePark(app, size, ctx);
+  else if (app.state.detail !== null) base = composeDetail(app, size, ctx);
+  else base = composeDashboard(app, size, ctx);
+  return composeOverlay(app, base, size, ctx);
 }

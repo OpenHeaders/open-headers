@@ -23,6 +23,8 @@ export interface BoxOptions {
   readonly tier: ColorTier;
   /** Pre-styled title segment; measured, truncated when the box is narrow. */
   readonly title?: string;
+  /** Label embedded in the bottom border (`└── esc close ──┘`, overlays). */
+  readonly bottomLabel?: string;
   readonly focused?: boolean;
 }
 
@@ -58,7 +60,17 @@ export function makeBox(lines: readonly string[], options: BoxOptions): string[]
     const content = padToWidth(lines[i] ?? '', innerWidth, ellipsis);
     rows.push(border(b.vertical) + content + border(b.vertical));
   }
-  rows.push(border(b.bottomLeft + b.horizontal.repeat(Math.max(0, width - 2)) + b.bottomRight));
+  const rawBottom = options.bottomLabel ?? '';
+  if (rawBottom === '' || width < 6) {
+    rows.push(border(b.bottomLeft + b.horizontal.repeat(Math.max(0, width - 2)) + b.bottomRight));
+  } else {
+    const clipped = truncateToWidth(rawBottom, Math.max(1, width - 4), ellipsis);
+    const fill = Math.max(0, width - 4 - visibleWidth(clipped));
+    const left = Math.floor(fill / 2);
+    rows.push(
+      `${border(b.bottomLeft + b.horizontal.repeat(left))} ${clipped} ${border(b.horizontal.repeat(fill - left) + b.bottomRight)}`,
+    );
+  }
   return rows.slice(0, height);
 }
 

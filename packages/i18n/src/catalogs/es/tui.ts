@@ -45,6 +45,30 @@ export const tui = {
   'tui.footer.back': 'volver',
   'tui.footer.scroll': 'desplazar',
   'tui.footer.retryNow': 'reintentar',
+  'tui.footer.palette': 'paleta',
+  'tui.footer.help': 'ayuda',
+
+  // ── Help overlay (`?` cheatsheet) ──────────────────────────────────
+  'tui.help.title': 'Teclado',
+  'tui.help.group.navigate': 'Navegar',
+  'tui.help.group.act': 'Actuar',
+  'tui.help.group.find': 'Buscar',
+  'tui.help.group.session': 'Sesión',
+  'tui.help.topBottom': 'inicio / fin',
+  'tui.help.page': 'página',
+  'tui.help.focusPane': 'enfocar panel',
+  'tui.help.backClear': 'volver / limpiar',
+  'tui.help.filterPane': 'filtrar panel',
+  'tui.help.thisHelp': 'esta ayuda',
+  'tui.help.palette': 'paleta de comandos',
+  'tui.help.note': 'Las mismas teclas que la aplicación cuando el terminal lo permite.',
+  'tui.help.close': 'cerrar',
+
+  // ── Command palette (Ctrl+K) ───────────────────────────────────────
+  'tui.palette.action.refresh': 'Actualizar ahora',
+  'tui.palette.action.help': 'Abrir la ayuda',
+  'tui.palette.empty': 'ningún comando coincide',
+  'tui.palette.run': 'ejecutar',
 
   // ── Filter line ────────────────────────────────────────────────────
   'tui.filter.line': 'filtro: /{query} {sep} {count} coincidencias',

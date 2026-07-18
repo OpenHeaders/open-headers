@@ -5,7 +5,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { computeDashboardLayout, computeDetailLayout, paneBodyHeight } from '../../../src/tui/layout';
+import {
+  computeDashboardLayout,
+  computeDetailLayout,
+  computeHelpLayout,
+  computePaletteLayout,
+  HELP_BODY_LINES,
+  paneBodyHeight,
+} from '../../../src/tui/layout';
 
 const REQUEST = { statusLine: false, focused: 'rules' as const, workspaceCount: 2 };
 
@@ -62,5 +69,32 @@ describe('layout', () => {
     const layout = computeDetailLayout({ columns: 80, rows: 24 });
     expect(layout.box).toEqual({ x: 1, y: 1, width: 78, height: 21 });
     expect(computeDetailLayout({ columns: 80, rows: 4 }).box).toBeNull();
+  });
+
+  it('help overlay centers the fixed-body box inside the interior', () => {
+    const rect = computeHelpLayout({ columns: 80, rows: 24 });
+    expect(rect).toEqual({ x: 11, y: 4, width: 58, height: HELP_BODY_LINES + 2 });
+    expect(computeHelpLayout({ columns: 20, rows: 24 })).toBeNull();
+    expect(computeHelpLayout({ columns: 80, rows: 4 })).toBeNull();
+  });
+
+  it('help overlay clamps to a short interior instead of overflowing it', () => {
+    const rect = computeHelpLayout({ columns: 80, rows: 12 });
+    expect(rect).not.toBeNull();
+    expect(rect?.height).toBe(9);
+    expect(rect?.y).toBe(1);
+  });
+
+  it('palette layout sizes to the match count and maps its rows', () => {
+    const layout = computePaletteLayout({ columns: 80, rows: 24 }, 2);
+    expect(layout).not.toBeNull();
+    expect(layout?.rect).toEqual({ x: 11, y: 9, width: 58, height: 5 });
+    expect(layout?.inputRow).toBe(10);
+    expect(layout?.firstActionRow).toBe(11);
+    expect(layout?.visibleActions).toBe(2);
+    // Zero matches still reserves one body row for the empty line.
+    expect(computePaletteLayout({ columns: 80, rows: 24 }, 0)?.rect.height).toBe(4);
+    expect(computePaletteLayout({ columns: 24, rows: 24 }, 2)?.rect.width).toBe(22);
+    expect(computePaletteLayout({ columns: 21, rows: 24 }, 2)).toBeNull();
   });
 });

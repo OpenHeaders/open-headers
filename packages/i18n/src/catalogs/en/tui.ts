@@ -43,6 +43,30 @@ export const tui = {
   'tui.footer.back': 'back',
   'tui.footer.scroll': 'scroll',
   'tui.footer.retryNow': 'retry now',
+  'tui.footer.palette': 'palette',
+  'tui.footer.help': 'help',
+
+  // ── Help overlay (`?` cheatsheet) ──────────────────────────────────
+  'tui.help.title': 'Keyboard',
+  'tui.help.group.navigate': 'Navigate',
+  'tui.help.group.act': 'Act',
+  'tui.help.group.find': 'Find',
+  'tui.help.group.session': 'Session',
+  'tui.help.topBottom': 'top / bottom',
+  'tui.help.page': 'page',
+  'tui.help.focusPane': 'focus pane',
+  'tui.help.backClear': 'back / clear',
+  'tui.help.filterPane': 'filter pane',
+  'tui.help.thisHelp': 'this help',
+  'tui.help.palette': 'command palette',
+  'tui.help.note': 'Same keys as the app where the terminal allows it.',
+  'tui.help.close': 'close',
+
+  // ── Command palette (Ctrl+K) ───────────────────────────────────────
+  'tui.palette.action.refresh': 'Refresh now',
+  'tui.palette.action.help': 'Open help',
+  'tui.palette.empty': 'no matching commands',
+  'tui.palette.run': 'run',
 
   // ── Filter line ────────────────────────────────────────────────────
   'tui.filter.line': 'filter: /{query} {sep} {count} matches',

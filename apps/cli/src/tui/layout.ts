@@ -129,6 +129,57 @@ export function computeDashboardLayout(size: TerminalSize, request: LayoutReques
   };
 }
 
+/** Preferred overlay width — the §4.3/§4.4 wireframe boxes, clamped to the interior. */
+export const OVERLAY_PREFERRED_WIDTH = 58;
+
+/**
+ * Body lines of the help overlay (§4.3): four groups merged into two
+ * column stacks (Navigate+Find left, Act+Session right) plus the
+ * closing note. view.ts builds exactly this many lines.
+ */
+export const HELP_BODY_LINES = 12;
+
+/** Centered box over the dimmed base screen; null when the interior can't hold one. */
+function centerOverlay(size: TerminalSize, bodyLines: number): Rect | null {
+  const contentWidth = Math.max(0, size.columns - 2);
+  const interiorHeight = Math.max(0, size.rows - 3);
+  const width = Math.min(OVERLAY_PREFERRED_WIDTH, contentWidth);
+  const height = Math.min(bodyLines + 2, interiorHeight);
+  if (height < MIN_BOX_HEIGHT || width < 20) return null;
+  return {
+    x: 1 + Math.floor((contentWidth - width) / 2),
+    y: 1 + Math.floor((interiorHeight - height) / 2),
+    width,
+    height,
+  };
+}
+
+export function computeHelpLayout(size: TerminalSize): Rect | null {
+  return centerOverlay(size, HELP_BODY_LINES);
+}
+
+export interface PaletteLayout {
+  readonly rect: Rect;
+  /** Frame row of the `> query` input line. */
+  readonly inputRow: number;
+  /** Frame row of the first action row. */
+  readonly firstActionRow: number;
+  /** Action rows the box can show. */
+  readonly visibleActions: number;
+}
+
+/** Palette box: input line + one row per match (at least the empty line). */
+export function computePaletteLayout(size: TerminalSize, matchCount: number): PaletteLayout | null {
+  const rect = centerOverlay(size, 1 + Math.max(1, matchCount));
+  if (rect === null) return null;
+  return {
+    rect,
+    inputRow: rect.y + 1,
+    firstActionRow: rect.y + 2,
+    visibleActions: Math.max(0, rect.height - 3),
+  };
+}
+
 export interface DetailLayout {
   readonly headerRow: number;
   readonly footerRow: number;

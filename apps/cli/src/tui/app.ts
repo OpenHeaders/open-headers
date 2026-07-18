@@ -8,11 +8,13 @@
 
 import type { DashboardSnapshot, RuleDetail } from './data';
 import { createFocusRing, type FocusRing } from './focus';
-import type { TuiTranslator } from './i18n';
+import type { TuiMessageKey, TuiTranslator } from './i18n';
 import type { TuiInputEvent } from './input';
 import {
   computeDashboardLayout,
   computeDetailLayout,
+  computeHelpLayout,
+  computePaletteLayout,
   type DashboardLayout,
   PANE_ORDER,
   type PaneId,
@@ -61,6 +63,36 @@ export interface EnvDetailScreen {
 
 export type DetailScreen = RuleDetailScreen | EnvDetailScreen;
 
+export interface HelpOverlay {
+  readonly kind: 'help';
+}
+
+export interface PaletteOverlay {
+  readonly kind: 'palette';
+  query: string;
+  /** Index within the current matches; clamped on read. */
+  selected: number;
+}
+
+export type OverlayState = HelpOverlay | PaletteOverlay;
+
+export type PaletteActionId = 'refresh' | 'open-help';
+
+export interface PaletteAction {
+  readonly id: PaletteActionId;
+  readonly labelKey: TuiMessageKey;
+}
+
+/**
+ * The named actions that exist today (§4.4) — the CLI verb vocabulary
+ * in palette clothing. Switch workspace/environment joins in Phase 4;
+ * omitted until then (footer honesty carries into the palette).
+ */
+export const PALETTE_ACTIONS: readonly PaletteAction[] = [
+  { id: 'refresh', labelKey: 'tui.palette.action.refresh' },
+  { id: 'open-help', labelKey: 'tui.palette.action.help' },
+];
+
 export interface Notice {
   readonly text: string;
   readonly expiresAt: number;
@@ -84,6 +116,7 @@ export interface TuiAppState {
   cursors: Record<PaneId, PaneCursor>;
   filter: FilterState | null;
   detail: DetailScreen | null;
+  overlay: OverlayState | null;
   notice: Notice | null;
   /** Daemon copy, verbatim — park screen / denial notice. */
   lastError: string | null;
@@ -117,6 +150,10 @@ export interface TuiApp {
   visibleRows(pane: PaneId): readonly PaneRow[];
   selectedIndex(pane: PaneId): number;
   statusLineActive(): boolean;
+  /** Palette actions matching the current query (substring, case-insensitive). */
+  paletteMatches(): readonly PaletteAction[];
+  /** Clamped selection index within paletteMatches(), or -1 when empty. */
+  paletteSelected(): number;
 }
 
 export function createTuiApp(options: TuiAppOptions): TuiApp {
@@ -133,6 +170,7 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     },
     filter: null,
     detail: null,
+    overlay: null,
     notice: null,
     lastError: null,
     lastSyncedAt: null,
@@ -257,6 +295,14 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     const layout = computeDetailLayout(size);
     const bodyHeight = layout.box === null ? 0 : layout.box.height - 2;
     if (ctrl && key === 'c') return [{ type: 'quit' }];
+    if (ctrl && key === 'k') {
+      openPalette();
+      return [];
+    }
+    if (key === '?') {
+      openHelp();
+      return [];
+    }
     switch (key) {
       case 'escape':
         state.detail = null;
@@ -307,6 +353,10 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     const rect = layout.panes[filter.pane];
     const bodyHeight = rect === undefined ? 0 : paneBodyHeight(rect);
     if (ctrl && key === 'c') return [{ type: 'quit' }];
+    if (ctrl && key === 'k') {
+      openPalette();
+      return [];
+    }
     switch (key) {
       case 'escape':
         state.filter = null;
@@ -335,8 +385,145 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     }
   }
 
+  // ── Overlays: help cheatsheet + command palette (§4.3/§4.4) ────────
+
+  function openHelp(): void {
+    state.overlay = { kind: 'help' };
+    focus.pushModal('help');
+  }
+
+  function openPalette(): void {
+    state.overlay = { kind: 'palette', query: '', selected: 0 };
+    focus.pushModal('palette');
+  }
+
+  function closeOverlay(): void {
+    state.overlay = null;
+    focus.popModal();
+  }
+
+  function paletteMatches(): readonly PaletteAction[] {
+    const overlay = state.overlay;
+    const query = overlay !== null && overlay.kind === 'palette' ? overlay.query.trim().toLowerCase() : '';
+    if (query === '') return PALETTE_ACTIONS;
+    return PALETTE_ACTIONS.filter((action) => t(action.labelKey).toLowerCase().includes(query));
+  }
+
+  function paletteSelected(): number {
+    const overlay = state.overlay;
+    if (overlay === null || overlay.kind !== 'palette') return -1;
+    const count = paletteMatches().length;
+    return count === 0 ? -1 : Math.max(0, Math.min(overlay.selected, count - 1));
+  }
+
+  function runPaletteAction(action: PaletteAction): Effect[] {
+    closeOverlay();
+    if (action.id === 'refresh') return [{ type: 'refresh' }];
+    openHelp();
+    return [];
+  }
+
+  function movePaletteSelection(delta: number): void {
+    const overlay = state.overlay;
+    if (overlay === null || overlay.kind !== 'palette') return;
+    const count = paletteMatches().length;
+    if (count === 0) return;
+    overlay.selected = Math.max(0, Math.min(count - 1, paletteSelected() + delta));
+  }
+
+  function handleOverlayKey(key: string, ctrl: boolean, alt: boolean): Effect[] {
+    if (ctrl && key === 'c') return [{ type: 'quit' }];
+    const overlay = state.overlay;
+    if (overlay === null) return [];
+    if (overlay.kind === 'help') {
+      if (key === 'escape' || key === '?') {
+        closeOverlay();
+      } else if (ctrl && key === 'k') {
+        closeOverlay();
+        openPalette();
+      }
+      return [];
+    }
+    if (ctrl && key === 'k') {
+      closeOverlay();
+      return [];
+    }
+    switch (key) {
+      case 'escape':
+        // Innermost-first: a typed query clears before the palette closes.
+        if (overlay.query !== '') {
+          overlay.query = '';
+          overlay.selected = 0;
+        } else {
+          closeOverlay();
+        }
+        return [];
+      case 'enter': {
+        const index = paletteSelected();
+        return index === -1 ? [] : runPaletteAction(paletteMatches()[index]);
+      }
+      case 'up':
+        movePaletteSelection(-1);
+        return [];
+      case 'down':
+        movePaletteSelection(1);
+        return [];
+      case 'backspace':
+        overlay.query = overlay.query.slice(0, -1);
+        overlay.selected = 0;
+        return [];
+      case 'space':
+        overlay.query += ' ';
+        overlay.selected = 0;
+        return [];
+      default:
+        if (key.length === 1 && !ctrl && !alt) {
+          overlay.query += key;
+          overlay.selected = 0;
+        }
+        return [];
+    }
+  }
+
+  function insideRect(rect: Rect, column: number, row: number): boolean {
+    return column >= rect.x && column < rect.x + rect.width && row >= rect.y && row < rect.y + rect.height;
+  }
+
+  function handleOverlayMouse(action: string, column: number, row: number, size: TerminalSize): Effect[] {
+    const overlay = state.overlay;
+    if (overlay === null) return [];
+    if (overlay.kind === 'help') {
+      const rect = computeHelpLayout(size);
+      // Click outside a modal dismisses it (design §2.1).
+      if (action === 'press' && (rect === null || !insideRect(rect, column, row))) closeOverlay();
+      return [];
+    }
+    if (action === 'wheel-up' || action === 'wheel-down') {
+      movePaletteSelection(action === 'wheel-up' ? -1 : 1);
+      return [];
+    }
+    if (action !== 'press') return [];
+    const matches = paletteMatches();
+    const layout = computePaletteLayout(size, matches.length);
+    if (layout === null || !insideRect(layout.rect, column, row)) {
+      closeOverlay();
+      return [];
+    }
+    const index = row - layout.firstActionRow;
+    if (index >= 0 && index < Math.min(matches.length, layout.visibleActions)) {
+      // Click selects; click on the already-selected action runs it (§2.1).
+      if (index === paletteSelected()) return runPaletteAction(matches[index]);
+      overlay.selected = index;
+    }
+    return [];
+  }
+
   function handleDashboardKey(key: string, ctrl: boolean, shift: boolean, size: TerminalSize): Effect[] {
     if (ctrl && key === 'c') return [{ type: 'quit' }];
+    if (ctrl && key === 'k') {
+      openPalette();
+      return [];
+    }
     const layout = dashboardLayout(size);
     const pane = focus.focusedPane;
     const rect = layout.panes[pane];
@@ -387,6 +574,9 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
         return openSelected(pane);
       case 'y':
         return yankSelected(pane);
+      case '?':
+        openHelp();
+        return [];
       default:
         return [];
     }
@@ -448,9 +638,11 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
       // SGR coordinates are 1-based; the frame is 0-based.
       const column = event.x - 1;
       const row = event.y - 1;
+      if (state.overlay !== null) return handleOverlayMouse(event.action, column, row, size);
       if (state.detail !== null) return handleDetailMouse(event.action, size);
       return handleDashboardMouse(event.action, column, row, size);
     }
+    if (state.overlay !== null) return handleOverlayKey(event.key, event.ctrl, event.alt);
     if (state.detail !== null) return handleDetailKey(event.key, event.ctrl, size);
     if (state.filter?.entering) {
       return handleFilterEntryKey(event.key, event.ctrl, event.alt, size);
@@ -540,5 +732,7 @@ export function createTuiApp(options: TuiAppOptions): TuiApp {
     visibleRows,
     selectedIndex,
     statusLineActive,
+    paletteMatches,
+    paletteSelected,
   };
 }
