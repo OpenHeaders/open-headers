@@ -1,19 +1,20 @@
 /**
- * Inspector response quick-editor Save payload — `buildResponseRuleUpdate`.
+ * Response editors' Save payload — `buildResponseRuleWireUpdate` (one
+ * wire-space builder for the quick popover AND the rule-editor tab
+ * document).
  *
  * Same atomic-edit contract as `panel-header-mod-edit.test.ts`: the
- * popover commits in one gesture, so a published rule must carry
+ * edit commits in one gesture, so a published rule must carry
  * `published: true` in the same batch (the publication gate reads it as
  * the explicit publish gesture and skips the streaming-edit
- * auto-unpublish). The action rebuild must also preserve the fields the
- * compact editor doesn't surface (source, body type, headers, filters).
+ * auto-unpublish). The action rebuild must preserve the fields the
+ * compact editor doesn't surface (source, body type, headers, filters),
+ * and the body stores AS IS — the form value is wire text
+ * (`FormatAwareBodyEditor` encodes per edit; Raw mode is verbatim).
  */
 
 import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
-import {
-  buildResponseRuleUpdate,
-  buildResponseRuleWireUpdate,
-} from '@openheaders/ui/panel/data/rule-create/response-rule-edit';
+import { buildResponseRuleWireUpdate } from '@openheaders/ui/panel/data/rule-create/response-rule-edit';
 import { describe, expect, it } from 'vitest';
 
 function makeRule(over: Partial<ResponseRule> = {}): ResponseRule {
@@ -40,41 +41,41 @@ function makeRule(over: Partial<ResponseRule> = {}): ResponseRule {
 
 const DRAFT = { statusCode: 404, contentType: 'text/plain', responseBody: 'not found' };
 
-describe('buildResponseRuleUpdate — publication preservation', () => {
+describe('buildResponseRuleWireUpdate — publication preservation', () => {
   it('keeps a published rule published', () => {
-    const updates = buildResponseRuleUpdate(makeRule({ published: true }), DRAFT);
+    const updates = buildResponseRuleWireUpdate(makeRule({ published: true }), DRAFT);
     expect(updates.published).toBe(true);
   });
 
   it('does not add a published flag for a draft rule (no surprise publish)', () => {
-    const updates = buildResponseRuleUpdate(makeRule(), DRAFT);
+    const updates = buildResponseRuleWireUpdate(makeRule(), DRAFT);
     expect('published' in updates).toBe(false);
   });
 
   it('leaves an explicitly-unpublished rule a draft', () => {
-    const updates = buildResponseRuleUpdate(makeRule({ published: false }), DRAFT);
+    const updates = buildResponseRuleWireUpdate(makeRule({ published: false }), DRAFT);
     expect('published' in updates).toBe(false);
   });
 });
 
-describe('buildResponseRuleUpdate — conditions', () => {
+describe('buildResponseRuleWireUpdate — conditions', () => {
   const CONDITIONS: RuleCondition[] = [{ uid: 'c1', type: 'request-domains', values: ['openheaders.io'] }];
 
   it('carries the edited conditions in the same batch when supplied', () => {
-    const updates = buildResponseRuleUpdate(makeRule({ published: true }), DRAFT, CONDITIONS);
+    const updates = buildResponseRuleWireUpdate(makeRule({ published: true }), DRAFT, CONDITIONS);
     expect(updates.conditions).toBe(CONDITIONS);
     expect(updates.published).toBe(true);
   });
 
   it('omits conditions from the batch when not supplied (untouched row)', () => {
-    const updates = buildResponseRuleUpdate(makeRule(), DRAFT);
+    const updates = buildResponseRuleWireUpdate(makeRule(), DRAFT);
     expect('conditions' in updates).toBe(false);
   });
 });
 
-describe('buildResponseRuleUpdate — action rebuild', () => {
+describe('buildResponseRuleWireUpdate — action rebuild', () => {
   it('applies the drafted status, content-type and body', () => {
-    const updates = buildResponseRuleUpdate(makeRule({ published: true }), DRAFT);
+    const updates = buildResponseRuleWireUpdate(makeRule({ published: true }), DRAFT);
     expect(updates.action?.statusCode).toBe(404);
     expect(updates.action?.contentType).toBe('text/plain');
     expect(updates.action?.responseBody).toBe('not found');
@@ -82,7 +83,7 @@ describe('buildResponseRuleUpdate — action rebuild', () => {
 
   it('preserves the fields the compact editor does not surface', () => {
     const rule = makeRule({ published: true });
-    const updates = buildResponseRuleUpdate(rule, DRAFT);
+    const updates = buildResponseRuleWireUpdate(rule, DRAFT);
     expect(updates.action?.responseSource).toBe('network');
     expect(updates.action?.bodyType).toBe('static');
     expect(updates.action?.responseHeaders).toEqual({ 'x-served-by': 'openheaders.io' });
@@ -90,35 +91,11 @@ describe('buildResponseRuleUpdate — action rebuild', () => {
   });
 });
 
-describe('buildResponseRuleUpdate — wire re-encoding', () => {
-  const stored = '{"users":[],"total":0}';
-
-  it('re-encodes a formatted-view edit to the stored profile', () => {
-    const rule = makeRule({ action: { ...makeRule().action, responseBody: stored } });
-    const draft = {
-      statusCode: 0,
-      contentType: 'application/json',
-      responseBody: '{\n  "users": [],\n  "total": 7\n}',
-    };
-    expect(buildResponseRuleUpdate(rule, draft).action?.responseBody).toBe('{"users":[],"total":7}');
-  });
-
-  it('an untouched formatted view keeps the stored bytes exactly', () => {
-    const rule = makeRule({ action: { ...makeRule().action, responseBody: stored } });
-    const draft = {
-      statusCode: 404,
-      contentType: 'application/json',
-      responseBody: '{\n  "users": [],\n  "total": 0\n}',
-    };
-    expect(buildResponseRuleUpdate(rule, draft).action?.responseBody).toBe(stored);
-  });
-});
-
-describe('buildResponseRuleWireUpdate — the rule-editor tab document', () => {
+describe('buildResponseRuleWireUpdate — wire-space body', () => {
   const stored = '{"users":[],"total":0}';
 
   it('stores the wire-space draft body VERBATIM — a Raw-mode profile change is honored', () => {
-    // The tab's FormatAwareBodyEditor already encoded the form value; a
+    // The FormatAwareBodyEditor already encoded the form value; a
     // deliberately re-indented Raw edit must not snap back to the
     // stored profile.
     const rule = makeRule({ published: true, action: { ...makeRule().action, responseBody: stored } });
@@ -142,15 +119,5 @@ describe('buildResponseRuleWireUpdate — the rule-editor tab document', () => {
     });
     expect(updates.action?.responseBody).toBe(stored);
     expect('published' in updates).toBe(false);
-  });
-
-  it('gates conditions and preserves unsurfaced action fields like the popover builder', () => {
-    const conditions: RuleCondition[] = [{ uid: 'c1', type: 'request-domains', values: ['openheaders.io'] }];
-    const withConditions = buildResponseRuleWireUpdate(makeRule({ published: true }), DRAFT, conditions);
-    expect(withConditions.conditions).toBe(conditions);
-    const without = buildResponseRuleWireUpdate(makeRule(), DRAFT);
-    expect('conditions' in without).toBe(false);
-    expect(without.action?.responseSource).toBe('network');
-    expect(without.action?.responseHeaders).toEqual({ 'x-served-by': 'openheaders.io' });
   });
 });

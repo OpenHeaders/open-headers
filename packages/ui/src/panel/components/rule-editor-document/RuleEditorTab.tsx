@@ -38,7 +38,7 @@ import { App, AutoComplete, Input, Select, theme } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RuleEditorInspectorTab } from '../../data/inspector-tab';
 import { detectLanguage } from '../../data/mime';
-import { buildResponseRuleSeedFromWire } from '../../data/rule-create/response-rule-create';
+import { buildResponseRuleSeedFromWire, seedResponseQuickDraft } from '../../data/rule-create/response-rule-create';
 import { buildResponseRuleWireUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 import Skeleton from '../detail/Skeleton';
 import { QuickConditionsRow } from '../rule-quick-editor/QuickConditionsRow';
@@ -111,11 +111,7 @@ export function RuleEditorTab({ tab, onDirtyChange, registerSave, isActiveDocume
   const canonical = useMemo<ResponseQuickDraft | null>(() => {
     if (isCreate) {
       if (tab.draft === undefined) return null;
-      return {
-        statusCode: tab.draft.statusCode ?? 0,
-        contentType: tab.draft.contentType ?? '',
-        responseBody: tab.draft.responseBody ?? '',
-      };
+      return seedResponseQuickDraft(tab.draft);
     }
     if (responseRule === null || isDynamic) return null;
     return {

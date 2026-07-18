@@ -13,10 +13,10 @@
  * a JSON.parse/stringify round-trip would corrupt (integer beyond 2^53,
  * `1.0`, `1e3`, a `\uXXXX` escape, a duplicate key). Legs:
  *
- *   1  no-edit override — the popover shows a FORMATTED view (+ the
- *      profile hint), yet Save stores and SERVES the origin bytes
- *      exactly (the verbatim short-circuit); Content-Length, when
- *      present, matches the served bytes
+ *   1  no-edit override — the popover's Monaco body opens in Formatted
+ *      mode, yet Save stores and SERVES the origin bytes exactly (the
+ *      verbatim short-circuit); Content-Length, when present, matches
+ *      the served bytes
  *   2  edited minified original — the edit popover's formatted-space
  *      edit re-emits in the origin's minified profile on the wire,
  *      hazard bytes surviving the edit
@@ -91,23 +91,29 @@ function popover(): Locator {
   return panelPage.locator('[data-rule-popover-root]').filter({ visible: true }).first();
 }
 
-/** The popover's body field — the response popovers' only TemplateInput
- *  above the conditions row, so first() is the body. */
+/** The popover's body editor — the shared format-aware Monaco (tab
+ *  parity); lazy-loaded, so wait for the editor before reading. */
 function popoverBody(): Locator {
-  return popover().locator('.oh-template-input-editable').first();
+  return popover().locator('.monaco-editor').first();
+}
+
+/** The Formatted/Raw toggle's selected segment inside the popover. */
+function popoverBodyMode(): Locator {
+  return popover().locator('.ant-segmented-item-selected').first();
 }
 
 async function popoverBodyText(): Promise<string> {
-  return (await popoverBody().innerText()).replace(/ /g, ' ');
+  await popoverBody().waitFor({ state: 'visible', timeout: 15_000 });
+  return (await popoverBody().locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
 }
 
-/** Replace the popover body via bulk insertText (contentEditable — no
- *  auto-closing, no per-key reinterpretation). */
+/** Single-line bulk replace in the popover's Monaco body. */
 async function fillPopoverBody(text: string): Promise<void> {
   await popoverBody().click();
   await panelPage.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await panelPage.keyboard.press('Backspace');
   await panelPage.keyboard.insertText(text);
+  await panelPage.keyboard.press('Escape');
 }
 
 /** Newest traffic row whose text carries `marker`. */
@@ -243,14 +249,14 @@ test('a no-edit override shows a formatted view yet serves the origin bytes exac
   await cta('Override Response').click();
   await expect(popover()).toBeVisible();
 
-  // The body field shows the FORMATTED view of the wire text (": " gaps
-  // only exist in the view — the origin is minified), with the
-  // save-in-original-format hint under it.
+  // The Monaco body opens in Formatted mode showing the formatted VIEW
+  // of the wire text (": " gaps only exist in the view — the origin is
+  // minified).
   const view = await popoverBodyText();
   expect(view).toContain('"big": 9007199254740993');
   expect(view).toContain('caf\\u00e9');
   expect(view).not.toBe(FIDELITY_BODY);
-  await expect(popover().getByText('Formatted for editing')).toBeVisible();
+  await expect(popoverBodyMode()).toHaveText('Formatted');
 
   // Save mints + publishes; the stored body must be the origin bytes —
   // the verbatim short-circuit, the epic's headline invariant.
@@ -312,7 +318,7 @@ test('a templated body formats in the popover and a no-edit Save round-trips the
   const view = await popoverBodyText();
   expect(view).toContain('{{session.token}}');
   expect(view).toContain('"seq": 1');
-  await expect(popover().getByText('Formatted for editing')).toBeVisible();
+  await expect(popoverBodyMode()).toHaveText('Formatted');
 
   await popover().getByRole('button', { name: /Save$/ }).click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);

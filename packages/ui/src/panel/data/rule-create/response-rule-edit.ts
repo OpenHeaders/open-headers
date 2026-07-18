@@ -1,21 +1,20 @@
 /**
- * Pure builder for the inspector response quick-editor's Save payload.
- * Same contract as `header-mod-edit.ts`: the popover is an ATOMIC edit —
- * the full new value is committed in one gesture, never streamed
- * per-keystroke — so a published rule must carry `published: true` in
- * the SAME batch. An explicit `published` in the update is read as the
- * publication gesture, skipping `applyRuleUpdate`'s streaming-edit
- * auto-unpublish, so the tweaked override takes effect on the next
- * request instead of silently dropping the rule to draft.
+ * Pure builder for the response editors' Save payload — shared by the
+ * quick popover and the rule-editor tab document. Same contract as
+ * `header-mod-edit.ts`: the edit is ATOMIC — the full new value is
+ * committed in one gesture, never streamed per-keystroke — so a
+ * published rule must carry `published: true` in the SAME batch. An
+ * explicit `published` in the update is read as the publication
+ * gesture, skipping `applyRuleUpdate`'s streaming-edit auto-unpublish,
+ * so the tweaked override takes effect on the next request instead of
+ * silently dropping the rule to draft.
  *
- * The draft body is the popover's formatted VIEW; the update re-encodes
- * it against the rule's stored body (`encodeBodyForWire`): untouched
- * view ⇒ the stored bytes exactly, edited view ⇒ the stored body's
- * serialization profile.
+ * The draft body is WIRE text (`FormatAwareBodyEditor` encodes per
+ * edit; Raw mode is verbatim), so it stores AS IS — a re-encode here
+ * would re-profile a deliberate Raw-mode edit.
  */
 
 import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
-import { encodeBodyForWire } from '@openheaders/ui/shared/body-format';
 
 export interface ResponseQuickDraft {
   statusCode: number;
@@ -23,14 +22,9 @@ export interface ResponseQuickDraft {
   responseBody: string;
 }
 
-/**
- * WIRE-space twin of `buildResponseRuleUpdate` for the rule-editor tab
- * document: its `FormatAwareBodyEditor` form value is already wire text
- * (encoded per edit, Raw mode verbatim), so the body stores AS IS — a
- * second encode here would re-profile a deliberate Raw-mode edit. Same
- * conditions gating and same-batch `published` carry as the popover
- * builder.
- */
+/** `conditions` joins the batch only when the Conditions row is dirty —
+ *  an untouched row never clobbers a concurrent conditions edit from
+ *  another surface. */
 export function buildResponseRuleWireUpdate(
   rule: ResponseRule,
   draft: ResponseQuickDraft,
@@ -42,26 +36,6 @@ export function buildResponseRuleWireUpdate(
       statusCode: draft.statusCode,
       contentType: draft.contentType,
       responseBody: draft.responseBody,
-    },
-    ...(conditions ? { conditions } : {}),
-    ...(rule.published === true ? { published: true } : {}),
-  };
-}
-
-/** `conditions` joins the batch only when the popover's Conditions row
- *  is dirty — an untouched row never clobbers a concurrent conditions
- *  edit from another surface. */
-export function buildResponseRuleUpdate(
-  rule: ResponseRule,
-  draft: ResponseQuickDraft,
-  conditions?: RuleCondition[],
-): Partial<ResponseRule> {
-  return {
-    action: {
-      ...rule.action,
-      statusCode: draft.statusCode,
-      contentType: draft.contentType,
-      responseBody: encodeBodyForWire(rule.action.responseBody, draft.responseBody),
     },
     ...(conditions ? { conditions } : {}),
     // Keep a published rule published in the SAME batch (see file header).

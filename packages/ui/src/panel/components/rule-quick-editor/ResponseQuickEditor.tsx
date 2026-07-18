@@ -5,8 +5,8 @@
  * the inspected request. Saving changes the rule for FUTURE requests;
  * the tab's Modified/Original capture stays exactly as it was.
  *
- * Compact by design: status select + content-type + a template-aware
- * field for the static body (shared with create mode via
+ * Compact by design: status select + content-type + the shared
+ * format-aware body editor (tab-document parity, via
  * `ResponseQuickFields`) — heavy editing (dynamic JavaScript bodies,
  * response headers, GraphQL filters) belongs to the workbench, reached
  * via the footer link. Dynamic-body rules fall back to that link only,
@@ -17,16 +17,13 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { encodeBodyForWire, formatBody } from '@openheaders/ui/shared/body-format';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { App, Tag, theme } from 'antd';
 import { useMemo } from 'react';
-import { buildResponseRuleUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
-import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import { buildResponseRuleWireUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 import { useOpenRuleEditorDocument } from '../../data/rule-editor-document-intent';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
@@ -66,33 +63,22 @@ export function ResponseQuickEditor({
   const liveRule = liveRuleFromMirror ?? rule;
   const responseRule: ResponseRule | null = liveRule.type === 'response' ? liveRule : null;
 
-  // Collection that owns the rule — scopes the body's `{{collection.X}}`
-  // suggestions, same derivation as the header popover.
-  const { localCollections } = useRules();
-  const collectionId = useMemo(
-    () => findRuleCollectionId(liveRule, localCollections),
-    [liveRule, localCollections],
-  );
   const isDynamic = responseRule?.action.bodyType === 'dynamic';
   const editable = !!responseRule && !isDynamic;
 
-  // The body maps to its formatted VIEW (once per rule version — the
-  // memo, never per keystroke); the Save builder re-encodes it against
-  // the stored wire text, so an untouched view keeps the stored bytes.
+  // The draft record lives in WIRE space (the body editor formats its
+  // own view and encodes per edit — tab-document parity), so derived
+  // dirty and the Save payload read the stored text unchanged.
   const canonical = useMemo<ResponseQuickDraft | null>(
     () =>
       responseRule && !isDynamic
         ? {
             statusCode: responseRule.action.statusCode,
             contentType: responseRule.action.contentType,
-            responseBody: formatBody(responseRule.action.responseBody),
+            responseBody: responseRule.action.responseBody,
           }
         : null,
     [responseRule, isDynamic],
-  );
-  const showFormatHint = useMemo(
-    () => canonical !== null && responseRule !== null && canonical.responseBody !== responseRule.action.responseBody,
-    [canonical, responseRule],
   );
   const { draft, draftRef, updateDraft, isDirty: fieldsDirty } = useActionDraft({ canonical });
 
@@ -104,7 +90,7 @@ export function ResponseQuickEditor({
     // `ruleUid` gates the save flow, so the null branch is unreachable.
     buildUpdates: () =>
       responseRule
-        ? buildResponseRuleUpdate(
+        ? buildResponseRuleWireUpdate(
             responseRule,
             draftRef.current,
             condDraft.isDirty ? condDraft.conditionsRef.current : undefined,
@@ -122,9 +108,9 @@ export function ResponseQuickEditor({
   };
 
   // In-panel escalation: the rule opens as an edit-mode editor-tab
-  // document; unsaved form state rides along (body re-encoded to wire —
-  // the document's form value is wire text). Editable rules only —
-  // dynamic-body rules keep their workspace-only escalation.
+  // document; unsaved form state rides along verbatim (both surfaces'
+  // form values are wire text). Editable rules only — dynamic-body
+  // rules keep their workspace-only escalation.
   const openRuleEditorDocument = useOpenRuleEditorDocument();
   const openInTab =
     openRuleEditorDocument === null || !editable || responseRule === null
@@ -139,7 +125,7 @@ export function ResponseQuickEditor({
                   handOff: {
                     statusCode: draftRef.current.statusCode,
                     contentType: draftRef.current.contentType,
-                    responseBody: encodeBodyForWire(responseRule.action.responseBody, draftRef.current.responseBody),
+                    responseBody: draftRef.current.responseBody,
                     ...(condDraft.isDirty ? { conditions: condDraft.conditionsRef.current } : {}),
                   },
                 }
@@ -180,13 +166,7 @@ export function ResponseQuickEditor({
       visible={visible}
     >
       {editable ? (
-        <ResponseQuickFields
-          draft={draft}
-          updateDraft={updateDraft}
-          entityUid={liveRule.uid}
-          collectionId={collectionId}
-          showFormatHint={showFormatHint}
-        />
+        <ResponseQuickFields draft={draft} updateDraft={updateDraft} entityUid={liveRule.uid} />
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
           {responseRule ? t('panel.quickEditor.response.dynamicBody') : t('panel.quickEditor.openToInspect')}

@@ -1,22 +1,29 @@
 /**
  * ResponseQuickFields — the compact response form shared by the
  * quick-editor's edit and create bodies: status select (Keep-original
- * `0` sentinel + grouped codes), content-type autocomplete, and a
- * template-aware body (static bodies are `{{VAR}}` candidates at
- * runtime — see `rule-templates.ts` — so the field gets the same
- * highlight + suggestion UX as every other templated input). Edit mode
- * passes `entityUid` so each input publishes field-focus awareness;
- * create mode has no entity yet and renders the bare inputs.
+ * `0` sentinel + grouped codes), content-type autocomplete, and the
+ * SAME format-aware body editor the rule-editor tab document uses
+ * (Formatted/Raw toggle, content-type-driven Monaco coloring; the form
+ * value is WIRE text). Edit mode passes `entityUid` so each input
+ * publishes field-focus awareness; create mode has no entity yet and
+ * renders the bare inputs.
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { CONTENT_TYPE_OPTIONS, STATUS_CODES } from '@openheaders/ui/workbench/components/rule-fields/status-codes';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { AutoComplete, Select, theme } from 'antd';
-import { type ReactNode, useMemo } from 'react';
+import { lazy, type ReactNode, Suspense, useMemo } from 'react';
+import { detectLanguage } from '../../data/mime';
 import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
+import Skeleton from '../detail/Skeleton';
+
+// Lazy like every other Monaco consumer — a static import here would
+// pull Monaco into the panel's initial chunk.
+const FormatAwareBodyEditor = lazy(
+  () => import('@openheaders/ui/workbench/components/rule-fields/FormatAwareBodyEditor'),
+);
 
 // JSON format example — raw by design across the rule editors.
 const RESPONSE_BODY_EXAMPLE = '{"message": "custom response", "data": []}';
@@ -26,21 +33,9 @@ export interface ResponseQuickFieldsProps {
   updateDraft: (patch: Partial<ResponseQuickDraft>) => void;
   /** Live rule uid — wraps the inputs in awareness EntityFields. */
   entityUid?: string;
-  /** Collection that owns (or will own) the rule — scopes the body's
-   *  `{{collection.X}}` suggestions. */
-  collectionId?: string;
-  /** The body field is showing a formatted view of the wire text —
-   *  renders the save-in-original-format hint under it. */
-  showFormatHint?: boolean;
 }
 
-export function ResponseQuickFields({
-  draft,
-  updateDraft,
-  entityUid,
-  collectionId,
-  showFormatHint,
-}: ResponseQuickFieldsProps) {
+export function ResponseQuickFields({ draft, updateDraft, entityUid }: ResponseQuickFieldsProps) {
   const t = useT();
   const { token } = theme.useToken();
   const statusOptions = useMemo(
@@ -109,27 +104,15 @@ export function ResponseQuickFields({
         <div style={fieldLabelStyle}>{t('workbench.editors.rule.fields.response.bodyLabel')}</div>
         {field(
           RULE_FIELD.responseBody,
-          <TemplateInput
-            multiline
-            maxRows={12}
-            resizable
-            allowClear
-            value={draft.responseBody}
-            onChange={(v) => updateDraft({ responseBody: v })}
-            placeholder={RESPONSE_BODY_EXAMPLE}
-            suggestionContext={{ collectionId }}
-            style={{
-              width: '100%',
-              minHeight: 120,
-              fontFamily: token.fontFamilyCode,
-              fontSize: 12,
-            }}
-          />,
-        )}
-        {showFormatHint && (
-          <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-            {t('panel.quickEditor.formatAwareBody.hint')}
-          </div>
+          <Suspense fallback={<Skeleton />}>
+            <FormatAwareBodyEditor
+              value={draft.responseBody}
+              onChange={(v) => updateDraft({ responseBody: v })}
+              language={detectLanguage(draft.contentType) ?? 'json'}
+              placeholder={RESPONSE_BODY_EXAMPLE}
+              minHeight={160}
+            />
+          </Suspense>,
         )}
       </div>
     </>

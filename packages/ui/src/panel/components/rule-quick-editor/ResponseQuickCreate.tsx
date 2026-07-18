@@ -25,7 +25,11 @@ import { useRef, useState } from 'react';
 import { useOpenRuleEditorDocument } from '../../data/rule-editor-document-intent';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
-import { buildResponseRuleSeed, mergeQuickIntoResponseDraft, seedQuickDraft } from '../../data/rule-create/response-rule-create';
+import {
+  buildResponseRuleSeedFromWire,
+  mergeQuickIntoResponseDraft,
+  seedResponseQuickDraft,
+} from '../../data/rule-create/response-rule-create';
 import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
@@ -65,10 +69,9 @@ export function ResponseQuickCreate({
   const [name, setName] = useState(() =>
     generateSmartRuleName({ kind: 'response', url: draft.url ?? '', responseSource: draft.responseSource }, rules),
   );
-  const [seed] = useState<ResponseQuickDraft>(() => seedQuickDraft(draft));
-  // Seed body ≠ captured body ⇒ the popover is showing a formatted
-  // view of the wire text — surface the save-in-original-format hint.
-  const showFormatHint = seed.responseBody !== (draft.responseBody ?? '');
+  // WIRE-space seed: the body editor owns its formatted view and emits
+  // wire text per edit, so the form record carries the captured bytes.
+  const [seed] = useState<ResponseQuickDraft>(() => seedResponseQuickDraft(draft));
   const [quick, setQuick] = useState<ResponseQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -81,10 +84,9 @@ export function ResponseQuickCreate({
   const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
-  const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildResponseRuleSeed(draft, quickRef.current, name, cond.conditionsRef.current),
+    buildSeed: () => buildResponseRuleSeedFromWire(draft, quickRef.current, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     mutator,
@@ -98,9 +100,9 @@ export function ResponseQuickCreate({
       .catch((err: Error) => message.error(err.message));
   };
 
-  // In-panel escalation: the current form state (body wire-encoded by
-  // the merge) opens as a create-mode editor-tab document. Gated on the
-  // tab-group owner having registered an opener (see the intent seam).
+  // In-panel escalation: the current form state (already wire text)
+  // opens as a create-mode editor-tab document. Gated on the tab-group
+  // owner having registered an opener (see the intent seam).
   const openRuleEditorDocument = useOpenRuleEditorDocument();
   const openInTab =
     openRuleEditorDocument === null
@@ -141,12 +143,7 @@ export function ResponseQuickCreate({
       onMouseLeave={onMouseLeave}
       visible={visible}
     >
-      <ResponseQuickFields
-        draft={quick}
-        updateDraft={updateQuick}
-        collectionId={collectionId}
-        showFormatHint={showFormatHint}
-      />
+      <ResponseQuickFields draft={quick} updateDraft={updateQuick} />
     </QuickEditorShell>
   );
 }
