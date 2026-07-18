@@ -28,9 +28,9 @@ interface ReimportDiffPanelProps {
   diff: ImportReportDiff;
 }
 
-function relativeAge(previousIso: string, locale: string): string {
+function relativeAge(previousIso: string, locale: string, fallback: string): string {
   const then = Date.parse(previousIso);
-  if (Number.isNaN(then)) return 'previously';
+  if (Number.isNaN(then)) return fallback;
   const delta = Date.now() - then;
   const minutes = Math.round(delta / 60_000);
   if (delta < 0 || minutes < 1) return getRelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'second');
@@ -48,7 +48,7 @@ function relativeAge(previousIso: string, locale: string): string {
 const ReimportDiffPanel: React.FC<ReimportDiffPanelProps> = ({ diff }) => {
   const { token } = theme.useToken();
   const { t, locale } = useLocale();
-  const age = relativeAge(diff.previousImportedAt, locale);
+  const age = relativeAge(diff.previousImportedAt, locale, t('workbench.importExport.reimport.agePreviously'));
 
   // Decide headline tone. Regression wins over progress — the user
   // needs to see new drops most urgently.

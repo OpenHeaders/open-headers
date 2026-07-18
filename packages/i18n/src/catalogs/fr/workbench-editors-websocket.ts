@@ -17,9 +17,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.flavor.raw': 'WebSocket',
   'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': 'Se connecter',
-  'workbench.editors.websocket.connect.disabledPhase':
-    "La connexion n'est pas encore câblée — la composition, les docs et les paramètres s'enregistrent déjà ; " +
-    'le plan de session arrive ensuite.',
+  'workbench.editors.websocket.connect.disconnect': 'Se déconnecter',
+  'workbench.editors.websocket.connect.browserHost':
+    "Les sessions WebSocket s'exécutent sur l'application de bureau ou le daemon.",
+  'workbench.editors.websocket.connect.needsUrl': 'Saisissez une URL ws:// ou wss:// pour vous connecter.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Message',
   'workbench.editors.websocket.tab.headers': 'En-têtes',
@@ -43,6 +44,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.issues': '{count} problèmes dans la spécification',
   'workbench.editors.websocket.specFooter.using': 'Utilise {name}',
   'workbench.editors.websocket.specFooter.none': 'Aucune spécification AsyncAPI liée',
+  'workbench.editors.websocket.settings.sslVerifyLabel': 'Vérification du certificat SSL',
+  'workbench.editors.websocket.settings.sslVerifyHelp':
+    'Vérifie le certificat du serveur contre les racines du système pour les sessions wss:. Désactivez pour ' +
+    "les serveurs de développement auto-signés. S'applique sur l'application de bureau ou le daemon.",
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Sous-protocoles',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     "Liste d'offres Sec-WebSocket-Protocol, par ordre de préférence — le serveur en choisit un pendant le handshake.",
@@ -56,4 +61,49 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.toast.updateFailed': "Échec de l'enregistrement de la requête WebSocket",
   'workbench.editors.websocket.toast.updateFailedDetail':
     "Échec de l'enregistrement de la requête WebSocket : {message}",
+  // ── Session pane ────────────────────────────────────────────────────
+  'workbench.editors.websocket.session.title': 'Session',
+  'workbench.editors.websocket.session.emptyHint':
+    'Connectez-vous pour démarrer la session — les messages apparaissent ici en direct.',
+  'workbench.editors.websocket.session.connectFailed': "Échec de l'ouverture de la session",
+  'workbench.editors.websocket.session.connectingBadge': 'CONNEXION',
+  'workbench.editors.websocket.session.connectedBadge': 'CONNECTÉ',
+  'workbench.editors.websocket.session.tab.timeline': 'Messages',
+  'workbench.editors.websocket.session.tab.handshake': 'Handshake',
+  'workbench.editors.websocket.session.closedTag': 'Fermée {code}',
+  'workbench.editors.websocket.session.stoppedTag': 'Arrêtée',
+  'workbench.editors.websocket.session.noCloseFrame': 'Connexion terminée sans frame Close',
+  'workbench.editors.websocket.session.duration': '{ms} ms',
+  'workbench.editors.websocket.session.sendMessage': 'Envoyer',
+  'workbench.editors.websocket.session.sendIdle': 'Connectez-vous pour envoyer des messages.',
+  'workbench.editors.websocket.session.sendFailed': "Échec de l'envoi du message",
+  'workbench.editors.websocket.session.handshakeProtocol': 'Sous-protocole',
+  'workbench.editors.websocket.session.handshakeExtensions': 'Extensions',
+  'workbench.editors.websocket.session.handshakeNone': 'Rien de négocié',
+  'workbench.editors.websocket.session.handshakeNote':
+    "Le socket de la plateforme n'expose que le sous-protocole et les extensions négociés — les en-têtes de " +
+    'la réponse 101 ne sont pas accessibles aux clients.',
+  // ── Message timeline ────────────────────────────────────────────────
+  'workbench.editors.websocket.timeline.connecting': 'Connexion',
+  'workbench.editors.websocket.timeline.connected': 'Connecté',
+  'workbench.editors.websocket.timeline.connectedProtocol': 'Connecté — sous-protocole {protocol}',
+  'workbench.editors.websocket.timeline.disconnected': 'Déconnecté',
+  'workbench.editors.websocket.timeline.stopped': 'Arrêté',
+  'workbench.editors.websocket.timeline.failed': 'Échec',
+  'workbench.editors.websocket.timeline.waiting': 'En attente de messages…',
+  'workbench.editors.websocket.timeline.noMatches': 'Aucun message ne correspond au filtre.',
+  'workbench.editors.websocket.timeline.searchMessages': 'Rechercher dans les messages',
+  'workbench.editors.websocket.timeline.messageCount': '{count} messages',
+  'workbench.editors.websocket.timeline.dropped': '{count} messages plus anciens sont sortis de la capture',
+  'workbench.editors.websocket.timeline.filterAll': 'Tous',
+  'workbench.editors.websocket.timeline.filterSent': 'Envoyés',
+  'workbench.editors.websocket.timeline.filterReceived': 'Reçus',
+  'workbench.editors.websocket.timeline.newestFirst': 'Plus récents en premier',
+  'workbench.editors.websocket.timeline.oldestFirst': 'Plus anciens en premier',
+  'workbench.editors.websocket.timeline.sortOrder': 'Ordre de tri',
+  'workbench.editors.websocket.timeline.clearMessages': 'Effacer les messages',
+  'workbench.editors.websocket.timeline.newMessages': 'Nouveaux messages',
+  'workbench.editors.websocket.timeline.binaryMessage': 'Message binaire ({bytes} octets)',
+  'workbench.editors.websocket.timeline.sentAria': 'Envoyé',
+  'workbench.editors.websocket.timeline.receivedAria': 'Reçu',
 } as const satisfies Catalog;

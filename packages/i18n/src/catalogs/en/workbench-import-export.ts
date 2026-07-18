@@ -510,6 +510,7 @@ export const workbenchImportExport = {
   'workbench.importExport.report.into': 'into',
 
   // ── Re-import diff panel ───────────────────────────────────────────
+  'workbench.importExport.reimport.agePreviously': 'previously',
   'workbench.importExport.reimport.previouslyImported': '(previously imported {age})',
   'workbench.importExport.reimport.newIssues': ({ count }, locale) =>
     plural(locale, Number(count), {
