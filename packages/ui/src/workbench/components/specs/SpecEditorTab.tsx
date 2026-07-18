@@ -48,6 +48,7 @@ import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
 import GenerateCollectionModal from './GenerateCollectionModal';
 import GenerateProtoCollectionModal from './GenerateProtoCollectionModal';
+import GenerateWsCollectionModal from './GenerateWsCollectionModal';
 import SpecOutlinePane from './SpecOutlinePane';
 import { attachSpecEditorServices } from './spec-editor-services';
 import { SPEC_FORMAT_LABELS } from './spec-format-labels';
@@ -55,6 +56,7 @@ import { planSpecInsertion, type SpecInsertTarget } from './spec-outline-insert'
 import { specFileLanguage, specFileSyntaxLabel, useSpecAnalysis } from './spec-validation';
 import UpdateCollectionModal from './UpdateCollectionModal';
 import { useSpecSourceHash } from './use-spec-drift';
+import { buildWsCollectionPlan } from './ws-collection-plan';
 
 const SURFACE_ID = 'workbench';
 
@@ -117,6 +119,15 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   );
   const anyDrift = useMemo(() => linkedCollections.some(isDrifted), [linkedCollections, isDrifted]);
   const [updateTarget, setUpdateTarget] = useState<Collection | null>(null);
+
+  // AsyncAPI generation go/no-go (WS Phase F, ratified GO): operations
+  // seed WebSocketRequests, gated on the SAVED census naming at least
+  // one ws/wss server — an mqtt/kafka-only document keeps the button
+  // hidden (the honest no-go for a WebSocket client).
+  const asyncApiGeneratable = useMemo(() => {
+    if (spec?.format !== 'asyncapi') return false;
+    return buildWsCollectionPlan(spec).server !== null;
+  }, [spec]);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -264,7 +275,8 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   // GrpcRequest rows through their own modal; the drift badge is
   // hash-based and format-neutral, but Update (spec-diff re-plan) is
   // an OpenAPI flow — proto links keep the button disabled. AsyncAPI
-  // specs hide generation entirely (a WS-client-phase go/no-go).
+  // specs generate WebSocketRequest rows through their own modal,
+  // gated on a ws/wss server in the census (the ratified go/no-go).
   const isProtobuf = spec.format === 'protobuf';
   const isAsyncApi = spec.format === 'asyncapi';
   const generateAction =
@@ -347,7 +359,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
 
   const headerActions = (
     <>
-      {!isAsyncApi && generateAction}
+      {(!isAsyncApi || asyncApiGeneratable) && generateAction}
       <Tooltip
         title={t(outlineOpen ? 'workbench.editors.spec.outline.hide' : 'workbench.editors.spec.outline.show')}
         placement="bottom"
@@ -403,6 +415,14 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
         </div>
         {isProtobuf ? (
           <GenerateProtoCollectionModal
+            open={generateOpen}
+            spec={spec}
+            content={rootFile.content}
+            editorDirty={isDirty}
+            onCancel={() => setGenerateOpen(false)}
+          />
+        ) : isAsyncApi ? (
+          <GenerateWsCollectionModal
             open={generateOpen}
             spec={spec}
             content={rootFile.content}
