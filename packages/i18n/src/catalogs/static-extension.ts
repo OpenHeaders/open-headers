@@ -8,8 +8,10 @@
  */
 
 import type { Catalog } from '../types';
+import { extension as extensionEs } from './es/extension';
 import { extension as extensionFr } from './fr/extension';
 
 export const STATIC_EXTENSION_CATALOGS: Readonly<Record<string, Catalog>> = {
+  es: extensionEs,
   fr: extensionFr,
 };

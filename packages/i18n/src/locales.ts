@@ -16,6 +16,7 @@ export const PSEUDO_LOCALE = 'pseudo';
 export const LOCALES: readonly LocaleDef[] = [
   { code: 'en', englishName: 'English', nativeName: 'English', direction: 'ltr' },
   { code: 'fr', englishName: 'French', nativeName: 'Français', direction: 'ltr' },
+  { code: 'es', englishName: 'Spanish', nativeName: 'Español', direction: 'ltr' },
   { code: PSEUDO_LOCALE, englishName: 'Pseudo (UI test)', nativeName: '⟦Þšéûðö⟧', direction: 'ltr', synthetic: true },
 ];
 

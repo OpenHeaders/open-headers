@@ -22,6 +22,7 @@ import type { Catalog } from './types';
  * service worker renders English) never fetch one.
  */
 const loaders: Readonly<Record<string, () => Promise<Catalog>>> = {
+  es: async () => (await import('./catalogs/es')).es,
   fr: async () => (await import('./catalogs/fr')).fr,
 };
 
