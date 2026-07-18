@@ -496,6 +496,9 @@ test('a ws frame override seeds the frame verbatim and a no-edit Save stores the
   // prefix — the direction class disambiguates).
   const frameRow = panelPage.locator('.dt-ws-row.dt-ws-row--send').filter({ hasText: 'OH_WS_FIDELITY' }).first();
   await expect(frameRow).toBeVisible({ timeout: 15_000 });
+  // The row actions are hover-revealed (opacity 0 + pointer-events none
+  // at rest) — hover the row first or the click never passes hit-testing.
+  await frameRow.hover();
   await frameRow.locator('button').filter({ hasText: 'Override' }).click();
   await expect(popover()).toBeVisible();
 
@@ -533,12 +536,16 @@ test('an sse event override seeds the event verbatim and a no-edit Save stores t
       }),
     SSE_PATH,
   );
-  await expect(rowFor('sse/4')).toBeVisible({ timeout: 15_000 });
-  await rowFor('sse/4').click();
+  // The traffic Name column shows the LAST path segment plus the query
+  // ("4?ms=50") — the parent "sse/" directory never appears in the row.
+  await expect(rowFor('4?ms=50')).toBeVisible({ timeout: 15_000 });
+  await rowFor('4?ms=50').click();
   await openSection('EventStream');
 
   const eventRow = panelPage.locator('.dt-sse-row').filter({ hasText: '{"seq":2}' }).first();
   await expect(eventRow).toBeVisible({ timeout: 15_000 });
+  // Hover-revealed row actions — same hit-test gate as the ws leg.
+  await eventRow.hover();
   await eventRow.locator('button').filter({ hasText: 'Override' }).click();
   await expect(popover()).toBeVisible();
 
