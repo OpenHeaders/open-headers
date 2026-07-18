@@ -441,6 +441,10 @@ export const workbenchSettingsDefs = {
     '— la fenêtre glisse à mesure que de nouveaux messages arrivent, si bien que plusieurs groupes restent ' +
     "observables à la fois. 0 affiche tous les messages. La barre d'outils de la chronologie change ce même " +
     'réglage.',
+  'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Messages WebSocket : plus récents en premier',
+  'workbench.settings.def.requests.wsMessagesNewestFirst.description':
+    'Ordre de la chronologie des messages WebSocket — les messages les plus récents en haut. Désactivez pour ' +
+    "lire du plus ancien au plus récent. La barre d'outils de la chronologie change ce même réglage.",
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC : envoyer les messages invalides',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     "Quand le message gRPC n'est pas du JSON valide, invoquer quand même avec un message vide et laisser le " +
