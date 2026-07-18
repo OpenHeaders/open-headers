@@ -14,11 +14,16 @@
  *      browser's localStorage, byte-equal to an independent Buffer
  *      encode.
  *   3. HEADERS TAB row (a request header carrying a base64 value): the
- *      hover-revealed view icon opens the same modal read-only; Close
+ *      hover-revealed view icon opens the GLANCE popover first (the
+ *      escalation ladder — compact decoded preview, modal demoted to a
+ *      CTA); "Open as modal" opens the same modal read-only; Close
  *      leaves everything untouched.
  *   4. JAR COOKIE row (Storage tool window's Cookies section, a cookie
- *      carrying a base64 value): hint glyph inline, hover view icon
- *      opens the same modal read-only.
+ *      carrying a base64 value): hint glyph inline, hover view icon →
+ *      glance → modal CTA, same read-only modal.
+ *   5. GLANCE "Open as document": the headers-tab eye escalates to the
+ *      value-view SNAPSHOT tab document instead, which splits through
+ *      the tab context menu (deterministic; drag is flake).
  *
  * Panel recipe: `panel.html?ohInspectTabId=N` + the CDP tab pin — a
  * real DevTools window is unreachable from Playwright.
@@ -79,6 +84,11 @@ function echoPost(): Promise<unknown> {
 /** The visible encoded-value modal (viewer or editor). */
 function decodeModal(): Locator {
   return panelPage.getByRole('dialog').filter({ hasText: 'Encoded preview' }).filter({ visible: true }).first();
+}
+
+/** The visible glance popover the eye anchors (escalation ladder). */
+function glancePopover(): Locator {
+  return panelPage.locator('.oh-info-popover').filter({ visible: true }).first();
 }
 
 /** The active storage/entry document body. */
@@ -177,6 +187,14 @@ test.describe('Headers tab — row view icon opens the read-only modal', () => {
     await expect(icon).toBeVisible();
     await icon.click();
 
+    // GLANCE first (escalation ladder): compact decoded preview with the
+    // per-type kicker; no modal until the CTA is chosen.
+    const glance = glancePopover();
+    await expect(glance).toBeVisible();
+    await expect(glance).toContainText('header-view@openheaders.io');
+    await expect(glance).toContainText('Base64 value');
+    await glance.getByRole('button', { name: 'Open as modal' }).click();
+
     const modal = decodeModal();
     await expect(modal).toBeVisible();
     // Viewer: decoded text readable, encoded preview round-trips the
@@ -190,6 +208,51 @@ test.describe('Headers tab — row view icon opens the read-only modal', () => {
 
     // Close left the row untouched — the raw value still renders.
     await expect(row).toContainText(HEADER_B64);
+  });
+});
+
+test.describe('Headers tab — glance "Open as document" opens the value-view snapshot tab', () => {
+  test('the snapshot document renders decoded + encoded, splits right through the tab menu, and closes clean', async () => {
+    await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).last().click();
+    await panelPage.getByRole('tab', { name: 'Headers' }).click();
+
+    const row = panelPage
+      .locator('.dt-kv-row')
+      .filter({ hasText: new RegExp(HEADER_NAME, 'i') })
+      .first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await row.hover();
+    await row.getByRole('button', { name: 'View decoded — Base64 value' }).click();
+
+    const glance = glancePopover();
+    await expect(glance).toBeVisible();
+    await glance.getByRole('button', { name: 'Open as document' }).click();
+
+    // The snapshot document: source-labeled crumb + per-type title,
+    // decoded body read-only, the encoded value in the bounded strip.
+    const doc = panelPage.locator('.dt-valueview').filter({ visible: true }).first();
+    await expect(doc).toBeVisible();
+    await expect(doc.locator('.dt-storagedoc-crumb')).toContainText(new RegExp(HEADER_NAME, 'i'));
+    await expect(doc.locator('.dt-storagedoc-crumb')).toContainText('Base64 value');
+    await expect(doc.locator('.monaco-editor').first()).toContainText('header-view@openheaders.io');
+    await expect(doc.getByText(HEADER_B64, { exact: true })).toBeVisible();
+
+    // Dock-split for free as a real tab — via the context menu, the
+    // deterministic split affordance (drag is flake).
+    const tab = panelPage
+      .locator('.dt-editor-tab')
+      .filter({ hasText: new RegExp(HEADER_NAME, 'i') })
+      .first();
+    await expect(tab).toBeVisible();
+    await tab.click({ button: 'right' });
+    await panelPage.getByRole('menuitem', { name: 'Split and Move' }).hover();
+    await panelPage.getByRole('menuitem', { name: 'Right', exact: true }).click();
+    await expect(panelPage.locator('.dt-editor-leaf')).toHaveCount(2);
+    await expect(panelPage.locator('.dt-valueview').filter({ visible: true }).first()).toBeVisible();
+
+    // Close the snapshot tab so later legs see a single-leaf editor.
+    await tab.getByRole('button', { name: 'Close tab' }).click();
+    await expect(panelPage.locator('.dt-editor-leaf')).toHaveCount(1);
   });
 });
 
@@ -218,6 +281,13 @@ test.describe('Jar cookie row — hint glyph and read-only view icon', () => {
     const icon = row.getByRole('button', { name: 'View decoded — Base64 value' });
     await expect(icon).toBeVisible();
     await icon.click();
+
+    // Glance first — same ladder as the headers tab; the CTA click must
+    // not fire the row's own document-open gesture.
+    const glance = glancePopover();
+    await expect(glance).toBeVisible();
+    await expect(glance).toContainText('jar-view@openheaders.io');
+    await glance.getByRole('button', { name: 'Open as modal' }).click();
 
     const modal = decodeModal();
     await expect(modal).toBeVisible();
