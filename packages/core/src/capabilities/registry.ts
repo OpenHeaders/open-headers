@@ -252,6 +252,23 @@ export interface Capabilities {
   grpcCompanionInvoke?: () => boolean;
 
   /**
+   * Declares that this surface executes WebSocket sessions IN its own
+   * page realm over the platform-native socket — the extension
+   * workbench's posture, where the browser `WebSocket` needs no
+   * companion for the base case. Registered only there; node-runtime
+   * surfaces answer through their own execution plane
+   * ({@link Capabilities.requestRuntime} stays `'node'` and untouched)
+   * and other browser surfaces leave it absent, which keeps the
+   * WebSocket editor's Connect honestly disabled. The editor enables
+   * Connect when EITHER the runtime is node or this marker is present;
+   * on the page-session path it also names the configured node-only
+   * knobs (custom handshake headers, SSL-verification off) in a
+   * Connect-side honesty notice — the platform constructor cannot
+   * apply them, and a named limit beats a silent drop.
+   */
+  wsPageSession?: () => boolean;
+
+  /**
    * Declares that the surface's answering host RUNS pre-request /
    * post-response scripts, and names its default posture (`'safe'` —
    * every host defaults secure). Registered only by node-runtime

@@ -224,10 +224,12 @@ export interface RequestsContextValue {
   }) => Promise<ExecutedGrpcSnapshot | null>;
 
   /** WebSocket Connect — the WebSocketRequest entity's executor
-   *  channel; executed on node-runtime hosts (the editor gates
-   *  Connect off the `requestRuntime` capability — browser surfaces
-   *  keep the honest disabled posture until the extension's native
-   *  leg). `sendId` is required: it keys the `sendWsMessage` /
+   *  channel; executed on node-runtime hosts, and IN the page realm on
+   *  surfaces carrying the `wsPageSession` capability (the extension
+   *  workbench answers the channel locally over the platform socket —
+   *  the editor gates Connect off `requestRuntime` OR that marker;
+   *  browser surfaces with neither keep the honest disabled posture).
+   *  `sendId` is required: it keys the `sendWsMessage` /
    *  `closeWsSession` riders and the shared active-send registry
    *  (`abortRequestSend` = Stop). The promise resolves when the
    *  SESSION settles, with the whole-session snapshot. */

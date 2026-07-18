@@ -1,28 +1,42 @@
 /**
- * WebSocket workbench entity/editor legs — the deferred Phase B gate
- * on the standalone extension workbench: real Chromium with the built
- * extension, no daemon, no probe. The session plane is a node-host
- * capability, so this spec proves the ENTITY lifecycle and the honest
- * browser posture:
+ * WebSocket workbench legs — the Phase B entity/editor gate plus the
+ * Phase D page-realm SESSION gate on the standalone extension
+ * workbench: real Chromium with the built extension, no daemon; the
+ * live legs ride the playground's `/net/ws-probe` (the Playwright
+ * webServer boots the playground). The workbench registers the
+ * `wsPageSession` capability, so Connect is ENABLED here — the
+ * browser-native socket executes the session IN this page — and the
+ * only disabled state left is the needs-url gate.
  *
  *   B1  context-create raw: the collection `+` menu's "Add WebSocket
  *       Request" mints a persisted entity, the primed breadcrumb
  *       rename commits a name (the create-gesture rename law — the
  *       websocket-edit mode rides the same StatusBar rename gate as
  *       its siblings), the sidebar leaf carries the WS tag, and
- *       Connect is PRESENT and DISABLED with the desktop-app tooltip
- *       copy (the CTA-scaffold posture — never a hidden button).
+ *       Connect is PRESENT but disabled with the needs-url tooltip —
+ *       the runtime gate is gone on this surface.
  *   B2  edit → Save → reload → reopen: url, compose message and a
- *       subprotocol tag persist through a full page reload.
+ *       subprotocol tag persist through a full page reload; a filled
+ *       URL ENABLES Connect.
  *   B3  context-create socketio: the sibling menu entry pre-sets the
- *       flavor — SIO sidebar tag, Socket.IO editor flavor tag, and
- *       the same honest disabled Connect.
+ *       flavor — SIO sidebar tag, Socket.IO editor flavor tag, the
+ *       same needs-url gate.
  *   B4  AsyncAPI binding: a spec created from the SPECS `+` menu's
  *       AsyncAPI 3.0 scaffold binds through the editor's spec picker,
  *       the footer names the link, and the specLink persists.
+ *   B5  page-realm session walk: Connect morphs to Disconnect, the
+ *       greeting proves the subprotocol offer rode the platform
+ *       constructor, Send echoes (↑ then ↓), Disconnect settles the
+ *       clean Closed 1000 with the Disconnected lifecycle row — and
+ *       with no node-only knob configured there is NO honesty notice.
+ *   B6  per-knob honesty: a configured header row surfaces the
+ *       Connect-side notice naming custom handshake headers, and the
+ *       greeting mirrors an EMPTY `x-probe-client` — the row honestly
+ *       never reached the wire (never a silent drop, never a gate).
  *
- * Deliberately NOT here: any live session leg — Connect/Send/close
- * capture run on node hosts and are the desktop rig's legs
+ * Deliberately NOT here: the node-knob session legs (custom headers /
+ * TLS verify-off on the wire, `?push=` param batches, foreign close
+ * codes, refused-dial classification) — the desktop rig's W-legs
  * (`websocket-desktop.spec.ts`).
  *
  * Requires the extension `dist/chrome` build.
@@ -39,7 +53,7 @@ import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
-const CONNECT_DISABLED_COPY = 'WebSocket sessions run on the desktop app or daemon.';
+const CONNECT_NEEDS_URL_COPY = 'Enter a ws:// or wss:// URL to connect.';
 // Context-create persists immediately under the flavor's default name
 // (the born-clean gRPC posture) and primes the breadcrumb rename —
 // committing these names proves the rename gate end to end.
@@ -49,6 +63,8 @@ const SPEC_NAME = 'Streams AsyncAPI';
 const WS_URL = 'wss://ws.openheaders.io/live';
 const WS_MESSAGE = 'ping from e2e';
 const WS_SUBPROTOCOL = 'graphql-ws';
+// The playground webServer's ws-probe — the live session legs' target.
+const WS_PROBE_URL = 'ws://127.0.0.1:3000/net/ws-probe';
 
 let context: BrowserContext;
 let extensionId: string;
@@ -125,9 +141,10 @@ async function openWebsocketRequest(name: string): Promise<void> {
   await urlInput().waitFor({ state: 'visible', timeout: 10000 });
 }
 
-/** Assert the honest browser posture: Connect visible, disabled, and
- *  its tooltip carrying the desktop-app copy. */
-async function expectConnectDisabledHonestly(): Promise<void> {
+/** Assert the needs-url gate: Connect visible, disabled, its tooltip
+ *  carrying the url copy — the ONLY disabled state on this surface
+ *  (the `wsPageSession` capability retired the runtime gate). */
+async function expectConnectNeedsUrl(): Promise<void> {
   const button = connectButton();
   await button.waitFor({ state: 'visible', timeout: 10000 });
   await expect(button).toBeDisabled();
@@ -137,10 +154,32 @@ async function expectConnectDisabledHonestly(): Promise<void> {
   await page
     .locator('.ant-tooltip')
     .filter({ visible: true })
-    .getByText(CONNECT_DISABLED_COPY)
+    .getByText(CONNECT_NEEDS_URL_COPY)
     .first()
     .waitFor({ state: 'visible', timeout: 10000 });
   await page.mouse.move(0, 0);
+}
+
+function sendButton() {
+  return page.getByTestId('websocket-send-message').filter({ visible: true }).first();
+}
+
+function liveBadge() {
+  return page.getByTestId('ws-session-live-badge').filter({ visible: true }).first();
+}
+
+function closeTag() {
+  return page.getByTestId('ws-session-close-tag').filter({ visible: true }).first();
+}
+
+function timelineMessageRows() {
+  return page.getByTestId('ws-timeline-message-row').filter({ visible: true });
+}
+
+/** Disconnect (the clean close 1000) and wait for the settled tag. */
+async function disconnectAndAwaitClose(): Promise<void> {
+  await connectButton().filter({ hasText: 'Disconnect' }).click();
+  await closeTag().filter({ hasText: 'Closed 1000' }).waitFor({ state: 'visible', timeout: 20_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -184,9 +223,9 @@ test.afterAll(async () => {
   await context.close();
 });
 
-// ── B1: context-create raw + the honest disabled Connect ───────────
+// ── B1: context-create raw + the needs-url Connect gate ────────────
 
-test('the collection + menu creates a raw WebSocket request with Connect honestly disabled', async () => {
+test('the collection + menu creates a raw WebSocket request gated only on its empty URL', async () => {
   await openCollectionAddMenu();
   await clickAddMenuItem('Add WebSocket Request');
   await commitAutoRename(/^New WebSocket Request/, RAW_NAME);
@@ -196,10 +235,10 @@ test('the collection + menu creates a raw WebSocket request with Connect honestl
   await expect(row.getByText('WS', { exact: true }).first()).toBeVisible();
 
   // The editor is open on the fresh entity — empty-state session pane
-  // attached, Connect present but disabled with the honest copy.
+  // attached, Connect present, disabled only for the missing URL.
   await urlInput().waitFor({ state: 'visible', timeout: 10000 });
   await page.getByTestId('ws-session-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await expectConnectDisabledHonestly();
+  await expectConnectNeedsUrl();
 });
 
 // ── B2: edit → Save → reload → persisted ────────────────────────────
@@ -214,9 +253,9 @@ test('url, message and subprotocols survive Save + reload + reopen', async () =>
   await page.keyboard.insertText(WS_SUBPROTOCOL);
   await page.keyboard.press('Enter');
 
-  // A filled URL still keeps Connect disabled on a browser host — the
-  // runtime gate outranks the needs-url gate.
-  await expectConnectDisabledHonestly();
+  // A filled URL ENABLES Connect — the `wsPageSession` capability
+  // retired the runtime gate on this surface.
+  await expect(connectButton()).toBeEnabled();
 
   await page.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();
   await page
@@ -248,10 +287,11 @@ test('the sibling menu entry creates a Socket.IO-flavored request', async () => 
   const row = await websocketRow(SIO_NAME);
   await expect(row.getByText('SIO', { exact: true }).first()).toBeVisible();
 
-  // The editor header names the flavor; Connect stays honestly disabled.
+  // The editor header names the flavor; the fresh entity's empty URL
+  // is the only Connect gate.
   await urlInput().waitFor({ state: 'visible', timeout: 10000 });
   await expect(page.getByText('Socket.IO', { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expectConnectDisabledHonestly();
+  await expectConnectNeedsUrl();
 });
 
 // ── B4: AsyncAPI spec binding persists ──────────────────────────────
@@ -300,4 +340,80 @@ test('an AsyncAPI spec binds through the picker and the specLink persists', asyn
   // Read the select's own text — a single-mode Select renders its
   // value in `.ant-select-content` (no selection-item element).
   await expect(page.getByTestId('websocket-spec-select').filter({ visible: true }).first()).toContainText(SPEC_NAME);
+});
+
+// ── B5: page-realm session walk against the probe ───────────────────
+
+test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, Disconnect Closed 1000', async () => {
+  await openWebsocketRequest(RAW_NAME);
+  // The CURRENT compose state connects (the draft-send law) — point
+  // the draft at the probe without saving.
+  await urlInput().fill(WS_PROBE_URL);
+  // B4 left the AsyncAPI editor tab active; Send lives on Message.
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(connectButton()).toHaveText(/Disconnect/);
+
+  // The greeting names the negotiated subprotocol — the offer rode the
+  // platform constructor (the browser DOES support subprotocols).
+  await timelineMessageRows()
+    .filter({ hasText: `"protocol":"${WS_SUBPROTOCOL}"` })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+  await page
+    .getByTestId('ws-timeline-connected-row')
+    .filter({ visible: true })
+    .filter({ hasText: `Connected — subprotocol ${WS_SUBPROTOCOL}` })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  // Send the compose text: the ↑ frame and the probe's echo ↓ land.
+  await expect(sendButton()).toBeEnabled();
+  await sendButton().click();
+  await timelineMessageRows()
+    .filter({ hasText: `echo:${WS_MESSAGE}` })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+
+  // No node-only knob configured — no honesty notice on this session.
+  await expect(page.getByTestId('ws-host-knob-notice')).toHaveCount(0);
+
+  await disconnectAndAwaitClose();
+  await page
+    .getByTestId('ws-timeline-ended-row')
+    .filter({ visible: true })
+    .filter({ hasText: 'Disconnected' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+});
+
+// ── B6: per-knob honesty — a header row is named, never silently sent ─
+
+test('B6 — a configured header row rides the honesty notice and honestly stays off the wire', async () => {
+  // Configure a handshake header on the still-open editor.
+  await page.getByRole('tab', { name: 'Headers', exact: true }).filter({ visible: true }).first().click();
+  await page.getByPlaceholder('Header name').filter({ visible: true }).first().click();
+  await page.keyboard.insertText('x-probe-client');
+  await page.getByPlaceholder('Value').filter({ visible: true }).first().click();
+  await page.keyboard.insertText('oh-ext-e2e');
+
+  await connectButton().click();
+  const notice = page.getByTestId('ws-host-knob-notice').filter({ visible: true }).first();
+  await notice.waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(notice).toContainText('custom handshake headers');
+
+  // The greeting mirrors an EMPTY x-probe-client — the configured row
+  // never reached the wire, and the notice said so up front.
+  await timelineMessageRows()
+    .filter({ hasText: '"xProbeClient":""' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+
+  await disconnectAndAwaitClose();
+  // The notice persists on the settled capture — honesty for the
+  // session's whole life, not a transient toast.
+  await expect(notice).toBeVisible();
 });

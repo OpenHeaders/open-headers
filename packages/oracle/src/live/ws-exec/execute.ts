@@ -2,7 +2,9 @@
  * WebSocket session executor — host-neutral orchestration of one live
  * session: resolve `{{ref}}` templates through the SAME 4-scope
  * pipeline HTTP sends ride (url + headers + params at Connect; the
- * compose text per Send through the retained resolver), hand the
+ * compose text per Send through the retained resolver — or through a
+ * host-injected {@link ExecuteWsSessionOptions.resolution} closure on
+ * surfaces whose scopes live outside the module mirrors), hand the
  * socket to the injected {@link WsTransport}, feed the flush-batched
  * `wsStreamEvent` emitter, and settle with an
  * {@link ExecutedWsSnapshot} when the session ends.
@@ -72,6 +74,18 @@ export interface ExecuteWsSessionOptions {
   sendId: string;
   /** Live-frame sink (`wsStreamEvent` broadcasts). */
   emitStreamEvent?: (event: WsStreamEventWire) => void;
+  /**
+   * Host-injected template resolution — for surfaces whose variable
+   * scopes live OUTSIDE the oracle module mirrors (the extension
+   * workbench page executes in-page against the renderer mirrors, so
+   * the oracle entity stores are empty there). When present the
+   * executor builds NO resolver of its own: this function resolves
+   * every Connect-time template (url / headers / params) AND each
+   * per-send rider message, adding every unresolved reference name to
+   * the caller's set. `workspaceId` / `environmentId` are then the
+   * injector's concern — the closure carries its own scope context.
+   */
+  resolution?: (template: string, unresolved: Set<string>) => string;
 }
 
 export async function executeWsSession(
@@ -79,22 +93,9 @@ export async function executeWsSession(
   options: ExecuteWsSessionOptions,
 ): Promise<ExecutedWsSnapshot> {
   // ── Variable resolution (the HTTP sends' exact pipeline) ──
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
-  const context = {
-    collectionId: collectionIdForPath(request.path, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
-  const resolveWith = (s: string, unresolved: Set<string>): string => {
-    const result = resolveTemplate(
-      s,
-      (name) => resolver.resolve(name, context),
-      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
-    );
-    for (const v of result.variables) {
-      if (!v.resolved) unresolved.add(v.name);
-    }
-    return result.result;
-  };
+  // An injected resolution short-circuits the oracle-side resolver
+  // entirely — the host's closure carries its own scope context.
+  const resolveWith = options.resolution ?? (await buildOracleResolution(request, options));
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
@@ -238,6 +239,31 @@ export async function executeWsSession(
       },
     });
   });
+}
+
+/** The oracle-side resolution closure — the module-mirror resolver the
+ *  node hosts ride (the HTTP sends' exact pipeline). Hosts whose scopes
+ *  live elsewhere inject `options.resolution` instead. */
+async function buildOracleResolution(
+  request: WebSocketRequest,
+  options: ExecuteWsSessionOptions,
+): Promise<(template: string, unresolved: Set<string>) => string> {
+  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
+  const context = {
+    collectionId: collectionIdForPath(request.path, scope.workspaceId),
+    environmentId: options.environmentId,
+  };
+  return (template, unresolved) => {
+    const result = resolveTemplate(
+      template,
+      (name) => resolver.resolve(name, context),
+      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
+    );
+    for (const v of result.variables) {
+      if (!v.resolved) unresolved.add(v.name);
+    }
+    return result.result;
+  };
 }
 
 /** The collection whose variables scope this request — same

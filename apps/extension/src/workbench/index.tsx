@@ -1,5 +1,9 @@
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
+// AFTER install-host-bridge: decorates the installed bridge with the
+// page-realm WebSocket session host (executes sessions in this page
+// over the platform socket) and registers `wsPageSession`.
+import '@/host/install-ws-session-host';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-awareness-host';

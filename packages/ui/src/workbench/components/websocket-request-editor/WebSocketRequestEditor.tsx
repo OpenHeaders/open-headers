@@ -10,9 +10,14 @@
  * current files — nothing cached.
  *
  * Connect opens the live session through the `executeWebSocketRequest`
- * channel — answered in-process on node hosts (`requestRuntime`
- * gates the button; browser surfaces keep the honest disabled copy
- * until the extension's native leg lands). In flight it MORPHS to
+ * channel — answered in-process on node hosts (`requestRuntime`) and
+ * IN the page realm on surfaces carrying the `wsPageSession`
+ * capability (the extension workbench, over the platform socket); a
+ * browser surface with neither keeps the honest disabled copy. On the
+ * page-session path the editor also publishes the renderer-scope
+ * resolution factory the page host injects into the executor, and
+ * names the configured node-only knobs (headers, SSL-verify-off) in
+ * the session pane's honesty notice. In flight it MORPHS to
  * Disconnect (the clean close 1000 via the `closeWsSession` rider),
  * and the Message tab grows a Send control riding `sendWsMessage` —
  * enabled only while the session is open. Compose and result stack
@@ -58,8 +63,9 @@ import {
   Typography,
   theme,
 } from 'antd';
+import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import DocsTab from '../request-editor/DocsTab';
@@ -72,6 +78,7 @@ import {
   type WebSocketDraft,
 } from './draft';
 import { useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
+import { makeWsPageResolutionFactory, publishWsPageResolutionFactory } from './ws-page-session';
 import WsSessionPane from './WsSessionPane';
 
 const { Text } = Typography;
@@ -184,13 +191,25 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
 
-  // ── Session (node hosts) ─────────────────────────────────────────
+  // ── Session (node hosts + page-realm capability surfaces) ────────
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const pageSession = requestRuntimeKind !== 'node' && (getCapability('wsPageSession')?.() ?? false);
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
   const [timing, setTiming] = useState<WsSessionTiming | null>(null);
+  const [hostNotice, setHostNotice] = useState<string | null>(null);
   const activeSendIdRef = useRef<string | null>(null);
   const liveSession = useLiveWsSession();
+
+  // Page-session resolution publisher — the host executing in this
+  // page realm injects the CURRENT factory into the executor at
+  // Connect, so republish on every renderer-scope change while a
+  // WebSocket editor is mounted (nothing can Connect without one).
+  const resolverInputs = useVariableResolverInputs();
+  useEffect(() => {
+    if (!pageSession) return;
+    publishWsPageResolutionFactory(makeWsPageResolutionFactory(resolverInputs));
+  }, [pageSession, resolverInputs]);
 
   const handleConnect = useCallback(async () => {
     if (!entity || inFlight) return;
@@ -204,6 +223,24 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       flavor: entity.flavor,
       ...buildWebSocketRequestUpdates(draft),
     };
+    // Per-knob honesty on the page-session path: the platform socket
+    // cannot carry custom handshake headers or skip TLS verification —
+    // a CONFIGURED knob is named for the session's whole life instead
+    // of silently dropping (the connect deadline DOES apply here).
+    const inapplicableKnobs: string[] = [];
+    if (pageSession) {
+      if (draft.headers.some((h) => h.enabled !== false && h.key.trim() !== '')) {
+        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobHeaders'));
+      }
+      if (!draft.sslVerification) {
+        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
+      }
+    }
+    setHostNotice(
+      inapplicableKnobs.length > 0
+        ? t('workbench.editors.websocket.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
+        : null,
+    );
     const sendId = crypto.randomUUID();
     activeSendIdRef.current = sendId;
     setInFlight(true);
@@ -221,7 +258,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, executeWebSocket, liveSession, toast, t]);
+  }, [entity, inFlight, draft, pageSession, executeWebSocket, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean close 1000; the pending RPC above resolves with the
@@ -247,10 +284,11 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const handleClearSession = useCallback(() => {
     setSnapshot(null);
     setTiming(null);
+    setHostNotice(null);
   }, []);
 
   const connectDisabledReason =
-    requestRuntimeKind !== 'node'
+    requestRuntimeKind !== 'node' && !pageSession
       ? t('workbench.editors.websocket.connect.browserHost')
       : draft.url.trim() === ''
         ? t('workbench.editors.websocket.connect.needsUrl')
@@ -583,9 +621,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
               )}
               {activeTab === 'headers' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {/* Node-only honesty STUB (full posture lands with the
-                    extension execution phase): the limit is stated up
-                    front instead of silently dropping rows at run time. */}
+                  {/* Node-only honesty line — the limit stated up front;
+                    a page-realm Connect with configured rows also names
+                    it in the session pane's notice (never a silent
+                    drop, never a gate). */}
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     {t('workbench.editors.websocket.headers.nodeOnly')}
                   </Text>
@@ -695,7 +734,13 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
             </Allotment.Pane>
             <Allotment.Pane minSize={120}>
               {liveSession.live !== null || snapshot !== null ? (
-                <WsSessionPane live={liveSession.live} snapshot={snapshot} timing={timing} onClear={handleClearSession} />
+                <WsSessionPane
+                  live={liveSession.live}
+                  snapshot={snapshot}
+                  timing={timing}
+                  hostNotice={hostNotice}
+                  onClear={handleClearSession}
+                />
               ) : (
                 // Always-attached session pane (the gRPC editor's
                 // posture): a stable target with the plain title row

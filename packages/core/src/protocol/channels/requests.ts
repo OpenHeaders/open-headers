@@ -324,8 +324,12 @@ export interface RequestRpc {
    * Open a WebSocket session for a WebSocketRequest — the entity's
    * executor plane, a sibling of `executeGrpcRequest` keyed off the
    * entity kind. EXECUTED by hosts with a node network stack (the
-   * desktop main process, the daemon); browser surfaces keep the
-   * honest disabled posture until the extension's native leg lands.
+   * desktop main process, the daemon) AND by the extension workbench
+   * IN its page realm over the platform-native socket (the
+   * `wsPageSession` capability — the page host answers this channel
+   * and both riders locally, node-only knobs surfaced honestly);
+   * browser surfaces without that capability keep the honest disabled
+   * posture.
    * `webSocketRequestUid` takes precedence over `draft`; the
    * `workspaceId` / `environmentId` semantics are `executeRequest`'s
    * verbatim. `sendId` is REQUIRED: it keys the open session for the

@@ -2,13 +2,17 @@
   "name": "@openheaders/oracle-host-browser",
   "version": "2026.7.5",
   "private": true,
-  "description": "Browser host adapter for @openheaders/oracle — IndexedDB-backed sync persistence and blob storage",
+  "description": "Browser host adapter for @openheaders/oracle — IndexedDB-backed sync persistence, blob storage, and platform-native live transports",
   "type": "module",
   "sideEffects": false,
   "exports": {
     "./files/idb-blob-backend": {
       "import": "./src/files/idb-blob-backend.ts",
       "default": "./dist/files/idb-blob-backend.js"
+    },
+    "./live/*": {
+      "import": "./src/live/*.ts",
+      "default": "./dist/live/*.js"
     },
     "./sync/*": {
       "import": "./src/sync/*.ts",
@@ -26,7 +30,9 @@
     "@openheaders/oracle": "workspace:*"
   },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "ws": "^8.16.0"
   }
 }

@@ -34,13 +34,33 @@ interface WsSessionPaneProps {
   snapshot: ExecutedWsSnapshot | null;
   /** Session-only timing captured at materialization. */
   timing: WsSessionTiming | null;
+  /** Per-knob honesty notice for a page-realm session — names the
+   *  configured node-only knobs that did not apply on this host.
+   *  Stated inline for the session's whole life, never a gate. */
+  hostNotice?: string | null;
   onClear: () => void;
 }
 
-const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, onClear }) => {
+const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, hostNotice, onClear }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
+
+  const noticeStrip =
+    hostNotice != null && hostNotice !== '' ? (
+      <div
+        style={{
+          padding: '4px 12px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          flexShrink: 0,
+        }}
+        data-testid="ws-host-knob-notice"
+      >
+        <Text type="warning" style={{ fontSize: 11 }}>
+          {hostNotice}
+        </Text>
+      </div>
+    ) : null;
 
   const lifecycle = useMemo((): WsTimelineLifecycle => {
     if (snapshot === null) {
@@ -94,6 +114,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, o
             {t('workbench.editors.websocket.session.title')}
           </Text>
         </div>
+        {noticeStrip}
         <div style={{ padding: '16px 12px' }}>
           <Text type="danger" style={{ fontSize: 12 }} data-testid="ws-session-error-detail">
             {snapshot.error}
@@ -206,6 +227,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, o
       }}
       data-testid="ws-session-pane"
     >
+      {noticeStrip}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
