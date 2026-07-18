@@ -30,6 +30,18 @@
  *      the served response reflects the edit, and a dirty tab's close
  *      walks the Save-changes guard (Cancel keeps it, Don't save
  *      closes it)
+ *
+ * P6 parity legs — the same wire-space plane on the OTHER override CTAs
+ * (`/echo` reflects the request body, so its echo IS the wire truth):
+ *
+ *   5  request-body override — the Payload tab's CTA seeds the hazard
+ *      bytes, the popover's Monaco body opens Formatted, and a no-edit
+ *      Save stores AND puts on the wire the captured bytes exactly
+ *   6  ws frame override — the Messages grid's per-frame Override seeds
+ *      the frame verbatim; the formatted view + no-edit Save stores the
+ *      frame bytes exactly
+ *   7  sse event override — the EventStream grid's per-event Override,
+ *      same invariant against a captured event's data
  */
 
 import path from 'node:path';
@@ -54,6 +66,16 @@ const TEMPLATE_BODY = '{"seq":1,"token":{{session.token}},"ok":true}';
 // in the origin's minified profile with the hazard bytes intact.
 const EDIT_VIEW = '{ "big": 9007199254740993, "esc": "caf\\u00e9", "target": "edited" }';
 const EDITED_WIRE = '{"big":9007199254740993,"esc":"caf\\u00e9","target":"edited"}';
+
+// Leg 5: the reflected request body — the echo's `body` field is the
+// wire truth for what the extension actually sent.
+const ECHO_PATH = '/echo?case=oh-ovr-reqbody';
+// Leg 6/7: hazard payloads a parse/stringify would corrupt, sent as a
+// ws frame / observed as an sse event.
+const WS_URL_PATH = '/net/ws-echo';
+const WS_FRAME_BODY = '{"marker":"OH_WS_FIDELITY","big":9007199254740993,"pi":1.0,"op":"subscribe"}';
+const SSE_PATH = '/net/sse/4?ms=50';
+const SSE_EVENT_BODY = '{"seq":2}';
 
 // Leg 4: the tab document's Raw-mode body is stored AS IS (the
 // wire-space builder law), so the served bytes are exactly this line.
@@ -124,16 +146,16 @@ function rowFor(marker: string): Locator {
   return panelPage.locator('.dt-row').filter({ hasText: marker }).last();
 }
 
-/** Activate the detail view's Response section tab. */
-async function openResponseSection(): Promise<void> {
-  const tab = panelPage
-    .locator('.dt-detail-section-tab')
-    .filter({ hasText: 'Response' })
-    .filter({ visible: true })
-    .first();
+/** Activate a detail-view section tab by its label. */
+async function openSection(label: string): Promise<void> {
+  const tab = panelPage.locator('.dt-detail-section-tab').filter({ hasText: label }).filter({ visible: true }).first();
   if ((await tab.getAttribute('aria-selected')) !== 'true') {
     await tab.click();
   }
+}
+
+function openResponseSection(): Promise<void> {
+  return openSection('Response');
 }
 
 /** The Response tab's override CTA by its current label
@@ -142,18 +164,30 @@ function cta(label: string): Locator {
   return panelPage.locator('.dt-body-override-cta').filter({ hasText: label }).filter({ visible: true }).first();
 }
 
-interface StoredResponseRule {
+interface StoredRule {
   uid: string;
   type: string;
   name?: string;
   published?: boolean;
-  action?: { responseBody?: string };
+  action?: { responseBody?: string; requestBody?: string; payload?: string };
 }
 
 /** The stored response rule whose body is byte-equal to `body`. */
-async function findRuleByBody(body: string): Promise<StoredResponseRule | undefined> {
-  const res = await workbench.rpc<{ rules: StoredResponseRule[] }>('getLocalRules');
+async function findRuleByBody(body: string): Promise<StoredRule | undefined> {
+  const res = await workbench.rpc<{ rules: StoredRule[] }>('getLocalRules');
   return res.rules.find((r) => r.type === 'response' && r.action?.responseBody === body);
+}
+
+/** The stored request-body rule whose static body is byte-equal to `body`. */
+async function findRequestBodyRuleByBody(body: string): Promise<StoredRule | undefined> {
+  const res = await workbench.rpc<{ rules: StoredRule[] }>('getLocalRules');
+  return res.rules.find((r) => r.type === 'request-body' && r.action?.requestBody === body);
+}
+
+/** The stored ws/sse rule whose payload is byte-equal to `payload`. */
+async function findMessageRuleByPayload(type: 'ws' | 'sse', payload: string): Promise<StoredRule | undefined> {
+  const res = await workbench.rpc<{ rules: StoredRule[] }>('getLocalRules');
+  return res.rules.find((r) => r.type === type && r.action?.payload === payload);
 }
 
 /** The rule-editor document body (the active editor-group document). */
@@ -387,4 +421,134 @@ test('"Open in tab" escalates to the rule document: Save mints + publishes, the 
     .getByRole('button', { name: /Don.t save/ })
     .click();
   await expect(panelPage.locator('.dt-editor-tab').filter({ hasText: 'OVR' })).toHaveCount(0);
+});
+
+/** POST the given body to /echo from the page and return the `body`
+ *  field the server received — the wire truth for the request body. */
+function postEcho(body: string): Promise<string> {
+  return playgroundPage.evaluate(
+    async ({ p, b }: { p: string; b: string }) => {
+      const res = await fetch(p, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: b,
+        cache: 'no-store',
+      });
+      const json = (await res.json()) as { body: string };
+      return json.body;
+    },
+    { p: ECHO_PATH, b: body },
+  );
+}
+
+test('a no-edit request-body override stores and puts on the wire the captured bytes exactly', async () => {
+  test.setTimeout(90_000);
+  await expect(async () => {
+    await postEcho(FIDELITY_BODY);
+    await expect(rowFor('oh-ovr-reqbody')).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+  await rowFor('oh-ovr-reqbody').click();
+  await openSection('Payload');
+  await expect(panelPage.getByText('9007199254740993').first()).toBeVisible({ timeout: 15_000 });
+
+  await cta('Override request body').click();
+  await expect(popover()).toBeVisible();
+
+  // The Monaco body opens Formatted, showing the formatted VIEW of the
+  // captured wire text — the form record itself stays wire bytes.
+  const view = await popoverBodyText();
+  expect(view).toContain('"big": 9007199254740993');
+  expect(view).toContain('caf\\u00e9');
+  await expect(popoverBodyMode()).toHaveText('Formatted');
+
+  await popover().getByRole('button', { name: /Save$/ }).click();
+  await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
+  await expect
+    .poll(async () => (await findRequestBodyRuleByBody(FIDELITY_BODY))?.published, { timeout: 15_000 })
+    .toBe(true);
+
+  // The wire truth: a request with a DIFFERENT page body is sent with
+  // the stored bytes — byte-identical to the original capture.
+  await expect.poll(() => postEcho('{"page":"body"}'), { timeout: 20_000 }).toBe(FIDELITY_BODY);
+});
+
+test('a ws frame override seeds the frame verbatim and a no-edit Save stores the frame bytes exactly', async () => {
+  test.setTimeout(90_000);
+  await playgroundPage.evaluate(
+    ({ p, frame }: { p: string; frame: string }) =>
+      new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`ws://${location.host}${p}`);
+        ws.onerror = () => reject(new Error('ws-echo connection failed'));
+        ws.onopen = () => ws.send(frame);
+        // Wait for the echo so both directions are on the wire, then close.
+        ws.onmessage = () => {
+          ws.close();
+          resolve();
+        };
+      }),
+    { p: WS_URL_PATH, frame: WS_FRAME_BODY },
+  );
+  await expect(rowFor('ws-echo')).toBeVisible({ timeout: 15_000 });
+  await rowFor('ws-echo').click();
+  await openSection('Messages');
+
+  // The SEND frame (the echo carries the same marker with an `echo:`
+  // prefix — the direction class disambiguates).
+  const frameRow = panelPage.locator('.dt-ws-row.dt-ws-row--send').filter({ hasText: 'OH_WS_FIDELITY' }).first();
+  await expect(frameRow).toBeVisible({ timeout: 15_000 });
+  await frameRow.locator('button').filter({ hasText: 'Override' }).click();
+  await expect(popover()).toBeVisible();
+
+  const view = await popoverBodyText();
+  expect(view).toContain('"big": 9007199254740993');
+  await expect(popoverBodyMode()).toHaveText('Formatted');
+
+  await popover().getByRole('button', { name: /Save$/ }).click();
+  await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
+  await expect
+    .poll(async () => (await findMessageRuleByPayload('ws', WS_FRAME_BODY))?.published, { timeout: 15_000 })
+    .toBe(true);
+});
+
+test('an sse event override seeds the event verbatim and a no-edit Save stores the event bytes exactly', async () => {
+  test.setTimeout(90_000);
+  await playgroundPage.evaluate(
+    (p: string) =>
+      new Promise<void>((resolve) => {
+        const es = new EventSource(p);
+        let seen = 0;
+        // Two default "message" events (seq 2 and 4) end the wait; the
+        // stream closing early resolves too — the row check gates.
+        es.onmessage = () => {
+          seen++;
+          if (seen >= 2) {
+            es.close();
+            resolve();
+          }
+        };
+        es.onerror = () => {
+          es.close();
+          resolve();
+        };
+      }),
+    SSE_PATH,
+  );
+  await expect(rowFor('sse/4')).toBeVisible({ timeout: 15_000 });
+  await rowFor('sse/4').click();
+  await openSection('EventStream');
+
+  const eventRow = panelPage.locator('.dt-sse-row').filter({ hasText: '{"seq":2}' }).first();
+  await expect(eventRow).toBeVisible({ timeout: 15_000 });
+  await eventRow.locator('button').filter({ hasText: 'Override' }).click();
+  await expect(popover()).toBeVisible();
+
+  const view = await popoverBodyText();
+  expect(view).toContain('"seq": 2');
+  await expect(popoverBodyMode()).toHaveText('Formatted');
+
+  await popover().getByRole('button', { name: /Save$/ }).click();
+  await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
+  await expect
+    .poll(async () => (await findMessageRuleByPayload('sse', SSE_EVENT_BODY))?.published, { timeout: 15_000 })
+    .toBe(true);
 });
