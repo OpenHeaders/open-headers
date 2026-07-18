@@ -73,6 +73,9 @@
   --dt-border: #dcdcdc;
   --dt-row-hover: #f0f0f0;
   --dt-row-selected: #e8f0fe;
+  /* Clear-everything reach highlight — a muted dark-leaning yellow so the
+     "about to be wiped" tint reads as caution, distinct from selection blue. */
+  --dt-row-clear-target: #f3e6b0;
   --dt-row-zebra: #f8f8f8;
   --dt-row-attributed: #eef3fc;
   /* Removed-row tint — soft red so "the page never saw this" reads at a
@@ -142,6 +145,7 @@
   --dt-border: #3d3d3d;
   --dt-row-hover: #2a2a2a;
   --dt-row-selected: #062e61;
+  --dt-row-clear-target: #4a3d12;
   --dt-row-zebra: #222;
   --dt-row-attributed: #23314a;
   --dt-row-attributed-removed: #3a1f1f;

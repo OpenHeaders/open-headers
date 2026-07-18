@@ -77,7 +77,7 @@
 /* Clear everything hovered — the rail sections its wipe covers light
  * up, so the reach reads before the click. */
 .dt-storage-nav-item--clear-target {
-  background: var(--dt-row-selected);
+  background: var(--dt-row-clear-target);
 }
 
 .dt-storage-main {
@@ -899,7 +899,7 @@
 /* Clear everything hovered — the checked (covered) type rows light up
  * with the same tint as the rail's covered sections. */
 .dt-storage-quota-clear-type--targeted {
-  background: var(--dt-row-selected);
+  background: var(--dt-row-clear-target);
 }
 
 .dt-storage-quota-clear-failed {
