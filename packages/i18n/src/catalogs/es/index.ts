@@ -45,6 +45,7 @@ import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
+import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
@@ -89,6 +90,7 @@ export const es = {
   ...workbenchEditors,
   ...workbenchEditorsGrpc,
   ...workbenchEditorsSpec,
+  ...workbenchLive,
   ...workbenchScriptPackages,
   ...workbenchSettings,
   ...workbenchSettingsDefsKeyboard,
