@@ -11,12 +11,18 @@ import { popup } from './popup';
 import { shared } from './shared';
 import { sharedChrome } from './shared-chrome';
 import { sharedComponents } from './shared-components';
+import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedInfoHeaders } from './shared-info-headers';
+import { sharedInfoStatus } from './shared-info-status';
 import { sharedNotifications } from './shared-notifications';
 
 export const fr = {
   ...shared,
   ...sharedChrome,
   ...sharedComponents,
+  ...sharedInfoCookies,
+  ...sharedInfoHeaders,
+  ...sharedInfoStatus,
   ...sharedNotifications,
   ...popup,
 } as const satisfies Catalog;
