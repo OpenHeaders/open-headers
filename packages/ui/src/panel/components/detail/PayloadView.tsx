@@ -278,13 +278,17 @@ export default function PayloadView({
             </summary>
             {qsMode === 'parsed' ? (
               <div className="dt-payload-table">
+                {/* HAR queryString entries arrive DECODED (URLSearchParams
+                    in the correlators' har synth) — a second decode here
+                    corrupts values whose decoded text still looks encoded
+                    and throws on a bare `%`. */}
                 {queryString.map((q, i) => (
                   <div key={`q-${i}-${q.name}`} className="dt-payload-row">
                     <span className="dt-payload-key">
-                      <HighlightedText text={decodeURIComponent(q.name)} query={qsHighlight} />
+                      <HighlightedText text={q.name} query={qsHighlight} />
                     </span>
                     <span className="dt-payload-val">
-                      <HighlightedText text={decodeURIComponent(q.value)} query={qsHighlight} />
+                      <HighlightedText text={q.value} query={qsHighlight} />
                     </span>
                   </div>
                 ))}

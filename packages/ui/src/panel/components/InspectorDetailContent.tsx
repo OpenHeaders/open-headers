@@ -152,24 +152,19 @@ function capturedRequestBodyDraftInput(
   return { requestBody: '', resourceType };
 }
 
-function decodeComponentSafe(s: string): string {
-  try {
-    return decodeURIComponent(s);
-  } catch {
-    return s;
-  }
-}
-
 /**
  * Pull the captured query string into the params the "Override query
- * params" draft needs — decoded to match what the Payload tab displays
- * (the rule re-encodes on apply, so the values must be plain).
+ * params" draft needs. HAR queryString entries arrive DECODED (the
+ * correlators' har synth iterates `URLSearchParams`), which is exactly
+ * the plain shape the rule wants — DNR re-encodes on apply. A second
+ * decode here would corrupt values whose decoded text still looks
+ * encoded (wire `%2541` must seed as `%41`, not `A`).
  */
 function capturedQueryParamsDraftInput(
   har: ReturnType<typeof currentHarEntry>,
 ): { params: Array<{ param: string; value?: string }> } {
   const qs = har?.request?.queryString ?? [];
-  return { params: qs.map((q) => ({ param: decodeComponentSafe(q.name), value: decodeComponentSafe(q.value) })) };
+  return { params: qs.map((q) => ({ param: q.name, value: q.value })) };
 }
 
 /** First still-existing rule of the given type among this row's fires. */

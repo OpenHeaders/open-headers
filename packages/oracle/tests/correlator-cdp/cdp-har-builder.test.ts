@@ -20,7 +20,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CdpHarBuilder } from '../../src/correlator-cdp/cdp-har-builder';
-import { cdpRawTiming, cdpTimingToHar } from '../../src/correlator-cdp/cdp-har-synth';
+import { cdpRawTiming, cdpTimingToHar, queryStringFromUrl } from '../../src/correlator-cdp/cdp-har-synth';
 import { CdpCorrelator } from '../../src/correlator-cdp/correlator';
 import { type CdpNetworkEvent, type CdpResourceTiming, cdpStoreRequestId } from '../../src/correlator-cdp/events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
@@ -46,6 +46,29 @@ import {
   type TraceCtx,
 } from './builders';
 import { InMemoryCdpSource } from './in-memory-source';
+
+// ── pure query-string parse ─────────────────────────────────────────
+
+describe('queryStringFromUrl', () => {
+  it('decodes exactly ONCE — URLSearchParams semantics, the contract the panel consumes verbatim', () => {
+    // Downstream (Payload tab display, the query-param CTA seed) must
+    // NOT decode again: `%2541` is one decode away from `%41`, two from
+    // `A` — only the first is the wire truth.
+    expect(queryStringFromUrl('https://api.openheaders.io/v1/users?a=%2541&b=x+y&c=100%25')).toEqual([
+      { name: 'a', value: '%41' },
+      { name: 'b', value: 'x y' },
+      { name: 'c', value: '100%' },
+    ]);
+  });
+
+  it('returns empty for a query-less url and keeps empty values', () => {
+    expect(queryStringFromUrl('https://api.openheaders.io/v1/users')).toEqual([]);
+    expect(queryStringFromUrl('https://api.openheaders.io/v1/users?flag=&q')).toEqual([
+      { name: 'flag', value: '' },
+      { name: 'q', value: '' },
+    ]);
+  });
+});
 
 // ── pure timing base-conversion ─────────────────────────────────────
 
