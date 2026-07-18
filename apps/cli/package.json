@@ -14,6 +14,7 @@
     "test": "vitest run",
     "pack": "vite build && node scripts/pack.mjs",
     "pack:sea": "vite build --config vite.config.sea.ts && node scripts/pack-sea.mjs",
+    "pack:bun": "node scripts/pack-bun.mjs",
     "clean": "rm -rf dist dist-package dist-sea"
   },
   "dependencies": {

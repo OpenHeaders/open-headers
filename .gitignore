@@ -6,6 +6,8 @@ dist/
 dist-webpack/
 dist-package/
 dist-sea/
+dist-bun/
+*.bun-build
 packages/core/dist/
 .turbo/
 .electron-vite/

@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Entitlements for the oh/ohd SEA binaries (release.yml "Sign and
-  notarize binaries"). Signing with the hardened runtime (required for
-  notarization) but WITHOUT allow-jit kills V8 at startup with SIGTRAP
-  on user machines — the CI runner's own probe does not enforce it, so
-  only these entitlements make the shipped binaries actually runnable:
-    - allow-jit + allow-unsigned-executable-memory: V8's JIT mappings.
+  Entitlements for the oh/ohd standalone binaries (release.yml "Sign
+  and notarize binaries"). Signing with the hardened runtime (required
+  for notarization) but WITHOUT allow-jit kills the JS engine at
+  startup with SIGTRAP on user machines — the CI runner's own probe
+  does not enforce it, so only these entitlements make the shipped
+  binaries actually runnable:
+    - allow-jit + allow-unsigned-executable-memory: JIT mappings —
+      V8 for the Node SEA ohd, JavaScriptCore for the bun-compiled oh.
     - disable-library-validation: ohd unpacks its native addon to disk
       at first run; library validation would reject the dylib.
 -->
