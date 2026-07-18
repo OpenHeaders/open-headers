@@ -5,7 +5,7 @@
  * in the desktop app. See docs/I18N_PLAN.md.
  */
 
-export { getCatalog, getTranslator } from './catalog-registry';
+export { getCatalog, getTranslator, isCatalogLoaded, loadCatalog } from './catalog-registry';
 export { en, type MessageKey } from './catalogs/en';
 export { GLOSSARY, isGlossaryTerm } from './glossary';
 export { DEFAULT_LOCALE, getLocaleDef, LOCALE_CODES, LOCALES, PSEUDO_LOCALE, resolveLocale } from './locales';

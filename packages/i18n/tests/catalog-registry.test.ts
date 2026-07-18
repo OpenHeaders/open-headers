@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCatalog, getTranslator } from '../src/catalog-registry';
+import { getCatalog, getTranslator, isCatalogLoaded, loadCatalog } from '../src/catalog-registry';
 import { en } from '../src/catalogs/en';
 import { DEFAULT_LOCALE, LOCALES, PSEUDO_LOCALE } from '../src/locales';
 
@@ -19,6 +19,19 @@ describe('getCatalog', () => {
     for (const def of LOCALES) {
       expect(Object.keys(getCatalog(def.code)).sort(), `catalog "${def.code}"`).toEqual(sourceKeys);
     }
+  });
+});
+
+describe('loadCatalog', () => {
+  it('treats synchronous locales as already loaded', () => {
+    expect(isCatalogLoaded(DEFAULT_LOCALE)).toBe(true);
+    expect(isCatalogLoaded(PSEUDO_LOCALE)).toBe(true);
+  });
+
+  it('treats locales without a catalog as loaded and resolves immediately', async () => {
+    expect(isCatalogLoaded('xx')).toBe(true);
+    await expect(loadCatalog('xx')).resolves.toBeUndefined();
+    expect(getCatalog('xx')).toBe(en);
   });
 });
 
