@@ -1,7 +1,7 @@
 /**
  * Panel viewer whole-buffer decode affordance e2e — the corner "Decode"
  * chip on buffers whose ENTIRE content is one detected encoded value,
- * both modes:
+ * both modes, plus the headers-tab row view icon:
  *
  *   1. READ-ONLY surface (Payload tab's raw request body, wholly
  *      base64): the chip is always visible; clicking it opens the
@@ -13,6 +13,9 @@
  *      dirties, and its own Save commits the re-encoded value to the
  *      browser's localStorage, byte-equal to an independent Buffer
  *      encode.
+ *   3. HEADERS TAB row (a request header carrying a base64 value): the
+ *      hover-revealed view icon opens the same modal read-only; Close
+ *      leaves everything untouched.
  *
  * Panel recipe: `panel.html?ohInspectTabId=N` + the CDP tab pin — a
  * real DevTools window is unreachable from Playwright.
@@ -46,18 +49,22 @@ const STORED_B64 = b64(STORED_DECODED);
 const EDITED_DECODED = 'user@openheaders.io:rotated';
 const EDITED_B64 = b64(EDITED_DECODED);
 
+const HEADER_NAME = 'x-oh-token';
+const HEADER_DECODED = 'header-view@openheaders.io wants the row icon';
+const HEADER_B64 = b64(HEADER_DECODED);
+
 /** POST /api/echo with a raw base64 body under a JSON content type —
  *  the Payload tab's raw-body viewer is the read-only surface under
  *  test, and its whole buffer is the one detected value. */
 function echoPost(): Promise<unknown> {
   return playgroundPage.evaluate(
-    ({ path, body }: { path: string; body: string }) =>
+    ({ path, body, headerName, headerValue }: { path: string; body: string; headerName: string; headerValue: string }) =>
       fetch(path, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', [headerName]: headerValue },
         body,
       }).then((r) => r.text()),
-    { path: ECHO_PATH, body: BODY_B64 },
+    { path: ECHO_PATH, body: BODY_B64, headerName: HEADER_NAME, headerValue: HEADER_B64 },
   );
 }
 
@@ -141,6 +148,40 @@ test.describe('Payload tab — read-only whole-buffer decode viewer', () => {
     await expect(close).toBeVisible();
     await close.click();
     await expect(modal).toBeHidden();
+  });
+});
+
+test.describe('Headers tab — row view icon opens the read-only modal', () => {
+  test('a base64 request header gets the hover view icon; the modal decodes read-only and Close is inert', async () => {
+    await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).last().click();
+    await panelPage.getByRole('tab', { name: 'Headers' }).click();
+
+    const row = panelPage
+      .locator('.dt-kv-row')
+      .filter({ hasText: new RegExp(HEADER_NAME, 'i') })
+      .first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+
+    // The action lane is hover-revealed (rail law) — hover first, then
+    // the per-type tooltip is the aria contract.
+    await row.hover();
+    const icon = row.getByRole('button', { name: 'View decoded — Base64 value' });
+    await expect(icon).toBeVisible();
+    await icon.click();
+
+    const modal = decodeModal();
+    await expect(modal).toBeVisible();
+    // Viewer: decoded text readable, encoded preview round-trips the
+    // exact header value, no write path.
+    await expect(modal.locator('.monaco-editor').first()).toContainText('header-view@openheaders.io');
+    await expect(modal.getByText(HEADER_B64, { exact: true })).toBeVisible();
+    await expect(modal.getByRole('button', { name: /Save/ })).toHaveCount(0);
+    const close = modal.getByText('Close', { exact: true });
+    await close.click();
+    await expect(modal).toBeHidden();
+
+    // Close left the row untouched — the raw value still renders.
+    await expect(row).toContainText(HEADER_B64);
   });
 });
 
