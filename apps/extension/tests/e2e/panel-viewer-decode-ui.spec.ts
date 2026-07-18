@@ -21,7 +21,7 @@
  *   4. JAR COOKIE row (Storage tool window's Cookies section, a cookie
  *      carrying a base64 value): hint glyph inline, hover view icon →
  *      glance → modal CTA, same read-only modal.
- *   5. GLANCE "Open as document": the headers-tab eye escalates to the
+ *   5. GLANCE "Open in new tab": the headers-tab eye escalates to the
  *      value-view SNAPSHOT tab document instead, which splits through
  *      the tab context menu (deterministic; drag is flake).
  *
@@ -211,7 +211,7 @@ test.describe('Headers tab — row view icon opens the read-only modal', () => {
   });
 });
 
-test.describe('Headers tab — glance "Open as document" opens the value-view snapshot tab', () => {
+test.describe('Headers tab — glance "Open in new tab" opens the value-view snapshot tab', () => {
   test('the snapshot document renders decoded + encoded, splits right through the tab menu, and closes clean', async () => {
     await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).last().click();
     await panelPage.getByRole('tab', { name: 'Headers' }).click();
@@ -226,7 +226,7 @@ test.describe('Headers tab — glance "Open as document" opens the value-view sn
 
     const glance = glancePopover();
     await expect(glance).toBeVisible();
-    await glance.getByRole('button', { name: 'Open as document' }).click();
+    await glance.getByRole('button', { name: 'Open in new tab' }).click();
 
     // The snapshot document: source-labeled crumb + per-type title,
     // decoded body read-only, the encoded value in the bounded strip.

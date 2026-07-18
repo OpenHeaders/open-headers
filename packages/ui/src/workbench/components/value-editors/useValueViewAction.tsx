@@ -96,7 +96,7 @@ export function useValueViewAction(
       ...(openAsTab
         ? [
             {
-              label: t('shared.valueEditors.openAsDocument'),
+              label: t('shared.valueEditors.glance.openTab'),
               primary: true,
               onClick: () => openAsTab({ detected, ...(sourceLabel !== undefined ? { sourceLabel } : {}) }),
             },

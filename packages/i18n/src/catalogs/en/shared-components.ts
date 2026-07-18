@@ -152,6 +152,7 @@ export const sharedComponents = {
 
   // ── Value editors: glance popover ──────────────────────────────────
   'shared.valueEditors.glance.title': 'Decoded value',
+  'shared.valueEditors.glance.openTab': 'Open in new tab',
   'shared.valueEditors.glance.openModal': 'Open as modal',
   'shared.valueEditors.glance.moreClaims': '+{count} more',
   'shared.valueEditors.glance.signatureElided': 'Signature not shown — open the document or modal for the full token.',

@@ -7,7 +7,7 @@
  *     per-type kicker), never a modal directly;
  *   - "Open as modal" escalates to the shared EncodedValueModal
  *     readOnly (decoded pane locked, Close-only footer, no Save);
- *   - "Open as document" appears only when a tab opener is provided,
+ *   - "Open in new tab" appears only when a tab opener is provided,
  *     and hands it the detected hit + source label;
  *   - a JWT glance renders the claims-style compact list with the
  *     signature elided; its modal CTA opens the JWT viewer (no Save,
@@ -132,17 +132,17 @@ describe('useValueViewAction', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View decoded — Base64 value' }));
 
     await screen.findByRole('button', { name: 'Open as modal' });
-    expect(screen.queryByRole('button', { name: 'Open as document' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open in new tab' })).toBeNull();
   });
 
-  it('"Open as document" hands the opener the detected hit and source label', async () => {
+  it('"Open in new tab" hands the opener the detected hit and source label', async () => {
     const openAsTab = vi.fn();
     render(<Harness value={btoa('user@openheaders.io:hunter2!!')} openAsTab={openAsTab} sourceLabel="x-oh-token" />);
     fireEvent.click(screen.getByRole('button', { name: 'View decoded — Base64 value' }));
 
     // The source's own name titles the glance.
     expect(await screen.findByText('x-oh-token')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open as document' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open in new tab' }));
     expect(openAsTab).toHaveBeenCalledTimes(1);
     const target = openAsTab.mock.calls[0][0] as ValueViewTabTarget;
     expect(target.detected?.type).toBe('base64');
