@@ -1,11 +1,13 @@
 /**
- * ValueGlancePreview — the compact decoded preview inside the eye's
- * glance popover. Rendered only while the popover is open (the popover
+ * ValueGlancePreview — the decoded preview inside the eye's glance
+ * popover. Rendered only while the popover is open (the popover
  * destroys its content on hide), so the decode work runs on open, never
- * per row render. Non-JWT kinds show the compact codec's decoded text
- * as a clamped mono block; JWTs get a claims-style compact list (the
- * popover section vocabulary) — the modal's triple pane does not shrink
- * to popover width — with the signature elided.
+ * per row render. Non-JWT kinds show the compact codec's FULL decoded
+ * text in a bounded, inner-scrolling mono block — JSON payloads get
+ * lightweight token tinting (keys/strings/numbers, the format-mode
+ * example palette; no Monaco in a popover). JWTs get a claims-style
+ * compact list (the popover section vocabulary) — the modal's triple
+ * pane does not shrink to popover width — with the signature elided.
  */
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -14,6 +16,7 @@ import {
   decodeJWT,
   type DetectedValue,
 } from '@openheaders/ui/shared/value-detection';
+import type React from 'react';
 import { useMemo } from 'react';
 import './value-glance.css';
 
@@ -71,7 +74,55 @@ function JwtGlance({ token }: { token: string }) {
   );
 }
 
+// Tinting budget — beyond this the parse + pretty-print cost outweighs
+// a popover peek; the text still renders in full, just untinted.
+const MAX_TINT_CHARS = 65_536;
+
+const JSON_TOKEN =
+  /("(?:[^"\\]|\\.)*")(\s*:)?|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|\btrue\b|\bfalse\b|\bnull\b/g;
+
+/** Pretty-printed, span-tinted rendering when the decoded text is JSON;
+ *  null when it isn't (or is too large to bother). */
+function tintedJson(decoded: string): React.ReactNode[] | null {
+  if (decoded.length > MAX_TINT_CHARS) return null;
+  let pretty: string;
+  try {
+    pretty = JSON.stringify(JSON.parse(decoded), null, 2);
+  } catch {
+    return null;
+  }
+  // Only genuinely structured payloads earn the pretty treatment — a
+  // bare string/number decodes fine as plain text.
+  if (!/^[[{]/.test(pretty)) return null;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  JSON_TOKEN.lastIndex = 0;
+  for (let m = JSON_TOKEN.exec(pretty); m !== null; m = JSON_TOKEN.exec(pretty)) {
+    if (m.index > last) out.push(pretty.slice(last, m.index));
+    const cls = m[1] !== undefined ? (m[2] !== undefined ? 'oh-value-glance-key' : 'oh-value-glance-str') : 'oh-value-glance-num';
+    const tokenText = m[1] ?? m[0];
+    out.push(
+      <span key={`t${m.index}`} className={cls}>
+        {tokenText}
+      </span>,
+    );
+    // A key match consumed its trailing colon — emit it untinted.
+    if (m[1] !== undefined && m[2] !== undefined) out.push(m[2]);
+    last = m.index + m[0].length;
+  }
+  if (last < pretty.length) out.push(pretty.slice(last));
+  return out;
+}
+
+function TextGlance({ detected }: { detected: DetectedValue }) {
+  const body = useMemo(() => {
+    const decoded = compactDecodedText(detected);
+    return tintedJson(decoded) ?? decoded;
+  }, [detected]);
+  return <pre className="oh-value-glance-pre">{body}</pre>;
+}
+
 export function ValueGlancePreview({ detected }: { detected: DetectedValue }) {
   if (detected.type === 'jwt') return <JwtGlance token={detected.token} />;
-  return <pre className="oh-value-glance-pre">{compactDecodedText(detected)}</pre>;
+  return <TextGlance detected={detected} />;
 }

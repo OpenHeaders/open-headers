@@ -1,7 +1,9 @@
 /* ── Value glance popover preview ──────────────────────────
- * The compact decoded block inside the eye's glance popover. Clamped
- * to a few lines — the glance is orientation, not the reading surface;
- * the footer CTAs open the depth the user picks.
+ * The decoded block inside the eye's glance popover. Bounded height
+ * with an inner scrollbar — the FULL decoded value is readable in
+ * place; the footer CTAs still open the deeper surfaces (Monaco tab,
+ * modal). JSON payloads render with lightweight token tinting (the
+ * format-mode example card's palette) — no Monaco in a popover.
  */
 .oh-value-glance-pre {
   margin: 0;
@@ -10,10 +12,18 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
-  display: -webkit-box;
-  -webkit-line-clamp: 8;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: none;
+}
+.oh-value-glance-key {
+  color: var(--ant-color-primary);
+}
+.oh-value-glance-str {
+  color: var(--ant-color-success);
+}
+.oh-value-glance-num {
+  color: var(--ant-color-warning);
 }
 .oh-value-glance-more {
   color: var(--ant-color-text-tertiary);

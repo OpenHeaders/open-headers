@@ -150,6 +150,31 @@ describe('useValueViewAction', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('the glance shows the full decoded value in a scrollable block, token-tinted for JSON', async () => {
+    const long = `left-${'x'.repeat(400)}-right@openheaders.io`;
+    const json = JSON.stringify({ userId: 123, host: 'api.openheaders.io', note: long, active: true });
+    render(<Harness value={btoa(json)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'View decoded — Base64 value' }));
+
+    const pre = (await screen.findByText('"userId"')).closest('pre');
+    expect(pre).not.toBeNull();
+    expect(pre?.className).toContain('oh-value-glance-pre');
+    // FULL value — the tail past any old clamp is present.
+    expect(pre?.textContent).toContain(`${long}`);
+    // Pretty-printed with tinted tokens: keys, strings, numbers.
+    expect(pre?.querySelectorAll('.oh-value-glance-key').length).toBeGreaterThan(0);
+    expect(pre?.querySelector('.oh-value-glance-str')?.textContent).toBe('"api.openheaders.io"');
+    expect(pre?.querySelector('.oh-value-glance-num')?.textContent).toBe('123');
+  });
+
+  it('a non-JSON decode stays plain text — no tint spans', async () => {
+    render(<Harness value={btoa('user@openheaders.io:hunter2!!')} />);
+    fireEvent.click(screen.getByRole('button', { name: 'View decoded — Base64 value' }));
+
+    const pre = (await screen.findByText('user@openheaders.io:hunter2!!')).closest('pre');
+    expect(pre?.querySelectorAll('span').length).toBe(0);
+  });
+
   it('a JWT glance renders the claims list with the signature elided; its modal CTA opens the viewer', async () => {
     render(<Harness value={buildJWT({ alg: 'HS256', typ: 'JWT' }, { sub: 'user@openheaders.io' })} />);
     fireEvent.click(screen.getByRole('button', { name: 'View JWT' }));
