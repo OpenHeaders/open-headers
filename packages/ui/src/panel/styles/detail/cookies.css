@@ -420,7 +420,8 @@
   z-index: 1;
   transition: opacity 80ms ease-out;
 }
-.dt-cookie-row:hover .dt-cookie-row-actions {
+.dt-cookie-row:hover .dt-cookie-row-actions,
+.dt-cookie-row:focus-within .dt-cookie-row-actions {
   opacity: 1;
   pointer-events: auto;
 }

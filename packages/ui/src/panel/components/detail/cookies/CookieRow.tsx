@@ -16,8 +16,9 @@
  * URL-encoded).
  */
 
-import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { useState } from 'react';
 import { deleteKeyForRow, editCanonicalForRow } from '../../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookies/cookie-format';
@@ -25,7 +26,7 @@ import { cookieRowIndicator } from '../../../data/cookies/cookie-indicators';
 import type { JarCookieEdit, JarCookieKey } from '../../../data/cookies/cookie-jar-cache';
 import type { CookieRow as CookieRowModel } from '../../../data/cookies/cookie-model';
 import type { CookieRole } from '../../../data/cookies/cookie-role';
-import { introspectionHint, type ValueIntrospection } from '../../../data/value-introspect';
+import { introspectionDetected, introspectionHint, type ValueIntrospection } from '../../../data/value-introspect';
 import { CookieChips } from './CookieChips';
 import { CookieEditPopover } from './CookieEditPopover';
 import { CookieValueExpander } from './CookieValueExpander';
@@ -122,6 +123,9 @@ export function CookieRow({
   // the Value cell truncates a long one).
   const canExpand = row.value.length > 0;
   const hintKind = introspectionHint(introspection);
+  // View icon on detected values — opens the SHARED modals read-only,
+  // reusing the row's registry hit (no second detection pass).
+  const { viewProps, viewerModal } = useValueViewAction(introspectionDetected(introspection));
   const indicator = cookieRowIndicator(!!row.edited, ruleTouched);
 
   const valueText = decodeValues ? urlDecodeSafe(row.value) : row.value;
@@ -223,6 +227,17 @@ export function CookieRow({
             {hintKind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
           </span>
           <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
+            {'onValueView' in viewProps && (
+              <button
+                type="button"
+                className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
+                title={viewProps.viewTooltip}
+                aria-label={viewProps.viewTooltip}
+                onClick={viewProps.onValueView}
+              >
+                <EyeOutlined />
+              </button>
+            )}
             <button
               type="button"
               className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
@@ -294,6 +309,7 @@ export function CookieRow({
       {expanded && canExpand && (
         <CookieValueExpander introspection={introspection} columnSpan={columnSpan} />
       )}
+      {viewerModal}
     </>
   );
 }
