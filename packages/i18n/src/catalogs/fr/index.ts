@@ -43,6 +43,7 @@ import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
+import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
@@ -86,6 +87,7 @@ export const fr = {
   ...workbenchDocsVariables,
   ...workbenchEditors,
   ...workbenchEditorsGrpc,
+  ...workbenchLive,
   ...workbenchScriptPackages,
   ...workbenchSettings,
   ...workbenchSettingsDefsDevpanel,
