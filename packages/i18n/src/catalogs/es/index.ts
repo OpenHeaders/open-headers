@@ -33,7 +33,10 @@ import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
+import { tui } from './tui';
 import { web } from './web';
+import { workbench } from './workbench';
+import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const es = {
   ...desktop,
@@ -62,5 +65,8 @@ export const es = {
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
+  ...tui,
   ...web,
+  ...workbench,
+  ...workbenchScriptPackages,
 } as const satisfies Catalog;
