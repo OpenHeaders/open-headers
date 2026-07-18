@@ -36,6 +36,7 @@ import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
 import { workbench } from './workbench';
+import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
@@ -71,6 +72,7 @@ export const es = {
   ...tui,
   ...web,
   ...workbench,
+  ...workbenchDaemonAdmin,
   ...workbenchDocsDebugMode,
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
