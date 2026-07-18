@@ -16,7 +16,7 @@ import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
 import { createLogger } from './bootstrap/logger';
 import { markQuitting } from './bootstrap/quit-state';
 import { getMainWindow } from './bootstrap/window-manager';
-import { desktopFeedUrl, releaseNotesUrl } from './update-feed';
+import { desktopFeedUrl, releaseNotesUrl, type UpdateChannel } from './update-feed';
 import type { AvailableUpdate, UpdaterPort } from './update-service';
 
 /**
@@ -49,20 +49,28 @@ function toAvailableUpdate(info: UpdateInfo): AvailableUpdate {
   };
 }
 
-export function createElectronUpdaterPort(): UpdaterPort {
+export function createElectronUpdaterPort(getChannel: () => UpdateChannel): UpdaterPort {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
   // Generic provider over the own-domain pointer feed (update-feed.ts).
-  // Channel is hardcoded stable until the `updates.channel` setting
-  // lands (DISTRIBUTION_PLAN §8 Phase 3). The pointer files carry
-  // absolute GitHub asset URLs; multi-range requests are off because
-  // GitHub's asset CDN only honors single ranges (differential
-  // downloads still work — one range per chunk run).
-  autoUpdater.setFeedURL({
-    provider: 'generic',
-    url: desktopFeedUrl('stable'),
-    useMultipleRangeRequest: false,
-  });
+  // The channel follows the `updates.channel` setting per check —
+  // switching changes what the NEXT check offers, never a staged
+  // download's consent flow. The pointer files carry absolute GitHub
+  // asset URLs; multi-range requests are off because GitHub's asset CDN
+  // only honors single ranges (differential downloads still work — one
+  // range per chunk run).
+  let feedChannel: UpdateChannel | null = null;
+  const ensureFeed = (): void => {
+    const channel = getChannel();
+    if (channel === feedChannel) return;
+    feedChannel = channel;
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: desktopFeedUrl(channel),
+      useMultipleRangeRequest: false,
+    });
+  };
+  ensureFeed();
 
   // electron-updater's internals (feed resolution, differential
   // download, signature validation) log through this hook — route them
@@ -77,6 +85,7 @@ export function createElectronUpdaterPort(): UpdaterPort {
 
   return {
     check(): Promise<AvailableUpdate | null> {
+      ensureFeed();
       return new Promise((resolve, reject) => {
         const cleanup = (): void => {
           autoUpdater.removeListener('update-available', onAvailable);

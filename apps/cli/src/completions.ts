@@ -29,6 +29,10 @@ function buildTree(): CommandTree {
 
   flags.set('status', CONNECTION_FLAGS);
   flags.set('connect', CONNECTION_FLAGS);
+  // Local command with value words instead of verbs — the channel names
+  // complete at the second word, `--json` afterwards.
+  verbs.set('channel', ['stable', 'beta']);
+  flags.set('channel', ['--json']);
 
   for (const spec of READ_COMMANDS) {
     const key = spec.verb === '' ? spec.group : `${spec.group} ${spec.verb}`;

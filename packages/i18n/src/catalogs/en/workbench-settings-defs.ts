@@ -524,6 +524,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.check.option.all.label': 'All releases',
   'workbench.settings.def.updates.check.option.security-only.label': 'Security fixes only',
   'workbench.settings.def.updates.check.option.off.label': 'Off',
+  'workbench.settings.def.updates.channel.label': 'Update channel',
+  'workbench.settings.def.updates.channel.description':
+    'Which release line update checks follow. Beta gets new features earlier but may be less polished. Switching back to Stable never downgrades — you keep the installed version until the next stable release overtakes it. Security notices always follow the stable line on either channel.',
+  'workbench.settings.def.updates.channel.option.stable.label': 'Stable',
+  'workbench.settings.def.updates.channel.option.beta.label': 'Beta',
   'workbench.settings.def.updates.showWhatsNew.label': "Show What's New after updating",
   'workbench.settings.def.updates.showWhatsNew.description':
     'Open a tab with the release highlights the first time you open the workbench after a feature release. Patch releases never open it — they stay in the notifications timeline. The notes ship inside the app; nothing is fetched.',

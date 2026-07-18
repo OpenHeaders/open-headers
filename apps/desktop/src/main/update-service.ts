@@ -21,6 +21,7 @@
  */
 
 import type { AppUpdateState } from '@openheaders/core/bridge';
+import type { UpdateChannel } from './update-feed';
 import { isBelowSafeFloor, type SeverityInfo } from './versions-manifest';
 
 /** What a check found. `null` — already on the latest. */
@@ -45,15 +46,23 @@ export interface UpdaterPort {
 export interface UpdatePreferences {
   check: 'all' | 'security-only' | 'off';
   autoDownload: boolean;
+  /**
+   * Which release line checks follow (DISTRIBUTION_PLAN.md §4). The
+   * channel changes offers, never consent; severity always reads the
+   * STABLE manifest regardless (`versions-manifest.ts`).
+   */
+  channel: UpdateChannel;
 }
 
 /** `updates.*` reader over the raw user-settings record. */
 export function readUpdatePreferences(settings: Record<string, unknown> | undefined): UpdatePreferences {
   const check = settings?.['updates.check'];
   const autoDownload = settings?.['updates.autoDownload'];
+  const channel = settings?.['updates.channel'];
   return {
     check: check === 'off' || check === 'security-only' ? check : 'all',
     autoDownload: autoDownload === true,
+    channel: channel === 'beta' ? 'beta' : 'stable',
   };
 }
 

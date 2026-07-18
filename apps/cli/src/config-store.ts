@@ -13,9 +13,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+/** Release line for version checks and the future `oh upgrade` (`DISTRIBUTION_PLAN.md` §4). */
+export type UpdateChannel = 'stable' | 'beta';
+
 export interface CliConfig {
   daemonUrl?: string;
   token?: string;
+  /** Update channel — absent = `stable`; `oh channel` reads/writes it. */
+  channel?: UpdateChannel;
   /** Anonymous usage counting (`TELEMETRY_PLAN.md` §2) — absent = on; the `OH_TELEMETRY` env var overrides. */
   telemetry?: boolean;
   /** Set once the first-run telemetry notice has been printed; the notice never repeats. */
@@ -67,6 +72,7 @@ export async function readCliConfig(filePath: string): Promise<CliConfig> {
   const config: CliConfig = {};
   if (typeof parsed.daemonUrl === 'string') config.daemonUrl = parsed.daemonUrl;
   if (typeof parsed.token === 'string') config.token = parsed.token;
+  if (parsed.channel === 'stable' || parsed.channel === 'beta') config.channel = parsed.channel;
   if (typeof parsed.telemetry === 'boolean') config.telemetry = parsed.telemetry;
   if (typeof parsed.telemetryNoticeShown === 'boolean') config.telemetryNoticeShown = parsed.telemetryNoticeShown;
   if (typeof parsed.telemetryInstallId === 'string') config.telemetryInstallId = parsed.telemetryInstallId;

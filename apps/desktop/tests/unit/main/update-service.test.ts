@@ -35,7 +35,7 @@ function makeHarness(
   const broadcasts: AppUpdateState[] = [];
   const timers: Array<{ fn: () => void; ms: number }> = [];
   const counters = { checkCalls: 0, downloadCalls: 0, installCalls: 0, severityCalls: 0 };
-  let prefs: UpdatePreferences = { check: 'all', autoDownload: false, ...overrides.preferences };
+  let prefs: UpdatePreferences = { check: 'all', autoDownload: false, channel: 'stable', ...overrides.preferences };
 
   const updater: UpdaterPort = {
     async check() {
@@ -87,18 +87,24 @@ function makeHarness(
 }
 
 describe('readUpdatePreferences', () => {
-  it('defaults to check=all, autoDownload=false on empty/garbage records', () => {
-    expect(readUpdatePreferences(undefined)).toEqual({ check: 'all', autoDownload: false });
-    expect(readUpdatePreferences({ 'updates.check': 42, 'updates.autoDownload': 'yes' })).toEqual({
+  it('defaults to check=all, autoDownload=false, channel=stable on empty/garbage records', () => {
+    expect(readUpdatePreferences(undefined)).toEqual({ check: 'all', autoDownload: false, channel: 'stable' });
+    expect(
+      readUpdatePreferences({ 'updates.check': 42, 'updates.autoDownload': 'yes', 'updates.channel': 'nightly' }),
+    ).toEqual({
       check: 'all',
       autoDownload: false,
+      channel: 'stable',
     });
   });
 
   it('reads explicit values', () => {
-    expect(readUpdatePreferences({ 'updates.check': 'off', 'updates.autoDownload': true })).toEqual({
+    expect(
+      readUpdatePreferences({ 'updates.check': 'off', 'updates.autoDownload': true, 'updates.channel': 'beta' }),
+    ).toEqual({
       check: 'off',
       autoDownload: true,
+      channel: 'beta',
     });
     expect(readUpdatePreferences({ 'updates.check': 'security-only' }).check).toBe('security-only');
   });

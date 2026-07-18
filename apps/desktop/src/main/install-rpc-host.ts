@@ -205,7 +205,7 @@ export async function installRpcHost(): Promise<void> {
   // deb/rpm — so it never dials a feed from a test harness. The port
   // wrap keeps the state machine host-free while a failed feed check
   // beacons its typed error code.
-  const updaterPort = createElectronUpdaterPort();
+  const updaterPort = createElectronUpdaterPort(() => updatePreferences.channel);
   const updateService = createUpdateService({
     updater: {
       ...updaterPort,

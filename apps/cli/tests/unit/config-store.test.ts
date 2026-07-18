@@ -63,9 +63,15 @@ describe('readCliConfig / writeCliConfig', () => {
 
   it('round-trips and creates parent directories', async () => {
     const file = path.join(dir, 'openheaders', 'cli.json');
-    const config = { daemonUrl: 'https://daemon.openheaders.io', token: 'oh_secret' };
+    const config = { daemonUrl: 'https://daemon.openheaders.io', token: 'oh_secret', channel: 'beta' as const };
     await writeCliConfig(file, config);
     expect(await readCliConfig(file)).toEqual(config);
+  });
+
+  it('drops a channel value outside stable|beta', async () => {
+    const file = path.join(dir, 'cli.json');
+    await writeFile(file, JSON.stringify({ channel: 'nightly' }));
+    expect(await readCliConfig(file)).toEqual({});
   });
 
   it('writes the file mode 0600', async () => {

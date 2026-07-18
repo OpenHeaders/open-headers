@@ -7,7 +7,7 @@
 
 import { parseArgs } from 'node:util';
 import type { CommandOptionValues, CommandSpec } from './command-spec';
-import { cliConfigPath, readCliConfig, writeCliConfig } from './config-store';
+import { cliConfigPath, readCliConfig, type UpdateChannel, writeCliConfig } from './config-store';
 import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
 import { OperationFailedError, UsageError } from './exit-codes';
 import { commandTokenCount, type ReadCommandSpec } from './read-commands';
@@ -132,6 +132,32 @@ export async function commandStatus(argv: readonly string[]): Promise<string[]> 
     `running — ${server.name} v${server.version} at ${conn.daemonUrl}`,
     `${tools.length} tools · tiers: ${tiers.join(' + ')}`,
   ];
+}
+
+/**
+ * `oh channel [stable|beta]` — show or persist the update channel
+ * (`DISTRIBUTION_PLAN.md` §4). Local, no daemon round-trip: the value
+ * selects which `versions/<channel>.json` line version checks and the
+ * future `oh upgrade` follow. Absent = `stable`.
+ */
+export async function commandChannel(argv: readonly string[]): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv, {});
+  if (positionals.length > 1) throw new UsageError(`unexpected argument: ${positionals[1]}`);
+  const configPath = cliConfigPath();
+  const existing = await readCliConfig(configPath);
+  const [next] = positionals;
+  if (next === undefined) {
+    const channel: UpdateChannel = existing.channel ?? 'stable';
+    return values.json === true ? [JSON.stringify({ channel }, null, 2)] : [channel];
+  }
+  if (next !== 'stable' && next !== 'beta') {
+    throw new UsageError('usage: oh channel [stable|beta]');
+  }
+  // Merge over the existing file — channel owns only its own key, same
+  // law as connect with the connection pair.
+  await writeCliConfig(configPath, { ...existing, channel: next });
+  if (values.json === true) return [JSON.stringify({ channel: next }, null, 2)];
+  return [`channel set to ${next}`, `saved to ${configPath}`];
 }
 
 export async function commandConnect(argv: readonly string[]): Promise<string[]> {

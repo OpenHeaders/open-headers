@@ -10,7 +10,7 @@
  */
 
 import type { CommandSpec } from './command-spec';
-import { commandConnect, commandStatus, runReadCommand, runToolCommand } from './commands';
+import { commandChannel, commandConnect, commandStatus, runReadCommand, runToolCommand } from './commands';
 import { completionScript } from './completions';
 import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, TOKEN_ENV } from './connection';
 import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
@@ -43,6 +43,7 @@ Usage: oh <command> [options]
 Commands:
   status                        Probe the daemon's /mcp surface (running / disabled / bad token)
   connect --token <secret>      Validate and save the daemon URL + token for later runs
+  channel [stable|beta]         Show or set the release line version checks follow
   completion bash|zsh           Print a shell completion script (source it from your profile)
 ${readLines.join('\n')}
 ${writeLines.join('\n')}
@@ -99,6 +100,8 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
     lines = await commandStatus(argv.slice(1));
   } else if (first === 'connect') {
     lines = await commandConnect(argv.slice(1));
+  } else if (first === 'channel') {
+    lines = await commandChannel(argv.slice(1));
   } else {
     const readSpec = findReadCommand(first, argv[1]);
     const toolSpec = readSpec ? undefined : (findWriteCommand(first, argv[1]) ?? findExecCommand(first, argv[1]));

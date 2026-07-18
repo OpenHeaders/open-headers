@@ -22,7 +22,7 @@ describe('completionScript', () => {
       const script = completionScript(shell);
 
       it('completes every table group and the local commands at the first word', () => {
-        for (const word of ['status', 'connect', 'completion', 'help']) {
+        for (const word of ['status', 'connect', 'channel', 'completion', 'help']) {
           expect(script).toContain(word);
         }
         for (const spec of [...READ_COMMANDS, ...WRITE_COMMANDS, ...EXEC_COMMANDS]) {
@@ -34,6 +34,7 @@ describe('completionScript', () => {
         expect(script).toMatch(/rules\) .*list get toggle/);
         expect(script).toMatch(/workflow\) .*list history run/);
         expect(script).toMatch(/completion\) .*bash zsh/);
+        expect(script).toMatch(/channel\) .*stable beta/);
       });
 
       it('completes per-command flags from the specs', () => {

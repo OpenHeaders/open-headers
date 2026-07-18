@@ -23,12 +23,17 @@ const AppUpdateRow = lazy(() => import('../components/app-update-row'));
 export const UPDATE_CHECK_TIERS = ['all', 'security-only', 'off'] as const;
 export type UpdateCheckTier = (typeof UPDATE_CHECK_TIERS)[number];
 
+export const UPDATE_CHANNELS = ['stable', 'beta'] as const;
+export type UpdateChannel = (typeof UPDATE_CHANNELS)[number];
+
 const checkTierSchema = v.picklist(UPDATE_CHECK_TIERS);
+const channelSchema = v.picklist(UPDATE_CHANNELS);
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'updates.state': string;
     'updates.check': UpdateCheckTier;
+    'updates.channel': UpdateChannel;
     'updates.autoDownload': boolean;
     'updates.showWhatsNew': boolean;
   }
@@ -63,6 +68,23 @@ registerSetting({
     { value: 'all', labelKey: 'workbench.settings.def.updates.check.option.all.label' },
     { value: 'security-only', labelKey: 'workbench.settings.def.updates.check.option.security-only.label' },
     { value: 'off', labelKey: 'workbench.settings.def.updates.check.option.off.label' },
+  ],
+});
+
+registerSetting({
+  key: 'updates.channel',
+  type: 'enum',
+  default: 'stable',
+  schema: channelSchema,
+  labelKey: 'workbench.settings.def.updates.channel.label',
+  descriptionKey: 'workbench.settings.def.updates.channel.description',
+  category: 'about',
+  tags: ['update', 'channel', 'beta', 'stable', 'release', 'early'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'desktop',
+  enumOptions: [
+    { value: 'stable', labelKey: 'workbench.settings.def.updates.channel.option.stable.label' },
+    { value: 'beta', labelKey: 'workbench.settings.def.updates.channel.option.beta.label' },
   ],
 });
 
