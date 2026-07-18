@@ -53,6 +53,7 @@ import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefs } from './workbench-settings-defs';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
+import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
 export const fr = {
@@ -102,5 +103,6 @@ export const fr = {
   ...workbenchSettingsDefs,
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
+  ...workbenchSettingsPanes,
   ...workbenchVariables,
 } as const satisfies Catalog;
