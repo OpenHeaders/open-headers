@@ -9,6 +9,12 @@
  * plane already routes a whole-buffer token to the JWT modal) and JSON
  * values (the viewer already renders JSON). In-buffer scanning stays
  * JWT-only by design — this hook is whole-buffer detection only.
+ *
+ * Hosts WITHOUT an in-buffer underline plane (`<pre>` fallbacks) opt
+ * in to JWTs via `allowJwt` — there the exclusion would leave a
+ * wholly-JWT buffer with no affordance at all, and no double
+ * affordance exists to prevent. Viewer-only: the chip opens the JWT
+ * modal read-only; jwt is never allowed on an editable buffer.
  */
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -25,6 +31,7 @@ import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 // Same lazy treatment as `useValueEditAction` — the modal mounts
 // nothing until the chip is actually clicked.
 const EncodedValueModalLazy = lazy(() => import('./EncodedValueModal'));
+const JWTEditorModalLazy = lazy(() => import('./JWTEditorModal'));
 
 export interface WholeBufferDecodeOptions {
   /** The viewer's full buffer text. */
@@ -37,6 +44,11 @@ export interface WholeBufferDecodeOptions {
   onApply?: (encoded: string) => void;
   /** Hosts whose value semantics own detection themselves opt out. */
   enabled?: boolean;
+  /** `<pre>` hosts with no in-buffer JWT underline plane let a
+   *  wholly-JWT buffer through the chip (read-only JWT modal).
+   *  Ignored unless the buffer is viewer-only — jwt never claims an
+   *  editable buffer. Monaco hosts keep the default exclusion. */
+  allowJwt?: boolean;
 }
 
 export interface WholeBufferDecodeResult {
@@ -53,18 +65,20 @@ export function useWholeBufferDecode({
   readOnly = false,
   onApply,
   enabled = true,
+  allowJwt = false,
 }: WholeBufferDecodeOptions): WholeBufferDecodeResult {
   const t = useT();
   const [open, setOpen] = useState(false);
 
+  const viewerOnly = readOnly || !onApply;
+  const jwtAllowed = allowJwt && viewerOnly;
+
   const detected = useMemo(() => {
     if (!enabled) return null;
     const hit = detectValueType(value);
-    if (hit === null || hit.type === 'jwt' || hit.type === 'json') return null;
+    if (hit === null || hit.type === 'json' || (hit.type === 'jwt' && !jwtAllowed)) return null;
     return hit;
-  }, [enabled, value]);
-
-  const viewerOnly = readOnly || !onApply;
+  }, [enabled, value, jwtAllowed]);
 
   const encodeCurrent = useCallback(
     (text: string): string | null => (detected ? encodeDetectedValue(detected, text) : null),
@@ -92,9 +106,13 @@ export function useWholeBufferDecode({
       <button
         type="button"
         className="dt-codeviewer-decode"
-        title={t(viewerOnly ? 'shared.valueEditors.decodeChipView' : 'shared.valueEditors.decodeChipEdit', {
-          title: t(COMPACT_VALUE_TITLE_KEYS[detected.type]),
-        })}
+        title={
+          detected.type === 'jwt'
+            ? t('shared.valueEditors.viewJwt')
+            : t(viewerOnly ? 'shared.valueEditors.decodeChipView' : 'shared.valueEditors.decodeChipEdit', {
+                title: t(COMPACT_VALUE_TITLE_KEYS[detected.type]),
+              })
+        }
         onClick={() => setOpen(true)}
       >
         {t('shared.valueEditors.decode')}
@@ -102,16 +120,20 @@ export function useWholeBufferDecode({
     ),
     decodeModal: open ? (
       <Suspense fallback={null}>
-        <EncodedValueModalLazy
-          open
-          title={t(COMPACT_VALUE_TITLE_KEYS[detected.type])}
-          decoded={compactDecodedText(detected)}
-          encode={encodeCurrent}
-          onSave={viewerOnly ? undefined : handleSave}
-          onCancel={closeModal}
-          gridType={pairGridTypeOf(detected.type)}
-          readOnly={viewerOnly}
-        />
+        {detected.type === 'jwt' ? (
+          <JWTEditorModalLazy open token={detected.token} onCancel={closeModal} readOnly />
+        ) : (
+          <EncodedValueModalLazy
+            open
+            title={t(COMPACT_VALUE_TITLE_KEYS[detected.type])}
+            decoded={compactDecodedText(detected)}
+            encode={encodeCurrent}
+            onSave={viewerOnly ? undefined : handleSave}
+            onCancel={closeModal}
+            gridType={pairGridTypeOf(detected.type)}
+            readOnly={viewerOnly}
+          />
+        )}
       </Suspense>
     ) : null,
   };

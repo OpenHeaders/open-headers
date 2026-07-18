@@ -16,6 +16,9 @@
  *   3. HEADERS TAB row (a request header carrying a base64 value): the
  *      hover-revealed view icon opens the same modal read-only; Close
  *      leaves everything untouched.
+ *   4. JAR COOKIE row (Storage tool window's Cookies section, a cookie
+ *      carrying a base64 value): hint glyph inline, hover view icon
+ *      opens the same modal read-only.
  *
  * Panel recipe: `panel.html?ohInspectTabId=N` + the CDP tab pin — a
  * real DevTools window is unreachable from Playwright.
@@ -52,6 +55,11 @@ const EDITED_B64 = b64(EDITED_DECODED);
 const HEADER_NAME = 'x-oh-token';
 const HEADER_DECODED = 'header-view@openheaders.io wants the row icon';
 const HEADER_B64 = b64(HEADER_DECODED);
+
+const JAR_COOKIE_NAME = 'oh_e2e_jar_b64';
+// Length divisible by 3 — padding-free base64, safe as a cookie value.
+const JAR_COOKIE_DECODED = 'jar-view@openheaders.io wants!';
+const JAR_COOKIE_B64 = b64(JAR_COOKIE_DECODED);
 
 /** POST /api/echo with a raw base64 body under a JSON content type —
  *  the Payload tab's raw-body viewer is the read-only surface under
@@ -182,6 +190,48 @@ test.describe('Headers tab — row view icon opens the read-only modal', () => {
 
     // Close left the row untouched — the raw value still renders.
     await expect(row).toContainText(HEADER_B64);
+  });
+});
+
+test.describe('Jar cookie row — hint glyph and read-only view icon', () => {
+  test('a base64 cookie in the Cookies section carries the glyph and the hover view icon', async () => {
+    await playgroundPage.evaluate(
+      ({ name, value }: { name: string; value: string }) => {
+        document.cookie = `${name}=${value}; path=/`;
+      },
+      { name: JAR_COOKIE_NAME, value: JAR_COOKIE_B64 },
+    );
+
+    const storageTab = panelPage.locator('[data-tool-window="storage"]').first();
+    if ((await storageTab.getAttribute('aria-selected')) !== 'true') {
+      await storageTab.click();
+    }
+    await panelPage.getByRole('navigation', { name: 'Storage type' }).getByText('Cookies').click();
+
+    const row = panelPage.locator('.dt-storage-row').filter({ hasText: JAR_COOKIE_NAME }).first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+
+    // Hint glyph rides the value cell inline (parity with the cookies tab).
+    await expect(row.locator('.dt-cookie-value-hint')).toHaveText('b64');
+
+    await row.hover();
+    const icon = row.getByRole('button', { name: 'View decoded — Base64 value' });
+    await expect(icon).toBeVisible();
+    await icon.click();
+
+    const modal = decodeModal();
+    await expect(modal).toBeVisible();
+    // Viewer: decoded text readable, encoded preview round-trips the
+    // exact cookie value, no write path.
+    await expect(modal.locator('.monaco-editor').first()).toContainText('jar-view@openheaders.io');
+    await expect(modal.getByText(JAR_COOKIE_B64, { exact: true })).toBeVisible();
+    await expect(modal.getByRole('button', { name: /Save/ })).toHaveCount(0);
+    const close = modal.getByText('Close', { exact: true });
+    await close.click();
+    await expect(modal).toBeHidden();
+
+    // Close left the row untouched — the raw value still renders.
+    await expect(row).toContainText(JAR_COOKIE_B64);
   });
 });
 

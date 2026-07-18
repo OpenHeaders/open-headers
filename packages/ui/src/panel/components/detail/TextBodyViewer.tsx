@@ -92,8 +92,9 @@ export default function TextBodyViewer({
   // Decode affordance for the plain-text branch — the Monaco branch
   // carries its own inside CodeViewer, so detection only runs here when
   // the body renders as a <pre> (exactly where base64/url-encoded
-  // plain-text bodies land).
-  const { decodeChip, decodeModal } = useWholeBufferDecode({ value: text, readOnly: true, enabled: !lang });
+  // plain-text bodies land). `allowJwt`: no underline plane on a <pre>,
+  // so a wholly-JWT body rides the chip too.
+  const { decodeChip, decodeModal } = useWholeBufferDecode({ value: text, readOnly: true, enabled: !lang, allowJwt: true });
 
   useEffect(() => {
     if (!prettyPrint || !lang || !text) {

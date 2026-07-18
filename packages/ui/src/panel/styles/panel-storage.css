@@ -228,6 +228,23 @@
   color: var(--dt-text);
 }
 
+/* Value cell carrying an encoding hint glyph (jar cookie rows) — the
+ * text truncates inside its own span so the glyph never rides the
+ * ellipsis or gets clipped by it. */
+.dt-storage-value--hinted {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.dt-storage-value--hinted .dt-storage-value-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dt-storage-clip-note {
   color: var(--dt-text-muted);
   font-style: italic;

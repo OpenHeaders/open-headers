@@ -129,12 +129,13 @@ describe('EncodedValueModal — read-only viewer', () => {
 // useWholeBufferDecode — detection gate + viewer/editor split
 // --------------------------------------------------------------------
 
-const Harness: React.FC<{ value: string; readOnly?: boolean; onApply?: (encoded: string) => void }> = ({
-  value,
-  readOnly,
-  onApply,
-}) => {
-  const { decodeChip, decodeModal } = useWholeBufferDecode({ value, readOnly, onApply });
+const Harness: React.FC<{
+  value: string;
+  readOnly?: boolean;
+  onApply?: (encoded: string) => void;
+  allowJwt?: boolean;
+}> = ({ value, readOnly, onApply, allowJwt }) => {
+  const { decodeChip, decodeModal } = useWholeBufferDecode({ value, readOnly, onApply, allowJwt });
   return (
     <App>
       {decodeChip}
@@ -176,6 +177,32 @@ describe('useWholeBufferDecode — detection gate', () => {
       return <>{decodeChip}</>;
     };
     render(<Disabled />);
+    expect(screen.queryByRole('button', { name: 'Decode' })).toBeNull();
+  });
+});
+
+describe('useWholeBufferDecode — allowJwt (<pre> hosts)', () => {
+  const token = buildJWT({ alg: 'HS256', typ: 'JWT' }, { sub: 'user@openheaders.io' });
+
+  it('lets a whole-buffer JWT through the chip on a read-only buffer, titled View JWT', async () => {
+    render(<Harness value={token} readOnly allowJwt />);
+    const chip = screen.getByRole('button', { name: 'Decode' });
+    expect(chip.getAttribute('title')).toBe('View JWT');
+    fireEvent.click(chip);
+
+    expect(await screen.findByRole('dialog')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
+    expect(screen.queryByText('Re-sign with secret')).toBeNull();
+    expect(screen.getByText('Close').closest('button')).not.toBeNull();
+  });
+
+  it('never lets jwt claim an editable buffer — allowJwt is viewer-only', () => {
+    render(<Harness value={token} allowJwt onApply={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Decode' })).toBeNull();
+  });
+
+  it('keeps the json exclusion even with allowJwt', () => {
+    render(<Harness value='{"userId":123,"role":"admin"}' readOnly allowJwt />);
     expect(screen.queryByRole('button', { name: 'Decode' })).toBeNull();
   });
 });

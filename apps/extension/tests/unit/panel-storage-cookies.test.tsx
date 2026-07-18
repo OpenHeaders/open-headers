@@ -9,6 +9,10 @@
  * and a refetch returning structurally identical data must keep the
  * ARRAY IDENTITY stable — same poll-loop discipline the DOM grid
  * learned the hard way (see panel-storage-hook.test.tsx).
+ *
+ * Value affordance parity with the cookies TAB rows: a detected value
+ * carries the hint glyph and the read-only view icon (present even on
+ * a non-writable jar — viewing writes nothing); plain values stay bare.
  */
 
 import { CookiesSection } from '@openheaders/ui/panel/components/storage/CookiesSection';
@@ -27,7 +31,38 @@ import {
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import { useCookieJarSticky, useSiteCookieJarSticky } from '@openheaders/ui/panel/data/cookies/use-cookie-jar';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The view icon's lazy modal pulls in the shared Monaco CodeEditor —
+// mocked to a textarea; the contract here is the affordance, not Monaco.
+vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
+  default: ({ value, readOnly }: { value?: string; readOnly?: boolean }) => (
+    <textarea data-testid="code-editor" value={value} readOnly={readOnly} onChange={() => {}} />
+  ),
+}));
+
+beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
+
+window.matchMedia = ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  dispatchEvent: () => false,
+})) as typeof window.matchMedia;
 
 const URL_MAIN = 'https://openheaders.io/';
 
@@ -106,6 +141,81 @@ describe('CookiesSection rows', () => {
     expect(screen.getByLabelText('Edit cookie sid')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Delete cookie sid'));
     expect(onDelete).toHaveBeenCalledWith(cookie);
+  });
+});
+
+describe('CookiesSection value affordance', () => {
+  function buildJWT(header: object, payload: object): string {
+    const encode = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return `${encode(header)}.${encode(payload)}.origsig`;
+  }
+
+  it('shows the hint glyph and the view icon on detected values, even when not writable', () => {
+    render(
+      <CookiesSection
+        cookies={[
+          makeCookie({ name: 'auth', value: buildJWT({ alg: 'HS256', typ: 'JWT' }, { sub: 'user@openheaders.io' }) }),
+          makeCookie({ name: 'blob', value: btoa('user@openheaders.io:hunter2!!') }),
+          makeCookie({ name: 'plain', value: 'just-an-opaque-id' }),
+        ]}
+        scopeUrl={URL_MAIN}
+        writable={false}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('JWT')).toBeTruthy();
+    expect(screen.getByText('b64')).toBeTruthy();
+    expect(screen.getByLabelText('View JWT')).toBeTruthy();
+    expect(screen.getByLabelText('View decoded — Base64 value')).toBeTruthy();
+    // The write affordances stay gated on writability.
+    expect(screen.queryByLabelText('Edit cookie auth')).toBeNull();
+    expect(screen.queryByLabelText('Delete cookie auth')).toBeNull();
+  });
+
+  it('gives a plain value neither glyph nor icon', () => {
+    render(
+      <CookiesSection
+        cookies={[makeCookie({ name: 'plain', value: 'just-an-opaque-id' })]}
+        scopeUrl={URL_MAIN}
+        writable={true}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('JWT')).toBeNull();
+    expect(screen.queryByLabelText(/View /)).toBeNull();
+  });
+
+  it('surfaces generic registry kinds through the icon (no glyph) — full-registry parity', () => {
+    render(
+      <CookiesSection
+        cookies={[makeCookie({ name: 'ts', value: '1720000000' })]}
+        scopeUrl={URL_MAIN}
+        writable={false}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('View decoded — Unix timestamp')).toBeTruthy();
+    expect(screen.queryByText('JWT')).toBeNull();
+  });
+
+  it('the view icon rides the stop-propagation lane — clicking it never opens the document', () => {
+    const onOpen = vi.fn();
+    render(
+      <CookiesSection
+        cookies={[makeCookie({ name: 'ts', value: '1720000000' })]}
+        scopeUrl={URL_MAIN}
+        writable={false}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+        onOpen={onOpen}
+        isActive={() => false}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('View decoded — Unix timestamp'));
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });
 

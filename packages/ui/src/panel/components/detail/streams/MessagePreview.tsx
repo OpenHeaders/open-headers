@@ -150,8 +150,14 @@ export function TextPayload({ text }: { text: string }) {
   // TextBodyViewer's <pre> fallback: a wholly-encoded payload (base64,
   // url-encoded, …) gets the corner chip opening the shared modal
   // read-only. JSON payloads are the tree's job; frames are transient,
-  // so there is never a write-back.
-  const { decodeChip, decodeModal } = useWholeBufferDecode({ value: text, readOnly: true, enabled: json === undefined });
+  // so there is never a write-back. `allowJwt`: the <pre> has no
+  // underline plane, so a wholly-JWT frame rides the chip too.
+  const { decodeChip, decodeModal } = useWholeBufferDecode({
+    value: text,
+    readOnly: true,
+    enabled: json === undefined,
+    allowJwt: true,
+  });
   return (
     <>
       {showJson ? (

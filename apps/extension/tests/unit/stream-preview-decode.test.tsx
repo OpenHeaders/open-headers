@@ -4,6 +4,8 @@
  * the plain-text branch. Pins:
  *   - a wholly-encoded text payload (base64) gets the corner Decode
  *     chip, and it opens the shared encoded-value modal read-only;
+ *   - a wholly-JWT frame rides the chip too (`allowJwt` — the <pre>
+ *     has no underline plane), opening the JWT viewer read-only;
  *   - JSON payloads stay the tree's job — no chip, no detection run;
  *   - plain readable text gets no chip.
  *
@@ -63,6 +65,23 @@ describe('TextPayload decode chip', () => {
     expect(editor.readOnly).toBe(true);
     expect(editor.value).toBe('user@openheaders.io:hunter2!!');
     expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
+  });
+
+  it('offers the chip on a wholly-JWT frame and opens the JWT viewer read-only', async () => {
+    const encode = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: 'user@openheaders.io' })}.origsig`;
+    render(
+      <App>
+        <TextPayload text={token} />
+      </App>,
+    );
+    const chip = screen.getByRole('button', { name: 'Decode' });
+    expect(chip.getAttribute('title')).toBe('View JWT');
+    fireEvent.click(chip);
+
+    expect(await screen.findByRole('dialog')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
+    expect(screen.queryByText('Re-sign with secret')).toBeNull();
   });
 
   it('offers no chip on a JSON payload — the tree owns it', () => {
