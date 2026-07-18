@@ -97,6 +97,7 @@ import {
   snapshotVaultPostStates,
   snapshotWebSocketRequestPostStates,
   snapshotWorkspaceVariablesPostStates,
+  snapshotWsResponseExamplePostStates,
 } from '../sync/service';
 import { getOracleForWorkspace, nextSwMutatorContextForWorkspace } from '../sync/service/accessors';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
@@ -212,6 +213,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
       'oh.sync.snapshotScriptPackages',
       'oh.sync.snapshotResponseExamples',
       'oh.sync.snapshotGrpcResponseExamples',
+      'oh.sync.snapshotWsResponseExamples',
       'oh.sync.snapshotSpecs',
       'oh.sync.snapshotOAuthBundle',
       'oh.sync.snapshotPauseMarkers',
@@ -336,6 +338,7 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
   'oh.sync.snapshotScriptPackages': (ws) => ({ entries: snapshotScriptPackagePostStates(ws) }),
   'oh.sync.snapshotResponseExamples': (ws) => ({ entries: snapshotResponseExamplePostStates(ws) }),
   'oh.sync.snapshotGrpcResponseExamples': (ws) => ({ entries: snapshotGrpcResponseExamplePostStates(ws) }),
+  'oh.sync.snapshotWsResponseExamples': (ws) => ({ entries: snapshotWsResponseExamplePostStates(ws) }),
   'oh.sync.snapshotSpecs': (ws) => ({ entries: snapshotSpecPostStates(ws) }),
   'oh.sync.snapshotLiveWorkflows': (ws) => ({ entries: snapshotLiveWorkflowPostStates(ws) }),
   'oh.sync.snapshotOAuthBundle': (ws) => ({ entries: snapshotOAuthBundlePostStates(ws) }),

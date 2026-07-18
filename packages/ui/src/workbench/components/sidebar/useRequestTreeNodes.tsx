@@ -8,6 +8,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type {
   GrpcRequest,
@@ -16,6 +17,7 @@ import type {
   ResponseExample,
   TreeNode as CoreTreeNode,
   WebSocketRequest,
+  WsResponseExample,
 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
@@ -49,6 +51,11 @@ interface UseRequestTreeNodesParams {
   renameGrpcResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
   duplicateGrpcResponseExample: (uid: string) => Promise<unknown> | unknown;
   deleteGrpcResponseExample: (uid: string) => Promise<unknown> | unknown;
+  /** Saved WebSocket examples grouped by parent WebSocket request uid, capture order. */
+  wsResponseExamplesByRequest: ReadonlyMap<string, WsResponseExample[]>;
+  renameWsResponseExample: (uid: string, name: string) => Promise<unknown> | unknown;
+  duplicateWsResponseExample: (uid: string) => Promise<unknown> | unknown;
+  deleteWsResponseExample: (uid: string) => Promise<unknown> | unknown;
   draftsByLocationRequest: Map<string, WorkbenchTab[]>;
   buildRequestDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
   expandedKeys: ReadonlySet<string>;
@@ -87,6 +94,8 @@ interface UseRequestTreeNodesParams {
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
   onSelectGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
+  /** Open a saved WebSocket response example in its viewer tab. */
+  onSelectWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
   onExportEntity?: (entity: SidebarExportEntity) => void;
   /** Open the request-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -321,19 +330,24 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             undefined,
             t,
           );
+          const wsExamples = p.wsResponseExamplesByRequest.get(node.uid) ?? [];
+          const hasWsExamples = wsExamples.length > 0;
           items.push({
             id: wid,
             kind: 'leaf',
             label: node.name,
             depth,
-            expandable: false,
+            expandable: hasWsExamples,
             parentId,
             icon: websocketTag(node.flavor, !wsComplete),
             badge: wsBadge,
             canRename: true,
             canDelete: true,
             canAddChild: false,
+            // Same idiom as request rows: opening also toggles the
+            // example children when the request has any.
             onOpen: () => {
+              if (hasWsExamples) p.toggleExpand(wid);
               p.onSelectWebSocketRequest?.(node.uid, node.name, node.flavor);
             },
             onRename: async (name: string) => {
@@ -345,6 +359,36 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
+          if (hasWsExamples && (p.expandedKeys.has(wid) || lowerFilter !== '')) {
+            for (const example of wsExamples) {
+              items.push({
+                id: `ws-example-${example.uid}`,
+                kind: 'leaf',
+                label: example.name,
+                depth: depth + 1,
+                expandable: false,
+                parentId: wid,
+                icon: exampleTag(),
+                canRename: true,
+                canDelete: true,
+                canAddChild: false,
+                onOpen: () => {
+                  p.onSelectWsResponseExample?.(example.uid, example.name, example.websocketRequestUid);
+                },
+                onRename: async (name: string) => {
+                  void p.renameWsResponseExample(example.uid, name);
+                },
+                onDuplicate: () => {
+                  void p.duplicateWsResponseExample(example.uid);
+                },
+                onDelete: () =>
+                  p.confirmDelete(example.name, () => {
+                    void p.deleteWsResponseExample(example.uid);
+                  }),
+                awareness: { entityType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: example.uid },
+              });
+            }
+          }
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;

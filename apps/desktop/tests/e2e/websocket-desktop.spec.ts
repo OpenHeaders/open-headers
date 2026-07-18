@@ -25,6 +25,10 @@
  *       namespace CONNECT, decoded event rows (greeting), an acked
  *       `echo` emit whose EVENT / reply / ACK all land, control frames
  *       subdued, clean Disconnect.
+ *   W6  Save Response (Phase F): a settled session freezes into a
+ *       WsResponseExample — viewer tab with the captured close pill,
+ *       sidebar example leaf under the parent request, "Open in
+ *       Request" returns to the parent editor.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle + honest browser posture (extension
@@ -358,4 +362,43 @@ test('W5 — socketio handshake, namespace connect, acked echo event and decoded
     .waitFor({ state: 'visible', timeout: 10_000 });
 
   await disconnectAndAwaitClose('Closed 1000');
+});
+
+// ── W6: Save Response — the settled session freezes into an example ──
+
+test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, Open in Request returns', async () => {
+  // A fresh settled session on the W1 request — the capture target.
+  await openWebsocketRequest('e2ewsd01');
+  await connectAndAwaitOpen();
+  await disconnectAndAwaitClose('Closed 1000');
+
+  await workbench.getByTestId('ws-save-response').filter({ visible: true }).first().click();
+
+  // The minted example opens in its viewer tab: the captured close
+  // pill + the read-only result pane.
+  await workbench.getByTestId('ws-example-result-pane').filter({ visible: true }).first().waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
+  await workbench
+    .getByTestId('ws-example-close-tag')
+    .filter({ visible: true })
+    .filter({ hasText: 'Closed 1000' })
+    .first()
+    .waitFor({ state: 'visible' });
+
+  // The sidebar nests the example leaf under its parent request row.
+  await workbench
+    .locator('[data-item-id^="ws-example-"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  // "Open in Request" returns to the parent editor with the captured
+  // shape riding the prefill bus as unsaved draft edits.
+  await workbench.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
+  await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(workbench.getByTestId('websocket-url-input').filter({ visible: true }).first()).toHaveValue(
+    /net\/ws-probe/,
+  );
 });

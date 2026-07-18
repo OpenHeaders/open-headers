@@ -23,6 +23,7 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useGrpcResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useGrpcResponseExamples';
 import { useResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
+import { useWsResponseExamplesByRequest } from '@openheaders/ui/shared/hooks/readers/useWsResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useDriftedSpecUids } from '../specs/use-spec-drift';
@@ -37,6 +38,11 @@ import {
   applyResponseExampleDuplicate,
   applyResponseExampleRename,
 } from '@openheaders/ui/shared/sync/response-example-write-client';
+import {
+  applyWsResponseExampleDelete,
+  applyWsResponseExampleDuplicate,
+  applyWsResponseExampleRename,
+} from '@openheaders/ui/shared/sync/ws-response-example-write-client';
 import { applySpecCreate, applySpecDelete, applySpecUpdate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
@@ -149,6 +155,8 @@ interface SidebarProps {
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
   onSelectGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
+  /** Open a saved WebSocket response example in its viewer tab. */
+  onSelectWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
   /** Opens the import hub (single "Import…" entry; formats auto-detected). */
   onImport?: (context?: { collectionId?: string }) => void;
   filterRef?: React.Ref<InputRef>;
@@ -209,6 +217,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateWebSocketRequest,
   onSelectResponseExample,
   onSelectGrpcResponseExample,
+  onSelectWsResponseExample,
   onImport,
   filterRef,
   dirtyRuleUids,
@@ -464,6 +473,51 @@ const Sidebar: React.FC<SidebarProps> = ({
     [grpcResponseExamplesByRequest],
   );
 
+  // ── WebSocket response examples (child nodes under WS request rows) ──
+  const wsResponseExamplesByRequest = useWsResponseExamplesByRequest(activeWorkspaceId);
+  const renameWsResponseExample = useCallback(
+    async (uid: string, name: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyWsResponseExampleRename(uid, name, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.renameExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const duplicateWsResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyWsResponseExampleDuplicate(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.duplicateExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const deleteWsResponseExample = useCallback(
+    async (uid: string) => {
+      if (!activeWorkspaceId) return;
+      const result = await applyWsResponseExampleDelete(uid, {
+        workspaceId: activeWorkspaceId,
+        surfaceId: 'workbench',
+      });
+      if (!result.ok) void message.error(t('workbench.sidebar.toast.deleteExampleFailed'));
+    },
+    [activeWorkspaceId, message, t],
+  );
+  const resolveWsResponseExampleParent = useCallback(
+    (exampleUid: string): string | null => {
+      for (const [websocketRequestUid, examples] of wsResponseExamplesByRequest) {
+        if (examples.some((e) => e.uid === exampleUid)) return websocketRequestUid;
+      }
+      return null;
+    },
+    [wsResponseExamplesByRequest],
+  );
+
   // ── Specs (workspace-level API specification documents) ──────────
   const specs = useSpecs(activeWorkspaceId);
   const createSpecEntity = useCallback(
@@ -583,6 +637,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameGrpcResponseExample,
     duplicateGrpcResponseExample,
     deleteGrpcResponseExample,
+    wsResponseExamplesByRequest,
+    renameWsResponseExample,
+    duplicateWsResponseExample,
+    deleteWsResponseExample,
     draftsByLocationRequest: draftsByLocation.request,
     buildRequestDraftNode,
     expandedKeys,
@@ -610,6 +668,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateWebSocketRequest,
     onSelectResponseExample,
     onSelectGrpcResponseExample,
+    onSelectWsResponseExample,
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
     onOpenRequestCollectionOverview,
@@ -757,6 +816,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     requestCollectionTrees,
     resolveResponseExampleParent,
     resolveGrpcResponseExampleParent,
+    resolveWsResponseExampleParent,
     containerRef,
     toggleExpand,
     setRenamingId,

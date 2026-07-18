@@ -14,11 +14,16 @@ import {
   buildWebSocketDeleteBatch,
   buildWebSocketUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/websocket-request-mutations';
+import { buildDeleteWsResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
 import type { WebSocketRequest } from '@openheaders/core/types';
 import {
   getWebSocketRequestSyncMirrorForWorkspace,
   type WebSocketRequestSyncMirror,
 } from '../../context/mirrors/websocket-request-sync-mirror';
+import {
+  getWsResponseExampleSyncMirrorForWorkspace,
+  type WsResponseExampleSyncMirror,
+} from '../../context/mirrors/ws-response-example-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -39,6 +44,8 @@ export type WebSocketRequestSimpleResult = SyncSimpleResult;
 export interface WebSocketRequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: WebSocketRequestSyncMirror;
+  /** Override the response-example mirror the delete cascade reads (tests). */
+  exampleMirror?: WsResponseExampleSyncMirror;
 }
 
 /**
@@ -113,7 +120,16 @@ export async function applyWebSocketRequestDelete(
   const mirror = resolveMirror(opts, getWebSocketRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
   if (!mirror.getWebSocketRequestMirror(webSocketRequestUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  // Cascade: a deleted WebSocket request must not leave orphan response
+  // examples behind (the gRPC request family's invariant, applied at
+  // this family's renderer-direct write site).
+  const exampleMirror = opts.exampleMirror ?? getWsResponseExampleSyncMirrorForWorkspace(opts.workspaceId);
+  await exampleMirror.hydrated;
+  const handle = resolveRendererContext(opts);
+  for (const example of exampleMirror.listWsResponseExamplesForRequest(webSocketRequestUid)) {
+    await applySyncPayload(buildDeleteWsResponseExampleBatch(example.uid, handle.next()));
+  }
+  const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildWebSocketDeleteBatch(webSocketRequestUid, ctx);
   return applySyncPayload(payload);
 }

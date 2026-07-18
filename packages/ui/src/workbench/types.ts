@@ -45,6 +45,7 @@ export type TabMode =
   | 'websocket-edit'
   | 'response-example'
   | 'grpc-response-example'
+  | 'ws-response-example'
   | 'rule-create'
   | 'live-variable-edit'
   | 'live-variable-create'
@@ -147,6 +148,8 @@ export interface WorkbenchTab {
   responseExampleUid?: string;
   /** For grpc-response-example tabs: the captured example being viewed. */
   grpcResponseExampleUid?: string;
+  /** For ws-response-example tabs: the captured session being viewed. */
+  wsResponseExampleUid?: string;
   /**
    * For request-create tabs minted by an example's "Try" action: the
    * source example's name at fork time. Chrome-only provenance — it

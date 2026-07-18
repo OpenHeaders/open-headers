@@ -43,6 +43,12 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.summary': '{servers} servers · {channels} channels · {operations} operations',
   'workbench.editors.websocket.spec.parseFailure': 'Spec did not parse: {message}',
   'workbench.editors.websocket.spec.issues': '{count} spec issues',
+  'workbench.editors.websocket.spec.useExample': 'Use example message…',
+  'workbench.editors.websocket.spec.browser.hint': 'Pick a message to compose its example payload.',
+  'workbench.editors.websocket.spec.browser.servers': 'Servers',
+  'workbench.editors.websocket.spec.browser.channels': 'Channels',
+  'workbench.editors.websocket.spec.browser.operations': 'Operations',
+  'workbench.editors.websocket.spec.browser.components': 'Components',
   'workbench.editors.websocket.specFooter.using': 'Using {name}',
   'workbench.editors.websocket.specFooter.none': 'No AsyncAPI spec linked',
   'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL certificate verification',
@@ -63,6 +69,9 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.toast.deletedOtherTab': 'This WebSocket request was deleted in another tab.',
   'workbench.editors.websocket.toast.updateFailed': 'Saving the WebSocket request failed',
   'workbench.editors.websocket.toast.updateFailedDetail': 'Saving the WebSocket request failed: {message}',
+  'workbench.editors.websocket.toast.savedExample': 'Saved example {name}',
+  'workbench.editors.websocket.toast.saveExampleFailed': 'Saving the example failed',
+  'workbench.editors.websocket.toast.saveExampleFailedDetail': 'Saving the example failed: {message}',
   // ── Session pane ────────────────────────────────────────────────────
   'workbench.editors.websocket.session.title': 'Session',
   'workbench.editors.websocket.session.emptyHint': 'Connect to start the session — messages appear here live.',
@@ -76,6 +85,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.noCloseFrame': 'Connection ended without a Close frame',
   'workbench.editors.websocket.session.duration': '{ms} ms',
   'workbench.editors.websocket.session.sendMessage': 'Send',
+  'workbench.editors.websocket.session.saveResponse': 'Save Response',
   'workbench.editors.websocket.session.sendIdle': 'Connect to send messages.',
   'workbench.editors.websocket.session.sendFailed': 'Sending the message failed',
   'workbench.editors.websocket.session.hostNotice':
@@ -122,4 +132,14 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.sio.binaryAttachments': 'Binary attachment frame ({count} attachments)',
   'workbench.editors.websocket.timeline.sio.ack': 'ack',
   'workbench.editors.websocket.timeline.sio.eventNoName': 'event',
+  // ── Response example viewer ─────────────────────────────────────────
+  'workbench.editors.wsExample.loading': 'Loading example…',
+  'workbench.editors.wsExample.notFound': 'This example is gone — it may have been deleted in another tab.',
+  'workbench.editors.wsExample.openInRequest': 'Open in Request',
+  'workbench.editors.wsExample.openInRequestTooltip':
+    'Open the parent WebSocket request with this captured shape as unsaved edits.',
+  'workbench.editors.wsExample.capturedTooltip': 'Captured {date}',
+  'workbench.editors.wsExample.toast.deletedOtherTab': 'This example was deleted in another tab.',
+  'workbench.editors.wsExample.toast.saveFailed': 'Saving the example failed',
+  'workbench.editors.wsExample.toast.saveFailedDetail': 'Saving the example failed: {message}',
 } as const satisfies Catalog;

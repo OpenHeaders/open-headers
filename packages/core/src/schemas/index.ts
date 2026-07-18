@@ -193,3 +193,10 @@ export {
   ExtensionWorkspaceSourceSchema,
   WorkspaceSchema,
 } from './workspace';
+export {
+  CapturedWsCloseSchema,
+  CapturedWsMessageSchema,
+  CapturedWsRequestSchema,
+  CapturedWsResponseSchema,
+  WsResponseExampleSchema,
+} from './ws-response-example';

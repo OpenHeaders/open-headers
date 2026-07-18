@@ -22,6 +22,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
 import type { LiveWsSession, WsSessionTiming } from './useLiveWsSession';
 
@@ -41,9 +42,20 @@ interface WsSessionPaneProps {
   /** Session wire family — forwarded to the timeline's display decode. */
   flavor?: WebSocketFlavor;
   onClear: () => void;
+  /** "Save Response" — present only when the settled session can be
+   *  captured as an example (connected, non-error). */
+  onSaveResponse?: () => void;
 }
 
-const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, hostNotice, flavor, onClear }) => {
+const WsSessionPane: React.FC<WsSessionPaneProps> = ({
+  live,
+  snapshot,
+  timing,
+  hostNotice,
+  flavor,
+  onClear,
+  onSaveResponse,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
@@ -174,6 +186,11 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, h
           <Text type="secondary" style={{ fontSize: 11 }} data-testid="ws-session-duration">
             {t('workbench.editors.websocket.session.duration', { ms: snapshot.durationMs })}
           </Text>
+          {onSaveResponse && (
+            <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} data-testid="ws-save-response">
+              {t('workbench.editors.websocket.session.saveResponse')}
+            </Button>
+          )}
           <Dropdown
             trigger={['click']}
             overlayStyle={{ minWidth: 180 }}

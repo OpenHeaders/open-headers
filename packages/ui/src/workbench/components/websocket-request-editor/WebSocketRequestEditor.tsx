@@ -32,8 +32,22 @@
  * hood).
  */
 
-import { DisconnectOutlined, LinkOutlined, LockOutlined, SendOutlined, UnlockOutlined } from '@ant-design/icons';
-import { type AsyncApiCensus, AsyncApiParseError, parseAsyncApi } from '@openheaders/core/asyncapi';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  DisconnectOutlined,
+  LinkOutlined,
+  LockOutlined,
+  SendOutlined,
+  UnlockOutlined,
+} from '@ant-design/icons';
+import {
+  type AsyncApiCensus,
+  type AsyncApiMessage,
+  AsyncApiParseError,
+  parseAsyncApi,
+  synthesizeExamplePayload,
+} from '@openheaders/core/asyncapi';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
@@ -60,12 +74,23 @@ import {
   Tabs,
   Tag,
   Tooltip,
+  Tree,
+  type TreeDataNode,
   Typography,
   theme,
 } from 'antd';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { getWsResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/ws-response-example-sync-mirror';
+import {
+  applyWsResponseExampleCreate,
+  nextWsExampleName,
+} from '@openheaders/ui/shared/sync/ws-response-example-write-client';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  capturedWsResponseFromSnapshot,
+  capturedWsRequestFromDraft,
+} from '../ws-response-example/ws-example-draft';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import DocsTab from '../request-editor/DocsTab';
@@ -75,10 +100,13 @@ import {
   buildWebSocketRequestUpdates,
   canonicalWebSocketRequestProjection,
   draftFromWebSocketRequest,
+  headersToRows,
+  paramsToRows,
   type WebSocketDraft,
 } from './draft';
 import { useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
 import { makeWsPageResolutionFactory, publishWsPageResolutionFactory } from './ws-page-session';
+import { subscribeWsPrefill } from './ws-prefill-bus';
 import WsSessionPane from './WsSessionPane';
 
 const { Text } = Typography;
@@ -89,6 +117,8 @@ const SEND_MESSAGE_SHORTCUT = isMac ? '⇧⌘↵' : 'Ctrl+Shift+Enter';
 interface WebSocketRequestEditorProps {
   websocketRequestUid: string;
   workspaceId: string | null;
+  /** "Save Response" landed — open the minted example's viewer tab. */
+  onOpenWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -141,6 +171,7 @@ const toggleScheme = (url: string): string => {
 const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   websocketRequestUid,
   workspaceId,
+  onOpenWsResponseExample,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -191,6 +222,152 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       return { census: null, parseError: err instanceof AsyncApiParseError ? err.message : String(err) };
     }
   }, [linkedSpec]);
+
+  // ── Compose aids off the specLink census (Phase F) ───────────────
+  // Channel messages first (channel-local keys — the vendor outline
+  // shape), then reusable component messages not shadowed by a channel
+  // entry. Each option pre-computes its synthesis over the ratified
+  // subset so unsupported payloads (no schema, combinators) render
+  // disabled instead of failing on pick.
+  const exampleMessages = useMemo(() => {
+    const c = census.census;
+    if (!c) return [];
+    const seen = new Set<string>();
+    const out: {
+      key: string;
+      label: string;
+      message: AsyncApiMessage;
+      synth: { value: unknown } | null;
+    }[] = [];
+    const add = (scope: string, message: AsyncApiMessage) => {
+      const key = `${scope}:${message.name}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ key, label: message.name, message, synth: synthesizeExamplePayload(message.payload, c.componentSchemas) });
+    };
+    for (const channel of c.channels) for (const message of channel.messages) add(channel.name, message);
+    for (const message of c.componentMessages) add('components', message);
+    return out;
+  }, [census]);
+
+  // Apply one censused message to the compose surface: the synthesized
+  // payload lands in the message editor (pretty JSON); the socketio
+  // flavor maps it to the single-element arguments array and prefills
+  // the event name with the message key; the raw flavor flips the
+  // display mode to JSON.
+  const applyExampleMessage = useCallback(
+    (key: string) => {
+      const option = exampleMessages.find((m) => m.key === key);
+      if (!option || option.synth === null) return;
+      const socketio = entity?.flavor === 'socketio';
+      const text = JSON.stringify(socketio ? [option.synth.value] : option.synth.value, null, 2);
+      setDraft((d) => ({
+        ...d,
+        message: text,
+        ...(socketio ? { eventName: option.message.name } : { messageFormat: 'json' as const }),
+      }));
+      setActiveTab('message');
+    },
+    [exampleMessages, entity],
+  );
+
+  // ── Channel browser (AsyncAPI tab) ───────────────────────────────
+  // The census rendered for pick-and-prefill: channels nest their
+  // messages (channel-local keys), operations carry direction glyphs,
+  // components list the reusable messages. Message rows are the only
+  // selectable nodes — selecting one applies its example to the
+  // compose surface (the Message-tab picker's twin gesture).
+  const browserTree = useMemo((): TreeDataNode[] => {
+    const c = census.census;
+    if (!c) return [];
+    const nodes: TreeDataNode[] = [];
+    if (c.servers.length > 0) {
+      nodes.push({
+        key: 'g:servers',
+        selectable: false,
+        title: t('workbench.editors.websocket.spec.browser.servers'),
+        children: c.servers.map((s) => ({
+          key: `srv:${s.name}`,
+          selectable: false,
+          title: [s.name, s.protocol, s.host].filter((part) => part !== null && part !== undefined).join(' · '),
+        })),
+      });
+    }
+    if (c.channels.length > 0) {
+      nodes.push({
+        key: 'g:channels',
+        selectable: false,
+        title: t('workbench.editors.websocket.spec.browser.channels'),
+        children: c.channels.map((channel) => ({
+          key: `ch:${channel.name}`,
+          selectable: false,
+          title: channel.address !== null && channel.address !== channel.name
+            ? `${channel.name} · ${channel.address}`
+            : channel.name,
+          children: channel.messages.map((message) => ({
+            key: `msg:${channel.name}:${message.name}`,
+            title: message.name,
+          })),
+        })),
+      });
+    }
+    if (c.operations.length > 0) {
+      nodes.push({
+        key: 'g:operations',
+        selectable: false,
+        title: t('workbench.editors.websocket.spec.browser.operations'),
+        children: c.operations.map((op) => ({
+          key: `op:${op.name}`,
+          selectable: false,
+          icon: op.action === 'send' ? <ArrowUpOutlined /> : <ArrowDownOutlined />,
+          title: op.channelName !== null ? `${op.name} · ${op.channelName}` : op.name,
+        })),
+      });
+    }
+    if (c.componentMessages.length > 0) {
+      nodes.push({
+        key: 'g:components',
+        selectable: false,
+        title: t('workbench.editors.websocket.spec.browser.components'),
+        children: c.componentMessages.map((message) => ({
+          key: `msg:components:${message.name}`,
+          title: message.name,
+        })),
+      });
+    }
+    return nodes;
+  }, [census, t]);
+
+  const handleBrowserSelect = useCallback(
+    (keys: React.Key[]) => {
+      const key = keys[0];
+      if (typeof key !== 'string' || !key.startsWith('msg:')) return;
+      applyExampleMessage(key.slice('msg:'.length));
+    },
+    [applyExampleMessage],
+  );
+
+  // "Open in Request" prefill — a saved example's captured request
+  // block lands as unsaved draft edits (the gRPC prefill flow; flavor
+  // is identity and stays the entity's own).
+  useEffect(() => {
+    if (!entity) return;
+    return subscribeWsPrefill(entity.uid, (captured) => {
+      setDraft((d) => ({
+        ...d,
+        url: captured.url,
+        subprotocols: [...captured.subprotocols],
+        headers: headersToRows(captured.headers),
+        params: paramsToRows(captured.params),
+        message: captured.message,
+        eventName: captured.eventName ?? '',
+        namespace: captured.namespace ?? '',
+        ackEnabled: captured.ackEnabled ?? false,
+        sslVerification: captured.sslVerification,
+        timeoutMs: captured.timeoutMs,
+      }));
+    });
+  }, [entity]);
 
   const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
 
@@ -300,6 +477,44 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     setHostNotice(null);
   }, []);
 
+  // Save Response — freeze the settled session as an example under
+  // this request. Captures the AUTHORED compose state (draft rows as
+  // edited, variable refs unresolved) plus the settled snapshot's
+  // facts; only a session that opened can be captured (the gRPC
+  // example's law).
+  const handleSaveResponse = useCallback(async () => {
+    if (!entity || !workspaceId || !snapshot || snapshot.error !== null || !snapshot.connected) return;
+    const mirror = getWsResponseExampleSyncMirrorForWorkspace(workspaceId);
+    await mirror.hydrated;
+    const name = nextWsExampleName(mirror, entity.uid, entity.name);
+    const result = await applyWsResponseExampleCreate(
+      {
+        websocketRequestPath: entity.path,
+        example: {
+          websocketRequestUid: entity.uid,
+          name,
+          capturedAt: new Date().toISOString(),
+          request: capturedWsRequestFromDraft(draft, entity.flavor),
+          response: capturedWsResponseFromSnapshot(snapshot),
+        },
+      },
+      { workspaceId, surfaceId: 'workbench' },
+    );
+    if (result.ok) {
+      toast.success(t('workbench.editors.websocket.toast.savedExample', { name }));
+      onOpenWsResponseExample?.(result.wsResponseExample.uid, name, entity.uid);
+    } else {
+      toast.error(
+        'message' in result && result.message
+          ? t('workbench.editors.websocket.toast.saveExampleFailedDetail', { message: result.message })
+          : t('workbench.editors.websocket.toast.saveExampleFailed'),
+      );
+    }
+  }, [entity, workspaceId, snapshot, draft, toast, onOpenWsResponseExample, t]);
+
+  const canSaveResponse =
+    workspaceId !== null && snapshot !== null && snapshot.error === null && snapshot.connected;
+
   const connectDisabledReason =
     requestRuntimeKind !== 'node' && !pageSession
       ? t('workbench.editors.websocket.connect.browserHost')
@@ -374,6 +589,24 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   }
 
   const secure = !draft.url.startsWith('ws://');
+
+  // "Use example message" — the compose aid off the specLink census.
+  // A command picker, not a value: picking synthesizes the payload
+  // into the editor and resets to the placeholder. Options without a
+  // synthesizable payload (no schema, combinators) stay visible but
+  // disabled — the census is shown honestly, never filtered silently.
+  const exampleSelect =
+    exampleMessages.length > 0 ? (
+      <Select
+        size="small"
+        style={{ minWidth: 190 }}
+        placeholder={t('workbench.editors.websocket.spec.useExample')}
+        value={null}
+        options={exampleMessages.map((m) => ({ value: m.key, label: m.label, disabled: m.synth === null }))}
+        onChange={(key: string) => applyExampleMessage(key)}
+        data-testid="ws-use-example-message"
+      />
+    ) : null;
 
   // Header consolidates the full target row (the gRPC editor's
   // discipline): scheme lock + URL in the title slot, Connect in the
@@ -579,20 +812,24 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                             </Text>
                           </span>
                         </Tooltip>
+                        {exampleSelect}
                       </div>
                     ) : (
-                      <Segmented
-                        size="small"
-                        value={draft.messageFormat}
-                        onChange={(messageFormat) =>
-                          setDraft((d) => ({ ...d, messageFormat: messageFormat as 'text' | 'json' }))
-                        }
-                        options={[
-                          { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
-                          { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
-                        ]}
-                        data-testid="websocket-message-format"
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Segmented
+                          size="small"
+                          value={draft.messageFormat}
+                          onChange={(messageFormat) =>
+                            setDraft((d) => ({ ...d, messageFormat: messageFormat as 'text' | 'json' }))
+                          }
+                          options={[
+                            { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
+                            { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
+                          ]}
+                          data-testid="websocket-message-format"
+                        />
+                        {exampleSelect}
+                      </div>
                     )}
                     {(socketioFlavor || draft.messageFormat === 'json') && (
                       <CodeEditorActions
@@ -714,6 +951,23 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       })}
                     </Text>
                   )}
+                  {browserTree.length > 0 && (
+                    <div data-testid="ws-asyncapi-browser">
+                      {/* Pick a message row to land its synthesized
+                        example on the compose surface. */}
+                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                        {t('workbench.editors.websocket.spec.browser.hint')}
+                      </Text>
+                      <Tree
+                        treeData={browserTree}
+                        showIcon
+                        defaultExpandAll
+                        selectedKeys={[]}
+                        onSelect={handleBrowserSelect}
+                        blockNode
+                      />
+                    </div>
+                  )}
                   {census.parseError !== null && (
                     <Text type="warning" style={{ fontSize: 11 }}>
                       {t('workbench.editors.websocket.spec.parseFailure', { message: census.parseError })}
@@ -802,6 +1056,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                   hostNotice={hostNotice}
                   flavor={entity.flavor}
                   onClear={handleClearSession}
+                  {...(canSaveResponse ? { onSaveResponse: () => void handleSaveResponse() } : {})}
                 />
               ) : (
                 // Always-attached session pane (the gRPC editor's

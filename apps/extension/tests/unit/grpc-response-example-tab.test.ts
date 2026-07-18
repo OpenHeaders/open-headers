@@ -117,6 +117,7 @@ const emptyLookups: TabDisplayLookups = {
   liveWorkflows: [],
   responseExamples: [],
   grpcResponseExamples: [],
+  wsResponseExamples: [],
   specs: [],
 };
 

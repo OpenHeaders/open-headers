@@ -50,6 +50,7 @@ export type EntityPostState = Partial<
     | 'scriptPackagePostState'
     | 'responseExamplePostState'
     | 'grpcResponseExamplePostState'
+    | 'wsResponseExamplePostState'
     | 'specPostState'
     | 'liveValuePostState'
     | 'liveFallbackPriorityPostState'

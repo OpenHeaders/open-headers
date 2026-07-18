@@ -48,6 +48,8 @@ interface UseSelectOpenedTabParams {
   resolveResponseExampleParent?: (exampleUid: string) => string | null;
   /** Parent gRPC request uid for a gRPC response-example uid. */
   resolveGrpcResponseExampleParent?: (exampleUid: string) => string | null;
+  /** Parent WebSocket request uid for a WebSocket response-example uid. */
+  resolveWsResponseExampleParent?: (exampleUid: string) => string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -79,6 +81,7 @@ export function useSelectOpenedTab({
   requestCollectionTrees,
   resolveResponseExampleParent,
   resolveGrpcResponseExampleParent,
+  resolveWsResponseExampleParent,
   containerRef,
   setExpandedKeys,
   setSectionsExpanded,
@@ -135,7 +138,8 @@ export function useSelectOpenedTab({
         activeTabId.startsWith('resp-example-') ||
         activeTabId.startsWith('grpc-request-') ||
         activeTabId.startsWith('grpc-example-') ||
-        activeTabId.startsWith('websocket-request-')) &&
+        activeTabId.startsWith('websocket-request-') ||
+        activeTabId.startsWith('ws-example-')) &&
       view === 'api-requests'
     ) {
       nodeId = activeTabId;
@@ -144,17 +148,22 @@ export function useSelectOpenedTab({
       // the example child is visible (e.g. right after Save Response).
       // Both leaf families (HTTP + gRPC) share the tree; the parent
       // node-id prefix follows the family.
-      const isExample = activeTabId.startsWith('resp-example-') || activeTabId.startsWith('grpc-example-');
+      const isExample =
+        activeTabId.startsWith('resp-example-') ||
+        activeTabId.startsWith('grpc-example-') ||
+        activeTabId.startsWith('ws-example-');
       const parentPrefix = activeTabId.startsWith('grpc-')
         ? 'grpc-request-'
-        : activeTabId.startsWith('websocket-request-')
+        : activeTabId.startsWith('websocket-request-') || activeTabId.startsWith('ws-example-')
           ? 'websocket-request-'
           : 'request-';
       const targetUid = activeTabId.startsWith('resp-example-')
         ? (resolveResponseExampleParent?.(activeTabId.replace('resp-example-', '')) ?? null)
         : activeTabId.startsWith('grpc-example-')
           ? (resolveGrpcResponseExampleParent?.(activeTabId.replace('grpc-example-', '')) ?? null)
-          : activeTabId.replace(parentPrefix, '');
+          : activeTabId.startsWith('ws-example-')
+            ? (resolveWsResponseExampleParent?.(activeTabId.replace('ws-example-', '')) ?? null)
+            : activeTabId.replace(parentPrefix, '');
       if (!targetUid) return false;
       let found: { ancestors: string[] } | null = null;
       for (const col of requestCollectionTrees) {
@@ -296,6 +305,7 @@ export function useSelectOpenedTab({
     requestCollectionTrees,
     resolveResponseExampleParent,
     resolveGrpcResponseExampleParent,
+    resolveWsResponseExampleParent,
     view,
     containerRef,
     setExpandedKeys,

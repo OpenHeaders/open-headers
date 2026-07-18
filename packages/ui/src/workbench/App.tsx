@@ -24,6 +24,7 @@ import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVa
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useAllGrpcResponseExamples } from '@openheaders/ui/shared/hooks/readers/useGrpcResponseExamples';
+import { useAllWsResponseExamples } from '@openheaders/ui/shared/hooks/readers/useWsResponseExamples';
 import { useAllResponseExamples } from '@openheaders/ui/shared/hooks/readers/useResponseExamples';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
@@ -322,6 +323,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // All gRPC examples in the editing-scope workspace — the sibling feed
   // for grpc-response-example viewer tabs.
   const grpcResponseExamples = useAllGrpcResponseExamples(editingScopeWorkspaceId);
+  // All WebSocket examples in the editing-scope workspace — the sibling
+  // feed for ws-response-example viewer tabs.
+  const wsResponseExamples = useAllWsResponseExamples(editingScopeWorkspaceId);
   // All specs in the editing-scope workspace — feeds the spec-edit tab
   // display-label lookup and the deleted-spec tab cleanup.
   const specs = useSpecs(editingScopeWorkspaceId);
@@ -530,6 +534,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateWebSocketRequestTab,
     openResponseExampleTab,
     openGrpcResponseExampleTab,
+    openWsResponseExampleTab,
     openDuplicateRuleScratch,
     openDuplicateRequestScratch,
     openLiveVariableEdit,
@@ -902,6 +907,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     responseExamples,
     grpcRequests: requestsApi.grpcRequests,
     grpcResponseExamples,
+    websocketRequests: requestsApi.websocketRequests,
+    wsResponseExamples,
     specs,
     workspaces: workspacesApi.workspaces,
     editingScopeWorkspaceId,
@@ -1079,6 +1086,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openDuplicateRequestScratch={openDuplicateRequestScratch}
         openResponseExampleTab={openResponseExampleTab}
         openGrpcResponseExampleTab={openGrpcResponseExampleTab}
+        openWsResponseExampleTab={openWsResponseExampleTab}
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
         handleSwitchWorkspace={handleSwitchWorkspace}
@@ -1118,6 +1126,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openDuplicateRequestScratch,
       openResponseExampleTab,
       openGrpcResponseExampleTab,
+      openWsResponseExampleTab,
       openGrpcRequestEditTab,
       openWebSocketRequestEditTab,
       liveWorkflowsApi.workflows,
@@ -1282,6 +1291,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
         openResponseExampleTab={openResponseExampleTab}
         openGrpcResponseExampleTab={openGrpcResponseExampleTab}
+        openWsResponseExampleTab={openWsResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
@@ -1329,6 +1339,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateWebSocketRequestTab,
       openResponseExampleTab,
       openGrpcResponseExampleTab,
+      openWsResponseExampleTab,
       openLiveWorkflowEdit,
       openCreateLiveWorkflow,
       liveWorkflowsApi.workflows,

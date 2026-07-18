@@ -6,6 +6,7 @@
  */
 
 export { parseAsyncApi } from './parse';
+export { type SynthesizedPayload, synthesizeExamplePayload } from './synthesize';
 export {
   type AsyncApiCensus,
   type AsyncApiChannel,

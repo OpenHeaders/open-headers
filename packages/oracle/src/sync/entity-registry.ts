@@ -76,6 +76,7 @@ import {
   WEBSOCKET_REQUEST_PARAMS_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_PATH,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { type BroadcastProjector, composeProjectors, type EntityPostState } from './bridge';
 import type { InMemoryBroadcast } from './broadcast';
@@ -106,6 +107,7 @@ import { createTemplateFolderCache } from './caches/template-folder-cache';
 import { createVaultCache } from './caches/vault-cache';
 import { createWebSocketRequestCache } from './caches/websocket-request-cache';
 import { createWorkspaceVariablesCache } from './caches/workspace-variables-cache';
+import { createWsResponseExampleCache } from './caches/ws-response-example-cache';
 import type { EntityOracle } from './oracle';
 import { projectCollectionByUid, projectCollectionPostState } from './post-state/collection-post-state';
 import { projectEnvironmentByUid, projectEnvironmentPostState } from './post-state/env-post-state';
@@ -155,6 +157,10 @@ import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
 } from './post-state/workspace-variables-post-state';
+import {
+  projectWsResponseExampleByUid,
+  projectWsResponseExamplePostState,
+} from './post-state/ws-response-example-post-state';
 import type { SwContextHandle } from './sw-context';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -441,6 +447,14 @@ export const GRPC_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   projectByUid: projectGrpcResponseExampleByUid,
 });
 
+export const WS_RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
+  entityType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  createCache: createWsResponseExampleCache,
+  postStateKey: 'wsResponseExamplePostState',
+  projectPostState: projectWsResponseExamplePostState,
+  projectByUid: projectWsResponseExampleByUid,
+});
+
 export const RESPONSE_EXAMPLE_REGISTRATION = flatEntity({
   entityType: RESPONSE_EXAMPLE_ENTITY_TYPE,
   createCache: createResponseExampleCache,
@@ -540,6 +554,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   REQUEST_FOLDER_REGISTRATION,
   RESPONSE_EXAMPLE_REGISTRATION,
   GRPC_RESPONSE_EXAMPLE_REGISTRATION,
+  WS_RESPONSE_EXAMPLE_REGISTRATION,
   TEMPLATE_REGISTRATION,
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,

@@ -15,6 +15,7 @@ import {
   VAULT_ID,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type {
   Collection,
@@ -30,6 +31,8 @@ import type {
   Rule,
   Spec,
   Template,
+  WebSocketRequest,
+  WsResponseExample,
 } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { findCollectionByPath } from '@openheaders/ui/shared/variables';
@@ -59,6 +62,8 @@ interface UseWorkbenchActiveTabOptions {
   responseExamples: readonly ResponseExample[];
   grpcRequests: readonly GrpcRequest[];
   grpcResponseExamples: readonly GrpcResponseExample[];
+  websocketRequests: readonly WebSocketRequest[];
+  wsResponseExamples: readonly WsResponseExample[];
   specs: readonly Spec[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
@@ -103,6 +108,8 @@ export function useWorkbenchActiveTab({
   responseExamples,
   grpcRequests,
   grpcResponseExamples,
+  websocketRequests,
+  wsResponseExamples,
   specs,
   workspaces,
   editingScopeWorkspaceId,
@@ -138,6 +145,10 @@ export function useWorkbenchActiveTab({
       case 'grpc-response-example':
         return activeTab.grpcResponseExampleUid
           ? { entityType: GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.grpcResponseExampleUid }
+          : null;
+      case 'ws-response-example':
+        return activeTab.wsResponseExampleUid
+          ? { entityType: WS_RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: activeTab.wsResponseExampleUid }
           : null;
       case 'template-edit':
         return activeTab.templateUid ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid } : null;
@@ -206,6 +217,7 @@ export function useWorkbenchActiveTab({
       liveWorkflows,
       responseExamples,
       grpcResponseExamples,
+      wsResponseExamples,
       specs,
     }),
     [
@@ -220,6 +232,7 @@ export function useWorkbenchActiveTab({
       liveWorkflows,
       responseExamples,
       grpcResponseExamples,
+      wsResponseExamples,
       specs,
     ],
   );
@@ -240,6 +253,7 @@ export function useWorkbenchActiveTab({
       templateCollectionTrees,
       t,
       grpcRequests,
+      websocketRequests,
     );
     const scratchLabel = scratchLabelForMode(activeTab.mode, t);
     if (scratchLabel && base.length >= 2) {
@@ -254,6 +268,7 @@ export function useWorkbenchActiveTab({
     requestCollectionTrees,
     requests,
     grpcRequests,
+    websocketRequests,
     templateCollectionTrees,
     t,
   ]);

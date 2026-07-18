@@ -38,6 +38,15 @@
  *       socket.io server at `/net/sio-probe` — namespace connect,
  *       decoded event rows, an acked `echo` emit with its reply and
  *       correlated ACK, clean Disconnect.
+ *   B8  compose aids (Phase F): the linked spec's census feeds the
+ *       Message-tab "Use example message" picker (synthesized payload
+ *       lands in the compose editor, display mode flips to JSON) and
+ *       the AsyncAPI tab's channel browser (picking a message row
+ *       composes its example and switches to the Message tab).
+ *   B9  Save Response (Phase F): a settled session freezes into a
+ *       WsResponseExample — viewer tab with the captured close pill,
+ *       sidebar example leaf under the parent request, and "Open in
+ *       Request" returns to the parent editor.
  *
  * Deliberately NOT here: the node-knob session legs (custom headers /
  * TLS verify-off on the wire, `?push=` param batches, foreign close
@@ -475,4 +484,78 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
     .waitFor({ state: 'visible', timeout: 10_000 });
 
   await disconnectAndAwaitClose();
+});
+
+// ── B8: compose aids off the linked spec's census ───────────────────
+
+test('B8 — "Use example message" synthesizes the scaffold payload; the channel browser composes on pick', async () => {
+  await openWebsocketRequest(RAW_NAME);
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+
+  // The Message-tab picker lists the census's messages; `subscribe`
+  // synthesizes from the scaffold's authored examples + default.
+  await page.getByTestId('ws-use-example-message').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'subscribe' })
+    .first()
+    .click();
+  const composed = await workbench.monacoText(0);
+  expect(composed).toContain('"topics"');
+  expect(composed).toContain('"orders"');
+  expect(composed).toContain('"format": "full"');
+
+  // The AsyncAPI tab's channel browser: picking the `ping` message row
+  // composes its example (const op) and switches back to Message.
+  await page.getByRole('tab', { name: 'AsyncAPI', exact: true }).filter({ visible: true }).first().click();
+  const browser = page.getByTestId('ws-asyncapi-browser').filter({ visible: true }).first();
+  await browser.waitFor({ state: 'visible', timeout: 10_000 });
+  await browser.getByText('ping', { exact: true }).first().click();
+  await page
+    .getByRole('tab', { name: 'Message', exact: true })
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible' });
+  expect(await workbench.monacoText(0)).toContain('"op": "ping"');
+});
+
+// ── B9: Save Response — the settled session freezes into an example ──
+
+test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, Open in Request returns', async () => {
+  // The draft still points at the probe (B5) — run a fresh session.
+  await urlInput().fill(WS_PROBE_URL);
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await disconnectAndAwaitClose();
+
+  await page.getByTestId('ws-save-response').filter({ visible: true }).first().click();
+
+  // The minted example opens in its viewer tab: the captured close
+  // pill + the read-only result pane.
+  await page.getByTestId('ws-example-result-pane').filter({ visible: true }).first().waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
+  await page
+    .getByTestId('ws-example-close-tag')
+    .filter({ visible: true })
+    .filter({ hasText: 'Closed 1000' })
+    .first()
+    .waitFor({ state: 'visible' });
+
+  // The sidebar nests the example leaf under its parent request row.
+  await page
+    .locator('[data-item-id^="ws-example-"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  // "Open in Request" returns to the parent editor with the captured
+  // shape riding the prefill bus as unsaved draft edits.
+  await page.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
+  await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(urlInput()).toHaveValue(WS_PROBE_URL);
 });

@@ -51,6 +51,7 @@ import type {
   WebSocketRequest,
   WorkspaceRoleAssignment,
   WorkspaceVariables,
+  WsResponseExample,
 } from '../types';
 import type { PauseMarker } from '../utils';
 
@@ -460,6 +461,12 @@ export interface WorkspaceKeys {
    */
   grpcResponseExamples: StorageKey<GrpcResponseExample[]>;
   /**
+   * WebSocket response examples — captured session snapshots saved
+   * under a WebSocketRequest via "Save Response" (the
+   * `responseExamples` sibling for the WebSocket entity family).
+   */
+  wsResponseExamples: StorageKey<WsResponseExample[]>;
+  /**
    * Specs — first-class API specification documents (name + verbatim
    * source-file set) a collection can be generated from.
    */
@@ -602,6 +609,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     scriptPackages: storageKey<ScriptPackage[]>(`${p}.scriptPackages`),
     responseExamples: storageKey<ResponseExample[]>(`${p}.responseExamples`),
     grpcResponseExamples: storageKey<GrpcResponseExample[]>(`${p}.grpcResponseExamples`),
+    wsResponseExamples: storageKey<WsResponseExample[]>(`${p}.wsResponseExamples`),
     specs: storageKey<Spec[]>(`${p}.specs`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),

@@ -33,6 +33,7 @@ import type {
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
+  SyncWsResponseExamplePostState,
 } from '../sync-bridge';
 
 export interface SyncEngineRpc {
@@ -142,6 +143,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotWebSocketRequests': {
     req: { workspaceId?: string };
     res: { entries: SyncWebSocketRequestPostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full WebSocket response-example
+   * oracle state. Each entry carries `{ wsResponseExample }` — frozen
+   * flat record so no itemId map rides along.
+   */
+  'oh.sync.snapshotWsResponseExamples': {
+    req: { workspaceId?: string };
+    res: { entries: SyncWsResponseExamplePostState[] };
   };
   /**
    * Snapshot the active workspace's full request-collection oracle

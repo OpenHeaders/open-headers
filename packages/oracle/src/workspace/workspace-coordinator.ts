@@ -102,6 +102,7 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.scriptPackages,
     k.responseExamples,
     k.grpcResponseExamples,
+    k.wsResponseExamples,
     k.specs,
   ];
 }

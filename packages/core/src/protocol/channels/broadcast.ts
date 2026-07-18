@@ -47,6 +47,7 @@ import type {
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
+  SyncWsResponseExamplePostState,
 } from '../sync-bridge';
 import type { WorkspaceSnapshot } from './common';
 import type { EnvironmentsSnapshot } from './environments';
@@ -348,6 +349,11 @@ export interface BridgeBroadcastContract {
      * without round-tripping.
      */
     websocketRequestPostState?: SyncWebSocketRequestPostState;
+    /**
+     * Post-commit projection for WebSocket response-example envelopes.
+     * Frozen flat record — no itemId map.
+     */
+    wsResponseExamplePostState?: SyncWsResponseExamplePostState;
     /**
      * Post-commit projection for request-collection envelopes (Phase B).
      * Mirrors fold this so the request sidebar sees post-commit shape

@@ -30,6 +30,7 @@ import type {
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
+  SyncWsResponseExamplePostState,
 } from '@openheaders/core/protocol';
 import {
   COLLECTION_REGISTRATION,
@@ -60,6 +61,7 @@ import {
   VAULT_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
+  WS_RESPONSE_EXAMPLE_REGISTRATION,
 } from '../entity-registry';
 import type { EntityOracle } from '../oracle';
 import { currentActive, services } from './state';
@@ -176,6 +178,11 @@ export function snapshotResponseExamplePostStates(workspaceId?: string): SyncRes
 export function snapshotGrpcResponseExamplePostStates(workspaceId?: string): SyncGrpcResponseExamplePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, GRPC_RESPONSE_EXAMPLE_REGISTRATION) : [];
+}
+
+export function snapshotWsResponseExamplePostStates(workspaceId?: string): SyncWsResponseExamplePostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, WS_RESPONSE_EXAMPLE_REGISTRATION) : [];
 }
 
 export function snapshotSpecPostStates(workspaceId?: string): SyncSpecPostState[] {

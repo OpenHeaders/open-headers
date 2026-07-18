@@ -33,6 +33,7 @@ import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestEditor from '../request-editor/RequestEditor';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import GrpcResponseExampleView from '../grpc-response-example/GrpcResponseExampleView';
+import WsResponseExampleView from '../ws-response-example/WsResponseExampleView';
 import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
 import SpecEditorTab from '../specs/SpecEditorTab';
@@ -87,6 +88,7 @@ interface WorkbenchTabBodyProps {
   openDuplicateRequestScratch: UseTabOpenersApi['openDuplicateRequestScratch'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
+  openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
 
@@ -138,6 +140,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openDuplicateRequestScratch,
   openResponseExampleTab,
   openGrpcResponseExampleTab,
+  openWsResponseExampleTab,
   openGrpcRequestEditTab,
   openWebSocketRequestEditTab,
   handleSwitchWorkspace,
@@ -439,6 +442,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <WebSocketRequestEditor
         websocketRequestUid={tab.websocketRequestUid}
         workspaceId={editingScopeWorkspaceId}
+        onOpenWsResponseExample={openWsResponseExampleTab}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />
@@ -487,6 +491,17 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         exampleUid={tab.grpcResponseExampleUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenGrpcRequest={openGrpcRequestEditTab}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
+  }
+  if (tab.mode === 'ws-response-example' && tab.wsResponseExampleUid) {
+    return (
+      <WsResponseExampleView
+        exampleUid={tab.wsResponseExampleUid}
+        workspaceId={editingScopeWorkspaceId}
+        onOpenWebSocketRequest={openWebSocketRequestEditTab}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

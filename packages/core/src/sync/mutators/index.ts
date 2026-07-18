@@ -394,3 +394,14 @@ export {
   WORKSPACE_VARIABLES_MUTATOR_VERSION,
   WORKSPACE_VARIABLES_PATH,
 } from './workspace-variables';
+export {
+  type CreateWsResponseExampleArgs,
+  createWsResponseExample,
+  type DeleteWsResponseExampleArgs,
+  deleteWsResponseExample,
+  type SetWsResponseExampleFieldArgs,
+  setWsResponseExampleField,
+  WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
+  WS_RESPONSE_EXAMPLE_MUTATOR_VERSION,
+  type WsResponseExampleScalarPath,
+} from './ws-response-example';

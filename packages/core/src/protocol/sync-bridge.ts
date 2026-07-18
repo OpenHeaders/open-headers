@@ -32,6 +32,7 @@ import type {
   Vault,
   WebSocketRequest,
   WorkspaceVariables,
+  WsResponseExample,
 } from '../types';
 /** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
 export interface SyncApplyRequest {
@@ -245,6 +246,17 @@ export interface SyncWebSocketRequestPostState {
   /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
    *  {@link SyncRequestPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
+ * Post-commit projection for a WebSocket response-example envelope. The
+ * example is a frozen flat record (no set-modeled paths), so the
+ * payload carries only the projected entity — the
+ * {@link SyncGrpcResponseExamplePostState} sibling for the
+ * WebSocketRequest family.
+ */
+export interface SyncWsResponseExamplePostState {
+  wsResponseExample: WsResponseExample;
 }
 
 /**
@@ -642,6 +654,12 @@ export interface SyncBroadcastEvent {
    * rolled-back batches leave it `undefined`.
    */
   websocketRequestPostState?: SyncWebSocketRequestPostState;
+  /**
+   * Populated for WebSocket response-example envelopes whose batch left
+   * a materialized example in place. Tombstoned examples and
+   * rolled-back batches leave it `undefined`.
+   */
+  wsResponseExamplePostState?: SyncWsResponseExamplePostState;
   /**
    * Populated for request-collection envelopes whose batch left a
    * materialized collection in place. Tombstoned collections and

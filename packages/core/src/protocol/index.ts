@@ -119,6 +119,7 @@ export type {
   SyncVaultPostState,
   SyncWebSocketRequestPostState,
   SyncWorkspaceVariablesPostState,
+  SyncWsResponseExamplePostState,
 } from './sync-bridge';
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type { IncompatibleProtocolReason } from './version';

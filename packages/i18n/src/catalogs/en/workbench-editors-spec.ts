@@ -83,6 +83,14 @@ export const workbenchEditorsSpec = {
     plural(locale, Number(count), { one: '{count} service', other: '{count} services' }),
   'workbench.editors.spec.generateProto.empty': 'The document declares no service methods to generate from.',
   'workbench.editors.spec.generateProto.partial': 'Generated with gaps — {created} created, {failed} failed.',
+  'workbench.editors.spec.generateWs.blurb':
+    'Generate a collection from this specification. Operations become WebSocket requests targeting the document’s ws/wss server, with an example message pre-filled from the channel’s schema. The collection stays linked to this spec.',
+  'workbench.editors.spec.generateWs.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} WebSocket request', other: '{count} WebSocket requests' }),
+  'workbench.editors.spec.generateWs.empty': 'The document declares no operations to generate from.',
+  'workbench.editors.spec.generateWs.noWsServer': 'The document declares no ws or wss server to connect to.',
+  'workbench.editors.spec.generateWs.partial': 'Generated with gaps — {created} created, {failed} failed.',
+  'workbench.editors.spec.generateWs.skipped': 'Skipped {operation}: {reason}.',
   'workbench.editors.spec.update.button': 'Update',
   'workbench.editors.spec.update.protoUnavailable':
     'Updating from a Protobuf spec is not available yet — generate a fresh collection to pick up changes.',

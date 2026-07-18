@@ -36,6 +36,7 @@ import type {
   Spec,
   Template,
   TreeNode,
+  WsResponseExample,
 } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { WorkbenchTab } from './types';
@@ -52,6 +53,7 @@ export interface TabDisplayLookups {
   liveWorkflows: readonly LiveWorkflow[];
   responseExamples: readonly ResponseExample[];
   grpcResponseExamples: readonly GrpcResponseExample[];
+  wsResponseExamples: readonly WsResponseExample[];
   specs: readonly Spec[];
 }
 
@@ -103,6 +105,11 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
     case 'grpc-response-example': {
       if (!tab.grpcResponseExampleUid) return tab.label;
       const example = lookups.grpcResponseExamples.find((e) => e.uid === tab.grpcResponseExampleUid);
+      return example ? example.name : tab.label;
+    }
+    case 'ws-response-example': {
+      if (!tab.wsResponseExampleUid) return tab.label;
+      const example = lookups.wsResponseExamples.find((e) => e.uid === tab.wsResponseExampleUid);
       return example ? example.name : tab.label;
     }
     case 'live-variable-edit': {

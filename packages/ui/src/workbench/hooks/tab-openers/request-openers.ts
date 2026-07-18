@@ -47,6 +47,7 @@ export type RequestOpeners = Pick<
   | 'openDuplicateRequestScratch'
   | 'openResponseExampleTab'
   | 'openGrpcResponseExampleTab'
+  | 'openWsResponseExampleTab'
 >;
 
 export function useRequestOpeners(
@@ -451,6 +452,28 @@ export function useRequestOpeners(
     [allTabs, addTab, switchTab],
   );
 
+  const openWsResponseExampleTab = useCallback(
+    (uid: string, name: string, websocketRequestUid: string) => {
+      // Matches the sidebar example-node id so the active tab drives
+      // the row highlight without extra selection plumbing.
+      const id = `ws-example-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'ws-response-example',
+        wsResponseExampleUid: uid,
+        websocketRequestUid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
   return {
     openRequestCollectionOverview,
     openRequestFolderOverview,
@@ -468,5 +491,6 @@ export function useRequestOpeners(
     openDuplicateRequestScratch,
     openResponseExampleTab,
     openGrpcResponseExampleTab,
+    openWsResponseExampleTab,
   };
 }

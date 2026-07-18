@@ -90,6 +90,7 @@ export {
   snapshotVaultPostStates,
   snapshotWebSocketRequestPostStates,
   snapshotWorkspaceVariablesPostStates,
+  snapshotWsResponseExamplePostStates,
 } from './snapshots';
 export {
   __initSyncServiceForTests,

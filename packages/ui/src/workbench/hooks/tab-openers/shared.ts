@@ -167,6 +167,7 @@ export interface UseTabOpenersApi {
    * highlight follows the active tab.
    */
   openGrpcResponseExampleTab: (uid: string, name: string, grpcRequestUid: string) => void;
+  openWsResponseExampleTab: (uid: string, name: string, websocketRequestUid: string) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**
