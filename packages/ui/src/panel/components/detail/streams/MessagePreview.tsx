@@ -4,7 +4,7 @@
  *
  *   - No selection → "No message selected" empty state.
  *   - Text / error frames → a JSON tree when the payload parses as
- *     JSON, the verbatim text otherwise.
+ *     JSON (Raw mode = the Monaco viewer), the Monaco viewer otherwise.
  *   - Binary frames → Base64 / Hex / UTF-8 viewer with a copy action
  *     (copies the current view's representation).
  *   - A frame a `ws` rule modified → the Original | Modified split
@@ -19,16 +19,20 @@
 
 import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { base64ToBytes } from '../../../data/base64';
 import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
 import { JsonTree } from '../../JsonTree';
 import HexViewer from '../HexViewer';
 import { overrideLabels } from '../override-labels';
 import ResponseViewerToolbar, { type ViewMode } from '../ResponseViewerToolbar';
+import Skeleton from '../Skeleton';
 import SplitBodyView from '../SplitBodyView';
 import { type WsDisplayFrame, WS_OPCODE_BINARY } from './ws-frames';
+
+// Lazy like every Monaco consumer — a static import would pull Monaco
+// into the panel's initial chunk.
+const CodeViewer = lazy(() => import('../CodeViewer'));
 
 interface MessagePreviewProps {
   frame: WsDisplayFrame | null;
@@ -137,27 +141,18 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
  * Text payload rendering shared by the captured frame and the derived
  * replacement: a JSON tree when the payload parses (with a bottom
  * `JSON | Raw` mode switch — same toolbar anatomy as the Response
- * viewer, so the parsed view is an offer, not an assumption), verbatim
- * `pre` otherwise. Exported for the EventStream preview twin — SSE
- * payloads are always text, so this is its whole payload story.
+ * viewer, so the parsed view is an offer, not an assumption), the
+ * Monaco viewer otherwise (and as the Raw mode) — find-in-payload,
+ * folding, the JWT underline plane and the whole-buffer Decode chip,
+ * exactly the Response tab's body anatomy. Exported for the
+ * EventStream preview twin — SSE payloads are always text, so this is
+ * its whole payload story.
  */
 export function TextPayload({ text }: { text: string }) {
   const t = useT();
   const json = useMemo(() => tryParseJson(text), [text]);
   const [raw, setRaw] = useState(false);
   const showJson = json !== undefined && !raw;
-  // Decode affordance for the plain-text branch — same treatment as
-  // TextBodyViewer's <pre> fallback: a wholly-encoded payload (base64,
-  // url-encoded, …) gets the corner chip opening the shared modal
-  // read-only. JSON payloads are the tree's job; frames are transient,
-  // so there is never a write-back. `allowJwt`: the <pre> has no
-  // underline plane, so a wholly-JWT frame rides the chip too.
-  const { decodeChip, decodeModal } = useWholeBufferDecode({
-    value: text,
-    readOnly: true,
-    enabled: json === undefined,
-    allowJwt: true,
-  });
   return (
     <>
       {showJson ? (
@@ -165,12 +160,14 @@ export function TextPayload({ text }: { text: string }) {
           <JsonTree value={json} defaultExpandedDepth={2} />
         </div>
       ) : (
-        <div className="dt-msg-preview-content">
-          <div className="dt-body-pre-wrap">
-            {decodeChip}
-            <pre className="dt-body-pre">{text}</pre>
-            {decodeModal}
-          </div>
+        <div className="dt-msg-preview-content dt-msg-preview-content--code">
+          <Suspense fallback={<Skeleton />}>
+            {/* Frames are transient — always a viewer, never write-back.
+                CodeViewer's own planes cover the decode ladder: the JWT
+                underline owns a wholly-JWT frame, the corner chip the
+                other whole-buffer encodings. */}
+            <CodeViewer value={text} language={json !== undefined ? 'json' : 'plaintext'} readOnly />
+          </Suspense>
         </div>
       )}
       {json !== undefined && (

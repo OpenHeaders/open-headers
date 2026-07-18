@@ -1,104 +1,69 @@
 // @vitest-environment jsdom
 /**
- * TextPayload (ws/sse preview panes) — the whole-buffer decode chip on
- * the plain-text branch. Pins:
- *   - a wholly-encoded text payload (base64) gets the corner Decode
- *     chip, and it opens the shared encoded-value modal read-only;
- *   - a wholly-JWT frame rides the chip too (`allowJwt` — the <pre>
- *     has no underline plane), opening the JWT viewer read-only;
- *   - JSON payloads stay the tree's job — no chip, no detection run;
- *   - plain readable text gets no chip.
+ * TextPayload (ws/sse preview panes) — the Monaco-backed text branch.
+ * Pins:
+ *   - a non-JSON text payload renders through the panel CodeViewer
+ *     (plaintext, read-only) — the viewer's own planes (JWT underline,
+ *     whole-buffer Decode chip) carry the decode ladder, so a wholly-
+ *     encoded or wholly-JWT frame needs no local wiring here;
+ *   - a JSON payload defaults to the tree (no viewer mounted, no
+ *     detection run); switching to Raw mounts the viewer JSON-colored;
+ *   - the viewer is always read-only — frames are transient, there is
+ *     never a write-back.
  *
- * The shared Monaco CodeEditor is mocked to a plain <textarea> — the
- * contract under test is the chip gating + readOnly wiring.
+ * The panel CodeViewer is mocked to a `<pre>` exposing its props — the
+ * contract under test is the branch wiring, not Monaco.
  */
 
 import { TextPayload } from '@openheaders/ui/panel/components/detail/streams/MessagePreview';
 import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { App } from 'antd';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
-  default: ({ value, readOnly }: { value?: string; readOnly?: boolean }) => (
-    <textarea data-testid="code-editor" value={value} readOnly={readOnly} onChange={() => undefined} />
+vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
+  default: ({ value, language, readOnly }: { value: string; language: string; readOnly?: boolean }) => (
+    <pre data-testid="monaco-viewer" data-language={language} data-readonly={String(readOnly ?? false)}>
+      {value}
+    </pre>
   ),
 }));
 
-beforeAll(() => {
-  class ResizeObserverStub implements ResizeObserver {
-    observe(): void {}
-    unobserve(): void {}
-    disconnect(): void {}
-  }
-  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
-  if (typeof scope.ResizeObserver === 'undefined') {
-    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
-  }
-});
-
-window.matchMedia = ((query: string) => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  addListener: () => undefined,
-  removeListener: () => undefined,
-  addEventListener: () => undefined,
-  removeEventListener: () => undefined,
-  dispatchEvent: () => false,
-})) as typeof window.matchMedia;
-
 afterEach(cleanup);
 
-describe('TextPayload decode chip', () => {
-  it('offers the chip on a wholly-base64 payload and opens the read-only modal', async () => {
+describe('TextPayload — Monaco text branch', () => {
+  it('renders a non-JSON payload through the read-only plaintext viewer', async () => {
     render(
       <App>
         <TextPayload text={btoa('user@openheaders.io:hunter2!!')} />
       </App>,
     );
-    const chip = screen.getByRole('button', { name: 'Decode' });
-    expect(chip.getAttribute('title')).toContain('Base64 value');
-    fireEvent.click(chip);
-
-    const editor = (await screen.findByTestId('code-editor')) as HTMLTextAreaElement;
-    expect(editor.readOnly).toBe(true);
-    expect(editor.value).toBe('user@openheaders.io:hunter2!!');
-    expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
+    const viewer = await screen.findByTestId('monaco-viewer');
+    expect(viewer.textContent).toBe(btoa('user@openheaders.io:hunter2!!'));
+    expect(viewer.getAttribute('data-language')).toBe('plaintext');
+    expect(viewer.getAttribute('data-readonly')).toBe('true');
   });
 
-  it('offers the chip on a wholly-JWT frame and opens the JWT viewer read-only', async () => {
-    const encode = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: 'user@openheaders.io' })}.origsig`;
-    render(
-      <App>
-        <TextPayload text={token} />
-      </App>,
-    );
-    const chip = screen.getByRole('button', { name: 'Decode' });
-    expect(chip.getAttribute('title')).toBe('View JWT');
-    fireEvent.click(chip);
-
-    expect(await screen.findByRole('dialog')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
-    expect(screen.queryByText('Re-sign with secret')).toBeNull();
-  });
-
-  it('offers no chip on a JSON payload — the tree owns it', () => {
+  it('a JSON payload defaults to the tree — no viewer mounted', () => {
     render(
       <App>
         <TextPayload text='{"userId":123,"role":"admin"}' />
       </App>,
     );
-    expect(screen.queryByRole('button', { name: 'Decode' })).toBeNull();
+    expect(screen.queryByTestId('monaco-viewer')).toBeNull();
+    expect(document.querySelector('.dt-msg-preview-json')).not.toBeNull();
   });
 
-  it('offers no chip on plain readable text', () => {
+  it('Raw mode mounts the viewer JSON-colored and read-only', async () => {
     render(
       <App>
-        <TextPayload text="ping 42 from openheaders.io" />
+        <TextPayload text='{"userId":123,"role":"admin"}' />
       </App>,
     );
-    expect(screen.queryByRole('button', { name: 'Decode' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Raw' }));
+    const viewer = await screen.findByTestId('monaco-viewer');
+    expect(viewer.getAttribute('data-language')).toBe('json');
+    expect(viewer.getAttribute('data-readonly')).toBe('true');
+    expect(viewer.textContent).toBe('{"userId":123,"role":"admin"}');
   });
 });

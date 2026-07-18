@@ -349,6 +349,15 @@
   padding: 4px 8px;
 }
 
+/* Monaco host variant — flex so the viewer's `height: 100%` fills the
+   pane (the plain block container collapses it to a strip; same rule
+   the Response view and storage documents carry), padding off so the
+   buffer owns the surface. */
+.dt-msg-preview-content--code {
+  display: flex;
+  padding: 0;
+}
+
 .dt-msg-preview-json {
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;

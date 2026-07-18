@@ -13,8 +13,19 @@ import type { Rule, SseAction, SseRule } from '@openheaders/core/types';
 import EventStreamView from '@openheaders/ui/panel/components/detail/EventStreamView';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { makeLifecycle } from '../../__factories__/lifecycle';
+
+// Monaco is out of scope in jsdom — the preview's raw/plain branch
+// renders through the panel CodeViewer; the mock keeps the `<pre>`
+// shape the assertions read.
+vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
+  default: ({ value, language }: { value: string; language: string }) => (
+    <pre data-testid="monaco-viewer" data-language={language}>
+      {value}
+    </pre>
+  ),
+}));
 
 beforeAll(() => {
   // Opening the View ▾ popover mounts rc-resize-observer.
@@ -274,7 +285,7 @@ describe('EventStreamView — Original | Modified split', () => {
     expect(rows[0].textContent).toContain('echo:hello');
   });
 
-  it('selecting a modified event opens the labeled Original | Modified preview with the inferred (i)', () => {
+  it('selecting a modified event opens the labeled Original | Modified preview with the inferred (i)', async () => {
     const rule = makeSseRule({
       operation: 'modify',
       payload: '{"replaced":true}',
@@ -287,6 +298,8 @@ describe('EventStreamView — Original | Modified split', () => {
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
     expect(screen.getByText('Original · server → page')).toBeTruthy();
     expect(screen.getByText('Modified · server → Open Headers → page')).toBeTruthy();
+    // The Original side is plain text — it mounts the lazy Monaco viewer.
+    await screen.findByTestId('monaco-viewer');
     const panes = container.querySelectorAll('.dt-body-split-pane');
     expect(panes[0].textContent).toContain('echo:hello');
     expect(panes[1].textContent).toContain('replaced');
@@ -433,14 +446,14 @@ describe('EventStreamView — keyboard navigation', () => {
     expect(selectionStates(container)).toEqual(['false', 'true', 'false']);
   });
 
-  it('ArrowUp with no selection starts from the last row; the selection feeds the preview', () => {
+  it('ArrowUp with no selection starts from the last row; the selection feeds the preview', async () => {
     const { container } = renderView(
       makeSseLifecycle([sse({ atMs: 1, data: 'first' }), sse({ atMs: 2, data: 'last' })]),
     );
     const list = screen.getByRole('listbox', { name: 'Server-sent events' });
     fireEvent.keyDown(list, { key: 'ArrowUp' });
     expect(selectionStates(container)).toEqual(['false', 'true']);
-    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('last');
+    expect((await screen.findByTestId('monaco-viewer')).textContent).toBe('last');
   });
 
   it('Home and End jump to the first and last row (shared-walker parity)', () => {
@@ -469,19 +482,23 @@ describe('EventStreamView — preview pane', () => {
     expect(screen.getByText('Select an event to browse its content.')).toBeTruthy();
   });
 
-  it('a parseable payload offers JSON | Raw; Raw shows the verbatim text', () => {
+  it('a parseable payload offers JSON | Raw; Raw shows the Monaco buffer JSON-colored', async () => {
     const { container } = renderView(makeSseLifecycle([sse({ data: '{"op":"subscribe"}' })]));
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
     expect(container.querySelector('.dt-msg-preview-json')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Raw' }));
     expect(container.querySelector('.dt-msg-preview-json')).toBeNull();
-    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('{"op":"subscribe"}');
+    const viewer = await screen.findByTestId('monaco-viewer');
+    expect(viewer.textContent).toBe('{"op":"subscribe"}');
+    expect(viewer.getAttribute('data-language')).toBe('json');
   });
 
-  it('a plain-text payload shows verbatim with no mode switch', () => {
+  it('a plain-text payload shows in the Monaco viewer with no mode switch', async () => {
     const { container } = renderView(makeSseLifecycle([sse({ data: 'not json at all' })]));
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
-    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('not json at all');
+    const viewer = await screen.findByTestId('monaco-viewer');
+    expect(viewer.textContent).toBe('not json at all');
+    expect(viewer.getAttribute('data-language')).toBe('plaintext');
     expect(screen.queryByRole('button', { name: 'Raw' })).toBeNull();
   });
 
