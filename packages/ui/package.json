@@ -199,7 +199,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "scan:i18n": "node ../../scripts/scan.mjs --warn src",
+    "scan:i18n": "node ../../scripts/scan.mjs src",
     "clean": "rm -rf dist"
   },
   "dependencies": {
