@@ -95,6 +95,24 @@ describe('edits serialize back to the line format', () => {
   });
 });
 
+describe('nested value view — per-pair eye', () => {
+  const jwt = (() => {
+    const enc = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc({ sub: 'user@openheaders.io' })}.sig`;
+  })();
+
+  it('a detected pair value gets the view eye; plain cells stay bare', () => {
+    render(<Harness gridType="cookie" initial={`token=${jwt}\ntheme=dark`} />);
+    expect(screen.getAllByRole('button', { name: 'View JWT' })).toHaveLength(1);
+  });
+
+  it('the read-only grid keeps the eye — viewing writes nothing', () => {
+    render(<PairGridEditor gridType="cookie" value={`token=${jwt}`} onChange={onChangeSpy} readOnly />);
+    expect(screen.getAllByRole('button', { name: 'View JWT' })).toHaveLength(1);
+    expect(onChangeSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe('external buffer movement', () => {
   it('re-derives the rows when the value prop changes underneath', () => {
     const { rerender } = render(<PairGridEditor gridType="cookie" value="a=1" onChange={onChangeSpy} />);

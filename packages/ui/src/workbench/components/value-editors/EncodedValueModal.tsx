@@ -138,6 +138,10 @@ const EncodedValueModal: React.FC<EncodedValueModalProps> = ({
               minHeight={220}
               variableAutoComplete={false}
               readOnly={readOnly}
+              // Nested decode: a JWT inside the decoded text (e.g. an
+              // auth claim in a base64 JSON body) gets the underline +
+              // hover link — viewer on read-only, write-back on edit.
+              valueDetection
             />
           )}
         </div>

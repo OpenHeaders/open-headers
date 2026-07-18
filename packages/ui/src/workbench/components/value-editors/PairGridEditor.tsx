@@ -14,20 +14,22 @@
  * panel document tab without surface-specific CSS.
  */
 
-import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
 import {
   decodePairSegments,
+  detectValueType,
   encodePairSegments,
   type PairGridType,
   type PairSegment,
 } from '@openheaders/ui/shared/value-detection';
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { createEditableHistory, type EditableHistory } from '../template-input/editable-history';
+import { useValueViewAction } from './useValueViewAction';
 
 const { Text } = Typography;
 
@@ -141,6 +143,30 @@ function GridCellInput({
         outline: 'none',
       }}
     />
+  );
+}
+
+/** Nested decode for one pair's value: a cell holding its own detected
+ *  value (a JWT cookie, a base64 query param) gets the eye — glance →
+ *  read-only viewer, one level deeper than the grid it sits in. Detection
+ *  is memoized per cell value; plain cells render nothing. */
+function PairValueView({ value }: { value: string | null }) {
+  const detected = useMemo(() => (value ? detectValueType(value) : null), [value]);
+  const { viewProps, glance, viewerModal } = useValueViewAction(detected);
+  if (!('viewTooltip' in viewProps)) return null;
+  return (
+    <>
+      {glance(
+        <Button
+          type="text"
+          size="small"
+          icon={<EyeOutlined />}
+          title={viewProps.viewTooltip}
+          aria-label={viewProps.viewTooltip}
+        />,
+      )}
+      {viewerModal}
+    </>
   );
 }
 
@@ -272,9 +298,12 @@ export const PairGridEditor: React.FC<PairGridEditorProps> = ({ gridType, value,
               readOnly={readOnly}
             />
             {readOnly ? (
-              <span />
+              <span style={{ display: 'inline-flex', gap: 0 }}>
+                <PairValueView value={row.value} />
+              </span>
             ) : (
               <span style={{ display: 'inline-flex', gap: 0 }}>
+                <PairValueView value={row.value} />
                 <Button
                   type="text"
                   size="small"

@@ -77,13 +77,16 @@ export function ValueViewDocumentTab({ tab }: ValueViewDocumentTabProps) {
           <div className="dt-valueview-pane-label">{t('shared.valueEditors.jwt.header')}</div>
           <div className="dt-storagedoc-source dt-valueview-pane--header">
             <Suspense fallback={<Skeleton />}>
-              <CodeViewer value={jwt.header} language="json" readOnly jwtDetection={false} decodeAffordance={false} />
+              <CodeViewer value={jwt.header} language="json" readOnly decodeAffordance={false} />
             </Suspense>
           </div>
           <div className="dt-valueview-pane-label">{t('shared.valueEditors.jwt.payload')}</div>
           <div className="dt-storagedoc-source">
             <Suspense fallback={<Skeleton />}>
-              <CodeViewer value={jwt.payload} language="json" readOnly jwtDetection={false} decodeAffordance={false} />
+              {/* jwtDetection stays ON: a claim can itself carry a token
+                  (id_token, actor tokens) — nested decode, one level per
+                  open. */}
+              <CodeViewer value={jwt.payload} language="json" readOnly decodeAffordance={false} />
             </Suspense>
           </div>
         </>
@@ -97,9 +100,12 @@ export function ValueViewDocumentTab({ tab }: ValueViewDocumentTabProps) {
       ) : (
         <div className="dt-storagedoc-source">
           <Suspense fallback={<Skeleton />}>
-            {/* Detection off (both planes): this document IS a detected
-                value's decoded text. */}
-            <CodeViewer value={decoded} language={language} readOnly jwtDetection={false} decodeAffordance={false} />
+            {/* Whole-buffer decode stays off (this document IS a detected
+                value's decoded text) but the JWT plane stays on — the
+                decoded text can CONTAIN a token (an auth claim in a
+                base64 JSON body), and the underline is the nested-decode
+                path. */}
+            <CodeViewer value={decoded} language={language} readOnly decodeAffordance={false} />
           </Suspense>
         </div>
       )}

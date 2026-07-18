@@ -96,7 +96,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   actionsRef,
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
-  const { attachJwtDetection, jwtModal } = useMonacoJwtEdit();
+  // Read-only buffers get the viewer wiring: "View JWT" hover link and a
+  // no-write-back modal — same split as the panel's CodeViewer.
+  const { attachJwtDetection, jwtModal } = useMonacoJwtEdit({ readOnly });
   const { token } = theme.useToken();
   const { monacoTheme } = useUiTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
