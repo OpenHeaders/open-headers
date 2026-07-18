@@ -151,6 +151,14 @@ async function popoverBodyText(): Promise<string> {
   return (await popoverBody().locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
 }
 
+/** Poll the lazy Monaco body until it carries `substr` \u2014 a one-shot read
+ *  can race Monaco's initial line layout (the first paint may hold just
+ *  the opening brace) \u2014 then return the settled text. */
+async function popoverBodyTextWith(substr: string): Promise<string> {
+  await expect.poll(popoverBodyText, { timeout: 15_000 }).toContain(substr);
+  return popoverBodyText();
+}
+
 /** Single-line bulk replace in the popover's Monaco body. NO
  *  suggest-dismissing Escape — it would bubble to the popover shell and
  *  close it under the next click (the fillMonacoWithin modal trap); the
@@ -339,8 +347,7 @@ test('a no-edit override shows a formatted view yet serves the origin bytes exac
   // The Monaco body opens in Formatted mode showing the formatted VIEW
   // of the wire text (": " gaps only exist in the view — the origin is
   // minified).
-  const view = await popoverBodyText();
-  expect(view).toContain('"big": 9007199254740993');
+  const view = await popoverBodyTextWith('"big": 9007199254740993');
   expect(view).toContain('caf\\u00e9');
   expect(view).not.toBe(FIDELITY_BODY);
   await expect(popoverBodyMode()).toHaveText('Formatted');
@@ -373,7 +380,7 @@ test('an edited minified original serves minified — profile re-emission with h
 
   await cta('Edit override').click();
   await expect(popover()).toBeVisible();
-  expect(await popoverBodyText()).toContain('"big": 9007199254740993');
+  await popoverBodyTextWith('"big": 9007199254740993');
 
   // Edit in formatted space (single line — inter-token whitespace is
   // view-owned); Save re-encodes to the origin's minified profile.
@@ -402,8 +409,7 @@ test('a templated body formats in the popover and a no-edit Save round-trips the
 
   // The {{…}} atom is an opaque token — the body still formats, the
   // template rides the view verbatim.
-  const view = await popoverBodyText();
-  expect(view).toContain('{{session.token}}');
+  const view = await popoverBodyTextWith('{{session.token}}');
   expect(view).toContain('"seq": 1');
   await expect(popoverBodyMode()).toHaveText('Formatted');
 
@@ -506,8 +512,7 @@ test('a no-edit request-body override stores and puts on the wire the captured b
 
   // The Monaco body opens Formatted, showing the formatted VIEW of the
   // captured wire text — the form record itself stays wire bytes.
-  const view = await popoverBodyText();
-  expect(view).toContain('"big": 9007199254740993');
+  const view = await popoverBodyTextWith('"big": 9007199254740993');
   expect(view).toContain('caf\\u00e9');
   await expect(popoverBodyMode()).toHaveText('Formatted');
 
@@ -552,8 +557,7 @@ test('a ws frame override seeds the frame verbatim and a no-edit Save stores the
   await frameRow.locator('button').filter({ hasText: 'Override' }).click();
   await expect(popover()).toBeVisible();
 
-  const view = await popoverBodyText();
-  expect(view).toContain('"big": 9007199254740993');
+  await popoverBodyTextWith('"big": 9007199254740993');
   await expect(popoverBodyMode()).toHaveText('Formatted');
 
   await popover().getByRole('button', { name: /Save$/ }).click();
@@ -599,8 +603,7 @@ test('an sse event override seeds the event verbatim and a no-edit Save stores t
   await eventRow.locator('button').filter({ hasText: 'Override' }).click();
   await expect(popover()).toBeVisible();
 
-  const view = await popoverBodyText();
-  expect(view).toContain('"seq": 2');
+  await popoverBodyTextWith('"seq": 2');
   await expect(popoverBodyMode()).toHaveText('Formatted');
 
   await popover().getByRole('button', { name: /Save$/ }).click();
@@ -677,8 +680,19 @@ test('the Redirect CTA gates on its unresolved variable seed and a literal targe
   await rowFor('oh-ovr-redirect').click();
   await openSection('Headers');
 
-  await panelPage.locator('.dt-header-general-ctas button').filter({ hasText: 'Redirect' }).click();
-  await panelPage.getByRole('menuitem', { name: /Redirect URL/ }).click();
+  // Two header sections can be mounted at once (row-switch keeps the
+  // previous detail instance around) — take the visible trigger.
+  await panelPage
+    .locator('.dt-header-general-ctas button')
+    .filter({ hasText: 'Redirect' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await panelPage
+    .getByRole('menuitem', { name: /Redirect URL/ })
+    .filter({ visible: true })
+    .first()
+    .click();
   await expect(popover()).toBeVisible();
 
   // Variant-aware seed: the domain-scoped variable reference; while it
