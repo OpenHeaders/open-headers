@@ -10,7 +10,7 @@
 import { buildDeleteResponseExampleBatch } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import type { ResponseExampleCache } from '@openheaders/oracle/sync/caches/response-example-cache';
 import { RESPONSE_EXAMPLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
+import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service/accessors';
 import { applyRequestMutationOrThrow } from './apply';
 
 /** Example uids under any of the given requests, in the active workspace. */

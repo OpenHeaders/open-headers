@@ -7,7 +7,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
-import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service';
+import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
 import { collections, folders, type LocalFolder, requests } from './state';
 
 export function getRequests(): Request[] {

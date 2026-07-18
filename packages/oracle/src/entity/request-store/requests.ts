@@ -20,7 +20,7 @@ import {
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '@openheaders/oracle/sync/service';
+} from '@openheaders/oracle/sync/service/accessors';
 import { applyRequestMutationOrThrow } from './apply';
 import { deleteResponseExamplesForRequests } from './response-examples';
 import { assertLoaded, collections, loadedWorkspaceId, requests } from './state';

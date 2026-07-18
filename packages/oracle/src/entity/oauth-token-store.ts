@@ -26,20 +26,24 @@
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import type { OAuth2Auth } from '@openheaders/core/types';
-import { logger } from '@openheaders/core/utils';
-import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteOAuthTokenBatch,
   buildRecordOAuthRefreshErrorBatch,
   buildSetOAuthTokenBatch,
 } from '@openheaders/core/sync-builders/mutations/oauth-bundle-mutations';
 import type { OAuthBundleSnapshot } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
-import { OAUTH_BUNDLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { OAuthBundleCache } from '@openheaders/oracle/sync/caches/oauth-bundle-cache';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
+import type { OAuth2Auth } from '@openheaders/core/types';
+import { logger } from '@openheaders/core/utils';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
+import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+import type { OAuthBundleCache } from '@openheaders/oracle/sync/caches/oauth-bundle-cache';
+import { OAUTH_BUNDLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import {
+  getActiveCacheForRegistration,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '@openheaders/oracle/sync/service/accessors';
 
 // ── Storage shape ─────────────────────────────────────────────────
 

@@ -72,12 +72,8 @@ import { logger } from '@openheaders/core/utils';
 import { getWorkspace } from '../workspace/extension-workspace-store';
 import { makeOracleInverseAccess } from './activity/activity-inverse-builder';
 import { rememberPriorForMutation } from './activity/activity-priors';
-import {
-  applySyncRequest,
-  getOracleForWorkspace,
-  getOrCreateWorkspaceService,
-  releaseWorkspaceService,
-} from './service';
+import { applySyncRequest, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import { getOracleForWorkspace } from './service/accessors';
 
 const SEEN_MUTATION_IDS = new Set<string>();
 const SEEN_CAP = 10_000;

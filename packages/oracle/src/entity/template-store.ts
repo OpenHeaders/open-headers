@@ -58,7 +58,7 @@ import {
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '@openheaders/oracle/sync/service';
+} from '@openheaders/oracle/sync/service/accessors';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getWorkspace } from '../workspace/extension-workspace-store';
 

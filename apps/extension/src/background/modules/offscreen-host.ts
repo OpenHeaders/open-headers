@@ -75,7 +75,7 @@ import {
   getActiveCacheForRegistration,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '@openheaders/oracle/sync/service';
+} from '@openheaders/oracle/sync/service/accessors';
 
 const OFFSCREEN_URL = 'offscreen.html';
 const IDLE_CLOSE_MS = 30_000;

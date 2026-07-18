@@ -4,7 +4,7 @@ import { COLLECTION_ENTITY_TYPE, FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE } from
 import type { Collection, CollectionTree, Rule, TreeNode } from '@openheaders/core/types';
 import type { CollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import { COLLECTION_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import { getCacheForWorkspace, getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service';
+import { getCacheForWorkspace, getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/accessors';
 import { collections, folders, type LocalFolder, rules } from './state';
 
 export function getRules(): Rule[] {

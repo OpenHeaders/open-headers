@@ -18,7 +18,7 @@ import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import type { PauseMarkersCache } from '@openheaders/oracle/sync/caches/pause-markers-cache';
 import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
+import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service/accessors';
 
 // ── Type re-export (legacy callers use the local name) ────────────
 

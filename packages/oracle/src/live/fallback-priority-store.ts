@@ -36,9 +36,13 @@ import {
   orderFallbackPriorityMembers,
 } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import { logger } from '@openheaders/core/utils';
-import { LIVE_FALLBACK_PRIORITY_REGISTRATION } from '../sync/entity-registry';
 import type { LiveFallbackPriorityCache } from '../sync/caches/live-fallback-priority-cache';
-import { getCacheForWorkspace, getOracleForWorkspace, nextSwMutatorContextForWorkspace } from '../sync/service';
+import { LIVE_FALLBACK_PRIORITY_REGISTRATION } from '../sync/entity-registry';
+import {
+  getCacheForWorkspace,
+  getOracleForWorkspace,
+  nextSwMutatorContextForWorkspace,
+} from '../sync/service/accessors';
 import { workspaceHoldsExclusiveFallbackSeed } from './execution-policy-resolver';
 
 function readMembers(workspaceId: string): ReturnType<LiveFallbackPriorityCache['getSnapshot']>['members'] | null {

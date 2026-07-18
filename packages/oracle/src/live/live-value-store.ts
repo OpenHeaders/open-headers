@@ -35,13 +35,13 @@ import {
 } from '@openheaders/core/sync-builders/mutations/live-value-mutations';
 import { logger } from '@openheaders/core/utils';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
-import { LIVE_VALUE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { LiveValueCache } from '@openheaders/oracle/sync/caches/live-value-cache';
+import { LIVE_VALUE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import {
   getActiveCacheForRegistration,
   getOracleForWorkspace,
   nextSwMutatorContextForWorkspace,
-} from '@openheaders/oracle/sync/service';
+} from '@openheaders/oracle/sync/service/accessors';
 import {
   applySyncedLiveValues,
   type LiveValuePropagator,

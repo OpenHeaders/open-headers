@@ -32,11 +32,11 @@ import {
   classifyEnvelopeForActivity,
   consumePriorForMutation,
   ensureMutesLoaded,
-  getOracleForWorkspace,
   hasRecentlyApplied,
   isMutedForActivityFeed,
   type OracleSyncBroadcastEvent,
 } from '@openheaders/oracle/sync';
+import { getOracleForWorkspace } from '@openheaders/oracle/sync/service/accessors';
 
 import { logger } from '@utils/logger';
 

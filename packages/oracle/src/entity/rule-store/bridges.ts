@@ -9,7 +9,7 @@ import {
   FOLDER_REGISTRATION,
   RULE_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
-import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
+import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service/accessors';
 import {
   cacheUnsubscribe,
   collectionCacheUnsubscribe,

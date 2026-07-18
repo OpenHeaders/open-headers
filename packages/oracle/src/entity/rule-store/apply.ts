@@ -1,7 +1,7 @@
 // ── Sync engine plumbing ────────────────────────────────────────────
 
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service/accessors';
 
 /**
  * Mint an SW context, build a batch via `factory`, and apply it through

@@ -24,17 +24,21 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import {
+  buildAddFileRefBatch,
+  buildRemoveFileRefBatch,
+  buildRenameFileRefBatch,
+} from '@openheaders/core/sync-builders/mutations/files-mutations';
 import { logger } from '@openheaders/core/utils';
 import * as BlobStore from '@openheaders/oracle/files';
-import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/core/sync-builders/mutations/files-mutations';
-import { FILES_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import type { FilesCache } from '@openheaders/oracle/sync/caches/files-cache';
+import { FILES_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import {
   getActiveCacheForRegistration,
   getOracleForWorkspace,
   nextSwMutatorContextForWorkspace,
-} from '@openheaders/oracle/sync/service';
-import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+} from '@openheaders/oracle/sync/service/accessors';
 
 // ── Change listeners ────────────────────────────────────────────────
 //

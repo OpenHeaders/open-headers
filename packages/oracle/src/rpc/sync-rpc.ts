@@ -70,8 +70,6 @@ import {
 import {
   applySyncRequest,
   getAwarenessStoreForWorkspace,
-  getOracleForWorkspace,
-  nextSwMutatorContextForWorkspace,
   publishAwareness,
   snapshotAwarenessPresence,
   snapshotCollectionPostStates,
@@ -100,6 +98,7 @@ import {
   snapshotWebSocketRequestPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '../sync/service';
+import { getOracleForWorkspace, nextSwMutatorContextForWorkspace } from '../sync/service/accessors';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 
 export type SyncRpcResult = { kind: 'sync'; response: unknown } | { kind: 'async'; promise: Promise<unknown> };

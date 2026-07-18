@@ -91,11 +91,10 @@ import { recordImportReport } from '@openheaders/oracle/entity/import-reports-st
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import {
   applySyncRequest,
-  getOracleForWorkspace,
   getOrCreateWorkspaceService,
-  nextSwMutatorContextForWorkspace,
   releaseWorkspaceService,
 } from '@openheaders/oracle/sync/service';
+import { getOracleForWorkspace, nextSwMutatorContextForWorkspace } from '@openheaders/oracle/sync/service/accessors';
 import { createWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import * as v from 'valibot';
 

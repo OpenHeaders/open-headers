@@ -34,7 +34,7 @@ import {
   VAULT_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
-import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheaders/oracle/sync/service';
+import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheaders/oracle/sync/service/accessors';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 
 // ── In-memory state ─────────────────────────────────────────────────
