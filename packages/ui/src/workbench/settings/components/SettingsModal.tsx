@@ -64,8 +64,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // so it never exceeds the viewport. Centered + top + tall heights
   // conflict in Ant Modal — the modal ends up centered at one edge while
   // its body length pushes the other edge off-screen.
+  // 44px top clears the macOS traffic lights that overlay the frameless
+  // window's top-left corner; mirror it at the bottom so the modal stays
+  // visually centered.
   const width = maximized ? '92vw' : 960;
-  const height = maximized ? 'calc(100vh - 64px)' : '80vh';
+  const height = maximized ? 'calc(100vh - 88px)' : '80vh';
 
   return (
     <Modal
@@ -76,7 +79,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       destroyOnHidden
       width={width}
       centered={!maximized}
-      style={{ padding: 0, top: maximized ? 20 : undefined }}
+      style={{ padding: 0, top: maximized ? 44 : undefined }}
       styles={{
         body: { padding: 0, height, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
       }}
