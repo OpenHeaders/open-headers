@@ -393,11 +393,13 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
 // ── B6: per-knob honesty — a header row is named, never silently sent ─
 
 test('B6 — a configured header row rides the honesty notice and honestly stays off the wire', async () => {
-  // Configure a handshake header on the still-open editor.
+  // Configure a handshake header on the still-open editor. The grid
+  // cells are TemplateInput contentEditables — the placeholder lives
+  // on `data-placeholder`, never a native [placeholder] attribute.
   await page.getByRole('tab', { name: 'Headers', exact: true }).filter({ visible: true }).first().click();
-  await page.getByPlaceholder('Header name').filter({ visible: true }).first().click();
+  await page.locator('[data-placeholder="Header name"]').filter({ visible: true }).first().click();
   await page.keyboard.insertText('x-probe-client');
-  await page.getByPlaceholder('Value').filter({ visible: true }).first().click();
+  await page.locator('[data-placeholder="Value"]').filter({ visible: true }).first().click();
   await page.keyboard.insertText('oh-ext-e2e');
 
   await connectButton().click();
