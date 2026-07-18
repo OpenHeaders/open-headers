@@ -9,20 +9,32 @@
 import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
+import { sharedAwareness } from './shared-awareness';
 import { sharedChrome } from './shared-chrome';
 import { sharedComponents } from './shared-components';
+import { sharedConflicts } from './shared-conflicts';
+import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
 import { sharedInfoHeaders } from './shared-info-headers';
 import { sharedInfoStatus } from './shared-info-status';
+import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
+import { sharedResolutionHints } from './shared-resolution-hints';
+import { sharedWorkspace } from './shared-workspace';
 
 export const fr = {
   ...shared,
+  ...sharedAwareness,
   ...sharedChrome,
   ...sharedComponents,
+  ...sharedConflicts,
+  ...sharedHeaderValidation,
   ...sharedInfoCookies,
   ...sharedInfoHeaders,
   ...sharedInfoStatus,
+  ...sharedMergeEditor,
   ...sharedNotifications,
+  ...sharedResolutionHints,
+  ...sharedWorkspace,
   ...popup,
 } as const satisfies Catalog;
