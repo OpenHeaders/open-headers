@@ -94,3 +94,21 @@
 .dt-payload-val {
   word-break: break-all;
 }
+/* Hover-revealed view icon on detected values — same reveal law as the
+ * header/cookie row action lanes. */
+.dt-payload-view-btn.dt-btn {
+  margin-left: 6px;
+  padding: 0;
+  width: 20px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity 80ms ease-out;
+}
+.dt-payload-row:hover .dt-payload-view-btn.dt-btn,
+.dt-payload-row:focus-within .dt-payload-view-btn.dt-btn {
+  opacity: 1;
+}

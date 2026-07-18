@@ -19,6 +19,7 @@
 
 import { useT, type Translate } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { useWholeBufferDecode } from '@openheaders/ui/workbench/components/value-editors/useWholeBufferDecode';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../../data/base64';
 import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
@@ -145,6 +146,12 @@ export function TextPayload({ text }: { text: string }) {
   const json = useMemo(() => tryParseJson(text), [text]);
   const [raw, setRaw] = useState(false);
   const showJson = json !== undefined && !raw;
+  // Decode affordance for the plain-text branch — same treatment as
+  // TextBodyViewer's <pre> fallback: a wholly-encoded payload (base64,
+  // url-encoded, …) gets the corner chip opening the shared modal
+  // read-only. JSON payloads are the tree's job; frames are transient,
+  // so there is never a write-back.
+  const { decodeChip, decodeModal } = useWholeBufferDecode({ value: text, readOnly: true, enabled: json === undefined });
   return (
     <>
       {showJson ? (
@@ -153,7 +160,11 @@ export function TextPayload({ text }: { text: string }) {
         </div>
       ) : (
         <div className="dt-msg-preview-content">
-          <pre className="dt-body-pre">{text}</pre>
+          <div className="dt-body-pre-wrap">
+            {decodeChip}
+            <pre className="dt-body-pre">{text}</pre>
+            {decodeModal}
+          </div>
         </div>
       )}
       {json !== undefined && (

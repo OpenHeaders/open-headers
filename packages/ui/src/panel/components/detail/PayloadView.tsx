@@ -1,7 +1,10 @@
+import { EyeOutlined } from '@ant-design/icons';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import type { RequestOverride } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { detectValueType } from '@openheaders/ui/shared/value-detection';
+import { useValueViewAction } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { useRulePopover } from '../RulePopoverHost';
 import { type DualMode, DualModeButtons, SwapSidesButton } from './DualViewControls';
 import { HighlightedText } from './HighlightedText';
@@ -23,6 +26,40 @@ function buildSourceString(params: Array<{ name: string; value: string }>): stri
 
 function buildUrlEncodedString(params: Array<{ name: string; value: string }>): string {
   return params.map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`).join('&');
+}
+
+/**
+ * One parsed key/value row (query param or form field). Values are
+ * single-decoded wire text (the correlators' har synth) — never decoded
+ * again here. A registry hit adds a hover-revealed view icon opening
+ * the shared modals read-only; detection is memoized per value and
+ * display-only, so nothing is ever re-written.
+ */
+function PayloadRow({ name, value, highlight }: { name: string; value: string; highlight?: string }) {
+  const detected = useMemo(() => detectValueType(value), [value]);
+  const { viewProps, viewerModal } = useValueViewAction(detected);
+  return (
+    <div className="dt-payload-row">
+      <span className="dt-payload-key">
+        <HighlightedText text={name} query={highlight} />
+      </span>
+      <span className="dt-payload-val">
+        <HighlightedText text={value} query={highlight} />
+        {'onValueView' in viewProps && (
+          <button
+            type="button"
+            className="dt-btn dt-btn-primary dt-payload-view-btn"
+            title={viewProps.viewTooltip}
+            aria-label={viewProps.viewTooltip}
+            onClick={viewProps.onValueView}
+          >
+            <EyeOutlined />
+          </button>
+        )}
+      </span>
+      {viewerModal}
+    </div>
+  );
 }
 
 function QsToggle({ mode, onModeChange }: { mode: QsViewMode; onModeChange: (m: QsViewMode) => void }) {
@@ -283,14 +320,7 @@ export default function PayloadView({
                     corrupts values whose decoded text still looks encoded
                     and throws on a bare `%`. */}
                 {queryString.map((q, i) => (
-                  <div key={`q-${i}-${q.name}`} className="dt-payload-row">
-                    <span className="dt-payload-key">
-                      <HighlightedText text={q.name} query={qsHighlight} />
-                    </span>
-                    <span className="dt-payload-val">
-                      <HighlightedText text={q.value} query={qsHighlight} />
-                    </span>
-                  </div>
+                  <PayloadRow key={`q-${i}-${q.name}`} name={q.name} value={q.value} highlight={qsHighlight} />
                 ))}
               </div>
             ) : (
@@ -312,14 +342,7 @@ export default function PayloadView({
             {hasStructuredPostData ? (
               <div className="dt-payload-table">
                 {postData.params?.map((p, i) => (
-                  <div key={`p-${i}-${p.name}`} className="dt-payload-row">
-                    <span className="dt-payload-key">
-                      <HighlightedText text={p.name} query={bodyHighlight} />
-                    </span>
-                    <span className="dt-payload-val">
-                      <HighlightedText text={p.value ?? ''} query={bodyHighlight} />
-                    </span>
-                  </div>
+                  <PayloadRow key={`p-${i}-${p.name}`} name={p.name} value={p.value ?? ''} highlight={bodyHighlight} />
                 ))}
               </div>
             ) : requestOverride?.original?.body ? (
