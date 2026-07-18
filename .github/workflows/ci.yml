@@ -47,6 +47,9 @@ jobs:
       - name: i18n hardcoded-string scan
         run: pnpm turbo scan:i18n
 
+      - name: i18n locale-catalog lint
+        run: pnpm turbo lint:i18n-locales
+
       - name: Test core
         run: |
           echo "### Core" >> $GITHUB_STEP_SUMMARY

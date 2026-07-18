@@ -31,6 +31,9 @@
     "scan:i18n": {
       "cache": false
     },
+    "lint:i18n-locales": {
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true

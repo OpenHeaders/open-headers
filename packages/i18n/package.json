@@ -20,6 +20,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "lint:i18n-locales": "node ../../scripts/lint-locales.mjs",
     "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
