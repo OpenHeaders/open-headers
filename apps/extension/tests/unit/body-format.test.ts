@@ -270,6 +270,20 @@ describe('encodeBodyForWire', () => {
     const edited = formatBody(original).replace('{{live.count}}', '{{live.total}}');
     expect(encodeBodyForWire(original, edited)).toBe('{"count":{{live.total}}}');
   });
+
+  // Whole-buffer replacement — the panel decode/JWT write-back path
+  // (executeEdits swaps the ENTIRE buffer, then the format-aware
+  // machine encodes it like any edit).
+  it('a whole-buffer unformattable replacement passes through verbatim', () => {
+    const b64 = Buffer.from('user@openheaders.io:rotated').toString('base64');
+    expect(encodeBodyForWire(MINIFIED, b64)).toBe(b64);
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.sig';
+    expect(encodeBodyForWire(MINIFIED, jwt)).toBe(jwt);
+  });
+
+  it('a whole-buffer tokenizable replacement re-emits in the original profile', () => {
+    expect(encodeBodyForWire(MINIFIED, '{ "swapped": true }')).toBe('{"swapped":true}');
+  });
 });
 
 describe('isFormattableBody', () => {
@@ -278,5 +292,10 @@ describe('isFormattableBody', () => {
     expect(isFormattableBody('{"count":{{live.count}}}')).toBe(true);
     expect(isFormattableBody('plain text')).toBe(false);
     expect(isFormattableBody('{"a":1')).toBe(false);
+  });
+
+  it('rejects encoded scalar values — base64/JWT docs seed Raw, so buffer detection sees wire text', () => {
+    expect(isFormattableBody(Buffer.from('user@openheaders.io:hunter2!!').toString('base64'))).toBe(false);
+    expect(isFormattableBody('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.sig')).toBe(false);
   });
 });
