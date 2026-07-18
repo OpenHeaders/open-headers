@@ -9,8 +9,14 @@
 import type { Catalog } from '../../types';
 import { popup } from './popup';
 import { shared } from './shared';
+import { sharedChrome } from './shared-chrome';
+import { sharedComponents } from './shared-components';
+import { sharedNotifications } from './shared-notifications';
 
 export const fr = {
   ...shared,
+  ...sharedChrome,
+  ...sharedComponents,
+  ...sharedNotifications,
   ...popup,
 } as const satisfies Catalog;
