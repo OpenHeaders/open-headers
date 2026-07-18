@@ -345,7 +345,7 @@ describe('CacheEntryEditorTab', () => {
 
     await screen.findByTestId('code-viewer');
     fireEvent.click(screen.getByRole('button', { name: 'About Formatted view' }));
-    expect(await screen.findByText(/read-only.*Formatted never changes them/)).toBeTruthy();
+    expect(await screen.findByText(/read-only, and Formatted never changes the stored bytes/)).toBeTruthy();
     expect(screen.queryByText(/Save writes/)).toBeNull();
   });
 

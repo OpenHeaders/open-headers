@@ -130,6 +130,8 @@ describe('FormatAwareBodyEditor — format-mode info', () => {
     fireEvent.click(trigger);
     expect(await screen.findByText('Formatted view')).toBeTruthy();
     expect(await screen.findByText(/re-encoded into the original wire format/)).toBeTruthy();
+    // The shared example card renders the SAME value in both modes.
+    expect(await screen.findByText('Example — one value, two views')).toBeTruthy();
   });
 });
 

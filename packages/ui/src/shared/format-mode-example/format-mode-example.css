@@ -1,0 +1,57 @@
+/* ── FormatModeExample — the format-mode (i) popover's example card ──
+ * One value, two views: a mode chip above each rendering. Ant theme
+ * variables keep it legible in both hosts and both themes. */
+.oh-fmt-eg {
+  width: 100%;
+}
+.oh-fmt-eg-cap {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-tertiary);
+  margin-bottom: 4px;
+}
+.oh-fmt-eg-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.oh-fmt-eg-chip {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  padding: 0 6px;
+  border-radius: 3px;
+}
+.oh-fmt-eg-chip--formatted {
+  background: var(--ant-color-primary);
+  color: var(--ant-color-white, #fff);
+}
+.oh-fmt-eg-chip--raw {
+  background: var(--ant-color-fill-tertiary);
+  color: var(--ant-color-text-secondary);
+}
+.oh-fmt-eg-code {
+  margin: 0 0 3px;
+  font-family: var(--ant-font-family-code, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ant-color-text-secondary);
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.oh-fmt-eg-key {
+  color: var(--ant-color-primary);
+}
+.oh-fmt-eg-str {
+  color: var(--ant-color-success);
+}
+.oh-fmt-eg-num {
+  color: var(--ant-color-warning);
+}

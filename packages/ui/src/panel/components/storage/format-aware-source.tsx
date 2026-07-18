@@ -26,6 +26,7 @@
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { encodeBodyForWire, formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
+import { FormatModeExample } from '@openheaders/ui/shared/format-mode-example';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useRef, useState } from 'react';
 
@@ -120,8 +121,30 @@ export function FormatModeToggle({ mode, formattable, onModeChange, viewOnly = f
   const modeInfo = useMemo<InfoPopoverContent>(
     () => ({
       title: t('panel.storage.doc.formatInfoTitle'),
+      kicker: t('panel.toolWindows.storage'),
       summary: t('panel.storage.doc.formatInfoSummary'),
-      description: viewOnly ? t('panel.storage.doc.formatInfoViewOnly') : t('panel.storage.doc.formatInfoDescription'),
+      diagram: (
+        <FormatModeExample
+          caption={t('panel.storage.doc.formatInfoExampleCaption')}
+          formattedLabel={t('panel.storage.doc.formatted')}
+          rawLabel={t('panel.storage.doc.raw')}
+        />
+      ),
+      sections: [
+        {
+          heading: t('panel.storage.doc.formatInfoModesHeading'),
+          layout: 'stacked',
+          items: [
+            {
+              label: t('panel.storage.doc.formatted'),
+              desc: viewOnly
+                ? t('panel.storage.doc.formatInfoFormattedViewOnlyDesc')
+                : t('panel.storage.doc.formatInfoFormattedDesc'),
+            },
+            { label: t('panel.storage.doc.raw'), desc: t('panel.storage.doc.formatInfoRawDesc') },
+          ],
+        },
+      ],
     }),
     [t, viewOnly],
   );

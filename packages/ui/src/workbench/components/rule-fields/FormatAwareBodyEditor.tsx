@@ -22,6 +22,7 @@ import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { encodeBodyForWire, formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
+import { FormatModeExample } from '@openheaders/ui/shared/format-mode-example';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { LanguageId } from '../../languages/registry';
 import CodeEditor from '../shared/CodeEditor';
@@ -73,8 +74,31 @@ const FormatAwareBodyEditor: React.FC<FormatAwareBodyEditorProps> = ({
   const modeInfo = useMemo<InfoPopoverContent>(
     () => ({
       title: t('workbench.editors.rule.fields.formatAwareBody.infoTitle'),
+      kicker: t('workbench.editors.rule.fields.formatAwareBody.infoKicker'),
       summary: t('workbench.editors.rule.fields.formatAwareBody.infoSummary'),
-      description: t('workbench.editors.rule.fields.formatAwareBody.infoDescription'),
+      diagram: (
+        <FormatModeExample
+          caption={t('workbench.editors.rule.fields.formatAwareBody.infoExampleCaption')}
+          formattedLabel={t('workbench.editors.rule.fields.formatAwareBody.formatted')}
+          rawLabel={t('workbench.editors.rule.fields.formatAwareBody.raw')}
+        />
+      ),
+      sections: [
+        {
+          heading: t('workbench.editors.rule.fields.formatAwareBody.infoModesHeading'),
+          layout: 'stacked',
+          items: [
+            {
+              label: t('workbench.editors.rule.fields.formatAwareBody.formatted'),
+              desc: t('workbench.editors.rule.fields.formatAwareBody.infoFormattedDesc'),
+            },
+            {
+              label: t('workbench.editors.rule.fields.formatAwareBody.raw'),
+              desc: t('workbench.editors.rule.fields.formatAwareBody.infoRawDesc'),
+            },
+          ],
+        },
+      ],
     }),
     [t],
   );

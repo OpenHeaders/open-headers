@@ -306,12 +306,14 @@ export const panelStorage = {
   'panel.storage.doc.rawTitle': 'The exact stored text',
   'panel.storage.doc.formatUnavailable': 'Formatted view is available for JSON-shaped values only',
   'panel.storage.doc.formatInfoTitle': 'Formatted view',
-  'panel.storage.doc.formatInfoSummary':
-    'Formatted is a reading view — it only re-flows whitespace. The stored text is unchanged.',
-  'panel.storage.doc.formatInfoDescription':
-    'Edits in Formatted mode are re-encoded into the original stored format, and Save writes that text — a no-edit Save writes the exact original bytes. Raw is the bytes themselves.',
-  'panel.storage.doc.formatInfoViewOnly':
-    'This document is read-only — Raw is the exact stored bytes, and Formatted never changes them.',
+  'panel.storage.doc.formatInfoSummary': 'Formatted and Raw are two views of the same stored text.',
+  'panel.storage.doc.formatInfoExampleCaption': 'Example — one value, two views',
+  'panel.storage.doc.formatInfoModesHeading': 'Modes',
+  'panel.storage.doc.formatInfoFormattedDesc':
+    'A reading view — only whitespace differs. Edits are re-encoded into the original stored format, and Save writes that text; a no-edit Save writes the exact original bytes.',
+  'panel.storage.doc.formatInfoFormattedViewOnlyDesc':
+    'A reading view — only whitespace differs. This document is read-only, and Formatted never changes the stored bytes.',
+  'panel.storage.doc.formatInfoRawDesc': 'The exact stored bytes.',
   'panel.storage.doc.unavailableSub':
     'It may have been deleted, or the frame can’t be read right now — Refresh retries.',
   'panel.storage.doc.clippedSuffix': ({ count }, locale) =>
