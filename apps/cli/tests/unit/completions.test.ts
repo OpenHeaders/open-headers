@@ -22,7 +22,7 @@ describe('completionScript', () => {
       const script = completionScript(shell);
 
       it('completes every table group and the local commands at the first word', () => {
-        for (const word of ['status', 'connect', 'channel', 'completion', 'help']) {
+        for (const word of ['status', 'connect', 'channel', 'completion', 'tui', 'help']) {
           expect(script).toContain(word);
         }
         for (const spec of [...READ_COMMANDS, ...WRITE_COMMANDS, ...EXEC_COMMANDS]) {

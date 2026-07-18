@@ -17,6 +17,7 @@ import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
 import { EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
 import { bootCliProductTelemetry } from './product-telemetry';
 import { findReadCommand, READ_COMMANDS } from './read-commands';
+import { runTui } from './tui/run';
 import { bootUpdateNotify } from './update-check';
 import { commandUpgrade } from './upgrade';
 import { CLI_VERSION } from './version';
@@ -48,6 +49,7 @@ Commands:
   channel [stable|beta]         Show or set the release line version checks follow
   upgrade [--channel <line>]    Download and install the newest release of this binary
   completion bash|zsh           Print a shell completion script (source it from your profile)
+  tui                           Open the terminal dashboard (early preview)
 ${readLines.join('\n')}
 ${writeLines.join('\n')}
 ${execLines.join('\n')}
@@ -105,6 +107,11 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
 
   if (first === 'completion') {
     console.log(completionScript(argv[1]));
+    return;
+  }
+
+  if (first === 'tui') {
+    await runTui({ input: process.stdin, output: process.stdout, errorOutput: process.stderr, proc: process });
     return;
   }
 

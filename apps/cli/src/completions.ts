@@ -49,7 +49,7 @@ function buildTree(): CommandTree {
   }
 
   const groups = [...new Set([...verbs.keys(), ...READ_COMMANDS.filter((s) => s.verb === '').map((s) => s.group)])];
-  return { top: ['status', 'connect', 'upgrade', 'completion', 'help', ...groups], verbs, flags };
+  return { top: ['status', 'connect', 'upgrade', 'completion', 'tui', 'help', ...groups], verbs, flags };
 }
 
 /** case arms for the second word: verbs per group, or flags for verb-less commands. */
