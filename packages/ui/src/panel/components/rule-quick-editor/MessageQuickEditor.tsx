@@ -16,23 +16,27 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { App, Tag, theme } from 'antd';
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import {
   buildSseRuleUpdate,
   buildWsRuleUpdate,
   type MessageQuickEditDraft,
   seedMessageDraft,
 } from '../../data/rule-create/quick-rule-edit';
-import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import Skeleton from '../detail/Skeleton';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
+
+// Lazy like every other Monaco consumer — a static import here would
+// pull Monaco into the panel's initial chunk.
+const FormatAwareBodyEditor = lazy(
+  () => import('@openheaders/ui/workbench/components/rule-fields/FormatAwareBodyEditor'),
+);
 
 // JSON format example — raw by design across the rule editors.
 const PAYLOAD_EXAMPLE = '{"key": "value"}';
@@ -75,26 +79,12 @@ export function MessageQuickEditor({
   const unit = messageRule?.type === 'sse' ? 'event' : 'frame';
   const operation = messageRule?.action.operation;
 
-  const { localCollections } = useRules();
-  const collectionId = useMemo(
-    () => findRuleCollectionId(liveRule, localCollections),
-    [liveRule, localCollections],
-  );
-
-  // The payload maps to its formatted VIEW (once per rule version — the
-  // memo, never per keystroke); the Save builders re-encode it against
-  // the stored wire text, so an untouched view keeps the stored bytes.
+  // The draft record lives in WIRE space (the payload editor formats
+  // its own view and encodes per edit — response-popover parity), so
+  // derived dirty and the Save payload read the stored text unchanged.
   const canonical = useMemo<MessageQuickEditDraft | null>(
     () => (messageRule ? seedMessageDraft(messageRule) : null),
     [messageRule],
-  );
-  const showFormatHint = useMemo(
-    () =>
-      canonical !== null &&
-      canonical.payload !== null &&
-      messageRule !== null &&
-      canonical.payload !== (messageRule.action.payload ?? ''),
-    [canonical, messageRule],
   );
   const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useActionDraft({ canonical });
 
@@ -172,22 +162,14 @@ export function MessageQuickEditor({
                 )}
           </div>
           <EntityField path={RULE_FIELD.messagePayload}>
-            <TemplateInput
-              multiline
-              maxRows={12}
-              resizable
-              allowClear
-              value={draft.payload ?? ''}
-              onChange={(v) => updateDraft({ payload: v })}
-              placeholder={PAYLOAD_EXAMPLE}
-              suggestionContext={{ collectionId }}
-              style={{
-                width: '100%',
-                minHeight: 120,
-                fontFamily: token.fontFamilyCode,
-                fontSize: 12,
-              }}
-            />
+            <Suspense fallback={<Skeleton />}>
+              <FormatAwareBodyEditor
+                value={draft.payload ?? ''}
+                onChange={(v) => updateDraft({ payload: v })}
+                placeholder={PAYLOAD_EXAMPLE}
+                minHeight={120}
+              />
+            </Suspense>
           </EntityField>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {operation === 'inject'
@@ -201,7 +183,6 @@ export function MessageQuickEditor({
                     ? 'panel.quickEditor.message.replacedEventsHint'
                     : 'panel.quickEditor.message.replacedFramesHint',
                 )}
-            {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
           </div>
         </EntityScopeProvider>
       ) : editable ? (

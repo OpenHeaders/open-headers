@@ -40,7 +40,6 @@ import {
   validateHeaderValue,
 } from '@openheaders/core/utils';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { encodeBodyForWire, formatBody } from '@openheaders/ui/shared/body-format';
 import { headerValidationMessage } from '@openheaders/ui/shared/headers';
 import { type QueryParamQuickRow, queryParamEntryFromRow } from './payload-rule-create';
 
@@ -158,20 +157,20 @@ export function buildInjectRuleUpdate(
 
 /** Null payload = a `drop` rule — the operation has no payload (the
  *  workbench strips it on save), so the quick edit is conditions-only
- *  and the action is left untouched. A non-null payload is the
- *  popover's formatted VIEW of the stored wire text. */
+ *  and the action is left untouched. A non-null payload is WIRE text
+ *  (`FormatAwareBodyEditor` encodes per edit; Raw mode is verbatim). */
 export interface MessageQuickEditDraft {
   payload: string | null;
 }
 
 export function seedMessageDraft(rule: WsRule | SseRule): MessageQuickEditDraft {
-  return { payload: rule.action.operation === 'drop' ? null : formatBody(rule.action.payload ?? '') };
+  return { payload: rule.action.operation === 'drop' ? null : (rule.action.payload ?? '') };
 }
 
 /** The action rebuild preserves the fields the compact editor doesn't
  *  surface (operation, direction, message filter, inject trigger). The
- *  draft payload is re-encoded against the stored wire text, so an
- *  untouched view keeps the stored bytes exactly. */
+ *  draft payload is wire text and stores AS IS — a re-encode here
+ *  would re-profile a deliberate Raw-mode edit. */
 export function buildWsRuleUpdate(
   rule: WsRule,
   draft: MessageQuickEditDraft,
@@ -179,15 +178,15 @@ export function buildWsRuleUpdate(
 ): Partial<WsRule> {
   if (draft.payload === null) return quickEditBase(rule, conditions);
   return {
-    action: { ...rule.action, payload: encodeBodyForWire(rule.action.payload ?? '', draft.payload) },
+    action: { ...rule.action, payload: draft.payload },
     ...quickEditBase(rule, conditions),
   };
 }
 
 /** The action rebuild preserves the fields the compact editor doesn't
  *  surface (operation, event name, message filter, inject trigger). The
- *  draft payload is re-encoded against the stored wire text, so an
- *  untouched view keeps the stored bytes exactly. */
+ *  draft payload is wire text and stores AS IS — a re-encode here
+ *  would re-profile a deliberate Raw-mode edit. */
 export function buildSseRuleUpdate(
   rule: SseRule,
   draft: MessageQuickEditDraft,
@@ -195,7 +194,7 @@ export function buildSseRuleUpdate(
 ): Partial<SseRule> {
   if (draft.payload === null) return quickEditBase(rule, conditions);
   return {
-    action: { ...rule.action, payload: encodeBodyForWire(rule.action.payload ?? '', draft.payload) },
+    action: { ...rule.action, payload: draft.payload },
     ...quickEditBase(rule, conditions),
   };
 }

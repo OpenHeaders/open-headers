@@ -235,25 +235,25 @@ describe('ws/sse messages — seed and rebuild', () => {
     action: { operation: 'drop', direction: 'send' },
   };
 
-  it('seeds the formatted payload view for modify/inject and null for drop', () => {
-    expect(seedMessageDraft(wsRule)).toEqual({ payload: '{\n  "type": "heartbeat"\n}' });
-    expect(seedMessageDraft(sseRule)).toEqual({ payload: '{\n  "v": 1\n}' });
+  it('seeds the stored wire payload verbatim for modify/inject and null for drop', () => {
+    expect(seedMessageDraft(wsRule)).toEqual({ payload: '{"type":"heartbeat"}' });
+    expect(seedMessageDraft(sseRule)).toEqual({ payload: '{"v":1}' });
     expect(seedMessageDraft(dropRule)).toEqual({ payload: null });
   });
 
-  it('rebuilds the ws action preserving direction and filter, re-encoding to the stored profile', () => {
+  it('rebuilds the ws action preserving direction and filter, storing the wire-space payload AS IS', () => {
     const updates = buildWsRuleUpdate({ ...wsRule, published: true }, { payload: '{\n  "type": "ping"\n}' });
     expect(updates.action).toEqual({
       operation: 'modify',
       direction: 'receive',
       messageFilter: { matchType: 'contains', value: 'heartbeat' },
-      payload: '{"type":"ping"}',
+      payload: '{\n  "type": "ping"\n}',
     });
     expect(updates.published).toBe(true);
   });
 
   it('rebuilds the sse action preserving event name and inject trigger', () => {
-    const updates = buildSseRuleUpdate(sseRule, { payload: '{\n  "v": 2\n}' }, CONDITIONS);
+    const updates = buildSseRuleUpdate(sseRule, { payload: '{"v":2}' }, CONDITIONS);
     expect(updates.action).toEqual({
       operation: 'inject',
       eventName: 'update',
@@ -263,7 +263,7 @@ describe('ws/sse messages — seed and rebuild', () => {
     expect(updates.conditions).toBe(CONDITIONS);
   });
 
-  it('an untouched formatted payload view keeps the stored bytes exactly', () => {
+  it('an untouched draft keeps the stored bytes exactly', () => {
     const updates = buildWsRuleUpdate(wsRule, seedMessageDraft(wsRule));
     expect(updates.action?.payload).toBe('{"type":"heartbeat"}');
   });

@@ -18,10 +18,9 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Input, Radio, Select, theme } from 'antd';
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import {
   buildMessageRuleSeed,
   type MessageQuickDraft,
@@ -32,12 +31,19 @@ import {
 } from '../../data/rule-create/message-rule-create';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
+import Skeleton from '../detail/Skeleton';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
+
+// Lazy like every other Monaco consumer — a static import here would
+// pull Monaco into the panel's initial chunk.
+const FormatAwareBodyEditor = lazy(
+  () => import('@openheaders/ui/workbench/components/rule-fields/FormatAwareBodyEditor'),
+);
 
 // JSON format example — raw by design across the rule editors.
 const PAYLOAD_EXAMPLE = '{"key": "value"}';
@@ -70,11 +76,10 @@ export function MessageQuickCreate({
 
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() => generateSmartRuleName({ kind: draft.type, url: draft.url ?? '' }, rules));
+  // WIRE-space seed: the payload editor owns its formatted view and
+  // emits wire text per edit, so the form record carries the captured
+  // frame/event bytes.
   const [seed] = useState<MessageQuickDraft>(() => seedMessageQuickDraft(draft));
-  // Seed payload ≠ captured payload ⇒ the popover is showing a
-  // formatted view of the wire text — surface the save-in-original-
-  // format hint.
-  const showFormatHint = seed.payload !== (draft.payload ?? '');
   const [quick, setQuick] = useState<MessageQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -84,10 +89,9 @@ export function MessageQuickCreate({
   const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
-  const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildMessageRuleSeed(quickRef.current, name, cond.conditionsRef.current, draft.payload ?? ''),
+    buildSeed: () => buildMessageRuleSeed(quickRef.current, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     valid: messageQuickDraftValid(quick),
@@ -252,22 +256,14 @@ export function MessageQuickCreate({
                     : 'workbench.editors.rule.fields.message.replacementFrame',
                 )}
           </div>
-          <TemplateInput
-            multiline
-            maxRows={12}
-            resizable
-            allowClear
-            value={quick.payload}
-            onChange={(v) => patch({ payload: v })}
-            placeholder={PAYLOAD_EXAMPLE}
-            suggestionContext={{ collectionId }}
-            style={{
-              width: '100%',
-              minHeight: 120,
-              fontFamily: token.fontFamilyCode,
-              fontSize: 12,
-            }}
-          />
+          <Suspense fallback={<Skeleton />}>
+            <FormatAwareBodyEditor
+              value={quick.payload}
+              onChange={(v) => patch({ payload: v })}
+              placeholder={PAYLOAD_EXAMPLE}
+              minHeight={120}
+            />
+          </Suspense>
           <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
             {quick.operation === 'inject'
               ? t(
@@ -280,7 +276,6 @@ export function MessageQuickCreate({
                     ? 'panel.quickEditor.message.replacedEventsHint'
                     : 'panel.quickEditor.message.replacedFramesHint',
                 )}
-            {showFormatHint && <> {t('panel.quickEditor.formatAwareBody.hint')}</>}
           </div>
         </>
       ) : (
