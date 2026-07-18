@@ -77,6 +77,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.sendMessage': 'Envoyer',
   'workbench.editors.websocket.session.sendIdle': 'Connectez-vous pour envoyer des messages.',
   'workbench.editors.websocket.session.sendFailed': "Échec de l'envoi du message",
+  'workbench.editors.websocket.session.hostNotice':
+    "Exécution sur le socket du navigateur — {knobs} ne s'appliquent pas sur cet hôte.",
+  'workbench.editors.websocket.session.knobHeaders': 'les en-têtes de handshake personnalisés',
+  'workbench.editors.websocket.session.knobSslVerify': 'la vérification SSL désactivée',
   'workbench.editors.websocket.session.handshakeProtocol': 'Sous-protocole',
   'workbench.editors.websocket.session.handshakeExtensions': 'Extensions',
   'workbench.editors.websocket.session.handshakeNone': 'Rien de négocié',

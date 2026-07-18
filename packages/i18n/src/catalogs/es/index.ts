@@ -10,13 +10,21 @@ import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
 import { shared } from './shared';
+import { sharedAwareness } from './shared-awareness';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedNotifications } from './shared-notifications';
+import { sharedResolutionHints } from './shared-resolution-hints';
+import { web } from './web';
 
 export const es = {
   ...desktop,
   ...extension,
   ...shared,
+  ...sharedAwareness,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
+  ...sharedNotifications,
+  ...sharedResolutionHints,
+  ...web,
 } as const satisfies Catalog;
