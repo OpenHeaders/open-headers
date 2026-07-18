@@ -422,7 +422,8 @@ test('the extension joins and the gRPC entities replicate down', async () => {
 });
 
 test('the workbench opens on the joined workspace', async () => {
-  page = await extensionContext?.newPage();
+  if (!extensionContext) throw new Error('extension context missing');
+  page = await extensionContext.newPage();
 
   // Pin the tab to the daemon workspace via the URL hash — the per-tab
   // binding contract (`#/ws/<wsId>`), deterministic where driving the

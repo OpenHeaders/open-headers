@@ -176,6 +176,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         <RequestCollectionOverview
           collectionUid={tab.entityId}
           onSelectRequest={openRequestEditTab}
+          onSelectGrpcRequest={openGrpcRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenCollectionVariables={openRequestCollectionVariables}
@@ -221,6 +222,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         <RequestFolderOverview
           folderUid={tab.entityId}
           onSelectRequest={openRequestEditTab}
+          onSelectGrpcRequest={openGrpcRequestEditTab}
           onCreateRequest={openCreateRequestTab}
           onOpenFolderOverview={openRequestFolderOverview}
           onOpenFolderScripts={openRequestFolderScripts}

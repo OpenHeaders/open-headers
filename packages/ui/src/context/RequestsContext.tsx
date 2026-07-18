@@ -21,10 +21,12 @@
  *
  * Override-branch coverage: collection + folder CRUD (create / rename /
  * delete) all route through Phase B helpers with the explicit
- * editing-scope workspaceId. Folder parent-ref resolution walks the
- * override-branch's local `collections` + `foldersRef` snapshots to
- * mirror the SW's `resolveRequestFolderParent`. Folder reorder/move is
- * not yet wired (no UI gesture in v1; deferred to a separate pass).
+ * editing-scope workspaceId. Folder parent-ref resolution reads the
+ * per-workspace SYNC MIRRORS (not the React snapshots) to mirror the
+ * SW's `resolveRequestFolderParent` — the mirrors are post-ack
+ * consistent, so a folder can be created inside a collection minted in
+ * the same gesture (the Generate Collection flow). Folder reorder/move
+ * is not yet wired (no UI gesture in v1; deferred to a separate pass).
  */
 
 import {
@@ -63,6 +65,8 @@ import {
   type GrpcRequestUpdates,
 } from '../shared/sync/grpc-request-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
+import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
+import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
 
 export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
 
@@ -237,10 +241,6 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
-  // Ref twin of the `folders` state so override-branch mutators
-  // (createFolder, deleteFolder) can resolve `RequestFolderParentRef`
-  // synchronously from the latest snapshot mid-callback.
-  const foldersRef = useRef<PersistedLocalFolder[]>([]);
 
   // ── Read path (legacy branch) ──────────────────────────────────
   //
@@ -334,7 +334,6 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     });
     const unsubFolders = hostStorage.subscribe(wsKeys(wsId).requestFolders, (record) => {
       currentFolders = record ?? [];
-      foldersRef.current = currentFolders;
       setFolders(currentFolders);
       recomputeTrees();
     });
@@ -350,7 +349,6 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       currentGrpcRequests = grpcRecord ?? [];
       currentCollections = colRecord ?? [];
       currentFolders = foldersRecord ?? [];
-      foldersRef.current = currentFolders;
       setRequests(currentRequests);
       setGrpcRequests(currentGrpcRequests);
       setCollections(currentCollections);
@@ -573,19 +571,26 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   );
 
   // Resolve `parentPath` to a {@link RequestFolderParentRef} via the
-  // override branch's local snapshots. Mirrors `resolveRequestFolderParent`
-  // in `request-store.ts`. Returns null when the path matches neither a
-  // collection nor a folder — caller falls back to legacy RPC, which is
-  // the runtime-Active-workspace path.
+  // per-workspace sync mirrors. Mirrors `resolveRequestFolderParent`
+  // in `request-store.ts`. The mirrors — not the React state snapshots
+  // — are the resolution source: state lands via async storage
+  // subscriptions, so a collection created earlier in the SAME gesture
+  // (Generate Collection) is only visible mirror-side at this point.
+  // Returns null when the path matches neither a collection nor a
+  // folder — caller falls back to legacy RPC, which is the
+  // runtime-Active-workspace path.
   const resolveOverrideFolderParent = useCallback(
-    (parentPath: string): RequestFolderParentRef | null => {
-      const collection = collections.find((c) => c.path === parentPath);
+    async (wsId: string, parentPath: string): Promise<RequestFolderParentRef | null> => {
+      const collectionMirror = getRequestCollectionSyncMirrorForWorkspace(wsId);
+      const folderMirror = getRequestFolderSyncMirrorForWorkspace(wsId);
+      await Promise.all([collectionMirror.hydrated, folderMirror.hydrated]);
+      const collection = collectionMirror.listRequestCollections().find((c) => c.path === parentPath);
       if (collection) return { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid };
-      const folder = foldersRef.current.find((f) => f.path === parentPath);
+      const folder = folderMirror.listRequestFolders().find((f) => f.path === parentPath);
       if (folder) return { type: REQUEST_FOLDER_ENTITY_TYPE, uid: folder.uid };
       return null;
     },
-    [collections],
+    [],
   );
 
   const createFolder = useCallback<RequestsContextValue['createFolder']>(
@@ -593,7 +598,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       if (isOverridden) {
         const wsId = activeWorkspaceIdOverride ?? null;
         if (!wsId) return null;
-        const parent = resolveOverrideFolderParent(parentPath);
+        const parent = await resolveOverrideFolderParent(wsId, parentPath);
         if (!parent) return null;
         const folderUid = generateUid();
         const folderName = toFolderName(name, folderUid);
@@ -626,10 +631,12 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       if (isOverridden) {
         const wsId = activeWorkspaceIdOverride ?? null;
         if (!wsId) return false;
-        const folder = foldersRef.current.find((f) => f.uid === folderUid);
+        const folderMirror = getRequestFolderSyncMirrorForWorkspace(wsId);
+        await folderMirror.hydrated;
+        const folder = folderMirror.listRequestFolders().find((f) => f.uid === folderUid);
         if (!folder) return false;
         const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
-        const parent = resolveOverrideFolderParent(parentPath);
+        const parent = await resolveOverrideFolderParent(wsId, parentPath);
         if (!parent) return false;
         const result = await applyRequestFolderDelete({ folderUid, parent }, { workspaceId: wsId, surfaceId });
         return result.ok;

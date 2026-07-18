@@ -3,11 +3,13 @@
  * collection. Companion to {@link RequestCollectionOverview}; mirrors the
  * rule-family {@link FolderOverview} shape but scoped to requests.
  *
- *   - Stats: direct + descendant request counts, subfolder count.
+ *   - Stats: direct + descendant request counts (HTTP + gRPC),
+ *     subfolder count.
  *   - Actions: Add Request (folder-scoped — Save flow lands the new
  *     request inside this folder).
- *   - Contents: top-level children (folders + requests) with a method
- *     tag column matching the collection-overview / sidebar precedent.
+ *   - Contents: top-level children (folders + HTTP/gRPC requests) with
+ *     a method tag column matching the collection-overview / sidebar
+ *     precedent.
  *
  * Pre-this-session, clicking a folder inside a request collection
  * opened a `folder-overview` tab whose component (rule-family
@@ -24,10 +26,12 @@ import type React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import CollectionOverviewShell from './CollectionOverviewShell';
+import { GrpcMark } from './RequestCollectionOverview';
 
 interface RequestFolderOverviewProps {
   folderUid: string;
   onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
+  onSelectGrpcRequest: (uid: string, name: string) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenFolderScripts?: (uid: string, name: string) => void;
@@ -38,7 +42,7 @@ interface ContentRow {
   key: string;
   uid: string;
   name: string;
-  kind: 'folder' | 'request';
+  kind: 'folder' | 'request' | 'grpc-request';
   method?: HttpMethod;
   childCount?: number;
 }
@@ -56,7 +60,7 @@ const METHOD_COLOR: Record<string, string> = {
 function countRequestsDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
-    if (n.type === 'request') count++;
+    if (n.type === 'request' || n.type === 'grpc-request') count++;
     else if (n.type === 'folder') count += countRequestsDeep(n.children);
   }
   return count;
@@ -96,6 +100,7 @@ function findFolder(
 const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   folderUid,
   onSelectRequest,
+  onSelectGrpcRequest,
   onCreateRequest,
   onOpenFolderOverview,
   onOpenFolderScripts,
@@ -130,6 +135,9 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
           childCount: countRequestsDeep(node.children),
         };
       }
+      if (node.type === 'grpc-request') {
+        return { key: node.uid, uid: node.uid, name: node.name, kind: 'grpc-request' };
+      }
       if (node.type !== 'request') return { key: node.uid, uid: node.uid, name: node.name, kind: 'folder' };
       return { key: node.uid, uid: node.uid, name: node.name, kind: 'request', method: node.method };
     });
@@ -138,9 +146,10 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
   const handleRowClick = useCallback(
     (row: ContentRow) => {
       if (row.kind === 'request' && row.method) onSelectRequest(row.uid, row.name, row.method);
+      else if (row.kind === 'grpc-request') onSelectGrpcRequest(row.uid, row.name);
       else if (row.kind === 'folder') onOpenFolderOverview(row.uid, row.name);
     },
-    [onSelectRequest, onOpenFolderOverview],
+    [onSelectRequest, onSelectGrpcRequest, onOpenFolderOverview],
   );
 
   const columns: ColumnsType<ContentRow> = useMemo(
@@ -168,6 +177,7 @@ const RequestFolderOverview: React.FC<RequestFolderOverviewProps> = ({
               </span>
             );
           }
+          if (row.kind === 'grpc-request') return <GrpcMark />;
           if (!row.method) return null;
           return (
             <Tag color={METHOD_COLOR[row.method] ?? 'default'} style={{ fontSize: 11, margin: 0 }}>

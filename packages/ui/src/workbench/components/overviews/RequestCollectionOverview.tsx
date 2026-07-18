@@ -3,10 +3,11 @@
  *
  * Mirrors {@link CollectionOverview}'s shape for the rule-collection
  * family, scoped to requests:
- *   - Stats: total request count + folder count.
+ *   - Stats: total request count (HTTP + gRPC) + folder count.
  *   - Actions: Add Request (collection-scoped), Variables.
- *   - Contents: top-level children (folders + requests) with a method
- *     tag column instead of the rule type/status columns rules carry.
+ *   - Contents: top-level children (folders + HTTP/gRPC requests) with
+ *     a method tag column instead of the rule type/status columns
+ *     rules carry; gRPC rows carry the sidebar's monospace gRPC mark.
  *
  * Pre-session-50 there was no overview surface for request collections
  * at all — clicking a request collection in the sidebar only toggled
@@ -30,6 +31,7 @@ import CollectionOverviewShell from './CollectionOverviewShell';
 interface RequestCollectionOverviewProps {
   collectionUid: string;
   onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
+  onSelectGrpcRequest: (uid: string, name: string) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -41,7 +43,7 @@ interface ContentRow {
   key: string;
   uid: string;
   name: string;
-  kind: 'folder' | 'request';
+  kind: 'folder' | 'request' | 'grpc-request';
   method?: HttpMethod;
   childCount?: number;
 }
@@ -49,7 +51,7 @@ interface ContentRow {
 function countRequestsDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
-    if (n.type === 'request') count++;
+    if (n.type === 'request' || n.type === 'grpc-request') count++;
     else if (n.type === 'folder') count += countRequestsDeep(n.children);
   }
   return count;
@@ -76,9 +78,25 @@ const METHOD_COLOR: Record<string, string> = {
   OPTIONS: 'default',
 };
 
+/** The sidebar leaf's monospace gRPC mark, at the method-tag column's
+ *  footprint — the two surfaces must read the same. */
+export const GrpcMark: React.FC = () => (
+  <span
+    style={{
+      fontSize: 9,
+      fontWeight: 700,
+      color: 'var(--oh-method-grpc, #0b5cad)',
+      fontFamily: "'SF Mono', monospace",
+    }}
+  >
+    gRPC
+  </span>
+);
+
 const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
   collectionUid,
   onSelectRequest,
+  onSelectGrpcRequest,
   onCreateRequest,
   onOpenFolderOverview,
   onOpenCollectionVariables,
@@ -114,8 +132,11 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
           childCount: countRequestsDeep(node.children),
         };
       }
-      // The tree only carries `request` nodes alongside folders for
-      // a request collection; defensive fall-through if it doesn't.
+      if (node.type === 'grpc-request') {
+        return { key: node.uid, uid: node.uid, name: node.name, kind: 'grpc-request' };
+      }
+      // The tree only carries request-family nodes alongside folders
+      // for a request collection; defensive fall-through if it doesn't.
       if (node.type !== 'request') return { key: node.uid, uid: node.uid, name: node.name, kind: 'folder' };
       return {
         key: node.uid,
@@ -131,11 +152,13 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
     (row: ContentRow) => {
       if (row.kind === 'request' && row.method) {
         onSelectRequest(row.uid, row.name, row.method);
+      } else if (row.kind === 'grpc-request') {
+        onSelectGrpcRequest(row.uid, row.name);
       } else if (row.kind === 'folder') {
         onOpenFolderOverview(row.uid, row.name);
       }
     },
-    [onSelectRequest, onOpenFolderOverview],
+    [onSelectRequest, onSelectGrpcRequest, onOpenFolderOverview],
   );
 
   const columns: ColumnsType<ContentRow> = useMemo(
@@ -163,6 +186,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
               </span>
             );
           }
+          if (row.kind === 'grpc-request') return <GrpcMark />;
           if (!row.method) return null;
           return (
             <Tag color={METHOD_COLOR[row.method] ?? 'default'} style={{ fontSize: 11, margin: 0 }}>
