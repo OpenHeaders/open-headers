@@ -156,8 +156,10 @@ export function tabIcon(
     );
   }
   if (tab.mode === 'websocket-edit') {
-    // WebSocket tabs carry the sidebar leaf's flavor tag (WS / SIO) —
+    // WebSocket tabs carry the sidebar leaf's flavor tag (WS / S.IO) —
     // the gRPC treatment applied to the session-shaped sibling.
+    // `ruleType` keys the flavor with the STORED 'SIO' identity (tab
+    // sessions persist it); only the rendered label reads S.IO.
     return (
       <span
         style={{
@@ -169,7 +171,7 @@ export function tabIcon(
           display: 'inline-block',
         }}
       >
-        {tab.ruleType === 'SIO' ? 'SIO' : 'WS'}
+        {tab.ruleType === 'SIO' ? 'S.IO' : 'WS'}
       </span>
     );
   }

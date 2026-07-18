@@ -679,7 +679,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             style={{ ...singleRowStyle, cursor: 'pointer' }}
           >
             {/* Boxed direction badge — ↑ amber, ↓ blue on their tinted
-                backgrounds (the gRPC/Postman anatomy). */}
+                backgrounds (the gRPC list's anatomy). */}
             <span
               style={{
                 display: 'inline-flex',

@@ -302,7 +302,7 @@ test('the sibling menu entry creates a Socket.IO-flavored request', async () => 
   await commitAutoRename(/^New Socket\.IO Request/, SIO_NAME);
 
   const row = await websocketRow(SIO_NAME);
-  await expect(row.getByText('SIO', { exact: true }).first()).toBeVisible();
+  await expect(row.getByText('S.IO', { exact: true }).first()).toBeVisible();
 
   // The editor header names the flavor; the fresh entity's empty URL
   // is the only Connect gate.

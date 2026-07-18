@@ -96,7 +96,7 @@ export const GrpcMark: React.FC = () => (
 );
 
 /** The sidebar leaf's monospace WebSocket mark — flavor-labelled
- *  (WS / SIO), same footprint as {@link GrpcMark}. */
+ *  (WS / S.IO), same footprint as {@link GrpcMark}. */
 export const WebSocketMark: React.FC<{ flavor?: 'raw' | 'socketio' }> = ({ flavor }) => (
   <span
     style={{
@@ -106,7 +106,7 @@ export const WebSocketMark: React.FC<{ flavor?: 'raw' | 'socketio' }> = ({ flavo
       fontFamily: "'SF Mono', monospace",
     }}
   >
-    {flavor === 'socketio' ? 'SIO' : 'WS'}
+    {flavor === 'socketio' ? 'S.IO' : 'WS'}
   </span>
 );
 
