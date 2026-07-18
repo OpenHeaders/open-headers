@@ -10,6 +10,7 @@ import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
+import { panelNetwork } from './panel-network';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -30,6 +31,7 @@ export const fr = {
   ...desktop,
   ...extension,
   ...panel,
+  ...panelNetwork,
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
