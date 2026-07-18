@@ -52,6 +52,13 @@
   transition: opacity 0.15s ease;
 }
 
+/* The update balloon carries a ⋮ next to the ✕ — its title must stop
+   before the two-control cluster (⋮ ends 50px from the edge, the notice
+   pads 14px), where antd's default only reserves the ✕. */
+.ant-notification .ant-notification-notice-wrapper .ant-notification-notice.oh-update-toast .ant-notification-notice-message {
+  padding-inline-end: 40px;
+}
+
 /* The ⋮ options button the update balloon renders next to the ✕. */
 .ant-notification .ant-notification-notice-wrapper .oh-update-toast-menu {
   position: absolute;
