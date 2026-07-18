@@ -27,6 +27,11 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.messagePlaceholder': 'Compose the next message to send…',
   'workbench.editors.websocket.message.formatText': 'Text',
   'workbench.editors.websocket.message.formatJson': 'JSON',
+  'workbench.editors.websocket.event.namePlaceholder': 'Event name',
+  'workbench.editors.websocket.event.ackLabel': 'Expect ack',
+  'workbench.editors.websocket.event.ackHelp':
+    'Mint an acknowledgement id with each Send so the server’s ack reply correlates in the timeline.',
+  'workbench.editors.websocket.event.argsPlaceholder': 'Compose the JSON arguments array, e.g. ["hello", 42]…',
   'workbench.editors.websocket.headers.keyPlaceholder': 'Header name',
   'workbench.editors.websocket.headers.valuePlaceholder': 'Value',
   'workbench.editors.websocket.headers.nodeOnly':
@@ -51,6 +56,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.timeoutHelp':
     'Wall-clock ceiling on the connection handshake. Empty uses the app default.',
   'workbench.editors.websocket.settings.timeoutPlaceholder': 'Default',
+  'workbench.editors.websocket.settings.namespaceLabel': 'Socket.IO namespace',
+  'workbench.editors.websocket.settings.namespaceHelp':
+    'The namespace the session connects to — empty connects to the root /. Sessions dial the websocket transport directly; there is no long-polling fallback.',
+  'workbench.editors.websocket.settings.namespacePlaceholder': '/',
   'workbench.editors.websocket.toast.deletedOtherTab': 'This WebSocket request was deleted in another tab.',
   'workbench.editors.websocket.toast.updateFailed': 'Saving the WebSocket request failed',
   'workbench.editors.websocket.toast.updateFailedDetail': 'Saving the WebSocket request failed: {message}',
@@ -101,4 +110,16 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.binaryMessage': 'Binary message ({bytes} bytes)',
   'workbench.editors.websocket.timeline.sentAria': 'Sent',
   'workbench.editors.websocket.timeline.receivedAria': 'Received',
+  // Socket.IO decoded display rows (wire vocabulary rides raw).
+  'workbench.editors.websocket.timeline.sio.engineOpen': 'engine.io open',
+  'workbench.editors.websocket.timeline.sio.engineClose': 'engine.io close',
+  'workbench.editors.websocket.timeline.sio.ping': 'ping',
+  'workbench.editors.websocket.timeline.sio.pong': 'pong',
+  'workbench.editors.websocket.timeline.sio.connect': 'connect {namespace}',
+  'workbench.editors.websocket.timeline.sio.connected': 'connected {namespace}',
+  'workbench.editors.websocket.timeline.sio.connectError': 'connect error',
+  'workbench.editors.websocket.timeline.sio.disconnect': 'disconnect {namespace}',
+  'workbench.editors.websocket.timeline.sio.binaryAttachments': 'Binary attachment frame ({count} attachments)',
+  'workbench.editors.websocket.timeline.sio.ack': 'ack',
+  'workbench.editors.websocket.timeline.sio.eventNoName': 'event',
 } as const satisfies Catalog;

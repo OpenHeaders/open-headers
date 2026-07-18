@@ -78,6 +78,15 @@ const websocketRequests: WebSocketRequest[] = [
   websocketRequest('e2ewsd04', 'Probe Refused', '', {
     url: `ws://127.0.0.1:${deadPort}/net/ws-probe`,
   }),
+  // The Phase E socketio leg: the REAL socket.io server at
+  // /net/sio-probe, a named namespace, and an acked event compose.
+  websocketRequest('e2ewsd05', 'Probe SIO', '["from-desktop", 7]', {
+    flavor: 'socketio',
+    url: `ws://127.0.0.1:${probePort}/net/sio-probe`,
+    namespace: '/probe',
+    eventName: 'echo',
+    ackEnabled: true,
+  }),
 ];
 
 const values: Record<string, unknown> = {

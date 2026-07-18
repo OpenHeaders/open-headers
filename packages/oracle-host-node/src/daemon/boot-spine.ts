@@ -43,7 +43,7 @@
  */
 
 import * as path from 'node:path';
-import { setHostBridge } from '@openheaders/core/bridge';
+import { setHostBridge, type WsSendSocketIoWire } from '@openheaders/core/bridge';
 import {
   createDaemonPairingService,
   ensureSyntheticIdentity,
@@ -775,7 +775,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // close; a settled or unknown id answers `success: false`.
     if (type === 'sendWsMessage') {
       return typeof message.sendId === 'string' && typeof message.messageText === 'string'
-        ? sendActiveWsSessionMessage(message.sendId, message.messageText)
+        ? sendActiveWsSessionMessage(
+            message.sendId,
+            message.messageText,
+            message.socketio as WsSendSocketIoWire | undefined,
+          )
         : { success: false, error: 'No session id or message provided' };
     }
     if (type === 'closeWsSession') {

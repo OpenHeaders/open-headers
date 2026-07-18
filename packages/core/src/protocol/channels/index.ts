@@ -88,6 +88,7 @@ export type {
   GrpcStreamMessageWire,
   RequestStreamEventWire,
   RequestStreamHeadWire,
+  WsSendSocketIoWire,
   WsStreamEventWire,
   WsStreamMessageWire,
 } from './requests';

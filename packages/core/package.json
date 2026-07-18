@@ -170,6 +170,10 @@
     "./asyncapi": {
       "import": "./src/asyncapi/index.ts",
       "default": "./dist/asyncapi/index.js"
+    },
+    "./socketio": {
+      "import": "./src/socketio/index.ts",
+      "default": "./dist/socketio/index.js"
     }
   },
   "scripts": {

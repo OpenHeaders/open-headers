@@ -139,6 +139,17 @@ export interface WsStreamMessageWire {
  * a WebSocket client cannot write before the handshake settles, so no
  * message can precede it in call order.
  */
+/**
+ * Socket.IO rider addendum on `sendWsMessage` — present only for a
+ * socketio-flavor session. `eventName` is the compose editor's event
+ * (templates resolved per send); `expectAck` opts this send into ack
+ * correlation (the executor mints the id).
+ */
+export interface WsSendSocketIoWire {
+  eventName: string;
+  expectAck: boolean;
+}
+
 export type WsStreamEventWire =
   | {
       sendId: string;
@@ -355,11 +366,16 @@ export interface RequestRpc {
    * connect's `sendId`. `messageText` is the compose editor's text —
    * the EXECUTOR resolves {{variables}} through the resolver it built
    * at Connect (same scope), so an unresolved reference fails this RPC
-   * alone and never closes the session. `success: false` names the
-   * reason: no such session (settled, unknown id) or the resolve error.
+   * alone and never closes the session. On a socketio-flavor session
+   * the editor passes `socketio`: `messageText` is then the JSON
+   * arguments ARRAY and the executor frames the EVENT packet
+   * (`eventName` resolved per send; `expectAck` mints the ack id) — a
+   * frame that does not compose fails this RPC alone too. `success:
+   * false` names the reason: no such session (settled, unknown id),
+   * the resolve error, or the compose error.
    */
   sendWsMessage: {
-    req: { sendId: string; messageText: string };
+    req: { sendId: string; messageText: string; socketio?: WsSendSocketIoWire };
     res: { success: boolean; error?: string };
   };
   /**

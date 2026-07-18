@@ -31,6 +31,13 @@ export interface WebSocketDraft {
   headers: KeyValueRow[];
   params: KeyValueRow[];
   message: string;
+  /** Socket.IO compose: event name for the next Send (concrete in the
+   *  form — absent on the entity reads as ''). Raw flavor ignores it. */
+  eventName: string;
+  /** Socket.IO namespace (concrete — absent reads as '', the root). */
+  namespace: string;
+  /** Socket.IO ack opt-in (concrete — absent reads as off). */
+  ackEnabled: boolean;
   /** Concrete in the form — absent on the entity reads as `text`. */
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
@@ -47,6 +54,9 @@ export interface WebSocketRequestUpdates {
   headers: WebSocketHeaderPair[];
   params: WebSocketQueryParam[];
   message: string;
+  eventName: string;
+  namespace: string;
+  ackEnabled: boolean;
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
   timeoutMs: number | undefined;
@@ -112,6 +122,9 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     headers: headersToRows(req.headers),
     params: paramsToRows(req.params),
     message: req.message,
+    eventName: req.eventName ?? '',
+    namespace: req.namespace ?? '',
+    ackEnabled: req.ackEnabled ?? false,
     messageFormat: req.messageFormat ?? 'text',
     specLink: req.specLink,
     timeoutMs: req.timeoutMs,
@@ -127,6 +140,9 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     headers: rowsToHeaders(draft.headers),
     params: rowsToParams(draft.params),
     message: draft.message,
+    eventName: draft.eventName,
+    namespace: draft.namespace,
+    ackEnabled: draft.ackEnabled,
     messageFormat: draft.messageFormat,
     specLink: draft.specLink,
     timeoutMs: draft.timeoutMs,

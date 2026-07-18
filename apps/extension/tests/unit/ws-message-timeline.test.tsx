@@ -182,3 +182,55 @@ describe('WsMessageTimeline — payload views', () => {
     expect(screen.getByTestId('ws-timeline-dropped').textContent).toContain('7');
   });
 });
+
+describe('WsMessageTimeline — socketio decoded display', () => {
+  const SIO_ITEMS: WsTimelineItem[] = [
+    text('down', '0{"sid":"abc","pingInterval":25000}'),
+    text('up', '40'),
+    text('down', '40{"sid":"abc"}'),
+    text('down', '2'),
+    text('up', '3'),
+    text('down', '42["news",{"headline":"hi"}]'),
+    text('up', '421["ping-me"]'),
+    text('down', '431[{"ok":true}]'),
+  ];
+
+  it('renders control frames as subdued protocol rows and events by name', () => {
+    renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
+    const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
+    expect(rows.some((r) => r.includes('engine.io open'))).toBe(true);
+    expect(rows.some((r) => r.includes('connect /'))).toBe(true);
+    expect(rows.some((r) => r.includes('connected /'))).toBe(true);
+    expect(rows.some((r) => r.includes('ping'))).toBe(true);
+    expect(rows.some((r) => r.includes('pong'))).toBe(true);
+    // Newest-first default: the latest frame renders first.
+    const names = screen.getAllByTestId('ws-sio-event-name').map((el) => el.textContent);
+    expect(names).toEqual(['ack', 'ping-me', 'news']);
+  });
+
+  it('shows the args preview and correlates ack ids', () => {
+    renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
+    const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
+    expect(rows.some((r) => r.includes('news') && r.includes('[{"headline":"hi"}]'))).toBe(true);
+    const ackIds = screen.getAllByTestId('ws-sio-ack-id').map((el) => el.textContent);
+    expect(ackIds).toEqual(['#1', '#1']);
+  });
+
+  it('expands an event row into the pretty-printed arguments', () => {
+    renderTimeline({ items: SIO_ITEMS, count: SIO_ITEMS.length, flavor: 'socketio' });
+    const eventRow = screen.getAllByTestId('ws-timeline-message-row').find((r) => r.textContent?.includes('news'));
+    if (!eventRow) throw new Error('no event row');
+    fireEvent.click(eventRow);
+    const viewer = screen.getByTestId('ws-timeline-message-viewer');
+    expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe(
+      JSON.stringify([{ headline: 'hi' }], null, 2),
+    );
+  });
+
+  it('leaves the raw flavor undecoded — frames render verbatim', () => {
+    renderTimeline({ items: [text('down', '42["news"]')], count: 1 });
+    const row = screen.getByTestId('ws-timeline-message-row');
+    expect(row.textContent).toContain('42["news"]');
+    expect(screen.queryByTestId('ws-sio-event-name')).toBeNull();
+  });
+});

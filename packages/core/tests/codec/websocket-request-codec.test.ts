@@ -105,6 +105,27 @@ describe('parseWebSocketRequest', () => {
     expect(parsed.value.flavor).toBe('socketio');
   });
 
+  it('round-trips the socketio compose fields and names the sibling message.json', () => {
+    const entity = websocketRequest({
+      flavor: 'socketio',
+      namespace: '/probe',
+      eventName: 'echo',
+      ackEnabled: true,
+      message: '["hello"]',
+      messageFormat: undefined,
+    });
+    const out = serializeWebSocketRequest(freshDocument(entity));
+    expect(out.messageFile).toEqual({ fileName: 'message.json', content: '["hello"]' });
+    expect(out.websocketYaml).toContain('namespace: /probe');
+    expect(out.websocketYaml).toContain('eventName: echo');
+    expect(out.websocketYaml).toContain('ackEnabled: true');
+    const parsed = parseWebSocketRequest(out.websocketYaml, {
+      path: entity.path,
+      siblings: out.messageFile ? [out.messageFile] : [],
+    });
+    expect(parsed.value).toEqual(entity);
+  });
+
   it('parses a missing message sibling as the empty draft', () => {
     const out = serializeWebSocketRequest(freshDocument(websocketRequest()));
     const parsed = parseWebSocketRequest(out.websocketYaml, { path: 'requests/live-events-wsrq0001', siblings: [] });

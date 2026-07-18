@@ -33,6 +33,11 @@
  *       Connect-side notice naming custom handshake headers, and the
  *       greeting mirrors an EMPTY `x-probe-client` — the row honestly
  *       never reached the wire (never a silent drop, never a gate).
+ *   B7  socketio flavor (Phase E): the same page-realm path runs the
+ *       hand-rolled engine.io/socket.io framing against the REAL
+ *       socket.io server at `/net/sio-probe` — namespace connect,
+ *       decoded event rows, an acked `echo` emit with its reply and
+ *       correlated ACK, clean Disconnect.
  *
  * Deliberately NOT here: the node-knob session legs (custom headers /
  * TLS verify-off on the wire, `?push=` param batches, foreign close
@@ -65,6 +70,9 @@ const WS_MESSAGE = 'ping from e2e';
 const WS_SUBPROTOCOL = 'graphql-ws';
 // The playground webServer's ws-probe — the live session legs' target.
 const WS_PROBE_URL = 'ws://127.0.0.1:3000/net/ws-probe';
+// The REAL socket.io server the socketio flavor's leg dials — the URL
+// path IS the engine.io path.
+const SIO_PROBE_URL = 'ws://127.0.0.1:3000/net/sio-probe';
 
 let context: BrowserContext;
 let extensionId: string;
@@ -418,4 +426,53 @@ test('B6 — a configured header row rides the honesty notice and honestly stays
   // The notice persists on the settled capture — honesty for the
   // session's whole life, not a transient toast.
   await expect(notice).toBeVisible();
+});
+
+// ── B7: socketio flavor session against the real socket.io server ───
+
+test('B7 — socketio runs in-page: namespace connect, decoded events, acked echo emit', async () => {
+  await openWebsocketRequest(SIO_NAME);
+  // The CURRENT compose state connects (the draft-send law).
+  await urlInput().fill(SIO_PROBE_URL);
+
+  // Namespace rides the Settings tab (socketio-only row).
+  await page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('websocket-namespace').filter({ visible: true }).first().fill('/probe');
+
+  // Event compose on the Message tab: name + ack opt-in + JSON args.
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('websocket-event-name').filter({ visible: true }).first().fill('echo');
+  await page.getByTestId('websocket-expect-ack').filter({ visible: true }).first().click();
+  await workbench.fillMonaco(0, '["from-ext", 9]');
+
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+
+  // The greeting proves the whole handshake chain decoded: engine.io
+  // open, our namespace CONNECT, the server's connect ack, the first
+  // EVENT by name.
+  const eventNames = page.getByTestId('ws-sio-event-name').filter({ visible: true });
+  await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await timelineMessageRows().filter({ hasText: 'connect /probe' }).first().waitFor({ state: 'visible' });
+  await timelineMessageRows().filter({ hasText: 'connected /probe' }).first().waitFor({ state: 'visible' });
+  await timelineMessageRows().filter({ hasText: 'engine.io open' }).first().waitFor({ state: 'visible' });
+
+  // Send emits the composed event with ack id 1; the reply EVENT and
+  // the correlated ACK land decoded.
+  await expect(sendButton()).toBeEnabled();
+  await sendButton().click();
+  await eventNames.filter({ hasText: 'echo:reply' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await timelineMessageRows()
+    .filter({ hasText: 'echo' })
+    .filter({ hasText: '#1' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+  await timelineMessageRows()
+    .filter({ hasText: 'ack' })
+    .filter({ hasText: '#1' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  await disconnectAndAwaitClose();
 });

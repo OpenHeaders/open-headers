@@ -95,7 +95,10 @@ export function serializeWebSocketRequest(write: WriteableDocument<WebSocketRequ
   mergeKnownFields(doc, manifestView, WEBSOCKET_REQUEST_FIELD_ORDER);
   const websocketYaml = doc.toString(CANONICAL_STRINGIFY_OPTIONS);
 
-  const messageFileName = value.messageFormat === 'json' ? MESSAGE_JSON_FILE_NAME : MESSAGE_TEXT_FILE_NAME;
+  // The socketio flavor composes a JSON arguments array by
+  // construction, so its sibling is always the .json name.
+  const messageFileName =
+    value.messageFormat === 'json' || value.flavor === 'socketio' ? MESSAGE_JSON_FILE_NAME : MESSAGE_TEXT_FILE_NAME;
   const messageFile: WebSocketRequestSiblingFile | null =
     value.message !== '' ? { fileName: messageFileName, content: value.message } : null;
 

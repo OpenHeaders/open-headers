@@ -38,6 +38,8 @@ import {
   SearchOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
+import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
+import type { WebSocketFlavor } from '@openheaders/core/types';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import { Button, ConfigProvider, Dropdown, Input, Segmented, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -108,6 +110,10 @@ interface WsMessageTimelineProps {
   /** Messages that rolled off the retention window — an honest notice
    *  row above the list when non-zero. */
   droppedMessages?: number;
+  /** Session wire family — `socketio` decodes engine.io/socket.io
+   *  frames into event and control rows (display-side only; the
+   *  capture stays verbatim). Absent = raw. */
+  flavor?: WebSocketFlavor;
 }
 
 /** One display slot of the virtual list — heights are a closed
@@ -164,16 +170,111 @@ export interface WsMessageView {
   byteLength: number;
 }
 
+/**
+ * Display-side decode of one socket.io frame — the capture stays the
+ * verbatim wire text; this view names what the frame IS so the row
+ * reads like the protocol event it carries. `event` / `ack` carry a
+ * compact preview for the row and a pretty payload for the viewer.
+ */
+export type WsSioView =
+  | { kind: 'engineOpen' }
+  | { kind: 'engineClose' }
+  | { kind: 'ping' }
+  | { kind: 'pong' }
+  | { kind: 'connect'; namespace: string }
+  | { kind: 'connectAck'; namespace: string }
+  | { kind: 'connectError' }
+  | { kind: 'disconnect'; namespace: string }
+  | { kind: 'event'; name: string | null; ackId: number | null; argsPreview: string; payloadPretty: string }
+  | { kind: 'ack'; ackId: number | null; payloadPretty: string }
+  | { kind: 'binaryAttachments'; attachments: number };
+
+/** Decode one socket.io wire frame into its display view; `null` when
+ *  the text carries no recognizable engine.io grammar (renders raw). */
+function sioViewOfText(text: string, direction: 'up' | 'down'): WsSioView | null {
+  const frame = parseEngineIoFrame(text);
+  switch (frame.kind) {
+    case 'open':
+      return { kind: 'engineOpen' };
+    case 'close':
+      return { kind: 'engineClose' };
+    case 'ping':
+      return { kind: 'ping' };
+    case 'pong':
+      return { kind: 'pong' };
+    case 'packet':
+      break;
+    default:
+      return null;
+  }
+  const packet = frame.packet;
+  const prettyOf = (json: string | null): string => {
+    if (json === null || json === '') return '';
+    try {
+      return JSON.stringify(JSON.parse(json), null, 2);
+    } catch {
+      return json;
+    }
+  };
+  switch (packet.type) {
+    case SOCKET_IO_PACKET_TYPES.connect:
+      return direction === 'up'
+        ? { kind: 'connect', namespace: packet.namespace }
+        : { kind: 'connectAck', namespace: packet.namespace };
+    case SOCKET_IO_PACKET_TYPES.disconnect:
+      return { kind: 'disconnect', namespace: packet.namespace };
+    case SOCKET_IO_PACKET_TYPES.connectError:
+      return { kind: 'connectError' };
+    case SOCKET_IO_PACKET_TYPES.event: {
+      if (packet.dataJson !== null) {
+        try {
+          const parsed: unknown = JSON.parse(packet.dataJson);
+          if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
+            const args = parsed.slice(1);
+            return {
+              kind: 'event',
+              name: parsed[0],
+              ackId: packet.ackId,
+              argsPreview: args.length > 0 ? JSON.stringify(args) : '',
+              payloadPretty: JSON.stringify(args, null, 2),
+            };
+          }
+        } catch {
+          // Fall through to the nameless event below.
+        }
+      }
+      return {
+        kind: 'event',
+        name: null,
+        ackId: packet.ackId,
+        argsPreview: packet.dataJson ?? '',
+        payloadPretty: prettyOf(packet.dataJson),
+      };
+    }
+    case SOCKET_IO_PACKET_TYPES.ack:
+      return { kind: 'ack', ackId: packet.ackId, payloadPretty: prettyOf(packet.dataJson) };
+    case SOCKET_IO_PACKET_TYPES.binaryEvent:
+    case SOCKET_IO_PACKET_TYPES.binaryAck:
+      return { kind: 'binaryAttachments', attachments: packet.attachments };
+    default:
+      return null;
+  }
+}
+
 /** Per-item view/preview caches — item identity is append-only, so a
  *  WeakMap never serves a stale decode. */
 interface WsFrameDerivations {
   viewOf: (item: WsTimelineItem) => WsMessageView;
   previewOf: (item: WsTimelineItem) => string;
+  /** Socket.IO display decode; always `null` on the raw flavor and on
+   *  binary frames. */
+  sioOf: (item: WsTimelineItem) => WsSioView | null;
 }
 
-function makeWsFrameDerivations(): WsFrameDerivations {
+function makeWsFrameDerivations(decodeSio: boolean): WsFrameDerivations {
   const viewCache = new WeakMap<WsTimelineItem, WsMessageView>();
   const previewCache = new WeakMap<WsTimelineItem, string>();
+  const sioCache = new WeakMap<WsTimelineItem, WsSioView | null>();
   const viewOf = (item: WsTimelineItem): WsMessageView => {
     const hit = viewCache.get(item);
     if (hit !== undefined) return hit;
@@ -208,7 +309,48 @@ function makeWsFrameDerivations(): WsFrameDerivations {
     previewCache.set(item, preview);
     return preview;
   };
-  return { viewOf, previewOf };
+  const sioOf = (item: WsTimelineItem): WsSioView | null => {
+    if (!decodeSio || item.binary) return null;
+    const hit = sioCache.get(item);
+    if (hit !== undefined) return hit;
+    const sio = sioViewOfText(viewOf(item).text, item.direction);
+    sioCache.set(item, sio);
+    return sio;
+  };
+  return { viewOf, previewOf, sioOf };
+}
+
+/** Row label for the socket.io CONTROL frames — `null` for the event
+ *  and ack rows, which render their own anatomy. */
+function sioControlLabel(sio: WsSioView, t: Translate): string | null {
+  switch (sio.kind) {
+    case 'engineOpen':
+      return t('workbench.editors.websocket.timeline.sio.engineOpen');
+    case 'engineClose':
+      return t('workbench.editors.websocket.timeline.sio.engineClose');
+    case 'ping':
+      return t('workbench.editors.websocket.timeline.sio.ping');
+    case 'pong':
+      return t('workbench.editors.websocket.timeline.sio.pong');
+    case 'connect':
+      return t('workbench.editors.websocket.timeline.sio.connect', { namespace: sio.namespace });
+    case 'connectAck':
+      return t('workbench.editors.websocket.timeline.sio.connected', { namespace: sio.namespace });
+    case 'connectError':
+      return t('workbench.editors.websocket.timeline.sio.connectError');
+    case 'disconnect':
+      return t('workbench.editors.websocket.timeline.sio.disconnect', { namespace: sio.namespace });
+    case 'binaryAttachments':
+      return t('workbench.editors.websocket.timeline.sio.binaryAttachments', { count: sio.attachments });
+    case 'event':
+    case 'ack':
+      return null;
+    default: {
+      const _exhaustive: never = sio;
+      void _exhaustive;
+      return null;
+    }
+  }
 }
 
 const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
@@ -217,6 +359,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   timestamps,
   lifecycle,
   droppedMessages = 0,
+  flavor,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -233,7 +376,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // never resets it.
   const [newestFirst, setNewestFirst] = useSetting('requests.wsMessagesNewestFirst');
 
-  const derive = useMemo(() => makeWsFrameDerivations(), []);
+  const derive = useMemo(() => makeWsFrameDerivations(flavor === 'socketio'), [flavor]);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const awayFromNewEdgeRef = useRef(false);
@@ -462,6 +605,63 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         const isExpanded = expanded.has(entry.index);
         const ts = timestamps?.[entry.index];
         const view = derive.viewOf(item);
+        const sio = derive.sioOf(item);
+        const sioLabel = sio !== null ? sioControlLabel(sio, t) : null;
+        const sioEventLike = sio !== null && (sio.kind === 'event' || sio.kind === 'ack') ? sio : null;
+        // Decoded payload cell: control frames read as subdued protocol
+        // rows; event/ack rows carry their name and correlation id.
+        let sioCell: React.ReactNode = null;
+        if (sioLabel !== null) {
+          sioCell = (
+            <span
+              style={{
+                ...cellFont,
+                fontStyle: 'italic',
+                color: token.colorTextTertiary,
+                flex: 1,
+                minWidth: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {sioLabel}
+            </span>
+          );
+        } else if (sioEventLike !== null) {
+          sioCell = (
+            <span
+              style={{
+                ...cellFont,
+                color: token.colorTextSecondary,
+                flex: 1,
+                minWidth: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                gap: 8,
+              }}
+            >
+              <span style={{ color: token.colorText, fontWeight: 600, flexShrink: 0 }} data-testid="ws-sio-event-name">
+                {sioEventLike.kind === 'event'
+                  ? (sioEventLike.name ?? t('workbench.editors.websocket.timeline.sio.eventNoName'))
+                  : t('workbench.editors.websocket.timeline.sio.ack')}
+              </span>
+              {sioEventLike.ackId !== null && (
+                <span style={{ color: token.colorTextTertiary, flexShrink: 0 }} data-testid="ws-sio-ack-id">
+                  #{sioEventLike.ackId}
+                </span>
+              )}
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {sioEventLike.kind === 'event'
+                  ? sioEventLike.argsPreview
+                  : sioEventLike.payloadPretty.replace(/\n\s*/g, ' ')}
+              </span>
+            </span>
+          );
+        }
         return (
           <div
             key={entry.key}
@@ -504,22 +704,24 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 />
               )}
             </span>
-            <span
-              style={{
-                ...cellFont,
-                color: token.colorTextSecondary,
-                flex: 1,
-                minWidth: 0,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                ...(view.kind === 'binary' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-              }}
-            >
-              {view.kind === 'binary'
-                ? t('workbench.editors.websocket.timeline.binaryMessage', { bytes: view.byteLength })
-                : derive.previewOf(item)}
-            </span>
+            {sioCell ?? (
+              <span
+                style={{
+                  ...cellFont,
+                  color: token.colorTextSecondary,
+                  flex: 1,
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  ...(view.kind === 'binary' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+                }}
+              >
+                {view.kind === 'binary'
+                  ? t('workbench.editors.websocket.timeline.binaryMessage', { bytes: view.byteLength })
+                  : derive.previewOf(item)}
+              </span>
+            )}
             {ts !== undefined && (
               <span
                 data-testid="ws-timeline-message-time"
@@ -532,7 +734,14 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         );
       }
       case 'viewer': {
-        const view = derive.viewOf(items[entry.index]);
+        const item = items[entry.index];
+        let view = derive.viewOf(item);
+        // The expanded viewer of a decoded event/ack shows the payload
+        // arguments pretty-printed — the row already names the frame;
+        // control frames keep the verbatim wire text.
+        const sio = derive.sioOf(item);
+        if (sio?.kind === 'event') view = { ...view, kind: 'json', text: sio.payloadPretty };
+        else if (sio?.kind === 'ack') view = { ...view, kind: 'json', text: sio.payloadPretty };
         return (
           <div
             key={entry.key}

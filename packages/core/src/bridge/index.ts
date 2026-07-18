@@ -53,6 +53,7 @@ export type {
   StorageQuotaWire,
   StorageScopeWire,
   WorkspaceSnapshot,
+  WsSendSocketIoWire,
   WsStreamEventWire,
   WsStreamMessageWire,
 } from '../protocol/channels';

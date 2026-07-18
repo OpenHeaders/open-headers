@@ -97,6 +97,12 @@ export const WebSocketRequestSchema = v.object({
   url: WebSocketUrlSchema,
   flavor: WebSocketFlavorSchema,
   /**
+   * Socket.IO namespace the session CONNECTs to (socketio flavor
+   * only). Absent or empty = the root `/`. Templates welcome —
+   * resolved at Connect with the other target fields.
+   */
+  namespace: v.optional(v.string()),
+  /**
    * `Sec-WebSocket-Protocol` offer list, in preference order. Plain
    * strings — the server picks one during the handshake. Empty = no
    * subprotocol negotiation.
@@ -110,6 +116,17 @@ export const WebSocketRequestSchema = v.object({
    * manifest never carries it. Empty string = nothing composed yet.
    */
   message: v.string(),
+  /**
+   * Socket.IO compose: the event name the next Send emits (socketio
+   * flavor only — `message` then holds the JSON arguments array).
+   * Templates welcome, resolved per send.
+   */
+  eventName: v.optional(v.string()),
+  /**
+   * Socket.IO compose: opt-in ack — a Send mints an ack id so the
+   * server's ACK reply correlates in the timeline. Absent = off.
+   */
+  ackEnabled: v.optional(v.boolean()),
   /** Raw-flavor compose display mode. Absent = `text`. */
   messageFormat: v.optional(WebSocketMessageFormatSchema),
   specLink: v.optional(WebSocketSpecLinkSchema),

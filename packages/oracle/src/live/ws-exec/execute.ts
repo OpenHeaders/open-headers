@@ -30,7 +30,8 @@
  * `droppedMessages` counts what rolled off — honest, never silent.
  */
 
-import type { WsStreamEventWire } from '@openheaders/core/bridge';
+import type { WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
+import { buildEngineIoUrl, encodeEventPacket, isValidNamespace, normalizeNamespace } from '@openheaders/core/socketio';
 import type { ExecutedWsClose, ExecutedWsMessage, ExecutedWsSnapshot, WebSocketRequest } from '@openheaders/core/types';
 import { appendQueryParams, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
@@ -38,7 +39,8 @@ import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
-import type { WsTransport, WsTransportHeader } from './transport';
+import { createSocketIoSessionController } from './socketio-session';
+import type { WsSessionWriter, WsTransport, WsTransportHeader } from './transport';
 
 /** Rolling-retention caps on the captured payload bytes / message
  *  count — the always-on host never buffers unbounded, and unlike the
@@ -111,6 +113,11 @@ export async function executeWsSession(
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
     .map((p) => ({ ...p, key: resolveStr(p.key), value: resolveStr(p.value) }));
+  // Socket.IO flavor: the namespace resolves with the other target
+  // fields; the framing controller CONNECTs it once the engine.io open
+  // packet arrives.
+  const socketioFlavor = request.flavor === 'socketio';
+  const namespace = socketioFlavor ? normalizeNamespace(resolveStr(request.namespace ?? '')) : '/';
   if (unresolved.size > 0) {
     return errorWsSnapshot(
       `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
@@ -121,6 +128,18 @@ export async function executeWsSession(
     return errorWsSnapshot('The URL must start with ws:// or wss://.');
   }
   if (params.length > 0) url = appendQueryParams(url, params);
+  if (socketioFlavor) {
+    if (!isValidNamespace(namespace)) {
+      return errorWsSnapshot('The Socket.IO namespace must not contain a comma.');
+    }
+    // The engine.io dial URL: default /socket.io/ mount on a bare
+    // authority, EIO + transport joined after any user params.
+    try {
+      url = buildEngineIoUrl(url);
+    } catch {
+      return errorWsSnapshot('The URL is not valid.');
+    }
+  }
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedWsSnapshot>((resolve) => {
@@ -184,7 +203,21 @@ export async function executeWsSession(
       });
     };
 
-    const writer = options.transport.connect(
+    // One write path for riders AND protocol frames — every ↑ frame is
+    // captured and broadcast verbatim, socket.io control answers
+    // (CONNECT, pong) included.
+    let writer: WsSessionWriter | null = null;
+    const sendText = (text: string): void => {
+      if (writer === null || settled) return;
+      writer.send(text);
+      const data = new TextEncoder().encode(text);
+      const dataBase64 = encodeBase64Bytes(data);
+      record({ direction: 'up', dataBase64, binary: false }, data.byteLength);
+      emitter?.message({ direction: 'up', dataBase64, binary: false, atMs: Date.now() });
+    };
+    const socketioSession = socketioFlavor ? createSocketIoSessionController(namespace, sendText) : null;
+
+    writer = options.transport.connect(
       {
         url,
         headers,
@@ -203,6 +236,10 @@ export async function executeWsSession(
           const dataBase64 = encodeBase64Bytes(data);
           record({ direction: 'down', dataBase64, binary }, data.byteLength);
           emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });
+          // The socket.io controller answers protocol obligations off
+          // the same feed the capture records — text frames only
+          // (binary attachments carry no engine.io grammar).
+          if (socketioSession !== null && !binary) socketioSession.handleFrame(new TextDecoder().decode(data));
         },
         onClose: (event) => {
           close =
@@ -216,26 +253,42 @@ export async function executeWsSession(
     );
 
     unregisterSession = registerActiveWsSession(options.sendId, {
-      send: (messageText) => {
+      send: (messageText, socketio?: WsSendSocketIoWire) => {
         if (settled || !opened) return { success: false, error: 'The session is not open.' };
         const sendUnresolved = new Set<string>();
         const resolved = resolveWith(messageText, sendUnresolved);
-        if (sendUnresolved.size > 0) {
+        let frame = resolved;
+        if (socketio !== undefined) {
+          if (socketioSession === null) {
+            return { success: false, error: 'This session is not a Socket.IO session.' };
+          }
+          const eventName = resolveWith(socketio.eventName, sendUnresolved);
+          if (sendUnresolved.size > 0) {
+            return {
+              success: false,
+              error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
+            };
+          }
+          const encoded = encodeEventPacket(
+            namespace,
+            socketio.expectAck ? socketioSession.nextAckId() : null,
+            eventName,
+            resolved,
+          );
+          if (!encoded.ok) return { success: false, error: encoded.error };
+          frame = encoded.frame;
+        } else if (sendUnresolved.size > 0) {
           return {
             success: false,
             error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
           };
         }
-        writer.send(resolved);
-        const data = new TextEncoder().encode(resolved);
-        const dataBase64 = encodeBase64Bytes(data);
-        record({ direction: 'up', dataBase64, binary: false }, data.byteLength);
-        emitter?.message({ direction: 'up', dataBase64, binary: false, atMs: Date.now() });
+        sendText(frame);
         return { success: true };
       },
       close: () => {
         if (settled) return;
-        writer.close(WS_DISCONNECT_CODE, '');
+        writer?.close(WS_DISCONNECT_CODE, '');
       },
     });
   });

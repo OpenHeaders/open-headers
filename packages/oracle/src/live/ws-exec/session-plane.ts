@@ -14,7 +14,7 @@
  * end frames emit immediately (they are single and load-bearing).
  */
 
-import type { WsStreamEventWire, WsStreamMessageWire } from '@openheaders/core/bridge';
+import type { WsSendSocketIoWire, WsStreamEventWire, WsStreamMessageWire } from '@openheaders/core/bridge';
 
 /** Flush the pending message batch on this cadence — the gRPC
  *  emitter's window; per-message `atMs` stamps keep arrival fidelity
@@ -84,9 +84,12 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
  *  `sendWsMessage` / `closeWsSession` RPCs reach. */
 export interface ActiveWsSessionHandle {
   /** Resolve `{{refs}}` in `messageText` through the resolver built at
-   *  Connect and write it. An unresolved reference reports on the RPC
-   *  alone — the session stays open. */
-  send(messageText: string): { success: boolean; error?: string };
+   *  Connect and write it. On a socketio-flavor session the rider's
+   *  `socketio` addendum makes `messageText` the JSON arguments array
+   *  and the executor frames the EVENT packet. An unresolved reference
+   *  or a compose error reports on the RPC alone — the session stays
+   *  open. */
+  send(messageText: string, socketio?: WsSendSocketIoWire): { success: boolean; error?: string };
   /** Start the clean close (code 1000) — Disconnect. */
   close(): void;
 }
@@ -104,10 +107,14 @@ export function registerActiveWsSession(sendId: string, handle: ActiveWsSessionH
 
 /** Write one message into an open session. `success: false` names the
  *  reason: no such session (settled, unknown id) or a resolve error. */
-export function sendActiveWsSessionMessage(sendId: string, messageText: string): { success: boolean; error?: string } {
+export function sendActiveWsSessionMessage(
+  sendId: string,
+  messageText: string,
+  socketio?: WsSendSocketIoWire,
+): { success: boolean; error?: string } {
   const handle = activeSessions.get(sendId);
   if (!handle) return { success: false, error: 'No open WebSocket session with this id.' };
-  return handle.send(messageText);
+  return handle.send(messageText, socketio);
 }
 
 /** Start an open session's clean close. False = no such session. */

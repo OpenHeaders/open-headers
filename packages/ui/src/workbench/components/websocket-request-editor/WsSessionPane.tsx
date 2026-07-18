@@ -17,7 +17,7 @@
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
-import type { ExecutedWsSnapshot } from '@openheaders/core/types';
+import type { ExecutedWsSnapshot, WebSocketFlavor } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
@@ -38,10 +38,12 @@ interface WsSessionPaneProps {
    *  configured node-only knobs that did not apply on this host.
    *  Stated inline for the session's whole life, never a gate. */
   hostNotice?: string | null;
+  /** Session wire family — forwarded to the timeline's display decode. */
+  flavor?: WebSocketFlavor;
   onClear: () => void;
 }
 
-const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, hostNotice, onClear }) => {
+const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, hostNotice, flavor, onClear }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [activeTab, setActiveTab] = useState('timeline');
@@ -258,6 +260,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({ live, snapshot, timing, h
                     {...(timestamps !== undefined ? { timestamps } : {})}
                     lifecycle={lifecycle}
                     droppedMessages={snapshot?.droppedMessages ?? 0}
+                    {...(flavor !== undefined ? { flavor } : {})}
                   />
                 </div>
               </div>

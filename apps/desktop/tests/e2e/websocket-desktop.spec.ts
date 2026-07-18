@@ -20,6 +20,11 @@
  *       synthesized (the capture law's display twin).
  *   W4  refused dial: a dead port settles as a classified pre-open
  *       error state, not a timeline.
+ *   W5  socketio flavor (Phase E): the hand-rolled engine.io/socket.io
+ *       framing against the REAL socket.io server at `/net/sio-probe` —
+ *       namespace CONNECT, decoded event rows (greeting), an acked
+ *       `echo` emit whose EVENT / reply / ACK all land, control frames
+ *       subdued, clean Disconnect.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle + honest browser posture (extension
@@ -322,4 +327,35 @@ test('W4 — a dead port settles as the classified refused-dial error state', as
   await expect(workbench.getByTestId('ws-session-error-detail').filter({ visible: true }).first()).toContainText(
     `Connection refused by 127.0.0.1:${WS_DEAD_PORT}`,
   );
+});
+
+// ── W5: socketio flavor against the real socket.io server ───────────
+
+test('W5 — socketio handshake, namespace connect, acked echo event and decoded rows', async () => {
+  await openWebsocketRequest('e2ewsd05');
+  await connectAndAwaitOpen();
+
+  // The greeting proves the whole handshake chain: engine.io open,
+  // our namespace CONNECT, the server's connect ack, then the first
+  // EVENT decoded by name.
+  const eventNames = workbench.getByTestId('ws-sio-event-name').filter({ visible: true });
+  await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await timelineMessageRows().filter({ hasText: 'connect /probe' }).first().waitFor({ state: 'visible' });
+  await timelineMessageRows().filter({ hasText: 'connected /probe' }).first().waitFor({ state: 'visible' });
+  await timelineMessageRows().filter({ hasText: 'engine.io open' }).first().waitFor({ state: 'visible' });
+
+  // Send emits the composed `echo` event with an ack id; the server's
+  // reply event AND the correlated ACK land decoded.
+  await expect(sendButton()).toBeEnabled();
+  await sendButton().click();
+  await eventNames.filter({ hasText: 'echo:reply' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  const echoRow = timelineMessageRows().filter({ hasText: 'echo' }).filter({ hasText: '#1' }).first();
+  await echoRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await timelineMessageRows()
+    .filter({ hasText: 'ack' })
+    .filter({ hasText: '#1' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+
+  await disconnectAndAwaitClose('Closed 1000');
 });

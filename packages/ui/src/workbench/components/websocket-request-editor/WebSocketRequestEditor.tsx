@@ -100,6 +100,9 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   headers: [],
   params: [],
   message: '',
+  eventName: '',
+  namespace: '',
+  ackEnabled: false,
   messageFormat: 'text',
   specLink: undefined,
   timeoutMs: undefined,
@@ -269,17 +272,27 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     hostBridge.call('closeWsSession', { sendId }).catch(() => {});
   }, []);
 
-  // Send the CURRENT compose text as one message — the executor
+  // Send the CURRENT compose state as one message — the executor
   // resolves {{refs}} through the resolver it built at Connect, and a
-  // resolve failure reports here without touching the open session.
+  // resolve (or, on the socketio flavor, a frame-compose) failure
+  // reports here without touching the open session. For socketio the
+  // compose text is the JSON arguments array and the rider addendum
+  // carries the event name + ack opt-in.
+  const socketioFlavor = entity?.flavor === 'socketio';
   const handleSendMessage = useCallback(async () => {
     const sendId = activeSendIdRef.current;
     if (!sendId) return;
-    const result = await hostBridge.call('sendWsMessage', { sendId, messageText: draft.message }).catch(() => null);
+    const result = await hostBridge
+      .call('sendWsMessage', {
+        sendId,
+        messageText: draft.message,
+        ...(socketioFlavor ? { socketio: { eventName: draft.eventName, expectAck: draft.ackEnabled } } : {}),
+      })
+      .catch(() => null);
     if (result === null || !result.success) {
       toast.error(result?.error ?? t('workbench.editors.websocket.session.sendFailed'));
     }
-  }, [draft.message, toast, t]);
+  }, [draft.message, draft.eventName, draft.ackEnabled, socketioFlavor, toast, t]);
 
   const handleClearSession = useCallback(() => {
     setSnapshot(null);
@@ -536,23 +549,52 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
               {activeTab === 'message' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
                   {/* Toolbar row ABOVE the editor (the ScriptsTab
-                    discipline): compose display mode on the left, the
-                    labelled Find / Replace / Beautify cluster on the
-                    right (Beautify is a JSON affordance). */}
+                    discipline). Raw flavor: compose display mode on the
+                    left. Socket.IO flavor: the event name + ack opt-in
+                    compose the EVENT frame — the editor below holds the
+                    JSON arguments array, so the format toggle has no
+                    fork here. Find / Replace / Beautify cluster on the
+                    right (a JSON affordance). */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <Segmented
-                      size="small"
-                      value={draft.messageFormat}
-                      onChange={(messageFormat) =>
-                        setDraft((d) => ({ ...d, messageFormat: messageFormat as 'text' | 'json' }))
-                      }
-                      options={[
-                        { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
-                        { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
-                      ]}
-                      data-testid="websocket-message-format"
-                    />
-                    {draft.messageFormat === 'json' && (
+                    {socketioFlavor ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                        <Input
+                          size="small"
+                          style={{ maxWidth: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                          placeholder={t('workbench.editors.websocket.event.namePlaceholder')}
+                          value={draft.eventName}
+                          onChange={(e) => setDraft((d) => ({ ...d, eventName: e.target.value }))}
+                          data-testid="websocket-event-name"
+                        />
+                        <Tooltip title={t('workbench.editors.websocket.event.ackHelp')}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Switch
+                              size="small"
+                              checked={draft.ackEnabled}
+                              onChange={(ackEnabled) => setDraft((d) => ({ ...d, ackEnabled }))}
+                              data-testid="websocket-expect-ack"
+                            />
+                            <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                              {t('workbench.editors.websocket.event.ackLabel')}
+                            </Text>
+                          </span>
+                        </Tooltip>
+                      </div>
+                    ) : (
+                      <Segmented
+                        size="small"
+                        value={draft.messageFormat}
+                        onChange={(messageFormat) =>
+                          setDraft((d) => ({ ...d, messageFormat: messageFormat as 'text' | 'json' }))
+                        }
+                        options={[
+                          { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
+                          { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
+                        ]}
+                        data-testid="websocket-message-format"
+                      />
+                    )}
+                    {(socketioFlavor || draft.messageFormat === 'json') && (
                       <CodeEditorActions
                         target={messageActionsRef}
                         language="json"
@@ -570,11 +612,15 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       <CodeEditor
                         value={draft.message}
                         onChange={(message) => setDraft((d) => ({ ...d, message }))}
-                        language={draft.messageFormat === 'json' ? 'json' : 'text'}
+                        language={socketioFlavor || draft.messageFormat === 'json' ? 'json' : 'text'}
                         fill
                         actions="external"
                         actionsRef={messageActionsRef}
-                        placeholder={t('workbench.editors.websocket.messagePlaceholder')}
+                        placeholder={
+                          socketioFlavor
+                            ? t('workbench.editors.websocket.event.argsPlaceholder')
+                            : t('workbench.editors.websocket.messagePlaceholder')
+                        }
                       />
                     </div>
                     {/* Send control, bottom-right of the compose
@@ -682,6 +728,21 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
               )}
               {activeTab === 'settings' && (
                 <div style={{ maxWidth: 720 }}>
+                  {socketioFlavor && (
+                    <SettingRow
+                      label={t('workbench.editors.websocket.settings.namespaceLabel')}
+                      description={t('workbench.editors.websocket.settings.namespaceHelp')}
+                      control={
+                        <Input
+                          style={{ width: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                          placeholder={t('workbench.editors.websocket.settings.namespacePlaceholder')}
+                          value={draft.namespace}
+                          onChange={(e) => setDraft((d) => ({ ...d, namespace: e.target.value }))}
+                          data-testid="websocket-namespace"
+                        />
+                      }
+                    />
+                  )}
                   <SettingRow
                     label={t('workbench.editors.websocket.settings.sslVerifyLabel')}
                     description={t('workbench.editors.websocket.settings.sslVerifyHelp')}
@@ -739,6 +800,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                   snapshot={snapshot}
                   timing={timing}
                   hostNotice={hostNotice}
+                  flavor={entity.flavor}
                   onClear={handleClearSession}
                 />
               ) : (
