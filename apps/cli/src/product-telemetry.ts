@@ -210,7 +210,9 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     }
 
     if (config.telemetryNoticeShown !== true) {
-      (deps.notify ?? ((line) => console.error(line)))(TELEMETRY_NOTICE);
+      // stderr.write, not console.error: bun paints console.error red on
+      // a TTY, and a privacy notice must not read as an error.
+      (deps.notify ?? ((line) => process.stderr.write(`${line}\n`)))(TELEMETRY_NOTICE);
       // Best-effort persistence: an unwritable config dir means the
       // notice repeats next run, never that the command fails. A file we
       // could not read is never overwritten — the user was told to fix

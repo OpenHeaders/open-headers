@@ -81,8 +81,10 @@ async function main(): Promise<void> {
   // the 24h cache only, TTY-and-flag gated; the ≤1/day feed refresh
   // rides in the background and is capped in the exit flush like the
   // telemetry channel — it can never change a command's outcome.
+  // stderr.write, not console.error: bun paints console.error red on a
+  // TTY, which would make the normal availability line loud by accident.
   const updateNotify = await bootUpdateNotify(argv);
-  if (updateNotify.line !== null) console.error(updateNotify.line);
+  if (updateNotify.line !== null) process.stderr.write(`${updateNotify.line}\n`);
   try {
     await runCommand(argv, first);
   } finally {
