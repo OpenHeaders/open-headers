@@ -7,27 +7,27 @@
  * palette) and Esc pops innermost-first.
  */
 
-export interface FocusRing {
-  readonly panes: readonly string[];
-  readonly focusedPane: string;
+export interface FocusRing<TPane extends string = string> {
+  readonly panes: readonly TPane[];
+  readonly focusedPane: TPane;
   /** Top of the modal stack, or null when no modal is open. */
   readonly modal: string | null;
   /** Who gets the keys right now: the top modal if any, else the focused pane. */
   readonly active: string;
   next(): void;
   previous(): void;
-  focusPane(id: string): boolean;
+  focusPane(id: TPane): boolean;
   /** 1-based, matching the pane digits in titles. */
   focusDigit(digit: number): boolean;
   pushModal(id: string): void;
   popModal(): string | null;
   /** Re-declare the pane order (layout collapse); focus survives when its pane does. */
-  setPanes(panes: readonly string[]): void;
+  setPanes(panes: readonly TPane[]): void;
 }
 
-export function createFocusRing(initialPanes: readonly string[]): FocusRing {
+export function createFocusRing<TPane extends string = string>(initialPanes: readonly TPane[]): FocusRing<TPane> {
   if (initialPanes.length === 0) throw new Error('focus ring needs at least one pane');
-  let panes: readonly string[] = [...initialPanes];
+  let panes: readonly TPane[] = [...initialPanes];
   let focused = panes[0];
   const modals: string[] = [];
 
@@ -56,7 +56,7 @@ export function createFocusRing(initialPanes: readonly string[]): FocusRing {
     previous() {
       move(-1);
     },
-    focusPane(id: string): boolean {
+    focusPane(id: TPane): boolean {
       if (modals.length > 0 || !panes.includes(id)) return false;
       focused = id;
       return true;
@@ -74,7 +74,7 @@ export function createFocusRing(initialPanes: readonly string[]): FocusRing {
     popModal(): string | null {
       return modals.pop() ?? null;
     },
-    setPanes(next: readonly string[]): void {
+    setPanes(next: readonly TPane[]): void {
       if (next.length === 0) throw new Error('focus ring needs at least one pane');
       panes = [...next];
       if (!panes.includes(focused)) focused = panes[0];

@@ -14,6 +14,22 @@
     "./catalogs/en": {
       "import": "./src/catalogs/en/index.ts",
       "default": "./dist/catalogs/en/index.js"
+    },
+    "./catalogs/en/tui": {
+      "import": "./src/catalogs/en/tui.ts",
+      "default": "./dist/catalogs/en/tui.js"
+    },
+    "./runtime": {
+      "import": "./src/runtime.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./types": {
+      "import": "./src/types.ts",
+      "default": "./dist/types.js"
+    },
+    "./locales": {
+      "import": "./src/locales.ts",
+      "default": "./dist/locales.js"
     }
   },
   "scripts": {

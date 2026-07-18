@@ -32,6 +32,7 @@ import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
+import { tui } from './tui';
 import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
@@ -85,6 +86,7 @@ export const en = {
   ...panelQuickEditor,
   ...panelStorage,
   ...popup,
+  ...tui,
   ...web,
   ...workbench,
   ...workbenchChrome,

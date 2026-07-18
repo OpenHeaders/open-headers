@@ -10,9 +10,12 @@ import type { ProcessLike, TerminalSize, TtyOutput } from './tty';
 export const DEFAULT_SIZE: TerminalSize = { columns: 80, rows: 24 };
 
 export function measureTerminal(output: TtyOutput): TerminalSize {
+  // A pty that reports no winsize (undefined or 0×0) gets the floor.
+  const columns = output.columns ?? 0;
+  const rows = output.rows ?? 0;
   return {
-    columns: output.columns ?? DEFAULT_SIZE.columns,
-    rows: output.rows ?? DEFAULT_SIZE.rows,
+    columns: columns > 0 ? columns : DEFAULT_SIZE.columns,
+    rows: rows > 0 ? rows : DEFAULT_SIZE.rows,
   };
 }
 

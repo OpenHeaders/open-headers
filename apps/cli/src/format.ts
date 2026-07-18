@@ -6,7 +6,7 @@
  * so these types never become a second machine schema.
  */
 
-interface WorkspacesPayload {
+export interface WorkspacesPayload {
   activeWorkspaceId: string | null;
   workspaces: { id: string; name: string; kind: string; active: boolean; loaded: boolean }[];
 }
@@ -20,7 +20,7 @@ export function formatWorkspaces(payload: unknown): string[] {
   return lines;
 }
 
-interface RulesPayload {
+export interface RulesPayload {
   workspaceId: string;
   rules: { uid: string; name: string; type: string; enabled: boolean; published: boolean }[];
 }
@@ -36,10 +36,10 @@ export function formatRules(payload: unknown): string[] {
   return lines;
 }
 
-interface EnvironmentsPayload {
+export interface EnvironmentsPayload {
   workspaceId: string;
   activeEnvironmentId: string | null;
-  environments: { uid: string; name: string; variables: unknown[] }[];
+  environments: { uid: string; name: string; variables: ProjectedVariable[] }[];
 }
 
 export function formatEnvironments(payload: unknown): string[] {
@@ -51,7 +51,7 @@ export function formatEnvironments(payload: unknown): string[] {
   return lines;
 }
 
-interface ProjectedVariable {
+export interface ProjectedVariable {
   name: string;
   value?: string;
   masked: boolean;

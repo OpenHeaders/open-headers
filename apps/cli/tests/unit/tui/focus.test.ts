@@ -41,7 +41,7 @@ describe('createFocusRing', () => {
   });
 
   it('focusPane targets a known pane and rejects unknown ids', () => {
-    const ring = createFocusRing(PANES);
+    const ring = createFocusRing<string>(PANES);
     expect(ring.focusPane('environments')).toBe(true);
     expect(ring.focusedPane).toBe('environments');
     expect(ring.focusPane('nope')).toBe(false);

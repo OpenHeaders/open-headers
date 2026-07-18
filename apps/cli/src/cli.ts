@@ -65,6 +65,8 @@ Options:
   --secret                  vars set only: store the value as a masked secret
   --env <name-or-uid>       request send / workflow run: environment to resolve variables under
   --channel <stable|beta>   upgrade only: release line to install from (persists like oh channel)
+  --no-color                tui only: disable color output (NO_COLOR is honored too)
+  --ascii                   tui only: ASCII borders and markers instead of unicode
 
 Exit codes: 0 ok · 1 operation failed · 2 usage · 3 daemon unreachable or MCP disabled · 4 auth/tier denied
 `;
@@ -111,7 +113,10 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
   }
 
   if (first === 'tui') {
-    await runTui({ input: process.stdin, output: process.stdout, errorOutput: process.stderr, proc: process });
+    await runTui(
+      { input: process.stdin, output: process.stdout, errorOutput: process.stderr, proc: process },
+      { argv: argv.slice(1), env: process.env },
+    );
     return;
   }
 

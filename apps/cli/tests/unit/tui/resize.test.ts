@@ -16,6 +16,11 @@ describe('measureTerminal', () => {
   it('falls back to the 80×24 floor when the stream reports none', () => {
     expect(measureTerminal({ write: () => true })).toEqual(DEFAULT_SIZE);
   });
+
+  it('treats a reported 0×0 winsize as unset (BSD script ptys)', () => {
+    const tty = makeFakeTty({ columns: 0, rows: 0 });
+    expect(measureTerminal(tty.output)).toEqual(DEFAULT_SIZE);
+  });
 });
 
 describe('watchResize', () => {

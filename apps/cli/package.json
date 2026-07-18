@@ -18,7 +18,8 @@
     "clean": "rm -rf dist dist-package dist-sea"
   },
   "dependencies": {
-    "@openheaders/core": "workspace:*"
+    "@openheaders/core": "workspace:*",
+    "@openheaders/i18n": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
