@@ -932,6 +932,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       } else if (tab.mode === 'request-edit' && tab.requestUid) {
         void requestsApi.updateRequest(tab.requestUid, { name: newName });
         updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'grpc-edit' && tab.grpcRequestUid) {
+        void requestsApi.updateGrpcRequest(tab.grpcRequestUid, { name: newName });
+        updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'websocket-edit' && tab.websocketRequestUid) {
+        void requestsApi.updateWebSocketRequest(tab.websocketRequestUid, { name: newName });
+        updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'request-create' || tab.mode === 'rule-create' || tab.mode === 'live-workflow-create') {
         // Draft name change — no persistence until Save. Update both
         // the tab label and the `draftName` field so the editor's
@@ -1525,7 +1531,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 activeTab.mode === 'collection-overview' ||
                 activeTab.mode === 'folder-overview' ||
                 activeTab.mode === 'env-edit' ||
+                activeTab.mode === 'spec-edit' ||
                 activeTab.mode === 'request-edit' ||
+                activeTab.mode === 'grpc-edit' ||
+                activeTab.mode === 'websocket-edit' ||
                 activeTab.mode === 'request-create' ||
                 activeTab.mode === 'rule-create' ||
                 activeTab.mode === 'live-variable-edit' ||
