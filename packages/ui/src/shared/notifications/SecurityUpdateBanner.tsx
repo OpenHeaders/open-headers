@@ -20,10 +20,10 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 
 interface SecurityUpdateBannerProps {
   /** Route to the Settings update row, which owns download/install. */
-  onOpenAbout: () => void;
+  onOpenUpdates: () => void;
 }
 
-const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenAbout }) => {
+const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenUpdates }) => {
   const t = useT();
   const [state, setState] = useState<AppUpdateState | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -66,7 +66,7 @@ const SecurityUpdateBanner: React.FC<SecurityUpdateBannerProps> = ({ onOpenAbout
       data-testid="security-update-banner"
       message={message}
       action={
-        <Button size="small" danger onClick={onOpenAbout}>
+        <Button size="small" danger onClick={onOpenUpdates}>
           {t('shared.notifications.securityBanner.update')}
         </Button>
       }

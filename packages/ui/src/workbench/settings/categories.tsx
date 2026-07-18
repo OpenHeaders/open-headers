@@ -14,6 +14,7 @@ import {
   CloudDownloadOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
+  DownloadOutlined,
   EditOutlined,
   FunctionOutlined,
   InfoCircleOutlined,
@@ -243,6 +244,17 @@ registerCategory({
   // nothing. The extension carries no license plumbing and its probe
   // reads denied.
   when: ({ daemonAdmin }) => getCurrentHost() === 'desktop' || daemonAdmin === 'admin',
+});
+
+registerCategory({
+  id: 'updates',
+  labelKey: 'workbench.settings.category.updates.label',
+  icon: <DownloadOutlined />,
+  order: 898,
+  descriptionKey: 'workbench.settings.category.updates.description',
+  // Only the desktop app self-updates: the store updates the extension
+  // and a served web tab updates with the daemon behind it.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerCategory({

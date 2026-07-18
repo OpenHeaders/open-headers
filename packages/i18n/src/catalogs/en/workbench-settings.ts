@@ -129,6 +129,8 @@ export const workbenchSettings = {
   'workbench.settings.category.license.label': 'License',
   'workbench.settings.category.license.description':
     'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 10 active users per daemon.',
+  'workbench.settings.category.updates.label': 'Updates',
+  'workbench.settings.category.updates.description': 'Update checks, channel, and download behavior.',
   'workbench.settings.category.about.label': 'About',
   'workbench.settings.category.about.description': 'Version, licenses and build information.',
 

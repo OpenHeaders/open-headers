@@ -1412,7 +1412,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSetCollectionPinnedEnvs={setCollectionPinnedEnvsByFamily}
           />
 
-          <SecurityUpdateBanner onOpenAbout={() => openSettings({ categoryId: 'about' })} />
+          <SecurityUpdateBanner onOpenUpdates={() => openSettings({ categoryId: 'updates' })} />
 
           <OrgWorkspaceAccessNotice
             workspaces={workspacesApi.workspaces}
@@ -1421,10 +1421,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
 
           <AppUpdateToast
-            onOpenUpdateSettings={() => openSettings({ categoryId: 'about' })}
+            onOpenUpdateSettings={() => openSettings({ categoryId: 'updates' })}
             onOpenWhatsNew={openWhatsNew}
           />
-          <UpdateDialog onConfigureUpdates={() => openSettings({ categoryId: 'about' })} />
+          <UpdateDialog onConfigureUpdates={() => openSettings({ categoryId: 'updates' })} />
 
           <ShellLayout
             tl={tl}
