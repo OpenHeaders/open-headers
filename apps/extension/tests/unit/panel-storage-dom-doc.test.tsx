@@ -16,6 +16,7 @@ import { buildDomStorageEntryTab } from '@openheaders/ui/panel/data/inspector-ta
 import { notifyDomStorageWrite } from '@openheaders/ui/panel/data/storage/dom-storage-write-notifier';
 import type { DomStorageFullValue, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
+import { formatBody } from '@openheaders/ui/shared/body-format';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -572,6 +573,117 @@ describe('DomStorageEntryEditorTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discard my edits' }));
     expect(await screen.findByText('Entry no longer available')).toBeTruthy();
     expect(screen.queryByText(/deleted in the browser/)).toBeNull();
+  });
+
+  it('opens a JSON value in the Formatted view — mode toggles alone never dirty', async () => {
+    const WIRE = '{"nested":{"ok":true}}';
+    installHost(vi.fn(() => fullValue(WIRE)));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe(formatBody(WIRE));
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Raw' }));
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe(WIRE);
+    expect(save.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Formatted' }));
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe(formatBody(WIRE));
+    expect(save.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('a formatted-space edit saves re-encoded in the stored profile; a revert re-arms the verbatim short-circuit', async () => {
+    const WIRE = '{"nested":{"ok":true}}';
+    const write = vi.fn(() => Promise.resolve(true));
+    installHost(
+      vi.fn(() => fullValue(WIRE)),
+      write,
+    );
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    const save = screen.getByRole('button', { name: 'Save' });
+    const edited = formatBody(WIRE).replace('true', 'false');
+    fireEvent.change(viewer, { target: { value: edited } });
+    expect(save.hasAttribute('disabled')).toBe(false);
+
+    // Reverting to the formatted baseline re-emits the original bytes —
+    // the draft equals the canonical again, so dirty falls away.
+    fireEvent.change(viewer, { target: { value: formatBody(WIRE) } });
+    expect(save.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.change(viewer, { target: { value: edited } });
+    fireEvent.click(save);
+    // The wire write is the MINIFIED re-emission — the stored profile.
+    expect(write).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme', '{"nested":{"ok":false}}');
+  });
+
+  it('Raw-mode edits pass through verbatim — whitespace included', async () => {
+    const WIRE = '{"nested":{"ok":true}}';
+    const write = vi.fn(() => Promise.resolve(true));
+    installHost(
+      vi.fn(() => fullValue(WIRE)),
+      write,
+    );
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    fireEvent.click(screen.getByRole('radio', { name: 'Raw' }));
+    const viewer = screen.getByTestId('code-viewer') as HTMLTextAreaElement;
+    const rawEdit = '{"nested":{ "ok":true }}';
+    fireEvent.change(viewer, { target: { value: rawEdit } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(write).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme', rawEdit);
+  });
+
+  it('a non-JSON value opens Raw with Formatted disabled', async () => {
+    installHost(vi.fn(() => fullValue('plain text')));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe('plain text');
+    expect((screen.getByRole('radio', { name: 'Formatted' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('radio', { name: 'Raw' }) as HTMLButtonElement).getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('an external advance under a pristine Formatted editor reseeds the view', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: '{"a":1}', tooLarge: false })
+      .mockResolvedValue({ value: '{"a":2}', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe(formatBody('{"a":1}'));
+    notifyDomStorageWrite();
+
+    await waitFor(() => expect(viewer.value).toBe(formatBody('{"a":2}')));
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('the conflict tier and the merge panes keep comparing WIRE text under a Formatted edit', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: '{"a":1}', tooLarge: false })
+      .mockResolvedValue({ value: '{"a":9}', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: formatBody('{"a":1}').replace('1', '2') } });
+    notifyDomStorageWrite();
+    await screen.findByText(/value changed in the browser/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open merge view' }));
+    await screen.findByTestId('merge-dialog');
+    // All three panes carry wire-space text — the formatted view never
+    // leaks into the conflict plane.
+    expect(screen.getByTestId('merge-base').textContent).toBe('{"a":1}');
+    expect(screen.getByTestId('merge-mine').textContent).toBe('{"a":2}');
+    expect(screen.getByTestId('merge-saved').textContent).toBe('{"a":9}');
   });
 
   it('routes Reveal in Storage back to the originating area', async () => {

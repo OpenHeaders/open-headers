@@ -32,6 +32,7 @@ import { useDocumentSync } from '../../data/storage/use-document-sync';
 import Skeleton from '../detail/Skeleton';
 import { JsonTree } from '../JsonTree';
 import { ArmedIconButton } from './ArmedIconButton';
+import { FormatModeToggle, useFormatAwareSource } from './format-aware-source';
 import { StorageDocSaveButton } from './StorageDocSaveButton';
 
 // Lazy like every other Monaco consumer — a static import here would
@@ -103,6 +104,16 @@ export function DomStorageEntryEditorTab({
 
   const doc = typeof slot === 'object' ? slot : null;
   const sourceText = valueDraft ?? doc?.value ?? '';
+
+  // The Source plane's Formatted/Raw machine — the form value (the
+  // draft, dirty, conflicts, save) STAYS wire text; Formatted is a
+  // whitespace-only view re-encoded per edit with the verbatim
+  // short-circuit, so a no-edit Save writes the stored bytes exactly.
+  const handleWireChange = useCallback((wire: string) => {
+    setValueDraft(wire);
+    setSaveError(null);
+  }, []);
+  const sourceView = useFormatAwareSource(sourceText, handleWireChange);
 
   // Conflict tier over the single value leaf — the entry key can't
   // conflict (a key change under the document reads as deleted-under-
@@ -317,6 +328,13 @@ export function DomStorageEntryEditorTab({
             {t('panel.storage.doc.source')}
           </button>
         </span>
+        {doc !== null && effectiveMode === 'source' && (
+          <FormatModeToggle
+            mode={sourceView.mode}
+            formattable={sourceView.formattable}
+            onModeChange={sourceView.onModeChange}
+          />
+        )}
         <span className="dt-storagedoc-crumb" title={crumbTitle}>
           {domStorageAreaName(area)} › <span className="dt-storagedoc-crumb-key">{entryKey}</span>
         </span>
@@ -444,13 +462,10 @@ export function DomStorageEntryEditorTab({
         <div className="dt-storagedoc-source">
           <Suspense fallback={<Skeleton />}>
             <CodeViewer
-              value={sourceText}
+              value={sourceView.editorValue}
               language={language}
               readOnly={false}
-              onChange={(next) => {
-                setValueDraft(next);
-                setSaveError(null);
-              }}
+              onChange={sourceView.onEditorChange}
             />
           </Suspense>
         </div>

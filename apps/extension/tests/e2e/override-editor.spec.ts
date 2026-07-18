@@ -53,6 +53,14 @@
  *   9  redirect — the `Redirect ▾` CTA seeds the domain-scoped variable
  *      reference (save-gated while unresolved); a literal target
  *      redirects on the wire (`fetch(...).url` is the landing URL)
+ *
+ * P8 storage-document leg — the same wire-space plane on the storage
+ * value documents:
+ *
+ *   10 localStorage entry document — a minified JSON value opens in the
+ *      Formatted view, Raw shows the stored bytes exactly, mode toggles
+ *      never dirty, and a formatted-space edit saves re-encoded in the
+ *      stored minified profile (localStorage.getItem is the wire truth)
  */
 
 import path from 'node:path';
@@ -98,6 +106,14 @@ const PROBE_HEADER_OVERRIDE = 'oh-overridden-value';
 // for where the request landed.
 const REDIRECT_ECHO_PATH = '/echo?case=oh-ovr-redirect';
 const REDIRECT_TARGET = 'http://127.0.0.1:3000/probe/json?case=oh-redirect-landed';
+
+// Leg 10: seeded into the page's localStorage; the entry document's
+// formatted-space edit must save re-encoded in the stored minified
+// profile — localStorage.getItem is the wire truth.
+const LS_FORMAT_KEY = 'oh-e2e-format-json';
+const LS_FORMAT_WIRE = '{"nested":{"ok":true},"big":9007199254740993}';
+const LS_FORMAT_EDIT_VIEW = '{ "nested": { "ok": false }, "big": 9007199254740993 }';
+const LS_FORMAT_EDITED_WIRE = '{"nested":{"ok":false},"big":9007199254740993}';
 
 // Leg 4: the tab document's Raw-mode body is stored AS IS (the
 // wire-space builder law), so the served bytes are exactly this line.
@@ -715,4 +731,52 @@ test('the Redirect CTA gates on its unresolved variable seed and a literal targe
   await expect.poll(async () => (await fetchRedirected()).url, { timeout: 20_000 }).toBe(REDIRECT_TARGET);
   const landed = await fetchRedirected();
   expect(landed.text).toContain('OH_PROBE_JSON_OK');
+});
+
+test('a minified localStorage value opens Formatted in its document and a formatted edit saves in the stored profile', async () => {
+  test.setTimeout(90_000);
+  await playgroundPage.evaluate(({ key, value }: { key: string; value: string }) => localStorage.setItem(key, value), {
+    key: LS_FORMAT_KEY,
+    value: LS_FORMAT_WIRE,
+  });
+
+  const storageTab = panelPage.locator('[data-tool-window="storage"]').first();
+  if ((await storageTab.getAttribute('aria-selected')) !== 'true') {
+    await storageTab.click();
+  }
+  await panelPage.getByRole('navigation', { name: 'Storage type' }).getByText('Local storage').click();
+
+  const row = panelPage.locator('.dt-storage-row').filter({ hasText: LS_FORMAT_KEY }).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await row.click();
+  await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText(LS_FORMAT_KEY);
+
+  // Formatted by default: the view owns the whitespace (": " gaps exist
+  // only there — the stored value is minified).
+  const docText = async () =>
+    (await docRoot().locator('.monaco-editor .view-lines').first().innerText()).replace(/\u00a0/g, ' ');
+  await expect.poll(docText, { timeout: 15_000 }).toContain('"ok": true');
+  await expect(docRoot().getByRole('radio', { name: 'Formatted' })).toHaveAttribute('aria-checked', 'true');
+  const save = docRoot().locator('.dt-storagedoc-save');
+  await expect(save).toBeDisabled();
+
+  // Raw is the stored bytes exactly — and mode toggles never dirty.
+  await docRoot().getByRole('radio', { name: 'Raw' }).click();
+  await expect.poll(docText, { timeout: 15_000 }).toBe(LS_FORMAT_WIRE);
+  await expect(save).toBeDisabled();
+  await docRoot().getByRole('radio', { name: 'Formatted' }).click();
+  await expect.poll(docText, { timeout: 15_000 }).toContain('"ok": true');
+  await expect(save).toBeDisabled();
+
+  // A formatted-space edit (single line — inter-token whitespace is
+  // view-owned) re-encodes to the stored minified profile on Save.
+  await fillDocMonaco(LS_FORMAT_EDIT_VIEW);
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect
+    .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), LS_FORMAT_KEY), {
+      timeout: 15_000,
+    })
+    .toBe(LS_FORMAT_EDITED_WIRE);
+  await expect(save).toBeDisabled();
 });

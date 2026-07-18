@@ -14,6 +14,8 @@
 import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
+import { detectLanguage } from '@openheaders/ui/shared/mime';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CacheEntryInspectorTab } from '../../data/inspector-tab';
 import type { CacheEntryDocument } from '../../data/storage/storage-inspector-host';
@@ -24,6 +26,7 @@ import Skeleton from '../detail/Skeleton';
 import { FilterInput } from '../FilterInput';
 import { formatSize } from '../traffic/formatters';
 import { ArmedIconButton } from './ArmedIconButton';
+import { FormatModeToggle, type SourceFormatMode } from './format-aware-source';
 
 // Lazy like every other Monaco consumer — a static import here would
 // pull Monaco back into the panel's initial chunk.
@@ -33,14 +36,11 @@ type DocumentSlot = 'loading' | 'unavailable' | CacheEntryDocument;
 
 type BodyLanguage = 'json' | 'css' | 'javascript' | 'html' | 'plaintext';
 
-/** Monaco language for a stored response's content-type (XML and SVG
- *  ride the HTML grammar — the closest highlighter CodeViewer carries). */
+/** Monaco language for a stored response's content-type — the shared
+ *  mime classification (XML and SVG ride the HTML grammar there), with
+ *  the viewer's plaintext floor for everything unclassified. */
 export function cacheBodyLanguage(contentType: string): BodyLanguage {
-  if (/json/i.test(contentType)) return 'json';
-  if (/javascript|ecmascript/i.test(contentType)) return 'javascript';
-  if (/html|xml|svg/i.test(contentType)) return 'html';
-  if (/css/i.test(contentType)) return 'css';
-  return 'plaintext';
+  return detectLanguage(contentType) ?? 'plaintext';
 }
 
 function documentsEqual(a: CacheEntryDocument, b: CacheEntryDocument): boolean {
@@ -68,6 +68,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
   const [headerFilterConfig, setHeaderFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [headersOpen, setHeadersOpen] = useState(true);
   const [bodyOpen, setBodyOpen] = useState(true);
+  const [bodyFormat, setBodyFormat] = useState<SourceFormatMode>('formatted');
   const [deleteFailed, setDeleteFailed] = useState(false);
   const fetchTokenRef = useRef(0);
 
@@ -168,6 +169,22 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
   }, [doc, headerPredicate]);
 
   const isImage = doc?.bodyBase64 === true && /^image\//i.test(contentType) && doc.bodyTruncated !== true;
+
+  // View-only formatting over the textual body — the document is
+  // read-only end to end (no cache write seam), so this is pure
+  // presentation: Raw shows the stored bytes exactly, Formatted a
+  // whitespace-only view over the same tokens. A truncated body fails
+  // tokenize (cut JSON is unbalanced) and stays honestly Raw.
+  const isTextBody = doc !== null && doc.bodyBase64 !== true && doc.body.length > 0;
+  const bodyFormattable = useMemo(
+    () => doc !== null && doc.bodyBase64 !== true && doc.body.length > 0 && isFormattableBody(doc.body),
+    [doc],
+  );
+  const bodyEffectiveFormat: SourceFormatMode = bodyFormat === 'formatted' && bodyFormattable ? 'formatted' : 'raw';
+  const bodyText = useMemo(
+    () => (doc === null ? '' : bodyEffectiveFormat === 'formatted' ? formatBody(doc.body) : doc.body),
+    [doc, bodyEffectiveFormat],
+  );
 
   return (
     <div className="dt-storagedoc">
@@ -275,6 +292,15 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
           >
             <summary>
               <span className="dt-cachedoc-summary-label">{t('panel.storage.doc.cache.bodySummary')}</span>
+              {isTextBody && (
+                <span className="dt-cachedoc-summary-controls" onClick={(e) => e.stopPropagation()}>
+                  <FormatModeToggle
+                    mode={bodyEffectiveFormat}
+                    formattable={bodyFormattable}
+                    onModeChange={setBodyFormat}
+                  />
+                </span>
+              )}
               <span className="dt-storage-meta">{formatSize(slot.bodyLength)}</span>
             </summary>
           </details>
@@ -295,7 +321,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
             ) : (
               <div className="dt-storagedoc-source">
                 <Suspense fallback={<Skeleton />}>
-                  <CodeViewer value={slot.body} language={cacheBodyLanguage(contentType)} readOnly />
+                  <CodeViewer value={bodyText} language={cacheBodyLanguage(contentType)} readOnly />
                 </Suspense>
               </div>
             ))}

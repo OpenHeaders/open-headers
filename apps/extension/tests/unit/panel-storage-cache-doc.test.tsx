@@ -15,6 +15,7 @@ import { CacheEntryEditorTab, cacheBodyLanguage } from '@openheaders/ui/panel/co
 import { buildCacheEntryTab } from '@openheaders/ui/panel/data/inspector-tab';
 import type { CacheEntryDocument, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
+import { formatBody } from '@openheaders/ui/shared/body-format';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -119,7 +120,8 @@ describe('CacheEntryEditorTab', () => {
 
     const viewer = await screen.findByTestId('code-viewer');
     expect(read).toHaveBeenCalledWith(42, 0, 'oh-api-v2', 'https://openheaders.io/api/data', 'GET');
-    expect((viewer as HTMLTextAreaElement).value).toBe('{"a":1}');
+    // A JSON-shaped body opens in the view-only Formatted mode.
+    expect((viewer as HTMLTextAreaElement).value).toBe(formatBody('{"a":1}'));
     expect(viewer.getAttribute('data-language')).toBe('json');
     expect(viewer).toHaveProperty('readOnly', true);
     expect(screen.getByText(/200 OK/)).toBeTruthy();
@@ -283,11 +285,11 @@ describe('CacheEntryEditorTab', () => {
     render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
-    expect(viewer.value).toBe('{"a":1}');
+    expect(viewer.value).toBe(formatBody('{"a":1}'));
     await waitFor(() => expect(captured.invalidate).not.toBeNull());
     captured.invalidate?.();
 
-    await waitFor(() => expect(viewer.value).toBe('{"a":2}'));
+    await waitFor(() => expect(viewer.value).toBe(formatBody('{"a":2}')));
   });
 
   it('falls to unavailable when the entry vanishes underneath — no draft to protect', async () => {
@@ -307,6 +309,80 @@ describe('CacheEntryEditorTab', () => {
     captured.invalidate?.();
 
     expect(await screen.findByText('Cache entry no longer available')).toBeTruthy();
+  });
+
+  it('the Raw toggle shows the stored bytes exactly — the format plane is view-only', async () => {
+    installHost(vi.fn(() => Promise.resolve<CacheEntryDocument | null>(JSON_DOC)));
+    render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe(formatBody('{"a":1}'));
+    expect((screen.getByRole('radio', { name: 'Formatted' }) as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Raw' }));
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('{"a":1}');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Formatted' }));
+    expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe(formatBody('{"a":1}'));
+  });
+
+  it('a non-JSON text body stays Raw with Formatted disabled; a truncated body fails open the same way', async () => {
+    installHost(
+      vi.fn(() =>
+        Promise.resolve<CacheEntryDocument | null>({
+          ...JSON_DOC,
+          headers: [{ name: 'content-type', value: 'text/html' }],
+          body: '<p>hi</p>',
+          bodyLength: 9,
+        }),
+      ),
+    );
+    render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(viewer.value).toBe('<p>hi</p>');
+    expect((screen.getByRole('radio', { name: 'Formatted' }) as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+
+    // A body cut at the size cap no longer tokenizes — Raw, honestly.
+    installHost(
+      vi.fn(() =>
+        Promise.resolve<CacheEntryDocument | null>({
+          ...JSON_DOC,
+          body: '{"a"',
+          bodyTruncated: true,
+          bodyLength: 20_000,
+        }),
+      ),
+    );
+    render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+    const truncated = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(truncated.value).toBe('{"a"');
+    expect((screen.getByRole('radio', { name: 'Formatted' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('binary and empty bodies carry no format toggle', async () => {
+    installHost(
+      vi.fn(() =>
+        Promise.resolve<CacheEntryDocument | null>({
+          status: 200,
+          statusText: '',
+          headers: [{ name: 'content-type', value: 'application/octet-stream' }],
+          body: 'AAEC',
+          bodyBase64: true,
+          bodyLength: 3,
+        }),
+      ),
+    );
+    render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+    expect(await screen.findByText(/Binary body/)).toBeTruthy();
+    expect(screen.queryByRole('radio', { name: 'Formatted' })).toBeNull();
+    cleanup();
+
+    installHost(vi.fn(() => Promise.resolve<CacheEntryDocument | null>({ ...JSON_DOC, body: '', bodyLength: 0 })));
+    render(<CacheEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+    expect(await screen.findByText('Empty body.')).toBeTruthy();
+    expect(screen.queryByRole('radio', { name: 'Formatted' })).toBeNull();
   });
 
   it('routes Reveal in Storage back to the originating cache', async () => {

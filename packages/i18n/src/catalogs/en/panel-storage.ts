@@ -299,6 +299,12 @@ export const panelStorage = {
   'panel.storage.doc.openMergeView': 'Open merge view',
   'panel.storage.doc.preview': 'Preview',
   'panel.storage.doc.source': 'Source',
+  'panel.storage.doc.formatAria': 'Source text format',
+  'panel.storage.doc.formatted': 'Formatted',
+  'panel.storage.doc.raw': 'Raw',
+  'panel.storage.doc.formattedTitle': 'Formatted for reading — Save keeps the stored format',
+  'panel.storage.doc.rawTitle': 'The exact stored text',
+  'panel.storage.doc.formatUnavailable': 'Formatted view is available for JSON-shaped values only',
   'panel.storage.doc.unavailableSub':
     'It may have been deleted, or the frame can’t be read right now — Refresh retries.',
   'panel.storage.doc.clippedSuffix': ({ count }, locale) =>
