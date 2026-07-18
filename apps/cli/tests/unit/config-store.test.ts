@@ -21,16 +21,21 @@ afterEach(async () => {
 });
 
 describe('cliConfigPath', () => {
+  // Expectations go through path.join like the code does — the
+  // platform argument selects the APPDATA rule, not the separator,
+  // so literal '/'-joined strings would fail on a Windows host.
   it('prefers XDG_CONFIG_HOME', () => {
-    expect(cliConfigPath({ XDG_CONFIG_HOME: '/xdg' }, '/home/oh')).toBe('/xdg/openheaders/cli.json');
+    expect(cliConfigPath({ XDG_CONFIG_HOME: '/xdg' }, '/home/oh')).toBe(path.join('/xdg', 'openheaders', 'cli.json'));
   });
 
   it('falls back to ~/.config', () => {
-    expect(cliConfigPath({}, '/home/oh')).toBe('/home/oh/.config/openheaders/cli.json');
+    expect(cliConfigPath({}, '/home/oh')).toBe(path.join('/home/oh', '.config', 'openheaders', 'cli.json'));
   });
 
   it('ignores an empty XDG_CONFIG_HOME', () => {
-    expect(cliConfigPath({ XDG_CONFIG_HOME: '' }, '/home/oh')).toBe('/home/oh/.config/openheaders/cli.json');
+    expect(cliConfigPath({ XDG_CONFIG_HOME: '' }, '/home/oh')).toBe(
+      path.join('/home/oh', '.config', 'openheaders', 'cli.json'),
+    );
   });
 
   it('uses %APPDATA% on Windows', () => {
@@ -52,7 +57,9 @@ describe('cliConfigPath', () => {
   });
 
   it('never uses APPDATA off Windows', () => {
-    expect(cliConfigPath({ APPDATA: '/roaming' }, '/home/oh', 'linux')).toBe('/home/oh/.config/openheaders/cli.json');
+    expect(cliConfigPath({ APPDATA: '/roaming' }, '/home/oh', 'linux')).toBe(
+      path.join('/home/oh', '.config', 'openheaders', 'cli.json'),
+    );
   });
 });
 
@@ -74,7 +81,9 @@ describe('readCliConfig / writeCliConfig', () => {
     expect(await readCliConfig(file)).toEqual({});
   });
 
-  it('writes the file mode 0600', async () => {
+  // The 0600 mode is a no-op on Windows, where the profile dir's ACL
+  // is the protection (config-store.ts header) — nothing to assert.
+  it.runIf(process.platform !== 'win32')('writes the file mode 0600', async () => {
     const file = path.join(dir, 'cli.json');
     await writeCliConfig(file, { token: 'oh_secret' });
     const mode = (await stat(file)).mode & 0o777;
