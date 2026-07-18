@@ -34,6 +34,8 @@ import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { web } from './web';
+import { workbench } from './workbench';
+import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const fr = {
   ...desktop,
@@ -63,4 +65,6 @@ export const fr = {
   ...sharedWorkspace,
   ...popup,
   ...web,
+  ...workbench,
+  ...workbenchScriptPackages,
 } as const satisfies Catalog;
