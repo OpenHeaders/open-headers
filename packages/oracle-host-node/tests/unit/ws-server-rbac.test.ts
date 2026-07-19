@@ -408,7 +408,7 @@ function makeGlobalActiveIdEnvelope(mutationId: string, activeWorkspaceId: strin
 
 function makePresenceState(instanceId: string): AwarenessState {
   return {
-    identity: { instanceId, surfaceKind: 'workbench', appId: 'extension', label: 'Workbench' },
+    identity: { instanceId, surfaceKind: 'workbench', appId: 'extension', labelContext: 'Workbench' },
     entityFocus: null,
     fieldFocus: null,
     dirtyFields: [],
