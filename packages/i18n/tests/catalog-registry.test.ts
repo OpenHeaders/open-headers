@@ -58,6 +58,14 @@ describe('loadCatalog', () => {
     expect(getTranslator('de')('shared.count.rules', { count: 2 })).toBe('2 Regeln');
   });
 
+  it('loads the Simplified Chinese chunk and swaps the memoized translator', async () => {
+    await loadCatalog('zh-CN');
+    expect(isCatalogLoaded('zh-CN')).toBe(true);
+    expect(getCatalog('zh-CN')).not.toBe(en);
+    expect(getTranslator('zh-CN')('shared.action.save')).toBe('保存');
+    expect(getTranslator('zh-CN')('shared.count.rules', { count: 2 })).toBe('2 条规则');
+  });
+
   it('falls back to English per key while a locale catalog is partial', () => {
     const partial: Catalog = { 'shared.action.save': 'Enregistrer' };
     const t = createTranslator('fr', partial, en);

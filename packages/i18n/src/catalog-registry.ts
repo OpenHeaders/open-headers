@@ -25,6 +25,7 @@ const loaders: Readonly<Record<string, () => Promise<Catalog>>> = {
   de: async () => (await import('./catalogs/de')).de,
   es: async () => (await import('./catalogs/es')).es,
   fr: async () => (await import('./catalogs/fr')).fr,
+  'zh-CN': async () => (await import('./catalogs/zh-CN')).zhCN,
 };
 
 let pseudoCatalog: Catalog | undefined;
