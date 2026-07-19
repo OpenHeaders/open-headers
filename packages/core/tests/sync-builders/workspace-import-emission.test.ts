@@ -102,8 +102,8 @@ const targetRule: HeaderRule = {
   enabled: true,
   type: 'header',
   conditions: [
-    { uid: 'cond0001', type: 'url', operator: 'contains', value: 'openheaders.io' },
-    { uid: 'cond0002', type: 'url', operator: 'contains', value: 'app.openheaders.io' },
+    { uid: 'cond0001', type: 'url-filter', values: ['openheaders.io'] },
+    { uid: 'cond0002', type: 'url-filter', values: ['app.openheaders.io'] },
   ],
   action: {
     requestHeaders: [
@@ -121,8 +121,8 @@ const importedRule: HeaderRule = {
   name: 'Probe (imported)',
   enabled: false,
   conditions: [
-    { uid: 'cond0001', type: 'url', operator: 'contains', value: 'api.openheaders.io' },
-    { uid: 'cond0003', type: 'url', operator: 'equals', value: 'https://openheaders.io/x' },
+    { uid: 'cond0001', type: 'url-filter', values: ['api.openheaders.io'] },
+    { uid: 'cond0003', type: 'url-regex', values: ['https://openheaders\\.io/x'] },
   ],
   action: {
     requestHeaders: [
@@ -196,7 +196,7 @@ describe('synthesizeImportEmission — update collisions', () => {
     expect(peerData.name).toBe('Probe (imported)');
     expect(peerData.enabled).toBe(false);
     expect(peerData.conditions.map((c) => c.uid).sort()).toEqual(['cond0001', 'cond0003']);
-    expect(peerData.conditions.find((c) => c.uid === 'cond0001')?.value).toBe('api.openheaders.io');
+    expect(peerData.conditions.find((c) => c.uid === 'cond0001')?.values).toEqual(['api.openheaders.io']);
     expect(peerData.action.requestHeaders.map((h) => h.uid).sort()).toEqual(['hdr00001', 'hdr00002']);
     expect(peerData.action.requestHeaders.find((h) => h.uid === 'hdr00002')?.value).toBe('edited');
     expect(peerData).toEqual(clientData);
@@ -347,7 +347,7 @@ describe('synthesizeImportEmission — environments + singletons', () => {
 
   it('workspaceVars seeds the singleton when the target never had one, diffs it otherwise', () => {
     const client = new InMemoryDocumentStore();
-    const vars = [{ uid: 'var00020', name: 'API_BASE', value: 'https://api.openheaders.io', type: 'default' }];
+    const vars = [{ uid: 'var00020', name: 'API_BASE', value: 'https://api.openheaders.io', type: 'default' as const }];
     const seed = synthesizeImportEmission(
       slicesFor(emptyPlan({ workspaceVars: { action: 'replace', variables: vars } })),
       emptyPrev(),
@@ -357,7 +357,9 @@ describe('synthesizeImportEmission — environments + singletons', () => {
     expect(seed[0].batch.mutations[0].body.kind).toBe('create');
     applyTo(client, seed);
 
-    const nextVars = [{ uid: 'var00021', name: 'API_BASE', value: 'https://api2.openheaders.io', type: 'default' }];
+    const nextVars = [
+      { uid: 'var00021', name: 'API_BASE', value: 'https://api2.openheaders.io', type: 'default' as const },
+    ];
     const diff = synthesizeImportEmission(
       slicesFor(emptyPlan({ workspaceVars: { action: 'replace', variables: nextVars } })),
       emptyPrev({ workspaceVars: { schemaVersion: 5, variables: vars } }),
