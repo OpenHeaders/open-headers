@@ -480,6 +480,13 @@ export default defineConfig({
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/prettier/')) return undefined;
           if (id.includes('/monaco-editor/') || id.includes('/@monaco-editor/')) return 'monaco';
+          // xterm reads `window` at module scope (its IdleTaskQueue
+          // feature-detects requestIdleCallback), so hoisting it into
+          // `vendor` kills the background service worker at evaluation
+          // — the decode-named-character-reference failure class. Its
+          // only consumer is the lazily imported TerminalPanel, so a
+          // dedicated chunk keeps it off every other surface.
+          if (id.includes('/@xterm/')) return 'xterm';
           return 'vendor';
         },
       },
