@@ -44,6 +44,7 @@ import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
@@ -88,6 +89,7 @@ export const de = {
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
+  ...workbenchEditorsGrpc,
   ...workbenchEditorsSpec,
   ...workbenchScriptPackages,
   ...workbenchSettings,
