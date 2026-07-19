@@ -11,6 +11,7 @@
 import {
   BgColorsOutlined,
   BranchesOutlined,
+  CodeOutlined,
   BugOutlined,
   CloudDownloadOutlined,
   CloudServerOutlined,
@@ -93,6 +94,17 @@ registerCategory({
   icon: <LayoutOutlined />,
   order: 15,
   descriptionKey: 'workbench.settings.category.workspaceLayout.description',
+});
+
+registerCategory({
+  id: 'terminal',
+  labelKey: 'workbench.settings.category.terminal.label',
+  icon: <CodeOutlined />,
+  order: 17,
+  descriptionKey: 'workbench.settings.category.terminal.description',
+  // The Terminal tool window rides the `terminal` capability, which
+  // only the desktop host installs.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerCategory({

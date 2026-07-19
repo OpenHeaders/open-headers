@@ -14,6 +14,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { ITheme } from '@xterm/xterm';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
+import { useSettingValue } from '../../../settings/hooks';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getWorkbenchTerminalTabs } from './terminal-instance';
@@ -120,13 +122,19 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
 
   // IDE posture: closing a tab whose shell still has a live child
   // process (a running command, the TUI) confirms before terminating;
-  // an idle shell closes silently.
+  // an idle shell closes silently. The whole guard sits behind
+  // Settings → Terminal → "Confirm Closing a Running Process".
+  const confirmCloseRunning = useSettingValue('terminal.confirmCloseRunningProcess');
   const requestClose = useCallback(
     (id: string) => {
       if (!tabsApi) return;
       const info = tabsApi.list().find((tab) => tab.id === id);
       const handle = tabsApi.getTab(id);
       if (!info || !handle) return;
+      if (!confirmCloseRunning) {
+        closeTab(id);
+        return;
+      }
       void handle.hasRunningProcess().then((running) => {
         if (!running) {
           closeTab(id);
@@ -151,10 +159,11 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
         });
       });
     },
-    [tabsApi, closeTab, t],
+    [tabsApi, closeTab, confirmCloseRunning, t],
   );
 
   const dockFocused = useIsDockFocused(dockSlot);
+  const openSettings = useOpenSettings();
 
   const strip = tabsApi ? (
     <TerminalTabStrip
@@ -165,6 +174,9 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       onClose={requestClose}
       onNew={() => tabsApi.createTab()}
       onOpenTui={() => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' })}
+      recentlyClosed={tabsApi.recentlyClosed()}
+      onReopenClosed={(index) => tabsApi.reopenClosed(index)}
+      onOpenSettings={() => openSettings?.({ categoryId: 'terminal' })}
     />
   ) : (
     <strong>{t('workbench.toolWindows.terminal')}</strong>

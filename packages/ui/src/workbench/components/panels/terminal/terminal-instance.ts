@@ -67,6 +67,11 @@ export interface TerminalTabOptions {
   readonly title?: string;
 }
 
+/** Identity of a closed tab, reopenable from the tab-search dropdown.
+ *  Same shape as the persisted identity — a reopened tab starts a
+ *  fresh shell exactly like a restored one. */
+export type TerminalClosedTab = PersistedTerminalTab;
+
 export interface WorkbenchTerminalTabs {
   list(): TerminalTabInfo[];
   activeId(): string | null;
@@ -85,6 +90,11 @@ export interface WorkbenchTerminalTabs {
   /** Resolves once the persisted tab identities (if any) are restored —
    *  the panel waits on this before auto-creating a first tab. */
   whenReady(): Promise<void>;
+  /** Session-only list of closed tab identities, most recent first. */
+  recentlyClosed(): readonly TerminalClosedTab[];
+  /** Reopen entry `index` of `recentlyClosed()` as a fresh tab (new
+   *  shell, new number for untitled tabs) and drop it from the list. */
+  reopenClosed(index: number): void;
 }
 
 interface TabState {
@@ -116,6 +126,9 @@ interface RegistryState {
   nextTabSeq: number;
   changeListeners: Set<() => void>;
   theme: ITheme | undefined;
+  /** Closed-tab identities, most recent first, capped — session-only
+   *  (a restart restores open tabs, not the closed history). */
+  closed: TerminalClosedTab[];
   /** False until the persisted-identity restore settles; mutations
    *  don't write back before then (they'd clobber the stored session
    *  with the pre-restore empty state). */
@@ -355,10 +368,18 @@ function createTab(state: RegistryState, options?: TerminalTabOptions): string {
   return tab.id;
 }
 
+const CLOSED_TAB_CAP = 10;
+
 function closeTab(state: RegistryState, id: string): void {
   const index = state.tabs.findIndex((tab) => tab.id === id);
   if (index === -1) return;
   const [tab] = state.tabs.splice(index, 1);
+  state.closed.unshift({
+    titleIndex: tab.titleIndex,
+    ...(tab.title !== undefined ? { title: tab.title } : {}),
+    ...(tab.runCommand !== null ? { runCommand: tab.runCommand } : {}),
+  });
+  if (state.closed.length > CLOSED_TAB_CAP) state.closed.length = CLOSED_TAB_CAP;
   for (const cleanup of tab.sessionCleanups) cleanup();
   tab.sessionCleanups = [];
   // Teardown is exception-isolated: whatever a disposer throws, the
@@ -408,6 +429,7 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
     nextTabSeq: 1,
     changeListeners: new Set(),
     theme: undefined,
+    closed: [],
     hydrated: false,
     ready: Promise.resolve(),
     api: {
@@ -432,6 +454,16 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
         for (const tab of state.tabs) tab.term.options.theme = theme;
       },
       whenReady: () => state.ready,
+      recentlyClosed: () => state.closed,
+      reopenClosed: (index) => {
+        const closed = state.closed[index];
+        if (!closed) return;
+        state.closed.splice(index, 1);
+        createTab(
+          state,
+          closed.title !== undefined ? { title: closed.title, runCommand: closed.runCommand } : undefined,
+        );
+      },
     },
   };
   state.ready = hydrate(state);

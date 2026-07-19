@@ -449,6 +449,7 @@ export const workbenchChrome = {
   'workbench.terminal.closeConfirm.bodyPrefix': 'Un processus s’exécute encore dans ',
   'workbench.terminal.closeConfirm.bodySuffix': '. L’interrompre ?',
   'workbench.terminal.closeConfirm.ok': 'Interrompre',
+  'workbench.terminal.settings': 'Paramètres',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",

@@ -418,10 +418,7 @@ export const workbenchChrome = {
   'workbench.terminal.closeConfirm.bodyPrefix': 'A process is still running in ',
   'workbench.terminal.closeConfirm.bodySuffix': '. Terminate it?',
   'workbench.terminal.closeConfirm.ok': 'Terminate',
-  'workbench.terminal.closeConfirm.title': 'Process is running',
-  'workbench.terminal.closeConfirm.bodyPrefix': 'A process is still running in ',
-  'workbench.terminal.closeConfirm.bodySuffix': '. Terminate it?',
-  'workbench.terminal.closeConfirm.ok': 'Terminate',
+  'workbench.terminal.settings': 'Settings',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',
@@ -481,7 +478,6 @@ export const workbenchChrome = {
   'workbench.shortcuts.action.toggleRightSidebar': 'Toggle right sidebar',
   'workbench.shortcuts.action.toggleBottomPanel': 'Toggle bottom panel',
   'workbench.shortcuts.action.toggleActivityFeed': 'Toggle activity feed',
-  'workbench.shortcuts.action.terminalNewTab': 'New terminal tab',
   'workbench.shortcuts.action.terminalNewTab': 'New terminal tab',
   'workbench.shortcuts.action.closeTab': 'Close tab',
   'workbench.shortcuts.action.newTab': 'New tab',

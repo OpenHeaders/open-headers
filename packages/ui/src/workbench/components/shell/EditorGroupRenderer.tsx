@@ -32,6 +32,7 @@ import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TabActiveProvider } from '@openheaders/ui/shared/awareness/TabActiveContext';
 import { type DragIntent, DragIntentContext } from '../../drag-intent';
+import { useFocusedRegion } from '../../stores/focus-region-store';
 import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../../editor-groups';
 import type { UseEditorGroupsApi } from '../../hooks/useEditorGroups';
 import type { ClosedTab, WorkbenchTab } from '../../types';
@@ -446,8 +447,22 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
     [dragActive, draggingTab, hover, insertion],
   );
 
+  // Tab-strip focus exclusivity: the editor's active tab and the
+  // terminal's active tab are both tab strips, so only one shows the
+  // primary tint at a time. When the bottom region (the terminal's
+  // home) owns focus, the editor's active tab drops to the neutral
+  // fill — and vice versa. Sidebar focus deliberately leaves the
+  // editor tint alone: sidebars have no competing tab strip.
+  const focusedRegion = useFocusedRegion();
+  const editorOwnsFocus = focusedRegion !== 'bottom';
+
   const renderLeaf = (leaf: EditorLeaf): React.ReactNode => {
-    const isFocused = groups.focusedLeafId === leaf.id;
+    // Leaf focus (which group owns editor keyboard actions) is
+    // independent of the visual tint: shortcut registrations below key
+    // on the leaf alone so ⌘⇧A / ⌥N still work while a tool window has
+    // focus; only the blue-vs-grey highlight follows the region.
+    const isFocusedLeafId = groups.focusedLeafId === leaf.id;
+    const isFocused = isFocusedLeafId && editorOwnsFocus;
     const activeTab = leaf.tabs.find((t) => t.id === leaf.activeTabId);
     const canUnsplit = parentedLeafIds.has(leaf.id);
     const hoverHere = hover?.leafId === leaf.id;

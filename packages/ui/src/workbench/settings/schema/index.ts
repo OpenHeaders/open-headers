@@ -26,6 +26,7 @@ import './rules-engine';
 import './backend';
 import './mcp';
 import './keyboard';
+import './terminal';
 import './keyboard-popup';
 import './workspace-sharing';
 import './data';

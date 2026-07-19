@@ -331,6 +331,30 @@ describe('terminal tab registry', () => {
     expect(stored.activeIndex).toBe(0);
   });
 
+  it('records closed tabs most-recent-first and reopens them as fresh tabs', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    const first = tabs.createTab();
+    const tui = tabs.createTab({ runCommand: 'oh tui', title: 'oh tui' });
+    tabs.closeTab(first);
+    tabs.closeTab(tui);
+    expect(tabs.recentlyClosed()).toEqual([
+      { titleIndex: 0, title: 'oh tui', runCommand: 'oh tui' },
+      { titleIndex: 1 },
+    ]);
+    tabs.reopenClosed(0);
+    expect(tabs.recentlyClosed()).toEqual([{ titleIndex: 1 }]);
+    expect(tabs.list()).toEqual([{ id: tabs.list()[0].id, titleIndex: 0, title: 'oh tui' }]);
+    const reopened = tabs.getTab(tabs.list()[0].id);
+    if (!reopened) throw new Error('tab handle missing');
+    await reopened.ensureSession();
+    expect(spawned[0].write).toHaveBeenCalledWith('oh tui\r');
+    tabs.reopenClosed(0);
+    expect(tabs.recentlyClosed()).toEqual([]);
+    expect(tabs.list().map((info) => info.titleIndex)).toEqual([0, 1]);
+  });
+
   it('applies the theme to existing and future tabs', () => {
     const tabs = getTabs();
     if (!tabs) throw new Error('registry unavailable');

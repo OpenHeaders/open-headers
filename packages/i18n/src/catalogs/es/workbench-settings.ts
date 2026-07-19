@@ -92,6 +92,8 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.label': 'Disposición del espacio de trabajo',
   'workbench.settings.category.workspaceLayout.description':
     'Affordances del pie de página y comportamiento del shell de las ventanas de herramientas.',
+  'workbench.settings.category.terminal.label': 'Terminal',
+  'workbench.settings.category.terminal.description': 'Comportamiento de la ventana de herramientas Terminal integrada.',
   'workbench.settings.category.devpanel.label': 'Panel de DevTools',
   'workbench.settings.category.devpanel.description':
     'Valores por defecto del panel de DevTools del navegador — el shell de las ventanas de herramientas y cada ' +
