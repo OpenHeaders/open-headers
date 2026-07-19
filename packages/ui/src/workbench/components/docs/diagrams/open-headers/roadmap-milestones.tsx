@@ -9,43 +9,43 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * description and a left-edge accent stripe.
  */
 export const RoadmapMilestonesDiagram: React.FC = () => {
-  type Milestone = { title: string; tag: 'soon'; badge?: string; description: string };
+  type Milestone = { title: string; tag: 'live'; badge?: string; description: string };
 
   const MILESTONES: Milestone[] = [
     {
       title: 'Workspace collaboration via Git (Team-ready)',
-      tag: 'soon',
+      tag: 'live',
       description: 'YAML in a Git repo you control — pull, push, merge via Git.',
     },
     {
       title: 'Desktop app',
-      tag: 'soon',
+      tag: 'live',
       description: "Native binary on the same store — reaches what an extension can't.",
     },
     {
       title: 'MCP Server (AI agent control)',
-      tag: 'soon',
+      tag: 'live',
       badge: 'USER-CONTROLLED',
       description: 'Open Headers over MCP — let an AI agent drive your workspace.',
     },
     {
       title: 'Local / LAN daemon',
-      tag: 'soon',
+      tag: 'live',
       description: 'Sync daemon on your machine or LAN — extension, desktop, CLI as clients.',
     },
     {
       title: 'CLI',
-      tag: 'soon',
+      tag: 'live',
       description: 'Headless scripting and CI — list, toggle, send from the shell.',
     },
     {
       title: 'Self-hosted VM deployment + Web App',
-      tag: 'soon',
+      tag: 'live',
       description: 'Web bundle on your VM — locked-down browsers or branded deploys.',
     },
     {
       title: 'More importers',
-      tag: 'soon',
+      tag: 'live',
       description: 'Beyond Postman — Insomnia, OpenAPI specs, full HAR imports.',
     },
   ];
@@ -80,7 +80,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestones — six ordered cards inside a browser-window frame: Git workspaces, desktop app, local daemon, CLI, self-hosted web app, more importers."
+      aria-label="Milestones — ordered cards inside a browser-window frame: Git workspaces, desktop app, MCP server, local daemon, CLI, self-hosted web app, importers — all live."
     >
       {/* Outer browser-window frame */}
       <rect
@@ -114,7 +114,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        What's next
+        Every surface, shipped
       </text>
       {/* Address-style strip — section subtitle in place of a URL */}
       <rect
@@ -133,7 +133,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        Sequence, not dates — local-only stays the product through every milestone.
+        Shipped in sequence — local-only stayed the product through every milestone.
       </text>
 
       {/* Milestone cards */}

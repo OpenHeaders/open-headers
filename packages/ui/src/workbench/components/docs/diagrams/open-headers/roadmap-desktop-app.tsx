@@ -256,7 +256,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
       </text>
 
       {renderCard(CARD_LEFT_X, 'Browser extension', 'today', false)}
-      {renderCard(CARD_RIGHT_X, 'Desktop app', 'roadmap', true)}
+      {renderCard(CARD_RIGHT_X, 'Desktop app', 'today', true)}
 
       {/* Shared store pill */}
       <rect

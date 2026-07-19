@@ -51,7 +51,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
           them: { primary: 'Cloud-relayed', sub: 'your traffic goes through them' },
         },
         {
-          us: { primary: 'No telemetry', sub: 'no tracking, no phone-home' },
+          us: { primary: 'No tracking', sub: 'anonymous counters · one-switch off' },
           them: { primary: 'Tracked by default', sub: 'usage data sent home' },
         },
       ],
@@ -311,7 +311,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no telemetry, one engine for nine rule types, field-level sync, a full-featured free tier with no feature gates, seat-based pricing, and no lockout on lapse — versus the rest of the market."
+      aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no tracking, one engine for nine rule types, field-level sync, a full-featured free tier with no feature gates, seat-based pricing, and no lockout on lapse — versus the rest of the market."
     >
       <text x={CENTER_X} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT} letterSpacing={1}>
         THE PARADIGM SHIFT

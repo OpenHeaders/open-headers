@@ -22,9 +22,9 @@ export const RoadmapImportersDiagram: React.FC = () => {
     { label: 'cURL', status: 'today' },
     { label: 'HAR', status: 'today', note: 'headers' },
     { label: 'Postman collection', status: 'today' },
-    { label: 'HAR (full requests)', status: 'roadmap' },
-    { label: 'Insomnia collection', status: 'roadmap' },
-    { label: 'OpenAPI spec', status: 'roadmap' },
+    { label: 'HAR (full requests)', status: 'today' },
+    { label: 'Insomnia collection', status: 'today' },
+    { label: 'OpenAPI spec', status: 'today' },
   ];
 
   const SRC_X = 16;
@@ -51,7 +51,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — Importers. Six source formats funnel into one Open Headers workspace. Today: cURL, HAR headers, Postman. Roadmap: HAR full requests, Insomnia, OpenAPI."
+      aria-label="Importers. Six source formats funnel into one Open Headers workspace — cURL, HAR headers, Postman, HAR full requests, Insomnia, OpenAPI — all live today."
     >
       <ArrowDefs id={ID} />
 
@@ -59,7 +59,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
         Importers · bring your collection across
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        cURL, HAR, Postman today — Insomnia, OpenAPI, full HAR requests on the roadmap.
+        cURL, HAR, Postman, Insomnia, OpenAPI, full HAR requests — all live today.
       </text>
 
       {/* Source format chips */}

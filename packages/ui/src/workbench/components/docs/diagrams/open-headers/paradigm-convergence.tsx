@@ -36,7 +36,7 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
     { label: 'Conflict-free Save', tone: 'capability' },
     { label: 'No account · no sign-in', tone: 'posture' },
     { label: 'Local-only · no cloud relay', tone: 'posture' },
-    { label: 'No telemetry · no tracking', tone: 'posture' },
+    { label: 'No tracking · no personal data', tone: 'posture' },
     { label: 'Multi-surface UI', tone: 'posture' },
   ];
 
