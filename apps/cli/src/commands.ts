@@ -6,6 +6,7 @@
  */
 
 import { parseArgs } from 'node:util';
+import { mergeCliConnection } from '@openheaders/core/cli-config';
 import type { CommandOptionValues, CommandSpec } from './command-spec';
 import { cliConfigPath, readCliConfig, type UpdateChannel, writeCliConfig } from './config-store';
 import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
@@ -173,6 +174,6 @@ export async function commandConnect(argv: readonly string[]): Promise<string[]>
   const configPath = cliConfigPath();
   // Merge over the existing file — connect owns only the connection pair,
   // never the telemetry keys.
-  await writeCliConfig(configPath, { ...existing, daemonUrl: conn.daemonUrl, token });
+  await writeCliConfig(configPath, mergeCliConnection(existing, conn.daemonUrl, token));
   return [`connected — ${tools.length} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
 }

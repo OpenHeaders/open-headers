@@ -423,6 +423,12 @@ export const workbenchChrome = {
   'workbench.terminal.menu.rename': 'Rename',
   'workbench.terminal.rename.title': 'Rename Tab',
   'workbench.terminal.settings': 'Settings',
+  'workbench.terminal.cliGate.title': 'Connect the OpenHeaders CLI',
+  'workbench.terminal.cliGate.body':
+    'TUI mode is powered by the oh command-line tool, which isn’t connected to this app yet. Connecting ' +
+    'creates an access token and saves it in {path} — after that, oh works in any terminal on this machine.',
+  'workbench.terminal.cliGate.ok': 'Connect and open',
+  'workbench.terminal.cliGate.openSettings': 'Open Settings',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',

@@ -153,6 +153,59 @@ export interface DaemonRpc {
     res: { ok: true } | { ok: false; error: string };
   };
 
+  // ── CLI provisioning (TUI_PLAN.md §7 / TUI_STATUS.md S15) ────────
+  //
+  // Admin-only. One-click setup of the host machine's `oh` CLI: mint an
+  // `apiToken` labeled `CLI — <hostname>` through the same daemon-mutex
+  // path as `tokens.mint`, then merge `{daemonUrl, token}` into
+  // `openheaders/cli.json` (`@openheaders/core/cli-config` shape —
+  // telemetry/channel keys are never touched). The raw secret goes
+  // straight to disk in the host process and NEVER crosses this
+  // contract. Re-provisioning rotates: the host remembers the last
+  // provisioned tokenId and revokes it after the new file write, so the
+  // devices ledger never accumulates orphan CLI rows.
+
+  /**
+   * Live provisioning status, derived at call time by hashing the
+   * config file's token against the ledger — never cached, so a revoked
+   * or rotated-elsewhere token reads as `stale` immediately.
+   * `unconfigured` = no file or no token in it; `configured` = the
+   * stored token is active in this daemon's ledger (`tokenId`/`label`
+   * present); `stale` = the stored token is revoked, expired, or
+   * unknown here while the file points at this daemon; `external` = the
+   * file carries an unknown token AND a foreign `daemonUrl` (someone
+   * ran `oh connect` against another daemon — provisioning over it must
+   * be an explicit, informed click); `malformed` = the file exists but
+   * doesn't parse (`error` says why; provisioning refuses to touch it).
+   */
+  'oh.daemon.cli.status': {
+    req: Record<string, never>;
+    res: {
+      configPath: string;
+      state: 'unconfigured' | 'configured' | 'stale' | 'external' | 'malformed';
+      /** The active ledger row backing the stored token (`configured` only). */
+      tokenId?: string;
+      label?: string;
+      /** The file's `daemonUrl` (present when the file parses and has one). */
+      daemonUrl?: string;
+      /** The parse failure (`malformed` only). */
+      error?: string;
+    };
+  };
+
+  /**
+   * Mint + write in one host-side step; returns only the file path and
+   * the ledger id — the secret is on disk, not in the response. Refuses
+   * a malformed existing file (fix or delete it first — same law as
+   * `oh connect`). Rotates the previously provisioned token when one is
+   * remembered: mint-first, write, then revoke, so a mid-flight failure
+   * never leaves the machine without a working credential.
+   */
+  'oh.daemon.cli.provision': {
+    req: Record<string, never>;
+    res: { ok: true; configPath: string; tokenId: string } | { ok: false; error: string };
+  };
+
   // ── Daemon-local user directory (Phase 5 team tier, slice 1) ────
   //
   // Admin-only. The directory (`OH.daemonUsers`) reuses the §5

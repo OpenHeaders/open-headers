@@ -1,4 +1,5 @@
 export { BackendConnectionSchema } from './backend-connection';
+export { CliProvisionRecordSchema } from './cli-provision';
 export { CollectionSchema, FolderSchema, SpecLinkSchema } from './collection';
 export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema, UuidV7Schema } from './common';
 export { DaemonConfigSchema } from './daemon-config';

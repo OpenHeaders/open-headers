@@ -34,6 +34,7 @@ export {
   type MintDaemonAuthTokenInput,
   type MintDaemonAuthTokenResult,
   mintDaemonAuthToken,
+  peekDaemonAuthToken,
   revokeDaemonAuthToken,
   type ValidateDaemonAuthTokenFailure,
   type ValidateDaemonAuthTokenResult,

@@ -43,6 +43,8 @@ export type {
   OperationResult,
 } from './common';
 export { errorMessage, toError } from './common';
+// ── CLI provisioning memory (last token written into cli.json) ──────
+export type { CliProvisionRecord } from './cli-provision';
 // ── Daemon auth token (long-lived peer credential; hashed) ──────────
 export type { DaemonAuthToken, DaemonAuthTokenKind } from './daemon-auth-token';
 // ── Daemon config (per-host configuration; carries host-install-id) ────

@@ -133,6 +133,7 @@ import { type DaemonAuditForwardingConfig, installAuditForwarder } from './audit
 import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
+import { createCliProvisionService } from './cli-provision';
 import { composePeerRpc } from './compose-peer-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
@@ -685,6 +686,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // writes — the store's one read path, projected over the wire.
     queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),
     license: licenseSlot,
+    // CLI provisioning writes this machine's `openheaders/cli.json`;
+    // rotate evicts the old token's live peers, same as tokens.revoke.
+    cliProvision: createCliProvisionService({
+      getBoundPort: () => boundPort,
+      closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
+    }),
   });
 
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops

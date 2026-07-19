@@ -507,6 +507,28 @@ export const workbenchSettingsPanes = {
     "sur cet appareil ? Ouvrez plutôt l'un de ces liens là-bas — il sert une page qui remet un jeton à coller " +
     'à la main.',
 
+  // ── Command-line access card (MCP pane) ────────────────────────────
+  'workbench.settings.cliAccess.sectionTitle': 'Accès en ligne de commande',
+  'workbench.settings.cliAccess.sectionBlurb':
+    "Un clic connecte l'outil en ligne de commande oh de cette machine à l'application — un jeton d'accès " +
+    'est créé et enregistré pour lui, sans copie.',
+  'workbench.settings.cliAccess.statusUnconfigured': "La CLI de cette machine n'est pas encore connectée.",
+  'workbench.settings.cliAccess.statusConfigured': 'CLI connectée en tant que {label}.',
+  'workbench.settings.cliAccess.statusStale':
+    "Le jeton CLI enregistré n'est plus valide — configurez de nouveau l'accès pour reconnecter.",
+  'workbench.settings.cliAccess.statusExternal':
+    "La CLI est actuellement connectée à un autre démon ({url}). Configurer l'accès ici la pointe vers " +
+    'cette application à la place.',
+  'workbench.settings.cliAccess.statusMalformed': 'Le fichier de configuration de la CLI est illisible : {message}',
+  'workbench.settings.cliAccess.pathNote': 'Enregistré dans {path}',
+  'workbench.settings.cliAccess.setUp': "Configurer l'accès CLI",
+  'workbench.settings.cliAccess.rotate': "Renouveler l'accès CLI",
+  'workbench.settings.cliAccess.connectHere': 'Connecter à cette application',
+  'workbench.settings.cliAccess.provisioned':
+    "Accès CLI configuré — oh fonctionne désormais dans n'importe quel terminal de cette machine.",
+  'workbench.settings.cliAccess.rotated': "Jeton CLI renouvelé — l'ancien jeton est révoqué.",
+  'workbench.settings.cliAccess.provisionFailed': 'Échec de la configuration CLI : {message}',
+
   // ── MCP pane body ──────────────────────────────────────────────────
   'workbench.settings.mcpPane.serverOff':
     "Le serveur MCP est désactivé — les clients ne peuvent pas se connecter tant que vous ne l'activez pas.",

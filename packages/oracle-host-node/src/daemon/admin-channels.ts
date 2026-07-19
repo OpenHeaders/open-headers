@@ -34,6 +34,7 @@ import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
+import type { CliProvisionService } from './cli-provision';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
 import type { LicenseSlotHandle } from './license-slot';
@@ -62,6 +63,8 @@ export interface AdminChannelDeps {
   queryAudit(filter: AuditQueryFilter): AuditLogEntry[];
   /** The spine's license slot — the `oh.daemon.license.*` backing. */
   license: LicenseSlotHandle;
+  /** The `oh.daemon.cli.*` backing — see `cli-provision.ts`. */
+  cliProvision: CliProvisionService;
 }
 
 export type AdminChannelHandler = (message: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -190,6 +193,20 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     }
   });
 
+  // CLI provisioning (`oh.daemon.cli.*`) — status is derived live per
+  // call, provision mints + writes host-side; the secret never crosses
+  // the contract. Both delegate to the spine's provision service so the
+  // ledger writes ride the same realm as every other token mutation.
+  handlers.set('oh.daemon.cli.status', async () => await deps.cliProvision.status());
+
+  handlers.set('oh.daemon.cli.provision', async () => {
+    try {
+      return await deps.cliProvision.provision();
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';
     const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
@@ -211,10 +228,13 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         };
       }
       if (created.reason === 'personal-license-identity-mismatch') {
-        return { ok: false, error: "the individual seat belongs to a different email — it only admits its holder" };
+        return { ok: false, error: 'the individual seat belongs to a different email — it only admits its holder' };
       }
       if (created.reason === 'personal-license-invalid') {
-        return { ok: false, error: 'the individual-seat key is not usable (invalid, expired, or not an individual seat)' };
+        return {
+          ok: false,
+          error: 'the individual-seat key is not usable (invalid, expired, or not an individual seat)',
+        };
       }
       if (created.reason === 'personal-license-no-identity') {
         return { ok: false, error: 'an individual seat needs the user email to match — set an email for the new user' };

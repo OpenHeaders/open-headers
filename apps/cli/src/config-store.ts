@@ -1,54 +1,33 @@
 /**
- * CLI config file — the persisted half of `oh connect`. One JSON file
- * in the platform config dir (`$XDG_CONFIG_HOME`/`~/.config` on
- * POSIX, `%APPDATA%` on Windows → `openheaders/cli.json`), mode 0600
- * because it holds a daemon token (a no-op on Windows, where the
- * profile dir's ACL is the protection). Flags and env always override
- * it (see connection.ts); it only makes the zero-flag invocation work
- * after a one-time connect. `XDG_CONFIG_HOME` wins on every platform —
- * the explicit-relocation escape hatch, and the test seam.
+ * CLI config file — the persisted half of `oh connect`. The path law,
+ * shape, and parse/serialize live in `@openheaders/core/cli-config`
+ * (shared with the daemon host's CLI-provisioning RPC, so the two
+ * writers can never disagree); this module is the CLI's fs glue: read
+ * (missing file = empty config), write with dir 0700 / file 0600.
+ * Flags and env always override the file (see connection.ts); it only
+ * makes the zero-flag invocation work after a one-time connect.
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import {
+  CLI_CONFIG_DIR_MODE,
+  CLI_CONFIG_FILE_MODE,
+  type CliConfig,
+  cliConfigPathSegments,
+  parseCliConfig,
+  serializeCliConfig,
+} from '@openheaders/core/cli-config';
 
-/** Release line for version checks and the future `oh upgrade` (`DISTRIBUTION_PLAN.md` §4). */
-export type UpdateChannel = 'stable' | 'beta';
-
-export interface CliConfig {
-  daemonUrl?: string;
-  token?: string;
-  /** Update channel — absent = `stable`; `oh channel` reads/writes it. */
-  channel?: UpdateChannel;
-  /** Anonymous usage counting (`TELEMETRY_PLAN.md` §2) — absent = on; the `OH_TELEMETRY` env var overrides. */
-  telemetry?: boolean;
-  /** Set once the first-run telemetry notice has been printed; the notice never repeats. */
-  telemetryNoticeShown?: boolean;
-  /** Random resettable install id (plan §4, amended 2026-07-16). Deleted when the channel is off. */
-  telemetryInstallId?: string;
-  /** ms since epoch the install id was minted; feeds the coarse sinceInstall bucket. */
-  telemetryInstalledAt?: number;
-  /** Once-ever `first_run` sent-bit; survives identity wipes so toggle cycles never inflate install counts. */
-  telemetryFirstRunSent?: boolean;
-}
+export type { CliConfig, UpdateChannel } from '@openheaders/core/cli-config';
 
 export function cliConfigPath(
   env: NodeJS.ProcessEnv = process.env,
   homedir: string = os.homedir(),
   platform: NodeJS.Platform = process.platform,
 ): string {
-  const configHome =
-    env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME !== ''
-      ? env.XDG_CONFIG_HOME
-      : platform === 'win32' && env.APPDATA && env.APPDATA !== ''
-        ? env.APPDATA
-        : path.join(homedir, '.config');
-  return path.join(configHome, 'openheaders', 'cli.json');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return path.join(...cliConfigPathSegments(env, homedir, platform));
 }
 
 /** A missing file is a valid empty config; a malformed one is an error the user must see. */
@@ -60,28 +39,10 @@ export async function readCliConfig(filePath: string): Promise<CliConfig> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
     throw err;
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`config file ${filePath} is not valid JSON — fix or delete it, then run oh connect again`);
-  }
-  if (!isRecord(parsed)) {
-    throw new Error(`config file ${filePath} is not a JSON object — fix or delete it, then run oh connect again`);
-  }
-  const config: CliConfig = {};
-  if (typeof parsed.daemonUrl === 'string') config.daemonUrl = parsed.daemonUrl;
-  if (typeof parsed.token === 'string') config.token = parsed.token;
-  if (parsed.channel === 'stable' || parsed.channel === 'beta') config.channel = parsed.channel;
-  if (typeof parsed.telemetry === 'boolean') config.telemetry = parsed.telemetry;
-  if (typeof parsed.telemetryNoticeShown === 'boolean') config.telemetryNoticeShown = parsed.telemetryNoticeShown;
-  if (typeof parsed.telemetryInstallId === 'string') config.telemetryInstallId = parsed.telemetryInstallId;
-  if (typeof parsed.telemetryInstalledAt === 'number') config.telemetryInstalledAt = parsed.telemetryInstalledAt;
-  if (typeof parsed.telemetryFirstRunSent === 'boolean') config.telemetryFirstRunSent = parsed.telemetryFirstRunSent;
-  return config;
+  return parseCliConfig(raw, filePath);
 }
 
 export async function writeCliConfig(filePath: string, config: CliConfig): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
-  await writeFile(filePath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  await mkdir(path.dirname(filePath), { recursive: true, mode: CLI_CONFIG_DIR_MODE });
+  await writeFile(filePath, serializeCliConfig(config), { mode: CLI_CONFIG_FILE_MODE });
 }

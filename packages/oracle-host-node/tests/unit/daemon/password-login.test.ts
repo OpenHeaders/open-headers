@@ -173,6 +173,10 @@ describe('users.setPassword admin channel', () => {
         reload: async () => ({ status: 'unlicensed' as const }),
         dispose: () => undefined,
       },
+      cliProvision: {
+        status: async () => ({ configPath: '/dev/null', state: 'unconfigured' as const }),
+        provision: async () => ({ ok: false as const, error: 'not under test' }),
+      },
     });
   }
 

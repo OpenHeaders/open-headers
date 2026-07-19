@@ -8,10 +8,11 @@
  * tab hides the panel; reopening starts a fresh tab.
  */
 
-import { Button, Modal, theme } from 'antd';
+import { Button, Modal, message, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
+import { hostBridge } from '@openheaders/core/bridge';
 import { useUiTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
@@ -229,6 +230,66 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   const dockFocused = useIsDockFocused(dockSlot);
   const openSettings = useOpenSettings();
 
+  // Open TUI gate: `oh tui` needs the CLI provisioned (a token in
+  // `cli.json`), so probe status first and, when it isn't, offer the
+  // one-click connect INSTEAD of typing a command destined to fail
+  // with a cryptic auth error. The click is the consent moment (the
+  // copy names the token and the file); Cancel mints nothing, and a
+  // plain terminal tab never prompts. `configured` and `external` (the
+  // user's own `oh connect` against another daemon) open straight
+  // away; a probe failure opens too — the gate must never be the thing
+  // that blocks the terminal. Provisioning itself is host-side: the
+  // secret goes straight to disk and never enters this renderer.
+  const openTui = useCallback(() => {
+    if (!tabsApi) return;
+    const open = () => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' });
+    void hostBridge
+      .call('oh.daemon.cli.status')
+      .then((status) => {
+        if (status.state === 'configured' || status.state === 'external') {
+          open();
+          return;
+        }
+        if (status.state === 'malformed') {
+          Modal.confirm({
+            title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.title')}</span>,
+            width: 420,
+            content: (
+              <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+                {t('workbench.settings.cliAccess.statusMalformed', { message: status.error ?? status.configPath })}
+              </p>
+            ),
+            okText: t('workbench.terminal.cliGate.openSettings'),
+            okButtonProps: { size: 'small' },
+            cancelButtonProps: { size: 'small' },
+            onOk: () => openSettings?.({ categoryId: 'mcp' }),
+          });
+          return;
+        }
+        Modal.confirm({
+          title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.title')}</span>,
+          width: 420,
+          content: (
+            <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+              {t('workbench.terminal.cliGate.body', { path: status.configPath })}
+            </p>
+          ),
+          okText: t('workbench.terminal.cliGate.ok'),
+          okButtonProps: { size: 'small' },
+          cancelButtonProps: { size: 'small' },
+          onOk: async () => {
+            const result = await hostBridge.call('oh.daemon.cli.provision');
+            if (!result.ok) {
+              message.error(t('workbench.settings.cliAccess.provisionFailed', { message: result.error }));
+              return;
+            }
+            open();
+          },
+        });
+      })
+      .catch(open);
+  }, [tabsApi, t, openSettings]);
+
   const strip = tabsApi ? (
     <TerminalTabStrip
       tabs={tabsApi.list()}
@@ -257,7 +318,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       }}
       onRename={(id, title) => tabsApi.renameTab(id, title)}
       onNew={() => tabsApi.createTab()}
-      onOpenTui={() => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' })}
+      onOpenTui={openTui}
       recentlyClosed={tabsApi.recentlyClosed()}
       onReopenClosed={(index) => tabsApi.reopenClosed(index)}
       onOpenSettings={() => openSettings?.({ categoryId: 'terminal' })}

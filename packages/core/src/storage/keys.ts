@@ -26,6 +26,7 @@ import type { TelemetryInstallContext } from '../telemetry/client';
 import type {
   AuthConfig,
   BackendConnection,
+  CliProvisionRecord,
   Collection,
   DaemonAuthToken,
   DaemonConfig,
@@ -353,6 +354,14 @@ export const OH = {
    * (the headless daemon) or pairing and token validation break.
    */
   daemonAuthTokens: storageKey<DaemonAuthToken[]>('oh.daemonAuthTokens'),
+  /**
+   * The CLI token this host last provisioned into `openheaders/cli.json`
+   * (the Settings "Command-line access" flow). Re-provisioning rotates
+   * that token — mint the replacement, write the file, revoke the id
+   * remembered here — so the devices ledger never accumulates orphan
+   * CLI rows. Holds only the ledger row's id, never secret material.
+   */
+  cliProvision: storageKey<CliProvisionRecord>('oh.cliProvision'),
   /**
    * The daemon's directory of daemon-local users (Phase 5 team tier).
    * Each record reuses the §5 identity rows (User + UserIdentity +

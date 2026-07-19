@@ -457,6 +457,13 @@ export const workbenchChrome = {
   'workbench.terminal.menu.rename': 'Renombrar',
   'workbench.terminal.rename.title': 'Renombrar pestaña',
   'workbench.terminal.settings': 'Configuración',
+  'workbench.terminal.cliGate.title': 'Conectar la CLI de OpenHeaders',
+  'workbench.terminal.cliGate.body':
+    'El modo TUI funciona con la herramienta de línea de comandos oh, que aún no está conectada a esta ' +
+    'aplicación. Conectarla crea un token de acceso y lo guarda en {path} — después, oh funciona en ' +
+    'cualquier terminal de esta máquina.',
+  'workbench.terminal.cliGate.ok': 'Conectar y abrir',
+  'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',

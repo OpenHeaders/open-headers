@@ -507,6 +507,28 @@ export const workbenchSettingsPanes = {
     'en ese dispositivo? Abre allí uno de estos enlaces en su lugar — sirve una página que entrega un token ' +
     'para pegarlo a mano.',
 
+  // ── Command-line access card (MCP pane) ────────────────────────────
+  'workbench.settings.cliAccess.sectionTitle': 'Acceso por línea de comandos',
+  'workbench.settings.cliAccess.sectionBlurb':
+    'Un clic conecta la herramienta de línea de comandos oh de esta máquina con la aplicación — se crea y ' +
+    'guarda un token de acceso para ella, sin copiar nada.',
+  'workbench.settings.cliAccess.statusUnconfigured': 'La CLI de esta máquina aún no está conectada.',
+  'workbench.settings.cliAccess.statusConfigured': 'CLI conectada como {label}.',
+  'workbench.settings.cliAccess.statusStale':
+    'El token CLI guardado ya no es válido — configura el acceso de nuevo para reconectar.',
+  'workbench.settings.cliAccess.statusExternal':
+    'La CLI está conectada actualmente a otro demonio ({url}). Configurar el acceso aquí la apunta a esta ' +
+    'aplicación en su lugar.',
+  'workbench.settings.cliAccess.statusMalformed': 'El archivo de configuración de la CLI no se puede leer: {message}',
+  'workbench.settings.cliAccess.pathNote': 'Guardado en {path}',
+  'workbench.settings.cliAccess.setUp': 'Configurar acceso CLI',
+  'workbench.settings.cliAccess.rotate': 'Rotar acceso CLI',
+  'workbench.settings.cliAccess.connectHere': 'Conectar a esta aplicación',
+  'workbench.settings.cliAccess.provisioned':
+    'Acceso CLI configurado — oh ya funciona en cualquier terminal de esta máquina.',
+  'workbench.settings.cliAccess.rotated': 'Token CLI rotado — el token anterior queda revocado.',
+  'workbench.settings.cliAccess.provisionFailed': 'La configuración de la CLI falló: {message}',
+
   // ── MCP pane body ──────────────────────────────────────────────────
   'workbench.settings.mcpPane.serverOff':
     'El servidor MCP está apagado — los clientes no pueden conectarse hasta que lo actives.',

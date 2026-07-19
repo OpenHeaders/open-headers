@@ -190,6 +190,42 @@ export async function revokeDaemonAuthToken(tokenId: string, now: () => number =
 }
 
 /**
+ * Read-only ledger lookup for a presented secret — the status-probe
+ * counterpart of {@link validateDaemonAuthToken}. Same hash + scan, but
+ * NEVER bumps `lastUsedAt` (a status poll must not read as device
+ * activity) and takes no store lock (pure read). Used by surfaces that
+ * derive "is this stored secret still good?" live, e.g. the CLI
+ * provisioning card hashing `cli.json`'s token against the ledger.
+ */
+export async function peekDaemonAuthToken(
+  presented: string | undefined,
+  now: () => number = Date.now,
+): Promise<ValidateDaemonAuthTokenResult> {
+  if (!presented) return { ok: false, reason: 'no-token' };
+  const presentedHash = await sha256Hex(presented);
+  const nowMs = now();
+  const current = await readTokens();
+  let sawRevokedMatch = false;
+  for (const candidate of current) {
+    if (!constantTimeEqual(candidate.tokenHash, presentedHash)) continue;
+    if (candidate.revokedAt !== null) {
+      sawRevokedMatch = true;
+      continue;
+    }
+    if (candidate.expiresAt !== undefined && candidate.expiresAt <= nowMs) {
+      return { ok: false, reason: 'expired' };
+    }
+    return {
+      ok: true,
+      tokenId: candidate.id,
+      label: candidate.label,
+      ...(candidate.userId !== undefined ? { userId: candidate.userId } : {}),
+    };
+  }
+  return { ok: false, reason: sawRevokedMatch ? 'revoked' : 'unknown' };
+}
+
+/**
  * Validate a peer-presented secret. Hashes the inbound string, scans
  * every non-revoked token for a constant-time hash match, updates
  * `lastUsedAt` on hit. Returns a discriminated result so the caller can

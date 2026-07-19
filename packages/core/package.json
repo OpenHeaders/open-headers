@@ -178,6 +178,10 @@
     "./socketio": {
       "import": "./src/socketio/index.ts",
       "default": "./dist/socketio/index.js"
+    },
+    "./cli-config": {
+      "import": "./src/cli-config/index.ts",
+      "default": "./dist/cli-config/index.js"
     }
   },
   "scripts": {

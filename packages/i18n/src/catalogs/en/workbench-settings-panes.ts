@@ -442,6 +442,25 @@ export const workbenchSettingsPanes = {
   'workbench.settings.daemonTokens.pairModal.fallback.suffix':
     'option on that device? Open one of these links there instead — it serves a page that hands over a token to paste by hand.',
 
+  // ── Command-line access card (MCP pane) ────────────────────────────
+  'workbench.settings.cliAccess.sectionTitle': 'Command-line access',
+  'workbench.settings.cliAccess.sectionBlurb':
+    'One click connects the oh command-line tool on this machine to the app — an access token is created and saved for it, no copying.',
+  'workbench.settings.cliAccess.statusUnconfigured': 'The CLI on this machine is not connected yet.',
+  'workbench.settings.cliAccess.statusConfigured': 'CLI connected as {label}.',
+  'workbench.settings.cliAccess.statusStale':
+    'The saved CLI token is no longer valid — set up access again to reconnect.',
+  'workbench.settings.cliAccess.statusExternal':
+    'The CLI is currently connected to a different daemon ({url}). Setting up access here points it at this app instead.',
+  'workbench.settings.cliAccess.statusMalformed': 'The CLI config file can’t be read: {message}',
+  'workbench.settings.cliAccess.pathNote': 'Saved in {path}',
+  'workbench.settings.cliAccess.setUp': 'Set up CLI access',
+  'workbench.settings.cliAccess.rotate': 'Rotate CLI access',
+  'workbench.settings.cliAccess.connectHere': 'Connect to this app',
+  'workbench.settings.cliAccess.provisioned': 'CLI access set up — oh now works in any terminal on this machine.',
+  'workbench.settings.cliAccess.rotated': 'CLI token rotated — the previous token is revoked.',
+  'workbench.settings.cliAccess.provisionFailed': 'CLI setup failed: {message}',
+
   // ── MCP pane body ──────────────────────────────────────────────────
   'workbench.settings.mcpPane.serverOff': 'The MCP server is off — clients can’t connect until you enable it.',
   'workbench.settings.mcpPane.connect.title': 'Connect a client',
