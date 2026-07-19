@@ -3,7 +3,9 @@
  * vocabulary (ws/wss schemes, subprotocol identifiers, AsyncAPI, the
  * `handshake` loanword) rides raw inside keyed values. The Params tab
  * stays raw — `Paramètres` is the Settings-tab mint (gRPC editor
- * precedent); prose says « paramètres ».
+ * precedent); prose says « paramètres ». The spec-browser section
+ * headers mirror AsyncAPI document keywords and ride raw (spec
+ * outline law); prose says « canaux » / « opérations ».
  */
 
 import type { Catalog } from '../../types';
@@ -48,6 +50,12 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.spec.summary': '{servers} serveurs · {channels} canaux · {operations} opérations',
   'workbench.editors.websocket.spec.parseFailure': "La spécification ne s'analyse pas : {message}",
   'workbench.editors.websocket.spec.issues': '{count} problèmes dans la spécification',
+  'workbench.editors.websocket.spec.useExample': "Utiliser un message d'exemple…",
+  'workbench.editors.websocket.spec.browser.hint': "Choisissez un message pour en composer la charge utile d'exemple.",
+  'workbench.editors.websocket.spec.browser.servers': 'Servers',
+  'workbench.editors.websocket.spec.browser.channels': 'Channels',
+  'workbench.editors.websocket.spec.browser.operations': 'Operations',
+  'workbench.editors.websocket.spec.browser.components': 'Components',
   'workbench.editors.websocket.specFooter.using': 'Utilise {name}',
   'workbench.editors.websocket.specFooter.none': 'Aucune spécification AsyncAPI liée',
   'workbench.editors.websocket.settings.sslVerifyLabel': 'Vérification du certificat SSL',
@@ -72,6 +80,9 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.toast.updateFailed': "Échec de l'enregistrement de la requête WebSocket",
   'workbench.editors.websocket.toast.updateFailedDetail':
     "Échec de l'enregistrement de la requête WebSocket : {message}",
+  'workbench.editors.websocket.toast.savedExample': 'Exemple {name} enregistré',
+  'workbench.editors.websocket.toast.saveExampleFailed': "Échec de l'enregistrement de l'exemple",
+  'workbench.editors.websocket.toast.saveExampleFailedDetail': "Échec de l'enregistrement de l'exemple : {message}",
   // ── Session pane ────────────────────────────────────────────────────
   'workbench.editors.websocket.session.title': 'Session',
   'workbench.editors.websocket.session.emptyHint':
@@ -86,6 +97,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.noCloseFrame': 'Connexion terminée sans frame Close',
   'workbench.editors.websocket.session.duration': '{ms} ms',
   'workbench.editors.websocket.session.sendMessage': 'Envoyer',
+  'workbench.editors.websocket.session.saveResponse': 'Enregistrer la réponse',
   'workbench.editors.websocket.session.sendIdle': 'Connectez-vous pour envoyer des messages.',
   'workbench.editors.websocket.session.sendFailed': "Échec de l'envoi du message",
   'workbench.editors.websocket.session.hostNotice':
@@ -134,4 +146,15 @@ export const workbenchEditorsWebsocket = {
     'Frame de pièces jointes binaires ({count} pièces jointes)',
   'workbench.editors.websocket.timeline.sio.ack': 'ack',
   'workbench.editors.websocket.timeline.sio.eventNoName': 'event',
+  // ── Response example viewer ─────────────────────────────────────────
+  'workbench.editors.wsExample.loading': "Chargement de l'exemple…",
+  'workbench.editors.wsExample.notFound':
+    "Cet exemple n'existe plus — il a peut-être été supprimé depuis un autre onglet.",
+  'workbench.editors.wsExample.openInRequest': 'Ouvrir dans la requête',
+  'workbench.editors.wsExample.openInRequestTooltip':
+    'Ouvre la requête WebSocket parente avec cette forme capturée comme modifications non enregistrées.',
+  'workbench.editors.wsExample.capturedTooltip': 'Capturé le {date}',
+  'workbench.editors.wsExample.toast.deletedOtherTab': 'Cet exemple a été supprimé depuis un autre onglet.',
+  'workbench.editors.wsExample.toast.saveFailed': "Échec de l'enregistrement de l'exemple",
+  'workbench.editors.wsExample.toast.saveFailedDetail': "Échec de l'enregistrement de l'exemple : {message}",
 } as const satisfies Catalog;

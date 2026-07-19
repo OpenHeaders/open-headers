@@ -106,6 +106,20 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateProto.empty':
     'Le document ne déclare aucune méthode de service à partir de laquelle générer.',
   'workbench.editors.spec.generateProto.partial': 'Génération incomplète — {created} créées, {failed} en échec.',
+  'workbench.editors.spec.generateWs.blurb':
+    'Générez une collection à partir de cette spécification. Les opérations deviennent des requêtes WebSocket ' +
+    "ciblant le serveur ws/wss du document, avec un message d'exemple pré-rempli depuis le schéma du canal. La " +
+    'collection reste liée à cette spécification.',
+  'workbench.editors.spec.generateWs.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} requête WebSocket',
+      many: '{count} requêtes WebSocket',
+      other: '{count} requêtes WebSocket',
+    }),
+  'workbench.editors.spec.generateWs.empty': 'Le document ne déclare aucune opération à partir de laquelle générer.',
+  'workbench.editors.spec.generateWs.noWsServer': 'Le document ne déclare aucun serveur ws ou wss auquel se connecter.',
+  'workbench.editors.spec.generateWs.partial': 'Génération incomplète — {created} créées, {failed} en échec.',
+  'workbench.editors.spec.generateWs.skipped': '{operation} ignorée : {reason}.',
   'workbench.editors.spec.update.button': 'Mettre à jour',
   'workbench.editors.spec.update.protoUnavailable':
     "La mise à jour depuis une spécification Protobuf n'est pas encore disponible — générez une nouvelle " +
