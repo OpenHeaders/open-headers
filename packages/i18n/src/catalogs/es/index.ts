@@ -40,6 +40,7 @@ import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
+import { workbenchDocs } from './workbench-docs';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
@@ -92,6 +93,7 @@ export const es = {
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
   ...workbenchDaemonAdmin,
+  ...workbenchDocs,
   ...workbenchDocsDebugMode,
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,

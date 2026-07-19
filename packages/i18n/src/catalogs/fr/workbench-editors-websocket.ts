@@ -60,6 +60,10 @@ export const workbenchEditorsWebsocket = {
     "Émet un id d'accusé de réception à chaque Envoyer pour que la réponse ack du serveur se corrèle dans la " +
     'chronologie.',
   'workbench.editors.websocket.event.argsPlaceholder': 'Composez le tableau d\'arguments JSON, p. ex. ["hello", 42]…',
+  'workbench.editors.websocket.event.argTab': 'Arg {index}',
+  'workbench.editors.websocket.event.addArg': 'Arg',
+  'workbench.editors.websocket.event.removeArg': "Retirer l'argument {index}",
+  'workbench.editors.websocket.event.argPlaceholder': 'Composez cet argument en JSON, p. ex. "hello" ou {"id": 42}…',
   'workbench.editors.websocket.headers.keyPlaceholder': "Nom de l'en-tête",
   'workbench.editors.websocket.headers.valuePlaceholder': 'Valeur',
   'workbench.editors.websocket.headers.nodeOnly':
