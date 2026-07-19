@@ -14,12 +14,20 @@
  * (every browser surface) `getWorkbenchTerminalTabs()` returns null,
  * and the tool window never exists anyway (registry
  * `requiresCapability`).
+ *
+ * Tab IDENTITIES (numbered/explicit titles + a titled tab's command)
+ * persist across app restarts, gated on the same
+ * `general.restoreTabsOnStartup` setting as the editor tab session.
+ * Content never persists: a restored tab holds no pty until the panel
+ * first attaches it, so restoring N tabs costs no shells up front.
  */
 
 import { getCapability, type TerminalSession } from '@openheaders/core/capabilities';
+import { hostStorage, type PersistedTerminalTab, UI } from '@openheaders/core/storage';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { type ITheme, Terminal } from '@xterm/xterm';
+import { get as getSetting } from '../../../settings/store';
 
 export interface WorkbenchTerminal {
   readonly term: Terminal;
@@ -74,12 +82,18 @@ export interface WorkbenchTerminalTabs {
   onTabsChange(listener: () => void): () => void;
   /** Apply the antd-derived theme to every tab, current and future. */
   setTheme(theme: ITheme): void;
+  /** Resolves once the persisted tab identities (if any) are restored —
+   *  the panel waits on this before auto-creating a first tab. */
+  whenReady(): Promise<void>;
 }
 
 interface TabState {
   id: string;
   titleIndex: number;
   title: string | undefined;
+  /** The command this tab was opened to run — retained for restart-
+   *  across-app-restarts persistence (pendingCommand clears on spawn). */
+  runCommand: string | null;
   pendingCommand: string | null;
   term: Terminal;
   fit: FitAddon;
@@ -102,13 +116,76 @@ interface RegistryState {
   nextTabSeq: number;
   changeListeners: Set<() => void>;
   theme: ITheme | undefined;
+  /** False until the persisted-identity restore settles; mutations
+   *  don't write back before then (they'd clobber the stored session
+   *  with the pre-restore empty state). */
+  hydrated: boolean;
+  ready: Promise<void>;
   api: WorkbenchTerminalTabs;
 }
 
 let registry: RegistryState | null = null;
 
 function notifyTabsChange(state: RegistryState): void {
+  persistTabs(state);
   for (const listener of state.changeListeners) listener();
+}
+
+function restoreOnStartup(): boolean {
+  // The same gate as the editor tab session. The store isn't
+  // initialized in unit environments — read as "restore on".
+  try {
+    return getSetting('general.restoreTabsOnStartup');
+  } catch {
+    return true;
+  }
+}
+
+function persistTabs(state: RegistryState): void {
+  if (!state.hydrated) return;
+  const tabs: PersistedTerminalTab[] = state.tabs.map((tab) => ({
+    titleIndex: tab.titleIndex,
+    ...(tab.title !== undefined ? { title: tab.title } : {}),
+    ...(tab.runCommand !== null ? { runCommand: tab.runCommand } : {}),
+  }));
+  const activeIndex = Math.max(
+    0,
+    state.tabs.findIndex((tab) => tab.id === state.activeId),
+  );
+  // Best-effort — a failed (or adapterless, in unit envs) write only
+  // costs restore.
+  try {
+    void hostStorage.set(UI.terminalTabs, { tabs, activeIndex }).catch(() => {});
+  } catch {
+    // No host adapter installed.
+  }
+}
+
+async function hydrate(state: RegistryState): Promise<void> {
+  try {
+    if (!restoreOnStartup()) return;
+    const stored = await hostStorage.get(UI.terminalTabs);
+    if (!stored || !Array.isArray(stored.tabs) || stored.tabs.length === 0) return;
+    // A tab created before the restore settled (panel opened faster
+    // than storage answered) wins — don't merge the stale session in.
+    if (state.tabs.length > 0) return;
+    for (const persisted of stored.tabs) {
+      if (typeof persisted?.titleIndex !== 'number') continue;
+      buildTab(state, {
+        titleIndex: persisted.titleIndex,
+        title: typeof persisted.title === 'string' ? persisted.title : undefined,
+        runCommand: typeof persisted.runCommand === 'string' ? persisted.runCommand : null,
+      });
+    }
+    if (state.tabs.length === 0) return;
+    const activeIndex = Math.min(Math.max(0, stored.activeIndex ?? 0), state.tabs.length - 1);
+    state.activeId = state.tabs[activeIndex].id;
+    notifyTabsChange(state);
+  } catch {
+    // Unreadable session — start empty, exactly like a fresh install.
+  } finally {
+    state.hydrated = true;
+  }
 }
 
 function notifyExitChange(tab: TabState): void {
@@ -204,7 +281,13 @@ function lowestFreeTitleIndex(state: RegistryState): number {
   return index;
 }
 
-function createTab(state: RegistryState, options?: TerminalTabOptions): string {
+interface TabInit {
+  titleIndex: number;
+  title: string | undefined;
+  runCommand: string | null;
+}
+
+function buildTab(state: RegistryState, init: TabInit): TabState {
   const term = new Terminal({
     cursorBlink: true,
     scrollback: 5000,
@@ -217,9 +300,10 @@ function createTab(state: RegistryState, options?: TerminalTabOptions): string {
 
   const tab: TabState = {
     id: `tab-${state.nextTabSeq++}`,
-    titleIndex: options?.title !== undefined ? 0 : lowestFreeTitleIndex(state),
-    title: options?.title,
-    pendingCommand: options?.runCommand ?? null,
+    titleIndex: init.titleIndex,
+    title: init.title,
+    runCommand: init.runCommand,
+    pendingCommand: init.runCommand,
     term,
     fit,
     session: null,
@@ -257,6 +341,15 @@ function createTab(state: RegistryState, options?: TerminalTabOptions): string {
   };
   term.onData((data) => tab.session?.write(data));
   state.tabs.push(tab);
+  return tab;
+}
+
+function createTab(state: RegistryState, options?: TerminalTabOptions): string {
+  const tab = buildTab(state, {
+    titleIndex: options?.title !== undefined ? 0 : lowestFreeTitleIndex(state),
+    title: options?.title,
+    runCommand: options?.runCommand ?? null,
+  });
   state.activeId = tab.id;
   notifyTabsChange(state);
   return tab.id;
@@ -315,6 +408,8 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
     nextTabSeq: 1,
     changeListeners: new Set(),
     theme: undefined,
+    hydrated: false,
+    ready: Promise.resolve(),
     api: {
       list: () => state.tabs.map((tab) => ({ id: tab.id, titleIndex: tab.titleIndex, title: tab.title })),
       activeId: () => state.activeId,
@@ -336,8 +431,10 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
         state.theme = theme;
         for (const tab of state.tabs) tab.term.options.theme = theme;
       },
+      whenReady: () => state.ready,
     },
   };
+  state.ready = hydrate(state);
   registry = state;
   return state.api;
 }

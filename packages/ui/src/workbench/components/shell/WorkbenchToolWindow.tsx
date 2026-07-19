@@ -284,7 +284,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'terminal':
       return (
         <Suspense fallback={null}>
-          <TerminalPanel info={getToolWindowInfo('terminal', t)} onHide={() => tl.closeDock(slot)} />
+          <TerminalPanel info={getToolWindowInfo('terminal', t)} dockSlot={slot} onHide={() => tl.closeDock(slot)} />
         </Suspense>
       );
     default:

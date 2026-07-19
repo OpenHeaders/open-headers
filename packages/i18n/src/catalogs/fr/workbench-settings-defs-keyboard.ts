@@ -68,8 +68,8 @@ export const workbenchSettingsDefsKeyboard = {
     "Déplacer le focus clavier vers la rangée d'onglets du panneau inférieur.",
   'workbench.settings.def.keyboard.terminalNewTab.label': 'Nouvel onglet de terminal',
   'workbench.settings.def.keyboard.terminalNewTab.description':
-    "Ouvrir la fenêtre d'outils Terminal et démarrer un nouvel onglet de terminal. Application de bureau " +
-    'uniquement.',
+    'Démarrer un nouvel onglet de terminal quand le panneau Terminal a le focus ; ailleurs, le raccourci ' +
+    'garde son action Nouvel onglet habituelle. Application de bureau uniquement.',
   'workbench.settings.def.keyboard.showShortcutHelp.label': "Afficher l'aide des raccourcis",
   'workbench.settings.def.keyboard.showShortcutHelp.description': 'Afficher le mémo des raccourcis clavier.',
   'workbench.settings.def.keyboard.find.label': "Rechercher dans l'éditeur",

@@ -154,6 +154,13 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     settingKey: 'keyboard.terminalNewTab',
     category: 'panels',
     handler: { kind: 'direct', name: 'onTerminalNewTab' },
+    // Shares its default chord with `new-tab`. This def sits earlier in
+    // the table and matches only from the bottom region, so focus
+    // decides: terminal focused → terminal tab; anywhere else the
+    // region check falls through to the editor new-tab binding. The
+    // handler itself delegates onward when the bottom region shows a
+    // panel other than the terminal.
+    allowedRegions: ['bottom'],
   },
 
   // Tabs

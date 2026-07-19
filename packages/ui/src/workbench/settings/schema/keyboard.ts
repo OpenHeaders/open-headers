@@ -390,11 +390,13 @@ registerSetting({
 registerSetting({
   key: 'keyboard.terminalNewTab',
   type: 'keybinding',
-  // VS Code's "new terminal" convention; `mod+t` belongs to the editor
-  // tab strip. Desktop-only in practice — the action rides the
-  // `terminal` capability, so on browser surfaces it never fires.
-  default: 'mod+shift+`',
-  getDefault: presetAware('keyboard.terminalNewTab', 'mod+shift+`'),
+  // Deliberately the SAME chord as keyboard.newTab: the dispatch is
+  // region-arbitrated (this def matches only while the bottom region
+  // is focused, and its handler falls through to the editor new-tab
+  // action unless the Terminal tool window is the focused dock's
+  // active panel). IDE posture — one chord, context decides.
+  default: 'alt+t',
+  getDefault: presetAware('keyboard.terminalNewTab', hostChord('mod+t', 'alt+t')),
   schema: chordSchema,
   labelKey: 'workbench.settings.def.keyboard.terminalNewTab.label',
   descriptionKey: 'workbench.settings.def.keyboard.terminalNewTab.description',

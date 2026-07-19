@@ -18,6 +18,8 @@ export {
   type PersistedPanelLayout,
   type PersistedPopupState,
   type PersistedTabSession,
+  type PersistedTerminalTab,
+  type PersistedTerminalTabs,
   SELF_BACKEND_REACH_KEY,
   type StorageArea,
   type StorageKey,

@@ -70,8 +70,8 @@ export const workbenchSettingsDefsKeyboard = {
     'Mover el foco del teclado a la fila de pestañas del panel inferior.',
   'workbench.settings.def.keyboard.terminalNewTab.label': 'Nueva pestaña de terminal',
   'workbench.settings.def.keyboard.terminalNewTab.description':
-    'Abrir la ventana de herramientas Terminal e iniciar una pestaña de terminal nueva. Solo en la aplicación ' +
-    'de escritorio.',
+    'Iniciar una pestaña de terminal nueva cuando el panel Terminal tiene el foco; en el resto, el atajo ' +
+    'conserva su acción habitual de Nueva pestaña. Solo en la aplicación de escritorio.',
   'workbench.settings.def.keyboard.showShortcutHelp.label': 'Mostrar la ayuda de atajos',
   'workbench.settings.def.keyboard.showShortcutHelp.description': 'Mostrar la guía rápida de atajos de teclado.',
   'workbench.settings.def.keyboard.find.label': 'Buscar en el editor',

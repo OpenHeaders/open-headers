@@ -1043,11 +1043,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       ref?.focus();
     },
     onTerminalNewTab: () => {
+      // Region-arbitrated `mod+t`: a new terminal tab only when the
+      // Terminal tool window is the focused dock's active panel;
+      // any other bottom panel falls through to the editor new-tab
+      // action, matching what the chord does everywhere else.
       const terminalTabs = getWorkbenchTerminalTabs();
-      if (!terminalTabs) return;
-      if (tl.dockOf('terminal')) tl.activateWindow('terminal');
-      else tl.restoreWindow('terminal');
-      terminalTabs.createTab();
+      const focusedDock = getFocusedDock();
+      const activePanel = focusedDock ? tl.state.docks[focusedDock]?.active : null;
+      if (terminalTabs && activePanel === 'terminal') {
+        terminalTabs.createTab();
+        return;
+      }
+      openCreateRequestTab();
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,

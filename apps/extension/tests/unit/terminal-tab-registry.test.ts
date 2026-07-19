@@ -7,8 +7,34 @@
  */
 
 import type { TerminalSession } from '@openheaders/core/capabilities';
+import type { HostStorage, StorageKey } from '@openheaders/core/storage';
 import type { getWorkbenchTerminalTabs as GetTabs } from '@openheaders/ui/workbench/components/panels/terminal/terminal-instance';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+/** Map-backed HostStorage — enough surface for the tab registry's
+ *  identity persistence (get/set by key; the rest inert). */
+function makeFakeStorage(data: Map<string, unknown>): HostStorage {
+  return {
+    get: async <T>(spec: StorageKey<T>) => data.get(spec.key) as T | undefined,
+    getMany: async <M extends Record<string, StorageKey<unknown>>>(specs: M) => {
+      const out: Record<string, unknown> = {};
+      for (const [name, spec] of Object.entries(specs)) out[name] = data.get(spec.key);
+      return out as { [K in keyof M]: M[K] extends StorageKey<infer V> ? V | undefined : never };
+    },
+    set: async <T>(spec: StorageKey<T>, value: T) => {
+      data.set(spec.key, value);
+    },
+    setMany: async (writes) => {
+      for (const [spec, value] of writes) data.set(spec.key, value);
+    },
+    remove: async (specs) => {
+      for (const spec of Array.isArray(specs) ? specs : [specs]) data.delete(spec.key);
+    },
+    getValidated: async () => null,
+    getValidatedArray: async () => [],
+    subscribe: () => () => {},
+  };
+}
 
 interface FakeSession extends TerminalSession {
   exitListeners: Array<(exitCode: number) => void>;
@@ -41,10 +67,18 @@ describe('terminal tab registry', () => {
   let getTabs: typeof GetTabs;
   let spawned: FakeSession[];
   let unregister: () => void;
+  let storageData: Map<string, unknown>;
+  let storage: typeof import('@openheaders/core/storage');
 
   beforeEach(async () => {
     vi.resetModules();
     const capabilities = await import('@openheaders/core/capabilities');
+    // resetModules gives the registry a fresh core/storage instance
+    // with no adapter — install the map-backed fake so hydration and
+    // identity persistence run for real.
+    storage = await import('@openheaders/core/storage');
+    storageData = new Map();
+    storage.setHostStorage(makeFakeStorage(storageData));
     spawned = [];
     let sessionSeq = 1;
     capabilities.registerCapability('terminal', () => ({
@@ -250,6 +284,51 @@ describe('terminal tab registry', () => {
     tabs.closeTab(second);
     expect(listener).toHaveBeenCalledTimes(1);
     expect(tabs.activeId()).toBe(first);
+  });
+
+  it('restores persisted tab identities and retypes a titled tab command on first spawn', async () => {
+    await storage.hostStorage.set(storage.UI.terminalTabs, {
+      tabs: [{ titleIndex: 1 }, { titleIndex: 0, title: 'oh tui', runCommand: 'oh tui' }, { titleIndex: 2 }],
+      activeIndex: 2,
+    });
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    expect(tabs.list().map((info) => info.titleIndex)).toEqual([1, 0, 2]);
+    expect(tabs.list()[1].title).toBe('oh tui');
+    expect(tabs.activeId()).toBe(tabs.list()[2].id);
+    const tui = tabs.getTab(tabs.list()[1].id);
+    if (!tui) throw new Error('tab handle missing');
+    await tui.ensureSession();
+    expect(spawned[0].write).toHaveBeenCalledWith('oh tui\r');
+  });
+
+  it('starts empty when nothing was persisted', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    expect(tabs.list()).toEqual([]);
+  });
+
+  it('persists tab identities on create, close, and activation', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    const first = tabs.createTab();
+    tabs.createTab({ runCommand: 'oh tui', title: 'oh tui' });
+    let stored = storageData.get(storage.UI.terminalTabs.key) as {
+      tabs: Array<Record<string, unknown>>;
+      activeIndex: number;
+    };
+    expect(stored.tabs).toEqual([{ titleIndex: 1 }, { titleIndex: 0, title: 'oh tui', runCommand: 'oh tui' }]);
+    expect(stored.activeIndex).toBe(1);
+    tabs.activateTab(first);
+    stored = storageData.get(storage.UI.terminalTabs.key) as typeof stored;
+    expect(stored.activeIndex).toBe(0);
+    tabs.closeTab(first);
+    stored = storageData.get(storage.UI.terminalTabs.key) as typeof stored;
+    expect(stored.tabs).toEqual([{ titleIndex: 0, title: 'oh tui', runCommand: 'oh tui' }]);
+    expect(stored.activeIndex).toBe(0);
   });
 
   it('applies the theme to existing and future tabs', () => {

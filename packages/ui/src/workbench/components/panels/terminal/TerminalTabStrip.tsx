@@ -23,6 +23,10 @@ import type { TerminalTabInfo } from './terminal-instance';
 export interface TerminalTabStripProps {
   tabs: TerminalTabInfo[];
   activeId: string | null;
+  /** True while the terminal's dock owns focus — the active tab renders
+   *  with the primary tint (editor tab strip posture), neutral grey
+   *  otherwise. */
+  focused: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onNew: () => void;
@@ -40,6 +44,7 @@ export function terminalTabLabel(t: Translate, tab: TerminalTabInfo): string {
 const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   tabs,
   activeId,
+  focused,
   onActivate,
   onClose,
   onNew,
@@ -78,7 +83,13 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
               borderRadius: token.borderRadiusSM,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              background: active ? token.colorFillSecondary : hovered ? token.colorFillTertiary : 'transparent',
+              background: active
+                ? focused
+                  ? token.colorPrimaryBg
+                  : token.colorFillSecondary
+                : hovered
+                  ? token.colorFillTertiary
+                  : 'transparent',
               color: active ? token.colorText : token.colorTextSecondary,
             }}
           >
@@ -104,7 +115,10 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
           </span>
         );
       })}
-      <Tooltip title={<ShortcutHintTitle label={newTabShortcut}>{t('workbench.terminal.newTab')}</ShortcutHintTitle>}>
+      <Tooltip
+        placement="bottomRight"
+        title={<ShortcutHintTitle label={newTabShortcut}>{t('workbench.terminal.newTab')}</ShortcutHintTitle>}
+      >
         <span
           role="button"
           tabIndex={0}

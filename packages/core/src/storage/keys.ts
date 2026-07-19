@@ -126,6 +126,23 @@ export interface PersistedTabSession<Tab = unknown> {
   activeTabId: string | null;
 }
 
+/**
+ * One restorable workbench terminal tab — identity only (numbered or
+ * explicit title, and the command a titled tab types on first spawn).
+ * Shell content never persists: a restored tab starts a fresh session
+ * lazily when first attached.
+ */
+export interface PersistedTerminalTab {
+  titleIndex: number;
+  title?: string;
+  runCommand?: string;
+}
+
+export interface PersistedTerminalTabs {
+  tabs: PersistedTerminalTab[];
+  activeIndex: number;
+}
+
 export interface PersistedPanelLayout {
   /** Sidebar width as ratio of viewport width (0–1). */
   sidebarRatio: number;
@@ -417,6 +434,9 @@ export const UI = {
   activePopupTab: storageKey<string>('activePopupTab'),
   /** Boolean flag set once the onboarding tour has been completed. */
   onboardingCompleted: storageKey<boolean>('onboardingCompleted'),
+  /** Workbench terminal tab identities (machine-level, not workspace-
+   *  scoped — the tabs are shells on this machine). */
+  terminalTabs: storageKey<PersistedTerminalTabs>('terminalTabs'),
 } as const;
 
 // ── Workspace-scoped keys ────────────────────────────────────────────

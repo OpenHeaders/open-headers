@@ -13,7 +13,8 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { useIsDockFocused } from '../../../stores/focus-region-store';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getWorkbenchTerminalTabs } from './terminal-instance';
 import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
@@ -34,11 +35,14 @@ function buildXtermTheme(token: AntdToken): ITheme {
 interface TerminalPanelProps {
   /** Title-bar `(i)` popover copy for the tool window. */
   info: InfoPopoverContent;
+  /** Dock slot this panel rides — drives blue-vs-grey active-tab
+   *  highlighting (editor tab strip focus posture). */
+  dockSlot: DockSlot;
   /** Hide handler — wired to the shared PanelHeader's − button. */
   onHide: () => void;
 }
 
-const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
+const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide }) => {
   const t = useT();
   const { token } = theme.useToken();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -49,9 +53,18 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
 
   useEffect(() => tabsApi?.onTabsChange(bumpVersion), [tabsApi]);
 
-  // First open (and reopen after a close-last-tab hide) starts a tab.
+  // First open (and reopen after a close-last-tab hide) starts a tab —
+  // after the persisted-identity restore settles, so a restored session
+  // isn't shadowed by an eager fresh "Local".
   useEffect(() => {
-    if (tabsApi && tabsApi.list().length === 0) tabsApi.createTab();
+    if (!tabsApi) return;
+    let cancelled = false;
+    void tabsApi.whenReady().then(() => {
+      if (!cancelled && tabsApi.list().length === 0) tabsApi.createTab();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [tabsApi]);
 
   const activeId = tabsApi?.activeId() ?? null;
@@ -141,10 +154,13 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
     [tabsApi, closeTab, t],
   );
 
+  const dockFocused = useIsDockFocused(dockSlot);
+
   const strip = tabsApi ? (
     <TerminalTabStrip
       tabs={tabsApi.list()}
       activeId={activeId}
+      focused={dockFocused}
       onActivate={(id) => tabsApi.activateTab(id)}
       onClose={requestClose}
       onNew={() => tabsApi.createTab()}

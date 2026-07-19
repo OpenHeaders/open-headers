@@ -27,6 +27,19 @@ export function scopesOf(def: SettingDef): readonly KeymapScope[] {
 
 export type ChordValueReader = (key: SettingKey) => unknown;
 
+/**
+ * Pairs whose bindings deliberately share a chord: dispatch is
+ * region-arbitrated (the first def matches only in a focus region the
+ * second falls through from), so both never fire on one keypress and
+ * the pane must not read the shared chord as a collision. Canonical
+ * form: the two setting keys sorted and joined with `|`.
+ */
+const ARBITRATED_PAIRS: ReadonlySet<string> = new Set(['keyboard.newTab|keyboard.terminalNewTab']);
+
+function isArbitratedPair(a: string, b: string): boolean {
+  return ARBITRATED_PAIRS.has(a < b ? `${a}|${b}` : `${b}|${a}`);
+}
+
 function chordOf(def: SettingDef, getValue: ChordValueReader): string {
   const value = getValue(def.key);
   return typeof value === 'string' ? value : '';
@@ -57,14 +70,15 @@ export function buildKeymapConflicts(
     for (const group of byScope[scope].values()) {
       if (group.length < 2) continue;
       for (const def of group) {
-        let others = conflicts.get(def.key);
-        if (!others) {
-          others = [];
-          conflicts.set(def.key, others);
-        }
+        const fresh: SettingDef[] = [];
+        const others = conflicts.get(def.key) ?? fresh;
         for (const other of group) {
-          if (other.key !== def.key && !others.some((d) => d.key === other.key)) others.push(other);
+          if (other.key === def.key || isArbitratedPair(def.key, other.key)) continue;
+          if (!others.some((d) => d.key === other.key)) others.push(other);
         }
+        // A row whose only same-chord partner is arbitrated isn't a
+        // conflict — don't index an empty entry for it.
+        if (others.length > 0) conflicts.set(def.key, others);
       }
     }
   }
@@ -86,7 +100,7 @@ export function findChordOwners(
   const selfScopes = scopesOf(self);
   const owners: SettingDef[] = [];
   for (const def of defs) {
-    if (def.key === self.key) continue;
+    if (def.key === self.key || isArbitratedPair(def.key, self.key)) continue;
     if (!scopesOf(def).some((scope) => selfScopes.includes(scope))) continue;
     if (chordOf(def, getValue) === chord) owners.push(def);
   }

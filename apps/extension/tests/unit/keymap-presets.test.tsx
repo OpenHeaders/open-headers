@@ -98,7 +98,13 @@ describe('preset registration and base maps', () => {
 
   it('keeps the vscode base map collision-free on the workbench surface', () => {
     const surface = keyboardDefs().filter(
-      (d) => d.type === 'keybinding' && (d.subcategory?.startsWith('workbench') === true || d.subcategory === 'global'),
+      (d) =>
+        d.type === 'keybinding' &&
+        (d.subcategory?.startsWith('workbench') === true || d.subcategory === 'global') &&
+        // terminalNewTab shares its chord with newTab BY DESIGN —
+        // region-arbitrated dispatch (see ARBITRATED_PAIRS in
+        // keymap-conflicts) — so it sits outside the uniqueness law.
+        d.key !== 'keyboard.terminalNewTab',
     );
     const chords = surface
       .map((d) => presetChord('vscode', d.key) ?? String(d.default ?? ''))

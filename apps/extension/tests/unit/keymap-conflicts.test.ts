@@ -55,6 +55,23 @@ describe('buildKeymapConflicts', () => {
     expect(conflicts.get('keyboard.commandPalette')?.map((d) => d.key)).toEqual(['keyboard.save']);
   });
 
+  it('exempts the region-arbitrated newTab/terminalNewTab pair from conflicts', () => {
+    const values = { 'keyboard.newTab': 'mod+t', 'keyboard.terminalNewTab': 'mod+t' };
+    const conflicts = buildKeymapConflicts(KEYBOARD_DEFS, reader(values));
+    expect(conflicts.size).toBe(0);
+    expect(findChordOwners(KEYBOARD_DEFS, def('keyboard.terminalNewTab'), 'mod+t', reader(values))).toEqual([]);
+    // A third def on the same chord still conflicts with both.
+    const withThird = { ...values, 'keyboard.save': 'mod+t' };
+    const threeWay = buildKeymapConflicts(KEYBOARD_DEFS, reader(withThird));
+    expect(
+      threeWay
+        .get('keyboard.save')
+        ?.map((d) => d.key)
+        .sort(),
+    ).toEqual(['keyboard.newTab', 'keyboard.terminalNewTab']);
+    expect(threeWay.get('keyboard.newTab')?.map((d) => d.key)).toEqual(['keyboard.save']);
+  });
+
   it('does not cross the workbench/popup scope boundary', () => {
     const conflicts = buildKeymapConflicts(
       KEYBOARD_DEFS,
