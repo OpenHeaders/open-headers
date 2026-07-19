@@ -313,7 +313,7 @@ export function synthesizeImportEmission(
 
 // ── Shared helpers ─────────────────────────────────────────────────
 
-const changed = (a: unknown, b: unknown): boolean => canonicalJson(a) !== canonicalJson(b);
+export const changed = (a: unknown, b: unknown): boolean => canonicalJson(a) !== canonicalJson(b);
 
 function byUid<T extends { uid: string }>(items: readonly T[] | undefined): Map<string, T> {
   return new Map((items ?? []).map((e) => [e.uid, e] as const));
@@ -328,12 +328,12 @@ function intentBatch(label: string, intent: MutatorIntent): EmissionBatch {
   return { label, batch: intent.batch, sideEffects: intent.sideEffects };
 }
 
-function bodiesBatch(label: string, bodies: MutationBody[], ctx: MutatorContext): EmissionBatch {
+export function bodiesBatch(label: string, bodies: MutationBody[], ctx: MutatorContext): EmissionBatch {
   const batch = mintBatch(ctx, bodies);
   return { label, batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
-function seedBatch(label: string, batch: MutationBatch): EmissionBatch {
+export function seedBatch(label: string, batch: MutationBatch): EmissionBatch {
   return { label, batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
@@ -344,7 +344,7 @@ function seedBatch(label: string, batch: MutationBatch): EmissionBatch {
  * they tombstone via raw `unsetField` (the family `buildUpdateBatch`s
  * skip `undefined` by contract).
  */
-function diffKeys(
+export function diffKeys(
   prevEntity: Record<string, unknown> | undefined,
   nextEntity: Record<string, unknown>,
   skip: ReadonlySet<string>,

@@ -124,6 +124,9 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.label': 'Workspace Sharing',
   'workbench.settings.category.workspaceSharing.description':
     'Display preferences for the workspace-export import preview.',
+  'workbench.settings.category.git.label': 'Git',
+  'workbench.settings.category.git.description':
+    'Bind this workspace to an on-disk folder — a live, git-friendly YAML tree.',
   'workbench.settings.category.data.label': 'Data',
   'workbench.settings.category.data.description': 'Diagnostics, import/export, and destructive maintenance.',
   'workbench.settings.category.license.label': 'License',

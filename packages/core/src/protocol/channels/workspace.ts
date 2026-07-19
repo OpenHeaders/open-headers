@@ -263,4 +263,57 @@ export interface WorkspaceRpc {
     req: { sourceHash: string };
     res: { report: ImportReport | null };
   };
+
+  // ── Workspace-tree bindings (GIT_PLAN.md Phase 2, Node hosts) ────
+  //
+  // The settings Git card's host surface. Answered by the daemon
+  // spine's workspace-tree runtime; refusal reasons are the four typed
+  // dialogs of GIT_PLAN.md §9 plus the runtime's own registry guards.
+  // Wire shapes are structural (never imported from the Node host
+  // package — dependency direction).
+
+  /** Bind a workspace to an on-disk folder (init when empty). */
+  'oh.workspaceTree.bind': {
+    req: { workspaceId: string; rootDir: string };
+    res:
+      | { ok: true; initialized: boolean; sweep: WorkspaceTreeSweepSummary | null }
+      | { ok: false; reason: 'unknown-workspace' | 'already-bound' }
+      | { ok: false; reason: 'locked'; holder: { pid: number; hostId: string; acquiredAt: string } }
+      | { ok: false; reason: 'uuid-collision' | 'identity-mismatch'; treeWorkspaceUid: string }
+      | { ok: false; reason: 'invalid-manifest'; message: string };
+  };
+  /** Release the binding; the folder stays a valid workspace tree. */
+  'oh.workspaceTree.unbind': {
+    req: { workspaceId: string };
+    res: { ok: boolean };
+  };
+  /** Identity probe — what workspace (if any) a folder claims to be. */
+  'oh.workspaceTree.probe': {
+    req: { rootDir: string };
+    res: { present: false } | { present: true; workspaceUid: string; name: string } | { present: true; error: string };
+  };
+  /** Current bindings + each binding's latest sweep issues. */
+  'oh.workspaceTree.list': {
+    req: Record<string, never>;
+    res: { bindings: Array<{ workspaceId: string; rootDir: string; issues: WorkspaceTreeIssueWire[] }> };
+  };
+  /**
+   * Native directory picker — desktop shell only (Electron dialog);
+   * other hosts answer the not-implemented error and the card falls
+   * back to a plain path input.
+   */
+  'oh.workspaceTree.pickFolder': {
+    req: Record<string, never>;
+    res: { path: string | null };
+  };
 }
+
+/** One per-document read failure — the §13.3 quarantine seam's wire shape. */
+export interface WorkspaceTreeIssueWire {
+  path: string;
+  message: string;
+}
+
+export type WorkspaceTreeSweepSummary =
+  | { ok: true; applied: number; changed: number; removed: number; issues: WorkspaceTreeIssueWire[] }
+  | { ok: false; reason: 'unreadable-manifest' | 'identity-mismatch'; issues: WorkspaceTreeIssueWire[] };

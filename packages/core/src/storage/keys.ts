@@ -191,6 +191,19 @@ export interface BackendOrgConflict {
   at: string;
 }
 
+/**
+ * One persisted row of `OH.workspaceTreeBindings` — a workspace bound
+ * to an on-disk working tree on this Node host (GIT_PLAN.md §4: the
+ * workspace is the repo-bindable grain; the binding is HOST-LOCAL
+ * config and never syncs). `rootDir` is an absolute path of the bound
+ * folder; tree exclusivity itself is enforced by the `.oh/lock` file,
+ * not by this registry.
+ */
+export interface WorkspaceTreeBindingRecord {
+  workspaceId: string;
+  rootDir: string;
+}
+
 export interface PersistedLocalFolder {
   /** Persisted format version for each `_folder.yaml` once the codec lands. */
   schemaVersion: number;
@@ -377,6 +390,15 @@ export const OH = {
    * `'safe'` via `readScriptExecutionMode` in `../scripts`.
    */
   scriptExecutionModes: storageKey<Record<string, ScriptExecutionMode>>('oh.scriptExecutionModes'),
+  /**
+   * Workspace ↔ working-tree bindings on this Node host
+   * ({@link WorkspaceTreeBindingRecord}). Host-local by design — a
+   * binding is a statement about THIS machine's filesystem; peers and
+   * clients of the workspace never see it (they consume tree-borne
+   * changes as ordinary inbound mutations). Written by the
+   * workspace-tree runtime's bind/unbind gestures.
+   */
+  workspaceTreeBindings: storageKey<WorkspaceTreeBindingRecord[]>('oh.workspaceTreeBindings'),
 } as const;
 
 // ── UI-global keys (not workspace-scoped by design) ─────────────────

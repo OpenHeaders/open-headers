@@ -10,9 +10,12 @@ export { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bi
 export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerOptions } from './materializer';
 export { WorkspaceTreeMaterializer } from './materializer';
 export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
-export type { TreeLockHolder, TreeLockResult } from './sidecar';
+export type { BindWorkspaceTreeRpcResult, WorkspaceTreeRuntime, WorkspaceTreeRuntimeOptions } from './runtime';
+export { createWorkspaceTreeRuntime } from './runtime';
+export type { MaterializedIndex, TreeLockHolder, TreeLockResult } from './sidecar';
 export {
   acquireTreeLock,
+  hashTreeContent,
   readMaterializedIndex,
   readTreeUnknownFields,
   releaseTreeLock,
@@ -20,3 +23,7 @@ export {
   writeMaterializedIndex,
   writeTreeUnknownFields,
 } from './sidecar';
+export type { SweepWorkspaceTreeOptions, SweepWorkspaceTreeResult } from './sweep';
+export { sweepWorkspaceTree } from './sweep';
+export type { WorkspaceTreeWatcherOptions } from './watcher';
+export { WorkspaceTreeWatcher } from './watcher';

@@ -521,4 +521,36 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendDetails.device.remoteServer': 'Remote server',
   'workbench.settings.backendDetails.device.yourDevice': 'Your device',
   'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
+
+  // ── Git pane (workspace-tree binding card, GIT_PLAN.md §9) ─────────
+  'workbench.settings.gitPane.notBound.title': 'No folder bound',
+  'workbench.settings.gitPane.notBound.body':
+    'Bind this workspace to a folder to keep a live YAML tree of every rule, request, and environment — ready for backups, diffs, hand edits, and (soon) git.',
+  'workbench.settings.gitPane.pathPlaceholder': 'Absolute folder path',
+  'workbench.settings.gitPane.chooseFolder': 'Choose Folder…',
+  'workbench.settings.gitPane.bindButton': 'Bind Folder',
+  'workbench.settings.gitPane.bound': 'Folder bound.',
+  'workbench.settings.gitPane.boundInitialized': 'Folder initialized as a new workspace tree.',
+  'workbench.settings.gitPane.boundTitle': 'Bound folder',
+  'workbench.settings.gitPane.boundBody':
+    'Edits materialize to this folder continuously; changes made to the files land back in the app.',
+  'workbench.settings.gitPane.unbindButton': 'Unbind',
+  'workbench.settings.gitPane.unbindConfirm.title': 'Unbind this folder?',
+  'workbench.settings.gitPane.unbindConfirm.body':
+    'The folder stays a valid workspace tree on disk; the app just stops reading and writing it.',
+  'workbench.settings.gitPane.unbindConfirm.ok': 'Unbind',
+  'workbench.settings.gitPane.unbound': 'Folder unbound.',
+  'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} file could not be read and is left untouched',
+      other: '{count} files could not be read and are left untouched',
+    }),
+  'workbench.settings.gitPane.refusal.locked':
+    'This folder is already bound to another running engine (process {pid}).',
+  'workbench.settings.gitPane.refusal.uuidCollision':
+    'This folder holds a workspace that already exists on this host via another source.',
+  'workbench.settings.gitPane.refusal.identityMismatch': 'This folder belongs to a different workspace ({uid}).',
+  'workbench.settings.gitPane.refusal.invalidManifest': 'The folder’s workspace.yaml could not be read: {message}',
+  'workbench.settings.gitPane.refusal.alreadyBound': 'This workspace is already bound to a folder.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
 } as const satisfies Catalog;

@@ -25,5 +25,6 @@ export {
   storageKey,
   UI,
   type WorkspaceKeys,
+  type WorkspaceTreeBindingRecord,
   wsKeys,
 } from './keys';

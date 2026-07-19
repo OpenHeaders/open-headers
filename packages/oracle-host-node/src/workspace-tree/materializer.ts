@@ -20,7 +20,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { planWorkspaceTree, type TreeUnknownFields, type WorkspaceTreeState } from '@openheaders/core/workspace-tree';
-import { readMaterializedIndex, writeMaterializedIndex } from './sidecar';
+import { hashTreeContent, type MaterializedIndex, readMaterializedIndex, writeMaterializedIndex } from './sidecar';
 
 export interface MaterializeSnapshot {
   state: WorkspaceTreeState;
@@ -103,32 +103,51 @@ export class WorkspaceTreeMaterializer {
 
     const written: string[] = [];
     let unchanged = 0;
-    const planned = new Set<string>();
+    const planned: MaterializedIndex = {};
     for (const file of files) {
-      planned.add(file.path);
       const target = path.join(this.rootDir, ...file.path.split('/'));
       const existing = await readFileOrNull(target);
       if (existing === file.content) {
+        planned[file.path] = hashTreeContent(file.content);
         unchanged += 1;
         continue;
+      }
+      // Rung-2 guard: bytes that moved off the baseline (or a file the
+      // engine never wrote) are pending EXTERNAL input — overwriting
+      // them would destroy a hand edit the sweep hasn't ingested yet.
+      // Leave the file alone and keep its baseline entry (if any) so
+      // the sweep still classifies it as externally changed.
+      if (existing !== null) {
+        const baseline = previous[file.path];
+        if (baseline === undefined || hashTreeContent(existing) !== baseline) {
+          if (baseline !== undefined) planned[file.path] = baseline;
+          continue;
+        }
       }
       await fs.mkdir(path.dirname(target), { recursive: true });
       const tmp = `${target}.${process.pid}.tmp`;
       await fs.writeFile(tmp, file.content, 'utf-8');
       await fs.rename(tmp, target);
+      planned[file.path] = hashTreeContent(file.content);
       written.push(file.path);
     }
 
     const deleted: string[] = [];
-    for (const stale of previous) {
-      if (planned.has(stale)) continue;
+    for (const stale of Object.keys(previous)) {
+      if (stale in planned) continue;
       const target = path.join(this.rootDir, ...stale.split('/'));
+      // Same rung-2 guard on the delete side: only sweep away bytes
+      // this materializer wrote. A file that changed since is external
+      // input — drop it from the baseline (it is no longer ours) and
+      // let the sweep decide what it means.
+      const existing = await readFileOrNull(target);
+      if (existing !== null && hashTreeContent(existing) !== previous[stale]) continue;
       await fs.rm(target, { force: true });
       await this.pruneEmptyDirs(path.dirname(target));
       deleted.push(stale);
     }
 
-    await writeMaterializedIndex(this.rootDir, [...planned]);
+    await writeMaterializedIndex(this.rootDir, planned);
     return { written, deleted, unchanged };
   }
 

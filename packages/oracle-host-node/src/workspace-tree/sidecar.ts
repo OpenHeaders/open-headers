@@ -18,6 +18,7 @@
  *                            (the watcher slice ingests it instead).
  */
 
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { OH_SIDECAR_DIR, type TreeUnknownFields } from '@openheaders/core/workspace-tree';
@@ -116,14 +117,48 @@ export async function writeTreeUnknownFields(rootDir: string, unknowns: TreeUnkn
   await writeJsonFileAtomic(path.join(sidecarDir(rootDir), UNKNOWN_FIELDS_FILE), unknowns);
 }
 
-// ── Materialized index ───────────────────────────────────────────────
+// ── Materialized index (the three-way baseline) ──────────────────────
 
-export async function readMaterializedIndex(rootDir: string): Promise<string[]> {
-  const value = await readJsonFile<string[]>(path.join(sidecarDir(rootDir), MATERIALIZED_INDEX_FILE));
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+/**
+ * `path → sha256(content)` of what the materializer last wrote. The
+ * hash is what upgrades the index from a deletion authority into the
+ * sweep's THREE-WAY baseline: a disk file whose bytes still match its
+ * baseline hash was last touched by the engine (stale materialization
+ * at worst — never an external edit), while a mismatch or an
+ * off-baseline file is rung-2 external input.
+ */
+export type MaterializedIndex = Record<string, string>;
+
+/** Canonical content hash for baseline entries. */
+export function hashTreeContent(content: string): string {
+  return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
-export async function writeMaterializedIndex(rootDir: string, paths: readonly string[]): Promise<void> {
+export async function readMaterializedIndex(rootDir: string): Promise<MaterializedIndex> {
+  const value = await readJsonFile<unknown>(path.join(sidecarDir(rootDir), MATERIALIZED_INDEX_FILE));
+  // Pre-hash format (S3): a bare path array. Empty hashes make every
+  // present file read as externally changed, which is the safe
+  // tree-wins direction for a one-time upgrade of a disposable cache.
+  if (Array.isArray(value)) {
+    const index: MaterializedIndex = {};
+    for (const entry of value) {
+      if (typeof entry === 'string') index[entry] = '';
+    }
+    return index;
+  }
+  if (value !== null && typeof value === 'object') {
+    const index: MaterializedIndex = {};
+    for (const [key, hash] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof hash === 'string') index[key] = hash;
+    }
+    return index;
+  }
+  return {};
+}
+
+export async function writeMaterializedIndex(rootDir: string, index: MaterializedIndex): Promise<void> {
   await ensureSidecarDir(rootDir);
-  await writeJsonFileAtomic(path.join(sidecarDir(rootDir), MATERIALIZED_INDEX_FILE), [...paths].sort());
+  const sorted: MaterializedIndex = {};
+  for (const key of Object.keys(index).sort()) sorted[key] = index[key];
+  await writeJsonFileAtomic(path.join(sidecarDir(rootDir), MATERIALIZED_INDEX_FILE), sorted);
 }

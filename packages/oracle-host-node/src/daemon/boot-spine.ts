@@ -118,6 +118,7 @@ import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-s
 import { peekCookieJar } from '../live/cookie-jar';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
+import { createWorkspaceTreeRuntime, type WorkspaceTreeRuntime } from '../workspace-tree';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdminChannelHandlers } from './admin-channels';
@@ -316,6 +317,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // local surfaces only, which is harmless — no peer has handshook yet).
   let wsServer: OracleWsServer | null = null;
 
+  // Workspace-tree runtime (GIT_PLAN.md Phase 2) — created after the
+  // sync engine boots (its bindings hold services resident); the sync
+  // host-hook below feeds it committed envelopes through this slot.
+  let workspaceTreeRuntime: WorkspaceTreeRuntime | null = null;
+
   // The port the WS server is actually bound on right now — driven by
   // the supervisor's bind lifecycle (`backend.bindPort`, default
   // WS_PORT). The pairing surface reads this so the codes it hands out
@@ -448,6 +454,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       forwardMutationToWsPeers(event);
       config.forwardMutationToBackends?.(event);
       observeForActivityFeed(event);
+      // Rung 1 (§3.1): every committed envelope for a tree-bound
+      // workspace schedules a debounced materialize.
+      workspaceTreeRuntime?.onSyncEvent(event);
     },
     broadcastAwareness: (event) => {
       // Local surfaces in this process: legacy channel for the
@@ -528,6 +537,15 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
+
+  // Workspace-tree bindings (GIT_PLAN.md Phase 2): reopen persisted
+  // bindings now that services can materialize — each open runs the
+  // MANDATORY cold-boot tree-wins sweep (§11.2) before its first
+  // materialize pass. Failures disable the tree plane only.
+  workspaceTreeRuntime = createWorkspaceTreeRuntime({ hostId: config.handshakeIdentity.nodeId });
+  await workspaceTreeRuntime.start().catch((err: unknown) => {
+    consoleLogger.warn(SCOPE, 'workspace-tree runtime start failed', err);
+  });
 
   // 4a. WS-C C3/C4 — live runner. With the active workspace's stores
   //     hydrated and the sync engine up, start the cadence scheduler: a
@@ -913,6 +931,37 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         return { success: false };
       }
     }
+    // Workspace-tree bindings (GIT_PLAN.md §9 — the settings Git card's
+    // host side). Local surface = the operator by construction, same
+    // posture as importWorkspace above; refusals return typed reasons
+    // the card renders as its four dialogs.
+    if (type === 'oh.workspaceTree.bind') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const rootDir = typeof message.rootDir === 'string' ? message.rootDir : '';
+      if (!workspaceId || !rootDir || workspaceTreeRuntime === null) {
+        return { ok: false, reason: 'unknown-workspace' };
+      }
+      return await workspaceTreeRuntime.bind(workspaceId, rootDir);
+    }
+    if (type === 'oh.workspaceTree.unbind') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false };
+      return await workspaceTreeRuntime.unbind(workspaceId);
+    }
+    if (type === 'oh.workspaceTree.probe') {
+      const rootDir = typeof message.rootDir === 'string' ? message.rootDir : '';
+      if (!rootDir || workspaceTreeRuntime === null) return { present: false };
+      return await workspaceTreeRuntime.probe(rootDir);
+    }
+    if (type === 'oh.workspaceTree.list') {
+      const bindings = workspaceTreeRuntime?.list() ?? [];
+      return {
+        bindings: bindings.map((record) => ({
+          ...record,
+          issues: workspaceTreeRuntime?.issues(record.workspaceId) ?? [],
+        })),
+      };
+    }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin
     // probe) — the shared table built above. The local caller is the
     // operator by construction; WS peers reach the SAME table through
@@ -997,6 +1046,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const dispose = async (): Promise<void> => {
     if (disposed) return;
     disposed = true;
+    await workspaceTreeRuntime?.dispose();
+    workspaceTreeRuntime = null;
     stopLiveRunner();
     stopActivityPruneScheduler();
     stopAuditPruneScheduler();

@@ -10,6 +10,7 @@
 
 import {
   BgColorsOutlined,
+  BranchesOutlined,
   BugOutlined,
   CloudDownloadOutlined,
   CloudServerOutlined,
@@ -38,6 +39,7 @@ import { registerCategory } from './registry';
 const BackendPane = lazy(() => import('./components/BackendPane'));
 const McpPane = lazy(() => import('./components/mcp-pane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
+const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
 
 registerCategory({
@@ -221,6 +223,19 @@ registerCategory({
   icon: <CloudDownloadOutlined />,
   order: 85,
   descriptionKey: 'workbench.settings.category.workspaceSharing.description',
+});
+
+registerCategory({
+  id: 'git',
+  labelKey: 'workbench.settings.category.git.label',
+  icon: <BranchesOutlined />,
+  order: 86,
+  descriptionKey: 'workbench.settings.category.git.description',
+  renderPane: GitWorkspacePane,
+  // Only Node hosts have a filesystem to bind (GIT_PLAN.md §12): the
+  // desktop is Phase 2's host; the daemon's served web tab follows
+  // with the admin console work, and the extension never qualifies.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerCategory({

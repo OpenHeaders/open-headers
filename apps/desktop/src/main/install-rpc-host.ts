@@ -68,7 +68,7 @@ import {
   scanToolData,
 } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import { installLocaleSubscription } from './bootstrap/locale';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
@@ -374,6 +374,13 @@ export async function installRpcHost(): Promise<void> {
       // settles; the relaunch proceeds on the next tick.
       setImmediate(() => relaunchApp());
       return { ok: true };
+    }
+    // Native directory picker for the workspace-tree Git card — a
+    // desktop-shell concern (Electron dialog); the spine's own
+    // `oh.workspaceTree.*` channels handle everything else.
+    if (type === 'oh.workspaceTree.pickFolder') {
+      const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+      return { path: result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0] };
     }
     if (type === 'oh.migration.detectTools') {
       return detectInstalledTools();

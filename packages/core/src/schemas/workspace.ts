@@ -17,7 +17,13 @@ import { SchemaVersionSchema, UidSchema, UuidV7Schema } from './common';
  */
 export const WorkspaceSchema = v.object({
   schemaVersion: SchemaVersionSchema,
-  uid: UidSchema,
+  /**
+   * Accepts both id shapes: 8-char entity uids (fixtures, pre-binding
+   * manifests) and uuidv7 — the host workspace store mints uuidv7 ids
+   * (`generateWorkspaceId`), and a tree binding writes that id into
+   * `workspace.yaml` as the clone join key (GIT_PLAN.md §4).
+   */
+  uid: v.union([UidSchema, UuidV7Schema]),
   name: v.string(),
   description: v.optional(v.string()),
   defaultEnvironmentId: v.optional(v.string()),
