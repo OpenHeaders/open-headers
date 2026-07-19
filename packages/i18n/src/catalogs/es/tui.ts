@@ -18,6 +18,7 @@ export const tui = {
   'tui.header.connected': 'conectado',
   'tui.header.unreachable': 'daemon inaccesible',
   'tui.header.synced': 'sincronizado hace {ago}',
+  'tui.header.syncedJustNow': 'sincronizado justo ahora',
   'tui.header.syncing': 'sincronizando…',
 
   // ── Pane titles and summaries ──────────────────────────────────────

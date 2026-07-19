@@ -35,7 +35,7 @@ describe('view', () => {
     expect(text[0]).toContain('team-a');
     expect(text[0]).toContain('env: staging');
     expect(text[0]).toContain('● connected');
-    expect(text[0]).toContain('synced 0s ago');
+    expect(text[0]).toContain('synced just now');
     expect(text[1]).toContain('[1 Workspaces]');
     expect(text[1]).toContain('3 Rules ── 2 on · 1 off · 1 draft');
     expect(text.join('\n')).toContain('▸ team-a (git) *');
@@ -43,6 +43,14 @@ describe('view', () => {
     expect(text.join('\n')).toContain('◐ on  rate-limit-probe (draft)');
     expect(text[23]).toContain('↑↓ move');
     expect(text[23]).toContain('q quit');
+  });
+
+  it('sync age floors to "just now" under 10s, then ticks in seconds', () => {
+    const fx = makeReadyApp();
+    const under = strip(viewTui(fx.app, SIZE, fx.ctx(100_000 + 9_000)));
+    expect(under[0]).toContain('synced just now');
+    const over = strip(viewTui(fx.app, SIZE, fx.ctx(100_000 + 10_000)));
+    expect(over[0]).toContain('synced 10s ago');
   });
 
   it('the selected row of the focused pane renders in reverse video', () => {

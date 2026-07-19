@@ -51,13 +51,26 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
     } else {
       wb.term.open(container);
     }
+    wb.ensureRenderer();
     void wb.ensureSession();
     const unsubscribeExit = wb.onExitChange(() => setExited(wb.isExited()));
-    const observer = new ResizeObserver(() => wb.syncSize());
+    // Refit on the trailing edge of a resize burst: a sash drag fires
+    // per mouse move, and reflowing the grid live drags the text along
+    // with the divider. Holding the grid until the burst settles keeps
+    // the content still mid-drag with one clean refit at the end.
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(() => {
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        wb.syncSize();
+      }, 120);
+    });
     observer.observe(container);
     wb.syncSize();
     wb.term.focus();
     return () => {
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
       observer.disconnect();
       unsubscribeExit();
       wb.term.element?.remove();

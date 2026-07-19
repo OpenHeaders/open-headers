@@ -113,7 +113,11 @@ function headerSegments(app: TuiApp, ctx: ViewContext): string[] {
   }
 
   if (state.lastSyncedAt !== null && state.phase !== 'parked') {
-    segments.push(t('tui.header.synced', { ago: formatAgo(ctx.now - state.lastSyncedAt) }));
+    // Sub-10s ages flap between 0s/1s on every poll — noise, not signal.
+    const elapsed = ctx.now - state.lastSyncedAt;
+    segments.push(
+      elapsed < 10_000 ? t('tui.header.syncedJustNow') : t('tui.header.synced', { ago: formatAgo(elapsed) }),
+    );
   }
   return segments;
 }

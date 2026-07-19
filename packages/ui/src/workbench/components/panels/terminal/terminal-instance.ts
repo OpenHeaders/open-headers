@@ -14,6 +14,7 @@
 
 import { getCapability, type TerminalSession } from '@openheaders/core/capabilities';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 
 export interface WorkbenchTerminal {
@@ -27,6 +28,8 @@ export interface WorkbenchTerminal {
   ensureSession(): Promise<void>;
   /** Refit to the container and propagate the size to the pty. */
   syncSize(): void;
+  /** Attach the GPU renderer once the terminal is opened in a container. */
+  ensureRenderer(): void;
 }
 
 interface InstanceState {
@@ -38,6 +41,10 @@ interface InstanceState {
   spawning: boolean;
   everSpawned: boolean;
   exitListeners: Set<() => void>;
+  sentCols: number;
+  sentRows: number;
+  webgl: WebglAddon | null;
+  webglFailed: boolean;
   api: WorkbenchTerminal;
 }
 
@@ -60,6 +67,12 @@ async function ensureSession(state: InstanceState): Promise<void> {
     state.everSpawned = true;
     state.session = session;
     state.exited = false;
+    // The pane may have refit while the spawn was in flight (resizes
+    // against a null session are dropped) — true the pty up to the
+    // terminal's current grid or full-screen programs draw at spawn size.
+    state.sentCols = state.term.cols;
+    state.sentRows = state.term.rows;
+    session.resize(state.term.cols, state.term.rows);
     state.sessionCleanups = [
       session.onData((data) => state.term.write(data)),
       session.onExit(() => {
@@ -86,7 +99,33 @@ function syncSize(state: InstanceState): void {
   } catch {
     return;
   }
-  state.session?.resize(state.term.cols, state.term.rows);
+  // A sash drag fires resize per mouse move; tell the pty only when the
+  // grid actually changed so the shell isn't stormed with SIGWINCH
+  // (each one repaints the whole screen — the drag reads as text churn).
+  if (state.term.cols === state.sentCols && state.term.rows === state.sentRows) return;
+  if (state.session) {
+    state.sentCols = state.term.cols;
+    state.sentRows = state.term.rows;
+    state.session.resize(state.term.cols, state.term.rows);
+  }
+}
+
+function ensureRenderer(state: InstanceState): void {
+  if (state.webgl || state.webglFailed || !state.term.element) return;
+  // GPU rendering keeps resize storms (sash drags) repainting at frame
+  // rate — the DOM renderer re-lays-out every cell and visibly lags.
+  try {
+    const addon = new WebglAddon();
+    addon.onContextLoss(() => {
+      addon.dispose();
+      state.webgl = null;
+      state.webglFailed = true;
+    });
+    state.term.loadAddon(addon);
+    state.webgl = addon;
+  } catch {
+    state.webglFailed = true;
+  }
 }
 
 /**
@@ -115,6 +154,10 @@ export function getWorkbenchTerminal(): WorkbenchTerminal | null {
     spawning: false,
     everSpawned: false,
     exitListeners: new Set(),
+    sentCols: 0,
+    sentRows: 0,
+    webgl: null,
+    webglFailed: false,
     api: {
       term,
       fit,
@@ -127,6 +170,7 @@ export function getWorkbenchTerminal(): WorkbenchTerminal | null {
       },
       ensureSession: () => ensureSession(state),
       syncSize: () => syncSize(state),
+      ensureRenderer: () => ensureRenderer(state),
     },
   };
   term.onData((data) => state.session?.write(data));
