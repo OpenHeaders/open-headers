@@ -617,6 +617,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Perfil de Firefox',
   'workbench.settings.proxyTrustPane.stores.state.trusted': 'De confianza',
   'workbench.settings.proxyTrustPane.stores.state.absent': 'No instalado',
+  'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Presente, sin confianza',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Certificado distinto',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Ilegible',
   'workbench.settings.proxyTrustPane.stores.empty': 'No hay almacenes de confianza visibles en esta máquina.',
@@ -650,6 +651,9 @@ export const workbenchSettingsPanes = {
     'Aplicaciones que se ejecutan como tú — sin aprobación de administrador.',
   'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
     'Todos los usuarios de esta máquina — pide aprobación de administrador.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable':
+    'La confianza a nivel de sistema aún no está disponible en esta versión — requiere el asistente de ' +
+    'OpenHeaders. Usa el llavero de inicio de sesión por ahora.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
     'Firefox mantiene su propio almacén de confianza — se instala en cada perfil encontrado.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
@@ -668,6 +672,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.results.ok': 'Instalado y de confianza',
   'workbench.settings.proxyTrustPane.wizard.results.elevation':
     'La aprobación de administrador fue rechazada — el almacén quedó sin cambios.',
+  'workbench.settings.proxyTrustPane.wizard.results.residue':
+    'El certificado se añadió pero no se pudo aprobar. Usa «Eliminar la confianza» para limpiarlo.',
   'workbench.settings.proxyTrustPane.wizard.results.failed': 'Falló: {message}',
   'workbench.settings.proxyTrustPane.wizard.installFailed': 'La configuración de la confianza falló: {message}',
   'workbench.settings.proxyTrustPane.wizard.done': 'Hecho',

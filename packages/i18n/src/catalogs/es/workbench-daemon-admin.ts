@@ -99,6 +99,27 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.removedDone': 'Contraseña eliminada.',
   'workbench.daemonAdmin.password.updateFailed': 'No se pudo actualizar la contraseña: {message}',
 
+  // ── Git email modal ────────────────────────────────────────────────
+  'workbench.daemonAdmin.gitEmail.setTitle': 'Definir el email de Git — {name}',
+  'workbench.daemonAdmin.gitEmail.changeTitle': 'Cambiar el email de Git — {name}',
+  'workbench.daemonAdmin.gitEmail.explainer':
+    'Los commits que llevan el trabajo de este usuario se firman con esta dirección, así que enlazan con su ' +
+    'perfil del alojamiento Git. Sin una, se usa el email del directorio y luego una dirección noreply.',
+  'workbench.daemonAdmin.gitEmail.placeholder': 'email del autor de los commits',
+  'workbench.daemonAdmin.gitEmail.setCta': 'Definir el email de Git',
+  'workbench.daemonAdmin.gitEmail.changeCta': 'Cambiar el email de Git',
+  'workbench.daemonAdmin.gitEmail.removeCta': 'Quitar la invalidación',
+  'workbench.daemonAdmin.gitEmail.setDone': 'Email de Git definido.',
+  'workbench.daemonAdmin.gitEmail.removedDone': 'Invalidación del email de Git eliminada.',
+  'workbench.daemonAdmin.gitEmail.updateFailed': 'No se pudo actualizar el email de Git: {message}',
+
+  // ── Git section ────────────────────────────────────────────────────
+  'workbench.daemonAdmin.git.sectionTitle': 'Git',
+  'workbench.daemonAdmin.git.sectionHint':
+    'Vincula un espacio de trabajo del daemon a un repositorio y dirige commit, pull, push y ramas en remoto. ' +
+    'Las rutas están en el sistema de archivos del propio daemon.',
+  'workbench.daemonAdmin.git.workspaceLabel': 'Espacio de trabajo',
+
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Informes',
   'workbench.daemonAdmin.audit.sectionHint':

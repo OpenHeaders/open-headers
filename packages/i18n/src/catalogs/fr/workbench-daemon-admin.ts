@@ -97,6 +97,27 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.removedDone': 'Mot de passe supprimé.',
   'workbench.daemonAdmin.password.updateFailed': 'Échec de la mise à jour du mot de passe : {message}',
 
+  // ── Git email modal ────────────────────────────────────────────────
+  'workbench.daemonAdmin.gitEmail.setTitle': "Définir l'email Git — {name}",
+  'workbench.daemonAdmin.gitEmail.changeTitle': "Changer l'email Git — {name}",
+  'workbench.daemonAdmin.gitEmail.explainer':
+    'Les commits portant le travail de cet utilisateur sont signés avec cette adresse, et se relient donc à ' +
+    "son profil d'hébergement Git. À défaut, l'email de l'annuaire est utilisé, puis une adresse noreply.",
+  'workbench.daemonAdmin.gitEmail.placeholder': "email de l'auteur des commits",
+  'workbench.daemonAdmin.gitEmail.setCta': "Définir l'email Git",
+  'workbench.daemonAdmin.gitEmail.changeCta': "Changer l'email Git",
+  'workbench.daemonAdmin.gitEmail.removeCta': 'Supprimer la surcharge',
+  'workbench.daemonAdmin.gitEmail.setDone': 'Email Git défini.',
+  'workbench.daemonAdmin.gitEmail.removedDone': "Surcharge d'email Git supprimée.",
+  'workbench.daemonAdmin.gitEmail.updateFailed': "Échec de la mise à jour de l'email Git : {message}",
+
+  // ── Git section ────────────────────────────────────────────────────
+  'workbench.daemonAdmin.git.sectionTitle': 'Git',
+  'workbench.daemonAdmin.git.sectionHint':
+    'Liez un espace de travail du daemon à un dépôt et pilotez commit, pull, push et branches à distance. ' +
+    'Les chemins sont sur le système de fichiers du daemon lui-même.',
+  'workbench.daemonAdmin.git.workspaceLabel': 'Espace de travail',
+
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Rapports',
   'workbench.daemonAdmin.audit.sectionHint':

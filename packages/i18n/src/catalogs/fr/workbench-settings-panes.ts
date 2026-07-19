@@ -622,6 +622,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Profil Firefox',
   'workbench.settings.proxyTrustPane.stores.state.trusted': 'De confiance',
   'workbench.settings.proxyTrustPane.stores.state.absent': 'Non installé',
+  'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Présent, pas de confiance',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Certificat différent',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Illisible',
   'workbench.settings.proxyTrustPane.stores.empty': "Aucun magasin de confiance n'est visible sur cette machine.",
@@ -658,6 +659,9 @@ export const workbenchSettingsPanes = {
     "Les applications qui s'exécutent en votre nom — aucune approbation administrateur requise.",
   'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
     'Tous les utilisateurs de cette machine — demande une approbation administrateur.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable':
+    "La confiance à l'échelle du système n'est pas encore disponible dans cette version — elle nécessite " +
+    "l'assistant OpenHeaders. Utilisez le trousseau de session pour l'instant.",
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
     'Firefox garde son propre magasin de confiance — installation dans chaque profil trouvé.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
@@ -675,6 +679,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.results.ok': 'Installé et de confiance',
   'workbench.settings.proxyTrustPane.wizard.results.elevation':
     "L'approbation administrateur a été refusée — le magasin est resté inchangé.",
+  'workbench.settings.proxyTrustPane.wizard.results.residue':
+    'Le certificat a été ajouté mais n’a pas pu être approuvé. Utilisez « Retirer la confiance » pour nettoyer.',
   'workbench.settings.proxyTrustPane.wizard.results.failed': 'Échec : {message}',
   'workbench.settings.proxyTrustPane.wizard.installFailed': 'La mise en place de la confiance a échoué : {message}',
   'workbench.settings.proxyTrustPane.wizard.done': 'Terminé',

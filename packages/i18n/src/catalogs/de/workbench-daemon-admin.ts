@@ -100,6 +100,27 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.removedDone': 'Passwort entfernt.',
   'workbench.daemonAdmin.password.updateFailed': 'Passwort konnte nicht aktualisiert werden: {message}',
 
+  // ── Git email modal ────────────────────────────────────────────────
+  'workbench.daemonAdmin.gitEmail.setTitle': 'Git-E-Mail festlegen — {name}',
+  'workbench.daemonAdmin.gitEmail.changeTitle': 'Git-E-Mail ändern — {name}',
+  'workbench.daemonAdmin.gitEmail.explainer':
+    'Commits, die die Arbeit dieses Benutzers tragen, werden mit dieser Adresse verfasst und verweisen so auf ' +
+    'sein Git-Hosting-Profil. Ohne eine wird die Verzeichnis-E-Mail verwendet, danach eine noreply-Adresse.',
+  'workbench.daemonAdmin.gitEmail.placeholder': 'E-Mail des Commit-Autors',
+  'workbench.daemonAdmin.gitEmail.setCta': 'Git-E-Mail festlegen',
+  'workbench.daemonAdmin.gitEmail.changeCta': 'Git-E-Mail ändern',
+  'workbench.daemonAdmin.gitEmail.removeCta': 'Überschreibung entfernen',
+  'workbench.daemonAdmin.gitEmail.setDone': 'Git-E-Mail festgelegt.',
+  'workbench.daemonAdmin.gitEmail.removedDone': 'Git-E-Mail-Überschreibung entfernt.',
+  'workbench.daemonAdmin.gitEmail.updateFailed': 'Git-E-Mail konnte nicht aktualisiert werden: {message}',
+
+  // ── Git section ────────────────────────────────────────────────────
+  'workbench.daemonAdmin.git.sectionTitle': 'Git',
+  'workbench.daemonAdmin.git.sectionHint':
+    'Binde einen Daemon-Arbeitsbereich an ein Repository und steuere Commit, Pull, Push und Branches aus der ' +
+    'Ferne. Die Pfade liegen im Dateisystem des Daemon selbst.',
+  'workbench.daemonAdmin.git.workspaceLabel': 'Arbeitsbereich',
+
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Berichte',
   'workbench.daemonAdmin.audit.sectionHint':

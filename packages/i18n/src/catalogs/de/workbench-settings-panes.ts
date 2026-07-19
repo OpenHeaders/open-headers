@@ -622,6 +622,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Firefox-Profil',
   'workbench.settings.proxyTrustPane.stores.state.trusted': 'Vertraut',
   'workbench.settings.proxyTrustPane.stores.state.absent': 'Nicht installiert',
+  'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Vorhanden, nicht vertraut',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Anderes Zertifikat',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Nicht lesbar',
   'workbench.settings.proxyTrustPane.stores.empty': 'Auf dieser Maschine sind keine Vertrauensspeicher sichtbar.',
@@ -657,6 +658,9 @@ export const workbenchSettingsPanes = {
     'Apps, die als du laufen — keine Admin-Genehmigung nötig.',
   'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
     'Jeder Benutzer dieser Maschine — fragt nach Admin-Genehmigung.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable':
+    'Systemweites Vertrauen ist in diesem Build noch nicht verfügbar — es braucht den Helfer von OpenHeaders. ' +
+    'Verwende vorerst den Anmelde-Schlüsselbund.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
     'Firefox führt einen eigenen Vertrauensspeicher — installiert in jedes gefundene Profil.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
@@ -674,6 +678,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.results.ok': 'Installiert und vertraut',
   'workbench.settings.proxyTrustPane.wizard.results.elevation':
     'Die Admin-Genehmigung wurde abgelehnt — der Speicher blieb unverändert.',
+  'workbench.settings.proxyTrustPane.wizard.results.residue':
+    'Das Zertifikat wurde hinzugefügt, konnte aber nicht als vertraut markiert werden. Verwende „Vertrauen ' +
+    'entfernen“, um es zu bereinigen.',
   'workbench.settings.proxyTrustPane.wizard.results.failed': 'Fehlgeschlagen: {message}',
   'workbench.settings.proxyTrustPane.wizard.installFailed': 'Vertrauenseinrichtung fehlgeschlagen: {message}',
   'workbench.settings.proxyTrustPane.wizard.done': 'Fertig',
