@@ -44,6 +44,7 @@ import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const de = {
@@ -84,5 +85,6 @@ export const de = {
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
+  ...workbenchEditorsSpec,
   ...workbenchScriptPackages,
 } as const satisfies Catalog;
