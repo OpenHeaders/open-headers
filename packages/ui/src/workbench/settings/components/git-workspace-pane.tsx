@@ -536,7 +536,10 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                     : t('workbench.settings.gitPane.git.clean')}
                 </div>
                 {gitStatus.userIndexBusy && (
-                  <div style={{ marginTop: 4, fontSize: 11.5, color: token.colorTextSecondary }}>
+                  <div
+                    style={{ marginTop: 4, fontSize: 11.5, color: token.colorTextSecondary }}
+                    data-testid="git-pane-index-busy"
+                  >
                     {t('workbench.settings.gitPane.git.indexBusy')}
                   </div>
                 )}
@@ -575,7 +578,9 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   </Button>
                 </div>
                 {pullError !== null && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{pullError}</div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }} data-testid="git-pane-pull-error">
+                    {pullError}
+                  </div>
                 )}
                 {pushFailure !== null && pushFailure.reason === 'rejected' && (
                   <div
@@ -715,7 +720,12 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                     </div>
                   )}
                   {branchError !== null && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{branchError}</div>
+                    <div
+                      style={{ marginTop: 6, fontSize: 12, color: token.colorError }}
+                      data-testid="git-pane-branch-error"
+                    >
+                      {branchError}
+                    </div>
                   )}
                   <Modal
                     open={switchPrompt !== null}

@@ -39,6 +39,7 @@ import type {
 } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import { synthesizeWorkspaceTreeDelta } from '@openheaders/core/sync-builders/mutations/workspace-tree-delta';
 import {
+  planWorkspaceTree,
   readWorkspaceTree,
   type TreeIssue,
   VAULT_DOC_KEY,
@@ -123,12 +124,21 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
 
   // Re-baseline the ingested input so the next materialize may
   // normalize it — except quarantined documents (read issues): their
-  // whole directory stays off-baseline and thus write-guarded.
+  // whole directory stays off-baseline and thus write-guarded. Only
+  // paths the PLANNER owns for the post-sweep state may enter the
+  // baseline: the baseline is "bytes the materializer wrote", and its
+  // delete pass sweeps stale baseline paths — adopting a file the read
+  // ignored (README, a user's own notes, a staged scratch file) would
+  // hand the user's bytes to that delete pass on the next flush.
+  const plannedPaths = new Set(
+    planWorkspaceTree({ ...read.state, workspace: read.state.workspace }, read.unknowns).map((file) => file.path),
+  );
   const issueDirs = new Set(read.issues.map((issue) => dirOf(issue.path)));
   const issuePaths = new Set(read.issues.map((issue) => issue.path));
   const nextBaseline: MaterializedIndex = { ...baseline };
   for (const path of removedPaths) delete nextBaseline[path];
   for (const path of changedPaths) {
+    if (!plannedPaths.has(path)) continue;
     if (issuePaths.has(path) || issueDirs.has(dirOf(path))) continue;
     const hash = diskHashes.get(path);
     if (hash !== undefined) nextBaseline[path] = hash;

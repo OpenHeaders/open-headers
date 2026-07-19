@@ -235,6 +235,30 @@ describe('sweepWorkspaceTree', () => {
     expect(applied[0].batch.mutations[0].body.kind).toBe('create');
   });
 
+  it("a user's own stray file is never adopted into the baseline and never deleted", async () => {
+    state.rules = [makeRule('aaaaaaaa', 'Block probes')];
+    const materializer = makeMaterializer();
+    await materializer.flush();
+
+    // A stray the read ignores (no entity convention) — at the root
+    // and inside an entity directory. Both are the user's bytes.
+    const rootStray = path.join(tmpDir, 'notes.txt');
+    const nestedStray = path.join(tmpDir, 'rules', 'block-probes-aaaaaaaa', 'notes.txt');
+    await fs.writeFile(rootStray, 'user notes\n', 'utf-8');
+    await fs.writeFile(nestedStray, 'more notes\n', 'utf-8');
+
+    const applied: EmissionBatch[] = [];
+    const result = await runSweep(applied);
+    expect(result.ok).toBe(true);
+
+    // The next flush must not sweep the strays away as "stale
+    // materializations" — they were never the materializer's to delete.
+    const pass = await materializer.flush();
+    expect(pass.deleted).toHaveLength(0);
+    await expect(fs.readFile(rootStray, 'utf-8')).resolves.toBe('user notes\n');
+    await expect(fs.readFile(nestedStray, 'utf-8')).resolves.toBe('more notes\n');
+  });
+
   it('a tree claiming another workspace uid is refused', async () => {
     await makeMaterializer().flush();
     const manifest = path.join(tmpDir, 'workspace.yaml');

@@ -129,6 +129,7 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
         role="button"
         tabIndex={0}
         title={t('shared.conflicts.chip.trigger')}
+        data-testid="conflict-diff-chip"
         style={{
           display: 'inline-flex',
           alignItems: 'center',

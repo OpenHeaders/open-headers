@@ -35,7 +35,7 @@ const collection: Collection = v.parse(CollectionSchema, {
   variables: [],
 });
 
-function request(uid: string, name: string): Request {
+function request(uid: string, name: string, headers: Request['headers'] = []): Request {
   return v.parse(RequestSchema, {
     schemaVersion: 5,
     uid,
@@ -43,14 +43,20 @@ function request(uid: string, name: string): Request {
     name,
     method: 'GET',
     url: 'https://api.openheaders.io/status',
-    headers: [],
+    headers,
     params: [],
     auth: { type: 'none' },
     body: { type: 'none' },
   });
 }
 
-const requests: Request[] = [request('e2egreq1', 'Status Probe'), request('e2egreq2', 'Health Probe')];
+// The header row on the first request feeds the conflict-chip leg: the
+// workbench editor holds a local edit on its value while a hand edit to
+// the yaml sweeps in a different one.
+const requests: Request[] = [
+  request('e2egreq1', 'Status Probe', [{ uid: 'e2eghdr1', key: 'X-Probe', value: 'probe-one', enabled: true }]),
+  request('e2egreq2', 'Health Probe'),
+];
 
 const values: Record<string, unknown> = {
   [`oh.ws.${workspaceId}.requestCollections`]: [collection],

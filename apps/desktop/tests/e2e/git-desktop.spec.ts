@@ -45,12 +45,30 @@
  *        card — including a bare HEAD move between identical trees.
  *   G17  the card's merge select: diverged branches land a clean
  *        two-parent commit; merging back fast-forwards.
+ *   G18  live watcher conflict chip: with the request editor holding a
+ *        local edit on a header value, a hand edit to the same leaf
+ *        sweeps in and raises the chip; Use saved adopts it.
+ *   G19  a terminal `git revert` of an app commit round-trips into app
+ *        state (§10 P4 acceptance): the sidebar label reverts, the
+ *        semantic draft re-arms, the tree stays clean.
+ *   G20  cadence `auto`: commits after ~2s quiescence, pauses while
+ *        the user's own index is staged (card indexBusy line), and
+ *        lands once the index clears.
+ *   G21  cadence `on-blur` via the `oh.workspaceTree.appBlur` RPC —
+ *        the spine + runtime leg (real cmd-tab blur stays manual).
+ *   G22  a mid-`git rebase` repo holds reconcile — gestures refuse
+ *        with op-in-progress, held hand edits are never ingested —
+ *        and `--abort` resumes the plane.
+ *   G23  close-app → vim-edit → reopen: the cold-boot tree-wins sweep
+ *        lands the offline edit in the UI (sidebar label) and dirty.
+ *   G24  unbind: clean detach (lock released, repo + tree intact),
+ *        the card returns to the bind form, the pill git slot drops.
  *
- * Deliberately NOT here (the manual live pass or the full-automation
- * slice): the native folder picker, real cmd-tab blur cadence, the ~5m
- * timers, packaged-build behavior, `git revert` round-trip, the
- * mid-rebase hold, and every workbench-sidebar assertion (the card and
- * the repo are the wiring under test).
+ * Deliberately NOT here (the manual live pass): the native folder
+ * picker, real cmd-tab blur cadence, the ~5m fetch/commit timers
+ * (`every-5m` shares `enqueueAutoCommit` with G20/G21 — the wall-clock
+ * trigger has no compression seam and stays manual), and
+ * packaged-build behavior.
  *
  * Requires `pnpm turbo build --filter=@openheaders/desktop` first.
  */
@@ -118,6 +136,21 @@ function remote(...args: string[]): string {
   return runGit(root, appGitConfig, ['--git-dir', remoteDir, ...args]);
 }
 
+/** App-repo git that tolerates a non-zero exit (`git rebase` stopping on a conflict). */
+function wsTry(...args: string[]): boolean {
+  try {
+    ws(...args);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Commit count on the app repo's current branch. */
+function commitCount(): number {
+  return Number(ws('rev-list', '--count', 'HEAD'));
+}
+
 // ── tree helpers ────────────────────────────────────────────────────
 
 function walkYamlFiles(dir: string): string[] {
@@ -143,6 +176,17 @@ function entityFileOf(rootDir: string, uid: string): string | null {
 function setEntityName(file: string, name: string): void {
   const text = readFileSync(file, 'utf-8');
   writeFileSync(file, text.replace(/^name: .*$/m, `name: ${name}`));
+}
+
+function readEntityName(file: string): string {
+  const match = readFileSync(file, 'utf-8').match(/^name: (.*)$/m);
+  return match ? match[1].trim() : '';
+}
+
+/** Rewrite the seeded header row's value in a request manifest. */
+function setHeaderValue(file: string, value: string): void {
+  const text = readFileSync(file, 'utf-8');
+  writeFileSync(file, text.replace(/^(\s+)value: .*$/m, `$1value: ${value}`));
 }
 
 function relPosix(file: string): string {
@@ -243,16 +287,86 @@ function popoverMessages(): Locator {
 }
 
 /**
+ * Close the settings modal. Closed antd modals keep their container in
+ * the DOM, so assert on visible wraps rather than container presence.
+ */
+async function closeSettings(): Promise<void> {
+  await workbench.keyboard.press('Escape');
+  await expect(workbench.locator('.ant-modal-wrap:visible')).toHaveCount(0, { timeout: 10_000 });
+}
+
+/**
  * The statusbar pill sits UNDER the settings modal — close settings,
  * assert the pill popover carries `text`, reopen the Git pane.
  */
 async function expectPillMessage(text: string): Promise<void> {
-  await workbench.keyboard.press('Escape');
-  await expect(workbench.locator('.ant-modal-container')).toBeHidden({ timeout: 10_000 });
+  await closeSettings();
   await workbench.getByTestId('status-pill').click();
   await expect(popoverMessages().filter({ hasText: text })).toBeVisible({ timeout: 15_000 });
   await workbench.getByTestId('status-pill').click();
   await openGitPane();
+}
+
+/**
+ * Bring the API Requests sidebar view up with the seeded collection
+ * expanded, outside the settings modal. State-driven, never
+ * toggle-and-hope (the extension WorkbenchPage idiom): the dock tab
+ * carries `aria-selected`, the REQUESTS section header `aria-expanded`.
+ */
+async function openApiRequestsSidebar(): Promise<void> {
+  // Collapse the Docs panel first — its first-run tour overlay can
+  // swallow synthetic clicks aimed at the editor tabs.
+  const docsTab = workbench.locator('[data-tool-window="docs"]').first();
+  if ((await docsTab.getAttribute('aria-selected').catch(() => null)) === 'true') {
+    await docsTab.click();
+  }
+  const viewTab = workbench.locator('[data-tool-window="api-requests"]').first();
+  if ((await viewTab.getAttribute('aria-selected')) !== 'true') {
+    await viewTab.click();
+  }
+  const sectionHeader = workbench
+    .getByRole('button', { name: /REQUESTS/ })
+    .filter({ visible: true })
+    .first();
+  await sectionHeader.waitFor({ state: 'visible', timeout: 15_000 });
+  if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+    await sectionHeader.click();
+  }
+  const collectionRow = workbench.locator('[data-item-id="req-col-e2egcol1"]');
+  await collectionRow.waitFor({ state: 'visible', timeout: 15_000 });
+  const requestRow = workbench.locator('[data-item-id="request-e2egreq1"]');
+  if (!(await requestRow.isVisible().catch(() => false))) {
+    await collectionRow.click();
+    await requestRow.waitFor({ state: 'visible', timeout: 15_000 });
+  }
+}
+
+/** Literal text of a TemplateInput grid cell (contentEditable; NBSP-normalized). */
+async function cellText(cell: Locator): Promise<string> {
+  return (await cell.locator('.oh-template-input-editable').innerText()).replace(/\u00a0/g, ' ').trim();
+}
+
+/** Replace a TemplateInput grid cell's content (select-all + insertText). */
+async function fillCell(cell: Locator, text: string): Promise<void> {
+  await cell.locator('.oh-template-input-editable').click();
+  await workbench.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await workbench.keyboard.press('Backspace');
+  await workbench.keyboard.insertText(text);
+}
+
+/** Activate a request-editor tab and VERIFY it took (retrying once). */
+async function selectEditorTab(name: RegExp): Promise<void> {
+  const tab = workbench.getByRole('tab', { name }).filter({ visible: true }).first();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await tab.click();
+    try {
+      await expect(tab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+      return;
+    } catch {
+      // Overlay ate the click — try again.
+    }
+  }
+  await expect(tab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -739,4 +853,228 @@ test('G17 — merging a diverged branch lands a clean two-parent commit; merging
   await chooseSelectOption('git-pane-merge-select', 'main');
   await pane('git-pane-merge-button').click();
   await expect.poll(() => ws('rev-parse', 'local-test'), { timeout: 45_000 }).toBe(ws('rev-parse', 'main'));
+});
+
+// ── G18: live watcher conflict chip in the request editor ───────────
+
+test('G18 — a hand edit against a locally edited field raises the conflict chip; Use saved adopts it', async () => {
+  test.setTimeout(180_000);
+  // The chip lives in the workbench proper — leave the settings modal.
+  await closeSettings();
+
+  await openApiRequestsSidebar();
+  await workbench.locator('[data-item-id="request-e2egreq1"]').click();
+  await selectEditorTab(/Headers/);
+
+  // Local uncommitted edit on the seeded header's value.
+  const valueCell = workbench.locator('[data-field-path="headers.e2eghdr1.value"]').filter({ visible: true }).first();
+  await expect.poll(() => cellText(valueCell), { timeout: 15_000 }).toBe('probe-one');
+  await fillCell(valueCell, 'probe-mine');
+
+  // The teammate-shaped hand edit to the same leaf sweeps in.
+  const req1 = entityFileOf(wsDir, 'e2egreq1') as string;
+  setHeaderValue(req1, 'probe-theirs');
+
+  const chip = valueCell.getByTestId('conflict-diff-chip');
+  await expect(chip).toBeVisible({ timeout: 30_000 });
+  await chip.click();
+  await workbench.getByRole('button', { name: 'Use saved' }).click();
+  await expect.poll(() => cellText(valueCell), { timeout: 15_000 }).toBe('probe-theirs');
+  await expect(chip).toBeHidden({ timeout: 15_000 });
+});
+
+// ── G19: terminal `git revert` round-trips into app state ───────────
+
+test('G19 — a terminal git revert of an app commit reverts the entity in the UI and stays clean', async () => {
+  test.setTimeout(180_000);
+  await openGitPane();
+  ws('checkout', 'main');
+  await expect(pane('git-pane-branch-current')).toContainText('On branch main', { timeout: 30_000 });
+
+  // Commit the G18 residue (the swept-in header value) first.
+  await waitDirty();
+  await pane('git-pane-commit-message').fill('git e2e: chip residue');
+  await pane('git-pane-commit-button').click();
+  await waitClean();
+
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  const before = readEntityName(req2);
+  setEntityName(req2, 'Revert Target');
+  await waitDirty();
+  await pane('git-pane-commit-message').fill('git e2e: revert target');
+  await pane('git-pane-commit-button').click();
+  await waitClean();
+  const count = commitCount();
+
+  ws('revert', '--no-edit', 'HEAD');
+  expect(commitCount()).toBe(count + 1);
+  expect(readFileSync(req2, 'utf-8')).not.toContain('Revert Target');
+
+  // The sweep ingests the reverted bytes: the semantic draft re-arms
+  // and the engine converges without a counter-write.
+  await expect
+    .poll(async () => await pane('git-pane-commit-message').getAttribute('placeholder'), { timeout: 30_000 })
+    .toBe('Update request');
+  await waitClean();
+  expect(commitCount()).toBe(count + 1);
+
+  // The UI shows the reverted name.
+  await closeSettings();
+  await openApiRequestsSidebar();
+  await expect(workbench.locator('[data-item-id="request-e2egreq2"]')).toContainText(before, { timeout: 30_000 });
+});
+
+// ── G20: cadence auto — quiescence commit + user-index pause ────────
+
+test('G20 — cadence auto commits after quiescence and pauses while the user index is staged', async () => {
+  test.setTimeout(180_000);
+  await openGitPane();
+  await chooseSelectOption('git-pane-cadence-select', 'After quiet edits');
+
+  // Stage something as "the user" — auto-commit must stand down.
+  const staged = path.join(wsDir, 'user-staged.txt');
+  writeFileSync(staged, 'wip\n');
+  ws('add', 'user-staged.txt');
+  const count = commitCount();
+
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Cadence Paused');
+  await expect(pane('git-pane-index-busy')).toBeVisible({ timeout: 30_000 });
+  // Quiescence (2s) passes with the index busy — no commit may land,
+  // and the user's staged file must survive untouched throughout.
+  for (let tick = 1; tick <= 8; tick++) {
+    await workbench.waitForTimeout(500);
+    expect(existsSync(staged), `user-staged.txt vanished at t=${tick * 500}ms`).toBe(true);
+    expect(commitCount()).toBe(count);
+  }
+
+  // Clearing the index and editing again resumes the cadence.
+  ws('reset');
+  rmSync(staged);
+  setEntityName(req2, 'Cadence Landed');
+  await expect.poll(() => commitCount(), { timeout: 45_000 }).toBe(count + 1);
+  await waitClean();
+  await expect(pane('git-pane-index-busy')).toBeHidden({ timeout: 15_000 });
+  expect(readFileSync(req2, 'utf-8')).toContain('Cadence Landed');
+
+  await chooseSelectOption('git-pane-cadence-select', 'Off — commit manually');
+});
+
+// ── G21: cadence on-blur through the appBlur RPC ────────────────────
+
+test('G21 — cadence on-blur commits when the appBlur RPC fires', async () => {
+  test.setTimeout(120_000);
+  await chooseSelectOption('git-pane-cadence-select', 'When focus leaves the app');
+
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Blur Pending');
+  await waitDirty();
+  const count = commitCount();
+
+  await invoke({ type: 'oh.workspaceTree.appBlur' });
+  await expect.poll(() => commitCount(), { timeout: 45_000 }).toBe(count + 1);
+  await waitClean();
+  expect(readFileSync(req2, 'utf-8')).toContain('Blur Pending');
+
+  await chooseSelectOption('git-pane-cadence-select', 'Off — commit manually');
+});
+
+// ── G22: a mid-rebase repo holds reconcile until --abort ────────────
+
+test('G22 — a mid-rebase repo holds reconcile: gestures refuse, held edits never ingest, abort resumes', async () => {
+  test.setTimeout(180_000);
+  // Cheap conflict fixture: the same README line diverges on two branches.
+  const readme = path.join(wsDir, 'README.md');
+  writeFileSync(readme, 'base\n');
+  ws('add', 'README.md');
+  ws('commit', '-m', 'readme base');
+  ws('checkout', '-b', 'rebase-side');
+  await expect(pane('git-pane-branch-current')).toContainText('rebase-side', { timeout: 30_000 });
+  writeFileSync(readme, 'side\n');
+  ws('commit', '-a', '-m', 'readme side');
+  ws('checkout', 'main');
+  await expect(pane('git-pane-branch-current')).toContainText('On branch main', { timeout: 30_000 });
+  writeFileSync(readme, 'trunk\n');
+  ws('commit', '-a', '-m', 'readme trunk');
+  ws('checkout', 'rebase-side');
+  await expect(pane('git-pane-branch-current')).toContainText('rebase-side', { timeout: 30_000 });
+
+  expect(wsTry('rebase', 'main')).toBe(false);
+  expect(
+    existsSync(path.join(wsDir, '.git', 'rebase-merge')) || existsSync(path.join(wsDir, '.git', 'rebase-apply')),
+  ).toBe(true);
+
+  // A held hand edit must never reach the engine: the draft stays unarmed.
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Held Edit');
+  await workbench.waitForTimeout(3_000);
+  expect(await pane('git-pane-commit-message').getAttribute('placeholder')).not.toBe('Update request');
+
+  // Gestures refuse while the operation is in progress.
+  await chooseSelectOption('git-pane-merge-select', 'main');
+  await pane('git-pane-merge-button').click();
+  await expect(pane('git-pane-branch-error')).toContainText('op-in-progress', { timeout: 30_000 });
+
+  ws('rebase', '--abort');
+  expect(existsSync(path.join(wsDir, '.git', 'rebase-merge'))).toBe(false);
+  ws('checkout', 'main');
+  await expect(pane('git-pane-branch-current')).toContainText('On branch main', { timeout: 30_000 });
+  ws('branch', '-D', 'rebase-side');
+
+  // The plane is live again: an edit sweeps in and commits.
+  setEntityName(req2, 'After Abort');
+  await expect
+    .poll(async () => await pane('git-pane-commit-message').getAttribute('placeholder'), { timeout: 30_000 })
+    .toBe('Update request');
+  await waitDirty();
+  await pane('git-pane-commit-button').click();
+  await waitClean();
+});
+
+// ── G23: close-app → vim-edit → reopen — the edit wins in the UI ────
+
+test('G23 — an offline hand edit lands in the UI on relaunch via the cold-boot tree-wins sweep', async () => {
+  test.setTimeout(180_000);
+  const req1 = entityFileOf(wsDir, 'e2egreq1') as string;
+  await quit();
+  setEntityName(req1, 'Vim Offline Edit');
+  await launchApp();
+
+  await openApiRequestsSidebar();
+  await expect(workbench.locator('[data-item-id="request-e2egreq1"]')).toContainText('Vim Offline Edit', {
+    timeout: 30_000,
+  });
+
+  await openGitPane();
+  await waitDirty();
+  await pane('git-pane-commit-message').fill('git e2e: offline edit');
+  await pane('git-pane-commit-button').click();
+  await waitClean();
+});
+
+// ── G24: unbind — clean detach, bind form returns, pill slot drops ──
+
+test('G24 — unbind detaches cleanly: lock released, tree intact, bind form back, pill slot gone', async () => {
+  test.setTimeout(120_000);
+  const req2 = entityFileOf(wsDir, 'e2egreq2') as string;
+  setEntityName(req2, 'Unbind Dirty');
+  await waitDirty();
+  // The pill's git slot is live right up to the detach.
+  await expectPillMessage('uncommitted');
+
+  await pane('git-pane-unbind-button').click();
+  await workbench.locator('.ant-popover:not(.ant-popover-hidden)').getByRole('button', { name: 'Unbind' }).click();
+
+  // The card returns to the bind form; the folder stays a valid tree.
+  await expect(pane('git-pane-path-input')).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => existsSync(path.join(wsDir, '.oh', 'lock')), { timeout: 15_000 }).toBe(false);
+  expect(existsSync(path.join(wsDir, '.git'))).toBe(true);
+  expect(readFileSync(req2, 'utf-8')).toContain('Unbind Dirty');
+
+  // The pill git slot dropped with the binding.
+  await closeSettings();
+  await workbench.getByTestId('status-pill').click();
+  await expect(popoverMessages().first()).toBeVisible({ timeout: 15_000 });
+  await expect(popoverMessages().filter({ hasText: 'uncommitted' })).toHaveCount(0);
+  await workbench.getByTestId('status-pill').click();
 });
