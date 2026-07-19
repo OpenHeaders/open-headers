@@ -178,6 +178,20 @@ export const workbenchSettings = {
   'workbench.settings.updatesRow.releaseNotes': 'Versionshinweise',
   'workbench.settings.updatesRow.lastChecked': 'Zuletzt geprüft {when}',
 
+  // ── Terminal profiles row ──────────────────────────────────────────
+  'workbench.settings.terminalProfiles.systemDefault': 'Standard-Shell des Systems',
+  'workbench.settings.terminalProfiles.add': 'Profil hinzufügen',
+  'workbench.settings.terminalProfiles.edit': 'Profil bearbeiten',
+  'workbench.settings.terminalProfiles.remove': 'Profil entfernen',
+  'workbench.settings.terminalProfiles.addTitle': 'Terminal-Profil hinzufügen',
+  'workbench.settings.terminalProfiles.editTitle': 'Terminal-Profil bearbeiten',
+  'workbench.settings.terminalProfiles.name': 'Name',
+  'workbench.settings.terminalProfiles.shell': 'Shell-Pfad',
+  'workbench.settings.terminalProfiles.args': 'Argumente',
+  'workbench.settings.terminalProfiles.cwd': 'Startverzeichnis',
+  'workbench.settings.terminalProfiles.cwdPlaceholder': 'Home-Verzeichnis',
+  'workbench.settings.terminalProfiles.save': 'Speichern',
+
   // ── Settings field widgets ─────────────────────────────────────────
   'workbench.settings.fields.files.renameTooltip': 'Datei umbenennen',
   'workbench.settings.fields.files.renameMissing': 'Die Datei existiert in diesem Arbeitsbereich nicht mehr',

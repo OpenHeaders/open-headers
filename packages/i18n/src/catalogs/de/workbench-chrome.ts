@@ -443,6 +443,7 @@ export const workbenchChrome = {
   'workbench.terminal.tabLocal': 'Lokal',
   'workbench.terminal.tabLocalN': 'Lokal ({n})',
   'workbench.terminal.newTab': 'Neuer Terminal-Tab',
+  'workbench.terminal.newTabWithProfile': 'Neuer Tab aus Profil',
   'workbench.terminal.closeTab': 'Tab schließen',
   'workbench.terminal.openTui': 'TUI-Modus öffnen',
   'workbench.terminal.closeConfirm.title': 'Prozess läuft',
