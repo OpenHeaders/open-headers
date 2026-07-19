@@ -568,11 +568,22 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const onWorkspaceTreeGitStatus = (workspaceId: string, gitStatus: WorkspaceTreeGitStatusRpcResult): void => {
     broadcastLocal('workspaceTreeGitStatus', { workspaceId, status: gitStatus });
     const dirty = gitStatus.bound && gitStatus.repo ? (gitStatus.dirtyFiles ?? 0) : 0;
-    if (dirty > 0) {
+    const ahead = gitStatus.bound && gitStatus.repo ? (gitStatus.ahead ?? 0) : 0;
+    const behind = gitStatus.bound && gitStatus.repo ? (gitStatus.behind ?? 0) : 0;
+    // Phase 4: ahead/behind joins the dirty count in one green slot —
+    // "3 uncommitted · 2 ahead / 4 behind" (§3.2's pill vocabulary).
+    // Dirty and divergence are both normal working state, never a
+    // warning; the slot drops entirely on a clean, in-sync tree.
+    const parts: string[] = [];
+    if (dirty > 0) parts.push(dirty === 1 ? '1 uncommitted change' : `${dirty} uncommitted changes`);
+    if (ahead > 0 && behind > 0) parts.push(`${ahead} ahead / ${behind} behind`);
+    else if (ahead > 0) parts.push(`${ahead} ahead`);
+    else if (behind > 0) parts.push(`${behind} behind`);
+    if (parts.length > 0) {
       reportGitSyncStatus(workspaceId, {
         state: 'green',
-        message: dirty === 1 ? '1 uncommitted change' : `${dirty} uncommitted changes`,
-        context: { reason: 'git-dirty', workspaceId, dirtyFiles: dirty },
+        message: parts.join(' · '),
+        context: { reason: 'git-dirty', workspaceId, dirtyFiles: dirty, ahead, behind },
       });
     } else {
       dropGitSyncStatus(workspaceId);
@@ -1023,9 +1034,19 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           suggestedMessage: '',
           cadence: 'off',
           bypassHooks: false,
+          upstream: null,
+          ahead: null,
+          behind: null,
         };
       }
       return await workspaceTreeRuntime.gitStatus(workspaceId);
+    }
+    // Phase 4 pull (§11.4): fetch → mutator merge → two-parent commit,
+    // serialized on the same per-binding chain.
+    if (type === 'oh.workspaceTree.pull') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      return await workspaceTreeRuntime.pull(workspaceId);
     }
     if (type === 'oh.workspaceTree.setCommitCadence') {
       const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
@@ -1040,6 +1061,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     }
     if (type === 'oh.workspaceTree.appBlur') {
       workspaceTreeRuntime?.notifyAppBlur();
+      return { ok: workspaceTreeRuntime !== null };
+    }
+    if (type === 'oh.workspaceTree.appFocus') {
+      workspaceTreeRuntime?.notifyAppFocus();
       return { ok: workspaceTreeRuntime !== null };
     }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin

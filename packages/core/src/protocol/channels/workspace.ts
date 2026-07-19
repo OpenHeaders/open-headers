@@ -336,11 +336,31 @@ export interface WorkspaceRpc {
     res: { ok: boolean };
   };
   /**
+   * Explicit Pull gesture (GIT_PLAN.md §9, Phase 4; §11.4 mechanics):
+   * fetch, then converge the foreign head through the mutators as
+   * virtual batches and record a TWO-PARENT merge commit through the
+   * temp-index path — `git merge` is never invoked. Local uncommitted
+   * work commits first under its own semantic draft.
+   */
+  'oh.workspaceTree.pull': {
+    req: { workspaceId: string };
+    res: WorkspaceTreePullWire;
+  };
+  /**
    * Focus left the app (every window blurred) — the `on-blur` cadence
    * trigger. Fired by the host shell (desktop main observes its own
    * windows); bindings on other cadences ignore it.
    */
   'oh.workspaceTree.appBlur': {
+    req: Record<string, never>;
+    res: { ok: boolean };
+  };
+  /**
+   * Focus returned to the app — throttled background-fetch trigger so
+   * the ahead/behind affordance is fresh when the user looks (§3.2:
+   * fetch is always on and non-mutating; pull stays explicit).
+   */
+  'oh.workspaceTree.appFocus': {
     req: Record<string, never>;
     res: { ok: boolean };
   };
@@ -357,6 +377,25 @@ export type WorkspaceTreeCommitWire =
       detail?: string;
     };
 
+export type WorkspaceTreePullWire =
+  | { ok: true; upToDate: true }
+  | { ok: true; upToDate: false; sha: string; applied: number }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'no-upstream'
+        | 'fetch-failed'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'commit-failed';
+      /** stderr of the failing git invocation / the offending marker or uid. */
+      detail?: string;
+    };
+
 export interface WorkspaceTreeGitStatusWire {
   bound: boolean;
   git: { available: true; version: string } | { available: false; reason: 'missing' | 'below-floor'; version?: string };
@@ -368,6 +407,12 @@ export interface WorkspaceTreeGitStatusWire {
   cadence: WorkspaceTreeCommitCadence;
   /** The explicit `--no-verify` setting (§3.3); false unless the user flipped it. */
   bypassHooks: boolean;
+  /** Remote-tracking ref (`origin/main`); null when no upstream is configured. */
+  upstream: string | null;
+  /** Local commits the upstream lacks; null without an upstream. */
+  ahead: number | null;
+  /** Upstream commits the local branch lacks — the Pull affordance; null without an upstream. */
+  behind: number | null;
 }
 
 /** One per-document read failure — the §13.3 quarantine seam's wire shape. */

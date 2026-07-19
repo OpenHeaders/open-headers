@@ -298,6 +298,13 @@ export async function installRpcHost(): Promise<void> {
     });
   });
 
+  // Focus returning to the app triggers a throttled background fetch
+  // (GIT_PLAN.md §3.2) so the ahead/behind affordance is fresh the
+  // moment the user looks; the runtime's own throttle absorbs bursts.
+  app.on('browser-window-focus', () => {
+    void spine.dispatchRpc({ type: 'oh.workspaceTree.appFocus' }).catch(() => undefined);
+  });
+
   // The outbound client role — the desktop joining daemon backends
   // through the same host-neutral plane the extension SW runs. Installed
   // after the spine so the persistence provider and workspace store the

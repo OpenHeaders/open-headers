@@ -21,10 +21,18 @@ import {
 import {
   commitWorkspaceTree,
   countDirtyFiles,
+  diffForeignPaths,
   ensureWorkspaceRepo,
+  fastForwardWorkspaceBranch,
+  fetchWorkspaceRemote,
+  gitOperationInProgress,
   isWorkspaceRepo,
+  listForeignAuthors,
+  mergeBaseOf,
   parsePorcelainCount,
+  readCommitTreeFiles,
   resolveCommitIdentity,
+  resolveUpstream,
   userIndexHasStagedChanges,
 } from '../../src/git/repo';
 
@@ -262,6 +270,247 @@ describe('commitWorkspaceTree', () => {
     expect(audited).toContain('commit');
     expect(audited).not.toContain('status');
     expect(audited).not.toContain('rev-parse');
+  });
+});
+
+const RITA_ENV = {
+  GIT_AUTHOR_NAME: 'Remote Rita',
+  GIT_AUTHOR_EMAIL: 'rita@openheaders.io',
+  GIT_COMMITTER_NAME: 'Remote Rita',
+  GIT_COMMITTER_EMAIL: 'rita@openheaders.io',
+};
+
+describe('remote plumbing (Phase 4)', () => {
+  let bare: string;
+  let repoA: string;
+  let repoB: string;
+
+  const raw = (dir: string, ...args: string[]) =>
+    run(['--git-dir', path.join(dir, '.git'), '--work-tree', dir, ...args], { cwd: dir });
+
+  const writeIn = async (dir: string, rel: string, content: string): Promise<void> => {
+    const target = path.join(dir, rel);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, 'utf-8');
+  };
+
+  const commitIn = async (dir: string, message: string, env = IDENTITY_ENV): Promise<string> => {
+    const result = await commitWorkspaceTree({ run, rootDir: dir, message, identityEnv: env });
+    if (!result.ok || !result.committed) throw new Error(`commit failed in ${dir}`);
+    return result.sha;
+  };
+
+  beforeEach(async () => {
+    bare = path.join(tmpDir, 'remote.git');
+    repoA = path.join(tmpDir, 'a');
+    repoB = path.join(tmpDir, 'b');
+    await run(['init', '--bare', bare], { cwd: tmpDir });
+    await run(['--git-dir', bare, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: tmpDir });
+    await fs.mkdir(repoA, { recursive: true });
+    await ensureWorkspaceRepo(run, repoA);
+    await raw(repoA, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await writeIn(repoA, 'workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(repoA, 'Initial tree');
+    await raw(repoA, 'remote', 'add', 'origin', bare);
+    await raw(repoA, 'push', '--quiet', '-u', 'origin', 'main');
+    await run(['clone', '--quiet', bare, repoB], { cwd: tmpDir });
+  });
+
+  it('resolveUpstream reads the tracking ref; fetch refreshes ahead/behind', async () => {
+    const atRest = await resolveUpstream(run, repoB);
+    expect(atRest).toMatchObject({ upstream: 'origin/main', ahead: 0, behind: 0 });
+
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Add rule');
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+
+    // Non-mutating until fetched: the stale tracking ref still says 0.
+    const stale = await resolveUpstream(run, repoB);
+    expect(stale?.behind).toBe(0);
+
+    expect(await fetchWorkspaceRemote(run, repoB)).toEqual({ ok: true });
+    const fresh = await resolveUpstream(run, repoB);
+    expect(fresh?.behind).toBe(1);
+    expect(fresh?.ahead).toBe(0);
+    const remoteHead = await raw(repoA, 'rev-parse', 'HEAD');
+    expect(fresh?.sha).toBe(remoteHead.stdout.trim());
+  });
+
+  it('resolveUpstream is null without an upstream', async () => {
+    expect(await resolveUpstream(run, repoA)).not.toBeNull();
+    const lone = path.join(tmpDir, 'lone');
+    await fs.mkdir(lone, { recursive: true });
+    await ensureWorkspaceRepo(run, lone);
+    expect(await resolveUpstream(run, lone)).toBeNull();
+  });
+
+  it('readCommitTreeFiles reads a ref as string-in yaml files, skipping non-yaml', async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await writeIn(repoA, 'README.md', '# mine\n');
+    await commitIn(repoA, 'Add rule + readme');
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+    const files = await readCommitTreeFiles(run, repoB, upstream?.sha ?? '');
+    expect(files).not.toBeNull();
+    const paths = (files ?? []).map((file) => file.path);
+    expect(paths).toContain('workspace.yaml');
+    expect(paths).toContain('rules/block-r0000001/rule.yaml');
+    expect(paths).not.toContain('README.md');
+    const rule = (files ?? []).find((file) => file.path.endsWith('rule.yaml'));
+    expect(rule?.content).toBe('schemaVersion: 5\nuid: r0000001\n');
+  });
+
+  it('diffForeignPaths classifies changed/removed against the merge base; null base lists everything', async () => {
+    const baseSha = (await raw(repoA, 'rev-parse', 'HEAD')).stdout.trim();
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await writeIn(repoA, 'workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Renamed\n');
+    await commitIn(repoA, 'Add + rename');
+    await fs.rm(path.join(repoA, 'rules'), { recursive: true });
+    await commitIn(repoA, 'Delete rule');
+    const foreignSha = (await raw(repoA, 'rev-parse', 'HEAD')).stdout.trim();
+
+    const diff = await diffForeignPaths(run, repoA, baseSha, foreignSha);
+    expect(diff?.changed).toEqual(new Set(['workspace.yaml']));
+    expect(diff?.removed).toEqual(new Set());
+
+    const full = await diffForeignPaths(run, repoA, null, foreignSha);
+    expect(full?.changed.has('workspace.yaml')).toBe(true);
+    expect(full?.removed.size).toBe(0);
+
+    const midSha = (await raw(repoA, 'rev-parse', 'HEAD~1')).stdout.trim();
+    const withRemoval = await diffForeignPaths(run, repoA, midSha, foreignSha);
+    expect(withRemoval?.removed).toEqual(new Set(['rules/block-r0000001/rule.yaml']));
+
+    expect(await mergeBaseOf(run, repoA, baseSha, foreignSha)).toBe(baseSha);
+  });
+
+  it('listForeignAuthors names the foreign-only commit authors uniquely', async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Rita adds a rule', RITA_ENV);
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\nenabled: true\n');
+    await commitIn(repoA, 'Rita edits it again', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+    const authors = await listForeignAuthors(run, repoB, 'HEAD', upstream?.sha ?? '');
+    expect(authors).toEqual(['Remote Rita <rita@openheaders.io>']);
+  });
+
+  it('mergeParent records a two-parent commit through the temp-index path and leaves no MERGE_HEAD', async () => {
+    // Diverge: B commits locally, A pushes a foreign rule.
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    const localSha = await commitIn(repoB, 'Local template');
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Foreign rule', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+    expect(upstream?.behind).toBe(1);
+
+    // The engine-converged tree: B's worktree gains the foreign rule.
+    await writeIn(repoB, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const merged = await commitWorkspaceTree({
+      run,
+      rootDir: repoB,
+      message: 'Merge origin/main\n\nCo-Authored-By: Remote Rita <rita@openheaders.io>',
+      identityEnv: IDENTITY_ENV,
+      mergeParent: upstream?.sha ?? '',
+    });
+    expect(merged).toMatchObject({ ok: true, committed: true });
+
+    const p1 = await raw(repoB, 'rev-parse', 'HEAD^1');
+    const p2 = await raw(repoB, 'rev-parse', 'HEAD^2');
+    expect(p1.stdout.trim()).toBe(localSha);
+    expect(p2.stdout.trim()).toBe(upstream?.sha);
+    expect(await gitOperationInProgress(repoB)).toBeNull();
+    expect(await countDirtyFiles(run, repoB)).toBe(0);
+    const after = await resolveUpstream(run, repoB);
+    expect(after?.behind).toBe(0);
+    const body = await raw(repoB, 'log', '-1', '--format=%B');
+    expect(body.stdout).toContain('Co-Authored-By: Remote Rita <rita@openheaders.io>');
+  });
+
+  it('a merge commit with an unchanged tree still records the merge', async () => {
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    await commitIn(repoB, 'Local template');
+    // Foreign commit whose content B's tree ALREADY carries.
+    await writeIn(repoA, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    await commitIn(repoA, 'Same bytes remotely', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+    const merged = await commitWorkspaceTree({
+      run,
+      rootDir: repoB,
+      message: 'Merge origin/main',
+      identityEnv: IDENTITY_ENV,
+      mergeParent: upstream?.sha ?? '',
+    });
+    expect(merged).toMatchObject({ ok: true, committed: true });
+    expect((await resolveUpstream(run, repoB))?.behind).toBe(0);
+  });
+
+  it('a failing pre-commit blocks the merge commit and cleans up MERGE_HEAD', async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Foreign rule', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    await commitIn(repoB, 'Local template');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+
+    const hookPath = path.join(repoB, '.git', 'hooks', 'pre-commit');
+    await fs.mkdir(path.dirname(hookPath), { recursive: true });
+    await fs.writeFile(hookPath, '#!/bin/sh\necho "merge hook says no" >&2\nexit 1\n', { mode: 0o755 });
+
+    await writeIn(repoB, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const blocked = await commitWorkspaceTree({
+      run,
+      rootDir: repoB,
+      message: 'Merge origin/main',
+      identityEnv: IDENTITY_ENV,
+      mergeParent: upstream?.sha ?? '',
+    });
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.detail).toContain('merge hook says no');
+    expect(await gitOperationInProgress(repoB)).toBeNull();
+  });
+
+  it("fastForwardWorkspaceBranch moves the branch and leaves the user's staging intact", async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Foreign rule', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+    await fetchWorkspaceRemote(run, repoB);
+    const upstream = await resolveUpstream(run, repoB);
+
+    // Mid-`git add -p`: staged v1, worktree v2 — must survive the ff.
+    await writeIn(repoB, 'user-draft.yaml', 'draft: v1\n');
+    await raw(repoB, 'add', '--', 'user-draft.yaml');
+    await writeIn(repoB, 'user-draft.yaml', 'draft: v2\n');
+    // The converged worktree already carries the foreign bytes (the
+    // materializer's flush did this in the real flow).
+    await writeIn(repoB, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+
+    const ff = await fastForwardWorkspaceBranch(run, repoB, upstream?.sha ?? '');
+    expect(ff).toEqual({ ok: true });
+    expect((await raw(repoB, 'rev-parse', 'HEAD')).stdout.trim()).toBe(upstream?.sha);
+
+    const stagedBlob = await raw(repoB, 'show', ':user-draft.yaml');
+    expect(stagedBlob.stdout).toBe('draft: v1\n');
+    const staged = await raw(repoB, 'diff', '--cached', '--name-only');
+    expect(staged.stdout.trim()).toBe('user-draft.yaml');
+    // Besides the user's own draft, the repo reads clean.
+    expect(await countDirtyFiles(run, repoB)).toBe(1);
+  });
+
+  it('gitOperationInProgress detects the §3.3 markers', async () => {
+    expect(await gitOperationInProgress(repoB)).toBeNull();
+    await fs.writeFile(path.join(repoB, '.git', 'CHERRY_PICK_HEAD'), 'deadbeef\n', 'utf-8');
+    expect(await gitOperationInProgress(repoB)).toBe('CHERRY_PICK_HEAD');
+    await fs.rm(path.join(repoB, '.git', 'CHERRY_PICK_HEAD'));
+    await fs.mkdir(path.join(repoB, '.git', 'rebase-merge'), { recursive: true });
+    expect(await gitOperationInProgress(repoB)).toBe('rebase-merge');
   });
 });
 

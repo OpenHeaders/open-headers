@@ -48,6 +48,8 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const [commitMessage, setCommitMessage] = useState('');
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [pulling, setPulling] = useState(false);
+  const [pullError, setPullError] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -117,6 +119,28 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
       setCommitError((err as Error).message);
     } finally {
       setCommitting(false);
+    }
+  };
+
+  const pull = async (): Promise<void> => {
+    if (workspaceId === null) return;
+    setPulling(true);
+    setPullError(null);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
+      if (result.ok && result.upToDate) {
+        message.info(t('workbench.settings.gitPane.git.upToDate'));
+      } else if (result.ok) {
+        message.success(t('workbench.settings.gitPane.git.pulled', { sha: result.sha.slice(0, 7) }));
+      } else {
+        setPullError(t('workbench.settings.gitPane.git.pullFailed', { detail: result.detail ?? result.reason }));
+      }
+      await refreshGitStatus();
+      await refresh();
+    } catch (err) {
+      setPullError((err as Error).message);
+    } finally {
+      setPulling(false);
     }
   };
 
@@ -281,6 +305,34 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   <div style={{ marginTop: 4, fontSize: 11.5, color: token.colorTextSecondary }}>
                     {t('workbench.settings.gitPane.git.indexBusy')}
                   </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <span
+                    style={{ fontSize: 11.5, color: token.colorTextSecondary, flex: 1 }}
+                    data-testid="git-pane-remote-line"
+                  >
+                    {gitStatus.upstream === null
+                      ? t('workbench.settings.gitPane.git.noUpstream')
+                      : (gitStatus.ahead ?? 0) === 0 && (gitStatus.behind ?? 0) === 0
+                        ? t('workbench.settings.gitPane.git.remoteInSync', { upstream: gitStatus.upstream })
+                        : t('workbench.settings.gitPane.git.remoteStatus', {
+                            upstream: gitStatus.upstream,
+                            ahead: gitStatus.ahead ?? 0,
+                            behind: gitStatus.behind ?? 0,
+                          })}
+                  </span>
+                  <Button
+                    size="small"
+                    loading={pulling}
+                    disabled={gitStatus.upstream === null}
+                    onClick={() => void pull()}
+                    data-testid="git-pane-pull-button"
+                  >
+                    {t('workbench.settings.gitPane.git.pullButton')}
+                  </Button>
+                </div>
+                {pullError !== null && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{pullError}</div>
                 )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <Input

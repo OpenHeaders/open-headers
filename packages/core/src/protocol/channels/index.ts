@@ -99,6 +99,7 @@ export type {
   WorkspaceTreeCommitWire,
   WorkspaceTreeGitStatusWire,
   WorkspaceTreeIssueWire,
+  WorkspaceTreePullWire,
   WorkspaceTreeSweepSummary,
 } from './workspace';
 

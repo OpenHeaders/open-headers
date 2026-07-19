@@ -28,6 +28,7 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { TreeFile } from '@openheaders/core/workspace-tree';
 import type { GitExecResult, GitRunner } from './git-exec';
 
 /** Explicit repo addressing prefix for every command (GIT_PLAN.md §7). */
@@ -159,6 +160,216 @@ export async function countDirtyFiles(run: GitRunner, rootDir: string): Promise<
   return parsePorcelainCount(result.stdout);
 }
 
+// ── In-progress-op detection (§3.3: mid-op trees are never ingested) ─
+
+/**
+ * Markers of a git operation the user is mid-way through. While any of
+ * these exists, watcher sweeps and pull passes hold reconcile — a
+ * mid-rebase tree with conflict markers must never enter the engine.
+ */
+const IN_PROGRESS_MARKERS = ['rebase-merge', 'rebase-apply', 'MERGE_HEAD', 'CHERRY_PICK_HEAD', 'BISECT_LOG'] as const;
+
+/** The first in-progress marker present in `.git/`, or null when the repo is at rest. */
+export async function gitOperationInProgress(rootDir: string): Promise<string | null> {
+  for (const marker of IN_PROGRESS_MARKERS) {
+    try {
+      await fs.access(path.join(rootDir, '.git', marker));
+      return marker;
+    } catch {
+      // marker absent — keep probing
+    }
+  }
+  return null;
+}
+
+// ── Remote feeds (Phase 4: fetch always non-mutating, §3.2) ──────────
+
+export interface UpstreamState {
+  /** Remote-tracking ref name, e.g. `origin/main`. */
+  upstream: string;
+  /** Resolved sha of the remote-tracking ref. */
+  sha: string;
+  /** Local commits the upstream lacks. */
+  ahead: number;
+  /** Upstream commits the local branch lacks. */
+  behind: number;
+}
+
+/**
+ * The current branch's upstream + ahead/behind counts — pure local
+ * reads against the remote-tracking ref (no network). Null when no
+ * upstream is configured (or HEAD is unborn/detached).
+ */
+export async function resolveUpstream(run: GitRunner, rootDir: string): Promise<UpstreamState | null> {
+  const name = await run([...repoArgs(rootDir), 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], {
+    cwd: rootDir,
+  });
+  const upstream = name.stdout.trim();
+  if (name.code !== 0 || upstream.length === 0) return null;
+  const sha = await run([...repoArgs(rootDir), 'rev-parse', '@{u}'], { cwd: rootDir });
+  if (sha.code !== 0) return null;
+  const counts = await run([...repoArgs(rootDir), 'rev-list', '--left-right', '--count', 'HEAD...@{u}'], {
+    cwd: rootDir,
+  });
+  if (counts.code !== 0) return null;
+  const match = counts.stdout.trim().match(/^(\d+)\s+(\d+)$/);
+  if (!match) return null;
+  return { upstream, sha: sha.stdout.trim(), ahead: Number(match[1]), behind: Number(match[2]) };
+}
+
+export type FetchWorkspaceRemoteResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * `git fetch` against the branch's default remote. Non-mutating for
+ * the working tree/engine; `GIT_TERMINAL_PROMPT=0` turns would-be
+ * credential prompts into fast failures the caller surfaces.
+ */
+export async function fetchWorkspaceRemote(run: GitRunner, rootDir: string): Promise<FetchWorkspaceRemoteResult> {
+  const result = await run([...repoArgs(rootDir), 'fetch', '--quiet'], { cwd: rootDir, timeoutMs: 120_000 });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
+}
+
+/** Merge base of two refs; null when the histories are unrelated. */
+export async function mergeBaseOf(run: GitRunner, rootDir: string, a: string, b: string): Promise<string | null> {
+  const result = await run([...repoArgs(rootDir), 'merge-base', a, b], { cwd: rootDir });
+  const sha = result.stdout.trim();
+  return result.code === 0 && sha.length > 0 ? sha : null;
+}
+
+export interface ForeignTreeDiff {
+  /** Paths added or modified on the foreign side relative to the base. */
+  changed: Set<string>;
+  /** Paths the foreign side deleted relative to the base. */
+  removed: Set<string>;
+}
+
+/**
+ * The foreign side's file-level delta against the merge base — the
+ * changed/removed classification `synthesizeWorkspaceTreeDelta` runs
+ * on (three-way discipline: only what the FOREIGN history touched is
+ * tree-authored; everything else stays engine-owned). A null base
+ * (unrelated histories / first pull) classifies every foreign file as
+ * changed and nothing as removed.
+ */
+export async function diffForeignPaths(
+  run: GitRunner,
+  rootDir: string,
+  baseRef: string | null,
+  foreignRef: string,
+): Promise<ForeignTreeDiff | null> {
+  const changed = new Set<string>();
+  const removed = new Set<string>();
+  if (baseRef === null) {
+    const listing = await run([...repoArgs(rootDir), 'ls-tree', '-r', '-z', '--name-only', foreignRef], {
+      cwd: rootDir,
+    });
+    if (listing.code !== 0) return null;
+    for (const entry of listing.stdout.split('\0')) {
+      if (entry.length > 0) changed.add(entry);
+    }
+    return { changed, removed };
+  }
+  const diff = await run(
+    [...repoArgs(rootDir), 'diff-tree', '-r', '-z', '--no-renames', '--name-status', baseRef, foreignRef],
+    { cwd: rootDir },
+  );
+  if (diff.code !== 0) return null;
+  const tokens = diff.stdout.split('\0');
+  for (let i = 0; i + 1 < tokens.length; i += 2) {
+    const status = tokens[i];
+    const filePath = tokens[i + 1];
+    if (status.length === 0 || filePath.length === 0) continue;
+    if (status[0] === 'D') removed.add(filePath);
+    else changed.add(filePath);
+  }
+  return { changed, removed };
+}
+
+/**
+ * A commit's tree as the string-in file listing `readWorkspaceTree`
+ * consumes — the foreign checkout snapshot of the §11.4 pull path.
+ * Only `.yaml` files are read (the reader classifies by manifest
+ * convention; the user's own files never need parsing).
+ */
+export async function readCommitTreeFiles(run: GitRunner, rootDir: string, ref: string): Promise<TreeFile[] | null> {
+  const listing = await run([...repoArgs(rootDir), 'ls-tree', '-r', '-z', '--name-only', ref], { cwd: rootDir });
+  if (listing.code !== 0) return null;
+  const files: TreeFile[] = [];
+  for (const entry of listing.stdout.split('\0')) {
+    if (entry.length === 0 || !entry.endsWith('.yaml')) continue;
+    const blob = await run([...repoArgs(rootDir), 'show', `${ref}:${entry}`], { cwd: rootDir });
+    if (blob.code !== 0) return null;
+    files.push({ path: entry, content: blob.stdout });
+  }
+  return files;
+}
+
+/**
+ * Unique `Name <email>` authors of the foreign-only commits — the
+ * `Co-Authored-By:` trailer feed for the merge commit (§23.6/§23.7).
+ */
+export async function listForeignAuthors(
+  run: GitRunner,
+  rootDir: string,
+  localRef: string,
+  foreignRef: string,
+): Promise<string[]> {
+  const log = await run([...repoArgs(rootDir), 'log', '--format=%an <%ae>', `${localRef}..${foreignRef}`], {
+    cwd: rootDir,
+  });
+  if (log.code !== 0) return [];
+  const seen = new Set<string>();
+  const authors: string[] = [];
+  for (const line of log.stdout.split('\n')) {
+    const author = line.trim();
+    if (author.length === 0 || seen.has(author)) continue;
+    seen.add(author);
+    authors.push(author);
+  }
+  return authors;
+}
+
+export type FastForwardResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Fast-forward the current branch to `foreignSha` — the pull leg for a
+ * local branch that has NOT diverged (plain `git pull` semantics: no
+ * merge bubble). CAS on the old HEAD so a concurrent move fails loudly
+ * instead of clobbering; afterwards the REAL index is resynced to the
+ * new HEAD with the same §3.3 discipline as the temp-index commit —
+ * paths the user had staged stay exactly as found.
+ */
+export async function fastForwardWorkspaceBranch(
+  run: GitRunner,
+  rootDir: string,
+  foreignSha: string,
+): Promise<FastForwardResult> {
+  const head = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: rootDir });
+  if (head.code !== 0) return { ok: false, detail: 'no local HEAD to fast-forward' };
+  const oldHead = head.stdout.trim();
+
+  const stagedProbe = await run([...repoArgs(rootDir), 'diff', '--cached', '--name-only'], { cwd: rootDir });
+  const userStagedPaths = new Set(stagedProbe.stdout.split('\n').filter((line) => line.length > 0));
+
+  const moved = await run([...repoArgs(rootDir), 'update-ref', 'HEAD', foreignSha, oldHead], { cwd: rootDir });
+  if (moved.code !== 0) return { ok: false, detail: failureDetail(moved) };
+
+  if (userStagedPaths.size === 0) {
+    await run([...repoArgs(rootDir), 'read-tree', 'HEAD'], { cwd: rootDir });
+  } else {
+    const changed = await run(
+      [...repoArgs(rootDir), 'diff-tree', '--no-commit-id', '--name-only', '-r', oldHead, foreignSha],
+      { cwd: rootDir },
+    );
+    const toRefresh = changed.stdout.split('\n').filter((line) => line.length > 0 && !userStagedPaths.has(line));
+    if (toRefresh.length > 0) {
+      await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
+    }
+  }
+  return { ok: true };
+}
+
 // ── Temp-index commit (§3.3 / §23.4) ─────────────────────────────────
 
 export interface CommitWorkspaceTreeOptions {
@@ -169,6 +380,17 @@ export interface CommitWorkspaceTreeOptions {
   identityEnv: Record<string, string>;
   /** The explicit user setting behind `--no-verify`; default false. */
   bypassHooks?: boolean;
+  /**
+   * Second parent for a merge commit (§11.4: the foreign head). The
+   * engine writes the converged tree; git only records the parents —
+   * `MERGE_HEAD` is placed so `git commit` itself mints the two-parent
+   * commit with hooks and signing running exactly as configured. An
+   * unchanged tree still commits (recording the merge IS the point).
+   * Only meaningful when the histories genuinely diverged: git reduces
+   * redundant parents, so an un-diverged branch belongs to
+   * {@link fastForwardWorkspaceBranch} instead.
+   */
+  mergeParent?: string;
 }
 
 export type CommitWorkspaceTreeResult =
@@ -191,9 +413,23 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     return { ok: false, reason: 'not-a-repo', detail: `${rootDir} is not a git repository` };
   }
 
+  const mergeParent = options.mergeParent;
+  const mergeHeadPath = path.join(rootDir, '.git', 'MERGE_HEAD');
+  if (mergeParent !== undefined) {
+    // Refuse to clobber a real in-progress merge — the caller's
+    // in-progress-op hold should have caught this already (§3.3).
+    try {
+      await fs.access(mergeHeadPath);
+      return { ok: false, reason: 'commit-failed', detail: 'a merge is already in progress' };
+    } catch {
+      // no MERGE_HEAD — ours to place
+    }
+  }
+
   const indexDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oh-commit-index-'));
   const indexPath = path.join(indexDir, 'index');
   const indexEnv = { GIT_INDEX_FILE: indexPath };
+  let mergeHeadPlaced = false;
   try {
     const headProbe = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: rootDir });
     const hasHead = headProbe.code === 0;
@@ -217,7 +453,12 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
     if (stage.code !== 0) return { ok: false, reason: 'stage-failed', detail: failureDetail(stage) };
 
     const diff = await run([...repoArgs(rootDir), 'diff', '--cached', '--quiet'], { cwd: rootDir, env: indexEnv });
-    if (diff.code === 0) return { ok: true, committed: false };
+    if (diff.code === 0 && mergeParent === undefined) return { ok: true, committed: false };
+
+    if (mergeParent !== undefined) {
+      await fs.writeFile(mergeHeadPath, `${mergeParent}\n`, 'utf-8');
+      mergeHeadPlaced = true;
+    }
 
     const commit = await run(
       [...repoArgs(rootDir), 'commit', '-m', message, ...(options.bypassHooks === true ? ['--no-verify'] : [])],
@@ -249,6 +490,10 @@ export async function commitWorkspaceTree(options: CommitWorkspaceTreeOptions): 
 
     return { ok: true, committed: true, sha: commitSha };
   } finally {
+    // A successful merge `git commit` consumes MERGE_HEAD itself; a
+    // failed one (blocking hook) must not leave the repo looking
+    // mid-merge — the marker is ours, so it goes.
+    if (mergeHeadPlaced) await fs.rm(mergeHeadPath, { force: true }).catch(() => undefined);
     await fs.rm(indexDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

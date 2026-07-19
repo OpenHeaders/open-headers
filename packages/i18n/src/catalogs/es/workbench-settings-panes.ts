@@ -660,4 +660,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.bypassHooksLabel': 'Omitir los hooks de git (--no-verify)',
   'workbench.settings.gitPane.git.bypassHooksWarning':
     'Mientras esta opción esté activa, los commits del motor omiten tus hooks pre-commit y commit-msg.',
+  'workbench.settings.gitPane.git.remoteInSync': '{upstream}: sincronizado',
+  'workbench.settings.gitPane.git.remoteStatus': '{upstream}: {ahead} por delante, {behind} por detrás',
+  'workbench.settings.gitPane.git.noUpstream':
+    'No hay remoto configurado — añade uno con git remote add y git push -u para activar Pull.',
+  'workbench.settings.gitPane.git.pullButton': 'Pull',
+  'workbench.settings.gitPane.git.pulled': 'Fusión {sha} completada.',
+  'workbench.settings.gitPane.git.upToDate': 'Ya está actualizado.',
+  'workbench.settings.gitPane.git.pullFailed': 'Error en el pull: {detail}',
 } as const satisfies Catalog;

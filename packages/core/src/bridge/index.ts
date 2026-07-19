@@ -55,6 +55,7 @@ export type {
   WorkspaceSnapshot,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusWire,
+  WorkspaceTreePullWire,
   WsSendSocketIoWire,
   WsStreamEventWire,
   WsStreamMessageWire,

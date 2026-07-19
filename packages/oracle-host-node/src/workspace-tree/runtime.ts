@@ -43,15 +43,19 @@ import {
   countDirtyFiles,
   createGitExec,
   ensureWorkspaceRepo,
+  fetchWorkspaceRemote,
   type GitAvailability,
   type GitRunner,
+  gitOperationInProgress,
   isWorkspaceRepo,
   probeGitAvailability,
   resolveCommitIdentity,
+  resolveUpstream,
   userIndexHasStagedChanges,
 } from '../git';
 import { type BindWorkspaceTreeResult, bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
 import { WorkspaceTreeMaterializer } from './materializer';
+import { pullWorkspaceTree } from './pull';
 import { readTreeUnknownFields } from './sidecar';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from './sweep';
 import { WorkspaceTreeWatcher } from './watcher';
@@ -73,6 +77,19 @@ const COMMIT_QUIESCENCE_MS = 2_000;
 
 /** Intent ring cap — beyond this the semantic message is already a summary. */
 const MAX_PENDING_INTENTS = 1_000;
+
+/**
+ * Background fetch cadence (§3.2: fetch is always on, non-mutating —
+ * it powers the ahead/behind affordance; pull stays an explicit
+ * gesture per the S6 manual-pull-only default).
+ */
+const FETCH_INTERVAL_MS = 5 * 60_000;
+
+/** Minimum spacing between focus-triggered fetches (cmd-tab is bursty). */
+const FETCH_FOCUS_MIN_MS = 30_000;
+
+/** Retry window while an in-progress git operation holds reconcile (§3.3). */
+const OP_HOLD_RETRY_MS = 5_000;
 
 export type WorkspaceTreeCommitCadence = 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
 
@@ -96,6 +113,24 @@ export type CommitWorkspaceTreeRpcResult =
       detail?: string;
     };
 
+export type PullWorkspaceTreeRpcResult =
+  | { ok: true; upToDate: true }
+  | { ok: true; upToDate: false; sha: string; applied: number }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'no-upstream'
+        | 'fetch-failed'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'commit-failed';
+      detail?: string;
+    };
+
 export interface WorkspaceTreeGitStatusRpcResult {
   bound: boolean;
   git: GitAvailability;
@@ -109,6 +144,12 @@ export interface WorkspaceTreeGitStatusRpcResult {
   cadence: WorkspaceTreeCommitCadence;
   /** The explicit `--no-verify` setting (§3.3); false unless the user flipped it. */
   bypassHooks: boolean;
+  /** Remote-tracking ref name (`origin/main`); null when no upstream is configured. */
+  upstream: string | null;
+  /** Local commits the upstream lacks; null without an upstream. */
+  ahead: number | null;
+  /** Upstream commits the local branch lacks (the Pull affordance); null without an upstream. */
+  behind: number | null;
 }
 
 export interface WorkspaceTreeRuntime {
@@ -122,6 +163,15 @@ export interface WorkspaceTreeRuntime {
   list(): WorkspaceTreeBindingRecord[];
   /** Explicit Commit gesture (§9) — flush, then a temp-index `git commit`. */
   commit(workspaceId: string, message?: string): Promise<CommitWorkspaceTreeRpcResult>;
+  /**
+   * Explicit Pull gesture (§9, Phase 4): fetch, converge foreign
+   * history through the mutators, record the two-parent merge commit.
+   * Local uncommitted work commits first under its own semantic draft
+   * so the merge commit stays a pure merge.
+   */
+  pull(workspaceId: string): Promise<PullWorkspaceTreeRpcResult>;
+  /** Focus returned to the app — throttled background fetch trigger. */
+  notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */
   gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult>;
   setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }>;
@@ -146,6 +196,12 @@ interface OpenBinding {
   commitTimer: NodeJS.Timeout | null;
   /** Wall-clock commit interval (cadence `every-Nm` only). */
   commitInterval: NodeJS.Timeout | null;
+  /** Background fetch interval (§3.2 — always on while bound). */
+  fetchInterval: NodeJS.Timeout | null;
+  /** Wall-clock of the last fetch attempt — focus-trigger throttle. */
+  lastFetchAt: number;
+  /** Retry timer while an in-progress git op holds reconcile (§3.3). */
+  holdRetryTimer: NodeJS.Timeout | null;
   /** Batch intents since the last successful commit — the semantic-message feed. */
   intents: CommitIntent[];
   issues: TreeIssue[];
@@ -266,8 +322,32 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     }
   };
 
+  /**
+   * §3.3 in-progress-op hold: while `.git/` carries a rebase/merge/
+   * cherry-pick/bisect marker, reconcile passes stand down (a mid-op
+   * tree with conflict markers must never be ingested) and a retry
+   * timer re-checks until the operation concludes.
+   */
+  const heldByGitOperation = async (binding: OpenBinding): Promise<boolean> => {
+    const marker = await gitOperationInProgress(binding.record.rootDir);
+    if (marker === null) return false;
+    logger.info(SCOPE, `reconcile held for ${binding.record.rootDir}: ${marker} in progress`);
+    if (!binding.closed && binding.holdRetryTimer === null) {
+      binding.holdRetryTimer = setTimeout(() => {
+        binding.holdRetryTimer = null;
+        enqueue(binding, async () => {
+          await runSweep(binding);
+          await binding.materializer.flush();
+          await publishGitStatus(binding);
+        });
+      }, OP_HOLD_RETRY_MS);
+    }
+    return true;
+  };
+
   const runSweep = async (binding: OpenBinding): Promise<SweepWorkspaceTreeResult | null> => {
     if (binding.closed) return null;
+    if (await heldByGitOperation(binding)) return null;
     const { service, record } = binding;
     await service.hydrated;
     const snapshot = await buildSnapshot(record.workspaceId);
@@ -324,6 +404,9 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     suggestedMessage: '',
     cadence: 'off',
     bypassHooks: false,
+    upstream: null,
+    ahead: null,
+    behind: null,
   });
 
   const computeGitStatus = async (binding: OpenBinding): Promise<WorkspaceTreeGitStatusRpcResult> => {
@@ -341,9 +424,13 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         suggestedMessage: composeCommitMessage(binding.intents),
         cadence,
         bypassHooks,
+        upstream: null,
+        ahead: null,
+        behind: null,
       };
     }
     const repo = await isWorkspaceRepo(gitRun, rootDir);
+    const upstream = repo ? await resolveUpstream(gitRun, rootDir) : null;
     return {
       bound: true,
       git,
@@ -353,6 +440,9 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       suggestedMessage: composeCommitMessage(binding.intents),
       cadence,
       bypassHooks,
+      upstream: upstream?.upstream ?? null,
+      ahead: upstream?.ahead ?? null,
+      behind: upstream?.behind ?? null,
     };
   };
 
@@ -402,6 +492,74 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return { ok: true, committed: true, sha: result.sha };
     }
     return { ok: true, committed: false };
+  };
+
+  /**
+   * One background fetch pass (§3.2: fetch always on, non-mutating) —
+   * refreshes the remote-tracking ref so ahead/behind is honest, then
+   * republishes the status. Skipped without a repo or an upstream;
+   * failures (offline, credentials) log and keep the last-known counts.
+   */
+  const enqueueFetch = (binding: OpenBinding, trigger: string): void => {
+    enqueue(binding, async () => {
+      const { rootDir } = binding.record;
+      const availability = await ensureGitAvailability(rootDir);
+      if (!availability.available) return;
+      if (!(await isWorkspaceRepo(gitRun, rootDir))) return;
+      if ((await resolveUpstream(gitRun, rootDir)) === null) return;
+      binding.lastFetchAt = Date.now();
+      const fetched = await fetchWorkspaceRemote(gitRun, rootDir);
+      if (!fetched.ok) {
+        logger.warn(SCOPE, `${trigger} fetch failed for ${rootDir}: ${fetched.detail}`);
+        return;
+      }
+      await publishGitStatus(binding);
+    });
+  };
+
+  /**
+   * One pull pass — always on the binding's chain (§8 single actor).
+   * Local uncommitted work commits FIRST under its own semantic draft
+   * (the merge commit stays a pure merge); the intent ring drains with
+   * the merge since everything applied is now committed.
+   */
+  const runPull = async (binding: OpenBinding): Promise<PullWorkspaceTreeRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    if (await heldByGitOperation(binding)) return { ok: false, reason: 'op-in-progress' };
+    await binding.service.hydrated;
+
+    const pre = await runCommit(binding);
+    if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
+
+    const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
+    const result = await pullWorkspaceTree({
+      run: gitRun,
+      rootDir,
+      workspaceUid: binding.record.workspaceId,
+      readSnapshot: () => buildSnapshot(binding.record.workspaceId),
+      nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
+      liveSetEntries: (entityType, id, setPath) =>
+        binding.service.oracle
+          .liveOrderedSetItems(entityType, id, setPath)
+          .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
+      apply: (batches) => applyAll(binding.service, batches),
+      flush: () => binding.materializer.flush(),
+      identityEnv: identity.env,
+      bypassHooks: binding.record.bypassHooks === true,
+    });
+    binding.lastFetchAt = Date.now();
+    if (result.issues.length > 0) {
+      const known = new Set(binding.issues.map((issue) => issue.path));
+      binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+    }
+    if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
+    if (result.upToDate) return { ok: true, upToDate: true };
+    binding.intents = [];
+    logger.info(SCOPE, `pulled ${rootDir}: merge ${result.sha} (${result.applied} batches)`);
+    return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
   };
 
   /**
@@ -491,6 +649,9 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       materializeTimer: null,
       commitTimer: null,
       commitInterval: null,
+      fetchInterval: null,
+      lastFetchAt: 0,
+      holdRetryTimer: null,
       intents: [],
       issues: [],
       closed: false,
@@ -498,6 +659,12 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     open.set(record.workspaceId, binding);
     watcher.start();
     applyCadenceTimers(binding);
+    // Background fetch (§3.2): ~5m interval + one pass at open so the
+    // ahead/behind affordance lights without waiting a cycle.
+    binding.fetchInterval = setInterval(() => {
+      enqueueFetch(binding, 'interval');
+    }, FETCH_INTERVAL_MS);
+    enqueueFetch(binding, 'open');
     // Phase 3: a bound folder is a REPO. Adopt an existing `.git` or
     // init a fresh one; missing git disables only the git plane (§7).
     enqueue(binding, async () => {
@@ -528,6 +695,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     if (binding.commitInterval) {
       clearInterval(binding.commitInterval);
       binding.commitInterval = null;
+    }
+    if (binding.fetchInterval) {
+      clearInterval(binding.fetchInterval);
+      binding.fetchInterval = null;
+    }
+    if (binding.holdRetryTimer) {
+      clearTimeout(binding.holdRetryTimer);
+      binding.holdRetryTimer = null;
     }
     binding.materializer.dispose();
     await binding.chain;
@@ -647,6 +822,30 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       });
       await binding.chain;
       return result;
+    },
+
+    async pull(workspaceId: string): Promise<PullWorkspaceTreeRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: PullWorkspaceTreeRpcResult = {
+        ok: false,
+        reason: 'fetch-failed',
+        detail: 'pull pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runPull(binding);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    notifyAppFocus(): void {
+      if (disposed) return;
+      for (const binding of open.values()) {
+        if (Date.now() - binding.lastFetchAt < FETCH_FOCUS_MIN_MS) continue;
+        enqueueFetch(binding, 'focus');
+      }
     },
 
     async gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult> {

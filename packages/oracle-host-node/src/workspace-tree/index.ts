@@ -9,10 +9,13 @@ export type { BindWorkspaceTreeOptions, BindWorkspaceTreeResult } from './bind';
 export { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
 export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerOptions } from './materializer';
 export { WorkspaceTreeMaterializer } from './materializer';
+export type { PullWorkspaceTreeOptions, PullWorkspaceTreeResult } from './pull';
+export { pullWorkspaceTree } from './pull';
 export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
 export type {
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
+  PullWorkspaceTreeRpcResult,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeRuntime,
