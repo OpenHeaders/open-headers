@@ -25,6 +25,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.needsUrl': 'Saisissez une URL ws:// ou wss:// pour vous connecter.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Message',
+  'workbench.editors.websocket.tab.events': 'Événements',
+  'workbench.editors.websocket.tab.auth': 'Autorisation',
   'workbench.editors.websocket.tab.headers': 'En-têtes',
   'workbench.editors.websocket.tab.params': 'Params',
   'workbench.editors.websocket.tab.spec': 'AsyncAPI',
@@ -32,6 +34,26 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.messagePlaceholder': 'Composez le prochain message à envoyer…',
   'workbench.editors.websocket.message.formatText': 'Texte',
   'workbench.editors.websocket.message.formatJson': 'JSON',
+  'workbench.editors.websocket.message.formatXml': 'XML',
+  'workbench.editors.websocket.message.formatHtml': 'HTML',
+  'workbench.editors.websocket.auth.typeLabel': 'Type',
+  'workbench.editors.websocket.auth.typeNone': 'Aucune authentification',
+  'workbench.editors.websocket.auth.typeBearer': 'Bearer token',
+  'workbench.editors.websocket.auth.tokenLabel': 'Token',
+  'workbench.editors.websocket.auth.tokenPlaceholder': 'Token ou {{variable}}',
+  'workbench.editors.websocket.auth.helpRaw':
+    "Envoyé comme en-tête Authorization: Bearer sur le handshake — s'applique sur l'application de bureau ou " +
+    "le daemon ; les navigateurs ne peuvent pas le définir sur un WebSocket. Une ligne d'en-tête " +
+    'Authorization explicite est prioritaire.',
+  'workbench.editors.websocket.auth.helpSocketio':
+    'Envoyé comme charge utile auth du paquet CONNECT ({"token": …}) sur chaque hôte, et comme en-tête de ' +
+    "handshake Authorization: Bearer sur l'application de bureau ou le daemon. Une ligne d'en-tête " +
+    "Authorization explicite est prioritaire sur l'en-tête.",
+  'workbench.editors.websocket.events.hint':
+    'Les événements entrants à afficher dans la chronologie de la session. Sans lignes, chaque événement ' +
+    "s'affiche ; la capture enregistre toujours tout.",
+  'workbench.editors.websocket.events.namePlaceholder': "Nom de l'événement",
+  'workbench.editors.websocket.events.listenLabel': 'Écouter',
   'workbench.editors.websocket.event.namePlaceholder': "Nom de l'événement",
   'workbench.editors.websocket.event.ackLabel': 'Attendre un ack',
   'workbench.editors.websocket.event.ackHelp':
@@ -104,6 +126,7 @@ export const workbenchEditorsWebsocket = {
     "Exécution sur le socket du navigateur — {knobs} ne s'appliquent pas sur cet hôte.",
   'workbench.editors.websocket.session.knobHeaders': 'les en-têtes de handshake personnalisés',
   'workbench.editors.websocket.session.knobSslVerify': 'la vérification SSL désactivée',
+  'workbench.editors.websocket.session.knobAuth': "l'en-tête d'identifiants bearer",
   'workbench.editors.websocket.session.handshakeProtocol': 'Sous-protocole',
   'workbench.editors.websocket.session.handshakeExtensions': 'Extensions',
   'workbench.editors.websocket.session.handshakeNone': 'Rien de négocié',
