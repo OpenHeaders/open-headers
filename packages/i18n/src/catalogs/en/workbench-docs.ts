@@ -633,13 +633,12 @@ export const workbenchDocs = {
     'Headers surface on one machine, or a back-end you self-host on your own VM. Every option preserves the same ' +
     'guarantees; the trade-off is reach, not ownership.',
   'workbench.docs.body.paradigm.localFirst2':
-    'Team collaboration ships through user-controlled storage backends (Git, on the roadmap) — not through a vendor ' +
-    'server.',
+    'Team collaboration ships through user-controlled storage backends (Git) — not through a vendor server.',
   'workbench.docs.body.paradigm.frontEnds1Prefix': 'The same principle applies to',
   'workbench.docs.body.paradigm.frontEndsHow': 'how',
   'workbench.docs.body.paradigm.frontEnds1Suffix':
-    'you reach that data. The browser extension is the default front-end today — four surfaces inside the browser. ' +
-    'A native desktop app, a CLI, and a remote web app follow on the roadmap. Every front-end speaks to a back-end ' +
+    'you reach that data. The browser extension is the default front-end — four surfaces inside the browser. ' +
+    'A native desktop app, a CLI, and a remote web app ship alongside it. Every front-end speaks to a back-end ' +
     'of your choice; pick any combination, and every surface stays in sync.',
   'workbench.docs.body.paradigm.autoSyncHeading': 'Auto-Sync without losing your work',
   'workbench.docs.body.paradigm.autoSync1Prefix':
@@ -649,16 +648,16 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.autoSync1Middle': "level: the popup toggling a rule's",
   'workbench.docs.body.paradigm.autoSync1Suffix':
     'flag and the workbench rewriting a header value in the same rule both land, in any order, with no stale-draft ' +
-    'banner and no overwrite. The same approach scales from the four surfaces of one extension today to a local ' +
-    'daemon backing extension + desktop + CLI tomorrow, and to multi-user team workspaces through a Git remote — ' +
+    'banner and no overwrite. The same approach scales from the four surfaces of one extension to a local ' +
+    'daemon backing extension + desktop + CLI, and to multi-user team workspaces through a Git remote — ' +
     'without ever needing a vendor server in the middle.',
   'workbench.docs.body.paradigm.fieldSyncCaption':
     'Two surfaces, one rule, different fields — both edits land, nothing overwritten.',
   'workbench.docs.body.paradigm.noteCalloutPrefix':
     'Want to see how this compares to other tools you might have tried?',
   'workbench.docs.body.paradigm.comparisonLink': 'How we compare',
-  'workbench.docs.body.paradigm.noteCalloutMiddle': "is next. Looking for what's coming? Skip to",
-  'workbench.docs.body.paradigm.roadmapLink': "What we're building next",
+  'workbench.docs.body.paradigm.noteCalloutMiddle': 'is next. Want the whole platform in one view? Skip to',
+  'workbench.docs.body.paradigm.roadmapLink': 'Every surface, shipped',
   'workbench.docs.body.paradigm.noteCalloutSuffix': '.',
 
   // ── Open Headers: Comparison ────────────────────────────────────────
@@ -673,7 +672,7 @@ export const workbenchDocs = {
     'Cloud-hosted tools expect your traffic, credentials, and rule definitions to live on their servers. That model ' +
     "assumes you're fine with that data leaving your machine — and with maintaining an account to access your own " +
     "work. Open Headers doesn't make either assumption. Everything stays local; team collaboration ships through " +
-    "user-controlled storage (Git, on the roadmap), not through a vendor's database.",
+    "user-controlled storage (Git), not through a vendor's database.",
   'workbench.docs.body.comparison.vsProxiesHeading': 'vs desktop proxies',
   'workbench.docs.body.comparison.vsProxies1Prefix':
     "Proxies route your full traffic through a separate process. They're powerful but heavy: install a binary, " +
@@ -706,8 +705,8 @@ export const workbenchDocs = {
 
   // ── Open Headers: Roadmap ───────────────────────────────────────────
   'workbench.docs.body.roadmap.intro1Prefix':
-    'Open Headers is local-only today, one extension on one device. The work below extends that shape without ' +
-    'breaking it. Cross-user sync ships through',
+    'Open Headers started local-only — one extension on one device. Every milestone below extends that shape ' +
+    'without breaking it, and every one of them has shipped. Cross-user sync ships through',
   'workbench.docs.body.roadmap.userControlledStrong': 'user-controlled',
   'workbench.docs.body.roadmap.intro1Suffix':
     'means — Git repositories and self-hosted deployments — never a vendor-hosted cloud.',
@@ -754,15 +753,15 @@ export const workbenchDocs = {
     'The same UI shipped as a web bundle you can serve from your own origin. For locked-down corporate browsers, ' +
     "kiosk devices, or any environment where installing an extension isn't an option — and for users who want a " +
     'branded deployment of Open Headers under their own domain.',
-  'workbench.docs.body.roadmap.importersHeading': 'More importers',
+  'workbench.docs.body.roadmap.importersHeading': 'Importers',
   'workbench.docs.body.roadmap.importers1':
-    'Beyond the existing cURL / HAR / Postman importers: Insomnia collections, OpenAPI specs, and full HAR request ' +
-    'imports (not just headers). Importer parity is how Open Headers earns adoption from people already invested in ' +
-    'another tool — bring your collection across in one step, keep working.',
+    'Alongside the cURL / HAR / Postman importers: Insomnia collections, OpenAPI specs, and full HAR request ' +
+    'imports (not just headers) — all live today. Importer parity is how Open Headers earns adoption from people ' +
+    'already invested in another tool — bring your collection across in one step, keep working.',
   'workbench.docs.body.roadmap.cloudCalloutTitle': 'What about a hosted cloud back-end?',
   'workbench.docs.body.roadmap.cloudCallout1':
     'Not on the menu for now — if you want a cloud-hosted back-end, you can self-host it on your own VM (see ' +
-    'above). The focus right now is finishing the roadmap, not running and maintaining free cloud infrastructure ' +
+    'above). The focus right now is the product, not running and maintaining free cloud infrastructure ' +
     "for end users. Happy to help if you're setting up a self-hosted deployment and run into trouble; just not in a " +
     'position to provide hosting itself.',
 

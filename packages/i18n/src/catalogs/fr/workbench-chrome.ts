@@ -557,10 +557,10 @@ export const workbenchChrome = {
   'workbench.docs.nav.comparison.summary':
     'Où se situe Open Headers face aux plateformes cloud, aux proxys de bureau et aux extensions limitées ' +
     'aux en-têtes.',
-  'workbench.docs.nav.roadmap.title': 'Ce que nous construisons ensuite',
+  'workbench.docs.nav.roadmap.title': 'Chaque surface, livrée',
   'workbench.docs.nav.roadmap.summary':
-    'Les jalons en séquence — espaces de travail Git, application de bureau, daemon, CLI, application web, ' +
-    "plus d'importateurs.",
+    'Les jalons livrés — espaces de travail Git, application de bureau, serveur MCP, daemon, CLI, ' +
+    'application web, importateurs.',
   'workbench.docs.nav.conditions.title': 'Conditions',
   'workbench.docs.nav.conditions.summary':
     "Filtres à correspondance AND qui conditionnent chaque règle — domaines, motifs d'URL, méthodes, en-têtes.",

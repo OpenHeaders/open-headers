@@ -560,10 +560,10 @@ export const workbenchChrome = {
   'workbench.docs.nav.comparison.summary':
     'Cómo se sitúa Open Headers frente a las plataformas en la nube, los proxies de escritorio y las ' +
     'extensiones de solo encabezados.',
-  'workbench.docs.nav.roadmap.title': 'Qué construimos a continuación',
+  'workbench.docs.nav.roadmap.title': 'Cada superficie, entregada',
   'workbench.docs.nav.roadmap.summary':
-    'Los hitos en secuencia — espacios de trabajo Git, aplicación de escritorio, daemon, CLI, aplicación web, ' +
-    'más importadores.',
+    'Los hitos entregados — espacios de trabajo Git, aplicación de escritorio, servidor MCP, daemon, CLI, ' +
+    'aplicación web, importadores.',
   'workbench.docs.nav.conditions.title': 'Condiciones',
   'workbench.docs.nav.conditions.summary':
     'Filtros de coincidencia AND que condicionan cada regla — dominios, patrones de URL, métodos, encabezados.',

@@ -712,14 +712,14 @@ export const workbenchDocs = {
     'un back-end autoalojado en tu propia VM. Cada opción preserva las mismas garantías; la contrapartida ' +
     'es el alcance, no la propiedad.',
   'workbench.docs.body.paradigm.localFirst2':
-    'La colaboración en equipo llega a través de almacenamiento controlado por el usuario (Git, en la hoja ' +
-    'de ruta) — no a través de un servidor del proveedor.',
+    'La colaboración en equipo llega a través de almacenamiento controlado por el usuario (Git) — no a ' +
+    'través de un servidor del proveedor.',
   'workbench.docs.body.paradigm.frontEnds1Prefix': 'El mismo principio se aplica a',
   'workbench.docs.body.paradigm.frontEndsHow': 'cómo',
   'workbench.docs.body.paradigm.frontEnds1Suffix':
-    'llegas a esos datos. La extensión de navegador es el front-end por defecto hoy — cuatro superficies ' +
-    'dentro del navegador. Una aplicación de escritorio nativa, una CLI y una aplicación web remota siguen ' +
-    'en la hoja de ruta. Cada front-end habla con el back-end que elijas; escoge cualquier combinación, y ' +
+    'llegas a esos datos. La extensión de navegador es el front-end por defecto — cuatro superficies ' +
+    'dentro del navegador. Una aplicación de escritorio nativa, una CLI y una aplicación web remota la ' +
+    'acompañan. Cada front-end habla con el back-end que elijas; escoge cualquier combinación, y ' +
     'cada superficie se mantiene sincronizada.',
   'workbench.docs.body.paradigm.autoSyncHeading': 'Auto-Sync sin perder tu trabajo',
   'workbench.docs.body.paradigm.autoSync1Prefix':
@@ -730,16 +730,17 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.autoSync1Suffix':
     'de una regla y el workbench que reescribe un valor de encabezado en la misma regla aterrizan los dos, ' +
     'en cualquier orden, sin banner de borrador obsoleto y sin sobrescritura. El mismo enfoque escala de ' +
-    'las cuatro superficies de una extensión hoy a un daemon local respaldando extensión + escritorio + ' +
-    'CLI mañana, y a espacios de trabajo de equipo multiusuario a través de un remoto Git — sin necesitar ' +
+    'las cuatro superficies de una extensión a un daemon local respaldando extensión + escritorio + ' +
+    'CLI, y a espacios de trabajo de equipo multiusuario a través de un remoto Git — sin necesitar ' +
     'nunca un servidor del proveedor en medio.',
   'workbench.docs.body.paradigm.fieldSyncCaption':
     'Dos superficies, una regla, campos distintos — ambas ediciones aterrizan, nada se sobrescribe.',
   'workbench.docs.body.paradigm.noteCalloutPrefix':
     '¿Quieres ver cómo se compara esto con otras herramientas que hayas probado?',
   'workbench.docs.body.paradigm.comparisonLink': 'Cómo nos comparamos',
-  'workbench.docs.body.paradigm.noteCalloutMiddle': 'viene a continuación. ¿Buscas lo que está por llegar? Salta a',
-  'workbench.docs.body.paradigm.roadmapLink': 'Qué construimos a continuación',
+  'workbench.docs.body.paradigm.noteCalloutMiddle':
+    'viene a continuación. ¿Quieres ver toda la plataforma en una vista? Salta a',
+  'workbench.docs.body.paradigm.roadmapLink': 'Cada superficie, entregada',
   'workbench.docs.body.paradigm.noteCalloutSuffix': '.',
 
   // ── Open Headers: Comparison ────────────────────────────────────────
@@ -756,7 +757,7 @@ export const workbenchDocs = {
     'reglas vivan en sus servidores. Ese modelo asume que te parece bien que esos datos salgan de tu ' +
     'máquina — y mantener una cuenta para acceder a tu propio trabajo. Open Headers no hace ninguna de las ' +
     'dos suposiciones. Todo queda en local; la colaboración en equipo llega a través de almacenamiento ' +
-    'controlado por el usuario (Git, en la hoja de ruta), no a través de la base de datos de un proveedor.',
+    'controlado por el usuario (Git), no a través de la base de datos de un proveedor.',
   'workbench.docs.body.comparison.vsProxiesHeading': 'vs proxies de escritorio',
   'workbench.docs.body.comparison.vsProxies1Prefix':
     'Los proxies enrutan todo tu tráfico por un proceso separado. Son potentes pero pesados: instalar un ' +
@@ -794,8 +795,8 @@ export const workbenchDocs = {
 
   // ── Open Headers: Roadmap ───────────────────────────────────────────
   'workbench.docs.body.roadmap.intro1Prefix':
-    'Open Headers es solo local hoy, una extensión en un dispositivo. El trabajo de abajo extiende esa ' +
-    'forma sin romperla. La sincronización entre usuarios llega por medios',
+    'Open Headers empezó siendo solo local — una extensión en un dispositivo. Cada hito de abajo extiende ' +
+    'esa forma sin romperla, y todos están entregados. La sincronización entre usuarios llega por medios',
   'workbench.docs.body.roadmap.userControlledStrong': 'controlados por el usuario',
   'workbench.docs.body.roadmap.intro1Suffix':
     '— repositorios Git y despliegues autoalojados — nunca una nube alojada por el proveedor.',
@@ -849,16 +850,17 @@ export const workbenchDocs = {
     'navegadores corporativos bloqueados, dispositivos de quiosco o cualquier entorno donde instalar una ' +
     'extensión no es una opción — y para usuarios que quieren un despliegue de Open Headers con su marca ' +
     'bajo su propio dominio.',
-  'workbench.docs.body.roadmap.importersHeading': 'Más importadores',
+  'workbench.docs.body.roadmap.importersHeading': 'Importadores',
   'workbench.docs.body.roadmap.importers1':
-    'Más allá de los importadores cURL / HAR / Postman existentes: colecciones de Insomnia, ' +
-    'especificaciones OpenAPI e importaciones de solicitudes HAR completas (no solo los encabezados). La ' +
+    'Junto a los importadores cURL / HAR / Postman: colecciones de Insomnia, ' +
+    'especificaciones OpenAPI e importaciones de solicitudes HAR completas (no solo los encabezados) — ' +
+    'todos disponibles hoy. La ' +
     'paridad de importación es la forma en que Open Headers se gana la adopción de gente ya invertida en ' +
     'otra herramienta — cruza tu colección en un paso y sigue trabajando.',
   'workbench.docs.body.roadmap.cloudCalloutTitle': '¿Y un back-end alojado en la nube?',
   'workbench.docs.body.roadmap.cloudCallout1':
     'No está en el menú por ahora — si quieres un back-end alojado en la nube, puedes autoalojarlo en tu ' +
-    'propia VM (mira arriba). El foco ahora mismo es terminar la hoja de ruta, no operar y mantener ' +
+    'propia VM (mira arriba). El foco ahora mismo es el producto, no operar y mantener ' +
     'infraestructura en la nube gratuita para usuarios finales. Encantados de ayudar si estás montando un ' +
     'despliegue autoalojado y te encuentras con problemas; simplemente no estamos en posición de ' +
     'proporcionar el alojamiento en sí.',

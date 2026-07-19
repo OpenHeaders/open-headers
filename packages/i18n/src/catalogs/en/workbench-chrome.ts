@@ -414,6 +414,10 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': 'New terminal tab',
   'workbench.terminal.closeTab': 'Close tab',
   'workbench.terminal.openTui': 'Open TUI mode',
+  'workbench.terminal.closeConfirm.title': 'Process is running',
+  'workbench.terminal.closeConfirm.bodyPrefix': 'A process is still running in ',
+  'workbench.terminal.closeConfirm.bodySuffix': '. Terminate it?',
+  'workbench.terminal.closeConfirm.ok': 'Terminate',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',
@@ -473,6 +477,7 @@ export const workbenchChrome = {
   'workbench.shortcuts.action.toggleRightSidebar': 'Toggle right sidebar',
   'workbench.shortcuts.action.toggleBottomPanel': 'Toggle bottom panel',
   'workbench.shortcuts.action.toggleActivityFeed': 'Toggle activity feed',
+  'workbench.shortcuts.action.terminalNewTab': 'New terminal tab',
   'workbench.shortcuts.action.closeTab': 'Close tab',
   'workbench.shortcuts.action.newTab': 'New tab',
   'workbench.shortcuts.action.prevTab': 'Previous tab',
@@ -519,9 +524,9 @@ export const workbenchChrome = {
   'workbench.docs.nav.comparison.title': 'How we compare',
   'workbench.docs.nav.comparison.summary':
     'How Open Headers lands against cloud platforms, desktop proxies, and header-only extensions.',
-  'workbench.docs.nav.roadmap.title': "What we're building next",
+  'workbench.docs.nav.roadmap.title': 'Every surface, shipped',
   'workbench.docs.nav.roadmap.summary':
-    'Milestones in sequence — Git workspaces, desktop app, daemon, CLI, web app, more importers.',
+    'The shipped milestones — Git workspaces, desktop app, MCP server, daemon, CLI, web app, importers.',
   'workbench.docs.nav.conditions.title': 'Conditions',
   'workbench.docs.nav.conditions.summary':
     'AND-matching filters that gate every rule — domains, URL patterns, methods, headers.',
