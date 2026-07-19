@@ -36,6 +36,7 @@ import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
 import { workbench } from './workbench';
+import { workbenchChrome } from './workbench-chrome';
 
 export const de = {
   ...desktop,
@@ -67,4 +68,5 @@ export const de = {
   ...tui,
   ...web,
   ...workbench,
+  ...workbenchChrome,
 } as const satisfies Catalog;
