@@ -11,6 +11,7 @@ import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
 import { panelConsole } from './panel-console';
+import { panelDocs } from './panel-docs';
 import { panelInspector } from './panel-inspector';
 import { panelInspectorCookies } from './panel-inspector-cookies';
 import { panelInspectorHeaders } from './panel-inspector-headers';
@@ -38,6 +39,7 @@ export const de = {
   ...extension,
   ...panel,
   ...panelConsole,
+  ...panelDocs,
   ...panelInspector,
   ...panelInspectorCookies,
   ...panelInspectorHeaders,
