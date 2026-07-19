@@ -427,6 +427,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                 type="warning"
                 showIcon
                 style={{ marginTop: 10 }}
+                data-testid="git-pane-issues-alert"
                 message={
                   <span style={{ fontSize: 12 }}>
                     {t('workbench.settings.gitPane.issuesTitle', { count: binding.issues.length })}
@@ -577,7 +578,10 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{pullError}</div>
                 )}
                 {pushFailure !== null && pushFailure.reason === 'rejected' && (
-                  <div style={{ marginTop: 6, fontSize: 11.5, color: token.colorWarningText }}>
+                  <div
+                    style={{ marginTop: 6, fontSize: 11.5, color: token.colorWarningText }}
+                    data-testid="git-pane-push-rejected"
+                  >
                     {t('workbench.settings.gitPane.git.pushRejected')}
                   </div>
                 )}
@@ -790,7 +794,9 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   </Button>
                 </div>
                 {commitError !== null && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{commitError}</div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }} data-testid="git-pane-commit-error">
+                    {commitError}
+                  </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                   <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
@@ -824,7 +830,10 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   </span>
                 </div>
                 {gitStatus.bypassHooks && (
-                  <div style={{ marginTop: 4, fontSize: 11.5, color: token.colorWarningText }}>
+                  <div
+                    style={{ marginTop: 4, fontSize: 11.5, color: token.colorWarningText }}
+                    data-testid="git-pane-bypass-hooks-warning"
+                  >
                     {t('workbench.settings.gitPane.git.bypassHooksWarning')}
                   </div>
                 )}
@@ -849,7 +858,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                 okButtonProps={{ danger: true }}
                 onConfirm={() => void unbind()}
               >
-                <Button danger size="small">
+                <Button danger size="small" data-testid="git-pane-unbind-button">
                   {t('workbench.settings.gitPane.unbindButton')}
                 </Button>
               </Popconfirm>

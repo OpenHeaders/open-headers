@@ -253,6 +253,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
         role="status"
         style={{ cursor: hasEntries ? 'pointer' : 'default' }}
         aria-label={ariaLabel}
+        data-testid="status-pill"
       >
         <span className="rules-dot" style={{ background: color }} />
         {label ?? summary}
@@ -422,7 +423,10 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
             <Tag color={color} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0 }}>
               {t(SUBSYSTEM_LABELS[sub])}
             </Tag>
-            <Typography.Text style={{ fontSize: 11, flex: 1, color: token.colorText }}>
+            <Typography.Text
+              style={{ fontSize: 11, flex: 1, color: token.colorText }}
+              data-testid={`status-popover-message-${sub}`}
+            >
               {entry?.message ?? t('shared.chrome.status.noEvents')}
             </Typography.Text>
             {inlineAction}

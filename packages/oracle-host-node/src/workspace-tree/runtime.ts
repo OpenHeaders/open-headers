@@ -67,6 +67,7 @@ import { GitHeadWatcher } from './head-watcher';
 import { WorkspaceTreeMaterializer } from './materializer';
 import { mergeWorkspaceBranch } from './merge';
 import { pullWorkspaceTree } from './pull';
+import { readWorkspaceTreeFromDisk } from './reader';
 import { readTreeUnknownFields } from './sidecar';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from './sweep';
 import { type SwitchDirtyAction, switchWorkspaceBranch } from './switch';
@@ -526,6 +527,24 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     return result;
   };
 
+  /** Merge refusal issues into the feed, path-deduped — refused passes explain bytes that never reached the tree. */
+  const appendIssues = (binding: OpenBinding, issues: readonly TreeIssue[]): void => {
+    if (issues.length === 0) return;
+    const known = new Set(binding.issues.map((issue) => issue.path));
+    binding.issues = [...binding.issues, ...issues.filter((issue) => !known.has(issue.path))];
+  };
+
+  /**
+   * Re-derive the issue feed from the tree on disk after a successful
+   * integrate pass. Quarantined foreign bytes live in the worktree, so
+   * the honest local read re-reports them — and a foreign file that
+   * now parses clean drops its stale row on the very gesture that
+   * integrated the fix, instead of lingering until the next sweep.
+   */
+  const refreshIssuesFromDisk = async (binding: OpenBinding): Promise<void> => {
+    binding.issues = (await readWorkspaceTreeFromDisk(binding.record.rootDir)).issues;
+  };
+
   const scheduleMaterialize = (binding: OpenBinding): void => {
     if (binding.closed) return;
     if (binding.materializeTimer) clearTimeout(binding.materializeTimer);
@@ -764,11 +783,11 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       ...(pullWatermark !== undefined ? { lastSyncedRemoteSha: pullWatermark } : {}),
     });
     binding.lastFetchAt = Date.now();
-    if (result.issues.length > 0) {
-      const known = new Set(binding.issues.map((issue) => issue.path));
-      binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+    if (!result.ok) {
+      appendIssues(binding, result.issues);
+      return { ok: false, reason: result.reason, detail: result.detail };
     }
-    if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
+    await refreshIssuesFromDisk(binding);
     // §16 watermark: this remote head is now integrated — the next
     // fetch compares ancestry against it.
     await recordWatermark(binding, result.remoteSha);
@@ -846,11 +865,11 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       bypassHooks: binding.record.bypassHooks === true,
     });
     binding.lastFetchAt = Date.now();
-    if (result.issues.length > 0) {
-      const known = new Set(binding.issues.map((issue) => issue.path));
-      binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+    if (!result.ok) {
+      appendIssues(binding, result.issues);
+      return { ok: false, reason: result.reason, detail: result.detail };
     }
-    if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
+    await refreshIssuesFromDisk(binding);
     binding.intents = [];
     await recordWatermark(binding, result.remoteSha);
     logger.info(SCOPE, `force-push resolved (${choice}) for ${rootDir}: ${result.sha}`);
@@ -949,15 +968,11 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       bypassHooks: binding.record.bypassHooks === true,
     });
     if (!result.ok) {
-      if (result.issues.length > 0) {
-        const known = new Set(binding.issues.map((issue) => issue.path));
-        binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
-      }
+      appendIssues(binding, result.issues);
       return { ok: false, reason: result.reason, detail: result.detail };
     }
     if (result.upToDate) return { ok: true, upToDate: true };
-    const known = new Set(binding.issues.map((issue) => issue.path));
-    binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+    await refreshIssuesFromDisk(binding);
     binding.intents = [];
     logger.info(SCOPE, `merged ${ref} into ${rootDir}: ${result.sha} (${result.applied} batches)`);
     return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };

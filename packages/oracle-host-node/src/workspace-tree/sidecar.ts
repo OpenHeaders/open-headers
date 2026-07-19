@@ -3,7 +3,7 @@
  * (SYNC_ENGINE_DESIGN.md §23.8; GIT_PLAN.md §3.1 rung 3: disposable,
  * rebuildable, never committed).
  *
- * This slice owns three sidecar artifacts:
+ * This slice owns four sidecar artifacts:
  *   - `lock`               — the exclusive-bind lockfile (§3.5: one
  *                            working tree, one engine instance);
  *   - `unknown-fields.json` — per-document unknown-field rows captured
@@ -15,7 +15,11 @@
  *                            only ever removes paths it previously wrote
  *                            itself — a hand-added entity file is never
  *                            swept by a snapshot that doesn't know it yet
- *                            (the watcher slice ingests it instead).
+ *                            (the watcher slice ingests it instead);
+ *   - `quarantined-files.json` — the foreign bytes the integrate passes
+ *                            quarantined into the worktree (§13.3), so a
+ *                            later pass can tell its own machine write
+ *                            from a user hand edit at the same path.
  */
 
 import { createHash } from 'node:crypto';
@@ -26,6 +30,7 @@ import { OH_SIDECAR_DIR, type TreeUnknownFields } from '@openheaders/core/worksp
 const LOCK_FILE = 'lock';
 const UNKNOWN_FIELDS_FILE = 'unknown-fields.json';
 const MATERIALIZED_INDEX_FILE = 'materialized-index.json';
+const QUARANTINE_INDEX_FILE = 'quarantined-files.json';
 
 export function sidecarDir(rootDir: string): string {
   return path.join(rootDir, OH_SIDECAR_DIR);
@@ -161,4 +166,32 @@ export async function writeMaterializedIndex(rootDir: string, index: Materialize
   const sorted: MaterializedIndex = {};
   for (const key of Object.keys(index).sort()) sorted[key] = index[key];
   await writeJsonFileAtomic(path.join(sidecarDir(rootDir), MATERIALIZED_INDEX_FILE), sorted);
+}
+
+// ── Quarantine index (§13.3 machine-write provenance) ────────────────
+
+/**
+ * `path → sha256(content)` of the foreign bytes the last integrate
+ * passes wrote into the worktree as quarantine. Bytes that still match
+ * their record are the engine's own write — safe to re-adopt into the
+ * baseline once a later foreign head reads clean at that path. A user
+ * hand edit never matches and stays protected rung-2 input.
+ */
+export type QuarantineIndex = Record<string, string>;
+
+export async function readQuarantineIndex(rootDir: string): Promise<QuarantineIndex> {
+  const value = await readJsonFile<unknown>(path.join(sidecarDir(rootDir), QUARANTINE_INDEX_FILE));
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+  const index: QuarantineIndex = {};
+  for (const [key, hash] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof hash === 'string') index[key] = hash;
+  }
+  return index;
+}
+
+export async function writeQuarantineIndex(rootDir: string, index: QuarantineIndex): Promise<void> {
+  await ensureSidecarDir(rootDir);
+  const sorted: QuarantineIndex = {};
+  for (const key of Object.keys(index).sort()) sorted[key] = index[key];
+  await writeJsonFileAtomic(path.join(sidecarDir(rootDir), QUARANTINE_INDEX_FILE), sorted);
 }

@@ -301,6 +301,42 @@ describe('pullWorkspaceTree', () => {
     );
   });
 
+  it('a foreign fix heals the quarantine: bytes land on disk, issue clears, tree ends clean', async () => {
+    await peerEdit(RULE_FILE, () => 'schemaVersion: 5\nuid: [broken\n');
+    await peerCommitPush('Break the rule file');
+    const broken = await doPull([]);
+    expect(broken).toMatchObject({ ok: true, upToDate: false });
+
+    // The peer restores a valid document (with a fresh edit riding it).
+    await raw(peer, 'checkout', 'HEAD~1', '--', RULE_FILE);
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (fixed)'));
+    await peerCommitPush('Fix the rule file');
+
+    const applied: EmissionBatch[] = [];
+    const result = await doPull(applied, () => {
+      state.rules = [{ ...state.rules[0], name: 'Block probes (fixed)' } as Rule];
+    });
+    expect(result).toMatchObject({ ok: true, upToDate: false, issues: [] });
+    expect(applied.flatMap((entry) => entry.batch.mutations.map((m) => m.body))).toContainEqual(
+      expect.objectContaining({ kind: 'setField', type: 'rule', id: 'aaaaaaaa', path: 'name' }),
+    );
+
+    // The healed foreign truth supersedes the engine's own quarantine
+    // write — the fixed bytes reach the disk (without the quarantine
+    // record the rung-2 guard would protect the broken bytes forever).
+    const onDisk = await fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8');
+    expect(onDisk).toContain('name: Block probes (fixed)');
+    expect(onDisk).not.toContain('[broken');
+    expect(await countDirtyFiles(run, local)).toBe(0);
+
+    // Re-adopted into the baseline: later flushes treat the file as
+    // engine-owned again (no stale write-guard residue).
+    await materializer.flush();
+    await expect(fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).resolves.toContain(
+      'name: Block probes (fixed)',
+    );
+  });
+
   it('a rewritten remote head refuses the pull with force-push (§16 — the trichotomy resolves it)', async () => {
     // First sync: the peer's edit integrates and its sha becomes the
     // watermark the runtime would persist.

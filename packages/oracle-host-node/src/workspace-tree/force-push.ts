@@ -52,7 +52,7 @@ import {
   readCommitTreeFiles,
   resolveUpstream,
 } from '../git';
-import { writeForeignQuarantine } from './pull';
+import { releaseHealedQuarantine, writeForeignQuarantine } from './pull';
 
 export type ForcePushChoice = 'abandon' | 'rescue' | 'reapply';
 
@@ -189,6 +189,7 @@ export async function resolveForcePushWorkspaceTree(options: ResolveForcePushOpt
     await options.apply(batches);
   }
 
+  await releaseHealedQuarantine(rootDir, foreign.issues);
   await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, changed);
 
   await options.flush();

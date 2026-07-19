@@ -59,6 +59,14 @@ import {
   readCommitTreeFiles,
   resolveUpstream,
 } from '../git';
+import {
+  hashTreeContent,
+  type QuarantineIndex,
+  readMaterializedIndex,
+  readQuarantineIndex,
+  writeMaterializedIndex,
+  writeQuarantineIndex,
+} from './sidecar';
 
 /**
  * The dependency set shared by every pass that integrates a foreign
@@ -123,7 +131,9 @@ const dirOf = (filePath: string): string => {
  * gates a delete), but its foreign bytes still land in the working
  * tree OFF-baseline — the materializer's rung-2 guard leaves them
  * alone and every sweep keeps reporting the issue until the user
- * fixes or reverts. Shared by the pull pass and the §16 resolutions.
+ * fixes or reverts. Each write is recorded in the sidecar quarantine
+ * index so a later pass can tell this machine write from a genuine
+ * hand edit. Shared by the pull pass and the §16 resolutions.
  */
 export async function writeForeignQuarantine(
   rootDir: string,
@@ -133,6 +143,8 @@ export async function writeForeignQuarantine(
 ): Promise<void> {
   const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
   const byPath = new Map(foreignFiles.map((file) => [file.path, file.content] as const));
+  const recorded = await readQuarantineIndex(rootDir);
+  let recordChanged = false;
   for (const filePath of changedPaths) {
     if (!issueDirs.has(dirOf(filePath))) continue;
     const content = byPath.get(filePath);
@@ -140,7 +152,52 @@ export async function writeForeignQuarantine(
     const target = path.join(rootDir, ...filePath.split('/'));
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, content, 'utf-8');
+    recorded[filePath] = hashTreeContent(content);
+    recordChanged = true;
   }
+  if (recordChanged) await writeQuarantineIndex(rootDir, recorded);
+}
+
+/**
+ * The quarantine exit (§13.3's other half): when a later foreign head
+ * reads CLEAN at a previously-quarantined path and the disk bytes are
+ * still exactly the ones the engine quarantined (the recorded hash —
+ * i.e. no user hand edit happened), the newer foreign truth supersedes
+ * the engine's own stale write. Re-adopting those bytes into the
+ * materializer baseline lets the ordinary diff-write normalize them to
+ * the healed engine value on the very flush that follows — without
+ * this, a fix pushed by the peer could never land on disk (the rung-2
+ * guard would protect the engine's own quarantine write forever). A
+ * path the user has since edited keeps today's posture: the record is
+ * dropped, the bytes stay rung-2 input for the sweep.
+ */
+export async function releaseHealedQuarantine(rootDir: string, issues: readonly TreeIssue[]): Promise<void> {
+  const recorded = await readQuarantineIndex(rootDir);
+  const paths = Object.keys(recorded);
+  if (paths.length === 0) return;
+  const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
+  const baseline = await readMaterializedIndex(rootDir);
+  const kept: QuarantineIndex = {};
+  let adopted = false;
+  for (const filePath of paths) {
+    if (issueDirs.has(dirOf(filePath))) {
+      kept[filePath] = recorded[filePath];
+      continue;
+    }
+    const target = path.join(rootDir, ...filePath.split('/'));
+    let disk: string | null;
+    try {
+      disk = await fs.readFile(target, 'utf-8');
+    } catch {
+      disk = null;
+    }
+    if (disk !== null && hashTreeContent(disk) === recorded[filePath]) {
+      baseline[filePath] = recorded[filePath];
+      adopted = true;
+    }
+  }
+  await writeQuarantineIndex(rootDir, kept);
+  if (adopted) await writeMaterializedIndex(rootDir, baseline);
 }
 
 export type IntegrateForeignHeadResult =
@@ -209,6 +266,7 @@ export async function integrateForeignHead(
     await deps.apply(batches);
   }
 
+  await releaseHealedQuarantine(rootDir, foreign.issues);
   await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
 
   await deps.flush();
