@@ -10,6 +10,7 @@ import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
 import { panel } from './panel';
+import { panelInspector } from './panel-inspector';
 import { panelNetwork } from './panel-network';
 import { popup } from './popup';
 import { shared } from './shared';
@@ -31,6 +32,7 @@ export const de = {
   ...desktop,
   ...extension,
   ...panel,
+  ...panelInspector,
   ...panelNetwork,
   ...popup,
   ...shared,
