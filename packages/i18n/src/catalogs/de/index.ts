@@ -33,6 +33,7 @@ import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
+import { tui } from './tui';
 import { web } from './web';
 
 export const de = {
@@ -62,5 +63,6 @@ export const de = {
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
+  ...tui,
   ...web,
 } as const satisfies Catalog;
