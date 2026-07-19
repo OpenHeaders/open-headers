@@ -51,6 +51,10 @@
       "import": "./src/codec/yaml/index.ts",
       "default": "./dist/codec/yaml/index.js"
     },
+    "./workspace-tree": {
+      "import": "./src/workspace-tree/index.ts",
+      "default": "./dist/workspace-tree/index.js"
+    },
     "./workspace-intent": {
       "import": "./src/workspace-intent/index.ts",
       "default": "./dist/workspace-intent/index.js"
