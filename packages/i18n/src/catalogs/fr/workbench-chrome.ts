@@ -445,6 +445,10 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': 'Nouvel onglet de terminal',
   'workbench.terminal.closeTab': 'Fermer l’onglet',
   'workbench.terminal.openTui': 'Ouvrir le mode TUI',
+  'workbench.terminal.closeConfirm.title': 'Processus en cours d’exécution',
+  'workbench.terminal.closeConfirm.bodyPrefix': 'Un processus s’exécute encore dans ',
+  'workbench.terminal.closeConfirm.bodySuffix': '. L’interrompre ?',
+  'workbench.terminal.closeConfirm.ok': 'Interrompre',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",
@@ -504,6 +508,7 @@ export const workbenchChrome = {
   'workbench.shortcuts.action.toggleRightSidebar': 'Basculer la barre latérale droite',
   'workbench.shortcuts.action.toggleBottomPanel': 'Basculer le panneau inférieur',
   'workbench.shortcuts.action.toggleActivityFeed': "Basculer le flux d'activité",
+  'workbench.shortcuts.action.terminalNewTab': 'Nouvel onglet de terminal',
   'workbench.shortcuts.action.closeTab': "Fermer l'onglet",
   'workbench.shortcuts.action.newTab': 'Nouvel onglet',
   'workbench.shortcuts.action.prevTab': 'Onglet précédent',

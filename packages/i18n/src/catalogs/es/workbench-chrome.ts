@@ -448,6 +448,10 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': 'Nueva pestaña de terminal',
   'workbench.terminal.closeTab': 'Cerrar pestaña',
   'workbench.terminal.openTui': 'Abrir el modo TUI',
+  'workbench.terminal.closeConfirm.title': 'Proceso en ejecución',
+  'workbench.terminal.closeConfirm.bodyPrefix': 'Todavía se está ejecutando un proceso en ',
+  'workbench.terminal.closeConfirm.bodySuffix': '. ¿Terminarlo?',
+  'workbench.terminal.closeConfirm.ok': 'Terminar',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
@@ -507,6 +511,7 @@ export const workbenchChrome = {
   'workbench.shortcuts.action.toggleRightSidebar': 'Alternar la barra lateral derecha',
   'workbench.shortcuts.action.toggleBottomPanel': 'Alternar el panel inferior',
   'workbench.shortcuts.action.toggleActivityFeed': 'Alternar el flujo de actividad',
+  'workbench.shortcuts.action.terminalNewTab': 'Nueva pestaña de terminal',
   'workbench.shortcuts.action.closeTab': 'Cerrar la pestaña',
   'workbench.shortcuts.action.newTab': 'Nueva pestaña',
   'workbench.shortcuts.action.prevTab': 'Pestaña anterior',
