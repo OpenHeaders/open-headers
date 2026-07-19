@@ -230,6 +230,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.fontFamilyPreset.option.atkinson-hyperlegible.description':
     'Sans conçue pour la lisibilité en basse vision — des lettres distinctives réduisent les confusions de ' +
     'caractères. Embarquée — toujours disponible.',
+  'workbench.settings.def.appearance.fontFamilyPreset.option.jetbrains-mono.description':
+    "Interface monospace assortie à la police du terminal intégré — un look d'outil de développement dans " +
+    'tout le chrome. Embarquée — toujours disponible.',
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     "La police d'affichage façon pixels livrée avec l'application. Embarquée — toujours disponible. Un choix " +
     'fantaisie : lisible mais haute et large ; les marges du chrome paraîtront généreuses.',

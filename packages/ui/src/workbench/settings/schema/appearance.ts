@@ -32,8 +32,9 @@ import type { FontPreset } from '../types';
  *
  * Ant Design's component sizing is tuned against sans-serif metrics,
  * so the bundled additions are deliberately limited: Inter as the
- * cross-OS default, Atkinson Hyperlegible for accessibility, Press
- * Start 2P as a novelty pick that doubles as our wordmark font.
+ * cross-OS default, Atkinson Hyperlegible for accessibility, JetBrains
+ * Mono for a terminal-matched monospace chrome, Press Start 2P as a
+ * novelty pick that doubles as our wordmark font.
  */
 export const APPEARANCE_FONT_PRESETS: ReadonlyArray<FontPreset> = [
   {
@@ -57,6 +58,14 @@ export const APPEARANCE_FONT_PRESETS: ReadonlyArray<FontPreset> = [
     stack: "'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif",
     // Bundled in `popup.less` / `rules.less` / `panel.css` via the
     // `@fontsource/atkinson-hyperlegible` package — availability is guaranteed.
+  },
+  {
+    id: 'jetbrains-mono',
+    label: 'JetBrains Mono',
+    descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.option.jetbrains-mono.description',
+    stack: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    // Bundled in `popup.less` / `rules.less` / `panel.css` via the
+    // `@fontsource/jetbrains-mono` package — availability is guaranteed.
   },
   {
     id: 'press-start-2p',
@@ -239,7 +248,7 @@ registerSetting({
   labelKey: 'workbench.settings.def.appearance.fontFamilyPreset.label',
   descriptionKey: 'workbench.settings.def.appearance.fontFamilyPreset.description',
   category: 'appearance',
-  tags: ['font', 'typography', 'sans', 'inter', 'atkinson', 'accessibility'],
+  tags: ['font', 'typography', 'sans', 'inter', 'atkinson', 'jetbrains', 'monospace', 'accessibility'],
   scope: 'user',
   enumOptions: APPEARANCE_FONT_PRESETS.map((p) => ({
     value: p.id,

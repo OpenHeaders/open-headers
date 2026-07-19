@@ -139,6 +139,40 @@ interface RegistryState {
 
 let registry: RegistryState | null = null;
 
+/** Bundled terminal face (woff2 shipped via `rules.less` @fontsource
+ *  imports); the trailing stack is the OS fallback if the load fails. */
+const TERMINAL_FONT_FAMILY =
+  '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+
+/** JetBrains Mono is drawn for 13px UI rendering — the vendor's own
+ *  terminal default. */
+const TERMINAL_FONT_SIZE = 13;
+
+let fontReady: Promise<void> | null = null;
+
+/**
+ * Resolves once the bundled terminal font is loaded, regular and bold.
+ * xterm measures its cell grid when a terminal opens, so opening before
+ * the woff2 arrives measures the fallback font and misaligns every
+ * glyph until the next refit — the panel awaits this before attaching.
+ * Environments without the CSS Font Loading API resolve immediately.
+ */
+export function whenTerminalFontReady(): Promise<void> {
+  if (!fontReady) {
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    fontReady = fonts
+      ? Promise.all([
+          fonts.load(`${TERMINAL_FONT_SIZE}px "JetBrains Mono"`),
+          fonts.load(`bold ${TERMINAL_FONT_SIZE}px "JetBrains Mono"`),
+        ]).then(
+          () => undefined,
+          () => undefined,
+        )
+      : Promise.resolve();
+  }
+  return fontReady;
+}
+
 function notifyTabsChange(state: RegistryState): void {
   persistTabs(state);
   for (const listener of state.changeListeners) listener();
@@ -304,8 +338,8 @@ function buildTab(state: RegistryState, init: TabInit): TabState {
   const term = new Terminal({
     cursorBlink: true,
     scrollback: 5000,
-    fontSize: 12,
-    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+    fontSize: TERMINAL_FONT_SIZE,
+    fontFamily: TERMINAL_FONT_FAMILY,
     theme: state.theme,
   });
   const fit = new FitAddon();

@@ -18,7 +18,7 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { getWorkbenchTerminalTabs } from './terminal-instance';
+import { getWorkbenchTerminalTabs, whenTerminalFontReady } from './terminal-instance';
 import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
 import '@xterm/xterm/css/xterm.css';
 
@@ -75,35 +75,49 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   useEffect(() => {
     const container = containerRef.current;
     if (!active || !container) return;
-    if (active.term.element) {
-      container.appendChild(active.term.element);
-    } else {
-      active.term.open(container);
-    }
-    active.ensureRenderer();
-    void active.ensureSession();
-    setExited(active.isExited());
-    const unsubscribeExit = active.onExitChange(() => setExited(active.isExited()));
-    // Refit on the trailing edge of a resize burst: a sash drag fires
-    // per mouse move, and reflowing the grid live drags the text along
-    // with the divider. Holding the grid until the burst settles keeps
-    // the content still mid-drag with one clean refit at the end.
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const observer = new ResizeObserver(() => {
-      if (resizeTimer !== null) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        resizeTimer = null;
-        active.syncSize();
-      }, 120);
+    let cancelled = false;
+    let detach: (() => void) | null = null;
+    const attach = () => {
+      if (active.term.element) {
+        container.appendChild(active.term.element);
+      } else {
+        active.term.open(container);
+      }
+      active.ensureRenderer();
+      void active.ensureSession();
+      setExited(active.isExited());
+      const unsubscribeExit = active.onExitChange(() => setExited(active.isExited()));
+      // Refit on the trailing edge of a resize burst: a sash drag fires
+      // per mouse move, and reflowing the grid live drags the text along
+      // with the divider. Holding the grid until the burst settles keeps
+      // the content still mid-drag with one clean refit at the end.
+      let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+      const observer = new ResizeObserver(() => {
+        if (resizeTimer !== null) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          resizeTimer = null;
+          active.syncSize();
+        }, 120);
+      });
+      observer.observe(container);
+      active.syncSize();
+      active.term.focus();
+      detach = () => {
+        if (resizeTimer !== null) clearTimeout(resizeTimer);
+        observer.disconnect();
+        unsubscribeExit();
+        active.term.element?.remove();
+      };
+    };
+    // The bundled font must arrive before the first open — xterm
+    // measures its cell grid then, and a fallback-font measurement
+    // misaligns the glyphs until the next refit.
+    void whenTerminalFontReady().then(() => {
+      if (!cancelled) attach();
     });
-    observer.observe(container);
-    active.syncSize();
-    active.term.focus();
     return () => {
-      if (resizeTimer !== null) clearTimeout(resizeTimer);
-      observer.disconnect();
-      unsubscribeExit();
-      active.term.element?.remove();
+      cancelled = true;
+      detach?.();
     };
   }, [active]);
 

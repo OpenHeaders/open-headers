@@ -248,6 +248,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.appearance.fontFamilyPreset.option.atkinson-hyperlegible.description':
     'Sans diseñada para la legibilidad con baja visión — sus letras distintivas reducen las confusiones ' +
     'entre caracteres. Empaquetada — siempre disponible.',
+  'workbench.settings.def.appearance.fontFamilyPreset.option.jetbrains-mono.description':
+    'Interfaz monospace a juego con la fuente del terminal integrado — un aspecto de herramienta de ' +
+    'desarrollo en todo el chrome. Empaquetada — siempre disponible.',
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     'La fuente de estilo píxel que incluimos con la aplicación. Empaquetada — siempre disponible. Una ' +
     'elección lúdica: legible pero alta y ancha; los márgenes del chrome parecerán generosos.',

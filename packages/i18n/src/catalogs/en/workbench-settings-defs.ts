@@ -185,6 +185,8 @@ export const workbenchSettingsDefs = {
     'Operating-system default UI sans — San Francisco on macOS, Segoe UI on Windows, Roboto on Linux. Use this if you prefer the native look at the cost of cross-platform consistency.',
   'workbench.settings.def.appearance.fontFamilyPreset.option.atkinson-hyperlegible.description':
     'Sans designed for low-vision readability — distinctive letterforms reduce character confusion. Bundled — always available.',
+  'workbench.settings.def.appearance.fontFamilyPreset.option.jetbrains-mono.description':
+    'Monospace UI matching the built-in terminal font — a developer-tool look throughout the chrome. Bundled — always available.',
   'workbench.settings.def.appearance.fontFamilyPreset.option.press-start-2p.description':
     'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide; chrome paddings will look generous.',
   'workbench.settings.def.appearance.density.label': 'UI Density',
