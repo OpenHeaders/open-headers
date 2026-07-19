@@ -52,6 +52,7 @@ import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
+import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
 export const es = {
@@ -100,5 +101,6 @@ export const es = {
   ...workbenchSettings,
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
+  ...workbenchSettingsPanes,
   ...workbenchVariables,
 } as const satisfies Catalog;
