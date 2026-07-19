@@ -553,4 +553,25 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'The folder’s workspace.yaml could not be read: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'This workspace is already bound to a folder.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No active workspace to bind.',
+  'workbench.settings.gitPane.git.title': 'Git',
+  'workbench.settings.gitPane.git.missing.title': 'Git is not installed',
+  'workbench.settings.gitPane.git.missing.body':
+    'Install git to commit this folder’s history. Everything else keeps working without it.',
+  'workbench.settings.gitPane.git.belowFloor.body':
+    'The installed git ({version}) is too old for this feature. Update git to enable commits.',
+  'workbench.settings.gitPane.git.dirtyCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} uncommitted change',
+      other: '{count} uncommitted changes',
+    }),
+  'workbench.settings.gitPane.git.clean': 'Working tree clean',
+  'workbench.settings.gitPane.git.indexBusy': 'Auto-commit is paused while your own git index has staged changes.',
+  'workbench.settings.gitPane.git.messagePlaceholder': 'Commit message',
+  'workbench.settings.gitPane.git.commitButton': 'Commit',
+  'workbench.settings.gitPane.git.committed': 'Committed {sha}.',
+  'workbench.settings.gitPane.git.nothingToCommit': 'Nothing to commit — the tree matches the last commit.',
+  'workbench.settings.gitPane.git.commitFailed': 'Commit failed: {detail}',
+  'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
+  'workbench.settings.gitPane.git.cadenceOff': 'Off — commit manually',
+  'workbench.settings.gitPane.git.cadenceAuto': 'After quiet edits',
 } as const satisfies Catalog;

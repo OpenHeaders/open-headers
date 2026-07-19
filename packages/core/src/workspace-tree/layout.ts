@@ -30,6 +30,15 @@ export const OH_SIDECAR_DIR = '.oh';
 
 export const GITIGNORE_FILE = '.gitignore';
 
+export const GITATTRIBUTES_FILE = '.gitattributes';
+
+/**
+ * Authored at bind (GIT_PLAN.md §3.4): byte-determinism guard so
+ * `core.autocrlf` on Windows can never rewrite the canonical LF
+ * serialization on checkout/commit.
+ */
+export const WORKSPACE_GITATTRIBUTES_CONTENT = '*.yaml text eol=lf\n';
+
 /**
  * Authored at bind (GIT_PLAN.md §10 Phase 2). `.oh/` is the engine's
  * cache tier; `*.secret.yaml` keeps environment secrets and the vault

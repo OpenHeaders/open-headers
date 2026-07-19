@@ -633,4 +633,26 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'No se pudo leer el workspace.yaml de la carpeta: {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Este espacio de trabajo ya está vinculado a una carpeta.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
+  'workbench.settings.gitPane.git.title': 'Git',
+  'workbench.settings.gitPane.git.missing.title': 'Git no está instalado',
+  'workbench.settings.gitPane.git.missing.body':
+    'Instala git para confirmar el historial de esta carpeta. Todo lo demás sigue funcionando sin él.',
+  'workbench.settings.gitPane.git.belowFloor.body':
+    'La versión de git instalada ({version}) es demasiado antigua para esta función. Actualiza git para habilitar los commits.',
+  'workbench.settings.gitPane.git.dirtyCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} cambio sin confirmar',
+      other: '{count} cambios sin confirmar',
+    }),
+  'workbench.settings.gitPane.git.clean': 'Árbol de trabajo limpio',
+  'workbench.settings.gitPane.git.indexBusy':
+    'El auto-commit está en pausa mientras tu propio índice de git tenga cambios preparados.',
+  'workbench.settings.gitPane.git.messagePlaceholder': 'Mensaje del commit',
+  'workbench.settings.gitPane.git.commitButton': 'Commit',
+  'workbench.settings.gitPane.git.committed': 'Commit {sha} creado.',
+  'workbench.settings.gitPane.git.nothingToCommit': 'Nada que confirmar — el árbol coincide con el último commit.',
+  'workbench.settings.gitPane.git.commitFailed': 'El commit falló: {detail}',
+  'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
+  'workbench.settings.gitPane.git.cadenceOff': 'Desactivado — commit manual',
+  'workbench.settings.gitPane.git.cadenceAuto': 'Tras una pausa de edición',
 } as const satisfies Catalog;

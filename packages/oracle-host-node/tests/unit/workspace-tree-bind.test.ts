@@ -41,7 +41,7 @@ describe('bindWorkspaceTree', () => {
 
     const manifest = await fs.readFile(path.join(tmpDir, 'workspace.yaml'), 'utf-8');
     expect(manifest).toContain('uid: wsaaaaaa');
-    expect(manifest).toContain(`orgId: ${ORG_ID}`);
+    expect(manifest).not.toContain('orgId');
     const gitignore = await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
     expect(gitignore).toBe('.oh/\n*.secret.yaml\n');
 

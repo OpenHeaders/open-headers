@@ -202,6 +202,13 @@ export interface BackendOrgConflict {
 export interface WorkspaceTreeBindingRecord {
   workspaceId: string;
   rootDir: string;
+  /**
+   * Commit cadence for the git plane (GIT_PLAN.md §3.2 / §6.5):
+   * commit is an explicit act by default; `auto` opts into quiescence
+   * commits (paused while the user's own index is non-empty, §3.3).
+   * Absent = `off`.
+   */
+  commitCadence?: 'off' | 'auto';
 }
 
 export interface PersistedLocalFolder {

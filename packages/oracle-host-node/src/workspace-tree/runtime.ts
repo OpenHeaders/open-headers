@@ -21,6 +21,7 @@
  * oracle live even when no surface has the workspace open.
  */
 
+import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { OH, type WorkspaceTreeBindingRecord } from '@openheaders/core/storage';
 import type { MutatorContext } from '@openheaders/core/sync';
 import type { EmissionBatch } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
@@ -35,6 +36,20 @@ import {
   type WorkspaceServiceState,
 } from '@openheaders/oracle/sync/service';
 import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
+import {
+  type CommitIntent,
+  commitWorkspaceTree,
+  composeCommitMessage,
+  countDirtyFiles,
+  createGitExec,
+  ensureWorkspaceRepo,
+  type GitAvailability,
+  type GitRunner,
+  isWorkspaceRepo,
+  probeGitAvailability,
+  resolveCommitIdentity,
+  userIndexHasStagedChanges,
+} from '../git';
 import { type BindWorkspaceTreeResult, bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
 import { WorkspaceTreeMaterializer } from './materializer';
 import { readTreeUnknownFields } from './sidecar';
@@ -48,10 +63,42 @@ const TREE_SURFACE_ID = 'tree';
 
 const MATERIALIZE_DEBOUNCE_MS = 500;
 
+/**
+ * Auto-commit quiescence (§23.4): a commit fires only after the batch
+ * stream has been quiet this long — never per keystroke. Longer than
+ * the materialize debounce so the tree is always flushed first (the
+ * commit op re-flushes anyway; this just avoids wasted no-op passes).
+ */
+const COMMIT_QUIESCENCE_MS = 2_000;
+
+/** Intent ring cap — beyond this the semantic message is already a summary. */
+const MAX_PENDING_INTENTS = 1_000;
+
 export type BindWorkspaceTreeRpcResult =
   | { ok: true; initialized: boolean; sweep: SweepWorkspaceTreeResult | null }
   | { ok: false; reason: 'unknown-workspace' | 'already-bound' }
   | Exclude<BindWorkspaceTreeResult, { ok: true }>;
+
+export type CommitWorkspaceTreeRpcResult =
+  | { ok: true; committed: boolean; sha?: string }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'stage-failed' | 'commit-failed';
+      detail?: string;
+    };
+
+export interface WorkspaceTreeGitStatusRpcResult {
+  bound: boolean;
+  git: GitAvailability;
+  repo: boolean;
+  /** `git status --porcelain` entry count; null when unreadable. */
+  dirtyFiles: number | null;
+  /** True while the user's own staging area is non-empty (§3.3 pause). */
+  userIndexBusy: boolean;
+  /** Semantic draft from the intents recorded since the last commit. */
+  suggestedMessage: string;
+  cadence: 'off' | 'auto';
+}
 
 export interface WorkspaceTreeRuntime {
   /** Reopen persisted bindings; call once after the sync engine boots. */
@@ -62,6 +109,11 @@ export interface WorkspaceTreeRuntime {
   unbind(workspaceId: string): Promise<{ ok: boolean }>;
   probe(rootDir: string): ReturnType<typeof probeWorkspaceTree>;
   list(): WorkspaceTreeBindingRecord[];
+  /** Explicit Commit gesture (§9) — flush, then a temp-index `git commit`. */
+  commit(workspaceId: string, message?: string): Promise<CommitWorkspaceTreeRpcResult>;
+  /** Git slot feed for the card/pill — availability, dirty count, draft message. */
+  gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult>;
+  setCommitCadence(workspaceId: string, cadence: 'off' | 'auto'): Promise<{ ok: boolean }>;
   /** Latest sweep issues per bound workspace — the quarantine seam's surface. */
   issues(workspaceId: string): TreeIssue[];
   dispose(): Promise<void>;
@@ -72,9 +124,13 @@ interface OpenBinding {
   service: WorkspaceServiceState;
   materializer: WorkspaceTreeMaterializer;
   watcher: WorkspaceTreeWatcher;
-  /** §8 single actor — every sweep + materialize pass chains here. */
+  /** §8 single actor — every sweep + materialize + commit pass chains here. */
   chain: Promise<void>;
   materializeTimer: NodeJS.Timeout | null;
+  /** Auto-commit quiescence timer (cadence `auto` only). */
+  commitTimer: NodeJS.Timeout | null;
+  /** Batch intents since the last successful commit — the semantic-message feed. */
+  intents: CommitIntent[];
   issues: TreeIssue[];
   closed: boolean;
 }
@@ -82,12 +138,29 @@ interface OpenBinding {
 export interface WorkspaceTreeRuntimeOptions {
   /** Stable engine-instance identity for the `.oh/lock` file. */
   hostId: string;
+  /** Injectable git seam (§7) — tests and the fault suite mock here. */
+  gitRunner?: GitRunner;
 }
 
 export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions): WorkspaceTreeRuntime {
   const open = new Map<string, OpenBinding>();
   let records: WorkspaceTreeBindingRecord[] = [];
   let disposed = false;
+
+  const gitRun: GitRunner =
+    options.gitRunner ??
+    createGitExec({
+      audit: (row) => logger.info(SCOPE, `git ${row.args.join(' ')} → ${row.code} (${row.durationMs}ms)`),
+    });
+
+  // Availability is a property of the machine, probed once per process
+  // (missing git ⇒ the git plane disables itself loudly, §7 — bindings
+  // and the tree plane keep working untouched).
+  let gitAvailability: Promise<GitAvailability> | null = null;
+  const ensureGitAvailability = (cwd: string): Promise<GitAvailability> => {
+    gitAvailability ??= probeGitAvailability(gitRun, cwd);
+    return gitAvailability;
+  };
 
   const persistRecords = async (): Promise<void> => {
     await hostStorage.set(OH.workspaceTreeBindings, records);
@@ -210,6 +283,61 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     }, MATERIALIZE_DEBOUNCE_MS);
   };
 
+  /** The synthetic fallback for commits nothing in git config covers (§11.3). */
+  const syntheticIdentity = (): { name: string; email: null } => ({
+    name: getIdentitySnapshot()?.user.displayName ?? 'OpenHeaders',
+    email: null,
+  });
+
+  /**
+   * One commit pass — always on the binding's chain (§8 single actor).
+   * Flushes the materializer first so the commit sees the latest tree;
+   * drains the intent ring only when the commit lands.
+   */
+  const runCommit = async (binding: OpenBinding, messageOverride?: string): Promise<CommitWorkspaceTreeRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) {
+      const repo = await ensureWorkspaceRepo(gitRun, rootDir);
+      if (!repo.ok) return { ok: false, reason: 'not-a-repo', detail: repo.detail };
+    }
+    await binding.materializer.flush();
+    const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
+    const trimmed = messageOverride?.trim();
+    const message = trimmed !== undefined && trimmed.length > 0 ? trimmed : composeCommitMessage(binding.intents);
+    const result = await commitWorkspaceTree({ run: gitRun, rootDir, message, identityEnv: identity.env });
+    if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
+    binding.intents = [];
+    if (result.committed) {
+      logger.info(SCOPE, `committed ${binding.record.rootDir}: ${message}`);
+      return { ok: true, committed: true, sha: result.sha };
+    }
+    return { ok: true, committed: false };
+  };
+
+  /** Cadence `auto`: commit after quiescence, pausing while the user's index is non-empty (§3.3). */
+  const scheduleAutoCommit = (binding: OpenBinding): void => {
+    if (binding.closed || (binding.record.commitCadence ?? 'off') !== 'auto') return;
+    if (binding.commitTimer) clearTimeout(binding.commitTimer);
+    binding.commitTimer = setTimeout(() => {
+      binding.commitTimer = null;
+      enqueue(binding, async () => {
+        const availability = await ensureGitAvailability(binding.record.rootDir);
+        if (!availability.available) return;
+        if (
+          (await isWorkspaceRepo(gitRun, binding.record.rootDir)) &&
+          (await userIndexHasStagedChanges(gitRun, binding.record.rootDir))
+        ) {
+          logger.info(SCOPE, `auto-commit paused for ${binding.record.rootDir}: user index is non-empty`);
+          return;
+        }
+        const result = await runCommit(binding);
+        if (!result.ok) logger.warn(SCOPE, `auto-commit failed for ${binding.record.rootDir}: ${result.reason}`);
+      });
+    }, COMMIT_QUIESCENCE_MS);
+  };
+
   const openBinding = async (record: WorkspaceTreeBindingRecord): Promise<OpenBinding> => {
     const service = getOrCreateWorkspaceService(record.workspaceId);
     const materializer = new WorkspaceTreeMaterializer({
@@ -237,11 +365,25 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       watcher,
       chain: Promise.resolve(),
       materializeTimer: null,
+      commitTimer: null,
+      intents: [],
       issues: [],
       closed: false,
     };
     open.set(record.workspaceId, binding);
     watcher.start();
+    // Phase 3: a bound folder is a REPO. Adopt an existing `.git` or
+    // init a fresh one; missing git disables only the git plane (§7).
+    enqueue(binding, async () => {
+      const availability = await ensureGitAvailability(record.rootDir);
+      if (!availability.available) {
+        logger.warn(SCOPE, `git plane disabled for ${record.rootDir}: ${availability.reason}`);
+        return;
+      }
+      const repo = await ensureWorkspaceRepo(gitRun, record.rootDir);
+      if (!repo.ok) logger.warn(SCOPE, `repo init failed for ${record.rootDir}: ${repo.detail}`);
+      else if (repo.initialized) logger.info(SCOPE, `initialized repo at ${record.rootDir}`);
+    });
     return binding;
   };
 
@@ -251,6 +393,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     if (binding.materializeTimer) {
       clearTimeout(binding.materializeTimer);
       binding.materializeTimer = null;
+    }
+    if (binding.commitTimer) {
+      clearTimeout(binding.commitTimer);
+      binding.commitTimer = null;
     }
     binding.materializer.dispose();
     await binding.chain;
@@ -296,7 +442,13 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     onSyncEvent(event: OracleSyncBroadcastEvent): void {
       if (disposed) return;
       const binding = open.get(event.envelope.workspaceId);
-      if (binding) scheduleMaterialize(binding);
+      if (!binding) return;
+      scheduleMaterialize(binding);
+      const { body } = event.envelope;
+      if (binding.intents.length < MAX_PENDING_INTENTS) {
+        binding.intents.push({ kind: body.kind, entityType: body.type, entityId: body.id });
+      }
+      scheduleAutoCommit(binding);
     },
 
     async bind(workspaceId: string, rootDir: string): Promise<BindWorkspaceTreeRpcResult> {
@@ -343,6 +495,77 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     probe(rootDir: string): ReturnType<typeof probeWorkspaceTree> {
       return probeWorkspaceTree(rootDir);
+    },
+
+    async commit(workspaceId: string, message?: string): Promise<CommitWorkspaceTreeRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: CommitWorkspaceTreeRpcResult = {
+        ok: false,
+        reason: 'commit-failed',
+        detail: 'commit pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runCommit(binding, message);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) {
+        return {
+          bound: false,
+          git: { available: false, reason: 'missing' },
+          repo: false,
+          dirtyFiles: null,
+          userIndexBusy: false,
+          suggestedMessage: '',
+          cadence: 'off',
+        };
+      }
+      const { rootDir } = binding.record;
+      const cadence = binding.record.commitCadence ?? 'off';
+      const git = await ensureGitAvailability(rootDir);
+      if (!git.available) {
+        return {
+          bound: true,
+          git,
+          repo: false,
+          dirtyFiles: null,
+          userIndexBusy: false,
+          suggestedMessage: composeCommitMessage(binding.intents),
+          cadence,
+        };
+      }
+      const repo = await isWorkspaceRepo(gitRun, rootDir);
+      return {
+        bound: true,
+        git,
+        repo,
+        dirtyFiles: repo ? await countDirtyFiles(gitRun, rootDir) : null,
+        userIndexBusy: repo ? await userIndexHasStagedChanges(gitRun, rootDir) : false,
+        suggestedMessage: composeCommitMessage(binding.intents),
+        cadence,
+      };
+    },
+
+    async setCommitCadence(workspaceId: string, cadence: 'off' | 'auto'): Promise<{ ok: boolean }> {
+      const record = records.find((entry) => entry.workspaceId === workspaceId);
+      if (!record) return { ok: false };
+      const next: WorkspaceTreeBindingRecord = { ...record, commitCadence: cadence };
+      records = records.map((entry) => (entry.workspaceId === workspaceId ? next : entry));
+      await persistRecords();
+      const binding = open.get(workspaceId);
+      if (binding) {
+        binding.record = next;
+        if (cadence === 'off' && binding.commitTimer) {
+          clearTimeout(binding.commitTimer);
+          binding.commitTimer = null;
+        }
+      }
+      return { ok: true };
     },
 
     list(): WorkspaceTreeBindingRecord[] {

@@ -11,10 +11,8 @@
  * Each case tells the property tests how to build a fresh write, how
  * to serialize its manifest, how to parse it back (with fixed sibling
  * contents where the entity fans out), and how to make a known-field
- * edit. Workspace overrides `fresh`: `orgId` is schema-required but
- * whitelisted out of the field order, so a parseable fresh file must
- * carry it as an explicit unknown-field rider — exactly how the codec
- * transports it.
+ * edit. Workspace generates the committed manifest shape (no `orgId` —
+ * host-local tenancy never enters committed YAML, GIT_PLAN.md §5).
  */
 
 import {
@@ -48,13 +46,7 @@ import {
   serializeWorkspaceVariables,
 } from '../../../src/codec/yaml';
 import { CollectionSchema, FolderSchema } from '../../../src/schemas/collection';
-import {
-  freshDocument,
-  makeParsed,
-  mergePatch,
-  type ParsedDocument,
-  type WriteableDocument,
-} from '../../../src/schemas/document';
+import { freshDocument, type ParsedDocument, type WriteableDocument } from '../../../src/schemas/document';
 import { GrpcRequestSchema } from '../../../src/schemas/grpc-request';
 import { LiveVariableSchema, LiveWorkflowSchema } from '../../../src/schemas/live';
 import { RequestSchema } from '../../../src/schemas/request';
@@ -63,7 +55,7 @@ import { SpecSchema } from '../../../src/schemas/spec';
 import { TemplateSchema } from '../../../src/schemas/template';
 import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '../../../src/schemas/variable';
 import { WebSocketRequestSchema } from '../../../src/schemas/websocket-request';
-import { WorkspaceSchema } from '../../../src/schemas/workspace';
+import { WorkspaceManifestSchema } from '../../../src/schemas/workspace';
 import type { Collection, Folder } from '../../../src/types/collection';
 import type { GrpcRequest } from '../../../src/types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../../../src/types/live';
@@ -73,7 +65,7 @@ import type { Spec } from '../../../src/types/spec';
 import type { Template } from '../../../src/types/template';
 import type { Environment, Vault, WorkspaceVariables } from '../../../src/types/variable';
 import type { WebSocketRequest } from '../../../src/types/websocket-request';
-import type { Workspace } from '../../../src/types/workspace';
+import type { WorkspaceManifest } from '../../../src/types/workspace';
 import type { Rng } from '../../sync/harness/random';
 
 type GeneratedEntity = Record<string, unknown>;
@@ -110,11 +102,6 @@ function hex(rng: Rng, length: number): string {
   let out = '';
   for (let i = 0; i < length; i += 1) out += HEX[rng.int(HEX.length)];
   return out;
-}
-
-function uuidV7(rng: Rng): string {
-  const variant = rng.pick(['8', '9', 'a', 'b'] as const);
-  return `${hex(rng, 8)}-${hex(rng, 4)}-7${hex(rng, 3)}-${variant}${hex(rng, 3)}-${hex(rng, 12)}`;
 }
 
 function maybe<T>(rng: Rng, chance: number, make: () => T): T | undefined {
@@ -354,7 +341,7 @@ function editName(draft: GeneratedEntity): void {
 export const ENTITY_CASES: readonly EntityCase[] = [
   {
     name: 'workspace',
-    schema: WorkspaceSchema,
+    schema: WorkspaceManifestSchema,
     generate: (rng) => ({
       schemaVersion: 5,
       uid: uid(rng),
@@ -367,13 +354,9 @@ export const ENTITY_CASES: readonly EntityCase[] = [
         'defaultEnvironmentId',
         maybe(rng, 0.5, () => uid(rng)),
       ),
-      orgId: uuidV7(rng),
     }),
-    // orgId is whitelisted out of the field order — a parseable fresh
-    // file carries it as an unknown-field rider, the codec's transport
-    // for exactly this shape.
-    fresh: (value) => mergePatch(makeParsed<unknown>(value, [{ path: '/orgId', value: value.orgId }]), () => {}),
-    serialize: (write) => serializeWorkspace(write as WriteableDocument<Workspace>),
+    fresh: freshDocument,
+    serialize: (write) => serializeWorkspace(write as WriteableDocument<WorkspaceManifest>),
     parse: (yaml) => parseWorkspace(yaml),
     mutate: editName,
   },

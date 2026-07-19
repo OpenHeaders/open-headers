@@ -18,7 +18,7 @@ import type { Spec } from '../types/spec';
 import type { Template } from '../types/template';
 import type { Environment, Vault, WorkspaceVariables } from '../types/variable';
 import type { WebSocketRequest } from '../types/websocket-request';
-import type { Workspace } from '../types/workspace';
+import type { WorkspaceManifest } from '../types/workspace';
 
 /** One file of the materialized tree, path workspace-relative with `/` separators. */
 export interface TreeFile {
@@ -33,7 +33,12 @@ export interface TreeFile {
  * / UI-only slots (tab session, caches, examples) never materialize.
  */
 export interface WorkspaceTreeState {
-  workspace: Workspace;
+  /**
+   * The manifest shape — no `orgId` (host-local tenancy never enters
+   * committed YAML, GIT_PLAN.md §5). A full runtime {@link Workspace}
+   * is assignable; the planner simply never emits the org binding.
+   */
+  workspace: WorkspaceManifest;
   rules: Rule[];
   collections: Collection[];
   folders: Folder[];
@@ -70,8 +75,13 @@ export interface TreeIssue {
 }
 
 export interface TreeReadResult {
-  /** `workspace` is null when `workspace.yaml` is missing or invalid (reported in `issues`). */
-  state: Omit<WorkspaceTreeState, 'workspace'> & { workspace: Workspace | null };
+  /**
+   * `workspace` is null when `workspace.yaml` is missing or invalid
+   * (reported in `issues`). The parsed manifest carries no `orgId` —
+   * committed YAML never does (GIT_PLAN.md §5); the binding host
+   * injects its own tenancy when it consumes the read.
+   */
+  state: Omit<WorkspaceTreeState, 'workspace'> & { workspace: WorkspaceManifest | null };
   unknowns: TreeUnknownFields;
   issues: TreeIssue[];
 }

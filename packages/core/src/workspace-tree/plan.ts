@@ -28,13 +28,14 @@ import {
 } from '../codec/yaml';
 import type { UnknownField } from '../codec/yaml/unknown-fields';
 import { makeParsed, mergePatch, type WriteableDocument } from '../schemas/document';
-import type { Workspace } from '../types/workspace';
+import type { WorkspaceManifest } from '../types/workspace';
 import {
   COLLECTION_MANIFEST_FILE,
   environmentFilePath,
   environmentSecretFilePath,
   environmentSecretTemplateFilePath,
   FOLDER_MANIFEST_FILE,
+  GITATTRIBUTES_FILE,
   GITIGNORE_FILE,
   GRPC_REQUEST_MANIFEST_FILE,
   LIVE_VARIABLE_MANIFEST_FILE,
@@ -47,6 +48,7 @@ import {
   VAULT_FILE,
   WEBSOCKET_REQUEST_MANIFEST_FILE,
   WORKSPACE_DOC_KEY,
+  WORKSPACE_GITATTRIBUTES_CONTENT,
   WORKSPACE_GITIGNORE_CONTENT,
   WORKSPACE_MANIFEST_FILE,
   WORKSPACE_VARS_DOC_KEY,
@@ -63,27 +65,14 @@ function toWrite<T>(value: T, rows: readonly UnknownField[] | undefined): Writea
 }
 
 /**
- * `Workspace.orgId` is host-local tenancy context: whitelisted out of
- * `WORKSPACE_FIELD_ORDER`, it only ever reaches the file as a captured
- * unknown row (S2 decision). When the stored rows don't carry one —
- * a workspace that has never round-tripped through a tree — mint the
- * rider from the typed value so the emitted manifest stays parseable
- * (the schema requires `orgId` on read).
- */
-function workspaceRows(workspace: Workspace, rows: readonly UnknownField[] | undefined): readonly UnknownField[] {
-  const stored = rows ?? [];
-  if (stored.some((row) => row.path === '/orgId')) return stored;
-  return [...stored, { path: '/orgId', value: workspace.orgId }];
-}
-
-/**
  * Emit the `workspace.yaml` manifest for one workspace — the identity
  * file bind writes before any full materialize runs (§3.5). Same emit
  * path the planner uses, so bind-authored and materializer-authored
- * manifests are byte-identical.
+ * manifests are byte-identical. `orgId` never reaches the file — the
+ * codec drops it on both directions (GIT_PLAN.md §5, S5 decision).
  */
-export function serializeWorkspaceManifest(workspace: Workspace, rows?: readonly UnknownField[]): string {
-  return serializeWorkspace(toWrite(workspace, workspaceRows(workspace, rows)));
+export function serializeWorkspaceManifest(workspace: WorkspaceManifest, rows?: readonly UnknownField[]): string {
+  return serializeWorkspace(toWrite(workspace, rows));
 }
 
 /**
@@ -99,10 +88,8 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
   };
 
   add(GITIGNORE_FILE, WORKSPACE_GITIGNORE_CONTENT);
-  add(
-    WORKSPACE_MANIFEST_FILE,
-    serializeWorkspace(toWrite(state.workspace, workspaceRows(state.workspace, unknowns[WORKSPACE_DOC_KEY]))),
-  );
+  add(GITATTRIBUTES_FILE, WORKSPACE_GITATTRIBUTES_CONTENT);
+  add(WORKSPACE_MANIFEST_FILE, serializeWorkspace(toWrite(state.workspace, unknowns[WORKSPACE_DOC_KEY])));
 
   if (state.workspaceVariables !== null) {
     add(

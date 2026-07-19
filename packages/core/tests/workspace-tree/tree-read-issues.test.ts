@@ -7,13 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { readWorkspaceTree, type TreeFile } from '../../src/workspace-tree';
 
-const WORKSPACE_YAML = [
-  'schemaVersion: 5',
-  'uid: wwwwwwww',
-  'name: Probe',
-  'orgId: 019637a2-7b9a-7b9a-8b9a-1234567890ab',
-  '',
-].join('\n');
+const WORKSPACE_YAML = ['schemaVersion: 5', 'uid: wwwwwwww', 'name: Probe', ''].join('\n');
 
 const RULE_YAML = [
   'schemaVersion: 5',

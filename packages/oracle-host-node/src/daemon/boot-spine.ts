@@ -962,6 +962,37 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         })),
       };
     }
+    // Phase 3 git plane (GIT_PLAN.md §9/§10): the explicit Commit
+    // gesture, the git slot feed, and the cadence toggle. Same operator
+    // posture as bind above; the runtime serializes commit passes on
+    // the per-binding chain (§8 single actor).
+    if (type === 'oh.workspaceTree.commit') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      const commitMessage = typeof message.message === 'string' ? message.message : undefined;
+      return await workspaceTreeRuntime.commit(workspaceId, commitMessage);
+    }
+    if (type === 'oh.workspaceTree.gitStatus') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) {
+        return {
+          bound: false,
+          git: { available: false, reason: 'missing' },
+          repo: false,
+          dirtyFiles: null,
+          userIndexBusy: false,
+          suggestedMessage: '',
+          cadence: 'off',
+        };
+      }
+      return await workspaceTreeRuntime.gitStatus(workspaceId);
+    }
+    if (type === 'oh.workspaceTree.setCommitCadence') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const cadence = message.cadence === 'auto' ? 'auto' : 'off';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false };
+      return await workspaceTreeRuntime.setCommitCadence(workspaceId, cadence);
+    }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin
     // probe) — the shared table built above. The local caller is the
     // operator by construction; WS peers reach the SAME table through

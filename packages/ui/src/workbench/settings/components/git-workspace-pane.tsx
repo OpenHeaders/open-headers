@@ -1,10 +1,12 @@
 /**
  * GitWorkspacePane — right-pane renderer for the Git category (Node
  * hosts; desktop-gated at the category). The GIT_PLAN.md §9 settings
- * card, Phase 2 skeleton: bind the active workspace to an on-disk
- * folder (init when empty), surface the four typed bind refusals, list
- * the tree's quarantined documents, and unbind. Git plumbing itself
- * (remote, branch, commit cadence) arrives with Phase 3+.
+ * card: bind the active workspace to an on-disk folder (init when
+ * empty), surface the four typed bind refusals, list the tree's
+ * quarantined documents, and unbind — plus the Phase 3 git section:
+ * install-git degradation, porcelain dirty count, the explicit Commit
+ * gesture with its semantic message draft, and the auto-commit cadence
+ * toggle. Remote/branch surfaces arrive with Phases 4–6.
  *
  * Host surface: the `oh.workspaceTree.*` channels answered by the
  * daemon spine's workspace-tree runtime; the folder picker is the
@@ -13,7 +15,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { Alert, App as AntApp, Button, Input, Popconfirm, theme } from 'antd';
+import { Alert, App as AntApp, Button, Input, Popconfirm, Select, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -27,6 +29,16 @@ interface BindingRow {
   issues: Array<{ path: string; message: string }>;
 }
 
+interface GitStatusRow {
+  bound: boolean;
+  git: { available: true; version: string } | { available: false; reason: 'missing' | 'below-floor'; version?: string };
+  repo: boolean;
+  dirtyFiles: number | null;
+  userIndexBusy: boolean;
+  suggestedMessage: string;
+  cadence: 'off' | 'auto';
+}
+
 const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -36,6 +48,10 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const [draftPath, setDraftPath] = useState('');
   const [busy, setBusy] = useState(false);
   const [bindError, setBindError] = useState<string | null>(null);
+  const [gitStatus, setGitStatus] = useState<GitStatusRow | null>(null);
+  const [commitMessage, setCommitMessage] = useState('');
+  const [committing, setCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -51,6 +67,61 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   }, [refresh]);
 
   const binding = bindings.find((row) => row.workspaceId === workspaceId) ?? null;
+
+  const refreshGitStatus = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) {
+      setGitStatus(null);
+      return;
+    }
+    try {
+      setGitStatus(await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId }));
+    } catch {
+      setGitStatus(null);
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (binding !== null) void refreshGitStatus();
+    else setGitStatus(null);
+  }, [binding, refreshGitStatus]);
+
+  const commit = async (): Promise<void> => {
+    if (workspaceId === null) return;
+    setCommitting(true);
+    setCommitError(null);
+    try {
+      const trimmed = commitMessage.trim();
+      const result = await hostBridge.call('oh.workspaceTree.commit', {
+        workspaceId,
+        ...(trimmed !== '' ? { message: trimmed } : {}),
+      });
+      if (result.ok && result.committed) {
+        setCommitMessage('');
+        message.success(t('workbench.settings.gitPane.git.committed', { sha: (result.sha ?? '').slice(0, 7) }));
+      } else if (result.ok) {
+        message.info(t('workbench.settings.gitPane.git.nothingToCommit'));
+      } else {
+        setCommitError(
+          t('workbench.settings.gitPane.git.commitFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+      await refreshGitStatus();
+    } catch (err) {
+      setCommitError((err as Error).message);
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  const setCadence = async (cadence: 'off' | 'auto'): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      await hostBridge.call('oh.workspaceTree.setCommitCadence', { workspaceId, cadence });
+      await refreshGitStatus();
+    } catch (err) {
+      message.error((err as Error).message);
+    }
+  };
 
   const chooseFolder = async (): Promise<void> => {
     try {
@@ -157,6 +228,86 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   </ul>
                 }
               />
+            )}
+            {gitStatus !== null && !gitStatus.git.available && (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginTop: 10 }}
+                message={<span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.missing.title')}</span>}
+                description={
+                  <span style={{ fontSize: 11.5 }}>
+                    {gitStatus.git.reason === 'below-floor'
+                      ? t('workbench.settings.gitPane.git.belowFloor.body', { version: gitStatus.git.version ?? '' })
+                      : t('workbench.settings.gitPane.git.missing.body')}
+                  </span>
+                }
+              />
+            )}
+            {gitStatus !== null && gitStatus.git.available && gitStatus.repo && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, marginBottom: 4 }}>
+                  {t('workbench.settings.gitPane.git.title')}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: (gitStatus.dirtyFiles ?? 0) > 0 ? token.colorText : token.colorTextSecondary,
+                  }}
+                  data-testid="git-pane-dirty-count"
+                >
+                  {(gitStatus.dirtyFiles ?? 0) > 0
+                    ? t('workbench.settings.gitPane.git.dirtyCount', { count: gitStatus.dirtyFiles ?? 0 })
+                    : t('workbench.settings.gitPane.git.clean')}
+                </div>
+                {gitStatus.userIndexBusy && (
+                  <div style={{ marginTop: 4, fontSize: 11.5, color: token.colorTextSecondary }}>
+                    {t('workbench.settings.gitPane.git.indexBusy')}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <Input
+                    value={commitMessage}
+                    onChange={(e) => {
+                      setCommitMessage(e.target.value);
+                      setCommitError(null);
+                    }}
+                    placeholder={gitStatus.suggestedMessage || t('workbench.settings.gitPane.git.messagePlaceholder')}
+                    style={{ fontSize: 11.5 }}
+                    data-testid="git-pane-commit-message"
+                  />
+                  <Button
+                    type="primary"
+                    size="small"
+                    style={{ height: 'auto' }}
+                    loading={committing}
+                    disabled={(gitStatus.dirtyFiles ?? 0) === 0}
+                    onClick={() => void commit()}
+                    data-testid="git-pane-commit-button"
+                  >
+                    {t('workbench.settings.gitPane.git.commitButton')}
+                  </Button>
+                </div>
+                {commitError !== null && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{commitError}</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                  <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+                    {t('workbench.settings.gitPane.git.cadenceLabel')}
+                  </span>
+                  <Select
+                    size="small"
+                    value={gitStatus.cadence}
+                    onChange={(value) => void setCadence(value)}
+                    style={{ width: 220 }}
+                    options={[
+                      { value: 'off', label: t('workbench.settings.gitPane.git.cadenceOff') },
+                      { value: 'auto', label: t('workbench.settings.gitPane.git.cadenceAuto') },
+                    ]}
+                    data-testid="git-pane-cadence-select"
+                  />
+                </div>
+              </div>
             )}
             <div style={{ padding: '10px 0 2px' }}>
               <Popconfirm

@@ -37,6 +37,15 @@ export const WorkspaceSchema = v.object({
   orgId: UuidV7Schema,
 });
 
+/**
+ * Committed `workspace.yaml` shape — {@link WorkspaceSchema} minus the
+ * org binding. `orgId` is host-local tenancy context and never enters
+ * committed YAML (GIT_PLAN.md §5): each binding host injects its own
+ * Org when it consumes the manifest, so a clone never carries the
+ * origin host's tenancy.
+ */
+export const WorkspaceManifestSchema = v.omit(WorkspaceSchema, ['orgId']);
+
 // ── Extension-side workspace record ──────────────────────────────
 
 export const ExtensionWorkspaceKindSchema = v.picklist(['personal', 'team']);

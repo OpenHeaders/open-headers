@@ -632,4 +632,26 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.refusal.invalidManifest': 'Le workspace.yaml du dossier n’a pas pu être lu : {message}',
   'workbench.settings.gitPane.refusal.alreadyBound': 'Cet espace de travail est déjà lié à un dossier.',
   'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
+  'workbench.settings.gitPane.git.title': 'Git',
+  'workbench.settings.gitPane.git.missing.title': 'Git n’est pas installé',
+  'workbench.settings.gitPane.git.missing.body':
+    'Installez git pour valider l’historique de ce dossier. Tout le reste continue de fonctionner sans lui.',
+  'workbench.settings.gitPane.git.belowFloor.body':
+    'La version de git installée ({version}) est trop ancienne pour cette fonctionnalité. Mettez git à jour pour activer les commits.',
+  'workbench.settings.gitPane.git.dirtyCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} modification non commitée',
+      other: '{count} modifications non commitées',
+    }),
+  'workbench.settings.gitPane.git.clean': 'Arbre de travail propre',
+  'workbench.settings.gitPane.git.indexBusy':
+    'L’auto-commit est en pause tant que votre propre index git contient des changements indexés.',
+  'workbench.settings.gitPane.git.messagePlaceholder': 'Message de commit',
+  'workbench.settings.gitPane.git.commitButton': 'Commit',
+  'workbench.settings.gitPane.git.committed': 'Commit {sha} créé.',
+  'workbench.settings.gitPane.git.nothingToCommit': 'Rien à commiter — l’arbre correspond au dernier commit.',
+  'workbench.settings.gitPane.git.commitFailed': 'Échec du commit : {detail}',
+  'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
+  'workbench.settings.gitPane.git.cadenceOff': 'Désactivé — commit manuel',
+  'workbench.settings.gitPane.git.cadenceAuto': 'Après une pause d’édition',
 } as const satisfies Catalog;

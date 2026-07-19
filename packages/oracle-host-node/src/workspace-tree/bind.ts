@@ -10,8 +10,10 @@
  *   - exclusivity: the `.oh/lock` file — one tree, one engine
  *     instance; a second host on the same clone is refused with the
  *     holder's identity so the error can explain itself;
- *   - hygiene: `.gitignore` (`.oh/` + `*.secret.yaml`) is authored
- *     when absent so a later `git init` can never commit secrets.
+ *   - hygiene: `.gitignore` (`.oh/` + `*.secret.yaml`) and
+ *     `.gitattributes` (`*.yaml text eol=lf`, §3.4) are authored when
+ *     absent so a later `git init` can never commit secrets or let
+ *     autocrlf break byte-determinism.
  *
  * Unbind releases the lock and keeps everything else — the tree
  * remains a valid workspace folder (`.oh/` is disposable, §23.9).
@@ -22,8 +24,10 @@ import * as path from 'node:path';
 import { parseWorkspace } from '@openheaders/core/codec/yaml';
 import type { Workspace } from '@openheaders/core/types';
 import {
+  GITATTRIBUTES_FILE,
   GITIGNORE_FILE,
   serializeWorkspaceManifest,
+  WORKSPACE_GITATTRIBUTES_CONTENT,
   WORKSPACE_GITIGNORE_CONTENT,
   WORKSPACE_MANIFEST_FILE,
 } from '@openheaders/core/workspace-tree';
@@ -96,12 +100,15 @@ export async function bindWorkspaceTree(options: BindWorkspaceTreeOptions): Prom
     await fs.writeFile(path.join(rootDir, WORKSPACE_MANIFEST_FILE), serializeWorkspaceManifest(workspace), 'utf-8');
     initialized = true;
   }
-  const gitignorePath = path.join(rootDir, GITIGNORE_FILE);
-  try {
-    await fs.writeFile(gitignorePath, WORKSPACE_GITIGNORE_CONTENT, { encoding: 'utf-8', flag: 'wx' });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-  }
+  const authorWhenAbsent = async (fileName: string, content: string): Promise<void> => {
+    try {
+      await fs.writeFile(path.join(rootDir, fileName), content, { encoding: 'utf-8', flag: 'wx' });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+  };
+  await authorWhenAbsent(GITIGNORE_FILE, WORKSPACE_GITIGNORE_CONTENT);
+  await authorWhenAbsent(GITATTRIBUTES_FILE, WORKSPACE_GITATTRIBUTES_CONTENT);
 
   return { ok: true, initialized };
 }

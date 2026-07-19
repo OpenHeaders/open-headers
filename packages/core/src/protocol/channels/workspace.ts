@@ -306,6 +306,48 @@ export interface WorkspaceRpc {
     req: Record<string, never>;
     res: { path: string | null };
   };
+  /**
+   * Explicit Commit gesture (GIT_PLAN.md §9, Phase 3): flush the tree,
+   * then a REAL `git commit` via a temp index — hooks and signing run,
+   * the user's staging area is untouched (§3.3). `message` overrides
+   * the semantic draft; empty/absent uses the suggestion.
+   */
+  'oh.workspaceTree.commit': {
+    req: { workspaceId: string; message?: string };
+    res: WorkspaceTreeCommitWire;
+  };
+  /** Git slot feed for the card/pill — availability, dirty count, draft message, cadence. */
+  'oh.workspaceTree.gitStatus': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeGitStatusWire;
+  };
+  /** Commit cadence (§3.2): explicit by default; `auto` opts into quiescence commits. */
+  'oh.workspaceTree.setCommitCadence': {
+    req: { workspaceId: string; cadence: WorkspaceTreeCommitCadence };
+    res: { ok: boolean };
+  };
+}
+
+export type WorkspaceTreeCommitCadence = 'off' | 'auto';
+
+export type WorkspaceTreeCommitWire =
+  | { ok: true; committed: boolean; sha?: string }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'stage-failed' | 'commit-failed';
+      /** stderr/stdout of the failing git invocation — hook output lands here (§3.3). */
+      detail?: string;
+    };
+
+export interface WorkspaceTreeGitStatusWire {
+  bound: boolean;
+  git: { available: true; version: string } | { available: false; reason: 'missing' | 'below-floor'; version?: string };
+  repo: boolean;
+  /** `git status --porcelain` entry count — never an app ledger (§3.3); null when unreadable. */
+  dirtyFiles: number | null;
+  userIndexBusy: boolean;
+  suggestedMessage: string;
+  cadence: WorkspaceTreeCommitCadence;
 }
 
 /** One per-document read failure — the §13.3 quarantine seam's wire shape. */

@@ -10,7 +10,13 @@ export { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bi
 export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerOptions } from './materializer';
 export { WorkspaceTreeMaterializer } from './materializer';
 export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
-export type { BindWorkspaceTreeRpcResult, WorkspaceTreeRuntime, WorkspaceTreeRuntimeOptions } from './runtime';
+export type {
+  BindWorkspaceTreeRpcResult,
+  CommitWorkspaceTreeRpcResult,
+  WorkspaceTreeGitStatusRpcResult,
+  WorkspaceTreeRuntime,
+  WorkspaceTreeRuntimeOptions,
+} from './runtime';
 export { createWorkspaceTreeRuntime } from './runtime';
 export type { MaterializedIndex, TreeLockHolder, TreeLockResult } from './sidecar';
 export {

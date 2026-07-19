@@ -45,7 +45,6 @@ const WORKSPACE_WITH_UNKNOWN = `schemaVersion: 5
 uid: a1b2c3d4
 name: OpenHeaders Demo
 description: Sample workspace exercising the v5 codec.
-orgId: 01890000-0000-7000-8000-000000000000
 teamNotes: from-the-future
 `;
 
@@ -104,6 +103,20 @@ newField: still-here
 describe('yaml codec — preserve-unknown on identity write', () => {
   it('workspace.yaml retains unknown top-level key', () => {
     const parsed = parseWorkspace(WORKSPACE_WITH_UNKNOWN);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeWorkspace(write)).toBe(WORKSPACE_WITH_UNKNOWN);
+  });
+
+  it('workspace.yaml drops orgId without capturing an unknown row (GIT_PLAN.md §5)', () => {
+    const withOrgId = `schemaVersion: 5
+uid: a1b2c3d4
+name: OpenHeaders Demo
+description: Sample workspace exercising the v5 codec.
+orgId: 01890000-0000-7000-8000-000000000000
+teamNotes: from-the-future
+`;
+    const parsed = parseWorkspace(withOrgId);
+    expect('orgId' in (parsed.value as Record<string, unknown>)).toBe(false);
     const write = mergePatch(parsed, () => {});
     expect(serializeWorkspace(write)).toBe(WORKSPACE_WITH_UNKNOWN);
   });

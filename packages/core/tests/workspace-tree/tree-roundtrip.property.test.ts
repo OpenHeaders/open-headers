@@ -28,7 +28,7 @@ import type { Spec } from '../../src/types/spec';
 import type { Template } from '../../src/types/template';
 import type { Environment, Vault, WorkspaceVariables } from '../../src/types/variable';
 import type { WebSocketRequest } from '../../src/types/websocket-request';
-import type { Workspace } from '../../src/types/workspace';
+import type { WorkspaceManifest } from '../../src/types/workspace';
 import { toFolderName } from '../../src/utils/workspace';
 import {
   planWorkspaceTree,
@@ -72,7 +72,7 @@ function placed(rng: Rng, parentDir: string): (draft: Record<string, unknown>) =
 }
 
 function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnknownFields } {
-  const workspace = generateAs<Workspace>('workspace', rng, (draft) => {
+  const workspace = generateAs<WorkspaceManifest>('workspace', rng, (draft) => {
     draft.uid = uid8(rng);
   });
 

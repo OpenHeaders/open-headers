@@ -12,24 +12,34 @@
  * `rootPath` is runtime-only — populated after parse by whichever layer
  * knows the absolute workspace directory. The codec neither reads nor
  * writes it.
+ *
+ * `orgId` is host-local tenancy context and never manifest content
+ * (GIT_PLAN.md §5): serialize never emits it, and parse drops it
+ * without capturing an unknown row — a manifest that still carries one
+ * normalizes clean on the next write. The binding host injects its own
+ * Org when it consumes the parsed manifest.
  */
 
 import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
-import { WorkspaceSchema } from '../../schemas/workspace';
-import type { Workspace } from '../../types/workspace';
+import { WorkspaceManifestSchema } from '../../schemas/workspace';
+import type { WorkspaceManifest } from '../../types/workspace';
 import { emitCanonicalYaml } from './canonical-emit';
 import { WORKSPACE_FIELD_ORDER } from './ordering';
 import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
-export function parseWorkspace(yaml: string): ParsedDocument<Workspace> {
+const ORG_ID_POINTER = '/orgId';
+
+export function parseWorkspace(yaml: string): ParsedDocument<WorkspaceManifest> {
   const doc = YAML.parseDocument(yaml);
   const raw = doc.toJS() as Record<string, unknown>;
-  const value = v.parse(WorkspaceSchema, raw);
-  return makeParsed(value, extractUnknownFields(raw, WorkspaceSchema, WORKSPACE_FIELD_ORDER));
+  delete raw.orgId;
+  const value = v.parse(WorkspaceManifestSchema, raw);
+  return makeParsed(value, extractUnknownFields(raw, WorkspaceManifestSchema, WORKSPACE_FIELD_ORDER));
 }
 
-export function serializeWorkspace(write: WriteableDocument<Workspace>): string {
-  return emitCanonicalYaml(write.value, WorkspaceSchema, WORKSPACE_FIELD_ORDER, unknownFieldsOf(write));
+export function serializeWorkspace(write: WriteableDocument<WorkspaceManifest>): string {
+  const rows = unknownFieldsOf(write).filter((row) => row.path !== ORG_ID_POINTER);
+  return emitCanonicalYaml(write.value, WorkspaceManifestSchema, WORKSPACE_FIELD_ORDER, rows);
 }

@@ -81,13 +81,18 @@ describe('WorkspaceTreeMaterializer', () => {
     const materializer = makeMaterializer();
 
     const first = await materializer.flush();
-    expect(first.written.sort()).toEqual(['.gitignore', 'rules/block-probes-aaaaaaaa/rule.yaml', 'workspace.yaml']);
+    expect(first.written.sort()).toEqual([
+      '.gitattributes',
+      '.gitignore',
+      'rules/block-probes-aaaaaaaa/rule.yaml',
+      'workspace.yaml',
+    ]);
     expect(first.deleted).toEqual([]);
 
     const second = await materializer.flush();
     expect(second.written).toEqual([]);
     expect(second.deleted).toEqual([]);
-    expect(second.unchanged).toBe(3);
+    expect(second.unchanged).toBe(4);
   });
 
   it('deletes files it wrote when the entity disappears, pruning empty dirs', async () => {
@@ -139,7 +144,7 @@ describe('WorkspaceTreeMaterializer', () => {
     await new Promise((resolve) => setTimeout(resolve, 80));
     const result = await materializer.flush();
     expect(result.written).toEqual([]);
-    expect(result.unchanged).toBe(3);
+    expect(result.unchanged).toBe(4);
     materializer.dispose();
   });
 });

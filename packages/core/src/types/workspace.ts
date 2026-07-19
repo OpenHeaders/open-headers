@@ -23,7 +23,7 @@
  */
 
 import type * as v from 'valibot';
-import type { WorkspaceSchema } from '../schemas/workspace';
+import type { WorkspaceManifestSchema, WorkspaceSchema } from '../schemas/workspace';
 
 /**
  * Top-level sections that organize collections within a workspace.
@@ -32,3 +32,10 @@ import type { WorkspaceSchema } from '../schemas/workspace';
 export type WorkspaceSection = 'requests' | 'rules' | 'environments' | 'recordings' | 'proxy-rules';
 
 export type Workspace = v.InferOutput<typeof WorkspaceSchema>;
+
+/**
+ * The committed `workspace.yaml` shape — {@link Workspace} without the
+ * host-local `orgId` binding (GIT_PLAN.md §5: org context never enters
+ * committed YAML; the binding host supplies its own tenancy on read).
+ */
+export type WorkspaceManifest = v.InferOutput<typeof WorkspaceManifestSchema>;
