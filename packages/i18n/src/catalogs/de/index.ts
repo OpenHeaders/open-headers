@@ -35,6 +35,7 @@ import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
+import { workbench } from './workbench';
 
 export const de = {
   ...desktop,
@@ -65,4 +66,5 @@ export const de = {
   ...sharedWorkspace,
   ...tui,
   ...web,
+  ...workbench,
 } as const satisfies Catalog;
