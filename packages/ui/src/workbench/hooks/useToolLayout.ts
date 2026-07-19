@@ -27,7 +27,7 @@ import {
 import type { SidebarView } from '../components/sidebar/types';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
-import { TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
+import { availableToolWindowMap, availableToolWindows } from '../tool-windows';
 import type { ToolWindowId, WorkbenchTab } from '../types';
 import { readGlobalActiveWorkspaceId, readUrlWorkspaceId } from './readBootIdentity';
 
@@ -99,31 +99,38 @@ export interface WorkbenchViewState {
  * The shared normalizer fills in remaining `defaultSlot` registry
  * entries without activating them.
  */
-const WORKSPACE_FRESH_DOCK_LAYOUT: ToolLayoutState<ToolWindowId> = normalizeDockLayout(
-  {
-    docks: {
-      'left-top': { windows: ['http-rules'], active: 'http-rules' },
-      'left-bottom': { windows: ['api-requests', 'workflows'], active: 'api-requests' },
-      'right-top': {
-        windows: ['notifications', 'docs'],
-        active: 'docs',
+// Computed lazily (not module scope): the registry is capability-gated
+// per host, and hosts register capabilities during boot — after this
+// module's import evaluation.
+function makeWorkspaceFreshDockLayout(): ToolLayoutState<ToolWindowId> {
+  return normalizeDockLayout(
+    {
+      docks: {
+        'left-top': { windows: ['http-rules'], active: 'http-rules' },
+        'left-bottom': { windows: ['api-requests', 'workflows'], active: 'api-requests' },
+        'right-top': {
+          windows: ['notifications', 'docs'],
+          active: 'docs',
+        },
+        'right-bottom': {
+          windows: ['var-scope', 'variables'],
+          active: null,
+        },
+        'bottom-left': { windows: [], active: null },
+        'bottom-right': { windows: [], active: null },
       },
-      'right-bottom': {
-        windows: ['var-scope', 'variables'],
-        active: null,
-      },
-      'bottom-left': { windows: [], active: null },
-      'bottom-right': { windows: [], active: null },
     },
-  },
-  TOOL_WINDOWS,
-  TOOL_WINDOW_MAP,
-);
+    availableToolWindows(),
+    availableToolWindowMap(),
+  );
+}
 
-const WORKBENCH_FACTORY_DEFAULT: WorkbenchViewState = {
-  dockLayout: WORKSPACE_FRESH_DOCK_LAYOUT,
-  workspace: null,
-};
+function makeWorkbenchFactoryDefault(): WorkbenchViewState {
+  return {
+    dockLayout: makeWorkspaceFreshDockLayout(),
+    workspace: null,
+  };
+}
 
 const WORKBENCH_SCHEMA_VERSION = 3;
 
@@ -212,10 +219,10 @@ export function useWorkbenchEditingScopeViewState(): EditingScopeViewStateApi<Wo
   return useEditingScopeViewState<WorkbenchViewState>({
     surface: 'workbench',
     schemaVersion: WORKBENCH_SCHEMA_VERSION,
-    factoryDefault: WORKBENCH_FACTORY_DEFAULT,
+    factoryDefault: makeWorkbenchFactoryDefault(),
     normalize: (raw) => ({
       ...raw,
-      dockLayout: normalizeDockLayout(raw.dockLayout, TOOL_WINDOWS, TOOL_WINDOW_MAP),
+      dockLayout: normalizeDockLayout(raw.dockLayout, availableToolWindows(), availableToolWindowMap()),
     }),
     resolveSnapshot: workbenchResolveSnapshot,
   });
@@ -223,8 +230,8 @@ export function useWorkbenchEditingScopeViewState(): EditingScopeViewStateApi<Wo
 
 export function useToolLayout(perTab: EditingScopeViewStateApi<WorkbenchViewState>): ToolLayoutApi {
   return useDockLayout<ToolWindowId>({
-    windowDefs: TOOL_WINDOWS,
-    windowMap: TOOL_WINDOW_MAP,
+    windowDefs: availableToolWindows(),
+    windowMap: availableToolWindowMap(),
     focusStore,
     initial: perTab.initial.dockLayout,
     onPersist: (next) => perTab.onPersist((prev) => ({ ...prev, dockLayout: next })),

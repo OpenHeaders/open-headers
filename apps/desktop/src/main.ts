@@ -47,6 +47,7 @@ import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
 import { createMainWindow, showMainWindow } from './main/bootstrap/window-manager';
 import { installRpcHost } from './main/install-rpc-host';
+import { installTerminalHost } from './main/install-terminal-host';
 import { runMcpStdioBridge } from './mcp-stdio';
 
 const APP_DISPLAY_NAME = 'Open Headers';
@@ -115,6 +116,7 @@ function bootstrapDesktopApp(): void {
 
     createMainWindow();
     installTray();
+    installTerminalHost();
     drainPendingProtocolUrls();
 
     // macOS: dock click re-shows the existing (hidden) window.

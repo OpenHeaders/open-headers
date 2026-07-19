@@ -7,6 +7,7 @@
  * reusing all layout logic.
  */
 
+import type { CapabilityName } from '@openheaders/core/capabilities';
 import type { MessageKey } from '@openheaders/i18n';
 
 /** The six dock slots a tool window can live in. */
@@ -69,6 +70,15 @@ export type ToolWindowDef<TWindowId extends string = string> = {
    * dormant until the user explicitly opens them.
    */
   openByDefault?: boolean;
+  /**
+   * Host capability this window needs to function at all. Surfaces
+   * filter their registry through it at mount time (after boot-time
+   * `registerCapability` calls): on hosts where the capability is
+   * absent the window doesn't exist — no rail icon, no tab, and the
+   * normalizer drops it from persisted layouts. Omit for windows
+   * every host can render.
+   */
+  requiresCapability?: CapabilityName;
 } & (
   | {
       label: string;

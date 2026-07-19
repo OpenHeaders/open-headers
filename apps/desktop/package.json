@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "start": "electron .",
-    "postinstall": "electron-rebuild -f -o better-sqlite3 --build-from-source",
+    "postinstall": "electron-rebuild -f -o better-sqlite3,node-pty --build-from-source",
     "dev": "electron-vite dev",
     "build": "cross-env NODE_ENV=production electron-vite build",
     "build:dev": "cross-env NODE_ENV=development electron-vite build",
@@ -312,6 +312,7 @@
     "glob": "^13.0.6",
     "http-proxy": "^1.18.1",
     "node-abi": "^4.26.0",
+    "node-pty": "^1.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-window": "^1.8.11",

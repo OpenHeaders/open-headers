@@ -67,13 +67,19 @@ declare global {
         message(req: { portId: string; message: unknown }): void;
         close(req: { portId: string }): void;
         onHostMessage(handler: (envelope: { portId: string; message: unknown }) => void): () => void;
-        onHostDisconnect(
-          handler: (envelope: { portId: string; errorMessage?: string }) => void,
-        ): () => void;
+        onHostDisconnect(handler: (envelope: { portId: string; errorMessage?: string }) => void): () => void;
       };
       openExternal(url: string): Promise<{ ok: boolean; error?: string }>;
       protocol: {
         onUrl(handler: (url: string) => void): () => void;
+      };
+      terminal: {
+        spawn(req: { cols: number; rows: number }): Promise<{ ok: true; id: string } | { ok: false; error: string }>;
+        write(req: { id: string; data: string }): void;
+        resize(req: { id: string; cols: number; rows: number }): void;
+        kill(req: { id: string }): void;
+        onData(handler: (envelope: { id: string; data: string }) => void): () => void;
+        onExit(handler: (envelope: { id: string; exitCode: number }) => void): () => void;
       };
     };
   }

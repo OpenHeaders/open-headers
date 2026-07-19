@@ -334,6 +334,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
   'workbench.toolWindows.deepNetworkInspection': 'Deep Network Inspection',
+  'workbench.toolWindows.terminal': 'Terminal',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
   //    reference chips compose raw in JSX between the keyed prefix/
@@ -406,6 +407,11 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.activity.summary':
     'Workspace-wide feed of inbound changes from peers, with classifier highlights for sensitive-field ' +
     'rotations, permission-scope expansions, and local-edit supersedes.',
+  'workbench.terminal.sessionEnded': 'Session ended',
+  'workbench.terminal.restart': 'Restart shell',
+  'workbench.toolWindows.info.terminal.summary':
+    'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
+    'terminal runs here, including the oh CLI against the local app.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

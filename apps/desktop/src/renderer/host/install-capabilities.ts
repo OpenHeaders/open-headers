@@ -11,7 +11,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { registerCapability } from '@openheaders/core/capabilities';
+import { registerCapability, type TerminalSession, type TerminalSpawnOptions } from '@openheaders/core/capabilities';
 import whatsNewNotes from '../../../whats-new.md?raw';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
@@ -51,6 +51,38 @@ registerCapability('getWhatsNew', () => {
   const trimmed = whatsNewNotes.replace(/<!--[\s\S]*?-->/, '').trim();
   return trimmed.length > 0 ? trimmed : null;
 });
+
+// Real pty sessions for the workbench Terminal tool window — the
+// desktop is a pty host (node-pty in the main process); browser
+// surfaces never register this, which drops the Terminal window from
+// their dock registry. The preload wire is a single global data/exit
+// stream; this adapter narrows it to per-session handles.
+async function spawnTerminalSession(options: TerminalSpawnOptions): Promise<TerminalSession> {
+  const result = await window.oh.terminal.spawn({ cols: options.cols, rows: options.rows });
+  if (!result.ok) throw new Error(result.error);
+  const id = result.id;
+  let disposed = false;
+  return {
+    id,
+    write: (data) => window.oh.terminal.write({ id, data }),
+    resize: (cols, rows) => window.oh.terminal.resize({ id, cols, rows }),
+    onData: (listener) =>
+      window.oh.terminal.onData((envelope) => {
+        if (envelope.id === id) listener(envelope.data);
+      }),
+    onExit: (listener) =>
+      window.oh.terminal.onExit((envelope) => {
+        if (envelope.id === id) listener(envelope.exitCode);
+      }),
+    dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      window.oh.terminal.kill({ id });
+    },
+  };
+}
+
+registerCapability('terminal', () => ({ spawn: spawnTerminalSession }));
 
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

@@ -19,6 +19,7 @@
 import type { LiveWorkflow } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import type React from 'react';
+import { lazy, Suspense } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
@@ -28,6 +29,11 @@ import DocsPanel from '../panels/DocsPanel';
 import { NotificationsPanel } from '@openheaders/ui/shared/notifications';
 import VariablesPanel from '../panels/variables-panel';
 import Sidebar from '../sidebar/Sidebar';
+
+// Lazy: xterm only loads when a terminal actually renders — the window
+// exists solely on hosts with the `terminal` capability (registry
+// `requiresCapability` gate), so other hosts never fetch the chunk.
+const TerminalPanel = lazy(() => import('../panels/terminal/TerminalPanel'));
 import type { SidebarView } from '../sidebar/types';
 import { buildEntityExportScope, buildSelectionExportScope } from '../workspace-export/build-export-scope';
 import type { ImportExportModalsHandle } from '../workspace-export/ImportExportModals';
@@ -275,6 +281,12 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
       );
     case 'deep-network-inspection':
       return <DeepNetworkInspectionPanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />;
+    case 'terminal':
+      return (
+        <Suspense fallback={null}>
+          <TerminalPanel info={getToolWindowInfo('terminal', t)} onHide={() => tl.closeDock(slot)} />
+        </Suspense>
+      );
     default:
       return null;
   }

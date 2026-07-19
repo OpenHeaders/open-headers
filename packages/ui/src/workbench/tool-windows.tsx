@@ -10,11 +10,13 @@
 
 import {
   BookOutlined,
+  CodeOutlined,
   DashboardOutlined,
   FundViewOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
+import { hasCapability } from '@openheaders/core/capabilities';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
@@ -124,6 +126,20 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-right',
     openByDefault: false,
   },
+  // Integrated terminal — a real pty running the user's shell,
+  // supplied by the host through the `terminal` capability. Only pty
+  // hosts (the desktop renderer) register it; everywhere else the
+  // window is filtered out of the registry entirely. Dormant until
+  // opened, like the other bottom-dock panels.
+  {
+    id: 'terminal',
+    labelKey: 'workbench.toolWindows.terminal',
+    icon: <CodeOutlined />,
+    core: false,
+    defaultSlot: 'bottom-left',
+    openByDefault: false,
+    requiresCapability: 'terminal',
+  },
 ];
 
 export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS.reduce(
@@ -133,3 +149,25 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
   },
   {} as Record<ToolWindowId, ToolWindowDef>,
 );
+
+/**
+ * The registry as seen by THIS host — capability-gated windows drop
+ * out when their capability isn't registered. Must be read at mount
+ * time, not module scope: hosts install capabilities during boot,
+ * after module graphs evaluate.
+ */
+export function availableToolWindows(): readonly ToolWindowDef[] {
+  return TOOL_WINDOWS.filter((def) => !def.requiresCapability || hasCapability(def.requiresCapability));
+}
+
+/** Lookup map over {@link availableToolWindows} — absent ids read as
+ *  `undefined`, which is how the layout normalizer drops them. */
+export function availableToolWindowMap(): Record<ToolWindowId, ToolWindowDef> {
+  return availableToolWindows().reduce(
+    (acc, def) => {
+      acc[def.id] = def;
+      return acc;
+    },
+    {} as Record<ToolWindowId, ToolWindowDef>,
+  );
+}

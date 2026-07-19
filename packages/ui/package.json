@@ -217,6 +217,8 @@
     "@openheaders/core": "workspace:*",
     "@openheaders/i18n": "workspace:*",
     "@prettier/plugin-xml": "^3.4.2",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "allotment": "^1.20.5",
     "antd": "^6.3.5",
     "monaco-editor": "^0.55.1",

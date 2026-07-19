@@ -359,6 +359,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
   'workbench.toolWindows.deepNetworkInspection': 'Inspección profunda de red',
+  'workbench.toolWindows.terminal': 'Terminal',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
   //    reference chips compose raw in JSX between the keyed prefix/
@@ -440,6 +441,11 @@ export const workbenchChrome = {
     'Flujo de cambios entrantes de los pares a escala del espacio de trabajo, con realces del clasificador ' +
     'para rotaciones de campos sensibles, ampliaciones de ámbito de permisos y supersesiones de ediciones ' +
     'locales.',
+  'workbench.terminal.sessionEnded': 'Sesión finalizada',
+  'workbench.terminal.restart': 'Reiniciar el shell',
+  'workbench.toolWindows.info.terminal.summary':
+    'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
+    'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

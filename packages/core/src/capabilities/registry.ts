@@ -87,6 +87,43 @@ export interface AppUpdateInfo {
 }
 
 /**
+ * Options for {@link TerminalHostApi.spawn}. The host owns command
+ * resolution (the user's shell, login-mode args, home cwd, TERM env) —
+ * callers only describe the viewport so the pty is born at the right
+ * size instead of resizing on first paint.
+ */
+export interface TerminalSpawnOptions {
+  readonly cols: number;
+  readonly rows: number;
+}
+
+/**
+ * A live pty session. `write` carries user keystrokes verbatim;
+ * `onData` streams the pty's output bytes (UTF-8 decoded) in order.
+ * `onExit` fires once when the child exits — after it, every other
+ * call on the session is a no-op. `dispose` kills the child and
+ * releases the host-side session; unmounting UI must call it.
+ */
+export interface TerminalSession {
+  readonly id: string;
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  onData(listener: (data: string) => void): () => void;
+  onExit(listener: (exitCode: number) => void): () => void;
+  dispose(): void;
+}
+
+/**
+ * The pty surface behind the workbench Terminal tool window. A session
+ * is a REAL pty running the user's shell — the embedded program can
+ * never tell it isn't in a stand-alone terminal, and nothing rides a
+ * side channel past it.
+ */
+export interface TerminalHostApi {
+  spawn(options: TerminalSpawnOptions): Promise<TerminalSession>;
+}
+
+/**
  * The network stack that executes this surface's API requests (the
  * workbench `executeRequest` channel). `'browser'` = the browser's
  * fetch inside an extension context; `'node'` = a Node fetch stack —
@@ -319,9 +356,19 @@ export interface Capabilities {
    * the What's New affordances in shared UI.
    */
   getWhatsNew?: () => string | null;
+
+  /**
+   * Access to real pty sessions for the workbench Terminal tool
+   * window. Registered only by hosts with an OS process plane under
+   * them (the desktop renderer, whose main process owns node-pty);
+   * browser surfaces have no pty and leave it absent, which drops the
+   * Terminal tool window from the dock registry entirely via
+   * `requiresCapability` filtering.
+   */
+  terminal?: () => TerminalHostApi;
 }
 
-type CapabilityName = keyof Capabilities;
+export type CapabilityName = keyof Capabilities;
 
 // Underlying store — typed as `unknown` so we can hold heterogeneous
 // signatures without per-name conditionals. The accessor below restores
