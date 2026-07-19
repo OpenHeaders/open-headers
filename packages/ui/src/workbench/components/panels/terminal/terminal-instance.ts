@@ -22,6 +22,7 @@
  * first attaches it, so restoring N tabs costs no shells up front.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability, type TerminalSession } from '@openheaders/core/capabilities';
 import { hostStorage, type PersistedTerminalTab, UI } from '@openheaders/core/storage';
 import { FitAddon } from '@xterm/addon-fit';
@@ -501,6 +502,19 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
     },
   };
   state.ready = hydrate(state);
+  // The tray-resident window hides on close instead of dying, so this
+  // module survives what the user experiences as quitting the app. The
+  // recently-closed ring is session-scoped — reset it at that boundary.
+  try {
+    hostBridge.subscribe('windowHiddenToTray', () => {
+      if (state.closed.length === 0) return;
+      state.closed = [];
+      notifyTabsChange(state);
+    });
+  } catch {
+    // No bridge adapter installed (unit envs) — module state dies with
+    // the process anyway.
+  }
   registry = state;
   return state.api;
 }

@@ -355,6 +355,37 @@ describe('terminal tab registry', () => {
     expect(tabs.list().map((info) => info.titleIndex)).toEqual([0, 1]);
   });
 
+  it('clears the recently-closed ring when the window hides to tray', async () => {
+    const bridge = await import('@openheaders/core/bridge');
+    const broadcastHandlers = new Map<string, (payload: unknown) => void>();
+    bridge.setHostBridge({
+      call: async () => {
+        throw new Error('unused');
+      },
+      broadcast: () => {},
+      subscribe: (type, handler) => {
+        broadcastHandlers.set(type, handler as (payload: unknown) => void);
+        return () => {};
+      },
+      presence: () => () => {},
+    });
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    const listener = vi.fn();
+    tabs.onTabsChange(listener);
+    const first = tabs.createTab();
+    tabs.createTab();
+    tabs.closeTab(first);
+    expect(tabs.recentlyClosed()).toEqual([{ titleIndex: 1 }]);
+    listener.mockClear();
+    broadcastHandlers.get('windowHiddenToTray')?.({});
+    expect(tabs.recentlyClosed()).toEqual([]);
+    expect(listener).toHaveBeenCalledTimes(1);
+    broadcastHandlers.get('windowHiddenToTray')?.({});
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it('applies the theme to existing and future tabs', () => {
     const tabs = getTabs();
     if (!tabs) throw new Error('registry unavailable');

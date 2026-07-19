@@ -197,6 +197,16 @@ export interface BridgeBroadcastContract {
   menuCommand: { command: 'newItem' | 'newTab' | 'import' | 'closeTab' };
 
   /**
+   * Host-shell lifecycle: the tray-resident primary window was hidden
+   * by its close affordance instead of being destroyed, so the renderer
+   * survives what the user experiences as quitting the app. Session-
+   * scoped UI state (the terminal's recently-closed tab ring) resets on
+   * this signal. Hosts whose surfaces die on close never send it — a
+   * real teardown clears renderer state anyway.
+   */
+  windowHiddenToTray: Record<string, never>;
+
+  /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per
    * classified entry the receiver-side installer produces (one or
    * more per inbound envelope, depending on highlight kinds). The

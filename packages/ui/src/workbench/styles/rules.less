@@ -882,6 +882,16 @@ body {
   // `@supports (-moz-appearance: none)` (Firefox-only) because if
   // Chromium saw `scrollbar-width` it would discard the webkit
   // pseudo styling.
+  //
+  // Inside a dock panel (the terminal strip) the dock body's
+  // `:where(.rules-dock-body) *` wildcard sets `scrollbar-width: thin`
+  // — which, being non-auto, disables the webkit pseudos and swaps in
+  // the ~6 px standards scrollbar. Explicit `auto`s here out-rank the
+  // zero-specificity wildcard (the cascade contract in dock-layout.css
+  // asks nested webkit opt-ins to self-guard exactly this way), so the
+  // strip renders the same 3 px hover thumb in and out of docks.
+  scrollbar-width: auto;
+  scrollbar-color: auto;
   @supports (-moz-appearance: none) {
     scrollbar-width: none;
   }

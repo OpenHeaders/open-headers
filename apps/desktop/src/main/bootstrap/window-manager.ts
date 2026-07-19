@@ -10,6 +10,7 @@ import { shouldLaunchHidden } from './launch-flags';
 import { attachRendererDiagnostics } from './process-diagnostics';
 import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
 import { isQuitting } from './quit-state';
+import { sendToRendererWindow } from './renderer-broadcast';
 import { attachWindowSecurity } from './security';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
 
@@ -105,6 +106,9 @@ export function createMainWindow(): BrowserWindow {
     if (isQuitting()) return;
     event.preventDefault();
     win.hide();
+    // The renderer outlives this hide — tell it the app "closed" so
+    // session-scoped state (recently-closed terminal tabs) resets.
+    sendToRendererWindow(win, 'windowHiddenToTray', {});
   });
 
   mainWindow = win;

@@ -21,6 +21,11 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import type { TerminalClosedTab, TerminalTabInfo } from './terminal-instance';
 
 const DROPDOWN_WIDTH = 300;
+/** Fixed row height (20px line + 5px vertical padding each side) so the
+ *  list caps below are exact row counts, not fractions. */
+const ITEM_HEIGHT = 30;
+const OPEN_TABS_MAX_ROWS = 5;
+const CLOSED_MAX_ROWS = 3;
 
 function closedTabLabel(t: Translate, closed: TerminalClosedTab): string {
   if (closed.title !== undefined) return closed.title;
@@ -62,6 +67,7 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
   const [closedExpanded, setClosedExpanded] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const inputRef = useRef<InputRef>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +83,12 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
     }
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [open, anchorRef]);
+
+  // The capped lists scroll; keyboard focus must follow into view.
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector('[data-kb-focused]')?.scrollIntoView({ block: 'nearest' });
+  }, [open, focusedIndex]);
 
   if (!open || !position) return null;
 
@@ -127,6 +139,9 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
     textAlign: 'center',
   };
 
+  // Fixed metrics so ITEM_HEIGHT is exact — the caps count whole rows.
+  const rowStyle: React.CSSProperties = { lineHeight: '20px', boxSizing: 'border-box', height: ITEM_HEIGHT };
+
   return createPortal(
     <>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismiss */}
@@ -143,6 +158,10 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
           width: DROPDOWN_WIDTH,
           background: token.colorBgElevated,
           border: `1px solid ${token.colorBorderSecondary}`,
+          // Portaled to document.body — outside the themed app subtree,
+          // so the text color must be set here or it inherits the
+          // body's light-scheme default (invisible in dark theme).
+          color: token.colorText,
         }}
       >
         <div style={{ padding: '8px 8px 4px' }}>
@@ -162,33 +181,41 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
             style={{ fontSize: 12 }}
           />
         </div>
-        <div style={{ maxHeight: 300, overflowY: 'auto', overscrollBehavior: 'none', padding: '0 4px 4px' }}>
-          {filteredTabs.map((tab, idx) => (
-            // biome-ignore lint/a11y/useKeyWithClickEvents: handled by the input's onKeyDown
-            // biome-ignore lint/a11y/noStaticElementInteractions: tab search item
-            <div
-              key={tab.id}
-              className="rules-tab-search-item"
-              data-testid="terminal-tab-search-item"
-              style={{
-                ...(idx === focusedIndex ? { background: token.colorFillSecondary } : null),
-                fontWeight: tab.id === activeId ? 500 : 400,
-              }}
-              onClick={() => {
-                onActivate(tab.id);
-                onClose();
-              }}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {tabLabel(tab)}
-              </span>
-            </div>
-          ))}
-          {filteredTabs.length === 0 && (
-            <div style={emptyStateStyle}>
-              {search ? t('workbench.tabbar.search.noMatch') : t('workbench.tabbar.search.noOpenTabs')}
-            </div>
-          )}
+        <div ref={listRef} style={{ padding: '0 4px 4px' }}>
+          <div
+            className="oh-persistent-scroll"
+            data-testid="terminal-tab-search-list"
+            style={{ maxHeight: ITEM_HEIGHT * OPEN_TABS_MAX_ROWS }}
+          >
+            {filteredTabs.map((tab, idx) => (
+              // biome-ignore lint/a11y/useKeyWithClickEvents: handled by the input's onKeyDown
+              // biome-ignore lint/a11y/noStaticElementInteractions: tab search item
+              <div
+                key={tab.id}
+                className="rules-tab-search-item"
+                data-testid="terminal-tab-search-item"
+                data-kb-focused={idx === focusedIndex || undefined}
+                style={{
+                  ...rowStyle,
+                  ...(idx === focusedIndex ? { background: token.colorFillSecondary } : null),
+                  fontWeight: tab.id === activeId ? 500 : 400,
+                }}
+                onClick={() => {
+                  onActivate(tab.id);
+                  onClose();
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {tabLabel(tab)}
+                </span>
+              </div>
+            ))}
+            {filteredTabs.length === 0 && (
+              <div style={emptyStateStyle}>
+                {search ? t('workbench.tabbar.search.noMatch') : t('workbench.tabbar.search.noOpenTabs')}
+              </div>
+            )}
+          </div>
 
           {recentlyClosed.length > 0 && (
             <>
@@ -207,29 +234,40 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
                     })
                   : t('workbench.tabbar.search.recentlyClosed', { count: recentlyClosed.length })}
               </div>
-              {closedExpanded &&
-                filteredClosed.map(({ closed, index }, idx) => (
-                  // biome-ignore lint/a11y/useKeyWithClickEvents: handled by the input's onKeyDown
-                  // biome-ignore lint/a11y/noStaticElementInteractions: tab search item
-                  <div
-                    key={`closed-${index}`}
-                    className="rules-tab-search-item"
-                    style={{
-                      ...(filteredTabs.length + idx === focusedIndex ? { background: token.colorFillSecondary } : null),
-                      opacity: 0.7,
-                    }}
-                    onClick={() => {
-                      onReopenClosed(index);
-                      onClose();
-                    }}
-                  >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {closedTabLabel(t, closed)}
-                    </span>
-                  </div>
-                ))}
-              {closedExpanded && filteredClosed.length === 0 && (
-                <div style={emptyStateStyle}>{t('workbench.tabbar.search.noClosedMatch')}</div>
+              {closedExpanded && (
+                <div
+                  className="oh-persistent-scroll"
+                  data-testid="terminal-tab-search-closed-list"
+                  style={{ maxHeight: ITEM_HEIGHT * CLOSED_MAX_ROWS }}
+                >
+                  {filteredClosed.map(({ closed, index }, idx) => (
+                    // biome-ignore lint/a11y/useKeyWithClickEvents: handled by the input's onKeyDown
+                    // biome-ignore lint/a11y/noStaticElementInteractions: tab search item
+                    <div
+                      key={`closed-${index}`}
+                      className="rules-tab-search-item"
+                      data-kb-focused={filteredTabs.length + idx === focusedIndex || undefined}
+                      style={{
+                        ...rowStyle,
+                        ...(filteredTabs.length + idx === focusedIndex
+                          ? { background: token.colorFillSecondary }
+                          : null),
+                        opacity: 0.7,
+                      }}
+                      onClick={() => {
+                        onReopenClosed(index);
+                        onClose();
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {closedTabLabel(t, closed)}
+                      </span>
+                    </div>
+                  ))}
+                  {filteredClosed.length === 0 && (
+                    <div style={emptyStateStyle}>{t('workbench.tabbar.search.noClosedMatch')}</div>
+                  )}
+                </div>
               )}
             </>
           )}
