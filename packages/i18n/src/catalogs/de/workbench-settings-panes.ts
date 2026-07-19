@@ -592,6 +592,105 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Installieren',
   'workbench.settings.licensePane.loadFromFile': 'Aus Datei laden…',
 
+  // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
+  'workbench.settings.proxyTrustPane.intro':
+    'Das Entschlüsseln von HTTPS-Traffic braucht eine auf dieser Maschine erzeugte Zertifizierungsstelle. ' +
+    'Nichts wird installiert, bis du hier das Vertrauen einrichtest, und alles hier Installierte lässt sich ' +
+    'hier auch entfernen.',
+  'workbench.settings.proxyTrustPane.refresh': 'Erneut prüfen',
+  'workbench.settings.proxyTrustPane.loadFailed': 'Der Vertrauenszustand ließ sich nicht lesen: {message}',
+  'workbench.settings.proxyTrustPane.ca.title': 'Zertifizierungsstelle',
+  'workbench.settings.proxyTrustPane.ca.none':
+    'Noch existiert keine Zertifizierungsstelle. Sie wird beim ersten Einrichten des Vertrauens auf dieser ' +
+    'Maschine erzeugt — sie wird nie mit der App ausgeliefert, und ihr privater Schlüssel verlässt diesen ' +
+    'Computer nie.',
+  'workbench.settings.proxyTrustPane.ca.subject': 'Subject',
+  'workbench.settings.proxyTrustPane.ca.fingerprint': 'SHA-256-Fingerabdruck',
+  'workbench.settings.proxyTrustPane.ca.validity': 'Gültig',
+  'workbench.settings.proxyTrustPane.ca.validityRange': '{from} bis {until}',
+  'workbench.settings.proxyTrustPane.ca.deleteButton': 'Zertifizierungsstelle löschen',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.title': 'Die Zertifizierungsstelle löschen?',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.body':
+    'Das Schlüsselpaar wird von dieser Maschine gelöscht. Ein erneutes Einrichten des Vertrauens erzeugt ' +
+    'eine frische Stelle.',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.ok': 'Löschen',
+  'workbench.settings.proxyTrustPane.ca.deleted': 'Zertifizierungsstelle gelöscht',
+  'workbench.settings.proxyTrustPane.ca.deleteFailed': 'Die Zertifizierungsstelle ließ sich nicht löschen: {message}',
+  'workbench.settings.proxyTrustPane.stores.title': 'Vertrauensspeicher',
+  'workbench.settings.proxyTrustPane.stores.loginKeychain': 'Anmelde-Schlüsselbund',
+  'workbench.settings.proxyTrustPane.stores.systemKeychain': 'System-Schlüsselbund',
+  'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Firefox-Profil',
+  'workbench.settings.proxyTrustPane.stores.state.trusted': 'Vertraut',
+  'workbench.settings.proxyTrustPane.stores.state.absent': 'Nicht installiert',
+  'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Anderes Zertifikat',
+  'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Nicht lesbar',
+  'workbench.settings.proxyTrustPane.stores.empty': 'Auf dieser Maschine sind keine Vertrauensspeicher sichtbar.',
+  'workbench.settings.proxyTrustPane.mismatchAlert.title': 'Ein Vertrauensspeicher enthält ein anderes Zertifikat',
+  'workbench.settings.proxyTrustPane.mismatchAlert.body':
+    'Ein Zertifikat mit dem Namen unserer Stelle ist installiert, aber sein Fingerabdruck ist nicht die ' +
+    'Stelle dieser Maschine. Diese App hat es nicht installiert und nutzt es nie — prüfe den Speicher, in ' +
+    'dem es liegt.',
+  'workbench.settings.proxyTrustPane.recordedCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} aufgezeichnete Installation',
+      other: '{count} aufgezeichnete Installationen',
+    }),
+  'workbench.settings.proxyTrustPane.installButton': 'Vertrauen einrichten…',
+  'workbench.settings.proxyTrustPane.wizard.title': 'Die Proxy-Zertifizierungsstelle installieren',
+  'workbench.settings.proxyTrustPane.wizard.explain.whatTitle': 'Was installiert wird',
+  'workbench.settings.proxyTrustPane.wizard.explain.whatBody':
+    'Ein auf dieser Maschine erzeugtes Stammzertifikat, einzigartig für diese Installation. Sein privater ' +
+    'Schlüssel ist im Ruhezustand verschlüsselt und wird nirgendwohin gesendet.',
+  'workbench.settings.proxyTrustPane.wizard.explain.enablesTitle': 'Was es ermöglicht',
+  'workbench.settings.proxyTrustPane.wizard.explain.enablesBody':
+    'Vertrauensspeicher, die es enthalten, akzeptieren die Zertifikate des Erfassungs-Proxys, sodass er ' +
+    'HTTPS entschlüsseln kann — nur für Hosts, die du ausdrücklich einbeziehst. Alles andere läuft ' +
+    'unberührt durch.',
+  'workbench.settings.proxyTrustPane.wizard.explain.removeTitle': 'Wie es entfernt wird',
+  'workbench.settings.proxyTrustPane.wizard.explain.removeBody':
+    'Jede Änderung wird aufgezeichnet, und ein Klick auf dieser Seite macht genau diese Änderungen ' +
+    'rückgängig. Das Deinstallieren der App tut dasselbe.',
+  'workbench.settings.proxyTrustPane.wizard.explain.next': 'Vertrauensspeicher wählen',
+  'workbench.settings.proxyTrustPane.wizard.choose.blurb':
+    'Wähle, wo installiert wird. Nichts ändert sich, bis du bestätigst.',
+  'workbench.settings.proxyTrustPane.wizard.choose.loginNote':
+    'Apps, die als du laufen — keine Admin-Genehmigung nötig.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
+    'Jeder Benutzer dieser Maschine — fragt nach Admin-Genehmigung.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
+    'Firefox führt einen eigenen Vertrauensspeicher — installiert in jedes gefundene Profil.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
+    'Auf dieser Maschine wurden keine Firefox-Profile gefunden.',
+  'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'In {count} Speicher installieren',
+      other: 'In {count} Speicher installieren',
+    }),
+  'workbench.settings.proxyTrustPane.wizard.results.allOk':
+    'Das Vertrauen ist in jedem gewählten Speicher installiert.',
+  'workbench.settings.proxyTrustPane.wizard.results.partial':
+    'Einige Speicher blieben unverändert. Nichts wiederholt sich von selbst — behebe die Ursache und richte ' +
+    'das Vertrauen erneut ein, oder entferne das Vertrauen zum Zurückrollen.',
+  'workbench.settings.proxyTrustPane.wizard.results.ok': 'Installiert und vertraut',
+  'workbench.settings.proxyTrustPane.wizard.results.elevation':
+    'Die Admin-Genehmigung wurde abgelehnt — der Speicher blieb unverändert.',
+  'workbench.settings.proxyTrustPane.wizard.results.failed': 'Fehlgeschlagen: {message}',
+  'workbench.settings.proxyTrustPane.wizard.installFailed': 'Vertrauenseinrichtung fehlgeschlagen: {message}',
+  'workbench.settings.proxyTrustPane.wizard.done': 'Fertig',
+  'workbench.settings.proxyTrustPane.removeButton': 'Vertrauen entfernen',
+  'workbench.settings.proxyTrustPane.removeConfirm.title':
+    'Das Zertifikat aus jedem aufgezeichneten Speicher entfernen?',
+  'workbench.settings.proxyTrustPane.removeConfirm.body':
+    'Jede aufgezeichnete Installation wird rückgängig gemacht und als sauber verifiziert, bevor ihr Eintrag ' +
+    'fällt. Die Zertifizierungsstelle selbst bleibt für eine spätere Neuinstallation erhalten.',
+  'workbench.settings.proxyTrustPane.removeConfirm.ok': 'Entfernen',
+  'workbench.settings.proxyTrustPane.removed':
+    'Vertrauen entfernt — jeder aufgezeichnete Speicher ist als sauber verifiziert.',
+  'workbench.settings.proxyTrustPane.removePartial':
+    'Einige Speicher ließen sich nicht als sauber verifizieren. Ihre Einträge bleiben — führe die ' +
+    'Entfernung erneut aus, sobald die Ursache behoben ist.',
+  'workbench.settings.proxyTrustPane.removeFailed': 'Entfernung fehlgeschlagen: {message}',
+
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·
   // vault) are glossary vocabulary and ride raw inside the pills; only

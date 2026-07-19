@@ -155,6 +155,10 @@ export const workbenchSettings = {
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Vincula este espacio de trabajo a una carpeta en disco — un árbol YAML vivo y compatible con git.',
+  'workbench.settings.category.proxy.label': 'Proxy',
+  'workbench.settings.category.proxy.description':
+    'Configuración de confianza para el proxy de captura — instala, verifica y elimina la autoridad de ' +
+    'certificación de esta máquina.',
   'workbench.settings.category.data.label': 'Datos',
   'workbench.settings.category.data.description': 'Diagnósticos, importación/exportación y mantenimiento destructivo.',
   'workbench.settings.category.license.label': 'Licencia',

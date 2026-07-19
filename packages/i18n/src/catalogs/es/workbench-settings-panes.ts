@@ -590,6 +590,101 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Instalar',
   'workbench.settings.licensePane.loadFromFile': 'Cargar desde un archivo…',
 
+  // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
+  'workbench.settings.proxyTrustPane.intro':
+    'Descifrar el tráfico HTTPS necesita una autoridad de certificación creada en esta máquina. No se ' +
+    'instala nada hasta que configures aquí la confianza, y todo lo instalado aquí puede eliminarse aquí.',
+  'workbench.settings.proxyTrustPane.refresh': 'Volver a comprobar',
+  'workbench.settings.proxyTrustPane.loadFailed': 'El estado de confianza no se pudo leer: {message}',
+  'workbench.settings.proxyTrustPane.ca.title': 'Autoridad de certificación',
+  'workbench.settings.proxyTrustPane.ca.none':
+    'Aún no existe ninguna autoridad de certificación. Se crea en esta máquina la primera vez que configuras ' +
+    'la confianza — nunca se distribuye con la aplicación y su clave privada nunca sale de este equipo.',
+  'workbench.settings.proxyTrustPane.ca.subject': 'Subject',
+  'workbench.settings.proxyTrustPane.ca.fingerprint': 'Huella SHA-256',
+  'workbench.settings.proxyTrustPane.ca.validity': 'Válida',
+  'workbench.settings.proxyTrustPane.ca.validityRange': 'De {from} hasta {until}',
+  'workbench.settings.proxyTrustPane.ca.deleteButton': 'Eliminar la autoridad de certificación',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.title': '¿Eliminar la autoridad de certificación?',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.body':
+    'El par de claves se elimina de esta máquina. Configurar la confianza de nuevo crea una autoridad ' + 'fresca.',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.ok': 'Eliminar',
+  'workbench.settings.proxyTrustPane.ca.deleted': 'Autoridad de certificación eliminada',
+  'workbench.settings.proxyTrustPane.ca.deleteFailed': 'No se pudo eliminar la autoridad de certificación: {message}',
+  'workbench.settings.proxyTrustPane.stores.title': 'Almacenes de confianza',
+  'workbench.settings.proxyTrustPane.stores.loginKeychain': 'Llavero de inicio de sesión',
+  'workbench.settings.proxyTrustPane.stores.systemKeychain': 'Llavero del sistema',
+  'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Perfil de Firefox',
+  'workbench.settings.proxyTrustPane.stores.state.trusted': 'De confianza',
+  'workbench.settings.proxyTrustPane.stores.state.absent': 'No instalado',
+  'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Certificado distinto',
+  'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Ilegible',
+  'workbench.settings.proxyTrustPane.stores.empty': 'No hay almacenes de confianza visibles en esta máquina.',
+  'workbench.settings.proxyTrustPane.mismatchAlert.title': 'Un almacén de confianza contiene un certificado distinto',
+  'workbench.settings.proxyTrustPane.mismatchAlert.body':
+    'Hay instalado un certificado con el nombre de nuestra autoridad, pero su huella no es la autoridad de ' +
+    'esta máquina. Esta aplicación no lo instaló y nunca lo usa — revisa el almacén donde vive.',
+  'workbench.settings.proxyTrustPane.recordedCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} instalación registrada',
+      many: '{count} instalaciones registradas',
+      other: '{count} instalaciones registradas',
+    }),
+  'workbench.settings.proxyTrustPane.installButton': 'Configurar la confianza…',
+  'workbench.settings.proxyTrustPane.wizard.title': 'Instalar la autoridad de certificación del proxy',
+  'workbench.settings.proxyTrustPane.wizard.explain.whatTitle': 'Qué se instala',
+  'workbench.settings.proxyTrustPane.wizard.explain.whatBody':
+    'Un certificado raíz creado en esta máquina, único para esta instalación. Su clave privada está cifrada ' +
+    'en reposo y nunca se envía a ninguna parte.',
+  'workbench.settings.proxyTrustPane.wizard.explain.enablesTitle': 'Qué permite',
+  'workbench.settings.proxyTrustPane.wizard.explain.enablesBody':
+    'Los almacenes de confianza que lo contienen aceptan los certificados del proxy de captura, así que ' +
+    'puede descifrar HTTPS — solo para los hosts que delimites explícitamente. Todo lo demás pasa intacto.',
+  'workbench.settings.proxyTrustPane.wizard.explain.removeTitle': 'Cómo se elimina',
+  'workbench.settings.proxyTrustPane.wizard.explain.removeBody':
+    'Cada cambio queda registrado, y un clic en esta página deshace exactamente esos cambios. Desinstalar ' +
+    'la aplicación hace lo mismo.',
+  'workbench.settings.proxyTrustPane.wizard.explain.next': 'Elegir almacenes de confianza',
+  'workbench.settings.proxyTrustPane.wizard.choose.blurb': 'Elige dónde instalar. Nada cambia hasta que confirmes.',
+  'workbench.settings.proxyTrustPane.wizard.choose.loginNote':
+    'Aplicaciones que se ejecutan como tú — sin aprobación de administrador.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
+    'Todos los usuarios de esta máquina — pide aprobación de administrador.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
+    'Firefox mantiene su propio almacén de confianza — se instala en cada perfil encontrado.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
+    'No se encontraron perfiles de Firefox en esta máquina.',
+  'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Instalar en {count} almacén',
+      many: 'Instalar en {count} almacenes',
+      other: 'Instalar en {count} almacenes',
+    }),
+  'workbench.settings.proxyTrustPane.wizard.results.allOk':
+    'La confianza está instalada en todos los almacenes que elegiste.',
+  'workbench.settings.proxyTrustPane.wizard.results.partial':
+    'Algunos almacenes quedaron sin cambios. Nada se reintenta solo — corrige la causa y configura la ' +
+    'confianza de nuevo, o elimina la confianza para revertir.',
+  'workbench.settings.proxyTrustPane.wizard.results.ok': 'Instalado y de confianza',
+  'workbench.settings.proxyTrustPane.wizard.results.elevation':
+    'La aprobación de administrador fue rechazada — el almacén quedó sin cambios.',
+  'workbench.settings.proxyTrustPane.wizard.results.failed': 'Falló: {message}',
+  'workbench.settings.proxyTrustPane.wizard.installFailed': 'La configuración de la confianza falló: {message}',
+  'workbench.settings.proxyTrustPane.wizard.done': 'Hecho',
+  'workbench.settings.proxyTrustPane.removeButton': 'Eliminar la confianza',
+  'workbench.settings.proxyTrustPane.removeConfirm.title':
+    '¿Eliminar el certificado de todos los almacenes registrados?',
+  'workbench.settings.proxyTrustPane.removeConfirm.body':
+    'Cada instalación registrada se deshace y se verifica limpia antes de descartar su registro. La ' +
+    'autoridad de certificación en sí se conserva para una reinstalación posterior.',
+  'workbench.settings.proxyTrustPane.removeConfirm.ok': 'Eliminar',
+  'workbench.settings.proxyTrustPane.removed':
+    'Confianza eliminada — todos los almacenes registrados se verificaron limpios.',
+  'workbench.settings.proxyTrustPane.removePartial':
+    'Algunos almacenes no se pudieron verificar limpios. Sus registros se conservan — vuelve a ejecutar la ' +
+    'eliminación cuando la causa esté corregida.',
+  'workbench.settings.proxyTrustPane.removeFailed': 'La eliminación falló: {message}',
+
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·
   // vault) are glossary vocabulary and ride raw inside the pills; only

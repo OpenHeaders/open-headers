@@ -150,6 +150,10 @@ export const workbenchSettings = {
   'workbench.settings.category.git.description':
     'Binde diesen Arbeitsbereich an einen Ordner auf der Festplatte — einen lebendigen, git-freundlichen ' +
     'YAML-Baum.',
+  'workbench.settings.category.proxy.label': 'Proxy',
+  'workbench.settings.category.proxy.description':
+    'Vertrauenseinrichtung für den Erfassungs-Proxy — die Zertifizierungsstelle dieser Maschine ' +
+    'installieren, prüfen und entfernen.',
   'workbench.settings.category.data.label': 'Daten',
   'workbench.settings.category.data.description': 'Diagnose, Import/Export und destruktive Wartung.',
   'workbench.settings.category.license.label': 'Lizenz',
