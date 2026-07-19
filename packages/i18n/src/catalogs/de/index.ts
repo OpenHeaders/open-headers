@@ -49,6 +49,7 @@ import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsRequest } from './workbench-editors-request';
 import { workbenchEditorsRule } from './workbench-editors-rule';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
+import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
 import { workbenchImportExport } from './workbench-import-export';
 import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
@@ -102,6 +103,7 @@ export const de = {
   ...workbenchEditorsRequest,
   ...workbenchEditorsRule,
   ...workbenchEditorsSpec,
+  ...workbenchEditorsWebsocket,
   ...workbenchImportExport,
   ...workbenchLive,
   ...workbenchScriptPackages,
