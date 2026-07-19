@@ -597,4 +597,40 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendDetails.device.remoteServer': 'Servidor remoto',
   'workbench.settings.backendDetails.device.yourDevice': 'Tu dispositivo',
   'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
+
+  // ── Git pane (workspace-tree binding card, GIT_PLAN.md §9) ─────────
+  'workbench.settings.gitPane.notBound.title': 'Ninguna carpeta vinculada',
+  'workbench.settings.gitPane.notBound.body':
+    'Vincula este espacio de trabajo a una carpeta para mantener un árbol YAML vivo de cada regla, solicitud y ' +
+    'entorno — listo para copias de seguridad, diffs, ediciones a mano y (pronto) git.',
+  'workbench.settings.gitPane.pathPlaceholder': 'Ruta absoluta de la carpeta',
+  'workbench.settings.gitPane.chooseFolder': 'Elegir carpeta…',
+  'workbench.settings.gitPane.bindButton': 'Vincular carpeta',
+  'workbench.settings.gitPane.bound': 'Carpeta vinculada.',
+  'workbench.settings.gitPane.boundInitialized': 'Carpeta inicializada como un nuevo árbol de espacio de trabajo.',
+  'workbench.settings.gitPane.boundTitle': 'Carpeta vinculada',
+  'workbench.settings.gitPane.boundBody':
+    'Las ediciones se materializan continuamente en esta carpeta; los cambios hechos en los archivos vuelven a ' +
+    'la aplicación.',
+  'workbench.settings.gitPane.unbindButton': 'Desvincular',
+  'workbench.settings.gitPane.unbindConfirm.title': '¿Desvincular esta carpeta?',
+  'workbench.settings.gitPane.unbindConfirm.body':
+    'La carpeta sigue siendo un árbol de espacio de trabajo válido en disco; la aplicación simplemente deja de ' +
+    'leerla y escribirla.',
+  'workbench.settings.gitPane.unbindConfirm.ok': 'Desvincular',
+  'workbench.settings.gitPane.unbound': 'Carpeta desvinculada.',
+  'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} archivo no se pudo leer y se deja intacto',
+      many: '{count} archivos no se pudieron leer y se dejan intactos',
+      other: '{count} archivos no se pudieron leer y se dejan intactos',
+    }),
+  'workbench.settings.gitPane.refusal.locked':
+    'Esta carpeta ya está vinculada a otro motor en ejecución (proceso {pid}).',
+  'workbench.settings.gitPane.refusal.uuidCollision':
+    'Esta carpeta contiene un espacio de trabajo que ya existe en este host a través de otra fuente.',
+  'workbench.settings.gitPane.refusal.identityMismatch': 'Esta carpeta pertenece a otro espacio de trabajo ({uid}).',
+  'workbench.settings.gitPane.refusal.invalidManifest': 'No se pudo leer el workspace.yaml de la carpeta: {message}',
+  'workbench.settings.gitPane.refusal.alreadyBound': 'Este espacio de trabajo ya está vinculado a una carpeta.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'No hay ningún espacio de trabajo activo que vincular.',
 } as const satisfies Catalog;

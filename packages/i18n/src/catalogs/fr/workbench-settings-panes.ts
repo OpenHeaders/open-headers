@@ -599,4 +599,37 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendDetails.device.remoteServer': 'Serveur distant',
   'workbench.settings.backendDetails.device.yourDevice': 'Votre appareil',
   'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
+
+  // ── Panneau Git (carte de liaison workspace-arborescence) ──────────
+  'workbench.settings.gitPane.notBound.title': 'Aucun dossier lié',
+  'workbench.settings.gitPane.notBound.body':
+    'Liez cet espace de travail à un dossier pour maintenir une arborescence YAML vivante de chaque règle, requête et environnement — prête pour les sauvegardes, les diffs, les éditions manuelles et (bientôt) git.',
+  'workbench.settings.gitPane.pathPlaceholder': 'Chemin absolu du dossier',
+  'workbench.settings.gitPane.chooseFolder': 'Choisir un dossier…',
+  'workbench.settings.gitPane.bindButton': 'Lier le dossier',
+  'workbench.settings.gitPane.bound': 'Dossier lié.',
+  'workbench.settings.gitPane.boundInitialized': 'Dossier initialisé comme nouvelle arborescence d’espace de travail.',
+  'workbench.settings.gitPane.boundTitle': 'Dossier lié',
+  'workbench.settings.gitPane.boundBody':
+    'Les modifications se matérialisent en continu dans ce dossier ; les changements apportés aux fichiers reviennent dans l’application.',
+  'workbench.settings.gitPane.unbindButton': 'Délier',
+  'workbench.settings.gitPane.unbindConfirm.title': 'Délier ce dossier ?',
+  'workbench.settings.gitPane.unbindConfirm.body':
+    'Le dossier reste une arborescence d’espace de travail valide sur disque ; l’application cesse simplement de le lire et d’y écrire.',
+  'workbench.settings.gitPane.unbindConfirm.ok': 'Délier',
+  'workbench.settings.gitPane.unbound': 'Dossier délié.',
+  'workbench.settings.gitPane.issuesTitle': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} fichier n’a pas pu être lu et est laissé intact',
+      many: '{count} fichiers n’ont pas pu être lus et sont laissés intacts',
+      other: '{count} fichiers n’ont pas pu être lus et sont laissés intacts',
+    }),
+  'workbench.settings.gitPane.refusal.locked':
+    'Ce dossier est déjà lié à un autre moteur en cours d’exécution (processus {pid}).',
+  'workbench.settings.gitPane.refusal.uuidCollision':
+    'Ce dossier contient un espace de travail déjà présent sur cet hôte via une autre source.',
+  'workbench.settings.gitPane.refusal.identityMismatch': 'Ce dossier appartient à un autre espace de travail ({uid}).',
+  'workbench.settings.gitPane.refusal.invalidManifest': 'Le workspace.yaml du dossier n’a pas pu être lu : {message}',
+  'workbench.settings.gitPane.refusal.alreadyBound': 'Cet espace de travail est déjà lié à un dossier.',
+  'workbench.settings.gitPane.refusal.unknownWorkspace': 'Aucun espace de travail actif à lier.',
 } as const satisfies Catalog;
