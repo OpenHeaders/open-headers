@@ -12,6 +12,7 @@ import { Button, Modal, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
+import { useUiTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
@@ -24,11 +25,18 @@ import '@xterm/xterm/css/xterm.css';
 
 type AntdToken = ReturnType<typeof theme.useToken>['token'];
 
-function buildXtermTheme(token: AntdToken): ITheme {
+/** Dark-mode terminal ink. antd's dark `colorText` is 85% white —
+ *  chrome-legible but glaring as a wall of terminal text; IDE
+ *  terminals settle around 74% white. Light mode keeps the token
+ *  (dark ink doesn't glare). */
+const DARK_TERMINAL_FOREGROUND = '#bdc1c6';
+
+function buildXtermTheme(token: AntdToken, isDarkMode: boolean): ITheme {
+  const foreground = isDarkMode ? DARK_TERMINAL_FOREGROUND : token.colorText;
   return {
     background: token.colorBgContainer,
-    foreground: token.colorText,
-    cursor: token.colorText,
+    foreground,
+    cursor: foreground,
     cursorAccent: token.colorBgContainer,
     selectionBackground: token.colorPrimaryBg,
   };
@@ -47,6 +55,7 @@ interface TerminalPanelProps {
 const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const { isDarkMode } = useUiTheme();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tabsApi = getWorkbenchTerminalTabs();
@@ -122,8 +131,8 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   }, [active]);
 
   useEffect(() => {
-    tabsApi?.setTheme(buildXtermTheme(token));
-  }, [tabsApi, token]);
+    tabsApi?.setTheme(buildXtermTheme(token, isDarkMode));
+  }, [tabsApi, token, isDarkMode]);
 
   const closeTab = useCallback(
     (id: string) => {
