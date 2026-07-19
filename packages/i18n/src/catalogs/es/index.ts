@@ -51,6 +51,7 @@ import { workbenchImportExport } from './workbench-import-export';
 import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
+import { workbenchSettingsDefs } from './workbench-settings-defs';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 import { workbenchSettingsPanes } from './workbench-settings-panes';
@@ -101,6 +102,7 @@ export const es = {
   ...workbenchLive,
   ...workbenchScriptPackages,
   ...workbenchSettings,
+  ...workbenchSettingsDefs,
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
