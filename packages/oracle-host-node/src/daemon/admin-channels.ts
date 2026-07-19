@@ -39,6 +39,7 @@ import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
 import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
+import type { ProxyTrustService } from './proxy/proxy-trust';
 
 export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
 
@@ -65,6 +66,8 @@ export interface AdminChannelDeps {
   license: LicenseSlotHandle;
   /** The `oh.daemon.cli.*` backing — see `cli-provision.ts`. */
   cliProvision: CliProvisionService;
+  /** The `oh.daemon.proxy.trust.*` backing — see `proxy/proxy-trust.ts`. */
+  proxyTrust: ProxyTrustService;
 }
 
 export type AdminChannelHandler = (message: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -204,6 +207,37 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       return await deps.cliProvision.provision();
     } catch (err) {
       return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  // Proxy trust plane (`oh.daemon.proxy.trust.*`) — CA lifecycle for
+  // the host capture plane. Status probes live per call; install is
+  // the consent wizard's commit step (explicit store list, never
+  // "all"); remove is the teardown law. The CA private key never
+  // crosses these contracts — responses carry the public projection
+  // and per-store outcomes only.
+  handlers.set('oh.daemon.proxy.trust.status', async () => await deps.proxyTrust.status());
+
+  handlers.set('oh.daemon.proxy.trust.install', async (message) => {
+    const stores = Array.isArray(message.stores)
+      ? message.stores.filter(
+          (s): s is 'macos-login-keychain' | 'macos-system-keychain' | 'nss-firefox' =>
+            s === 'macos-login-keychain' || s === 'macos-system-keychain' || s === 'nss-firefox',
+        )
+      : [];
+    if (stores.length === 0) return { ok: false, error: 'missing stores' };
+    try {
+      return await deps.proxyTrust.install(stores);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.proxy.trust.remove', async (message) => {
+    try {
+      return await deps.proxyTrust.remove(message.dropCa === true);
+    } catch (err) {
+      return { ok: false, results: [], error: (err as Error).message };
     }
   });
 

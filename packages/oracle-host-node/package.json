@@ -73,8 +73,10 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@openheaders/core": "workspace:*",
     "@openheaders/oracle": "workspace:*",
+    "@peculiar/x509": "^2.0.0",
     "better-sqlite3": "^12.10.0",
     "jose": "^6.2.3",
+    "reflect-metadata": "^0.2.2",
     "undici": "^7.24.6",
     "valibot": "^1.3.1",
     "ws": "^8.16.0"

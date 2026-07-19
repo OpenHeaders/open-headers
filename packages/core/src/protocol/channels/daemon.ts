@@ -11,6 +11,7 @@
  */
 
 import type { LicenseSnapshot } from '../../licensing';
+import type { ProxyCaPublicInfo, ProxyTrustChange, ProxyTrustStoreId, ProxyTrustStoreState } from '../../types';
 
 export interface DaemonRpc {
   /**
@@ -354,6 +355,84 @@ export interface DaemonRpc {
    * non-null when more rows match — echo it back as `after` for the
    * next page.
    */
+  // ── Proxy trust plane (PROXY_SECURITY.md §6, Phase 1) ────────────
+  //
+  // Admin-only. The CA lifecycle behind the host capture plane's
+  // consent wizard: install/remove the per-machine CA in concrete
+  // trust stores, and read live trust state. The CA private key NEVER
+  // crosses this contract — responses carry only the derived public
+  // projection (`ProxyCaPublicInfo`) and per-store probe verdicts. No
+  // traffic flows through any of these; TLS termination is Phase 2.
+
+  /**
+   * Live trust state, re-derived on every call by probing each store
+   * (never a remembered flag — the peek-don't-bump discipline). `ca`
+   * is null until first trust mints one. `stores` covers every store
+   * this machine exposes (login/System keychains, discovered Firefox
+   * profiles) unioned with the recorded changes; `changes` is the
+   * durable what-we-changed record teardown will undo.
+   */
+  'oh.daemon.proxy.trust.status': {
+    req: Record<string, never>;
+    res: {
+      ca: ProxyCaPublicInfo | null;
+      stores: ReadonlyArray<ProxyTrustStoreState>;
+      changes: ReadonlyArray<ProxyTrustChange>;
+    };
+  };
+
+  /**
+   * Install the CA into the named stores — the consent wizard's commit
+   * step; the click IS the authorization, so callers send an explicit
+   * non-empty store list, never "all". Mints the per-machine CA on
+   * first use. Each store reports its own outcome: partial failure is
+   * reported exactly (§5 refuse-rather-than-half-trust), never rolled
+   * up into a false success. `elevationRequired` marks a store that
+   * refused for lack of admin rights — surfaces re-ask with elevation,
+   * never retry around a denial.
+   */
+  'oh.daemon.proxy.trust.install': {
+    req: { stores: ReadonlyArray<ProxyTrustStoreId> };
+    res:
+      | {
+          ok: true;
+          ca: ProxyCaPublicInfo;
+          results: ReadonlyArray<{
+            store: ProxyTrustStoreId;
+            ref: string;
+            ok: boolean;
+            error?: string;
+            elevationRequired?: boolean;
+          }>;
+        }
+      | { ok: false; error: string };
+  };
+
+  /**
+   * Teardown: remove the CA from every store the change record names —
+   * exactly what we changed, nothing else. Idempotent (an already-gone
+   * cert reads as removed) and honest per store; a row is dropped from
+   * the record only on verified removal, so a partial failure leaves
+   * the remaining rows for the next attempt. The sealed CA slot itself
+   * is kept unless `dropCa` is true (re-trusting reuses the same CA;
+   * uninstall passes `dropCa`).
+   */
+  'oh.daemon.proxy.trust.remove': {
+    req: { dropCa?: boolean };
+    res: {
+      ok: boolean;
+      results: ReadonlyArray<{
+        store: ProxyTrustStoreId;
+        ref: string;
+        ok: boolean;
+        error?: string;
+        elevationRequired?: boolean;
+      }>;
+      /** Present when the teardown pass itself failed to run. */
+      error?: string;
+    };
+  };
+
   'oh.daemon.audit.query': {
     req: {
       actorUserId?: string;

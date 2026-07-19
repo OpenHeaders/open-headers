@@ -645,6 +645,11 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
         status: async () => ({ configPath: '/dev/null', state: 'unconfigured' as const }),
         provision: async () => ({ ok: false as const, error: 'not under test' }),
       },
+      proxyTrust: {
+        status: async () => ({ ca: null, stores: [], changes: [] }),
+        install: async () => ({ ok: false as const, error: 'not under test' }),
+        remove: async () => ({ ok: true, results: [] }),
+      },
     }),
   });
   return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });

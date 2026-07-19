@@ -157,6 +157,7 @@ import { createPasswordHttpHandler } from './password/password-http';
 import { createDaemonPasswordLoginService } from './password/password-login-service';
 import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
+import { createProxyTrustService } from './proxy/proxy-trust';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -692,6 +693,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       getBoundPort: () => boundPort,
       closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
     }),
+    // Proxy trust plane (PROXY_SECURITY.md §6) — CA lifecycle only; no
+    // traffic path exists yet. Elevation rides the per-command OS
+    // prompt seam, requested only for System-keychain operations.
+    proxyTrust: createProxyTrustService(),
   });
 
   // 4b'. `/healthz` — unauthenticated, data-free liveness for ops

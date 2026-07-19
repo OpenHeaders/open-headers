@@ -40,6 +40,8 @@ import type {
   LiveWorkflow,
   LogEntry,
   Org,
+  ProxyCaRecord,
+  ProxyTrustChange,
   Request,
   ResponseExample,
   Rule,
@@ -453,6 +455,25 @@ export const OH = {
    * `'safe'` via `readScriptExecutionMode` in `../scripts`.
    */
   scriptExecutionModes: storageKey<Record<string, ScriptExecutionMode>>('oh.scriptExecutionModes'),
+  /**
+   * The proxy plane's per-machine CA (PROXY_SECURITY.md §2.1/§2.2) —
+   * cert PEM + private key, minted on this machine at first trust and
+   * never shipped, shared, or transmitted. Sensitive: the slot rides
+   * the host's `SecretCipher` seam, and on cipher-less hosts sensitive
+   * writes are refused — a CA key is never persisted in plaintext. The
+   * key never crosses the renderer or an RPC response; surfaces see
+   * only the derived public projection (`ProxyCaPublicInfo`).
+   */
+  proxyCa: storageKey<ProxyCaRecord>('oh.proxyCa', { sensitive: true }),
+  /**
+   * Durable "what we changed" rows for the proxy CA's trust-store
+   * installs (PROXY_SECURITY.md §2.5) — one row per concrete store the
+   * CA went into, written BEFORE the install runs so a crash can never
+   * orphan trust the record doesn't know about. Teardown undoes exactly
+   * these rows and drops each on verified removal. Not sensitive:
+   * store refs + fingerprints, no secret material.
+   */
+  proxyTrustChanges: storageKey<ProxyTrustChange[]>('oh.proxyTrustChanges'),
   /**
    * Workspace ↔ working-tree bindings on this Node host
    * ({@link WorkspaceTreeBindingRecord}). Host-local by design — a

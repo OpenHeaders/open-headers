@@ -21,6 +21,8 @@ export {
   tabEmulatedMediaSchema,
   tabSystemOverridesSchema,
 } from './cdp';
+// ── CLI provisioning memory (last token written into cli.json) ──────
+export type { CliProvisionRecord } from './cli-provision';
 // ── Collection ─────────────────────────────────────────────────────
 export type {
   Collection,
@@ -43,8 +45,6 @@ export type {
   OperationResult,
 } from './common';
 export { errorMessage, toError } from './common';
-// ── CLI provisioning memory (last token written into cli.json) ──────
-export type { CliProvisionRecord } from './cli-provision';
 // ── Daemon auth token (long-lived peer credential; hashed) ──────────
 export type { DaemonAuthToken, DaemonAuthTokenKind } from './daemon-auth-token';
 // ── Daemon config (per-host configuration; carries host-install-id) ────
@@ -156,6 +156,13 @@ export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from '.
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────
 export type { PerfResourceEntry } from './perf';
+export type {
+  ProxyCaPublicInfo,
+  ProxyCaRecord,
+  ProxyTrustChange,
+  ProxyTrustStoreId,
+  ProxyTrustStoreState,
+} from './proxy-trust';
 // ── Request ────────────────────────────────────────────────────────
 export type {
   AuthConfig,

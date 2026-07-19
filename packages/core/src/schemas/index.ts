@@ -73,6 +73,7 @@ export {
 } from './live';
 export type { ParseEntityOptions } from './parse';
 export { parseEntity, parseEntityArray } from './parse';
+export { ProxyCaRecordSchema, ProxyTrustChangeSchema, ProxyTrustStoreIdSchema } from './proxy-trust';
 export {
   AuthConfigSchema,
   AwsSigV4AuthSchema,
