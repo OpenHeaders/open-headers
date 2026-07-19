@@ -38,6 +38,7 @@ import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
+import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 
 export const de = {
   ...desktop,
@@ -71,4 +72,5 @@ export const de = {
   ...workbench,
   ...workbenchChrome,
   ...workbenchChromeSidebar,
+  ...workbenchChromeWorkspace,
 } as const satisfies Catalog;
