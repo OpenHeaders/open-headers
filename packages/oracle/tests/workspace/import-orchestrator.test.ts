@@ -666,8 +666,8 @@ describe('importWorkspace — local-mutation emission (resident sync service)', 
       type: 'header' as const,
       enabled: true,
       conditions: [
-        { uid: 'cond0001', type: 'url', operator: 'contains', value: 'openheaders.io' },
-        { uid: 'cond0002', type: 'url', operator: 'contains', value: 'app.openheaders.io' },
+        { uid: 'cond0001', type: 'url-filter', values: ['openheaders.io'] },
+        { uid: 'cond0002', type: 'url-filter', values: ['app.openheaders.io'] },
       ],
       action: { requestHeaders: [], responseHeaders: [] },
     };
@@ -678,8 +678,8 @@ describe('importWorkspace — local-mutation emission (resident sync service)', 
       ...targetRule,
       name: 'Auth (imported)',
       conditions: [
-        { uid: 'cond0001', type: 'url', operator: 'contains', value: 'api.openheaders.io' },
-        { uid: 'cond0003', type: 'url', operator: 'equals', value: 'https://openheaders.io/x' },
+        { uid: 'cond0001', type: 'url-filter', values: ['api.openheaders.io'] },
+        { uid: 'cond0003', type: 'url-regex', values: ['https://openheaders\\.io/x'] },
       ],
     };
     await orchestrator.importWorkspace({
@@ -694,11 +694,11 @@ describe('importWorkspace — local-mutation emission (resident sync service)', 
     const service = await import('@openheaders/oracle/sync/service');
     const oracle = service.getOracleForCurrentWorkspace();
     const rule = oracle!.materializeAll().find((m) => m.type === 'rule' && m.id === 'rul00001');
-    const data = rule!.data as { name: string; enabled: boolean; conditions: Array<{ uid: string; value: string }> };
+    const data = rule!.data as { name: string; enabled: boolean; conditions: Array<{ uid: string; values: string[] }> };
     expect(data.name).toBe('Auth (imported)');
     expect(data.enabled).toBe(false);
     expect(data.conditions.map((c) => c.uid).sort()).toEqual(['cond0001', 'cond0003']);
-    expect(data.conditions.find((c) => c.uid === 'cond0001')?.value).toBe('api.openheaders.io');
+    expect(data.conditions.find((c) => c.uid === 'cond0001')?.values).toEqual(['api.openheaders.io']);
 
     // Cache persistence carries the converged view back to storage.
     const stored = blobs.get('oh.ws.ws-active.rules') as Array<{
