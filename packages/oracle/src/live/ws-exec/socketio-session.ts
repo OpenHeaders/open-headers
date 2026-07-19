@@ -6,7 +6,8 @@
  *
  *   - the namespace CONNECT packet, sent once the server's engine.io
  *     open packet arrives (never at WS open — the protocol orders the
- *     client's first write after the open frame);
+ *     client's first write after the open frame) — carrying the
+ *     session credential's auth payload when one is configured;
  *   - the heartbeat: every server ping (`2`) answers with the pong
  *     (`3`) so the server's ping timeout never severs the session.
  *
@@ -32,6 +33,7 @@ export interface SocketIoSessionController {
 export function createSocketIoSessionController(
   namespace: string,
   sendFrame: (text: string) => void,
+  connectAuthJson?: string,
 ): SocketIoSessionController {
   let ackId = 0;
   let connectSent = false;
@@ -43,7 +45,7 @@ export function createSocketIoSessionController(
         // keeps the CONNECT single either way.
         if (!connectSent) {
           connectSent = true;
-          sendFrame(encodeConnectPacket(namespace));
+          sendFrame(encodeConnectPacket(namespace, connectAuthJson));
         }
         return;
       }

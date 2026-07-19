@@ -77,6 +77,7 @@ export function EditableGridTable<Row>({
   renderKeyCell,
   renderDescriptionCell,
   keyPlaceholder,
+  headerLabels,
   hideEnabled = false,
   suggestionRows = [],
   bulkEdit,
@@ -265,7 +266,9 @@ export function EditableGridTable<Row>({
       <div style={{ fontSize: 11, color: token.colorTextSecondary, fontWeight: 500, padding: '2px 8px' }}>
         {t('workbench.editors.grid.showColumns')}
       </div>
-      {toggleColumnItem(t('workbench.editors.grid.value'), showValueColumn, () => setShowValueColumn((v) => !v))}
+      {toggleColumnItem(headerLabels?.value ?? t('workbench.editors.grid.value'), showValueColumn, () =>
+        setShowValueColumn((v) => !v),
+      )}
       {toggleColumnItem(t('workbench.editors.grid.description'), showDescriptionColumn, () =>
         setShowDescriptionColumn((v) => !v),
       )}
@@ -403,8 +406,8 @@ export function EditableGridTable<Row>({
           ) : (
             <span />
           ))}
-        {renderHeaderLabel('key', t('workbench.editors.grid.key'), false)}
-        {showValueColumn && renderHeaderLabel('value', t('workbench.editors.grid.value'), true)}
+        {renderHeaderLabel('key', headerLabels?.key ?? t('workbench.editors.grid.key'), false)}
+        {showValueColumn && renderHeaderLabel('value', headerLabels?.value ?? t('workbench.editors.grid.value'), true)}
         {showDescriptionColumn && renderHeaderLabel('description', t('workbench.editors.grid.description'), true)}
         {trailingActionsCell}
       </div>

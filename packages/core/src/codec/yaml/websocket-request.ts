@@ -20,7 +20,12 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { WebSocketRequestSchema } from '../../schemas/websocket-request';
-import type { WebSocketHeaderPair, WebSocketQueryParam, WebSocketRequest } from '../../types/websocket-request';
+import type {
+  WebSocketEventRow,
+  WebSocketHeaderPair,
+  WebSocketQueryParam,
+  WebSocketRequest,
+} from '../../types/websocket-request';
 import { emitCanonicalYaml } from './canonical-emit';
 import { WEBSOCKET_REQUEST_FIELD_ORDER } from './ordering';
 import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
@@ -116,6 +121,7 @@ export function canonicalizeWebSocketRequest(request: WebSocketRequest): WebSock
     ...request,
     headers: request.headers.map(canonicalHeaderPair),
     params: request.params.map(canonicalQueryParam),
+    ...(request.events !== undefined ? { events: request.events.map(canonicalEventRow) } : {}),
   };
 }
 
@@ -123,6 +129,13 @@ function canonicalHeaderPair(p: WebSocketHeaderPair): WebSocketHeaderPair {
   const out: WebSocketHeaderPair = { uid: p.uid, key: p.key, value: p.value };
   if (p.description !== undefined) out.description = p.description;
   if (p.enabled !== undefined) out.enabled = p.enabled;
+  return out;
+}
+
+function canonicalEventRow(row: WebSocketEventRow): WebSocketEventRow {
+  const out: WebSocketEventRow = { uid: row.uid, name: row.name };
+  if (row.listen !== undefined) out.listen = row.listen;
+  if (row.description !== undefined) out.description = row.description;
   return out;
 }
 

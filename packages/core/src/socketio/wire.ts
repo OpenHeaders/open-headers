@@ -119,9 +119,12 @@ function namespaceSegment(namespace: string): string {
 }
 
 /** Encode the socket.io CONNECT packet for a namespace — the frame the
- *  client sends once the engine.io open packet arrives. */
-export function encodeConnectPacket(namespace: string): string {
-  return `4${SOCKET_IO_PACKET_TYPES.connect}${namespaceSegment(namespace)}`;
+ *  client sends once the engine.io open packet arrives. `authJson` is
+ *  the optional auth payload object as JSON text (`{"token":…}`),
+ *  appended verbatim after the header (socket.io v5's CONNECT data —
+ *  in-band framing, so it works on every host). */
+export function encodeConnectPacket(namespace: string, authJson?: string): string {
+  return `4${SOCKET_IO_PACKET_TYPES.connect}${namespaceSegment(namespace)}${authJson ?? ''}`;
 }
 
 export type SocketIoEventEncodeResult = { ok: true; frame: string } | { ok: false; error: string };

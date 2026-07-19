@@ -13,6 +13,8 @@
  */
 
 import type {
+  WebSocketAuth,
+  WebSocketEventRow,
   WebSocketHeaderPair,
   WebSocketMessageFormat,
   WebSocketQueryParam,
@@ -38,6 +40,13 @@ export interface WebSocketDraft {
   namespace: string;
   /** Socket.IO ack opt-in (concrete — absent reads as off). */
   ackEnabled: boolean;
+  /** Session credential (concrete — absent on the entity reads as
+   *  `{ type: 'none' }`). */
+  auth: WebSocketAuth;
+  /** Events-tab rows (socketio flavor; concrete — absent reads as []).
+   *  Rows keep the entity shape; the grid's trailing ghost trims away
+   *  in the save projection like the header/param rows. */
+  events: WebSocketEventRow[];
   /** Concrete in the form — absent on the entity reads as `text`. */
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
@@ -53,6 +62,8 @@ export interface WebSocketRequestUpdates {
   subprotocols: string[];
   headers: WebSocketHeaderPair[];
   params: WebSocketQueryParam[];
+  auth: WebSocketAuth;
+  events: WebSocketEventRow[];
   message: string;
   eventName: string;
   namespace: string;
@@ -114,6 +125,19 @@ export function rowsToParams(rows: KeyValueRow[]): WebSocketQueryParam[] {
     }));
 }
 
+/** Trim the Events grid's trailing ghost + unnamed rows away — the
+ *  header/param projection's law applied to the events row shape. */
+export function rowsToEvents(rows: WebSocketEventRow[]): WebSocketEventRow[] {
+  return rows
+    .filter((r) => r.name.trim())
+    .map((r) => ({
+      uid: r.uid,
+      name: r.name,
+      ...(r.listen !== undefined ? { listen: r.listen } : {}),
+      ...(r.description?.trim() ? { description: r.description } : {}),
+    }));
+}
+
 export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft {
   return {
     description: req.description ?? '',
@@ -121,6 +145,8 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     subprotocols: [...req.subprotocols],
     headers: headersToRows(req.headers),
     params: paramsToRows(req.params),
+    auth: req.auth ?? { type: 'none' },
+    events: (req.events ?? []).map((row) => ({ ...row })),
     message: req.message,
     eventName: req.eventName ?? '',
     namespace: req.namespace ?? '',
@@ -139,6 +165,8 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     subprotocols: draft.subprotocols,
     headers: rowsToHeaders(draft.headers),
     params: rowsToParams(draft.params),
+    auth: draft.auth,
+    events: rowsToEvents(draft.events),
     message: draft.message,
     eventName: draft.eventName,
     namespace: draft.namespace,

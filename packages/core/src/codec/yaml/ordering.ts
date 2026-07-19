@@ -145,6 +145,8 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
   'subprotocols',
   'headers',
   'params',
+  'auth',
+  'events',
   'eventName',
   'ackEnabled',
   'messageFormat',

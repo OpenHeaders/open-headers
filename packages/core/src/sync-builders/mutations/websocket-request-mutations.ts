@@ -3,11 +3,12 @@
  *
  * Parallel to {@link request-mutations}: write sites produce
  * `(batch, sideEffects)` pairs as pure transforms — no oracle reads,
- * no IO. The two set-modeled fields (`headers`, `params`) route
- * through the shared {@link synthesizeSetDiff} minimum-envelope
- * synthesizer; container-valued scalars (`subprotocols`, `specLink`)
- * route through {@link synthesizeFieldDiff} so edits share create's
- * per-leaf representation and a cleared object tombstones its leaves.
+ * no IO. The three set-modeled fields (`headers`, `params`, `events`)
+ * route through the shared {@link synthesizeSetDiff} minimum-envelope
+ * synthesizer; container-valued scalars (`subprotocols`, `specLink`,
+ * `auth`) route through {@link synthesizeFieldDiff} so edits share
+ * create's per-leaf representation and a cleared object tombstones
+ * its leaves.
  *
  * No side-effect intents: WebSocket requests don't feed DNR or the
  * variables resolver.
@@ -20,6 +21,7 @@ import {
   mintBatch,
   type SideEffectIntent,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
 } from '@openheaders/core/sync';
@@ -35,7 +37,7 @@ export interface WebSocketRequestMutationPayload {
 /** Live-itemId reader for the set paths — see {@link request-mutations}' LiveSetEntries. */
 export type WebSocketLiveSetEntries = (webSocketRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** Current materialized value reader for container-valued scalar paths (`subprotocols`, `specLink`). */
+/** Current materialized value reader for container-valued scalar paths (`subprotocols`, `specLink`, `auth`). */
 export type WebSocketLiveFieldValue = (webSocketRequestUid: string, path: string) => unknown;
 
 /** New WebSocket request → seed batch. No side effects. */
@@ -55,7 +57,11 @@ export function buildWebSocketDeleteBatch(
   return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }
 
-const SET_PATHS = [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH] as const;
+const SET_PATHS = [
+  WEBSOCKET_REQUEST_HEADERS_PATH,
+  WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
+] as const;
 type SetPath = (typeof SET_PATHS)[number];
 
 const isSetPath = (key: string): SetPath | null =>
@@ -63,14 +69,16 @@ const isSetPath = (key: string): SetPath | null =>
     ? WEBSOCKET_REQUEST_HEADERS_PATH
     : key === WEBSOCKET_REQUEST_PARAMS_PATH
       ? WEBSOCKET_REQUEST_PARAMS_PATH
-      : null;
+      : key === WEBSOCKET_REQUEST_EVENTS_PATH
+        ? WEBSOCKET_REQUEST_EVENTS_PATH
+        : null;
 
 /**
  * Translate a `Partial<Omit<WebSocketRequest, 'uid'|'path'>>` patch
  * into a single batch. Scalar fields → one `setField` per leaf;
- * `headers` / `params` → minimum diff via {@link synthesizeSetDiff};
- * `subprotocols` / `specLink` → per-leaf flatten-diff via
- * {@link synthesizeFieldDiff}.
+ * `headers` / `params` / `events` → minimum diff via
+ * {@link synthesizeSetDiff}; `subprotocols` / `specLink` / `auth` →
+ * per-leaf flatten-diff via {@link synthesizeFieldDiff}.
  */
 export function buildWebSocketUpdateBatch(
   webSocketRequestUid: string,

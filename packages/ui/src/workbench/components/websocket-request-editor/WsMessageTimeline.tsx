@@ -114,6 +114,11 @@ interface WsMessageTimelineProps {
    *  frames into event and control rows (display-side only; the
    *  capture stays verbatim). Absent = raw. */
   flavor?: WebSocketFlavor;
+  /** Events-tab listen filter (socketio): incoming EVENT frames whose
+   *  decoded name is NOT in this list hide from the display — control
+   *  frames, sent frames and nameless events always show, and the
+   *  capture is never touched. Absent = no filter. */
+  listenedEvents?: readonly string[];
 }
 
 /** One display slot of the virtual list — heights are a closed
@@ -360,6 +365,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   lifecycle,
   droppedMessages = 0,
   flavor,
+  listenedEvents,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -423,17 +429,28 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // (call) order ascending — one linear pass of primitive work per
   // commit/keystroke. The haystack is the decoded preview — search
   // matches what the user can see (binary rows have no text to match).
+  const listenedSet = useMemo(
+    () => (listenedEvents !== undefined ? new Set(listenedEvents) : null),
+    [listenedEvents],
+  );
+
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
       if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
+      // Events-tab listen filter — named incoming events only; control
+      // frames, sent frames and nameless events always show.
+      if (listenedSet !== null && item.direction === 'down') {
+        const sio = derive.sioOf(item);
+        if (sio?.kind === 'event' && sio.name !== null && !listenedSet.has(sio.name)) continue;
+      }
       if (needle !== '' && !derive.previewOf(item).toLowerCase().includes(needle)) continue;
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, derive]);
+  }, [items, count, clearedCount, search, directionFilter, listenedSet, derive]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all';
   const live = lifecycle.endedBy === undefined;

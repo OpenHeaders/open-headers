@@ -47,6 +47,13 @@
  *       WsResponseExample — viewer tab with the captured close pill,
  *       sidebar example leaf under the parent request, and "Open in
  *       Request" returns to the parent editor.
+ *   B10 session credential + Events listen filter (Phase G): a bearer
+ *       token configured on the socketio flavor rides the CONNECT
+ *       packet's auth payload IN the page realm (the probe greeting
+ *       mirrors it; NO honesty notice — the in-band payload applies on
+ *       every host), and a named Events row filters the timeline to
+ *       the listened incoming events (the ack still lands; the
+ *       unlisted reply row hides — display only, capture verbatim).
  *
  * Deliberately NOT here: the node-knob session legs (custom headers /
  * TLS verify-off on the wire, `?push=` param batches, foreign close
@@ -448,11 +455,15 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
   await page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('websocket-namespace').filter({ visible: true }).first().fill('/probe');
 
-  // Event compose on the Message tab: name + ack opt-in + JSON args.
+  // Event compose on the Message tab: name + ack opt-in + per-arg
+  // rail (Phase G compose parity) — two args composed through their
+  // own editors join into the one arguments array on the wire.
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('websocket-event-name').filter({ visible: true }).first().fill('echo');
   await page.getByTestId('websocket-expect-ack').filter({ visible: true }).first().click();
-  await workbench.fillMonaco(0, '["from-ext", 9]');
+  await workbench.fillMonaco(0, '"from-ext"');
+  await page.getByTestId('ws-arg-add').filter({ visible: true }).first().click();
+  await workbench.fillMonaco(0, '9');
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
@@ -518,7 +529,8 @@ test('B8 — "Use example message" synthesizes the scaffold payload; the channel
     .filter({ visible: true })
     .first()
     .waitFor({ state: 'visible' });
-  expect(await workbench.monacoText(0)).toContain('"op": "ping"');
+  // Poll: Monaco repaints a beat after the tab switch lands the text.
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"op": "ping"');
 });
 
 // ── B9: Save Response — the settled session freezes into an example ──
@@ -558,4 +570,59 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
   await page.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
   await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
   await expect(urlInput()).toHaveValue(WS_PROBE_URL);
+});
+
+// ── B10: session credential + Events listen filter (Phase G) ────────
+
+test('B10 — the bearer credential rides the CONNECT auth payload in-page and the Events rows filter the timeline', async () => {
+  // The SIO draft still points at the probe with the /probe namespace
+  // and the acked echo compose (B7's edits live in the mounted tab).
+  await openWebsocketRequest(SIO_NAME);
+
+  // Listen only to the greeting — the reply event stays unlisted.
+  await page.getByRole('tab', { name: 'Events', exact: true }).filter({ visible: true }).first().click();
+  await page.getByPlaceholder('Event name').filter({ visible: true }).first().click();
+  await page.keyboard.insertText('probe:hello');
+
+  // The credential on the Authorization tab.
+  await page.getByRole('tab', { name: 'Authorization', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('ws-auth-type').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'Bearer token' })
+    .first()
+    .click();
+  await page.getByTestId('ws-auth-token').filter({ visible: true }).first().fill('sio-page-tok');
+
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
+
+  // The greeting mirrors the CONNECT auth payload — the credential
+  // works IN the page realm, so no honesty notice appears on THIS
+  // session (visible-scoped: the raw editor's B6 notice persists in
+  // its background tab).
+  await timelineMessageRows()
+    .filter({ hasText: 'sio-page-tok' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+  await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
+
+  // Send the acked echo: the correlated ACK lands (proof the reply
+  // cycle completed), while the unlisted `echo:reply` row stays hidden
+  // by the listen filter — display only, the capture stays verbatim.
+  await expect(sendButton()).toBeEnabled();
+  await sendButton().click();
+  await timelineMessageRows()
+    .filter({ hasText: 'ack' })
+    .filter({ hasText: '#1' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+  const eventNames = page.getByTestId('ws-sio-event-name').filter({ visible: true });
+  await expect(eventNames.filter({ hasText: 'echo:reply' })).toHaveCount(0);
+
+  await disconnectAndAwaitClose();
 });

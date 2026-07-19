@@ -79,13 +79,21 @@ const websocketRequests: WebSocketRequest[] = [
     url: `ws://127.0.0.1:${deadPort}/net/ws-probe`,
   }),
   // The Phase E socketio leg: the REAL socket.io server at
-  // /net/sio-probe, a named namespace, and an acked event compose.
+  // /net/sio-probe, a named namespace, an acked event compose, and the
+  // Phase G session credential riding the CONNECT auth payload (the
+  // probe greeting mirrors it back).
   websocketRequest('e2ewsd05', 'Probe SIO', '["from-desktop", 7]', {
     flavor: 'socketio',
     url: `ws://127.0.0.1:${probePort}/net/sio-probe`,
     namespace: '/probe',
     eventName: 'echo',
     ackEnabled: true,
+    auth: { type: 'bearer', token: 'sio-tok-e2e' },
+  }),
+  // The Phase G auth leg on the raw flavor: the credential lands as
+  // the Authorization handshake header (the greeting mirrors it back).
+  websocketRequest('e2ewsd06', 'Probe Auth', '', {
+    auth: { type: 'bearer', token: 'raw-tok-e2e' },
   }),
 ];
 

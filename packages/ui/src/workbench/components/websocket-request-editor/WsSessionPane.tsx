@@ -41,6 +41,9 @@ interface WsSessionPaneProps {
   hostNotice?: string | null;
   /** Session wire family — forwarded to the timeline's display decode. */
   flavor?: WebSocketFlavor;
+  /** Events-tab listen filter — forwarded to the timeline (display
+   *  only; the capture stays verbatim). Absent = no filter. */
+  listenedEvents?: readonly string[];
   onClear: () => void;
   /** "Save Response" — present only when the settled session can be
    *  captured as an example (connected, non-error). */
@@ -53,6 +56,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   timing,
   hostNotice,
   flavor,
+  listenedEvents,
   onClear,
   onSaveResponse,
 }) => {
@@ -278,6 +282,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
                     lifecycle={lifecycle}
                     droppedMessages={snapshot?.droppedMessages ?? 0}
                     {...(flavor !== undefined ? { flavor } : {})}
+                    {...(listenedEvents !== undefined ? { listenedEvents } : {})}
                   />
                 </div>
               </div>

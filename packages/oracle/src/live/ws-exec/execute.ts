@@ -103,12 +103,23 @@ export async function executeWsSession(
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
 
   let url = resolveStr(request.url).trim();
+  // Session credential (bearer) — resolved with the other Connect-time
+  // templates. An empty resolved token reads as none (partial configs
+  // stay saveable — the HTTP auth block's posture). An explicit user
+  // Authorization row takes precedence over the credential header (the
+  // gRPC auth block's law), so one header rides the wire either way.
+  const bearerToken = request.auth?.type === 'bearer' ? resolveStr(request.auth.token).trim() : '';
   const headers: WsTransportHeader[] = [];
+  let hasAuthorizationRow = false;
   for (const row of request.headers) {
     if (row.enabled === false || !row.key.trim()) continue;
     const key = resolveStr(row.key);
     if (key.toLowerCase().startsWith('sec-websocket-') || RESERVED_HEADER_KEYS.has(key.toLowerCase())) continue;
+    if (key.toLowerCase() === 'authorization') hasAuthorizationRow = true;
     headers.push({ key, value: resolveStr(row.value) });
+  }
+  if (bearerToken !== '' && !hasAuthorizationRow) {
+    headers.push({ key: 'Authorization', value: `Bearer ${bearerToken}` });
   }
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
@@ -215,7 +226,13 @@ export async function executeWsSession(
       record({ direction: 'up', dataBase64, binary: false }, data.byteLength);
       emitter?.message({ direction: 'up', dataBase64, binary: false, atMs: Date.now() });
     };
-    const socketioSession = socketioFlavor ? createSocketIoSessionController(namespace, sendText) : null;
+    // The socketio flavor ALSO lands the bearer token as the CONNECT
+    // packet's auth payload — in-band framing, so it works on hosts
+    // whose platform socket cannot carry the header.
+    const connectAuthJson = bearerToken !== '' ? JSON.stringify({ token: bearerToken }) : undefined;
+    const socketioSession = socketioFlavor
+      ? createSocketIoSessionController(namespace, sendText, connectAuthJson)
+      : null;
 
     writer = options.transport.connect(
       {

@@ -105,6 +105,14 @@ export interface EditableGridTableProps<Row> {
     context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
   ) => React.ReactNode;
   keyPlaceholder?: string;
+  /** Override the Key / Value column header labels — for tables whose
+   *  columns aren't literally key/value (e.g. the WebSocket Events tab's
+   *  Event name / Listen columns). Absent falls back to the shared grid
+   *  vocabulary. */
+  headerLabels?: {
+    key?: string;
+    value?: string;
+  };
   hideEnabled?: boolean;
   suggestionRows?: SuggestionRow[];
   /** Enable the "Bulk Edit" toggle in the header. When the user

@@ -11,6 +11,7 @@
 import type { SyncWebSocketRequestPostState } from '@openheaders/core/protocol';
 import {
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
 } from '@openheaders/core/sync';
@@ -20,7 +21,11 @@ import type { EntityOracle } from '../oracle';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 
 /** Set-modeled paths on a WebSocketRequest — mirrors the projection's set handling. */
-const WEBSOCKET_REQUEST_SET_PATHS = [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH] as const;
+const WEBSOCKET_REQUEST_SET_PATHS = [
+  WEBSOCKET_REQUEST_HEADERS_PATH,
+  WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
+] as const;
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 

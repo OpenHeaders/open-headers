@@ -55,6 +55,11 @@ describe('encodeConnectPacket', () => {
     expect(encodeConnectPacket('/probe')).toBe('40/probe,');
     expect(encodeConnectPacket('probe')).toBe('40/probe,');
   });
+
+  it('appends the auth payload verbatim after the header', () => {
+    expect(encodeConnectPacket('/', '{"token":"tok-123"}')).toBe('40{"token":"tok-123"}');
+    expect(encodeConnectPacket('/probe', '{"token":"tok-123"}')).toBe('40/probe,{"token":"tok-123"}');
+  });
 });
 
 describe('encodeEventPacket', () => {

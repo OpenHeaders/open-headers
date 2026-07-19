@@ -237,11 +237,11 @@ export interface SyncGrpcRequestPostState {
  * Post-commit projection for a WebSocketRequest envelope. Parallel to
  * {@link SyncGrpcRequestPostState} — carries the materialized
  * {@link WebSocketRequest} and the live itemIds the oracle holds at
- * the set-modeled `headers` / `params` paths.
+ * the set-modeled `headers` / `params` / `events` paths.
  */
 export interface SyncWebSocketRequestPostState {
   websocketRequest: WebSocketRequest;
-  /** Map keyed by set path (`headers`, `params`). */
+  /** Map keyed by set path (`headers`, `params`, `events`). */
   setItemIds: Record<string, string[]>;
   /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
    *  {@link SyncRequestPostState.setOrderKeys}. */

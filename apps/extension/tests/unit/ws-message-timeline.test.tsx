@@ -233,4 +233,23 @@ describe('WsMessageTimeline — socketio decoded display', () => {
     expect(row.textContent).toContain('42["news"]');
     expect(screen.queryByTestId('ws-sio-event-name')).toBeNull();
   });
+
+  it('listen filter hides unlisted incoming events only — sent frames, controls and acks stay', () => {
+    const items: WsTimelineItem[] = [
+      text('down', '0{"sid":"abc"}'),
+      text('up', '42["mute-me"]'),
+      text('down', '42["news",{"headline":"hi"}]'),
+      text('down', '42["mute-me",{"n":1}]'),
+      text('down', '431[{"ok":true}]'),
+    ];
+    renderTimeline({ items, count: items.length, flavor: 'socketio', listenedEvents: ['news'] });
+    const rows = screen.getAllByTestId('ws-timeline-message-row').map((r) => r.textContent ?? '');
+    // The unlisted DOWN event hides; the same-named UP compose stays
+    // (the filter reads incoming frames only), as do control + ack rows.
+    expect(rows.some((r) => r.includes('{"n":1}'))).toBe(false);
+    expect(rows.some((r) => r.includes('news'))).toBe(true);
+    expect(rows.some((r) => r.includes('mute-me'))).toBe(true);
+    expect(rows.some((r) => r.includes('engine.io open'))).toBe(true);
+    expect(rows.some((r) => r.includes('ack'))).toBe(true);
+  });
 });

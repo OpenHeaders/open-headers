@@ -126,6 +126,29 @@ describe('parseWebSocketRequest', () => {
     expect(parsed.value).toEqual(entity);
   });
 
+  it('round-trips the auth block and events rows with canonical row key order', () => {
+    const entity = websocketRequest({
+      flavor: 'socketio',
+      auth: { type: 'bearer', token: '{{vault.ws_token}}' },
+      events: [
+        { uid: 'wsev0001', name: 'price-update', listen: true },
+        { description: 'server keepalive', listen: false, name: 'heartbeat', uid: 'wsev0002' },
+      ],
+    });
+    const out = serializeWebSocketRequest(freshDocument(entity));
+    const manifest = YAML.parse(out.websocketYaml) as {
+      auth: Record<string, unknown>;
+      events: Array<Record<string, unknown>>;
+    };
+    expect(manifest.auth).toEqual({ type: 'bearer', token: '{{vault.ws_token}}' });
+    expect(Object.keys(manifest.events[1])).toEqual(['uid', 'name', 'listen', 'description']);
+    const parsed = parseWebSocketRequest(out.websocketYaml, {
+      path: entity.path,
+      siblings: out.messageFile ? [out.messageFile] : [],
+    });
+    expect(parsed.value).toEqual(entity);
+  });
+
   it('parses a missing message sibling as the empty draft', () => {
     const out = serializeWebSocketRequest(freshDocument(websocketRequest()));
     const parsed = parseWebSocketRequest(out.websocketYaml, { path: 'requests/live-events-wsrq0001', siblings: [] });

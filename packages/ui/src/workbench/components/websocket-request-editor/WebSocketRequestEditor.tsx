@@ -35,9 +35,11 @@
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
+  CloseOutlined,
   DisconnectOutlined,
   LinkOutlined,
   LockOutlined,
+  PlusOutlined,
   SendOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
@@ -52,7 +54,13 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { ExecutedWsSnapshot, WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
+import type {
+  ExecutedWsSnapshot,
+  WebSocketEventRow,
+  WebSocketMessageFormat,
+  WebSocketRequest as WebSocketRequestEntity,
+} from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
@@ -91,9 +99,12 @@ import {
   capturedWsResponseFromSnapshot,
   capturedWsRequestFromDraft,
 } from '../ws-response-example/ws-example-draft';
+import type { LanguageId } from '@openheaders/ui/workbench/languages/registry';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import DocsTab from '../request-editor/DocsTab';
+import { EditableGridTable } from '../request-editor/EditableGridTable';
+import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import KeyValueTable from '../request-editor/KeyValueTable';
 import EditorHeader from '../shell/EditorHeader';
 import {
@@ -129,6 +140,8 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   subprotocols: [],
   headers: [],
   params: [],
+  auth: { type: 'none' },
+  events: [],
   message: '',
   eventName: '',
   namespace: '',
@@ -138,6 +151,29 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   timeoutMs: undefined,
   sslVerification: true,
 });
+
+/** Events-tab row adapter — event name rides the key track, Listen is
+ *  the value cell's switch, `enabled` has no row meaning (the column is
+ *  hidden). A fresh row listens by default. */
+const EVENT_ROW_ADAPTER: EditableRowAdapter<WebSocketEventRow> = {
+  getId: (r) => r.uid,
+  getEnabled: () => true,
+  setEnabled: (r) => r,
+  getKey: (r) => r.name,
+  setKey: (r, v) => ({ ...r, name: v }),
+  getDescription: (r) => r.description ?? '',
+  setDescription: (r, v) => ({ ...r, description: v }),
+  makeEmpty: () => ({ uid: generateUid(), name: '' }),
+  isEmpty: (r) => !r.name && !r.description,
+};
+
+/** Monaco language for each raw-flavor compose display mode. */
+const MESSAGE_FORMAT_LANGUAGE = {
+  text: 'text',
+  json: 'json',
+  xml: 'xml',
+  html: 'html',
+} as const satisfies Record<WebSocketMessageFormat, LanguageId>;
 
 /** One Settings-tab row — the gRPC editor's SettingRow vocabulary. */
 const SettingRow: React.FC<{ label: string; description: string; control: React.ReactNode }> = ({
@@ -371,6 +407,44 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   const messageActionsRef = useRef<CodeEditorActionsTarget | null>(null);
 
+  // ── Socket.IO per-arg compose (Phase G compose parity) ───────────
+  // The stored draft stays the JSON arguments-array TEXT (the wire
+  // contract `encodeEventPacket` parses); the rail splits it into one
+  // editor per argument. State, not derivation: a half-typed arg is
+  // invalid JSON, and re-deriving would bounce the rail away mid-edit.
+  // `composedRef` marks messages this rail itself wrote, so external
+  // writes (example picker, prefill bus, reprime) re-split — and a
+  // message that doesn't parse as an array falls back to the plain
+  // whole-array editor instead of guessing.
+  const [argTexts, setArgTexts] = useState<string[] | null>(null);
+  const [activeArg, setActiveArg] = useState(0);
+  const composedArgsRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (entity?.flavor !== 'socketio') return;
+    if (draft.message === composedArgsRef.current) return;
+    composedArgsRef.current = draft.message;
+    const trimmed = draft.message.trim();
+    if (trimmed === '') {
+      setArgTexts([]);
+      setActiveArg(0);
+      return;
+    }
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      setArgTexts(Array.isArray(parsed) ? parsed.map((el) => JSON.stringify(el, null, 2)) : null);
+    } catch {
+      setArgTexts(null);
+    }
+    setActiveArg(0);
+  }, [entity, draft.message]);
+
+  const composeArgs = useCallback((texts: string[]) => {
+    const message = texts.length === 0 ? '' : `[${texts.join(', ')}]`;
+    composedArgsRef.current = message;
+    setArgTexts(texts);
+    setDraft((d) => ({ ...d, message }));
+  }, []);
+
   // ── Session (node hosts + page-realm capability surfaces) ────────
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const pageSession = requestRuntimeKind !== 'node' && (getCapability('wsPageSession')?.() ?? false);
@@ -414,6 +488,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       }
       if (!draft.sslVerification) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
+      }
+      // The socketio flavor's credential still reaches the server via
+      // the CONNECT auth payload, so only the raw flavor names the
+      // header the platform socket cannot carry.
+      if (entity.flavor === 'raw' && draft.auth.type === 'bearer' && draft.auth.token.trim() !== '') {
+        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobAuth'));
       }
     }
     setHostNotice(
@@ -514,6 +594,17 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   const canSaveResponse =
     workspaceId !== null && snapshot !== null && snapshot.error === null && snapshot.connected;
+
+  // Events-tab display filter: with at least one NAMED row, the
+  // timeline shows only the listened incoming events (rows compare by
+  // literal name — templates stay as typed). No named rows = no
+  // filter; the capture itself is never touched.
+  const listenedEvents = useMemo((): readonly string[] | null => {
+    if (!socketioFlavor) return null;
+    const named = draft.events.filter((r) => r.name.trim() !== '');
+    if (named.length === 0) return null;
+    return named.filter((r) => r.listen !== false).map((r) => r.name.trim());
+  }, [socketioFlavor, draft.events]);
 
   const connectDisabledReason =
     requestRuntimeKind !== 'node' && !pageSession
@@ -758,6 +849,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
               items={[
                 { key: 'docs', label: t('workbench.editors.websocket.tab.docs') },
                 { key: 'message', label: t('workbench.editors.websocket.tab.message') },
+                ...(socketioFlavor ? [{ key: 'events', label: t('workbench.editors.websocket.tab.events') }] : []),
+                { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
                 { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
                 { key: 'params', label: t('workbench.editors.websocket.tab.params') },
                 { key: 'spec', label: t('workbench.editors.websocket.tab.spec') },
@@ -820,11 +913,13 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                           size="small"
                           value={draft.messageFormat}
                           onChange={(messageFormat) =>
-                            setDraft((d) => ({ ...d, messageFormat: messageFormat as 'text' | 'json' }))
+                            setDraft((d) => ({ ...d, messageFormat: messageFormat as WebSocketMessageFormat }))
                           }
                           options={[
                             { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
                             { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
+                            { value: 'xml', label: t('workbench.editors.websocket.message.formatXml') },
+                            { value: 'html', label: t('workbench.editors.websocket.message.formatHtml') },
                           ]}
                           data-testid="websocket-message-format"
                         />
@@ -845,20 +940,100 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                   {/* Absolute inset host — a fill editor must not size
                     its own flex parent (the BodyTab discipline). */}
                   <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-                      <CodeEditor
-                        value={draft.message}
-                        onChange={(message) => setDraft((d) => ({ ...d, message }))}
-                        language={socketioFlavor || draft.messageFormat === 'json' ? 'json' : 'text'}
-                        fill
-                        actions="external"
-                        actionsRef={messageActionsRef}
-                        placeholder={
-                          socketioFlavor
-                            ? t('workbench.editors.websocket.event.argsPlaceholder')
-                            : t('workbench.editors.websocket.messagePlaceholder')
-                        }
-                      />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+                      {/* Arg rail (socketio): one editor per argument
+                        over the same stored arguments-array text. A
+                        message that doesn't parse as an array keeps
+                        the plain whole-array editor. */}
+                      {socketioFlavor && argTexts !== null && (
+                        <div
+                          style={{
+                            width: 88,
+                            flexShrink: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                            paddingRight: 8,
+                            overflow: 'auto',
+                          }}
+                          data-testid="ws-arg-rail"
+                        >
+                          {argTexts.map((_, index) => (
+                            <div
+                              // biome-ignore lint/suspicious/noArrayIndexKey: args are positional by wire contract
+                              key={index}
+                              style={{ display: 'flex', alignItems: 'center', gap: 2 }}
+                            >
+                              <Button
+                                size="small"
+                                type={index === activeArg ? 'default' : 'text'}
+                                style={{ flex: 1, fontSize: 11, justifyContent: 'flex-start' }}
+                                onClick={() => setActiveArg(index)}
+                                data-testid="ws-arg-pill"
+                              >
+                                {t('workbench.editors.websocket.event.argTab', { index: index + 1 })}
+                              </Button>
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<CloseOutlined style={{ fontSize: 9 }} />}
+                                aria-label={t('workbench.editors.websocket.event.removeArg', { index: index + 1 })}
+                                onClick={() => {
+                                  const next = argTexts.filter((_t, i) => i !== index);
+                                  composeArgs(next);
+                                  setActiveArg((a) => Math.max(0, Math.min(a > index ? a - 1 : a, next.length - 1)));
+                                }}
+                                data-testid="ws-arg-remove"
+                              />
+                            </div>
+                          ))}
+                          <Button
+                            size="small"
+                            type="dashed"
+                            icon={<PlusOutlined style={{ fontSize: 10 }} />}
+                            style={{ fontSize: 11 }}
+                            onClick={() => {
+                              const next = [...(argTexts.length === 0 ? [] : argTexts), '""'];
+                              composeArgs(next);
+                              setActiveArg(next.length - 1);
+                            }}
+                            data-testid="ws-arg-add"
+                          >
+                            {t('workbench.editors.websocket.event.addArg')}
+                          </Button>
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        {socketioFlavor && argTexts !== null ? (
+                          <CodeEditor
+                            value={argTexts[activeArg] ?? ''}
+                            onChange={(text) => {
+                              const base = argTexts.length === 0 ? [''] : [...argTexts];
+                              base[Math.min(activeArg, base.length - 1)] = text;
+                              composeArgs(base);
+                            }}
+                            language="json"
+                            fill
+                            actions="external"
+                            actionsRef={messageActionsRef}
+                            placeholder={t('workbench.editors.websocket.event.argPlaceholder')}
+                          />
+                        ) : (
+                          <CodeEditor
+                            value={draft.message}
+                            onChange={(message) => setDraft((d) => ({ ...d, message }))}
+                            language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
+                            fill
+                            actions="external"
+                            actionsRef={messageActionsRef}
+                            placeholder={
+                              socketioFlavor
+                                ? t('workbench.editors.websocket.event.argsPlaceholder')
+                                : t('workbench.editors.websocket.messagePlaceholder')
+                            }
+                          />
+                        )}
+                      </div>
                     </div>
                     {/* Send control, bottom-right of the compose
                       surface (the gRPC stream-controls anatomy): a
@@ -900,6 +1075,89 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       </Tooltip>
                     </div>
                   </div>
+                </div>
+              )}
+              {activeTab === 'events' && socketioFlavor && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="ws-events-table">
+                  {/* Display filter over incoming EVENT frames — the
+                    capture stays verbatim (the capture law); with no
+                    named rows the timeline shows everything. */}
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {t('workbench.editors.websocket.events.hint')}
+                  </Text>
+                  <EditableGridTable<WebSocketEventRow>
+                    rows={draft.events}
+                    onChange={(events) => setDraft((d) => ({ ...d, events }))}
+                    adapter={EVENT_ROW_ADAPTER}
+                    keyPlaceholder={t('workbench.editors.websocket.events.namePlaceholder')}
+                    headerLabels={{
+                      key: t('workbench.editors.websocket.events.namePlaceholder'),
+                      value: t('workbench.editors.websocket.events.listenLabel'),
+                    }}
+                    hideEnabled
+                    columnWidths={{ value: '90px' }}
+                    renderValueCell={(row, update, ctx) =>
+                      ctx.isPlaceholder ? (
+                        <span />
+                      ) : (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                          <Switch
+                            size="small"
+                            checked={row.listen !== false}
+                            onChange={(listen) => update({ ...row, listen })}
+                            aria-label={t('workbench.editors.websocket.events.listenLabel')}
+                            data-testid="ws-event-listen"
+                          />
+                        </span>
+                      )
+                    }
+                  />
+                </div>
+              )}
+              {activeTab === 'auth' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560 }}>
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                      {t('workbench.editors.websocket.auth.typeLabel')}
+                    </Text>
+                    <Select
+                      style={{ width: 220 }}
+                      value={draft.auth.type}
+                      options={[
+                        { value: 'none', label: t('workbench.editors.websocket.auth.typeNone') },
+                        { value: 'bearer', label: t('workbench.editors.websocket.auth.typeBearer') },
+                      ]}
+                      onChange={(type: 'none' | 'bearer') =>
+                        setDraft((d) => ({
+                          ...d,
+                          auth:
+                            type === 'bearer'
+                              ? { type: 'bearer', token: d.auth.type === 'bearer' ? d.auth.token : '' }
+                              : { type: 'none' },
+                        }))
+                      }
+                      data-testid="ws-auth-type"
+                    />
+                  </div>
+                  {draft.auth.type === 'bearer' && (
+                    <div>
+                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
+                        {t('workbench.editors.websocket.auth.tokenLabel')}
+                      </Text>
+                      <Input
+                        style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                        placeholder={t('workbench.editors.websocket.auth.tokenPlaceholder')}
+                        value={draft.auth.token}
+                        onChange={(e) => setDraft((d) => ({ ...d, auth: { type: 'bearer', token: e.target.value } }))}
+                        data-testid="ws-auth-token"
+                      />
+                      <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 6 }}>
+                        {socketioFlavor
+                          ? t('workbench.editors.websocket.auth.helpSocketio')
+                          : t('workbench.editors.websocket.auth.helpRaw')}
+                      </Text>
+                    </div>
+                  )}
                 </div>
               )}
               {activeTab === 'headers' && (
@@ -1055,6 +1313,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                   timing={timing}
                   hostNotice={hostNotice}
                   flavor={entity.flavor}
+                  {...(listenedEvents !== null ? { listenedEvents } : {})}
                   onClear={handleClearSession}
                   {...(canSaveResponse ? { onSaveResponse: () => void handleSaveResponse() } : {})}
                 />

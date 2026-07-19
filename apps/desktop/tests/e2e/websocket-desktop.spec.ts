@@ -29,6 +29,10 @@
  *       WsResponseExample — viewer tab with the captured close pill,
  *       sidebar example leaf under the parent request, "Open in
  *       Request" returns to the parent editor.
+ *   W7  session credential (Phase G): the bearer token lands as the
+ *       Authorization handshake header on the raw flavor — the probe
+ *       greeting mirrors it back verbatim. (The socketio CONNECT auth
+ *       payload leg rides W5's greeting assertion.)
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle + honest browser posture (extension
@@ -39,7 +43,7 @@
  * Requires `pnpm turbo build --filter=@openheaders/desktop` first.
  *
  * Seeding: the app boots once to mint its default workspace, quits,
- * its storage.json gains the probe collection + four W-leg requests
+ * its storage.json gains the probe collection + the W-leg requests
  * (built and schema-validated by `fixtures/websocket-desktop-seed.ts`
  * under the extension package's tsx), and the app relaunches on them.
  */
@@ -344,6 +348,9 @@ test('W5 — socketio handshake, namespace connect, acked echo event and decoded
   // EVENT decoded by name.
   const eventNames = workbench.getByTestId('ws-sio-event-name').filter({ visible: true });
   await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  // The greeting mirrors the CONNECT auth payload — the session
+  // credential made the socket.io handshake (Phase G).
+  await timelineMessageRows().filter({ hasText: 'sio-tok-e2e' }).first().waitFor({ state: 'visible', timeout: 10_000 });
   await timelineMessageRows().filter({ hasText: 'connect /probe' }).first().waitFor({ state: 'visible' });
   await timelineMessageRows().filter({ hasText: 'connected /probe' }).first().waitFor({ state: 'visible' });
   await timelineMessageRows().filter({ hasText: 'engine.io open' }).first().waitFor({ state: 'visible' });
@@ -401,4 +408,20 @@ test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, O
   await expect(workbench.getByTestId('websocket-url-input').filter({ visible: true }).first()).toHaveValue(
     /net\/ws-probe/,
   );
+});
+
+// ── W7: session credential — Authorization header on the raw flavor ──
+
+test('W7 — the bearer credential lands as the Authorization handshake header', async () => {
+  await openWebsocketRequest('e2ewsd06');
+  await connectAndAwaitOpen();
+
+  // The probe greeting mirrors the request's authorization header —
+  // the credential made the wire without a header row.
+  await timelineMessageRows()
+    .filter({ hasText: '"authorization":"Bearer raw-tok-e2e"' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+
+  await disconnectAndAwaitClose('Closed 1000');
 });

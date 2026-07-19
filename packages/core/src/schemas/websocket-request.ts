@@ -70,11 +70,50 @@ export const WebSocketQueryParamSchema = v.object({
 });
 
 /**
- * Compose-draft display mode for the raw flavor: free text or JSON
- * (JSON gets the structured editor + validation). Display-side only —
- * the payload travels verbatim either way. Absent = `text`.
+ * Compose-draft display mode for the raw flavor: free text, JSON
+ * (structured editor + validation), XML, or HTML (language-mode
+ * highlighting). Display-side only — the payload travels verbatim
+ * either way. Absent = `text`.
  */
-export const WebSocketMessageFormatSchema = v.picklist(['text', 'json']);
+export const WebSocketMessageFormatSchema = v.picklist(['text', 'json', 'xml', 'html']);
+
+/**
+ * Session credential — deliberately the `GrpcAuthSchema` SUBSET
+ * (bearer is the session-protocol idiom). The executor resolves the
+ * token at Connect and injects `Authorization: Bearer <token>` into
+ * the handshake headers (a node-host capability like custom header
+ * rows — the browser's WebSocket constructor cannot set it, so
+ * page-realm sessions name it in the honesty notice instead of
+ * silently dropping). The `socketio` flavor ALSO lands the token as
+ * the CONNECT packet's auth payload (`{"token": …}`) — in-band
+ * framing that works on every host. Absent = `none`. Wider auth
+ * shapes (basic, OAuth2, inherit) are demand-gated.
+ */
+export const WebSocketAuthSchema = v.variant('type', [
+  v.object({ type: v.literal('none') }),
+  v.object({
+    type: v.literal('bearer'),
+    /** Token text; templates welcome (`{{token}}` resolves at Connect). */
+    token: v.string(),
+  }),
+]);
+
+/**
+ * One Events-tab row (socketio flavor only): an incoming event the
+ * timeline surfaces. `uid` is the stable per-row identity the sync
+ * engine's set-modeled paths key by. `listen` gates the DISPLAY of
+ * incoming EVENT frames carrying `name` — the capture stays verbatim
+ * (the capture law); with no listened rows the timeline shows every
+ * frame, so the empty tab changes nothing.
+ */
+export const WebSocketEventRowSchema = v.object({
+  uid: UidSchema,
+  name: v.string(),
+  /** Show incoming events with this name in the timeline. Absent = on. */
+  listen: v.optional(v.boolean()),
+  /** Optional free-form per-row note rendered in the Description column. */
+  description: v.optional(v.string()),
+});
 
 /**
  * Binding to the AsyncAPI spec that feeds compose aids — ids-only
@@ -110,6 +149,13 @@ export const WebSocketRequestSchema = v.object({
   subprotocols: v.array(v.pipe(v.string(), v.minLength(1))),
   headers: v.array(WebSocketHeaderPairSchema),
   params: v.array(WebSocketQueryParamSchema),
+  /** Session credential injected at Connect. Absent = none. */
+  auth: v.optional(WebSocketAuthSchema),
+  /**
+   * Events-tab rows (socketio flavor only) — the incoming events the
+   * timeline surfaces. Absent or empty = no display filter.
+   */
+  events: v.optional(v.array(WebSocketEventRowSchema)),
   /**
    * Compose draft for the next outgoing message. Fans out to the
    * message sibling file on disk (the `message.json` precedent); the

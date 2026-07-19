@@ -377,9 +377,11 @@ export {
   type DeleteWebSocketRequestArgs,
   deleteWebSocketRequest,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_MUTATOR_VERSION,
   WEBSOCKET_REQUEST_PARAMS_PATH,
+  type WebSocketEventRowRow,
   type WebSocketHeaderPairRow,
   type WebSocketQueryParamRow,
 } from './websocket-request';

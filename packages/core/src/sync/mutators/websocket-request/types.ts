@@ -1,17 +1,19 @@
 /**
  * WebSocketRequest mutator catalog — routing constants.
  *
- * Two set-modeled paths live on the WebSocketRequest entity:
+ * Three set-modeled paths live on the WebSocketRequest entity:
  *
  *   - `headers` — handshake header rows (`{ key, value, description?, enabled? }`)
  *   - `params`  — query-param rows (`{ key, value, description?, enabled?, hasEquals? }`)
+ *   - `events`  — Events-tab rows (`{ name, listen?, description? }`, socketio flavor)
  *
  * Every other field — `name`, `description`, `url`, `flavor`,
  * `subprotocols`, `message`, `messageFormat`, `specLink`, `timeoutMs`
- * — flows through `setField` scalars. `subprotocols` and `specLink`
- * are container-valued; they route through the per-leaf flatten-diff
- * at the write site (the same treatment `auth` / `body` get on the
- * HTTP request) so edits share create's leaf representation.
+ * — flows through `setField` scalars. `subprotocols`, `specLink` and
+ * `auth` are container-valued; they route through the per-leaf
+ * flatten-diff at the write site (the same treatment `auth` / `body`
+ * get on the HTTP request) so edits share create's leaf
+ * representation.
  *
  * No side effects: WebSocket requests don't feed DNR and don't touch
  * the variables resolver.
@@ -25,6 +27,9 @@ export const WEBSOCKET_REQUEST_HEADERS_PATH = 'headers';
 
 /** Set path for query-param rows. */
 export const WEBSOCKET_REQUEST_PARAMS_PATH = 'params';
+
+/** Set path for Events-tab rows (socketio flavor). */
+export const WEBSOCKET_REQUEST_EVENTS_PATH = 'events';
 
 /**
  * Wire shape for a handshake header row. Mirrors `WebSocketHeaderPair`
@@ -49,4 +54,12 @@ export interface WebSocketQueryParamRow {
   description?: string;
   enabled?: boolean;
   hasEquals?: boolean;
+}
+
+/** Wire shape for an Events-tab row. See {@link WebSocketHeaderPairRow}. */
+export interface WebSocketEventRowRow {
+  uid: string;
+  name: string;
+  listen?: boolean;
+  description?: string;
 }

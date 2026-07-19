@@ -307,6 +307,8 @@ export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';
 export type { ExecutedWsClose, ExecutedWsMessage, ExecutedWsSnapshot } from './websocket-execution';
 // ── WebSocket request ──────────────────────────────────────────────
 export type {
+  WebSocketAuth,
+  WebSocketEventRow,
   WebSocketFlavor,
   WebSocketHeaderPair,
   WebSocketMessageFormat,

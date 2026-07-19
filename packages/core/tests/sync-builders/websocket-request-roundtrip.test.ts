@@ -10,6 +10,7 @@ import {
   InMemoryDocumentStore,
   type MutatorContext,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
 } from '../../src/sync';
@@ -31,7 +32,10 @@ const ctx = (physicalMs: number): MutatorContext => ({
 });
 
 const wsSchemas = new Map([
-  [WEBSOCKET_REQUEST_ENTITY_TYPE, { setPaths: [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH] }],
+  [
+    WEBSOCKET_REQUEST_ENTITY_TYPE,
+    { setPaths: [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH, WEBSOCKET_REQUEST_EVENTS_PATH] },
+  ],
 ]);
 
 const noSets = () => [];
@@ -47,6 +51,7 @@ function liveField(store: InMemoryDocumentStore, uid: string): WebSocketLiveFiel
     if (!r) return undefined;
     if (path === 'subprotocols') return r.subprotocols;
     if (path === 'specLink') return r.specLink;
+    if (path === 'auth') return r.auth;
     return undefined;
   };
 }
@@ -106,6 +111,21 @@ describe('websocket request seed → project round-trip', () => {
       expect((create.body.payload as Record<string, unknown>).headers).toBeUndefined();
       expect((create.body.payload as Record<string, unknown>).params).toBeUndefined();
     }
+  });
+
+  it('round-trips the auth block and events rows (events as a set path)', () => {
+    const store = new InMemoryDocumentStore(wsSchemas);
+    const seeded: WebSocketRequest = {
+      ...seed,
+      flavor: 'socketio',
+      auth: { type: 'bearer', token: '{{vault.ws_token}}' },
+      events: [
+        { uid: 'wsev0001', name: 'price-update', listen: true },
+        { uid: 'wsev0002', name: 'heartbeat', listen: false, description: 'server keepalive' },
+      ],
+    };
+    applyBatch(store, buildWebSocketAddBatch(seeded, ctx(1_000)));
+    expect(materialized(store, 'wsrq0001')).toEqual(seeded);
   });
 
   it('projects null for a foreign entity type', () => {
@@ -215,6 +235,57 @@ describe('websocket request update batches', () => {
     expect(materialized(store, 'wsrq0001').headers).toEqual(next);
     // The params set is untouched by a headers-only patch.
     expect(materialized(store, 'wsrq0001').params).toEqual(seed.params);
+  });
+
+  it('routes an auth-block edit through the per-leaf flatten-diff', () => {
+    const store = new InMemoryDocumentStore(wsSchemas);
+    applyBatch(store, buildWebSocketAddBatch({ ...seed, auth: { type: 'none' } }, ctx(1_000)));
+
+    const payload = buildWebSocketUpdateBatch(
+      'wsrq0001',
+      { auth: { type: 'bearer', token: 'tok-123' } },
+      ctx(2_000),
+      noSets,
+      liveField(store, 'wsrq0001'),
+    );
+    const paths = payload.batch.mutations.map((m) => (m.body.kind === 'setField' ? m.body.path : m.body.kind));
+    expect(paths).not.toContain('auth');
+    expect(paths).toContain('auth.type');
+    expect(paths).toContain('auth.token');
+
+    applyBatch(store, payload);
+    expect(materialized(store, 'wsrq0001').auth).toEqual({ type: 'bearer', token: 'tok-123' });
+  });
+
+  it('emits minimum set-diff envelopes for events-row edits', () => {
+    const store = new InMemoryDocumentStore(wsSchemas);
+    applyBatch(
+      store,
+      buildWebSocketAddBatch({ ...seed, events: [{ uid: 'wsev0001', name: 'price-update' }] }, ctx(1_000)),
+    );
+
+    const liveSets = (uid: string, setPath: string) => {
+      const entries = store.liveOrderedSetItems(WEBSOCKET_REQUEST_ENTITY_TYPE, uid, setPath);
+      const entity = materialized(store, uid);
+      const byUid = new Map((entity.events ?? []).map((r) => [r.uid, r]));
+      return entries.map((e) => ({ itemId: e.itemId, orderKey: e.key, item: byUid.get(e.itemId) }));
+    };
+
+    const next = [
+      { uid: 'wsev0001', name: 'price-update', listen: false }, // content edit
+      { uid: 'wsev0003', name: 'trade' }, // added
+    ];
+    const payload = buildWebSocketUpdateBatch(
+      'wsrq0001',
+      { events: next },
+      ctx(2_000),
+      liveSets,
+      liveField(store, 'wsrq0001'),
+    );
+    applyBatch(store, payload);
+    expect(materialized(store, 'wsrq0001').events).toEqual(next);
+    // The header/param sets are untouched by an events-only patch.
+    expect(materialized(store, 'wsrq0001').headers).toEqual(seed.headers);
   });
 
   it('replaces param rows including the hasEquals round-trip marker', () => {

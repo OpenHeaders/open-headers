@@ -19,6 +19,8 @@
 
 import type * as v from 'valibot';
 import type {
+  WebSocketAuthSchema,
+  WebSocketEventRowSchema,
   WebSocketFlavorSchema,
   WebSocketHeaderPairSchema,
   WebSocketMessageFormatSchema,
@@ -39,6 +41,12 @@ export type WebSocketQueryParam = v.InferOutput<typeof WebSocketQueryParamSchema
 
 /** Compose-draft display mode for the raw flavor (absent = text). */
 export type WebSocketMessageFormat = v.InferOutput<typeof WebSocketMessageFormatSchema>;
+
+/** Session credential injected at Connect (absent = none). */
+export type WebSocketAuth = v.InferOutput<typeof WebSocketAuthSchema>;
+
+/** One Events-tab row (socketio flavor) — timeline display filter. */
+export type WebSocketEventRow = v.InferOutput<typeof WebSocketEventRowSchema>;
 
 /** Ids-only binding to the AsyncAPI spec feeding compose aids. */
 export type WebSocketSpecLink = v.InferOutput<typeof WebSocketSpecLinkSchema>;

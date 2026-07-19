@@ -3,8 +3,8 @@
  * MaterializedEntity`.
  *
  * Parallel to {@link request-projection}: the WebSocket-request entity
- * treats `headers` and `params` as **sets** (parent-owned ordering
- * with itemId-keyed members + fractional indexing), while
+ * treats `headers`, `params` and `events` as **sets** (parent-owned
+ * ordering with itemId-keyed members + fractional indexing), while
  * `WebSocketRequest` persists them as plain arrays.
  * `seedWebSocketRequest` strips the set-modeled fields off the create
  * payload and emits one `addToSet` per row keyed by the row's own uid;
@@ -20,13 +20,18 @@ import {
   mintBatch,
   orderKeyMinter,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
   WEBSOCKET_REQUEST_HEADERS_PATH,
   WEBSOCKET_REQUEST_PARAMS_PATH,
 } from '@openheaders/core/sync';
 import type { WebSocketRequest } from '@openheaders/core/types';
 
 /** Set-modeled paths on a WebSocketRequest, with their row readers. */
-const SET_PATHS = [WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH] as const;
+const SET_PATHS = [
+  WEBSOCKET_REQUEST_HEADERS_PATH,
+  WEBSOCKET_REQUEST_PARAMS_PATH,
+  WEBSOCKET_REQUEST_EVENTS_PATH,
+] as const;
 
 /**
  * Convert a persisted WebSocketRequest into a `MutationBatch` of one
@@ -47,7 +52,12 @@ export function seedWebSocketRequest(request: WebSocketRequest, ctx: MutatorCont
   // Sequential orderKeys — a keyless addToSet defaults every row to the
   // same seedKey(), collapsing creation order to the uid tie-break.
   for (const path of SET_PATHS) {
-    const rows = path === WEBSOCKET_REQUEST_HEADERS_PATH ? request.headers : request.params;
+    const rows =
+      path === WEBSOCKET_REQUEST_HEADERS_PATH
+        ? request.headers
+        : path === WEBSOCKET_REQUEST_PARAMS_PATH
+          ? request.params
+          : (request.events ?? []);
     const nextKey = orderKeyMinter();
     for (const row of rows) {
       bodies.push({
@@ -74,10 +84,20 @@ export function projectWebSocketRequest(materialized: MaterializedEntity): WebSo
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
   // Materialized data already carries the right shape: scalars are
-  // unflattened from per-leaf paths; `headers` / `params` are emitted
-  // as arrays at their setPaths. The cast is honest because
+  // unflattened from per-leaf paths; `headers` / `params` / `events`
+  // are emitted as arrays at their setPaths. The cast is honest because
   // seedWebSocketRequest committed to that shape on the way in.
-  return data as WebSocketRequest;
+  const request = data as WebSocketRequest;
+  // The store emits [] for every registered set path, but `events` is
+  // schema-optional and an empty list means the same thing as absence
+  // (no display filter) — normalize so the projection round-trips the
+  // persisted shape.
+  if (request.events !== undefined && request.events.length === 0) {
+    const { events, ...rest } = request;
+    void events;
+    return rest;
+  }
+  return request;
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

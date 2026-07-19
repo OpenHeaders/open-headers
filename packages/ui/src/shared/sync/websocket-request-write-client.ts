@@ -8,7 +8,11 @@
  * helper is what it reaches for once the user commits.
  */
 
-import { WEBSOCKET_REQUEST_HEADERS_PATH, WEBSOCKET_REQUEST_PARAMS_PATH } from '@openheaders/core/sync';
+import {
+  WEBSOCKET_REQUEST_EVENTS_PATH,
+  WEBSOCKET_REQUEST_HEADERS_PATH,
+  WEBSOCKET_REQUEST_PARAMS_PATH,
+} from '@openheaders/core/sync';
 import {
   buildWebSocketAddBatch,
   buildWebSocketDeleteBatch,
@@ -78,18 +82,21 @@ export async function applyWebSocketRequestUpdate(
           ? snap.headers
           : snap && path === WEBSOCKET_REQUEST_PARAMS_PATH
             ? snap.params
-            : undefined;
+            : snap && path === WEBSOCKET_REQUEST_EVENTS_PATH
+              ? (snap.events ?? [])
+              : undefined;
       if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
       const byUid = new Map<string, unknown>();
       for (const row of rows) byUid.set(row.uid, row);
       return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
     },
-    // Baseline for the subprotocols / specLink per-leaf flatten-diff.
+    // Baseline for the subprotocols / specLink / auth per-leaf flatten-diff.
     (uid, path) => {
       const snap = mirror.getWebSocketRequestMirror(uid)?.websocketRequest;
       if (!snap) return undefined;
       if (path === 'subprotocols') return snap.subprotocols;
       if (path === 'specLink') return snap.specLink;
+      if (path === 'auth') return snap.auth;
       return undefined;
     },
   );
