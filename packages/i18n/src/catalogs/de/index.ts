@@ -16,6 +16,7 @@ import { sharedComponents } from './shared-components';
 import { sharedConflicts } from './shared-conflicts';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedInfoHeaders } from './shared-info-headers';
 import { sharedInfoStatus } from './shared-info-status';
 import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
@@ -33,6 +34,7 @@ export const de = {
   ...sharedConflicts,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
+  ...sharedInfoHeaders,
   ...sharedInfoStatus,
   ...sharedMergeEditor,
   ...sharedNotifications,
