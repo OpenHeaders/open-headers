@@ -443,6 +443,10 @@ export const workbenchChrome = {
     'locales.',
   'workbench.terminal.sessionEnded': 'Sesión finalizada',
   'workbench.terminal.restart': 'Reiniciar el shell',
+  'workbench.terminal.tabLocal': 'Local',
+  'workbench.terminal.tabLocalN': 'Local ({n})',
+  'workbench.terminal.newTab': 'Nueva pestaña de terminal',
+  'workbench.terminal.closeTab': 'Cerrar pestaña',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',

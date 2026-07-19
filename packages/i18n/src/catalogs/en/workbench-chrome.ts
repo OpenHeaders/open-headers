@@ -409,6 +409,10 @@ export const workbenchChrome = {
     'rotations, permission-scope expansions, and local-edit supersedes.',
   'workbench.terminal.sessionEnded': 'Session ended',
   'workbench.terminal.restart': 'Restart shell',
+  'workbench.terminal.tabLocal': 'Local',
+  'workbench.terminal.tabLocalN': 'Local ({n})',
+  'workbench.terminal.newTab': 'New terminal tab',
+  'workbench.terminal.closeTab': 'Close tab',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',

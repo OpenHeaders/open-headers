@@ -1,19 +1,22 @@
 /**
  * TerminalPanel — the workbench Terminal tool-window body. Presentation
- * shell only: the xterm instance and pty session are owned by
- * `terminal-instance.ts` and survive unmounts; this component attaches
- * the terminal element while visible, keeps its size and theme synced,
- * and offers a relaunch affordance after the shell exits.
+ * shell only: the tab list, xterm instances, and pty sessions are owned
+ * by `terminal-instance.ts` and survive unmounts; this component
+ * renders the tab strip in the header, attaches the active tab's
+ * terminal element while visible, keeps its size and theme synced, and
+ * offers a relaunch affordance after a shell exits. Closing the last
+ * tab hides the panel; reopening starts a fresh tab.
  */
 
 import { Button, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { getWorkbenchTerminal } from './terminal-instance';
+import { getWorkbenchTerminalTabs } from './terminal-instance';
+import TerminalTabStrip from './TerminalTabStrip';
 import '@xterm/xterm/css/xterm.css';
 
 type AntdToken = ReturnType<typeof theme.useToken>['token'];
@@ -40,20 +43,32 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
   const { token } = theme.useToken();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const wb = getWorkbenchTerminal();
-  const [exited, setExited] = useState(() => wb?.isExited() ?? false);
+  const tabsApi = getWorkbenchTerminalTabs();
+  const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
+  const [exited, setExited] = useState(false);
+
+  useEffect(() => tabsApi?.onTabsChange(bumpVersion), [tabsApi]);
+
+  // First open (and reopen after a close-last-tab hide) starts a tab.
+  useEffect(() => {
+    if (tabsApi && tabsApi.list().length === 0) tabsApi.createTab();
+  }, [tabsApi]);
+
+  const activeId = tabsApi?.activeId() ?? null;
+  const active = activeId && tabsApi ? tabsApi.getTab(activeId) : null;
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!wb || !container) return;
-    if (wb.term.element) {
-      container.appendChild(wb.term.element);
+    if (!active || !container) return;
+    if (active.term.element) {
+      container.appendChild(active.term.element);
     } else {
-      wb.term.open(container);
+      active.term.open(container);
     }
-    wb.ensureRenderer();
-    void wb.ensureSession();
-    const unsubscribeExit = wb.onExitChange(() => setExited(wb.isExited()));
+    active.ensureRenderer();
+    void active.ensureSession();
+    setExited(active.isExited());
+    const unsubscribeExit = active.onExitChange(() => setExited(active.isExited()));
     // Refit on the trailing edge of a resize burst: a sash drag fires
     // per mouse move, and reflowing the grid live drags the text along
     // with the divider. Holding the grid until the burst settles keeps
@@ -63,27 +78,42 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         resizeTimer = null;
-        wb.syncSize();
+        active.syncSize();
       }, 120);
     });
     observer.observe(container);
-    wb.syncSize();
-    wb.term.focus();
+    active.syncSize();
+    active.term.focus();
     return () => {
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       observer.disconnect();
       unsubscribeExit();
-      wb.term.element?.remove();
+      active.term.element?.remove();
     };
-  }, [wb]);
+  }, [active]);
 
   useEffect(() => {
-    if (wb) wb.term.options.theme = buildXtermTheme(token);
-  }, [wb, token]);
+    tabsApi?.setTheme(buildXtermTheme(token));
+  }, [tabsApi, token]);
+
+  const strip = tabsApi ? (
+    <TerminalTabStrip
+      tabs={tabsApi.list()}
+      activeId={activeId}
+      onActivate={(id) => tabsApi.activateTab(id)}
+      onClose={(id) => {
+        tabsApi.closeTab(id);
+        if (tabsApi.list().length === 0) onHide();
+      }}
+      onNew={() => tabsApi.createTab()}
+    />
+  ) : (
+    <strong>{t('workbench.toolWindows.terminal')}</strong>
+  );
 
   return (
     <div className="rules-bottom-panel">
-      <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.terminal')}</strong>} info={info} />
+      <PanelHeader wiring={headerWiring} title={strip} info={info} />
       <div className="rules-bottom-content is-fill" style={{ position: 'relative', background: token.colorBgContainer }}>
         <div ref={containerRef} style={{ position: 'absolute', inset: '4px 0 0 8px' }} />
         {exited && (
@@ -104,7 +134,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
               size="small"
               onClick={() => {
                 setExited(false);
-                void wb?.ensureSession();
+                void active?.ensureSession();
               }}
             >
               {t('workbench.terminal.restart')}
