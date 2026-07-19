@@ -54,6 +54,7 @@ import type { EnvironmentsSnapshot } from './environments';
 import type { GrpcStreamEventWire, RequestStreamEventWire, WsStreamEventWire } from './requests';
 import type { SecretsStorageState } from './secrets';
 import type { AppUpdateState } from './updates';
+import type { WorkspaceTreeGitStatusWire } from './workspace';
 
 /** Which storage type a `storageInvalidated` push says went stale. */
 export type StorageInvalidationKind = 'indexeddb' | 'cachestorage';
@@ -280,6 +281,17 @@ export interface BridgeBroadcastContract {
    * pill, observability) refetch on every event.
    */
   liveCacheChanged: { workflowUid: string | null };
+
+  /**
+   * Workspace-tree git plane (GIT_PLAN.md §9): the bound workspace's
+   * git slot changed — dirty count, cadence, bypass-hooks, or repo
+   * availability. Fired by the Node host's workspace-tree runtime
+   * after every pass that can move `git status` (materialize flush,
+   * sweep, commit) and on setting changes; consumers filter on
+   * `workspaceId`. A `bound: false` status is the unbind signal —
+   * listeners clear their git surface for that workspace.
+   */
+  workspaceTreeGitStatus: { workspaceId: string; status: WorkspaceTreeGitStatusWire };
 
   /**
    * Sync-engine broadcast — every committed mutation envelope and its

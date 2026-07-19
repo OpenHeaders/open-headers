@@ -574,4 +574,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.cadenceLabel': 'Auto-commit',
   'workbench.settings.gitPane.git.cadenceOff': 'Off — commit manually',
   'workbench.settings.gitPane.git.cadenceAuto': 'After quiet edits',
+  'workbench.settings.gitPane.git.cadenceOnBlur': 'When focus leaves the app',
+  'workbench.settings.gitPane.git.cadenceEvery': 'Every {minutes} minutes',
+  'workbench.settings.gitPane.git.bypassHooksLabel': 'Bypass git hooks (--no-verify)',
+  'workbench.settings.gitPane.git.bypassHooksWarning':
+    'Engine commits skip your pre-commit and commit-msg hooks while this is on.',
 } as const satisfies Catalog;

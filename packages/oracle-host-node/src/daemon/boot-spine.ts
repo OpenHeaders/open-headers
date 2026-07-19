@@ -94,6 +94,7 @@ import {
   setOracleHostHooks,
   subscribeActivityMuteChanges,
 } from '@openheaders/oracle/sync';
+import { dropGitSyncStatus, reportGitSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { type ExportGatherScope, gatherWorkspaceExport } from '@openheaders/oracle/workspace/export-gatherer';
 import {
@@ -118,7 +119,12 @@ import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-s
 import { peekCookieJar } from '../live/cookie-jar';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
-import { createWorkspaceTreeRuntime, type WorkspaceTreeRuntime } from '../workspace-tree';
+import {
+  createWorkspaceTreeRuntime,
+  type WorkspaceTreeCommitCadence,
+  type WorkspaceTreeGitStatusRpcResult,
+  type WorkspaceTreeRuntime,
+} from '../workspace-tree';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdminChannelHandlers } from './admin-channels';
@@ -156,6 +162,19 @@ import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
 import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
 
 const SCOPE = 'boot-spine';
+
+const COMMIT_CADENCE_VALUES: readonly WorkspaceTreeCommitCadence[] = [
+  'off',
+  'auto',
+  'on-blur',
+  'every-5m',
+  'every-15m',
+  'every-30m',
+];
+
+function parseCommitCadence(value: unknown): WorkspaceTreeCommitCadence {
+  return COMMIT_CADENCE_VALUES.find((cadence) => cadence === value) ?? 'off';
+}
 
 // Pairing service's global unknown-code budget when a trusted proxy
 // fronts the daemon (S30 finding d) — sized so it only trips on a
@@ -542,7 +561,27 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // bindings now that services can materialize — each open runs the
   // MANDATORY cold-boot tree-wins sweep (§11.2) before its first
   // materialize pass. Failures disable the tree plane only.
-  workspaceTreeRuntime = createWorkspaceTreeRuntime({ hostId: config.handshakeIdentity.nodeId });
+  // Live git-slot feed (GIT_PLAN.md §9): every status the runtime
+  // publishes fans to local surfaces (the Git card's live refresh) and
+  // into the sync aggregate's git slot — "N uncommitted changes" joins
+  // the pill's worst-of roll-up; a clean/unbound workspace drops out.
+  const onWorkspaceTreeGitStatus = (workspaceId: string, gitStatus: WorkspaceTreeGitStatusRpcResult): void => {
+    broadcastLocal('workspaceTreeGitStatus', { workspaceId, status: gitStatus });
+    const dirty = gitStatus.bound && gitStatus.repo ? (gitStatus.dirtyFiles ?? 0) : 0;
+    if (dirty > 0) {
+      reportGitSyncStatus(workspaceId, {
+        state: 'green',
+        message: dirty === 1 ? '1 uncommitted change' : `${dirty} uncommitted changes`,
+        context: { reason: 'git-dirty', workspaceId, dirtyFiles: dirty },
+      });
+    } else {
+      dropGitSyncStatus(workspaceId);
+    }
+  };
+  workspaceTreeRuntime = createWorkspaceTreeRuntime({
+    hostId: config.handshakeIdentity.nodeId,
+    onGitStatus: onWorkspaceTreeGitStatus,
+  });
   await workspaceTreeRuntime.start().catch((err: unknown) => {
     consoleLogger.warn(SCOPE, 'workspace-tree runtime start failed', err);
   });
@@ -983,15 +1022,25 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           userIndexBusy: false,
           suggestedMessage: '',
           cadence: 'off',
+          bypassHooks: false,
         };
       }
       return await workspaceTreeRuntime.gitStatus(workspaceId);
     }
     if (type === 'oh.workspaceTree.setCommitCadence') {
       const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
-      const cadence = message.cadence === 'auto' ? 'auto' : 'off';
+      const cadence = parseCommitCadence(message.cadence);
       if (!workspaceId || workspaceTreeRuntime === null) return { ok: false };
       return await workspaceTreeRuntime.setCommitCadence(workspaceId, cadence);
+    }
+    if (type === 'oh.workspaceTree.setBypassHooks') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false };
+      return await workspaceTreeRuntime.setBypassHooks(workspaceId, message.bypassHooks === true);
+    }
+    if (type === 'oh.workspaceTree.appBlur') {
+      workspaceTreeRuntime?.notifyAppBlur();
+      return { ok: workspaceTreeRuntime !== null };
     }
     // Daemon-admin channels (pairing/tokens/users/grants + the admin
     // probe) — the shared table built above. The local caller is the

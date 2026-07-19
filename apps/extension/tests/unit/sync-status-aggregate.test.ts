@@ -17,10 +17,12 @@ import type { BackendSyncStatusSnapshot, Org } from '@openheaders/core/types';
 import {
   __resetSyncStatusAggregateForTests,
   dropBackendSyncStatus,
+  dropGitSyncStatus,
   getBackendSyncStatusSnapshot,
   refreshSyncStatusAggregate,
   reportBackendSyncStatus,
   reportBaselineSyncStatus,
+  reportGitSyncStatus,
   subscribeBackendSyncStatus,
 } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
@@ -129,6 +131,41 @@ describe('host baseline slot', () => {
     expect(sync?.state).toBe('green');
     expect(sync?.message).toBe('Idle — no extensions connected');
     expect(getBackendSyncStatusSnapshot()).toEqual({});
+  });
+});
+
+describe('workspace git slots', () => {
+  it('a dirty bound workspace joins the worst-of roll-up as the latest green', () => {
+    reportBackendSyncStatus('backend-a', { state: 'green', message: 'Synced with back-end' });
+    reportGitSyncStatus('ws-1', { state: 'green', message: '3 uncommitted changes' });
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('green');
+    expect(sync?.message).toBe('3 uncommitted changes');
+  });
+
+  it('a red backend still outranks a git slot', () => {
+    reportGitSyncStatus('ws-1', { state: 'green', message: '3 uncommitted changes' });
+    reportBackendSyncStatus('backend-a', { state: 'red', message: 'Back-end requires authentication' });
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('red');
+    expect(sync?.message).toBe('Back-end requires authentication');
+  });
+
+  it('git slots never enter the per-backend snapshot', () => {
+    reportGitSyncStatus('ws-1', { state: 'green', message: '1 uncommitted change' });
+
+    expect(getBackendSyncStatusSnapshot()).toEqual({});
+  });
+
+  it('dropping the git slot restores the resting state', () => {
+    reportGitSyncStatus('ws-1', { state: 'green', message: '2 uncommitted changes' });
+    dropGitSyncStatus('ws-1');
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('green');
+    expect(sync?.message).toBe('Running in this browser');
   });
 });
 

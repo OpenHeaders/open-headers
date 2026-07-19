@@ -221,11 +221,19 @@ export interface WorkspaceTreeBindingRecord {
   rootDir: string;
   /**
    * Commit cadence for the git plane (GIT_PLAN.md §3.2 / §6.5):
-   * commit is an explicit act by default; `auto` opts into quiescence
-   * commits (paused while the user's own index is non-empty, §3.3).
-   * Absent = `off`.
+   * commit is an explicit act by default; every other value opts into
+   * automation — `auto` on 2s batch quiescence, `on-blur` when focus
+   * leaves the app, `every-Nm` on a wall-clock interval. All automated
+   * commits pause while the user's own index is non-empty (§3.3).
+   * Absent = `off`. Mirrors `WorkspaceTreeCommitCadence` in
+   * `protocol/channels/workspace.ts`.
    */
-  commitCadence?: 'off' | 'auto';
+  commitCadence?: 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
+  /**
+   * The explicit user setting behind `--no-verify` (GIT_PLAN.md §3.3:
+   * the engine never bypasses hooks on its own). Absent = false.
+   */
+  bypassHooks?: boolean;
 }
 
 export interface PersistedLocalFolder {

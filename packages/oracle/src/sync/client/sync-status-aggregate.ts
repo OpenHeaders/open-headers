@@ -22,6 +22,11 @@
  * (red) outranks an idle server, instead of the two racing the `sync`
  * subsystem latest-wins.
  *
+ * A Node host with a git-bound workspace contributes one GIT slot per
+ * binding ({@link reportGitSyncStatus} — "N uncommitted changes",
+ * GIT_PLAN.md §9): the same worst-of candidacy as a backend slot,
+ * never part of the per-backend snapshot.
+ *
  * The slots themselves are also observable per backend
  * ({@link getBackendSyncStatusSnapshot} / {@link subscribeBackendSyncStatus})
  * — the feed behind the connections-list row dots, broadcast as
@@ -58,6 +63,7 @@ interface Slot {
 }
 
 const slots = new Map<string, Slot>();
+const gitSlots = new Map<string, Slot>();
 let baseline: Slot | null = null;
 let seqCounter = 0;
 const slotSubscribers = new Set<(snapshot: BackendSyncStatusSnapshot) => void>();
@@ -85,6 +91,24 @@ export function reportBaselineSyncStatus(entry: SyncStatusEntry): void {
 export function dropBackendSyncStatus(backendId: string): void {
   slots.delete(backendId);
   publish();
+}
+
+/**
+ * Install/update a bound workspace's git slot (GIT_PLAN.md §9: the
+ * sync aggregate gains a git slot per bound workspace — "N uncommitted
+ * changes"). Joins the worst-of roll-up exactly like a backend slot
+ * but never enters the per-backend snapshot — row dots are backend
+ * rows. Reported by the Node host's workspace-tree runtime wiring;
+ * hosts without a git plane never call this.
+ */
+export function reportGitSyncStatus(workspaceId: string, entry: SyncStatusEntry): void {
+  gitSlots.set(workspaceId, { entry, seq: ++seqCounter });
+  publish();
+}
+
+/** Remove a workspace's git slot (unbound, clean tree, or git plane disabled). */
+export function dropGitSyncStatus(workspaceId: string): void {
+  if (gitSlots.delete(workspaceId)) publish();
 }
 
 /** Re-publish the current aggregate (e.g. after a reconcile pass). */
@@ -148,7 +172,7 @@ function publish(): void {
   const perBackend = getBackendSyncStatusSnapshot();
   for (const fn of [...slotSubscribers]) fn(perBackend);
   let chosen: Slot | null = null;
-  const candidates = [...slots.values(), ...disabledBoundCandidates()];
+  const candidates = [...slots.values(), ...gitSlots.values(), ...disabledBoundCandidates()];
   if (baseline) candidates.push(baseline);
   for (const slot of candidates) {
     if (
@@ -165,6 +189,7 @@ function publish(): void {
 /** Test-only — drop every slot between cases. */
 export function __resetSyncStatusAggregateForTests(): void {
   slots.clear();
+  gitSlots.clear();
   baseline = null;
   seqCounter = 0;
   slotSubscribers.clear();

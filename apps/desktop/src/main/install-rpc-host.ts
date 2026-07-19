@@ -68,7 +68,7 @@ import {
   scanToolData,
 } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
-import { app, dialog } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { installLocaleSubscription } from './bootstrap/locale';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
@@ -284,6 +284,18 @@ export async function installRpcHost(): Promise<void> {
     reportSyncStatus: (entry) =>
       reportBaselineSyncStatus({ state: entry.state, message: entry.message, context: entry.context }),
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
+  });
+
+  // `on-blur` commit cadence (GIT_PLAN.md §3.2): the trigger is focus
+  // leaving the APP, not a window losing focus to a sibling window —
+  // check on the next tick, after Electron has settled which window
+  // (if any) took focus. The spine no-ops for every other cadence.
+  app.on('browser-window-blur', () => {
+    setImmediate(() => {
+      if (BrowserWindow.getFocusedWindow() === null) {
+        void spine.dispatchRpc({ type: 'oh.workspaceTree.appBlur' }).catch(() => undefined);
+      }
+    });
   });
 
   // The outbound client role — the desktop joining daemon backends

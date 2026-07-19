@@ -74,6 +74,15 @@ const COMMIT_QUIESCENCE_MS = 2_000;
 /** Intent ring cap — beyond this the semantic message is already a summary. */
 const MAX_PENDING_INTENTS = 1_000;
 
+export type WorkspaceTreeCommitCadence = 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
+
+/** Wall-clock interval per `every-Nm` cadence value. */
+const CADENCE_INTERVAL_MS: Partial<Record<WorkspaceTreeCommitCadence, number>> = {
+  'every-5m': 5 * 60_000,
+  'every-15m': 15 * 60_000,
+  'every-30m': 30 * 60_000,
+};
+
 export type BindWorkspaceTreeRpcResult =
   | { ok: true; initialized: boolean; sweep: SweepWorkspaceTreeResult | null }
   | { ok: false; reason: 'unknown-workspace' | 'already-bound' }
@@ -97,7 +106,9 @@ export interface WorkspaceTreeGitStatusRpcResult {
   userIndexBusy: boolean;
   /** Semantic draft from the intents recorded since the last commit. */
   suggestedMessage: string;
-  cadence: 'off' | 'auto';
+  cadence: WorkspaceTreeCommitCadence;
+  /** The explicit `--no-verify` setting (§3.3); false unless the user flipped it. */
+  bypassHooks: boolean;
 }
 
 export interface WorkspaceTreeRuntime {
@@ -113,7 +124,11 @@ export interface WorkspaceTreeRuntime {
   commit(workspaceId: string, message?: string): Promise<CommitWorkspaceTreeRpcResult>;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */
   gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult>;
-  setCommitCadence(workspaceId: string, cadence: 'off' | 'auto'): Promise<{ ok: boolean }>;
+  setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }>;
+  /** The explicit setting behind `--no-verify` (§3.3) — per binding, like the cadence. */
+  setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }>;
+  /** Focus left the app — the `on-blur` cadence trigger; other cadences ignore it. */
+  notifyAppBlur(): void;
   /** Latest sweep issues per bound workspace — the quarantine seam's surface. */
   issues(workspaceId: string): TreeIssue[];
   dispose(): Promise<void>;
@@ -129,6 +144,8 @@ interface OpenBinding {
   materializeTimer: NodeJS.Timeout | null;
   /** Auto-commit quiescence timer (cadence `auto` only). */
   commitTimer: NodeJS.Timeout | null;
+  /** Wall-clock commit interval (cadence `every-Nm` only). */
+  commitInterval: NodeJS.Timeout | null;
   /** Batch intents since the last successful commit — the semantic-message feed. */
   intents: CommitIntent[];
   issues: TreeIssue[];
@@ -140,6 +157,14 @@ export interface WorkspaceTreeRuntimeOptions {
   hostId: string;
   /** Injectable git seam (§7) — tests and the fault suite mock here. */
   gitRunner?: GitRunner;
+  /**
+   * Live git-slot feed (§9): called after every pass that can move
+   * `git status` (materialize flush, sweep, commit) and on setting
+   * changes. The spine fans it to local surfaces as the
+   * `workspaceTreeGitStatus` broadcast and into the sync aggregate's
+   * git slot. A `bound: false` status is the unbind/teardown signal.
+   */
+  onGitStatus?: (workspaceId: string, status: WorkspaceTreeGitStatusRpcResult) => void;
 }
 
 export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions): WorkspaceTreeRuntime {
@@ -279,6 +304,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       binding.materializeTimer = null;
       enqueue(binding, async () => {
         await binding.materializer.flush();
+        await publishGitStatus(binding);
       });
     }, MATERIALIZE_DEBOUNCE_MS);
   };
@@ -288,6 +314,62 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     name: getIdentitySnapshot()?.user.displayName ?? 'OpenHeaders',
     email: null,
   });
+
+  const notBoundStatus = (): WorkspaceTreeGitStatusRpcResult => ({
+    bound: false,
+    git: { available: false, reason: 'missing' },
+    repo: false,
+    dirtyFiles: null,
+    userIndexBusy: false,
+    suggestedMessage: '',
+    cadence: 'off',
+    bypassHooks: false,
+  });
+
+  const computeGitStatus = async (binding: OpenBinding): Promise<WorkspaceTreeGitStatusRpcResult> => {
+    const { rootDir } = binding.record;
+    const cadence = binding.record.commitCadence ?? 'off';
+    const bypassHooks = binding.record.bypassHooks === true;
+    const git = await ensureGitAvailability(rootDir);
+    if (!git.available) {
+      return {
+        bound: true,
+        git,
+        repo: false,
+        dirtyFiles: null,
+        userIndexBusy: false,
+        suggestedMessage: composeCommitMessage(binding.intents),
+        cadence,
+        bypassHooks,
+      };
+    }
+    const repo = await isWorkspaceRepo(gitRun, rootDir);
+    return {
+      bound: true,
+      git,
+      repo,
+      dirtyFiles: repo ? await countDirtyFiles(gitRun, rootDir) : null,
+      userIndexBusy: repo ? await userIndexHasStagedChanges(gitRun, rootDir) : false,
+      suggestedMessage: composeCommitMessage(binding.intents),
+      cadence,
+      bypassHooks,
+    };
+  };
+
+  /**
+   * Live git-slot feed (§9) — recompute after a pass that can move
+   * `git status` and hand the result to the host's sink. Skipped
+   * entirely when no sink is wired (the porcelain spawns aren't free).
+   */
+  const publishGitStatus = async (binding: OpenBinding): Promise<void> => {
+    const sink = options.onGitStatus;
+    if (!sink || binding.closed) return;
+    try {
+      sink(binding.record.workspaceId, await computeGitStatus(binding));
+    } catch (err) {
+      logger.warn(SCOPE, `git status publish failed for ${binding.record.rootDir}`, err);
+    }
+  };
 
   /**
    * One commit pass — always on the binding's chain (§8 single actor).
@@ -306,7 +388,13 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
     const trimmed = messageOverride?.trim();
     const message = trimmed !== undefined && trimmed.length > 0 ? trimmed : composeCommitMessage(binding.intents);
-    const result = await commitWorkspaceTree({ run: gitRun, rootDir, message, identityEnv: identity.env });
+    const result = await commitWorkspaceTree({
+      run: gitRun,
+      rootDir,
+      message,
+      identityEnv: identity.env,
+      bypassHooks: binding.record.bypassHooks === true,
+    });
     if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
     binding.intents = [];
     if (result.committed) {
@@ -316,26 +404,61 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     return { ok: true, committed: false };
   };
 
+  /**
+   * One automated commit pass, shared by every cadence trigger
+   * (quiescence, blur, interval): pauses while the user's own index is
+   * non-empty (§3.3), then runs the ordinary commit path (no-op trees
+   * never produce empty commits).
+   */
+  const enqueueAutoCommit = (binding: OpenBinding, trigger: string): void => {
+    enqueue(binding, async () => {
+      const availability = await ensureGitAvailability(binding.record.rootDir);
+      if (!availability.available) return;
+      if (
+        (await isWorkspaceRepo(gitRun, binding.record.rootDir)) &&
+        (await userIndexHasStagedChanges(gitRun, binding.record.rootDir))
+      ) {
+        logger.info(SCOPE, `${trigger} commit paused for ${binding.record.rootDir}: user index is non-empty`);
+        return;
+      }
+      const result = await runCommit(binding);
+      if (!result.ok) logger.warn(SCOPE, `${trigger} commit failed for ${binding.record.rootDir}: ${result.reason}`);
+      await publishGitStatus(binding);
+    });
+  };
+
   /** Cadence `auto`: commit after quiescence, pausing while the user's index is non-empty (§3.3). */
   const scheduleAutoCommit = (binding: OpenBinding): void => {
     if (binding.closed || (binding.record.commitCadence ?? 'off') !== 'auto') return;
     if (binding.commitTimer) clearTimeout(binding.commitTimer);
     binding.commitTimer = setTimeout(() => {
       binding.commitTimer = null;
-      enqueue(binding, async () => {
-        const availability = await ensureGitAvailability(binding.record.rootDir);
-        if (!availability.available) return;
-        if (
-          (await isWorkspaceRepo(gitRun, binding.record.rootDir)) &&
-          (await userIndexHasStagedChanges(gitRun, binding.record.rootDir))
-        ) {
-          logger.info(SCOPE, `auto-commit paused for ${binding.record.rootDir}: user index is non-empty`);
-          return;
-        }
-        const result = await runCommit(binding);
-        if (!result.ok) logger.warn(SCOPE, `auto-commit failed for ${binding.record.rootDir}: ${result.reason}`);
-      });
+      enqueueAutoCommit(binding, 'auto');
     }, COMMIT_QUIESCENCE_MS);
+  };
+
+  /**
+   * Reconcile the binding's cadence timers with its record — the
+   * quiescence timer only ever arms from `scheduleAutoCommit`; the
+   * wall-clock interval lives here (`every-Nm`), started on open and
+   * on every cadence change, cleared for every other value.
+   */
+  const applyCadenceTimers = (binding: OpenBinding): void => {
+    const cadence = binding.record.commitCadence ?? 'off';
+    if (cadence !== 'auto' && binding.commitTimer) {
+      clearTimeout(binding.commitTimer);
+      binding.commitTimer = null;
+    }
+    if (binding.commitInterval) {
+      clearInterval(binding.commitInterval);
+      binding.commitInterval = null;
+    }
+    const intervalMs = CADENCE_INTERVAL_MS[cadence];
+    if (intervalMs !== undefined && !binding.closed) {
+      binding.commitInterval = setInterval(() => {
+        enqueueAutoCommit(binding, 'interval');
+      }, intervalMs);
+    }
   };
 
   const openBinding = async (record: WorkspaceTreeBindingRecord): Promise<OpenBinding> => {
@@ -355,6 +478,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         enqueue(binding, async () => {
           await runSweep(binding);
           await binding.materializer.flush();
+          await publishGitStatus(binding);
         }),
       log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
     });
@@ -366,12 +490,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       chain: Promise.resolve(),
       materializeTimer: null,
       commitTimer: null,
+      commitInterval: null,
       intents: [],
       issues: [],
       closed: false,
     };
     open.set(record.workspaceId, binding);
     watcher.start();
+    applyCadenceTimers(binding);
     // Phase 3: a bound folder is a REPO. Adopt an existing `.git` or
     // init a fresh one; missing git disables only the git plane (§7).
     enqueue(binding, async () => {
@@ -383,6 +509,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const repo = await ensureWorkspaceRepo(gitRun, record.rootDir);
       if (!repo.ok) logger.warn(SCOPE, `repo init failed for ${record.rootDir}: ${repo.detail}`);
       else if (repo.initialized) logger.info(SCOPE, `initialized repo at ${record.rootDir}`);
+      await publishGitStatus(binding);
     });
     return binding;
   };
@@ -397,6 +524,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     if (binding.commitTimer) {
       clearTimeout(binding.commitTimer);
       binding.commitTimer = null;
+    }
+    if (binding.commitInterval) {
+      clearInterval(binding.commitInterval);
+      binding.commitInterval = null;
     }
     binding.materializer.dispose();
     await binding.chain;
@@ -432,6 +563,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
           enqueue(binding, async () => {
             await runSweep(binding);
             await binding.materializer.flush();
+            await publishGitStatus(binding);
           });
         } catch (err) {
           logger.warn(SCOPE, `binding open failed for ${record.rootDir}`, err);
@@ -478,6 +610,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       enqueue(binding, async () => {
         sweep = await runSweep(binding);
         await binding.materializer.flush();
+        await publishGitStatus(binding);
       });
       await binding.chain;
       return { ok: true, initialized: bound.initialized, sweep };
@@ -489,7 +622,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const record = records.find((entry) => entry.workspaceId === workspaceId);
       records = records.filter((entry) => entry.workspaceId !== workspaceId);
       await persistRecords();
-      if (record) await unbindWorkspaceTree(record.rootDir, options.hostId);
+      if (record) {
+        await unbindWorkspaceTree(record.rootDir, options.hostId);
+        options.onGitStatus?.(workspaceId, notBoundStatus());
+      }
       return { ok: record !== undefined };
     },
 
@@ -507,6 +643,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       };
       enqueue(binding, async () => {
         result = await runCommit(binding, message);
+        await publishGitStatus(binding);
       });
       await binding.chain;
       return result;
@@ -514,44 +651,11 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
     async gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult> {
       const binding = open.get(workspaceId);
-      if (!binding) {
-        return {
-          bound: false,
-          git: { available: false, reason: 'missing' },
-          repo: false,
-          dirtyFiles: null,
-          userIndexBusy: false,
-          suggestedMessage: '',
-          cadence: 'off',
-        };
-      }
-      const { rootDir } = binding.record;
-      const cadence = binding.record.commitCadence ?? 'off';
-      const git = await ensureGitAvailability(rootDir);
-      if (!git.available) {
-        return {
-          bound: true,
-          git,
-          repo: false,
-          dirtyFiles: null,
-          userIndexBusy: false,
-          suggestedMessage: composeCommitMessage(binding.intents),
-          cadence,
-        };
-      }
-      const repo = await isWorkspaceRepo(gitRun, rootDir);
-      return {
-        bound: true,
-        git,
-        repo,
-        dirtyFiles: repo ? await countDirtyFiles(gitRun, rootDir) : null,
-        userIndexBusy: repo ? await userIndexHasStagedChanges(gitRun, rootDir) : false,
-        suggestedMessage: composeCommitMessage(binding.intents),
-        cadence,
-      };
+      if (!binding) return notBoundStatus();
+      return computeGitStatus(binding);
     },
 
-    async setCommitCadence(workspaceId: string, cadence: 'off' | 'auto'): Promise<{ ok: boolean }> {
+    async setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }> {
       const record = records.find((entry) => entry.workspaceId === workspaceId);
       if (!record) return { ok: false };
       const next: WorkspaceTreeBindingRecord = { ...record, commitCadence: cadence };
@@ -560,12 +664,31 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const binding = open.get(workspaceId);
       if (binding) {
         binding.record = next;
-        if (cadence === 'off' && binding.commitTimer) {
-          clearTimeout(binding.commitTimer);
-          binding.commitTimer = null;
-        }
+        applyCadenceTimers(binding);
+        await publishGitStatus(binding);
       }
       return { ok: true };
+    },
+
+    async setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }> {
+      const record = records.find((entry) => entry.workspaceId === workspaceId);
+      if (!record) return { ok: false };
+      const next: WorkspaceTreeBindingRecord = { ...record, bypassHooks };
+      records = records.map((entry) => (entry.workspaceId === workspaceId ? next : entry));
+      await persistRecords();
+      const binding = open.get(workspaceId);
+      if (binding) {
+        binding.record = next;
+        await publishGitStatus(binding);
+      }
+      return { ok: true };
+    },
+
+    notifyAppBlur(): void {
+      if (disposed) return;
+      for (const binding of open.values()) {
+        if ((binding.record.commitCadence ?? 'off') === 'on-blur') enqueueAutoCommit(binding, 'blur');
+      }
     },
 
     list(): WorkspaceTreeBindingRecord[] {

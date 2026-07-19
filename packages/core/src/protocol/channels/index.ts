@@ -94,6 +94,13 @@ export type {
 } from './requests';
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
+export type {
+  WorkspaceTreeCommitCadence,
+  WorkspaceTreeCommitWire,
+  WorkspaceTreeGitStatusWire,
+  WorkspaceTreeIssueWire,
+  WorkspaceTreeSweepSummary,
+} from './workspace';
 
 /**
  * RPC contract: map of message-type → { req, res }.

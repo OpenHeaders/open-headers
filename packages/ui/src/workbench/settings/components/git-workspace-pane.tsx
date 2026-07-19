@@ -14,8 +14,12 @@
  * universal fallback.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
-import { Alert, App as AntApp, Button, Input, Popconfirm, Select, theme } from 'antd';
+import {
+  hostBridge,
+  type WorkspaceTreeCommitCadence,
+  type WorkspaceTreeGitStatusWire,
+} from '@openheaders/core/bridge';
+import { Alert, App as AntApp, Button, Input, Popconfirm, Select, Switch, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -29,15 +33,7 @@ interface BindingRow {
   issues: Array<{ path: string; message: string }>;
 }
 
-interface GitStatusRow {
-  bound: boolean;
-  git: { available: true; version: string } | { available: false; reason: 'missing' | 'below-floor'; version?: string };
-  repo: boolean;
-  dirtyFiles: number | null;
-  userIndexBusy: boolean;
-  suggestedMessage: string;
-  cadence: 'off' | 'auto';
-}
+type GitStatusRow = WorkspaceTreeGitStatusWire;
 
 const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const { token } = theme.useToken();
@@ -85,6 +81,17 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     else setGitStatus(null);
   }, [binding, refreshGitStatus]);
 
+  // Live refresh: the Node host pushes a fresh git status after every
+  // pass that can move `git status` (materialize, sweep, commit) and on
+  // setting changes — the mount RPC above is only the hydration read.
+  useEffect(() => {
+    if (workspaceId === null) return;
+    return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
+      if (payload.workspaceId !== workspaceId) return;
+      setGitStatus(payload.status.bound ? payload.status : null);
+    });
+  }, [workspaceId]);
+
   const commit = async (): Promise<void> => {
     if (workspaceId === null) return;
     setCommitting(true);
@@ -113,10 +120,20 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     }
   };
 
-  const setCadence = async (cadence: 'off' | 'auto'): Promise<void> => {
+  const setCadence = async (cadence: WorkspaceTreeCommitCadence): Promise<void> => {
     if (workspaceId === null) return;
     try {
       await hostBridge.call('oh.workspaceTree.setCommitCadence', { workspaceId, cadence });
+      await refreshGitStatus();
+    } catch (err) {
+      message.error((err as Error).message);
+    }
+  };
+
+  const setBypassHooks = async (bypassHooks: boolean): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      await hostBridge.call('oh.workspaceTree.setBypassHooks', { workspaceId, bypassHooks });
       await refreshGitStatus();
     } catch (err) {
       message.error((err as Error).message);
@@ -303,10 +320,30 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                     options={[
                       { value: 'off', label: t('workbench.settings.gitPane.git.cadenceOff') },
                       { value: 'auto', label: t('workbench.settings.gitPane.git.cadenceAuto') },
+                      { value: 'on-blur', label: t('workbench.settings.gitPane.git.cadenceOnBlur') },
+                      { value: 'every-5m', label: t('workbench.settings.gitPane.git.cadenceEvery', { minutes: 5 }) },
+                      { value: 'every-15m', label: t('workbench.settings.gitPane.git.cadenceEvery', { minutes: 15 }) },
+                      { value: 'every-30m', label: t('workbench.settings.gitPane.git.cadenceEvery', { minutes: 30 }) },
                     ]}
                     data-testid="git-pane-cadence-select"
                   />
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                  <Switch
+                    size="small"
+                    checked={gitStatus.bypassHooks}
+                    onChange={(checked) => void setBypassHooks(checked)}
+                    data-testid="git-pane-bypass-hooks-switch"
+                  />
+                  <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+                    {t('workbench.settings.gitPane.git.bypassHooksLabel')}
+                  </span>
+                </div>
+                {gitStatus.bypassHooks && (
+                  <div style={{ marginTop: 4, fontSize: 11.5, color: token.colorWarningText }}>
+                    {t('workbench.settings.gitPane.git.bypassHooksWarning')}
+                  </div>
+                )}
               </div>
             )}
             <div style={{ padding: '10px 0 2px' }}>

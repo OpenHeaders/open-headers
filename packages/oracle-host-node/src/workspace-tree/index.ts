@@ -13,6 +13,7 @@ export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
 export type {
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
+  WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,

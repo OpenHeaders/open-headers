@@ -53,6 +53,8 @@ export type {
   StorageQuotaWire,
   StorageScopeWire,
   WorkspaceSnapshot,
+  WorkspaceTreeCommitCadence,
+  WorkspaceTreeGitStatusWire,
   WsSendSocketIoWire,
   WsStreamEventWire,
   WsStreamMessageWire,

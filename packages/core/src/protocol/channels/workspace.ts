@@ -321,14 +321,32 @@ export interface WorkspaceRpc {
     req: { workspaceId: string };
     res: WorkspaceTreeGitStatusWire;
   };
-  /** Commit cadence (§3.2): explicit by default; `auto` opts into quiescence commits. */
+  /** Commit cadence (§3.2): explicit by default; every other value opts into automation. */
   'oh.workspaceTree.setCommitCadence': {
     req: { workspaceId: string; cadence: WorkspaceTreeCommitCadence };
     res: { ok: boolean };
   };
+  /**
+   * The explicit setting behind `--no-verify` (§3.3: the engine never
+   * bypasses hooks unless the user flips this). Per binding, like the
+   * cadence — host-local config, no settings-schema plumbing.
+   */
+  'oh.workspaceTree.setBypassHooks': {
+    req: { workspaceId: string; bypassHooks: boolean };
+    res: { ok: boolean };
+  };
+  /**
+   * Focus left the app (every window blurred) — the `on-blur` cadence
+   * trigger. Fired by the host shell (desktop main observes its own
+   * windows); bindings on other cadences ignore it.
+   */
+  'oh.workspaceTree.appBlur': {
+    req: Record<string, never>;
+    res: { ok: boolean };
+  };
 }
 
-export type WorkspaceTreeCommitCadence = 'off' | 'auto';
+export type WorkspaceTreeCommitCadence = 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
 
 export type WorkspaceTreeCommitWire =
   | { ok: true; committed: boolean; sha?: string }
@@ -348,6 +366,8 @@ export interface WorkspaceTreeGitStatusWire {
   userIndexBusy: boolean;
   suggestedMessage: string;
   cadence: WorkspaceTreeCommitCadence;
+  /** The explicit `--no-verify` setting (§3.3); false unless the user flipped it. */
+  bypassHooks: boolean;
 }
 
 /** One per-document read failure — the §13.3 quarantine seam's wire shape. */
