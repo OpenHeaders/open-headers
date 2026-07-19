@@ -9,6 +9,7 @@
 import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
+import { panel } from './panel';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -28,6 +29,7 @@ import { web } from './web';
 export const de = {
   ...desktop,
   ...extension,
+  ...panel,
   ...popup,
   ...shared,
   ...sharedAwareness,
