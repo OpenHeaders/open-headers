@@ -449,6 +449,10 @@ export const workbenchChrome = {
   'workbench.terminal.closeConfirm.bodyPrefix': 'Un processus s’exécute encore dans ',
   'workbench.terminal.closeConfirm.bodySuffix': '. L’interrompre ?',
   'workbench.terminal.closeConfirm.ok': 'Interrompre',
+  'workbench.terminal.closeConfirm.bodyMany':
+    'Des processus s’exécutent encore dans {count} des onglets à fermer. Les interrompre ?',
+  'workbench.terminal.menu.rename': 'Renommer',
+  'workbench.terminal.rename.title': 'Renommer l’onglet',
   'workbench.terminal.settings': 'Paramètres',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +

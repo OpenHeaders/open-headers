@@ -355,6 +355,25 @@ describe('terminal tab registry', () => {
     expect(tabs.list().map((info) => info.titleIndex)).toEqual([0, 1]);
   });
 
+  it('renames a tab, persists the explicit title, and ignores blank or unchanged names', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    const first = tabs.createTab();
+    tabs.renameTab(first, '  build watch  ');
+    expect(tabs.list()).toEqual([{ id: first, titleIndex: 1, title: 'build watch' }]);
+    const stored = storageData.get(storage.UI.terminalTabs.key) as { tabs: Array<Record<string, unknown>> };
+    expect(stored.tabs).toEqual([{ titleIndex: 1, title: 'build watch' }]);
+    const listener = vi.fn();
+    tabs.onTabsChange(listener);
+    tabs.renameTab(first, '   ');
+    tabs.renameTab('tab-missing', 'other');
+    tabs.renameTab(first, 'build watch');
+    expect(listener).not.toHaveBeenCalled();
+    tabs.closeTab(first);
+    expect(tabs.recentlyClosed()).toEqual([{ titleIndex: 1, title: 'build watch' }]);
+  });
+
   it('clears the recently-closed ring when the window hides to tray', async () => {
     const bridge = await import('@openheaders/core/bridge');
     const broadcastHandlers = new Map<string, (payload: unknown) => void>();

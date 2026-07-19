@@ -452,6 +452,10 @@ export const workbenchChrome = {
   'workbench.terminal.closeConfirm.bodyPrefix': 'Todavía se está ejecutando un proceso en ',
   'workbench.terminal.closeConfirm.bodySuffix': '. ¿Terminarlo?',
   'workbench.terminal.closeConfirm.ok': 'Terminar',
+  'workbench.terminal.closeConfirm.bodyMany':
+    'Todavía se están ejecutando procesos en {count} de las pestañas que se van a cerrar. ¿Terminarlos?',
+  'workbench.terminal.menu.rename': 'Renombrar',
+  'workbench.terminal.rename.title': 'Renombrar pestaña',
   'workbench.terminal.settings': 'Configuración',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +

@@ -19,7 +19,7 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { getWorkbenchTerminalTabs, whenTerminalFontReady } from './terminal-instance';
+import { getWorkbenchTerminalTabs, whenTerminalFontReady, type WorkbenchTerminal } from './terminal-instance';
 import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
 import '@xterm/xterm/css/xterm.css';
 
@@ -185,6 +185,47 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
     [tabsApi, closeTab, confirmCloseRunning, t],
   );
 
+  // Context-menu bulk closes (Close Others / All / to the Left / Right)
+  // share the terminate guard but ask ONCE for the whole batch — a
+  // dialog per running tab would stack modals.
+  const requestCloseMany = useCallback(
+    (ids: string[]) => {
+      if (!tabsApi || ids.length === 0) return;
+      const closeAll = () => {
+        for (const id of ids) tabsApi.closeTab(id);
+        if (tabsApi.list().length === 0) onHide();
+      };
+      if (!confirmCloseRunning) {
+        closeAll();
+        return;
+      }
+      const handles = ids
+        .map((id) => tabsApi.getTab(id))
+        .filter((handle): handle is WorkbenchTerminal => handle !== null);
+      void Promise.all(handles.map((handle) => handle.hasRunningProcess())).then((running) => {
+        const count = running.filter(Boolean).length;
+        if (count === 0) {
+          closeAll();
+          return;
+        }
+        Modal.confirm({
+          title: (
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.closeConfirm.title')}</span>
+          ),
+          width: 380,
+          content: (
+            <p style={{ fontSize: 12, margin: '4px 0 0' }}>{t('workbench.terminal.closeConfirm.bodyMany', { count })}</p>
+          ),
+          okText: t('workbench.terminal.closeConfirm.ok'),
+          okButtonProps: { danger: true, size: 'small' },
+          cancelButtonProps: { size: 'small' },
+          onOk: closeAll,
+        });
+      });
+    },
+    [tabsApi, confirmCloseRunning, t, onHide],
+  );
+
   const dockFocused = useIsDockFocused(dockSlot);
   const openSettings = useOpenSettings();
 
@@ -195,6 +236,26 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       focused={dockFocused}
       onActivate={(id) => tabsApi.activateTab(id)}
       onClose={requestClose}
+      onCloseOther={(id) =>
+        requestCloseMany(
+          tabsApi
+            .list()
+            .filter((tab) => tab.id !== id)
+            .map((tab) => tab.id),
+        )
+      }
+      onCloseAll={() => requestCloseMany(tabsApi.list().map((tab) => tab.id))}
+      onCloseToLeft={(id) => {
+        const list = tabsApi.list();
+        const index = list.findIndex((tab) => tab.id === id);
+        if (index > 0) requestCloseMany(list.slice(0, index).map((tab) => tab.id));
+      }}
+      onCloseToRight={(id) => {
+        const list = tabsApi.list();
+        const index = list.findIndex((tab) => tab.id === id);
+        if (index !== -1) requestCloseMany(list.slice(index + 1).map((tab) => tab.id));
+      }}
+      onRename={(id, title) => tabsApi.renameTab(id, title)}
       onNew={() => tabsApi.createTab()}
       onOpenTui={() => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' })}
       recentlyClosed={tabsApi.recentlyClosed()}

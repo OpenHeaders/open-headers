@@ -418,6 +418,10 @@ export const workbenchChrome = {
   'workbench.terminal.closeConfirm.bodyPrefix': 'A process is still running in ',
   'workbench.terminal.closeConfirm.bodySuffix': '. Terminate it?',
   'workbench.terminal.closeConfirm.ok': 'Terminate',
+  'workbench.terminal.closeConfirm.bodyMany':
+    'Processes are still running in {count} of the tabs being closed. Terminate them?',
+  'workbench.terminal.menu.rename': 'Rename',
+  'workbench.terminal.rename.title': 'Rename Tab',
   'workbench.terminal.settings': 'Settings',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +

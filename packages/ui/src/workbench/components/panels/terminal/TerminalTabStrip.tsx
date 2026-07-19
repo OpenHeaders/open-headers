@@ -17,11 +17,12 @@
 import { CloseOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { Button, theme, Tooltip } from 'antd';
+import { Button, Dropdown, Input, Modal, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import OverlayScrollThumb from '../../tabbar/OverlayScrollThumb';
+import { buildTerminalTabContextMenu } from './build-terminal-tab-context-menu';
 import TerminalTabSearchDropdown from './TerminalTabSearchDropdown';
 import type { TerminalClosedTab, TerminalTabInfo } from './terminal-instance';
 
@@ -34,6 +35,13 @@ export interface TerminalTabStripProps {
   focused: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  /** Context-menu bulk closes — confirm-aware, owned by the panel. */
+  onCloseOther: (id: string) => void;
+  onCloseAll: () => void;
+  onCloseToLeft: (id: string) => void;
+  onCloseToRight: (id: string) => void;
+  /** Commit an explicit tab label (context menu → Rename). */
+  onRename: (id: string, title: string) => void;
   onNew: () => void;
   /** Pinned "Open TUI mode" affordance — opens a tab running `oh tui`. */
   onOpenTui: () => void;
@@ -56,6 +64,11 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   focused,
   onActivate,
   onClose,
+  onCloseOther,
+  onCloseAll,
+  onCloseToLeft,
+  onCloseToRight,
+  onRename,
   onNew,
   onOpenTui,
   recentlyClosed,
@@ -67,6 +80,8 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [newHovered, setNewHovered] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const chevronRef = useRef<HTMLDivElement>(null);
   const newTabShortcut = useShortcutLabel('terminal-new-tab');
@@ -108,12 +123,32 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
     <div className="rules-tabs-bar" style={{ flex: 1, minWidth: 0, height: '100%' }}>
       <div className={`rules-tabs-scroll${hasOverflow ? ' is-overflow' : ''}`} ref={scrollRef} onWheel={handleWheel}>
         <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {tabs.map((tab) => {
+          {tabs.map((tab, tabIndex) => {
             const active = tab.id === activeId;
             const hovered = tab.id === hoveredId;
             return (
-              <span
+              <Dropdown
                 key={tab.id}
+                trigger={['contextMenu']}
+                menu={buildTerminalTabContextMenu(
+                  {
+                    tabId: tab.id,
+                    tabIndex,
+                    tabCount: tabs.length,
+                    onRename: (id) => {
+                      setRenameId(id);
+                      setRenameValue(terminalTabLabel(t, tab));
+                    },
+                    onClose,
+                    onCloseOther,
+                    onCloseAll,
+                    onCloseToLeft,
+                    onCloseToRight,
+                  },
+                  t,
+                )}
+              >
+              <span
                 role="tab"
                 tabIndex={0}
                 aria-selected={active}
@@ -164,6 +199,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
                   <CloseOutlined />
                 </span>
               </span>
+              </Dropdown>
             );
           })}
         </div>
@@ -244,6 +280,31 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
       >
         {t('workbench.terminal.openTui')}
       </Button>
+
+      <Modal
+        title={<span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.rename.title')}</span>}
+        width={380}
+        open={renameId !== null}
+        okButtonProps={{ size: 'small' }}
+        cancelButtonProps={{ size: 'small' }}
+        onOk={() => {
+          if (renameId !== null) onRename(renameId, renameValue);
+          setRenameId(null);
+        }}
+        onCancel={() => setRenameId(null)}
+        destroyOnHidden
+      >
+        <Input
+          size="small"
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onPressEnter={() => {
+            if (renameId !== null) onRename(renameId, renameValue);
+            setRenameId(null);
+          }}
+        />
+      </Modal>
     </div>
   );
 };

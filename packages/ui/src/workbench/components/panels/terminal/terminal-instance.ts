@@ -84,6 +84,10 @@ export interface WorkbenchTerminalTabs {
   /** Kill the tab's pty, dispose its terminal, and activate a
    *  neighbor. Closing the last tab leaves the list empty. */
   closeTab(id: string): void;
+  /** Give the tab an explicit label (the IDE Rename Session idiom). The
+   *  numbered default stays reserved via `titleIndex`; a blank or
+   *  unchanged name is a no-op. */
+  renameTab(id: string, title: string): void;
   /** Fires on create, close, and activation change. */
   onTabsChange(listener: () => void): () => void;
   /** Apply the antd-derived theme to every tab, current and future. */
@@ -478,6 +482,13 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
         notifyTabsChange(state);
       },
       closeTab: (id) => closeTab(state, id),
+      renameTab: (id, title) => {
+        const tab = state.tabs.find((candidate) => candidate.id === id);
+        const trimmed = title.trim();
+        if (!tab || trimmed.length === 0 || trimmed === tab.title) return;
+        tab.title = trimmed;
+        notifyTabsChange(state);
+      },
       onTabsChange: (listener) => {
         state.changeListeners.add(listener);
         return () => {
