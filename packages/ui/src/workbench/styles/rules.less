@@ -837,8 +837,18 @@ body {
   // the divider, the way IDE tab strips render it.
   align-self: stretch;
   gap: 2px;
-  padding: 0 4px;
-  overflow-x: auto;
+  // `overflow-x: scroll` (not `auto`): with `auto`, Chromium reserves
+  // the 3 px webkit gutter only once the content actually overflows,
+  // so the first overflowing tab shifts the whole row up. `scroll`
+  // keeps the gutter reserved at all times — the thumb is invisible
+  // until there is both overflow and bar hover, so nothing is painted
+  // in the fit case; the space just stays stable. The 3 px top padding
+  // mirrors the gutter so the tabs stay vertically centered instead of
+  // riding 3 px high. (Gecko hides the native bar entirely — its
+  // symmetric counterweight is the padding-bottom in the `@supports`
+  // block below, where the overlay thumb draws inside the padding.)
+  padding: 3px 4px 0;
+  overflow-x: scroll;
   overscroll-behavior: none;
   overflow-y: hidden;
 
@@ -894,6 +904,10 @@ body {
   scrollbar-color: auto;
   @supports (-moz-appearance: none) {
     scrollbar-width: none;
+    // No native gutter in Gecko — balance the shared 3 px padding-top
+    // so the tabs sit centered; the sibling overlay thumb paints over
+    // this padding band, exactly where the webkit gutter sits.
+    padding-bottom: 3px;
   }
   &::-webkit-scrollbar {
     height: 3px;
@@ -919,14 +933,16 @@ body {
 // vertical space with the tooltip that the hovered tab opens just
 // below the bar, so a heavy thumb reads as visual noise next to the
 // tooltip arrow. Low alpha keeps the indicator legible while letting
-// the tooltip own the visual focus.
-.rules-tabs-bar:hover .rules-tabs-scroll {
+// the tooltip own the visual focus. Gated on `.is-overflow` — with
+// `overflow-x: scroll` the scrollbar element exists even in the fit
+// case, and the thumb must never tint when there is nothing to scroll.
+.rules-tabs-bar:hover .rules-tabs-scroll.is-overflow {
   &::-webkit-scrollbar-thumb {
     background: rgba(128, 128, 128, 0.28);
   }
 }
 
-[data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-scroll {
+[data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-scroll.is-overflow {
   &::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.18);
   }

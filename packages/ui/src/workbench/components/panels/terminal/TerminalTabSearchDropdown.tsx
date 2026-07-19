@@ -65,7 +65,7 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
   const [search, setSearch] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [closedExpanded, setClosedExpanded] = useState(false);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const inputRef = useRef<InputRef>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -76,9 +76,13 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
     setClosedExpanded(false);
     const rect = anchorRef.current?.getBoundingClientRect();
     if (rect) {
+      const top = rect.bottom + 4;
       setPosition({
-        top: rect.bottom + 4,
+        top,
         left: Math.max(8, Math.min(rect.right - DROPDOWN_WIDTH, window.innerWidth - DROPDOWN_WIDTH - 8)),
+        // Stop at the window edge — the inner lists shrink and scroll
+        // instead of the popup overflowing the app bottom.
+        maxHeight: window.innerHeight - top - 8,
       });
     }
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -156,6 +160,9 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
           left: position.left,
           right: 'auto',
           width: DROPDOWN_WIDTH,
+          maxHeight: position.maxHeight,
+          display: 'flex',
+          flexDirection: 'column',
           background: token.colorBgElevated,
           border: `1px solid ${token.colorBorderSecondary}`,
           // Portaled to document.body — outside the themed app subtree,
@@ -164,7 +171,7 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
           color: token.colorText,
         }}
       >
-        <div style={{ padding: '8px 8px 4px' }}>
+        <div style={{ padding: '8px 8px 4px', flexShrink: 0 }}>
           <Input
             ref={inputRef}
             size="small"
@@ -181,11 +188,14 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
             style={{ fontSize: 12 }}
           />
         </div>
-        <div ref={listRef} style={{ padding: '0 4px 4px' }}>
+        <div
+          ref={listRef}
+          style={{ padding: '0 4px 4px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
           <div
             className="oh-persistent-scroll"
             data-testid="terminal-tab-search-list"
-            style={{ maxHeight: ITEM_HEIGHT * OPEN_TABS_MAX_ROWS }}
+            style={{ maxHeight: ITEM_HEIGHT * OPEN_TABS_MAX_ROWS, minHeight: 0 }}
           >
             {filteredTabs.map((tab, idx) => (
               // biome-ignore lint/a11y/useKeyWithClickEvents: handled by the input's onKeyDown
@@ -223,7 +233,7 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
               {/* biome-ignore lint/a11y/noStaticElementInteractions: toggle section */}
               <div
                 className="rules-tab-search-item"
-                style={{ fontSize: 11, fontWeight: 600, color: token.colorTextSecondary, marginTop: 4 }}
+                style={{ fontSize: 11, fontWeight: 600, color: token.colorTextSecondary, marginTop: 4, flexShrink: 0 }}
                 onClick={() => setClosedExpanded((v) => !v)}
               >
                 <span style={{ fontSize: 9, marginRight: 4 }}>{closedExpanded ? '▼' : '▶'}</span>
@@ -238,7 +248,7 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
                 <div
                   className="oh-persistent-scroll"
                   data-testid="terminal-tab-search-closed-list"
-                  style={{ maxHeight: ITEM_HEIGHT * CLOSED_MAX_ROWS }}
+                  style={{ maxHeight: ITEM_HEIGHT * CLOSED_MAX_ROWS, minHeight: 0 }}
                 >
                   {filteredClosed.map(({ closed, index }, idx) => (
                     // biome-ignore lint/a11y/useKeyWithClickEvents: handled by the input's onKeyDown
@@ -286,6 +296,7 @@ const TerminalTabSearchDropdown: React.FC<TerminalTabSearchDropdownProps> = ({
             borderRadius: 0,
             paddingTop: 8,
             paddingBottom: 6,
+            flexShrink: 0,
           }}
           onClick={() => {
             onOpenSettings();
