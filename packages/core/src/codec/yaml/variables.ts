@@ -34,9 +34,9 @@ import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../s
 import { VaultSchema, WorkspaceVariablesSchema } from '../../schemas/variable';
 import type { Vault, VaultSecret, WorkspaceVariables } from '../../types/variable';
 import { generateUid } from '../../utils/workspace';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { VAULT_FIELD_ORDER, WORKSPACE_VARIABLES_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 // ── WorkspaceVariables ─────────────────────────────────────────────
 
@@ -47,15 +47,16 @@ export function parseWorkspaceVariables(yaml: string): ParsedDocument<WorkspaceV
     raw.variables = raw.variables.map(mintVariableUidIfMissing);
   }
   const value = v.parse(WorkspaceVariablesSchema, raw);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, WorkspaceVariablesSchema, WORKSPACE_VARIABLES_FIELD_ORDER));
 }
 
 export function serializeWorkspaceVariables(write: WriteableDocument<WorkspaceVariables>): string {
-  const doc = write.raw
-    ? (write.raw as YAML.Document)
-    : buildFreshDocument(write.value, WORKSPACE_VARIABLES_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, WORKSPACE_VARIABLES_FIELD_ORDER);
-  return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  return emitCanonicalYaml(
+    write.value,
+    WorkspaceVariablesSchema,
+    WORKSPACE_VARIABLES_FIELD_ORDER,
+    unknownFieldsOf(write),
+  );
 }
 
 // ── Vault ─────────────────────────────────────────────────────────
@@ -67,13 +68,11 @@ export function parseVault(yaml: string): ParsedDocument<Vault> {
     raw.secrets = raw.secrets.map(mintSecretUidIfMissing);
   }
   const value = v.parse(VaultSchema, raw);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, VaultSchema, VAULT_FIELD_ORDER));
 }
 
 export function serializeVault(write: WriteableDocument<Vault>): string {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, VAULT_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, VAULT_FIELD_ORDER);
-  return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  return emitCanonicalYaml(write.value, VaultSchema, VAULT_FIELD_ORDER, unknownFieldsOf(write));
 }
 
 // ── Internals ─────────────────────────────────────────────────────

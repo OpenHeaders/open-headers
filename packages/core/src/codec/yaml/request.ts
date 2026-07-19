@@ -34,9 +34,9 @@ import type {
   RequestBody,
   RequestHeader,
 } from '../../types/request';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { REQUEST_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 /** Body file extensions per invariant #15. */
 const BODY_EXT_TO_TYPE: Record<string, BodyType> = {
@@ -135,7 +135,7 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
   if (postResponseScript !== undefined) merged.postResponseScript = postResponseScript;
 
   const value = v.parse(RequestSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, RequestSchema, REQUEST_FIELD_ORDER));
 }
 
 function assembleBody(
@@ -207,9 +207,7 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
     postResponseScript: undefined,
   } as unknown as Request;
 
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(manifestView, REQUEST_FIELD_ORDER);
-  mergeKnownFields(doc, manifestView, REQUEST_FIELD_ORDER);
-  const requestYaml = doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  const requestYaml = emitCanonicalYaml(manifestView, RequestSchema, REQUEST_FIELD_ORDER, unknownFieldsOf(write));
 
   const bodyFileName = bodyFileNameFor(body.type);
   const bodyContent = bodyContentOf(body);
@@ -222,14 +220,10 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
       : null;
 
   const preRequestScript: RequestSiblingFile | null =
-    value.preRequestScript !== undefined
-      ? { fileName: 'pre-request.js', content: value.preRequestScript }
-      : null;
+    value.preRequestScript !== undefined ? { fileName: 'pre-request.js', content: value.preRequestScript } : null;
 
   const postResponseScript: RequestSiblingFile | null =
-    value.postResponseScript !== undefined
-      ? { fileName: 'post-response.js', content: value.postResponseScript }
-      : null;
+    value.postResponseScript !== undefined ? { fileName: 'post-response.js', content: value.postResponseScript } : null;
 
   return { requestYaml, bodyFile, variablesFile, preRequestScript, postResponseScript };
 }

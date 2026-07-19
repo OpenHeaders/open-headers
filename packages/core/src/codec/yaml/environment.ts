@@ -17,9 +17,9 @@
  *   parseEnvironment({ default, secret?, path })          → ParsedDocument<Environment>
  *   serializeEnvironment(write) → { default, secret, template }
  *
- * The parse path preserves the raw Document from the default file only
- * — that's the file merge-patches round-trip through. The secret file
- * is reconstituted from `Environment.variables.filter(type==='secret')`
+ * The parse path captures unknown fields from the default file only —
+ * that's the file merge-patches round-trip through. The secret file is
+ * reconstituted from `Environment.variables.filter(type==='secret')`
  * on every write (no unknown-field preservation for secrets since they
  * live outside version control).
  */
@@ -31,8 +31,9 @@ import { EnvironmentSchema } from '../../schemas/variable';
 import type { Environment, Variable } from '../../types/variable';
 import { generateUid } from '../../utils/workspace';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { ENVIRONMENT_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface EnvironmentCodecInput {
   /** `<slug>-<uid>.yaml` content. */
@@ -88,7 +89,7 @@ export function parseEnvironment(input: EnvironmentCodecInput): ParsedDocument<E
     variables: [...defaultVars, ...secretVars],
   };
   const value = v.parse(EnvironmentSchema, merged);
-  return makeParsed(value, defaultDoc);
+  return makeParsed(value, extractUnknownFields(defaultRaw, EnvironmentSchema, ENVIRONMENT_FIELD_ORDER));
 }
 
 /**
@@ -102,6 +103,7 @@ function mintUidIfMissing(raw: Partial<Variable>): Variable {
     name: raw.name ?? '',
     value: raw.value ?? '',
     type: raw.type ?? 'default',
+    ...(raw.enabled !== undefined ? { enabled: raw.enabled } : {}),
   };
 }
 
@@ -109,13 +111,14 @@ export function serializeEnvironment(write: WriteableDocument<Environment>): Env
   const nonSecret = write.value.variables.filter((x) => x.type === 'default');
   const secret = write.value.variables.filter((x) => x.type === 'secret');
 
-  // Non-secret file: merge over the preserved Document if present.
+  // Non-secret file: canonical emit with the captured unknowns re-attached.
   const defaultView: Environment = { ...write.value, variables: nonSecret };
-  const defaultDoc = write.raw
-    ? (write.raw as YAML.Document)
-    : buildFreshDocument(defaultView, ENVIRONMENT_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(defaultDoc, defaultView, ENVIRONMENT_FIELD_ORDER);
-  const defaultYaml = defaultDoc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  const defaultYaml = emitCanonicalYaml(
+    defaultView,
+    EnvironmentSchema,
+    ENVIRONMENT_FIELD_ORDER,
+    unknownFieldsOf(write),
+  );
 
   // Secret file: fresh every time. No preserve-unknown — the file is
   // gitignored and rewritten in full on every vault mutation.

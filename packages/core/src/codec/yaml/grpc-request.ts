@@ -18,9 +18,9 @@ import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { GrpcRequestSchema } from '../../schemas/grpc-request';
 import type { GrpcMetadataPair, GrpcRequest } from '../../types/grpc-request';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { GRPC_REQUEST_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 const MESSAGE_FILE_NAME = 'message.json';
 
@@ -59,7 +59,7 @@ export function parseGrpcRequest(yaml: string, context: GrpcRequestCodecContext)
   };
 
   const value = v.parse(GrpcRequestSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, GrpcRequestSchema, GRPC_REQUEST_FIELD_ORDER));
 }
 
 // ── Serialize ─────────────────────────────────────────────────────
@@ -81,9 +81,7 @@ export function serializeGrpcRequest(write: WriteableDocument<GrpcRequest>): Grp
     message: undefined,
   } as unknown as GrpcRequest;
 
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(manifestView, GRPC_REQUEST_FIELD_ORDER);
-  mergeKnownFields(doc, manifestView, GRPC_REQUEST_FIELD_ORDER);
-  const grpcYaml = doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  const grpcYaml = emitCanonicalYaml(manifestView, GrpcRequestSchema, GRPC_REQUEST_FIELD_ORDER, unknownFieldsOf(write));
 
   const messageFile: GrpcRequestSiblingFile | null =
     value.message !== '' ? { fileName: MESSAGE_FILE_NAME, content: value.message } : null;

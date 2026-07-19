@@ -16,9 +16,9 @@ import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { LiveVariableSchema } from '../../schemas/live';
 import type { LiveVariable } from '../../types/live';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { LIVE_VARIABLE_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface LiveVariableCodecContext {
   /** Workspace-relative folder path, e.g. "live-variables/auth-token-a1b2c3d4". */
@@ -30,11 +30,9 @@ export function parseLiveVariable(yaml: string, context: LiveVariableCodecContex
   const raw = doc.toJS() as Record<string, unknown>;
   const merged = { ...raw, path: context.path };
   const value = v.parse(LiveVariableSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, LiveVariableSchema, LIVE_VARIABLE_FIELD_ORDER));
 }
 
 export function serializeLiveVariable(write: WriteableDocument<LiveVariable>): string {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, LIVE_VARIABLE_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, LIVE_VARIABLE_FIELD_ORDER);
-  return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  return emitCanonicalYaml(write.value, LiveVariableSchema, LIVE_VARIABLE_FIELD_ORDER, unknownFieldsOf(write));
 }

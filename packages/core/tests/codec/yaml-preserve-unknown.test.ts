@@ -89,7 +89,7 @@ const TEMPLATE_WITH_UNKNOWN = `schemaVersion: 5
 uid: tmpl0001
 name: Bearer Token
 ruleType: header
-icon: "🔐"
+icon: 🔐
 description: Pre-filled header rule for bearer-token auth.
 includes:
   conditions: true
@@ -130,6 +130,36 @@ describe('yaml codec — preserve-unknown on identity write', () => {
     const parsed = parseTemplate(TEMPLATE_WITH_UNKNOWN, { path: 'templates/bearer-tmpl0001' });
     const write = mergePatch(parsed, () => {});
     expect(serializeTemplate(write)).toBe(TEMPLATE_WITH_UNKNOWN);
+  });
+
+  it('NESTED unknown fields survive a known-field edit (inside action + inside a row)', () => {
+    const raw = `schemaVersion: 5
+uid: rulehdr2
+name: Set tenant header
+type: header
+enabled: true
+conditions: []
+action:
+  requestHeaders:
+    - uid: hmd00021
+      operation: override
+      headerName: X-Tenant
+      value: acme
+      rowHint: from-the-future
+  responseHeaders: []
+  futureActionFlag: keep-me
+`;
+    const parsed = parseRule(raw, { path: 'rules/tenant-rulehdr2' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.name = 'Set tenant header (edited)';
+    });
+    const out = serializeRule(write);
+    expect(out).toContain('name: Set tenant header (edited)');
+    expect(out).toContain('rowHint: from-the-future');
+    expect(out).toContain('futureActionFlag: keep-me');
+    // Identity re-serialization of the edited bytes is a fixpoint.
+    const reparsed = parseRule(out, { path: 'rules/tenant-rulehdr2' });
+    expect(serializeRule(mergePatch(reparsed, () => {}))).toBe(out);
   });
 
   it('known-field edit survives with unknown fields untouched', () => {

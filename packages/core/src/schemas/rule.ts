@@ -292,11 +292,14 @@ export const ResponseRuleSchema = v.object({
 //   - 'remove-all' — strip the entire query string.
 export const QueryParamOperationSchema = v.picklist(['add', 'override', 'remove', 'remove-all']);
 
+// Entry order is canonical: the YAML codec emits nested map keys in
+// schema-entry order, and the pinned on-disk format puts `operation`
+// before the optional `value`.
 export const QueryParamEntrySchema = v.object({
   uid: UidSchema,
   param: v.string(),
-  value: v.optional(v.string()),
   operation: QueryParamOperationSchema,
+  value: v.optional(v.string()),
 });
 
 export const QueryParamActionSchema = v.object({

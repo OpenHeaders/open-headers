@@ -20,9 +20,10 @@
  * ──────
  * The brands are **phantom types** — zero runtime cost. The actual
  * preserve-unknown logic lives in the codec layer
- * (`@openheaders/core/codec/yaml`), which uses eemeli/yaml's AST to
- * retain unknown keys + comments through round-trip. The brands simply
- * prevent the codec from being called with the wrong input.
+ * (`@openheaders/core/codec/yaml`), which captures unknown keys as
+ * serializable JSON-pointer rows at parse time and re-emits them at
+ * their original parent maps on serialize. The brands simply prevent
+ * the codec from being called with the wrong input.
  *
  * See docs/V5_FOUNDATION_PLAN.md §Phase 0 #4.
  */
@@ -46,7 +47,7 @@ declare const WRITEABLE_DOCUMENT_BRAND: unique symbol;
  */
 export interface ParsedDocument<T> {
   readonly value: T;
-  /** Opaque parser output preserving unknown keys + comments. */
+  /** Opaque parser output preserving unknown keys (serializable rows). */
   readonly raw: unknown;
   readonly [PARSED_DOCUMENT_BRAND]?: 'parsed';
 }

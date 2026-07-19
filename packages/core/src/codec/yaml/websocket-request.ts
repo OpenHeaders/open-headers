@@ -21,9 +21,9 @@ import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { WebSocketRequestSchema } from '../../schemas/websocket-request';
 import type { WebSocketHeaderPair, WebSocketQueryParam, WebSocketRequest } from '../../types/websocket-request';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { WEBSOCKET_REQUEST_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 const MESSAGE_JSON_FILE_NAME = 'message.json';
 const MESSAGE_TEXT_FILE_NAME = 'message.txt';
@@ -67,7 +67,7 @@ export function parseWebSocketRequest(
   };
 
   const value = v.parse(WebSocketRequestSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, WebSocketRequestSchema, WEBSOCKET_REQUEST_FIELD_ORDER));
 }
 
 // ── Serialize ─────────────────────────────────────────────────────
@@ -89,11 +89,12 @@ export function serializeWebSocketRequest(write: WriteableDocument<WebSocketRequ
     message: undefined,
   } as unknown as WebSocketRequest;
 
-  const doc = write.raw
-    ? (write.raw as YAML.Document)
-    : buildFreshDocument(manifestView, WEBSOCKET_REQUEST_FIELD_ORDER);
-  mergeKnownFields(doc, manifestView, WEBSOCKET_REQUEST_FIELD_ORDER);
-  const websocketYaml = doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  const websocketYaml = emitCanonicalYaml(
+    manifestView,
+    WebSocketRequestSchema,
+    WEBSOCKET_REQUEST_FIELD_ORDER,
+    unknownFieldsOf(write),
+  );
 
   // The socketio flavor composes a JSON arguments array by
   // construction, so its sibling is always the .json name.

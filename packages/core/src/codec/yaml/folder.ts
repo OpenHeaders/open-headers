@@ -21,8 +21,7 @@ import * as YAML from 'yaml';
 import { FolderSchema } from '../../schemas/collection';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import type { Folder } from '../../types/collection';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { FOLDER_FIELD_ORDER } from './ordering';
 import {
   type ScriptSiblingFile,
@@ -30,6 +29,7 @@ import {
   scriptFieldsFromSiblings,
   scriptSiblingsFromFields,
 } from './script-siblings';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface FolderCodecContext {
   /** Workspace-relative folder path. */
@@ -45,7 +45,7 @@ export function parseFolder(yaml: string, context: FolderCodecContext): ParsedDo
   const raw = doc.toJS() as Record<string, unknown>;
   const merged = { ...raw, path: context.path, ...scriptFieldsFromSiblings(context.siblings) };
   const value = v.parse(FolderSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, FolderSchema, FOLDER_FIELD_ORDER));
 }
 
 export interface FolderSerializeOutput extends ScriptSiblingOutputs {
@@ -54,10 +54,8 @@ export interface FolderSerializeOutput extends ScriptSiblingOutputs {
 }
 
 export function serializeFolder(write: WriteableDocument<Folder>): FolderSerializeOutput {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, FOLDER_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, FOLDER_FIELD_ORDER);
   return {
-    folderYaml: doc.toString(CANONICAL_STRINGIFY_OPTIONS),
+    folderYaml: emitCanonicalYaml(write.value, FolderSchema, FOLDER_FIELD_ORDER, unknownFieldsOf(write)),
     ...scriptSiblingsFromFields(write.value),
   };
 }

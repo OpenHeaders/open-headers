@@ -16,8 +16,8 @@
  *     - type: request-domains
  *       values: [api.example.com]
  *   formValues:
- *     operation: override
  *     headerName: Authorization
+ *     operation: override
  *   createdAt: 2026-04-19T00:00:00.000Z
  *   updatedAt: 2026-04-19T00:00:00.000Z
  */
@@ -26,11 +26,11 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { TemplateSchema } from '../../schemas/template';
-import type { Template } from '../../types/template';
 import type { HeaderModification, QueryParamEntry, RuleCondition } from '../../types/rule';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import type { Template } from '../../types/template';
+import { emitCanonicalYaml } from './canonical-emit';
 import { TEMPLATE_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface TemplateCodecContext {
   /** Workspace-relative template folder path. */
@@ -42,14 +42,12 @@ export function parseTemplate(yaml: string, context: TemplateCodecContext): Pars
   const raw = doc.toJS() as Record<string, unknown>;
   const merged = { ...raw, path: context.path };
   const value = v.parse(TemplateSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, TemplateSchema, TEMPLATE_FIELD_ORDER));
 }
 
 export function serializeTemplate(write: WriteableDocument<Template>): string {
   const value = canonicalizeTemplate(write.value);
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(value, TEMPLATE_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, value, TEMPLATE_FIELD_ORDER);
-  return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  return emitCanonicalYaml(value, TemplateSchema, TEMPLATE_FIELD_ORDER, unknownFieldsOf(write));
 }
 
 /**

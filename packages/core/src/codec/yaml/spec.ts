@@ -26,9 +26,9 @@ import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { SpecSchema } from '../../schemas/spec';
 import type { Spec } from '../../types/spec';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { SPEC_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface SpecSiblingFile {
   /** Filename relative to the spec folder, e.g. "index.yaml". */
@@ -65,7 +65,7 @@ export function parseSpec(yaml: string, context: SpecCodecContext): ParsedDocume
   };
 
   const value = v.parse(SpecSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, SpecSchema, SPEC_FIELD_ORDER));
 }
 
 /**
@@ -80,7 +80,7 @@ export function parseSpecInline(yaml: string, context: { path: string }): Parsed
   const doc = YAML.parseDocument(yaml);
   const raw = doc.toJS() as Record<string, unknown>;
   const value = v.parse(SpecSchema, { ...raw, path: context.path });
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, SpecSchema, SPEC_FIELD_ORDER));
 }
 
 export interface SpecSerializeOutput {
@@ -98,9 +98,7 @@ export function serializeSpec(write: WriteableDocument<Spec>): SpecSerializeOutp
     files: write.value.files.map((file) => ({ uid: file.uid, fileName: file.fileName })),
   } as unknown as Spec;
 
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(manifestView, SPEC_FIELD_ORDER);
-  mergeKnownFields(doc, manifestView, SPEC_FIELD_ORDER);
-  const specYaml = doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  const specYaml = emitCanonicalYaml(manifestView, SpecSchema, SPEC_FIELD_ORDER, unknownFieldsOf(write));
 
   const files: SpecSiblingFile[] = write.value.files.map((file) => ({
     fileName: file.fileName,

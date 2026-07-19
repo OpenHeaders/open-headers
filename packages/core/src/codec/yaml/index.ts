@@ -5,16 +5,21 @@
  * storage service, future team sync) layer filesystem concerns on top.
  *
  * Discipline:
- *   - Invariant #4 (preserve-unknown): parse captures the full YAML AST
- *     in `ParsedDocument.raw`; serialize of a merged document touches
- *     only known fields — unknown top-level keys round-trip unchanged.
- *   - Invariant #6 (metadata top, payload nested): known fields
- *     serialize in the canonical order declared in `ordering.ts`.
+ *   - Invariant #4 (preserve-unknown): parse captures unknown fields as
+ *     serializable `{ path, value }` rows in `ParsedDocument.raw`
+ *     (`unknown-fields.ts`); serialize re-emits them beneath the known
+ *     block of their original parent map at every depth — never only
+ *     the top level (SYNC_ENGINE_DESIGN.md §13.2 pass-through reads).
+ *   - Invariant #6 (metadata top, payload nested): top-level fields
+ *     serialize in the canonical order declared in `ordering.ts`;
+ *     nested maps follow the valibot schema's entry-definition order
+ *     (`canonical-emit.ts`).
  *   - Invariant #16 (eemeli/yaml): single YAML lib in core — no custom
  *     parser, no stringify shims in consumers.
  *   - Invariant #17 (one codec): the same codec runs under the desktop
- *     filesystem reader/writer and under the future team-sync layer;
- *     both produce byte-identical output via `CANONICAL_STRINGIFY_OPTIONS`.
+ *     filesystem reader/writer and under the git/team-sync layer; both
+ *     produce byte-identical output for identical state regardless of
+ *     parse history or key-insertion order (§23.3 determinism).
  *
  * Runtime-only fields (`Workspace.rootPath`, `{Collection,Folder,Rule,
  * Template}.path`) are excluded from persisted YAML. The caller
@@ -22,6 +27,7 @@
  */
 
 export { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
+export { emitCanonicalYaml } from './canonical-emit';
 export type { CollectionCodecContext, CollectionSerializeOutput } from './collection';
 export { parseCollection, serializeCollection } from './collection';
 export type { EnvironmentCodecInput, EnvironmentSerializeOutput } from './environment';
@@ -34,7 +40,6 @@ export type { LiveVariableCodecContext } from './live-variable';
 export { parseLiveVariable, serializeLiveVariable } from './live-variable';
 export type { LiveWorkflowCodecContext } from './live-workflow';
 export { parseLiveWorkflow, serializeLiveWorkflow } from './live-workflow';
-export { buildFreshDocument, mergeKnownFields } from './merge';
 export {
   COLLECTION_FIELD_ORDER,
   ENVIRONMENT_FIELD_ORDER,
@@ -62,6 +67,8 @@ export type { SpecCodecContext, SpecSerializeOutput, SpecSiblingFile } from './s
 export { parseSpec, parseSpecInline, serializeSpec } from './spec';
 export type { TemplateCodecContext } from './template';
 export { canonicalizeTemplate, parseTemplate, serializeTemplate } from './template';
+export type { UnknownField } from './unknown-fields';
+export { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';
 export type {
   WebSocketRequestCodecContext,

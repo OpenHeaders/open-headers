@@ -30,8 +30,7 @@ import * as YAML from 'yaml';
 import { CollectionSchema } from '../../schemas/collection';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import type { Collection } from '../../types/collection';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { COLLECTION_FIELD_ORDER } from './ordering';
 import {
   type ScriptSiblingFile,
@@ -39,6 +38,7 @@ import {
   scriptFieldsFromSiblings,
   scriptSiblingsFromFields,
 } from './script-siblings';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface CollectionCodecContext {
   /** Workspace-relative folder path, e.g. "requests/auth-a1b2c3d4". */
@@ -54,7 +54,7 @@ export function parseCollection(yaml: string, context: CollectionCodecContext): 
   const raw = doc.toJS() as Record<string, unknown>;
   const merged = { ...raw, path: context.path, ...scriptFieldsFromSiblings(context.siblings) };
   const value = v.parse(CollectionSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, CollectionSchema, COLLECTION_FIELD_ORDER));
 }
 
 export interface CollectionSerializeOutput extends ScriptSiblingOutputs {
@@ -69,10 +69,8 @@ export function serializeCollection(write: WriteableDocument<Collection>): Colle
   // thing as "key omitted" in our model; the parser refills defaults
   // on the next read.
   const normalized = omitCollectionDefaults(write.value);
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(normalized, COLLECTION_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, normalized, COLLECTION_FIELD_ORDER);
   return {
-    collectionYaml: doc.toString(CANONICAL_STRINGIFY_OPTIONS),
+    collectionYaml: emitCanonicalYaml(normalized, CollectionSchema, COLLECTION_FIELD_ORDER, unknownFieldsOf(write)),
     ...scriptSiblingsFromFields(write.value),
   };
 }

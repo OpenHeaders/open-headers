@@ -2,7 +2,7 @@ schemaVersion: 5
 uid: tmpl0001
 name: Bearer Token
 ruleType: header
-icon: "🔐"
+icon: 🔐
 description: Pre-filled header rule for bearer-token auth.
 includes:
   conditions: true
@@ -13,7 +13,7 @@ conditions:
     values:
       - api.openheaders.io
 formValues:
-  operation: override
   headerName: Authorization
+  operation: override
 createdAt: 2026-04-19T00:00:00.000Z
 updatedAt: 2026-04-19T00:00:00.000Z

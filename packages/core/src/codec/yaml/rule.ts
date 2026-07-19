@@ -27,9 +27,9 @@ import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { RuleSchema } from '../../schemas/rule';
 import type { HeaderModification, QueryParamEntry, Rule, RuleCondition } from '../../types/rule';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { RULE_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface RuleCodecContext {
   /** Workspace-relative rule folder path. */
@@ -41,14 +41,12 @@ export function parseRule(yaml: string, context: RuleCodecContext): ParsedDocume
   const raw = doc.toJS() as Record<string, unknown>;
   const merged = { ...raw, path: context.path };
   const value = v.parse(RuleSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, RuleSchema, RULE_FIELD_ORDER));
 }
 
 export function serializeRule(write: WriteableDocument<Rule>): string {
   const value = canonicalizeRule(write.value);
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(value, RULE_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, value, RULE_FIELD_ORDER);
-  return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  return emitCanonicalYaml(value, RuleSchema, RULE_FIELD_ORDER, unknownFieldsOf(write));
 }
 
 /**

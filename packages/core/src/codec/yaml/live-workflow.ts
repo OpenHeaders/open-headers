@@ -16,9 +16,9 @@ import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../s
 import { LiveWorkflowSchema } from '../../schemas/live';
 import type { LiveWorkflow } from '../../types/live';
 import { generateUid } from '../../utils/workspace';
-import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
-import { buildFreshDocument, mergeKnownFields } from './merge';
+import { emitCanonicalYaml } from './canonical-emit';
 import { LIVE_WORKFLOW_FIELD_ORDER } from './ordering';
+import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface LiveWorkflowCodecContext {
   /** Workspace-relative folder path, e.g. "live-workflows/auth-a1b2c3d4". */
@@ -31,7 +31,7 @@ export function parseLiveWorkflow(yaml: string, context: LiveWorkflowCodecContex
   const merged = { ...raw, path: context.path };
   mintMissingUids(merged);
   const value = v.parse(LiveWorkflowSchema, merged);
-  return makeParsed(value, doc);
+  return makeParsed(value, extractUnknownFields(raw, LiveWorkflowSchema, LIVE_WORKFLOW_FIELD_ORDER));
 }
 
 /**
@@ -75,7 +75,5 @@ function mintMissingUids(merged: Record<string, unknown>): void {
 }
 
 export function serializeLiveWorkflow(write: WriteableDocument<LiveWorkflow>): string {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, LIVE_WORKFLOW_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, LIVE_WORKFLOW_FIELD_ORDER);
-  return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+  return emitCanonicalYaml(write.value, LiveWorkflowSchema, LIVE_WORKFLOW_FIELD_ORDER, unknownFieldsOf(write));
 }
