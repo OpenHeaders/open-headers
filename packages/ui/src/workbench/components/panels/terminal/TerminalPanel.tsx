@@ -26,10 +26,10 @@ import '@xterm/xterm/css/xterm.css';
 type AntdToken = ReturnType<typeof theme.useToken>['token'];
 
 /** Dark-mode terminal ink. antd's dark `colorText` is 85% white —
- *  chrome-legible but glaring as a wall of terminal text; IDE
- *  terminals settle around 74% white. Light mode keeps the token
+ *  chrome-legible but glaring as a wall of terminal text; 80% white
+ *  keeps it readable without the glare. Light mode keeps the token
  *  (dark ink doesn't glare). */
-const DARK_TERMINAL_FOREGROUND = '#bdc1c6';
+const DARK_TERMINAL_FOREGROUND = '#cccccc';
 
 function buildXtermTheme(token: AntdToken, isDarkMode: boolean): ITheme {
   const foreground = isDarkMode ? DARK_TERMINAL_FOREGROUND : token.colorText;
