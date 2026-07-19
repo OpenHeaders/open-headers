@@ -447,6 +447,7 @@ export const workbenchChrome = {
   'workbench.terminal.tabLocalN': 'Local ({n})',
   'workbench.terminal.newTab': 'Nueva pestaña de terminal',
   'workbench.terminal.closeTab': 'Cerrar pestaña',
+  'workbench.terminal.openTui': 'Abrir el modo TUI',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',

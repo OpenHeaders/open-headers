@@ -444,6 +444,7 @@ export const workbenchChrome = {
   'workbench.terminal.tabLocalN': 'Local ({n})',
   'workbench.terminal.newTab': 'Nouvel onglet de terminal',
   'workbench.terminal.closeTab': 'Fermer l’onglet',
+  'workbench.terminal.openTui': 'Ouvrir le mode TUI',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",

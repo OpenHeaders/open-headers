@@ -11,7 +11,7 @@
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { theme } from 'antd';
+import { Button, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { TerminalTabInfo } from './terminal-instance';
@@ -22,15 +22,25 @@ export interface TerminalTabStripProps {
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onNew: () => void;
+  /** Pinned "Open TUI mode" affordance — opens a tab running `oh tui`. */
+  onOpenTui: () => void;
 }
 
 function tabLabel(t: Translate, tab: TerminalTabInfo): string {
+  if (tab.title !== undefined) return tab.title;
   return tab.titleIndex === 1
     ? t('workbench.terminal.tabLocal')
     : t('workbench.terminal.tabLocalN', { n: tab.titleIndex });
 }
 
-const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({ tabs, activeId, onActivate, onClose, onNew }) => {
+const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
+  tabs,
+  activeId,
+  onActivate,
+  onClose,
+  onNew,
+  onOpenTui,
+}) => {
   const t = useT();
   const { token } = theme.useToken();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -110,6 +120,9 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({ tabs, activeId, onA
       >
         <PlusOutlined />
       </span>
+      <Button size="small" type="text" data-testid="terminal-open-tui" onClick={onOpenTui} style={{ marginLeft: 6 }}>
+        {t('workbench.terminal.openTui')}
+      </Button>
     </div>
   );
 };

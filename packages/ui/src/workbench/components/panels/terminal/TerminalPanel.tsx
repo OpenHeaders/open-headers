@@ -106,6 +106,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
         if (tabsApi.list().length === 0) onHide();
       }}
       onNew={() => tabsApi.createTab()}
+      onOpenTui={() => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' })}
     />
   ) : (
     <strong>{t('workbench.toolWindows.terminal')}</strong>

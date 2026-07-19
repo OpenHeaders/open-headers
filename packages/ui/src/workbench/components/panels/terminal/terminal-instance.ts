@@ -39,8 +39,21 @@ export interface WorkbenchTerminal {
 export interface TerminalTabInfo {
   readonly id: string;
   /** 1-based title suffix — the lowest number free at creation, so a
-   *  closed tab's number is reused ("Local", "Local (2)", …). */
+   *  closed tab's number is reused ("Local", "Local (2)", …). 0 for
+   *  tabs with an explicit title. */
   readonly titleIndex: number;
+  /** Explicit label (e.g. the command a tab was opened to run);
+   *  overrides the numbered default. */
+  readonly title?: string;
+}
+
+export interface TerminalTabOptions {
+  /** Command typed into the shell (as keystrokes, exactly as a user
+   *  would) once the pty spawns — the program never learns it was
+   *  launched by the workbench. */
+  readonly runCommand?: string;
+  /** Explicit tab label instead of the numbered default. */
+  readonly title?: string;
 }
 
 export interface WorkbenchTerminalTabs {
@@ -49,7 +62,7 @@ export interface WorkbenchTerminalTabs {
   getTab(id: string): WorkbenchTerminal | null;
   /** Create a tab (no pty yet — the panel spawns on attach) and make it
    *  active. Returns the new tab's id. */
-  createTab(): string;
+  createTab(options?: TerminalTabOptions): string;
   activateTab(id: string): void;
   /** Kill the tab's pty, dispose its terminal, and activate a
    *  neighbor. Closing the last tab leaves the list empty. */
@@ -63,6 +76,8 @@ export interface WorkbenchTerminalTabs {
 interface TabState {
   id: string;
   titleIndex: number;
+  title: string | undefined;
+  pendingCommand: string | null;
   term: Terminal;
   fit: FitAddon;
   session: TerminalSession | null;
@@ -116,6 +131,12 @@ async function ensureSession(tab: TabState): Promise<void> {
     tab.sentCols = tab.term.cols;
     tab.sentRows = tab.term.rows;
     session.resize(tab.term.cols, tab.term.rows);
+    // A tab opened to run a command types it in on first spawn only —
+    // a restart after exit hands the user a plain shell.
+    if (tab.pendingCommand !== null) {
+      session.write(`${tab.pendingCommand}\r`);
+      tab.pendingCommand = null;
+    }
     tab.sessionCleanups = [
       session.onData((data) => tab.term.write(data)),
       session.onExit(() => {
@@ -172,13 +193,15 @@ function ensureRenderer(tab: TabState): void {
 }
 
 function lowestFreeTitleIndex(state: RegistryState): number {
+  // Explicitly-titled tabs (titleIndex 0) never show a number, so they
+  // don't consume one — "Local" numbering stays dense around them.
   const used = new Set(state.tabs.map((tab) => tab.titleIndex));
   let index = 1;
   while (used.has(index)) index++;
   return index;
 }
 
-function createTab(state: RegistryState): string {
+function createTab(state: RegistryState, options?: TerminalTabOptions): string {
   const term = new Terminal({
     cursorBlink: true,
     scrollback: 5000,
@@ -191,7 +214,9 @@ function createTab(state: RegistryState): string {
 
   const tab: TabState = {
     id: `tab-${state.nextTabSeq++}`,
-    titleIndex: lowestFreeTitleIndex(state),
+    titleIndex: options?.title !== undefined ? 0 : lowestFreeTitleIndex(state),
+    title: options?.title,
+    pendingCommand: options?.runCommand ?? null,
     term,
     fit,
     session: null,
@@ -259,10 +284,10 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
     changeListeners: new Set(),
     theme: undefined,
     api: {
-      list: () => state.tabs.map((tab) => ({ id: tab.id, titleIndex: tab.titleIndex })),
+      list: () => state.tabs.map((tab) => ({ id: tab.id, titleIndex: tab.titleIndex, title: tab.title })),
       activeId: () => state.activeId,
       getTab: (id) => state.tabs.find((tab) => tab.id === id)?.api ?? null,
-      createTab: () => createTab(state),
+      createTab: (options) => createTab(state, options),
       activateTab: (id) => {
         if (state.activeId === id || !state.tabs.some((tab) => tab.id === id)) return;
         state.activeId = id;

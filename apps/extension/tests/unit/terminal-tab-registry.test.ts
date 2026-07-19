@@ -150,6 +150,29 @@ describe('terminal tab registry', () => {
     expect(exitListener).toHaveBeenCalledTimes(1);
   });
 
+  it('types the run command into a command tab on first spawn only', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const id = tabs.createTab({ runCommand: 'oh tui', title: 'oh tui' });
+    expect(tabs.list()[0]).toEqual({ id, titleIndex: 0, title: 'oh tui' });
+    const tab = tabs.getTab(id);
+    if (!tab) throw new Error('tab handle missing');
+    await tab.ensureSession();
+    expect(spawned[0].write).toHaveBeenCalledWith('oh tui\r');
+    for (const listener of spawned[0].exitListeners) listener(0);
+    await tab.ensureSession();
+    expect(spawned[1].write).not.toHaveBeenCalled();
+  });
+
+  it('excludes titled tabs from Local numbering', () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    tabs.createTab();
+    tabs.createTab({ runCommand: 'oh tui', title: 'oh tui' });
+    tabs.createTab();
+    expect(tabs.list().map((tab) => tab.titleIndex)).toEqual([1, 0, 2]);
+  });
+
   it('applies the theme to existing and future tabs', () => {
     const tabs = getTabs();
     if (!tabs) throw new Error('registry unavailable');

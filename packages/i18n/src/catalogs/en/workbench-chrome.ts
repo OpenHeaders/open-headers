@@ -413,6 +413,7 @@ export const workbenchChrome = {
   'workbench.terminal.tabLocalN': 'Local ({n})',
   'workbench.terminal.newTab': 'New terminal tab',
   'workbench.terminal.closeTab': 'Close tab',
+  'workbench.terminal.openTui': 'Open TUI mode',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',
