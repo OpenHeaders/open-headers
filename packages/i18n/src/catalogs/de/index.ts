@@ -40,6 +40,7 @@ import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchScriptPackages } from './workbench-script-packages';
 
@@ -77,6 +78,7 @@ export const de = {
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
   ...workbenchDocsDebugMode,
+  ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchScriptPackages,
 } as const satisfies Catalog;
