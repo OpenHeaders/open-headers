@@ -12,6 +12,7 @@ import { extension } from './extension';
 import { panel } from './panel';
 import { panelInspector } from './panel-inspector';
 import { panelInspectorHeaders } from './panel-inspector-headers';
+import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelNetwork } from './panel-network';
 import { popup } from './popup';
 import { shared } from './shared';
@@ -35,6 +36,7 @@ export const de = {
   ...panel,
   ...panelInspector,
   ...panelInspectorHeaders,
+  ...panelInspectorStreams,
   ...panelNetwork,
   ...popup,
   ...shared,
