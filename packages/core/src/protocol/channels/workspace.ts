@@ -347,6 +347,49 @@ export interface WorkspaceRpc {
     res: WorkspaceTreePullWire;
   };
   /**
+   * Explicit Push gesture (GIT_PLAN.md §9, Phase 5): push the current
+   * branch to its upstream (establishing tracking on a lone remote
+   * when none is configured). Non-fast-forward rejections and
+   * permission failures come back as typed reasons the card renders
+   * as the pull-first nudge / the §8.2 read-only affordance; a
+   * detected force-push (§16) refuses until the trichotomy resolves.
+   */
+  'oh.workspaceTree.push': {
+    req: { workspaceId: string };
+    res: WorkspaceTreePushWire;
+  };
+  /**
+   * The §8.2 read-only-remote affordance: publish local commits as a
+   * NEW branch on the remote (`HEAD:refs/heads/<branch>`) so a
+   * write-protected base branch can still receive the work as a
+   * merge/pull request on the user's own git host.
+   */
+  'oh.workspaceTree.pushNewBranch': {
+    req: { workspaceId: string; branch: string };
+    res: WorkspaceTreePushWire;
+  };
+  /**
+   * Opt-in auto-push after every engine commit (§3.2: push is NEVER
+   * automatic except through this explicit toggle). Per binding, like
+   * cadence and bypassHooks.
+   */
+  'oh.workspaceTree.setAutoPushOnCommit': {
+    req: { workspaceId: string; autoPushOnCommit: boolean };
+    res: { ok: boolean };
+  };
+  /**
+   * Resolve a detected remote history rewrite (§16 trichotomy):
+   * `abandon` converges the engine to the rewritten head, `rescue`
+   * first preserves the pre-rewrite local history on a new
+   * `oh-rescue-<ts>` branch (never a history edit), `reapply`
+   * re-lands local changes as a fresh commit on top of the new
+   * history. Local uncommitted work commits first in every case.
+   */
+  'oh.workspaceTree.resolveForcePush': {
+    req: { workspaceId: string; choice: 'abandon' | 'rescue' | 'reapply' };
+    res: WorkspaceTreeForcePushResolveWire;
+  };
+  /**
    * Focus left the app (every window blurred) — the `on-blur` cadence
    * trigger. Fired by the host shell (desktop main observes its own
    * windows); bindings on other cadences ignore it.
@@ -389,12 +432,57 @@ export type WorkspaceTreePullWire =
         | 'op-in-progress'
         | 'no-upstream'
         | 'fetch-failed'
+        | 'force-push'
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'commit-failed';
       /** stderr of the failing git invocation / the offending marker or uid. */
       detail?: string;
     };
+
+export type WorkspaceTreePushWire =
+  | { ok: true; pushed: boolean; remoteSha: string }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'no-upstream'
+        | 'force-push'
+        | 'rejected'
+        | 'no-permission'
+        | 'push-failed';
+      /** stderr of the failing git invocation — the honest §8.2 surface. */
+      detail?: string;
+    };
+
+export type WorkspaceTreeForcePushResolveWire =
+  | { ok: true; sha: string; rescueBranch: string | null }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'no-upstream'
+        | 'fetch-failed'
+        | 'not-rewritten'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'ref-update-failed'
+        | 'commit-failed';
+      detail?: string;
+    };
+
+/** A detected remote history rewrite (§16) — the trichotomy dialog's feed. */
+export interface WorkspaceTreeForcePushStateWire {
+  /** The rewritten remote head. */
+  remoteSha: string;
+  /** The last remote sha this engine integrated — no longer an ancestor. */
+  lastSyncedSha: string;
+}
 
 export interface WorkspaceTreeGitStatusWire {
   bound: boolean;
@@ -413,6 +501,10 @@ export interface WorkspaceTreeGitStatusWire {
   ahead: number | null;
   /** Upstream commits the local branch lacks — the Pull affordance; null without an upstream. */
   behind: number | null;
+  /** Opt-in auto-push after every engine commit (§3.2); false unless the user flipped it. */
+  autoPushOnCommit: boolean;
+  /** Non-null while a remote history rewrite is detected (§16) — holds pull/push. */
+  forcePush: WorkspaceTreeForcePushStateWire | null;
 }
 
 /** One per-document read failure — the §13.3 quarantine seam's wire shape. */

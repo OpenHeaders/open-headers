@@ -47,13 +47,18 @@ import {
   type GitAvailability,
   type GitRunner,
   gitOperationInProgress,
+  isAncestorOf,
   isWorkspaceRepo,
   probeGitAvailability,
+  pushHeadToNewBranch,
+  pushWorkspaceBranch,
   resolveCommitIdentity,
   resolveUpstream,
+  type UpstreamState,
   userIndexHasStagedChanges,
 } from '../git';
 import { type BindWorkspaceTreeResult, bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
+import { type ForcePushChoice, resolveForcePushWorkspaceTree } from './force-push';
 import { WorkspaceTreeMaterializer } from './materializer';
 import { pullWorkspaceTree } from './pull';
 import { readTreeUnknownFields } from './sidecar';
@@ -125,8 +130,44 @@ export type PullWorkspaceTreeRpcResult =
         | 'op-in-progress'
         | 'no-upstream'
         | 'fetch-failed'
+        | 'force-push'
         | 'foreign-invalid'
         | 'identity-mismatch'
+        | 'commit-failed';
+      detail?: string;
+    };
+
+export type PushWorkspaceTreeRpcResult =
+  | { ok: true; pushed: boolean; remoteSha: string }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'no-upstream'
+        | 'force-push'
+        | 'rejected'
+        | 'no-permission'
+        | 'push-failed';
+      detail?: string;
+    };
+
+export type ResolveForcePushRpcResult =
+  | { ok: true; sha: string; rescueBranch: string | null }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'no-upstream'
+        | 'fetch-failed'
+        | 'not-rewritten'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'ref-update-failed'
         | 'commit-failed';
       detail?: string;
     };
@@ -150,6 +191,10 @@ export interface WorkspaceTreeGitStatusRpcResult {
   ahead: number | null;
   /** Upstream commits the local branch lacks (the Pull affordance); null without an upstream. */
   behind: number | null;
+  /** Opt-in auto-push after every engine commit (§3.2); false unless the user flipped it. */
+  autoPushOnCommit: boolean;
+  /** Non-null while a remote history rewrite is detected (§16) — holds pull/push. */
+  forcePush: { remoteSha: string; lastSyncedSha: string } | null;
 }
 
 export interface WorkspaceTreeRuntime {
@@ -170,6 +215,23 @@ export interface WorkspaceTreeRuntime {
    * so the merge commit stays a pure merge.
    */
   pull(workspaceId: string): Promise<PullWorkspaceTreeRpcResult>;
+  /**
+   * Explicit Push gesture (§9, Phase 5): push the current branch to
+   * its upstream. Typed non-fast-forward / permission failures feed
+   * the card's pull-first nudge and the §8.2 read-only affordance;
+   * refused while a force-push is detected.
+   */
+  push(workspaceId: string): Promise<PushWorkspaceTreeRpcResult>;
+  /** The §8.2 affordance — publish local HEAD as a NEW remote branch. */
+  pushNewBranch(workspaceId: string, branch: string): Promise<PushWorkspaceTreeRpcResult>;
+  /** Opt-in auto-push after every engine commit (§3.2) — per binding, like the cadence. */
+  setAutoPushOnCommit(workspaceId: string, autoPushOnCommit: boolean): Promise<{ ok: boolean }>;
+  /**
+   * Resolve a detected remote history rewrite (§16 trichotomy).
+   * Local uncommitted work commits first so every choice operates on
+   * complete local material.
+   */
+  resolveForcePush(workspaceId: string, choice: ForcePushChoice): Promise<ResolveForcePushRpcResult>;
   /** Focus returned to the app — throttled background fetch trigger. */
   notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */
@@ -245,6 +307,21 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
 
   const persistRecords = async (): Promise<void> => {
     await hostStorage.set(OH.workspaceTreeBindings, records);
+  };
+
+  /** Patch one binding's persisted record (cadence, toggles, the §16 watermark) and keep the open binding in step. */
+  const updateBindingRecord = async (
+    workspaceId: string,
+    patch: Partial<WorkspaceTreeBindingRecord>,
+  ): Promise<WorkspaceTreeBindingRecord | null> => {
+    const record = records.find((entry) => entry.workspaceId === workspaceId);
+    if (!record) return null;
+    const next: WorkspaceTreeBindingRecord = { ...record, ...patch };
+    records = records.map((entry) => (entry.workspaceId === workspaceId ? next : entry));
+    await persistRecords();
+    const binding = open.get(workspaceId);
+    if (binding) binding.record = next;
+    return next;
   };
 
   /** The workspace entity the manifest carries — meta + the synced default-env pointer. */
@@ -407,12 +484,31 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     upstream: null,
     ahead: null,
     behind: null,
+    autoPushOnCommit: false,
+    forcePush: null,
   });
+
+  /**
+   * §16 detection: the last-integrated remote sha must remain an
+   * ancestor of the (fetched) remote head — anything else means the
+   * remote history was rewritten since this engine last synced. Null
+   * before the first sync (no watermark) and while at rest.
+   */
+  const detectForcePush = async (
+    binding: OpenBinding,
+    upstream: UpstreamState | null,
+  ): Promise<{ remoteSha: string; lastSyncedSha: string } | null> => {
+    const lastSyncedSha = binding.record.lastSyncedRemoteSha;
+    if (lastSyncedSha === undefined || upstream === null || upstream.sha === lastSyncedSha) return null;
+    if (await isAncestorOf(gitRun, binding.record.rootDir, lastSyncedSha, upstream.sha)) return null;
+    return { remoteSha: upstream.sha, lastSyncedSha };
+  };
 
   const computeGitStatus = async (binding: OpenBinding): Promise<WorkspaceTreeGitStatusRpcResult> => {
     const { rootDir } = binding.record;
     const cadence = binding.record.commitCadence ?? 'off';
     const bypassHooks = binding.record.bypassHooks === true;
+    const autoPushOnCommit = binding.record.autoPushOnCommit === true;
     const git = await ensureGitAvailability(rootDir);
     if (!git.available) {
       return {
@@ -427,6 +523,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         upstream: null,
         ahead: null,
         behind: null,
+        autoPushOnCommit,
+        forcePush: null,
       };
     }
     const repo = await isWorkspaceRepo(gitRun, rootDir);
@@ -443,6 +541,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       upstream: upstream?.upstream ?? null,
       ahead: upstream?.ahead ?? null,
       behind: upstream?.behind ?? null,
+      autoPushOnCommit,
+      forcePush: repo ? await detectForcePush(binding, upstream) : null,
     };
   };
 
@@ -549,6 +649,9 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       flush: () => binding.materializer.flush(),
       identityEnv: identity.env,
       bypassHooks: binding.record.bypassHooks === true,
+      ...(binding.record.lastSyncedRemoteSha !== undefined
+        ? { lastSyncedRemoteSha: binding.record.lastSyncedRemoteSha }
+        : {}),
     });
     binding.lastFetchAt = Date.now();
     if (result.issues.length > 0) {
@@ -556,10 +659,91 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
     }
     if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
+    // §16 watermark: this remote head is now integrated — the next
+    // fetch compares ancestry against it.
+    await updateBindingRecord(binding.record.workspaceId, { lastSyncedRemoteSha: result.remoteSha });
     if (result.upToDate) return { ok: true, upToDate: true };
     binding.intents = [];
     logger.info(SCOPE, `pulled ${rootDir}: merge ${result.sha} (${result.applied} batches)`);
     return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
+  };
+
+  /**
+   * One push pass — always on the binding's chain. Push is only ever
+   * this explicit gesture or the auto-push-on-commit opt-in (§3.2);
+   * a detected history rewrite refuses until the §16 trichotomy
+   * resolves it.
+   */
+  const runPush = async (binding: OpenBinding): Promise<PushWorkspaceTreeRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    const rewrite = await detectForcePush(binding, await resolveUpstream(gitRun, rootDir));
+    if (rewrite !== null) return { ok: false, reason: 'force-push', detail: rewrite.remoteSha };
+    const result = await pushWorkspaceBranch(gitRun, rootDir);
+    if (!result.ok) return result;
+    await updateBindingRecord(binding.record.workspaceId, { lastSyncedRemoteSha: result.remoteSha });
+    if (result.pushed) logger.info(SCOPE, `pushed ${rootDir}: ${result.remoteSha}`);
+    return result;
+  };
+
+  /** The auto-push-on-commit opt-in — rides a successful commit pass; failures log, never block. */
+  const maybeAutoPush = async (binding: OpenBinding): Promise<void> => {
+    if (binding.record.autoPushOnCommit !== true) return;
+    const result = await runPush(binding);
+    if (!result.ok) logger.warn(SCOPE, `auto-push failed for ${binding.record.rootDir}: ${result.reason}`);
+  };
+
+  /**
+   * One §16 resolution pass — always on the binding's chain. Local
+   * uncommitted work commits first (under its own semantic draft) so
+   * every choice — including the rescue branch — operates on complete
+   * local material; the watermark advances to the accepted head.
+   */
+  const runResolveForcePush = async (
+    binding: OpenBinding,
+    choice: ForcePushChoice,
+  ): Promise<ResolveForcePushRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    const lastSyncedSha = binding.record.lastSyncedRemoteSha;
+    if (lastSyncedSha === undefined) return { ok: false, reason: 'not-rewritten' };
+    await binding.service.hydrated;
+
+    const pre = await runCommit(binding);
+    if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
+
+    const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
+    const result = await resolveForcePushWorkspaceTree({
+      run: gitRun,
+      rootDir,
+      choice,
+      workspaceUid: binding.record.workspaceId,
+      lastSyncedRemoteSha: lastSyncedSha,
+      readSnapshot: () => buildSnapshot(binding.record.workspaceId),
+      nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
+      liveSetEntries: (entityType, id, setPath) =>
+        binding.service.oracle
+          .liveOrderedSetItems(entityType, id, setPath)
+          .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
+      apply: (batches) => applyAll(binding.service, batches),
+      flush: () => binding.materializer.flush(),
+      identityEnv: identity.env,
+      bypassHooks: binding.record.bypassHooks === true,
+    });
+    binding.lastFetchAt = Date.now();
+    if (result.issues.length > 0) {
+      const known = new Set(binding.issues.map((issue) => issue.path));
+      binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+    }
+    if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
+    binding.intents = [];
+    await updateBindingRecord(binding.record.workspaceId, { lastSyncedRemoteSha: result.remoteSha });
+    logger.info(SCOPE, `force-push resolved (${choice}) for ${rootDir}: ${result.sha}`);
+    return { ok: true, sha: result.sha, rescueBranch: result.rescueBranch };
   };
 
   /**
@@ -581,6 +765,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       }
       const result = await runCommit(binding);
       if (!result.ok) logger.warn(SCOPE, `${trigger} commit failed for ${binding.record.rootDir}: ${result.reason}`);
+      else if (result.committed) await maybeAutoPush(binding);
       await publishGitStatus(binding);
     });
   };
@@ -818,6 +1003,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       };
       enqueue(binding, async () => {
         result = await runCommit(binding, message);
+        if (result.ok && result.committed) await maybeAutoPush(binding);
         await publishGitStatus(binding);
       });
       await binding.chain;
@@ -834,6 +1020,72 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       };
       enqueue(binding, async () => {
         result = await runPull(binding);
+        if (result.ok && !result.upToDate) await maybeAutoPush(binding);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async push(workspaceId: string): Promise<PushWorkspaceTreeRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: PushWorkspaceTreeRpcResult = {
+        ok: false,
+        reason: 'push-failed',
+        detail: 'push pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runPush(binding);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async pushNewBranch(workspaceId: string, branch: string): Promise<PushWorkspaceTreeRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: PushWorkspaceTreeRpcResult = {
+        ok: false,
+        reason: 'push-failed',
+        detail: 'push pass did not run',
+      };
+      enqueue(binding, async () => {
+        const availability = await ensureGitAvailability(binding.record.rootDir);
+        if (!availability.available) {
+          result = { ok: false, reason: 'git-unavailable' };
+          return;
+        }
+        if (!(await isWorkspaceRepo(gitRun, binding.record.rootDir))) {
+          result = { ok: false, reason: 'not-a-repo' };
+          return;
+        }
+        result = await pushHeadToNewBranch(gitRun, binding.record.rootDir, branch);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async setAutoPushOnCommit(workspaceId: string, autoPushOnCommit: boolean): Promise<{ ok: boolean }> {
+      const next = await updateBindingRecord(workspaceId, { autoPushOnCommit });
+      if (next === null) return { ok: false };
+      const binding = open.get(workspaceId);
+      if (binding) await publishGitStatus(binding);
+      return { ok: true };
+    },
+
+    async resolveForcePush(workspaceId: string, choice: ForcePushChoice): Promise<ResolveForcePushRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: ResolveForcePushRpcResult = {
+        ok: false,
+        reason: 'fetch-failed',
+        detail: 'resolution pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runResolveForcePush(binding, choice);
         await publishGitStatus(binding);
       });
       await binding.chain;
@@ -855,14 +1107,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     },
 
     async setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }> {
-      const record = records.find((entry) => entry.workspaceId === workspaceId);
-      if (!record) return { ok: false };
-      const next: WorkspaceTreeBindingRecord = { ...record, commitCadence: cadence };
-      records = records.map((entry) => (entry.workspaceId === workspaceId ? next : entry));
-      await persistRecords();
+      const next = await updateBindingRecord(workspaceId, { commitCadence: cadence });
+      if (next === null) return { ok: false };
       const binding = open.get(workspaceId);
       if (binding) {
-        binding.record = next;
         applyCadenceTimers(binding);
         await publishGitStatus(binding);
       }
@@ -870,16 +1118,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     },
 
     async setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }> {
-      const record = records.find((entry) => entry.workspaceId === workspaceId);
-      if (!record) return { ok: false };
-      const next: WorkspaceTreeBindingRecord = { ...record, bypassHooks };
-      records = records.map((entry) => (entry.workspaceId === workspaceId ? next : entry));
-      await persistRecords();
+      const next = await updateBindingRecord(workspaceId, { bypassHooks });
+      if (next === null) return { ok: false };
       const binding = open.get(workspaceId);
-      if (binding) {
-        binding.record = next;
-        await publishGitStatus(binding);
-      }
+      if (binding) await publishGitStatus(binding);
       return { ok: true };
     },
 

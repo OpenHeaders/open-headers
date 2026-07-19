@@ -50,6 +50,12 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const [commitError, setCommitError] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
   const [pullError, setPullError] = useState<string | null>(null);
+  const [pushing, setPushing] = useState(false);
+  const [pushFailure, setPushFailure] = useState<{ reason: string; detail?: string } | null>(null);
+  const [branchDraft, setBranchDraft] = useState('');
+  const [pushingBranch, setPushingBranch] = useState(false);
+  const [resolving, setResolving] = useState<'abandon' | 'rescue' | 'reapply' | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -141,6 +147,86 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
       setPullError((err as Error).message);
     } finally {
       setPulling(false);
+    }
+  };
+
+  const push = async (): Promise<void> => {
+    if (workspaceId === null) return;
+    setPushing(true);
+    setPushFailure(null);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
+      if (result.ok && result.pushed) {
+        message.success(t('workbench.settings.gitPane.git.pushed', { sha: result.remoteSha.slice(0, 7) }));
+      } else if (result.ok) {
+        message.info(t('workbench.settings.gitPane.git.nothingToPush'));
+      } else {
+        setPushFailure({ reason: result.reason, ...(result.detail !== undefined ? { detail: result.detail } : {}) });
+      }
+      await refreshGitStatus();
+    } catch (err) {
+      setPushFailure({ reason: 'push-failed', detail: (err as Error).message });
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const pushNewBranch = async (): Promise<void> => {
+    const branch = branchDraft.trim();
+    if (workspaceId === null || branch === '') return;
+    setPushingBranch(true);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.pushNewBranch', { workspaceId, branch });
+      if (result.ok) {
+        setBranchDraft('');
+        setPushFailure(null);
+        message.success(t('workbench.settings.gitPane.git.exportedBranch', { branch }));
+      } else {
+        message.error(
+          t('workbench.settings.gitPane.git.pushFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+      await refreshGitStatus();
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setPushingBranch(false);
+    }
+  };
+
+  const setAutoPush = async (autoPushOnCommit: boolean): Promise<void> => {
+    if (workspaceId === null) return;
+    try {
+      await hostBridge.call('oh.workspaceTree.setAutoPushOnCommit', { workspaceId, autoPushOnCommit });
+      await refreshGitStatus();
+    } catch (err) {
+      message.error((err as Error).message);
+    }
+  };
+
+  const resolveForcePush = async (choice: 'abandon' | 'rescue' | 'reapply'): Promise<void> => {
+    if (workspaceId === null) return;
+    setResolving(choice);
+    setResolveError(null);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.resolveForcePush', { workspaceId, choice });
+      if (result.ok) {
+        message.success(
+          result.rescueBranch !== null
+            ? t('workbench.settings.gitPane.git.forcePush.rescued', { branch: result.rescueBranch })
+            : t('workbench.settings.gitPane.git.forcePush.resolved', { sha: result.sha.slice(0, 7) }),
+        );
+      } else {
+        setResolveError(
+          t('workbench.settings.gitPane.git.forcePush.failed', { detail: result.detail ?? result.reason }),
+        );
+      }
+      await refreshGitStatus();
+      await refresh();
+    } catch (err) {
+      setResolveError((err as Error).message);
+    } finally {
+      setResolving(null);
     }
   };
 
@@ -290,6 +376,66 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                 <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, marginBottom: 4 }}>
                   {t('workbench.settings.gitPane.git.title')}
                 </div>
+                {gitStatus.forcePush !== null && (
+                  <Alert
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: 10 }}
+                    data-testid="git-pane-force-push-alert"
+                    message={
+                      <span style={{ fontSize: 12 }}>{t('workbench.settings.gitPane.git.forcePush.title')}</span>
+                    }
+                    description={
+                      <div style={{ fontSize: 11.5 }}>
+                        <p style={{ margin: '0 0 8px' }}>
+                          {t('workbench.settings.gitPane.git.forcePush.body', {
+                            sha: gitStatus.forcePush.lastSyncedSha.slice(0, 7),
+                          })}
+                        </p>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <Popconfirm
+                            title={t('workbench.settings.gitPane.git.forcePush.abandonConfirm.title')}
+                            description={t('workbench.settings.gitPane.git.forcePush.abandonConfirm.body')}
+                            okText={t('workbench.settings.gitPane.git.forcePush.abandonConfirm.ok')}
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => void resolveForcePush('abandon')}
+                          >
+                            <Button
+                              danger
+                              size="small"
+                              loading={resolving === 'abandon'}
+                              disabled={resolving !== null && resolving !== 'abandon'}
+                              data-testid="git-pane-force-push-abandon"
+                            >
+                              {t('workbench.settings.gitPane.git.forcePush.abandon')}
+                            </Button>
+                          </Popconfirm>
+                          <Button
+                            size="small"
+                            loading={resolving === 'rescue'}
+                            disabled={resolving !== null && resolving !== 'rescue'}
+                            onClick={() => void resolveForcePush('rescue')}
+                            data-testid="git-pane-force-push-rescue"
+                          >
+                            {t('workbench.settings.gitPane.git.forcePush.rescue')}
+                          </Button>
+                          <Button
+                            size="small"
+                            loading={resolving === 'reapply'}
+                            disabled={resolving !== null && resolving !== 'reapply'}
+                            onClick={() => void resolveForcePush('reapply')}
+                            data-testid="git-pane-force-push-reapply"
+                          >
+                            {t('workbench.settings.gitPane.git.forcePush.reapply')}
+                          </Button>
+                        </div>
+                        {resolveError !== null && (
+                          <div style={{ marginTop: 6, color: token.colorError }}>{resolveError}</div>
+                        )}
+                      </div>
+                    }
+                  />
+                )}
                 <div
                   style={{
                     fontSize: 11.5,
@@ -324,15 +470,75 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                   <Button
                     size="small"
                     loading={pulling}
-                    disabled={gitStatus.upstream === null}
+                    disabled={gitStatus.upstream === null || gitStatus.forcePush !== null}
                     onClick={() => void pull()}
                     data-testid="git-pane-pull-button"
                   >
                     {t('workbench.settings.gitPane.git.pullButton')}
                   </Button>
+                  <Button
+                    size="small"
+                    loading={pushing}
+                    disabled={gitStatus.forcePush !== null}
+                    onClick={() => void push()}
+                    data-testid="git-pane-push-button"
+                  >
+                    {t('workbench.settings.gitPane.git.pushButton')}
+                  </Button>
                 </div>
                 {pullError !== null && (
                   <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{pullError}</div>
+                )}
+                {pushFailure !== null && pushFailure.reason === 'rejected' && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: token.colorWarningText }}>
+                    {t('workbench.settings.gitPane.git.pushRejected')}
+                  </div>
+                )}
+                {pushFailure !== null && pushFailure.reason === 'no-permission' && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 8 }}
+                    data-testid="git-pane-push-no-permission"
+                    message={
+                      <span style={{ fontSize: 12 }}>
+                        {t('workbench.settings.gitPane.git.pushNoPermission.title')}
+                      </span>
+                    }
+                    description={
+                      <div style={{ fontSize: 11.5 }}>
+                        <p style={{ margin: '0 0 8px' }}>
+                          {t('workbench.settings.gitPane.git.pushNoPermission.body')}
+                        </p>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <Input
+                            size="small"
+                            value={branchDraft}
+                            onChange={(e) => setBranchDraft(e.target.value)}
+                            placeholder={t('workbench.settings.gitPane.git.exportBranchPlaceholder')}
+                            style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5, maxWidth: 260 }}
+                            data-testid="git-pane-export-branch-input"
+                          />
+                          <Button
+                            size="small"
+                            loading={pushingBranch}
+                            disabled={branchDraft.trim() === ''}
+                            onClick={() => void pushNewBranch()}
+                            data-testid="git-pane-export-branch-button"
+                          >
+                            {t('workbench.settings.gitPane.git.exportBranchButton')}
+                          </Button>
+                        </div>
+                      </div>
+                    }
+                  />
+                )}
+                {pushFailure !== null && pushFailure.reason !== 'rejected' && pushFailure.reason !== 'no-permission' && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>
+                    {t('workbench.settings.gitPane.git.pushFailed', {
+                      detail: pushFailure.detail ?? pushFailure.reason,
+                    })}
+                  </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <Input
@@ -396,6 +602,17 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                     {t('workbench.settings.gitPane.git.bypassHooksWarning')}
                   </div>
                 )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                  <Switch
+                    size="small"
+                    checked={gitStatus.autoPushOnCommit}
+                    onChange={(checked) => void setAutoPush(checked)}
+                    data-testid="git-pane-auto-push-switch"
+                  />
+                  <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+                    {t('workbench.settings.gitPane.git.autoPushLabel')}
+                  </span>
+                </div>
               </div>
             )}
             <div style={{ padding: '10px 0 2px' }}>

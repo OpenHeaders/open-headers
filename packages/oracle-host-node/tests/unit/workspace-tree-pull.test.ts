@@ -128,7 +128,11 @@ async function peerCommitPush(message: string): Promise<string> {
   return result.sha;
 }
 
-function doPull(applied: EmissionBatch[], onApply?: () => void): Promise<PullWorkspaceTreeResult> {
+function doPull(
+  applied: EmissionBatch[],
+  onApply?: () => void,
+  lastSyncedRemoteSha?: string,
+): Promise<PullWorkspaceTreeResult> {
   return pullWorkspaceTree({
     run,
     rootDir: local,
@@ -143,6 +147,7 @@ function doPull(applied: EmissionBatch[], onApply?: () => void): Promise<PullWor
     flush: () => materializer.flush(),
     identityEnv: IDENTITY_ENV,
     bypassHooks: false,
+    ...(lastSyncedRemoteSha !== undefined ? { lastSyncedRemoteSha } : {}),
   });
 }
 
@@ -252,7 +257,7 @@ describe('pullWorkspaceTree', () => {
 
     const again: EmissionBatch[] = [];
     const result = await doPull(again);
-    expect(result).toEqual({ ok: true, upToDate: true, issues: [] });
+    expect(result).toMatchObject({ ok: true, upToDate: true, issues: [] });
     expect(again).toHaveLength(0);
   });
 
@@ -294,6 +299,39 @@ describe('pullWorkspaceTree', () => {
     await expect(fs.readFile(path.join(local, ...RULE_FILE.split('/')), 'utf-8')).resolves.toBe(
       'schemaVersion: 5\nuid: [broken\n',
     );
+  });
+
+  it('a rewritten remote head refuses the pull with force-push (§16 — the trichotomy resolves it)', async () => {
+    // First sync: the peer's edit integrates and its sha becomes the
+    // watermark the runtime would persist.
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Block probes (peer)'));
+    const firstSha = await peerCommitPush('Rename rule');
+    const applied: EmissionBatch[] = [];
+    await doPull(applied, () => {
+      state.rules = [{ ...state.rules[0], name: 'Block probes (peer)' } as Rule];
+    });
+
+    // The peer rewrites history: rewind to the initial commit, land a
+    // different edit, force-push.
+    const baseSha = (await raw(peer, 'rev-parse', 'HEAD~1')).stdout.trim();
+    await raw(peer, 'update-ref', 'HEAD', baseSha);
+    await raw(peer, 'read-tree', 'HEAD');
+    await raw(peer, 'checkout-index', '-a', '-f');
+    await peerEdit(RULE_FILE, (content) => content.replace('name: Block probes', 'name: Rewritten'));
+    const rewriteCommit = await commitWorkspaceTree({
+      run,
+      rootDir: peer,
+      message: 'Rewritten history',
+      identityEnv: RITA_ENV,
+    });
+    if (!rewriteCommit.ok || !rewriteCommit.committed) throw new Error('rewrite commit failed');
+    await raw(peer, 'push', '--quiet', '--force', 'origin', 'main');
+
+    const again: EmissionBatch[] = [];
+    const result = await doPull(again, undefined, firstSha);
+    expect(result).toMatchObject({ ok: false, reason: 'force-push' });
+    expect(again).toHaveLength(0);
+    expect(state.rules[0].name).toBe('Block probes (peer)');
   });
 
   it('a foreign tree claiming another workspace uid is refused', async () => {

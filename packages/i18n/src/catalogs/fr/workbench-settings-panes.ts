@@ -667,4 +667,30 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.pulled': 'Fusion {sha} effectuée.',
   'workbench.settings.gitPane.git.upToDate': 'Déjà à jour.',
   'workbench.settings.gitPane.git.pullFailed': 'Échec du pull : {detail}',
+  'workbench.settings.gitPane.git.pushButton': 'Push',
+  'workbench.settings.gitPane.git.pushed': 'Push de {sha} effectué.',
+  'workbench.settings.gitPane.git.nothingToPush': 'Rien à pousser — déjà synchronisé.',
+  'workbench.settings.gitPane.git.pushFailed': 'Échec du push : {detail}',
+  'workbench.settings.gitPane.git.pushRejected':
+    'Le dépôt distant a de nouveaux commits — faites un pull d’abord, puis poussez à nouveau.',
+  'workbench.settings.gitPane.git.pushNoPermission.title': 'Pas d’accès en écriture',
+  'workbench.settings.gitPane.git.pushNoPermission.body':
+    'Ce dépôt distant est en lecture seule pour vous. Vos commits restent locaux ; vous pouvez les publier sur une nouvelle branche et ouvrir une merge request depuis votre hébergeur git.',
+  'workbench.settings.gitPane.git.exportBranchPlaceholder': 'nom-de-branche',
+  'workbench.settings.gitPane.git.exportBranchButton': 'Pousser comme nouvelle branche',
+  'workbench.settings.gitPane.git.exportedBranch': 'Branche {branch} poussée.',
+  'workbench.settings.gitPane.git.autoPushLabel': 'Pousser après chaque commit',
+  'workbench.settings.gitPane.git.forcePush.title': 'L’historique distant a été réécrit',
+  'workbench.settings.gitPane.git.forcePush.body':
+    'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Choisissez comment procéder — rien ne change tant que vous n’avez pas décidé.',
+  'workbench.settings.gitPane.git.forcePush.abandon': 'Abandonner les changements locaux',
+  'workbench.settings.gitPane.git.forcePush.abandonConfirm.title': 'Abandonner les changements locaux ?',
+  'workbench.settings.gitPane.git.forcePush.abandonConfirm.body':
+    'Les commits locaux depuis la dernière synchronisation sont abandonnés et l’historique distant réécrit devient l’état du workspace.',
+  'workbench.settings.gitPane.git.forcePush.abandonConfirm.ok': 'Abandonner',
+  'workbench.settings.gitPane.git.forcePush.rescue': 'Préserver sur une branche de secours',
+  'workbench.settings.gitPane.git.forcePush.reapply': 'Réappliquer par-dessus',
+  'workbench.settings.gitPane.git.forcePush.resolved': 'Historique réécrit accepté ({sha}).',
+  'workbench.settings.gitPane.git.forcePush.rescued': 'Historique local préservé sur {branch}.',
+  'workbench.settings.gitPane.git.forcePush.failed': 'Résolution impossible : {detail}',
 } as const satisfies Catalog;

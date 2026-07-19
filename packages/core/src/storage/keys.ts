@@ -234,6 +234,20 @@ export interface WorkspaceTreeBindingRecord {
    * the engine never bypasses hooks on its own). Absent = false.
    */
   bypassHooks?: boolean;
+  /**
+   * Opt-in auto-push after every engine commit (GIT_PLAN.md §3.2 /
+   * §9: push is NEVER automatic except through this explicit toggle).
+   * Absent = false.
+   */
+  autoPushOnCommit?: boolean;
+  /**
+   * The remote-head sha this engine last integrated (successful pull)
+   * or produced (successful push) — the §16 force-push watermark: on
+   * every fetch the runtime checks this sha is still an ancestor of
+   * the remote head; a rewrite raises the trichotomy dialog and holds
+   * pull/push until resolved. Absent until the first sync.
+   */
+  lastSyncedRemoteSha?: string;
 }
 
 export interface PersistedLocalFolder {

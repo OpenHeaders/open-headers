@@ -567,6 +567,17 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // the pill's worst-of roll-up; a clean/unbound workspace drops out.
   const onWorkspaceTreeGitStatus = (workspaceId: string, gitStatus: WorkspaceTreeGitStatusRpcResult): void => {
     broadcastLocal('workspaceTreeGitStatus', { workspaceId, status: gitStatus });
+    // §16: a detected remote history rewrite is the one RED git state
+    // (GIT_PLAN.md §9) — it outranks the routine dirty/divergence slot
+    // until the trichotomy dialog resolves it.
+    if (gitStatus.bound && gitStatus.repo && gitStatus.forcePush !== null) {
+      reportGitSyncStatus(workspaceId, {
+        state: 'red',
+        message: 'Remote history was rewritten',
+        context: { reason: 'git-force-push', workspaceId, remoteSha: gitStatus.forcePush.remoteSha },
+      });
+      return;
+    }
     const dirty = gitStatus.bound && gitStatus.repo ? (gitStatus.dirtyFiles ?? 0) : 0;
     const ahead = gitStatus.bound && gitStatus.repo ? (gitStatus.ahead ?? 0) : 0;
     const behind = gitStatus.bound && gitStatus.repo ? (gitStatus.behind ?? 0) : 0;
@@ -1037,6 +1048,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           upstream: null,
           ahead: null,
           behind: null,
+          autoPushOnCommit: false,
+          forcePush: null,
         };
       }
       return await workspaceTreeRuntime.gitStatus(workspaceId);
@@ -1047,6 +1060,37 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
       if (!workspaceId || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
       return await workspaceTreeRuntime.pull(workspaceId);
+    }
+    // Phase 5 push + safety (§3.2 / §16 / §8.2): the explicit Push
+    // gesture, the read-only-remote new-branch affordance, the
+    // auto-push opt-in, and the force-push trichotomy resolution.
+    if (type === 'oh.workspaceTree.push') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      return await workspaceTreeRuntime.push(workspaceId);
+    }
+    if (type === 'oh.workspaceTree.pushNewBranch') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+      if (!workspaceId || !branch || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      return await workspaceTreeRuntime.pushNewBranch(workspaceId, branch);
+    }
+    if (type === 'oh.workspaceTree.setAutoPushOnCommit') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      if (!workspaceId || workspaceTreeRuntime === null) return { ok: false };
+      return await workspaceTreeRuntime.setAutoPushOnCommit(workspaceId, message.autoPushOnCommit === true);
+    }
+    if (type === 'oh.workspaceTree.resolveForcePush') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const choice = message.choice;
+      if (
+        !workspaceId ||
+        workspaceTreeRuntime === null ||
+        (choice !== 'abandon' && choice !== 'rescue' && choice !== 'reapply')
+      ) {
+        return { ok: false, reason: 'not-bound' };
+      }
+      return await workspaceTreeRuntime.resolveForcePush(workspaceId, choice);
     }
     if (type === 'oh.workspaceTree.setCommitCadence') {
       const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

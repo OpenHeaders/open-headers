@@ -7,15 +7,19 @@
 
 export type { BindWorkspaceTreeOptions, BindWorkspaceTreeResult } from './bind';
 export { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
+export type { ForcePushChoice, ResolveForcePushOptions, ResolveForcePushResult } from './force-push';
+export { resolveForcePushWorkspaceTree } from './force-push';
 export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerOptions } from './materializer';
 export { WorkspaceTreeMaterializer } from './materializer';
 export type { PullWorkspaceTreeOptions, PullWorkspaceTreeResult } from './pull';
-export { pullWorkspaceTree } from './pull';
+export { pullWorkspaceTree, writeForeignQuarantine } from './pull';
 export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
 export type {
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
   PullWorkspaceTreeRpcResult,
+  PushWorkspaceTreeRpcResult,
+  ResolveForcePushRpcResult,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeRuntime,

@@ -53,6 +53,7 @@ import {
   fetchWorkspaceRemote,
   type GitRunner,
   gitOperationInProgress,
+  isAncestorOf,
   listForeignAuthors,
   mergeBaseOf,
   readCommitTreeFiles,
@@ -76,17 +77,25 @@ export interface PullWorkspaceTreeOptions {
   identityEnv: Record<string, string>;
   /** The explicit `--no-verify` setting (§3.3). */
   bypassHooks: boolean;
+  /**
+   * The §16 force-push watermark — the remote sha this engine last
+   * integrated. When the fetched head no longer descends from it, the
+   * pull refuses (`force-push`) so the trichotomy dialog resolves the
+   * rewrite deliberately; absent = first sync, detection off.
+   */
+  lastSyncedRemoteSha?: string;
 }
 
 export type PullWorkspaceTreeResult =
-  | { ok: true; upToDate: true; issues: TreeIssue[] }
-  | { ok: true; upToDate: false; sha: string; applied: number; issues: TreeIssue[] }
+  | { ok: true; upToDate: true; remoteSha: string; issues: TreeIssue[] }
+  | { ok: true; upToDate: false; sha: string; remoteSha: string; applied: number; issues: TreeIssue[] }
   | {
       ok: false;
       reason:
         | 'op-in-progress'
         | 'no-upstream'
         | 'fetch-failed'
+        | 'force-push'
         | 'foreign-invalid'
         | 'identity-mismatch'
         | 'commit-failed';
@@ -98,6 +107,32 @@ const dirOf = (filePath: string): string => {
   const idx = filePath.lastIndexOf('/');
   return idx === -1 ? '' : filePath.slice(0, idx);
 };
+
+/**
+ * Quarantine (§13.3): a schema-invalid foreign document's entity is
+ * skipped by the read (its engine value stands, its absence never
+ * gates a delete), but its foreign bytes still land in the working
+ * tree OFF-baseline — the materializer's rung-2 guard leaves them
+ * alone and every sweep keeps reporting the issue until the user
+ * fixes or reverts. Shared by the pull pass and the §16 resolutions.
+ */
+export async function writeForeignQuarantine(
+  rootDir: string,
+  foreignFiles: readonly { path: string; content: string }[],
+  issues: readonly TreeIssue[],
+  changedPaths: ReadonlySet<string>,
+): Promise<void> {
+  const issueDirs = new Set(issues.map((issue) => dirOf(issue.path)));
+  const byPath = new Map(foreignFiles.map((file) => [file.path, file.content] as const));
+  for (const filePath of changedPaths) {
+    if (!issueDirs.has(dirOf(filePath))) continue;
+    const content = byPath.get(filePath);
+    if (content === undefined) continue;
+    const target = path.join(rootDir, ...filePath.split('/'));
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, 'utf-8');
+  }
+}
 
 export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Promise<PullWorkspaceTreeResult> {
   const { run, rootDir } = options;
@@ -114,7 +149,20 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
 
   const upstream = await resolveUpstream(run, rootDir);
   if (upstream === null) return { ok: false, reason: 'no-upstream', issues: [] };
-  if (upstream.behind === 0) return { ok: true, upToDate: true, issues: [] };
+
+  // §16: a rewritten remote head never merges silently — the
+  // trichotomy dialog resolves it. Checked before the behind-0 gate so
+  // a remote rewound to an ancestor still surfaces.
+  const watermark = options.lastSyncedRemoteSha;
+  if (
+    watermark !== undefined &&
+    watermark !== upstream.sha &&
+    !(await isAncestorOf(run, rootDir, watermark, upstream.sha))
+  ) {
+    return { ok: false, reason: 'force-push', detail: upstream.sha, issues: [] };
+  }
+
+  if (upstream.behind === 0) return { ok: true, upToDate: true, remoteSha: upstream.sha, issues: [] };
 
   const foreignFiles = await readCommitTreeFiles(run, rootDir, upstream.sha);
   if (foreignFiles === null) {
@@ -156,21 +204,7 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
     await options.apply(batches);
   }
 
-  // Quarantine (§13.3): a schema-invalid foreign document's entity was
-  // skipped by the read above (its prev value stands in the engine).
-  // Its foreign bytes still land in the working tree — off-baseline,
-  // so the materializer's rung-2 guard leaves them alone and every
-  // sweep keeps reporting the issue until the user fixes or reverts.
-  const issueDirs = new Set(foreign.issues.map((issue) => dirOf(issue.path)));
-  const byPath = new Map(foreignFiles.map((file) => [file.path, file.content] as const));
-  for (const filePath of diff.changed) {
-    if (!issueDirs.has(dirOf(filePath))) continue;
-    const content = byPath.get(filePath);
-    if (content === undefined) continue;
-    const target = path.join(rootDir, ...filePath.split('/'));
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, 'utf-8');
-  }
+  await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
 
   await options.flush();
 
@@ -191,7 +225,7 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
     });
     if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
     const sha = residue.committed ? residue.sha : upstream.sha;
-    return { ok: true, upToDate: false, sha, applied: batches.length, issues: foreign.issues };
+    return { ok: true, upToDate: false, sha, remoteSha: upstream.sha, applied: batches.length, issues: foreign.issues };
   }
 
   const authors = await listForeignAuthors(run, rootDir, 'HEAD', upstream.sha);
@@ -208,5 +242,12 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
   if (!commit.committed)
     return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
 
-  return { ok: true, upToDate: false, sha: commit.sha, applied: batches.length, issues: foreign.issues };
+  return {
+    ok: true,
+    upToDate: false,
+    sha: commit.sha,
+    remoteSha: upstream.sha,
+    applied: batches.length,
+    issues: foreign.issues,
+  };
 }

@@ -97,9 +97,12 @@ export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './update
 export type {
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitWire,
+  WorkspaceTreeForcePushResolveWire,
+  WorkspaceTreeForcePushStateWire,
   WorkspaceTreeGitStatusWire,
   WorkspaceTreeIssueWire,
   WorkspaceTreePullWire,
+  WorkspaceTreePushWire,
   WorkspaceTreeSweepSummary,
 } from './workspace';
 

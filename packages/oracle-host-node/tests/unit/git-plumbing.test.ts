@@ -21,15 +21,21 @@ import {
 import {
   commitWorkspaceTree,
   countDirtyFiles,
+  createRescueBranch,
   diffForeignPaths,
   ensureWorkspaceRepo,
   fastForwardWorkspaceBranch,
   fetchWorkspaceRemote,
   gitOperationInProgress,
+  isAncestorOf,
   isWorkspaceRepo,
   listForeignAuthors,
+  listTreeYamlPaths,
+  localHeadSha,
   mergeBaseOf,
   parsePorcelainCount,
+  pushHeadToNewBranch,
+  pushWorkspaceBranch,
   readCommitTreeFiles,
   resolveCommitIdentity,
   resolveUpstream,
@@ -502,6 +508,97 @@ describe('remote plumbing (Phase 4)', () => {
     expect(staged.stdout.trim()).toBe('user-draft.yaml');
     // Besides the user's own draft, the repo reads clean.
     expect(await countDirtyFiles(run, repoB)).toBe(1);
+  });
+
+  it('pushWorkspaceBranch pushes local commits and no-ops when in sync', async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const sha = await commitIn(repoA, 'Add rule');
+    const pushed = await pushWorkspaceBranch(run, repoA);
+    expect(pushed).toEqual({ ok: true, pushed: true, remoteSha: sha });
+    const remoteHead = await run(['--git-dir', bare, 'rev-parse', 'HEAD'], { cwd: tmpDir });
+    expect(remoteHead.stdout.trim()).toBe(sha);
+
+    const again = await pushWorkspaceBranch(run, repoA);
+    expect(again).toEqual({ ok: true, pushed: false, remoteSha: sha });
+  });
+
+  it('a non-fast-forward push is rejected with the pull-first classification', async () => {
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Foreign rule', RITA_ENV);
+    await raw(repoA, 'push', '--quiet', 'origin', 'main');
+
+    // B commits without fetching — its push is behind the remote.
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    await commitIn(repoB, 'Local template');
+    const result = await pushWorkspaceBranch(run, repoB);
+    expect(result).toMatchObject({ ok: false, reason: 'rejected' });
+  });
+
+  it('a lone remote with no upstream gets tracking established on first push', async () => {
+    const fresh = path.join(tmpDir, 'fresh');
+    await run(['clone', '--quiet', bare, fresh], { cwd: tmpDir });
+    // Drop the tracking config the clone set up, keep the remote.
+    await run(['--git-dir', path.join(fresh, '.git'), 'config', '--unset', 'branch.main.remote'], { cwd: fresh });
+    await run(['--git-dir', path.join(fresh, '.git'), 'config', '--unset', 'branch.main.merge'], { cwd: fresh });
+    expect(await resolveUpstream(run, fresh)).toBeNull();
+
+    const target = path.join(fresh, 'templates', 'fresh-t0000002');
+    await fs.mkdir(target, { recursive: true });
+    await fs.writeFile(path.join(target, 'template.yaml'), 'schemaVersion: 5\nuid: t0000002\n', 'utf-8');
+    const committed = await commitWorkspaceTree({
+      run,
+      rootDir: fresh,
+      message: 'Fresh template',
+      identityEnv: IDENTITY_ENV,
+    });
+    if (!committed.ok || !committed.committed) throw new Error('fresh commit failed');
+
+    const pushed = await pushWorkspaceBranch(run, fresh);
+    expect(pushed).toMatchObject({ ok: true, pushed: true });
+    expect((await resolveUpstream(run, fresh))?.upstream).toBe('origin/main');
+  });
+
+  it('pushHeadToNewBranch publishes HEAD as a new remote branch; invalid names refuse', async () => {
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    const sha = await commitIn(repoB, 'Local template');
+
+    const invalid = await pushHeadToNewBranch(run, repoB, '..bad name');
+    expect(invalid).toMatchObject({ ok: false, reason: 'push-failed' });
+
+    const pushed = await pushHeadToNewBranch(run, repoB, 'my-experiment');
+    expect(pushed).toEqual({ ok: true, pushed: true, remoteSha: sha });
+    const remoteRef = await run(['--git-dir', bare, 'rev-parse', 'refs/heads/my-experiment'], { cwd: tmpDir });
+    expect(remoteRef.stdout.trim()).toBe(sha);
+  });
+
+  it('createRescueBranch mints a NEW ref and never overwrites an existing one', async () => {
+    const head = await localHeadSha(run, repoB);
+    if (head === null) throw new Error('no head');
+    expect(await createRescueBranch(run, repoB, 'oh-rescue-20260719-101500', head)).toEqual({ ok: true });
+    const ref = await raw(repoB, 'rev-parse', 'refs/heads/oh-rescue-20260719-101500');
+    expect(ref.stdout.trim()).toBe(head);
+
+    const clash = await createRescueBranch(run, repoB, 'oh-rescue-20260719-101500', head);
+    expect(clash.ok).toBe(false);
+  });
+
+  it('isAncestorOf reads history direction; unknown objects read as false', async () => {
+    const base = await localHeadSha(run, repoB);
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    const tip = await commitIn(repoB, 'Local template');
+    expect(await isAncestorOf(run, repoB, base ?? '', tip)).toBe(true);
+    expect(await isAncestorOf(run, repoB, tip, base ?? '')).toBe(false);
+    expect(await isAncestorOf(run, repoB, 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', tip)).toBe(false);
+  });
+
+  it('listTreeYamlPaths lists only yaml files of a ref', async () => {
+    await writeIn(repoB, 'templates/local-t0000001/template.yaml', 'schemaVersion: 5\nuid: t0000001\n');
+    await writeIn(repoB, 'README.md', '# mine\n');
+    await commitIn(repoB, 'Mixed content');
+    const paths = await listTreeYamlPaths(run, repoB, 'HEAD');
+    expect(paths).toContain('workspace.yaml');
+    expect(paths).toContain('templates/local-t0000001/template.yaml');
+    expect(paths?.some((entry) => entry.endsWith('README.md'))).toBe(false);
   });
 
   it('gitOperationInProgress detects the §3.3 markers', async () => {

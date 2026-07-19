@@ -668,4 +668,30 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.pulled': 'Fusión {sha} completada.',
   'workbench.settings.gitPane.git.upToDate': 'Ya está actualizado.',
   'workbench.settings.gitPane.git.pullFailed': 'Error en el pull: {detail}',
+  'workbench.settings.gitPane.git.pushButton': 'Push',
+  'workbench.settings.gitPane.git.pushed': 'Push de {sha} completado.',
+  'workbench.settings.gitPane.git.nothingToPush': 'Nada que enviar — ya está sincronizado.',
+  'workbench.settings.gitPane.git.pushFailed': 'Error en el push: {detail}',
+  'workbench.settings.gitPane.git.pushRejected':
+    'El remoto tiene commits nuevos — haz pull primero y vuelve a hacer push.',
+  'workbench.settings.gitPane.git.pushNoPermission.title': 'Sin acceso de escritura',
+  'workbench.settings.gitPane.git.pushNoPermission.body':
+    'Este remoto es de solo lectura para ti. Tus commits se quedan en local; puedes publicarlos como una rama nueva y abrir una merge request desde tu servidor git.',
+  'workbench.settings.gitPane.git.exportBranchPlaceholder': 'nombre-de-rama',
+  'workbench.settings.gitPane.git.exportBranchButton': 'Enviar como rama nueva',
+  'workbench.settings.gitPane.git.exportedBranch': 'Rama {branch} enviada.',
+  'workbench.settings.gitPane.git.autoPushLabel': 'Hacer push tras cada commit',
+  'workbench.settings.gitPane.git.forcePush.title': 'El historial remoto fue reescrito',
+  'workbench.settings.gitPane.git.forcePush.body':
+    'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Elige cómo proceder — nada cambia hasta que decidas.',
+  'workbench.settings.gitPane.git.forcePush.abandon': 'Abandonar los cambios locales',
+  'workbench.settings.gitPane.git.forcePush.abandonConfirm.title': '¿Abandonar los cambios locales?',
+  'workbench.settings.gitPane.git.forcePush.abandonConfirm.body':
+    'Los commits locales desde la última sincronización se descartan y el historial remoto reescrito pasa a ser el estado del workspace.',
+  'workbench.settings.gitPane.git.forcePush.abandonConfirm.ok': 'Abandonar',
+  'workbench.settings.gitPane.git.forcePush.rescue': 'Preservar en una rama de rescate',
+  'workbench.settings.gitPane.git.forcePush.reapply': 'Reaplicar encima',
+  'workbench.settings.gitPane.git.forcePush.resolved': 'Historial reescrito aceptado ({sha}).',
+  'workbench.settings.gitPane.git.forcePush.rescued': 'Historial local preservado en {branch}.',
+  'workbench.settings.gitPane.git.forcePush.failed': 'No se pudo resolver: {detail}',
 } as const satisfies Catalog;

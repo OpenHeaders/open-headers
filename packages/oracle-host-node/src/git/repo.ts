@@ -333,12 +333,15 @@ export async function listForeignAuthors(
 export type FastForwardResult = { ok: true } | { ok: false; detail: string };
 
 /**
- * Fast-forward the current branch to `foreignSha` — the pull leg for a
- * local branch that has NOT diverged (plain `git pull` semantics: no
- * merge bubble). CAS on the old HEAD so a concurrent move fails loudly
- * instead of clobbering; afterwards the REAL index is resynced to the
- * new HEAD with the same §3.3 discipline as the temp-index commit —
- * paths the user had staged stay exactly as found.
+ * Move the current branch to `foreignSha` — the pull leg for a local
+ * branch that has NOT diverged (plain `git pull` semantics: no merge
+ * bubble), and the deliberate ref move of a §16 trichotomy resolution
+ * (there the target is the rewritten remote head, ancestry or not —
+ * the user chose it in the dialog). CAS on the old HEAD so a
+ * concurrent move fails loudly instead of clobbering; afterwards the
+ * REAL index is resynced to the new HEAD with the same §3.3
+ * discipline as the temp-index commit — paths the user had staged
+ * stay exactly as found.
  */
 export async function fastForwardWorkspaceBranch(
   run: GitRunner,
@@ -367,6 +370,131 @@ export async function fastForwardWorkspaceBranch(
       await run([...repoArgs(rootDir), 'reset', '-q', 'HEAD', '--', ...toRefresh], { cwd: rootDir });
     }
   }
+  return { ok: true };
+}
+
+// ── Push + force-push safety (Phase 5: G5/G6/G11, §16 / §8.2) ────────
+
+/** True when `ancestor` is reachable from `descendant` (`merge-base --is-ancestor`); unknown objects read as false. */
+export async function isAncestorOf(
+  run: GitRunner,
+  rootDir: string,
+  ancestor: string,
+  descendant: string,
+): Promise<boolean> {
+  const result = await run([...repoArgs(rootDir), 'merge-base', '--is-ancestor', ancestor, descendant], {
+    cwd: rootDir,
+  });
+  return result.code === 0;
+}
+
+/** The current HEAD sha; null on an unborn branch. */
+export async function localHeadSha(run: GitRunner, rootDir: string): Promise<string | null> {
+  const result = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: rootDir });
+  const sha = result.stdout.trim();
+  return result.code === 0 && sha.length > 0 ? sha : null;
+}
+
+/** All `.yaml` paths in a commit's tree — the removal side of a full-tree convergence. */
+export async function listTreeYamlPaths(run: GitRunner, rootDir: string, ref: string): Promise<string[] | null> {
+  const listing = await run([...repoArgs(rootDir), 'ls-tree', '-r', '-z', '--name-only', ref], { cwd: rootDir });
+  if (listing.code !== 0) return null;
+  return listing.stdout.split('\0').filter((entry) => entry.length > 0 && entry.endsWith('.yaml'));
+}
+
+export type PushWorkspaceBranchResult =
+  | { ok: true; pushed: boolean; remoteSha: string }
+  | { ok: false; reason: 'no-upstream' | 'rejected' | 'no-permission' | 'push-failed'; detail: string };
+
+/**
+ * Classify a failed push honestly (§8.2): a non-fast-forward rejection
+ * gets the pull-first nudge; a permission/auth refusal gets the
+ * read-only-remote affordance; everything else surfaces as-is.
+ */
+function classifyPushFailure(result: GitExecResult): 'rejected' | 'no-permission' | 'push-failed' {
+  const text = `${result.stderr}\n${result.stdout}`;
+  if (/non-fast-forward|fetch first|\[rejected\]/i.test(text)) return 'rejected';
+  if (/denied|read.?only|not authorized|authenticat|authoriz|protected|declined|remote rejected|\b40[13]\b/i.test(text))
+    return 'no-permission';
+  return 'push-failed';
+}
+
+/**
+ * Push the current branch to its upstream — the explicit Push gesture
+ * (§3.2: push is a deliberate act; the runtime's auto-push toggle is
+ * the only automation). With no upstream but exactly ONE remote, the
+ * first push establishes tracking (`push -u <remote> HEAD`); with no
+ * remote at all it refuses. Nothing to push is a clean no-op that
+ * never touches the network.
+ */
+export async function pushWorkspaceBranch(run: GitRunner, rootDir: string): Promise<PushWorkspaceBranchResult> {
+  const upstream = await resolveUpstream(run, rootDir);
+  const head = await localHeadSha(run, rootDir);
+  if (head === null) return { ok: false, reason: 'push-failed', detail: 'no local HEAD to push' };
+  if (upstream !== null) {
+    if (upstream.ahead === 0) return { ok: true, pushed: false, remoteSha: upstream.sha };
+    const result = await run([...repoArgs(rootDir), 'push', '--quiet'], { cwd: rootDir, timeoutMs: 120_000 });
+    if (result.code !== 0) return { ok: false, reason: classifyPushFailure(result), detail: failureDetail(result) };
+    return { ok: true, pushed: true, remoteSha: head };
+  }
+  const remotes = await run([...repoArgs(rootDir), 'remote'], { cwd: rootDir });
+  const names = remotes.stdout.split('\n').filter((line) => line.trim().length > 0);
+  if (remotes.code !== 0 || names.length !== 1) {
+    return { ok: false, reason: 'no-upstream', detail: 'no upstream configured' };
+  }
+  const result = await run([...repoArgs(rootDir), 'push', '--quiet', '-u', names[0].trim(), 'HEAD'], {
+    cwd: rootDir,
+    timeoutMs: 120_000,
+  });
+  if (result.code !== 0) return { ok: false, reason: classifyPushFailure(result), detail: failureDetail(result) };
+  return { ok: true, pushed: true, remoteSha: head };
+}
+
+/**
+ * Publish local HEAD as a NEW branch on the upstream's remote — the
+ * §8.2 read-only-remote affordance (a write-protected base branch can
+ * still receive the work as a merge request from the user's git host).
+ */
+export async function pushHeadToNewBranch(
+  run: GitRunner,
+  rootDir: string,
+  branch: string,
+): Promise<PushWorkspaceBranchResult> {
+  const valid = await run(['check-ref-format', '--branch', branch], { cwd: rootDir });
+  if (valid.code !== 0) return { ok: false, reason: 'push-failed', detail: `invalid branch name: ${branch}` };
+  const head = await localHeadSha(run, rootDir);
+  if (head === null) return { ok: false, reason: 'push-failed', detail: 'no local HEAD to push' };
+  const upstream = await resolveUpstream(run, rootDir);
+  let remote: string | null = upstream !== null ? upstream.upstream.split('/')[0] : null;
+  if (remote === null) {
+    const remotes = await run([...repoArgs(rootDir), 'remote'], { cwd: rootDir });
+    const names = remotes.stdout.split('\n').filter((line) => line.trim().length > 0);
+    remote = remotes.code === 0 && names.length === 1 ? names[0].trim() : null;
+  }
+  if (remote === null) return { ok: false, reason: 'no-upstream', detail: 'no remote configured' };
+  const result = await run([...repoArgs(rootDir), 'push', '--quiet', remote, `HEAD:refs/heads/${branch}`], {
+    cwd: rootDir,
+    timeoutMs: 120_000,
+  });
+  if (result.code !== 0) return { ok: false, reason: classifyPushFailure(result), detail: failureDetail(result) };
+  return { ok: true, pushed: true, remoteSha: head };
+}
+
+export type CreateRescueBranchResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Preserve `sha` on a NEW local branch (§16's "Preserve on
+ * `oh-rescue-<ts>`") — `update-ref` with a must-not-exist guard, so a
+ * rescue is only ever a new ref, never a history edit.
+ */
+export async function createRescueBranch(
+  run: GitRunner,
+  rootDir: string,
+  branch: string,
+  sha: string,
+): Promise<CreateRescueBranchResult> {
+  const result = await run([...repoArgs(rootDir), 'update-ref', `refs/heads/${branch}`, sha, ''], { cwd: rootDir });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
   return { ok: true };
 }
 
