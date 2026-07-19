@@ -19,9 +19,14 @@ import {
   subcommandOf,
 } from '../../src/git/git-exec';
 import {
+  checkoutWorkspaceBranch,
+  cleanUntracked,
   commitWorkspaceTree,
   countDirtyFiles,
+  countLeftRight,
+  createAndSwitchBranch,
   createRescueBranch,
+  currentBranch,
   diffForeignPaths,
   ensureWorkspaceRepo,
   fastForwardWorkspaceBranch,
@@ -30,6 +35,7 @@ import {
   isAncestorOf,
   isWorkspaceRepo,
   listForeignAuthors,
+  listLocalBranches,
   listTreeYamlPaths,
   localHeadSha,
   mergeBaseOf,
@@ -38,7 +44,9 @@ import {
   pushWorkspaceBranch,
   readCommitTreeFiles,
   resolveCommitIdentity,
+  resolveRefSha,
   resolveUpstream,
+  stashWorkspaceTree,
   userIndexHasStagedChanges,
 } from '../../src/git/repo';
 
@@ -623,5 +631,110 @@ describe('porcelain feeds', () => {
   it('parsePorcelainCount handles rename records', () => {
     const z = ['R  old.yaml', 'new.yaml', ' M rules/a/rule.yaml', '?? notes.md'].join('\0') + '\0';
     expect(parsePorcelainCount(z)).toBe(3);
+  });
+});
+
+describe('branch plumbing (Phase 6)', () => {
+  const raw = (...args: string[]) =>
+    run(['--git-dir', path.join(tmpDir, '.git'), '--work-tree', tmpDir, ...args], { cwd: tmpDir });
+
+  async function onMain(): Promise<void> {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw('symbolic-ref', 'HEAD', 'refs/heads/main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Initial tree',
+      identityEnv: IDENTITY_ENV,
+    });
+    if (!result.ok || !result.committed) throw new Error('initial commit failed');
+  }
+
+  it('currentBranch answers on an unborn branch and reads null when detached', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw('symbolic-ref', 'HEAD', 'refs/heads/main');
+    expect(await currentBranch(run, tmpDir)).toBe('main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Initial', identityEnv: IDENTITY_ENV });
+    expect(await currentBranch(run, tmpDir)).toBe('main');
+    await raw('checkout', '-q', '--detach', 'HEAD');
+    expect(await currentBranch(run, tmpDir)).toBeNull();
+  });
+
+  it('listLocalBranches lists sorted names — rescue branches included naturally', async () => {
+    await onMain();
+    const head = await localHeadSha(run, tmpDir);
+    if (head === null) throw new Error('no head');
+    await raw('branch', 'zulu');
+    await createRescueBranch(run, tmpDir, 'oh-rescue-20260719-101010', head);
+    expect(await listLocalBranches(run, tmpDir)).toEqual(['main', 'oh-rescue-20260719-101010', 'zulu']);
+  });
+
+  it('createAndSwitchBranch carries a dirty tree along like checkout -b; invalid names refuse', async () => {
+    await onMain();
+    await write('notes.md', '# scratch\n');
+    const invalid = await createAndSwitchBranch(run, tmpDir, 'bad name');
+    expect(invalid.ok).toBe(false);
+    const created = await createAndSwitchBranch(run, tmpDir, 'local-test');
+    expect(created).toEqual({ ok: true });
+    expect(await currentBranch(run, tmpDir)).toBe('local-test');
+    expect(await countDirtyFiles(run, tmpDir)).toBe(1);
+  });
+
+  it('checkoutWorkspaceBranch refuses to clobber dirty work unless forced', async () => {
+    await onMain();
+    await raw('branch', 'feature');
+    await raw('checkout', '-q', 'feature');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Feature\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Feature edit', identityEnv: IDENTITY_ENV });
+    await raw('checkout', '-q', 'main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Dirty\n');
+    const refused = await checkoutWorkspaceBranch(run, tmpDir, 'feature');
+    expect(refused.ok).toBe(false);
+    const forced = await checkoutWorkspaceBranch(run, tmpDir, 'feature', { force: true });
+    expect(forced).toEqual({ ok: true });
+    const bytes = await fs.readFile(path.join(tmpDir, 'workspace.yaml'), 'utf-8');
+    expect(bytes).toContain('Probe Feature');
+  });
+
+  it('stashWorkspaceTree stashes tracked edits AND untracked files onto the ordinary stash stack', async () => {
+    await onMain();
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Dirty\n');
+    await write('notes.md', '# scratch\n');
+    const stashed = await stashWorkspaceTree(run, tmpDir, 'OpenHeaders: switch to feature');
+    expect(stashed).toEqual({ ok: true });
+    expect(await countDirtyFiles(run, tmpDir)).toBe(0);
+    const list = await raw('stash', 'list');
+    expect(list.stdout).toContain('OpenHeaders: switch to feature');
+  });
+
+  it('cleanUntracked removes untracked files but keeps gitignored paths', async () => {
+    await onMain();
+    await write('.gitignore', '.oh/\n*.secret.yaml\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add gitignore', identityEnv: IDENTITY_ENV });
+    await write('notes.md', '# scratch\n');
+    await write('.oh/lock', '{}');
+    await write('env.secret.yaml', 'value: sk-test\n');
+    const cleaned = await cleanUntracked(run, tmpDir);
+    expect(cleaned).toEqual({ ok: true });
+    await expect(fs.access(path.join(tmpDir, 'notes.md'))).rejects.toThrow();
+    await fs.access(path.join(tmpDir, '.oh', 'lock'));
+    await fs.access(path.join(tmpDir, 'env.secret.yaml'));
+  });
+
+  it('countLeftRight and resolveRefSha read arbitrary refs', async () => {
+    await onMain();
+    await raw('checkout', '-q', '-b', 'feature');
+    await write('feature.yaml', 'name: feature\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Feature edit', identityEnv: IDENTITY_ENV });
+    await raw('checkout', '-q', 'main');
+    await write('main.yaml', 'name: main\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Main edit', identityEnv: IDENTITY_ENV });
+
+    expect(await countLeftRight(run, tmpDir, 'HEAD', 'feature')).toEqual({ ahead: 1, behind: 1 });
+    expect(await countLeftRight(run, tmpDir, 'feature', 'HEAD')).toEqual({ ahead: 1, behind: 1 });
+    expect(await resolveRefSha(run, tmpDir, 'feature')).toMatch(/^[0-9a-f]{40}$/);
+    expect(await resolveRefSha(run, tmpDir, 'no-such-ref')).toBeNull();
   });
 });

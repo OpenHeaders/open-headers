@@ -19,7 +19,7 @@ import {
   type WorkspaceTreeCommitCadence,
   type WorkspaceTreeGitStatusWire,
 } from '@openheaders/core/bridge';
-import { Alert, App as AntApp, Button, Input, Popconfirm, Select, Switch, theme } from 'antd';
+import { Alert, App as AntApp, Button, Input, Modal, Popconfirm, Select, Switch, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -56,6 +56,13 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const [pushingBranch, setPushingBranch] = useState(false);
   const [resolving, setResolving] = useState<'abandon' | 'rescue' | 'reapply' | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [switchPrompt, setSwitchPrompt] = useState<{ branch: string; dirtyFiles: number } | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [branchError, setBranchError] = useState<string | null>(null);
+  const [createDraft, setCreateDraft] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [mergeRef, setMergeRef] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -227,6 +234,86 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
       setResolveError((err as Error).message);
     } finally {
       setResolving(null);
+    }
+  };
+
+  const switchBranch = async (branch: string, dirtyAction?: 'commit' | 'stash' | 'discard'): Promise<void> => {
+    if (workspaceId === null) return;
+    setSwitching(true);
+    setBranchError(null);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.switchBranch', {
+        workspaceId,
+        branch,
+        ...(dirtyAction !== undefined ? { dirtyAction } : {}),
+      });
+      if (result.ok) {
+        setSwitchPrompt(null);
+        if (result.switched) {
+          message.success(t('workbench.settings.gitPane.git.branch.switched', { branch }));
+        }
+      } else if (result.reason === 'dirty') {
+        setSwitchPrompt({ branch, dirtyFiles: result.dirtyFiles ?? 0 });
+      } else {
+        setSwitchPrompt(null);
+        setBranchError(
+          t('workbench.settings.gitPane.git.branch.switchFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+      await refreshGitStatus();
+      await refresh();
+    } catch (err) {
+      setBranchError((err as Error).message);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const createBranch = async (): Promise<void> => {
+    const branch = createDraft.trim();
+    if (workspaceId === null || branch === '') return;
+    setCreating(true);
+    setBranchError(null);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.createBranch', { workspaceId, branch });
+      if (result.ok) {
+        setCreateDraft('');
+        message.success(t('workbench.settings.gitPane.git.branch.created', { branch }));
+      } else {
+        setBranchError(
+          t('workbench.settings.gitPane.git.branch.createFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+      await refreshGitStatus();
+    } catch (err) {
+      setBranchError((err as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const mergeBranch = async (): Promise<void> => {
+    if (workspaceId === null || mergeRef === null) return;
+    setMerging(true);
+    setBranchError(null);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref: mergeRef });
+      if (result.ok && result.upToDate) {
+        message.info(t('workbench.settings.gitPane.git.branch.mergeUpToDate'));
+      } else if (result.ok) {
+        setMergeRef(null);
+        message.success(t('workbench.settings.gitPane.git.branch.merged', { sha: result.sha.slice(0, 7) }));
+      } else {
+        setBranchError(
+          t('workbench.settings.gitPane.git.branch.mergeFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+      await refreshGitStatus();
+      await refresh();
+    } catch (err) {
+      setBranchError((err as Error).message);
+    } finally {
+      setMerging(false);
     }
   };
 
@@ -540,6 +627,145 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                     })}
                   </div>
                 )}
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, marginBottom: 4 }}>
+                    {t('workbench.settings.gitPane.git.branch.title')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span
+                      style={{ fontSize: 11.5, color: token.colorTextSecondary, flex: 1 }}
+                      data-testid="git-pane-branch-current"
+                    >
+                      {gitStatus.branch !== null
+                        ? t('workbench.settings.gitPane.git.branch.current', { branch: gitStatus.branch })
+                        : t('workbench.settings.gitPane.git.branch.detached')}
+                    </span>
+                    {gitStatus.branches.length > 1 && (
+                      <>
+                        <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+                          {t('workbench.settings.gitPane.git.branch.switchLabel')}
+                        </span>
+                        <Select
+                          size="small"
+                          value={gitStatus.branch}
+                          disabled={switching}
+                          onChange={(value) => {
+                            if (value !== null && value !== gitStatus.branch) void switchBranch(value);
+                          }}
+                          style={{ width: 180 }}
+                          options={gitStatus.branches.map((name) => ({ value: name, label: name }))}
+                          data-testid="git-pane-branch-select"
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <Input
+                      size="small"
+                      value={createDraft}
+                      onChange={(e) => setCreateDraft(e.target.value)}
+                      placeholder={t('workbench.settings.gitPane.git.branch.createPlaceholder')}
+                      style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5, maxWidth: 260 }}
+                      data-testid="git-pane-branch-create-input"
+                    />
+                    <Button
+                      size="small"
+                      loading={creating}
+                      disabled={createDraft.trim() === ''}
+                      onClick={() => void createBranch()}
+                      data-testid="git-pane-branch-create-button"
+                    >
+                      {t('workbench.settings.gitPane.git.branch.createButton')}
+                    </Button>
+                  </div>
+                  {(gitStatus.branches.length > 1 || gitStatus.upstream !== null) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                      <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+                        {t('workbench.settings.gitPane.git.branch.mergeLabel')}
+                      </span>
+                      <Select
+                        size="small"
+                        value={mergeRef}
+                        disabled={merging}
+                        onChange={(value) => setMergeRef(value)}
+                        style={{ width: 200 }}
+                        options={[
+                          ...gitStatus.branches
+                            .filter((name) => name !== gitStatus.branch)
+                            .map((name) => ({ value: name, label: name })),
+                          ...(gitStatus.upstream !== null
+                            ? [{ value: gitStatus.upstream, label: gitStatus.upstream }]
+                            : []),
+                        ]}
+                        data-testid="git-pane-merge-select"
+                      />
+                      <Button
+                        size="small"
+                        loading={merging}
+                        disabled={mergeRef === null || gitStatus.forcePush !== null}
+                        onClick={() => void mergeBranch()}
+                        data-testid="git-pane-merge-button"
+                      >
+                        {t('workbench.settings.gitPane.git.branch.mergeButton')}
+                      </Button>
+                    </div>
+                  )}
+                  {branchError !== null && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{branchError}</div>
+                  )}
+                  <Modal
+                    open={switchPrompt !== null}
+                    title={t('workbench.settings.gitPane.git.branch.dirtyTitle')}
+                    onCancel={() => setSwitchPrompt(null)}
+                    footer={null}
+                    data-testid="git-pane-switch-modal"
+                  >
+                    <p style={{ fontSize: 12.5, margin: '0 0 14px' }}>
+                      {switchPrompt !== null
+                        ? t('workbench.settings.gitPane.git.branch.dirtyBody', {
+                            count: switchPrompt.dirtyFiles,
+                            branch: switchPrompt.branch,
+                          })
+                        : ''}
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <Popconfirm
+                        title={t('workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.title')}
+                        description={t('workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.body')}
+                        okText={t('workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.ok')}
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => {
+                          if (switchPrompt !== null) void switchBranch(switchPrompt.branch, 'discard');
+                        }}
+                      >
+                        <Button danger size="small" loading={switching} data-testid="git-pane-switch-discard">
+                          {t('workbench.settings.gitPane.git.branch.dirtyDiscard')}
+                        </Button>
+                      </Popconfirm>
+                      <Button
+                        size="small"
+                        loading={switching}
+                        onClick={() => {
+                          if (switchPrompt !== null) void switchBranch(switchPrompt.branch, 'stash');
+                        }}
+                        data-testid="git-pane-switch-stash"
+                      >
+                        {t('workbench.settings.gitPane.git.branch.dirtyStash')}
+                      </Button>
+                      <Button
+                        type="primary"
+                        size="small"
+                        loading={switching}
+                        onClick={() => {
+                          if (switchPrompt !== null) void switchBranch(switchPrompt.branch, 'commit');
+                        }}
+                        data-testid="git-pane-switch-commit"
+                      >
+                        {t('workbench.settings.gitPane.git.branch.dirtyCommit')}
+                      </Button>
+                    </div>
+                  </Modal>
+                </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <Input
                     value={commitMessage}

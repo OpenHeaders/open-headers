@@ -19,7 +19,7 @@
  * `rotar` (token = raw m.; `renovar` stays the seat-renewal word).
  */
 
-import { plural } from '../../runtime';
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
@@ -642,6 +642,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.dirtyCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} cambio sin confirmar',
+      many: '{count} cambios sin confirmar',
       other: '{count} cambios sin confirmar',
     }),
   'workbench.settings.gitPane.git.clean': 'Árbol de trabajo limpio',
@@ -681,6 +682,38 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Enviar como rama nueva',
   'workbench.settings.gitPane.git.exportedBranch': 'Rama {branch} enviada.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Hacer push tras cada commit',
+  'workbench.settings.gitPane.git.branch.title': 'Ramas',
+  'workbench.settings.gitPane.git.branch.current': 'En la rama {branch}',
+  'workbench.settings.gitPane.git.branch.detached': 'HEAD separado — crea una rama para conservar este historial.',
+  'workbench.settings.gitPane.git.branch.switchLabel': 'Cambiar a',
+  'workbench.settings.gitPane.git.branch.switched': 'Cambiado a {branch}.',
+  'workbench.settings.gitPane.git.branch.switchFailed': 'No se pudo cambiar de rama: {detail}',
+  'workbench.settings.gitPane.git.branch.dirtyTitle': 'Tienes cambios sin commit',
+  'workbench.settings.gitPane.git.branch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Haz commit, guarda en stash o descarta {count} cambio sin commit antes de cambiar a {branch}.',
+        many: 'Haz commit, guarda en stash o descarta {count} cambios sin commit antes de cambiar a {branch}.',
+        other: 'Haz commit, guarda en stash o descarta {count} cambios sin commit antes de cambiar a {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.settings.gitPane.git.branch.dirtyCommit': 'Commit y cambiar',
+  'workbench.settings.gitPane.git.branch.dirtyStash': 'Stash y cambiar',
+  'workbench.settings.gitPane.git.branch.dirtyDiscard': 'Descartar cambios',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.title': '¿Descartar los cambios sin commit?',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.body':
+    'Se eliminan todos los cambios sin commit, incluidos los archivos nuevos. Esta acción no se puede deshacer.',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.ok': 'Descartar',
+  'workbench.settings.gitPane.git.branch.createPlaceholder': 'nombre-de-rama',
+  'workbench.settings.gitPane.git.branch.createButton': 'Crear y cambiar',
+  'workbench.settings.gitPane.git.branch.created': 'Rama {branch} creada.',
+  'workbench.settings.gitPane.git.branch.createFailed': 'No se pudo crear la rama: {detail}',
+  'workbench.settings.gitPane.git.branch.mergeLabel': 'Fusionar en la rama actual',
+  'workbench.settings.gitPane.git.branch.mergeButton': 'Fusionar',
+  'workbench.settings.gitPane.git.branch.merged': 'Fusión {sha} completada.',
+  'workbench.settings.gitPane.git.branch.mergeUpToDate': 'Ya está al día.',
+  'workbench.settings.gitPane.git.branch.mergeFailed': 'La fusión falló: {detail}',
   'workbench.settings.gitPane.git.forcePush.title': 'El historial remoto fue reescrito',
   'workbench.settings.gitPane.git.forcePush.body':
     'La rama remota ya no contiene el historial sincronizado por última vez ({sha}). Elige cómo proceder — nada cambia hasta que decidas.',

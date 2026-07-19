@@ -4,7 +4,7 @@
  * MCP pane, license pane, and keymap pane.
  */
 
-import { plural } from '../../runtime';
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
@@ -599,6 +599,37 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Push as New Branch',
   'workbench.settings.gitPane.git.exportedBranch': 'Pushed branch {branch}.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Push after every commit',
+  'workbench.settings.gitPane.git.branch.title': 'Branches',
+  'workbench.settings.gitPane.git.branch.current': 'On branch {branch}',
+  'workbench.settings.gitPane.git.branch.detached': 'Detached HEAD — create a branch to keep this history.',
+  'workbench.settings.gitPane.git.branch.switchLabel': 'Switch to',
+  'workbench.settings.gitPane.git.branch.switched': 'Switched to {branch}.',
+  'workbench.settings.gitPane.git.branch.switchFailed': 'Switch failed: {detail}',
+  'workbench.settings.gitPane.git.branch.dirtyTitle': 'You have uncommitted changes',
+  'workbench.settings.gitPane.git.branch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Commit, stash, or discard {count} uncommitted change before switching to {branch}.',
+        other: 'Commit, stash, or discard {count} uncommitted changes before switching to {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.settings.gitPane.git.branch.dirtyCommit': 'Commit and switch',
+  'workbench.settings.gitPane.git.branch.dirtyStash': 'Stash and switch',
+  'workbench.settings.gitPane.git.branch.dirtyDiscard': 'Discard changes',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.title': 'Discard uncommitted changes?',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.body':
+    'Every uncommitted change is deleted, including new files. This cannot be undone.',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.ok': 'Discard',
+  'workbench.settings.gitPane.git.branch.createPlaceholder': 'new-branch-name',
+  'workbench.settings.gitPane.git.branch.createButton': 'Create & Switch',
+  'workbench.settings.gitPane.git.branch.created': 'Created branch {branch}.',
+  'workbench.settings.gitPane.git.branch.createFailed': 'Could not create branch: {detail}',
+  'workbench.settings.gitPane.git.branch.mergeLabel': 'Merge into current',
+  'workbench.settings.gitPane.git.branch.mergeButton': 'Merge',
+  'workbench.settings.gitPane.git.branch.merged': 'Merged {sha}.',
+  'workbench.settings.gitPane.git.branch.mergeUpToDate': 'Already up to date.',
+  'workbench.settings.gitPane.git.branch.mergeFailed': 'Merge failed: {detail}',
   'workbench.settings.gitPane.git.forcePush.title': 'Remote history was rewritten',
   'workbench.settings.gitPane.git.forcePush.body':
     'The remote branch no longer contains the history you last synced ({sha}). Choose how to proceed — nothing changes until you decide.',

@@ -8,6 +8,7 @@
  *     CREATE TABLE mutation_log (
  *       scope         TEXT NOT NULL,
  *       org_id        TEXT NOT NULL,
+ *       branch        TEXT NOT NULL DEFAULT '',
  *       hlc_key       TEXT NOT NULL,
  *       mutation_id   TEXT NOT NULL,
  *       envelope_json TEXT NOT NULL,
@@ -17,12 +18,28 @@
  *       ON mutation_log (scope, mutation_id);
  *     CREATE INDEX mutation_log_workspace_org
  *       ON mutation_log (scope, org_id);
+ *     CREATE INDEX mutation_log_branch
+ *       ON mutation_log (scope, branch, hlc_key);
  *
  *   - **`org_id`** is denormalized per UNIFIED_ORACLE_MODEL.md §8.2 so
  *     transport filters can run `WHERE org_id IN (authorized set)`
  *     without unpacking each envelope blob (U2.7-U2.9). V5 has zero
  *     users (per `project_v5_fresh_start.md`); no backfill code path
  *     because there is no pre-v5 data.
+ *   - **`branch`** is the per-branch log of DATA_PLANE_TOPOLOGIES.md
+ *     §6.3 (GIT_PLAN.md Phase 6): a tree-bound workspace's rows are
+ *     stamped with the git branch active when they were appended, and
+ *     ordered reads filter to the active branch — two branches can
+ *     legitimately hold different histories for the same entity, and
+ *     interleaving them would corrupt per-entity HLC ordering. `''` is
+ *     the branchless trunk (unbound workspaces, and every row appended
+ *     before a binding existed): trunk rows precede any branch-stamped
+ *     row and are visible from every branch. Dedup stays scope-global
+ *     (`mutationId` is minted fresh per branch — checkout/merge enter
+ *     as virtual batches with new ids, so a cross-branch collision is
+ *     the same envelope). The pointer flips via
+ *     {@link SqliteMutationLog.setActiveBranch}, called by the
+ *     workspace-tree runtime at bind-open and on every checkout.
  *
  * Design notes:
  *
@@ -57,6 +74,7 @@ const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS mutation_log (
     scope         TEXT NOT NULL,
     org_id        TEXT NOT NULL,
+    branch        TEXT NOT NULL DEFAULT '',
     hlc_key       TEXT NOT NULL,
     mutation_id   TEXT NOT NULL,
     envelope_json TEXT NOT NULL,
@@ -66,22 +84,47 @@ const SCHEMA_STATEMENTS = [
     ON mutation_log (scope, mutation_id)`,
   `CREATE INDEX IF NOT EXISTS mutation_log_workspace_org
     ON mutation_log (scope, org_id)`,
+  `CREATE INDEX IF NOT EXISTS mutation_log_branch
+    ON mutation_log (scope, branch, hlc_key)`,
 ] as const;
 
 /**
  * Idempotent — safe to call on every open. Used by
- * {@link createSqliteSyncPersistenceProvider} during DB init.
+ * {@link createSqliteSyncPersistenceProvider} during DB init. A table
+ * created before the Phase 6 per-branch column gains it in place
+ * (existing rows become `''` trunk rows — visible from every branch,
+ * which is exactly what pre-branch history is).
  */
 export function ensureMutationLogSchema(db: Database.Database): void {
-  for (const stmt of SCHEMA_STATEMENTS) db.exec(stmt);
+  db.exec(SCHEMA_STATEMENTS[0]);
+  const columns = db.pragma('table_info(mutation_log)') as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === 'branch')) {
+    db.exec(`ALTER TABLE mutation_log ADD COLUMN branch TEXT NOT NULL DEFAULT ''`);
+  }
+  for (const stmt of SCHEMA_STATEMENTS.slice(1)) db.exec(stmt);
+}
+
+/**
+ * The per-branch surface a git-hosting runtime needs beyond
+ * {@link MutationLog} (DATA_PLANE_TOPOLOGIES.md §6.3). Only the SQLite
+ * log implements it — extension/in-memory logs have no git plane.
+ */
+export interface BranchScopedMutationLog extends MutationLog {
+  /** Flip the active-branch pointer; `''` is the branchless trunk. */
+  setActiveBranch(branch: string): void;
+}
+
+/** Whether a log supports the §6.3 per-branch pointer. */
+export function supportsBranchScope(log: MutationLog): log is BranchScopedMutationLog {
+  return typeof (log as Partial<BranchScopedMutationLog>).setActiveBranch === 'function';
 }
 
 interface MutationLogStatements {
-  append: Database.Statement<[string, string, string, string, string]>;
+  append: Database.Statement<[string, string, string, string, string, string]>;
   hasMutation: Database.Statement<[string, string]>;
-  readSinceAll: Database.Statement<[string]>;
-  readSinceFrom: Database.Statement<[string, string]>;
-  truncateBefore: Database.Statement<[string, string]>;
+  readSinceAll: Database.Statement<[string, string]>;
+  readSinceFrom: Database.Statement<[string, string, string]>;
+  truncateBefore: Database.Statement<[string, string, string]>;
   purgeOrgSelect: Database.Statement<[string, string]>;
   purgeOrgDelete: Database.Statement<[string, string]>;
 }
@@ -89,18 +132,24 @@ interface MutationLogStatements {
 function prepareStatements(db: Database.Database): MutationLogStatements {
   return {
     append: db.prepare(
-      `INSERT OR IGNORE INTO mutation_log (scope, org_id, hlc_key, mutation_id, envelope_json)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO mutation_log (scope, org_id, branch, hlc_key, mutation_id, envelope_json)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     ),
     hasMutation: db.prepare(`SELECT 1 FROM mutation_log WHERE scope = ? AND mutation_id = ? LIMIT 1`),
+    // Ordered reads see the branchless trunk plus the active branch —
+    // never a sibling branch's rows (§6.3 HLC-coherence law).
     readSinceAll: db.prepare(
-      `SELECT envelope_json FROM mutation_log WHERE scope = ? ORDER BY hlc_key ASC, mutation_id ASC`,
-    ),
-    readSinceFrom: db.prepare(
-      `SELECT envelope_json FROM mutation_log WHERE scope = ? AND hlc_key > ?
+      `SELECT envelope_json FROM mutation_log WHERE scope = ? AND branch IN ('', ?)
        ORDER BY hlc_key ASC, mutation_id ASC`,
     ),
-    truncateBefore: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND hlc_key < ?`),
+    readSinceFrom: db.prepare(
+      `SELECT envelope_json FROM mutation_log WHERE scope = ? AND branch IN ('', ?) AND hlc_key > ?
+       ORDER BY hlc_key ASC, mutation_id ASC`,
+    ),
+    // Compaction is branch-local: a watermark computed while on branch
+    // A must never drop rows another branch still needs; trunk rows
+    // compact only while the pointer itself is the trunk.
+    truncateBefore: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND branch = ? AND hlc_key < ?`),
     purgeOrgSelect: db.prepare(`SELECT mutation_id FROM mutation_log WHERE scope = ? AND org_id = ?`),
     purgeOrgDelete: db.prepare(`DELETE FROM mutation_log WHERE scope = ? AND org_id = ?`),
   };
@@ -116,10 +165,12 @@ function statementsFor(db: Database.Database): MutationLogStatements {
   return cached;
 }
 
-export class SqliteMutationLog implements MutationLog {
+export class SqliteMutationLog implements BranchScopedMutationLog {
   private readonly db: Database.Database;
   private readonly scope: string;
   private readonly appendBatch: (envs: MutationEnvelope[]) => void;
+  /** §6.3 active-branch pointer; `''` = branchless trunk. */
+  private branch = '';
 
   constructor(db: Database.Database, scope: string) {
     this.db = db;
@@ -129,14 +180,18 @@ export class SqliteMutationLog implements MutationLog {
     // constructing transactions once and calling them many times.
     this.appendBatch = db.transaction((envs: MutationEnvelope[]) => {
       for (const env of envs) {
-        stmts.append.run(scope, env.orgId, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
+        stmts.append.run(scope, env.orgId, this.branch, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
       }
     });
   }
 
+  setActiveBranch(branch: string): void {
+    this.branch = branch;
+  }
+
   async append(env: MutationEnvelope): Promise<void> {
     const stmts = statementsFor(this.db);
-    stmts.append.run(this.scope, env.orgId, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
+    stmts.append.run(this.scope, env.orgId, this.branch, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
   }
 
   async appendAll(envs: MutationEnvelope[]): Promise<void> {
@@ -148,8 +203,8 @@ export class SqliteMutationLog implements MutationLog {
     const stmts = statementsFor(this.db);
     const iter =
       sinceHlcKey === null
-        ? stmts.readSinceAll.iterate(this.scope)
-        : stmts.readSinceFrom.iterate(this.scope, sinceHlcKey);
+        ? stmts.readSinceAll.iterate(this.scope, this.branch)
+        : stmts.readSinceFrom.iterate(this.scope, this.branch, sinceHlcKey);
     for (const row of iter as IterableIterator<{ envelope_json: string }>) {
       yield JSON.parse(row.envelope_json) as MutationEnvelope;
     }
@@ -162,7 +217,7 @@ export class SqliteMutationLog implements MutationLog {
 
   async truncateBefore(beforeHlcKey: string): Promise<void> {
     const stmts = statementsFor(this.db);
-    stmts.truncateBefore.run(this.scope, beforeHlcKey);
+    stmts.truncateBefore.run(this.scope, this.branch, beforeHlcKey);
   }
 
   async purgeOrg(orgId: string): Promise<string[]> {

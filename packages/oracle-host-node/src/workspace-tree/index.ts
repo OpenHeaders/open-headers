@@ -9,17 +9,29 @@ export type { BindWorkspaceTreeOptions, BindWorkspaceTreeResult } from './bind';
 export { bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
 export type { ForcePushChoice, ResolveForcePushOptions, ResolveForcePushResult } from './force-push';
 export { resolveForcePushWorkspaceTree } from './force-push';
+export type { GitHeadWatcherOptions } from './head-watcher';
+export { GitHeadWatcher } from './head-watcher';
 export type { MaterializeResult, MaterializeSnapshot, WorkspaceTreeMaterializerOptions } from './materializer';
 export { WorkspaceTreeMaterializer } from './materializer';
-export type { PullWorkspaceTreeOptions, PullWorkspaceTreeResult } from './pull';
-export { pullWorkspaceTree, writeForeignQuarantine } from './pull';
+export type { MergeWorkspaceBranchOptions, MergeWorkspaceBranchResult } from './merge';
+export { mergeWorkspaceBranch } from './merge';
+export type {
+  IntegrateForeignDeps,
+  IntegrateForeignHeadResult,
+  PullWorkspaceTreeOptions,
+  PullWorkspaceTreeResult,
+} from './pull';
+export { integrateForeignHead, pullWorkspaceTree, writeForeignQuarantine } from './pull';
 export { listWorkspaceTreeFiles, readWorkspaceTreeFromDisk } from './reader';
 export type {
   BindWorkspaceTreeRpcResult,
   CommitWorkspaceTreeRpcResult,
+  CreateBranchRpcResult,
+  MergeBranchRpcResult,
   PullWorkspaceTreeRpcResult,
   PushWorkspaceTreeRpcResult,
   ResolveForcePushRpcResult,
+  SwitchBranchRpcResult,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeRuntime,
@@ -39,5 +51,7 @@ export {
 } from './sidecar';
 export type { SweepWorkspaceTreeOptions, SweepWorkspaceTreeResult } from './sweep';
 export { sweepWorkspaceTree } from './sweep';
+export type { SwitchDirtyAction, SwitchWorkspaceBranchOptions, SwitchWorkspaceBranchResult } from './switch';
+export { switchWorkspaceBranch } from './switch';
 export type { WorkspaceTreeWatcherOptions } from './watcher';
 export { WorkspaceTreeWatcher } from './watcher';

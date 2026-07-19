@@ -242,12 +242,16 @@ export interface WorkspaceTreeBindingRecord {
   autoPushOnCommit?: boolean;
   /**
    * The remote-head sha this engine last integrated (successful pull)
-   * or produced (successful push) — the §16 force-push watermark: on
-   * every fetch the runtime checks this sha is still an ancestor of
-   * the remote head; a rewrite raises the trichotomy dialog and holds
-   * pull/push until resolved. Absent until the first sync.
+   * or produced (successful push), PER local branch — the §16
+   * force-push watermark: on every fetch the runtime checks the
+   * current branch's sha is still an ancestor of its remote head; a
+   * rewrite raises the trichotomy dialog and holds pull/push until
+   * resolved. Keyed by branch because each branch syncs against its
+   * own upstream (GIT_PLAN.md §6 — one active branch per binding, but
+   * watermarks survive a switch-and-return). Absent until the first
+   * sync on that branch.
    */
-  lastSyncedRemoteSha?: string;
+  syncedRemoteShas?: Record<string, string>;
 }
 
 export interface PersistedLocalFolder {

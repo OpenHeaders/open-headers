@@ -41,7 +41,9 @@ import {
   commitWorkspaceTree,
   composeCommitMessage,
   countDirtyFiles,
+  createAndSwitchBranch,
   createGitExec,
+  currentBranch,
   ensureWorkspaceRepo,
   fetchWorkspaceRemote,
   type GitAvailability,
@@ -49,6 +51,7 @@ import {
   gitOperationInProgress,
   isAncestorOf,
   isWorkspaceRepo,
+  listLocalBranches,
   probeGitAvailability,
   pushHeadToNewBranch,
   pushWorkspaceBranch,
@@ -57,12 +60,16 @@ import {
   type UpstreamState,
   userIndexHasStagedChanges,
 } from '../git';
+import { supportsBranchScope } from '../sync/sqlite-mutation-log';
 import { type BindWorkspaceTreeResult, bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
 import { type ForcePushChoice, resolveForcePushWorkspaceTree } from './force-push';
+import { GitHeadWatcher } from './head-watcher';
 import { WorkspaceTreeMaterializer } from './materializer';
+import { mergeWorkspaceBranch } from './merge';
 import { pullWorkspaceTree } from './pull';
 import { readTreeUnknownFields } from './sidecar';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from './sweep';
+import { type SwitchDirtyAction, switchWorkspaceBranch } from './switch';
 import { WorkspaceTreeWatcher } from './watcher';
 
 const SCOPE = 'workspace-tree-runtime';
@@ -172,10 +179,55 @@ export type ResolveForcePushRpcResult =
       detail?: string;
     };
 
+export type SwitchBranchRpcResult =
+  | { ok: true; branch: string; switched: boolean }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'unknown-branch'
+        | 'dirty'
+        | 'commit-failed'
+        | 'stash-failed'
+        | 'checkout-failed';
+      detail?: string;
+      dirtyFiles?: number;
+    };
+
+export type CreateBranchRpcResult =
+  | { ok: true; branch: string }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'create-failed'; detail?: string };
+
+export type MergeBranchRpcResult =
+  | { ok: true; upToDate: true }
+  | { ok: true; upToDate: false; sha: string; applied: number }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'unknown-ref'
+        | 'self-merge'
+        | 'detached-head'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'commit-failed';
+      detail?: string;
+    };
+
 export interface WorkspaceTreeGitStatusRpcResult {
   bound: boolean;
   git: GitAvailability;
   repo: boolean;
+  /** The checked-out branch (§6 — one active branch per binding); null when detached/unavailable. */
+  branch: string | null;
+  /** Local branch names — rescue/fork branches appear here naturally. */
+  branches: string[];
   /** `git status --porcelain` entry count; null when unreadable. */
   dirtyFiles: number | null;
   /** True while the user's own staging area is non-empty (§3.3 pause). */
@@ -232,6 +284,22 @@ export interface WorkspaceTreeRuntime {
    * complete local material.
    */
   resolveForcePush(workspaceId: string, choice: ForcePushChoice): Promise<ResolveForcePushRpcResult>;
+  /**
+   * In-app branch switch (§6.2) — the wrapped checkout with the
+   * Commit / Stash / Discard answer; a dirty tree with no answer
+   * refuses so the surface raises the prompt. A successful switch
+   * flips the §6.3 per-branch log pointer and runs the same rung-2
+   * tree-wins sweep an external checkout takes.
+   */
+  switchBranch(workspaceId: string, branch: string, dirtyAction?: SwitchDirtyAction): Promise<SwitchBranchRpcResult>;
+  /** Create a branch at HEAD and switch to it (dirty work rides along, like `checkout -b`). */
+  createBranch(workspaceId: string, branch: string): Promise<CreateBranchRpcResult>;
+  /**
+   * In-app branch merge (§6): the Phase 4 pull machinery pointed at a
+   * local or remote-tracking ref — never raw `git merge`. Local
+   * uncommitted work commits first, exactly like pull.
+   */
+  mergeBranch(workspaceId: string, ref: string): Promise<MergeBranchRpcResult>;
   /** Focus returned to the app — throttled background fetch trigger. */
   notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */
@@ -251,6 +319,10 @@ interface OpenBinding {
   service: WorkspaceServiceState;
   materializer: WorkspaceTreeMaterializer;
   watcher: WorkspaceTreeWatcher;
+  /** `.git/HEAD` watch — the external-checkout trigger (started once the repo exists). */
+  headWatcher: GitHeadWatcher;
+  /** The branch the §6.3 log pointer currently reflects; null before the first probe. */
+  logBranch: string | null;
   /** §8 single actor — every sweep + materialize + commit pass chains here. */
   chain: Promise<void>;
   materializeTimer: NodeJS.Timeout | null;
@@ -476,6 +548,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     bound: false,
     git: { available: false, reason: 'missing' },
     repo: false,
+    branch: null,
+    branches: [],
     dirtyFiles: null,
     userIndexBusy: false,
     suggestedMessage: '',
@@ -488,20 +562,52 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     forcePush: null,
   });
 
+  /** The current branch's §16 watermark; undefined before the first sync on that branch. */
+  const watermarkFor = (binding: OpenBinding, branch: string | null): string | undefined =>
+    branch === null ? undefined : binding.record.syncedRemoteShas?.[branch];
+
+  /** Record a successful sync (pull/push/resolution) as the current branch's watermark. */
+  const recordWatermark = async (binding: OpenBinding, sha: string): Promise<void> => {
+    const branch = await currentBranch(gitRun, binding.record.rootDir);
+    if (branch === null) return;
+    await updateBindingRecord(binding.record.workspaceId, {
+      syncedRemoteShas: { ...binding.record.syncedRemoteShas, [branch]: sha },
+    });
+  };
+
   /**
-   * §16 detection: the last-integrated remote sha must remain an
-   * ancestor of the (fetched) remote head — anything else means the
-   * remote history was rewritten since this engine last synced. Null
-   * before the first sync (no watermark) and while at rest.
+   * §16 detection: the current branch's last-integrated remote sha
+   * must remain an ancestor of the (fetched) remote head — anything
+   * else means the remote history was rewritten since this engine last
+   * synced. Null before the first sync on this branch (no watermark)
+   * and while at rest.
    */
   const detectForcePush = async (
     binding: OpenBinding,
+    branch: string | null,
     upstream: UpstreamState | null,
   ): Promise<{ remoteSha: string; lastSyncedSha: string } | null> => {
-    const lastSyncedSha = binding.record.lastSyncedRemoteSha;
+    const lastSyncedSha = watermarkFor(binding, branch);
     if (lastSyncedSha === undefined || upstream === null || upstream.sha === lastSyncedSha) return null;
     if (await isAncestorOf(gitRun, binding.record.rootDir, lastSyncedSha, upstream.sha)) return null;
     return { remoteSha: upstream.sha, lastSyncedSha };
+  };
+
+  /**
+   * Keep the §6.3 per-branch log pointer in step with HEAD — called at
+   * bind-open (once the repo exists) and after every checkout, in-app
+   * or external. Non-SQLite logs (tests' in-memory doubles) simply
+   * don't scope; the pointer is remembered either way so the HEAD
+   * watcher can tell a real move from an echo.
+   */
+  const syncLogBranch = async (binding: OpenBinding): Promise<boolean> => {
+    const branch = await currentBranch(gitRun, binding.record.rootDir);
+    const changed = branch !== binding.logBranch;
+    binding.logBranch = branch;
+    if (supportsBranchScope(binding.service.log)) {
+      binding.service.log.setActiveBranch(branch ?? '');
+    }
+    return changed;
   };
 
   const computeGitStatus = async (binding: OpenBinding): Promise<WorkspaceTreeGitStatusRpcResult> => {
@@ -515,6 +621,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         bound: true,
         git,
         repo: false,
+        branch: null,
+        branches: [],
         dirtyFiles: null,
         userIndexBusy: false,
         suggestedMessage: composeCommitMessage(binding.intents),
@@ -528,11 +636,14 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       };
     }
     const repo = await isWorkspaceRepo(gitRun, rootDir);
+    const branch = repo ? await currentBranch(gitRun, rootDir) : null;
     const upstream = repo ? await resolveUpstream(gitRun, rootDir) : null;
     return {
       bound: true,
       git,
       repo,
+      branch,
+      branches: repo ? await listLocalBranches(gitRun, rootDir) : [],
       dirtyFiles: repo ? await countDirtyFiles(gitRun, rootDir) : null,
       userIndexBusy: repo ? await userIndexHasStagedChanges(gitRun, rootDir) : false,
       suggestedMessage: composeCommitMessage(binding.intents),
@@ -542,7 +653,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       ahead: upstream?.ahead ?? null,
       behind: upstream?.behind ?? null,
       autoPushOnCommit,
-      forcePush: repo ? await detectForcePush(binding, upstream) : null,
+      forcePush: repo ? await detectForcePush(binding, branch, upstream) : null,
     };
   };
 
@@ -635,6 +746,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
 
     const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
+    const pullWatermark = watermarkFor(binding, await currentBranch(gitRun, rootDir));
     const result = await pullWorkspaceTree({
       run: gitRun,
       rootDir,
@@ -649,9 +761,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       flush: () => binding.materializer.flush(),
       identityEnv: identity.env,
       bypassHooks: binding.record.bypassHooks === true,
-      ...(binding.record.lastSyncedRemoteSha !== undefined
-        ? { lastSyncedRemoteSha: binding.record.lastSyncedRemoteSha }
-        : {}),
+      ...(pullWatermark !== undefined ? { lastSyncedRemoteSha: pullWatermark } : {}),
     });
     binding.lastFetchAt = Date.now();
     if (result.issues.length > 0) {
@@ -661,7 +771,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
     // §16 watermark: this remote head is now integrated — the next
     // fetch compares ancestry against it.
-    await updateBindingRecord(binding.record.workspaceId, { lastSyncedRemoteSha: result.remoteSha });
+    await recordWatermark(binding, result.remoteSha);
     if (result.upToDate) return { ok: true, upToDate: true };
     binding.intents = [];
     logger.info(SCOPE, `pulled ${rootDir}: merge ${result.sha} (${result.applied} batches)`);
@@ -679,11 +789,12 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     const availability = await ensureGitAvailability(rootDir);
     if (!availability.available) return { ok: false, reason: 'git-unavailable' };
     if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
-    const rewrite = await detectForcePush(binding, await resolveUpstream(gitRun, rootDir));
+    const pushBranch = await currentBranch(gitRun, rootDir);
+    const rewrite = await detectForcePush(binding, pushBranch, await resolveUpstream(gitRun, rootDir));
     if (rewrite !== null) return { ok: false, reason: 'force-push', detail: rewrite.remoteSha };
     const result = await pushWorkspaceBranch(gitRun, rootDir);
     if (!result.ok) return result;
-    await updateBindingRecord(binding.record.workspaceId, { lastSyncedRemoteSha: result.remoteSha });
+    await recordWatermark(binding, result.remoteSha);
     if (result.pushed) logger.info(SCOPE, `pushed ${rootDir}: ${result.remoteSha}`);
     return result;
   };
@@ -709,7 +820,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     const availability = await ensureGitAvailability(rootDir);
     if (!availability.available) return { ok: false, reason: 'git-unavailable' };
     if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
-    const lastSyncedSha = binding.record.lastSyncedRemoteSha;
+    const lastSyncedSha = watermarkFor(binding, await currentBranch(gitRun, rootDir));
     if (lastSyncedSha === undefined) return { ok: false, reason: 'not-rewritten' };
     await binding.service.hydrated;
 
@@ -741,9 +852,115 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     }
     if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
     binding.intents = [];
-    await updateBindingRecord(binding.record.workspaceId, { lastSyncedRemoteSha: result.remoteSha });
+    await recordWatermark(binding, result.remoteSha);
     logger.info(SCOPE, `force-push resolved (${choice}) for ${rootDir}: ${result.sha}`);
     return { ok: true, sha: result.sha, rescueBranch: result.rescueBranch };
+  };
+
+  /**
+   * One branch-switch pass — always on the binding's chain (§8). The
+   * wrapped checkout runs with the user's §6.2 answer; a successful
+   * switch flips the §6.3 log pointer, then converges the engine to
+   * the new branch's tree through the same rung-2 tree-wins sweep an
+   * external checkout takes (a bare HEAD move between identical trees
+   * sweeps as a no-op via the hashed baseline).
+   */
+  const runSwitchBranch = async (
+    binding: OpenBinding,
+    branch: string,
+    dirtyAction?: SwitchDirtyAction,
+  ): Promise<SwitchBranchRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    await binding.service.hydrated;
+    const result = await switchWorkspaceBranch({
+      run: gitRun,
+      rootDir,
+      branch,
+      ...(dirtyAction !== undefined ? { dirtyAction } : {}),
+      commit: async () => {
+        const committed = await runCommit(binding);
+        if (committed.ok && committed.committed) await maybeAutoPush(binding);
+        return committed.ok ? { ok: true } : { ok: false, detail: committed.detail ?? committed.reason };
+      },
+    });
+    if (!result.ok) return result;
+    if (result.switched) {
+      // Stash/discard emptied the tree's uncommitted delta and the
+      // sweep below re-derives engine state from the new branch — the
+      // old branch's pending intents describe mutations that are no
+      // longer this branch's story.
+      binding.intents = [];
+      await syncLogBranch(binding);
+      await runSweep(binding);
+      await binding.materializer.flush();
+      logger.info(SCOPE, `switched ${rootDir} to ${branch}`);
+    }
+    return result;
+  };
+
+  /** One create-branch pass — `checkout -b` at HEAD; only HEAD moves, so no sweep is needed. */
+  const runCreateBranch = async (binding: OpenBinding, branch: string): Promise<CreateBranchRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    const created = await createAndSwitchBranch(gitRun, rootDir, branch);
+    if (!created.ok) return { ok: false, reason: 'create-failed', detail: created.detail };
+    await syncLogBranch(binding);
+    logger.info(SCOPE, `created branch ${branch} at ${rootDir}`);
+    return { ok: true, branch };
+  };
+
+  /**
+   * One branch-merge pass — always on the binding's chain. Local
+   * uncommitted work commits FIRST under its own semantic draft
+   * (exactly like pull: the merge commit stays a pure merge); the
+   * watermark is untouched — merging a local ref is not a remote sync.
+   */
+  const runMergeBranch = async (binding: OpenBinding, ref: string): Promise<MergeBranchRpcResult> => {
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    if (await heldByGitOperation(binding)) return { ok: false, reason: 'op-in-progress' };
+    await binding.service.hydrated;
+
+    const pre = await runCommit(binding);
+    if (!pre.ok) return { ok: false, reason: 'commit-failed', detail: pre.detail ?? pre.reason };
+
+    const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
+    const result = await mergeWorkspaceBranch({
+      run: gitRun,
+      rootDir,
+      ref,
+      workspaceUid: binding.record.workspaceId,
+      readSnapshot: () => buildSnapshot(binding.record.workspaceId),
+      nextCtx: () => binding.service.context.next({ surfaceId: TREE_SURFACE_ID }),
+      liveSetEntries: (entityType, id, setPath) =>
+        binding.service.oracle
+          .liveOrderedSetItems(entityType, id, setPath)
+          .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
+      apply: (batches) => applyAll(binding.service, batches),
+      flush: () => binding.materializer.flush(),
+      identityEnv: identity.env,
+      bypassHooks: binding.record.bypassHooks === true,
+    });
+    if (!result.ok) {
+      if (result.issues.length > 0) {
+        const known = new Set(binding.issues.map((issue) => issue.path));
+        binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+      }
+      return { ok: false, reason: result.reason, detail: result.detail };
+    }
+    if (result.upToDate) return { ok: true, upToDate: true };
+    const known = new Set(binding.issues.map((issue) => issue.path));
+    binding.issues = [...binding.issues, ...result.issues.filter((issue) => !known.has(issue.path))];
+    binding.intents = [];
+    logger.info(SCOPE, `merged ${ref} into ${rootDir}: ${result.sha} (${result.applied} batches)`);
+    return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
   };
 
   /**
@@ -825,11 +1042,33 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
         }),
       log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
     });
+    // External checkout trigger (Phase 6): a terminal `git checkout`
+    // moves `.git/HEAD`, which the tree watcher deliberately ignores —
+    // and a switch between identical trees moves NOTHING else. The
+    // HEAD watch re-probes the branch on the chain and runs the same
+    // rung-2 sweep an in-app switch runs; echoes of our own wrapped
+    // checkout no-op via the pointer comparison.
+    const headWatcher = new GitHeadWatcher({
+      rootDir: record.rootDir,
+      onHeadMove: () =>
+        enqueue(binding, async () => {
+          if (await syncLogBranch(binding)) {
+            binding.intents = [];
+            await runSweep(binding);
+            await binding.materializer.flush();
+            logger.info(SCOPE, `external checkout reconciled for ${record.rootDir}: ${binding.logBranch ?? 'HEAD'}`);
+          }
+          await publishGitStatus(binding);
+        }),
+      log: (level, msg, ...rest) => logger[level](SCOPE, msg, ...rest),
+    });
     binding = {
       record,
       service,
       materializer,
       watcher,
+      headWatcher,
+      logBranch: null,
       chain: Promise.resolve(),
       materializeTimer: null,
       commitTimer: null,
@@ -861,6 +1100,12 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const repo = await ensureWorkspaceRepo(gitRun, record.rootDir);
       if (!repo.ok) logger.warn(SCOPE, `repo init failed for ${record.rootDir}: ${repo.detail}`);
       else if (repo.initialized) logger.info(SCOPE, `initialized repo at ${record.rootDir}`);
+      if (repo.ok) {
+        // §6.3: point the per-branch log at HEAD's branch before any
+        // batch lands, and arm the external-checkout trigger.
+        await syncLogBranch(binding);
+        binding.headWatcher.start();
+      }
       await publishGitStatus(binding);
     });
     return binding;
@@ -869,6 +1114,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
   const closeBinding = async (binding: OpenBinding): Promise<void> => {
     binding.closed = true;
     binding.watcher.dispose();
+    binding.headWatcher.dispose();
     if (binding.materializeTimer) {
       clearTimeout(binding.materializeTimer);
       binding.materializeTimer = null;
@@ -1086,6 +1332,59 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       };
       enqueue(binding, async () => {
         result = await runResolveForcePush(binding, choice);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async switchBranch(
+      workspaceId: string,
+      branch: string,
+      dirtyAction?: SwitchDirtyAction,
+    ): Promise<SwitchBranchRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: SwitchBranchRpcResult = {
+        ok: false,
+        reason: 'checkout-failed',
+        detail: 'switch pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runSwitchBranch(binding, branch, dirtyAction);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async createBranch(workspaceId: string, branch: string): Promise<CreateBranchRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: CreateBranchRpcResult = {
+        ok: false,
+        reason: 'create-failed',
+        detail: 'create pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runCreateBranch(binding, branch);
+        await publishGitStatus(binding);
+      });
+      await binding.chain;
+      return result;
+    },
+
+    async mergeBranch(workspaceId: string, ref: string): Promise<MergeBranchRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      let result: MergeBranchRpcResult = {
+        ok: false,
+        reason: 'commit-failed',
+        detail: 'merge pass did not run',
+      };
+      enqueue(binding, async () => {
+        result = await runMergeBranch(binding, ref);
+        if (result.ok && !result.upToDate) await maybeAutoPush(binding);
         await publishGitStatus(binding);
       });
       await binding.chain;

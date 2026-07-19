@@ -498,6 +498,123 @@ export async function createRescueBranch(
   return { ok: true };
 }
 
+// ── Branches (Phase 6: G3/G4, §6) ────────────────────────────────────
+
+/**
+ * The branch HEAD points at (`symbolic-ref`, so an unborn branch still
+ * answers); null on a detached HEAD.
+ */
+export async function currentBranch(run: GitRunner, rootDir: string): Promise<string | null> {
+  const result = await run([...repoArgs(rootDir), 'symbolic-ref', '--short', '-q', 'HEAD'], { cwd: rootDir });
+  const name = result.stdout.trim();
+  return result.code === 0 && name.length > 0 ? name : null;
+}
+
+/** Local branch names, sorted — rescue/fork branches appear here naturally. */
+export async function listLocalBranches(run: GitRunner, rootDir: string): Promise<string[]> {
+  const result = await run(
+    [...repoArgs(rootDir), 'for-each-ref', '--format=%(refname:short)', '--sort=refname', 'refs/heads'],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return [];
+  return result.stdout.split('\n').filter((line) => line.trim().length > 0);
+}
+
+/** Resolve any ref (branch, remote-tracking, sha) to its commit sha; null when unknown. */
+export async function resolveRefSha(run: GitRunner, rootDir: string, ref: string): Promise<string | null> {
+  const result = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {
+    cwd: rootDir,
+  });
+  const sha = result.stdout.trim();
+  return result.code === 0 && sha.length > 0 ? sha : null;
+}
+
+export interface LeftRightCounts {
+  /** Commits `localRef` has that `foreignRef` lacks. */
+  ahead: number;
+  /** Commits `foreignRef` has that `localRef` lacks. */
+  behind: number;
+}
+
+/**
+ * Ahead/behind between two arbitrary refs — the branch-merge analogue
+ * of {@link resolveUpstream}'s upstream counts.
+ */
+export async function countLeftRight(
+  run: GitRunner,
+  rootDir: string,
+  localRef: string,
+  foreignRef: string,
+): Promise<LeftRightCounts | null> {
+  const result = await run(
+    [...repoArgs(rootDir), 'rev-list', '--left-right', '--count', `${localRef}...${foreignRef}`],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return null;
+  const match = result.stdout.trim().match(/^(\d+)\s+(\d+)$/);
+  if (!match) return null;
+  return { ahead: Number(match[1]), behind: Number(match[2]) };
+}
+
+export type BranchOpResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Create a branch at HEAD and switch to it (`checkout -b`) — the
+ * create gesture. A dirty tree rides along untouched, exactly like the
+ * terminal gesture, so no uncommitted-changes prompt is needed.
+ */
+export async function createAndSwitchBranch(run: GitRunner, rootDir: string, branch: string): Promise<BranchOpResult> {
+  const valid = await run(['check-ref-format', '--branch', branch], { cwd: rootDir });
+  if (valid.code !== 0) return { ok: false, detail: `invalid branch name: ${branch}` };
+  const result = await run([...repoArgs(rootDir), 'checkout', '-b', branch], { cwd: rootDir });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
+}
+
+/**
+ * The wrapped checkout behind the in-app switch gesture (§6.2). Plain
+ * by default — git itself refuses when uncommitted work would be
+ * clobbered (the caller's dirty prompt should have handled it);
+ * `force` is the user's explicit Discard choice.
+ */
+export async function checkoutWorkspaceBranch(
+  run: GitRunner,
+  rootDir: string,
+  branch: string,
+  options?: { force?: boolean },
+): Promise<BranchOpResult> {
+  const result = await run(
+    [...repoArgs(rootDir), 'checkout', ...(options?.force === true ? ['--force'] : []), branch],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
+}
+
+/**
+ * Stash the working tree including untracked files — the Stash choice
+ * of the §6.2 switch prompt. The entry lands on the user's ordinary
+ * stash stack, recoverable with their own `git stash pop`.
+ */
+export async function stashWorkspaceTree(run: GitRunner, rootDir: string, message: string): Promise<BranchOpResult> {
+  const result = await run([...repoArgs(rootDir), 'stash', 'push', '--include-untracked', '-m', message], {
+    cwd: rootDir,
+  });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
+}
+
+/**
+ * Remove untracked files/directories (`clean -fd`, gitignored paths —
+ * the sidecar and secrets — survive). Only ever run as the second half
+ * of the user's explicit Discard choice, after `checkout --force`.
+ */
+export async function cleanUntracked(run: GitRunner, rootDir: string): Promise<BranchOpResult> {
+  const result = await run([...repoArgs(rootDir), 'clean', '-fd'], { cwd: rootDir });
+  if (result.code !== 0) return { ok: false, detail: failureDetail(result) };
+  return { ok: true };
+}
+
 // ── Temp-index commit (§3.3 / §23.4) ─────────────────────────────────
 
 export interface CommitWorkspaceTreeOptions {

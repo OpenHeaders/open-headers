@@ -60,7 +60,13 @@ import {
   resolveUpstream,
 } from '../git';
 
-export interface PullWorkspaceTreeOptions {
+/**
+ * The dependency set shared by every pass that integrates a foreign
+ * head through the mutators — pull (Phase 4, remote upstream) and the
+ * Phase 6 in-app branch merge (§6: the same machinery pointed at a
+ * local ref, never raw `git merge`).
+ */
+export interface IntegrateForeignDeps {
   run: GitRunner;
   rootDir: string;
   /** The bound workspace's identity — a foreign tree claiming another uid is refused. */
@@ -77,6 +83,9 @@ export interface PullWorkspaceTreeOptions {
   identityEnv: Record<string, string>;
   /** The explicit `--no-verify` setting (§3.3). */
   bypassHooks: boolean;
+}
+
+export interface PullWorkspaceTreeOptions extends IntegrateForeignDeps {
   /**
    * The §16 force-push watermark — the remote sha this engine last
    * integrated. When the fetched head no longer descends from it, the
@@ -134,6 +143,113 @@ export async function writeForeignQuarantine(
   }
 }
 
+export type IntegrateForeignHeadResult =
+  | { ok: true; sha: string; applied: number; issues: TreeIssue[] }
+  | {
+      ok: false;
+      reason: 'foreign-invalid' | 'identity-mismatch' | 'commit-failed';
+      detail?: string;
+      issues: TreeIssue[];
+    };
+
+/**
+ * The shared integration core (§11.4 mechanics, ratified S6): read the
+ * foreign head's tree as a checkout snapshot, three-way classify
+ * against the merge base, converge through the mutators as virtual
+ * batches, quarantine schema-invalid documents, materialize, then
+ * record the result — a true fast-forward when the local branch has
+ * not diverged (`localAhead` 0), a TWO-PARENT temp-index commit
+ * otherwise. Pull points this at the fetched upstream head; the
+ * Phase 6 branch merge points it at a local ref (§6).
+ */
+export async function integrateForeignHead(
+  deps: IntegrateForeignDeps,
+  args: { foreignSha: string; localAhead: number; mergeMessage: string },
+): Promise<IntegrateForeignHeadResult> {
+  const { run, rootDir } = deps;
+  const { foreignSha } = args;
+
+  const foreignFiles = await readCommitTreeFiles(run, rootDir, foreignSha);
+  if (foreignFiles === null) {
+    return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${foreignSha}`, issues: [] };
+  }
+  const foreign = readWorkspaceTree(foreignFiles);
+  if (foreign.state.workspace === null) {
+    return {
+      ok: false,
+      reason: 'foreign-invalid',
+      detail: 'foreign workspace.yaml missing or unparseable',
+      issues: foreign.issues,
+    };
+  }
+  if (foreign.state.workspace.uid !== deps.workspaceUid) {
+    return { ok: false, reason: 'identity-mismatch', detail: foreign.state.workspace.uid, issues: foreign.issues };
+  }
+
+  const base = await mergeBaseOf(run, rootDir, 'HEAD', foreignSha);
+  const diff = await diffForeignPaths(run, rootDir, base, foreignSha);
+  if (diff === null) {
+    return {
+      ok: false,
+      reason: 'foreign-invalid',
+      detail: `undiffable range ${base ?? '(root)'}..${foreignSha}`,
+      issues: foreign.issues,
+    };
+  }
+
+  const snapshot = await deps.readSnapshot();
+  const batches = synthesizeWorkspaceTreeDelta({
+    prev: snapshot,
+    next: foreign.state,
+    changedPaths: diff.changed,
+    removedPaths: diff.removed,
+    deps: { nextCtx: deps.nextCtx, liveSetEntries: deps.liveSetEntries },
+  });
+  if (batches.length > 0) {
+    await deps.apply(batches);
+  }
+
+  await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
+
+  await deps.flush();
+
+  // Un-diverged local branch ⇒ plain-git pull semantics: a true
+  // fast-forward, no merge bubble (git itself would reduce the
+  // redundant parent anyway). Foreign commits keep their own
+  // authorship; any canonicalization residue the engine produced on
+  // top commits as an ordinary follow-up (no-op when byte-identical).
+  if (args.localAhead === 0) {
+    const ff = await fastForwardWorkspaceBranch(run, rootDir, foreignSha);
+    if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues: foreign.issues };
+    const residue = await commitWorkspaceTree({
+      run,
+      rootDir,
+      message: 'Normalize pulled changes',
+      identityEnv: deps.identityEnv,
+      bypassHooks: deps.bypassHooks,
+    });
+    if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
+    const sha = residue.committed ? residue.sha : foreignSha;
+    return { ok: true, sha, applied: batches.length, issues: foreign.issues };
+  }
+
+  const authors = await listForeignAuthors(run, rootDir, 'HEAD', foreignSha);
+  const trailerBlock = authors.length > 0 ? `\n\n${authors.map((a) => `Co-Authored-By: ${a}`).join('\n')}` : '';
+  const commit = await commitWorkspaceTree({
+    run,
+    rootDir,
+    message: `${args.mergeMessage}${trailerBlock}`,
+    identityEnv: deps.identityEnv,
+    bypassHooks: deps.bypassHooks,
+    mergeParent: foreignSha,
+  });
+  if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: foreign.issues };
+  if (!commit.committed)
+    return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
+
+  return { ok: true, sha: commit.sha, applied: batches.length, issues: foreign.issues };
+}
+
 export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Promise<PullWorkspaceTreeResult> {
   const { run, rootDir } = options;
 
@@ -164,90 +280,18 @@ export async function pullWorkspaceTree(options: PullWorkspaceTreeOptions): Prom
 
   if (upstream.behind === 0) return { ok: true, upToDate: true, remoteSha: upstream.sha, issues: [] };
 
-  const foreignFiles = await readCommitTreeFiles(run, rootDir, upstream.sha);
-  if (foreignFiles === null) {
-    return { ok: false, reason: 'foreign-invalid', detail: `unreadable tree for ${upstream.sha}`, issues: [] };
-  }
-  const foreign = readWorkspaceTree(foreignFiles);
-  if (foreign.state.workspace === null) {
-    return {
-      ok: false,
-      reason: 'foreign-invalid',
-      detail: 'foreign workspace.yaml missing or unparseable',
-      issues: foreign.issues,
-    };
-  }
-  if (foreign.state.workspace.uid !== options.workspaceUid) {
-    return { ok: false, reason: 'identity-mismatch', detail: foreign.state.workspace.uid, issues: foreign.issues };
-  }
-
-  const base = await mergeBaseOf(run, rootDir, 'HEAD', upstream.sha);
-  const diff = await diffForeignPaths(run, rootDir, base, upstream.sha);
-  if (diff === null) {
-    return {
-      ok: false,
-      reason: 'foreign-invalid',
-      detail: `undiffable range ${base ?? '(root)'}..${upstream.sha}`,
-      issues: foreign.issues,
-    };
-  }
-
-  const snapshot = await options.readSnapshot();
-  const batches = synthesizeWorkspaceTreeDelta({
-    prev: snapshot,
-    next: foreign.state,
-    changedPaths: diff.changed,
-    removedPaths: diff.removed,
-    deps: { nextCtx: options.nextCtx, liveSetEntries: options.liveSetEntries },
+  const integrated = await integrateForeignHead(options, {
+    foreignSha: upstream.sha,
+    localAhead: upstream.ahead,
+    mergeMessage: `Merge ${upstream.upstream}`,
   });
-  if (batches.length > 0) {
-    await options.apply(batches);
-  }
-
-  await writeForeignQuarantine(rootDir, foreignFiles, foreign.issues, diff.changed);
-
-  await options.flush();
-
-  // Un-diverged local branch ⇒ plain-git pull semantics: a true
-  // fast-forward, no merge bubble (git itself would reduce the
-  // redundant parent anyway). Foreign commits keep their own
-  // authorship; any canonicalization residue the engine produced on
-  // top commits as an ordinary follow-up (no-op when byte-identical).
-  if (upstream.ahead === 0) {
-    const ff = await fastForwardWorkspaceBranch(run, rootDir, upstream.sha);
-    if (!ff.ok) return { ok: false, reason: 'commit-failed', detail: ff.detail, issues: foreign.issues };
-    const residue = await commitWorkspaceTree({
-      run,
-      rootDir,
-      message: 'Normalize pulled changes',
-      identityEnv: options.identityEnv,
-      bypassHooks: options.bypassHooks,
-    });
-    if (!residue.ok) return { ok: false, reason: 'commit-failed', detail: residue.detail, issues: foreign.issues };
-    const sha = residue.committed ? residue.sha : upstream.sha;
-    return { ok: true, upToDate: false, sha, remoteSha: upstream.sha, applied: batches.length, issues: foreign.issues };
-  }
-
-  const authors = await listForeignAuthors(run, rootDir, 'HEAD', upstream.sha);
-  const trailerBlock = authors.length > 0 ? `\n\n${authors.map((a) => `Co-Authored-By: ${a}`).join('\n')}` : '';
-  const commit = await commitWorkspaceTree({
-    run,
-    rootDir,
-    message: `Merge ${upstream.upstream}${trailerBlock}`,
-    identityEnv: options.identityEnv,
-    bypassHooks: options.bypassHooks,
-    mergeParent: upstream.sha,
-  });
-  if (!commit.ok) return { ok: false, reason: 'commit-failed', detail: commit.detail, issues: foreign.issues };
-  if (!commit.committed)
-    return { ok: false, reason: 'commit-failed', detail: 'merge commit did not land', issues: foreign.issues };
-
+  if (!integrated.ok) return integrated;
   return {
     ok: true,
     upToDate: false,
-    sha: commit.sha,
+    sha: integrated.sha,
     remoteSha: upstream.sha,
-    applied: batches.length,
-    issues: foreign.issues,
+    applied: integrated.applied,
+    issues: integrated.issues,
   };
 }

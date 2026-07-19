@@ -18,7 +18,7 @@
  * `renouveler` / `renouvellement` family.
  */
 
-import { plural } from '../../runtime';
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
@@ -641,6 +641,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.dirtyCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} modification non commitée',
+      many: '{count} modifications non commitées',
       other: '{count} modifications non commitées',
     }),
   'workbench.settings.gitPane.git.clean': 'Arbre de travail propre',
@@ -680,6 +681,38 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.exportBranchButton': 'Pousser comme nouvelle branche',
   'workbench.settings.gitPane.git.exportedBranch': 'Branche {branch} poussée.',
   'workbench.settings.gitPane.git.autoPushLabel': 'Pousser après chaque commit',
+  'workbench.settings.gitPane.git.branch.title': 'Branches',
+  'workbench.settings.gitPane.git.branch.current': 'Sur la branche {branch}',
+  'workbench.settings.gitPane.git.branch.detached': 'HEAD détaché — créez une branche pour conserver cet historique.',
+  'workbench.settings.gitPane.git.branch.switchLabel': 'Basculer vers',
+  'workbench.settings.gitPane.git.branch.switched': 'Basculé vers {branch}.',
+  'workbench.settings.gitPane.git.branch.switchFailed': 'Échec du basculement : {detail}',
+  'workbench.settings.gitPane.git.branch.dirtyTitle': 'Vous avez des modifications non commitées',
+  'workbench.settings.gitPane.git.branch.dirtyBody': ({ count, branch }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Commitez, remisez ou abandonnez {count} modification non commitée avant de basculer vers {branch}.',
+        many: 'Commitez, remisez ou abandonnez {count} modifications non commitées avant de basculer vers {branch}.',
+        other: 'Commitez, remisez ou abandonnez {count} modifications non commitées avant de basculer vers {branch}.',
+      }),
+      { branch: String(branch) },
+    ),
+  'workbench.settings.gitPane.git.branch.dirtyCommit': 'Commiter puis basculer',
+  'workbench.settings.gitPane.git.branch.dirtyStash': 'Remiser puis basculer',
+  'workbench.settings.gitPane.git.branch.dirtyDiscard': 'Abandonner les modifications',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.title': 'Abandonner les modifications non commitées ?',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.body':
+    'Toutes les modifications non commitées sont supprimées, y compris les nouveaux fichiers. Cette action est irréversible.',
+  'workbench.settings.gitPane.git.branch.dirtyDiscardConfirm.ok': 'Abandonner',
+  'workbench.settings.gitPane.git.branch.createPlaceholder': 'nom-de-branche',
+  'workbench.settings.gitPane.git.branch.createButton': 'Créer et basculer',
+  'workbench.settings.gitPane.git.branch.created': 'Branche {branch} créée.',
+  'workbench.settings.gitPane.git.branch.createFailed': 'Impossible de créer la branche : {detail}',
+  'workbench.settings.gitPane.git.branch.mergeLabel': 'Fusionner dans la branche courante',
+  'workbench.settings.gitPane.git.branch.mergeButton': 'Fusionner',
+  'workbench.settings.gitPane.git.branch.merged': 'Fusion {sha} effectuée.',
+  'workbench.settings.gitPane.git.branch.mergeUpToDate': 'Déjà à jour.',
+  'workbench.settings.gitPane.git.branch.mergeFailed': 'Échec de la fusion : {detail}',
   'workbench.settings.gitPane.git.forcePush.title': 'L’historique distant a été réécrit',
   'workbench.settings.gitPane.git.forcePush.body':
     'La branche distante ne contient plus l’historique synchronisé la dernière fois ({sha}). Choisissez comment procéder — rien ne change tant que vous n’avez pas décidé.',

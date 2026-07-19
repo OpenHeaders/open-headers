@@ -390,6 +390,37 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeForcePushResolveWire;
   };
   /**
+   * In-app branch switch (GIT_PLAN.md §6; DATA_PLANE_TOPOLOGIES.md
+   * §6.2): a wrapped `git checkout` carrying the uncommitted-changes
+   * answer — `commit` lands the engine commit first, `stash` pushes
+   * onto the user's own stash stack, `discard` force-checks-out and
+   * cleans (danger-confirmed in the card). A dirty tree with no
+   * `dirtyAction` refuses with the count so the surface raises the
+   * prompt. The engine converges to the new branch's tree through the
+   * same rung-2 sweep an external terminal checkout takes.
+   */
+  'oh.workspaceTree.switchBranch': {
+    req: { workspaceId: string; branch: string; dirtyAction?: 'commit' | 'stash' | 'discard' };
+    res: WorkspaceTreeSwitchBranchWire;
+  };
+  /** Create a branch at HEAD and switch to it (`checkout -b` — dirty work rides along). */
+  'oh.workspaceTree.createBranch': {
+    req: { workspaceId: string; branch: string };
+    res: WorkspaceTreeCreateBranchWire;
+  };
+  /**
+   * In-app branch merge (§6): the Phase 4 pull machinery pointed at a
+   * local or remote-tracking ref — raw `git merge` is never invoked,
+   * so the no-`<<<<<<<` guarantee holds. Local uncommitted work
+   * commits first; an un-diverged branch fast-forwards, genuine
+   * divergence records a two-parent commit with `Co-Authored-By:`
+   * trailers.
+   */
+  'oh.workspaceTree.mergeBranch': {
+    req: { workspaceId: string; ref: string };
+    res: WorkspaceTreeMergeBranchWire;
+  };
+  /**
    * Focus left the app (every window blurred) — the `on-blur` cadence
    * trigger. Fired by the host shell (desktop main observes its own
    * windows); bindings on other cadences ignore it.
@@ -476,6 +507,48 @@ export type WorkspaceTreeForcePushResolveWire =
       detail?: string;
     };
 
+export type WorkspaceTreeSwitchBranchWire =
+  | { ok: true; branch: string; switched: boolean }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'unknown-branch'
+        | 'dirty'
+        | 'commit-failed'
+        | 'stash-failed'
+        | 'checkout-failed';
+      detail?: string;
+      /** Porcelain count when `reason` is `dirty` — the §6.2 prompt's feed. */
+      dirtyFiles?: number;
+    };
+
+export type WorkspaceTreeCreateBranchWire =
+  | { ok: true; branch: string }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'create-failed'; detail?: string };
+
+export type WorkspaceTreeMergeBranchWire =
+  | { ok: true; upToDate: true }
+  | { ok: true; upToDate: false; sha: string; applied: number }
+  | {
+      ok: false;
+      reason:
+        | 'not-bound'
+        | 'git-unavailable'
+        | 'not-a-repo'
+        | 'op-in-progress'
+        | 'unknown-ref'
+        | 'self-merge'
+        | 'detached-head'
+        | 'foreign-invalid'
+        | 'identity-mismatch'
+        | 'commit-failed';
+      detail?: string;
+    };
+
 /** A detected remote history rewrite (§16) — the trichotomy dialog's feed. */
 export interface WorkspaceTreeForcePushStateWire {
   /** The rewritten remote head. */
@@ -488,6 +561,10 @@ export interface WorkspaceTreeGitStatusWire {
   bound: boolean;
   git: { available: true; version: string } | { available: false; reason: 'missing' | 'below-floor'; version?: string };
   repo: boolean;
+  /** The checked-out branch (§6 — one active branch per binding); null when detached/unavailable. */
+  branch: string | null;
+  /** Local branch names — rescue/fork branches appear here naturally. */
+  branches: string[];
   /** `git status --porcelain` entry count — never an app ledger (§3.3); null when unreadable. */
   dirtyFiles: number | null;
   userIndexBusy: boolean;

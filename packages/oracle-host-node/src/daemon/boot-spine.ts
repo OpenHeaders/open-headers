@@ -585,15 +585,18 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // "3 uncommitted · 2 ahead / 4 behind" (§3.2's pill vocabulary).
     // Dirty and divergence are both normal working state, never a
     // warning; the slot drops entirely on a clean, in-sync tree.
+    // Phase 6 (§3.5): the slot mirrors the host's branch name so a
+    // client of this host can always see which branch it is live on.
     const parts: string[] = [];
     if (dirty > 0) parts.push(dirty === 1 ? '1 uncommitted change' : `${dirty} uncommitted changes`);
     if (ahead > 0 && behind > 0) parts.push(`${ahead} ahead / ${behind} behind`);
     else if (ahead > 0) parts.push(`${ahead} ahead`);
     else if (behind > 0) parts.push(`${behind} behind`);
     if (parts.length > 0) {
+      const branch = gitStatus.bound && gitStatus.repo ? gitStatus.branch : null;
       reportGitSyncStatus(workspaceId, {
         state: 'green',
-        message: parts.join(' · '),
+        message: branch !== null ? `${branch}: ${parts.join(' · ')}` : parts.join(' · '),
         context: { reason: 'git-dirty', workspaceId, dirtyFiles: dirty, ahead, behind },
       });
     } else {
@@ -1040,6 +1043,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           bound: false,
           git: { available: false, reason: 'missing' },
           repo: false,
+          branch: null,
+          branches: [],
           dirtyFiles: null,
           userIndexBusy: false,
           suggestedMessage: '',
@@ -1102,6 +1107,33 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
       if (!workspaceId || workspaceTreeRuntime === null) return { ok: false };
       return await workspaceTreeRuntime.setBypassHooks(workspaceId, message.bypassHooks === true);
+    }
+    // Phase 6 branches (§6): switch/create/merge gestures. The local
+    // caller is the operator by construction (same posture as commit/
+    // push above) — on a shared daemon that IS the §6 admin gating;
+    // non-operator clients never reach this dispatcher.
+    if (type === 'oh.workspaceTree.switchBranch') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+      const dirtyAction = message.dirtyAction;
+      if (!workspaceId || !branch || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      return await workspaceTreeRuntime.switchBranch(
+        workspaceId,
+        branch,
+        dirtyAction === 'commit' || dirtyAction === 'stash' || dirtyAction === 'discard' ? dirtyAction : undefined,
+      );
+    }
+    if (type === 'oh.workspaceTree.createBranch') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+      if (!workspaceId || !branch || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      return await workspaceTreeRuntime.createBranch(workspaceId, branch);
+    }
+    if (type === 'oh.workspaceTree.mergeBranch') {
+      const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+      const ref = typeof message.ref === 'string' ? message.ref.trim() : '';
+      if (!workspaceId || !ref || workspaceTreeRuntime === null) return { ok: false, reason: 'not-bound' };
+      return await workspaceTreeRuntime.mergeBranch(workspaceId, ref);
     }
     if (type === 'oh.workspaceTree.appBlur') {
       workspaceTreeRuntime?.notifyAppBlur();
