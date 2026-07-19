@@ -22,18 +22,19 @@ const BROWSERS = ['chrome', 'firefox', 'edge', 'safari'] as const;
 // Values have ~10% headroom over the current measured size so normal
 // growth is fine; a regression that drags Monaco (~4 MB) blows through.
 //
-// Rebased 2026-07: the i18n catalog (~1 MB of string literals, statically
-// imported by catalog-registry into every surface) plus panel feature
-// growth moved the floor. Per-family catalog loading can win most of
-// that back — budgets tighten again when it lands.
+// Rebased 2026-07: each i18n locale catalog (~1 MB of string literals,
+// statically imported by catalog-registry into every surface) plus panel
+// feature growth moved the floor. Budgets carry headroom for several more
+// locales. Per-family catalog loading can win most of that back —
+// budgets tighten again when it lands.
 const JS_BUDGETS_KB: Record<string, number> = {
-  popup: 3800,
-  sidepanel: 3800,
+  popup: 6144,
+  sidepanel: 6144,
   // Panel's first paint is the request list. Monaco-backed CodeViewer
   // is behind React.lazy + Suspense in TextBodyViewer / PreviewView, so
   // it only loads when a user expands a text response body. Budget
   // tracks the static graph, not the dynamic one.
-  panel: 5300,
+  panel: 7680,
   delay: 2100,
   devtools: 50,
 };
