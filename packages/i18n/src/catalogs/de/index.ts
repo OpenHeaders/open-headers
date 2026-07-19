@@ -37,6 +37,7 @@ import { tui } from './tui';
 import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
+import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 
 export const de = {
   ...desktop,
@@ -69,4 +70,5 @@ export const de = {
   ...web,
   ...workbench,
   ...workbenchChrome,
+  ...workbenchChromeSidebar,
 } as const satisfies Catalog;
