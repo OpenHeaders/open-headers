@@ -702,7 +702,8 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.localFirstHeading': 'Local primero, por diseño',
   'workbench.docs.body.paradigm.localFirst1Prefix':
     '«Local primero» es una postura, no una funcionalidad. La extensión no tiene sistema de cuentas, ni ' +
-    'relé en la nube, ni endpoint de telemetría, ni llamadas a casa en segundo plano — y tienes una ' +
+    'relé en la nube, ni rastreo — el único dato de uso es un conteo anónimo de funcionalidades, ' +
+    'inspeccionable byte a byte y desactivable con un interruptor — y tienes una ' +
     'elección real sobre',
   'workbench.docs.body.paradigm.localFirstWhere': 'dónde',
   'workbench.docs.body.paradigm.localFirst1Suffix':

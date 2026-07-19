@@ -600,7 +600,7 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
         WHATEVER YOU PICK — YOU OWN IT, END-TO-END
       </text>
       <text x={W / 2} y={STRIP_Y + 36} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        ✓ no account · ✓ no cloud relay · ✓ no telemetry · ✓ no phone-home
+        ✓ no account · ✓ no cloud relay · ✓ no tracking · ✓ no personal data
       </text>
 
       <text x={W / 2} y={FOOTER_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={STROKE_BLUE}>

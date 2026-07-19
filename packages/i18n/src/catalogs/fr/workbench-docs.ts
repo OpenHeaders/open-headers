@@ -713,7 +713,8 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.localFirstHeading': "Local d'abord, par conception",
   'workbench.docs.body.paradigm.localFirst1Prefix':
     "« Local d'abord » est une posture, pas une fonctionnalité. L'extension n'a ni système de compte, ni " +
-    'relais cloud, ni point de télémétrie, ni rappel en arrière-plan — et vous avez un vrai choix sur',
+    "relais cloud, ni traçage — la seule donnée d'usage est un comptage de fonctionnalités anonyme, " +
+    'inspectable octet par octet et désactivable en un geste — et vous avez un vrai choix sur',
   'workbench.docs.body.paradigm.localFirstWhere': 'où',
   'workbench.docs.body.paradigm.localFirst1Suffix':
     "vit le back-end. Quatre options d'hébergement, toutes locales uniquement, toutes sous votre " +

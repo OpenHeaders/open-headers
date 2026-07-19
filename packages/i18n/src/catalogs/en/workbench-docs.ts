@@ -624,8 +624,9 @@ export const workbenchDocs = {
     'extension.',
   'workbench.docs.body.paradigm.localFirstHeading': 'Local-first by design',
   'workbench.docs.body.paradigm.localFirst1Prefix':
-    '"Local-first" is a posture, not a feature. The extension has no account system, no cloud relay, no telemetry ' +
-    'endpoint, no background phone-home — and you have a real choice in',
+    '"Local-first" is a posture, not a feature. The extension has no account system, no cloud relay, no tracking — ' +
+    'the only usage data is anonymous feature counting, inspectable byte-for-byte and off with one switch — and ' +
+    'you have a real choice in',
   'workbench.docs.body.paradigm.localFirstWhere': 'where',
   'workbench.docs.body.paradigm.localFirst1Suffix':
     'the back-end lives. Four hosting options, all local-only, all under your control: the in-browser service ' +
