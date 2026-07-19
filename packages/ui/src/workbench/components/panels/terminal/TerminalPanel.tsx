@@ -230,6 +230,21 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   const dockFocused = useIsDockFocused(dockSlot);
   const openSettings = useOpenSettings();
 
+  // The + chevron's profile list. A picked profile pins the tab to it
+  // (and names the tab after it); the plain + stays profile-less — the
+  // default profile is resolved at spawn time, never at creation, so
+  // changing the default re-targets existing "Local" tabs' next spawn.
+  const profilesValue = useSettingValue('terminal.profiles');
+  const newWithProfile = useCallback(
+    (profileId: string) => {
+      if (!tabsApi) return;
+      const profile = profilesValue.profiles.find((candidate) => candidate.id === profileId);
+      if (!profile) return;
+      tabsApi.createTab({ profileId, title: profile.name });
+    },
+    [tabsApi, profilesValue],
+  );
+
   // Open TUI gate: `oh tui` needs the CLI provisioned (a token in
   // `cli.json`), so probe status first and, when it isn't, offer the
   // one-click connect INSTEAD of typing a command destined to fail
@@ -318,6 +333,8 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       }}
       onRename={(id, title) => tabsApi.renameTab(id, title)}
       onNew={() => tabsApi.createTab()}
+      profiles={profilesValue.profiles}
+      onNewWithProfile={newWithProfile}
       onOpenTui={openTui}
       recentlyClosed={tabsApi.recentlyClosed()}
       onReopenClosed={(index) => tabsApi.reopenClosed(index)}

@@ -6,7 +6,7 @@
  * design, so each test re-imports it fresh via vi.resetModules().
  */
 
-import type { TerminalSession } from '@openheaders/core/capabilities';
+import type { TerminalSession, TerminalSpawnOptions } from '@openheaders/core/capabilities';
 import type { HostStorage, StorageKey } from '@openheaders/core/storage';
 import type { getWorkbenchTerminalTabs as GetTabs } from '@openheaders/ui/workbench/components/panels/terminal/terminal-instance';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -66,9 +66,11 @@ function makeFakeSession(id: string): FakeSession {
 describe('terminal tab registry', () => {
   let getTabs: typeof GetTabs;
   let spawned: FakeSession[];
+  let spawnOptions: TerminalSpawnOptions[];
   let unregister: () => void;
   let storageData: Map<string, unknown>;
   let storage: typeof import('@openheaders/core/storage');
+  let settings: typeof import('@openheaders/ui/workbench/settings');
 
   beforeEach(async () => {
     vi.resetModules();
@@ -79,10 +81,15 @@ describe('terminal tab registry', () => {
     storage = await import('@openheaders/core/storage');
     storageData = new Map();
     storage.setHostStorage(makeFakeStorage(storageData));
+    // Same module instance as terminal-instance's spawn-time profile
+    // resolution — uninitialized, registered defaults answer reads.
+    settings = await import('@openheaders/ui/workbench/settings');
     spawned = [];
+    spawnOptions = [];
     let sessionSeq = 1;
     capabilities.registerCapability('terminal', () => ({
-      spawn: async () => {
+      spawn: async (options) => {
+        spawnOptions.push(options);
         const session = makeFakeSession(`pty-${sessionSeq++}`);
         spawned.push(session);
         return session;
@@ -403,6 +410,92 @@ describe('terminal tab registry', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     broadcastHandlers.get('windowHiddenToTray')?.({});
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('spawns with a pinned profile resolved at spawn time, host defaults once deleted', async () => {
+    settings.setSettingValue('terminal.profiles', {
+      profiles: [{ id: 'p1', name: 'fish', shell: '/usr/local/bin/fish', args: ['-l'], cwd: '/Users/dev/openheaders' }],
+      defaultProfileId: null,
+    });
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const id = tabs.createTab({ profileId: 'p1', title: 'fish' });
+    const tab = tabs.getTab(id);
+    if (!tab) throw new Error('tab handle missing');
+    await tab.ensureSession();
+    expect(spawnOptions[0].profile).toEqual({
+      shell: '/usr/local/bin/fish',
+      args: ['-l'],
+      cwd: '/Users/dev/openheaders',
+    });
+    // Deleting the profile falls the tab through to the host's own
+    // shell resolution on its next spawn — no stale copy on the tab.
+    settings.setSettingValue('terminal.profiles', { profiles: [], defaultProfileId: null });
+    for (const listener of spawned[0].exitListeners) listener(0);
+    await tab.ensureSession();
+    expect(spawnOptions[1].profile).toBeUndefined();
+  });
+
+  it('resolves the default profile for plain tabs at spawn time', async () => {
+    settings.setSettingValue('terminal.profiles', {
+      profiles: [{ id: 'p1', name: 'zsh login', shell: '/bin/zsh', args: [] }],
+      defaultProfileId: 'p1',
+    });
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const id = tabs.createTab();
+    const tab = tabs.getTab(id);
+    if (!tab) throw new Error('tab handle missing');
+    await tab.ensureSession();
+    expect(spawnOptions[0].profile).toEqual({ shell: '/bin/zsh', args: [] });
+    // Re-pointing the default re-targets the same tab's next spawn.
+    settings.setSettingValue('terminal.profiles', {
+      profiles: [{ id: 'p1', name: 'zsh login', shell: '/bin/zsh', args: [] }],
+      defaultProfileId: null,
+    });
+    for (const listener of spawned[0].exitListeners) listener(0);
+    await tab.ensureSession();
+    expect(spawnOptions[1].profile).toBeUndefined();
+  });
+
+  it('persists profileId with the tab identity, through the closed ring, and across restore', async () => {
+    settings.setSettingValue('terminal.profiles', {
+      profiles: [{ id: 'p1', name: 'fish', shell: '/usr/local/bin/fish', args: [] }],
+      defaultProfileId: null,
+    });
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    const id = tabs.createTab({ profileId: 'p1', title: 'fish' });
+    let stored = storageData.get(storage.UI.terminalTabs.key) as { tabs: Array<Record<string, unknown>> };
+    expect(stored.tabs).toEqual([{ titleIndex: 0, title: 'fish', profileId: 'p1' }]);
+    tabs.closeTab(id);
+    expect(tabs.recentlyClosed()).toEqual([{ titleIndex: 0, title: 'fish', profileId: 'p1' }]);
+    tabs.reopenClosed(0);
+    stored = storageData.get(storage.UI.terminalTabs.key) as typeof stored;
+    expect(stored.tabs).toEqual([{ titleIndex: 0, title: 'fish', profileId: 'p1' }]);
+    const reopened = tabs.getTab(tabs.list()[0].id);
+    if (!reopened) throw new Error('tab handle missing');
+    await reopened.ensureSession();
+    expect(spawnOptions[0].profile).toEqual({ shell: '/usr/local/bin/fish', args: [] });
+  });
+
+  it('hydrates persisted profileId and spawns with it', async () => {
+    settings.setSettingValue('terminal.profiles', {
+      profiles: [{ id: 'p1', name: 'fish', shell: '/usr/local/bin/fish', args: [] }],
+      defaultProfileId: null,
+    });
+    await storage.hostStorage.set(storage.UI.terminalTabs, {
+      tabs: [{ titleIndex: 0, title: 'fish', profileId: 'p1' }],
+      activeIndex: 0,
+    });
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    await tabs.whenReady();
+    const tab = tabs.getTab(tabs.list()[0].id);
+    if (!tab) throw new Error('tab handle missing');
+    await tab.ensureSession();
+    expect(spawnOptions[0].profile).toEqual({ shell: '/usr/local/bin/fish', args: [] });
   });
 
   it('applies the theme to existing and future tabs', () => {

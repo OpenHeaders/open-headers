@@ -137,6 +137,10 @@ export interface PersistedTerminalTab {
   titleIndex: number;
   title?: string;
   runCommand?: string;
+  /** Terminal profile this tab spawns with — resolved against the
+   *  profiles setting at spawn time, so an edited profile applies on
+   *  the next spawn and a deleted one falls back to the default. */
+  profileId?: string;
 }
 
 export interface PersistedTerminalTabs {

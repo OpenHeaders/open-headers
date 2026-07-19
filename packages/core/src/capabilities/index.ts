@@ -8,6 +8,7 @@ export type {
   TerminalHostApi,
   TerminalSession,
   TerminalSpawnOptions,
+  TerminalSpawnProfile,
 } from './registry';
 export {
   getCapability,

@@ -23,11 +23,12 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { getCapability, type TerminalSession } from '@openheaders/core/capabilities';
+import { getCapability, type TerminalSession, type TerminalSpawnProfile } from '@openheaders/core/capabilities';
 import { hostStorage, type PersistedTerminalTab, UI } from '@openheaders/core/storage';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { type ITheme, Terminal } from '@xterm/xterm';
+import type { TerminalProfilesValue } from '../../../settings/schema/terminal';
 import { get as getSetting } from '../../../settings/store';
 
 export interface WorkbenchTerminal {
@@ -66,6 +67,9 @@ export interface TerminalTabOptions {
   readonly runCommand?: string;
   /** Explicit tab label instead of the numbered default. */
   readonly title?: string;
+  /** Terminal profile this tab spawns with. Absent = the default
+   *  profile at spawn time (which may be the system shell). */
+  readonly profileId?: string;
 }
 
 /** Identity of a closed tab, reopenable from the tab-search dropdown.
@@ -110,6 +114,7 @@ interface TabState {
    *  across-app-restarts persistence (pendingCommand clears on spawn). */
   runCommand: string | null;
   pendingCommand: string | null;
+  profileId: string | null;
   term: Terminal;
   fit: FitAddon;
   session: TerminalSession | null;
@@ -199,6 +204,7 @@ function persistTabs(state: RegistryState): void {
     titleIndex: tab.titleIndex,
     ...(tab.title !== undefined ? { title: tab.title } : {}),
     ...(tab.runCommand !== null ? { runCommand: tab.runCommand } : {}),
+    ...(tab.profileId !== null ? { profileId: tab.profileId } : {}),
   }));
   const activeIndex = Math.max(
     0,
@@ -227,6 +233,7 @@ async function hydrate(state: RegistryState): Promise<void> {
         titleIndex: persisted.titleIndex,
         title: typeof persisted.title === 'string' ? persisted.title : undefined,
         runCommand: typeof persisted.runCommand === 'string' ? persisted.runCommand : null,
+        profileId: typeof persisted.profileId === 'string' ? persisted.profileId : null,
       });
     }
     if (state.tabs.length === 0) return;
@@ -244,6 +251,31 @@ function notifyExitChange(tab: TabState): void {
   for (const listener of tab.exitListeners) listener();
 }
 
+/**
+ * The spawn override for a tab, derived from the profiles setting at
+ * spawn time — never cached on the tab, so an edited profile applies
+ * to the next spawn and a deleted one (or a plain tab with no default
+ * set) falls through to the host's own shell resolution.
+ */
+function resolveSpawnProfile(profileId: string | null): TerminalSpawnProfile | undefined {
+  let value: TerminalProfilesValue;
+  try {
+    value = getSetting('terminal.profiles');
+  } catch {
+    // Store not initialized (unit envs) — host default resolution.
+    return undefined;
+  }
+  const id = profileId ?? value.defaultProfileId;
+  if (id === null) return undefined;
+  const profile = value.profiles.find((candidate) => candidate.id === id);
+  if (!profile) return undefined;
+  return {
+    shell: profile.shell,
+    args: profile.args,
+    ...(profile.cwd !== undefined ? { cwd: profile.cwd } : {}),
+  };
+}
+
 async function ensureSession(tab: TabState): Promise<void> {
   if (tab.session || tab.spawning) return;
   const host = getCapability('terminal');
@@ -253,7 +285,12 @@ async function ensureSession(tab: TabState): Promise<void> {
     // A relaunch after exit starts from a clean screen — stale output
     // from the dead shell reads as live state otherwise.
     if (tab.everSpawned) tab.term.reset();
-    const session = await host().spawn({ cols: tab.term.cols, rows: tab.term.rows });
+    const profile = resolveSpawnProfile(tab.profileId);
+    const session = await host().spawn({
+      cols: tab.term.cols,
+      rows: tab.term.rows,
+      ...(profile !== undefined ? { profile } : {}),
+    });
     tab.everSpawned = true;
     tab.session = session;
     tab.exited = false;
@@ -337,6 +374,7 @@ interface TabInit {
   titleIndex: number;
   title: string | undefined;
   runCommand: string | null;
+  profileId: string | null;
 }
 
 function buildTab(state: RegistryState, init: TabInit): TabState {
@@ -356,6 +394,7 @@ function buildTab(state: RegistryState, init: TabInit): TabState {
     title: init.title,
     runCommand: init.runCommand,
     pendingCommand: init.runCommand,
+    profileId: init.profileId,
     term,
     fit,
     session: null,
@@ -401,6 +440,7 @@ function createTab(state: RegistryState, options?: TerminalTabOptions): string {
     titleIndex: options?.title !== undefined ? 0 : lowestFreeTitleIndex(state),
     title: options?.title,
     runCommand: options?.runCommand ?? null,
+    profileId: options?.profileId ?? null,
   });
   state.activeId = tab.id;
   notifyTabsChange(state);
@@ -417,6 +457,7 @@ function closeTab(state: RegistryState, id: string): void {
     titleIndex: tab.titleIndex,
     ...(tab.title !== undefined ? { title: tab.title } : {}),
     ...(tab.runCommand !== null ? { runCommand: tab.runCommand } : {}),
+    ...(tab.profileId !== null ? { profileId: tab.profileId } : {}),
   });
   if (state.closed.length > CLOSED_TAB_CAP) state.closed.length = CLOSED_TAB_CAP;
   for (const cleanup of tab.sessionCleanups) cleanup();
@@ -505,10 +546,10 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
         const closed = state.closed[index];
         if (!closed) return;
         state.closed.splice(index, 1);
-        createTab(
-          state,
-          closed.title !== undefined ? { title: closed.title, runCommand: closed.runCommand } : undefined,
-        );
+        createTab(state, {
+          ...(closed.title !== undefined ? { title: closed.title, runCommand: closed.runCommand } : {}),
+          ...(closed.profileId !== undefined ? { profileId: closed.profileId } : {}),
+        });
       },
     },
   };

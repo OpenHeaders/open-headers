@@ -58,7 +58,19 @@ registerCapability('getWhatsNew', () => {
 // their dock registry. The preload wire is a single global data/exit
 // stream; this adapter narrows it to per-session handles.
 async function spawnTerminalSession(options: TerminalSpawnOptions): Promise<TerminalSession> {
-  const result = await window.oh.terminal.spawn({ cols: options.cols, rows: options.rows });
+  const result = await window.oh.terminal.spawn({
+    cols: options.cols,
+    rows: options.rows,
+    ...(options.profile !== undefined
+      ? {
+          profile: {
+            shell: options.profile.shell,
+            args: [...options.profile.args],
+            ...(options.profile.cwd !== undefined ? { cwd: options.profile.cwd } : {}),
+          },
+        }
+      : {}),
+  });
   if (!result.ok) throw new Error(result.error);
   const id = result.id;
   let disposed = false;

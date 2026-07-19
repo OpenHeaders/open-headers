@@ -20,7 +20,11 @@ const TERMINAL_CHANNEL = {
 export type TerminalSpawnResult = { ok: true; id: string } | { ok: false; error: string };
 
 export const terminal = {
-  spawn(req: { cols: number; rows: number }): Promise<TerminalSpawnResult> {
+  spawn(req: {
+    cols: number;
+    rows: number;
+    profile?: { shell: string; args: string[]; cwd?: string };
+  }): Promise<TerminalSpawnResult> {
     return ipcRenderer.invoke(TERMINAL_CHANNEL.spawn, req) as Promise<TerminalSpawnResult>;
   },
   write(req: { id: string; data: string }): void {

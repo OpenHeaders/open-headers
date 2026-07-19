@@ -93,9 +93,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.showEmptyStateHints.label': "Afficher les conseils d'état vide",
   'workbench.settings.def.general.showEmptyStateHints.description':
     "Affiche des indications et des conseils dans les panneaux vides et les zones d'accueil.",
+  'workbench.settings.def.terminal.profiles.label': 'Profils',
+  'workbench.settings.def.terminal.profiles.description':
+    "Shells avec lesquels le terminal peut ouvrir un onglet. Les nouveaux onglets utilisent le profil par défaut ; la flèche à côté du + dans la barre d'onglets choisit un profil précis.",
   'workbench.settings.def.terminal.confirmCloseRunningProcess.label': "Confirmer la fermeture d'un processus en cours",
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
-    "Demander avant de fermer un onglet de terminal dont le shell exécute encore un processus. Les shells " +
+    'Demander avant de fermer un onglet de terminal dont le shell exécute encore un processus. Les shells ' +
     'inactifs se ferment toujours sans confirmation.',
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restaurer les onglets au démarrage',
   'workbench.settings.def.general.restoreTabsOnStartup.description':

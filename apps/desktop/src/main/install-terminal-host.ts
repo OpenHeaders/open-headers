@@ -10,9 +10,12 @@
  * Wire protocol (all session traffic scoped by `(webContents.id, id)`
  * so one renderer can't address another's ptys):
  *
- *   - `oh:terminal:spawn`  (invoke) — `{ cols, rows }` → `{ ok, id }`.
- *     Spawns the user's shell (login mode on POSIX so PATH matches a
- *     real terminal on GUI-launched apps) with cwd at the home dir.
+ *   - `oh:terminal:spawn`  (invoke) — `{ cols, rows, profile? }` →
+ *     `{ ok, id }`. Spawns the user's shell (login mode on POSIX so
+ *     PATH matches a real terminal on GUI-launched apps) with cwd at
+ *     the home dir; a `profile` (`{ shell, args, cwd? }` — a terminal
+ *     profile) overrides the command line, with cwd falling back to
+ *     the home dir when absent or not a directory.
  *   - `oh:terminal:write`  (send)   — `{ id, data }` keystrokes → pty.
  *   - `oh:terminal:resize` (send)   — `{ id, cols, rows }` → SIGWINCH.
  *   - `oh:terminal:has-children` (invoke) — `{ id }` → boolean; true
@@ -27,6 +30,7 @@
  */
 
 import { execFile } from 'node:child_process';
+import { statSync } from 'node:fs';
 import os from 'node:os';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { app, ipcMain, webContents as webContentsApi } from 'electron';
@@ -75,12 +79,44 @@ function shellHasChildren(pid: number): Promise<boolean> {
   });
 }
 
-function resolveShell(): { file: string; args: string[] } {
+interface SpawnCommand {
+  file: string;
+  args: string[];
+  cwd?: string;
+}
+
+function resolveShell(): SpawnCommand {
   if (process.platform === 'win32') {
     return { file: process.env.ComSpec ?? 'cmd.exe', args: [] };
   }
   const file = process.env.SHELL ?? (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
   return { file, args: ['-l'] };
+}
+
+/** Narrow an untrusted wire payload to a usable profile override —
+ *  anything malformed reads as "no override" rather than an error, so
+ *  a stale renderer can never wedge the spawn path. */
+function parseProfile(raw: unknown): SpawnCommand | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const { shell, args, cwd } = raw as { shell?: unknown; args?: unknown; cwd?: unknown };
+  if (typeof shell !== 'string' || shell.trim().length === 0) return null;
+  if (!Array.isArray(args) || !args.every((arg): arg is string => typeof arg === 'string')) return null;
+  return {
+    file: shell,
+    args,
+    ...(typeof cwd === 'string' && cwd.trim().length > 0 ? { cwd } : {}),
+  };
+}
+
+/** The profile's cwd when it exists and is a directory; home otherwise
+ *  — a profile whose directory has since been deleted still opens. */
+function resolveCwd(cwd: string | undefined): string {
+  if (cwd === undefined) return os.homedir();
+  try {
+    return statSync(cwd).isDirectory() ? cwd : os.homedir();
+  } catch {
+    return os.homedir();
+  }
 }
 
 export function installTerminalHost(): void {
@@ -123,8 +159,8 @@ export function installTerminalHost(): void {
   }
 
   ipcMain.handle(CHANNEL.spawn, (event, raw: unknown) => {
-    const { cols, rows } = (raw ?? {}) as { cols?: unknown; rows?: unknown };
-    const shell = resolveShell();
+    const { cols, rows, profile } = (raw ?? {}) as { cols?: unknown; rows?: unknown; profile?: unknown };
+    const shell = parseProfile(profile) ?? resolveShell();
     const id = `pty-${nextSessionSeq++}`;
     let pty: IPty;
     try {
@@ -132,7 +168,7 @@ export function installTerminalHost(): void {
         name: 'xterm-256color',
         cols: clampDimension(cols, 80),
         rows: clampDimension(rows, 24),
-        cwd: os.homedir(),
+        cwd: resolveCwd(shell.cwd),
         env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
       });
     } catch (err) {

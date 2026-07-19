@@ -74,7 +74,11 @@ declare global {
         onUrl(handler: (url: string) => void): () => void;
       };
       terminal: {
-        spawn(req: { cols: number; rows: number }): Promise<{ ok: true; id: string } | { ok: false; error: string }>;
+        spawn(req: {
+          cols: number;
+          rows: number;
+          profile?: { shell: string; args: string[]; cwd?: string };
+        }): Promise<{ ok: true; id: string } | { ok: false; error: string }>;
         write(req: { id: string; data: string }): void;
         resize(req: { id: string; cols: number; rows: number }): void;
         hasChildren(req: { id: string }): Promise<boolean>;

@@ -78,6 +78,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.showEmptyStateHints.label': 'Show Empty-State Hints',
   'workbench.settings.def.general.showEmptyStateHints.description':
     'Render guidance and tips in empty panels and onboarding areas.',
+  'workbench.settings.def.terminal.profiles.label': 'Profiles',
+  'workbench.settings.def.terminal.profiles.description':
+    'Shells the terminal can open a tab with. Plain new tabs use the default; the arrow next to + in the tab row picks a specific profile.',
   'workbench.settings.def.terminal.confirmCloseRunningProcess.label': 'Confirm Closing a Running Process',
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
     'Ask before closing a terminal tab whose shell still has a running process. Idle shells always close silently.',

@@ -93,7 +93,8 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceLayout.description':
     'Affordances del pie de página y comportamiento del shell de las ventanas de herramientas.',
   'workbench.settings.category.terminal.label': 'Terminal',
-  'workbench.settings.category.terminal.description': 'Comportamiento de la ventana de herramientas Terminal integrada.',
+  'workbench.settings.category.terminal.description':
+    'Comportamiento de la ventana de herramientas Terminal integrada.',
   'workbench.settings.category.devpanel.label': 'Panel de DevTools',
   'workbench.settings.category.devpanel.description':
     'Valores por defecto del panel de DevTools del navegador — el shell de las ventanas de herramientas y cada ' +
@@ -182,6 +183,19 @@ export const workbenchSettings = {
   'workbench.settings.updatesRow.checkNow': 'Comprobar ahora',
   'workbench.settings.updatesRow.releaseNotes': 'Notas de la versión',
   'workbench.settings.updatesRow.lastChecked': 'Última comprobación {when}',
+
+  'workbench.settings.terminalProfiles.systemDefault': 'Shell predeterminado del sistema',
+  'workbench.settings.terminalProfiles.add': 'Añadir perfil',
+  'workbench.settings.terminalProfiles.edit': 'Editar perfil',
+  'workbench.settings.terminalProfiles.remove': 'Eliminar perfil',
+  'workbench.settings.terminalProfiles.addTitle': 'Añadir perfil de terminal',
+  'workbench.settings.terminalProfiles.editTitle': 'Editar perfil de terminal',
+  'workbench.settings.terminalProfiles.name': 'Nombre',
+  'workbench.settings.terminalProfiles.shell': 'Ruta del shell',
+  'workbench.settings.terminalProfiles.args': 'Argumentos',
+  'workbench.settings.terminalProfiles.cwd': 'Directorio inicial',
+  'workbench.settings.terminalProfiles.cwdPlaceholder': 'Directorio personal',
+  'workbench.settings.terminalProfiles.save': 'Guardar',
 
   // ── Settings field widgets ─────────────────────────────────────────
   'workbench.settings.fields.files.renameTooltip': 'Renombrar el archivo',

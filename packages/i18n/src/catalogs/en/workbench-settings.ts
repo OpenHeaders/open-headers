@@ -155,6 +155,20 @@ export const workbenchSettings = {
   'workbench.settings.updatesRow.releaseNotes': 'Release notes',
   'workbench.settings.updatesRow.lastChecked': 'Last checked {when}',
 
+  // ── Terminal profiles row ──────────────────────────────────────────
+  'workbench.settings.terminalProfiles.systemDefault': 'System default shell',
+  'workbench.settings.terminalProfiles.add': 'Add Profile',
+  'workbench.settings.terminalProfiles.edit': 'Edit profile',
+  'workbench.settings.terminalProfiles.remove': 'Remove profile',
+  'workbench.settings.terminalProfiles.addTitle': 'Add Terminal Profile',
+  'workbench.settings.terminalProfiles.editTitle': 'Edit Terminal Profile',
+  'workbench.settings.terminalProfiles.name': 'Name',
+  'workbench.settings.terminalProfiles.shell': 'Shell path',
+  'workbench.settings.terminalProfiles.args': 'Arguments',
+  'workbench.settings.terminalProfiles.cwd': 'Starting directory',
+  'workbench.settings.terminalProfiles.cwdPlaceholder': 'Home directory',
+  'workbench.settings.terminalProfiles.save': 'Save',
+
   // ── Settings field widgets ─────────────────────────────────────────
   'workbench.settings.fields.files.renameTooltip': 'Rename file',
   'workbench.settings.fields.files.renameMissing': 'File no longer exists in this workspace',

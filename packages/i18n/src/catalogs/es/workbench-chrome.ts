@@ -446,6 +446,7 @@ export const workbenchChrome = {
   'workbench.terminal.tabLocal': 'Local',
   'workbench.terminal.tabLocalN': 'Local ({n})',
   'workbench.terminal.newTab': 'Nueva pestaña de terminal',
+  'workbench.terminal.newTabWithProfile': 'Nueva pestaña desde un perfil',
   'workbench.terminal.closeTab': 'Cerrar pestaña',
   'workbench.terminal.openTui': 'Abrir el modo TUI',
   'workbench.terminal.closeConfirm.title': 'Proceso en ejecución',

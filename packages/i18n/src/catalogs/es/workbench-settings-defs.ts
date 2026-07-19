@@ -111,6 +111,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.general.showEmptyStateHints.label': 'Mostrar las pistas de estado vacío',
   'workbench.settings.def.general.showEmptyStateHints.description':
     'Muestra guías y consejos en los paneles vacíos y las zonas de bienvenida.',
+  'workbench.settings.def.terminal.profiles.label': 'Perfiles',
+  'workbench.settings.def.terminal.profiles.description':
+    'Shells con los que el terminal puede abrir una pestaña. Las pestañas nuevas usan el perfil predeterminado; la flecha junto al + en la barra de pestañas elige un perfil concreto.',
   'workbench.settings.def.terminal.confirmCloseRunningProcess.label': 'Confirmar el cierre de un proceso en ejecución',
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
     'Preguntar antes de cerrar una pestaña de terminal cuyo shell todavía ejecuta un proceso. Los shells ' +

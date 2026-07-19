@@ -87,14 +87,28 @@ export interface AppUpdateInfo {
 }
 
 /**
- * Options for {@link TerminalHostApi.spawn}. The host owns command
- * resolution (the user's shell, login-mode args, home cwd, TERM env) —
- * callers only describe the viewport so the pty is born at the right
- * size instead of resizing on first paint.
+ * A caller-chosen shell for {@link TerminalHostApi.spawn} — a terminal
+ * profile. The host still owns the environment (TERM etc.) and falls
+ * back to its defaults for anything omitted; `cwd` falls back to the
+ * home directory when absent or unusable.
+ */
+export interface TerminalSpawnProfile {
+  readonly shell: string;
+  readonly args: readonly string[];
+  readonly cwd?: string;
+}
+
+/**
+ * Options for {@link TerminalHostApi.spawn}. Without `profile` the host
+ * owns command resolution (the user's shell, login-mode args, home cwd,
+ * TERM env) — callers describe the viewport so the pty is born at the
+ * right size instead of resizing on first paint, and optionally which
+ * shell to run.
  */
 export interface TerminalSpawnOptions {
   readonly cols: number;
   readonly rows: number;
+  readonly profile?: TerminalSpawnProfile;
 }
 
 /**

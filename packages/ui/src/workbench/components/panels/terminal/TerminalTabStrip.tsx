@@ -43,6 +43,11 @@ export interface TerminalTabStripProps {
   /** Commit an explicit tab label (context menu → Rename). */
   onRename: (id: string, title: string) => void;
   onNew: () => void;
+  /** Terminal profiles for the + chevron — id + display name only; the
+   *  strip stays presentation, the panel owns resolution. Empty hides
+   *  the chevron entirely (the + alone is today's posture). */
+  profiles: readonly { id: string; name: string }[];
+  onNewWithProfile: (profileId: string) => void;
   /** Pinned "Open TUI mode" affordance — opens a tab running `oh tui`. */
   onOpenTui: () => void;
   recentlyClosed: readonly TerminalClosedTab[];
@@ -70,6 +75,8 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   onCloseToRight,
   onRename,
   onNew,
+  profiles,
+  onNewWithProfile,
   onOpenTui,
   recentlyClosed,
   onReopenClosed,
@@ -240,6 +247,40 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
           <PlusOutlined />
         </span>
       </Tooltip>
+
+      {/* Profile half of the split +: only exists once the user has
+          created profiles — plain click on + keeps opening the default,
+          the chevron picks a specific one. */}
+      {profiles.length > 0 && (
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          menu={{
+            items: profiles.map((profile) => ({ key: profile.id, label: profile.name })),
+            onClick: ({ key }) => onNewWithProfile(key),
+          }}
+        >
+          <Tooltip placement="bottomRight" title={t('workbench.terminal.newTabWithProfile')}>
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={t('workbench.terminal.newTabWithProfile')}
+              data-testid="terminal-tab-new-profile"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '3px 2px',
+                borderRadius: token.borderRadiusSM,
+                cursor: 'pointer',
+                flexShrink: 0,
+                color: token.colorTextSecondary,
+              }}
+            >
+              <DownOutlined style={{ fontSize: 8 }} />
+            </span>
+          </Tooltip>
+        </Dropdown>
+      )}
 
       <div ref={chevronRef} style={{ flexShrink: 0 }}>
         <Tooltip placement="bottomRight" title={t('workbench.tabbar.searchTabs')} open={searchOpen ? false : undefined}>

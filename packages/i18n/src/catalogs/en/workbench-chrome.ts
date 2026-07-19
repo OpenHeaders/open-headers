@@ -412,6 +412,7 @@ export const workbenchChrome = {
   'workbench.terminal.tabLocal': 'Local',
   'workbench.terminal.tabLocalN': 'Local ({n})',
   'workbench.terminal.newTab': 'New terminal tab',
+  'workbench.terminal.newTabWithProfile': 'New tab from profile',
   'workbench.terminal.closeTab': 'Close tab',
   'workbench.terminal.openTui': 'Open TUI mode',
   'workbench.terminal.closeConfirm.title': 'Process is running',
