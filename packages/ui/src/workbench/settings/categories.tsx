@@ -19,6 +19,7 @@ import {
   DownloadOutlined,
   EditOutlined,
   FunctionOutlined,
+  GlobalOutlined,
   InfoCircleOutlined,
   LayoutOutlined,
   RobotOutlined,
@@ -41,6 +42,7 @@ const BackendPane = lazy(() => import('./components/BackendPane'));
 const McpPane = lazy(() => import('./components/mcp-pane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
+const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
 
 registerCategory({
@@ -248,6 +250,20 @@ registerCategory({
   // desktop is Phase 2's host; the daemon's served web tab follows
   // with the admin console work, and the extension never qualifies.
   when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
+  id: 'proxy',
+  labelKey: 'workbench.settings.category.proxy.label',
+  icon: <GlobalOutlined />,
+  order: 87,
+  descriptionKey: 'workbench.settings.category.proxy.description',
+  renderPane: ProxyTrustPane,
+  // The trust plane rides the daemon admin table: the desktop operator
+  // administers their own spine; a served web tab shows it only to
+  // subjects whose `daemon.admin` probe resolves. The extension never
+  // reaches the daemon's trust RPCs.
+  when: ({ daemonAdmin }) => getCurrentHost() === 'desktop' || daemonAdmin === 'admin',
 });
 
 registerCategory({

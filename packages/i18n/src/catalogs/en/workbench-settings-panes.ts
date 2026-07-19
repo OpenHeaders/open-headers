@@ -512,6 +512,85 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Install',
   'workbench.settings.licensePane.loadFromFile': 'Load from file…',
 
+  // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
+  'workbench.settings.proxyTrustPane.intro':
+    'Decrypting HTTPS traffic needs a certificate authority created on this machine. Nothing is installed until you set up trust here, and everything installed here can be removed here.',
+  'workbench.settings.proxyTrustPane.refresh': 'Re-check',
+  'workbench.settings.proxyTrustPane.loadFailed': 'Trust state could not be read: {message}',
+  'workbench.settings.proxyTrustPane.ca.title': 'Certificate authority',
+  'workbench.settings.proxyTrustPane.ca.none':
+    'No certificate authority exists yet. One is created on this machine the first time you set up trust — it is never shipped with the app and its private key never leaves this computer.',
+  'workbench.settings.proxyTrustPane.ca.subject': 'Subject',
+  'workbench.settings.proxyTrustPane.ca.fingerprint': 'SHA-256 fingerprint',
+  'workbench.settings.proxyTrustPane.ca.validity': 'Valid',
+  'workbench.settings.proxyTrustPane.ca.validityRange': '{from} until {until}',
+  'workbench.settings.proxyTrustPane.ca.deleteButton': 'Delete certificate authority',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.title': 'Delete the certificate authority?',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.body':
+    'The key pair is deleted from this machine. Setting up trust again creates a fresh authority.',
+  'workbench.settings.proxyTrustPane.ca.deleteConfirm.ok': 'Delete',
+  'workbench.settings.proxyTrustPane.ca.deleted': 'Certificate authority deleted',
+  'workbench.settings.proxyTrustPane.ca.deleteFailed': 'Could not delete the certificate authority: {message}',
+  'workbench.settings.proxyTrustPane.stores.title': 'Trust stores',
+  'workbench.settings.proxyTrustPane.stores.loginKeychain': 'Login keychain',
+  'workbench.settings.proxyTrustPane.stores.systemKeychain': 'System keychain',
+  'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Firefox profile',
+  'workbench.settings.proxyTrustPane.stores.state.trusted': 'Trusted',
+  'workbench.settings.proxyTrustPane.stores.state.absent': 'Not installed',
+  'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Different certificate',
+  'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Unreadable',
+  'workbench.settings.proxyTrustPane.stores.empty': 'No trust stores are visible on this machine.',
+  'workbench.settings.proxyTrustPane.mismatchAlert.title': 'A trust store holds a different certificate',
+  'workbench.settings.proxyTrustPane.mismatchAlert.body':
+    'A certificate carrying our authority’s name is installed, but its fingerprint is not this machine’s authority. This app did not install it and never uses it — review the store it lives in.',
+  'workbench.settings.proxyTrustPane.recordedCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} recorded install',
+      other: '{count} recorded installs',
+    }),
+  'workbench.settings.proxyTrustPane.installButton': 'Set up trust…',
+  'workbench.settings.proxyTrustPane.wizard.title': 'Install the proxy certificate authority',
+  'workbench.settings.proxyTrustPane.wizard.explain.whatTitle': 'What gets installed',
+  'workbench.settings.proxyTrustPane.wizard.explain.whatBody':
+    'A root certificate created on this machine, unique to this installation. Its private key is encrypted at rest and never sent anywhere.',
+  'workbench.settings.proxyTrustPane.wizard.explain.enablesTitle': 'What it enables',
+  'workbench.settings.proxyTrustPane.wizard.explain.enablesBody':
+    'Trust stores that hold it accept the capture proxy’s certificates, so it can decrypt HTTPS — only for hosts you explicitly scope. Everything else passes through untouched.',
+  'workbench.settings.proxyTrustPane.wizard.explain.removeTitle': 'How it is removed',
+  'workbench.settings.proxyTrustPane.wizard.explain.removeBody':
+    'Every change is recorded, and one click on this page undoes exactly those changes. Uninstalling the app does the same.',
+  'workbench.settings.proxyTrustPane.wizard.explain.next': 'Choose trust stores',
+  'workbench.settings.proxyTrustPane.wizard.choose.blurb': 'Pick where to install. Nothing changes until you confirm.',
+  'workbench.settings.proxyTrustPane.wizard.choose.loginNote': 'Apps running as you — no admin approval needed.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
+    'Every user on this machine — asks for admin approval.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
+    'Firefox keeps its own trust store — installs into every profile found.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone': 'No Firefox profiles were found on this machine.',
+  'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: 'Install into {count} store',
+      other: 'Install into {count} stores',
+    }),
+  'workbench.settings.proxyTrustPane.wizard.results.allOk': 'Trust is installed in every store you picked.',
+  'workbench.settings.proxyTrustPane.wizard.results.partial':
+    'Some stores were left unchanged. Nothing retries on its own — fix the cause and set up trust again, or remove trust to roll back.',
+  'workbench.settings.proxyTrustPane.wizard.results.ok': 'Installed and trusted',
+  'workbench.settings.proxyTrustPane.wizard.results.elevation':
+    'Admin approval was declined — the store was left unchanged.',
+  'workbench.settings.proxyTrustPane.wizard.results.failed': 'Failed: {message}',
+  'workbench.settings.proxyTrustPane.wizard.installFailed': 'Trust setup failed: {message}',
+  'workbench.settings.proxyTrustPane.wizard.done': 'Done',
+  'workbench.settings.proxyTrustPane.removeButton': 'Remove trust',
+  'workbench.settings.proxyTrustPane.removeConfirm.title': 'Remove the certificate from every recorded store?',
+  'workbench.settings.proxyTrustPane.removeConfirm.body':
+    'Each recorded install is undone and verified clean before its record is dropped. The certificate authority itself is kept for a later re-install.',
+  'workbench.settings.proxyTrustPane.removeConfirm.ok': 'Remove',
+  'workbench.settings.proxyTrustPane.removed': 'Trust removed — every recorded store is verified clean.',
+  'workbench.settings.proxyTrustPane.removePartial':
+    'Some stores could not be verified clean. Their records are kept — run removal again once the cause is fixed.',
+  'workbench.settings.proxyTrustPane.removeFailed': 'Removal failed: {message}',
+
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·
   // vault) are glossary vocabulary and ride raw inside the pills; only
