@@ -46,6 +46,7 @@ import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchScriptPackages } from './workbench-script-packages';
+import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 
 export const de = {
@@ -88,5 +89,6 @@ export const de = {
   ...workbenchEditors,
   ...workbenchEditorsSpec,
   ...workbenchScriptPackages,
+  ...workbenchSettings,
   ...workbenchSettingsDefsKeyboard,
 } as const satisfies Catalog;
