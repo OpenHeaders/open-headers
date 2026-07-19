@@ -110,6 +110,9 @@ export interface TerminalSession {
   resize(cols: number, rows: number): void;
   onData(listener: (data: string) => void): () => void;
   onExit(listener: (exitCode: number) => void): () => void;
+  /** True while the shell has at least one live child process — lets
+   *  the UI confirm before a close terminates running work. */
+  hasChildren(): Promise<boolean>;
   dispose(): void;
 }
 

@@ -58,6 +58,9 @@ export interface WorkspaceShortcutHandlers {
   onSave: () => void;
   onNewRule: () => void;
   onFocusFilter: () => void;
+  /** Open the Terminal tool window and start a fresh tab. No-op on
+   *  hosts without the `terminal` capability. */
+  onTerminalNewTab: () => void;
   onCommandPalette: () => void;
   onShowShortcuts: () => void;
   onOpenSettings: () => void;
@@ -144,6 +147,13 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     settingKey: 'keyboard.toggleActivityFeed',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleActivityFeed' },
+  },
+  {
+    id: 'terminal-new-tab',
+    labelKey: 'workbench.shortcuts.action.terminalNewTab',
+    settingKey: 'keyboard.terminalNewTab',
+    category: 'panels',
+    handler: { kind: 'direct', name: 'onTerminalNewTab' },
   },
 
   // Tabs

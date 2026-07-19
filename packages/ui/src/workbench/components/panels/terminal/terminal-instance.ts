@@ -34,6 +34,9 @@ export interface WorkbenchTerminal {
   syncSize(): void;
   /** Attach the GPU renderer once the terminal is opened in a container. */
   ensureRenderer(): void;
+  /** True when the shell has a live child process (a command or TUI is
+   *  running) — the close affordance confirms before terminating. */
+  hasRunningProcess(): Promise<boolean>;
 }
 
 export interface TerminalTabInfo {
@@ -242,6 +245,14 @@ function createTab(state: RegistryState, options?: TerminalTabOptions): string {
       ensureSession: () => ensureSession(tab),
       syncSize: () => syncSize(tab),
       ensureRenderer: () => ensureRenderer(tab),
+      hasRunningProcess: async () => {
+        if (!tab.session) return false;
+        try {
+          return await tab.session.hasChildren();
+        } catch {
+          return false;
+        }
+      },
     },
   };
   term.onData((data) => tab.session?.write(data));
@@ -257,11 +268,32 @@ function closeTab(state: RegistryState, id: string): void {
   const [tab] = state.tabs.splice(index, 1);
   for (const cleanup of tab.sessionCleanups) cleanup();
   tab.sessionCleanups = [];
-  tab.session?.dispose();
+  // Teardown is exception-isolated: whatever a disposer throws, the
+  // registry must still converge and notify — otherwise the strip
+  // keeps rendering a tab that no longer exists.
+  try {
+    tab.session?.dispose();
+  } catch (error) {
+    console.error('terminal tab close: pty dispose failed', error);
+  }
   tab.session = null;
-  // Disposing the terminal tears down its addons (fit, webgl) and
+  // The WebGL addon goes first, while the terminal is still live: its
+  // dispose swaps a fallback renderer onto the render service, which
+  // needs an undisposed core (disposing the terminal first hands the
+  // addon a dead core mid-teardown).
+  try {
+    tab.webgl?.dispose();
+  } catch (error) {
+    console.error('terminal tab close: renderer dispose failed', error);
+  }
+  tab.webgl = null;
+  // Disposing the terminal tears down its remaining addons (fit) and
   // removes its element from wherever the panel attached it.
-  tab.term.dispose();
+  try {
+    tab.term.dispose();
+  } catch (error) {
+    console.error('terminal tab close: terminal dispose failed', error);
+  }
   if (state.activeId === id) {
     const neighbor = state.tabs[index] ?? state.tabs[index - 1] ?? null;
     state.activeId = neighbor ? neighbor.id : null;

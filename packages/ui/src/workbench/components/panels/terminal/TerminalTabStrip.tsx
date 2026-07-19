@@ -4,16 +4,20 @@
  * list and activation live in the terminal-instance registry; this
  * strip only renders what the panel passes down.
  *
- * The close × reveals on hover or on the active tab (content-level
- * affordances stay visible-on-context, chrome stays quiet); the +
- * button sits after the last tab, IDE posture.
+ * The close × stays visible on every tab (IDE posture — hiding it
+ * made the tabs shift as the × popped in and out) and the tab label
+ * never changes metrics between active and inactive states, so
+ * switching tabs cannot move the row. The + button sits after the last
+ * tab with its shortcut in the tooltip.
  */
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, theme } from 'antd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { Button, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import type { TerminalTabInfo } from './terminal-instance';
 
 export interface TerminalTabStripProps {
@@ -26,7 +30,7 @@ export interface TerminalTabStripProps {
   onOpenTui: () => void;
 }
 
-function tabLabel(t: Translate, tab: TerminalTabInfo): string {
+export function terminalTabLabel(t: Translate, tab: TerminalTabInfo): string {
   if (tab.title !== undefined) return tab.title;
   return tab.titleIndex === 1
     ? t('workbench.terminal.tabLocal')
@@ -44,12 +48,14 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   const t = useT();
   const { token } = theme.useToken();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [newHovered, setNewHovered] = useState(false);
+  const newTabShortcut = useShortcutLabel('terminal-new-tab');
 
   return (
     <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, overflow: 'hidden' }}>
       {tabs.map((tab) => {
         const active = tab.id === activeId;
-        const showClose = active || tab.id === hoveredId;
+        const hovered = tab.id === hoveredId;
         return (
           <span
             key={tab.id}
@@ -67,17 +73,16 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4,
-              padding: '1px 6px',
+              gap: 8,
+              padding: '3px 8px 3px 10px',
               borderRadius: token.borderRadiusSM,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              background: active ? token.colorFillSecondary : 'transparent',
+              background: active ? token.colorFillSecondary : hovered ? token.colorFillTertiary : 'transparent',
               color: active ? token.colorText : token.colorTextSecondary,
-              fontWeight: active ? 600 : 400,
             }}
           >
-            {tabLabel(t, tab)}
+            {terminalTabLabel(t, tab)}
             <span
               role="button"
               tabIndex={-1}
@@ -92,7 +97,6 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
                 alignItems: 'center',
                 fontSize: 9,
                 color: token.colorTextTertiary,
-                visibility: showClose ? 'visible' : 'hidden',
               }}
             >
               <CloseOutlined />
@@ -100,26 +104,31 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
           </span>
         );
       })}
-      <span
-        role="button"
-        tabIndex={0}
-        aria-label={t('workbench.terminal.newTab')}
-        data-testid="terminal-tab-new"
-        onClick={onNew}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') onNew();
-        }}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          padding: '2px 4px',
-          borderRadius: token.borderRadiusSM,
-          cursor: 'pointer',
-          color: token.colorTextSecondary,
-        }}
-      >
-        <PlusOutlined />
-      </span>
+      <Tooltip title={<ShortcutHintTitle label={newTabShortcut}>{t('workbench.terminal.newTab')}</ShortcutHintTitle>}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t('workbench.terminal.newTab')}
+          data-testid="terminal-tab-new"
+          onClick={onNew}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') onNew();
+          }}
+          onMouseEnter={() => setNewHovered(true)}
+          onMouseLeave={() => setNewHovered(false)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '3px 5px',
+            borderRadius: token.borderRadiusSM,
+            cursor: 'pointer',
+            background: newHovered ? token.colorFillTertiary : 'transparent',
+            color: token.colorTextSecondary,
+          }}
+        >
+          <PlusOutlined />
+        </span>
+      </Tooltip>
       <Button size="small" type="text" data-testid="terminal-open-tui" onClick={onOpenTui} style={{ marginLeft: 6 }}>
         {t('workbench.terminal.openTui')}
       </Button>

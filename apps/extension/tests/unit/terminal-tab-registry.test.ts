@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 interface FakeSession extends TerminalSession {
   exitListeners: Array<(exitCode: number) => void>;
   disposed: boolean;
+  childrenRunning: boolean;
 }
 
 function makeFakeSession(id: string): FakeSession {
@@ -20,6 +21,7 @@ function makeFakeSession(id: string): FakeSession {
     id,
     exitListeners: [],
     disposed: false,
+    childrenRunning: false,
     write: vi.fn(),
     resize: vi.fn(),
     onData: () => () => {},
@@ -27,6 +29,7 @@ function makeFakeSession(id: string): FakeSession {
       session.exitListeners.push(listener);
       return () => {};
     },
+    hasChildren: async () => session.childrenRunning,
     dispose() {
       session.disposed = true;
     },
@@ -171,6 +174,82 @@ describe('terminal tab registry', () => {
     tabs.createTab({ runCommand: 'oh tui', title: 'oh tui' });
     tabs.createTab();
     expect(tabs.list().map((tab) => tab.titleIndex)).toEqual([1, 0, 2]);
+  });
+
+  it('reports a running process only while the session has live children', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const id = tabs.createTab();
+    const tab = tabs.getTab(id);
+    if (!tab) throw new Error('tab handle missing');
+    await expect(tab.hasRunningProcess()).resolves.toBe(false);
+    await tab.ensureSession();
+    await expect(tab.hasRunningProcess()).resolves.toBe(false);
+    spawned[0].childrenRunning = true;
+    await expect(tab.hasRunningProcess()).resolves.toBe(true);
+    for (const listener of spawned[0].exitListeners) listener(0);
+    await expect(tab.hasRunningProcess()).resolves.toBe(false);
+  });
+
+  it('still notifies and converges when a disposer throws on close', async () => {
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const first = tabs.createTab();
+      const second = tabs.createTab();
+      const tab = tabs.getTab(second);
+      if (!tab) throw new Error('tab handle missing');
+      await tab.ensureSession();
+      spawned[0].dispose = () => {
+        throw new Error('kill failed');
+      };
+      const listener = vi.fn();
+      tabs.onTabsChange(listener);
+      tabs.closeTab(second);
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(tabs.list().map((info) => info.id)).toEqual([first]);
+      expect(tabs.activeId()).toBe(first);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('notifies on close after the terminal was opened in a container', async () => {
+    // jsdom lacks matchMedia, which xterm's renderer needs on open —
+    // stub it so the close path runs against a real, opened terminal
+    // (the S13 freeze regression lived in exactly this path).
+    if (typeof window.matchMedia !== 'function') {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: (query: string) => ({
+          matches: false,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }),
+      });
+    }
+    const tabs = getTabs();
+    if (!tabs) throw new Error('registry unavailable');
+    const first = tabs.createTab();
+    const second = tabs.createTab();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const tab = tabs.getTab(second);
+    if (!tab) throw new Error('tab handle missing');
+    tab.term.open(container);
+    await tab.ensureSession();
+    const listener = vi.fn();
+    tabs.onTabsChange(listener);
+    tabs.closeTab(second);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(tabs.activeId()).toBe(first);
   });
 
   it('applies the theme to existing and future tabs', () => {

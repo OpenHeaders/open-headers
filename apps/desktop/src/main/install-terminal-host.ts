@@ -15,6 +15,9 @@
  *     real terminal on GUI-launched apps) with cwd at the home dir.
  *   - `oh:terminal:write`  (send)   — `{ id, data }` keystrokes → pty.
  *   - `oh:terminal:resize` (send)   — `{ id, cols, rows }` → SIGWINCH.
+ *   - `oh:terminal:has-children` (invoke) — `{ id }` → boolean; true
+ *     while the session's shell has a live child process (used by the
+ *     tab close affordance to confirm before terminating work).
  *   - `oh:terminal:kill`   (send)   — dispose the session.
  *   - `oh:terminal:data`   (push)   — `{ id, data }` pty output stream.
  *   - `oh:terminal:exit`   (push)   — `{ id, exitCode }`, once.
@@ -23,6 +26,7 @@
  * ptys; `before-quit` kills everything left.
  */
 
+import { execFile } from 'node:child_process';
 import os from 'node:os';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { app, ipcMain, webContents as webContentsApi } from 'electron';
@@ -34,6 +38,7 @@ const CHANNEL = {
   spawn: 'oh:terminal:spawn',
   write: 'oh:terminal:write',
   resize: 'oh:terminal:resize',
+  hasChildren: 'oh:terminal:has-children',
   kill: 'oh:terminal:kill',
   data: 'oh:terminal:data',
   exit: 'oh:terminal:exit',
@@ -56,6 +61,20 @@ function clampDimension(value: unknown, fallback: number): number {
 /** The user's shell + args, resolved like a terminal emulator would.
  *  POSIX shells run in login mode so profile-sourced PATH entries are
  *  present even when the app was launched from the GUI. */
+/** True when the shell process has at least one live child. POSIX
+ *  only (`pgrep -P`); on Windows this reports false until the ConPTY
+ *  pass gives the host a process-tree probe. */
+function shellHasChildren(pid: number): Promise<boolean> {
+  if (process.platform === 'win32') return Promise.resolve(false);
+  return new Promise((resolve) => {
+    execFile('pgrep', ['-P', String(pid)], (error, stdout) => {
+      // pgrep exits 1 for "no matches" — that's a clean false, not a
+      // failure; any other error also reads as "nothing running".
+      resolve(!error && stdout.trim().length > 0);
+    });
+  });
+}
+
 function resolveShell(): { file: string; args: string[] } {
   if (process.platform === 'win32') {
     return { file: process.env.ComSpec ?? 'cmd.exe', args: [] };
@@ -158,6 +177,14 @@ export function installTerminalHost(): void {
     }
   });
 
+  ipcMain.handle(CHANNEL.hasChildren, async (event, raw: unknown) => {
+    const { id } = (raw ?? {}) as { id?: unknown };
+    if (typeof id !== 'string') return false;
+    const entry = sessions.get(id);
+    if (!entry || entry.wcId !== event.sender.id || entry.exited) return false;
+    return shellHasChildren(entry.pty.pid);
+  });
+
   ipcMain.on(CHANNEL.kill, (event, raw: unknown) => {
     const { id } = (raw ?? {}) as { id?: unknown };
     if (typeof id !== 'string') return;
@@ -166,7 +193,42 @@ export function installTerminalHost(): void {
     disposeSession(id);
   });
 
-  app.on('before-quit', () => {
+  // Quit must WAIT for the ptys to finish dying: node-pty delivers its
+  // exit callbacks over a ThreadSafeFunction, and one landing while the
+  // Node environment is mid-cleanup aborts the whole process (SIGABRT
+  // in `Napi::Error::ThrowAsJavaScriptException` — macOS shows "quit
+  // unexpectedly"). Hold the quit, drain the exits, then requit; the
+  // timeout keeps a hung shell from wedging quit forever.
+  let quitReady = false;
+  let quitDraining = false;
+  app.on('before-quit', (event) => {
+    if (quitReady) return;
+    if (quitDraining) {
+      // A second quit request while the drain runs must keep waiting —
+      // the session map is already empty, but the ptys aren't dead yet.
+      event.preventDefault();
+      return;
+    }
+    const live = [...sessions.values()].filter((entry) => !entry.exited);
+    if (live.length === 0) {
+      quitReady = true;
+      return;
+    }
+    event.preventDefault();
+    quitDraining = true;
+    const exits = live.map(
+      (entry) =>
+        new Promise<void>((resolve) => {
+          entry.pty.onExit(() => resolve());
+        }),
+    );
     for (const id of [...sessions.keys()]) disposeSession(id);
+    const timeout = new Promise<void>((resolve) => {
+      setTimeout(resolve, 1500);
+    });
+    void Promise.race([Promise.all(exits), timeout]).then(() => {
+      quitReady = true;
+      app.quit();
+    });
   });
 }

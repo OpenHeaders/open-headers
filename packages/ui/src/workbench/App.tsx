@@ -69,6 +69,7 @@ import CommandPalette from './components/shell/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/shell/EditorGroupRenderer';
 import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
 import { viewActivityEntity } from './components/panels/activity-view-router';
+import { getWorkbenchTerminalTabs } from './components/panels/terminal/terminal-instance';
 import MigrationReportModal from './components/import/MigrationReportModal';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
@@ -1040,6 +1041,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       if (!activeWindow) return;
       const ref = sidebarFilterRefs.current.get(activeWindow as SidebarView);
       ref?.focus();
+    },
+    onTerminalNewTab: () => {
+      const terminalTabs = getWorkbenchTerminalTabs();
+      if (!terminalTabs) return;
+      if (tl.dockOf('terminal')) tl.activateWindow('terminal');
+      else tl.restoreWindow('terminal');
+      terminalTabs.createTab();
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,

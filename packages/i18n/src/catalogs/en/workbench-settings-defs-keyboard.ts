@@ -53,6 +53,9 @@ export const workbenchSettingsDefsKeyboard = {
   'workbench.settings.def.keyboard.focusRightSidebar.description': 'Move keyboard focus to the right sidebar.',
   'workbench.settings.def.keyboard.focusBottomPanel.label': 'Focus Bottom Panel',
   'workbench.settings.def.keyboard.focusBottomPanel.description': 'Move keyboard focus to the bottom panel tab row.',
+  'workbench.settings.def.keyboard.terminalNewTab.label': 'New Terminal Tab',
+  'workbench.settings.def.keyboard.terminalNewTab.description':
+    'Open the Terminal tool window and start a fresh terminal tab. Desktop app only.',
   'workbench.settings.def.keyboard.showShortcutHelp.label': 'Show Shortcut Help',
   'workbench.settings.def.keyboard.showShortcutHelp.description': 'Display the keyboard shortcut cheatsheet.',
   'workbench.settings.def.keyboard.find.label': 'Find in Editor',

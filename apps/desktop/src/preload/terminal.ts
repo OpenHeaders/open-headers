@@ -11,6 +11,7 @@ const TERMINAL_CHANNEL = {
   spawn: 'oh:terminal:spawn',
   write: 'oh:terminal:write',
   resize: 'oh:terminal:resize',
+  hasChildren: 'oh:terminal:has-children',
   kill: 'oh:terminal:kill',
   data: 'oh:terminal:data',
   exit: 'oh:terminal:exit',
@@ -27,6 +28,9 @@ export const terminal = {
   },
   resize(req: { id: string; cols: number; rows: number }): void {
     ipcRenderer.send(TERMINAL_CHANNEL.resize, req);
+  },
+  hasChildren(req: { id: string }): Promise<boolean> {
+    return ipcRenderer.invoke(TERMINAL_CHANNEL.hasChildren, req) as Promise<boolean>;
   },
   kill(req: { id: string }): void {
     ipcRenderer.send(TERMINAL_CHANNEL.kill, req);

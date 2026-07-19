@@ -74,6 +74,7 @@ async function spawnTerminalSession(options: TerminalSpawnOptions): Promise<Term
       window.oh.terminal.onExit((envelope) => {
         if (envelope.id === id) listener(envelope.exitCode);
       }),
+    hasChildren: () => (disposed ? Promise.resolve(false) : window.oh.terminal.hasChildren({ id })),
     dispose: () => {
       if (disposed) return;
       disposed = true;

@@ -58,6 +58,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'keyboard.focusEditor': string;
     'keyboard.focusRightSidebar': string;
     'keyboard.focusBottomPanel': string;
+    'keyboard.terminalNewTab': string;
     'keyboard.showShortcutHelp': string;
     'keyboard.find': string;
     'keyboard.replace': string;
@@ -383,6 +384,23 @@ registerSetting({
   category: 'keyboard',
   subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'keyboard.terminalNewTab',
+  type: 'keybinding',
+  // VS Code's "new terminal" convention; `mod+t` belongs to the editor
+  // tab strip. Desktop-only in practice — the action rides the
+  // `terminal` capability, so on browser surfaces it never fires.
+  default: 'mod+shift+`',
+  getDefault: presetAware('keyboard.terminalNewTab', 'mod+shift+`'),
+  schema: chordSchema,
+  labelKey: 'workbench.settings.def.keyboard.terminalNewTab.label',
+  descriptionKey: 'workbench.settings.def.keyboard.terminalNewTab.description',
+  category: 'keyboard',
+  subcategory: 'workbench-layout',
+  tags: ['terminal', 'tab', 'shell'],
   scope: 'user',
 });
 

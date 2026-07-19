@@ -8,15 +8,15 @@
  * tab hides the panel; reopening starts a fresh tab.
  */
 
-import { Button, theme } from 'antd';
+import { Button, Modal, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getWorkbenchTerminalTabs } from './terminal-instance';
-import TerminalTabStrip from './TerminalTabStrip';
+import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
 import '@xterm/xterm/css/xterm.css';
 
 type AntdToken = ReturnType<typeof theme.useToken>['token'];
@@ -96,15 +96,57 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, onHide }) => {
     tabsApi?.setTheme(buildXtermTheme(token));
   }, [tabsApi, token]);
 
+  const closeTab = useCallback(
+    (id: string) => {
+      if (!tabsApi) return;
+      tabsApi.closeTab(id);
+      if (tabsApi.list().length === 0) onHide();
+    },
+    [tabsApi, onHide],
+  );
+
+  // IDE posture: closing a tab whose shell still has a live child
+  // process (a running command, the TUI) confirms before terminating;
+  // an idle shell closes silently.
+  const requestClose = useCallback(
+    (id: string) => {
+      if (!tabsApi) return;
+      const info = tabsApi.list().find((tab) => tab.id === id);
+      const handle = tabsApi.getTab(id);
+      if (!info || !handle) return;
+      void handle.hasRunningProcess().then((running) => {
+        if (!running) {
+          closeTab(id);
+          return;
+        }
+        Modal.confirm({
+          title: (
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.closeConfirm.title')}</span>
+          ),
+          width: 380,
+          content: (
+            <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+              {t('workbench.terminal.closeConfirm.bodyPrefix')}
+              <strong>{terminalTabLabel(t, info)}</strong>
+              {t('workbench.terminal.closeConfirm.bodySuffix')}
+            </p>
+          ),
+          okText: t('workbench.terminal.closeConfirm.ok'),
+          okButtonProps: { danger: true, size: 'small' },
+          cancelButtonProps: { size: 'small' },
+          onOk: () => closeTab(id),
+        });
+      });
+    },
+    [tabsApi, closeTab, t],
+  );
+
   const strip = tabsApi ? (
     <TerminalTabStrip
       tabs={tabsApi.list()}
       activeId={activeId}
       onActivate={(id) => tabsApi.activateTab(id)}
-      onClose={(id) => {
-        tabsApi.closeTab(id);
-        if (tabsApi.list().length === 0) onHide();
-      }}
+      onClose={requestClose}
       onNew={() => tabsApi.createTab()}
       onOpenTui={() => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' })}
     />
