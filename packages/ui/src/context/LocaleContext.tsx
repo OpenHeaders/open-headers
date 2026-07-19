@@ -35,6 +35,7 @@ import {
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { ConfigProvider } from 'antd';
 import type { Locale as AntdLocale } from 'antd/es/locale';
+import deDE from 'antd/locale/de_DE';
 import enUS from 'antd/locale/en_US';
 import esES from 'antd/locale/es_ES';
 import frFR from 'antd/locale/fr_FR';
@@ -55,6 +56,7 @@ export interface LocaleContextValue {
 // pack here. Pseudo renders our pseudoized catalog inside English
 // component chrome — antd strings are not part of the extraction QA.
 const ANTD_LOCALES: Readonly<Record<string, AntdLocale>> = {
+  de: deDE,
   en: enUS,
   es: esES,
   fr: frFR,

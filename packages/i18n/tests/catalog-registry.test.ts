@@ -50,6 +50,14 @@ describe('loadCatalog', () => {
     expect(getTranslator('fr')('shared.count.rules', { count: 2 })).toBe('2 règles');
   });
 
+  it('loads the German chunk and swaps the memoized translator', async () => {
+    await loadCatalog('de');
+    expect(isCatalogLoaded('de')).toBe(true);
+    expect(getCatalog('de')).not.toBe(en);
+    expect(getTranslator('de')('shared.action.save')).toBe('Speichern');
+    expect(getTranslator('de')('shared.count.rules', { count: 2 })).toBe('2 Regeln');
+  });
+
   it('falls back to English per key while a locale catalog is partial', () => {
     const partial: Catalog = { 'shared.action.save': 'Enregistrer' };
     const t = createTranslator('fr', partial, en);
