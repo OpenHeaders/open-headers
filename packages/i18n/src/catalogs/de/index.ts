@@ -39,6 +39,8 @@ import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
+import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const de = {
   ...desktop,
@@ -73,4 +75,6 @@ export const de = {
   ...workbenchChrome,
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
+  ...workbenchDocsDebugMode,
+  ...workbenchScriptPackages,
 } as const satisfies Catalog;
