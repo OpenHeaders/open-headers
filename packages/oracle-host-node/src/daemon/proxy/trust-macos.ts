@@ -134,7 +134,9 @@ export async function installCaViaHelper(certPem: string, helper: SystemTrustHel
   const imported = await helper.importCert(certPem);
   if (!imported.ok) return { ok: false, error: imported.error ?? 'trust helper unavailable', elevationRequired: true };
   const importStderr = (imported.stderr ?? '').trim();
-  if (imported.code !== 0 && !importStderr.toLowerCase().includes('already exists')) {
+  // `security add-certificates` phrases the benign duplicate as
+  // "already in <keychain>" (macOS 26); older wordings say "already exists".
+  if (imported.code !== 0 && !/already (in|exists)\b/.test(importStderr.toLowerCase())) {
     return { ok: false, error: importStderr || `security exited ${imported.code ?? -1}` };
   }
   const trusted = await helper.trustSet(certPem);

@@ -213,7 +213,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
             {r.ok
               ? t('workbench.settings.proxyTrustPane.wizard.results.ok')
               : r.residue
-                ? t('workbench.settings.proxyTrustPane.wizard.results.residue')
+                ? `${t('workbench.settings.proxyTrustPane.wizard.results.residue')}${r.error !== undefined ? ` (${r.error})` : ''}`
                 : r.elevationRequired
                   ? t('workbench.settings.proxyTrustPane.wizard.results.elevation')
                   : t('workbench.settings.proxyTrustPane.wizard.results.failed', { message: r.error ?? '' })}

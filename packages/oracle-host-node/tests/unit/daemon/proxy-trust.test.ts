@@ -284,6 +284,25 @@ describe('proxy-trust service', () => {
     expect(changes[0].store).toBe('macos-system-keychain');
   });
 
+  it('a duplicate import is benign — "already in <keychain>" still reaches trust-set and records the row', async () => {
+    const reachable = createHelperFake({
+      probe: { available: true },
+      // `security add-certificates` phrasing on macOS 26 (live-hit S10).
+      importCert: {
+        ok: true,
+        code: 1,
+        stderr: 'security: /var/folders/T/oh-proxy-ca-x.pem: already in /Library/Keychains/System.keychain',
+      },
+      trustSet: { ok: true, status: 0, message: 'No error.' },
+    });
+    const result = await service({ systemHelper: reachable }).install(['macos-system-keychain']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.results[0].ok).toBe(true);
+    expect(reachable.calls).toContain('trust-set');
+    expect(await listTrustChanges()).toHaveLength(1);
+  });
+
   it('a cert that imported but could not be trusted is residue — row kept, never reported as elevation-declined', async () => {
     const ca = await ensureProxyCa();
     const reachable = createHelperFake({
