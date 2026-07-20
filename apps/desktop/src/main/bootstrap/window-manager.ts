@@ -14,7 +14,10 @@ import { sendToRendererWindow } from './renderer-broadcast';
 import { attachWindowSecurity } from './security';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
 
-const DEFAULT_WINDOW_FRACTION = 0.8;
+// Per-dimension fraction of the work area for the first-run window.
+// Sizing intent is in SCREEN AREA: 0.95 × 0.95 ≈ 90% of the screen —
+// a per-dimension 0.8 reads as a much smaller ~64%-of-screen window.
+const DEFAULT_WINDOW_FRACTION = 0.95;
 const MIN_WIDTH = 880;
 const MIN_HEIGHT = 600;
 
