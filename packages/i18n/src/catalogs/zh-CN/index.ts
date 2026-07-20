@@ -37,6 +37,8 @@ import { workbench } from './workbench';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const zhCN = {
@@ -72,5 +74,7 @@ export const zhCN = {
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
   ...workbenchDocsDebugMode,
+  ...workbenchEditors,
+  ...workbenchEditorsSpec,
   ...workbenchScriptPackages,
 } as const satisfies Catalog;
