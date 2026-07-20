@@ -5,9 +5,12 @@
  *
  * In packaged builds the process has no stdout a user can see, so
  * `console.*` calls effectively disappear. Every line here lands in
- * electron-log's platform log file (macOS: `~/Library/Logs/<app>/
- * main.log`) with a 5 MB rolling cap. When a user files a bug we ask
- * for that file — `getLogDirectory()` reports the live path.
+ * electron-log's file transport, pinned to the space-free product
+ * name (macOS: `~/Library/Logs/OpenHeaders/main.log`; elsewhere:
+ * `<appData>/OpenHeaders/logs/main.log`) instead of the display name
+ * `app.setName` installs, with a 5 MB rolling cap. When a user files
+ * a bug we ask for that file — `getLogDirectory()` reports the live
+ * path.
  *
  * Capabilities beyond `electron-log/main`'s built-in `.scope()`:
  *   - `setGlobalLogLevel('debug' | 'info' | 'warn' | 'error')` — runtime
@@ -20,9 +23,25 @@
 
 import path from 'node:path';
 import type { HostLogger } from '@openheaders/core/logger';
+import { app } from 'electron';
 import log from 'electron-log/main';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+/**
+ * Directory name for the log file. Matches the space-free
+ * `productName`, NOT the 'Open Headers' display name — electron-log
+ * would otherwise derive `~/Library/Logs/Open Headers/` from
+ * `app.setName`.
+ */
+const LOG_DIR_APP_NAME = 'OpenHeaders';
+
+/** electron-log's per-platform default root, with the pinned name. */
+function logsRootDir(): string {
+  return process.platform === 'darwin'
+    ? path.join(app.getPath('home'), 'Library', 'Logs', LOG_DIR_APP_NAME)
+    : path.join(app.getPath('appData'), LOG_DIR_APP_NAME, 'logs');
+}
 
 type LogLevelName = 'error' | 'warn' | 'info' | 'debug';
 
@@ -52,6 +71,7 @@ export function installMainLogger(): void {
   // are identical and immune to electron-log template drift.
   log.transports.console.format = '{text}';
   log.transports.file.format = '{text}';
+  log.transports.file.resolvePathFn = (variables) => path.join(logsRootDir(), variables.fileName ?? 'main.log');
   log.transports.file.maxSize = MAX_FILE_SIZE;
   log.transports.file.level = 'info';
   log.transports.console.level = 'info';
