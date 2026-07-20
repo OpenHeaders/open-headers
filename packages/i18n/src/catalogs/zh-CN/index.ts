@@ -7,6 +7,7 @@
 import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
+import { panel } from './panel';
 import { panelConsole } from './panel-console';
 import { panelDocs } from './panel-docs';
 import { panelInspector } from './panel-inspector';
@@ -38,6 +39,7 @@ import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 export const zhCN = {
   ...desktop,
   ...extension,
+  ...panel,
   ...panelConsole,
   ...panelDocs,
   ...panelInspector,
