@@ -38,6 +38,7 @@ import {
 import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
   type CommitIntent,
+  type CommitUserAttribution,
   commitWorkspaceTree,
   composeCommitMessage,
   countDirtyFiles,
@@ -59,6 +60,7 @@ import {
   resolveUpstream,
   type UpstreamState,
   userIndexHasStagedChanges,
+  withCommitAttribution,
 } from '../git';
 import { supportsBranchScope } from '../sync/sqlite-mutation-log';
 import { type BindWorkspaceTreeResult, bindWorkspaceTree, probeWorkspaceTree, unbindWorkspaceTree } from './bind';
@@ -339,6 +341,12 @@ interface OpenBinding {
   holdRetryTimer: NodeJS.Timeout | null;
   /** Batch intents since the last successful commit — the semantic-message feed. */
   intents: CommitIntent[];
+  /**
+   * userIds whose batches ride the pending intents (§23.6) — stamped
+   * at ingest from the peer credential; drained in lockstep with the
+   * intent ring, since both describe the same uncommitted work.
+   */
+  contributors: Set<string>;
   issues: TreeIssue[];
   closed: boolean;
 }
@@ -356,6 +364,15 @@ export interface WorkspaceTreeRuntimeOptions {
    * git slot. A `bound: false` status is the unbind/teardown signal.
    */
   onGitStatus?: (workspaceId: string, status: WorkspaceTreeGitStatusRpcResult) => void;
+  /**
+   * §23.6 authorship (multi-user hosts): map a contributing userId to
+   * its git-author identity. A sole contributor becomes the commit
+   * author; several ride as `Co-Authored-By:` trailers under the
+   * operator author. `null` skips the user (unresolvable — the commit
+   * stays operator-attributed). Absent on single-user hosts — commits
+   * keep the resolved operator identity untouched.
+   */
+  resolveUserAttribution?: (userId: string) => Promise<CommitUserAttribution | null>;
 }
 
 export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions): WorkspaceTreeRuntime {
@@ -563,6 +580,32 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     email: null,
   });
 
+  /** Drain the pending-work ledgers together — intents and contributors describe the same batch set. */
+  const drainIntents = (binding: OpenBinding): void => {
+    binding.intents = [];
+    binding.contributors.clear();
+  };
+
+  /**
+   * Resolve the pending contributors to git-author identities (§23.6).
+   * Unresolvable users drop silently — their work stays under the
+   * operator author, which is the honest remainder.
+   */
+  const resolveContributors = async (binding: OpenBinding): Promise<CommitUserAttribution[]> => {
+    const resolve = options.resolveUserAttribution;
+    if (!resolve || binding.contributors.size === 0) return [];
+    const resolved: CommitUserAttribution[] = [];
+    for (const userId of binding.contributors) {
+      try {
+        const attribution = await resolve(userId);
+        if (attribution !== null) resolved.push(attribution);
+      } catch (err) {
+        logger.warn(SCOPE, `attribution resolve failed for user ${userId}`, err);
+      }
+    }
+    return resolved;
+  };
+
   const notBoundStatus = (): WorkspaceTreeGitStatusRpcResult => ({
     bound: false,
     git: { available: false, reason: 'missing' },
@@ -707,18 +750,21 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     await binding.materializer.flush();
     const identity = await resolveCommitIdentity(gitRun, rootDir, syntheticIdentity());
     const trimmed = messageOverride?.trim();
-    const message = trimmed !== undefined && trimmed.length > 0 ? trimmed : composeCommitMessage(binding.intents);
+    const draft = trimmed !== undefined && trimmed.length > 0 ? trimmed : composeCommitMessage(binding.intents);
+    // §23.6: a sole contributing user authors the commit (committer
+    // stays the operator); several contributors ride as trailers.
+    const attributed = withCommitAttribution(identity.env, draft, await resolveContributors(binding));
     const result = await commitWorkspaceTree({
       run: gitRun,
       rootDir,
-      message,
-      identityEnv: identity.env,
+      message: attributed.message,
+      identityEnv: attributed.env,
       bypassHooks: binding.record.bypassHooks === true,
     });
     if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail };
-    binding.intents = [];
+    drainIntents(binding);
     if (result.committed) {
-      logger.info(SCOPE, `committed ${binding.record.rootDir}: ${message}`);
+      logger.info(SCOPE, `committed ${binding.record.rootDir}: ${attributed.message}`);
       return { ok: true, committed: true, sha: result.sha };
     }
     return { ok: true, committed: false };
@@ -792,7 +838,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     // fetch compares ancestry against it.
     await recordWatermark(binding, result.remoteSha);
     if (result.upToDate) return { ok: true, upToDate: true };
-    binding.intents = [];
+    drainIntents(binding);
     logger.info(SCOPE, `pulled ${rootDir}: merge ${result.sha} (${result.applied} batches)`);
     return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
   };
@@ -870,7 +916,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return { ok: false, reason: result.reason, detail: result.detail };
     }
     await refreshIssuesFromDisk(binding);
-    binding.intents = [];
+    drainIntents(binding);
     await recordWatermark(binding, result.remoteSha);
     logger.info(SCOPE, `force-push resolved (${choice}) for ${rootDir}: ${result.sha}`);
     return { ok: true, sha: result.sha, rescueBranch: result.rescueBranch };
@@ -911,7 +957,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       // sweep below re-derives engine state from the new branch — the
       // old branch's pending intents describe mutations that are no
       // longer this branch's story.
-      binding.intents = [];
+      drainIntents(binding);
       await syncLogBranch(binding);
       await runSweep(binding);
       await binding.materializer.flush();
@@ -973,7 +1019,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     }
     if (result.upToDate) return { ok: true, upToDate: true };
     await refreshIssuesFromDisk(binding);
-    binding.intents = [];
+    drainIntents(binding);
     logger.info(SCOPE, `merged ${ref} into ${rootDir}: ${result.sha} (${result.applied} batches)`);
     return { ok: true, upToDate: false, sha: result.sha, applied: result.applied };
   };
@@ -1068,7 +1114,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       onHeadMove: () =>
         enqueue(binding, async () => {
           if (await syncLogBranch(binding)) {
-            binding.intents = [];
+            drainIntents(binding);
             await runSweep(binding);
             await binding.materializer.flush();
             logger.info(SCOPE, `external checkout reconciled for ${record.rootDir}: ${binding.logBranch ?? 'HEAD'}`);
@@ -1092,6 +1138,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       lastFetchAt: 0,
       holdRetryTimer: null,
       intents: [],
+      contributors: new Set(),
       issues: [],
       closed: false,
     };
@@ -1197,10 +1244,13 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const binding = open.get(event.envelope.workspaceId);
       if (!binding) return;
       scheduleMaterialize(binding);
-      const { body } = event.envelope;
+      const { body, origin } = event.envelope;
       if (binding.intents.length < MAX_PENDING_INTENTS) {
         binding.intents.push({ kind: body.kind, entityType: body.type, entityId: body.id });
       }
+      // §23.6: the ingest-stamped credential userId — absent on
+      // locally-minted batches (the operator's own work needs no entry).
+      if (origin.userId !== undefined) binding.contributors.add(origin.userId);
       scheduleAutoCommit(binding);
     },
 

@@ -25,6 +25,7 @@ import {
   mintDaemonAuthToken,
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
+  setDaemonUserGitEmail,
   setDaemonUserPassword,
   setDaemonUserWorkspaceCreate,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
@@ -68,6 +69,13 @@ export interface AdminChannelDeps {
   cliProvision: CliProvisionService;
   /** The `oh.daemon.proxy.trust.*` backing — see `proxy/proxy-trust.ts`. */
   proxyTrust: ProxyTrustService;
+  /**
+   * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
+   * shared `oh.workspaceTree.*` verb table, so the admin console's
+   * Git card drives the daemon's bindings over the wire through the
+   * exact dispatch the local operator surface uses.
+   */
+  workspaceTreeDispatch(type: string, message: Record<string, unknown>): Promise<unknown>;
 }
 
 export type AdminChannelHandler = (message: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -290,6 +298,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
           userId: r.user.id,
           displayName: r.user.displayName,
           email: r.userIdentity.kind === 'email' ? r.userIdentity.value : null,
+          gitEmail: r.gitEmail ?? null,
           createdAt: r.createdAt,
           deactivatedAt: r.deactivatedAt,
           hasPassword: r.passwordVerifier !== undefined,
@@ -313,6 +322,29 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         })),
       ),
     };
+  });
+
+  handlers.set('oh.daemon.users.setGitEmail', async (message) => {
+    const userId = typeof message.userId === 'string' ? message.userId : '';
+    if (!userId) return { ok: false, error: 'missing userId' };
+    const gitEmail = typeof message.gitEmail === 'string' ? message.gitEmail : null;
+    const result = await setDaemonUserGitEmail(userId, gitEmail);
+    if (!result.ok) {
+      return { ok: false, error: result.reason === 'unknown-user' ? 'unknown user' : 'user is deactivated' };
+    }
+    return { ok: true };
+  });
+
+  // The admin console's Git card (GIT_PLAN.md §11.5) — every
+  // `oh.workspaceTree.*` gesture rides this one channel as
+  // `{ op, ...payload }`, delegating to the spine's shared verb table.
+  // Non-tree ops refuse up front; host-only verbs (the native folder
+  // picker) answer the table's own not-implemented shape.
+  handlers.set('oh.daemon.workspaceTree.dispatch', async (message) => {
+    const op = typeof message.op === 'string' ? message.op : '';
+    if (!op.startsWith('oh.workspaceTree.')) return { ok: false, error: 'unknown workspace-tree op' };
+    const payload = typeof message.payload === 'object' && message.payload !== null ? message.payload : {};
+    return await deps.workspaceTreeDispatch(op, payload as Record<string, unknown>);
   });
 
   handlers.set('oh.daemon.users.absorbSeat', async (message) => {

@@ -48,6 +48,7 @@ import {
   resolveUpstream,
   stashWorkspaceTree,
   userIndexHasStagedChanges,
+  withCommitAttribution,
 } from '../../src/git/repo';
 
 let tmpDir: string;
@@ -146,6 +147,55 @@ describe('resolveCommitIdentity', () => {
     const resolved = await resolveCommitIdentity(run, tmpDir, IDENTITY);
     expect(resolved.synthetic).toBe(true);
     expect(Object.keys(resolved.env).sort()).toEqual(['GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_EMAIL']);
+  });
+});
+
+describe('withCommitAttribution', () => {
+  const ALICE = { name: 'Alice', email: 'alice@users.noreply.openheaders.io' };
+  const BOB = { name: 'Bob', email: 'bob@users.noreply.openheaders.io' };
+
+  it('passes through untouched with no contributors', () => {
+    expect(withCommitAttribution(IDENTITY_ENV, 'Update request', [])).toEqual({
+      env: IDENTITY_ENV,
+      message: 'Update request',
+    });
+  });
+
+  it('a sole contributor becomes the author; the committer stays the operator', () => {
+    const attributed = withCommitAttribution(IDENTITY_ENV, 'Update request', [ALICE]);
+    expect(attributed.message).toBe('Update request');
+    expect(attributed.env.GIT_AUTHOR_NAME).toBe('Alice');
+    expect(attributed.env.GIT_AUTHOR_EMAIL).toBe('alice@users.noreply.openheaders.io');
+    expect(attributed.env.GIT_COMMITTER_NAME).toBe('Probe Operator');
+    expect(attributed.env.GIT_COMMITTER_EMAIL).toBe('probe-operator@users.noreply.openheaders.io');
+  });
+
+  it('several contributors keep the operator author and ride as deduped trailers', () => {
+    const attributed = withCommitAttribution(IDENTITY_ENV, 'Update request', [ALICE, BOB, ALICE]);
+    expect(attributed.env).toEqual(IDENTITY_ENV);
+    expect(attributed.message).toBe(
+      'Update request\n\n' +
+        'Co-Authored-By: Alice <alice@users.noreply.openheaders.io>\n' +
+        'Co-Authored-By: Bob <bob@users.noreply.openheaders.io>',
+    );
+  });
+
+  it('the single-author env lands on a real commit — blame answers the contributor', async () => {
+    await initialCommit();
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Renamed\n');
+    const attributed = withCommitAttribution(IDENTITY_ENV, 'Rename workspace', [ALICE]);
+    const result = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: attributed.message,
+      identityEnv: attributed.env,
+    });
+    expect(result.ok && result.committed).toBe(true);
+    const show = await run(['-C', tmpDir, 'log', '-1', '--format=%an <%ae>%n%cn <%ce>'], { cwd: tmpDir });
+    expect(show.stdout.trim().split('\n')).toEqual([
+      'Alice <alice@users.noreply.openheaders.io>',
+      'Probe Operator <probe-operator@users.noreply.openheaders.io>',
+    ]);
   });
 });
 

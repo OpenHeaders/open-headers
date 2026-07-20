@@ -127,6 +127,42 @@ export async function resolveCommitIdentity(
   return { env, synthetic: Object.keys(env).length > 0 };
 }
 
+/** One contributing user's git-author identity (§23.6 attribution). */
+export interface CommitUserAttribution {
+  name: string;
+  email: string;
+}
+
+/**
+ * §23.6 authorship for a commit carrying other users' work: a single
+ * contributing user becomes the commit AUTHOR (the committer stays
+ * whatever {@link resolveCommitIdentity} settled — the operator);
+ * several contributors keep the operator author and ride as
+ * `Co-Authored-By:` trailers, the same convention the merge path uses
+ * for foreign commits. No contributors → the env and message pass
+ * through untouched.
+ */
+export function withCommitAttribution(
+  identityEnv: Record<string, string>,
+  message: string,
+  contributors: readonly CommitUserAttribution[],
+): { env: Record<string, string>; message: string } {
+  if (contributors.length === 0) return { env: identityEnv, message };
+  if (contributors.length === 1) {
+    const author = contributors[0];
+    return {
+      env: { ...identityEnv, GIT_AUTHOR_NAME: author.name, GIT_AUTHOR_EMAIL: author.email },
+      message,
+    };
+  }
+  const trailers: string[] = [];
+  for (const contributor of contributors) {
+    const line = `Co-Authored-By: ${contributor.name} <${contributor.email}>`;
+    if (!trailers.includes(line)) trailers.push(line);
+  }
+  return { env: identityEnv, message: `${message}\n\n${trailers.join('\n')}` };
+}
+
 // ── Status feeds (§3.3: git itself is the ledger) ────────────────────
 
 /**

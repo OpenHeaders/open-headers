@@ -232,6 +232,8 @@ export interface DaemonRpc {
         userId: string;
         displayName: string;
         email: string | null;
+        /** Git commit-author email override (GIT_PLAN.md §11.5); null = derive from email/synthetic. */
+        gitEmail: string | null;
         createdAt: number;
         deactivatedAt: number | null;
         /** The user holds a password credential (never the verifier itself). */
@@ -269,6 +271,31 @@ export interface DaemonRpc {
   'oh.daemon.users.setPassword': {
     req: { userId: string; password: string | null };
     res: { ok: true } | { ok: false; error: string };
+  };
+
+  /**
+   * Set (or clear, `gitEmail: null`) a directory user's git
+   * commit-author email override (GIT_PLAN.md §11.5) — the address
+   * daemon-minted commits attribute the user's work to, so commits
+   * link to their hosting-platform profile. The author name is always
+   * the directory displayName. Refused on deactivated users.
+   */
+  'oh.daemon.users.setGitEmail': {
+    req: { userId: string; gitEmail: string | null };
+    res: { ok: true } | { ok: false; error: string };
+  };
+
+  /**
+   * The admin console's Git card (GIT_PLAN.md §11.5): every
+   * `oh.workspaceTree.*` gesture rides this one channel as
+   * `{ op, payload }`, answered by the daemon spine's shared verb
+   * table under the same `daemon.admin` gate as the rest of this
+   * contract. The response is the op's own typed shape — callers
+   * narrow it at the transport seam.
+   */
+  'oh.daemon.workspaceTree.dispatch': {
+    req: { op: string; payload?: Record<string, unknown> };
+    res: unknown;
   };
 
   /**
@@ -378,6 +405,17 @@ export interface DaemonRpc {
       ca: ProxyCaPublicInfo | null;
       stores: ReadonlyArray<ProxyTrustStoreState>;
       changes: ReadonlyArray<ProxyTrustChange>;
+      /**
+       * Whether the host can install *and remove* System-keychain
+       * (admin-domain) trust settings on this build. macOS admin-domain
+       * `SecTrustSettings` writes need a session-preserving privileged
+       * path; the osascript elevation seam cannot provide one (it detaches
+       * the security session), so this is false until the signed
+       * privileged helper ships. The consent wizard disables the System
+       * option while false rather than offer a path that would half-
+       * install and could not be undone.
+       */
+      systemKeychainTrustSupported: boolean;
     };
   };
 
@@ -388,8 +426,12 @@ export interface DaemonRpc {
    * first use. Each store reports its own outcome: partial failure is
    * reported exactly (§5 refuse-rather-than-half-trust), never rolled
    * up into a false success. `elevationRequired` marks a store that
-   * refused for lack of admin rights — surfaces re-ask with elevation,
-   * never retry around a denial.
+   * refused for lack of admin rights AND was left verifiably clean —
+   * surfaces re-ask with elevation, never retry around a denial.
+   * `residue` marks the opposite failure shape: the cert was imported
+   * but could not be trusted (e.g. a cancelled trust prompt after the
+   * import), so the store is NOT "left unchanged" — its change row is
+   * kept and the surface points the user at Remove trust to clean it.
    */
   'oh.daemon.proxy.trust.install': {
     req: { stores: ReadonlyArray<ProxyTrustStoreId> };
@@ -403,6 +445,7 @@ export interface DaemonRpc {
             ok: boolean;
             error?: string;
             elevationRequired?: boolean;
+            residue?: boolean;
           }>;
         }
       | { ok: false; error: string };

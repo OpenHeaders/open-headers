@@ -89,6 +89,25 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.removedDone': 'Password removed.',
   'workbench.daemonAdmin.password.updateFailed': 'Failed to update password: {message}',
 
+  // ── Git email modal ────────────────────────────────────────────────
+  'workbench.daemonAdmin.gitEmail.setTitle': 'Set Git email — {name}',
+  'workbench.daemonAdmin.gitEmail.changeTitle': 'Change Git email — {name}',
+  'workbench.daemonAdmin.gitEmail.explainer':
+    "Commits carrying this user's work are authored with this address, so they link to the user's Git-hosting profile. Without one, the directory email is used, then a noreply address.",
+  'workbench.daemonAdmin.gitEmail.placeholder': 'commit-author email',
+  'workbench.daemonAdmin.gitEmail.setCta': 'Set Git email',
+  'workbench.daemonAdmin.gitEmail.changeCta': 'Change Git email',
+  'workbench.daemonAdmin.gitEmail.removeCta': 'Remove override',
+  'workbench.daemonAdmin.gitEmail.setDone': 'Git email set.',
+  'workbench.daemonAdmin.gitEmail.removedDone': 'Git email override removed.',
+  'workbench.daemonAdmin.gitEmail.updateFailed': 'Failed to update Git email: {message}',
+
+  // ── Git section ────────────────────────────────────────────────────
+  'workbench.daemonAdmin.git.sectionTitle': 'Git',
+  'workbench.daemonAdmin.git.sectionHint':
+    "Bind a daemon workspace to a repository and drive commit, pull, push, and branches remotely. Paths are on the daemon's own filesystem.",
+  'workbench.daemonAdmin.git.workspaceLabel': 'Workspace',
+
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Reports',
   'workbench.daemonAdmin.audit.sectionHint':

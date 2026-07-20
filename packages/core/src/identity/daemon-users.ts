@@ -338,6 +338,38 @@ export async function setDaemonUserPassword(
   });
 }
 
+export type SetDaemonUserGitEmailResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };
+
+/**
+ * Set or clear a directory user's git commit-author email override
+ * (GIT_PLAN.md §11.5). `null` clears it — attribution then falls back
+ * to the identity email, then the synthetic noreply address. Refused
+ * on deactivated records, same posture as the password setter.
+ */
+export async function setDaemonUserGitEmail(
+  userId: string,
+  gitEmail: string | null,
+): Promise<SetDaemonUserGitEmailResult> {
+  const trimmed = gitEmail?.trim() || null;
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    const idx = current.findIndex((r) => r.user.id === userId);
+    if (idx === -1) return { ok: false, reason: 'unknown-user' };
+    if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    const next = current.slice();
+    if (trimmed === null) {
+      const { gitEmail: _cleared, ...rest } = current[idx];
+      next[idx] = rest;
+    } else {
+      next[idx] = { ...current[idx], gitEmail: trimmed };
+    }
+    await hostStorage.set(OH.daemonUsers, next);
+    return { ok: true };
+  });
+}
+
 /**
  * Grant or revoke a directory user's `workspace.create` capability by
  * toggling the {@link WORKSPACE_CREATE_FUNCTIONAL_ROLE} entry on their
@@ -365,6 +397,38 @@ export async function setDaemonUserWorkspaceCreate(
     await hostStorage.set(OH.daemonUsers, next);
     return { ok: true, updated: true };
   });
+}
+
+/** Git-author identity for daemon-minted commits (GIT_PLAN.md §11.5). */
+export interface DaemonUserGitAttribution {
+  readonly name: string;
+  readonly email: string;
+}
+
+/**
+ * The commit-author identity a contributing userId resolves to
+ * (GIT_PLAN.md §11.5 / SYNC_ENGINE_DESIGN.md §23.6). The name is
+ * always the directory `displayName` — attribution never drifts from
+ * the directory; the email walks gitEmail → identity email → the
+ * synthetic `<userId>@users.noreply.openheaders.io` (deterministic and
+ * rename-stable, the platform-noreply convention). The operator's own
+ * synthetic identity resolves too, so a mixed operator+user batch
+ * lists every contributor. Deactivated records still resolve —
+ * attribution is historical. Unknown ids return null.
+ */
+export async function resolveDaemonUserGitAttribution(userId: string): Promise<DaemonUserGitAttribution | null> {
+  const syntheticEmail = `${userId}@users.noreply.openheaders.io`;
+  const identity = await hostStorage.get(OH.syntheticIdentity);
+  if (identity && identity.user.id === userId) {
+    return { name: identity.user.displayName, email: syntheticEmail };
+  }
+  const record = (await readUsers()).find((r) => r.user.id === userId);
+  if (!record) return null;
+  const identityEmail = record.userIdentity.kind === 'email' ? record.userIdentity.value : null;
+  return {
+    name: record.user.displayName,
+    email: record.gitEmail ?? identityEmail ?? syntheticEmail,
+  };
 }
 
 /**

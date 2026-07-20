@@ -264,6 +264,55 @@ describe('applyInboundMutationBatch', () => {
     }
   });
 
+  it('stamps origin.userId from the actor credential at ingest — the frame claim never survives', async () => {
+    // §23.6 attribution: the hub overwrites the peer's own origin
+    // claim with the authenticated user, mirroring the awareness
+    // stamp-at-ingest. The stamped id is what the mutation log, the
+    // broadcast stream, and the workspace-tree commit path all see.
+    const originsAtBroadcast: Array<string | undefined> = [];
+    setOracleHostHooks({
+      broadcastSyncEvent: (event) => {
+        originsAtBroadcast.push(event.envelope.origin.userId);
+      },
+    });
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(9_500));
+      const claimed = {
+        batchId: batch.batchId,
+        mutations: batch.mutations.map((env) => ({
+          ...env,
+          origin: { ...env.origin, userId: 'spoofed-user' },
+        })),
+      };
+      await applyInboundMutationBatch(claimed, { snapshot: makePeerSnapshot('editor'), userId: PEER_USER_ID });
+
+      expect(originsAtBroadcast).toHaveLength(batch.mutations.length);
+      expect(originsAtBroadcast.every((id) => id === PEER_USER_ID)).toBe(true);
+    } finally {
+      setOracleHostHooks({});
+    }
+  });
+
+  it('applies a client-host batch (no actor) with the origin untouched', async () => {
+    const originsAtBroadcast: Array<string | undefined> = [];
+    setOracleHostHooks({
+      broadcastSyncEvent: (event) => {
+        originsAtBroadcast.push(event.envelope.origin.userId);
+      },
+    });
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(9_700));
+      await applyInboundMutationBatch(batch);
+
+      expect(originsAtBroadcast).toHaveLength(batch.mutations.length);
+      expect(originsAtBroadcast.every((id) => id === undefined)).toBe(true);
+    } finally {
+      setOracleHostHooks({});
+    }
+  });
+
   it('silently drops + audits a viewer actor batch — the daemon LocalAdmin never substitutes', async () => {
     const audits: ResolvedAuditEntry[] = [];
     setAuditSink((entry) => audits.push(entry));

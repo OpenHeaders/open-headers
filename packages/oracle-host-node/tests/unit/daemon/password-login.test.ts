@@ -182,6 +182,7 @@ describe('users.setPassword admin channel', () => {
         install: async () => ({ ok: false as const, error: 'not under test' }),
         remove: async () => ({ ok: true, results: [] }),
       },
+      workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
     });
   }
 
@@ -207,6 +208,28 @@ describe('users.setPassword admin channel', () => {
 
     expect(await setHandler({ type: 'oh.daemon.users.setPassword', userId, password: null })).toEqual({ ok: true });
     expect((await findDaemonUserByEmail('alice@openheaders.io'))?.passwordVerifier).toBeUndefined();
+  });
+
+  it('sets and clears the git-email override; the projection carries gitEmail', async () => {
+    const userId = await addUser('alice@openheaders.io');
+    const table = channels();
+    const setHandler = table.get('oh.daemon.users.setGitEmail');
+    const listHandler = table.get('oh.daemon.users.list');
+    if (!setHandler || !listHandler) throw new Error('channel missing');
+
+    expect(
+      await setHandler({ type: 'oh.daemon.users.setGitEmail', userId, gitEmail: 'alice@commits.openheaders.io' }),
+    ).toEqual({ ok: true });
+    let listed = (await listHandler({ type: 'oh.daemon.users.list' })) as { users: Array<Record<string, unknown>> };
+    expect(listed.users[0].gitEmail).toBe('alice@commits.openheaders.io');
+
+    expect(await setHandler({ type: 'oh.daemon.users.setGitEmail', userId, gitEmail: null })).toEqual({ ok: true });
+    listed = (await listHandler({ type: 'oh.daemon.users.list' })) as { users: Array<Record<string, unknown>> };
+    expect(listed.users[0].gitEmail).toBeNull();
+
+    expect(
+      await setHandler({ type: 'oh.daemon.users.setGitEmail', userId: 'nope', gitEmail: 'x@openheaders.io' }),
+    ).toEqual({ ok: false, error: 'unknown user' });
   });
 
   it('refuses short passwords, missing ids, and deactivated users', async () => {

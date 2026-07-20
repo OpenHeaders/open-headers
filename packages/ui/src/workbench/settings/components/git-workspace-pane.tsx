@@ -12,9 +12,19 @@
  * daemon spine's workspace-tree runtime; the folder picker is the
  * desktop shell's native dialog with a plain path input as the
  * universal fallback.
+ *
+ * Reused by the daemon admin console (GIT_PLAN.md §11.5) with an
+ * injected `transport` that rides the gated
+ * `oh.daemon.workspaceTree.dispatch` wire channel — same card, same
+ * verbs, remote daemon. There the native picker is absent
+ * (`allowFolderPicker: false`) and the workspace is the console's
+ * explicit pick rather than the active one.
  */
 
 import {
+  type BridgeRpcRequest,
+  type BridgeRpcResponse,
+  type BridgeRpcType,
   hostBridge,
   type WorkspaceTreeCommitCadence,
   type WorkspaceTreeGitStatusWire,
@@ -35,11 +45,43 @@ interface BindingRow {
 
 type GitStatusRow = WorkspaceTreeGitStatusWire;
 
-const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
+/** The workspace-tree slice of the bridge contract this card drives. */
+export type WorkspaceTreeRpcType = Extract<BridgeRpcType, `oh.workspaceTree.${string}`>;
+
+/**
+ * Typed call seam for the card's host gestures — identical in shape to
+ * `hostBridge.call` narrowed to the workspace-tree channels, so a
+ * remote transport (the admin console's dispatch wrapper) slots in
+ * without the card knowing which daemon answers.
+ */
+export type WorkspaceTreeTransport = <K extends WorkspaceTreeRpcType>(
+  type: K,
+  ...args: BridgeRpcRequest<K> extends Record<string, never> ? [] : [payload: BridgeRpcRequest<K>]
+) => Promise<BridgeRpcResponse<K>>;
+
+const localTransport: WorkspaceTreeTransport = (type, ...args) => hostBridge.call(type, ...args);
+
+export interface GitWorkspacePaneProps extends Partial<CategoryPaneProps> {
+  /** Host call seam; defaults to the local `hostBridge.call`. */
+  transport?: WorkspaceTreeTransport;
+  /** Explicit workspace (admin console); defaults to the active one. */
+  workspaceId?: string;
+  /** False on hosts without a native folder dialog (remote daemon). */
+  allowFolderPicker?: boolean;
+}
+
+const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
+  category,
+  transport,
+  workspaceId: explicitWorkspaceId,
+  allowFolderPicker = true,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const { message } = AntApp.useApp();
-  const workspaceId = useActiveWorkspaceId();
+  const call = transport ?? localTransport;
+  const activeWorkspaceId = useActiveWorkspaceId();
+  const workspaceId = explicitWorkspaceId ?? activeWorkspaceId;
   const [bindings, setBindings] = useState<BindingRow[]>([]);
   const [draftPath, setDraftPath] = useState('');
   const [busy, setBusy] = useState(false);
@@ -66,12 +108,12 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const result = await hostBridge.call('oh.workspaceTree.list');
+      const result = await call('oh.workspaceTree.list');
       setBindings(result.bindings);
     } catch {
       setBindings([]);
     }
-  }, []);
+  }, [call]);
 
   useEffect(() => {
     void refresh();
@@ -85,11 +127,11 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
       return;
     }
     try {
-      setGitStatus(await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId }));
+      setGitStatus(await call('oh.workspaceTree.gitStatus', { workspaceId }));
     } catch {
       setGitStatus(null);
     }
-  }, [workspaceId]);
+  }, [workspaceId, call]);
 
   useEffect(() => {
     if (binding !== null) void refreshGitStatus();
@@ -113,7 +155,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setCommitError(null);
     try {
       const trimmed = commitMessage.trim();
-      const result = await hostBridge.call('oh.workspaceTree.commit', {
+      const result = await call('oh.workspaceTree.commit', {
         workspaceId,
         ...(trimmed !== '' ? { message: trimmed } : {}),
       });
@@ -140,7 +182,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setPulling(true);
     setPullError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.pull', { workspaceId });
+      const result = await call('oh.workspaceTree.pull', { workspaceId });
       if (result.ok && result.upToDate) {
         message.info(t('workbench.settings.gitPane.git.upToDate'));
       } else if (result.ok) {
@@ -162,7 +204,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setPushing(true);
     setPushFailure(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.push', { workspaceId });
+      const result = await call('oh.workspaceTree.push', { workspaceId });
       if (result.ok && result.pushed) {
         message.success(t('workbench.settings.gitPane.git.pushed', { sha: result.remoteSha.slice(0, 7) }));
       } else if (result.ok) {
@@ -183,7 +225,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     if (workspaceId === null || branch === '') return;
     setPushingBranch(true);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.pushNewBranch', { workspaceId, branch });
+      const result = await call('oh.workspaceTree.pushNewBranch', { workspaceId, branch });
       if (result.ok) {
         setBranchDraft('');
         setPushFailure(null);
@@ -204,7 +246,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const setAutoPush = async (autoPushOnCommit: boolean): Promise<void> => {
     if (workspaceId === null) return;
     try {
-      await hostBridge.call('oh.workspaceTree.setAutoPushOnCommit', { workspaceId, autoPushOnCommit });
+      await call('oh.workspaceTree.setAutoPushOnCommit', { workspaceId, autoPushOnCommit });
       await refreshGitStatus();
     } catch (err) {
       message.error((err as Error).message);
@@ -216,7 +258,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setResolving(choice);
     setResolveError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.resolveForcePush', { workspaceId, choice });
+      const result = await call('oh.workspaceTree.resolveForcePush', { workspaceId, choice });
       if (result.ok) {
         message.success(
           result.rescueBranch !== null
@@ -242,7 +284,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setSwitching(true);
     setBranchError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.switchBranch', {
+      const result = await call('oh.workspaceTree.switchBranch', {
         workspaceId,
         branch,
         ...(dirtyAction !== undefined ? { dirtyAction } : {}),
@@ -275,7 +317,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setCreating(true);
     setBranchError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.createBranch', { workspaceId, branch });
+      const result = await call('oh.workspaceTree.createBranch', { workspaceId, branch });
       if (result.ok) {
         setCreateDraft('');
         message.success(t('workbench.settings.gitPane.git.branch.created', { branch }));
@@ -297,7 +339,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setMerging(true);
     setBranchError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.mergeBranch', { workspaceId, ref: mergeRef });
+      const result = await call('oh.workspaceTree.mergeBranch', { workspaceId, ref: mergeRef });
       if (result.ok && result.upToDate) {
         message.info(t('workbench.settings.gitPane.git.branch.mergeUpToDate'));
       } else if (result.ok) {
@@ -320,7 +362,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const setCadence = async (cadence: WorkspaceTreeCommitCadence): Promise<void> => {
     if (workspaceId === null) return;
     try {
-      await hostBridge.call('oh.workspaceTree.setCommitCadence', { workspaceId, cadence });
+      await call('oh.workspaceTree.setCommitCadence', { workspaceId, cadence });
       await refreshGitStatus();
     } catch (err) {
       message.error((err as Error).message);
@@ -330,7 +372,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const setBypassHooks = async (bypassHooks: boolean): Promise<void> => {
     if (workspaceId === null) return;
     try {
-      await hostBridge.call('oh.workspaceTree.setBypassHooks', { workspaceId, bypassHooks });
+      await call('oh.workspaceTree.setBypassHooks', { workspaceId, bypassHooks });
       await refreshGitStatus();
     } catch (err) {
       message.error((err as Error).message);
@@ -339,7 +381,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
 
   const chooseFolder = async (): Promise<void> => {
     try {
-      const result = await hostBridge.call('oh.workspaceTree.pickFolder');
+      const result = await call('oh.workspaceTree.pickFolder');
       if (result.path !== null) {
         setDraftPath(result.path);
         setBindError(null);
@@ -354,7 +396,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
     setBusy(true);
     setBindError(null);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.bind', {
+      const result = await call('oh.workspaceTree.bind', {
         workspaceId,
         rootDir: draftPath.trim(),
       });
@@ -389,7 +431,7 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   const unbind = async (): Promise<void> => {
     if (workspaceId === null) return;
     try {
-      await hostBridge.call('oh.workspaceTree.unbind', { workspaceId });
+      await call('oh.workspaceTree.unbind', { workspaceId });
       message.success(t('workbench.settings.gitPane.unbound'));
       await refresh();
     } catch (err) {
@@ -398,17 +440,19 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
   };
 
   return (
-    <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
-      <header style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {resolveLabel(category, t)}
-        </h2>
-        {resolveOptionalDescription(category, t) && (
-          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
-            {resolveOptionalDescription(category, t)}
-          </p>
-        )}
-      </header>
+    <div style={category !== undefined ? { padding: '14px 18px 20px', maxWidth: 760 } : undefined}>
+      {category !== undefined && (
+        <header style={{ marginBottom: 10 }}>
+          <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
+            {resolveLabel(category, t)}
+          </h2>
+          {resolveOptionalDescription(category, t) && (
+            <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
+              {resolveOptionalDescription(category, t)}
+            </p>
+          )}
+        </header>
+      )}
 
       {binding !== null ? (
         <section>
@@ -895,9 +939,11 @@ const GitWorkspacePane: React.FC<CategoryPaneProps> = ({ category }) => {
                 style={{ fontFamily: token.fontFamilyCode, fontSize: 11.5 }}
                 data-testid="git-pane-path-input"
               />
-              <Button size="small" style={{ height: 'auto' }} onClick={() => void chooseFolder()}>
-                {t('workbench.settings.gitPane.chooseFolder')}
-              </Button>
+              {allowFolderPicker && (
+                <Button size="small" style={{ height: 'auto' }} onClick={() => void chooseFolder()}>
+                  {t('workbench.settings.gitPane.chooseFolder')}
+                </Button>
+              )}
             </div>
             {bindError !== null && (
               <div style={{ marginTop: 6, fontSize: 12, color: token.colorError }}>{bindError}</div>

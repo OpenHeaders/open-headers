@@ -335,8 +335,16 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
     );
   }
   if (accepted.length === 0) return;
+  // Stamp-at-ingest (SYNC_ENGINE_DESIGN.md §23.6): when a hub gates a
+  // peer, every accepted envelope's `origin.userId` is overwritten from
+  // the authenticated actor — attribution comes from the credential,
+  // not the frame, mirroring the awareness-presence stamp. Client hosts
+  // (no actor) apply envelopes verbatim.
+  const attributed = actor
+    ? accepted.map((env) => ({ ...env, origin: { ...env.origin, userId: actor.userId } }))
+    : accepted;
   const batch: MutationBatch =
-    accepted.length === input.mutations.length ? input : { batchId: input.batchId, mutations: accepted };
+    !actor && accepted.length === input.mutations.length ? input : { batchId: input.batchId, mutations: attributed };
 
   // All envelopes in a batch share one workspaceId per the mutation-log
   // invariant; gate the batch on the first. The global scope resolves

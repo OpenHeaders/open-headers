@@ -51,4 +51,13 @@ export const DaemonUserRecordSchema = v.object({
       licenseKey: v.pipe(v.string(), v.minLength(1)),
     }),
   ),
+  /**
+   * Git commit-author email override (GIT_PLAN.md §11.5): the address
+   * daemon-minted commits attribute this user's work to, so commits
+   * link to the user's hosting-platform profile. Absent → the identity
+   * email, then the synthetic noreply address. The author NAME is
+   * always `user.displayName` — attribution never drifts from the
+   * directory.
+   */
+  gitEmail: v.optional(v.pipe(v.string(), v.minLength(1))),
 });

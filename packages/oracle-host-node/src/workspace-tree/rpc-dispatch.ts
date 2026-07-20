@@ -1,0 +1,184 @@
+/**
+ * `oh.workspaceTree.*` RPC dispatch — the one verb→runtime mapping,
+ * shared by every admission posture that fronts the runtime: the
+ * daemon spine's local `dispatchRpc` (the caller is the operator by
+ * construction) and the admin console's gated wire channel
+ * (`oh.daemon.workspaceTree.dispatch`, `daemon.admin`-gated in the
+ * peer plane). One implementation, so a verb change can never drift
+ * between the local and remote Git surfaces.
+ *
+ * Refusals return typed reasons the Git card renders as its dialogs;
+ * verbs this host does not implement (e.g. the desktop-only native
+ * `pickFolder`) answer the uniform `__error` shape so callers degrade
+ * with intent.
+ */
+
+import type { WorkspaceTreeCommitCadence, WorkspaceTreeRuntime } from './runtime';
+
+const COMMIT_CADENCE_VALUES: WorkspaceTreeCommitCadence[] = [
+  'off',
+  'auto',
+  'on-blur',
+  'every-5m',
+  'every-15m',
+  'every-30m',
+];
+
+export function parseCommitCadence(value: unknown): WorkspaceTreeCommitCadence {
+  return COMMIT_CADENCE_VALUES.find((cadence) => cadence === value) ?? 'off';
+}
+
+/** True when `type` names a workspace-tree channel this dispatcher owns. */
+export function ownsWorkspaceTreeRpc(type: unknown): type is string {
+  return typeof type === 'string' && type.startsWith('oh.workspaceTree.');
+}
+
+export async function dispatchWorkspaceTreeRpc(
+  runtime: WorkspaceTreeRuntime | null,
+  type: string,
+  message: Record<string, unknown>,
+): Promise<unknown> {
+  // Workspace-tree bindings (GIT_PLAN.md §9 — the settings Git card's
+  // host side); refusals return typed reasons the card renders as its
+  // four dialogs.
+  if (type === 'oh.workspaceTree.bind') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const rootDir = typeof message.rootDir === 'string' ? message.rootDir : '';
+    if (!workspaceId || !rootDir || runtime === null) {
+      return { ok: false, reason: 'unknown-workspace' };
+    }
+    return await runtime.bind(workspaceId, rootDir);
+  }
+  if (type === 'oh.workspaceTree.unbind') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false };
+    return await runtime.unbind(workspaceId);
+  }
+  if (type === 'oh.workspaceTree.probe') {
+    const rootDir = typeof message.rootDir === 'string' ? message.rootDir : '';
+    if (!rootDir || runtime === null) return { present: false };
+    return await runtime.probe(rootDir);
+  }
+  if (type === 'oh.workspaceTree.list') {
+    const bindings = runtime?.list() ?? [];
+    return {
+      bindings: bindings.map((record) => ({
+        ...record,
+        issues: runtime?.issues(record.workspaceId) ?? [],
+      })),
+    };
+  }
+  // Phase 3 git plane (GIT_PLAN.md §9/§10): the explicit Commit
+  // gesture, the git slot feed, and the cadence toggle. The runtime
+  // serializes commit passes on the per-binding chain (§8 single
+  // actor).
+  if (type === 'oh.workspaceTree.commit') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    const commitMessage = typeof message.message === 'string' ? message.message : undefined;
+    return await runtime.commit(workspaceId, commitMessage);
+  }
+  if (type === 'oh.workspaceTree.gitStatus') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) {
+      return {
+        bound: false,
+        git: { available: false, reason: 'missing' },
+        repo: false,
+        branch: null,
+        branches: [],
+        dirtyFiles: null,
+        userIndexBusy: false,
+        suggestedMessage: '',
+        cadence: 'off',
+        bypassHooks: false,
+        upstream: null,
+        ahead: null,
+        behind: null,
+        autoPushOnCommit: false,
+        forcePush: null,
+      };
+    }
+    return await runtime.gitStatus(workspaceId);
+  }
+  // Phase 4 pull (§11.4): fetch → mutator merge → two-parent commit,
+  // serialized on the same per-binding chain.
+  if (type === 'oh.workspaceTree.pull') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.pull(workspaceId);
+  }
+  // Phase 5 push + safety (§3.2 / §16 / §8.2): the explicit Push
+  // gesture, the read-only-remote new-branch affordance, the
+  // auto-push opt-in, and the force-push trichotomy resolution.
+  if (type === 'oh.workspaceTree.push') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.push(workspaceId);
+  }
+  if (type === 'oh.workspaceTree.pushNewBranch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+    if (!workspaceId || !branch || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.pushNewBranch(workspaceId, branch);
+  }
+  if (type === 'oh.workspaceTree.setAutoPushOnCommit') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false };
+    return await runtime.setAutoPushOnCommit(workspaceId, message.autoPushOnCommit === true);
+  }
+  if (type === 'oh.workspaceTree.resolveForcePush') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const choice = message.choice;
+    if (!workspaceId || runtime === null || (choice !== 'abandon' && choice !== 'rescue' && choice !== 'reapply')) {
+      return { ok: false, reason: 'not-bound' };
+    }
+    return await runtime.resolveForcePush(workspaceId, choice);
+  }
+  if (type === 'oh.workspaceTree.setCommitCadence') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const cadence = parseCommitCadence(message.cadence);
+    if (!workspaceId || runtime === null) return { ok: false };
+    return await runtime.setCommitCadence(workspaceId, cadence);
+  }
+  if (type === 'oh.workspaceTree.setBypassHooks') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false };
+    return await runtime.setBypassHooks(workspaceId, message.bypassHooks === true);
+  }
+  // Phase 6 branches (§6): switch/create/merge gestures — reached only
+  // through an operator-posture dispatch plane (local caller, or the
+  // `daemon.admin`-gated wire channel), which IS the §6 admin gating.
+  if (type === 'oh.workspaceTree.switchBranch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+    const dirtyAction = message.dirtyAction;
+    if (!workspaceId || !branch || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.switchBranch(
+      workspaceId,
+      branch,
+      dirtyAction === 'commit' || dirtyAction === 'stash' || dirtyAction === 'discard' ? dirtyAction : undefined,
+    );
+  }
+  if (type === 'oh.workspaceTree.createBranch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const branch = typeof message.branch === 'string' ? message.branch.trim() : '';
+    if (!workspaceId || !branch || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.createBranch(workspaceId, branch);
+  }
+  if (type === 'oh.workspaceTree.mergeBranch') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const ref = typeof message.ref === 'string' ? message.ref.trim() : '';
+    if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.mergeBranch(workspaceId, ref);
+  }
+  if (type === 'oh.workspaceTree.appBlur') {
+    runtime?.notifyAppBlur();
+    return { ok: runtime !== null };
+  }
+  if (type === 'oh.workspaceTree.appFocus') {
+    runtime?.notifyAppFocus();
+    return { ok: runtime !== null };
+  }
+  return { __error: `host: RPC '${type}' is not implemented` };
+}

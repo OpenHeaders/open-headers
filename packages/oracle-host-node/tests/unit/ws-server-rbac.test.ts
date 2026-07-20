@@ -650,6 +650,7 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
         install: async () => ({ ok: false as const, error: 'not under test' }),
         remove: async () => ({ ok: true, results: [] }),
       },
+      workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
     }),
   });
   return startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY, peerRpc });

@@ -15,11 +15,13 @@ import {
   findDaemonUserByEmail,
   listDaemonUsers,
   mintDaemonAuthToken,
-  replacePersonalSeatArtifact,
   type ResolvedAuditEntry,
+  replacePersonalSeatArtifact,
   resetAuditSink,
   resolveDaemonPeerUser,
+  resolveDaemonUserGitAttribution,
   setAuditSink,
+  setDaemonUserGitEmail,
   setDaemonUserPassword,
   setDaemonUserWorkspaceCreate,
   validateDaemonAuthToken,
@@ -32,10 +34,10 @@ import {
   setLicenseSnapshotProvider,
   setPersonalSeatRedemptionProvider,
 } from '../../src/licensing';
-import { createDevSigner, makeLicense } from '../licensing/helpers/dev-license';
 import { DaemonUserRecordSchema } from '../../src/schemas';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
+import { createDevSigner, makeLicense } from '../licensing/helpers/dev-license';
 import { createHostStorageFake, type HostStorageFake } from './_host-storage-fake';
 
 describe('daemon users', () => {
@@ -203,6 +205,77 @@ describe('daemon users', () => {
         ok: false,
         reason: 'user-deactivated',
       });
+    });
+  });
+
+  describe('setDaemonUserGitEmail', () => {
+    it('sets, replaces, and clears the override; the record keeps validating', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      expect(await setDaemonUserGitEmail(userId, 'alice@users.noreply.openheaders.io')).toEqual({ ok: true });
+      let found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.gitEmail).toBe('alice@users.noreply.openheaders.io');
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+      expect(await setDaemonUserGitEmail(userId, '  alice@commits.openheaders.io  ')).toEqual({ ok: true });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.gitEmail).toBe('alice@commits.openheaders.io');
+      expect(await setDaemonUserGitEmail(userId, null)).toEqual({ ok: true });
+      found = await findDaemonUserByEmail('alice@openheaders.io');
+      expect(found?.gitEmail).toBeUndefined();
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+    });
+
+    it('treats a blank string as clear and refuses unknown/deactivated users', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      await setDaemonUserGitEmail(userId, 'alice@commits.openheaders.io');
+      expect(await setDaemonUserGitEmail(userId, '   ')).toEqual({ ok: true });
+      expect((await findDaemonUserByEmail('alice@openheaders.io'))?.gitEmail).toBeUndefined();
+      expect(await setDaemonUserGitEmail('nope', 'x@openheaders.io')).toEqual({ ok: false, reason: 'unknown-user' });
+      await deactivateDaemonUser(userId);
+      expect(await setDaemonUserGitEmail(userId, 'x@openheaders.io')).toEqual({
+        ok: false,
+        reason: 'user-deactivated',
+      });
+    });
+  });
+
+  describe('resolveDaemonUserGitAttribution', () => {
+    it('walks gitEmail → identity email → synthetic noreply; name is always displayName', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      expect(await resolveDaemonUserGitAttribution(userId)).toEqual({ name: 'Alice', email: 'alice@openheaders.io' });
+      await setDaemonUserGitEmail(userId, 'alice@commits.openheaders.io');
+      expect(await resolveDaemonUserGitAttribution(userId)).toEqual({
+        name: 'Alice',
+        email: 'alice@commits.openheaders.io',
+      });
+      const local = await createDaemonUser({ displayName: 'CI runner' });
+      if (!local.ok) throw new Error('setup failed');
+      expect(await resolveDaemonUserGitAttribution(local.record.user.id)).toEqual({
+        name: 'CI runner',
+        email: `${local.record.user.id}@users.noreply.openheaders.io`,
+      });
+    });
+
+    it('resolves the operator, keeps resolving deactivated users, and returns null for unknowns', async () => {
+      const identity = await hostStorage.get(OH.syntheticIdentity);
+      if (!identity) throw new Error('setup failed');
+      expect(await resolveDaemonUserGitAttribution(identity.user.id)).toEqual({
+        name: identity.user.displayName,
+        email: `${identity.user.id}@users.noreply.openheaders.io`,
+      });
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      await deactivateDaemonUser(created.record.user.id);
+      expect(await resolveDaemonUserGitAttribution(created.record.user.id)).toEqual({
+        name: 'Alice',
+        email: 'alice@openheaders.io',
+      });
+      expect(await resolveDaemonUserGitAttribution('nope')).toBeNull();
     });
   });
 

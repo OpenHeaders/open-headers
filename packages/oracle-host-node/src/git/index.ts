@@ -19,6 +19,7 @@ export {
 } from './git-exec';
 export {
   type BranchOpResult,
+  type CommitUserAttribution,
   type CommitWorkspaceTreeOptions,
   type CommitWorkspaceTreeResult,
   type CreateRescueBranchResult,
@@ -60,4 +61,5 @@ export {
   stashWorkspaceTree,
   type UpstreamState,
   userIndexHasStagedChanges,
+  withCommitAttribution,
 } from './repo';

@@ -29,11 +29,15 @@ import {
 } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
-import { hostBridge } from '@openheaders/core/bridge';
+import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@openheaders/core/bridge';
 import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaces } from '../../../shared/hooks/readers/useWorkspaces';
 import DaemonTokensSection from '../../settings/components/daemon-tokens-section';
+import GitWorkspacePane, {
+  type WorkspaceTreeRpcType,
+  type WorkspaceTreeTransport,
+} from '../../settings/components/git-workspace-pane';
 import DaemonAuditReports from './DaemonAuditReports';
 import { type DaemonAdminStatus, useDaemonAdminStatus } from './use-daemon-admin-status';
 
@@ -43,12 +47,29 @@ interface DirectoryUser {
   userId: string;
   displayName: string;
   email: string | null;
+  gitEmail: string | null;
   createdAt: number;
   deactivatedAt: number | null;
   hasPassword: boolean;
   admission?: { licenseId: string; status: 'licensed' | 'grace' | 'expired' | 'invalid' };
   grants: ReadonlyArray<{ workspaceId: string; role: DirectoryRole; origin?: 'idp' }>;
 }
+
+/**
+ * The Git card's call seam over the admin wire: every workspace-tree
+ * verb rides `oh.daemon.workspaceTree.dispatch` to the daemon spine's
+ * shared verb table (GIT_PLAN.md §11.5). The dispatch channel's wire
+ * response is untyped by construction (one channel, many ops), so the
+ * op's own response shape is asserted here — the one narrowing seam.
+ */
+const adminGitTransport: WorkspaceTreeTransport = async <K extends WorkspaceTreeRpcType>(
+  type: K,
+  ...args: BridgeRpcRequest<K> extends Record<string, never> ? [] : [payload: BridgeRpcRequest<K>]
+): Promise<BridgeRpcResponse<K>> =>
+  (await hostBridge.call('oh.daemon.workspaceTree.dispatch', {
+    op: type,
+    ...(args[0] !== undefined ? { payload: args[0] as Record<string, unknown> } : {}),
+  })) as BridgeRpcResponse<K>;
 
 const ROLE_LABELS: Record<DirectoryRole, MessageKey> = {
   viewer: 'workbench.daemonAdmin.grants.roleViewer',
@@ -273,6 +294,76 @@ const PasswordModal: React.FC<{
   );
 };
 
+/**
+ * Set / change / remove a directory user's git commit-author email
+ * override (GIT_PLAN.md §11.5). Name is never editable here — commit
+ * authorship always carries the directory displayName.
+ */
+const GitEmailModal: React.FC<{
+  user: DirectoryUser;
+  onClose: () => void;
+  onSetGitEmail: (userId: string, gitEmail: string | null) => Promise<void>;
+}> = ({ user, onClose, onSetGitEmail }) => {
+  const t = useT();
+  const [gitEmail, setGitEmail] = useState(user.gitEmail ?? '');
+  const [busy, setBusy] = useState(false);
+
+  async function apply(next: string | null): Promise<void> {
+    setBusy(true);
+    try {
+      await onSetGitEmail(user.userId, next);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title={
+        user.gitEmail !== null
+          ? t('workbench.daemonAdmin.gitEmail.changeTitle', { name: user.displayName })
+          : t('workbench.daemonAdmin.gitEmail.setTitle', { name: user.displayName })
+      }
+      onCancel={onClose}
+      footer={[
+        <Button key="cancel" onClick={onClose} disabled={busy}>
+          {t('workbench.daemonAdmin.cancel')}
+        </Button>,
+        <Button
+          key="save"
+          type="primary"
+          loading={busy}
+          disabled={gitEmail.trim() === ''}
+          onClick={() => void apply(gitEmail.trim())}
+          data-testid="daemon-admin-git-email-save"
+        >
+          {user.gitEmail !== null
+            ? t('workbench.daemonAdmin.gitEmail.changeCta')
+            : t('workbench.daemonAdmin.gitEmail.setCta')}
+        </Button>,
+      ]}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <span style={{ fontSize: 12 }}>{t('workbench.daemonAdmin.gitEmail.explainer')}</span>
+        <Input
+          value={gitEmail}
+          onChange={(e) => setGitEmail(e.target.value)}
+          placeholder={t('workbench.daemonAdmin.gitEmail.placeholder')}
+          maxLength={128}
+          data-testid="daemon-admin-git-email-input"
+        />
+        {user.gitEmail !== null && (
+          <Button danger size="small" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={() => void apply(null)}>
+            {t('workbench.daemonAdmin.gitEmail.removeCta')}
+          </Button>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 const DaemonAdminConsole: React.FC = () => {
   const { t, locale } = useLocale();
   const { token } = theme.useToken();
@@ -284,6 +375,8 @@ const DaemonAdminConsole: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [seatBlocked, setSeatBlocked] = useState(false);
   const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
+  const [gitEmailUser, setGitEmailUser] = useState<DirectoryUser | null>(null);
+  const [gitWorkspaceId, setGitWorkspaceId] = useState<string | null>(null);
 
   const workspaceName = useCallback(
     (id: string): string => workspaces.find((w) => w.id === id)?.name ?? id,
@@ -304,6 +397,12 @@ const DaemonAdminConsole: React.FC = () => {
   useEffect(() => {
     if (adminStatus === 'admin') void refresh();
   }, [adminStatus, refresh]);
+
+  // Git section default: land on the first workspace so the card shows
+  // real state without a pick; the Select re-targets it.
+  useEffect(() => {
+    if (gitWorkspaceId === null && workspaces.length > 0) setGitWorkspaceId(workspaces[0].id);
+  }, [gitWorkspaceId, workspaces]);
 
   async function handleAddUser(values: { displayName: string; email: string; personalLicense?: string }): Promise<void> {
     setAdding(true);
@@ -373,6 +472,24 @@ const DaemonAdminConsole: React.FC = () => {
         await refresh();
       } catch (err) {
         message.error(t('workbench.daemonAdmin.password.updateFailed', { message: (err as Error).message }));
+      }
+    },
+    [message, refresh, t],
+  );
+
+  const handleSetGitEmail = useCallback(
+    async (userId: string, gitEmail: string | null): Promise<void> => {
+      try {
+        const resp = await hostBridge.call('oh.daemon.users.setGitEmail', { userId, gitEmail });
+        if (!resp.ok) throw new Error(resp.error);
+        message.success(
+          gitEmail === null
+            ? t('workbench.daemonAdmin.gitEmail.removedDone')
+            : t('workbench.daemonAdmin.gitEmail.setDone'),
+        );
+        await refresh();
+      } catch (err) {
+        message.error(t('workbench.daemonAdmin.gitEmail.updateFailed', { message: (err as Error).message }));
       }
     },
     [message, refresh, t],
@@ -527,6 +644,17 @@ const DaemonAdminConsole: React.FC = () => {
                                 ? t('workbench.daemonAdmin.password.resetCta')
                                 : t('workbench.daemonAdmin.password.setCta')}
                             </Button>,
+                            <Button
+                              key="gitEmail"
+                              type="link"
+                              size="small"
+                              onClick={() => setGitEmailUser(u)}
+                              data-testid={`daemon-admin-git-email-${u.userId}`}
+                            >
+                              {u.gitEmail !== null
+                                ? t('workbench.daemonAdmin.gitEmail.changeCta')
+                                : t('workbench.daemonAdmin.gitEmail.setCta')}
+                            </Button>,
                             <Popconfirm
                               key="deactivate"
                               title={t('workbench.daemonAdmin.deactivate.title')}
@@ -581,6 +709,35 @@ const DaemonAdminConsole: React.FC = () => {
       {passwordUser && (
         <PasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} onSetPassword={handleSetPassword} />
       )}
+      {gitEmailUser && (
+        <GitEmailModal user={gitEmailUser} onClose={() => setGitEmailUser(null)} onSetGitEmail={handleSetGitEmail} />
+      )}
+
+      {/* Git bindings (GIT_PLAN.md §11.5) — the settings Git card over
+          the gated dispatch wire; paths and repos live on the daemon.
+          No native picker here: binds go through the path input. */}
+      <section style={{ marginBottom: 12 }}>
+        <SectionHeader
+          title={t('workbench.daemonAdmin.git.sectionTitle')}
+          hint={t('workbench.daemonAdmin.git.sectionHint')}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '0 2px' }}>
+          <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
+            {t('workbench.daemonAdmin.git.workspaceLabel')}
+          </span>
+          <Select
+            size="small"
+            value={gitWorkspaceId}
+            onChange={(value) => setGitWorkspaceId(value)}
+            style={{ minWidth: 220 }}
+            options={workspaceOptions}
+            data-testid="daemon-admin-git-workspace"
+          />
+        </div>
+        {gitWorkspaceId !== null && (
+          <GitWorkspacePane transport={adminGitTransport} workspaceId={gitWorkspaceId} allowFolderPicker={false} />
+        )}
+      </section>
 
       {/* Tokens + pairing — the settings section rides the same
           oh.daemon.* channels, so it works here over the wire unchanged
