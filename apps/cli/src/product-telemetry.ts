@@ -8,11 +8,9 @@
  *
  * Gates: `OH_TELEMETRY` env var (`0`/`false`/`off` kills the channel;
  * any other value forces it on) → `telemetry` key in `cli.json` →
- * default on. The first enabled run prints the user-signed §8 notice to
- * stderr — stdout stays the machine contract — and persists
- * `telemetryNoticeShown` so the notice prints exactly once. Disabled
- * runs skip the channel entirely and never print the notice (nothing is
- * collected, so there is nothing to disclose).
+ * default on. No runtime notice: the disclosure lives in the docs and
+ * the privacy page, and the terminal stays quiet. Disabled runs skip
+ * the channel entirely (nothing is collected).
  *
  * Every telemetry failure is silent — a broken config file or an
  * unreachable endpoint must never change a command's outcome.
@@ -37,11 +35,6 @@ import { CLI_VERSION } from './version';
 
 export const TELEMETRY_ENV = 'OH_TELEMETRY';
 
-/** Plan §8 CLI first-run notice, user-signed, rendered for a terminal. */
-export const TELEMETRY_NOTICE =
-  'Open Headers CLI collects anonymous usage counts (command names and versions — never your data or targets). ' +
-  'Opt out anytime: export OH_TELEMETRY=0. Details: https://openheaders.io/privacy';
-
 const FLUSH_ABORT_MS = 500;
 
 export interface CliProductTelemetry {
@@ -55,8 +48,6 @@ export interface CliProductTelemetryDeps {
   cliVersion?: string;
   /** Distribution channel stamped on `first_run`; defaults to detection from the running script's path. */
   channel?: TelemetryChannelId;
-  /** First-run notice sink; production prints one stderr line. */
-  notify?: (line: string) => void;
   configPath?: string;
   /** Test seams; production uses the aborting fetch transport + wall clock. */
   transport?: TelemetryTransport;
@@ -207,19 +198,6 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
         await writeCliConfig(configPath, rest).catch(() => undefined);
       }
       return inert;
-    }
-
-    if (config.telemetryNoticeShown !== true) {
-      // stderr.write, not console.error: bun paints console.error red on
-      // a TTY, and a privacy notice must not read as an error.
-      (deps.notify ?? ((line) => process.stderr.write(`${line}\n`)))(TELEMETRY_NOTICE);
-      // Best-effort persistence: an unwritable config dir means the
-      // notice repeats next run, never that the command fails. A file we
-      // could not read is never overwritten — the user was told to fix
-      // it, and their content must survive for that.
-      if (configReadable) {
-        await writeCliConfig(configPath, { ...config, telemetryNoticeShown: true }).catch(() => undefined);
-      }
     }
 
     const now = deps.now ?? Date.now;
