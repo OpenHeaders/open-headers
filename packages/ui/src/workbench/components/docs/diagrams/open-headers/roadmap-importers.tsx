@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven pills.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Roadmap — More importers.
@@ -12,6 +18,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * dashed.
  */
 export const RoadmapImportersDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rm-imp';
   const W = 480;
   const TITLE_Y = 22;
@@ -20,11 +27,11 @@ export const RoadmapImportersDiagram: React.FC = () => {
   type Source = { label: string; status: 'today' | 'roadmap'; note?: string };
   const SOURCES: Source[] = [
     { label: 'cURL', status: 'today' },
-    { label: 'HAR', status: 'today', note: 'headers' },
-    { label: 'Postman collection', status: 'today' },
-    { label: 'HAR (full requests)', status: 'today' },
-    { label: 'Insomnia collection', status: 'today' },
-    { label: 'OpenAPI spec', status: 'today' },
+    { label: 'HAR', status: 'today', note: t('workbench.docs.diagrams.openHeaders.roadmapImporters.srcHarNote') },
+    { label: t('workbench.docs.diagrams.openHeaders.roadmapImporters.srcPostman'), status: 'today' },
+    { label: t('workbench.docs.diagrams.openHeaders.roadmapImporters.srcHarFull'), status: 'today' },
+    { label: t('workbench.docs.diagrams.openHeaders.roadmapImporters.srcInsomnia'), status: 'today' },
+    { label: t('workbench.docs.diagrams.openHeaders.roadmapImporters.srcOpenApi'), status: 'today' },
   ];
 
   const SRC_X = 16;
@@ -51,15 +58,15 @@ export const RoadmapImportersDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Importers. Six source formats funnel into one Open Headers workspace — cURL, HAR headers, Postman, HAR full requests, Insomnia, OpenAPI — all live today."
+      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapImporters.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Importers · bring your collection across
+        {t('workbench.docs.diagrams.openHeaders.roadmapImporters.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        cURL, HAR, Postman, Insomnia, OpenAPI, full HAR requests — all live today.
+        {t('workbench.docs.diagrams.openHeaders.roadmapImporters.subtitle')}
       </text>
 
       {/* Source format chips */}
@@ -71,6 +78,11 @@ export const RoadmapImportersDiagram: React.FC = () => {
         const textColor = isToday ? TEXT : TEXT_DIM;
         const tagColor = isToday ? OH_GREEN : 'rgba(212, 145, 0, 1)';
         const tagBg = isToday ? OH_GREEN_TINT : 'rgba(250, 173, 20, 0.18)';
+        const tag = isToday
+          ? t('workbench.docs.diagrams.openHeaders.roadmapImporters.tagToday')
+          : t('workbench.docs.diagrams.openHeaders.roadmapImporters.tagNext');
+        const tagW = Math.max(28, Math.round(unitLen(tag) * 4.6) + 12);
+        const tagX = SRC_X + SRC_W - 8 - tagW;
         return (
           <g key={s.label}>
             <rect
@@ -89,7 +101,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
             </text>
             {s.note && (
               <text
-                x={SRC_X + 12 + s.label.length * 6.5 + 8}
+                x={SRC_X + 12 + unitLen(s.label) * 6.5 + 8}
                 y={y + SRC_H / 2 + 4}
                 fontSize={8.5}
                 fontStyle="italic"
@@ -100,9 +112,9 @@ export const RoadmapImportersDiagram: React.FC = () => {
             )}
             {/* tier tag */}
             <rect
-              x={SRC_X + SRC_W - 48}
+              x={tagX}
               y={y + (SRC_H - 14) / 2}
-              width={40}
+              width={tagW}
               height={14}
               rx={7}
               fill={tagBg}
@@ -110,7 +122,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
               strokeWidth={1}
             />
             <text
-              x={SRC_X + SRC_W - 28}
+              x={tagX + tagW / 2}
               y={y + SRC_H / 2 + 4}
               textAnchor="middle"
               fontSize={8}
@@ -118,7 +130,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
               fill={tagColor}
               letterSpacing={0.4}
             >
-              {isToday ? 'TODAY' : 'NEXT'}
+              {tag}
             </text>
             {/* Funnel line to workspace */}
             <line
@@ -160,7 +172,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
       <circle cx={WS_X + 24} cy={WS_Y + CHROME_H / 2} r={4} fill="#febc2e" />
       <circle cx={WS_X + 36} cy={WS_Y + CHROME_H / 2} r={4} fill="#28c840" />
       <text x={WS_X + 50} y={WS_Y + CHROME_H / 2 + 4} fontSize={10} fontWeight={700} fill={TEXT}>
-        Open Headers
+        {t('workbench.docs.diagrams.openHeaders.shared.openHeaders')}
       </text>
       <text
         x={WS_X + WS_W - 10}
@@ -170,13 +182,18 @@ export const RoadmapImportersDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        workspace
+        {t('workbench.docs.diagrams.openHeaders.roadmapImporters.sideWorkspace')}
       </text>
       {/* Body — what arrives */}
       <text x={WS_X + 14} y={WS_Y + CHROME_H + 20} fontSize={9} fontWeight={800} fill={TEXT_DIM} letterSpacing={0.4}>
-        IMPORTED INTO
+        {t('workbench.docs.diagrams.openHeaders.roadmapImporters.kickerImported')}
       </text>
-      {['HTTP Rules', 'API Request Collections', 'Environments', 'Vault entries'].map((label, i) => (
+      {[
+        t('workbench.docs.diagrams.openHeaders.roadmapImporters.targetRules'),
+        t('workbench.docs.diagrams.openHeaders.roadmapImporters.targetCollections'),
+        t('workbench.docs.diagrams.openHeaders.roadmapImporters.targetEnvironments'),
+        t('workbench.docs.diagrams.openHeaders.roadmapImporters.targetVault'),
+      ].map((label, i) => (
         <g key={label}>
           <circle cx={WS_X + 18} cy={WS_Y + CHROME_H + 36 + i * 16} r={2} fill={STROKE_BLUE} />
           <text x={WS_X + 26} y={WS_Y + CHROME_H + 39 + i * 16} fontSize={10} fontWeight={600} fill={TEXT}>
@@ -197,7 +214,7 @@ export const RoadmapImportersDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Bring it across in one step — keep working
+        {t('workbench.docs.diagrams.openHeaders.roadmapImporters.verdict')}
       </text>
     </svg>
   );

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -11,6 +12,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * never overlap the card frames.
  */
 export const RoadmapGitWorkspacesDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rm-git';
   const W = 480;
   const TITLE_Y = 22;
@@ -88,7 +90,7 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Workspace
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.workspace')}
       </text>
       <text
         x={x + DEVICE_W / 2}
@@ -98,7 +100,7 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        rules · environments · vault
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.deviceContents')}
       </text>
     </g>
   );
@@ -118,19 +120,27 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — Team workspaces via Git. Two devices each hold a workspace; both push to and pull from a shared Git repository. The repo is the sync layer; no vendor server in the middle."
+      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapGit.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Workspaces as Git repositories
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Pull syncs · push shares · merge through Git — no vendor server.
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.subtitle')}
       </text>
 
-      {renderDevice(DEVICE_LEFT_X, 'Workbench', 'device A')}
-      {renderDevice(DEVICE_RIGHT_X, 'Workbench', 'device B')}
+      {renderDevice(
+        DEVICE_LEFT_X,
+        t('workbench.docs.diagrams.openHeaders.shared.workbench'),
+        t('workbench.docs.diagrams.openHeaders.roadmapGit.deviceA'),
+      )}
+      {renderDevice(
+        DEVICE_RIGHT_X,
+        t('workbench.docs.diagrams.openHeaders.shared.workbench'),
+        t('workbench.docs.diagrams.openHeaders.roadmapGit.deviceB'),
+      )}
 
       {/* Diagonal arrows: device A → repo (push), repo → device B (pull) */}
       <line
@@ -236,7 +246,7 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        Your data, your repo, your auditable history
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.verdict')}
       </text>
     </svg>
   );

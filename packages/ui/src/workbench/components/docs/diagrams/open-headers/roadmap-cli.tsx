@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN } from './_shared';
 
@@ -11,6 +12,7 @@ import { OH_GREEN } from './_shared';
  * back-end is the same daemon the UI uses.
  */
 export const RoadmapCliDiagram: React.FC = () => {
+  const t = useT();
   const W = 480;
   const TITLE_Y = 22;
   const SUBTITLE_Y = 40;
@@ -35,7 +37,7 @@ export const RoadmapCliDiagram: React.FC = () => {
     { kind: 'output', text: '  active environment: staging (env-a1)' },
     { kind: 'prompt', text: '$ oh request send ping' },
     { kind: 'output', text: '  GET api.openheaders.io/ping → 200 OK · 11 B · 83 ms' },
-    { kind: 'comment', text: '# same daemon · same workspace as the UI' },
+    { kind: 'comment', text: t('workbench.docs.diagrams.openHeaders.roadmapCli.comment') },
   ];
 
   return (
@@ -44,13 +46,13 @@ export const RoadmapCliDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — CLI. A terminal window showing example commands for listing rules, switching environments, and sending a saved request — all talking to the same daemon as the UI."
+      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapCli.aria')}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        CLI · headless scripting
+        {t('workbench.docs.diagrams.openHeaders.roadmapCli.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Same daemon as the UI — automation stays in sync with what you see.
+        {t('workbench.docs.diagrams.openHeaders.roadmapCli.subtitle')}
       </text>
 
       {/* Terminal window */}
@@ -85,7 +87,7 @@ export const RoadmapCliDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        oh · terminal
+        {t('workbench.docs.diagrams.openHeaders.roadmapCli.termTitle')}
       </text>
 
       {/* Lines */}
@@ -132,7 +134,7 @@ export const RoadmapCliDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        List · toggle · send · diff — straight from the shell
+        {t('workbench.docs.diagrams.openHeaders.roadmapCli.verdict')}
       </text>
     </svg>
   );

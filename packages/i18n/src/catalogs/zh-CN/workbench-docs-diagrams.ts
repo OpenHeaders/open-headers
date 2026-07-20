@@ -1150,4 +1150,85 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsProxy.chipInstallExtension': '安装扩展',
   'workbench.docs.diagrams.openHeaders.vsProxy.chipThatsIt': '就这些',
   'workbench.docs.diagrams.openHeaders.vsProxy.verdict': '装一次 · 零证书 · 规则以页面自身权限运行',
+
+  // ── Open Headers: roadmap CLI ───────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapCli.aria':
+    '路线图里程碑——CLI。一个终端窗口展示示例命令：列出规则、切换环境、发送已保存的请求——全都与 UI 用同一个 daemon 对话。',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.title': 'CLI · 无界面脚本',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.subtitle': '与 UI 同一个 daemon——自动化和你看到的保持同步。',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.termTitle': 'oh · 终端',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# 与 UI 同一个 daemon · 同一个工作空间',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.verdict': '列出 · 开关 · 发送 · diff——直接在 shell 里完成',
+
+  // ── Open Headers: roadmap daemon ────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
+    '路线图里程碑——本地 / 局域网 daemon。同步 daemon 居中；扩展、桌面应用和 CLI 都作为客户端通过你的局域网接入。',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': '本地 / 局域网 daemon · 一个同步中枢',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
+    '扩展 · 桌面 · CLI——同一个 daemon 的客户端，都在你的网络里。',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': '工作空间',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': '规则 · vault',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': '同步引擎',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.lanReachable': '局域网可达',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.clientExtension': '浏览器扩展',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideLaptop': '笔记本',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideWorkstation': '工作站',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · 多窗口',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': '任意设备 · $ oh rules · $ oh env',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': '一个 daemon · 多个客户端 · 一直待在你的网络里',
+
+  // ── Open Headers: roadmap desktop app ───────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.aria':
+    '路线图里程碑——桌面应用。浏览器扩展与原生桌面应用都基于同一份磁盘存储呈现 Workbench 界面。桌面应用补上浏览器扩展无法原生承载的协议：AI、MCP、gRPC、MQTT。',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.title': '原生窗口 · 同一份存储 · 更大触达',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.subtitle':
+    '同一个 Workbench、同一个工作空间——桌面端补上浏览器无法承载的协议。',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.cardExtension': '浏览器扩展',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.tagToday': '现已可用',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerSurface': '界面',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerFeatures': '功能',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerApiCatalog': 'API 目录',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featHttpRules': 'HTTP 规则',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featVariables': '变量',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featWorkflows': '工作流',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featApiCatalog': 'API 目录',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.noteLocalRemote': '本地 / 远程',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.desktopOnly': '+ 仅桌面端',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.browserFeasible': '这四个浏览器都能承载。',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.storePill': '同一份磁盘上的工作空间存储',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.verdict': '一个工作空间、两个前端，浏览器到不了的地方由桌面补足',
+
+  // ── Open Headers: roadmap git workspaces ────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapGit.aria':
+    '路线图里程碑——通过 Git 的团队工作空间。两台设备各持有一个工作空间；都向共享 Git 仓库推送并从中拉取。仓库就是同步层；中间没有供应商服务器。',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.title': '工作空间即 Git 仓库',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.subtitle':
+    'pull 同步 · push 分享 · 通过 Git 合并——没有供应商服务器。',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.deviceA': '设备 A',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.deviceB': '设备 B',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.workspace': '工作空间',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.deviceContents': '规则 · 环境 · vault',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.verdict': '你的数据、你的仓库、可审计的历史',
+
+  // ── Open Headers: roadmap importers ─────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.aria':
+    '导入器。六种来源格式汇入同一个 Open Headers 工作空间——cURL、HAR 标头、Postman、完整 HAR 请求、Insomnia、OpenAPI——今天全部可用。',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.title': '导入器 · 把你的集合搬过来',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.subtitle':
+    'cURL、HAR、Postman、Insomnia、OpenAPI、完整 HAR 请求——今天全部可用。',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcHarNote': '标头',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcPostman': 'Postman 集合',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcHarFull': 'HAR（完整请求）',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcInsomnia': 'Insomnia 集合',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcOpenApi': 'OpenAPI 规范',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.tagToday': '现已可用',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.tagNext': '待推出',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.sideWorkspace': '工作空间',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.kickerImported': '导入到',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetRules': 'HTTP 规则',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetCollections': 'API 请求集合',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetEnvironments': '环境',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetVault': 'vault 条目',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.verdict': '一步搬完，继续工作',
 } as const satisfies Catalog;

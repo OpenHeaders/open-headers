@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, BrowserWindow, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN } from './_shared';
 
@@ -10,6 +11,7 @@ import { OH_GREEN } from './_shared';
  * CLI on third device). All connect through LAN — explicitly not cloud.
  */
 export const RoadmapDaemonDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rm-daemon';
   const W = 480;
   const TITLE_Y = 22;
@@ -58,15 +60,15 @@ export const RoadmapDaemonDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — Local / LAN daemon. A sync daemon in the center; extension, desktop app, and CLI all connect as clients across your LAN."
+      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapDaemon.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Local / LAN daemon · one sync hub
+        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Extension · desktop · CLI — all clients of the same daemon, all on your network.
+        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle')}
       </text>
 
       {/* Daemon block — multi-stack rectangles */}
@@ -89,7 +91,7 @@ export const RoadmapDaemonDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Local daemon
+        {t('workbench.docs.diagrams.openHeaders.shared.localDaemon')}
       </text>
       {[0, 1, 2].map((i) => (
         <g key={i}>
@@ -105,7 +107,13 @@ export const RoadmapDaemonDiagram: React.FC = () => {
           />
           <circle cx={DAEMON_X + 16} cy={DAEMON_Y + 38 + i * 16} r={1.8} fill={OH_GREEN} />
           <text x={DAEMON_X + 26} y={DAEMON_Y + 41 + i * 16} fontFamily="monospace" fontSize={8} fill={TEXT}>
-            {['workspaces', 'rules · vault', 'sync engine'][i]}
+            {
+              [
+                t('workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces'),
+                t('workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules'),
+                t('workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync'),
+              ][i]
+            }
           </text>
         </g>
       ))}
@@ -117,13 +125,31 @@ export const RoadmapDaemonDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        LAN-reachable
+        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.lanReachable')}
       </text>
 
       {/* Three clients */}
-      {renderClient(14, ROW1_Y, 'Browser ext', 'laptop', 'Popup · Workbench · DevTools')}
-      {renderClient(W - CLIENT_W - 14, ROW1_Y, 'Desktop app', 'workstation', 'Workbench · multi-window')}
-      {renderClient((W - CLIENT_W) / 2, ROW2_Y, 'CLI', '', 'any machine · $ oh rules · $ oh env')}
+      {renderClient(
+        14,
+        ROW1_Y,
+        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.clientExtension'),
+        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.sideLaptop'),
+        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension'),
+      )}
+      {renderClient(
+        W - CLIENT_W - 14,
+        ROW1_Y,
+        t('workbench.docs.diagrams.openHeaders.shared.desktopApp'),
+        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.sideWorkstation'),
+        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop'),
+      )}
+      {renderClient(
+        (W - CLIENT_W) / 2,
+        ROW2_Y,
+        'CLI',
+        '',
+        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli'),
+      )}
 
       {/* Connection lines */}
       {[
@@ -155,7 +181,7 @@ export const RoadmapDaemonDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        One daemon · many clients · stays on your network
+        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict')}
       </text>
     </svg>
   );

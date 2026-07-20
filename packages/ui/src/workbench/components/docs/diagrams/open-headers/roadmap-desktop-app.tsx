@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -13,6 +14,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * cannot host natively (AI · MCP · gRPC · MQTT).
  */
 export const RoadmapDesktopAppDiagram: React.FC = () => {
+  const t = useT();
   const W = 480;
   const TITLE_Y = 22;
   const SUBTITLE_Y = 40;
@@ -35,11 +37,16 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
   const H = VERDICT_Y + VERDICT_H + 12;
   const CX = W / 2;
 
-  const FEATURES = ['HTTP Rules', 'Variables', 'Workflows', 'API Catalog'];
+  const FEATURES = [
+    t('workbench.docs.diagrams.openHeaders.roadmapDesktop.featHttpRules'),
+    t('workbench.docs.diagrams.openHeaders.roadmapDesktop.featVariables'),
+    t('workbench.docs.diagrams.openHeaders.roadmapDesktop.featWorkflows'),
+    t('workbench.docs.diagrams.openHeaders.roadmapDesktop.featApiCatalog'),
+  ];
   const PROTOCOLS_BROWSER = ['HTTP', 'GraphQL', 'WebSocket', 'Socket.IO'];
   const PROTOCOLS_DESKTOP_ONLY: { label: string; note?: string }[] = [
-    { label: 'LLM / AI', note: 'local / remote' },
-    { label: 'MCP', note: 'local / remote' },
+    { label: 'LLM / AI', note: t('workbench.docs.diagrams.openHeaders.roadmapDesktop.noteLocalRemote') },
+    { label: 'MCP', note: t('workbench.docs.diagrams.openHeaders.roadmapDesktop.noteLocalRemote') },
     { label: 'gRPC' },
     { label: 'MQTT' },
   ];
@@ -106,10 +113,10 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
           fill={TEXT_DIM}
           letterSpacing={0.4}
         >
-          SURFACE
+          {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerSurface')}
         </text>
         <text x={x + 72} y={surfaceY + SURFACE_H / 2 + 4} fontSize={10} fontWeight={700} fill={TEXT}>
-          Workbench
+          {t('workbench.docs.diagrams.openHeaders.shared.workbench')}
         </text>
 
         {/* Horizontal divider under chrome + surface row */}
@@ -127,7 +134,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
 
         {/* LEFT column — FEATURES */}
         <text x={leftColX + 4} y={colTopY} fontSize={9} fontWeight={800} fill={TEXT_DIM} letterSpacing={0.4}>
-          FEATURES
+          {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerFeatures')}
         </text>
         {FEATURES.map((f, i) => (
           <g key={f}>
@@ -140,7 +147,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
 
         {/* RIGHT column — API CATALOG (protocols) */}
         <text x={rightColX + 4} y={colTopY} fontSize={9} fontWeight={800} fill={TEXT_DIM} letterSpacing={0.4}>
-          API CATALOG
+          {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerApiCatalog')}
         </text>
         {PROTOCOLS_BROWSER.map((p, i) => (
           <g key={p}>
@@ -208,7 +215,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
                   fill={OH_GREEN}
                   letterSpacing={0.6}
                 >
-                  + DESKTOP-ONLY
+                  {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.desktopOnly')}
                 </text>
                 {/* Row 1: AI — own row */}
                 {renderItem(PROTOCOLS_DESKTOP_ONLY[0], boxX + 14, rowStartY)}
@@ -233,7 +240,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
             fontStyle="italic"
             fill={TEXT_DIM}
           >
-            All four are browser-feasible.
+            {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.browserFeasible')}
           </text>
         )}
       </g>
@@ -246,17 +253,27 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — Desktop app. Browser extension and native desktop app both expose the Workbench surface over the same on-disk store. The desktop app adds protocols a browser extension cannot host natively: AI, MCP, gRPC, MQTT."
+      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapDesktop.aria')}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Native window · same store · extra reach
+        {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Same Workbench, same workspace — desktop adds protocols a browser can't host.
+        {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.subtitle')}
       </text>
 
-      {renderCard(CARD_LEFT_X, 'Browser extension', 'today', false)}
-      {renderCard(CARD_RIGHT_X, 'Desktop app', 'today', true)}
+      {renderCard(
+        CARD_LEFT_X,
+        t('workbench.docs.diagrams.openHeaders.roadmapDesktop.cardExtension'),
+        t('workbench.docs.diagrams.openHeaders.roadmapDesktop.tagToday'),
+        false,
+      )}
+      {renderCard(
+        CARD_RIGHT_X,
+        t('workbench.docs.diagrams.openHeaders.shared.desktopApp'),
+        t('workbench.docs.diagrams.openHeaders.roadmapDesktop.tagToday'),
+        true,
+      )}
 
       {/* Shared store pill */}
       <rect
@@ -277,7 +294,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
         fontWeight={700}
         fill={OH_GREEN}
       >
-        same on-disk workspace store
+        {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.storePill')}
       </text>
       <line
         x1={CARD_LEFT_X + CARD_W / 2}
@@ -309,7 +326,7 @@ export const RoadmapDesktopAppDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        One workspace, two front-ends, the extra reach where the browser can't go
+        {t('workbench.docs.diagrams.openHeaders.roadmapDesktop.verdict')}
       </text>
     </svg>
   );

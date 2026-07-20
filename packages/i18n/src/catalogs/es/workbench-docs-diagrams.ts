@@ -1287,4 +1287,95 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsProxy.chipThatsIt': 'y ya está',
   'workbench.docs.diagrams.openHeaders.vsProxy.verdict':
     'Una instalación · cero certificados · reglas con los permisos de la página',
+
+  // ── Open Headers: roadmap CLI ───────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapCli.aria':
+    'Hito de la hoja de ruta — CLI. Una ventana de terminal con comandos de ejemplo para listar reglas, cambiar ' +
+    'de entorno y enviar una solicitud guardada — todos hablando con el mismo daemon que la UI.',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.title': 'CLI · scripting sin interfaz',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.subtitle':
+    'El mismo daemon que la UI — la automatización va en sincronía con lo que ves.',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.termTitle': 'oh · terminal',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# mismo daemon · mismo espacio de trabajo que la UI',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.verdict':
+    'Listar · alternar · enviar · diff — directo desde la shell',
+
+  // ── Open Headers: roadmap daemon ────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
+    'Hito de la hoja de ruta — daemon local / LAN. Un daemon de sync en el centro; extensión, app de escritorio y ' +
+    'CLI se conectan como clientes a través de tu LAN.',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Daemon local / LAN · un solo hub de sync',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
+    'Extensión · escritorio · CLI — todos clientes del mismo daemon, todos en tu red.',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': 'espacios de trabajo',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': 'reglas · vault',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': 'motor de sync',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.lanReachable': 'accesible en LAN',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.clientExtension': 'Ext. navegador',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideLaptop': 'portátil',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideWorkstation': 'estación de trabajo',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · multiventana',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': 'cualquier equipo · $ oh rules · $ oh env',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': 'Un daemon · muchos clientes · se queda en tu red',
+
+  // ── Open Headers: roadmap desktop app ───────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.aria':
+    'Hito de la hoja de ruta — app de escritorio. La extensión de navegador y la app de escritorio nativa exponen ' +
+    'la misma superficie Workbench sobre el mismo store en disco. La app de escritorio añade protocolos que una ' +
+    'extensión de navegador no puede alojar de forma nativa: AI, MCP, gRPC, MQTT.',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.title': 'Ventana nativa · mismo store · más alcance',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.subtitle':
+    'Mismo Workbench, mismo workspace — el escritorio añade protocolos que el navegador no puede alojar.',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.cardExtension': 'Extensión de navegador',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.tagToday': 'hoy',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerSurface': 'SUPERFICIE',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerFeatures': 'FUNCIONES',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.kickerApiCatalog': 'CATÁLOGO API',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featHttpRules': 'Reglas HTTP',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featVariables': 'Variables',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featWorkflows': 'Workflows',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.featApiCatalog': 'Catálogo API',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.noteLocalRemote': 'local / remoto',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.desktopOnly': '+ SOLO ESCRITORIO',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.browserFeasible': 'Los cuatro caben en el navegador.',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.storePill': 'mismo store del espacio de trabajo en disco',
+  'workbench.docs.diagrams.openHeaders.roadmapDesktop.verdict':
+    'Un workspace, dos front-ends, el alcance extra donde el navegador no llega',
+
+  // ── Open Headers: roadmap git workspaces ────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapGit.aria':
+    'Hito de la hoja de ruta — espacios de trabajo en equipo vía Git. Dos dispositivos con un espacio de trabajo ' +
+    'cada uno; ambos hacen push y pull contra un repositorio Git compartido. El repo es la capa de sync; sin ' +
+    'servidor del proveedor en medio.',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.title': 'Espacios de trabajo como repositorios Git',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.subtitle':
+    'pull sincroniza · push comparte · merge vía Git — sin servidor del proveedor.',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.deviceA': 'dispositivo A',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.deviceB': 'dispositivo B',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.workspace': 'Espacio de trabajo',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.deviceContents': 'reglas · entornos · vault',
+  'workbench.docs.diagrams.openHeaders.roadmapGit.verdict': 'Tus datos, tu repositorio, tu historial auditable',
+
+  // ── Open Headers: roadmap importers ─────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.aria':
+    'Importadores. Seis formatos de origen desembocan en un solo espacio de trabajo Open Headers — cURL, ' +
+    'encabezados HAR, Postman, solicitudes HAR completas, Insomnia, OpenAPI — todos disponibles hoy.',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.title': 'Importadores · tráete tu colección',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.subtitle':
+    'cURL, HAR, Postman, Insomnia, OpenAPI, solicitudes HAR completas — todo disponible hoy.',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcHarNote': 'encabezados',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcPostman': 'Colección de Postman',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcHarFull': 'HAR completo',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcInsomnia': 'Colección de Insomnia',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.srcOpenApi': 'Espec. OpenAPI',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.tagToday': 'HOY',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.tagNext': 'PRÓXIMO',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.sideWorkspace': 'espacio de trabajo',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.kickerImported': 'IMPORTADO EN',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetRules': 'Reglas HTTP',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetCollections': 'Colecciones de solicitudes API',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetEnvironments': 'Entornos',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.targetVault': 'Entradas de vault',
+  'workbench.docs.diagrams.openHeaders.roadmapImporters.verdict': 'Tráelo todo en un paso — y sigue trabajando',
 } as const satisfies Catalog;
