@@ -251,6 +251,13 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
             const wf = liveWorkflows.find((w) => w.uid === uid);
             openLiveWorkflowEdit(uid, wf?.name ?? t('workbench.shell.fallback.workflow'));
           }}
+          // Empty-state CTA — same action as the Workflows navigator's
+          // Create button, revealing that navigator so the draft has a
+          // visible home.
+          onCreateWorkflow={() => {
+            tl.activateWindow('workflows');
+            openCreateLiveWorkflow();
+          }}
         />
       );
     case 'activity':

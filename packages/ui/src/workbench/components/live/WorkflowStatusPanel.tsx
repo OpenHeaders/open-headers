@@ -19,7 +19,7 @@
  * timer runs.
  */
 
-import { ReloadOutlined, UndoOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, UndoOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
@@ -43,6 +43,8 @@ interface Props {
   onClose: () => void;
   /** Double-click handler → open the matching Live Workflow editor tab. */
   onOpenWorkflow?: (workflowUid: string) => void;
+  /** Empty-state CTA — same action as the Workflows navigator's Create button. */
+  onCreateWorkflow?: () => void;
 }
 
 interface Row {
@@ -59,7 +61,7 @@ interface Row {
   run: LiveWorkflowRunSnapshot;
 }
 
-const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow }) => {
+const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow, onCreateWorkflow }) => {
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
@@ -203,7 +205,13 @@ const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow })
               {t('workbench.editors.live.status.empty')}
             </Text>
           }
-        />
+        >
+          {onCreateWorkflow && (
+            <Button size="small" icon={<PlusOutlined />} onClick={onCreateWorkflow}>
+              {t('workbench.editors.live.create.createWorkflow')}
+            </Button>
+          )}
+        </Empty>
       </div>
     );
   } else {
