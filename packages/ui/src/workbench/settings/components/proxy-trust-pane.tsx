@@ -24,6 +24,7 @@ interface TrustStatus {
   ca: ProxyCaPublicInfo | null;
   stores: ReadonlyArray<ProxyTrustStoreState>;
   changes: ReadonlyArray<ProxyTrustChange>;
+  systemKeychainTrustSupported: boolean;
 }
 
 interface StoreResult {
@@ -32,6 +33,7 @@ interface StoreResult {
   ok: boolean;
   error?: string;
   elevationRequired?: boolean;
+  residue?: boolean;
 }
 
 type WizardStep = { step: 'explain' } | { step: 'choose' } | { step: 'results'; results: ReadonlyArray<StoreResult> };
@@ -45,6 +47,7 @@ const STORE_LABEL: Record<ProxyTrustStoreId, MessageKey> = {
 const STATE_TEXT: Record<ProxyTrustStoreState['state'], MessageKey> = {
   trusted: 'workbench.settings.proxyTrustPane.stores.state.trusted',
   absent: 'workbench.settings.proxyTrustPane.stores.state.absent',
+  untrusted: 'workbench.settings.proxyTrustPane.stores.state.untrusted',
   mismatch: 'workbench.settings.proxyTrustPane.stores.state.mismatch',
   unavailable: 'workbench.settings.proxyTrustPane.stores.state.unavailable',
 };
@@ -52,6 +55,7 @@ const STATE_TEXT: Record<ProxyTrustStoreState['state'], MessageKey> = {
 const STATE_COLOR: Record<ProxyTrustStoreState['state'], string | undefined> = {
   trusted: 'green',
   absent: undefined,
+  untrusted: 'gold',
   mismatch: 'red',
   unavailable: 'orange',
 };
@@ -85,7 +89,12 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const reload = useCallback(async (): Promise<void> => {
     try {
       const resp = await hostBridge.call('oh.daemon.proxy.trust.status');
-      setStatus({ ca: resp.ca, stores: resp.stores, changes: resp.changes });
+      setStatus({
+        ca: resp.ca,
+        stores: resp.stores,
+        changes: resp.changes,
+        systemKeychainTrustSupported: resp.systemKeychainTrustSupported,
+      });
       setLoadError(null);
     } catch (err) {
       setStatus(null);
@@ -164,6 +173,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const hasMismatch = stores.some((s) => s.state === 'mismatch');
   const hasFirefoxProfiles = stores.some((s) => s.store === 'nss-firefox');
   const hasKeychains = stores.some((s) => s.store === 'macos-login-keychain' || s.store === 'macos-system-keychain');
+  const systemTrustSupported = status?.systemKeychainTrustSupported ?? false;
   const failedResults = wizard?.step === 'results' ? wizard.results.filter((r) => !r.ok) : [];
 
   const storeOption = (
@@ -202,9 +212,11 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
           <span style={{ color: r.ok ? token.colorText : token.colorError, wordBreak: 'break-word' }}>
             {r.ok
               ? t('workbench.settings.proxyTrustPane.wizard.results.ok')
-              : r.elevationRequired
-                ? t('workbench.settings.proxyTrustPane.wizard.results.elevation')
-                : t('workbench.settings.proxyTrustPane.wizard.results.failed', { message: r.error ?? '' })}
+              : r.residue
+                ? t('workbench.settings.proxyTrustPane.wizard.results.residue')
+                : r.elevationRequired
+                  ? t('workbench.settings.proxyTrustPane.wizard.results.elevation')
+                  : t('workbench.settings.proxyTrustPane.wizard.results.failed', { message: r.error ?? '' })}
           </span>
         </div>
       ))}
@@ -295,6 +307,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
                 description={t('workbench.settings.proxyTrustPane.removeConfirm.body')}
                 okText={t('workbench.settings.proxyTrustPane.removeConfirm.ok')}
                 okButtonProps={{ danger: true }}
+                styles={{ root: { maxWidth: 380 } }}
                 onConfirm={() => void remove()}
               >
                 <Button data-testid="proxy-trust-remove" danger size="small" loading={removing}>
@@ -308,6 +321,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
                 description={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.body')}
                 okText={t('workbench.settings.proxyTrustPane.ca.deleteConfirm.ok')}
                 okButtonProps={{ danger: true }}
+                styles={{ root: { maxWidth: 380 } }}
                 onConfirm={() => void deleteCa()}
               >
                 <Button data-testid="proxy-trust-delete-ca" danger size="small">
@@ -413,7 +427,12 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
               {t('workbench.settings.proxyTrustPane.wizard.choose.blurb')}
             </p>
             {storeOption('macos-login-keychain', 'workbench.settings.proxyTrustPane.wizard.choose.loginNote', hasKeychains)}
-            {storeOption('macos-system-keychain', 'workbench.settings.proxyTrustPane.wizard.choose.systemNote', hasKeychains)}
+            {storeOption(
+              'macos-system-keychain',
+              'workbench.settings.proxyTrustPane.wizard.choose.systemNote',
+              hasKeychains && systemTrustSupported,
+              'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable',
+            )}
             {storeOption(
               'nss-firefox',
               'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote',

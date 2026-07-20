@@ -48,6 +48,16 @@ function shellQuote(arg: string): string {
  * is visible, scoped to this one command, and deniable. A denial
  * surfaces as a non-zero exit; callers report it and stop (§5: never
  * retry around a denial).
+ *
+ * LIMITATION (field finding, PROXY_SECURITY.md §2.6): this path runs as
+ * root but in a security session DETACHED from the user's GUI, so any
+ * `SecTrustSettings{Set,Remove}TrustSettings` call — i.e. writing or
+ * removing System-keychain (admin-domain) *trust* — fails with "The
+ * authorization was denied since no user interaction was possible."
+ * The plain cert import/delete (which do not touch SecTrustSettings)
+ * succeed. It is therefore usable for the login keychain's cert bytes
+ * but CANNOT manage admin-domain trust; System-keychain trust is gated
+ * off until the signed privileged helper (session-preserving) ships.
  */
 export const osascriptElevatedExec: ExecFn = (cmd, args) => {
   const shellLine = [cmd, ...args].map(shellQuote).join(' ');

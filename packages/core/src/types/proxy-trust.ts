@@ -25,15 +25,20 @@ export interface ProxyCaPublicInfo {
 
 /**
  * Live probe verdict for one concrete trust store. `trusted` = our
- * fingerprint found; `absent` = not installed; `mismatch` = a cert with
- * our nickname/subject is present but its fingerprint differs from the
- * stored CA (tamper visibility — report, never trust it);
- * `unavailable` = the store cannot be probed on this machine (tooling
- * missing, store unreadable) with `detail` saying why.
+ * fingerprint found AND the store's trust settings name it; `absent` =
+ * nothing of ours present; `untrusted` = our cert is physically present
+ * but the store carries no trust settings for it — a residue state the
+ * teardown record must still cover (a partial install, or a cancelled
+ * trust prompt after the cert was already imported, never silently read
+ * as "not installed"); `mismatch` = a cert with our nickname/subject is
+ * present but its fingerprint differs from the stored CA (tamper
+ * visibility — report, never trust it); `unavailable` = the store
+ * cannot be probed on this machine (tooling missing, store unreadable)
+ * with `detail` saying why.
  */
 export interface ProxyTrustStoreState {
   store: ProxyTrustStoreId;
   ref: string;
-  state: 'trusted' | 'absent' | 'mismatch' | 'unavailable';
+  state: 'trusted' | 'absent' | 'untrusted' | 'mismatch' | 'unavailable';
   detail?: string;
 }

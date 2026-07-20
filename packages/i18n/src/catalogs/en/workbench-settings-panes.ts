@@ -537,6 +537,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.firefoxProfile': 'Firefox profile',
   'workbench.settings.proxyTrustPane.stores.state.trusted': 'Trusted',
   'workbench.settings.proxyTrustPane.stores.state.absent': 'Not installed',
+  'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Present, not trusted',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Different certificate',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Unreadable',
   'workbench.settings.proxyTrustPane.stores.empty': 'No trust stores are visible on this machine.',
@@ -564,6 +565,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.choose.loginNote': 'Apps running as you — no admin approval needed.',
   'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
     'Every user on this machine — asks for admin approval.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable':
+    'System-wide trust isn’t available in this build yet — it needs the OpenHeaders helper. Use the login keychain for now.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
     'Firefox keeps its own trust store — installs into every profile found.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone': 'No Firefox profiles were found on this machine.',
@@ -578,6 +581,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.results.ok': 'Installed and trusted',
   'workbench.settings.proxyTrustPane.wizard.results.elevation':
     'Admin approval was declined — the store was left unchanged.',
+  'workbench.settings.proxyTrustPane.wizard.results.residue':
+    'The certificate was added but could not be trusted. Use “Remove trust” to clean it up.',
   'workbench.settings.proxyTrustPane.wizard.results.failed': 'Failed: {message}',
   'workbench.settings.proxyTrustPane.wizard.installFailed': 'Trust setup failed: {message}',
   'workbench.settings.proxyTrustPane.wizard.done': 'Done',

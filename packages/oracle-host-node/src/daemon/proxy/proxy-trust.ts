@@ -49,6 +49,7 @@ export interface ProxyTrustStatus {
   ca: ProxyCaPublicInfo | null;
   stores: ProxyTrustStoreState[];
   changes: ProxyTrustChange[];
+  systemKeychainTrustSupported: boolean;
 }
 
 export interface ProxyTrustStoreResult {
@@ -57,6 +58,8 @@ export interface ProxyTrustStoreResult {
   ok: boolean;
   error?: string;
   elevationRequired?: boolean;
+  /** The cert imported but could not be trusted — kept, not "unchanged". */
+  residue?: boolean;
 }
 
 export type ProxyTrustInstallResult =
@@ -83,6 +86,15 @@ export interface ProxyTrustDeps {
   platform?: string;
   tmpdir?: string;
   now?: () => number;
+  /**
+   * Whether admin-domain (System-keychain) trust can be installed AND
+   * removed on this build. Defaults to false: the osascript elevation
+   * seam cannot write/remove admin trust settings (its session is
+   * detached — see `exec.ts`), so System-keychain trust is gated off
+   * until the signed privileged helper lands, which flips this to a
+   * real probe of the helper's availability.
+   */
+  systemTrustSupported?: boolean;
 }
 
 export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustService {
@@ -91,6 +103,7 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
   const homedir = deps.homedir ?? os.homedir();
   const platform = deps.platform ?? process.platform;
   const now = deps.now ?? Date.now;
+  const systemTrustSupported = deps.systemTrustSupported ?? false;
   const keychainDeps = { exec, execElevated, ...(deps.tmpdir !== undefined ? { tmpdir: deps.tmpdir } : {}) };
 
   function keychainPath(store: 'macos-login-keychain' | 'macos-system-keychain'): string {
@@ -133,7 +146,7 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
       const expected = caFingerprint ?? recorded?.fingerprintSha256 ?? null;
       stores.push(await probeStore(target.store, target.ref, expected));
     }
-    return { ca: caRecord !== null ? proxyCaPublicInfo(caRecord) : null, stores, changes };
+    return { ca: caRecord !== null ? proxyCaPublicInfo(caRecord) : null, stores, changes, systemKeychainTrustSupported: systemTrustSupported };
   }
 
   async function installOne(ca: ProxyCaRecord, store: ProxyTrustStoreId, ref: string): Promise<ProxyTrustStoreResult> {
@@ -146,16 +159,21 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
         ? await installCaInNssProfile(ca.certPem, ref, exec, deps.tmpdir)
         : await installCaInKeychain(ca.certPem, keychainPath(store), keychainDeps);
     if (!result.ok) {
-      // The command refused — if the store verifiably holds nothing of
-      // ours, retract the row; otherwise keep it for teardown to chase.
+      // The command refused. Re-probe to see what actually landed: only a
+      // store that verifiably holds nothing of ours retracts the row; a
+      // cert that imported but could not be trusted (`untrusted`) is
+      // residue — keep the row so teardown covers it, and never report it
+      // as "elevation declined / left unchanged" (the store DID change).
       const probed = await probeStore(store, ref, prints.sha256);
       if (probed.state === 'absent') await dropTrustChange(store, ref);
+      const cleanlyRefused = probed.state === 'absent';
       return {
         store,
         ref,
         ok: false,
         ...(result.error !== undefined ? { error: result.error } : {}),
-        ...(result.elevationRequired === true ? { elevationRequired: true } : {}),
+        ...(cleanlyRefused && result.elevationRequired === true ? { elevationRequired: true } : {}),
+        ...(probed.state === 'untrusted' ? { residue: true } : {}),
       };
     }
     return { store, ref, ok: true };
@@ -175,6 +193,19 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
     for (const store of [...new Set(storeIds)]) {
       if (store !== 'nss-firefox' && platform !== 'darwin') {
         results.push({ store, ref: '', ok: false, error: `${store} is not available on this platform` });
+        continue;
+      }
+      if (store === 'macos-system-keychain' && !systemTrustSupported) {
+        // Refuse rather than half-install: the elevation seam can import
+        // the cert but cannot write admin-domain trust settings (nor undo
+        // them), so an attempt would leave an un-removable residue. No row
+        // is written; the wizard disables this option while unsupported.
+        results.push({
+          store,
+          ref: SYSTEM_KEYCHAIN_PATH,
+          ok: false,
+          error: 'System-keychain trust is not available in this build — it requires the OpenHeaders privileged helper',
+        });
         continue;
       }
       if (store === 'nss-firefox') {
@@ -214,12 +245,18 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
         ...(result.elevationRequired === true ? { elevationRequired: true } : {}),
       };
     }
-    // Verified removal: OUR fingerprint must be gone. `absent` and
-    // `mismatch` (a foreign cert we never installed) both qualify; an
-    // unreadable store keeps the row for the next attempt.
+    // Verified removal: OUR fingerprint must be physically GONE. `absent`
+    // and `mismatch` (a foreign cert we never installed) both qualify. A
+    // still-`trusted` store obviously fails; so does `untrusted` — the
+    // trust settings came off but our cert bytes are still in the store,
+    // which is not clean and must not drop the row. `unavailable` keeps
+    // the row for the next attempt.
     const probed = await probeStore(store, ref, change.fingerprintSha256);
     if (probed.state === 'trusted') {
       return { store, ref, ok: false, error: 'store still trusts the certificate after removal' };
+    }
+    if (probed.state === 'untrusted') {
+      return { store, ref, ok: false, error: 'certificate is still present in the store after removal' };
     }
     if (probed.state === 'unavailable') {
       return { store, ref, ok: false, ...(probed.detail !== undefined ? { error: probed.detail } : {}) };

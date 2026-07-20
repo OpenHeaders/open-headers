@@ -150,8 +150,10 @@ async function trustSettingsContain(commonName: string, system: boolean, exec: E
  * `trusted` needs BOTH halves: the cert present with our fingerprint
  * and a trust-settings entry naming it. A matching CN with a foreign
  * fingerprint is `mismatch` (tamper visibility, §5); a fingerprint
- * match without trust settings reads `absent` with a detail — the OS
- * would not trust a leaf, so claiming otherwise would be half-trust.
+ * match without trust settings reads `untrusted` — the cert is
+ * physically in the keychain (so it is NOT absent and teardown must
+ * still cover it), but the OS would not trust a leaf, so claiming
+ * `trusted` would be half-trust.
  */
 export async function probeKeychain(
   commonName: string,
@@ -172,7 +174,7 @@ export async function probeKeychain(
   const trusted = await trustSettingsContain(commonName, store === 'macos-system-keychain', exec);
   if (trusted === null) return { store, ref: keychain, state: 'unavailable', detail: 'trust settings not readable' };
   if (!trusted) {
-    return { store, ref: keychain, state: 'absent', detail: 'certificate present but not trusted (no trust settings)' };
+    return { store, ref: keychain, state: 'untrusted', detail: 'certificate present but not trusted (no trust settings)' };
   }
   return { store, ref: keychain, state: 'trusted' };
 }

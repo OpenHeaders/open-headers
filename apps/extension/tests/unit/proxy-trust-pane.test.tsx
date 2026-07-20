@@ -40,6 +40,7 @@ interface TrustStatus {
   ca: ProxyCaPublicInfo | null;
   stores: ProxyTrustStoreState[];
   changes: ProxyTrustChange[];
+  systemKeychainTrustSupported?: boolean;
 }
 
 const CA: ProxyCaPublicInfo = {
@@ -78,7 +79,9 @@ function installBridge(
   const remove = vi.fn(handlers.remove ?? (() => ({ ok: true, results: [] })));
   const bridge: HostBridge = {
     async call(type, ...args) {
-      if (type === 'oh.daemon.proxy.trust.status') return status() as never;
+      if (type === 'oh.daemon.proxy.trust.status') {
+        return { systemKeychainTrustSupported: true, ...status() } as never;
+      }
       if (type === 'oh.daemon.proxy.trust.install') return install(args[0]) as never;
       if (type === 'oh.daemon.proxy.trust.remove') return remove(args[0]) as never;
       throw new Error(`unexpected rpc ${String(type)}`);
@@ -231,6 +234,67 @@ describe('ProxyTrustPane', () => {
       expect(screen.getAllByText('Some stores could not be verified clean.', { exact: false }).length).toBeGreaterThan(0),
     );
     expect(screen.getByText('Failed: store still trusts the certificate after removal')).toBeTruthy();
+  });
+
+  it('disables the System-keychain option with honest copy on builds without the privileged helper', async () => {
+    const fake = installBridge(() => ({
+      ca: null,
+      stores: [storeState(), storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
+      changes: [],
+      systemKeychainTrustSupported: false,
+    }));
+    renderPane();
+
+    await waitFor(() => expect(screen.getByTestId('proxy-trust-setup')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('proxy-trust-setup'));
+    fireEvent.click(screen.getByTestId('proxy-trust-wizard-next'));
+
+    const system = screen.getByTestId('proxy-trust-opt-macos-system-keychain');
+    expect((system as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('proxy-trust-opt-macos-login-keychain') as HTMLInputElement).disabled).toBe(false);
+    expect(screen.getByText('System-wide trust isn’t available in this build yet', { exact: false })).toBeTruthy();
+
+    // A disabled option can never reach the install call.
+    fireEvent.click(system);
+    expect((system as HTMLInputElement).checked).toBe(false);
+    expect(fake.install).not.toHaveBeenCalled();
+  });
+
+  it('renders a residue result as its own actionable outcome, never as "left unchanged"', async () => {
+    installBridge(
+      () => ({
+        ca: null,
+        stores: [storeState(), storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
+        changes: [change({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
+      }),
+      {
+        install: () => ({
+          ok: true,
+          ca: CA,
+          results: [
+            {
+              store: 'macos-system-keychain',
+              ref: '/Library/Keychains/System.keychain',
+              ok: false,
+              error: 'trust settings write refused',
+              residue: true,
+            },
+          ],
+        }),
+      },
+    );
+    renderPane();
+
+    await waitFor(() => expect(screen.getByTestId('proxy-trust-setup')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('proxy-trust-setup'));
+    fireEvent.click(screen.getByTestId('proxy-trust-wizard-next'));
+    fireEvent.click(screen.getByTestId('proxy-trust-opt-macos-system-keychain'));
+    fireEvent.click(screen.getByTestId('proxy-trust-wizard-confirm'));
+
+    await waitFor(() =>
+      expect(screen.getByText('The certificate was added but could not be trusted.', { exact: false })).toBeTruthy(),
+    );
+    expect(screen.queryByText('Admin approval was declined — the store was left unchanged.')).toBeNull();
   });
 
   it('offers CA deletion only once every recorded row is gone, passing dropCa', async () => {

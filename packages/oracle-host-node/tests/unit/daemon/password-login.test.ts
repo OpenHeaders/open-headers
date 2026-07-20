@@ -178,7 +178,7 @@ describe('users.setPassword admin channel', () => {
         provision: async () => ({ ok: false as const, error: 'not under test' }),
       },
       proxyTrust: {
-        status: async () => ({ ca: null, stores: [], changes: [] }),
+        status: async () => ({ ca: null, stores: [], changes: [], systemKeychainTrustSupported: false }),
         install: async () => ({ ok: false as const, error: 'not under test' }),
         remove: async () => ({ ok: true, results: [] }),
       },

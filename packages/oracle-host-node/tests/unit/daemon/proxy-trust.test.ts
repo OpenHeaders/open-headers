@@ -143,13 +143,14 @@ describe('proxy-trust service', () => {
   let fake: ExecFake;
   let elevated: ExecFake;
 
-  function service(): ProxyTrustService {
+  function service(overrides: { systemTrustSupported?: boolean } = {}): ProxyTrustService {
     return createProxyTrustService({
       exec: fake.exec,
       execElevated: elevated.exec,
       homedir: dir,
       platform: 'darwin',
       tmpdir: dir,
+      ...overrides,
     });
   }
 
@@ -187,14 +188,24 @@ describe('proxy-trust service', () => {
     expect(changes[0].fingerprintSha256).toBe(result.ca.fingerprintSha256);
   });
 
-  it('System-keychain install rides the elevated seam with -d; a denial reports elevationRequired and stops', async () => {
+  it('System-keychain install is refused on a build without the privileged helper — no row, no elevated call', async () => {
+    const result = await service().install(['macos-system-keychain']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.results[0].ok).toBe(false);
+    expect(result.results[0].error).toContain('privileged helper');
+    expect(elevated.calls).toHaveLength(0);
+    expect(await listTrustChanges()).toHaveLength(0);
+  });
+
+  it('System-keychain install rides the elevated seam with -d; a clean denial reports elevationRequired and stops', async () => {
     elevated.when((c) => c.args[0] === 'add-trusted-cert', {
       code: 1,
       stderr: 'security: SecTrustSettingsSetTrustSettings: User canceled the operation.',
     });
     // The probe that follows the refusal finds nothing — the row retracts.
     fake.when((c) => c.args[0] === 'find-certificate', { stdout: '' });
-    const result = await service().install(['macos-system-keychain']);
+    const result = await service({ systemTrustSupported: true }).install(['macos-system-keychain']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
@@ -202,6 +213,26 @@ describe('proxy-trust service', () => {
     const attempted = elevated.calls.find((c) => c.args[0] === 'add-trusted-cert');
     expect(attempted?.args).toContain('-d');
     expect(await listTrustChanges()).toHaveLength(0);
+  });
+
+  it('a cert that imported but could not be trusted is residue — row kept, never reported as elevation-declined', async () => {
+    const ca = await ensureProxyCa();
+    elevated.when((c) => c.args[0] === 'add-trusted-cert', {
+      code: 1,
+      stderr: 'SecTrustSettingsSetTrustSettings: The authorization was denied since no user interaction was possible.',
+    });
+    // The probe finds our cert bytes but no trust settings — `untrusted`.
+    fake.when((c) => c.args[0] === 'find-certificate', {
+      stdout: `SHA-256 hash: ${certFingerprints(ca.certPem).sha256.toUpperCase()}\n`,
+    });
+    fake.when((c) => c.args[0] === 'dump-trust-settings', { stdout: 'No Trust Settings were found.\n' });
+    const result = await service({ systemTrustSupported: true }).install(['macos-system-keychain']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.results[0].ok).toBe(false);
+    expect(result.results[0].residue).toBe(true);
+    expect(result.results[0].elevationRequired).toBeUndefined();
+    expect(await listTrustChanges()).toHaveLength(1);
   });
 
   it('a failed install whose probe still finds our cert keeps the row for teardown to chase', async () => {
@@ -259,6 +290,22 @@ describe('proxy-trust service', () => {
     expect(login?.state).toBe('mismatch');
   });
 
+  it('our cert without trust settings reads untrusted — present for teardown, never absent or trusted', async () => {
+    const ca = await ensureProxyCa();
+    fake.when((c) => c.args[0] === 'find-certificate', {
+      stdout: `SHA-256 hash: ${certFingerprints(ca.certPem).sha256.toUpperCase()}\n`,
+    });
+    fake.when((c) => c.args[0] === 'dump-trust-settings', { stdout: 'No Trust Settings were found.\n' });
+    const status = await service().status();
+    const login = status.stores.find((s) => s.store === 'macos-login-keychain');
+    expect(login?.state).toBe('untrusted');
+  });
+
+  it('status reports whether System-keychain trust is supported on this build', async () => {
+    expect((await service().status()).systemKeychainTrustSupported).toBe(false);
+    expect((await service({ systemTrustSupported: true }).status()).systemKeychainTrustSupported).toBe(true);
+  });
+
   it('teardown undoes exactly the recorded rows, drops them on verified removal, and releases the CA only then', async () => {
     const svc = service();
     const installed = await svc.install(['macos-login-keychain']);
@@ -287,6 +334,23 @@ describe('proxy-trust service', () => {
     const removed = await svc.remove();
     expect(removed.ok).toBe(true);
     expect(await listTrustChanges()).toHaveLength(0);
+  });
+
+  it('teardown refuses to drop a row while our cert bytes are still in the store (untrusted after removal)', async () => {
+    const ca = await ensureProxyCa();
+    const svc = service();
+    await svc.install(['macos-login-keychain']);
+    // Removal commands "succeed" but the follow-up probe still finds the
+    // cert, just without trust settings — not clean, row must survive.
+    fake.when((c) => c.args[0] === 'find-certificate', {
+      stdout: `SHA-256 hash: ${certFingerprints(ca.certPem).sha256.toUpperCase()}\n`,
+    });
+    fake.when((c) => c.args[0] === 'dump-trust-settings', { stdout: 'No Trust Settings were found.\n' });
+    const removed = await svc.remove(true);
+    expect(removed.ok).toBe(false);
+    expect(removed.results[0].error).toContain('still present');
+    expect(await listTrustChanges()).toHaveLength(1);
+    expect(await readProxyCa()).not.toBeNull();
   });
 
   it('a store still trusting the cert after removal keeps its row and fails honestly', async () => {
