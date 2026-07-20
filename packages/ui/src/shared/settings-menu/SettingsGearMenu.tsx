@@ -148,7 +148,14 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       // Version-only labels — the popover is narrow and the product
       // name adds nothing the surrounding chrome doesn't already say.
       const byPhase = {
-        available: { label: t('shared.chrome.gearMenu.downloadVersion', { version: update.version }), icon: <DownloadOutlined /> },
+        // A URL-reporting host's item opens a download page — only the
+        // in-app updater can promise the one-click restart.
+        available: update.url
+          ? { label: t('shared.chrome.gearMenu.downloadVersion', { version: update.version }), icon: <DownloadOutlined /> }
+          : {
+              label: t('shared.chrome.gearMenu.updateAndRestartVersion', { version: update.version }),
+              icon: <ReloadOutlined />,
+            },
         downloading: {
           label: t('shared.chrome.gearMenu.downloadingVersion', { version: update.version }),
           icon: <SyncOutlined spin />,
@@ -175,7 +182,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
             // In-app updater host — each phase's item does exactly what
             // it says, same as the native menu items.
             const bridge = getHostBridge();
-            if (update.phase === 'available') void bridge?.call('oh.updates.download');
+            if (update.phase === 'available') void bridge?.call('oh.updates.updateAndRestart');
             else if (update.phase === 'downloaded') void bridge?.call('oh.updates.install');
           },
         },

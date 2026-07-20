@@ -5,14 +5,15 @@
  * Electron menus are immutable snapshots, so this module owns the
  * current updater state and re-runs every registered menu builder on
  * each transition: the item reads "Check for Updates…" → "Checking for
- * Updates…" → "Download Open Headers X" → "Downloading Update… N%" →
- * "Restart to Install Open Headers X" as the machine advances.
+ * Updates…" → "Update to Open Headers X & Restart" → "Downloading
+ * Update… N%" → "Restart to Install Open Headers X" as the machine
+ * advances.
  *
- * Consent model is preserved end-to-end: every click maps 1:1 onto one
- * `oh.updates.*` action — checking never downloads, downloading never
- * installs. A manual check never opens a dialog: it shows the main
- * window and runs the check, and the renderer carries the outcome —
- * footer progress while it runs, a corner toast + notification entry
+ * Every click maps 1:1 onto one `oh.updates.*` action — checking never
+ * downloads, and only the explicit Update & Restart / Restart items
+ * restart the app. A manual check never opens a dialog: it shows the
+ * main window and runs the check, and the renderer carries the outcome
+ * — footer progress while it runs, a corner toast + notification entry
  * when it settles.
  */
 
@@ -25,7 +26,7 @@ import { showMainWindow } from './window-manager';
 /** The update-service slice the menu items drive (wired by `install-rpc-host`). */
 export interface UpdateMenuActions {
   checkNow(): Promise<AppUpdateState>;
-  download(): Promise<AppUpdateState>;
+  updateAndRestart(): Promise<AppUpdateState>;
   install(): Promise<AppUpdateState>;
 }
 
@@ -81,8 +82,8 @@ export function updateMenuItems(): MenuItemConstructorOptions[] {
     case 'available':
       return [
         {
-          label: t('desktop.update.download', { version: state.availableVersion ?? '' }),
-          click: () => void actions?.download(),
+          label: t('desktop.update.updateAndRestart', { version: state.availableVersion ?? '' }),
+          click: () => void actions?.updateAndRestart(),
         },
       ];
     case 'downloading':

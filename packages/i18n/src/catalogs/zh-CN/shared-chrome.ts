@@ -77,8 +77,7 @@ export const sharedChrome = {
   'shared.chrome.updates.title': 'Open Headers 更新',
   'shared.chrome.updates.downloading': '下载中…',
   'shared.chrome.updates.downloadingPercent': '下载中… {percent}%',
-  'shared.chrome.updates.restartToInstall': '重启以安装',
-  'shared.chrome.updates.download': '下载',
+  'shared.chrome.updates.updateAndRestart': '更新并重启',
   'shared.chrome.updates.ignore': '忽略此更新',
   'shared.chrome.updates.remindLater': '稍后提醒我',
   'shared.chrome.updates.nowAvailableSuffix': '现已发布！',
@@ -89,6 +88,7 @@ export const sharedChrome = {
 
   // ── Settings gear menu ─────────────────────────────────────────────
   'shared.chrome.gearMenu.downloadVersion': '下载 {version}',
+  'shared.chrome.gearMenu.updateAndRestartVersion': '更新到 {version} 并重启',
   'shared.chrome.gearMenu.downloadingVersion': '正在下载 {version}…',
   'shared.chrome.gearMenu.restartToInstallVersion': '重启以安装 {version}',
   'shared.chrome.gearMenu.settings': '设置…',

@@ -4,8 +4,9 @@
  * the main process's updater and mirrors its state.
  *
  * Consent model is structural: `checkNow` only looks, `download` only
- * fetches, `install` restarts into the staged update — no RPC does
- * more than its name, so no caller can accidentally self-install.
+ * fetches, `install` restarts into the staged update, and
+ * `updateAndRestart` is the one-click compound (download if needed,
+ * then restart to install) behind every "Update & Restart" affordance.
  */
 
 /** Where the updater currently is. One phase at a time, no overlap. */
@@ -66,4 +67,11 @@ export interface UpdatesRpc {
   'oh.updates.download': { req: Record<string, never>; res: AppUpdateState };
   /** Quit and install the downloaded update. Resolves before the restart. */
   'oh.updates.install': { req: Record<string, never>; res: AppUpdateState };
+  /**
+   * Update & Restart: download the available update if it is not staged
+   * yet, then quit and install. From `downloaded` it installs
+   * immediately; during `downloading` it arms the install for when the
+   * running download completes.
+   */
+  'oh.updates.updateAndRestart': { req: Record<string, never>; res: AppUpdateState };
 }

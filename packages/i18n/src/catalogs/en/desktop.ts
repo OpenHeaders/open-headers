@@ -35,7 +35,7 @@ export const desktop = {
   'desktop.menu.licenseAgreement': 'License Agreement',
   'desktop.update.check': 'Check for Updates…',
   'desktop.update.checking': 'Checking for Updates…',
-  'desktop.update.download': 'Download Open Headers {version}',
+  'desktop.update.updateAndRestart': 'Update to Open Headers {version} & Restart',
   'desktop.update.downloading': 'Downloading Update… {percent}%',
   'desktop.update.downloadingNoProgress': 'Downloading Update…',
   'desktop.update.restartToInstall': 'Restart to Install Open Headers {version}',

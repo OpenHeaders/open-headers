@@ -169,7 +169,7 @@ export const workbenchSettings = {
   'workbench.settings.updatesRow.securityFix':
     'La version {version} corrige un problème de sécurité affectant cette version.',
   'workbench.settings.updatesRow.available': 'La version {version} est disponible.',
-  'workbench.settings.updatesRow.download': 'Télécharger',
+  'workbench.settings.updatesRow.updateAndRestart': 'Mettre à jour et redémarrer',
   'workbench.settings.updatesRow.downloading': 'Téléchargement de {version}…',
   'workbench.settings.updatesRow.readyToInstall': 'La version {version} est prête à installer.',
   'workbench.settings.updatesRow.restartToInstall': 'Redémarrer pour installer',

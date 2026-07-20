@@ -6,13 +6,17 @@
  * module never imports Electron so the machine is unit-testable with a
  * fake port.
  *
- * Consent model, enforced structurally:
- *   - a CHECK only looks (nothing downloads),
+ * Action model, enforced structurally:
+ *   - a CHECK only looks (nothing installs),
  *   - a DOWNLOAD only stages (nothing installs),
- *   - an INSTALL happens only through the explicit action (or the next
- *     natural app quit applying an already-staged download).
- * `updates.autoDownload` collapses check→download into one step when
- * the user opted in; it never touches the install step.
+ *   - an INSTALL restarts only through an explicit user action (or the
+ *     next natural app quit applying an already-staged download),
+ *   - UPDATE & RESTART is the one-click compound: download if needed,
+ *     then install — the restart is the action the user asked for.
+ * `updates.autoDownload` (default ON) collapses check→download so an
+ * update is already staged by the time the user sees it — installing is
+ * then a single restart, and a natural quit+relaunch opens the new
+ * version; it never triggers a restart by itself.
  *
  * Every check also reads the published severity manifest
  * (`versions-manifest.ts`): `severity`/`belowSafeFloor` ride the state
@@ -61,7 +65,7 @@ export function readUpdatePreferences(settings: Record<string, unknown> | undefi
   const channel = settings?.['updates.channel'];
   return {
     check: check === 'off' || check === 'security-only' ? check : 'all',
-    autoDownload: autoDownload === true,
+    autoDownload: autoDownload !== false,
     channel: channel === 'beta' ? 'beta' : 'stable',
   };
 }
@@ -125,6 +129,10 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   };
   let timer: NodeJS.Timeout | null = null;
   let disposed = false;
+  // Armed by updateAndRestart when a download is (or ends up) in
+  // flight: the completing download installs instead of parking in
+  // `downloaded`. Cleared on failure — an error never restarts the app.
+  let installAfterDownload = false;
 
   function transition(next: Partial<AppUpdateState>): AppUpdateState {
     state = { ...state, ...next };
@@ -213,11 +221,28 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       });
       transition({ phase: 'downloaded', progressPercent: 100 });
       deps.log.info(`update ${state.availableVersion} downloaded — installs on restart`);
+      if (installAfterDownload) {
+        installAfterDownload = false;
+        install();
+      }
     } catch (err) {
+      installAfterDownload = false;
       deps.log.warn('update download failed', err);
       transition({ phase: 'error', errorMessage: err instanceof Error ? err.message : String(err) });
     }
     return state;
+  }
+
+  async function updateAndRestart(): Promise<AppUpdateState> {
+    if (state.phase === 'downloaded') return install();
+    if (state.phase === 'downloading') {
+      // A download (auto or manual) is already running — arm it.
+      installAfterDownload = true;
+      return state;
+    }
+    if (state.phase !== 'available') return state;
+    installAfterDownload = true;
+    return download();
   }
 
   function install(): AppUpdateState {
@@ -252,6 +277,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
           return download();
         case 'oh.updates.install':
           return install();
+        case 'oh.updates.updateAndRestart':
+          return updateAndRestart();
         default:
           return undefined;
       }

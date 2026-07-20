@@ -587,7 +587,7 @@ export const workbenchSettingsDefs = {
     'Open a tab with the release highlights the first time you open the workbench after a feature release. Patch releases never open it — they stay in the notifications timeline. The notes ship inside the app; nothing is fetched.',
   'workbench.settings.def.updates.autoDownload.label': 'Download updates automatically',
   'workbench.settings.def.updates.autoDownload.description':
-    'When an update is found, fetch it in the background right away so installing is a single restart — useful if you want fixes staged as fast as possible. Off means you click Download yourself. Either way, nothing installs until you restart the app or choose to.',
+    'When an update is found, fetch it in the background right away so installing is a single Update & Restart — and simply quitting and reopening the app launches the new version. Off means nothing downloads until you choose Update & Restart yourself. Either way, the app never restarts on its own.',
 
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Version',

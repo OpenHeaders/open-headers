@@ -2,12 +2,13 @@
  * App-update row — custom editor for `updates.state`
  * (`docs/UPDATES_PLAN.md`). Mirrors the main process's updater over
  * `oh.updates.getState` + the `appUpdateState` broadcast, and drives it
- * with the three consent actions: Check now, Download, Restart to
- * install. Nothing here installs implicitly — the row only ever calls
- * the RPC matching the button the user pressed.
+ * with the consent actions: Check now, Update & Restart (download if
+ * needed, then restart into the update), Restart to install. Nothing
+ * here installs implicitly — the row only ever calls the RPC matching
+ * the button the user pressed.
  */
 
-import { DownloadOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import type { AppUpdateState, BridgeRpcType } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
@@ -91,8 +92,13 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
             ) : (
               <Text>{t('workbench.settings.updatesRow.available', { version: state.availableVersion ?? '' })}</Text>
             )}
-            <Button size="small" type="primary" icon={<DownloadOutlined />} onClick={() => run('oh.updates.download')}>
-              {t('workbench.settings.updatesRow.download')}
+            <Button
+              size="small"
+              type="primary"
+              icon={<ReloadOutlined />}
+              onClick={() => run('oh.updates.updateAndRestart')}
+            >
+              {t('workbench.settings.updatesRow.updateAndRestart')}
             </Button>
             {releaseNotesLink}
           </>

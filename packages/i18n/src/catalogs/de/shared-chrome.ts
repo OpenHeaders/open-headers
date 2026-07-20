@@ -77,8 +77,7 @@ export const sharedChrome = {
   'shared.chrome.updates.title': 'Open Headers Update',
   'shared.chrome.updates.downloading': 'Wird heruntergeladen…',
   'shared.chrome.updates.downloadingPercent': 'Wird heruntergeladen… {percent} %',
-  'shared.chrome.updates.restartToInstall': 'Zum Installieren neu starten',
-  'shared.chrome.updates.download': 'Herunterladen',
+  'shared.chrome.updates.updateAndRestart': 'Aktualisieren und neu starten',
   'shared.chrome.updates.ignore': 'Dieses Update ignorieren',
   'shared.chrome.updates.remindLater': 'Später erinnern',
   'shared.chrome.updates.nowAvailableSuffix': 'ist jetzt verfügbar!',
@@ -89,6 +88,7 @@ export const sharedChrome = {
 
   // ── Settings gear menu ─────────────────────────────────────────────
   'shared.chrome.gearMenu.downloadVersion': '{version} herunterladen',
+  'shared.chrome.gearMenu.updateAndRestartVersion': 'Auf {version} aktualisieren und neu starten',
   'shared.chrome.gearMenu.downloadingVersion': '{version} wird heruntergeladen…',
   'shared.chrome.gearMenu.restartToInstallVersion': 'Zum Installieren von {version} neu starten',
   'shared.chrome.gearMenu.settings': 'Einstellungen…',

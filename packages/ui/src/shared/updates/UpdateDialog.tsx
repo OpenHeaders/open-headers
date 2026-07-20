@@ -3,10 +3,11 @@
  *
  * One compact modal: headline with the offered version, a release-notes
  * link, an "Updating X to Y" meta line with a Configure updates… link
- * into Settings, and Ignore / Remind Me Later / Download actions. The
- * dialog mirrors live updater state, so a download started here (or
- * anywhere else) advances the primary button through Downloading… to
- * Restart to Install without reopening.
+ * into Settings, and Ignore / Remind Me Later / Update & Restart
+ * actions. Update & Restart is one click end-to-end: it downloads if
+ * nothing is staged yet, then restarts into the update — the dialog
+ * stays open mirroring live updater state, so the primary button shows
+ * Downloading… progress until the restart lands.
  *
  * Ignore This Update mutes the toast and gear dot for the offered
  * version only ({@link writeIgnoredVersion}); the updater state and the
@@ -84,22 +85,13 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({ onConfigureUpdates }) => {
               : t('shared.chrome.updates.downloading')}
           </Button>
         );
-      case 'downloaded':
-        return (
-          <Button type="primary" onClick={() => void bridge?.call('oh.updates.install')}>
-            {t('shared.chrome.updates.restartToInstall')}
-          </Button>
-        );
       default:
+        // available and downloaded share the one-click action: download
+        // if needed, then restart into the update. The dialog stays open
+        // so the button mirrors download progress until the restart.
         return (
-          <Button
-            type="primary"
-            onClick={() => {
-              closeUpdateDialog();
-              void bridge?.call('oh.updates.download');
-            }}
-          >
-            {t('shared.chrome.updates.download')}
+          <Button type="primary" onClick={() => void bridge?.call('oh.updates.updateAndRestart')}>
+            {t('shared.chrome.updates.updateAndRestart')}
           </Button>
         );
     }

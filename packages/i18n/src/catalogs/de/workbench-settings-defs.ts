@@ -720,9 +720,10 @@ export const workbenchSettingsDefs = {
     'Die Notizen liegen der App bei; nichts wird abgerufen.',
   'workbench.settings.def.updates.autoDownload.label': 'Updates automatisch herunterladen',
   'workbench.settings.def.updates.autoDownload.description':
-    'Lädt ein gefundenes Update sofort im Hintergrund, sodass die Installation ein einziger Neustart ist — ' +
-    'nützlich, wenn Korrekturen so schnell wie möglich bereitstehen sollen. Aus heißt, du klickst selbst auf ' +
-    'Herunterladen. So oder so installiert nichts, bis du die App neu startest oder es wählst.',
+    'Lädt ein gefundenes Update sofort im Hintergrund, sodass die Installation ein einziges „Aktualisieren und ' +
+    'neu starten“ ist — und schon Beenden und erneutes Öffnen der App startet die neue Version. Aus heißt, ' +
+    'nichts wird geladen, bis du selbst „Aktualisieren und neu starten“ wählst. So oder so startet die App ' +
+    'nie von selbst neu.',
 
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Version',

@@ -87,23 +87,23 @@ function makeHarness(
 }
 
 describe('readUpdatePreferences', () => {
-  it('defaults to check=all, autoDownload=false, channel=stable on empty/garbage records', () => {
-    expect(readUpdatePreferences(undefined)).toEqual({ check: 'all', autoDownload: false, channel: 'stable' });
+  it('defaults to check=all, autoDownload=true, channel=stable on empty/garbage records', () => {
+    expect(readUpdatePreferences(undefined)).toEqual({ check: 'all', autoDownload: true, channel: 'stable' });
     expect(
       readUpdatePreferences({ 'updates.check': 42, 'updates.autoDownload': 'yes', 'updates.channel': 'nightly' }),
     ).toEqual({
       check: 'all',
-      autoDownload: false,
+      autoDownload: true,
       channel: 'stable',
     });
   });
 
   it('reads explicit values', () => {
     expect(
-      readUpdatePreferences({ 'updates.check': 'off', 'updates.autoDownload': true, 'updates.channel': 'beta' }),
+      readUpdatePreferences({ 'updates.check': 'off', 'updates.autoDownload': false, 'updates.channel': 'beta' }),
     ).toEqual({
       check: 'off',
-      autoDownload: true,
+      autoDownload: false,
       channel: 'beta',
     });
     expect(readUpdatePreferences({ 'updates.check': 'security-only' }).check).toBe('security-only');
@@ -178,6 +178,41 @@ describe('update service state machine', () => {
     await h.service.dispatchRpc('oh.updates.checkNow');
     await h.service.dispatchRpc('oh.updates.install');
     expect(h.updater.installCalls).toBe(1);
+  });
+
+  it('updateAndRestart from available downloads then installs in one action', async () => {
+    const h = makeHarness({ checkResult: { version: '2026.8.0', releaseNotesUrl: null } });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    expect(h.updater.downloadCalls).toBe(1);
+    expect(h.updater.installCalls).toBe(1);
+  });
+
+  it('updateAndRestart from downloaded installs immediately without re-downloading', async () => {
+    const h = makeHarness({ checkResult: { version: '2026.8.0', releaseNotesUrl: null } });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    await h.service.dispatchRpc('oh.updates.download');
+    await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    expect(h.updater.downloadCalls).toBe(1);
+    expect(h.updater.installCalls).toBe(1);
+  });
+
+  it('updateAndRestart outside available/downloading/downloaded is a no-op', async () => {
+    const h = makeHarness();
+    await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    expect(h.updater.downloadCalls).toBe(0);
+    expect(h.updater.installCalls).toBe(0);
+  });
+
+  it('updateAndRestart never installs when the download fails', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      downloadResult: new Error('disk full'),
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    const state = await h.service.dispatchRpc('oh.updates.updateAndRestart');
+    expect(state?.phase).toBe('error');
+    expect(h.updater.installCalls).toBe(0);
   });
 
   it('never checks when unsupported, and getState still answers', async () => {

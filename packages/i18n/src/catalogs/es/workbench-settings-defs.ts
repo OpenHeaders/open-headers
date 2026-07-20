@@ -756,8 +756,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.updates.autoDownload.label': 'Descargar las actualizaciones automáticamente',
   'workbench.settings.def.updates.autoDownload.description':
     'Cuando se encuentra una actualización, la recupera enseguida en segundo plano para que instalar sea un ' +
-    'solo reinicio — útil si quieres las correcciones preparadas cuanto antes. Desactivado, haces clic en ' +
-    'Descargar tú mismo. En ambos casos, nada se instala hasta que reinicias la aplicación o lo decides.',
+    'solo «Actualizar y reiniciar» — y basta con cerrar y volver a abrir la aplicación para iniciar la nueva ' +
+    'versión. Desactivado, no se descarga nada hasta que eliges «Actualizar y reiniciar». En ambos casos, la ' +
+    'aplicación nunca se reinicia por sí sola.',
 
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Versión',

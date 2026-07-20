@@ -1,10 +1,11 @@
 /**
  * Update preferences — the check-and-notify consent axes
  * (`docs/UPDATES_PLAN.md` §5). Two orthogonal choices: whether the app
- * LOOKS for updates, and whether a seen update DOWNLOADS by itself.
- * Installing is never automatic on either path — a downloaded update
- * applies only on the explicit restart action or the next natural app
- * quit.
+ * LOOKS for updates, and whether a seen update DOWNLOADS by itself
+ * (default on, so installing is a single Update & Restart and a natural
+ * quit+relaunch opens the new version). A restart is never automatic on
+ * either path — a staged update applies only on the explicit Update &
+ * Restart action or the next natural app quit.
  *
  * Desktop-only rows: the store updates the extension itself, and a web
  * tab updates with the daemon that serves it. The `security-only` tier
@@ -104,7 +105,7 @@ registerSetting({
 registerSetting({
   key: 'updates.autoDownload',
   type: 'boolean',
-  default: false,
+  default: true,
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.updates.autoDownload.label',
   descriptionKey: 'workbench.settings.def.updates.autoDownload.description',

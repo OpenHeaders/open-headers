@@ -731,10 +731,10 @@ export const workbenchSettingsDefs = {
     "notifications. Les notes sont livrées dans l'application ; rien n'est téléchargé.",
   'workbench.settings.def.updates.autoDownload.label': 'Télécharger les mises à jour automatiquement',
   'workbench.settings.def.updates.autoDownload.description':
-    "Quand une mise à jour est trouvée, la récupère aussitôt en arrière-plan pour que l'installation ne soit " +
-    "qu'un redémarrage — utile si vous voulez les correctifs prêts au plus vite. Désactivé, vous cliquez " +
-    "vous-même sur Télécharger. Dans les deux cas, rien ne s'installe tant que vous ne redémarrez pas " +
-    "l'application ou ne le décidez pas.",
+    "Quand une mise à jour est trouvée, la récupère aussitôt en arrière-plan pour que l'installation se résume " +
+    "à un seul « Mettre à jour et redémarrer » — et quitter puis rouvrir l'application suffit à lancer la " +
+    "nouvelle version. Désactivé, rien n'est téléchargé tant que vous ne choisissez pas « Mettre à jour et " +
+    "redémarrer ». Dans les deux cas, l'application ne redémarre jamais d'elle-même.",
 
   // ── About category defs ────────────────────────────────────────────
   'workbench.settings.def.about.version.label': 'Version',

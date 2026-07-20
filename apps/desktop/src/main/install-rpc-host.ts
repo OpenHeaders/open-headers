@@ -242,7 +242,8 @@ export async function installRpcHost(): Promise<void> {
   // fallback covers the type-level `undefined` branch it can't take here.
   installUpdateMenuActions({
     checkNow: async () => (await updateService.dispatchRpc('oh.updates.checkNow')) ?? updateService.state(),
-    download: async () => (await updateService.dispatchRpc('oh.updates.download')) ?? updateService.state(),
+    updateAndRestart: async () =>
+      (await updateService.dispatchRpc('oh.updates.updateAndRestart')) ?? updateService.state(),
     install: async () => (await updateService.dispatchRpc('oh.updates.install')) ?? updateService.state(),
   });
 
