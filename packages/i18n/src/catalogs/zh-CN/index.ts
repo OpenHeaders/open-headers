@@ -44,6 +44,7 @@ import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
+import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
@@ -89,6 +90,7 @@ export const zhCN = {
   ...workbenchEditorsGrpc,
   ...workbenchEditorsSpec,
   ...workbenchEditorsWebsocket,
+  ...workbenchLive,
   ...workbenchScriptPackages,
   ...workbenchSettings,
   ...workbenchSettingsDefsKeyboard,
