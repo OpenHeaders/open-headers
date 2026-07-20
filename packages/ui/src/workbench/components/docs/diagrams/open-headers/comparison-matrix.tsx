@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven pills.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Comparison matrix — four stacked category cards. The first three are
@@ -9,46 +15,47 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * with ✓ / ✗ glyphs so the trade-off reads at a glance.
  */
 export const ComparisonMatrixDiagram: React.FC = () => {
+  const t = useT();
   type Row = { ok: boolean; text: string };
   type Card = { category: string; tag: string; rows: Row[]; us?: boolean };
 
   const CARDS: Card[] = [
     {
-      category: 'SaaS API platforms',
-      tag: 'cloud',
+      category: t('workbench.docs.diagrams.openHeaders.matrix.catSaas'),
+      tag: t('workbench.docs.diagrams.openHeaders.matrix.tagCloud'),
       rows: [
-        { ok: false, text: 'Your data lives on their servers' },
-        { ok: false, text: 'Account + login required' },
-        { ok: true, text: 'Broad feature set' },
+        { ok: false, text: t('workbench.docs.diagrams.openHeaders.matrix.rowSaasData') },
+        { ok: false, text: t('workbench.docs.diagrams.openHeaders.matrix.rowSaasAccount') },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowSaasFeatures') },
       ],
     },
     {
-      category: 'Desktop proxies',
-      tag: 'native',
+      category: t('workbench.docs.diagrams.openHeaders.matrix.catProxies'),
+      tag: t('workbench.docs.diagrams.openHeaders.matrix.tagNative'),
       rows: [
-        { ok: false, text: 'Separate binary to install + run' },
-        { ok: false, text: 'CA cert + per-app proxy config' },
-        { ok: true, text: 'Sees every kind of traffic' },
+        { ok: false, text: t('workbench.docs.diagrams.openHeaders.matrix.rowProxyBinary') },
+        { ok: false, text: t('workbench.docs.diagrams.openHeaders.matrix.rowProxyCert') },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowProxyTraffic') },
       ],
     },
     {
-      category: 'Header-only extensions',
-      tag: 'lite',
+      category: t('workbench.docs.diagrams.openHeaders.matrix.catHeaderOnly'),
+      tag: t('workbench.docs.diagrams.openHeaders.matrix.tagLite'),
       rows: [
-        { ok: true, text: 'In-browser, no setup' },
-        { ok: false, text: 'One rule type — headers only' },
-        { ok: false, text: 'No scripts, no auth, no body edits' },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowLiteNoSetup') },
+        { ok: false, text: t('workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule') },
+        { ok: false, text: t('workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts') },
       ],
     },
     {
-      category: 'Open Headers',
-      tag: 'us',
+      category: t('workbench.docs.diagrams.openHeaders.shared.openHeaders'),
+      tag: t('workbench.docs.diagrams.openHeaders.matrix.tagUs'),
       us: true,
       rows: [
-        { ok: true, text: 'In-browser · local-only · no account' },
-        { ok: true, text: 'Nine rule types · one condition language' },
-        { ok: true, text: 'Scripts + OAuth + files in the extension' },
-        { ok: true, text: 'Four surfaces share one store' },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowUsLocal') },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowUsNine') },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowUsScripts') },
+        { ok: true, text: t('workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces') },
       ],
     },
   ];
@@ -67,10 +74,10 @@ export const ComparisonMatrixDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Four category cards comparing SaaS API platforms, desktop proxies, and header-only extensions against Open Headers."
+      aria-label={t('workbench.docs.diagrams.openHeaders.matrix.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHERE OPEN HEADERS LANDS
+        {t('workbench.docs.diagrams.openHeaders.matrix.title')}
       </text>
 
       {CARDS.map((card) => {
@@ -79,6 +86,8 @@ export const ComparisonMatrixDiagram: React.FC = () => {
         cursorY = y + h + CARD_GAP;
         const accent = card.us ? STROKE_BLUE : 'var(--ant-color-border)';
         const accentBg = card.us ? FILL_BLUE : 'var(--ant-color-bg-container)';
+        const tagW = Math.max(30, Math.round(unitLen(card.tag) * 5.5) + 16);
+        const tagX = CARD_X + CARD_W - 10 - tagW;
         return (
           <g key={card.category}>
             <rect
@@ -97,16 +106,16 @@ export const ComparisonMatrixDiagram: React.FC = () => {
               {card.category}
             </text>
             <rect
-              x={CARD_X + CARD_W - 56}
+              x={tagX}
               y={y + 5}
-              width={46}
+              width={tagW}
               height={14}
               rx={7}
               fill={card.us ? OH_GREEN_TINT : 'var(--ant-color-fill-quaternary)'}
               stroke={card.us ? OH_GREEN : accent}
             />
             <text
-              x={CARD_X + CARD_W - 33}
+              x={tagX + tagW / 2}
               y={y + 15}
               textAnchor="middle"
               fontSize={9}

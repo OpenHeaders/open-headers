@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -10,6 +11,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * Wider canvas + larger tiles + shortened labels so nothing overflows.
  */
 export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
+  const t = useT();
   const W = 540;
   const CX = W / 2;
 
@@ -41,15 +43,42 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
   // Labels deliberately shortened to fit ~70px tiles at fontSize 9.5.
   // Sub-labels render on a second line in dim text.
   const RULES: { label: string; sub?: string }[] = [
-    { label: 'Headers', sub: 'override' },
-    { label: 'Block', sub: 'cancel' },
-    { label: 'Redirect', sub: 'static / regex' },
-    { label: 'Query', sub: 'add · remove' },
-    { label: 'Merge', sub: 'headers ⊕' },
-    { label: 'Inject', sub: 'JS / CSS' },
-    { label: 'Delay', sub: 'nav / fetch' },
-    { label: 'Req Body', sub: 'static · dyn' },
-    { label: 'Res Body', sub: 'body / status' },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileHeaders'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileHeadersSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileBlock'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileBlockSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileRedirect'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileRedirectSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileQuery'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileQuerySub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileMerge'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileMergeSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileInject'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileInjectSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileDelay'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileDelaySub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileReqBody'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileReqBodySub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileResBody'),
+      sub: t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileResBodySub'),
+    },
   ];
 
   const renderGrid = (panelX: number, lit: 'one' | 'all') => {
@@ -107,13 +136,13 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 600 }}
       role="img"
-      aria-label="vs header-only extensions. Header-only extensions handle one rule type. Open Headers handles nine — headers, block, redirect, query params, headers merge, inject, delay, request body, response body."
+      aria-label={t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.aria')}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        How many rule types
+        {t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        One tool that does one thing — or one tool that does nine.
+        {t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.subtitle')}
       </text>
 
       {/* LEFT — header-only, browser-window styling */}
@@ -140,7 +169,7 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
       <circle cx={PANEL_LEFT_X + 24} cy={GRID_Y + PANEL_HEADER_H / 2} r={4} fill="#febc2e" />
       <circle cx={PANEL_LEFT_X + 36} cy={GRID_Y + PANEL_HEADER_H / 2} r={4} fill="#28c840" />
       <text x={PANEL_LEFT_X + 50} y={GRID_Y + PANEL_HEADER_H / 2 + 4} fontSize={11} fontWeight={700} fill={ERR_RED}>
-        Header-only extension
+        {t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.headerOnlyExtension')}
       </text>
       <text
         x={PANEL_LEFT_X + PANEL_W - 12}
@@ -162,7 +191,7 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
         fontStyle="italic"
         fill={ERR_RED}
       >
-        Need any of the other 8? — install another extension
+        {t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionLeft')}
       </text>
 
       {/* RIGHT — Open Headers, browser-window styling */}
@@ -189,7 +218,7 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
       <circle cx={PANEL_RIGHT_X + 24} cy={GRID_Y + PANEL_HEADER_H / 2} r={4} fill="#febc2e" />
       <circle cx={PANEL_RIGHT_X + 36} cy={GRID_Y + PANEL_HEADER_H / 2} r={4} fill="#28c840" />
       <text x={PANEL_RIGHT_X + 50} y={GRID_Y + PANEL_HEADER_H / 2 + 4} fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        Open Headers
+        {t('workbench.docs.diagrams.openHeaders.shared.openHeaders')}
       </text>
       <text
         x={PANEL_RIGHT_X + PANEL_W - 12}
@@ -211,7 +240,7 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
         fontStyle="italic"
         fill={OH_GREEN}
       >
-        Same conditions, same surface, one workspace
+        {t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight')}
       </text>
 
       {/* Verdict */}
@@ -226,7 +255,7 @@ export const ComparisonVsHeaderOnlyDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Nine rule types, one condition language, one observable surface
+        {t('workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict')}
       </text>
     </svg>
   );

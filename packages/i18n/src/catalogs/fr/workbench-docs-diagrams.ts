@@ -1191,4 +1191,110 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.localFirst.strip2':
     '✓ aucun compte · ✓ aucun relais cloud · ✓ aucun suivi · ✓ aucune donnée personnelle',
   'workbench.docs.diagrams.openHeaders.localFirst.footer': 'Vos données, votre back-end, votre choix — à chaque étape.',
+
+  // ── Open Headers: comparison matrix ─────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.matrix.aria':
+    'Quatre cartes de catégories comparant les plateformes API SaaS, les proxys de bureau et les extensions limitées ' +
+    'aux en-têtes à Open Headers.',
+  'workbench.docs.diagrams.openHeaders.matrix.title': 'OÙ SE SITUE OPEN HEADERS',
+  'workbench.docs.diagrams.openHeaders.matrix.catSaas': 'Plateformes API SaaS',
+  'workbench.docs.diagrams.openHeaders.matrix.catProxies': 'Proxys de bureau',
+  'workbench.docs.diagrams.openHeaders.matrix.catHeaderOnly': 'Extensions limitées aux en-têtes',
+  'workbench.docs.diagrams.openHeaders.matrix.tagCloud': 'cloud',
+  'workbench.docs.diagrams.openHeaders.matrix.tagNative': 'natif',
+  'workbench.docs.diagrams.openHeaders.matrix.tagLite': 'léger',
+  'workbench.docs.diagrams.openHeaders.matrix.tagUs': 'nous',
+  'workbench.docs.diagrams.openHeaders.matrix.rowSaasData': 'Vos données vivent sur leurs serveurs',
+  'workbench.docs.diagrams.openHeaders.matrix.rowSaasAccount': 'Compte + connexion obligatoires',
+  'workbench.docs.diagrams.openHeaders.matrix.rowSaasFeatures': 'Large éventail de fonctionnalités',
+  'workbench.docs.diagrams.openHeaders.matrix.rowProxyBinary': 'Binaire séparé à installer + lancer',
+  'workbench.docs.diagrams.openHeaders.matrix.rowProxyCert': 'Cert CA + config proxy par appli',
+  'workbench.docs.diagrams.openHeaders.matrix.rowProxyTraffic': 'Voit tous les types de trafic',
+  'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoSetup': 'Dans le navigateur, zéro config',
+  'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': 'Un seul type de règle — en-têtes uniquement',
+  'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': 'Ni scripts, ni auth, ni édition de corps',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': 'Dans le navigateur · local uniquement · sans compte',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Neuf types de règles · un langage de conditions',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': "Scripts + OAuth + fichiers dans l'extension",
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': 'Quatre surfaces partagent les mêmes données',
+
+  // ── Open Headers: vs cloud ──────────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.vsCloud.aria':
+    'Face aux plateformes API cloud. Les plateformes cloud gardent identifiants, définitions de règles et journaux ' +
+    'de requêtes sur un serveur du fournisseur. Open Headers garde les trois sur votre appareil.',
+  'workbench.docs.diagrams.openHeaders.vsCloud.title': 'Où finissent vos données',
+  'workbench.docs.diagrams.openHeaders.vsCloud.subtitle':
+    'Identifiants, définitions de règles, journaux de requêtes — en local ou à distance ?',
+  'workbench.docs.diagrams.openHeaders.vsCloud.rowCredentials': 'identifiants',
+  'workbench.docs.diagrams.openHeaders.vsCloud.rowRules': 'règles',
+  'workbench.docs.diagrams.openHeaders.vsCloud.rowLogs': 'journaux',
+  'workbench.docs.diagrams.openHeaders.vsCloud.onDevice': 'sur votre appareil',
+  'workbench.docs.diagrams.openHeaders.vsCloud.onVendor': 'sur leur serveur',
+  'workbench.docs.diagrams.openHeaders.vsCloud.cloudPlatform': 'Plateforme API cloud',
+  'workbench.docs.diagrams.openHeaders.vsCloud.you': 'vous',
+  'workbench.docs.diagrams.openHeaders.vsCloud.yourData': 'vos données',
+  'workbench.docs.diagrams.openHeaders.vsCloud.cloud': 'cloud',
+  'workbench.docs.diagrams.openHeaders.vsCloud.yourDevice': 'votre appareil',
+  'workbench.docs.diagrams.openHeaders.vsCloud.deviceContents': 'données · règles · logs',
+  'workbench.docs.diagrams.openHeaders.vsCloud.allInOnePlace': 'tout au même endroit',
+  'workbench.docs.diagrams.openHeaders.vsCloud.verdict': 'Vos données ne quittent jamais votre machine',
+
+  // ── Open Headers: vs header-only ────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.aria':
+    'Face aux extensions limitées aux en-têtes. Elles gèrent un seul type de règle. Open Headers en gère neuf — ' +
+    "en-têtes, blocage, redirection, params de requête, fusion d'en-têtes, injection, délai, corps de requête, " +
+    'corps de réponse.',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.title': 'Combien de types de règles',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.subtitle':
+    'Un outil qui fait une chose — ou un outil qui en fait neuf.',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.headerOnlyExtension': 'Extension limitée aux en-têtes',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileHeaders': 'En-têtes',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileHeadersSub': 'remplacer',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileBlock': 'Blocage',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileBlockSub': 'annuler',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileRedirect': 'Redirection',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileRedirectSub': 'statique / regex',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileQuery': 'Params',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileQuerySub': 'ajouter · retirer',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileMerge': 'Fusion',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileMergeSub': 'en-têtes ⊕',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileInject': 'Injecter',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileInjectSub': 'JS / CSS',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileDelay': 'Délai',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileDelaySub': 'nav / fetch',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileReqBody': 'Corps req.',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileReqBodySub': 'statique · dyn.',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileResBody': 'Corps rép.',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileResBodySub': 'corps / statut',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionLeft':
+    'Besoin des 8 autres ? — installez une autre extension',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight':
+    'Mêmes conditions, même surface, un seul espace de travail',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict':
+    'Neuf types de règles, un langage de conditions, une surface observable',
+
+  // ── Open Headers: vs proxy ──────────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.vsProxy.aria':
+    'Face aux proxys de bureau. Les proxys détournent le trafic via un processus séparé derrière un certificat CA. ' +
+    'Open Headers applique les règles en ligne via les API natives du navigateur — ni port proxy, ni certificat.',
+  'workbench.docs.diagrams.openHeaders.vsProxy.title': 'Comment les requêtes sont façonnées',
+  'workbench.docs.diagrams.openHeaders.vsProxy.subtitle':
+    'Règles en ligne dans le navigateur — ni port proxy, ni certificat CA, ni config par appli.',
+  'workbench.docs.diagrams.openHeaders.vsProxy.desktopProxy': 'Proxy de bureau',
+  'workbench.docs.diagrams.openHeaders.vsProxy.stampDetour': 'DÉTOUR',
+  'workbench.docs.diagrams.openHeaders.vsProxy.stampInline': 'EN LIGNE',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodeApp': 'Appli',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodeAppSub': 'configurée',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodePortSub': 'port proxy',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodeProxy': 'Proxy',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodeProxySub': 'cert CA',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodeInternet': 'Internet',
+  'workbench.docs.diagrams.openHeaders.vsProxy.nodeBrowser': 'Navigateur',
+  'workbench.docs.diagrams.openHeaders.vsProxy.chipInstallBinary': 'binaire à installer',
+  'workbench.docs.diagrams.openHeaders.vsProxy.chipInstallCert': 'cert CA à installer',
+  'workbench.docs.diagrams.openHeaders.vsProxy.chipPerApp': 'config par appli',
+  'workbench.docs.diagrams.openHeaders.vsProxy.chipInstallExtension': "installer l'extension",
+  'workbench.docs.diagrams.openHeaders.vsProxy.chipThatsIt': "c'est tout",
+  'workbench.docs.diagrams.openHeaders.vsProxy.verdict':
+    'Une installation · zéro certificat · les règles ont les permissions de la page',
 } as const satisfies Catalog;

@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven chips.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * vs Desktop proxies — request path + setup cost.
@@ -12,6 +18,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * so nothing overflows the card.
  */
 export const ComparisonVsProxyDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'cmp-proxy';
 
   const W = 480;
@@ -101,7 +108,9 @@ export const ComparisonVsProxyDiagram: React.FC = () => {
           fill={accentColor}
           letterSpacing={0.6}
         >
-          {nodes.length === 2 ? 'INLINE' : 'DETOUR'}
+          {nodes.length === 2
+            ? t('workbench.docs.diagrams.openHeaders.vsProxy.stampInline')
+            : t('workbench.docs.diagrams.openHeaders.vsProxy.stampDetour')}
         </text>
 
         {/* Flow nodes */}
@@ -161,7 +170,7 @@ export const ComparisonVsProxyDiagram: React.FC = () => {
         {(() => {
           const charW = 6.2;
           const padX = 12;
-          const widths = chips.map((c) => Math.round((c.label.length + 2) * charW + padX * 2));
+          const widths = chips.map((c) => Math.round((unitLen(c.label) + 2) * charW + padX * 2));
           const gap = 10;
           const totalW = widths.reduce((s, w) => s + w, 0) + (chips.length - 1) * gap;
           const innerStartX = ROW_X + (ROW_W - totalW) / 2;
@@ -193,47 +202,55 @@ export const ComparisonVsProxyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="vs desktop proxies. Proxies route traffic through a separate process behind a CA certificate. Open Headers applies rules inline through the browser's native APIs — no proxy port, no certificate."
+      aria-label={t('workbench.docs.diagrams.openHeaders.vsProxy.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        How requests get shaped
+        {t('workbench.docs.diagrams.openHeaders.vsProxy.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Inline rules in the browser — no proxy port, no CA certificate, no per-app config.
+        {t('workbench.docs.diagrams.openHeaders.vsProxy.subtitle')}
       </text>
 
       {renderRow(
         ROW1_Y,
-        'Desktop proxy',
+        t('workbench.docs.diagrams.openHeaders.vsProxy.desktopProxy'),
         ERR_RED,
         ERR_RED_BORDER,
         [
-          { label: 'App', sub: 'configured', flavor: 'app' },
-          { label: ':8080', sub: 'proxy port', flavor: 'port' },
-          { label: 'Proxy', sub: 'CA cert', flavor: 'proxy' },
-          { label: 'Internet', flavor: 'cloud' },
+          {
+            label: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeApp'),
+            sub: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeAppSub'),
+            flavor: 'app',
+          },
+          { label: ':8080', sub: t('workbench.docs.diagrams.openHeaders.vsProxy.nodePortSub'), flavor: 'port' },
+          {
+            label: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeProxy'),
+            sub: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeProxySub'),
+            flavor: 'proxy',
+          },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeInternet'), flavor: 'cloud' },
         ],
         [
-          { label: 'install binary', tone: 'warn' },
-          { label: 'install CA cert', tone: 'warn' },
-          { label: 'per-app config', tone: 'warn' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.chipInstallBinary'), tone: 'warn' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.chipInstallCert'), tone: 'warn' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.chipPerApp'), tone: 'warn' },
         ],
       )}
 
       {renderRow(
         ROW2_Y,
-        'Open Headers',
+        t('workbench.docs.diagrams.openHeaders.shared.openHeaders'),
         OH_GREEN,
         OH_GREEN,
         [
-          { label: 'Browser', sub: 'DNR / Script', flavor: 'web' },
-          { label: 'Internet', flavor: 'cloud' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeBrowser'), sub: 'DNR / Script', flavor: 'web' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.nodeInternet'), flavor: 'cloud' },
         ],
         [
-          { label: 'install extension', tone: 'ok' },
-          { label: "that's it", tone: 'ok' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.chipInstallExtension'), tone: 'ok' },
+          { label: t('workbench.docs.diagrams.openHeaders.vsProxy.chipThatsIt'), tone: 'ok' },
         ],
       )}
 
@@ -248,7 +265,7 @@ export const ComparisonVsProxyDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        One install · zero certificates · rules run with the page's own permissions
+        {t('workbench.docs.diagrams.openHeaders.vsProxy.verdict')}
       </text>
     </svg>
   );

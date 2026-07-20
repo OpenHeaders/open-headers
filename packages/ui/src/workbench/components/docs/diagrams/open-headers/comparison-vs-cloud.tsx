@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -11,6 +12,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * row.
  */
 export const ComparisonVsCloudDiagram: React.FC = () => {
+  const t = useT();
   const W = 480;
   const CX = W / 2;
   const TITLE_Y = 22;
@@ -36,13 +38,20 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
   const ERR_RED_BORDER = 'var(--ant-color-error-border)';
 
   type Row = { label: string };
-  const cloudRows: Row[] = [{ label: 'credentials' }, { label: 'rule definitions' }, { label: 'request logs' }];
+  const cloudRows: Row[] = [
+    { label: t('workbench.docs.diagrams.openHeaders.vsCloud.rowCredentials') },
+    { label: t('workbench.docs.diagrams.openHeaders.vsCloud.rowRules') },
+    { label: t('workbench.docs.diagrams.openHeaders.vsCloud.rowLogs') },
+  ];
 
   const renderRows = (panelX: number, rows: Row[], tone: 'bad' | 'good') => {
     const startY = PANEL_Y + PANEL_HEADER_H + VISUAL_H + 4;
     const color = tone === 'good' ? OH_GREEN : ERR_RED;
     const glyph = tone === 'good' ? '✓' : '✗';
-    const suffix = tone === 'good' ? 'on your device' : 'on vendor server';
+    const suffix =
+      tone === 'good'
+        ? t('workbench.docs.diagrams.openHeaders.vsCloud.onDevice')
+        : t('workbench.docs.diagrams.openHeaders.vsCloud.onVendor');
     return rows.map((r, i) => (
       <g key={`${tone}-${i}`}>
         <text x={panelX + 14} y={startY + 12 + i * ROW_H} fontSize={10} fontWeight={800} fill={color}>
@@ -71,13 +80,13 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="vs cloud API platforms. Cloud platforms keep credentials, rule definitions and request logs on a vendor server. Open Headers keeps all three on the user's device."
+      aria-label={t('workbench.docs.diagrams.openHeaders.vsCloud.aria')}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Where your data ends up
+        {t('workbench.docs.diagrams.openHeaders.vsCloud.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Credentials, rule definitions, request logs — local or remote?
+        {t('workbench.docs.diagrams.openHeaders.vsCloud.subtitle')}
       </text>
 
       {/* LEFT panel — cloud, styled as a browser window */}
@@ -104,7 +113,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
       <circle cx={PANEL_LEFT_X + 24} cy={PANEL_Y + PANEL_HEADER_H / 2} r={4} fill="#febc2e" />
       <circle cx={PANEL_LEFT_X + 36} cy={PANEL_Y + PANEL_HEADER_H / 2} r={4} fill="#28c840" />
       <text x={PANEL_LEFT_X + 50} y={PANEL_Y + PANEL_HEADER_H / 2 + 4} fontSize={11} fontWeight={700} fill={ERR_RED}>
-        Cloud API platform
+        {t('workbench.docs.diagrams.openHeaders.vsCloud.cloudPlatform')}
       </text>
 
       {/* Cloud panel visual — device → cloud */}
@@ -128,7 +137,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
             />
             <rect x={deviceX} y={deviceY} width={48} height={10} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
             <text x={deviceX + 24} y={deviceY + 26} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-              you
+              {t('workbench.docs.diagrams.openHeaders.vsCloud.you')}
             </text>
 
             {/* Arrow */}
@@ -152,7 +161,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
               fontStyle="italic"
               fill={ERR_RED}
             >
-              your data
+              {t('workbench.docs.diagrams.openHeaders.vsCloud.yourData')}
             </text>
 
             {/* Cloud */}
@@ -167,7 +176,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
               strokeWidth={1.5}
             />
             <text x={cx + 44} y={deviceY + 22} textAnchor="middle" fontSize={9} fontWeight={800} fill={ERR_RED}>
-              cloud
+              {t('workbench.docs.diagrams.openHeaders.vsCloud.cloud')}
             </text>
           </g>
         );
@@ -199,7 +208,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
       <circle cx={PANEL_RIGHT_X + 24} cy={PANEL_Y + PANEL_HEADER_H / 2} r={4} fill="#febc2e" />
       <circle cx={PANEL_RIGHT_X + 36} cy={PANEL_Y + PANEL_HEADER_H / 2} r={4} fill="#28c840" />
       <text x={PANEL_RIGHT_X + 50} y={PANEL_Y + PANEL_HEADER_H / 2 + 4} fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        Open Headers
+        {t('workbench.docs.diagrams.openHeaders.shared.openHeaders')}
       </text>
 
       {/* OH panel visual — single device, contents inside */}
@@ -224,7 +233,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
             />
             <rect x={deviceX} y={deviceY} width={deviceW} height={14} rx={5} fill={FILL_BLUE} stroke={STROKE_BLUE} />
             <text x={cx} y={deviceY + 10} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={TEXT}>
-              your device
+              {t('workbench.docs.diagrams.openHeaders.vsCloud.yourDevice')}
             </text>
             <rect
               x={deviceX + 8}
@@ -237,10 +246,10 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
               strokeOpacity={0.5}
             />
             <text x={cx} y={deviceY + 34} textAnchor="middle" fontSize={9} fontWeight={700} fill={OH_GREEN}>
-              credentials · rules · logs
+              {t('workbench.docs.diagrams.openHeaders.vsCloud.deviceContents')}
             </text>
             <text x={cx} y={deviceY + 46} textAnchor="middle" fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
-              all in one place
+              {t('workbench.docs.diagrams.openHeaders.vsCloud.allInOnePlace')}
             </text>
           </g>
         );
@@ -260,7 +269,7 @@ export const ComparisonVsCloudDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        Your data never leaves your machine
+        {t('workbench.docs.diagrams.openHeaders.vsCloud.verdict')}
       </text>
     </svg>
   );
