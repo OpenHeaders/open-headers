@@ -25,12 +25,14 @@ afterEach(() => {
 });
 
 describe('capability-gated tool windows', () => {
-  it('drops the terminal window on a host without the capability', () => {
+  it('drops every capability-gated window on a host without the capabilities', () => {
     const ids = availableToolWindows().map((def) => def.id);
     expect(ids).not.toContain('terminal');
+    expect(ids).not.toContain('git');
     expect(availableToolWindowMap().terminal).toBeUndefined();
     // Everything ungated stays.
-    expect(ids).toHaveLength(TOOL_WINDOWS.length - 1);
+    const gated = TOOL_WINDOWS.filter((def) => def.requiresCapability !== undefined).length;
+    expect(ids).toHaveLength(TOOL_WINDOWS.length - gated);
   });
 
   it('includes the terminal window once the capability is registered', () => {

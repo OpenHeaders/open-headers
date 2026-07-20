@@ -360,6 +360,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
   'workbench.toolWindows.deepNetworkInspection': 'Tiefe Netzwerkinspektion',
   'workbench.toolWindows.terminal': 'Terminal',
+  'workbench.toolWindows.git': 'Git',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
   //    reference chips compose raw in JSX between the keyed prefix/
@@ -473,6 +474,24 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.terminal.summary':
     'Ein integriertes Terminal, das deine Shell in einem echten pty ausführt — alles, was in einem ' +
     'eigenständigen Terminal läuft, läuft auch hier, einschließlich der CLI oh gegen die lokale App.',
+  'workbench.toolWindows.info.git.summary':
+    'Die Commit-Historie der Git-Bindung des aktiven Workspace — die Workspace-Zeitleiste mit geänderten ' +
+    'Dateien pro Commit, Autorenschaft und Historie pro Datei.',
+
+  // ── Git tool window (log view) ───────────────────────────────────
+  'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',
+  'workbench.gitLog.refresh': 'Aktualisieren',
+  'workbench.gitLog.empty': 'Noch keine Commits',
+  'workbench.gitLog.selectCommit': 'Wähle einen Commit, um seine Änderungen zu sehen',
+  'workbench.gitLog.notBound.title': 'Dieser Workspace hat keine Git-Bindung',
+  'workbench.gitLog.notBound.body':
+    'Binde den Workspace unter Einstellungen › Git an einen Ordner, um seine Historie zu sehen.',
+  'workbench.gitLog.loadFailed': 'Historie konnte nicht geladen werden: {detail}',
+  'workbench.gitLog.authorLine': '{author} <{email}> am {date}',
+  'workbench.gitLog.coAuthors': 'Co-Autoren: {authors}',
+  'workbench.gitLog.filesHeading': 'Geänderte Dateien',
+  'workbench.gitLog.fileHistoryTitle': 'Historie — {path}',
+  'workbench.gitLog.fileHistoryEmpty': 'Für diese Datei ist noch keine Historie vorhanden.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

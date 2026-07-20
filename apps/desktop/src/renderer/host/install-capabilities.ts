@@ -112,5 +112,11 @@ registerCapability('proxyCapture', () => true);
 // Proxy window from their dock registry.
 registerCapability('proxyCapture', () => true);
 
+// The workbench Git tool window — the desktop's bridge reaches the
+// workspace-tree runtime in-process, so the log/history surface has a
+// live `oh.workspaceTree.*` verb table to read. Browser surfaces never
+// register this, which drops the Git window from their dock registry.
+registerCapability('workspaceGit', () => true);
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

@@ -10,6 +10,7 @@
 
 import {
   BookOutlined,
+  BranchesOutlined,
   CodeOutlined,
   DashboardOutlined,
   FundViewOutlined,
@@ -153,6 +154,21 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-left',
     openByDefault: false,
     requiresCapability: 'terminal',
+  },
+  // The git log/history surface over the workspace-tree verb table
+  // (GIT_PLAN.md §9) — commit timeline + per-commit detail for the
+  // active workspace's binding. Only hosts whose bridge reaches a
+  // workspace-tree runtime register `workspaceGit`, so the window
+  // drops out of every browser surface's dock registry. Dormant until
+  // opened, like the other bottom-dock panels.
+  {
+    id: 'git',
+    labelKey: 'workbench.toolWindows.git',
+    icon: <BranchesOutlined />,
+    core: false,
+    defaultSlot: 'bottom-left',
+    openByDefault: false,
+    requiresCapability: 'workspaceGit',
   },
 ];
 

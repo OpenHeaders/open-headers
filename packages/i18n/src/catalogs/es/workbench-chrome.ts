@@ -360,6 +360,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
   'workbench.toolWindows.deepNetworkInspection': 'Inspección profunda de red',
   'workbench.toolWindows.terminal': 'Terminal',
+  'workbench.toolWindows.git': 'Git',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
   //    reference chips compose raw in JSX between the keyed prefix/
@@ -477,6 +478,24 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
+  'workbench.toolWindows.info.git.summary':
+    'El historial de commits de la vinculación Git del espacio de trabajo activo — la cronología del espacio ' +
+    'de trabajo con los archivos modificados por commit, la autoría y el historial por archivo.',
+
+  // ── Git tool window (log view) ───────────────────────────────────
+  'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',
+  'workbench.gitLog.refresh': 'Actualizar',
+  'workbench.gitLog.empty': 'Aún no hay commits',
+  'workbench.gitLog.selectCommit': 'Selecciona un commit para ver sus cambios',
+  'workbench.gitLog.notBound.title': 'Este espacio de trabajo no tiene vinculación Git',
+  'workbench.gitLog.notBound.body':
+    'Vincula el espacio de trabajo a una carpeta en Configuración › Git para ver su historial.',
+  'workbench.gitLog.loadFailed': 'No se pudo cargar el historial: {detail}',
+  'workbench.gitLog.authorLine': '{author} <{email}> el {date}',
+  'workbench.gitLog.coAuthors': 'Coautoría de {authors}',
+  'workbench.gitLog.filesHeading': 'Archivos modificados',
+  'workbench.gitLog.fileHistoryTitle': 'Historial — {path}',
+  'workbench.gitLog.fileHistoryEmpty': 'Aún no hay historial registrado para este archivo.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

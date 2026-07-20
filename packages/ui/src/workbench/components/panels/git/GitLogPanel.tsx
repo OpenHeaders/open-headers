@@ -1,0 +1,437 @@
+/**
+ * GitLogPanel — the workbench Git tool window (GIT_PLAN.md §9 history
+ * view, IDE-log layout). Two panes over the S14 read verbs: a commit
+ * timeline for the active workspace's binding (`oh.workspaceTree.log`)
+ * on the left, and the selected commit's detail — authorship, co-author
+ * trailers, changed paths — on the right; clicking a path opens its
+ * `--follow` timeline (`oh.workspaceTree.fileLog`). Pure reads off the
+ * per-binding chain; the panel never mutates the repo.
+ *
+ * Only hosts that register the `workspaceGit` capability (the desktop
+ * renderer, whose bridge reaches the workspace-tree runtime in-process)
+ * ever mount this window. The `workspaceTreeGitStatus` lifeline doubles
+ * as the refresh nudge: every pass that can move `git status` pushes a
+ * status frame, and the panel refetches the log on frames for its
+ * workspace — an engine commit shows up without a manual refresh.
+ */
+
+import { ReloadOutlined } from '@ant-design/icons';
+import { hostBridge, type WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
+import { Button, Input, Modal, Tag, theme } from 'antd';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { formatAgo } from '@openheaders/ui/shared/awareness/format-ago';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+
+export interface GitLogPanelProps {
+  info: InfoPopoverContent;
+  onHide: () => void;
+}
+
+const LOG_LIMIT = 200;
+
+/** Porcelain status letter → theme color, IDE-style (added green,
+ *  modified blue, deleted red, rename/copy amber). */
+function statusColor(status: string, token: ReturnType<typeof theme.useToken>['token']): string {
+  switch (status) {
+    case 'A':
+      return token.colorSuccessText;
+    case 'D':
+      return token.colorErrorText;
+    case 'R':
+    case 'C':
+      return token.colorWarningText;
+    default:
+      return token.colorInfoText;
+  }
+}
+
+const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
+  const { token } = theme.useToken();
+  const { locale, t } = useLocale();
+  const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
+  const workspaceId = useActiveWorkspaceId();
+
+  const [bound, setBound] = useState(false);
+  const [branch, setBranch] = useState<string | null>(null);
+  const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  const [fileHistory, setFileHistory] = useState<{ path: string; entries: WorkspaceTreeLogEntryWire[] } | null>(null);
+  const [fileHistoryLoading, setFileHistoryLoading] = useState<string | null>(null);
+
+  const reload = useCallback(async (): Promise<void> => {
+    if (workspaceId === null) {
+      setBound(false);
+      setEntries([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await hostBridge.call('oh.workspaceTree.list');
+      const isBound = list.bindings.some((row) => row.workspaceId === workspaceId);
+      setBound(isBound);
+      if (!isBound) {
+        setBranch(null);
+        setEntries([]);
+        return;
+      }
+      const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
+      setBranch(status.branch);
+      const result = await hostBridge.call('oh.workspaceTree.log', { workspaceId, limit: LOG_LIMIT });
+      if (result.ok) {
+        setEntries(result.entries);
+      } else {
+        setEntries([]);
+        setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
+      }
+    } catch (err) {
+      setEntries([]);
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, t]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    if (workspaceId === null) return;
+    return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
+      if (payload.workspaceId !== workspaceId) return;
+      void reload();
+    });
+  }, [workspaceId, reload]);
+
+  const filtered = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    if (needle === '') return entries;
+    return entries.filter(
+      (entry) =>
+        entry.subject.toLowerCase().includes(needle) ||
+        entry.authorName.toLowerCase().includes(needle) ||
+        entry.sha.startsWith(needle),
+    );
+  }, [entries, filter]);
+
+  const selected = useMemo(
+    () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
+    [entries, selectedSha],
+  );
+
+  const openFileHistory = async (filePath: string): Promise<void> => {
+    if (workspaceId === null) return;
+    setFileHistoryLoading(filePath);
+    try {
+      const result = await hostBridge.call('oh.workspaceTree.fileLog', {
+        workspaceId,
+        path: filePath,
+        limit: 20,
+      });
+      if (result.ok) setFileHistory({ path: filePath, entries: result.entries });
+      else setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setFileHistoryLoading(null);
+    }
+  };
+
+  const authorLine = (entry: WorkspaceTreeLogEntryWire): string =>
+    t('workbench.gitLog.authorLine', {
+      author: entry.authorName,
+      email: entry.authorEmail,
+      date: new Date(entry.authoredAt).toLocaleString(),
+    });
+
+  return (
+    <div className="rules-bottom-panel">
+      <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.git')}</strong>} info={info} />
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
+        <div
+          style={{
+            flex: '0 0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 12px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            background: token.colorFillQuaternary,
+          }}
+        >
+          <Input
+            size="small"
+            allowClear
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t('workbench.gitLog.filterPlaceholder')}
+            style={{ maxWidth: 260 }}
+            data-testid="git-tool-filter"
+          />
+          {branch !== null && (
+            <Tag style={{ margin: 0, fontFamily: token.fontFamilyCode }} data-testid="git-tool-branch">
+              {branch}
+            </Tag>
+          )}
+          <span style={{ flex: 1 }} />
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => void reload()}
+            data-testid="git-tool-refresh"
+          >
+            {t('workbench.gitLog.refresh')}
+          </Button>
+        </div>
+        {error !== null && (
+          <div
+            style={{
+              flex: '0 0 auto',
+              padding: '4px 12px',
+              fontSize: 12,
+              color: token.colorError,
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            }}
+            data-testid="git-tool-error"
+          >
+            {error}
+          </div>
+        )}
+        {!bound ? (
+          <div
+            style={{
+              flex: '1 1 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              color: token.colorTextSecondary,
+            }}
+            data-testid="git-tool-not-bound"
+          >
+            <strong style={{ fontSize: 13, color: token.colorText }}>{t('workbench.gitLog.notBound.title')}</strong>
+            <span style={{ fontSize: 12 }}>{t('workbench.gitLog.notBound.body')}</span>
+          </div>
+        ) : (
+          <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
+            <div
+              style={{ flex: '1 1 55%', minWidth: 0, overflowY: 'auto', borderRight: `1px solid ${token.colorBorderSecondary}` }}
+              data-testid="git-tool-list"
+            >
+              {filtered.length === 0 ? (
+                <div
+                  style={{ padding: '18px 12px', fontSize: 12, color: token.colorTextSecondary }}
+                  data-testid="git-tool-empty"
+                >
+                  {t('workbench.gitLog.empty')}
+                </div>
+              ) : (
+                filtered.map((entry) => {
+                  const isSelected = entry.sha === selectedSha;
+                  return (
+                    <button
+                      key={entry.sha}
+                      type="button"
+                      onClick={() => setSelectedSha(entry.sha)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        width: '100%',
+                        padding: '3px 12px 3px 0',
+                        border: 'none',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        background: isSelected ? token.controlItemBgActive : 'transparent',
+                        color: token.colorText,
+                      }}
+                      data-testid="git-tool-row"
+                      data-sha={entry.sha}
+                    >
+                      <span
+                        aria-hidden
+                        style={{
+                          position: 'relative',
+                          flex: '0 0 auto',
+                          width: 20,
+                          alignSelf: 'stretch',
+                          minHeight: 24,
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: 9,
+                            top: 0,
+                            bottom: 0,
+                            width: 2,
+                            background: token.colorSuccessBorder,
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: 6,
+                            top: '50%',
+                            marginTop: -4,
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: token.colorSuccess,
+                          }}
+                        />
+                      </span>
+                      <span
+                        style={{
+                          flex: '1 1 auto',
+                          minWidth: 0,
+                          fontSize: 12,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {entry.subject}
+                      </span>
+                      <span style={{ flex: '0 0 auto', fontSize: 11.5, color: token.colorTextSecondary }}>
+                        {entry.authorName}
+                      </span>
+                      <span
+                        title={new Date(entry.authoredAt).toLocaleString()}
+                        style={{
+                          flex: '0 0 auto',
+                          minWidth: 52,
+                          textAlign: 'right',
+                          fontSize: 11.5,
+                          color: token.colorTextSecondary,
+                        }}
+                      >
+                        {formatAgo(Date.now() - new Date(entry.authoredAt).getTime(), locale)}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <div style={{ flex: '1 1 45%', minWidth: 0, overflowY: 'auto' }} data-testid="git-tool-detail">
+              {selected === null ? (
+                <div
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    color: token.colorTextSecondary,
+                  }}
+                  data-testid="git-tool-detail-placeholder"
+                >
+                  {t('workbench.gitLog.selectCommit')}
+                </div>
+              ) : (
+                <div style={{ padding: '10px 14px' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: token.colorText }}>{selected.subject}</div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontFamily: token.fontFamilyCode,
+                      fontSize: 11,
+                      color: token.colorTextSecondary,
+                      userSelect: 'all',
+                    }}
+                    data-testid="git-tool-detail-sha"
+                  >
+                    {selected.sha}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 11.5, color: token.colorTextSecondary }}>
+                    {authorLine(selected)}
+                  </div>
+                  {selected.coAuthors.length > 0 && (
+                    <div
+                      style={{ marginTop: 2, fontSize: 11.5, color: token.colorTextSecondary }}
+                      data-testid="git-tool-detail-co-authors"
+                    >
+                      {t('workbench.gitLog.coAuthors', { authors: selected.coAuthors.join(', ') })}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      margin: '10px 0 4px',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color: token.colorText,
+                    }}
+                  >
+                    {t('workbench.gitLog.filesHeading')}
+                  </div>
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {selected.files.map((file) => (
+                      <li key={`${selected.sha}:${file.path}`}>
+                        <Button
+                          type="link"
+                          size="small"
+                          loading={fileHistoryLoading === file.path}
+                          onClick={() => void openFileHistory(file.path)}
+                          style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                          data-testid="git-tool-file"
+                        >
+                          <span style={{ fontFamily: token.fontFamilyCode }}>
+                            <span style={{ color: statusColor(file.status, token) }}>{file.status}</span> {file.path}
+                          </span>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <Modal
+        open={fileHistory !== null}
+        title={fileHistory !== null ? t('workbench.gitLog.fileHistoryTitle', { path: fileHistory.path }) : ''}
+        onCancel={() => setFileHistory(null)}
+        footer={null}
+        data-testid="git-tool-file-history-modal"
+      >
+        {fileHistory !== null && fileHistory.entries.length === 0 && (
+          <p style={{ fontSize: 12, margin: 0 }} data-testid="git-tool-file-history-empty">
+            {t('workbench.gitLog.fileHistoryEmpty')}
+          </p>
+        )}
+        {fileHistory !== null && fileHistory.entries.length > 0 && (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} data-testid="git-tool-file-history-list">
+            {fileHistory.entries.map((entry) => (
+              <li
+                key={entry.sha}
+                style={{ padding: '6px 0', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+                data-testid="git-tool-file-history-entry"
+              >
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorTextSecondary }}>
+                    {entry.sha.slice(0, 7)}
+                  </span>
+                  <span style={{ fontSize: 12, color: token.colorText, flex: 1 }}>{entry.subject}</span>
+                </div>
+                <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>{authorLine(entry)}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+    </div>
+  );
+};
+
+export default GitLogPanel;

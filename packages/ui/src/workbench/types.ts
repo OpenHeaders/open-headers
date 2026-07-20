@@ -283,7 +283,8 @@ export type ToolWindowId =
   | 'proxy-capture'
   | 'activity'
   | 'notifications'
-  | 'terminal';
+  | 'terminal'
+  | 'git';
 
 /** Runtime state for one dock, bound to workspace's ToolWindowId. */
 export type DockState = GenericDockState<ToolWindowId>;

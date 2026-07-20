@@ -37,6 +37,9 @@ const TerminalPanel = lazy(() => import('../panels/terminal/TerminalPanel'));
 // Pulls the panel-package network table (TrafficList + detail); lazy so
 // browser workbenches that never register `proxyCapture` don't bundle it.
 const ProxyCapturePanel = lazy(() => import('../panels/ProxyCapturePanel'));
+// Lazy for the same reason: the window exists solely on hosts with the
+// `workspaceGit` capability (registry `requiresCapability` gate).
+const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
 import type { SidebarView } from '../sidebar/types';
 import { buildEntityExportScope, buildSelectionExportScope } from '../workspace-export/build-export-scope';
 import type { ImportExportModalsHandle } from '../workspace-export/ImportExportModals';
@@ -300,6 +303,12 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
       return (
         <Suspense fallback={null}>
           <TerminalPanel info={getToolWindowInfo('terminal', t)} dockSlot={slot} onHide={() => tl.closeDock(slot)} />
+        </Suspense>
+      );
+    case 'git':
+      return (
+        <Suspense fallback={null}>
+          <GitLogPanel info={getToolWindowInfo('git', t)} onHide={() => tl.closeDock(slot)} />
         </Suspense>
       );
     default:

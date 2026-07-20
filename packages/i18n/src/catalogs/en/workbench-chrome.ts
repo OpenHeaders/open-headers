@@ -336,6 +336,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.deepNetworkInspection': 'Deep Network Inspection',
   'workbench.toolWindows.proxyCapture': 'Proxy',
   'workbench.toolWindows.terminal': 'Terminal',
+  'workbench.toolWindows.git': 'Git',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
   //    reference chips compose raw in JSX between the keyed prefix/
@@ -447,6 +448,23 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',
+  'workbench.toolWindows.info.git.summary':
+    'Commit history for the active workspace’s Git binding — the workspace timeline with per-commit ' +
+    'changed files, authorship, and per-file history.',
+
+  // ── Git tool window (log view) ───────────────────────────────────
+  'workbench.gitLog.filterPlaceholder': 'Filter by message, author, or hash',
+  'workbench.gitLog.refresh': 'Refresh',
+  'workbench.gitLog.empty': 'No commits yet',
+  'workbench.gitLog.selectCommit': 'Select a commit to view its changes',
+  'workbench.gitLog.notBound.title': 'This workspace has no Git binding',
+  'workbench.gitLog.notBound.body': 'Bind the workspace to a folder under Settings › Git to see its history.',
+  'workbench.gitLog.loadFailed': 'Could not load history: {detail}',
+  'workbench.gitLog.authorLine': '{author} <{email}> on {date}',
+  'workbench.gitLog.coAuthors': 'Co-authored by {authors}',
+  'workbench.gitLog.filesHeading': 'Changed files',
+  'workbench.gitLog.fileHistoryTitle': 'History — {path}',
+  'workbench.gitLog.fileHistoryEmpty': 'No history recorded for this file yet.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

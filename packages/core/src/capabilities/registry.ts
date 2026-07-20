@@ -398,6 +398,17 @@ export interface Capabilities {
    * only says "this host has a capture proxy to drive."
    */
   proxyCapture?: () => boolean;
+
+  /**
+   * Availability gate for the workbench Git tool window — the log/history
+   * surface over the workspace-tree git verbs (`oh.workspaceTree.log` /
+   * `fileLog`, GIT_PLAN.md §9). Registered only by hosts whose bridge
+   * reaches a workspace-tree runtime in-process (the desktop renderer);
+   * browser surfaces have no filesystem tree and leave it absent, which
+   * drops the Git tool window from the dock registry via
+   * `requiresCapability` filtering. Presence is the whole signal.
+   */
+  workspaceGit?: () => boolean;
 }
 
 export type CapabilityName = keyof Capabilities;
