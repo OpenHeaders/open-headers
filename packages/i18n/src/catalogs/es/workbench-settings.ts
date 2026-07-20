@@ -233,4 +233,17 @@ export const workbenchSettings = {
     'Instalación {installId} (aleatorio — identifica esta instalación, no a ti)',
   'workbench.settings.telemetryRow.noInstall': 'Sin identificador de instalación — el recuento está desactivado',
   'workbench.settings.telemetryRow.empty': 'No se han registrado eventos de telemetría en esta sesión.',
+  'workbench.settings.telemetryRow.confirmTitle': '¿Desactivar el recuento anónimo de uso?',
+  'workbench.settings.telemetryRow.confirmHeading': 'Tu privacidad ya está protegida',
+  'workbench.settings.telemetryRow.confirmIntro':
+    'Un identificador aleatorio cuenta esta instalación — nunca a ti. Nunca se recogen datos personales. Esto es lo que hace el recuento:',
+  'workbench.settings.telemetryRow.confirmPointFeatures': 'Muestra qué funcionalidades merecen seguir desarrollándose',
+  'workbench.settings.telemetryRow.confirmPointScope':
+    'Solo cuenta el uso de funcionalidades, la plataforma y la versión de la aplicación',
+  'workbench.settings.telemetryRow.confirmPointInspect': 'Cada evento sigue visible byte a byte en «Ver los eventos»',
+  'workbench.settings.telemetryRow.confirmBadgePersonal': 'Sin datos personales',
+  'workbench.settings.telemetryRow.confirmBadgeUrls': 'Sin URLs ni cabeceras',
+  'workbench.settings.telemetryRow.confirmBadgeContent': 'Sin contenido de peticiones',
+  'workbench.settings.telemetryRow.confirmKeep': 'Mantener el recuento activado',
+  'workbench.settings.telemetryRow.confirmDisable': 'Desactivar de todos modos',
 } as const satisfies Catalog;

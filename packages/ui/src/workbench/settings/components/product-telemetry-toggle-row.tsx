@@ -10,12 +10,26 @@
  * open modal re-polls the snapshot — the poll only runs while the modal
  * is on screen, keeping the read path one-shot RPCs with no standing
  * wire.
+ *
+ * Unchecking asks first: a retention dialog restates what counting is
+ * (and is not) before the switch actually flips — "Turn off anyway"
+ * commits the disable, everything else leaves counting on. Checking
+ * back on is immediate.
  */
 
+import {
+  BarChartOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  LockOutlined,
+  RocketOutlined,
+  SafetyCertificateOutlined,
+  SafetyOutlined,
+} from '@ant-design/icons';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getDateTimeFormat } from '@openheaders/i18n';
-import { Checkbox, Empty, Modal, Tag, Typography } from 'antd';
+import { Button, Checkbox, Empty, Modal, Tag, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
@@ -37,8 +51,10 @@ const DISPOSITION_COLOR: Record<string, string> = {
 
 const ProductTelemetryToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
   const { locale, t } = useLocale();
+  const { token } = theme.useToken();
   const [value, setValue] = useUntypedSetting(def.key);
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<ProductTelemetrySnapshot | null>(null);
 
   const refresh = useCallback(() => {
@@ -71,9 +87,82 @@ const ProductTelemetryToggleRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       labelInControl
       infoActions={[{ label: t('workbench.settings.telemetryRow.viewEvents'), onClick: show, primary: true }]}
     >
-      <Checkbox checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} style={{ fontSize: 13 }}>
+      <Checkbox
+        checked={Boolean(value)}
+        onChange={(e) => (e.target.checked ? setValue(true) : setConfirmOpen(true))}
+        style={{ fontSize: 13 }}
+      >
         {label}
       </Checkbox>
+      <Modal
+        title={t('workbench.settings.telemetryRow.confirmTitle')}
+        open={confirmOpen}
+        onCancel={() => setConfirmOpen(false)}
+        footer={null}
+        width={480}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '12px 0 4px' }}>
+          <SafetyOutlined style={{ fontSize: 40, color: token.colorPrimary }} />
+          <div style={{ textAlign: 'center' }}>
+            <Text strong style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>
+              {t('workbench.settings.telemetryRow.confirmHeading')}
+            </Text>
+            <Text type="secondary">{t('workbench.settings.telemetryRow.confirmIntro')}</Text>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignSelf: 'stretch' }}>
+            {(
+              [
+                [RocketOutlined, 'workbench.settings.telemetryRow.confirmPointFeatures'],
+                [BarChartOutlined, 'workbench.settings.telemetryRow.confirmPointScope'],
+                [EyeOutlined, 'workbench.settings.telemetryRow.confirmPointInspect'],
+              ] as const
+            ).map(([Icon, key]) => (
+              <div
+                key={key}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 14px',
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderRadius: token.borderRadiusLG,
+                }}
+              >
+                <Icon style={{ fontSize: 16, color: token.colorPrimary }} />
+                <Text style={{ fontSize: 13 }}>{t(key)}</Text>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {(
+              [
+                [SafetyCertificateOutlined, 'workbench.settings.telemetryRow.confirmBadgePersonal'],
+                [LockOutlined, 'workbench.settings.telemetryRow.confirmBadgeUrls'],
+                [EyeInvisibleOutlined, 'workbench.settings.telemetryRow.confirmBadgeContent'],
+              ] as const
+            ).map(([Icon, key]) => (
+              <Text key={key} type="secondary" style={{ fontSize: 12 }}>
+                <Icon style={{ marginRight: 4 }} />
+                {t(key)}
+              </Text>
+            ))}
+          </div>
+          <Button type="primary" onClick={() => setConfirmOpen(false)}>
+            {t('workbench.settings.telemetryRow.confirmKeep')}
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            style={{ color: token.colorTextSecondary, marginTop: -8 }}
+            onClick={() => {
+              setValue(false);
+              setConfirmOpen(false);
+            }}
+          >
+            {t('workbench.settings.telemetryRow.confirmDisable')}
+          </Button>
+        </div>
+      </Modal>
       <Modal
         title={t('workbench.settings.telemetryRow.modalTitle')}
         open={open}

@@ -228,4 +228,17 @@ export const workbenchSettings = {
     'Installation {installId} (zufällig — identifiziert diese Installation, nicht dich)',
   'workbench.settings.telemetryRow.noInstall': 'Keine Installations-Kennung — Zählung ist aus',
   'workbench.settings.telemetryRow.empty': 'In dieser Sitzung wurden keine Telemetrie-Ereignisse aufgezeichnet.',
+  'workbench.settings.telemetryRow.confirmTitle': 'Anonyme Nutzungszählung ausschalten?',
+  'workbench.settings.telemetryRow.confirmHeading': 'Ihre Privatsphäre ist bereits geschützt',
+  'workbench.settings.telemetryRow.confirmIntro':
+    'Eine zufällige Kennung zählt diese Installation — niemals Sie. Es werden niemals persönliche Daten erhoben. Das leistet die Zählung:',
+  'workbench.settings.telemetryRow.confirmPointFeatures': 'Zeigt, welche Funktionen weiterentwickelt werden sollten',
+  'workbench.settings.telemetryRow.confirmPointScope': 'Zählt nur Funktionsnutzung, Plattform und App-Version',
+  'workbench.settings.telemetryRow.confirmPointInspect':
+    'Jedes Ereignis bleibt Byte für Byte unter „Ereignisse ansehen“ sichtbar',
+  'workbench.settings.telemetryRow.confirmBadgePersonal': 'Keine persönlichen Daten',
+  'workbench.settings.telemetryRow.confirmBadgeUrls': 'Keine URLs oder Header',
+  'workbench.settings.telemetryRow.confirmBadgeContent': 'Keine Anfrageinhalte',
+  'workbench.settings.telemetryRow.confirmKeep': 'Zählung eingeschaltet lassen',
+  'workbench.settings.telemetryRow.confirmDisable': 'Trotzdem ausschalten',
 } as const satisfies Catalog;

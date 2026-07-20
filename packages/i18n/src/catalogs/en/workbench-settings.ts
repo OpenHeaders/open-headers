@@ -202,4 +202,16 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.install': 'Install {installId} (random — identifies this install, not you)',
   'workbench.settings.telemetryRow.noInstall': 'No install identifier — counting is off',
   'workbench.settings.telemetryRow.empty': 'No telemetry events recorded this session.',
+  'workbench.settings.telemetryRow.confirmTitle': 'Turn off anonymous usage counting?',
+  'workbench.settings.telemetryRow.confirmHeading': 'Your privacy is already protected',
+  'workbench.settings.telemetryRow.confirmIntro':
+    'A random identifier counts this install — never you. No personal data is ever collected. Here is what counting does:',
+  'workbench.settings.telemetryRow.confirmPointFeatures': 'Shows which features deserve continued work',
+  'workbench.settings.telemetryRow.confirmPointScope': 'Counts only feature usage, platform, and app version',
+  'workbench.settings.telemetryRow.confirmPointInspect': 'Every event stays visible byte for byte in "View events"',
+  'workbench.settings.telemetryRow.confirmBadgePersonal': 'No personal data',
+  'workbench.settings.telemetryRow.confirmBadgeUrls': 'No URLs or headers',
+  'workbench.settings.telemetryRow.confirmBadgeContent': 'No request content',
+  'workbench.settings.telemetryRow.confirmKeep': 'Keep counting on',
+  'workbench.settings.telemetryRow.confirmDisable': 'Turn off anyway',
 } as const satisfies Catalog;

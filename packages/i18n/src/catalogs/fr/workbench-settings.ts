@@ -225,4 +225,18 @@ export const workbenchSettings = {
     'Installation {installId} (aléatoire — identifie cette installation, pas vous)',
   'workbench.settings.telemetryRow.noInstall': "Aucun identifiant d'installation — le comptage est désactivé",
   'workbench.settings.telemetryRow.empty': 'Aucun événement de télémétrie enregistré cette session.',
+  'workbench.settings.telemetryRow.confirmTitle': 'Désactiver le comptage anonyme d’utilisation ?',
+  'workbench.settings.telemetryRow.confirmHeading': 'Votre vie privée est déjà protégée',
+  'workbench.settings.telemetryRow.confirmIntro':
+    'Un identifiant aléatoire compte cette installation — jamais vous. Aucune donnée personnelle n’est jamais collectée. Voici ce que fait le comptage :',
+  'workbench.settings.telemetryRow.confirmPointFeatures': 'Montre quelles fonctionnalités méritent d’être développées',
+  'workbench.settings.telemetryRow.confirmPointScope':
+    'Ne compte que l’usage des fonctionnalités, la plateforme et la version de l’application',
+  'workbench.settings.telemetryRow.confirmPointInspect':
+    'Chaque événement reste visible octet par octet dans « Voir les événements »',
+  'workbench.settings.telemetryRow.confirmBadgePersonal': 'Aucune donnée personnelle',
+  'workbench.settings.telemetryRow.confirmBadgeUrls': 'Aucune URL ni en-tête',
+  'workbench.settings.telemetryRow.confirmBadgeContent': 'Aucun contenu de requête',
+  'workbench.settings.telemetryRow.confirmKeep': 'Garder le comptage activé',
+  'workbench.settings.telemetryRow.confirmDisable': 'Désactiver quand même',
 } as const satisfies Catalog;
