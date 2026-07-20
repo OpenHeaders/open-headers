@@ -892,4 +892,303 @@ export const workbenchDocsDiagrams = {
     'Un seul workflow au pire état fait basculer toute la pastille.',
   'workbench.docs.diagrams.systemStatus.liveAggregation.footer2':
     "Changez d'espace de travail : la pastille se recalcule sur les exécutions de cet espace.",
+
+  // ── Open Headers: shared ────────────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.shared.openHeaders': 'Open Headers',
+  'workbench.docs.diagrams.openHeaders.shared.stampBestInClass': 'MEILLEUR DU MARCHÉ',
+  'workbench.docs.diagrams.openHeaders.shared.badgeToday': "AUJOURD'HUI",
+  'workbench.docs.diagrams.openHeaders.shared.badgeRoadmap': 'FEUILLE DE ROUTE',
+  'workbench.docs.diagrams.openHeaders.shared.supports': 'PREND EN CHARGE',
+  'workbench.docs.diagrams.openHeaders.shared.inBrowser': 'Dans le navigateur',
+  'workbench.docs.diagrams.openHeaders.shared.desktopApp': 'App de bureau',
+  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Daemon local',
+  'workbench.docs.diagrams.openHeaders.shared.yourVm': 'Votre VM',
+  'workbench.docs.diagrams.openHeaders.shared.workbench': 'Workbench',
+  'workbench.docs.diagrams.openHeaders.shared.devtools': 'DevTools',
+  'workbench.docs.diagrams.openHeaders.shared.soon': 'bientôt',
+
+  // ── Open Headers: paradigm shift ────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.shift.aria':
+    'Le changement de paradigme — contrastes groupés entre Open Headers et tous les autres outils du domaine. ' +
+    'Tout dans une seule extension de navigateur, aucun compte, local uniquement, aucun suivi, un moteur pour ' +
+    'neuf types de règles, synchro au niveau du champ, une offre gratuite complète sans verrous, tarification au ' +
+    "siège, et aucun verrouillage en cas d'impayé — face au reste du marché.",
+  'workbench.docs.diagrams.openHeaders.shift.title': 'LE CHANGEMENT DE PARADIGME',
+  'workbench.docs.diagrams.openHeaders.shift.everyoneElse': 'Tous les autres',
+  'workbench.docs.diagrams.openHeaders.shift.groupArchitecture': 'Architecture et portée',
+  'workbench.docs.diagrams.openHeaders.shift.groupPrivacy': 'Confidentialité et propriété',
+  'workbench.docs.diagrams.openHeaders.shift.groupCapability': 'Capacités',
+  'workbench.docs.diagrams.openHeaders.shift.groupSync': 'Synchronisation et résilience',
+  'workbench.docs.diagrams.openHeaders.shift.groupPricing': 'Tarifs et confiance',
+  'workbench.docs.diagrams.openHeaders.shift.stampUnique': 'UNIQUE',
+  'workbench.docs.diagrams.openHeaders.shift.stampUserControlled': 'VOUS DÉCIDEZ',
+  'workbench.docs.diagrams.openHeaders.shift.stampNoGates': 'AUCUN VERROU',
+  'workbench.docs.diagrams.openHeaders.shift.usBrowserPrimary': 'Tout dans le navigateur',
+  'workbench.docs.diagrams.openHeaders.shift.usBrowserSub': 'back-end + front-end',
+  'workbench.docs.diagrams.openHeaders.shift.usBrowserTag': "- dans l'extension",
+  'workbench.docs.diagrams.openHeaders.shift.themBrowserPrimary': 'Back-end hors du navigateur',
+  'workbench.docs.diagrams.openHeaders.shift.themBrowserSub': 'app de bureau / cloud, internet requis',
+  'workbench.docs.diagrams.openHeaders.shift.usSelfHostPrimary': 'Back-end auto-hébergé',
+  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'navigateur · app de bureau · daemon · VM',
+  'workbench.docs.diagrams.openHeaders.shift.themSelfHostPrimary': 'Leur cloud uniquement',
+  'workbench.docs.diagrams.openHeaders.shift.themSelfHostSub': 'aucun choix sur où vivent vos données',
+  'workbench.docs.diagrams.openHeaders.shift.usOfflinePrimary': 'Front-end natif hors ligne',
+  'workbench.docs.diagrams.openHeaders.shift.usOfflineSub': 'extension · bureau · CLI · web',
+  'workbench.docs.diagrams.openHeaders.shift.themOfflinePrimary': 'Front-end cloud uniquement (en ligne)',
+  'workbench.docs.diagrams.openHeaders.shift.themOfflineSub': 'internet requis pour joindre le back-end',
+  'workbench.docs.diagrams.openHeaders.shift.usAccountPrimary': 'Aucun compte',
+  'workbench.docs.diagrams.openHeaders.shift.usAccountSub': 'pas de connexion, pas de mur de login',
+  'workbench.docs.diagrams.openHeaders.shift.themAccountPrimary': 'Connexion obligatoire',
+  'workbench.docs.diagrams.openHeaders.shift.themAccountSub': 'pour utiliser vos propres données',
+  'workbench.docs.diagrams.openHeaders.shift.usLocalPrimary': 'Local uniquement',
+  'workbench.docs.diagrams.openHeaders.shift.usLocalSub': 'aucun relais cloud',
+  'workbench.docs.diagrams.openHeaders.shift.themLocalPrimary': 'Relayé par le cloud',
+  'workbench.docs.diagrams.openHeaders.shift.themLocalSub': 'votre trafic passe chez eux',
+  'workbench.docs.diagrams.openHeaders.shift.usTrackingPrimary': 'Aucun suivi',
+  'workbench.docs.diagrams.openHeaders.shift.usTrackingSub': 'compteurs anonymes · un seul interrupteur',
+  'workbench.docs.diagrams.openHeaders.shift.themTrackingPrimary': 'Suivi par défaut',
+  'workbench.docs.diagrams.openHeaders.shift.themTrackingSub': "données d'usage envoyées chez eux",
+  'workbench.docs.diagrams.openHeaders.shift.usEnginePrimary': 'Moteur de règles',
+  'workbench.docs.diagrams.openHeaders.shift.usEngineSub': 'intercepter et modifier les requêtes',
+  'workbench.docs.diagrams.openHeaders.shift.themEnginePrimary': 'Pas de moteur dans le navigateur',
+  'workbench.docs.diagrams.openHeaders.shift.themEngineSub': 'proxy ou app séparés requis',
+  'workbench.docs.diagrams.openHeaders.shift.usCatalogPrimary': 'Catalogue de requêtes API',
+  'workbench.docs.diagrams.openHeaders.shift.usCatalogSub': 'HTTP, WS, GraphQL — tout dans le navigateur',
+  'workbench.docs.diagrams.openHeaders.shift.themCatalogPrimary': 'Connexion à une plateforme',
+  'workbench.docs.diagrams.openHeaders.shift.themCatalogSub': 'et installation de leur app',
+  'workbench.docs.diagrams.openHeaders.shift.usAutomatePrimary': 'Automatisez votre espace de travail',
+  'workbench.docs.diagrams.openHeaders.shift.usAutomateSub': 'votre agent IA, local ou distant',
+  'workbench.docs.diagrams.openHeaders.shift.usAutomateTag': '- vous décidez',
+  'workbench.docs.diagrams.openHeaders.shift.themAutomatePrimary': 'Privé ou leur IA cloud uniquement',
+  'workbench.docs.diagrams.openHeaders.shift.themAutomateSub': 'aucun accès ouvert ni programmatique',
+  'workbench.docs.diagrams.openHeaders.shift.usSyncPrimary': 'Moteur de synchro temps réel',
+  'workbench.docs.diagrams.openHeaders.shift.usSyncSub': 'multi-appareil, navigateur, surface',
+  'workbench.docs.diagrams.openHeaders.shift.themSyncPrimary': 'Dernier écrit gagne',
+  'workbench.docs.diagrams.openHeaders.shift.themSyncSub': 'ou pas de synchro du tout',
+  'workbench.docs.diagrams.openHeaders.shift.usSavePrimary': 'Enregistrement concurrent sans conflit',
+  'workbench.docs.diagrams.openHeaders.shift.usSaveSub': 'au niveau du champ, tout est conservé',
+  'workbench.docs.diagrams.openHeaders.shift.themSavePrimary': "Écrasement au niveau de l'entité",
+  'workbench.docs.diagrams.openHeaders.shift.themSaveSub': "les enregistrements s'effacent entre eux",
+  'workbench.docs.diagrams.openHeaders.shift.usOfflineEditPrimary': 'Hors ligne, entièrement éditable',
+  'workbench.docs.diagrams.openHeaders.shift.usOfflineEditSub': 'resynchronise à votre retour',
+  'workbench.docs.diagrams.openHeaders.shift.themOfflineEditPrimary': 'Connexion en ligne requise',
+  'workbench.docs.diagrams.openHeaders.shift.themOfflineEditSub': 'ou aucun accès du tout',
+  'workbench.docs.diagrams.openHeaders.shift.usTierPrimary': "Tout, dès aujourd'hui, à chaque palier",
+  'workbench.docs.diagrams.openHeaders.shift.usTierSub': 'gratuit ≤ 3 utilisateurs · payant = sièges',
+  'workbench.docs.diagrams.openHeaders.shift.themTierPrimary': 'Paliers à fonctions verrouillées',
+  'workbench.docs.diagrams.openHeaders.shift.themTierSub': 'capacités clés derrière des upsells',
+  'workbench.docs.diagrams.openHeaders.shift.usSsoPrimary': 'SSO et sécurité toujours gratuits',
+  'workbench.docs.diagrams.openHeaders.shift.usSsoSub': 'SSO/OIDC · RBAC · audit · SIEM',
+  'workbench.docs.diagrams.openHeaders.shift.themSsoPrimary': 'La taxe SSO',
+  'workbench.docs.diagrams.openHeaders.shift.themSsoSub': 'sécurité vendue en option entreprise',
+  'workbench.docs.diagrams.openHeaders.shift.usLapsePrimary': 'Un impayé ne vous verrouille jamais',
+  'workbench.docs.diagrams.openHeaders.shift.usLapseSub': 'grâce, puis offre gratuite — données à vous',
+  'workbench.docs.diagrams.openHeaders.shift.themLapsePrimary': "Cessez de payer, perdez l'accès",
+  'workbench.docs.diagrams.openHeaders.shift.themLapseSub': 'péage sur vos propres données',
+  'workbench.docs.diagrams.openHeaders.shift.footer': 'Local-first. Par conception. Pas après coup.',
+
+  // ── Open Headers: API catalog ───────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.apiCatalog.aria':
+    "Catalogue de requêtes API — maquette stylisée d'un éditeur de requête (sélecteur de méthode, barre d'URL, " +
+    "bandeau d'onglets, aperçu du corps), plus une bande de fonctionnalités couvrant protocoles, auth, scripts, " +
+    'variables, fichiers, collections et cookies.',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.title': 'Catalogue de requêtes API',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.subtitle':
+    "Construction, envoi et gestion des collections — dans l'extension.",
+  'workbench.docs.diagrams.openHeaders.apiCatalog.send': 'Envoyer ▸',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.tabParams': 'Params',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.tabAuth': 'Autorisation',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.tabHeaders': 'En-têtes',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.tabBody': 'Corps',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.tabScripts': 'Scripts',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.tabSettings': 'Paramètres',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featAuth': 'Auth',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featAuthSub': 'OAuth 2.0 · Basic · Bearer · clé API',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featScripts': 'Scripts',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featScriptsSub': 'pré-requête + post-réponse',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featVariables': 'Variables',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featVariablesSub': '5 portées · diagnostics structurés',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featFiles': 'Fichiers',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featFilesSub': 'multipart · résolution {{file.X}}',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featCollections': 'Collections',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featCollectionsSub': 'dossiers · environnements · par requête',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featCookies': 'Cookies',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.featCookiesSub': 'credentialsMode en opt-in',
+  'workbench.docs.diagrams.openHeaders.apiCatalog.kicker':
+    "TOUT CE QU'UN CLIENT API DE BUREAU OFFRE — DANS L'EXTENSION",
+  'workbench.docs.diagrams.openHeaders.apiCatalog.footer': 'Une plateforme API complète — sans la plateforme.',
+
+  // ── Open Headers: rule engine ───────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.ruleEngine.aria':
+    "Moteur de règles Open Headers — deux chemins d'exécution (DNR natif et interception par script), neuf " +
+    'catégories de types de règles groupées par moteur, plus le langage de conditions partagé et la chaîne de ' +
+    'portées de variables que chaque règle consulte.',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.title': 'Moteur de règles',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subtitle': 'natif MV3 · deux moteurs · neuf catégories de règles',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.headerDnr': 'DNR · natif',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.headerScript': 'Script · interception',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameHeaders': 'En-têtes',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subHeaders': 'Remplacer · Ajouter à la suite · Retirer',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameBlock': 'Blocage',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subBlock': 'annuler au niveau réseau',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameRedirect': 'Redirection',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subRedirect': 'URL statique ou regex',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameQueryParams': 'Params de requête',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subQueryParams': 'ajouter · remplacer · retirer · tout ôter',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameHeadersMerge': 'En-têtes (Fusionner)',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subHeadersMerge': 'concaténation de valeurs',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameInject': 'Injecter',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subInject': 'JS ou CSS, deux moments',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameDelay': 'Délai',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subDelay': 'navigation + fetch/XHR',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameRequestBody': 'Corps de requête',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subRequestBody': 'statique · dynamique · filtre GraphQL',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.nameResponseBody': 'Corps de réponse',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.subResponseBody': 'corps + statut + en-têtes',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.captionDnr': 'capte chaque requête émise par le navigateur',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.captionScript': 'capte les fetch / XHR initiés par JS',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.conditionsKicker': 'UN SEUL LANGAGE DE CONDITIONS',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.conditionsList':
+    'Request Domains · URL Pattern · URL Regex · Méthodes · Ressource · Initiateur · En-têtes · Type de domaine',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.scopesKicker': 'CINQ PORTÉES DE VARIABLES',
+  'workbench.docs.diagrams.openHeaders.ruleEngine.footer':
+    "Un moteur. Deux chemins d'exécution. Conditions et variables complètes. Dans l'extension.",
+
+  // ── Open Headers: convergence ───────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.convergence.aria':
+    'Trois catégories de produits historiques — proxys de bureau, plateformes API cloud, extensions ' +
+    "d'en-têtes seules — convergent vers une seule extension Open Headers. Un navigateur Chromium stylisé montre " +
+    "la page workbench de l'extension ouverte, et chaque capacité que fournissaient les trois catégories vit dans " +
+    'ce seul onglet.',
+  'workbench.docs.diagrams.openHeaders.convergence.title': "Trois catégories d'outils. Une extension.",
+  'workbench.docs.diagrams.openHeaders.convergence.subtitle':
+    'Ce qui exigeait trois installations séparées vit désormais dans un seul onglet.',
+  'workbench.docs.diagrams.openHeaders.convergence.legacyProxies': 'Proxys de bureau',
+  'workbench.docs.diagrams.openHeaders.convergence.legacyProxiesSub': 'interception HTTP · cert CA · binaire séparé',
+  'workbench.docs.diagrams.openHeaders.convergence.legacyPlatforms': 'Plateformes API',
+  'workbench.docs.diagrams.openHeaders.convergence.legacyPlatformsSub':
+    'requêtes + collections · hébergé cloud · compte',
+  'workbench.docs.diagrams.openHeaders.convergence.legacyExtensions': "Extensions d'en-têtes",
+  'workbench.docs.diagrams.openHeaders.convergence.legacyExtensionsSub':
+    'un seul type de règle · sans scripts · sans auth',
+  'workbench.docs.diagrams.openHeaders.convergence.allInOneTab': '▼ TOUT OUVERT DANS UN SEUL ONGLET',
+  'workbench.docs.diagrams.openHeaders.convergence.tabTitle': '#1 Open Headers',
+  'workbench.docs.diagrams.openHeaders.convergence.workbenchSurface': 'la surface workbench',
+  'workbench.docs.diagrams.openHeaders.convergence.mv3Chip': 'natif MV3',
+  'workbench.docs.diagrams.openHeaders.convergence.pillRuleEngine': 'Moteur de règles',
+  'workbench.docs.diagrams.openHeaders.convergence.pillApiCatalog': 'Catalogue de requêtes API',
+  'workbench.docs.diagrams.openHeaders.convergence.pillSync': 'Moteur de synchro temps réel',
+  'workbench.docs.diagrams.openHeaders.convergence.pillSave': 'Enregistrement sans conflit',
+  'workbench.docs.diagrams.openHeaders.convergence.pillNoAccount': 'Aucun compte · aucune connexion',
+  'workbench.docs.diagrams.openHeaders.convergence.pillLocalOnly': 'Local uniquement · sans relais cloud',
+  'workbench.docs.diagrams.openHeaders.convergence.pillNoTracking': 'Aucun suivi · aucune donnée personnelle',
+  'workbench.docs.diagrams.openHeaders.convergence.pillMultiSurface': 'UI multi-surface',
+  'workbench.docs.diagrams.openHeaders.convergence.footerStrip':
+    'Multi-surface · synchro multi-appareil · local par conception',
+  'workbench.docs.diagrams.openHeaders.convergence.caption':
+    'Bleu = capacités · violet = posture · les huit vivent dans un seul onglet',
+
+  // ── Open Headers: field sync ────────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.fieldSync.aria':
+    'Deux surfaces modifient la même règle en même temps. DevTools ajoute, modifie et retire des en-têtes ; le ' +
+    'Workbench modifie trois autres champs de la même règle. Les six modifications atterrissent dans la règle ' +
+    'fusionnée sans bannière ni écrasement.',
+  'workbench.docs.diagrams.openHeaders.fieldSync.title': 'Deux surfaces, même règle, les deux modifications passent',
+  'workbench.docs.diagrams.openHeaders.fieldSync.subtitle':
+    "Synchro par champ — pas de bannière, pas d'écrasement, rien de perdu",
+  'workbench.docs.diagrams.openHeaders.fieldSync.surfaceA': 'surface A',
+  'workbench.docs.diagrams.openHeaders.fieldSync.surfaceB': 'surface B',
+  'workbench.docs.diagrams.openHeaders.fieldSync.editingHeaders': 'édition des en-têtes',
+  'workbench.docs.diagrams.openHeaders.fieldSync.ruleX': 'Règle X',
+  'workbench.docs.diagrams.openHeaders.fieldSync.headersTag': 'en-têtes',
+  'workbench.docs.diagrams.openHeaders.fieldSync.syncBand': 'MOTEUR DE SYNCHRO · fusion par champ',
+  'workbench.docs.diagrams.openHeaders.fieldSync.mergedTag': 'instantané fusionné · en-têtes',
+  'workbench.docs.diagrams.openHeaders.fieldSync.groupAdded': 'Ajouté',
+  'workbench.docs.diagrams.openHeaders.fieldSync.groupModified': 'Modifié',
+  'workbench.docs.diagrams.openHeaders.fieldSync.groupRemoved': 'Retiré',
+  'workbench.docs.diagrams.openHeaders.fieldSync.fromPrefix': '← depuis ',
+  'workbench.docs.diagrams.openHeaders.fieldSync.verdict1':
+    '✓ les deux modifications appliquées — ni bannière, ni conflit',
+  'workbench.docs.diagrams.openHeaders.fieldSync.verdict2':
+    "Le même chemin passe à l'échelle : extension aujourd'hui → extension + bureau + CLI demain",
+
+  // ── Open Headers: front-ends ────────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.frontEnds.aria':
+    'Choisissez votre front-end — comment vous accédez à vos données et les gérez. Quatre formats empilés : ' +
+    'extension de navigateur, app de bureau, app CLI et app web. Chaque carte liste les surfaces exposées, les ' +
+    'back-ends joignables (la première puce est le défaut) et les plateformes prises en charge.',
+  'workbench.docs.diagrams.openHeaders.frontEnds.title': 'Choisissez votre front-end — votre accès à vos données',
+  'workbench.docs.diagrams.openHeaders.frontEnds.subtitle':
+    'Mêmes données, tout front-end — prenez-en un ou tous, chaque surface reste synchronisée.',
+  'workbench.docs.diagrams.openHeaders.frontEnds.titleExtension': 'Extension de navigateur',
+  'workbench.docs.diagrams.openHeaders.frontEnds.subExtension': 'dans un navigateur',
+  'workbench.docs.diagrams.openHeaders.frontEnds.subDesktop': 'fenêtre native',
+  'workbench.docs.diagrams.openHeaders.frontEnds.subCli': 'ligne de commande',
+  'workbench.docs.diagrams.openHeaders.frontEnds.titleWeb': 'App web',
+  'workbench.docs.diagrams.openHeaders.frontEnds.subWeb': 'onglet de navigateur',
+  'workbench.docs.diagrams.openHeaders.frontEnds.surfPopup': 'Popup',
+  'workbench.docs.diagrams.openHeaders.frontEnds.surfSidePanel': 'Panneau latéral',
+  'workbench.docs.diagrams.openHeaders.frontEnds.surfCommandLine': 'Ligne de commande',
+  'workbench.docs.diagrams.openHeaders.frontEnds.chipEmbedded': 'Intégré',
+  'workbench.docs.diagrams.openHeaders.frontEnds.sectSurfaces': 'SURFACES',
+  'workbench.docs.diagrams.openHeaders.frontEnds.sectBackEnds': 'SE CONNECTE AU BACK-END',
+  'workbench.docs.diagrams.openHeaders.frontEnds.strip1': 'UN FRONT-END OU TOUS — CE SONT LES MÊMES DONNÉES',
+  'workbench.docs.diagrams.openHeaders.frontEnds.strip2':
+    '✓ extension · ✓ bureau · ✓ CLI · ✓ web — tous lisent les mêmes entités canoniques',
+  'workbench.docs.diagrams.openHeaders.frontEnds.footer':
+    'Mêmes données, quel que soit le chemin — chaque surface reste synchronisée.',
+
+  // ── Open Headers: local-first ───────────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.localFirst.aria':
+    "Choisissez votre back-end — où vivent vos données. Quatre options d'hébergement empilées. Chaque palier " +
+    'hérite de toutes les capacités du précédent et en ajoute de nouvelles, surlignées dans un rectangle vert en ' +
+    'pointillés. Une colonne PREND EN CHARGE liste les navigateurs, systèmes et clouds de chaque palier. Les ' +
+    'quatre paliers sont locaux uniquement.',
+  'workbench.docs.diagrams.openHeaders.localFirst.title': 'Choisissez votre back-end — où vivent vos données',
+  'workbench.docs.diagrams.openHeaders.localFirst.subtitle':
+    'Chaque palier hérite du précédent — le cadre vert montre les nouveautés — la colonne de droite dit où il ' +
+    'tourne.',
+  'workbench.docs.diagrams.openHeaders.localFirst.subBrowser': "service worker de l'extension",
+  'workbench.docs.diagrams.openHeaders.localFirst.subDesktop': 'back-end intégré',
+  'workbench.docs.diagrams.openHeaders.localFirst.subDaemon': 'processus autonome',
+  'workbench.docs.diagrams.openHeaders.localFirst.subVm': "hébergez-le n'importe où",
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletZeroSetup': 'zéro configuration',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletSingleDevice': 'un seul appareil',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletPerBrowser': 'instance par navigateur',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletMultiSurface': 'édition concurrente multi-surface',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletMultiWindow': 'édition concurrente multi-fenêtre',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletLocalhostOnly': 'localhost uniquement',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletMultiBrowser': 'instances multi-navigateur',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletPerApp': 'instance par app',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletFilesystem': 'système de fichiers natif',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletYaml': 'YAML sur disque',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletGit': 'intégration git (local/distant)',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletMinimalSetup': 'configuration minimale',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletLan': 'joignable sur le LAN',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletMultiApp': 'instances multi-app',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletMultiDevice': 'plusieurs appareils',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletFrontEnds': 'ext. navigateur · app bureau · CLI',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletStandardSetup': 'configuration standard',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletWan': 'joignable WAN/Internet',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletTeamReady': 'prêt pour les équipes',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletSso': 'auth SSO',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletRbac': 'gestion des utilisateurs RBAC',
+  'workbench.docs.diagrams.openHeaders.localFirst.bulletAudit': "journaux d'audit et rapports",
+  'workbench.docs.diagrams.openHeaders.localFirst.platAllOs': 'Tous OS',
+  'workbench.docs.diagrams.openHeaders.localFirst.platEmbedded': 'Embarqué',
+  'workbench.docs.diagrams.openHeaders.localFirst.platHyperscalers': 'Hyperscalers',
+  'workbench.docs.diagrams.openHeaders.localFirst.platEuNative': 'Natifs UE',
+  'workbench.docs.diagrams.openHeaders.localFirst.platOther': 'Autres',
+  'workbench.docs.diagrams.openHeaders.localFirst.platEnterprise': 'Entreprise',
+  'workbench.docs.diagrams.openHeaders.localFirst.itemMiniPc': 'Mini PC',
+  'workbench.docs.diagrams.openHeaders.localFirst.itemHomeServer': 'Serveur maison',
+  'workbench.docs.diagrams.openHeaders.localFirst.itemOldLaptop': 'Vieux portable',
+  'workbench.docs.diagrams.openHeaders.localFirst.itemYourCloud': 'Votre cloud',
+  'workbench.docs.diagrams.openHeaders.localFirst.itemOnPrem': 'Sur site',
+  'workbench.docs.diagrams.openHeaders.localFirst.inheritsFrom': 'HÉRITE DE {tier}',
+  'workbench.docs.diagrams.openHeaders.localFirst.newInTier': '+ NOUVEAU DANS CE PALIER',
+  'workbench.docs.diagrams.openHeaders.localFirst.strip1': 'QUEL QUE SOIT VOTRE CHOIX — IL EST À VOUS, DE BOUT EN BOUT',
+  'workbench.docs.diagrams.openHeaders.localFirst.strip2':
+    '✓ aucun compte · ✓ aucun relais cloud · ✓ aucun suivi · ✓ aucune donnée personnelle',
+  'workbench.docs.diagrams.openHeaders.localFirst.footer': 'Vos données, votre back-end, votre choix — à chaque étape.',
 } as const satisfies Catalog;

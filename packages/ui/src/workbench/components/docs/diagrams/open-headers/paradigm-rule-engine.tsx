@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven boxes.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Rule Engine deep-dive — unpacks the "Rule Engine · ENTERPRISE" row
@@ -15,21 +21,49 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * a full condition language, and per-rule variable resolution.
  */
 export const ParadigmRuleEngineDiagram: React.FC = () => {
+  const t = useT();
   type Rule = { name: string; sub: string };
 
   const DNR_RULES: Rule[] = [
-    { name: 'Headers', sub: 'Override · Append · Remove' },
-    { name: 'Block', sub: 'cancel at network layer' },
-    { name: 'Redirect', sub: 'static URL or regex' },
-    { name: 'Query Params', sub: 'add · replace · remove · strip-all' },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameHeaders'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subHeaders'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameBlock'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subBlock'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameRedirect'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subRedirect'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameQueryParams'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subQueryParams'),
+    },
   ];
 
   const SCRIPT_RULES: Rule[] = [
-    { name: 'Headers (Merge)', sub: 'value concatenation' },
-    { name: 'Inject', sub: 'JS or CSS, two timings' },
-    { name: 'Delay', sub: 'navigation + fetch/XHR' },
-    { name: 'Request Body', sub: 'static · dynamic · GraphQL filter' },
-    { name: 'Response Body', sub: 'body + status + headers' },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameHeadersMerge'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subHeadersMerge'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameInject'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subInject'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameDelay'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subDelay'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameRequestBody'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subRequestBody'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.ruleEngine.nameResponseBody'),
+      sub: t('workbench.docs.diagrams.openHeaders.ruleEngine.subResponseBody'),
+    },
   ];
 
   // Layout
@@ -78,46 +112,58 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Open Headers rule engine — two execution paths (DNR-native and script-based intercept), nine rule type categories grouped by engine, plus the shared condition language and variable scope chain that every rule reads from."
+      aria-label={t('workbench.docs.diagrams.openHeaders.ruleEngine.aria')}
     >
-      {/* Title with BEST-IN-CLASS stamp — matches ParadigmShift corner-stamp format */}
+      {/* Title with BEST-IN-CLASS stamp — matches ParadigmShift corner-stamp format.
+       *  Both title width and stamp width are text-driven so long locale
+       *  strings never collide. */}
       <text x={LEFT_X} y={TITLE_Y} fontSize={13} fontWeight={700} fill={TEXT}>
-        Rule Engine
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.title')}
       </text>
-      <rect
-        x={LEFT_X + 88}
-        y={TITLE_Y - 14}
-        width={104}
-        height={18}
-        rx={3}
-        fill="var(--ant-color-bg-container)"
-        stroke={STROKE_BLUE}
-        strokeWidth={2}
-      />
-      <rect
-        x={LEFT_X + 91}
-        y={TITLE_Y - 11}
-        width={98}
-        height={12}
-        rx={2}
-        fill="none"
-        stroke={STROKE_BLUE}
-        strokeWidth={0.8}
-        strokeDasharray="2 2"
-      />
-      <text
-        x={LEFT_X + 140}
-        y={TITLE_Y - 2}
-        textAnchor="middle"
-        fontSize={8}
-        fontWeight={900}
-        fill={TEXT}
-        letterSpacing={0.8}
-      >
-        BEST-IN-CLASS
-      </text>
+      {(() => {
+        const title = t('workbench.docs.diagrams.openHeaders.ruleEngine.title');
+        const stamp = t('workbench.docs.diagrams.openHeaders.shared.stampBestInClass');
+        const stampX = LEFT_X + Math.round(unitLen(title) * 7.4) + 10;
+        const stampW = Math.round(unitLen(stamp) * 6) + 16;
+        return (
+          <g>
+            <rect
+              x={stampX}
+              y={TITLE_Y - 14}
+              width={stampW}
+              height={18}
+              rx={3}
+              fill="var(--ant-color-bg-container)"
+              stroke={STROKE_BLUE}
+              strokeWidth={2}
+            />
+            <rect
+              x={stampX + 3}
+              y={TITLE_Y - 11}
+              width={stampW - 6}
+              height={12}
+              rx={2}
+              fill="none"
+              stroke={STROKE_BLUE}
+              strokeWidth={0.8}
+              strokeDasharray="2 2"
+            />
+            <text
+              x={stampX + stampW / 2}
+              y={TITLE_Y - 2}
+              textAnchor="middle"
+              fontSize={8}
+              fontWeight={900}
+              fill={TEXT}
+              letterSpacing={0.8}
+            >
+              {stamp}
+            </text>
+          </g>
+        );
+      })()}
       <text x={LEFT_X} y={SUBTITLE_Y} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        MV3 native · two engines · nine rule categories
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.subtitle')}
       </text>
 
       {/* Engine column headers */}
@@ -139,7 +185,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        DNR · native
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.headerDnr')}
       </text>
 
       <rect
@@ -160,7 +206,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Script · intercept
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.headerScript')}
       </text>
 
       {/* Rule pills per engine */}
@@ -184,7 +230,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        catches every browser-issued request
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.captionDnr')}
       </text>
       <text
         x={RIGHT_X + COL_W / 2}
@@ -194,7 +240,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        catches JS-initiated fetch / XHR
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.captionScript')}
       </text>
 
       {/* Shared conditions band */}
@@ -208,10 +254,10 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={LEFT_X + 12} y={CONDITIONS_Y + 14} fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        ONE CONDITION LANGUAGE
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.conditionsKicker')}
       </text>
       <text x={LEFT_X + 12} y={CONDITIONS_Y + 28} fontSize={10} fill={TEXT}>
-        Request Domains · URL Pattern · URL Regex · Methods · Resource · Initiator · Headers · Domain Type
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.conditionsList')}
       </text>
 
       {/* Variable scopes band */}
@@ -226,7 +272,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         strokeOpacity={0.6}
       />
       <text x={LEFT_X + 12} y={SCOPES_Y + 14} fontSize={9} fontWeight={700} fill={OH_GREEN} letterSpacing={0.5}>
-        FIVE VARIABLE SCOPES
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.scopesKicker')}
       </text>
       <text x={LEFT_X + 12} y={SCOPES_Y + 28} fontSize={10} fill={TEXT}>
         <tspan fontFamily="monospace">{'{{vault.X}}'}</tspan> · <tspan fontFamily="monospace">{'{{env.X}}'}</tspan> ·{' '}
@@ -235,7 +281,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
       </text>
 
       <text x={W / 2} y={FOOTER_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        One engine. Two execution paths. Full condition + variable language. Inside the extension.
+        {t('workbench.docs.diagrams.openHeaders.ruleEngine.footer')}
       </text>
     </svg>
   );

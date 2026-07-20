@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT, OhLogoSmall } from './_shared';
 
@@ -15,13 +16,23 @@ import { OH_GREEN, OH_GREEN_TINT, OhLogoSmall } from './_shared';
  * capabilities co-existing.
  */
 export const ParadigmConvergenceDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'pg-converge';
 
   type LegacyCategory = { name: string; sub: string };
   const LEGACY: LegacyCategory[] = [
-    { name: 'Desktop proxies', sub: 'HTTP interception · CA cert · separate binary' },
-    { name: 'API platforms', sub: 'requests + collections · cloud-hosted · account' },
-    { name: 'Header extensions', sub: 'one rule type · no scripts · no auth' },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.convergence.legacyProxies'),
+      sub: t('workbench.docs.diagrams.openHeaders.convergence.legacyProxiesSub'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.convergence.legacyPlatforms'),
+      sub: t('workbench.docs.diagrams.openHeaders.convergence.legacyPlatformsSub'),
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.convergence.legacyExtensions'),
+      sub: t('workbench.docs.diagrams.openHeaders.convergence.legacyExtensionsSub'),
+    },
   ];
 
   /** Pills mirror the eight green claims from the paradigm-shift comparison
@@ -30,14 +41,14 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
    *  the product behaves. `badge` is an inline marker (e.g. "#1"). */
   type Pill = { label: string; tone: 'capability' | 'posture'; badge?: string };
   const PILLS: Pill[] = [
-    { label: 'Rule Engine', tone: 'capability' },
-    { label: 'API Requests Catalog', tone: 'capability' },
-    { label: 'Real-time Sync Engine', tone: 'capability' },
-    { label: 'Conflict-free Save', tone: 'capability' },
-    { label: 'No account · no sign-in', tone: 'posture' },
-    { label: 'Local-only · no cloud relay', tone: 'posture' },
-    { label: 'No tracking · no personal data', tone: 'posture' },
-    { label: 'Multi-surface UI', tone: 'posture' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillRuleEngine'), tone: 'capability' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillApiCatalog'), tone: 'capability' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillSync'), tone: 'capability' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillSave'), tone: 'capability' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillNoAccount'), tone: 'posture' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillLocalOnly'), tone: 'posture' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillNoTracking'), tone: 'posture' },
+    { label: t('workbench.docs.diagrams.openHeaders.convergence.pillMultiSurface'), tone: 'posture' },
   ];
 
   // Canvas
@@ -89,15 +100,15 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Three legacy product categories — desktop proxies, cloud API platforms, header-only extensions — converge into one Open Headers browser extension. A stylized Chromium browser shows the extension's workbench page open, and every capability the three legacy categories used to provide lives inside that single tab."
+      aria-label={t('workbench.docs.diagrams.openHeaders.convergence.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={W / 2} y={16} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Three tool categories. One extension.
+        {t('workbench.docs.diagrams.openHeaders.convergence.title')}
       </text>
       <text x={W / 2} y={30} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        What used to take three separate installs now lives in one browser tab.
+        {t('workbench.docs.diagrams.openHeaders.convergence.subtitle')}
       </text>
 
       {/* Legacy category cards */}
@@ -147,7 +158,7 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
         fill={STROKE_BLUE}
         letterSpacing={0.5}
       >
-        ▼ ALL OPEN IN ONE TAB
+        {t('workbench.docs.diagrams.openHeaders.convergence.allInOneTab')}
       </text>
 
       {/* ── Browser window ─────────────────────────────────────── */}
@@ -196,7 +207,7 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
             />
             <OhLogoSmall x={TAB_X + 8} y={TAB_Y + (TAB_H - 14) / 2} size={14} idSuffix="converge-tab" />
             <text x={TAB_X + 28} y={TAB_Y + TAB_H / 2 + 3} fontSize={10} fontWeight={700} fill={TEXT}>
-              #1 Open Headers
+              {t('workbench.docs.diagrams.openHeaders.convergence.tabTitle')}
             </text>
             <text x={TAB_X + TAB_W - 10} y={TAB_Y + TAB_H / 2 + 3} textAnchor="end" fontSize={11} fill={TEXT_DIM}>
               ×
@@ -273,10 +284,10 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
       />
       <OhLogoSmall x={BR_BODY_X + 10} y={BR_BODY_Y + 7} size={18} idSuffix="converge-body" />
       <text x={BR_BODY_X + 34} y={BR_BODY_Y + 14} fontSize={11} fontWeight={700} fill={TEXT}>
-        Open Headers
+        {t('workbench.docs.diagrams.openHeaders.shared.openHeaders')}
       </text>
       <text x={BR_BODY_X + 34} y={BR_BODY_Y + 26} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        the workbench surface
+        {t('workbench.docs.diagrams.openHeaders.convergence.workbenchSurface')}
       </text>
       {/* MV3 chip on the right of the band */}
       <rect
@@ -296,7 +307,7 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
         fontWeight={700}
         fill={OH_GREEN}
       >
-        MV3 native
+        {t('workbench.docs.diagrams.openHeaders.convergence.mv3Chip')}
       </text>
 
       {/* Capability + posture pills — mirror the eight green claims from
@@ -362,12 +373,12 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Multi-surface · cross-device sync · local-only by design
+        {t('workbench.docs.diagrams.openHeaders.convergence.footerStrip')}
       </text>
 
       {/* Caption below the browser */}
       <text x={W / 2} y={H - 14} textAnchor="middle" fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Blue = capabilities · purple = posture · all eight live inside one tab
+        {t('workbench.docs.diagrams.openHeaders.convergence.caption')}
       </text>
     </svg>
   );

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -21,6 +22,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * can I actually run it?" without leaving the diagram.
  */
 export const ParadigmLocalFirstDiagram: React.FC = () => {
+  const t = useT();
   type Icon = 'browser' | 'desktop' | 'daemon' | 'vm';
   type Bullet = { text: string; status: 'carried' | 'new' };
   type PlatformItem = { label: string; note?: string };
@@ -28,118 +30,160 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
   type Choice = {
     title: string;
     sub: string;
-    badge: 'TODAY' | 'ROADMAP';
+    badge: string;
+    today?: boolean;
     icon: Icon;
     bullets: Bullet[];
     inheritsFrom?: string;
     platforms: PlatformGroup[];
   };
 
+  const badgeToday = t('workbench.docs.diagrams.openHeaders.shared.badgeToday');
+  const badgeRoadmap = t('workbench.docs.diagrams.openHeaders.shared.badgeRoadmap');
+  const inBrowser = t('workbench.docs.diagrams.openHeaders.shared.inBrowser');
+  const desktopApp = t('workbench.docs.diagrams.openHeaders.shared.desktopApp');
+  const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localDaemon');
+  const yourVm = t('workbench.docs.diagrams.openHeaders.shared.yourVm');
+  const soon = t('workbench.docs.diagrams.openHeaders.shared.soon');
+
+  const bZeroSetup = t('workbench.docs.diagrams.openHeaders.localFirst.bulletZeroSetup');
+  const bSingleDevice = t('workbench.docs.diagrams.openHeaders.localFirst.bulletSingleDevice');
+  const bPerBrowser = t('workbench.docs.diagrams.openHeaders.localFirst.bulletPerBrowser');
+  const bMultiSurface = t('workbench.docs.diagrams.openHeaders.localFirst.bulletMultiSurface');
+  const bMultiWindow = t('workbench.docs.diagrams.openHeaders.localFirst.bulletMultiWindow');
+  const bLocalhostOnly = t('workbench.docs.diagrams.openHeaders.localFirst.bulletLocalhostOnly');
+  const bMultiBrowser = t('workbench.docs.diagrams.openHeaders.localFirst.bulletMultiBrowser');
+  const bPerApp = t('workbench.docs.diagrams.openHeaders.localFirst.bulletPerApp');
+  const bFilesystem = t('workbench.docs.diagrams.openHeaders.localFirst.bulletFilesystem');
+  const bYaml = t('workbench.docs.diagrams.openHeaders.localFirst.bulletYaml');
+  const bGit = t('workbench.docs.diagrams.openHeaders.localFirst.bulletGit');
+  const bMinimalSetup = t('workbench.docs.diagrams.openHeaders.localFirst.bulletMinimalSetup');
+  const bLan = t('workbench.docs.diagrams.openHeaders.localFirst.bulletLan');
+  const bMultiApp = t('workbench.docs.diagrams.openHeaders.localFirst.bulletMultiApp');
+  const bMultiDevice = t('workbench.docs.diagrams.openHeaders.localFirst.bulletMultiDevice');
+  const bFrontEnds = t('workbench.docs.diagrams.openHeaders.localFirst.bulletFrontEnds');
+
   const CHOICES: Choice[] = [
     {
-      title: 'In-browser',
-      sub: 'extension service worker',
-      badge: 'TODAY',
+      title: inBrowser,
+      sub: t('workbench.docs.diagrams.openHeaders.localFirst.subBrowser'),
+      badge: badgeToday,
+      today: true,
       icon: 'browser',
       bullets: [
-        { text: 'zero setup', status: 'new' },
-        { text: 'single device', status: 'new' },
-        { text: 'per-browser instance', status: 'new' },
-        { text: 'multi-surface concurrent editing', status: 'new' },
-        { text: 'multi-window concurrent editing', status: 'new' },
-        { text: 'Localhost-only', status: 'new' },
+        { text: bZeroSetup, status: 'new' },
+        { text: bSingleDevice, status: 'new' },
+        { text: bPerBrowser, status: 'new' },
+        { text: bMultiSurface, status: 'new' },
+        { text: bMultiWindow, status: 'new' },
+        { text: bLocalhostOnly, status: 'new' },
         { text: 'browser.storage.local', status: 'new' },
       ],
       platforms: [
         {
-          items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }],
+          items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: soon }],
         },
       ],
     },
     {
-      title: 'Desktop app',
-      sub: 'embedded back-end',
-      badge: 'ROADMAP',
+      title: desktopApp,
+      sub: t('workbench.docs.diagrams.openHeaders.localFirst.subDesktop'),
+      badge: badgeRoadmap,
       icon: 'desktop',
-      inheritsFrom: 'In-browser',
+      inheritsFrom: inBrowser,
       bullets: [
-        { text: 'zero setup', status: 'carried' },
-        { text: 'single device', status: 'carried' },
-        { text: 'multi-surface concurrent editing', status: 'carried' },
-        { text: 'multi-window concurrent editing', status: 'carried' },
-        { text: 'Localhost-only', status: 'carried' },
-        { text: 'multi-browser instances', status: 'new' },
-        { text: 'per-app instance', status: 'new' },
-        { text: 'native filesystem', status: 'new' },
-        { text: 'YAML on disk', status: 'new' },
-        { text: 'git integration (local/remote)', status: 'new' },
+        { text: bZeroSetup, status: 'carried' },
+        { text: bSingleDevice, status: 'carried' },
+        { text: bMultiSurface, status: 'carried' },
+        { text: bMultiWindow, status: 'carried' },
+        { text: bLocalhostOnly, status: 'carried' },
+        { text: bMultiBrowser, status: 'new' },
+        { text: bPerApp, status: 'new' },
+        { text: bFilesystem, status: 'new' },
+        { text: bYaml, status: 'new' },
+        { text: bGit, status: 'new' },
       ],
       platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
     },
     {
-      title: 'Local daemon',
-      sub: 'standalone process',
-      badge: 'ROADMAP',
+      title: localDaemon,
+      sub: t('workbench.docs.diagrams.openHeaders.localFirst.subDaemon'),
+      badge: badgeRoadmap,
       icon: 'daemon',
-      inheritsFrom: 'Desktop app',
+      inheritsFrom: desktopApp,
       bullets: [
-        { text: 'minimal setup', status: 'new' },
-        { text: 'LAN-reachable', status: 'new' },
-        { text: 'multi-browser instances', status: 'carried' },
-        { text: 'multi-app instances', status: 'new' },
-        { text: 'multi-surface concurrent editing', status: 'carried' },
-        { text: 'multi-window concurrent editing', status: 'carried' },
-        { text: 'native filesystem', status: 'carried' },
-        { text: 'YAML on disk', status: 'carried' },
-        { text: 'git integration (local/remote)', status: 'carried' },
-        { text: 'multiple devices', status: 'new' },
-        { text: 'browser ext · desktop app · CLI', status: 'new' },
+        { text: bMinimalSetup, status: 'new' },
+        { text: bLan, status: 'new' },
+        { text: bMultiBrowser, status: 'carried' },
+        { text: bMultiApp, status: 'new' },
+        { text: bMultiSurface, status: 'carried' },
+        { text: bMultiWindow, status: 'carried' },
+        { text: bFilesystem, status: 'carried' },
+        { text: bYaml, status: 'carried' },
+        { text: bGit, status: 'carried' },
+        { text: bMultiDevice, status: 'new' },
+        { text: bFrontEnds, status: 'new' },
       ],
       platforms: [
-        { label: 'All OS', items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] },
         {
-          label: 'Embedded',
+          label: t('workbench.docs.diagrams.openHeaders.localFirst.platAllOs'),
+          items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }],
+        },
+        {
+          label: t('workbench.docs.diagrams.openHeaders.localFirst.platEmbedded'),
           items: [
             { label: 'Raspberry Pi' },
             { label: 'NAS' },
-            { label: 'Mini PC' },
-            { label: 'Home server' },
-            { label: 'Old laptop' },
+            { label: t('workbench.docs.diagrams.openHeaders.localFirst.itemMiniPc') },
+            { label: t('workbench.docs.diagrams.openHeaders.localFirst.itemHomeServer') },
+            { label: t('workbench.docs.diagrams.openHeaders.localFirst.itemOldLaptop') },
           ],
         },
       ],
     },
     {
-      title: 'Your VM',
-      sub: 'host it anywhere',
-      badge: 'ROADMAP',
+      title: yourVm,
+      sub: t('workbench.docs.diagrams.openHeaders.localFirst.subVm'),
+      badge: badgeRoadmap,
       icon: 'vm',
-      inheritsFrom: 'Local daemon',
+      inheritsFrom: localDaemon,
       bullets: [
-        { text: 'multiple devices', status: 'carried' },
-        { text: 'multi-browser instances', status: 'carried' },
-        { text: 'multi-app instances', status: 'carried' },
-        { text: 'multi-surface concurrent editing', status: 'carried' },
-        { text: 'multi-window concurrent editing', status: 'carried' },
-        { text: 'native filesystem', status: 'carried' },
-        { text: 'YAML on disk', status: 'carried' },
-        { text: 'git integration (local/remote)', status: 'carried' },
-        { text: 'browser ext · desktop app · CLI', status: 'carried' },
-        { text: 'standard setup', status: 'new' },
-        { text: 'WAN/Internet-reachable', status: 'new' },
-        { text: 'team-ready', status: 'new' },
-        { text: 'SSO Auth', status: 'new' },
-        { text: 'RBAC user management', status: 'new' },
-        { text: 'audit logs & reports', status: 'new' },
+        { text: bMultiDevice, status: 'carried' },
+        { text: bMultiBrowser, status: 'carried' },
+        { text: bMultiApp, status: 'carried' },
+        { text: bMultiSurface, status: 'carried' },
+        { text: bMultiWindow, status: 'carried' },
+        { text: bFilesystem, status: 'carried' },
+        { text: bYaml, status: 'carried' },
+        { text: bGit, status: 'carried' },
+        { text: bFrontEnds, status: 'carried' },
+        { text: t('workbench.docs.diagrams.openHeaders.localFirst.bulletStandardSetup'), status: 'new' },
+        { text: t('workbench.docs.diagrams.openHeaders.localFirst.bulletWan'), status: 'new' },
+        { text: t('workbench.docs.diagrams.openHeaders.localFirst.bulletTeamReady'), status: 'new' },
+        { text: t('workbench.docs.diagrams.openHeaders.localFirst.bulletSso'), status: 'new' },
+        { text: t('workbench.docs.diagrams.openHeaders.localFirst.bulletRbac'), status: 'new' },
+        { text: t('workbench.docs.diagrams.openHeaders.localFirst.bulletAudit'), status: 'new' },
       ],
       platforms: [
-        { label: 'Hyperscalers', items: [{ label: 'AWS' }, { label: 'Azure' }, { label: 'Google Cloud' }] },
         {
-          label: 'EU-native',
+          label: t('workbench.docs.diagrams.openHeaders.localFirst.platHyperscalers'),
+          items: [{ label: 'AWS' }, { label: 'Azure' }, { label: 'Google Cloud' }],
+        },
+        {
+          label: t('workbench.docs.diagrams.openHeaders.localFirst.platEuNative'),
           items: [{ label: 'Scaleway' }, { label: 'OVHcloud' }, { label: 'Hetzner' }, { label: 'IONOS' }],
         },
-        { label: 'Other', items: [{ label: 'DigitalOcean' }, { label: 'Heroku' }] },
-        { label: 'Enterprise', items: [{ label: 'Your cloud' }, { label: 'On-prem' }] },
+        {
+          label: t('workbench.docs.diagrams.openHeaders.localFirst.platOther'),
+          items: [{ label: 'DigitalOcean' }, { label: 'Heroku' }],
+        },
+        {
+          label: t('workbench.docs.diagrams.openHeaders.localFirst.platEnterprise'),
+          items: [
+            { label: t('workbench.docs.diagrams.openHeaders.localFirst.itemYourCloud') },
+            { label: t('workbench.docs.diagrams.openHeaders.localFirst.itemOnPrem') },
+          ],
+        },
       ],
     },
   ];
@@ -334,7 +378,7 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
     const els: React.ReactNode[] = [];
     els.push(
       <text key="hdr" x={PLATFORM_X} y={startY} fontSize={9} fontWeight={800} fill={MUTED} letterSpacing={0.6}>
-        SUPPORTS
+        {t('workbench.docs.diagrams.openHeaders.shared.supports')}
       </text>,
     );
     let cursorY = startY + PLATFORM_SECTION_LABEL_H;
@@ -399,18 +443,18 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 600 }}
       role="img"
-      aria-label="Choose your back-end — where your data lives. Four hosting options stacked vertically. Each tier inherits all capabilities from the previous tier and adds new ones, highlighted in a green dotted rectangle. A SUPPORTS column on the right lists the browsers, operating systems, and cloud providers each tier runs on. All four tiers local-only."
+      aria-label={t('workbench.docs.diagrams.openHeaders.localFirst.aria')}
     >
       <text x={W / 2} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Choose your back-end — where your data lives
+        {t('workbench.docs.diagrams.openHeaders.localFirst.title')}
       </text>
       <text x={W / 2} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Each tier inherits the previous tier — green box shows what's new — right column shows where it runs.
+        {t('workbench.docs.diagrams.openHeaders.localFirst.subtitle')}
       </text>
 
       {CHOICES.map((c, i) => {
         const { y, h } = cardLayout[i];
-        const isToday = c.badge === 'TODAY';
+        const isToday = !!c.today;
         const accent = isToday ? STROKE_BLUE : 'var(--ant-color-border)';
         const badgeStroke = isToday ? OH_GREEN : GOLD;
         const badgeBg = isToday ? OH_GREEN_TINT : GOLD_BG;
@@ -515,7 +559,9 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
                 return (
                   <g>
                     <text x={BULLET_X - 4} y={captionY} fontSize={9} fontWeight={700} fill={MUTED} letterSpacing={0.5}>
-                      INHERITS FROM {c.inheritsFrom.toUpperCase()}
+                      {t('workbench.docs.diagrams.openHeaders.localFirst.inheritsFrom', {
+                        tier: c.inheritsFrom.toUpperCase(),
+                      })}
                     </text>
                     {carried.map((b, j) => (
                       <g key={`c-${j}`}>
@@ -545,7 +591,7 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
                       fill={OH_GREEN}
                       letterSpacing={0.6}
                     >
-                      + NEW IN THIS TIER
+                      {t('workbench.docs.diagrams.openHeaders.localFirst.newInTier')}
                     </text>
                     {newOnes.map((b, j) => (
                       <g key={`n-${j}`}>
@@ -597,14 +643,14 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
         fill={OH_GREEN}
         letterSpacing={0.5}
       >
-        WHATEVER YOU PICK — YOU OWN IT, END-TO-END
+        {t('workbench.docs.diagrams.openHeaders.localFirst.strip1')}
       </text>
       <text x={W / 2} y={STRIP_Y + 36} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        ✓ no account · ✓ no cloud relay · ✓ no tracking · ✓ no personal data
+        {t('workbench.docs.diagrams.openHeaders.localFirst.strip2')}
       </text>
 
       <text x={W / 2} y={FOOTER_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={STROKE_BLUE}>
-        Your data, your back-end, your choice — at every step.
+        {t('workbench.docs.diagrams.openHeaders.localFirst.footer')}
       </text>
     </svg>
   );

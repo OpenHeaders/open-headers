@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -12,6 +13,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * collections — lives inside the browser extension.
  */
 export const ParadigmApiCatalogDiagram: React.FC = () => {
+  const t = useT();
   const W = 480;
   const H = 360;
   const OUTER_PAD = 10;
@@ -29,12 +31,30 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
   const PROTOCOLS = ['HTTP', 'WS', 'GraphQL'];
 
   const FEATURES: { label: string; sub: string }[] = [
-    { label: 'Auth', sub: 'OAuth 2.0 · Basic · Bearer · API Key' },
-    { label: 'Scripts', sub: 'pre-request + post-response' },
-    { label: 'Variables', sub: '5 scopes · structured diagnostics' },
-    { label: 'Files', sub: 'multipart · {{file.X}} resolution' },
-    { label: 'Collections', sub: 'folders · environments · per-request' },
-    { label: 'Cookies', sub: 'opt-in credentialsMode' },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.apiCatalog.featAuth'),
+      sub: t('workbench.docs.diagrams.openHeaders.apiCatalog.featAuthSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.apiCatalog.featScripts'),
+      sub: t('workbench.docs.diagrams.openHeaders.apiCatalog.featScriptsSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.apiCatalog.featVariables'),
+      sub: t('workbench.docs.diagrams.openHeaders.apiCatalog.featVariablesSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.apiCatalog.featFiles'),
+      sub: t('workbench.docs.diagrams.openHeaders.apiCatalog.featFilesSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.apiCatalog.featCollections'),
+      sub: t('workbench.docs.diagrams.openHeaders.apiCatalog.featCollectionsSub'),
+    },
+    {
+      label: t('workbench.docs.diagrams.openHeaders.apiCatalog.featCookies'),
+      sub: t('workbench.docs.diagrams.openHeaders.apiCatalog.featCookiesSub'),
+    },
   ];
 
   return (
@@ -43,13 +63,13 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="API Requests Catalog — a stylized request-editor mockup showing the method picker, URL bar, tab strip, and body preview, plus a feature strip covering protocols, auth, scripts, variables, files, collections, and cookies."
+      aria-label={t('workbench.docs.diagrams.openHeaders.apiCatalog.aria')}
     >
       {/* Title — chips sit on the SAME row, right-aligned. Subtitle
        *  gets its own row below at full width so it can't overflow into
        *  the chip area. */}
       <text x={OUTER_PAD} y={24} fontSize={13} fontWeight={700} fill={TEXT}>
-        API Requests Catalog
+        {t('workbench.docs.diagrams.openHeaders.apiCatalog.title')}
       </text>
       {(() => {
         const chipH = 20;
@@ -74,7 +94,7 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
         });
       })()}
       <text x={OUTER_PAD} y={46} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Full request building, sending, and collection management — inside the extension.
+        {t('workbench.docs.diagrams.openHeaders.apiCatalog.subtitle')}
       </text>
 
       {/* Request-editor mockup */}
@@ -131,14 +151,21 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
         fontWeight={700}
         fill="var(--ant-color-bg-container)"
       >
-        Send ▸
+        {t('workbench.docs.diagrams.openHeaders.apiCatalog.send')}
       </text>
 
       {/* Tab strip */}
-      {(['Params', 'Auth', 'Headers', 'Body', 'Scripts', 'Settings'] as const).map((tab, i) => {
+      {[
+        t('workbench.docs.diagrams.openHeaders.apiCatalog.tabParams'),
+        t('workbench.docs.diagrams.openHeaders.apiCatalog.tabAuth'),
+        t('workbench.docs.diagrams.openHeaders.apiCatalog.tabHeaders'),
+        t('workbench.docs.diagrams.openHeaders.apiCatalog.tabBody'),
+        t('workbench.docs.diagrams.openHeaders.apiCatalog.tabScripts'),
+        t('workbench.docs.diagrams.openHeaders.apiCatalog.tabSettings'),
+      ].map((tab, i) => {
         const tabW = (MOCK_W - 16) / 6;
         const x = MOCK_X + 8 + i * tabW;
-        const isActive = tab === 'Body';
+        const isActive = i === 3;
         return (
           <g key={tab}>
             <line x1={x} y1={MOCK_Y + 48} x2={x + tabW} y2={MOCK_Y + 48} stroke="var(--ant-color-border)" />
@@ -209,7 +236,7 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
         strokeOpacity={0.5}
       />
       <text x={OUTER_PAD + 10} y={STRIP_Y + 14} fontSize={9} fontWeight={700} fill={OH_GREEN} letterSpacing={0.5}>
-        EVERYTHING A DESKTOP API CLIENT SHIPS — IN-EXTENSION
+        {t('workbench.docs.diagrams.openHeaders.apiCatalog.kicker')}
       </text>
 
       {/* Feature pills — 3 cols × 2 rows */}
@@ -244,7 +271,7 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
       })}
 
       <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        A full API platform — without the platform.
+        {t('workbench.docs.diagrams.openHeaders.apiCatalog.footer')}
       </text>
     </svg>
   );

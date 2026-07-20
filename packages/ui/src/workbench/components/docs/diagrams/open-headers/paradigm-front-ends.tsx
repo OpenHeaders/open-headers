@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven chips.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Front-end chooser — mirrors the back-end chooser one tier down.
@@ -11,6 +17,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * via a back-end of your choice — pick any, use all, stay in sync.
  */
 export const ParadigmFrontEndsDiagram: React.FC = () => {
+  const t = useT();
   type FrontIcon = 'browser-ext' | 'desktop-app' | 'cli' | 'web';
   type Surface = { label: string; note?: string };
   type BackEndChip = { label: string; note?: string; isDefault?: boolean };
@@ -19,60 +26,80 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
   type FrontEnd = {
     title: string;
     sub: string;
-    badge: 'TODAY' | 'ROADMAP';
+    badge: string;
+    today?: boolean;
     icon: FrontIcon;
     surfaces: Surface[];
     backEnds: BackEndChip[];
     platforms: PlatformGroup[];
   };
 
+  const badgeToday = t('workbench.docs.diagrams.openHeaders.shared.badgeToday');
+  const badgeRoadmap = t('workbench.docs.diagrams.openHeaders.shared.badgeRoadmap');
+  const workbench = t('workbench.docs.diagrams.openHeaders.shared.workbench');
+  const inBrowser = t('workbench.docs.diagrams.openHeaders.shared.inBrowser');
+  const desktopApp = t('workbench.docs.diagrams.openHeaders.shared.desktopApp');
+  const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localDaemon');
+  const yourVm = t('workbench.docs.diagrams.openHeaders.shared.yourVm');
+  const soon = t('workbench.docs.diagrams.openHeaders.shared.soon');
+
   const CHOICES: FrontEnd[] = [
     {
-      title: 'Browser Extension',
-      sub: 'inside a browser',
-      badge: 'TODAY',
+      title: t('workbench.docs.diagrams.openHeaders.frontEnds.titleExtension'),
+      sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subExtension'),
+      badge: badgeToday,
+      today: true,
       icon: 'browser-ext',
-      surfaces: [{ label: 'Workbench' }, { label: 'Popup' }, { label: 'Side-panel' }, { label: 'DevTools' }],
+      surfaces: [
+        { label: workbench },
+        { label: t('workbench.docs.diagrams.openHeaders.frontEnds.surfPopup') },
+        { label: t('workbench.docs.diagrams.openHeaders.frontEnds.surfSidePanel') },
+        { label: t('workbench.docs.diagrams.openHeaders.shared.devtools') },
+      ],
       backEnds: [
-        { label: 'In-browser', isDefault: true },
-        { label: 'Desktop app' },
-        { label: 'Local daemon' },
-        { label: 'Your VM' },
+        { label: inBrowser, isDefault: true },
+        { label: desktopApp },
+        { label: localDaemon },
+        { label: yourVm },
       ],
       platforms: [
         {
-          items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }],
+          items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: soon }],
         },
       ],
     },
     {
-      title: 'Desktop app',
-      sub: 'native window',
-      badge: 'ROADMAP',
+      title: desktopApp,
+      sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subDesktop'),
+      badge: badgeRoadmap,
       icon: 'desktop-app',
-      surfaces: [{ label: 'Workbench' }],
-      backEnds: [{ label: 'Embedded', isDefault: true }, { label: 'Local daemon' }, { label: 'Your VM' }],
+      surfaces: [{ label: workbench }],
+      backEnds: [
+        { label: t('workbench.docs.diagrams.openHeaders.frontEnds.chipEmbedded'), isDefault: true },
+        { label: localDaemon },
+        { label: yourVm },
+      ],
       platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
     },
     {
       title: 'CLI',
-      sub: 'command-line',
-      badge: 'ROADMAP',
+      sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subCli'),
+      badge: badgeRoadmap,
       icon: 'cli',
-      surfaces: [{ label: 'Command-line' }],
-      backEnds: [{ label: 'Desktop app' }, { label: 'Local daemon' }, { label: 'Your VM' }],
+      surfaces: [{ label: t('workbench.docs.diagrams.openHeaders.frontEnds.surfCommandLine') }],
+      backEnds: [{ label: desktopApp }, { label: localDaemon }, { label: yourVm }],
       platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
     },
     {
-      title: 'Web App',
-      sub: 'browser tab',
-      badge: 'ROADMAP',
+      title: t('workbench.docs.diagrams.openHeaders.frontEnds.titleWeb'),
+      sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subWeb'),
+      badge: badgeRoadmap,
       icon: 'web',
-      surfaces: [{ label: 'Workbench' }],
+      surfaces: [{ label: workbench }],
       backEnds: [
-        { label: 'Desktop app', note: 'localhost:8137' },
-        { label: 'Local daemon', note: 'LAN' },
-        { label: 'Your VM', note: 'WAN', isDefault: true },
+        { label: desktopApp, note: 'localhost:8137' },
+        { label: localDaemon, note: 'LAN' },
+        { label: yourVm, note: 'WAN', isDefault: true },
       ],
       platforms: [{ items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari' }] }],
     },
@@ -118,7 +145,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
   const chipWidth = (c: BackEndChip) => {
     const charW = 6.5;
     const padX = 10;
-    const labelLen = c.label.length + (c.note ? c.note.length + 3 : 0);
+    const labelLen = unitLen(c.label) + (c.note ? unitLen(c.note) + 3 : 0);
     return Math.round(labelLen * charW + padX * 2 + (c.isDefault ? 12 : 0));
   };
 
@@ -299,7 +326,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
     const els: React.ReactNode[] = [];
     els.push(
       <text key="hdr" x={PLATFORM_X} y={startY} fontSize={9} fontWeight={800} fill={MUTED} letterSpacing={0.6}>
-        SUPPORTS
+        {t('workbench.docs.diagrams.openHeaders.shared.supports')}
       </text>,
     );
     let cursorY = startY + PLATFORM_SECTION_LABEL_H;
@@ -364,18 +391,18 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 600 }}
       role="img"
-      aria-label="Choose your front-end — how you access and manage your data. Four front-end form factors stacked vertically: browser extension, desktop app, CLI app, and web app. Each card lists the surfaces it exposes, the back-ends it can connect to (first chip is the default), and the platforms it runs on."
+      aria-label={t('workbench.docs.diagrams.openHeaders.frontEnds.aria')}
     >
       <text x={W / 2} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Choose your front-end — how you access &amp; manage your data
+        {t('workbench.docs.diagrams.openHeaders.frontEnds.title')}
       </text>
       <text x={W / 2} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Same data, any front-end — pick one, use all, every surface stays in sync.
+        {t('workbench.docs.diagrams.openHeaders.frontEnds.subtitle')}
       </text>
 
       {CHOICES.map((c, i) => {
         const { y, h } = cardLayout[i];
-        const isToday = c.badge === 'TODAY';
+        const isToday = !!c.today;
         const accent = isToday ? STROKE_BLUE : 'var(--ant-color-border)';
         const badgeStroke = isToday ? OH_GREEN : GOLD;
         const badgeBg = isToday ? OH_GREEN_TINT : GOLD_BG;
@@ -463,7 +490,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
               fill={MUTED}
               letterSpacing={0.6}
             >
-              SURFACES
+              {t('workbench.docs.diagrams.openHeaders.frontEnds.sectSurfaces')}
             </text>
             {c.surfaces.map((s, j) => (
               <g key={`s-${j}`}>
@@ -495,7 +522,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
               fill={MUTED}
               letterSpacing={0.6}
             >
-              CONNECTS TO BACK-END
+              {t('workbench.docs.diagrams.openHeaders.frontEnds.sectBackEnds')}
             </text>
             {chipRows.map((row, rIdx) => {
               let cx = BULLETS_X + 4;
@@ -567,14 +594,14 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
         fill={OH_GREEN}
         letterSpacing={0.5}
       >
-        PICK A FRONT-END, OR PICK THEM ALL — IT'S THE SAME DATA
+        {t('workbench.docs.diagrams.openHeaders.frontEnds.strip1')}
       </text>
       <text x={W / 2} y={STRIP_Y + 36} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        ✓ extension · ✓ desktop · ✓ CLI · ✓ web — all reading the same canonical entities
+        {t('workbench.docs.diagrams.openHeaders.frontEnds.strip2')}
       </text>
 
       <text x={W / 2} y={FOOTER_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={STROKE_BLUE}>
-        Same data, any way you reach it — every surface stays in sync.
+        {t('workbench.docs.diagrams.openHeaders.frontEnds.footer')}
       </text>
     </svg>
   );

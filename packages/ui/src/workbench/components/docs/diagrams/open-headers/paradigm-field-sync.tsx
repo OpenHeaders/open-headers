@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven rules.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Field-level sync diagram — two surfaces (popup + workbench) edit the
@@ -22,7 +28,12 @@ type FieldSyncEdit = {
 };
 
 export const ParadigmFieldSyncDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'pg-sync';
+  const srcLabel = (src: FieldSyncEdit['src']) =>
+    src === 'DevTools'
+      ? t('workbench.docs.diagrams.openHeaders.shared.devtools')
+      : t('workbench.docs.diagrams.openHeaders.shared.workbench');
 
   const W = 480;
   const CX = W / 2;
@@ -250,10 +261,10 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
         />
         <rect x={ruleX} y={ruleY} width={ruleW} height={RULE_HDR} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
         <text x={ruleX + 8} y={ruleY + 13} fontSize={10} fontWeight={700} fill={TEXT}>
-          Rule X
+          {t('workbench.docs.diagrams.openHeaders.fieldSync.ruleX')}
         </text>
         <text x={ruleX + ruleW - 8} y={ruleY + 13} textAnchor="end" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-          headers
+          {t('workbench.docs.diagrams.openHeaders.fieldSync.headersTag')}
         </text>
 
         {/* Edit rows */}
@@ -270,19 +281,33 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Two surfaces edit the same rule simultaneously. The popup toggles enabled to true. The workbench rewrites a header value. Both edits land in the merged rule without a banner or overwrite."
+      aria-label={t('workbench.docs.diagrams.openHeaders.fieldSync.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Two surfaces, same rule, both edits land
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Per-field sync — no banner, no overwrite, no lost work
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.subtitle')}
       </text>
 
-      {renderSurface(SURF_LEFT_X, 'laptop', 'DevTools', 'surface A', 'editing headers', leftEdits)}
-      {renderSurface(SURF_RIGHT_X, 'desktop', 'Workbench', 'surface B', 'editing headers', rightEdits)}
+      {renderSurface(
+        SURF_LEFT_X,
+        'laptop',
+        srcLabel('DevTools'),
+        t('workbench.docs.diagrams.openHeaders.fieldSync.surfaceA'),
+        t('workbench.docs.diagrams.openHeaders.fieldSync.editingHeaders'),
+        leftEdits,
+      )}
+      {renderSurface(
+        SURF_RIGHT_X,
+        'desktop',
+        srcLabel('Workbench'),
+        t('workbench.docs.diagrams.openHeaders.fieldSync.surfaceB'),
+        t('workbench.docs.diagrams.openHeaders.fieldSync.editingHeaders'),
+        rightEdits,
+      )}
 
       {/* Arrows from each surface down into the sync band */}
       <line
@@ -323,7 +348,7 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
         fill={TEXT_DIM}
         letterSpacing={0.6}
       >
-        SYNC ENGINE · per-field merge
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.syncBand')}
       </text>
 
       {/* Arrow from sync band down into rule card */}
@@ -350,19 +375,31 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
       />
       <rect x={RULE_X} y={RULE_Y} width={RULE_W} height={RULE_HEADER_H} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={RULE_X + 12} y={RULE_Y + 17} fontSize={11} fontWeight={700} fill={TEXT}>
-        Rule X
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.ruleX')}
       </text>
       <text x={RULE_X + RULE_W - 12} y={RULE_Y + 17} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        merged snapshot · headers
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.mergedTag')}
       </text>
 
       {/* Diff-style change log — grouped by op so adds / modifies /
        *  deletes read as three visual blocks. */}
       {(() => {
         const groups: { op: FieldSyncEdit['op']; label: string; rows: FieldSyncEdit[] }[] = [
-          { op: '+', label: 'Added', rows: merged.filter((e) => e.op === '+') },
-          { op: '~', label: 'Modified', rows: merged.filter((e) => e.op === '~') },
-          { op: '-', label: 'Removed', rows: merged.filter((e) => e.op === '-') },
+          {
+            op: '+',
+            label: t('workbench.docs.diagrams.openHeaders.fieldSync.groupAdded'),
+            rows: merged.filter((e) => e.op === '+'),
+          },
+          {
+            op: '~',
+            label: t('workbench.docs.diagrams.openHeaders.fieldSync.groupModified'),
+            rows: merged.filter((e) => e.op === '~'),
+          },
+          {
+            op: '-',
+            label: t('workbench.docs.diagrams.openHeaders.fieldSync.groupRemoved'),
+            rows: merged.filter((e) => e.op === '-'),
+          },
         ];
         let cursor = RULE_Y + RULE_HEADER_H + 6;
         return groups.map((g) => {
@@ -374,7 +411,7 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
                 {g.label.toUpperCase()}
               </text>
               <line
-                x1={RULE_X + 14 + g.label.length * 6 + 8}
+                x1={RULE_X + 14 + Math.round(unitLen(g.label) * 6) + 8}
                 y1={labelY + 8}
                 x2={RULE_X + RULE_W - 14}
                 y2={labelY + 8}
@@ -416,7 +453,8 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
                       fontStyle="italic"
                       fill={TEXT_DIM}
                     >
-                      ← from {e.src}
+                      {t('workbench.docs.diagrams.openHeaders.fieldSync.fromPrefix')}
+                      {srcLabel(e.src)}
                     </text>
                   </g>
                 );
@@ -431,10 +469,10 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
       {/* Bottom verdict strip — two clear lines, no overflow */}
       <rect x={RULE_X} y={VERDICT_Y} width={RULE_W} height={VERDICT_H} rx={5} fill={OH_GREEN_TINT} stroke={OH_GREEN} />
       <text x={CX} y={VERDICT_Y + 18} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        ✓ both edits applied — no banner, no conflict
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.verdict1')}
       </text>
       <text x={CX} y={VERDICT_Y + 34} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Same path scales: extension today → extension + desktop + CLI tomorrow
+        {t('workbench.docs.diagrams.openHeaders.fieldSync.verdict2')}
       </text>
     </svg>
   );

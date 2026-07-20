@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT, OhLogoSmall } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven pills.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Paradigm-shift landing diagram — grouped us-vs-them rows, uniform
@@ -10,6 +16,7 @@ import { OH_GREEN, OH_GREEN_TINT, OhLogoSmall } from './_shared';
  * comically large.
  */
 export const ParadigmShiftDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   const errBg = 'var(--ant-color-error-bg)';
@@ -22,91 +29,183 @@ export const ParadigmShiftDiagram: React.FC = () => {
 
   const GROUPS: Group[] = [
     {
-      name: 'Architecture & Reach',
+      name: t('workbench.docs.diagrams.openHeaders.shift.groupArchitecture'),
       rows: [
         {
-          us: { primary: 'Everything inside the browser', sub: 'back-end + front-end', tagline: '- in the extension' },
-          them: { primary: 'Back-end outside the browser', sub: 'desktop app / cloud, internet required' },
-          usCornerStamp: 'UNIQUE',
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usBrowserPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usBrowserSub'),
+            tagline: t('workbench.docs.diagrams.openHeaders.shift.usBrowserTag'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themBrowserPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themBrowserSub'),
+          },
+          usCornerStamp: t('workbench.docs.diagrams.openHeaders.shift.stampUnique'),
         },
         {
-          us: { primary: 'Self-host the back-end', sub: 'browser · desktop app · daemon · VM' },
-          them: { primary: 'Their cloud only', sub: 'no choice in where your data lives' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usSelfHostPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usSelfHostSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themSelfHostPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themSelfHostSub'),
+          },
         },
         {
-          us: { primary: 'Front-end works native offline', sub: 'extension · desktop · CLI · web' },
-          them: { primary: 'Cloud-only front-end (Online)', sub: 'needs internet for back-end access' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usOfflinePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usOfflineSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themOfflinePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themOfflineSub'),
+          },
         },
       ],
     },
     {
-      name: 'Privacy & Ownership',
+      name: t('workbench.docs.diagrams.openHeaders.shift.groupPrivacy'),
       rows: [
         {
-          us: { primary: 'No account', sub: 'no sign-in, no login wall' },
-          them: { primary: 'Sign in required', sub: 'to use your own data' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usAccountPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usAccountSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themAccountPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themAccountSub'),
+          },
         },
         {
-          us: { primary: 'Local-only', sub: 'no cloud relay' },
-          them: { primary: 'Cloud-relayed', sub: 'your traffic goes through them' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usLocalPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usLocalSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themLocalPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themLocalSub'),
+          },
         },
         {
-          us: { primary: 'No tracking', sub: 'anonymous counters · one-switch off' },
-          them: { primary: 'Tracked by default', sub: 'usage data sent home' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usTrackingPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usTrackingSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themTrackingPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themTrackingSub'),
+          },
         },
       ],
     },
     {
-      name: 'Capability',
+      name: t('workbench.docs.diagrams.openHeaders.shift.groupCapability'),
       rows: [
         {
-          us: { primary: 'Rule Engine', sub: 'intercept & modify requests' },
-          them: { primary: 'No in-browser engine', sub: 'separate proxy or app required' },
-          usCornerStamp: 'BEST-IN-CLASS',
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usEnginePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usEngineSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themEnginePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themEngineSub'),
+          },
+          usCornerStamp: t('workbench.docs.diagrams.openHeaders.shared.stampBestInClass'),
         },
         {
-          us: { primary: 'API Requests Catalog', sub: 'HTTP, WS, GraphQL — all in-browser' },
-          them: { primary: 'Sign in to a platform', sub: 'and install their app' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usCatalogPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usCatalogSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themCatalogPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themCatalogSub'),
+          },
         },
         {
-          us: { primary: 'Automate your workspace', sub: 'your AI agent, local or remote', tagline: '- you decide' },
-          them: { primary: 'Private or their cloud AI only', sub: 'no open or programmatic access' },
-          usCornerStamp: 'USER-CONTROLLED',
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usAutomatePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usAutomateSub'),
+            tagline: t('workbench.docs.diagrams.openHeaders.shift.usAutomateTag'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themAutomatePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themAutomateSub'),
+          },
+          usCornerStamp: t('workbench.docs.diagrams.openHeaders.shift.stampUserControlled'),
         },
       ],
     },
     {
-      name: 'Sync & Resilience',
+      name: t('workbench.docs.diagrams.openHeaders.shift.groupSync'),
       rows: [
         {
-          us: { primary: 'Real-time Sync Engine', sub: 'multi-device, browser, surface' },
-          them: { primary: 'Last-write-wins', sub: 'or no sync at all' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usSyncPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usSyncSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themSyncPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themSyncSub'),
+          },
         },
         {
-          us: { primary: 'Conflict-free concurrent Save', sub: 'field-level, all changes committed' },
-          them: { primary: 'Entity-level overwrite', sub: 'saves can wipe each other' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usSavePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usSaveSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themSavePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themSaveSub'),
+          },
         },
         {
-          us: { primary: 'Works offline, fully editable', sub: "syncs automatically when you're back" },
-          them: { primary: 'Needs online connection', sub: 'or no access at all' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usOfflineEditPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usOfflineEditSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themOfflineEditPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themOfflineEditSub'),
+          },
         },
       ],
     },
     {
-      name: 'Pricing & Trust',
+      name: t('workbench.docs.diagrams.openHeaders.shift.groupPricing'),
       rows: [
         {
-          us: { primary: 'Everything today, on every tier', sub: 'free ≤ 3 users · paid = team seats' },
-          them: { primary: 'Feature-gated tiers', sub: 'core capabilities behind upsells' },
-          usCornerStamp: 'NO FEATURE GATES',
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usTierPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usTierSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themTierPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themTierSub'),
+          },
+          usCornerStamp: t('workbench.docs.diagrams.openHeaders.shift.stampNoGates'),
         },
         {
-          us: { primary: 'SSO & security always free', sub: 'SSO/OIDC · RBAC · audit · SIEM' },
-          them: { primary: 'The SSO tax', sub: 'security sold as enterprise add-on' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usSsoPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usSsoSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themSsoPrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themSsoSub'),
+          },
         },
         {
-          us: { primary: 'A lapse never locks you out', sub: 'grace, then free tier — data yours' },
-          them: { primary: 'Stop paying, lose access', sub: 'paywall over your own data' },
+          us: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.usLapsePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.usLapseSub'),
+          },
+          them: {
+            primary: t('workbench.docs.diagrams.openHeaders.shift.themLapsePrimary'),
+            sub: t('workbench.docs.diagrams.openHeaders.shift.themLapseSub'),
+          },
         },
       ],
     },
@@ -177,7 +276,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
     const padX = 8;
     // Minimum 24 so very short labels ('#1') render as a near-square chip
     // rather than getting padded out to a wide pill.
-    const stampW = Math.max(24, label.length * charW + padX * 2);
+    const stampW = Math.max(24, Math.round(unitLen(label) * charW) + padX * 2);
     const stampH = 20;
     // Pinned bottom-right of the cell so the primary/sub copy on the
     // left has the full top half of the row to itself.
@@ -311,10 +410,10 @@ export const ParadigmShiftDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in one browser extension, no account, local-only, no tracking, one engine for nine rule types, field-level sync, a full-featured free tier with no feature gates, seat-based pricing, and no lockout on lapse — versus the rest of the market."
+      aria-label={t('workbench.docs.diagrams.openHeaders.shift.aria')}
     >
       <text x={CENTER_X} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT} letterSpacing={1}>
-        THE PARADIGM SHIFT
+        {t('workbench.docs.diagrams.openHeaders.shift.title')}
       </text>
 
       {/* Open Headers header (left) */}
@@ -330,7 +429,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       />
       <OhLogoSmall x={LEFT_X + 10} y={HEADER_Y + 6} size={18} idSuffix="shift" />
       <text x={LEFT_X + 34} y={HEADER_Y + 19} fontSize={12} fontWeight={700} fill={TEXT}>
-        Open Headers
+        {t('workbench.docs.diagrams.openHeaders.shared.openHeaders')}
       </text>
 
       {/* Everyone else header (right) */}
@@ -353,7 +452,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
         fontWeight={700}
         fill={errColor}
       >
-        Everyone else
+        {t('workbench.docs.diagrams.openHeaders.shift.everyoneElse')}
       </text>
 
       {/* Vertical divider */}
@@ -412,7 +511,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       })}
 
       <text x={CENTER_X} y={FOOTER_Y} textAnchor="middle" fontSize={12} fontWeight={700} fill={TEXT}>
-        Local-first. By design. Not as an afterthought.
+        {t('workbench.docs.diagrams.openHeaders.shift.footer')}
       </text>
     </svg>
   );
