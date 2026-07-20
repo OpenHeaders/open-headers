@@ -476,7 +476,11 @@ export const workbenchChrome = {
   'workbench.proxyCapture.start': 'Start',
   'workbench.proxyCapture.stop': 'Stop',
   'workbench.proxyCapture.port': 'Port',
-  'workbench.proxyCapture.scopePlaceholder': 'Decrypt scope — example.com, *.example.com',
+  'workbench.proxyCapture.scope': 'Decrypt scope',
+  'workbench.proxyCapture.scopeCount': 'Decrypt scope · {count}',
+  'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
+  'workbench.proxyCapture.scopeHint':
+    'Only listed hosts are decrypted; all other HTTPS traffic passes through as an opaque tunnel.',
   'workbench.proxyCapture.scopeSaved': 'Decrypt scope updated',
   'workbench.proxyCapture.scopeFailed': 'Could not update scope: {message}',
   'workbench.proxyCapture.startFailed': 'Could not start the proxy: {message}',

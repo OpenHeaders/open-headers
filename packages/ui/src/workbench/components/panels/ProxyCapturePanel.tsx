@@ -14,10 +14,11 @@
  * remembered running flag of its own, mirroring the trust pane.
  */
 
+import { LockOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import type { ProxyCaptureStatus } from '@openheaders/core/types';
-import { Alert, App as AntApp, Button, InputNumber, Select, Space, Tag, theme } from 'antd';
+import { Alert, App as AntApp, Button, InputNumber, Popover, Select, Space, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -43,6 +44,7 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onO
   const [status, setStatus] = useState<ProxyCaptureStatus | null>(null);
   const [portDraft, setPortDraft] = useState<number | null>(null);
   const [scopeDraft, setScopeDraft] = useState<string[]>([]);
+  const [scopeOpen, setScopeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async (): Promise<void> => {
@@ -149,17 +151,38 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onO
                 {t('workbench.proxyCapture.start')}
               </Button>
             )}
-            <Select
-              mode="tags"
-              size="small"
-              value={scopeDraft}
-              onChange={saveScope}
-              placeholder={t('workbench.proxyCapture.scopePlaceholder')}
-              tokenSeparators={[',', ' ']}
-              style={{ minWidth: 260 }}
-              open={false}
-              suffixIcon={null}
-            />
+            <Popover
+              trigger="click"
+              open={scopeOpen}
+              onOpenChange={setScopeOpen}
+              placement="bottomLeft"
+              arrow={false}
+              content={
+                <div style={{ width: 300 }}>
+                  <Select
+                    mode="tags"
+                    size="small"
+                    autoFocus
+                    value={scopeDraft}
+                    onChange={saveScope}
+                    placeholder={t('workbench.proxyCapture.scopePlaceholder')}
+                    tokenSeparators={[',', ' ']}
+                    style={{ width: '100%' }}
+                    open={false}
+                    suffixIcon={null}
+                  />
+                  <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
+                    {t('workbench.proxyCapture.scopeHint')}
+                  </div>
+                </div>
+              }
+            >
+              <Button size="small" icon={<LockOutlined />}>
+                {scopeDraft.length > 0
+                  ? t('workbench.proxyCapture.scopeCount', { count: scopeDraft.length })
+                  : t('workbench.proxyCapture.scope')}
+              </Button>
+            </Popover>
           </Space>
           {running && status?.caPresent === false && (
             <Alert
