@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import DebugNetworkPanel from './DebugNetworkPanel';
+import LanguageMenuButton from './LanguageMenuButton';
 
 const Footer: React.FC = () => {
   const { setFooterActions, setIsShortcutsOverlayVisible } = useKeyboardNav();
@@ -113,6 +114,7 @@ const Footer: React.FC = () => {
             renderSubsystemInlineAction={productStatusInlineActions}
             onOpenDocs={handleOpenDocs}
           />
+          <LanguageMenuButton />
         </Space>
       </div>
       <DebugNetworkPanel open={debugNetworkOpen} onClose={() => setDebugNetworkOpen(false)} />

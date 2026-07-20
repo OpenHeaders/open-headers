@@ -8,14 +8,15 @@
  */
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
-import type { MessageKey } from '@openheaders/i18n';
+import { getLocaleDef, LOCALES, type MessageKey } from '@openheaders/i18n';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
 import { BackgroundTasksIndicator } from '@openheaders/ui/shared/background-tasks';
 import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
+import { LanguageIcon } from '@openheaders/ui/shared/icons';
 import { productStatusExtras, productStatusInlineActions, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { useSettingValue } from '../../settings/hooks';
@@ -54,8 +55,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
   autoRenameKey,
 }) => {
   const { token } = theme.useToken();
-  const t = useT();
+  const { locale, t } = useLocale();
   const themeMode = useSettingValue('appearance.theme');
+  const language = useSettingValue('general.language');
 
   // Per-mode accents from the antd preset palettes — the active algorithm
   // regenerates them per theme, so each hue stays readable on both
@@ -186,6 +188,46 @@ const StatusBar: React.FC<StatusBarProps> = ({
             </Dropdown>
           </>
         )}
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
+        <Dropdown
+          menu={{
+            items: [
+              {
+                key: 'auto',
+                label: (
+                  <Space size={4}>
+                    <span>{t('workbench.settings.def.general.language.option.auto.label')}</span>
+                    {language === 'auto' && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
+                  </Space>
+                ),
+                onClick: () => setSettingValue('general.language', 'auto'),
+              },
+              // Native names are each language's self-designation — never translated.
+              ...LOCALES.filter((l) => !l.synthetic).map((l) => ({
+                key: l.code,
+                label: (
+                  <Space size={4}>
+                    <span>{l.nativeName}</span>
+                    {language === l.code && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
+                  </Space>
+                ),
+                onClick: () => setSettingValue('general.language', l.code),
+              })),
+            ] as MenuProps['items'],
+          }}
+          placement="topRight"
+          trigger={['hover']}
+        >
+          <div
+            className="rules-statusbar-item"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <LanguageIcon locale={locale} style={{ fontSize: 13 }} />
+            <span style={{ fontSize: 10 }}>{getLocaleDef(locale)?.nativeName}</span>
+          </div>
+        </Dropdown>
         {showVersion && (
           <>
             <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />

@@ -127,6 +127,7 @@ body {
  *   .oh-toolbar-secondary    hide at sm   sort/filter/test-all/exec-flow
  *   .oh-toolbar-status       hide at sm   the whole counts row
  *   .oh-tab-label            hide at sm   tab text labels (icon stays)
+ *   .oh-language-label       hide at sm   footer language native name (icon stays)
  *   .oh-search               shrink/hide  260 → 140 → none
  */
 
@@ -235,6 +236,11 @@ body {
   /* Drop the version text — at sm every footer pixel matters and the
    * version is the lowest-value glyph there (?, GitHub star stay). */
   .footer .oh-version {
+    display: none;
+  }
+
+  /* Language switcher collapses to its glyph icon */
+  .oh-language-label {
     display: none;
   }
 
@@ -704,6 +710,15 @@ body {
 .ant-alert-closable .ant-alert-close-icon {
   top: 12px;
   right: 12px;
+}
+
+/* Footer language switcher menu — compact rows; the default menu
+ * sizing reads oversized for a six-entry picker anchored to a small
+ * footer icon. */
+.language-menu .ant-dropdown-menu-item {
+  padding: 5px 12px !important;
+  font-size: 13px !important;
+  min-width: 130px;
 }
 
 /* Dropdown theme selector styling */
