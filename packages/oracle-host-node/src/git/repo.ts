@@ -651,6 +651,110 @@ export async function cleanUntracked(run: GitRunner, rootDir: string): Promise<B
   return { ok: true };
 }
 
+// ── History feeds (Phase 7: §9 history view, §7.1 audit trail) ───────
+
+/** One changed path in a log entry; rename/copy records report the new path. */
+export interface CommitLogFileChange {
+  /** Porcelain status letter (`A`/`M`/`D`/`T`, `R`/`C` for rename/copy). */
+  status: string;
+  path: string;
+}
+
+export interface CommitLogEntry {
+  sha: string;
+  authorName: string;
+  authorEmail: string;
+  /** Author date, strict ISO-8601 (`%aI`). */
+  authoredAt: string;
+  subject: string;
+  /** `Co-Authored-By:` trailer values (`Name <email>`) — §23.6 attribution. */
+  coAuthors: string[];
+  /** Changed paths; empty for a path-scoped log (the diff wasn't asked for). */
+  files: CommitLogFileChange[];
+}
+
+/**
+ * Record separator idiom: each commit begins `\x1e`, header fields ride
+ * `\x1f`, and `-z` NUL-separates the header from the `--name-status`
+ * tokens (status and path are separate tokens; renames carry old+new).
+ * Trailers are parsed from `%b` app-side — the `%(trailers:…)` pretty
+ * options postdate the 2.20 version floor.
+ */
+const LOG_FORMAT = '%x1e%H%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%b';
+
+const CO_AUTHOR_TRAILER = /^co-authored-by:\s*(.+)$/gim;
+
+function parseCommitLog(stdout: string): CommitLogEntry[] {
+  const entries: CommitLogEntry[] = [];
+  for (const record of stdout.split('\x1e')) {
+    if (record.length === 0) continue;
+    const tokens = record.split('\0');
+    const header = tokens[0].split('\x1f');
+    if (header.length < 6) continue;
+    const coAuthors: string[] = [];
+    for (const match of header.slice(5).join('\x1f').matchAll(CO_AUTHOR_TRAILER)) {
+      const author = match[1].trim();
+      if (author.length > 0 && !coAuthors.includes(author)) coAuthors.push(author);
+    }
+    const files: CommitLogFileChange[] = [];
+    for (let i = 1; i < tokens.length; i += 1) {
+      const status = tokens[i].replace(/^\n/, '');
+      if (!/^[A-Z]\d*$/.test(status)) continue;
+      // Rename/copy records carry old then new — report where the file lives now.
+      const pathIndex = status[0] === 'R' || status[0] === 'C' ? i + 2 : i + 1;
+      const filePath = tokens[pathIndex];
+      if (filePath === undefined || filePath.length === 0) continue;
+      files.push({ status: status[0], path: filePath });
+      i = pathIndex;
+    }
+    entries.push({
+      sha: header[0],
+      authorName: header[1],
+      authorEmail: header[2],
+      authoredAt: header[3],
+      subject: header[4],
+      coAuthors,
+      files,
+    });
+  }
+  return entries;
+}
+
+/**
+ * Recent commits with their changed paths — the §9 history view's
+ * workspace timeline. One invocation regardless of `limit`; an unborn
+ * HEAD answers an empty list (a fresh repo has no history yet).
+ */
+export async function listCommitLog(run: GitRunner, rootDir: string, limit: number): Promise<CommitLogEntry[] | null> {
+  if ((await localHeadSha(run, rootDir)) === null) return [];
+  const result = await run(
+    [...repoArgs(rootDir), 'log', '-z', '--name-status', '-M', `-n`, String(limit), `--format=${LOG_FORMAT}`],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return null;
+  return parseCommitLog(result.stdout);
+}
+
+/**
+ * A single path's timeline (`--follow`, so a §11.7 rename keeps the
+ * entity's earlier history) — the blame answer: the newest entry is
+ * "who last touched this". No diff is asked for; `files` stays empty.
+ */
+export async function listFileLog(
+  run: GitRunner,
+  rootDir: string,
+  filePath: string,
+  limit: number,
+): Promise<CommitLogEntry[] | null> {
+  if ((await localHeadSha(run, rootDir)) === null) return [];
+  const result = await run(
+    [...repoArgs(rootDir), 'log', '-z', '--follow', `-n`, String(limit), `--format=${LOG_FORMAT}`, '--', filePath],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return null;
+  return parseCommitLog(result.stdout);
+}
+
 // ── Temp-index commit (§3.3 / §23.4) ─────────────────────────────────
 
 export interface CommitWorkspaceTreeOptions {

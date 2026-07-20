@@ -19,6 +19,8 @@ export {
 } from './git-exec';
 export {
   type BranchOpResult,
+  type CommitLogEntry,
+  type CommitLogFileChange,
   type CommitUserAttribution,
   type CommitWorkspaceTreeOptions,
   type CommitWorkspaceTreeResult,
@@ -43,6 +45,8 @@ export {
   isAncestorOf,
   isWorkspaceRepo,
   type LeftRightCounts,
+  listCommitLog,
+  listFileLog,
   listForeignAuthors,
   listLocalBranches,
   listTreeYamlPaths,

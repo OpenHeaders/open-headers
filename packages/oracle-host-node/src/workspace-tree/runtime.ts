@@ -38,6 +38,7 @@ import {
 import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
   type CommitIntent,
+  type CommitLogEntry,
   type CommitUserAttribution,
   commitWorkspaceTree,
   composeCommitMessage,
@@ -52,6 +53,8 @@ import {
   gitOperationInProgress,
   isAncestorOf,
   isWorkspaceRepo,
+  listCommitLog,
+  listFileLog,
   listLocalBranches,
   probeGitAvailability,
   pushHeadToNewBranch,
@@ -105,6 +108,10 @@ const FETCH_FOCUS_MIN_MS = 30_000;
 
 /** Retry window while an in-progress git operation holds reconcile (§3.3). */
 const OP_HOLD_RETRY_MS = 5_000;
+
+/** History reads (§9, Phase 7): default page + hard cap — a recent timeline, not a full log browser. */
+const LOG_DEFAULT_LIMIT = 20;
+const LOG_MAX_LIMIT = 200;
 
 export type WorkspaceTreeCommitCadence = 'off' | 'auto' | 'on-blur' | 'every-5m' | 'every-15m' | 'every-30m';
 
@@ -223,6 +230,10 @@ export type MergeBranchRpcResult =
       detail?: string;
     };
 
+export type WorkspaceTreeLogRpcResult =
+  | { ok: true; entries: CommitLogEntry[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'log-failed'; detail?: string };
+
 export interface WorkspaceTreeGitStatusRpcResult {
   bound: boolean;
   git: GitAvailability;
@@ -307,6 +318,10 @@ export interface WorkspaceTreeRuntime {
   notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */
   gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult>;
+  /** Workspace history timeline (§9, Phase 7) — recent commits with changed paths. */
+  log(workspaceId: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
+  /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
+  fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }>;
   /** The explicit setting behind `--no-verify` (§3.3) — per binding, like the cadence. */
   setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }>;
@@ -717,6 +732,28 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       autoPushOnCommit,
       forcePush: repo ? await detectForcePush(binding, branch, upstream) : null,
     };
+  };
+
+  /**
+   * One history read (§9, Phase 7) — pure repo reads off the chain,
+   * like `gitStatus` (log never mutates, so it never queues behind a
+   * commit/pull pass).
+   */
+  const runLog = async (
+    workspaceId: string,
+    read: (rootDir: string, limit: number) => Promise<CommitLogEntry[] | null>,
+    limit?: number,
+  ): Promise<WorkspaceTreeLogRpcResult> => {
+    const binding = open.get(workspaceId);
+    if (!binding) return { ok: false, reason: 'not-bound' };
+    const { rootDir } = binding.record;
+    const availability = await ensureGitAvailability(rootDir);
+    if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+    if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    const capped = Math.min(Math.max(1, Math.floor(limit ?? LOG_DEFAULT_LIMIT)), LOG_MAX_LIMIT);
+    const entries = await read(rootDir, capped);
+    if (entries === null) return { ok: false, reason: 'log-failed' };
+    return { ok: true, entries };
   };
 
   /**
@@ -1468,6 +1505,15 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const binding = open.get(workspaceId);
       if (!binding) return notBoundStatus();
       return computeGitStatus(binding);
+    },
+
+    async log(workspaceId: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
+      return runLog(workspaceId, (rootDir, capped) => listCommitLog(gitRun, rootDir, capped), limit);
+    },
+
+    async fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
+      if (filePath.length === 0) return { ok: false, reason: 'log-failed', detail: 'empty path' };
+      return runLog(workspaceId, (rootDir, capped) => listFileLog(gitRun, rootDir, filePath, capped), limit);
     },
 
     async setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }> {

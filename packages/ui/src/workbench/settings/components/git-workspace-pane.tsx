@@ -28,6 +28,7 @@ import {
   hostBridge,
   type WorkspaceTreeCommitCadence,
   type WorkspaceTreeGitStatusWire,
+  type WorkspaceTreeLogEntryWire,
 } from '@openheaders/core/bridge';
 import { Alert, App as AntApp, Button, Input, Modal, Popconfirm, Select, Switch, theme } from 'antd';
 import type React from 'react';
@@ -105,6 +106,12 @@ const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
   const [creating, setCreating] = useState(false);
   const [mergeRef, setMergeRef] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<WorkspaceTreeLogEntryWire[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [fileHistory, setFileHistory] = useState<{ path: string; entries: WorkspaceTreeLogEntryWire[] } | null>(null);
+  const [fileHistoryLoading, setFileHistoryLoading] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -376,6 +383,50 @@ const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
       await refreshGitStatus();
     } catch (err) {
       message.error((err as Error).message);
+    }
+  };
+
+  const toggleHistory = async (): Promise<void> => {
+    if (historyOpen) {
+      setHistoryOpen(false);
+      return;
+    }
+    if (workspaceId === null) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const result = await call('oh.workspaceTree.log', { workspaceId, limit: 20 });
+      if (result.ok) {
+        setHistory(result.entries);
+        setHistoryOpen(true);
+      } else {
+        setHistoryError(
+          t('workbench.settings.gitPane.git.history.loadFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+    } catch (err) {
+      setHistoryError((err as Error).message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openFileHistory = async (filePath: string): Promise<void> => {
+    if (workspaceId === null) return;
+    setFileHistoryLoading(filePath);
+    try {
+      const result = await call('oh.workspaceTree.fileLog', { workspaceId, path: filePath, limit: 20 });
+      if (result.ok) {
+        setFileHistory({ path: filePath, entries: result.entries });
+      } else {
+        message.error(
+          t('workbench.settings.gitPane.git.history.loadFailed', { detail: result.detail ?? result.reason }),
+        );
+      }
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setFileHistoryLoading(null);
     }
   };
 
@@ -901,6 +952,148 @@ const GitWorkspacePane: React.FC<GitWorkspacePaneProps> = ({
                   <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
                     {t('workbench.settings.gitPane.git.autoPushLabel')}
                   </span>
+                </div>
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: token.colorText, flex: 1 }}>
+                      {t('workbench.settings.gitPane.git.history.title')}
+                    </span>
+                    <Button
+                      size="small"
+                      loading={historyLoading}
+                      onClick={() => void toggleHistory()}
+                      data-testid="git-pane-history-toggle"
+                    >
+                      {historyOpen
+                        ? t('workbench.settings.gitPane.git.history.hide')
+                        : t('workbench.settings.gitPane.git.history.show')}
+                    </Button>
+                  </div>
+                  {historyError !== null && (
+                    <div
+                      style={{ marginTop: 6, fontSize: 12, color: token.colorError }}
+                      data-testid="git-pane-history-error"
+                    >
+                      {historyError}
+                    </div>
+                  )}
+                  {historyOpen &&
+                    (history.length === 0 ? (
+                      <div
+                        style={{ marginTop: 8, fontSize: 11.5, color: token.colorTextSecondary }}
+                        data-testid="git-pane-history-empty"
+                      >
+                        {t('workbench.settings.gitPane.git.history.empty')}
+                      </div>
+                    ) : (
+                      <ul
+                        style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}
+                        data-testid="git-pane-history-list"
+                      >
+                        {history.map((entry) => (
+                          <li
+                            key={entry.sha}
+                            style={{ padding: '6px 0', borderTop: `1px solid ${token.colorBorderSecondary}` }}
+                            data-testid="git-pane-history-entry"
+                          >
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                              <span
+                                style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorTextSecondary }}
+                              >
+                                {entry.sha.slice(0, 7)}
+                              </span>
+                              <span style={{ fontSize: 11.5, color: token.colorText, flex: 1 }}>{entry.subject}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>
+                              {t('workbench.settings.gitPane.git.history.authorLine', {
+                                author: entry.authorName,
+                                date: new Date(entry.authoredAt).toLocaleString(),
+                              })}
+                            </div>
+                            {entry.coAuthors.length > 0 && (
+                              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                                {t('workbench.settings.gitPane.git.history.coAuthors', {
+                                  authors: entry.coAuthors.join(', '),
+                                })}
+                              </div>
+                            )}
+                            {entry.files.length > 0 && (
+                              <ul style={{ listStyle: 'none', margin: '4px 0 0', padding: 0 }}>
+                                {entry.files.map((file) => (
+                                  <li key={`${entry.sha}:${file.path}`}>
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      loading={fileHistoryLoading === file.path}
+                                      onClick={() => void openFileHistory(file.path)}
+                                      style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                                      data-testid="git-pane-history-file"
+                                    >
+                                      <span style={{ fontFamily: token.fontFamilyCode }}>
+                                        {file.status} {file.path}
+                                      </span>
+                                    </Button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ))}
+                  <Modal
+                    open={fileHistory !== null}
+                    title={
+                      fileHistory !== null
+                        ? t('workbench.settings.gitPane.git.history.fileTitle', { path: fileHistory.path })
+                        : ''
+                    }
+                    onCancel={() => setFileHistory(null)}
+                    footer={null}
+                    data-testid="git-pane-file-history-modal"
+                  >
+                    {fileHistory !== null && fileHistory.entries.length === 0 && (
+                      <p style={{ fontSize: 12, margin: 0 }} data-testid="git-pane-file-history-empty">
+                        {t('workbench.settings.gitPane.git.history.fileEmpty')}
+                      </p>
+                    )}
+                    {fileHistory !== null && fileHistory.entries.length > 0 && (
+                      <ul
+                        style={{ listStyle: 'none', margin: 0, padding: 0 }}
+                        data-testid="git-pane-file-history-list"
+                      >
+                        {fileHistory.entries.map((entry) => (
+                          <li
+                            key={entry.sha}
+                            style={{ padding: '6px 0', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+                            data-testid="git-pane-file-history-entry"
+                          >
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                              <span
+                                style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorTextSecondary }}
+                              >
+                                {entry.sha.slice(0, 7)}
+                              </span>
+                              <span style={{ fontSize: 12, color: token.colorText, flex: 1 }}>{entry.subject}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>
+                              {t('workbench.settings.gitPane.git.history.authorLine', {
+                                author: entry.authorName,
+                                date: new Date(entry.authoredAt).toLocaleString(),
+                              })}
+                            </div>
+                            {entry.coAuthors.length > 0 && (
+                              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                                {t('workbench.settings.gitPane.git.history.coAuthors', {
+                                  authors: entry.coAuthors.join(', '),
+                                })}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Modal>
                 </div>
               </div>
             )}

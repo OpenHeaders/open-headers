@@ -58,6 +58,8 @@ export type {
   WorkspaceTreeForcePushResolveWire,
   WorkspaceTreeForcePushStateWire,
   WorkspaceTreeGitStatusWire,
+  WorkspaceTreeLogEntryWire,
+  WorkspaceTreeLogWire,
   WorkspaceTreeMergeBranchWire,
   WorkspaceTreePullWire,
   WorkspaceTreePushWire,

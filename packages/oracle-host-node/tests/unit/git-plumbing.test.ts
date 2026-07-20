@@ -34,6 +34,8 @@ import {
   gitOperationInProgress,
   isAncestorOf,
   isWorkspaceRepo,
+  listCommitLog,
+  listFileLog,
   listForeignAuthors,
   listLocalBranches,
   listTreeYamlPaths,
@@ -786,5 +788,73 @@ describe('branch plumbing (Phase 6)', () => {
     expect(await countLeftRight(run, tmpDir, 'feature', 'HEAD')).toEqual({ ahead: 1, behind: 1 });
     expect(await resolveRefSha(run, tmpDir, 'feature')).toMatch(/^[0-9a-f]{40}$/);
     expect(await resolveRefSha(run, tmpDir, 'no-such-ref')).toBeNull();
+  });
+});
+
+describe('history feeds (Phase 7)', () => {
+  it('answers an empty list on a repo with no commits yet', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    expect(await listCommitLog(run, tmpDir, 20)).toEqual([]);
+    expect(await listFileLog(run, tmpDir, 'workspace.yaml', 20)).toEqual([]);
+  });
+
+  it('lists commits newest-first with authors, trailers, and changed paths', async () => {
+    await initialCommit();
+    await write('rules/a/rule.yaml', 'name: a\n');
+    const second = await commitWorkspaceTree({
+      run,
+      rootDir: tmpDir,
+      message: 'Add rule a\n\nCo-Authored-By: Dana Reyes <dana@openheaders.io>',
+      identityEnv: IDENTITY_ENV,
+    });
+    if (!second.ok || !second.committed) throw new Error('second commit failed');
+
+    const entries = await listCommitLog(run, tmpDir, 20);
+    if (entries === null) throw new Error('log failed');
+    expect(entries).toHaveLength(2);
+    expect(entries[0].sha).toBe(second.sha);
+    expect(entries[0].subject).toBe('Add rule a');
+    expect(entries[0].authorName).toBe('Probe Operator');
+    expect(entries[0].authorEmail).toBe('probe-operator@users.noreply.openheaders.io');
+    expect(entries[0].authoredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(entries[0].coAuthors).toEqual(['Dana Reyes <dana@openheaders.io>']);
+    expect(entries[0].files).toEqual([{ status: 'A', path: 'rules/a/rule.yaml' }]);
+    expect(entries[1].subject).toBe('Initial tree');
+    expect(entries[1].coAuthors).toEqual([]);
+    expect(entries[1].files).toEqual([{ status: 'A', path: 'workspace.yaml' }]);
+  });
+
+  it('reports a pure rename as one R record at the new path and honors the limit', async () => {
+    await initialCommit();
+    await write('rules/a/rule.yaml', 'name: a\nvalue: stable-content-for-rename-detection\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add rule a', identityEnv: IDENTITY_ENV });
+    await fs.rm(path.join(tmpDir, 'rules/a/rule.yaml'), { force: true });
+    await write('rules/a/renamed.yaml', 'name: a\nvalue: stable-content-for-rename-detection\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Rename rule a', identityEnv: IDENTITY_ENV });
+
+    const entries = await listCommitLog(run, tmpDir, 1);
+    if (entries === null) throw new Error('log failed');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].files).toEqual([{ status: 'R', path: 'rules/a/renamed.yaml' }]);
+  });
+
+  it('listFileLog scopes to one path and follows it across a rename', async () => {
+    await initialCommit();
+    await write('rules/a/rule.yaml', 'name: a\nvalue: stable-content-for-rename-detection\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Add rule a', identityEnv: IDENTITY_ENV });
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Edited\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Edit manifest', identityEnv: IDENTITY_ENV });
+    await fs.rm(path.join(tmpDir, 'rules/a/rule.yaml'), { force: true });
+    await write('rules/a/renamed.yaml', 'name: a\nvalue: stable-content-for-rename-detection\n');
+    await commitWorkspaceTree({ run, rootDir: tmpDir, message: 'Rename rule a', identityEnv: IDENTITY_ENV });
+
+    const scoped = await listFileLog(run, tmpDir, 'rules/a/renamed.yaml', 20);
+    if (scoped === null) throw new Error('file log failed');
+    expect(scoped.map((entry) => entry.subject)).toEqual(['Rename rule a', 'Add rule a']);
+    expect(scoped[0].files).toEqual([]);
+
+    const manifest = await listFileLog(run, tmpDir, 'workspace.yaml', 20);
+    if (manifest === null) throw new Error('file log failed');
+    expect(manifest.map((entry) => entry.subject)).toEqual(['Edit manifest', 'Initial tree']);
   });
 });

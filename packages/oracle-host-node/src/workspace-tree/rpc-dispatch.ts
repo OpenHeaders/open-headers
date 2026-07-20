@@ -172,6 +172,19 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || !ref || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.mergeBranch(workspaceId, ref);
   }
+  // Phase 7 history view (§9 / DATA_PLANE_TOPOLOGIES.md §7.1): pure
+  // repo reads — the workspace timeline and the per-path blame answer.
+  if (type === 'oh.workspaceTree.log') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.log(workspaceId, typeof message.limit === 'number' ? message.limit : undefined);
+  }
+  if (type === 'oh.workspaceTree.fileLog') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const filePath = typeof message.path === 'string' ? message.path : '';
+    if (!workspaceId || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.fileLog(workspaceId, filePath, typeof message.limit === 'number' ? message.limit : undefined);
+  }
   if (type === 'oh.workspaceTree.appBlur') {
     runtime?.notifyAppBlur();
     return { ok: runtime !== null };

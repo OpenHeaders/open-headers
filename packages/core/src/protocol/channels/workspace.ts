@@ -421,6 +421,25 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeMergeBranchWire;
   };
   /**
+   * Workspace history timeline (GIT_PLAN.md §9, Phase 7): recent
+   * commits with their changed paths — `git log` as the canonical
+   * audit trail (DATA_PLANE_TOPOLOGIES.md §7.1). Read-only; an unborn
+   * HEAD answers an empty list.
+   */
+  'oh.workspaceTree.log': {
+    req: { workspaceId: string; limit?: number };
+    res: WorkspaceTreeLogWire;
+  };
+  /**
+   * One path's timeline (`--follow`, renames included) — the blame
+   * answer: the newest entry is "who last touched this". Entries carry
+   * no file lists (the diff isn't asked for).
+   */
+  'oh.workspaceTree.fileLog': {
+    req: { workspaceId: string; path: string; limit?: number };
+    res: WorkspaceTreeLogWire;
+  };
+  /**
    * Focus left the app (every window blurred) — the `on-blur` cadence
    * trigger. Fired by the host shell (desktop main observes its own
    * windows); bindings on other cadences ignore it.
@@ -548,6 +567,31 @@ export type WorkspaceTreeMergeBranchWire =
         | 'commit-failed';
       detail?: string;
     };
+
+/** One changed path in a history entry; rename/copy records report the new path. */
+export interface WorkspaceTreeLogFileWire {
+  /** Porcelain status letter (`A`/`M`/`D`/`T`/`R`/`C`). */
+  status: string;
+  path: string;
+}
+
+/** One commit in the §9 history view. */
+export interface WorkspaceTreeLogEntryWire {
+  sha: string;
+  authorName: string;
+  authorEmail: string;
+  /** Author date, strict ISO-8601. */
+  authoredAt: string;
+  subject: string;
+  /** `Co-Authored-By:` trailer values (`Name <email>`) — §23.6 attribution. */
+  coAuthors: string[];
+  /** Changed paths; empty on path-scoped (`fileLog`) entries. */
+  files: WorkspaceTreeLogFileWire[];
+}
+
+export type WorkspaceTreeLogWire =
+  | { ok: true; entries: WorkspaceTreeLogEntryWire[] }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'log-failed'; detail?: string };
 
 /** A detected remote history rewrite (§16) — the trichotomy dialog's feed. */
 export interface WorkspaceTreeForcePushStateWire {

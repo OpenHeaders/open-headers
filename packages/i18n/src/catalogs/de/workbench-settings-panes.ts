@@ -859,4 +859,13 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.forcePush.resolved': 'Umgeschriebene Historie übernommen ({sha}).',
   'workbench.settings.gitPane.git.forcePush.rescued': 'Lokale Historie auf {branch} bewahrt.',
   'workbench.settings.gitPane.git.forcePush.failed': 'Ließ sich nicht auflösen: {detail}',
+  'workbench.settings.gitPane.git.history.title': 'Verlauf',
+  'workbench.settings.gitPane.git.history.show': 'Verlauf anzeigen',
+  'workbench.settings.gitPane.git.history.hide': 'Ausblenden',
+  'workbench.settings.gitPane.git.history.empty': 'Noch keine Commits.',
+  'workbench.settings.gitPane.git.history.loadFailed': 'Verlauf konnte nicht gelesen werden: {detail}',
+  'workbench.settings.gitPane.git.history.authorLine': '{author} · {date}',
+  'workbench.settings.gitPane.git.history.coAuthors': 'Co-Autoren: {authors}',
+  'workbench.settings.gitPane.git.history.fileTitle': 'Verlauf — {path}',
+  'workbench.settings.gitPane.git.history.fileEmpty': 'Noch keine Commits, die diese Datei berühren.',
 } as const satisfies Catalog;

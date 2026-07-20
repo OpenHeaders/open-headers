@@ -746,4 +746,13 @@ export const workbenchSettingsPanes = {
   'workbench.settings.gitPane.git.forcePush.resolved': 'Rewritten history accepted ({sha}).',
   'workbench.settings.gitPane.git.forcePush.rescued': 'Local history preserved on {branch}.',
   'workbench.settings.gitPane.git.forcePush.failed': 'Could not resolve: {detail}',
+  'workbench.settings.gitPane.git.history.title': 'History',
+  'workbench.settings.gitPane.git.history.show': 'Show History',
+  'workbench.settings.gitPane.git.history.hide': 'Hide',
+  'workbench.settings.gitPane.git.history.empty': 'No commits yet.',
+  'workbench.settings.gitPane.git.history.loadFailed': 'Could not read history: {detail}',
+  'workbench.settings.gitPane.git.history.authorLine': '{author} · {date}',
+  'workbench.settings.gitPane.git.history.coAuthors': 'Co-authored by {authors}',
+  'workbench.settings.gitPane.git.history.fileTitle': 'History — {path}',
+  'workbench.settings.gitPane.git.history.fileEmpty': 'No commits touch this file yet.',
 } as const satisfies Catalog;
