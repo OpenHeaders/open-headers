@@ -43,6 +43,7 @@ import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
+import { workbenchEditorsRequest } from './workbench-editors-request';
 import { workbenchEditorsRule } from './workbench-editors-rule';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
@@ -94,6 +95,7 @@ export const zhCN = {
   ...workbenchDocsVariables,
   ...workbenchEditors,
   ...workbenchEditorsGrpc,
+  ...workbenchEditorsRequest,
   ...workbenchEditorsRule,
   ...workbenchEditorsSpec,
   ...workbenchEditorsWebsocket,
