@@ -460,11 +460,18 @@ export const workbenchChrome = {
   'workbench.terminal.settings': 'Configuración',
   'workbench.terminal.cliGate.title': 'Conectar la CLI de OpenHeaders',
   'workbench.terminal.cliGate.body':
-    'El modo TUI funciona con la herramienta de línea de comandos oh, que aún no está conectada a esta ' +
-    'aplicación. Conectarla crea un token de acceso y lo guarda en {path} — después, oh funciona en ' +
-    'cualquier terminal de esta máquina.',
-  'workbench.terminal.cliGate.enableMcp':
-    'Activar también el servidor MCP para que oh pueda conectarse a esta aplicación',
+    'El modo TUI funciona con la herramienta de línea de comandos oh, que aún no está conectada a esta aplicación.',
+  'workbench.terminal.cliGate.bodyInfo.title': 'Conexión de la CLI',
+  'workbench.terminal.cliGate.bodyInfo.summary':
+    'Conectar crea un token de acceso y lo escribe en {path}. La CLI oh lee ese archivo para autenticarse ' +
+    'ante el daemon local — después de conectar, oh funciona en cualquier terminal de esta máquina. ' +
+    'Cancelar no crea ningún token.',
+  'workbench.terminal.cliGate.enableMcp': 'Activar el servidor MCP',
+  'workbench.terminal.cliGate.enableMcpInfo.title': 'Servidor MCP',
+  'workbench.terminal.cliGate.enableMcpInfo.summary':
+    'oh se conecta a esta aplicación a través del endpoint /mcp del daemon (Model Context Protocol sobre ' +
+    'HTTP en streaming). El ajuste mcp.enabled controla ese endpoint — mientras está desactivado devuelve ' +
+    '404 y la TUI informa de que el daemon es inalcanzable. Desmarca para crear solo el token.',
   'workbench.terminal.cliGate.ok': 'Conectar y abrir',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.terminal.summary':

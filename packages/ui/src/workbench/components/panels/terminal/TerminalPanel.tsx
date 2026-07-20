@@ -20,7 +20,7 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
 import { set as setSettingValue } from '../../../settings/store';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
-import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getWorkbenchTerminalTabs, whenTerminalFontReady, type WorkbenchTerminal } from './terminal-instance';
 import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
 import '@xterm/xterm/css/xterm.css';
@@ -308,25 +308,42 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           return;
         }
         enableMcpRef.current = true;
-        modal.confirm({
+        // `info` (blue) rather than `confirm` (warning) — the dialog is
+        // an offer, not a caution; `okCancel` keeps the decline path.
+        modal.info({
+          okCancel: true,
           title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.title')}</span>,
           width: 420,
           centered: true,
           content: (
             <>
               <p style={{ fontSize: 12, margin: '4px 0 0' }}>
-                {t('workbench.terminal.cliGate.body', { path: status.configPath })}
+                {t('workbench.terminal.cliGate.body')}{' '}
+                <InfoTrigger
+                  content={{
+                    title: t('workbench.terminal.cliGate.bodyInfo.title'),
+                    summary: t('workbench.terminal.cliGate.bodyInfo.summary', { path: status.configPath }),
+                  }}
+                />
               </p>
               {mcpEnabled !== true && (
-                <Checkbox
-                  defaultChecked
-                  onChange={(event) => {
-                    enableMcpRef.current = event.target.checked;
-                  }}
-                  style={{ fontSize: 12, marginTop: 12 }}
-                >
-                  {t('workbench.terminal.cliGate.enableMcp')}
-                </Checkbox>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12 }}>
+                  <Checkbox
+                    defaultChecked
+                    onChange={(event) => {
+                      enableMcpRef.current = event.target.checked;
+                    }}
+                    style={{ fontSize: 12 }}
+                  >
+                    {t('workbench.terminal.cliGate.enableMcp')}
+                  </Checkbox>
+                  <InfoTrigger
+                    content={{
+                      title: t('workbench.terminal.cliGate.enableMcpInfo.title'),
+                      summary: t('workbench.terminal.cliGate.enableMcpInfo.summary'),
+                    }}
+                  />
+                </div>
               )}
             </>
           ),

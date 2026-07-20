@@ -35,7 +35,11 @@ const EDITOR_MIN = 400;
 // snaps to min-width.
 const SIDEBAR_SEED_RATIO = 0.22;
 const INSPECTOR_SEED_RATIO = 0.31;
-const BOTTOM_SEED_RATIO = 0.32;
+// Bottom seeds tall enough that the TUI dashboard opens in its full
+// two-column layout (it collapses to one pane at a time when the
+// terminal grid falls under ~16 rows), not just tall enough for a
+// shell prompt.
+const BOTTOM_SEED_RATIO = 0.42;
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -116,7 +120,7 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
   // editor width. The left-bottom pane (API Requests) shares the same
   // width, so widening the sidebar widens both stacked tool windows.
   // Inspector seeds wider (Docs + Scope live there) and the bottom
-  // panel takes about a third of the viewport height.
+  // panel takes a bit under half the viewport height.
   return {
     sidebar: {
       preferred: clamp(Math.round(vw * SIDEBAR_SEED_RATIO), SIDEBAR_MIN, SIDEBAR_MAX),

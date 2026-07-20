@@ -457,10 +457,18 @@ export const workbenchChrome = {
   'workbench.terminal.settings': 'Paramètres',
   'workbench.terminal.cliGate.title': 'Connecter la CLI OpenHeaders',
   'workbench.terminal.cliGate.body':
-    "Le mode TUI s'appuie sur l'outil en ligne de commande oh, qui n'est pas encore connecté à cette " +
-    "application. La connexion crée un jeton d'accès et l'enregistre dans {path} — ensuite, oh fonctionne " +
-    "dans n'importe quel terminal de cette machine.",
-  'workbench.terminal.cliGate.enableMcp': 'Activer aussi le serveur MCP pour que oh puisse joindre cette application',
+    "Le mode TUI s'appuie sur l'outil en ligne de commande oh, qui n'est pas encore connecté à cette application.",
+  'workbench.terminal.cliGate.bodyInfo.title': 'Connexion CLI',
+  'workbench.terminal.cliGate.bodyInfo.summary':
+    "La connexion crée un jeton d'accès et l'écrit dans {path}. La CLI oh lit ce fichier pour " +
+    "s'authentifier auprès du démon local — après la connexion, oh fonctionne dans n'importe quel terminal " +
+    'de cette machine. Annuler ne crée aucun jeton.',
+  'workbench.terminal.cliGate.enableMcp': 'Activer le serveur MCP',
+  'workbench.terminal.cliGate.enableMcpInfo.title': 'Serveur MCP',
+  'workbench.terminal.cliGate.enableMcpInfo.summary':
+    "oh joint cette application via le point de terminaison /mcp du démon (Model Context Protocol sur HTTP " +
+    "en flux). Le réglage mcp.enabled contrôle ce point de terminaison — tant qu'il est désactivé, il " +
+    'renvoie 404 et la TUI signale le démon comme injoignable. Décochez pour ne créer que le jeton.',
   'workbench.terminal.cliGate.ok': 'Connecter et ouvrir',
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
   'workbench.toolWindows.info.terminal.summary':
