@@ -7,8 +7,10 @@
 import type { Catalog } from '../../types';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
+import { sharedChrome } from './shared-chrome';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedInfoStatus } from './shared-info-status';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
@@ -16,8 +18,10 @@ import { sharedWorkspace } from './shared-workspace';
 export const zhCN = {
   ...shared,
   ...sharedAwareness,
+  ...sharedChrome,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
+  ...sharedInfoStatus,
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
