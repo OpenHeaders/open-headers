@@ -1,5 +1,6 @@
 import type React from 'react';
-import { FILL_BLUE,FILL_GREEN,STROKE_BLUE,STROKE_GREEN,TEXT,TEXT_DIM } from '../_shared';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 
 // ─── Tab numbering: ordinals are stable within a tab's lifetime ───
 
@@ -12,32 +13,33 @@ import { FILL_BLUE,FILL_GREEN,STROKE_BLUE,STROKE_GREEN,TEXT,TEXT_DIM } from '../
  * each rule kicks in (prefix appears, prefix sheds, ordinal stays).
  */
 export const MultiTabNumberingDiagram: React.FC = () => {
+  const t = useT();
   type Tab = { title: string; closed?: boolean; isNew?: boolean; w?: number };
   type Step = { action: string; tabs: Tab[]; note?: string };
   const STEPS: Step[] = [
     {
-      action: '1 tab open',
+      action: t('workbench.docs.diagrams.multiTab.numbering.step1'),
       tabs: [{ title: 'Open Headers', isNew: true, w: 96 }],
-      note: 'no prefix',
+      note: t('workbench.docs.diagrams.multiTab.numbering.note1'),
     },
     {
-      action: 'open another',
+      action: t('workbench.docs.diagrams.multiTab.numbering.step2'),
       tabs: [{ title: '#1' }, { title: '#2', isNew: true }],
-      note: 'prefixes appear',
+      note: t('workbench.docs.diagrams.multiTab.numbering.note2'),
     },
     {
-      action: 'open a third',
+      action: t('workbench.docs.diagrams.multiTab.numbering.step3'),
       tabs: [{ title: '#1' }, { title: '#2' }, { title: '#3', isNew: true }],
     },
     {
-      action: 'close #1',
+      action: t('workbench.docs.diagrams.multiTab.numbering.step4'),
       tabs: [{ title: '#1', closed: true }, { title: '#2' }, { title: '#3' }],
-      note: '#2 #3 unchanged',
+      note: t('workbench.docs.diagrams.multiTab.numbering.note4'),
     },
     {
-      action: 'open one more',
+      action: t('workbench.docs.diagrams.multiTab.numbering.step5'),
       tabs: [{ title: '#2' }, { title: '#3' }, { title: '#4', isNew: true }],
-      note: 'next is #4',
+      note: t('workbench.docs.diagrams.multiTab.numbering.note5'),
     },
   ];
 
@@ -55,10 +57,10 @@ export const MultiTabNumberingDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Tab numbering timeline — ordinals are stable within a tab's lifetime; closing #1 does not renumber, next tab gets #4"
+      aria-label={t('workbench.docs.diagrams.multiTab.numbering.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Ordinals stay stable within a tab's lifetime
+        {t('workbench.docs.diagrams.multiTab.numbering.title')}
       </text>
 
       {STEPS.map((step, si) => {
@@ -157,7 +159,7 @@ export const MultiTabNumberingDiagram: React.FC = () => {
       })}
 
       <text x={160} y={195} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Numbering resets to #1 only after every workspace tab has closed.
+        {t('workbench.docs.diagrams.multiTab.numbering.footer')}
       </text>
     </svg>
   );

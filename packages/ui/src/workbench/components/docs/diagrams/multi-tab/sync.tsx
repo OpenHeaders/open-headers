@@ -1,5 +1,6 @@
 import type React from 'react';
-import { FILL_BLUE,STROKE_BLUE,STROKE_GREEN,TEXT,TEXT_DIM } from '../_shared';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { FILL_BLUE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 
 // ─── Overview: two tab mockups side-by-side ───────────────────────
 
@@ -12,6 +13,7 @@ import { FILL_BLUE,STROKE_BLUE,STROKE_GREEN,TEXT,TEXT_DIM } from '../_shared';
  * shared data (rule names) appears in both because storage syncs.
  */
 export const MultiTabSyncDiagram: React.FC = () => {
+  const t = useT();
   const tabBg = 'var(--ant-color-bg-container)';
   const tabBorder = 'var(--ant-color-border)';
   const headerBg = 'var(--ant-color-fill-secondary)';
@@ -20,6 +22,17 @@ export const MultiTabSyncDiagram: React.FC = () => {
   const activeFill = FILL_BLUE;
   const activeStroke = STROKE_BLUE;
 
+  const sidebarItems = [
+    { key: 'rules', label: t('workbench.docs.diagrams.multiTab.sync.sidebarRules') },
+    { key: 'requests', label: t('workbench.docs.diagrams.multiTab.sync.sidebarRequests') },
+    { key: 'env', label: t('workbench.docs.diagrams.multiTab.sync.sidebarEnv') },
+  ] as const;
+  const ruleRows = [
+    t('workbench.docs.diagrams.multiTab.sync.ruleRow1'),
+    t('workbench.docs.diagrams.multiTab.sync.ruleRow2'),
+    t('workbench.docs.diagrams.multiTab.sync.ruleRow3'),
+  ];
+
   const renderTab = (xOffset: number, ordinal: string, workspace: string, mode: 'rules' | 'env') => {
     const x = xOffset;
     return (
@@ -27,7 +40,7 @@ export const MultiTabSyncDiagram: React.FC = () => {
         {/* Tab strip + title */}
         <rect x={x} y={26} width={146} height={18} rx={3} fill={headerBg} stroke={tabBorder} />
         <text x={x + 8} y={38} fontSize={9} fontWeight={600} fill={TEXT}>
-          {ordinal} Open Headers
+          {t('workbench.docs.diagrams.multiTab.sync.tabTitle', { ordinal })}
         </text>
         <circle cx={x + 138} cy={35} r={3} fill="var(--ant-color-text-quaternary)" />
 
@@ -44,16 +57,16 @@ export const MultiTabSyncDiagram: React.FC = () => {
         {/* Sidebar */}
         <rect x={x} y={60} width={44} height={104} fill={sidebarBg} stroke="none" />
         {/* Sidebar items */}
-        {(['Rules', 'Requests', 'Env'] as const).map((label, i) => {
+        {sidebarItems.map((item, i) => {
           const itemY = 68 + i * 18;
-          const isActiveSidebar = (mode === 'rules' && label === 'Rules') || (mode === 'env' && label === 'Env');
+          const isActiveSidebar = (mode === 'rules' && item.key === 'rules') || (mode === 'env' && item.key === 'env');
           return (
-            <g key={label}>
+            <g key={item.key}>
               {isActiveSidebar && (
                 <rect x={x + 2} y={itemY - 6} width={40} height={14} rx={2} fill={activeFill} stroke={activeStroke} />
               )}
               <text x={x + 6} y={itemY + 3} fontSize={8} fontWeight={isActiveSidebar ? 600 : 400} fill={TEXT}>
-                {label}
+                {item.label}
               </text>
             </g>
           );
@@ -61,7 +74,7 @@ export const MultiTabSyncDiagram: React.FC = () => {
 
         {/* Main content rows */}
         {mode === 'rules' &&
-          ['Auth header', 'CORS bypass', 'Block ads'].map((row, i) => {
+          ruleRows.map((row, i) => {
             const ry = 68 + i * 22;
             return (
               <g key={row}>
@@ -97,7 +110,9 @@ export const MultiTabSyncDiagram: React.FC = () => {
 
         {/* Pinned label under tab */}
         <text x={x + 73} y={180} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-          {mode === 'rules' ? 'Rules editor' : 'Env editor'}
+          {mode === 'rules'
+            ? t('workbench.docs.diagrams.multiTab.sync.rulesEditor')
+            : t('workbench.docs.diagrams.multiTab.sync.envEditor')}
         </text>
       </g>
     );
@@ -109,23 +124,23 @@ export const MultiTabSyncDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Two workspace tabs open side by side — different workspaces or different layouts, working in parallel"
+      aria-label={t('workbench.docs.diagrams.multiTab.sync.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Two tabs, two contexts — at the same time
+        {t('workbench.docs.diagrams.multiTab.sync.title')}
       </text>
 
-      {renderTab(8, '#1', 'Production', 'rules')}
-      {renderTab(166, '#2', 'Staging', 'env')}
+      {renderTab(8, '#1', t('workbench.docs.diagrams.multiTab.sync.workspaceProduction'), 'rules')}
+      {renderTab(166, '#2', t('workbench.docs.diagrams.multiTab.sync.workspaceStaging'), 'env')}
 
       {/* Sync hint between the two tabs */}
       <line x1={154} y1={104} x2={166} y2={104} stroke={STROKE_GREEN} strokeWidth={1} strokeDasharray="2 2" />
 
       <text x={160} y={200} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Rules + collections sync through storage.
+        {t('workbench.docs.diagrams.multiTab.sync.footer1')}
       </text>
       <text x={160} y={213} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Each tab keeps its own workspace + layout.
+        {t('workbench.docs.diagrams.multiTab.sync.footer2')}
       </text>
     </svg>
   );

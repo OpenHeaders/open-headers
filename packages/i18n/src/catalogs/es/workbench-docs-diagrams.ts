@@ -103,4 +103,103 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.variables.consumers.footer1':
     'Los valores se sustituyen al usarse — cambia la variable una vez,',
   'workbench.docs.diagrams.variables.consumers.footer2': 'y cada regla, solicitud y workflow la recoge.',
+
+  // ── Multipestaña: vista de sincronización ───────────────────────────
+  'workbench.docs.diagrams.multiTab.sync.aria':
+    'Dos pestañas del espacio de trabajo abiertas lado a lado — espacios de trabajo distintos o disposiciones ' +
+    'distintas, en paralelo',
+  'workbench.docs.diagrams.multiTab.sync.title': 'Dos pestañas, dos contextos — al mismo tiempo',
+  'workbench.docs.diagrams.multiTab.sync.tabTitle': '{ordinal} Open Headers',
+  'workbench.docs.diagrams.multiTab.sync.workspaceProduction': 'Producción',
+  'workbench.docs.diagrams.multiTab.sync.workspaceStaging': 'Staging',
+  'workbench.docs.diagrams.multiTab.sync.sidebarRules': 'Reglas',
+  'workbench.docs.diagrams.multiTab.sync.sidebarRequests': 'Solicitudes',
+  'workbench.docs.diagrams.multiTab.sync.sidebarEnv': 'Ent',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow1': 'Encabezado de auth',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow2': 'Bypass de CORS',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow3': 'Bloquear anuncios',
+  'workbench.docs.diagrams.multiTab.sync.rulesEditor': 'Editor de reglas',
+  'workbench.docs.diagrams.multiTab.sync.envEditor': 'Editor de entornos',
+  'workbench.docs.diagrams.multiTab.sync.footer1': 'Reglas + colecciones se sincronizan a través del almacenamiento.',
+  'workbench.docs.diagrams.multiTab.sync.footer2': 'Cada pestaña conserva su espacio de trabajo + su disposición.',
+
+  // ── Multipestaña: cronología de numeración ──────────────────────────
+  'workbench.docs.diagrams.multiTab.numbering.aria':
+    'Cronología de numeración — los ordinales se mantienen estables durante la vida de una pestaña; cerrar #1 ' +
+    'no renumera, la siguiente recibe #4',
+  'workbench.docs.diagrams.multiTab.numbering.title':
+    'Los ordinales se mantienen estables durante la vida de una pestaña',
+  'workbench.docs.diagrams.multiTab.numbering.step1': '1 pestaña abierta',
+  'workbench.docs.diagrams.multiTab.numbering.note1': 'sin prefijo',
+  'workbench.docs.diagrams.multiTab.numbering.step2': 'abrir otra',
+  'workbench.docs.diagrams.multiTab.numbering.note2': 'aparecen prefijos',
+  'workbench.docs.diagrams.multiTab.numbering.step3': 'abrir una tercera',
+  'workbench.docs.diagrams.multiTab.numbering.step4': 'cerrar #1',
+  'workbench.docs.diagrams.multiTab.numbering.note4': '#2 #3 sin cambios',
+  'workbench.docs.diagrams.multiTab.numbering.step5': 'abrir una más',
+  'workbench.docs.diagrams.multiTab.numbering.note5': 'la siguiente es #4',
+  'workbench.docs.diagrams.multiTab.numbering.footer':
+    'La numeración solo vuelve a #1 cuando se han cerrado todas las pestañas del espacio de trabajo.',
+
+  // ── Multipestaña: reutilización al navegar ──────────────────────────
+  'workbench.docs.diagrams.multiTab.navigation.aria':
+    'Reutilización al navegar — primero la misma ventana. Arriba: la misma ventana tiene una pestaña del ' +
+    'espacio de trabajo, el clic la activa. Abajo: solo otra ventana la tiene, una nueva se abre en la ventana ' +
+    'de origen.',
+  'workbench.docs.diagrams.multiTab.navigation.title': 'Haz clic en «Editar regla» en el popup —',
+  'workbench.docs.diagrams.multiTab.navigation.subtitle':
+    'el popup busca primero una pestaña del espacio de trabajo en TU ventana',
+  'workbench.docs.diagrams.multiTab.navigation.sameWindow': 'Misma ventana',
+  'workbench.docs.diagrams.multiTab.navigation.sameWindowHint': '— ya tiene una pestaña del espacio de trabajo',
+  'workbench.docs.diagrams.multiTab.navigation.window1': 'Ventana 1',
+  'workbench.docs.diagrams.multiTab.navigation.window1Caller': 'Ventana 1 (origen)',
+  'workbench.docs.diagrams.multiTab.navigation.window2': 'Ventana 2',
+  'workbench.docs.diagrams.multiTab.navigation.workspaceTab': '#1 Open Headers',
+  'workbench.docs.diagrams.multiTab.navigation.otherTab': 'gmail',
+  'workbench.docs.diagrams.multiTab.navigation.popup': 'popup',
+  'workbench.docs.diagrams.multiTab.navigation.editRule': 'Editar regla ▸',
+  'workbench.docs.diagrams.multiTab.navigation.activates': 'la pestaña existente se activa · sin pestaña nueva',
+  'workbench.docs.diagrams.multiTab.navigation.otherWindow': 'Otra ventana',
+  'workbench.docs.diagrams.multiTab.navigation.otherWindowHint': '— la tuya no tiene ninguna',
+  'workbench.docs.diagrams.multiTab.navigation.newTab': '+ pestaña nueva',
+  'workbench.docs.diagrams.multiTab.navigation.untouched': 'intacta · sin robo de foco',
+  'workbench.docs.diagrams.multiTab.navigation.footer1': 'Igual que las DevTools de Chrome se acoplan por ventana —',
+  'workbench.docs.diagrams.multiTab.navigation.footer2': 'te quedas en la ventana en la que ya estabas.',
+
+  // ── Multipestaña: qué se sincroniza ─────────────────────────────────
+  'workbench.docs.diagrams.multiTab.synced.aria':
+    'Qué se sincroniza entre pestañas — chrome.storage contiene reglas, colecciones, carpetas, entornos, ' +
+    'variables, vault, solicitudes, plantillas. Ambas pestañas leen y escriben a través de él.',
+  'workbench.docs.diagrams.multiTab.synced.title': '✓ Se sincroniza entre pestañas',
+  'workbench.docs.diagrams.multiTab.synced.subtitle': 'cada pestaña lee y escribe el mismo chrome.storage',
+  'workbench.docs.diagrams.multiTab.synced.sourceOfTruth': 'única fuente de verdad',
+  'workbench.docs.diagrams.multiTab.synced.pillRules': 'reglas',
+  'workbench.docs.diagrams.multiTab.synced.pillCollections': 'colecciones',
+  'workbench.docs.diagrams.multiTab.synced.pillFolders': 'carpetas',
+  'workbench.docs.diagrams.multiTab.synced.pillEnvironments': 'entornos',
+  'workbench.docs.diagrams.multiTab.synced.pillVariables': 'variables',
+  'workbench.docs.diagrams.multiTab.synced.pillVault': 'vault',
+  'workbench.docs.diagrams.multiTab.synced.pillRequests': 'solicitudes',
+  'workbench.docs.diagrams.multiTab.synced.pillTemplates': 'plantillas',
+  'workbench.docs.diagrams.multiTab.synced.tab1': 'Pestaña #1',
+  'workbench.docs.diagrams.multiTab.synced.tab2': 'Pestaña #2',
+  'workbench.docs.diagrams.multiTab.synced.liveData': 'datos en vivo',
+  'workbench.docs.diagrams.multiTab.synced.footer':
+    'Guarda en cualquiera de las dos — la otra se rehidrata al instante.',
+
+  // ── Multipestaña: qué se queda local ────────────────────────────────
+  'workbench.docs.diagrams.multiTab.local.aria':
+    'Qué se queda en cada pestaña — proporción del divisor y borradores sin guardar. Dos pestañas visiblemente ' +
+    'distintas: divisiones 25/75 y 65/35, una con borrador y otra sin él.',
+  'workbench.docs.diagrams.multiTab.local.title': '✗ Se queda en cada pestaña',
+  'workbench.docs.diagrams.multiTab.local.subtitle':
+    'proporción del divisor + escritura sin guardar — privados donde los hiciste',
+  'workbench.docs.diagrams.multiTab.local.tabTitle': 'Pestaña {ordinal}',
+  'workbench.docs.diagrams.multiTab.local.layoutLabel': 'disposición',
+  'workbench.docs.diagrams.multiTab.local.draftLabel': 'borrador sin guardar',
+  'workbench.docs.diagrams.multiTab.local.unsavedBadge': '● sin guardar',
+  'workbench.docs.diagrams.multiTab.local.noUnsaved': 'sin cambios sin guardar',
+  'workbench.docs.diagrams.multiTab.local.footer1': 'Cada pestaña conserva su divisor + su borrador.',
+  'workbench.docs.diagrams.multiTab.local.footer2':
+    'Una pestaña abierta DESPUÉS de tu arrastre hereda la nueva disposición.',
 } as const satisfies Catalog;

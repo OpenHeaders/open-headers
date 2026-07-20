@@ -103,4 +103,102 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.variables.consumers.footer1':
     "Les valeurs sont substituées à l'usage — changez la variable une fois,",
   'workbench.docs.diagrams.variables.consumers.footer2': 'et chaque règle, requête et workflow la reprend.',
+
+  // ── Multi-onglets : aperçu de la synchronisation ────────────────────
+  'workbench.docs.diagrams.multiTab.sync.aria':
+    "Deux onglets d'espace de travail ouverts côte à côte — espaces de travail différents ou dispositions " +
+    'différentes, en parallèle',
+  'workbench.docs.diagrams.multiTab.sync.title': 'Deux onglets, deux contextes — en même temps',
+  'workbench.docs.diagrams.multiTab.sync.tabTitle': '{ordinal} Open Headers',
+  'workbench.docs.diagrams.multiTab.sync.workspaceProduction': 'Production',
+  'workbench.docs.diagrams.multiTab.sync.workspaceStaging': 'Staging',
+  'workbench.docs.diagrams.multiTab.sync.sidebarRules': 'Règles',
+  'workbench.docs.diagrams.multiTab.sync.sidebarRequests': 'Requêtes',
+  'workbench.docs.diagrams.multiTab.sync.sidebarEnv': 'Env',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow1': "En-tête d'auth",
+  'workbench.docs.diagrams.multiTab.sync.ruleRow2': 'Contournement CORS',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow3': 'Bloquer les pubs',
+  'workbench.docs.diagrams.multiTab.sync.rulesEditor': 'Éditeur de règles',
+  'workbench.docs.diagrams.multiTab.sync.envEditor': "Éditeur d'env",
+  'workbench.docs.diagrams.multiTab.sync.footer1': 'Règles + collections se synchronisent via le stockage.',
+  'workbench.docs.diagrams.multiTab.sync.footer2': 'Chaque onglet garde son espace de travail + sa disposition.',
+
+  // ── Multi-onglets : chronologie de numérotation ─────────────────────
+  'workbench.docs.diagrams.multiTab.numbering.aria':
+    "Chronologie de numérotation — les ordinaux restent stables pendant la vie d'un onglet ; fermer #1 ne " +
+    'renumérote pas, le suivant reçoit #4',
+  'workbench.docs.diagrams.multiTab.numbering.title': "Les ordinaux restent stables pendant la vie d'un onglet",
+  'workbench.docs.diagrams.multiTab.numbering.step1': '1 onglet ouvert',
+  'workbench.docs.diagrams.multiTab.numbering.note1': 'pas de préfixe',
+  'workbench.docs.diagrams.multiTab.numbering.step2': 'ouvrir un autre',
+  'workbench.docs.diagrams.multiTab.numbering.note2': 'les préfixes apparaissent',
+  'workbench.docs.diagrams.multiTab.numbering.step3': 'ouvrir un troisième',
+  'workbench.docs.diagrams.multiTab.numbering.step4': 'fermer #1',
+  'workbench.docs.diagrams.multiTab.numbering.note4': '#2 #3 inchangés',
+  'workbench.docs.diagrams.multiTab.numbering.step5': 'encore un',
+  'workbench.docs.diagrams.multiTab.numbering.note5': 'le suivant est #4',
+  'workbench.docs.diagrams.multiTab.numbering.footer':
+    "La numérotation ne repart à #1 qu'après la fermeture de tous les onglets d'espace de travail.",
+
+  // ── Multi-onglets : réutilisation à la navigation ───────────────────
+  'workbench.docs.diagrams.multiTab.navigation.aria':
+    "Réutilisation à la navigation — la même fenêtre d'abord. En haut : la même fenêtre a un onglet d'espace " +
+    "de travail, le clic l'active. En bas : seule une autre fenêtre en a un, un nouvel onglet s'ouvre dans la " +
+    "fenêtre d'origine.",
+  'workbench.docs.diagrams.multiTab.navigation.title': 'Cliquez sur «Modifier la règle» dans la popup —',
+  'workbench.docs.diagrams.multiTab.navigation.subtitle':
+    "la popup cherche d'abord un onglet d'espace de travail dans VOTRE fenêtre",
+  'workbench.docs.diagrams.multiTab.navigation.sameWindow': 'Même fenêtre',
+  'workbench.docs.diagrams.multiTab.navigation.sameWindowHint': "— a déjà un onglet d'espace de travail",
+  'workbench.docs.diagrams.multiTab.navigation.window1': 'Fenêtre 1',
+  'workbench.docs.diagrams.multiTab.navigation.window1Caller': 'Fenêtre 1 (origine)',
+  'workbench.docs.diagrams.multiTab.navigation.window2': 'Fenêtre 2',
+  'workbench.docs.diagrams.multiTab.navigation.workspaceTab': '#1 Open Headers',
+  'workbench.docs.diagrams.multiTab.navigation.otherTab': 'gmail',
+  'workbench.docs.diagrams.multiTab.navigation.popup': 'popup',
+  'workbench.docs.diagrams.multiTab.navigation.editRule': 'Modifier la règle ▸',
+  'workbench.docs.diagrams.multiTab.navigation.activates': "l'onglet existant s'active · pas de nouvel onglet",
+  'workbench.docs.diagrams.multiTab.navigation.otherWindow': 'Autre fenêtre',
+  'workbench.docs.diagrams.multiTab.navigation.otherWindowHint': "— la vôtre n'en a aucun",
+  'workbench.docs.diagrams.multiTab.navigation.newTab': '+ nouvel onglet',
+  'workbench.docs.diagrams.multiTab.navigation.untouched': 'intacte · aucun vol de focus',
+  'workbench.docs.diagrams.multiTab.navigation.footer1': "Comme les DevTools de Chrome s'ancrent par fenêtre —",
+  'workbench.docs.diagrams.multiTab.navigation.footer2': 'vous restez dans la fenêtre où vous étiez déjà.',
+
+  // ── Multi-onglets : ce qui se synchronise ───────────────────────────
+  'workbench.docs.diagrams.multiTab.synced.aria':
+    'Ce qui se synchronise entre les onglets — chrome.storage contient règles, collections, dossiers, ' +
+    'environnements, variables, vault, requêtes, modèles. Les deux onglets lisent et écrivent à travers lui.',
+  'workbench.docs.diagrams.multiTab.synced.title': '✓ Se synchronise entre les onglets',
+  'workbench.docs.diagrams.multiTab.synced.subtitle': 'chaque onglet lit et écrit le même chrome.storage',
+  'workbench.docs.diagrams.multiTab.synced.sourceOfTruth': 'source de vérité unique',
+  'workbench.docs.diagrams.multiTab.synced.pillRules': 'règles',
+  'workbench.docs.diagrams.multiTab.synced.pillCollections': 'collections',
+  'workbench.docs.diagrams.multiTab.synced.pillFolders': 'dossiers',
+  'workbench.docs.diagrams.multiTab.synced.pillEnvironments': 'environnements',
+  'workbench.docs.diagrams.multiTab.synced.pillVariables': 'variables',
+  'workbench.docs.diagrams.multiTab.synced.pillVault': 'vault',
+  'workbench.docs.diagrams.multiTab.synced.pillRequests': 'requêtes',
+  'workbench.docs.diagrams.multiTab.synced.pillTemplates': 'modèles',
+  'workbench.docs.diagrams.multiTab.synced.tab1': 'Onglet #1',
+  'workbench.docs.diagrams.multiTab.synced.tab2': 'Onglet #2',
+  'workbench.docs.diagrams.multiTab.synced.liveData': 'données en direct',
+  'workbench.docs.diagrams.multiTab.synced.footer':
+    "Enregistrez dans l'un ou l'autre — l'autre se réhydrate instantanément.",
+
+  // ── Multi-onglets : ce qui reste local ──────────────────────────────
+  'workbench.docs.diagrams.multiTab.local.aria':
+    'Ce qui reste dans chaque onglet — ratio du séparateur et brouillons non enregistrés. Deux onglets ' +
+    'visiblement différents : partages 25/75 et 65/35, un brouillon dans un seul.',
+  'workbench.docs.diagrams.multiTab.local.title': '✗ Reste dans chaque onglet',
+  'workbench.docs.diagrams.multiTab.local.subtitle':
+    'ratio du séparateur + saisie non enregistrée — privés là où vous les avez faits',
+  'workbench.docs.diagrams.multiTab.local.tabTitle': 'Onglet {ordinal}',
+  'workbench.docs.diagrams.multiTab.local.layoutLabel': 'disposition',
+  'workbench.docs.diagrams.multiTab.local.draftLabel': 'brouillon non enregistré',
+  'workbench.docs.diagrams.multiTab.local.unsavedBadge': '● non enregistré',
+  'workbench.docs.diagrams.multiTab.local.noUnsaved': 'aucune modification non enregistrée',
+  'workbench.docs.diagrams.multiTab.local.footer1': 'Chaque onglet garde son séparateur + son brouillon.',
+  'workbench.docs.diagrams.multiTab.local.footer2':
+    'Un onglet ouvert APRÈS votre glissement hérite de la nouvelle disposition.',
 } as const satisfies Catalog;

@@ -1,5 +1,16 @@
 import type React from 'react';
-import { ArrowDefs,FILL_BLUE,FILL_GREEN,FILL_ORANGE,STROKE_BLUE,STROKE_GREEN,STROKE_ORANGE,TEXT,TEXT_DIM } from '../_shared';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  ArrowDefs,
+  FILL_BLUE,
+  FILL_GREEN,
+  FILL_ORANGE,
+  STROKE_BLUE,
+  STROKE_GREEN,
+  STROKE_ORANGE,
+  TEXT,
+  TEXT_DIM,
+} from '../_shared';
 
 // ─── What syncs across tabs (shared storage pool) ────────────────
 
@@ -10,11 +21,23 @@ import { ArrowDefs,FILL_BLUE,FILL_GREEN,FILL_ORANGE,STROKE_BLUE,STROKE_GREEN,STR
  * tab is a window into it. Save in any tab → ripples to all.
  */
 export const MultiTabSyncedDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'mt-synced';
   // Three rows of pills, sized to fit the storage pool.
-  const ROW1 = ['rules', 'collections', 'folders'];
-  const ROW2 = ['environments', 'variables', 'vault'];
-  const ROW3 = ['requests', 'templates'];
+  const ROW1 = [
+    t('workbench.docs.diagrams.multiTab.synced.pillRules'),
+    t('workbench.docs.diagrams.multiTab.synced.pillCollections'),
+    t('workbench.docs.diagrams.multiTab.synced.pillFolders'),
+  ];
+  const ROW2 = [
+    t('workbench.docs.diagrams.multiTab.synced.pillEnvironments'),
+    t('workbench.docs.diagrams.multiTab.synced.pillVariables'),
+    t('workbench.docs.diagrams.multiTab.synced.pillVault'),
+  ];
+  const ROW3 = [
+    t('workbench.docs.diagrams.multiTab.synced.pillRequests'),
+    t('workbench.docs.diagrams.multiTab.synced.pillTemplates'),
+  ];
   const PILL_H = 18;
   const PILL_GAP = 6;
   const PILL_PAD = 9;
@@ -47,14 +70,14 @@ export const MultiTabSyncedDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="What syncs across tabs — chrome.storage holds rules, collections, folders, environments, variables, vault, requests, templates. Both tabs read and write through it."
+      aria-label={t('workbench.docs.diagrams.multiTab.synced.aria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_GREEN}>
-        ✓ Syncs across tabs
+        {t('workbench.docs.diagrams.multiTab.synced.title')}
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        every tab reads and writes the same chrome.storage
+        {t('workbench.docs.diagrams.multiTab.synced.subtitle')}
       </text>
 
       {/* Storage pool */}
@@ -63,7 +86,7 @@ export const MultiTabSyncedDiagram: React.FC = () => {
         chrome.storage.local
       </text>
       <text x={300} y={51} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        single source of truth
+        {t('workbench.docs.diagrams.multiTab.synced.sourceOfTruth')}
       </text>
 
       {renderRow(ROW1, 60)}
@@ -74,19 +97,19 @@ export const MultiTabSyncedDiagram: React.FC = () => {
       <rect x={40} y={170} width={100} height={42} rx={4} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} />
       <rect x={40} y={170} width={100} height={14} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={48} y={180} fontSize={9} fontWeight={700} fill={TEXT}>
-        Tab #1
+        {t('workbench.docs.diagrams.multiTab.synced.tab1')}
       </text>
       <text x={90} y={201} textAnchor="middle" fontSize={9} fill={TEXT}>
-        live data
+        {t('workbench.docs.diagrams.multiTab.synced.liveData')}
       </text>
 
       <rect x={180} y={170} width={100} height={42} rx={4} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} />
       <rect x={180} y={170} width={100} height={14} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={188} y={180} fontSize={9} fontWeight={700} fill={TEXT}>
-        Tab #2
+        {t('workbench.docs.diagrams.multiTab.synced.tab2')}
       </text>
       <text x={230} y={201} textAnchor="middle" fontSize={9} fill={TEXT}>
-        live data
+        {t('workbench.docs.diagrams.multiTab.synced.liveData')}
       </text>
 
       {/* Bidirectional arrows from each tab to the pool */}
@@ -97,7 +120,7 @@ export const MultiTabSyncedDiagram: React.FC = () => {
       <line x1={250} y1={146} x2={250} y2={170} stroke={STROKE_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
 
       <text x={160} y={228} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Save in either tab — the other re-hydrates instantly.
+        {t('workbench.docs.diagrams.multiTab.synced.footer')}
       </text>
     </svg>
   );
@@ -113,6 +136,7 @@ export const MultiTabSyncedDiagram: React.FC = () => {
  * fine, because each keeps its own UI state."
  */
 export const MultiTabLocalDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   const errBg = 'var(--ant-color-error-bg)';
@@ -160,11 +184,11 @@ export const MultiTabLocalDiagram: React.FC = () => {
         <rect x={xOff} y={TAB_Y} width={TAB_W} height={TITLE_H} fill={FILL_BLUE} stroke={STROKE_BLUE} />
         <circle cx={xOff + 8} cy={TAB_Y + 9} r={2.5} fill={STROKE_BLUE} />
         <text x={xOff + 18} y={TAB_Y + 12} fontSize={10} fontWeight={700} fill={TEXT}>
-          Tab {ordinal}
+          {t('workbench.docs.diagrams.multiTab.local.tabTitle', { ordinal })}
         </text>
 
         {/* LAYOUT */}
-        <SectionLabel x={innerX} y={layoutLabelY} text="layout" />
+        <SectionLabel x={innerX} y={layoutLabelY} text={t('workbench.docs.diagrams.multiTab.local.layoutLabel')} />
         <rect x={innerX} y={layoutY} width={sidebarW} height={layoutH} fill={sidebarFill} stroke={winBorder} />
         <rect
           x={innerX + sidebarW}
@@ -217,7 +241,7 @@ export const MultiTabLocalDiagram: React.FC = () => {
         </text>
 
         {/* DRAFT */}
-        <SectionLabel x={innerX} y={draftLabelY} text="unsaved draft" />
+        <SectionLabel x={innerX} y={draftLabelY} text={t('workbench.docs.diagrams.multiTab.local.draftLabel')} />
         <rect x={innerX} y={draftY} width={innerW} height={draftH} rx={3} fill={mainFill} stroke={winBorder} />
         {draft.unsaved ? (
           <>
@@ -241,7 +265,7 @@ export const MultiTabLocalDiagram: React.FC = () => {
               fontWeight={700}
               fill={STROKE_ORANGE}
             >
-              ● unsaved
+              {t('workbench.docs.diagrams.multiTab.local.unsavedBadge')}
             </text>
           </>
         ) : (
@@ -253,7 +277,7 @@ export const MultiTabLocalDiagram: React.FC = () => {
             fontStyle="italic"
             fill={TEXT_DIM}
           >
-            no unsaved changes
+            {t('workbench.docs.diagrams.multiTab.local.noUnsaved')}
           </text>
         )}
       </g>
@@ -266,14 +290,14 @@ export const MultiTabLocalDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="What stays in each tab — layout splitter ratio and unsaved drafts. Two tabs visibly differ: 25/75 vs 65/35 splits, one with a draft and one without."
+      aria-label={t('workbench.docs.diagrams.multiTab.local.aria')}
     >
       {/* Header */}
       <text x={160} y={16} textAnchor="middle" fontSize={11} fontWeight={700} fill={errColor}>
-        ✗ Stays in each tab
+        {t('workbench.docs.diagrams.multiTab.local.title')}
       </text>
       <text x={160} y={32} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        splitter ratio + unsaved typing — private to where you did them
+        {t('workbench.docs.diagrams.multiTab.local.subtitle')}
       </text>
 
       {/* Tab cards */}
@@ -309,10 +333,10 @@ export const MultiTabLocalDiagram: React.FC = () => {
       />
 
       <text x={160} y={216} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Each tab keeps its own splitter + draft.
+        {t('workbench.docs.diagrams.multiTab.local.footer1')}
       </text>
       <text x={160} y={228} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        A tab opened AFTER your drag inherits the new layout.
+        {t('workbench.docs.diagrams.multiTab.local.footer2')}
       </text>
     </svg>
   );

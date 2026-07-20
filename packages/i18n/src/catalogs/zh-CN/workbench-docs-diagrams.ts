@@ -97,4 +97,93 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.variables.consumers.workflowsWhen': '每次运行',
   'workbench.docs.diagrams.variables.consumers.footer1': '值在使用时代入——只需改一次变量，',
   'workbench.docs.diagrams.variables.consumers.footer2': '每条规则、每个请求和每个工作流都会拿到新值。',
+
+  // ── 多标签页：并排同步总览 ──────────────────────────────────────────
+  'workbench.docs.diagrams.multiTab.sync.aria': '两个工作区标签页并排打开——不同的工作区或不同的布局，并行工作',
+  'workbench.docs.diagrams.multiTab.sync.title': '两个标签页，两个上下文——同时进行',
+  'workbench.docs.diagrams.multiTab.sync.tabTitle': '{ordinal} Open Headers',
+  'workbench.docs.diagrams.multiTab.sync.workspaceProduction': '生产',
+  'workbench.docs.diagrams.multiTab.sync.workspaceStaging': '预发布',
+  'workbench.docs.diagrams.multiTab.sync.sidebarRules': '规则',
+  'workbench.docs.diagrams.multiTab.sync.sidebarRequests': '请求',
+  'workbench.docs.diagrams.multiTab.sync.sidebarEnv': '环境',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow1': '认证标头',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow2': '绕过 CORS',
+  'workbench.docs.diagrams.multiTab.sync.ruleRow3': '拦截广告',
+  'workbench.docs.diagrams.multiTab.sync.rulesEditor': '规则编辑器',
+  'workbench.docs.diagrams.multiTab.sync.envEditor': '环境编辑器',
+  'workbench.docs.diagrams.multiTab.sync.footer1': '规则和集合通过存储同步。',
+  'workbench.docs.diagrams.multiTab.sync.footer2': '每个标签页保留自己的工作区和布局。',
+
+  // ── 多标签页：序号时间线 ────────────────────────────────────────────
+  'workbench.docs.diagrams.multiTab.numbering.aria':
+    '标签页编号时间线——序号在标签页的生命周期内保持稳定；关闭 #1 不会重新编号，下一个标签页得到 #4',
+  'workbench.docs.diagrams.multiTab.numbering.title': '序号在标签页的生命周期内保持稳定',
+  'workbench.docs.diagrams.multiTab.numbering.step1': '打开 1 个标签页',
+  'workbench.docs.diagrams.multiTab.numbering.note1': '无前缀',
+  'workbench.docs.diagrams.multiTab.numbering.step2': '再打开一个',
+  'workbench.docs.diagrams.multiTab.numbering.note2': '出现前缀',
+  'workbench.docs.diagrams.multiTab.numbering.step3': '打开第三个',
+  'workbench.docs.diagrams.multiTab.numbering.step4': '关闭 #1',
+  'workbench.docs.diagrams.multiTab.numbering.note4': '#2 #3 不变',
+  'workbench.docs.diagrams.multiTab.numbering.step5': '再开一个',
+  'workbench.docs.diagrams.multiTab.numbering.note5': '下一个是 #4',
+  'workbench.docs.diagrams.multiTab.numbering.footer': '只有当所有工作区标签页都关闭后，编号才会重置为 #1。',
+
+  // ── 多标签页：导航复用 ──────────────────────────────────────────────
+  'workbench.docs.diagrams.multiTab.navigation.aria':
+    '导航复用——优先同一窗口。上：同一窗口已有工作区标签页，点击即激活。下：只有另一个窗口有，' +
+    '新标签页在发起方窗口中打开。',
+  'workbench.docs.diagrams.multiTab.navigation.title': '在弹窗中点击“编辑规则”——',
+  'workbench.docs.diagrams.multiTab.navigation.subtitle': '弹窗会先在你自己的窗口中寻找工作区标签页',
+  'workbench.docs.diagrams.multiTab.navigation.sameWindow': '同一窗口',
+  'workbench.docs.diagrams.multiTab.navigation.sameWindowHint': '——已有工作区标签页',
+  'workbench.docs.diagrams.multiTab.navigation.window1': '窗口 1',
+  'workbench.docs.diagrams.multiTab.navigation.window1Caller': '窗口 1（发起方）',
+  'workbench.docs.diagrams.multiTab.navigation.window2': '窗口 2',
+  'workbench.docs.diagrams.multiTab.navigation.workspaceTab': '#1 Open Headers',
+  'workbench.docs.diagrams.multiTab.navigation.otherTab': 'gmail',
+  'workbench.docs.diagrams.multiTab.navigation.popup': '弹窗',
+  'workbench.docs.diagrams.multiTab.navigation.editRule': '编辑规则 ▸',
+  'workbench.docs.diagrams.multiTab.navigation.activates': '激活现有标签页 · 不新建标签页',
+  'workbench.docs.diagrams.multiTab.navigation.otherWindow': '另一个窗口',
+  'workbench.docs.diagrams.multiTab.navigation.otherWindowHint': '——你的窗口没有',
+  'workbench.docs.diagrams.multiTab.navigation.newTab': '+ 新标签页',
+  'workbench.docs.diagrams.multiTab.navigation.untouched': '保持原样 · 不抢占焦点',
+  'workbench.docs.diagrams.multiTab.navigation.footer1': '与 Chrome 的 DevTools 按窗口停靠一致——',
+  'workbench.docs.diagrams.multiTab.navigation.footer2': '你会留在原来所在的窗口。',
+
+  // ── 多标签页：同步的内容（共享池） ──────────────────────────────────
+  'workbench.docs.diagrams.multiTab.synced.aria':
+    '跨标签页同步的内容——chrome.storage 保存规则、集合、文件夹、环境、变量、vault、请求、模板。' +
+    '两个标签页都通过它读写。',
+  'workbench.docs.diagrams.multiTab.synced.title': '✓ 跨标签页同步',
+  'workbench.docs.diagrams.multiTab.synced.subtitle': '每个标签页读写同一个 chrome.storage',
+  'workbench.docs.diagrams.multiTab.synced.sourceOfTruth': '唯一事实来源',
+  'workbench.docs.diagrams.multiTab.synced.pillRules': '规则',
+  'workbench.docs.diagrams.multiTab.synced.pillCollections': '集合',
+  'workbench.docs.diagrams.multiTab.synced.pillFolders': '文件夹',
+  'workbench.docs.diagrams.multiTab.synced.pillEnvironments': '环境',
+  'workbench.docs.diagrams.multiTab.synced.pillVariables': '变量',
+  'workbench.docs.diagrams.multiTab.synced.pillVault': 'vault',
+  'workbench.docs.diagrams.multiTab.synced.pillRequests': '请求',
+  'workbench.docs.diagrams.multiTab.synced.pillTemplates': '模板',
+  'workbench.docs.diagrams.multiTab.synced.tab1': '标签页 #1',
+  'workbench.docs.diagrams.multiTab.synced.tab2': '标签页 #2',
+  'workbench.docs.diagrams.multiTab.synced.liveData': '实时数据',
+  'workbench.docs.diagrams.multiTab.synced.footer': '在任一标签页保存——另一个会立即重新加载。',
+
+  // ── 多标签页：留在本地的内容 ────────────────────────────────────────
+  'workbench.docs.diagrams.multiTab.local.aria':
+    '留在各自标签页的内容——布局分隔条比例和未保存的草稿。两个标签页明显不同：25/75 与 65/35 的拆分，' +
+    '只有一个带草稿。',
+  'workbench.docs.diagrams.multiTab.local.title': '✗ 留在各自标签页',
+  'workbench.docs.diagrams.multiTab.local.subtitle': '分隔条比例和未保存的输入——只属于你操作的标签页',
+  'workbench.docs.diagrams.multiTab.local.tabTitle': '标签页 {ordinal}',
+  'workbench.docs.diagrams.multiTab.local.layoutLabel': '布局',
+  'workbench.docs.diagrams.multiTab.local.draftLabel': '未保存的草稿',
+  'workbench.docs.diagrams.multiTab.local.unsavedBadge': '● 未保存',
+  'workbench.docs.diagrams.multiTab.local.noUnsaved': '没有未保存的更改',
+  'workbench.docs.diagrams.multiTab.local.footer1': '每个标签页保留自己的分隔条和草稿。',
+  'workbench.docs.diagrams.multiTab.local.footer2': '在你拖动之后打开的标签页会继承新布局。',
 } as const satisfies Catalog;
