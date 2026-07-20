@@ -25,7 +25,8 @@ encrypted channel in a first plain email and we will arrange one.
   assessed and fixed. Confirmed vulnerabilities are prioritized ahead
   of all other work.
 - Security fixes ship as releases flagged through the app's update
-  notifications (check-and-notify — the app never self-installs).
+  notifications (staged in the background by default; a running app is
+  never restarted to apply one without your action).
 
 We do not operate a paid bounty program at this time.
 

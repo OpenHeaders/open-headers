@@ -13,8 +13,7 @@ The only usage data that ever leaves is the anonymous telemetry channel
 of section 4 (TELEMETRY_PLAN.md, amending LICENSING_PLAN.md §1): a typed
 allowlist of feature-usage counts, structurally incapable of carrying
 URLs, headers, traffic, or identity, default-on for desktop/extension/CLI
-with a one-switch opt-out (the CLI additionally prints a one-time notice
-on its first enabled run), and hard-off for the daemon, served web app,
+with a one-switch opt-out, and hard-off for the daemon, served web app,
 and MCP server. The license system itself remains
 telemetry-free: license endpoints and telemetry never share identifiers,
 payloads, or deployments.
@@ -74,10 +73,19 @@ validation path exists.
 
 ## 2. Update check
 
-Check-and-notify only — the app never self-installs
-(docs/UPDATES_PLAN.md). Desktop packaged builds on macOS/Windows and
-Linux AppImage; dev builds, deb/rpm installs, and the daemon make no
-update requests.
+Anonymous check, staging by default, and a restart that is never
+unprompted (docs/UPDATES_PLAN.md, 2026-07-20 rev): an available update
+may download in the background (default on, one switch to off), but a
+running app is only ever restarted by an explicit "Update & Restart"
+click or a quit that happens anyway. The `oh` CLI additionally
+self-updates between invocations on self-managed binary installs
+(default on, `oh autoupdate off` to stop) — it swaps its own binary so
+the next run launches the new version, restarting nothing. Who checks:
+desktop packaged builds on macOS/Windows and Linux AppImage, the `oh`
+CLI (daily cached), and the `ohd` daemon only on `ohd status` or its
+default-off opt-in unattended mode. Dev builds, deb/rpm installs,
+container images, and npm/brew installs make no update requests —
+their owning channel updates them.
 
 - **Endpoint**: the update feed,
   `GET https://updates.openheaders.io/desktop/stable/latest.yml`
@@ -93,12 +101,16 @@ update requests.
   license, or machine information is attached beyond what any HTTP
   client sends.
 - **Cadence**: at most once a day (±10 min jitter) plus explicit
-  "Check now" clicks. Downloads happen only on user action (or with the
-  user's opt-in `updates.autoDownload`); installs only on explicit
-  restart-to-install or natural app quit.
+  "Check now" clicks. A found update downloads in the background by
+  default (`updates.autoDownload`, one switch to off) from the same
+  first-party feed; applying it happens only on an explicit Update &
+  Restart or a natural app quit — never mid-session.
 - **Off switch**: `updates.check: off` in Settings → Updates (also
-  `security-only` to limit notifications), `OH_DISABLE_UPDATE_CHECKS=1`
-  for test rigs.
+  `security-only` to limit notifications), `updates.autoDownload: off`
+  to stop background downloads while keeping the check,
+  `OH_DISABLE_UPDATE_CHECKS=1` for test rigs. CLI: `oh autoupdate off`
+  and `OH_NO_UPDATE_CHECK`. Daemon: unattended mode stays off unless
+  `updates.autoUpdate` is explicitly enabled.
 
 ## 3. Severity manifest
 
