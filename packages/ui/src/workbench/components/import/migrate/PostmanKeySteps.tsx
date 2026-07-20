@@ -34,6 +34,9 @@ const POSTMAN_ORANGE = '#ff6c37';
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
+/** The web-app URL every locale embeds verbatim in the step-1 caption. */
+const POSTMAN_URL = 'https://postman.co';
+
 /** Shared mini browser chrome — title bar with traffic lights. */
 const FrameChrome: React.FC = () => (
   <g>
@@ -174,7 +177,9 @@ const PostmanKeySteps: React.FC = () => {
     borderRadius: 8,
     border: `1px solid ${token.colorBorderSecondary}`,
     background: token.colorBgContainer,
-    flex: '1 1 0',
+    // Content-sized basis: the card whose caption carries the copyable
+    // URL claims the extra width instead of wrapping the copy icon.
+    flex: '1 1 auto',
     minWidth: 0,
   };
 
@@ -202,12 +207,37 @@ const PostmanKeySteps: React.FC = () => {
     fontSize: 9,
   };
 
+  const lineText: React.CSSProperties = { fontSize: 11, lineHeight: '14px' };
+
+  // Locale strings embed the postman.co URL verbatim; render it
+  // underlined with a copy affordance instead of as plain prose.
+  const renderLine = (line: string): React.ReactNode => {
+    const at = line.indexOf(POSTMAN_URL);
+    if (at < 0) return <Text style={lineText}>{line}</Text>;
+    const before = line.slice(0, at);
+    const after = line.slice(at + POSTMAN_URL.length);
+    return (
+      <span style={lineText}>
+        {before && <Text style={lineText}>{before}</Text>}
+        <Text
+          underline
+          copyable={{ text: POSTMAN_URL }}
+          style={{ ...lineText, whiteSpace: 'nowrap' }}
+          data-testid="oh-postman-key-url"
+        >
+          {POSTMAN_URL}
+        </Text>
+        {after && <Text style={lineText}>{after}</Text>}
+      </span>
+    );
+  };
+
   const caption = (lines: [string, string]): React.ReactNode => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', minWidth: 0 }}>
       {lines.map((line, i) => (
         <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
           <span style={subStepIndex}>{'ab'[i]}</span>
-          <Text style={{ fontSize: 11, lineHeight: '14px' }}>{line}</Text>
+          {renderLine(line)}
         </div>
       ))}
     </div>
