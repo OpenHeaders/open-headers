@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven pills.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Roadmap milestones — six ordered cards, all wrapped in a single
@@ -9,44 +15,40 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * description and a left-edge accent stripe.
  */
 export const RoadmapMilestonesDiagram: React.FC = () => {
-  type Milestone = { title: string; tag: 'live'; badge?: string; description: string };
+  const t = useT();
+  type Milestone = { title: string; badge?: string; description: string };
+
+  const tagLive = t('workbench.docs.diagrams.openHeaders.milestones.tagLive');
 
   const MILESTONES: Milestone[] = [
     {
-      title: 'Workspace collaboration via Git (Team-ready)',
-      tag: 'live',
-      description: 'YAML in a Git repo you control — pull, push, merge via Git.',
+      title: t('workbench.docs.diagrams.openHeaders.milestones.msGit'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descGit'),
     },
     {
-      title: 'Desktop app',
-      tag: 'live',
-      description: "Native binary on the same store — reaches what an extension can't.",
+      title: t('workbench.docs.diagrams.openHeaders.shared.desktopApp'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descDesktop'),
     },
     {
-      title: 'MCP Server (AI agent control)',
-      tag: 'live',
-      badge: 'USER-CONTROLLED',
-      description: 'Open Headers over MCP — let an AI agent drive your workspace.',
+      title: t('workbench.docs.diagrams.openHeaders.milestones.msMcp'),
+      badge: t('workbench.docs.diagrams.openHeaders.milestones.badgeUserControlled'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descMcp'),
     },
     {
-      title: 'Local / LAN daemon',
-      tag: 'live',
-      description: 'Sync daemon on your machine or LAN — extension, desktop, CLI as clients.',
+      title: t('workbench.docs.diagrams.openHeaders.milestones.msDaemon'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descDaemon'),
     },
     {
       title: 'CLI',
-      tag: 'live',
-      description: 'Headless scripting and CI — list, toggle, send from the shell.',
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descCli'),
     },
     {
-      title: 'Self-hosted VM deployment + Web App',
-      tag: 'live',
-      description: 'Web bundle on your VM — locked-down browsers or branded deploys.',
+      title: t('workbench.docs.diagrams.openHeaders.milestones.msVm'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descVm'),
     },
     {
-      title: 'More importers',
-      tag: 'live',
-      description: 'Beyond Postman — Insomnia, OpenAPI specs, full HAR imports.',
+      title: t('workbench.docs.diagrams.openHeaders.milestones.msImporters'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descImporters'),
     },
   ];
 
@@ -80,7 +82,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Milestones — ordered cards inside a browser-window frame: Git workspaces, desktop app, MCP server, local daemon, CLI, self-hosted web app, importers — all live."
+      aria-label={t('workbench.docs.diagrams.openHeaders.milestones.aria')}
     >
       {/* Outer browser-window frame */}
       <rect
@@ -114,7 +116,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Every surface, shipped
+        {t('workbench.docs.diagrams.openHeaders.milestones.chromeTitle')}
       </text>
       {/* Address-style strip — section subtitle in place of a URL */}
       <rect
@@ -133,13 +135,17 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        Shipped in sequence — local-only stayed the product through every milestone.
+        {t('workbench.docs.diagrams.openHeaders.milestones.addrSubtitle')}
       </text>
 
       {/* Milestone cards */}
       {MILESTONES.map((m, i) => {
         const y = FRAME_Y + CARDS_TOP + i * (CARD_H + CARD_GAP);
         const tc = tagColors();
+        const tagW = Math.max(44, Math.round(unitLen(tagLive) * 5.4) + 14);
+        const tagX = CARD_X + CARD_W - 8 - tagW;
+        const badgeW = m.badge ? Math.round(unitLen(m.badge) * 6.5) + 16 : 0;
+        const badgeX = tagX - 6 - badgeW;
         return (
           <g key={m.title}>
             <rect
@@ -170,18 +176,9 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
               {m.title}
             </text>
             {/* Tag pill */}
-            <rect
-              x={CARD_X + CARD_W - 52}
-              y={y + 12}
-              width={44}
-              height={16}
-              rx={8}
-              fill={tc.fill}
-              stroke={tc.stroke}
-              strokeWidth={1}
-            />
+            <rect x={tagX} y={y + 12} width={tagW} height={16} rx={8} fill={tc.fill} stroke={tc.stroke} strokeWidth={1} />
             <text
-              x={CARD_X + CARD_W - 30}
+              x={tagX + tagW / 2}
               y={y + 23}
               textAnchor="middle"
               fontSize={8.5}
@@ -189,15 +186,15 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
               fill={tc.stroke}
               letterSpacing={0.6}
             >
-              {m.tag.toUpperCase()}
+              {tagLive}
             </text>
             {/* Optional extra badge — sits to the LEFT of the tag pill */}
             {m.badge && (
               <g>
                 <rect
-                  x={CARD_X + CARD_W - 52 - 120}
+                  x={badgeX}
                   y={y + 12}
-                  width={114}
+                  width={badgeW}
                   height={16}
                   rx={8}
                   fill={FILL_BLUE}
@@ -205,7 +202,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
                   strokeWidth={1}
                 />
                 <text
-                  x={CARD_X + CARD_W - 52 - 120 + 57}
+                  x={badgeX + badgeW / 2}
                   y={y + 23}
                   textAnchor="middle"
                   fontSize={8.5}
@@ -226,7 +223,7 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
       })}
 
       <text x={CX} y={FOOTER_Y} textAnchor="middle" fontSize={9.5} fontStyle="italic" fill={STROKE_BLUE}>
-        Cross-user sync ships through Git and self-hosted deployments — no vendor-hosted cloud.
+        {t('workbench.docs.diagrams.openHeaders.milestones.footer')}
       </text>
     </svg>
   );

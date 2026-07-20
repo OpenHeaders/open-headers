@@ -1231,4 +1231,89 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.roadmapImporters.targetEnvironments': '环境',
   'workbench.docs.diagrams.openHeaders.roadmapImporters.targetVault': 'vault 条目',
   'workbench.docs.diagrams.openHeaders.roadmapImporters.verdict': '一步搬完，继续工作',
+
+  // ── Open Headers: roadmap MCP architecture ──────────────────────────
+  'workbench.docs.diagrams.openHeaders.mcpArch.aria':
+    '路线图里程碑 —— MCP 服务器架构。AI 客户端通过 Model Context Protocol 连接 Open Headers（本地用 stdio，远程用 ' +
+    'HTTP/SSE）。OH MCP 服务器修改用户的工作空间；结果显示在 Workbench 中。',
+  'workbench.docs.diagrams.openHeaders.mcpArch.title': 'MCP 服务器 · 你的工作空间，任意 AI 客户端',
+  'workbench.docs.diagrams.openHeaders.mcpArch.subtitle':
+    'Open Headers 讲 Model Context Protocol —— 任何支持 MCP 的代理都能驱动你的工作空间。',
+  'workbench.docs.diagrams.openHeaders.mcpArch.clientTitle': 'AI 客户端',
+  'workbench.docs.diagrams.openHeaders.mcpArch.clientSideTag': '你的代理',
+  'workbench.docs.diagrams.openHeaders.mcpArch.kickerAnyClient': '任意 MCP 客户端',
+  'workbench.docs.diagrams.openHeaders.mcpArch.serverTitle': 'OH MCP 服务器',
+  'workbench.docs.diagrams.openHeaders.mcpArch.sideTagOpenHeaders': 'open headers',
+  'workbench.docs.diagrams.openHeaders.mcpArch.kickerExposes': '提供',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeRules': '规则 · CRUD',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeRequests': 'API 请求',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeEnvironments': '环境',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeVariables': '变量 · Vault',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeWorkflows': '工作流',
+  'workbench.docs.diagrams.openHeaders.mcpArch.transportLocal': '本地',
+  'workbench.docs.diagrams.openHeaders.mcpArch.transportRemote': '远程',
+  'workbench.docs.diagrams.openHeaders.mcpArch.mutates': '修改',
+  'workbench.docs.diagrams.openHeaders.mcpArch.wbTitle': 'Workbench · 你的工作空间',
+  'workbench.docs.diagrams.openHeaders.mcpArch.wbLive': '实时',
+  'workbench.docs.diagrams.openHeaders.mcpArch.wbContents': '规则 · 环境 · 变量 · 工作流 · vault',
+  'workbench.docs.diagrams.openHeaders.mcpArch.verdict': '用任意 AI 代理驱动你的工作空间 · 本地或远程',
+
+  // ── Open Headers: roadmap MCP tools ─────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.mcpTools.aria':
+    '路线图里程碑 —— MCP 服务器工具目录。七个领域共提供 {n} 个工具：规则、请求、环境、变量、工作流、工作空间、活动。',
+  'workbench.docs.diagrams.openHeaders.mcpTools.title': 'AI 代理能做什么',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subtitle': '七个领域 —— 该有 CRUD 的地方就有完整 CRUD，其余按需只读。',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domRules': '规则',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subRules': '标头 · 拦截 · 重定向 · 响应',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domRequests': '请求',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subRequests': 'API 目录',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domEnvironments': '环境',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subEnvironments': '按工作空间',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domVariables': '变量',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subVariables': '所有作用域 · vault',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domWorkflows': '工作流',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subWorkflows': '链式 API 调用',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domWorkspaces': '工作空间',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subWorkspaces': '多工作空间',
+  'workbench.docs.diagrams.openHeaders.mcpTools.toolsCount': '{n} 个工具',
+  'workbench.docs.diagrams.openHeaders.mcpTools.toolsCountOne': '1 个工具',
+  'workbench.docs.diagrams.openHeaders.mcpTools.activityTitle': '活动',
+  'workbench.docs.diagrams.openHeaders.mcpTools.activityNote': '变更信息流 —— 代理先看到发生了什么变化，再行动',
+  'workbench.docs.diagrams.openHeaders.mcpTools.verdict': '{n} 个工具 · 七个领域 · Open Headers 的全部能力',
+
+  // ── Open Headers: roadmap milestones ────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.milestones.aria':
+    '里程碑 —— 浏览器窗口中的有序卡片：Git 工作空间、桌面应用、MCP 服务器、本地 daemon、CLI、自托管 Web 应用、' +
+    '导入器 —— 全部已上线。',
+  'workbench.docs.diagrams.openHeaders.milestones.chromeTitle': '每个表面，都已交付',
+  'workbench.docs.diagrams.openHeaders.milestones.addrSubtitle': '按顺序交付 —— 每个里程碑都保持纯本地的产品形态。',
+  'workbench.docs.diagrams.openHeaders.milestones.tagLive': '已上线',
+  'workbench.docs.diagrams.openHeaders.milestones.badgeUserControlled': '用户掌控',
+  'workbench.docs.diagrams.openHeaders.milestones.msGit': '通过 Git 的工作空间协作（团队就绪）',
+  'workbench.docs.diagrams.openHeaders.milestones.descGit': 'YAML 存在你掌控的 Git 仓库 —— 通过 Git 拉取、推送、合并。',
+  'workbench.docs.diagrams.openHeaders.milestones.descDesktop': '同一存储上的原生程序 —— 触达扩展够不到的地方。',
+  'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'MCP 服务器（AI 代理控制）',
+  'workbench.docs.diagrams.openHeaders.milestones.descMcp':
+    '通过 MCP 使用 Open Headers —— 让 AI 代理驱动你的工作空间。',
+  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': '本地 / LAN daemon',
+  'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
+    '你机器或 LAN 上的同步 daemon —— 扩展、桌面、CLI 作为客户端。',
+  'workbench.docs.diagrams.openHeaders.milestones.descCli': '无界面脚本与 CI —— 在 shell 里列出、切换、发送。',
+  'workbench.docs.diagrams.openHeaders.milestones.msVm': '自托管 VM 部署 + Web 应用',
+  'workbench.docs.diagrams.openHeaders.milestones.descVm': '你 VM 上的 Web 包 —— 面向受限浏览器或品牌化部署。',
+  'workbench.docs.diagrams.openHeaders.milestones.msImporters': '更多导入器',
+  'workbench.docs.diagrams.openHeaders.milestones.descImporters':
+    '不止 Postman —— Insomnia、OpenAPI 规格、完整 HAR 导入。',
+  'workbench.docs.diagrams.openHeaders.milestones.footer': '跨用户同步通过 Git 与自托管部署实现 —— 没有厂商托管的云。',
+
+  // ── Open Headers: roadmap web app ───────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.webApp.aria':
+    '路线图里程碑 —— 自托管 Web 应用。你的源站提供同一份 UI 包；用户在你掌控的域名下以浏览器标签页打开。同样的 ' +
+    'Workbench 表面，无需扩展。',
+  'workbench.docs.diagrams.openHeaders.webApp.title': '自托管 VM 部署 + Web 应用',
+  'workbench.docs.diagrams.openHeaders.webApp.subtitle': '你的 VM 提供 Web 包 —— 你的源站、你的域名、你的用户。',
+  'workbench.docs.diagrams.openHeaders.webApp.serves': '提供',
+  'workbench.docs.diagrams.openHeaders.webApp.chromeTitle': 'Open Headers · 网页',
+  'workbench.docs.diagrams.openHeaders.webApp.bodySub': '与扩展 + 桌面同一表面',
+  'workbench.docs.diagrams.openHeaders.webApp.verdict': '同样的 UI · 你的源站 · 无需扩展',
 } as const satisfies Catalog;

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -13,6 +14,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * protocol.
  */
 export const RoadmapMcpArchitectureDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rm-mcp-arch';
   const W = 480;
   const TITLE_Y = 22;
@@ -96,22 +98,22 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — MCP Server architecture. An AI client connects to Open Headers through the Model Context Protocol (stdio for local, HTTP/SSE for remote). The OH MCP server mutates the user's workspace; the result shows up in the Workbench."
+      aria-label={t('workbench.docs.diagrams.openHeaders.mcpArch.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        MCP Server · your workspace, any AI client
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Open Headers speaks Model Context Protocol — any MCP-capable agent can drive your workspace.
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.subtitle')}
       </text>
 
       {/* AI client window */}
       {renderWindow(
         CLIENT_X,
-        'AI client',
-        'your agent',
+        t('workbench.docs.diagrams.openHeaders.mcpArch.clientTitle'),
+        t('workbench.docs.diagrams.openHeaders.mcpArch.clientSideTag'),
         <g>
           <text
             x={CLIENT_X + 12}
@@ -121,7 +123,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
             fill={TEXT_DIM}
             letterSpacing={0.4}
           >
-            ANY MCP CLIENT
+            {t('workbench.docs.diagrams.openHeaders.mcpArch.kickerAnyClient')}
           </text>
           {CLIENTS.map((name, i) => (
             <g key={name}>
@@ -180,7 +182,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
               stdio
             </text>
             <text x={midCx} y={pillY + pillH + 27} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-              local
+              {t('workbench.docs.diagrams.openHeaders.mcpArch.transportLocal')}
             </text>
             <text
               x={midCx}
@@ -193,7 +195,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
               HTTP / SSE
             </text>
             <text x={midCx} y={pillY + pillH + 57} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-              remote
+              {t('workbench.docs.diagrams.openHeaders.mcpArch.transportRemote')}
             </text>
             {/* Out-arrow */}
             <line
@@ -212,8 +214,8 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
       {/* OH MCP Server window */}
       {renderWindow(
         SERVER_X,
-        'OH MCP Server',
-        'open headers',
+        t('workbench.docs.diagrams.openHeaders.mcpArch.serverTitle'),
+        t('workbench.docs.diagrams.openHeaders.mcpArch.sideTagOpenHeaders'),
         <g>
           <text
             x={SERVER_X + 12}
@@ -223,9 +225,15 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
             fill={OH_GREEN}
             letterSpacing={0.4}
           >
-            EXPOSES
+            {t('workbench.docs.diagrams.openHeaders.mcpArch.kickerExposes')}
           </text>
-          {['Rules · CRUD', 'API Requests', 'Environments', 'Variables · Vault', 'Workflows'].map((tool, i) => (
+          {[
+            t('workbench.docs.diagrams.openHeaders.mcpArch.exposeRules'),
+            t('workbench.docs.diagrams.openHeaders.mcpArch.exposeRequests'),
+            t('workbench.docs.diagrams.openHeaders.mcpArch.exposeEnvironments'),
+            t('workbench.docs.diagrams.openHeaders.mcpArch.exposeVariables'),
+            t('workbench.docs.diagrams.openHeaders.mcpArch.exposeWorkflows'),
+          ].map((tool, i) => (
             <g key={tool}>
               <circle cx={SERVER_X + 14} cy={NODE_Y + CHROME_H + 32 + i * 16} r={2} fill={OH_GREEN} />
               <text x={SERVER_X + 22} y={NODE_Y + CHROME_H + 35 + i * 16} fontSize={10} fontWeight={600} fill={TEXT}>
@@ -255,7 +263,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
         fontWeight={700}
         fill={OH_GREEN}
       >
-        mutates
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.mutates')}
       </text>
 
       {/* Workbench card */}
@@ -282,7 +290,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
       <circle cx={WB_X + 24} cy={WB_Y + CHROME_H / 2} r={4} fill="#febc2e" />
       <circle cx={WB_X + 36} cy={WB_Y + CHROME_H / 2} r={4} fill="#28c840" />
       <text x={WB_X + 50} y={WB_Y + CHROME_H / 2 + 4} fontSize={10} fontWeight={700} fill={TEXT}>
-        Workbench · your workspace
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.wbTitle')}
       </text>
       <text
         x={WB_X + WB_W - 10}
@@ -292,7 +300,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        live
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.wbLive')}
       </text>
       {/* Workspace contents row */}
       <rect
@@ -305,7 +313,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
         stroke={STROKE_BLUE}
       />
       <text x={WB_X + WB_W / 2} y={WB_Y + CHROME_H + 26} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        rules · environments · variables · workflows · vault
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.wbContents')}
       </text>
 
       {/* Verdict */}
@@ -320,7 +328,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        Drive your workspace with any AI agent · local or remote
+        {t('workbench.docs.diagrams.openHeaders.mcpArch.verdict')}
       </text>
     </svg>
   );

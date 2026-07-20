@@ -1334,4 +1334,100 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.roadmapImporters.targetEnvironments': 'Environments',
   'workbench.docs.diagrams.openHeaders.roadmapImporters.targetVault': 'Vault entries',
   'workbench.docs.diagrams.openHeaders.roadmapImporters.verdict': 'Bring it across in one step — keep working',
+
+  // ── Open Headers: roadmap MCP architecture ──────────────────────────
+  'workbench.docs.diagrams.openHeaders.mcpArch.aria':
+    'Roadmap milestone — MCP Server architecture. An AI client connects to Open Headers through the Model Context ' +
+    "Protocol (stdio for local, HTTP/SSE for remote). The OH MCP server mutates the user's workspace; the result " +
+    'shows up in the Workbench.',
+  'workbench.docs.diagrams.openHeaders.mcpArch.title': 'MCP Server · your workspace, any AI client',
+  'workbench.docs.diagrams.openHeaders.mcpArch.subtitle':
+    'Open Headers speaks Model Context Protocol — any MCP-capable agent can drive your workspace.',
+  'workbench.docs.diagrams.openHeaders.mcpArch.clientTitle': 'AI client',
+  'workbench.docs.diagrams.openHeaders.mcpArch.clientSideTag': 'your agent',
+  'workbench.docs.diagrams.openHeaders.mcpArch.kickerAnyClient': 'ANY MCP CLIENT',
+  'workbench.docs.diagrams.openHeaders.mcpArch.serverTitle': 'OH MCP Server',
+  'workbench.docs.diagrams.openHeaders.mcpArch.sideTagOpenHeaders': 'open headers',
+  'workbench.docs.diagrams.openHeaders.mcpArch.kickerExposes': 'EXPOSES',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeRules': 'Rules · CRUD',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeRequests': 'API Requests',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeEnvironments': 'Environments',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeVariables': 'Variables · Vault',
+  'workbench.docs.diagrams.openHeaders.mcpArch.exposeWorkflows': 'Workflows',
+  'workbench.docs.diagrams.openHeaders.mcpArch.transportLocal': 'local',
+  'workbench.docs.diagrams.openHeaders.mcpArch.transportRemote': 'remote',
+  'workbench.docs.diagrams.openHeaders.mcpArch.mutates': 'mutates',
+  'workbench.docs.diagrams.openHeaders.mcpArch.wbTitle': 'Workbench · your workspace',
+  'workbench.docs.diagrams.openHeaders.mcpArch.wbLive': 'live',
+  'workbench.docs.diagrams.openHeaders.mcpArch.wbContents': 'rules · environments · variables · workflows · vault',
+  'workbench.docs.diagrams.openHeaders.mcpArch.verdict': 'Drive your workspace with any AI agent · local or remote',
+
+  // ── Open Headers: roadmap MCP tools ─────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.mcpTools.aria':
+    'Roadmap milestone — MCP Server tools catalog. Seven domains exposing {n} tools total: rules, requests, ' +
+    'environments, variables, workflows, workspaces, activity.',
+  'workbench.docs.diagrams.openHeaders.mcpTools.title': 'What the AI agent can do',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subtitle':
+    "Seven domains — full CRUD where it makes sense, scoped read-only where it doesn't.",
+  'workbench.docs.diagrams.openHeaders.mcpTools.domRules': 'Rules',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subRules': 'header · block · redirect · response',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domRequests': 'Requests',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subRequests': 'API Catalog',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domEnvironments': 'Environments',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subEnvironments': 'per workspace',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domVariables': 'Variables',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subVariables': 'all scopes · vault',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domWorkflows': 'Workflows',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subWorkflows': 'chained API calls',
+  'workbench.docs.diagrams.openHeaders.mcpTools.domWorkspaces': 'Workspaces',
+  'workbench.docs.diagrams.openHeaders.mcpTools.subWorkspaces': 'multi-workspace',
+  'workbench.docs.diagrams.openHeaders.mcpTools.toolsCount': '{n} TOOLS',
+  'workbench.docs.diagrams.openHeaders.mcpTools.toolsCountOne': '1 TOOL',
+  'workbench.docs.diagrams.openHeaders.mcpTools.activityTitle': 'Activity',
+  'workbench.docs.diagrams.openHeaders.mcpTools.activityNote':
+    'the change feed — an agent sees what changed before acting',
+  'workbench.docs.diagrams.openHeaders.mcpTools.verdict': '{n} tools · seven domains · the full Open Headers surface',
+
+  // ── Open Headers: roadmap milestones ────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.milestones.aria':
+    'Milestones — ordered cards inside a browser-window frame: Git workspaces, desktop app, MCP server, local ' +
+    'daemon, CLI, self-hosted web app, importers — all live.',
+  'workbench.docs.diagrams.openHeaders.milestones.chromeTitle': 'Every surface, shipped',
+  'workbench.docs.diagrams.openHeaders.milestones.addrSubtitle':
+    'Shipped in sequence — local-only stayed the product through every milestone.',
+  'workbench.docs.diagrams.openHeaders.milestones.tagLive': 'LIVE',
+  'workbench.docs.diagrams.openHeaders.milestones.badgeUserControlled': 'USER-CONTROLLED',
+  'workbench.docs.diagrams.openHeaders.milestones.msGit': 'Workspace collaboration via Git (Team-ready)',
+  'workbench.docs.diagrams.openHeaders.milestones.descGit':
+    'YAML in a Git repo you control — pull, push, merge via Git.',
+  'workbench.docs.diagrams.openHeaders.milestones.descDesktop':
+    "Native binary on the same store — reaches what an extension can't.",
+  'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'MCP Server (AI agent control)',
+  'workbench.docs.diagrams.openHeaders.milestones.descMcp':
+    'Open Headers over MCP — let an AI agent drive your workspace.',
+  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Local / LAN daemon',
+  'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
+    'Sync daemon on your machine or LAN — extension, desktop, CLI as clients.',
+  'workbench.docs.diagrams.openHeaders.milestones.descCli':
+    'Headless scripting and CI — list, toggle, send from the shell.',
+  'workbench.docs.diagrams.openHeaders.milestones.msVm': 'Self-hosted VM deployment + Web App',
+  'workbench.docs.diagrams.openHeaders.milestones.descVm':
+    'Web bundle on your VM — locked-down browsers or branded deploys.',
+  'workbench.docs.diagrams.openHeaders.milestones.msImporters': 'More importers',
+  'workbench.docs.diagrams.openHeaders.milestones.descImporters':
+    'Beyond Postman — Insomnia, OpenAPI specs, full HAR imports.',
+  'workbench.docs.diagrams.openHeaders.milestones.footer':
+    'Cross-user sync ships through Git and self-hosted deployments — no vendor-hosted cloud.',
+
+  // ── Open Headers: roadmap web app ───────────────────────────────────
+  'workbench.docs.diagrams.openHeaders.webApp.aria':
+    'Roadmap milestone — Self-hosted web app. Your origin serves the same UI bundle; users open it as a browser ' +
+    'tab on a domain you control. Same Workbench surface, no extension required.',
+  'workbench.docs.diagrams.openHeaders.webApp.title': 'Self-hosted VM deployment + Web App',
+  'workbench.docs.diagrams.openHeaders.webApp.subtitle':
+    'Your VM serves the web bundle — your origin, your domain, your users.',
+  'workbench.docs.diagrams.openHeaders.webApp.serves': 'serves',
+  'workbench.docs.diagrams.openHeaders.webApp.chromeTitle': 'Open Headers · web',
+  'workbench.docs.diagrams.openHeaders.webApp.bodySub': 'same surface as extension + desktop',
+  'workbench.docs.diagrams.openHeaders.webApp.verdict': 'Same UI · your origin · no extension required',
 } as const satisfies Catalog;

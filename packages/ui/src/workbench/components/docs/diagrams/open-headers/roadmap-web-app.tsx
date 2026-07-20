@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
@@ -11,6 +12,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * desktop. The point: same UI, your origin, your domain.
  */
 export const RoadmapWebAppDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rm-web';
   const W = 480;
   const TITLE_Y = 22;
@@ -39,15 +41,15 @@ export const RoadmapWebAppDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Roadmap milestone — Self-hosted web app. Your origin serves the same UI bundle; users open it as a browser tab on a domain you control. Same Workbench surface, no extension required."
+      aria-label={t('workbench.docs.diagrams.openHeaders.webApp.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Self-hosted VM deployment + Web App
+        {t('workbench.docs.diagrams.openHeaders.webApp.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Your VM serves the web bundle — your origin, your domain, your users.
+        {t('workbench.docs.diagrams.openHeaders.webApp.subtitle')}
       </text>
 
       {/* Your origin / server */}
@@ -70,7 +72,7 @@ export const RoadmapWebAppDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Your VM
+        {t('workbench.docs.diagrams.openHeaders.shared.yourVm')}
       </text>
       {[{ label: 'index.html' }, { label: 'assets/*' }, { label: 'sw.js' }].map((f, i) => (
         <g key={f.label}>
@@ -116,7 +118,7 @@ export const RoadmapWebAppDiagram: React.FC = () => {
         fontWeight={700}
         fill={OH_GREEN}
       >
-        serves
+        {t('workbench.docs.diagrams.openHeaders.webApp.serves')}
       </text>
 
       {/* Browser window */}
@@ -151,7 +153,7 @@ export const RoadmapWebAppDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Open Headers · web
+        {t('workbench.docs.diagrams.openHeaders.webApp.chromeTitle')}
       </text>
       {/* Address bar */}
       <rect
@@ -199,7 +201,7 @@ export const RoadmapWebAppDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Workbench
+        {t('workbench.docs.diagrams.openHeaders.shared.workbench')}
       </text>
       <text
         x={BROWSER_X + BROWSER_W / 2}
@@ -209,7 +211,7 @@ export const RoadmapWebAppDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        same surface as extension + desktop
+        {t('workbench.docs.diagrams.openHeaders.webApp.bodySub')}
       </text>
 
       {/* Verdict */}
@@ -224,7 +226,7 @@ export const RoadmapWebAppDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        Same UI · your origin · no extension required
+        {t('workbench.docs.diagrams.openHeaders.webApp.verdict')}
       </text>
     </svg>
   );

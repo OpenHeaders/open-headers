@@ -1,6 +1,12 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN, OH_GREEN_TINT } from './_shared';
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven strips.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Roadmap — MCP Server (tools catalog).
@@ -11,6 +17,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  * Numbers in the card header give a quick "how big" signal.
  */
 export const RoadmapMcpToolsDiagram: React.FC = () => {
+  const t = useT();
   const W = 480;
   const TITLE_Y = 22;
   const SUBTITLE_Y = 40;
@@ -26,15 +33,35 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
   type Domain = { name: string; sub: string; tools: string[] };
   const DOMAINS: Domain[] = [
     {
-      name: 'Rules',
-      sub: 'header · block · redirect · response',
+      name: t('workbench.docs.diagrams.openHeaders.mcpTools.domRules'),
+      sub: t('workbench.docs.diagrams.openHeaders.mcpTools.subRules'),
       tools: ['list', 'get', 'create', 'update', 'toggle', 'delete'],
     },
-    { name: 'Requests', sub: 'API Catalog', tools: ['list', 'get', 'save', 'send', 'import'] },
-    { name: 'Environments', sub: 'per workspace', tools: ['list', 'create', 'edit', 'switch'] },
-    { name: 'Variables', sub: 'all scopes · vault', tools: ['list', 'set', 'reveal-secret'] },
-    { name: 'Workflows', sub: 'chained API calls', tools: ['list', 'save', 'run', 'history'] },
-    { name: 'Workspaces', sub: 'multi-workspace', tools: ['list', 'create', 'switch', 'diff'] },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.mcpTools.domRequests'),
+      sub: t('workbench.docs.diagrams.openHeaders.mcpTools.subRequests'),
+      tools: ['list', 'get', 'save', 'send', 'import'],
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.mcpTools.domEnvironments'),
+      sub: t('workbench.docs.diagrams.openHeaders.mcpTools.subEnvironments'),
+      tools: ['list', 'create', 'edit', 'switch'],
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.mcpTools.domVariables'),
+      sub: t('workbench.docs.diagrams.openHeaders.mcpTools.subVariables'),
+      tools: ['list', 'set', 'reveal-secret'],
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.mcpTools.domWorkflows'),
+      sub: t('workbench.docs.diagrams.openHeaders.mcpTools.subWorkflows'),
+      tools: ['list', 'save', 'run', 'history'],
+    },
+    {
+      name: t('workbench.docs.diagrams.openHeaders.mcpTools.domWorkspaces'),
+      sub: t('workbench.docs.diagrams.openHeaders.mcpTools.subWorkspaces'),
+      tools: ['list', 'create', 'switch', 'diff'],
+    },
   ];
 
   // Seventh domain — the change feed gets a full-width strip instead of
@@ -80,7 +107,7 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
           fill={OH_GREEN}
           letterSpacing={0.4}
         >
-          {d.tools.length} TOOLS
+          {t('workbench.docs.diagrams.openHeaders.mcpTools.toolsCount', { n: d.tools.length })}
         </text>
         <text x={x + 10} y={y + 24} fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
           {d.sub}
@@ -132,13 +159,13 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label={`Roadmap milestone — MCP Server tools catalog. Seven domains exposing ${TOTAL_TOOLS} tools total: rules, requests, environments, variables, workflows, workspaces, activity.`}
+      aria-label={t('workbench.docs.diagrams.openHeaders.mcpTools.aria', { n: TOTAL_TOOLS })}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        What the AI agent can do
+        {t('workbench.docs.diagrams.openHeaders.mcpTools.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Seven domains — full CRUD where it makes sense, scoped read-only where it doesn't.
+        {t('workbench.docs.diagrams.openHeaders.mcpTools.subtitle')}
       </text>
 
       {DOMAINS.map((d, i) => renderCard(d, i % COLS, Math.floor(i / COLS)))}
@@ -154,18 +181,40 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
         stroke={STROKE_BLUE}
         strokeWidth={1.2}
       />
-      <text x={PAD + 10} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={11} fontWeight={700} fill={TEXT}>
-        Activity
-      </text>
-      <text x={PAD + 62} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontFamily="monospace" fontSize={9.5} fontWeight={700} fill={OH_GREEN}>
-        ›
-      </text>
-      <text x={PAD + 72} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontFamily="monospace" fontSize={9.5} fontWeight={600} fill={TEXT}>
-        list
-      </text>
-      <text x={PAD + 110} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
-        the change feed — an agent sees what changed before acting
-      </text>
+      {(() => {
+        const label = t('workbench.docs.diagrams.openHeaders.mcpTools.activityTitle');
+        const arrowX = PAD + 10 + Math.round(unitLen(label) * 5.75) + 6;
+        return (
+          <g>
+            <text x={PAD + 10} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={11} fontWeight={700} fill={TEXT}>
+              {label}
+            </text>
+            <text
+              x={arrowX}
+              y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5}
+              fontFamily="monospace"
+              fontSize={9.5}
+              fontWeight={700}
+              fill={OH_GREEN}
+            >
+              ›
+            </text>
+            <text
+              x={arrowX + 10}
+              y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5}
+              fontFamily="monospace"
+              fontSize={9.5}
+              fontWeight={600}
+              fill={TEXT}
+            >
+              list
+            </text>
+            <text x={arrowX + 48} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
+              {t('workbench.docs.diagrams.openHeaders.mcpTools.activityNote')}
+            </text>
+          </g>
+        );
+      })()}
       <text
         x={W - PAD - 10}
         y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5}
@@ -175,7 +224,7 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
         fill={OH_GREEN}
         letterSpacing={0.4}
       >
-        1 TOOL
+        {t('workbench.docs.diagrams.openHeaders.mcpTools.toolsCountOne')}
       </text>
 
       {/* Verdict */}
@@ -190,7 +239,7 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        {TOTAL_TOOLS} tools · seven domains · the full Open Headers surface
+        {t('workbench.docs.diagrams.openHeaders.mcpTools.verdict', { n: TOTAL_TOOLS })}
       </text>
     </svg>
   );
