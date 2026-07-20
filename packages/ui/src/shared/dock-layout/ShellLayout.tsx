@@ -277,36 +277,41 @@ function ShellLayoutInner<T extends string>({
   // first paint is laid out at the correct sizes — without these,
   // Allotment renders panes at 0 until its internal ResizeObserver
   // fires (one frame later), which is the source of the alignment-
-  // toggle flash. Computed from the live shell measurement and the
-  // host's responsive `sizes`. When the shell hasn't been measured
-  // yet (very first render) we fall back to the configured preferred
-  // sizes, which still produces a deterministic layout.
+  // toggle flash. ALWAYS computed from the live shell measurement:
+  // Allotment captures defaultSizes once at mount and derives a hidden
+  // pane's visibility-restore size from them, so defaults minted
+  // against a guessed container permanently warp the bottom panel's
+  // first-open height. The alignment trees therefore mount only after
+  // the shell has been measured (`shellMeasured` below) — one
+  // pre-paint frame on the very first render, and already live by the
+  // time any alignment toggle remounts a keyed variant.
+  const shellMeasured = shellSize.height > 0 && shellSize.width > 0;
   const verticalDefaults: [number, number] = [
-    Math.max(0, (shellSize.height || 1000) - sizes.bottom.preferred),
+    Math.max(0, shellSize.height - sizes.bottom.preferred),
     sizes.bottom.preferred,
   ];
   const innerHorizDefaults: [number, number, number] = [
     sizes.sidebar.preferred,
     Math.max(
       sizes.editorMin,
-      (shellSize.width || 1200) - sizes.sidebar.preferred - sizes.inspector.preferred - 2 * BAR_LABELED_MIN,
+      shellSize.width - sizes.sidebar.preferred - sizes.inspector.preferred - 2 * BAR_LABELED_MIN,
     ),
     sizes.inspector.preferred,
   ];
   const leftAlignOuterDefaults: [number, number] = [
-    Math.max(sizes.editorMin, (shellSize.width || 1200) - sizes.inspector.preferred - 2 * BAR_LABELED_MIN),
+    Math.max(sizes.editorMin, shellSize.width - sizes.inspector.preferred - 2 * BAR_LABELED_MIN),
     sizes.inspector.preferred,
   ];
   const leftAlignInnerHorizDefaults: [number, number] = [
     sizes.sidebar.preferred,
-    Math.max(sizes.editorMin, (shellSize.width || 1200) - sizes.sidebar.preferred - sizes.inspector.preferred),
+    Math.max(sizes.editorMin, shellSize.width - sizes.sidebar.preferred - sizes.inspector.preferred),
   ];
   const rightAlignOuterDefaults: [number, number] = [
     sizes.sidebar.preferred,
-    Math.max(sizes.editorMin, (shellSize.width || 1200) - sizes.sidebar.preferred - 2 * BAR_LABELED_MIN),
+    Math.max(sizes.editorMin, shellSize.width - sizes.sidebar.preferred - 2 * BAR_LABELED_MIN),
   ];
   const rightAlignInnerHorizDefaults: [number, number] = [
-    Math.max(sizes.editorMin, (shellSize.width || 1200) - sizes.sidebar.preferred - sizes.inspector.preferred),
+    Math.max(sizes.editorMin, shellSize.width - sizes.sidebar.preferred - sizes.inspector.preferred),
     sizes.inspector.preferred,
   ];
 
@@ -518,7 +523,7 @@ function ShellLayoutInner<T extends string>({
         className={`rules-main rules-main--layout-${sidebarLayout} rules-main--bottom-${effectiveAlignment}`}
         ref={shellRef}
       >
-        {mainRow}
+        {shellMeasured ? mainRow : null}
         <DropZoneOverlay
           visible={draggingId !== null}
           rects={dropZoneRects}
