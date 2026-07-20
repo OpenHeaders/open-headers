@@ -1,6 +1,7 @@
 {
-  "name": "Open Headers",
-  "description": "Your existing Web DevToolkit, inside a browser extension. Modify live browser requests. Manage API Collections. Team Collaboration.",
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDesc__",
+  "default_locale": "en",
   "version": "0.0.0",
   "manifest_version": 3,
   "author": "Open Headers",

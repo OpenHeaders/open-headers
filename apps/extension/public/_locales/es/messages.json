@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "Tu DevToolkit web en una extensión de navegador. Modifica solicitudes en vivo. Gestiona colecciones de API. Colaboración en equipo."
+  }
+}

@@ -184,10 +184,25 @@ test.describe('Extension Assets', () => {
     expect(text).toBeTruthy();
 
     const manifest = JSON.parse(text!);
-    expect(manifest.name).toBe('Open Headers');
+    expect(manifest.name).toBe('__MSG_extName__');
+    expect(manifest.default_locale).toBe('en');
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
 
     await manifestPage.close();
+  });
+
+  test('default-locale messages resolve the manifest placeholders', async () => {
+    const messagesPage = await context.newPage();
+    await messagesPage.goto(`chrome-extension://${extensionId}/_locales/en/messages.json`);
+
+    const text = await messagesPage.textContent('body');
+    expect(text).toBeTruthy();
+
+    const messages = JSON.parse(text!);
+    expect(messages.extName.message).toBe('Open Headers');
+    expect(messages.extDesc.message.length).toBeLessThanOrEqual(132);
+
+    await messagesPage.close();
   });
 });
