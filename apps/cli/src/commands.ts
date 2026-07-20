@@ -161,6 +161,32 @@ export async function commandChannel(argv: readonly string[]): Promise<string[]>
   return [`channel set to ${next}`, `saved to ${configPath}`];
 }
 
+/**
+ * `oh autoupdate [on|off]` — show or persist background self-update
+ * (`DISTRIBUTION_PLAN.md` §5). Absent = on. Only applies to binary
+ * installs the CLI owns itself; package-manager installs (npm, brew,
+ * system) never auto-update regardless of this switch.
+ */
+export async function commandAutoUpdate(argv: readonly string[]): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv, {});
+  if (positionals.length > 1) throw new UsageError(`unexpected argument: ${positionals[1]}`);
+  const configPath = cliConfigPath();
+  const existing = await readCliConfig(configPath);
+  const [next] = positionals;
+  if (next === undefined) {
+    const enabled = existing.autoUpdate !== false;
+    return values.json === true ? [JSON.stringify({ autoUpdate: enabled }, null, 2)] : [enabled ? 'on' : 'off'];
+  }
+  if (next !== 'on' && next !== 'off') {
+    throw new UsageError('usage: oh autoupdate [on|off]');
+  }
+  // Merge over the existing file — autoupdate owns only its own key,
+  // same law as channel and connect.
+  await writeCliConfig(configPath, { ...existing, autoUpdate: next === 'on' });
+  if (values.json === true) return [JSON.stringify({ autoUpdate: next === 'on' }, null, 2)];
+  return [`auto-update turned ${next}`, `saved to ${configPath}`];
+}
+
 export async function commandConnect(argv: readonly string[]): Promise<string[]> {
   const { values, positionals } = parseCommandArgs(argv, {});
   if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);

@@ -33,6 +33,8 @@ function buildTree(): CommandTree {
   // complete at the second word, `--json` afterwards.
   verbs.set('channel', ['stable', 'beta']);
   flags.set('channel', ['--json']);
+  verbs.set('autoupdate', ['on', 'off']);
+  flags.set('autoupdate', ['--json']);
   flags.set('upgrade', ['--channel', '--json']);
 
   for (const spec of READ_COMMANDS) {

@@ -98,7 +98,8 @@ function parseCache(raw: unknown): UpdateCheckCache | null {
   };
 }
 
-async function readCache(cachePath: string): Promise<UpdateCheckCache | null> {
+/** Last successful feed read, or null on any miss — shared with auto-upgrade's trigger. */
+export async function readUpdateCheckCache(cachePath: string): Promise<UpdateCheckCache | null> {
   try {
     return parseCache(JSON.parse(await readFile(cachePath, 'utf8')));
   } catch {
@@ -187,7 +188,7 @@ export async function bootUpdateNotify(argv: readonly string[], deps: UpdateNoti
     }
 
     const now = deps.now ?? Date.now;
-    const cache = await readCache(cachePath);
+    const cache = await readUpdateCheckCache(cachePath);
     const at = now();
     const fresh =
       cache !== null && cache.channel === channel && at >= cache.checkedAt && at - cache.checkedAt < CHECK_INTERVAL_MS;

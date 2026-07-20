@@ -9,8 +9,16 @@
  * protocol constants.
  */
 
+import { maybeSpawnAutoUpgrade } from './auto-upgrade';
 import type { CommandSpec } from './command-spec';
-import { commandChannel, commandConnect, commandStatus, runReadCommand, runToolCommand } from './commands';
+import {
+  commandAutoUpdate,
+  commandChannel,
+  commandConnect,
+  commandStatus,
+  runReadCommand,
+  runToolCommand,
+} from './commands';
 import { completionScript } from './completions';
 import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, TOKEN_ENV } from './connection';
 import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
@@ -48,6 +56,7 @@ Commands:
   connect --token <secret>      Validate and save the daemon URL + token for later runs
   channel [stable|beta]         Show or set the release line version checks follow
   upgrade [--channel <line>]    Download and install the newest release of this binary
+  autoupdate [on|off]           Show or set background self-update (binary installs only; default on)
   completion bash|zsh           Print a shell completion script (source it from your profile)
   tui                           Open the terminal dashboard (early preview)
 ${readLines.join('\n')}
@@ -88,7 +97,13 @@ async function main(): Promise<void> {
   // stderr.write, not console.error: bun paints console.error red on a
   // TTY, which would make the normal availability line loud by accident.
   const updateNotify = await bootUpdateNotify(argv);
-  if (updateNotify.line !== null) process.stderr.write(`${updateNotify.line}\n`);
+  // Background self-update: when the daily cache shows a newer release
+  // on a self-managed binary install, a detached `oh upgrade` swaps the
+  // binary behind this command and the NEXT invocation launches the new
+  // version. Its in-progress line replaces the "run: oh upgrade" nudge;
+  // both print only under the notify line's TTY/flag gates.
+  const autoUpgradeLine = await maybeSpawnAutoUpgrade(argv);
+  if (updateNotify.line !== null) process.stderr.write(`${autoUpgradeLine ?? updateNotify.line}\n`);
   try {
     await runCommand(argv, first);
   } finally {
@@ -127,6 +142,8 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
     lines = await commandConnect(argv.slice(1));
   } else if (first === 'channel') {
     lines = await commandChannel(argv.slice(1));
+  } else if (first === 'autoupdate') {
+    lines = await commandAutoUpdate(argv.slice(1));
   } else if (first === 'upgrade') {
     lines = await commandUpgrade(argv.slice(1));
   } else {
