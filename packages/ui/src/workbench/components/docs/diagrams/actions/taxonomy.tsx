@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 
 /**
@@ -10,35 +11,72 @@ import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } fr
  * "how it executes" at the same glance.
  */
 export const ActionsTaxonomyDiagram: React.FC = () => {
+  const t = useT();
   type Action = { name: string; sub: string; engine: 'dnr' | 'script' };
   type Category = { title: string; sub: string; actions: Action[] };
 
   const CATEGORIES: Category[] = [
     {
-      title: 'Modify Request',
-      sub: 'before it leaves the browser',
+      title: t('workbench.docs.diagrams.actions.taxonomy.catModifyRequest'),
+      sub: t('workbench.docs.diagrams.actions.taxonomy.catModifyRequestSub'),
       actions: [
-        { name: 'Header Actions', sub: 'Add · Append · Remove · Merge', engine: 'dnr' },
-        { name: 'Block', sub: 'cancel at the network layer', engine: 'dnr' },
-        { name: 'Redirect', sub: 'static URL or regex', engine: 'dnr' },
-        { name: 'Query Params', sub: 'add · replace · remove', engine: 'dnr' },
-        { name: 'Request Body', sub: 'static · dynamic · GraphQL', engine: 'script' },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameHeaderActions'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subHeaderOps'),
+          engine: 'dnr',
+        },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameBlock'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subBlock'),
+          engine: 'dnr',
+        },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameRedirect'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subRedirect'),
+          engine: 'dnr',
+        },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameQueryParams'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subQueryParams'),
+          engine: 'dnr',
+        },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameRequestBody'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subRequestBody'),
+          engine: 'script',
+        },
       ],
     },
     {
-      title: 'Modify Response',
-      sub: 'before the page sees it',
+      title: t('workbench.docs.diagrams.actions.taxonomy.catModifyResponse'),
+      sub: t('workbench.docs.diagrams.actions.taxonomy.catModifyResponseSub'),
       actions: [
-        { name: 'Header Actions', sub: 'response-side headers', engine: 'dnr' },
-        { name: 'Response Body', sub: 'mock body · status · headers', engine: 'script' },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameHeaderActions'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subHeaderResponse'),
+          engine: 'dnr',
+        },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameResponseBody'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subResponseBody'),
+          engine: 'script',
+        },
       ],
     },
     {
-      title: 'Run Code',
-      sub: 'inside the page or its scheduler',
+      title: t('workbench.docs.diagrams.actions.taxonomy.catRunCode'),
+      sub: t('workbench.docs.diagrams.actions.taxonomy.catRunCodeSub'),
       actions: [
-        { name: 'Inject JS / CSS', sub: 'pre-page-script or after DOM', engine: 'script' },
-        { name: 'Delay', sub: 'navigations + fetch / XHR', engine: 'script' },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameInject'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subInject'),
+          engine: 'script',
+        },
+        {
+          name: t('workbench.docs.diagrams.actions.taxonomy.nameDelay'),
+          sub: t('workbench.docs.diagrams.actions.taxonomy.subDelay'),
+          engine: 'script',
+        },
       ],
     },
   ];
@@ -68,13 +106,13 @@ export const ActionsTaxonomyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 600 }}
       role="img"
-      aria-label="Actions taxonomy — three categories (Modify Request, Modify Response, Run Code) listing every action with its execution engine (DNR or Script)."
+      aria-label={t('workbench.docs.diagrams.actions.taxonomy.aria')}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        Actions — by category
+        {t('workbench.docs.diagrams.actions.taxonomy.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Every action belongs to one of three categories. The engine tag tells you where it executes.
+        {t('workbench.docs.diagrams.actions.taxonomy.subtitle')}
       </text>
 
       {CATEGORIES.map((cat, ci) => {
@@ -189,7 +227,7 @@ export const ActionsTaxonomyDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Pick a category · pick an action · pair it with conditions
+        {t('workbench.docs.diagrams.actions.taxonomy.verdict')}
       </text>
     </svg>
   );

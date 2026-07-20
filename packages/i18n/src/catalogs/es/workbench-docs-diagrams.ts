@@ -530,4 +530,66 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.urlRegex.footerUsePrefix': 'Usa ',
   'workbench.docs.diagrams.conditions.urlRegex.footerMid': ' — el ',
   'workbench.docs.diagrams.conditions.urlRegex.footerEnd': ' hace opcional la s.',
+
+  // ── Actions: rule anatomy ───────────────────────────────────────────
+  'workbench.docs.diagrams.actions.ruleAnatomy.aria':
+    'Anatomía de una regla — una solicitud HTTP saliente se compara con las condiciones de la regla (unidas por ' +
+    'AND); si todas coinciden, la acción modifica la solicitud antes de que salga del navegador.',
+  'workbench.docs.diagrams.actions.ruleAnatomy.title': 'Una regla = Condiciones + Acción',
+  'workbench.docs.diagrams.actions.ruleAnatomy.subtitle':
+    'Las condiciones deciden si la regla se dispara. La acción decide qué cambia.',
+  'workbench.docs.diagrams.actions.ruleAnatomy.outgoingRequest': 'Solicitud saliente',
+  'workbench.docs.diagrams.actions.ruleAnatomy.sideBefore': 'antes',
+  'workbench.docs.diagrams.actions.ruleAnatomy.sideAfter': 'después',
+  'workbench.docs.diagrams.actions.ruleAnatomy.addedTag': 'AÑADIDO',
+  'workbench.docs.diagrams.actions.ruleAnatomy.arrowCheck': 'comprobar',
+  'workbench.docs.diagrams.actions.ruleAnatomy.arrowApply': 'aplicar',
+  'workbench.docs.diagrams.actions.ruleAnatomy.ruleLabel': 'Regla',
+  'workbench.docs.diagrams.actions.ruleAnatomy.editorEntity': 'entidad del editor',
+  'workbench.docs.diagrams.actions.ruleAnatomy.conditionsKicker': 'CONDICIONES',
+  'workbench.docs.diagrams.actions.ruleAnatomy.actionKicker': 'ACCIÓN',
+  'workbench.docs.diagrams.actions.ruleAnatomy.condMethods': 'Métodos',
+  'workbench.docs.diagrams.actions.ruleAnatomy.condRequestDomains': 'Dominios de solicitud',
+  'workbench.docs.diagrams.actions.ruleAnatomy.condHeaders': 'Encabezados',
+  'workbench.docs.diagrams.actions.ruleAnatomy.allMustMatch': 'TODAS DEBEN COINCIDIR (AND)',
+  'workbench.docs.diagrams.actions.ruleAnatomy.onePerRule': 'una por regla',
+  'workbench.docs.diagrams.actions.ruleAnatomy.actionCard': 'Encabezado · Añadir',
+  'workbench.docs.diagrams.actions.ruleAnatomy.actionValue': 'Bearer abc123…',
+  'workbench.docs.diagrams.actions.ruleAnatomy.categoryLine': 'categoría: Modificar la solicitud',
+  'workbench.docs.diagrams.actions.ruleAnatomy.verdictConditions': 'Condiciones filtran',
+  'workbench.docs.diagrams.actions.ruleAnatomy.verdictAction': 'acción transforma',
+  'workbench.docs.diagrams.actions.ruleAnatomy.verdictResult': 'solicitud sale modificada',
+
+  // ── Actions: taxonomy ───────────────────────────────────────────────
+  'workbench.docs.diagrams.actions.taxonomy.aria':
+    'Taxonomía de acciones — tres categorías (Modificar la solicitud, Modificar la respuesta, Ejecutar código) ' +
+    'que listan cada acción con su motor de ejecución (DNR o Script).',
+  'workbench.docs.diagrams.actions.taxonomy.title': 'Acciones — por categoría',
+  'workbench.docs.diagrams.actions.taxonomy.subtitle':
+    'Cada acción pertenece a una de las tres categorías. La etiqueta del motor indica dónde se ejecuta.',
+  'workbench.docs.diagrams.actions.taxonomy.catModifyRequest': 'Modificar la solicitud',
+  'workbench.docs.diagrams.actions.taxonomy.catModifyRequestSub': 'antes de que salga del navegador',
+  'workbench.docs.diagrams.actions.taxonomy.catModifyResponse': 'Modificar la respuesta',
+  'workbench.docs.diagrams.actions.taxonomy.catModifyResponseSub': 'antes de que la página la vea',
+  'workbench.docs.diagrams.actions.taxonomy.catRunCode': 'Ejecutar código',
+  'workbench.docs.diagrams.actions.taxonomy.catRunCodeSub': 'en la página o su planificador',
+  'workbench.docs.diagrams.actions.taxonomy.nameHeaderActions': 'Acciones de encabezado',
+  'workbench.docs.diagrams.actions.taxonomy.subHeaderOps': 'Añadir · Anexar · Quitar · Fusionar',
+  'workbench.docs.diagrams.actions.taxonomy.nameBlock': 'Bloquear',
+  'workbench.docs.diagrams.actions.taxonomy.subBlock': 'cancelar en la capa de red',
+  'workbench.docs.diagrams.actions.taxonomy.nameRedirect': 'Redirigir',
+  'workbench.docs.diagrams.actions.taxonomy.subRedirect': 'URL estática o regex',
+  'workbench.docs.diagrams.actions.taxonomy.nameQueryParams': 'Parámetros de consulta',
+  'workbench.docs.diagrams.actions.taxonomy.subQueryParams': 'añadir · reemplazar · quitar',
+  'workbench.docs.diagrams.actions.taxonomy.nameRequestBody': 'Cuerpo de solicitud',
+  'workbench.docs.diagrams.actions.taxonomy.subRequestBody': 'estático · dinámico · GraphQL',
+  'workbench.docs.diagrams.actions.taxonomy.subHeaderResponse': 'encabezados de respuesta',
+  'workbench.docs.diagrams.actions.taxonomy.nameResponseBody': 'Cuerpo de respuesta',
+  'workbench.docs.diagrams.actions.taxonomy.subResponseBody': 'cuerpo/estado/encabezados simulados',
+  'workbench.docs.diagrams.actions.taxonomy.nameInject': 'Inyectar JS / CSS',
+  'workbench.docs.diagrams.actions.taxonomy.subInject': 'antes de los scripts o tras el DOM',
+  'workbench.docs.diagrams.actions.taxonomy.nameDelay': 'Retraso',
+  'workbench.docs.diagrams.actions.taxonomy.subDelay': 'navegaciones + fetch / XHR',
+  'workbench.docs.diagrams.actions.taxonomy.verdict':
+    'Elige una categoría · elige una acción · combínala con condiciones',
 } as const satisfies Catalog;

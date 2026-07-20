@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 
 // Saturated success-green palette (matches the open-headers group's
@@ -20,6 +21,7 @@ const OH_GREEN_TINT = 'rgba(82, 196, 26, 0.12)';
 export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'action' }> = ({
   focus = 'action',
 }) => {
+  const t = useT();
   const W = 480;
   const CX = W / 2;
   const TITLE_Y = 22;
@@ -181,7 +183,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
                   fill={OH_GREEN}
                   letterSpacing={0.5}
                 >
-                  ADDED
+                  {t('workbench.docs.diagrams.actions.ruleAnatomy.addedTag')}
                 </text>
               )}
             </g>
@@ -211,21 +213,21 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Rule anatomy — an outgoing HTTP request is matched against the rule's AND-joined conditions; if all match, the action mutates the request before it leaves the browser."
+      aria-label={t('workbench.docs.diagrams.actions.ruleAnatomy.aria')}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        A rule = Conditions + Action
+        {t('workbench.docs.diagrams.actions.ruleAnatomy.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Conditions decide whether the rule fires. The action decides what changes.
+        {t('workbench.docs.diagrams.actions.ruleAnatomy.subtitle')}
       </text>
 
       {/* BEFORE request */}
       {renderRequest(
         REQ_BEFORE_Y,
         REQ_BEFORE_H,
-        'Outgoing request',
-        'before',
+        t('workbench.docs.diagrams.actions.ruleAnatomy.outgoingRequest'),
+        t('workbench.docs.diagrams.actions.ruleAnatomy.sideBefore'),
         [
           { text: 'POST  https://api.openheaders.io/v2/users' },
           { text: 'Content-Type: application/json' },
@@ -233,7 +235,11 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
         'neutral',
       )}
 
-      {renderArrow(REQ_BEFORE_Y + REQ_BEFORE_H + 14, 'check', 'blue')}
+      {renderArrow(
+        REQ_BEFORE_Y + REQ_BEFORE_H + 14,
+        t('workbench.docs.diagrams.actions.ruleAnatomy.arrowCheck'),
+        'blue',
+      )}
 
       {/* RULE — two columns: Conditions + Action */}
       <rect
@@ -259,7 +265,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
       <circle cx={RULE_X + 24} cy={RULE_Y + CHROME_H / 2} r={4} fill="#febc2e" />
       <circle cx={RULE_X + 36} cy={RULE_Y + CHROME_H / 2} r={4} fill="#28c840" />
       <text x={RULE_X + 50} y={RULE_Y + CHROME_H / 2 + 4} fontSize={11} fontWeight={700} fill={TEXT}>
-        Rule
+        {t('workbench.docs.diagrams.actions.ruleAnatomy.ruleLabel')}
       </text>
       <text
         x={RULE_X + RULE_W - 12}
@@ -269,7 +275,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        editor entity
+        {t('workbench.docs.diagrams.actions.ruleAnatomy.editorEntity')}
       </text>
       {/* Vertical divider — splits Conditions (left) from Action (right) */}
       {(() => {
@@ -318,12 +324,24 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               fill={STROKE_BLUE}
               letterSpacing={0.6}
             >
-              CONDITIONS
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.conditionsKicker')}
             </text>
             {[
-              { label: 'Methods', value: 'POST', match: true },
-              { label: 'Request Domains', value: 'api.openheaders.io', match: true },
-              { label: 'Headers', value: 'Content-Type: application/json', match: true },
+              {
+                label: t('workbench.docs.diagrams.actions.ruleAnatomy.condMethods'),
+                value: 'POST',
+                match: true,
+              },
+              {
+                label: t('workbench.docs.diagrams.actions.ruleAnatomy.condRequestDomains'),
+                value: 'api.openheaders.io',
+                match: true,
+              },
+              {
+                label: t('workbench.docs.diagrams.actions.ruleAnatomy.condHeaders'),
+                value: 'Content-Type: application/json',
+                match: true,
+              },
             ].map((c, i) => (
               <g key={c.label}>
                 <circle cx={condX + 6} cy={condTopY + 24 + i * 22} r={4} fill={OH_GREEN} />
@@ -359,7 +377,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               fontWeight={700}
               fill={TEXT_DIM}
             >
-              ALL MUST MATCH (AND)
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.allMustMatch')}
             </text>
 
             {/* RIGHT: ACTION */}
@@ -371,7 +389,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               fill={STROKE_PURPLE}
               letterSpacing={0.6}
             >
-              ACTION
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.actionKicker')}
             </text>
             <text
               x={RULE_X + RULE_W - 12}
@@ -382,7 +400,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               fontWeight={700}
               fill={TEXT_DIM}
             >
-              one per rule
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.onePerRule')}
             </text>
             {/* Action card — example: Header Action · Add. When the
              *  Conditions side is focused, the action card is rendered
@@ -398,7 +416,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               strokeWidth={1.2}
             />
             <text x={actionX + 10} y={condTopY + 22} fontSize={10} fontWeight={700} fill={TEXT}>
-              Header Action · Add
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.actionCard')}
             </text>
             <text
               x={actionX + 10}
@@ -417,7 +435,7 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               fontSize={9}
               fill={STROKE_PURPLE}
             >
-              Bearer abc123…
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.actionValue')}
             </text>
             <text
               x={actionX + 10}
@@ -426,20 +444,20 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
               fontStyle="italic"
               fill={TEXT_DIM}
             >
-              category: Modify Request
+              {t('workbench.docs.diagrams.actions.ruleAnatomy.categoryLine')}
             </text>
           </g>
         );
       })()}
 
-      {renderArrow(RULE_Y + RULE_H + 14, 'apply', 'green')}
+      {renderArrow(RULE_Y + RULE_H + 14, t('workbench.docs.diagrams.actions.ruleAnatomy.arrowApply'), 'green')}
 
       {/* AFTER request */}
       {renderRequest(
         REQ_AFTER_Y,
         REQ_AFTER_H,
-        'Outgoing request',
-        'after',
+        t('workbench.docs.diagrams.actions.ruleAnatomy.outgoingRequest'),
+        t('workbench.docs.diagrams.actions.ruleAnatomy.sideAfter'),
         [
           { text: 'POST  https://api.openheaders.io/v2/users' },
           { text: 'Content-Type: application/json' },
@@ -463,14 +481,31 @@ export const ActionsRuleAnatomyDiagram: React.FC<{ focus?: 'conditions' | 'actio
       />
       {(() => {
         const phrases: { text: string; fill: string; stroke: string }[] = [
-          { text: 'Conditions filter', fill: FILL_BLUE, stroke: STROKE_BLUE },
-          { text: 'action transforms', fill: FILL_PURPLE, stroke: STROKE_PURPLE },
-          { text: 'request goes out modified', fill: OH_GREEN_TINT, stroke: OH_GREEN },
+          {
+            text: t('workbench.docs.diagrams.actions.ruleAnatomy.verdictConditions'),
+            fill: FILL_BLUE,
+            stroke: STROKE_BLUE,
+          },
+          {
+            text: t('workbench.docs.diagrams.actions.ruleAnatomy.verdictAction'),
+            fill: FILL_PURPLE,
+            stroke: STROKE_PURPLE,
+          },
+          {
+            text: t('workbench.docs.diagrams.actions.ruleAnatomy.verdictResult'),
+            fill: OH_GREEN_TINT,
+            stroke: OH_GREEN,
+          },
         ];
         const charW = 6;
         const padX = 10;
         const gap = 8;
-        const widths = phrases.map((p) => Math.round(p.text.length * charW + padX * 2));
+        // CJK glyphs render close to the full em box, not the ~0.6em a
+        // Latin glyph averages — weigh them accordingly so pill widths
+        // hold across locales.
+        const unitLen = (s: string) =>
+          Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.7 : 1), 0);
+        const widths = phrases.map((p) => Math.round(unitLen(p.text) * charW + padX * 2));
         const totalW = widths.reduce((s, w) => s + w, 0) + (phrases.length - 1) * gap;
         const pillH = 22;
         const pillY = VERDICT_Y + (VERDICT_H - pillH) / 2;

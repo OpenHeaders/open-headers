@@ -534,4 +534,66 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.conditions.urlRegex.footerUsePrefix': 'Utilisez ',
   'workbench.docs.diagrams.conditions.urlRegex.footerMid': ' — le ',
   'workbench.docs.diagrams.conditions.urlRegex.footerEnd': ' rend le s facultatif.',
+
+  // ── Actions: rule anatomy ───────────────────────────────────────────
+  'workbench.docs.diagrams.actions.ruleAnatomy.aria':
+    "Anatomie d'une règle — une requête HTTP sortante est confrontée aux conditions de la règle (jointes par " +
+    "AND) ; si toutes correspondent, l'action modifie la requête avant qu'elle quitte le navigateur.",
+  'workbench.docs.diagrams.actions.ruleAnatomy.title': 'Une règle = Conditions + Action',
+  'workbench.docs.diagrams.actions.ruleAnatomy.subtitle':
+    "Les conditions décident si la règle se déclenche. L'action décide de ce qui change.",
+  'workbench.docs.diagrams.actions.ruleAnatomy.outgoingRequest': 'Requête sortante',
+  'workbench.docs.diagrams.actions.ruleAnatomy.sideBefore': 'avant',
+  'workbench.docs.diagrams.actions.ruleAnatomy.sideAfter': 'après',
+  'workbench.docs.diagrams.actions.ruleAnatomy.addedTag': 'AJOUTÉ',
+  'workbench.docs.diagrams.actions.ruleAnatomy.arrowCheck': 'vérifier',
+  'workbench.docs.diagrams.actions.ruleAnatomy.arrowApply': 'appliquer',
+  'workbench.docs.diagrams.actions.ruleAnatomy.ruleLabel': 'Règle',
+  'workbench.docs.diagrams.actions.ruleAnatomy.editorEntity': "entité de l'éditeur",
+  'workbench.docs.diagrams.actions.ruleAnatomy.conditionsKicker': 'CONDITIONS',
+  'workbench.docs.diagrams.actions.ruleAnatomy.actionKicker': 'ACTION',
+  'workbench.docs.diagrams.actions.ruleAnatomy.condMethods': 'Méthodes',
+  'workbench.docs.diagrams.actions.ruleAnatomy.condRequestDomains': 'Domaines de requête',
+  'workbench.docs.diagrams.actions.ruleAnatomy.condHeaders': 'En-têtes',
+  'workbench.docs.diagrams.actions.ruleAnatomy.allMustMatch': 'TOUTES DOIVENT CORRESPONDRE (AND)',
+  'workbench.docs.diagrams.actions.ruleAnatomy.onePerRule': 'une par règle',
+  'workbench.docs.diagrams.actions.ruleAnatomy.actionCard': "Action d'en-tête · Ajouter",
+  'workbench.docs.diagrams.actions.ruleAnatomy.actionValue': 'Bearer abc123…',
+  'workbench.docs.diagrams.actions.ruleAnatomy.categoryLine': 'catégorie : Modifier la requête',
+  'workbench.docs.diagrams.actions.ruleAnatomy.verdictConditions': 'Conditions filtrent',
+  'workbench.docs.diagrams.actions.ruleAnatomy.verdictAction': 'action transforme',
+  'workbench.docs.diagrams.actions.ruleAnatomy.verdictResult': 'requête sort modifiée',
+
+  // ── Actions: taxonomy ───────────────────────────────────────────────
+  'workbench.docs.diagrams.actions.taxonomy.aria':
+    'Taxonomie des actions — trois catégories (Modifier la requête, Modifier la réponse, Exécuter du code) ' +
+    "listant chaque action avec son moteur d'exécution (DNR ou Script).",
+  'workbench.docs.diagrams.actions.taxonomy.title': 'Actions — par catégorie',
+  'workbench.docs.diagrams.actions.taxonomy.subtitle':
+    "Chaque action appartient à une des trois catégories. Le badge moteur indique où elle s'exécute.",
+  'workbench.docs.diagrams.actions.taxonomy.catModifyRequest': 'Modifier la requête',
+  'workbench.docs.diagrams.actions.taxonomy.catModifyRequestSub': "avant qu'elle quitte le navigateur",
+  'workbench.docs.diagrams.actions.taxonomy.catModifyResponse': 'Modifier la réponse',
+  'workbench.docs.diagrams.actions.taxonomy.catModifyResponseSub': 'avant que la page la voie',
+  'workbench.docs.diagrams.actions.taxonomy.catRunCode': 'Exécuter du code',
+  'workbench.docs.diagrams.actions.taxonomy.catRunCodeSub': 'dans la page ou son ordonnanceur',
+  'workbench.docs.diagrams.actions.taxonomy.nameHeaderActions': "Actions d'en-tête",
+  'workbench.docs.diagrams.actions.taxonomy.subHeaderOps': "les quatre opérations d'en-tête",
+  'workbench.docs.diagrams.actions.taxonomy.nameBlock': 'Blocage',
+  'workbench.docs.diagrams.actions.taxonomy.subBlock': 'annuler au niveau réseau',
+  'workbench.docs.diagrams.actions.taxonomy.nameRedirect': 'Redirection',
+  'workbench.docs.diagrams.actions.taxonomy.subRedirect': 'URL statique ou regex',
+  'workbench.docs.diagrams.actions.taxonomy.nameQueryParams': 'Paramètres de requête',
+  'workbench.docs.diagrams.actions.taxonomy.subQueryParams': 'ajouter · remplacer · retirer',
+  'workbench.docs.diagrams.actions.taxonomy.nameRequestBody': 'Corps de requête',
+  'workbench.docs.diagrams.actions.taxonomy.subRequestBody': 'statique · dynamique · GraphQL',
+  'workbench.docs.diagrams.actions.taxonomy.subHeaderResponse': 'en-têtes côté réponse',
+  'workbench.docs.diagrams.actions.taxonomy.nameResponseBody': 'Corps de réponse',
+  'workbench.docs.diagrams.actions.taxonomy.subResponseBody': 'corps simulé · statut · en-têtes',
+  'workbench.docs.diagrams.actions.taxonomy.nameInject': 'Injecter JS / CSS',
+  'workbench.docs.diagrams.actions.taxonomy.subInject': 'avant les scripts ou après le DOM',
+  'workbench.docs.diagrams.actions.taxonomy.nameDelay': 'Délai',
+  'workbench.docs.diagrams.actions.taxonomy.subDelay': 'navigations + fetch / XHR',
+  'workbench.docs.diagrams.actions.taxonomy.verdict':
+    'Choisissez une catégorie · une action · associez-la aux conditions',
 } as const satisfies Catalog;
