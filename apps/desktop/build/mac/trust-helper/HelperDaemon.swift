@@ -16,6 +16,29 @@ import XPC
 /// exit codes + stderr — all interpretation (idempotency, residue,
 /// verification) stays in the app's daemon, where the trust laws are
 /// tested.
+/// A long-lived daemon process would keep serving a REPLACED binary
+/// after an app update — the peer's static-code validation of it then
+/// fails until reboot or a manual kickstart. Exiting after a short idle
+/// window lets launchd relaunch the current binary on the next
+/// connection instead.
+private let idleExitSeconds: Double = 120
+
+private final class IdleExit {
+  private let queue = DispatchQueue(label: "io.openheaders.trust-helper.idle")
+  private var timer: DispatchSourceTimer?
+
+  func reset() {
+    queue.sync {
+      timer?.cancel()
+      let next = DispatchSource.makeTimerSource(queue: queue)
+      next.schedule(deadline: .now() + idleExitSeconds)
+      next.setEventHandler { exit(0) }
+      next.activate()
+      timer = next
+    }
+  }
+}
+
 func runDaemon() -> Never {
   guard let team = selfTeamIdentifier() else {
     // Unsigned helper serves nobody — the capability probe stays
@@ -24,6 +47,8 @@ func runDaemon() -> Never {
     exit(1)
   }
   let requirement = peerRequirement(team: team)
+  let idle = IdleExit()
+  idle.reset()
   let listener = xpc_connection_create_mach_service(
     HelperConstants.machServiceName,
     nil,
@@ -37,6 +62,7 @@ func runDaemon() -> Never {
     }
     xpc_connection_set_event_handler(peer) { message in
       guard xpc_get_type(message) == XPC_TYPE_DICTIONARY else { return }
+      idle.reset()
       let reply = xpc_dictionary_create_reply(message)
       guard let reply else { return }
       handleRequest(message, into: reply)
