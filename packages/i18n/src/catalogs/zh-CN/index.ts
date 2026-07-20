@@ -9,6 +9,7 @@ import { desktop } from './desktop';
 import { extension } from './extension';
 import { panelConsole } from './panel-console';
 import { panelDocs } from './panel-docs';
+import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelQuickEditor } from './panel-quick-editor';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -32,6 +33,7 @@ export const zhCN = {
   ...extension,
   ...panelConsole,
   ...panelDocs,
+  ...panelInspectorStreams,
   ...panelQuickEditor,
   ...shared,
   ...sharedAwareness,
