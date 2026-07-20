@@ -95,12 +95,12 @@ interface Snippet {
 
 function serverSnippet(): Snippet {
   const token = 'https://api.openheaders.io';
-  return { lines: [`url: '${token}'`], token };
+  return { lines: [`url: '${token}'`, `description: 'Server description'`], token };
 }
 
 function tagSnippet(existing: Set<string>): Snippet {
   const token = uniqueName('new-tag', existing, '-');
-  return { lines: [`name: '${token}'`], token };
+  return { lines: [`name: '${token}'`, `description: 'Tag description'`], token };
 }
 
 function operationLines(verb: string): string[] {

@@ -50,7 +50,7 @@ describe('planSpecInsertion', () => {
     expect(plan).not.toBeNull();
     if (plan === null) return;
     expect(plan.offset).toBe(SAMPLE.indexOf('paths:'));
-    expect(plan.text).toBe("  - url: 'https://api.openheaders.io'\n");
+    expect(plan.text).toBe("  - url: 'https://api.openheaders.io'\n    description: 'Server description'\n");
     const next = SAMPLE.slice(0, plan.offset) + plan.text + SAMPLE.slice(plan.offset);
     expect(buildSpecOutline(next)?.servers.children).toHaveLength(2);
     expect(next.slice(plan.selectionStart, plan.selectionEnd)).toBe('https://api.openheaders.io');
@@ -58,7 +58,7 @@ describe('planSpecInsertion', () => {
 
   it('creates an absent section at the document tail', () => {
     const next = apply(SAMPLE, { kind: 'tag' });
-    expect(next.endsWith("tags:\n  - name: 'new-tag'\n")).toBe(true);
+    expect(next.endsWith("tags:\n  - name: 'new-tag'\n    description: 'Tag description'\n")).toBe(true);
     expect(buildSpecOutline(next)?.tags.children.map((tag) => tag.label)).toEqual(['new-tag']);
   });
 
@@ -137,7 +137,7 @@ servers:
     - url: https://api.openheaders.io
 `;
     const plan = planSpecInsertion(wide, { kind: 'server' });
-    expect(plan?.text).toBe("    - url: 'https://api.openheaders.io'\n");
+    expect(plan?.text).toBe("    - url: 'https://api.openheaders.io'\n      description: 'Server description'\n");
   });
 
   it('inserts under an empty section key', () => {

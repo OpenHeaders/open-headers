@@ -42,7 +42,7 @@ import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@openhea
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
-import { applySpecSetFile } from '@openheaders/ui/shared/sync/spec-write-client';
+import { applySpecRemoveFile, applySpecSetFile, applySpecUpdate } from '@openheaders/ui/shared/sync/spec-write-client';
 import type { Monaco } from '@monaco-editor/react';
 import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
@@ -94,7 +94,12 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   });
   const isDirty = reprime.isDirty;
 
-  const { validation, outline } = useSpecAnalysis(draft, spec?.format ?? 'openapi-3.1');
+  // Analysis content is null until the draft holds a real document —
+  // before the entity loads, and during the render where the entity
+  // just arrived but `populate` hasn't landed in the buffer yet. The
+  // first real content then parses with no idle delay.
+  const analysisContent = rootFile === null || (draft === '' && rootFile.content !== '') ? null : draft;
+  const { validation, outline } = useSpecAnalysis(analysisContent, spec?.format ?? 'openapi-3.1');
 
   // Outline rail visibility — session-local by design (a persisted
   // preference is a settings-schema key away if demand shows).
@@ -216,6 +221,36 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
     editor.revealPositionInCenterIfOutsideViewport(start);
     editor.focus();
   }, []);
+
+  // File-row ⋯ actions (outline Files group). Rename rewrites the
+  // SAVED file row with the new name — the buffer (dirty or not) is
+  // untouched; make-root and delete are spec-level mutations.
+  const handleRenameFile = useCallback(
+    async (fileUid: string, fileName: string) => {
+      if (!spec || !workspaceId) return;
+      const file = spec.files.find((f) => f.uid === fileUid);
+      if (!file || file.fileName === fileName) return;
+      const result = await applySpecSetFile(spec.uid, { ...file, fileName }, { workspaceId, surfaceId: SURFACE_ID });
+      if (!result.ok) message.error(t('workbench.editors.spec.saveFailed'));
+    },
+    [spec, workspaceId, message, t],
+  );
+  const handleMakeRootFile = useCallback(
+    async (fileUid: string) => {
+      if (!spec || !workspaceId) return;
+      const result = await applySpecUpdate(spec.uid, { rootFileUid: fileUid }, { workspaceId, surfaceId: SURFACE_ID });
+      if (!result.ok) message.error(t('workbench.editors.spec.saveFailed'));
+    },
+    [spec, workspaceId, message, t],
+  );
+  const handleDeleteFile = useCallback(
+    async (fileUid: string) => {
+      if (!spec || !workspaceId || fileUid === spec.rootFileUid) return;
+      const result = await applySpecRemoveFile(spec.uid, fileUid, { workspaceId, surfaceId: SURFACE_ID });
+      if (!result.ok) message.error(t('workbench.editors.spec.saveFailed'));
+    },
+    [spec, workspaceId, message, t],
+  );
 
   const handleSave = useCallback(async () => {
     if (!spec || !rootFile || !workspaceId || !isDirty) return;
@@ -387,6 +422,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
             <Allotment.Pane minSize={160} preferredSize={230} visible={outlineOpen} snap>
               <SpecOutlinePane
                 groups={outline}
+                loading={validation === null}
                 files={spec.files}
                 rootFileUid={spec.rootFileUid}
                 onNavigate={handleNavigate}
@@ -396,6 +432,10 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
                 // the language check).
                 canInsert={specFileLanguage(rootFile.fileName) === 'yaml' && !isAsyncApi}
                 onInsert={handleInsert}
+                onHide={() => setOutlineOpen(false)}
+                onRenameFile={(fileUid, fileName) => void handleRenameFile(fileUid, fileName)}
+                onMakeRootFile={(fileUid) => void handleMakeRootFile(fileUid)}
+                onDeleteFile={(fileUid) => void handleDeleteFile(fileUid)}
               />
             </Allotment.Pane>
             <Allotment.Pane minSize={320}>

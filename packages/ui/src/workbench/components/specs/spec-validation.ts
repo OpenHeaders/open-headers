@@ -30,7 +30,7 @@ import { type AsyncApiIssue, AsyncApiParseError, parseAsyncApi } from '@openhead
 import { OpenApiParseError, parseOpenApi, SCHEMA_ONLY_RESPONSES_DROP_PATH } from '@openheaders/core/import';
 import { ProtoParseError, parseProto } from '@openheaders/core/proto';
 import type { SpecFormat } from '@openheaders/core/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LanguageId } from '../../languages/registry';
 import { buildAsyncApiOutline } from './asyncapi-outline';
 import { buildProtoOutline } from './proto-outline';
@@ -131,14 +131,33 @@ export interface SpecAnalysis {
  * Debounced analysis of the live buffer — validation and outline from
  * one idle tick, never per keystroke.
  */
-export function useSpecAnalysis(content: string, format: SpecFormat): SpecAnalysis {
-  const [analysis, setAnalysis] = useState<SpecAnalysis>({ validation: null, outline: null });
+export function useSpecAnalysis(content: string | null, format: SpecFormat): SpecAnalysis {
+  // `content` is null while the tab has no real document yet (the
+  // entity is still loading from storage). The FIRST real content
+  // analyzes with no delay — synchronously with the render when it's
+  // there at mount (a reopened tab paints outlined), immediately in
+  // the effect when it arrives later. The idle delay exists to keep
+  // TYPING from parsing per keystroke, so it governs edits only.
+  const [analysis, setAnalysis] = useState<SpecAnalysis>(() =>
+    content === null
+      ? { validation: null, outline: null }
+      : { validation: validateSpecSource(content, format), outline: buildSpecOutlineGroups(content, format) },
+  );
+  // Last content actually analyzed; null until the first real content.
+  const analyzedRef = useRef<string | null>(content);
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (content === null || content === analyzedRef.current) return;
+    const run = () => {
+      analyzedRef.current = content;
       const validation = validateSpecSource(content, format);
       const outline = buildSpecOutlineGroups(content, format);
       setAnalysis((prev) => ({ validation, outline: outline ?? prev.outline }));
-    }, PARSE_IDLE_MS);
+    };
+    if (analyzedRef.current === null) {
+      run();
+      return;
+    }
+    const timer = setTimeout(run, PARSE_IDLE_MS);
     return () => clearTimeout(timer);
   }, [content, format]);
   return analysis;
