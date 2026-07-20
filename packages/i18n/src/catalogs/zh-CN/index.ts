@@ -8,6 +8,8 @@ import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
 import { panelConsole } from './panel-console';
+import { panelDocs } from './panel-docs';
+import { panelQuickEditor } from './panel-quick-editor';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
 import { sharedChrome } from './shared-chrome';
@@ -23,11 +25,14 @@ import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
+import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 
 export const zhCN = {
   ...desktop,
   ...extension,
   ...panelConsole,
+  ...panelDocs,
+  ...panelQuickEditor,
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
@@ -43,4 +48,5 @@ export const zhCN = {
   ...sharedWorkspace,
   ...tui,
   ...web,
+  ...workbenchChromeWorkspace,
 } as const satisfies Catalog;
