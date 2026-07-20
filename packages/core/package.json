@@ -151,6 +151,10 @@
       "import": "./src/request-lifecycle/index.ts",
       "default": "./dist/request-lifecycle/index.js"
     },
+    "./proxy": {
+      "import": "./src/proxy/index.ts",
+      "default": "./dist/proxy/index.js"
+    },
     "./page-stream": {
       "import": "./src/page-stream/index.ts",
       "default": "./dist/page-stream/index.js"
