@@ -216,14 +216,26 @@ describe('proxy-trust service', () => {
   let fake: ExecFake;
   let helper: HelperFake;
 
-  function service(overrides: { systemHelper?: SystemTrustHelper } = {}): ProxyTrustService {
+  function service(overrides: { systemHelper?: SystemTrustHelper; platform?: string } = {}): ProxyTrustService {
     return createProxyTrustService({
       exec: fake.exec,
       homedir: dir,
-      platform: 'darwin',
+      platform: overrides.platform ?? 'darwin',
       tmpdir: dir,
       systemHelper: overrides.systemHelper ?? helper,
     });
+  }
+
+  /** Create an NSS profile dir (with cert9.db) under the platform's Firefox root. */
+  async function makeProfile(platform: 'darwin' | 'linux', name: string): Promise<string> {
+    const root =
+      platform === 'darwin'
+        ? path.join(dir, 'Library', 'Application Support', 'Firefox', 'Profiles')
+        : path.join(dir, '.mozilla', 'firefox');
+    const profile = path.join(root, name);
+    await mkdir(profile, { recursive: true });
+    await writeFile(path.join(profile, 'cert9.db'), '');
+    return profile;
   }
 
   /** Make the keychain probes answer "our cert, trusted" for `sha256`. */
@@ -358,17 +370,15 @@ describe('proxy-trust service', () => {
     expect(await listTrustChanges()).toHaveLength(1);
   });
 
-  it('nss-firefox installs into every discovered profile via certutil and reports honestly when none exist', async () => {
-    const none = await service().install(['nss-firefox']);
+  it('nss-firefox installs into every discovered profile via certutil where Firefox owns its store (linux)', async () => {
+    const none = await service({ platform: 'linux' }).install(['nss-firefox']);
     expect(none.ok).toBe(true);
     if (!none.ok) return;
     expect(none.results[0].ok).toBe(false);
     expect(none.results[0].error).toContain('no Firefox profiles');
 
-    const profile = path.join(dir, 'Library', 'Application Support', 'Firefox', 'Profiles', 'abc.default');
-    await mkdir(profile, { recursive: true });
-    await writeFile(path.join(profile, 'cert9.db'), '');
-    const result = await service().install(['nss-firefox']);
+    const profile = await makeProfile('linux', 'abc.default');
+    const result = await service({ platform: 'linux' }).install(['nss-firefox']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results).toEqual([{ store: 'nss-firefox', ref: profile, ok: true }]);
@@ -378,11 +388,9 @@ describe('proxy-trust service', () => {
   });
 
   it('a missing certutil cannot have changed the store — the first-time row retracts', async () => {
-    const profile = path.join(dir, 'Library', 'Application Support', 'Firefox', 'Profiles', 'abc.default');
-    await mkdir(profile, { recursive: true });
-    await writeFile(path.join(profile, 'cert9.db'), '');
+    await makeProfile('linux', 'abc.default');
     fake.when((c) => c.cmd === 'certutil', { code: 127, notFound: true });
-    const result = await service().install(['nss-firefox']);
+    const result = await service({ platform: 'linux' }).install(['nss-firefox']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
@@ -391,10 +399,8 @@ describe('proxy-trust service', () => {
   });
 
   it('a missing certutil never drops a pre-existing row — it may guard real earlier content', async () => {
-    const profile = path.join(dir, 'Library', 'Application Support', 'Firefox', 'Profiles', 'abc.default');
-    await mkdir(profile, { recursive: true });
-    await writeFile(path.join(profile, 'cert9.db'), '');
-    const svc = service();
+    await makeProfile('linux', 'abc.default');
+    const svc = service({ platform: 'linux' });
     const first = await svc.install(['nss-firefox']);
     expect(first.ok).toBe(true);
     expect(await listTrustChanges()).toHaveLength(1);
@@ -404,6 +410,61 @@ describe('proxy-trust service', () => {
     if (!second.ok) return;
     expect(second.results[0].ok).toBe(false);
     expect(await listTrustChanges()).toHaveLength(1);
+  });
+
+  it('where Firefox reads the OS store (macOS), nss-firefox installs are refused — no row, no certutil', async () => {
+    await makeProfile('darwin', 'abc.default');
+    const result = await service().install(['nss-firefox']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.results[0].ok).toBe(false);
+    expect(result.results[0].error).toContain('follows the OS store');
+    expect(fake.calls.some((c) => c.cmd === 'certutil')).toBe(false);
+    expect(await listTrustChanges()).toHaveLength(0);
+  });
+
+  it('an unrecorded Firefox profile derives coverage from the keychain cells — no certutil probe', async () => {
+    const ca = await ensureProxyCa();
+    const profile = await makeProfile('darwin', 'abc.default');
+    probeAnswersTrusted(certFingerprints(ca.certPem).sha256);
+    const status = await service().status();
+    const row = status.stores.find((s) => s.store === 'nss-firefox');
+    expect(row).toEqual({ store: 'nss-firefox', ref: profile, state: 'covered' });
+    expect(fake.calls.some((c) => c.cmd === 'certutil')).toBe(false);
+  });
+
+  it('a profile that disabled enterprise roots reads optedOut, never covered', async () => {
+    const ca = await ensureProxyCa();
+    const profile = await makeProfile('darwin', 'abc.default');
+    await writeFile(path.join(profile, 'prefs.js'), 'user_pref("security.enterprise_roots.enabled", false);\n');
+    probeAnswersTrusted(certFingerprints(ca.certPem).sha256);
+    const status = await service().status();
+    const row = status.stores.find((s) => s.store === 'nss-firefox');
+    expect(row?.state).toBe('optedOut');
+  });
+
+  it('without a trusted keychain cell a derived Firefox row reads absent — coverage arrives with the install', async () => {
+    await makeProfile('darwin', 'abc.default');
+    const status = await service().status();
+    const row = status.stores.find((s) => s.store === 'nss-firefox');
+    expect(row?.state).toBe('absent');
+    expect(row?.detail).toContain('follows the OS store');
+  });
+
+  it('a recorded legacy Firefox row keeps the certutil probe until teardown clears it', async () => {
+    const ca = await ensureProxyCa();
+    const profile = await makeProfile('linux', 'abc.default');
+    const svc = service({ platform: 'linux' });
+    await svc.install(['nss-firefox']);
+    fake.when((c) => c.cmd === 'certutil' && c.args[0] === '-L', {
+      stdout: ca.certPem,
+    });
+    // Same machine seen through the darwin service: the recorded row is
+    // outside the darwin profile root, yet still probes via certutil.
+    const status = await service().status();
+    const row = status.stores.find((s) => s.store === 'nss-firefox' && s.ref === profile);
+    expect(row?.state).toBe('trusted');
+    expect(fake.calls.some((c) => c.cmd === 'certutil' && c.args[0] === '-L')).toBe(true);
   });
 
   it('status re-probes live on every call — trusted, then absent after the store changes underneath', async () => {

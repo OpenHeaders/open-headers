@@ -625,6 +625,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Vorhanden, nicht vertraut',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Anderes Zertifikat',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Nicht lesbar',
+  'workbench.settings.proxyTrustPane.stores.state.covered': 'Über System-Speicher abgedeckt',
+  'workbench.settings.proxyTrustPane.stores.state.optedOut': 'In Firefox deaktiviert',
   'workbench.settings.proxyTrustPane.stores.empty': 'Auf dieser Maschine sind keine Vertrauensspeicher sichtbar.',
   'workbench.settings.proxyTrustPane.mismatchAlert.title': 'Ein Vertrauensspeicher enthält ein anderes Zertifikat',
   'workbench.settings.proxyTrustPane.mismatchAlert.body':
@@ -667,6 +669,8 @@ export const workbenchSettingsPanes = {
     'Auf dieser Maschine wurden keine Firefox-Profile gefunden.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
     'Firefox-Profile wurden gefunden, aber certutil (NSS-Tools) ist nicht installiert — ihre Vertrauensspeicher können von dieser Maschine aus nicht verwaltet werden.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxOsNote':
+    'Firefox vertraut dem System-Speicher automatisch (Firefox 120+) — die Schlüsselbunde oben decken ihn ab.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'In {count} Speicher installieren',

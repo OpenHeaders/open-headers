@@ -625,6 +625,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Présent, pas de confiance',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Certificat différent',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Illisible',
+  'workbench.settings.proxyTrustPane.stores.state.covered': 'Couvert via le magasin du système',
+  'workbench.settings.proxyTrustPane.stores.state.optedOut': 'Désactivé dans Firefox',
   'workbench.settings.proxyTrustPane.stores.empty': "Aucun magasin de confiance n'est visible sur cette machine.",
   'workbench.settings.proxyTrustPane.mismatchAlert.title': 'Un magasin de confiance contient un certificat différent',
   'workbench.settings.proxyTrustPane.mismatchAlert.body':
@@ -668,6 +670,8 @@ export const workbenchSettingsPanes = {
     "Aucun profil Firefox n'a été trouvé sur cette machine.",
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
     "Des profils Firefox ont été trouvés, mais certutil (outils NSS) n'est pas installé — leurs magasins de confiance ne peuvent pas être gérés depuis cette machine.",
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxOsNote':
+    'Firefox fait automatiquement confiance au magasin du système (Firefox 120+) — les trousseaux ci-dessus le couvrent.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Installer dans {count} magasin',

@@ -620,6 +620,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Presente, sin confianza',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Certificado distinto',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Ilegible',
+  'workbench.settings.proxyTrustPane.stores.state.covered': 'Cubierto vía almacén del sistema',
+  'workbench.settings.proxyTrustPane.stores.state.optedOut': 'Desactivado en Firefox',
   'workbench.settings.proxyTrustPane.stores.empty': 'No hay almacenes de confianza visibles en esta máquina.',
   'workbench.settings.proxyTrustPane.mismatchAlert.title': 'Un almacén de confianza contiene un certificado distinto',
   'workbench.settings.proxyTrustPane.mismatchAlert.body':
@@ -660,6 +662,8 @@ export const workbenchSettingsPanes = {
     'No se encontraron perfiles de Firefox en esta máquina.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
     'Se encontraron perfiles de Firefox, pero certutil (herramientas NSS) no está instalado — sus almacenes de confianza no se pueden gestionar desde esta máquina.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxOsNote':
+    'Firefox confía automáticamente en el almacén del sistema (Firefox 120+) — los llaveros de arriba lo cubren.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Instalar en {count} almacén',

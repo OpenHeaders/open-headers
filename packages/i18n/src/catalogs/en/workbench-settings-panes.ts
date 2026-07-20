@@ -540,6 +540,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.state.untrusted': 'Present, not trusted',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': 'Different certificate',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': 'Unreadable',
+  'workbench.settings.proxyTrustPane.stores.state.covered': 'Covered via OS store',
+  'workbench.settings.proxyTrustPane.stores.state.optedOut': 'Opted out in Firefox',
   'workbench.settings.proxyTrustPane.stores.empty': 'No trust stores are visible on this machine.',
   'workbench.settings.proxyTrustPane.mismatchAlert.title': 'A trust store holds a different certificate',
   'workbench.settings.proxyTrustPane.mismatchAlert.body':
@@ -571,6 +573,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone': 'No Firefox profiles were found on this machine.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
     'Firefox profiles were found, but certutil (NSS tools) is not installed — their trust stores cannot be managed from this machine.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxOsNote':
+    'Firefox trusts the OS store automatically (Firefox 120+) — the keychains above cover it.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Install into {count} store',

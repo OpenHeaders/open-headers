@@ -524,6 +524,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.stores.state.untrusted': '存在，但未受信任',
   'workbench.settings.proxyTrustPane.stores.state.mismatch': '不同的证书',
   'workbench.settings.proxyTrustPane.stores.state.unavailable': '无法读取',
+  'workbench.settings.proxyTrustPane.stores.state.covered': '经系统存储覆盖',
+  'workbench.settings.proxyTrustPane.stores.state.optedOut': '已在 Firefox 中停用',
   'workbench.settings.proxyTrustPane.stores.empty': '这台机器上看不到任何信任存储。',
   'workbench.settings.proxyTrustPane.mismatchAlert.title': '某个信任存储中有不同的证书',
   'workbench.settings.proxyTrustPane.mismatchAlert.body':
@@ -552,6 +554,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone': '这台机器上没有找到 Firefox 配置文件。',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
     '找到了 Firefox 配置文件，但未安装 certutil（NSS 工具）— 无法在这台机器上管理它们的信任存储。',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxOsNote':
+    'Firefox 会自动信任系统存储（Firefox 120+）——上面的钥匙串已将其覆盖。',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), { other: '安装进 {count} 个存储' }),
   'workbench.settings.proxyTrustPane.wizard.results.allOk': '你选中的每个存储都已安装信任。',

@@ -34,6 +34,7 @@ import {
   readProxyCa,
 } from './ca-store';
 import { defaultExec, type ExecFn } from './exec';
+import { firefoxFollowsOsStore, probeFirefoxOsCoverage } from './trust-firefox-os';
 import {
   createSystemTrustHelper,
   type SystemTrustHelper,
@@ -141,27 +142,38 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
     const caRecord = caRead === 'undecryptable' || caRead === null ? null : caRead;
     const caFingerprint = caRecord !== null ? certFingerprints(caRecord.certPem).sha256 : null;
     const changes = await listTrustChanges();
-    // Expected stores on this machine, then any recorded ref not already
-    // covered (a profile deleted since install still gets probed so the
-    // record's row can be reasoned about).
-    const targets: Array<{ store: ProxyTrustStoreId; ref: string }> = [];
+    // Keychain cells probe first — where Firefox follows the OS store,
+    // their verdicts feed the derived per-profile rows below.
+    const stores: ProxyTrustStoreState[] = [];
     if (platform === 'darwin') {
-      targets.push({ store: 'macos-login-keychain', ref: keychainPath('macos-login-keychain') });
-      targets.push({ store: 'macos-system-keychain', ref: SYSTEM_KEYCHAIN_PATH });
-    }
-    for (const profile of await discoverFirefoxProfiles(homedir, platform)) {
-      targets.push({ store: 'nss-firefox', ref: profile });
-    }
-    for (const change of changes) {
-      if (!targets.some((t) => t.store === change.store && t.ref === change.ref)) {
-        targets.push({ store: change.store, ref: change.ref });
+      for (const store of ['macos-login-keychain', 'macos-system-keychain'] as const) {
+        const recorded = changes.find((c) => c.store === store);
+        stores.push(await probeStore(store, keychainPath(store), caFingerprint ?? recorded?.fingerprintSha256 ?? null));
       }
     }
-    const stores: ProxyTrustStoreState[] = [];
-    for (const target of targets) {
-      const recorded = changes.find((c) => c.store === target.store && c.ref === target.ref);
-      const expected = caFingerprint ?? recorded?.fingerprintSha256 ?? null;
-      stores.push(await probeStore(target.store, target.ref, expected));
+    const osStoreTrusted = stores.some((s) => s.state === 'trusted');
+    // Discovered profiles, then any recorded ref not already covered (a
+    // profile deleted since install still gets probed so the record's
+    // row can be reasoned about). A profile with a recorded certutil
+    // row keeps the legacy NSS probe — the row must stay verifiable
+    // until teardown clears it; unrecorded profiles on a platform where
+    // Firefox reads the OS store get the derived verdict instead.
+    const firefoxTargets = await discoverFirefoxProfiles(homedir, platform);
+    for (const change of changes) {
+      const covered =
+        (change.store === 'nss-firefox' && firefoxTargets.includes(change.ref)) ||
+        stores.some((s) => s.store === change.store && s.ref === change.ref);
+      if (covered) continue;
+      if (change.store === 'nss-firefox') firefoxTargets.push(change.ref);
+      else stores.push(await probeStore(change.store, change.ref, caFingerprint ?? change.fingerprintSha256));
+    }
+    for (const profile of firefoxTargets) {
+      const recorded = changes.find((c) => c.store === 'nss-firefox' && c.ref === profile);
+      if (recorded === undefined && firefoxFollowsOsStore(platform)) {
+        stores.push(await probeFirefoxOsCoverage(profile, osStoreTrusted));
+        continue;
+      }
+      stores.push(await probeStore('nss-firefox', profile, caFingerprint ?? recorded?.fingerprintSha256 ?? null));
     }
     return {
       ca: caRecord !== null ? proxyCaPublicInfo(caRecord) : null,
@@ -241,6 +253,19 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
         continue;
       }
       if (store === 'nss-firefox') {
+        if (firefoxFollowsOsStore(platform)) {
+          // Derived coverage — writing per-profile cert copies here
+          // would only manufacture rows to tear down for trust the OS
+          // store already provides (§2.5: never leave more behind than
+          // the goal needs).
+          results.push({
+            store,
+            ref: '',
+            ok: false,
+            error: 'Firefox follows the OS store on this platform — trust a keychain instead',
+          });
+          continue;
+        }
         const profiles = await discoverFirefoxProfiles(homedir, platform);
         if (profiles.length === 0) {
           results.push({ store, ref: '', ok: false, error: 'no Firefox profiles found' });

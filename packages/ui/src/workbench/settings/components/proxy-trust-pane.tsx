@@ -87,6 +87,8 @@ const STATE_TEXT: Record<ProxyTrustStoreState['state'], MessageKey> = {
   untrusted: 'workbench.settings.proxyTrustPane.stores.state.untrusted',
   mismatch: 'workbench.settings.proxyTrustPane.stores.state.mismatch',
   unavailable: 'workbench.settings.proxyTrustPane.stores.state.unavailable',
+  covered: 'workbench.settings.proxyTrustPane.stores.state.covered',
+  optedOut: 'workbench.settings.proxyTrustPane.stores.state.optedOut',
 };
 
 const STATE_COLOR: Record<ProxyTrustStoreState['state'], string | undefined> = {
@@ -95,6 +97,8 @@ const STATE_COLOR: Record<ProxyTrustStoreState['state'], string | undefined> = {
   untrusted: 'gold',
   mismatch: 'red',
   unavailable: 'orange',
+  covered: 'green',
+  optedOut: 'gold',
 };
 
 function formatDay(iso: string): string {
@@ -587,13 +591,19 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
               hasKeychains && systemTrustSupported,
               'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable',
             )}
-            {storeOption(
-              'nss-firefox',
-              'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote',
-              hasFirefoxProfiles && hasUsableFirefoxProfiles,
-              hasFirefoxProfiles
-                ? 'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable'
-                : 'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone',
+            {!hasKeychains &&
+              storeOption(
+                'nss-firefox',
+                'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote',
+                hasFirefoxProfiles && hasUsableFirefoxProfiles,
+                hasFirefoxProfiles
+                  ? 'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable'
+                  : 'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone',
+              )}
+            {hasKeychains && hasFirefoxProfiles && (
+              <p style={{ margin: '6px 0 0', color: token.colorTextSecondary }}>
+                {t('workbench.settings.proxyTrustPane.wizard.choose.firefoxOsNote')}
+              </p>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
               <Button

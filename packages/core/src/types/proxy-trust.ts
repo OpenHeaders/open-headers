@@ -35,10 +35,16 @@ export interface ProxyCaPublicInfo {
  * visibility — report, never trust it); `unavailable` = the store
  * cannot be probed on this machine (tooling missing, store unreadable)
  * with `detail` saying why.
+ *
+ * Derived states — stores we never wrote to, whose trust follows the
+ * OS store (Firefox 120+ reads OS trust anchors by default): `covered`
+ * = an OS-store cell is trusted so this store inherits it; `optedOut`
+ * = the store disabled OS-store trust in its own settings, so keychain
+ * trust cannot reach it. Neither state ever has a change-record row.
  */
 export interface ProxyTrustStoreState {
   store: ProxyTrustStoreId;
   ref: string;
-  state: 'trusted' | 'absent' | 'untrusted' | 'mismatch' | 'unavailable';
+  state: 'trusted' | 'absent' | 'untrusted' | 'mismatch' | 'unavailable' | 'covered' | 'optedOut';
   detail?: string;
 }
