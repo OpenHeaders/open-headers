@@ -400,6 +400,17 @@ export interface Capabilities {
   proxyCapture?: () => boolean;
 
   /**
+   * Availability gate for the workbench Live Network tool window — the
+   * always-on live view of browser traffic streamed from the extension
+   * through the daemon spine's telemetry relay (OBSERVABILITY_PLAN.md
+   * Phase 1). Registered only by hosts that run the daemon spine
+   * in-process and expose its lifeline server (the desktop renderer).
+   * The tab-inventory RPC rides `hostBridge`; the lifecycle stream
+   * rides the qualified lifecycle lifeline — presence is the signal.
+   */
+  liveNetwork?: () => boolean;
+
+  /**
    * Availability gate for the workbench Git tool window — the log/history
    * surface over the workspace-tree git verbs (`oh.workspaceTree.log` /
    * `fileLog`, GIT_PLAN.md §9). Registered only by hosts whose bridge

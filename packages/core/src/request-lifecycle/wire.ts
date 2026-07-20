@@ -136,3 +136,40 @@ export function parseLifecyclePortName(name: string): number | null {
 export function lifecyclePortName(tabId: number): string {
   return `${LIFECYCLE_PORT_PREFIX}${tabId}`;
 }
+
+/**
+ * A lifecycle partition addressed THROUGH a host to a remote engine —
+ * `oh-lifecycle:<tabId>@<nodeId>`, where `nodeId` is the owning peer's
+ * HELLO identity. The desktop workbench opens this shape against the
+ * daemon's browser-telemetry relay, which forwards the consumer
+ * handshake to the extension peer that owns the tab. Browser-tab ids
+ * collide across browsers, so the peer qualifier is part of the
+ * partition identity — never inferred.
+ *
+ * Deliberately NOT parsed by {@link parseLifecyclePortName}: the
+ * chrome-side acceptor and the proxy-capture acceptor only serve local
+ * partitions, and both refuse the qualified shape by construction.
+ */
+export interface QualifiedLifecyclePortTarget {
+  readonly tabId: number;
+  readonly nodeId: string;
+}
+
+export function qualifiedLifecyclePortName(tabId: number, nodeId: string): string {
+  return `${LIFECYCLE_PORT_PREFIX}${tabId}@${nodeId}`;
+}
+
+/** Parse `oh-lifecycle:<tabId>@<nodeId>`. Returns `null` for any other
+ *  shape (the unqualified local form included). */
+export function parseQualifiedLifecyclePortName(name: string): QualifiedLifecyclePortTarget | null {
+  if (!name.startsWith(LIFECYCLE_PORT_PREFIX)) return null;
+  const suffix = name.slice(LIFECYCLE_PORT_PREFIX.length);
+  const at = suffix.indexOf('@');
+  if (at <= 0) return null;
+  const tabPart = suffix.slice(0, at);
+  const nodeId = suffix.slice(at + 1);
+  if (!/^-?\d+$/.test(tabPart) || nodeId.length === 0) return null;
+  const tabId = Number.parseInt(tabPart, 10);
+  if (!Number.isFinite(tabId)) return null;
+  return { tabId, nodeId };
+}

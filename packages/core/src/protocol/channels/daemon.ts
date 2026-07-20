@@ -18,6 +18,7 @@ import type {
   ProxyTrustStoreId,
   ProxyTrustStoreState,
 } from '../../types';
+import type { BrowserTabWire } from '../telemetry-stream';
 
 export interface DaemonRpc {
   /**
@@ -577,6 +578,29 @@ export interface DaemonRpc {
   'oh.daemon.proxy.scope.set': {
     req: { patterns: ReadonlyArray<string> };
     res: { ok: true; scopePatterns: ReadonlyArray<string> } | { ok: false; error: string };
+  };
+
+  // ── Browser telemetry plane (OBSERVABILITY_PLAN.md Phase 1) ──────
+  //
+  // Admin-only. The live browser-tab inventory the workbench's Live
+  // Network picker renders — gathered per call by asking every
+  // connected extension peer over the telemetry channels; peers that
+  // don't answer inside the collection window are simply absent.
+  // Lifecycle streams NEVER ride this contract: they flow on the
+  // qualified lifecycle lifeline (`oh-lifecycle:<tabId>@<nodeId>`),
+  // relayed frame-for-frame from the owning extension's hub.
+
+  /**
+   * Browser tabs per connected extension peer. `nodeId` is the peer's
+   * HELLO identity — the qualifier the workbench passes back when it
+   * opens a tab's lifecycle lifeline; `agent` labels the browser build
+   * for the picker. Empty when no extension peer is connected.
+   */
+  'oh.daemon.telemetry.tabs.list': {
+    req: Record<string, never>;
+    res: {
+      peers: ReadonlyArray<{ nodeId: string; agent: string; tabs: ReadonlyArray<BrowserTabWire> }>;
+    };
   };
 
   'oh.daemon.audit.query': {

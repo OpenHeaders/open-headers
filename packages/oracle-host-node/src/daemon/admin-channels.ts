@@ -42,6 +42,7 @@ import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
 import type { ProxyCaptureControl } from './proxy/proxy-capture-service';
 import type { ProxyTrustService } from './proxy/proxy-trust';
+import type { BrowserTelemetryPeerTabs } from './telemetry/browser-live-relay';
 
 export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
 
@@ -73,6 +74,11 @@ export interface AdminChannelDeps {
   /** The `oh.daemon.proxy.{status,start,stop,scope.*}` backing — see
    *  `proxy/proxy-capture-service.ts`. */
   proxyCapture: ProxyCaptureControl;
+  /** The `oh.daemon.telemetry.tabs.list` backing — the browser live-
+   *  telemetry relay's per-peer tab inventory. Optional so dispatch
+   *  tables composed without the relay (test rigs) answer an empty
+   *  inventory instead of failing construction. */
+  telemetryTabs?(): Promise<{ peers: BrowserTelemetryPeerTabs[] }>;
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -317,6 +323,11 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       return { ok: false, error: (err as Error).message };
     }
   });
+
+  // Browser telemetry plane — the Live Network picker's tab inventory,
+  // gathered live per call from every answering extension peer. The
+  // lifecycle streams themselves never ride this table.
+  handlers.set('oh.daemon.telemetry.tabs.list', async () => (await deps.telemetryTabs?.()) ?? { peers: [] });
 
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';

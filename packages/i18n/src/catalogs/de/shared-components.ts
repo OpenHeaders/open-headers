@@ -460,4 +460,8 @@ export const sharedComponents = {
   'shared.desktopTeaser.mcp.title': 'MCP-Server',
   'shared.desktopTeaser.mcp.body':
     'Verbinde KI-Assistenten über den integrierten MCP-Server mit deinen Arbeitsbereichen.',
+  'shared.desktopTeaser.liveNetwork.title': 'Live-Netzwerk',
+  'shared.desktopTeaser.liveNetwork.body':
+    'Beobachte den Verkehr eines Browser-Tabs live in der Desktop-App, gestreamt von der Erweiterung — ganz ohne ' +
+    'DevTools.',
 } as const satisfies Catalog;

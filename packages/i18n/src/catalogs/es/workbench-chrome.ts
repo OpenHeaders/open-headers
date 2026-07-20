@@ -359,6 +359,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
   'workbench.toolWindows.proxyCapture': 'Proxy',
+  'workbench.toolWindows.liveNetwork': 'Red en vivo',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -475,6 +476,10 @@ export const workbenchChrome = {
     'El proxy de captura: el tráfico de cualquier herramienta de esta máquina apuntada al puerto del proxy local, ' +
     'capturado como un registro de red en vivo. El descifrado está acotado: solo los hosts que listas terminan TLS; ' +
     'todo lo demás pasa por un túnel opaco.',
+  'workbench.toolWindows.info.liveNetwork.summary':
+    'La vista del navegador en vivo: la extensión conectada transmite el tráfico de una pestaña observada a la ' +
+    'aplicación de escritorio, mostrado con el mismo registro de red del panel DevTools. No se transmite nada ' +
+    'hasta que eliges una pestaña que observar.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
@@ -504,6 +509,20 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'No hay ninguna CA de confianza, así que las conexiones HTTPS pasan por un túnel opaco: no se descifra nada. ' +
     'Instala la CA en Configuración › Proxy y añade hosts al ámbito de descifrado.',
+
+  // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
+  'workbench.liveNetwork.browserConnected': 'Navegadores conectados: {count}',
+  'workbench.liveNetwork.noBrowser': 'Ningún navegador conectado',
+  'workbench.liveNetwork.pickTab': 'Observar una pestaña del navegador…',
+  'workbench.liveNetwork.refreshTabs': 'Actualizar la lista de pestañas',
+  'workbench.liveNetwork.untitledTab': 'Pestaña sin título',
+  'workbench.liveNetwork.emptyWatching': 'Esperando tráfico…',
+  'workbench.liveNetwork.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
+  'workbench.liveNetwork.emptyNoTab': 'Ninguna pestaña seleccionada',
+  'workbench.liveNetwork.emptyNoTabHint': 'Elige una pestaña arriba para ver su tráfico en vivo',
+  'workbench.liveNetwork.emptyNoBrowser': 'Ningún navegador conectado',
+  'workbench.liveNetwork.emptyNoBrowserHint':
+    'Abre un navegador con la extensión OpenHeaders conectada a esta aplicación',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',

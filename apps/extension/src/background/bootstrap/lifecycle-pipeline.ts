@@ -56,6 +56,7 @@ import { startRuleEngineDriver } from '../rule-engine-driver';
 import { recordFiresForReport } from '../rule-engine-driver/fire-recorder';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
+import { startTelemetryStreamHost } from '../telemetry-stream-host';
 import { debouncedUpdateBadge } from './badge-update';
 
 /** Pairing window between a capture's page clock and the lifecycle's host
@@ -354,6 +355,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     bus: tabLifecycleBus,
     sessionFloors,
   });
+  const lifecycleBodyFetcher = createBodyFetchRouter(browserTargetNetwork, lifecycleHost.cdpCorrelator);
   startLifecyclePortHost({
     hub: lifecycleHub,
     ready: sessionFloors.ready,
@@ -363,7 +365,17 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     // → the tab plane — see the clobber trap on `createBodyFetchRouter`).
     // Each instance still gates on its own attach set, so a heuristic-owned
     // tab is a clean no-op.
-    bodyFetcher: createBodyFetchRouter(browserTargetNetwork, lifecycleHost.cdpCorrelator),
+    bodyFetcher: lifecycleBodyFetcher,
+  });
+  // Desktop live-view plane (OBSERVABILITY_PLAN.md Phase 1): the same
+  // hub + floors + provenance + body fetcher served over the backend
+  // wire — a forwarded workbench subscribe raises the tracking ref and
+  // streams tick-batched lifecycle envelopes; loopback wires only.
+  startTelemetryStreamHost({
+    hub: lifecycleHub,
+    ready: sessionFloors.ready,
+    provenance: lifecycleHost.router,
+    bodyFetcher: lifecycleBodyFetcher,
   });
 
   // Page stream: two sources, one per tab-owner (same ownership the request

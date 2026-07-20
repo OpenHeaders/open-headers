@@ -543,6 +543,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateLiveVariable,
     openCreateLiveWorkflow,
     openProxyRequestInspect,
+    openLiveNetworkRequestInspect,
   } = openers;
 
   // First workbench open after a feature release auto-opens the
@@ -1310,6 +1311,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openWsResponseExampleTab={openWsResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
         openProxyRequestInspect={openProxyRequestInspect}
+        openLiveNetworkRequestInspect={openLiveNetworkRequestInspect}
         openSettingsTab={openSettingsTab}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
@@ -1372,6 +1374,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       sidebarState,
       openLiveVariableEdit,
       openProxyRequestInspect,
+      openLiveNetworkRequestInspect,
       openSettingsTab,
       handleViewActivityEntity,
     ],

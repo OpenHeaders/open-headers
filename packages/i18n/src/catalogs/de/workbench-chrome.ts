@@ -359,6 +359,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Aktivität',
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
   'workbench.toolWindows.proxyCapture': 'Proxy',
+  'workbench.toolWindows.liveNetwork': 'Live-Netzwerk',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -471,6 +472,10 @@ export const workbenchChrome = {
     'Der Capture-Proxy — Datenverkehr beliebiger Tools dieser Maschine, die auf den lokalen Proxy-Port zeigen, ' +
     'erfasst als Live-Netzwerkprotokoll. Die Entschlüsselung ist eingegrenzt: Nur gelistete Hosts werden ' +
     'TLS-terminiert, alles andere läuft als opaker Tunnel durch.',
+  'workbench.toolWindows.info.liveNetwork.summary':
+    'Die Live-Browseransicht — die verbundene Erweiterung streamt den Verkehr eines beobachteten Tabs in die ' +
+    'Desktop-App, dargestellt mit demselben Netzwerkprotokoll wie das DevTools-Panel. Es wird nichts gestreamt, ' +
+    'bis du einen Tab zum Beobachten wählst.',
   'workbench.toolWindows.info.terminal.summary':
     'Ein integriertes Terminal, das deine Shell in einem echten pty ausführt — alles, was in einem ' +
     'eigenständigen Terminal läuft, läuft auch hier, einschließlich der CLI oh gegen die lokale App.',
@@ -500,6 +505,20 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'Keiner CA wird vertraut, HTTPS-Verbindungen laufen daher als opaker Tunnel durch — nichts wird entschlüsselt. ' +
     'Installiere die CA unter Einstellungen › Proxy und füge dann Hosts zum Entschlüsselungsbereich hinzu.',
+
+  // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
+  'workbench.liveNetwork.browserConnected': 'Verbundene Browser: {count}',
+  'workbench.liveNetwork.noBrowser': 'Kein Browser verbunden',
+  'workbench.liveNetwork.pickTab': 'Browser-Tab beobachten…',
+  'workbench.liveNetwork.refreshTabs': 'Tab-Liste aktualisieren',
+  'workbench.liveNetwork.untitledTab': 'Unbenannter Tab',
+  'workbench.liveNetwork.emptyWatching': 'Warte auf Verkehr…',
+  'workbench.liveNetwork.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
+  'workbench.liveNetwork.emptyNoTab': 'Kein Tab ausgewählt',
+  'workbench.liveNetwork.emptyNoTabHint': 'Wähle oben einen Browser-Tab, um seinen Verkehr live zu sehen',
+  'workbench.liveNetwork.emptyNoBrowser': 'Kein Browser verbunden',
+  'workbench.liveNetwork.emptyNoBrowserHint':
+    'Öffne einen Browser, dessen OpenHeaders-Erweiterung mit dieser App verbunden ist',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',

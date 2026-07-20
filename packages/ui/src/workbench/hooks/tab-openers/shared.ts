@@ -175,6 +175,7 @@ export interface UseTabOpenersApi {
    * (method + URL leaf) resolved by the caller from the capture row.
    */
   openProxyRequestInspect: (requestId: string, label: string) => void;
+  openLiveNetworkRequestInspect: (nodeId: string, tabId: number, requestId: string, label: string) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**

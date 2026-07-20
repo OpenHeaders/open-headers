@@ -436,4 +436,8 @@ export const sharedComponents = {
     'Capturez le trafic HTTP(S) en direct avec le proxy intégré et inspectez chaque requête au moment où elle se produit.',
   'shared.desktopTeaser.mcp.title': 'Serveur MCP',
   'shared.desktopTeaser.mcp.body': 'Connectez des assistants IA à vos espaces de travail via le serveur MCP intégré.',
+  'shared.desktopTeaser.liveNetwork.title': 'Réseau en direct',
+  'shared.desktopTeaser.liveNetwork.body':
+    'Suivez en direct le trafic d’un onglet du navigateur dans l’application de bureau, diffusé par l’extension — ' +
+    'sans DevTools.',
 } as const satisfies Catalog;

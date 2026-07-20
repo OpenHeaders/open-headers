@@ -105,12 +105,12 @@ registerCapability('terminal', () => ({ spawn: spawnTerminalSession }));
 // Proxy window from their dock registry.
 registerCapability('proxyCapture', () => true);
 
-// The workbench Proxy tool window — the desktop runs the daemon spine
-// in-process (capture service + lifecycle lifeline over the same IPC
-// lifeline transport the awareness pipe uses), so it drives the L7
-// capture proxy. Browser surfaces never register this, which drops the
-// Proxy window from their dock registry.
-registerCapability('proxyCapture', () => true);
+// The workbench Live Network tool window — the desktop's in-process
+// daemon spine relays browser lifecycle streams from the connected
+// extension over the same lifeline transport, so the live view has a
+// source to attach. Browser surfaces never register this, which drops
+// the window from their dock registry.
+registerCapability('liveNetwork', () => true);
 
 // The workbench Git tool window — the desktop's bridge reaches the
 // workspace-tree runtime in-process, so the log/history surface has a

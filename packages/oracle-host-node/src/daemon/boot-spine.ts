@@ -166,6 +166,7 @@ import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
 import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
+import { createBrowserLiveRelay } from './telemetry/browser-live-relay';
 
 const SCOPE = 'boot-spine';
 
@@ -688,6 +689,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const proxyCaptureService = createProxyCaptureService();
   const uninstallProxyCaptureLifeline = installProxyCaptureLifeline(proxyCaptureService.hub);
 
+  // Browser live-telemetry relay (OBSERVABILITY_PLAN.md Phase 1) — the
+  // workbench's qualified lifecycle lifelines bridge through here to
+  // the extension peer that owns each browser tab. No second store or
+  // hub: envelopes relay frame-for-frame, watches are subscription-
+  // gated end to end. No-op on a headless host (no lifeline server).
+  const browserLiveRelay = createBrowserLiveRelay();
+  const uninstallBrowserLiveLifeline = browserLiveRelay.installLifeline();
+
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
     getBoundPort: () => boundPort,
@@ -710,6 +719,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // proxy's control surface + the daemon-side lifecycle hub the
     // workbench's Proxy source attaches to (lifeline acceptor below).
     proxyCapture: proxyCaptureService,
+    // Browser telemetry plane (Phase 1) — the tab-inventory read the
+    // Live Network picker renders; streams ride the lifeline, not RPC.
+    telemetryTabs: () => browserLiveRelay.listTabs(),
     // The admin console's Git card rides the same verb table the local
     // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.
@@ -1080,6 +1092,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
       peerRpc: composePeerRpc(createPeerAdminRpc({ channels: adminChannels }), createPeerRequestsRpc()),
+      peerPush: browserLiveRelay.peerPush,
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||
@@ -1094,6 +1107,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);
+        browserLiveRelay.setWsServer(next);
         if (next) syncStatusReporter.attachServer(next);
         else syncStatusReporter.detachServer();
       },
@@ -1120,6 +1134,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     workspaceTreeRuntime = null;
     stopLiveRunner();
     uninstallProxyCaptureLifeline();
+    uninstallBrowserLiveLifeline();
+    browserLiveRelay.dispose();
     await proxyCaptureService.dispose();
     stopActivityPruneScheduler();
     stopAuditPruneScheduler();

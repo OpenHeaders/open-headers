@@ -41,8 +41,13 @@ import { EMPTY_RESOURCE_TIMING_SNAPSHOT } from '../data/stores/resource-timing-c
 import { usePanelData } from '../data/use-panel-data';
 
 export interface NetworkCaptureViewProps {
-  /** Lifecycle partition to watch — a reserved synthetic tab id. */
+  /** Lifecycle partition to watch — a reserved synthetic tab id, or a
+   *  real browser tab id when `portName` addresses a remote engine. */
   readonly tabId: number;
+  /** Optional port-name override — the Live Network view passes the
+   *  qualified `oh-lifecycle:<tabId>@<nodeId>` shape so the daemon's
+   *  relay routes the watch to the owning extension peer. */
+  readonly portName?: (tabId: number) => string;
   /** Row inspection gesture — the host decides where the detail opens
    *  (the workbench mints a `proxy-request-inspect` editor tab). */
   readonly onInspectRequest: (row: InspectorRowWithFires) => void;
@@ -61,8 +66,8 @@ const NOOP = (): void => {};
  * and self-sufficient (the detail tab keeps working with the Proxy tool
  * window closed).
  */
-function useNetworkCaptureData(tabId: number) {
-  const lifecycleClient = useLifecycleClient({ tabId });
+function useNetworkCaptureData(tabId: number, portName?: (tabId: number) => string) {
+  const lifecycleClient = useLifecycleClient({ tabId, ...(portName !== undefined ? { portName } : {}) });
   const data = usePanelData({
     lifecycle: lifecycleClient.snapshot,
     page: EMPTY_PAGE_SNAPSHOT,
@@ -74,8 +79,8 @@ function useNetworkCaptureData(tabId: number) {
 }
 
 /** The capture list — filter toolbar + columns, selection routes outward. */
-export function NetworkCaptureView({ tabId, onInspectRequest, emptyHero }: NetworkCaptureViewProps) {
-  const { data } = useNetworkCaptureData(tabId);
+export function NetworkCaptureView({ tabId, portName, onInspectRequest, emptyHero }: NetworkCaptureViewProps) {
+  const { data } = useNetworkCaptureData(tabId, portName);
 
   // Local filter + view state — the proxy view owns its own, no shared
   // dock toolbar to sync with.
@@ -141,14 +146,16 @@ export function NetworkCaptureView({ tabId, onInspectRequest, emptyHero }: Netwo
 export interface NetworkCaptureRequestDetailProps {
   /** Lifecycle partition the request was captured on. */
   readonly tabId: number;
+  /** Optional port-name override — same seam as the list view's. */
+  readonly portName?: (tabId: number) => string;
   /** The captured lifecycle to inspect. */
   readonly requestId: string;
 }
 
 /** Inner detail — assumes the popover host wraps it. */
-function NetworkCaptureRequestDetailBody({ tabId, requestId }: NetworkCaptureRequestDetailProps) {
+function NetworkCaptureRequestDetailBody({ tabId, portName, requestId }: NetworkCaptureRequestDetailProps) {
   const t = useT();
-  const { lifecycleClient, data } = useNetworkCaptureData(tabId);
+  const { lifecycleClient, data } = useNetworkCaptureData(tabId, portName);
   const rulesByUid = useRulesLookup();
   const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
   const [activeSection, setActiveSection] = useState<DetailSection>('headers');
@@ -191,10 +198,10 @@ function NetworkCaptureRequestDetailBody({ tabId, requestId }: NetworkCaptureReq
  * workbench editor tab: it owns its own lifeline client and popover
  * host, so it renders with or without the Proxy tool window open.
  */
-export function NetworkCaptureRequestDetail({ tabId, requestId }: NetworkCaptureRequestDetailProps) {
+export function NetworkCaptureRequestDetail({ tabId, portName, requestId }: NetworkCaptureRequestDetailProps) {
   return (
     <RulePopoverProvider>
-      <NetworkCaptureRequestDetailBody tabId={tabId} requestId={requestId} />
+      <NetworkCaptureRequestDetailBody tabId={tabId} portName={portName} requestId={requestId} />
     </RulePopoverProvider>
   );
 }

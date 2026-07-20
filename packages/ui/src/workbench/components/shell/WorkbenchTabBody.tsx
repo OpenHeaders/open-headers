@@ -41,6 +41,7 @@ import RuleEditor from '../rule/RuleEditor';
 // that never register `proxyCapture` don't fetch the chunk (mirrors
 // `WorkbenchToolWindow`'s ProxyCapturePanel).
 const ProxyRequestInspectTab = lazy(() => import('../panels/ProxyRequestInspectTab'));
+const LiveNetworkRequestInspectTab = lazy(() => import('../panels/LiveNetworkRequestInspectTab'));
 import SpecEditorTab from '../specs/SpecEditorTab';
 import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview';
 import TemplateEditor from '../template/TemplateEditor';
@@ -288,6 +289,22 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
     return (
       <Suspense fallback={null}>
         <ProxyRequestInspectTab requestId={tab.proxyRequestId} />
+      </Suspense>
+    );
+  }
+  if (
+    tab.mode === 'live-network-request-inspect' &&
+    tab.liveNetworkRequestId &&
+    tab.liveNetworkNodeId &&
+    tab.liveNetworkTabId !== undefined
+  ) {
+    return (
+      <Suspense fallback={null}>
+        <LiveNetworkRequestInspectTab
+          nodeId={tab.liveNetworkNodeId}
+          tabId={tab.liveNetworkTabId}
+          requestId={tab.liveNetworkRequestId}
+        />
       </Suspense>
     );
   }

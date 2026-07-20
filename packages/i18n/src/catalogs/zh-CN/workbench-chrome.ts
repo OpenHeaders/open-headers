@@ -352,6 +352,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': '活动',
   'workbench.toolWindows.activityTooltip': '活动流——来自对等方的入站更改',
   'workbench.toolWindows.proxyCapture': '代理',
+  'workbench.toolWindows.liveNetwork': '实时网络',
   'workbench.toolWindows.terminal': '终端',
   'workbench.toolWindows.git': 'Git',
 
@@ -448,6 +449,9 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.proxyCapture.summary':
     '捕获代理——本机任何指向本地代理端口的工具流量，以实时网络日志的形式捕获。解密有明确范围：' +
     '只有你列出的主机才会终止 TLS，其余流量以不透明隧道方式通过。',
+  'workbench.toolWindows.info.liveNetwork.summary':
+    '浏览器实时视图——已连接的扩展会把受监视标签页的流量流式传输到桌面应用，并使用与 DevTools 面板相同的' +
+    '网络日志呈现。在你选择要监视的标签页之前，不会传输任何数据。',
   'workbench.toolWindows.info.terminal.summary':
     '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
     '包括对本地应用使用 oh CLI。',
@@ -495,6 +499,19 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     '没有受信任的 CA，因此 HTTPS 连接以不透明隧道通过——不会解密任何内容。在设置 › 代理 下安装 CA，' +
     '然后把主机加入解密范围。',
+
+  // ── 实时网络工具窗口（可观测性第 1 阶段） ────────────────────────────
+  'workbench.liveNetwork.browserConnected': '已连接浏览器：{count}',
+  'workbench.liveNetwork.noBrowser': '未连接浏览器',
+  'workbench.liveNetwork.pickTab': '监视某个浏览器标签页…',
+  'workbench.liveNetwork.refreshTabs': '刷新标签页列表',
+  'workbench.liveNetwork.untitledTab': '无标题标签页',
+  'workbench.liveNetwork.emptyWatching': '等待流量…',
+  'workbench.liveNetwork.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
+  'workbench.liveNetwork.emptyNoTab': '未选择标签页',
+  'workbench.liveNetwork.emptyNoTabHint': '在上方选择一个浏览器标签页，即可实时查看其流量',
+  'workbench.liveNetwork.emptyNoBrowser': '未连接浏览器',
+  'workbench.liveNetwork.emptyNoBrowserHint': '打开装有 OpenHeaders 扩展并已连接到本应用的浏览器',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': '标题',

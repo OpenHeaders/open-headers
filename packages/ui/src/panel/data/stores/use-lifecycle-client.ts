@@ -84,6 +84,13 @@ export interface UseLifecycleClientOptions {
    * DevTools surfaces to inherit `hostNavigation.inspectedTabId()`.
    */
   readonly tabId?: number;
+  /**
+   * Override the port-name encoder — the workbench Live Network view
+   * passes `qualifiedLifecyclePortName(tabId, nodeId)` so the daemon's
+   * relay routes the watch to the owning extension peer. Defaults to
+   * the local `oh-lifecycle:<tabId>` shape.
+   */
+  readonly portName?: (tabId: number) => string;
 }
 
 export function useLifecycleClient(options: UseLifecycleClientOptions = {}): UseLifecycleClientResult {
@@ -102,7 +109,7 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
   // bare `subscribe` means "my watch session" and the engine resolves the
   // same floor on every reconnect/remount.
   const { tabId, post } = useLifelineClient<LifecycleWireMessage>({
-    portName: lifecyclePortName,
+    portName: options.portName ?? lifecyclePortName,
     ...(options.tabId !== undefined ? { tabId: options.tabId } : {}),
     onConnect: (send) => {
       requestedBodiesRef.current.clear();

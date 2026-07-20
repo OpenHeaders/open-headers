@@ -13,6 +13,7 @@ import {
   BranchesOutlined,
   CodeOutlined,
   FundViewOutlined,
+  GlobalOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
@@ -143,6 +144,20 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     openByDefault: false,
     requiresCapability: 'proxyCapture',
     teaserWhenUnavailable: 'proxy',
+  },
+  // The always-on live view of browser traffic (Observability Phase 1):
+  // the connected extension streams each watched tab's lifecycle rows
+  // through the daemon spine's telemetry relay. Only hosts that run the
+  // spine in-process register `liveNetwork`. Dormant until opened.
+  {
+    id: 'live-network',
+    labelKey: 'workbench.toolWindows.liveNetwork',
+    icon: <GlobalOutlined />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+    requiresCapability: 'liveNetwork',
+    teaserWhenUnavailable: 'liveNetwork',
   },
   // Per-workflow circuit-breaker dashboard (state, consecutive
   // failures, openings, next-attempt countdown, manual Retry /

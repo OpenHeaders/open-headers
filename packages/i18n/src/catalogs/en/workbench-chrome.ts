@@ -334,6 +334,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
   'workbench.toolWindows.proxyCapture': 'Proxy',
+  'workbench.toolWindows.liveNetwork': 'Live Network',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -402,6 +403,9 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.proxyCapture.summary':
     'The capture proxy — traffic from any tool on this machine pointed at the local proxy port, captured as a live ' +
     'network log. Decryption is scoped: only hosts you list are TLS-terminated, everything else tunnels through opaque.',
+  'workbench.toolWindows.info.liveNetwork.summary':
+    'The live browser view — the connected extension streams a watched tab’s traffic into the desktop app, rendered ' +
+    'with the same network log the DevTools panel uses. Nothing streams until you pick a tab to watch.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
     'countdown, with manual Retry and Reset-circuit actions.',
@@ -491,6 +495,19 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'No CA is trusted, so HTTPS connections tunnel through opaque — nothing is decrypted. Install the CA under ' +
     'Settings › Proxy, then add hosts to the decrypt scope.',
+
+  // ── Live Network tool window (Observability Phase 1) ────────────────
+  'workbench.liveNetwork.browserConnected': 'Connected browsers: {count}',
+  'workbench.liveNetwork.noBrowser': 'No browser connected',
+  'workbench.liveNetwork.pickTab': 'Watch a browser tab…',
+  'workbench.liveNetwork.refreshTabs': 'Refresh tab list',
+  'workbench.liveNetwork.untitledTab': 'Untitled tab',
+  'workbench.liveNetwork.emptyWatching': 'Waiting for traffic…',
+  'workbench.liveNetwork.emptyWatchingHint': 'Browse in the watched tab — its requests appear here live',
+  'workbench.liveNetwork.emptyNoTab': 'No tab selected',
+  'workbench.liveNetwork.emptyNoTabHint': 'Pick a browser tab above to watch its traffic live',
+  'workbench.liveNetwork.emptyNoBrowser': 'No browser connected',
+  'workbench.liveNetwork.emptyNoBrowserHint': 'Open a browser with the OpenHeaders extension connected to this app',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

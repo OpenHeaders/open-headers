@@ -440,4 +440,8 @@ export const sharedComponents = {
   'shared.desktopTeaser.mcp.title': 'Servidor MCP',
   'shared.desktopTeaser.mcp.body':
     'Conecta asistentes de IA a tus espacios de trabajo a través del servidor MCP integrado.',
+  'shared.desktopTeaser.liveNetwork.title': 'Red en vivo',
+  'shared.desktopTeaser.liveNetwork.body':
+    'Observa en vivo el tráfico de una pestaña del navegador en la aplicación de escritorio, transmitido desde la ' +
+    'extensión, sin DevTools.',
 } as const satisfies Catalog;

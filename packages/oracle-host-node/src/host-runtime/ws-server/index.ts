@@ -63,6 +63,7 @@ export type {
   PeerChangeListener,
   PeerSummary,
   WsAdmissionHooks,
+  WsPeerPushHooks,
   WsPeerRpcContext,
   WsPeerRpcHooks,
   WsUpgradeVerdict,

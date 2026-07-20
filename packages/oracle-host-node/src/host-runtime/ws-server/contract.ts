@@ -47,6 +47,24 @@ export interface WsPeerRpcHooks {
   dispatch(message: Record<string, unknown>, peer: WsPeerRpcContext): Promise<unknown>;
 }
 
+/**
+ * Peer-facing PUSH seam — one-way inbound frames that never get a
+ * `<type>:response` reply (the telemetry plane's lifecycle batches,
+ * request/response correlation frames the consumer resolves itself).
+ * Declared structurally like {@link WsPeerRpcHooks}; consulted for
+ * post-handshake frames the sync dispatcher does not own, BEFORE the
+ * RPC seam — a hot streaming path must not pay for (or trigger) the
+ * RPC reply machinery. The handler receives the delivering peer's
+ * registry summary so it can route by authenticated identity
+ * (`nodeId`), never by anything the frame claims about itself.
+ */
+export interface WsPeerPushHooks {
+  /** Does this seam own `type`? Unowned frames fall through to the RPC seam. */
+  owns(type: string): boolean;
+  /** Consume one owned frame from the identified peer. Must not throw. */
+  handle(message: Record<string, unknown>, peer: PeerSummary): void;
+}
+
 export interface OracleWsServerOptions {
   /** Bind address — `127.0.0.1` for local-only, `0.0.0.0` for LAN. */
   host?: string;
@@ -81,6 +99,12 @@ export interface OracleWsServerOptions {
    * silently-ignore posture.
    */
   peerRpc?: WsPeerRpcHooks;
+  /**
+   * Optional peer-facing push seam (telemetry plane) — see
+   * {@link WsPeerPushHooks}. Consulted before `peerRpc`; absent =
+   * push-shaped channels keep the silently-ignore posture.
+   */
+  peerPush?: WsPeerPushHooks;
   /**
    * Override the per-connection loopback classification. Defaults to
    * `isLoopbackRemote` over the socket's remote address. A real

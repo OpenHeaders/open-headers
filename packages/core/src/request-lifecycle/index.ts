@@ -52,9 +52,12 @@ export type {
   LifecycleSource,
   LifecycleSubscribeMessage,
   LifecycleWireMessage,
+  QualifiedLifecyclePortTarget,
 } from './wire';
 export {
   LIFECYCLE_PORT_PREFIX,
   lifecyclePortName,
   parseLifecyclePortName,
+  parseQualifiedLifecyclePortName,
+  qualifiedLifecyclePortName,
 } from './wire';

@@ -214,6 +214,10 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
       title: t('workbench.toolWindows.proxyCapture'),
       summary: t('workbench.toolWindows.info.proxyCapture.summary'),
     },
+    'live-network': {
+      title: t('workbench.toolWindows.liveNetwork'),
+      summary: t('workbench.toolWindows.info.liveNetwork.summary'),
+    },
     'workflow-status': {
       title: t('workbench.toolWindows.workflowStatus'),
       summary: t('workbench.toolWindows.info.workflowStatus.summary'),

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { LIFECYCLE_PORT_PREFIX, lifecyclePortName, parseLifecyclePortName } from '../../src/request-lifecycle/wire';
+import {
+  LIFECYCLE_PORT_PREFIX,
+  lifecyclePortName,
+  parseLifecyclePortName,
+  parseQualifiedLifecyclePortName,
+  qualifiedLifecyclePortName,
+} from '../../src/request-lifecycle/wire';
 
 describe('parseLifecyclePortName', () => {
   it('round-trips valid tab ids', () => {
@@ -31,5 +37,30 @@ describe('parseLifecyclePortName', () => {
     expect(parseLifecyclePortName('oh-lifecycle:-1')).toBe(-1);
     expect(parseLifecyclePortName('oh-lifecycle:-59210')).toBe(-59210);
     expect(parseLifecyclePortName(lifecyclePortName(-59210))).toBe(-59210);
+  });
+
+  it('rejects the peer-qualified shape — local acceptors never serve remote partitions', () => {
+    expect(parseLifecyclePortName('oh-lifecycle:7@node-a')).toBeNull();
+  });
+});
+
+describe('parseQualifiedLifecyclePortName', () => {
+  it('round-trips tabId + nodeId', () => {
+    expect(parseQualifiedLifecyclePortName(qualifiedLifecyclePortName(7, 'node-a'))).toEqual({
+      tabId: 7,
+      nodeId: 'node-a',
+    });
+    expect(parseQualifiedLifecyclePortName(qualifiedLifecyclePortName(-59210, 'x'))).toEqual({
+      tabId: -59210,
+      nodeId: 'x',
+    });
+  });
+
+  it('returns null for the unqualified shape, bad tab parts, and empty nodeIds', () => {
+    expect(parseQualifiedLifecyclePortName('oh-lifecycle:7')).toBeNull();
+    expect(parseQualifiedLifecyclePortName('oh-lifecycle:@node-a')).toBeNull();
+    expect(parseQualifiedLifecyclePortName('oh-lifecycle:7@')).toBeNull();
+    expect(parseQualifiedLifecyclePortName('oh-lifecycle:12abc@node-a')).toBeNull();
+    expect(parseQualifiedLifecyclePortName('oh-page:7@node-a')).toBeNull();
   });
 });

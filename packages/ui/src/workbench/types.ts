@@ -51,7 +51,8 @@ export type TabMode =
   | 'live-variable-create'
   | 'live-workflow-edit'
   | 'live-workflow-create'
-  | 'proxy-request-inspect';
+  | 'proxy-request-inspect'
+  | 'live-network-request-inspect';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -164,6 +165,13 @@ export interface WorkbenchTab {
    *  daemon's in-memory capture log, so the tab renders a "request gone"
    *  empty state once the capture is cleared or evicted. */
   proxyRequestId?: string;
+  /** For live-network-request-inspect tabs: the watched browser tab and
+   *  the owning extension peer (the qualified-lifeline coordinates),
+   *  plus the row to inspect. Ephemeral like the proxy detail — the
+   *  rows live in the extension's in-memory engine store. */
+  liveNetworkTabId?: number;
+  liveNetworkNodeId?: string;
+  liveNetworkRequestId?: string;
   /** For live-variable-edit tabs: the LV uid being edited. */
   liveVariableUid?: string;
   /** For live-workflow-edit tabs: the workflow uid being edited. */
@@ -274,6 +282,7 @@ export type ToolWindowId =
   | 'docs'
   | 'var-scope'
   | 'proxy-capture'
+  | 'live-network'
   | 'activity'
   | 'notifications'
   | 'terminal'

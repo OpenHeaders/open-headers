@@ -164,6 +164,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       classifyLoopback,
       admission: options.admission,
       peerRpc: options.peerRpc,
+      peerPush: options.peerPush,
     });
   });
 

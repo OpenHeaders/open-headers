@@ -353,6 +353,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activité',
   'workbench.toolWindows.activityTooltip': "Flux d'activité — modifications entrantes des pairs",
   'workbench.toolWindows.proxyCapture': 'Proxy',
+  'workbench.toolWindows.liveNetwork': 'Réseau en direct',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -472,6 +473,10 @@ export const workbenchChrome = {
     'Le proxy de capture — le trafic de n’importe quel outil de cette machine pointé vers le port du proxy local, ' +
     'capturé sous forme de journal réseau en direct. Le déchiffrement est délimité : seuls les hôtes que vous listez ' +
     'sont déchiffrés (TLS terminé), tout le reste transite en tunnel opaque.',
+  'workbench.toolWindows.info.liveNetwork.summary':
+    'La vue navigateur en direct — l’extension connectée diffuse le trafic d’un onglet surveillé vers l’application ' +
+    'de bureau, affiché avec le même journal réseau que le panneau DevTools. Rien n’est diffusé tant que vous ne ' +
+    'choisissez pas d’onglet à surveiller.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",
@@ -504,6 +509,21 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'Aucune AC n’est approuvée, les connexions HTTPS transitent donc en tunnel opaque — rien n’est déchiffré. ' +
     'Installez l’AC dans Paramètres › Proxy, puis ajoutez des hôtes au périmètre de déchiffrement.',
+
+  // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
+  'workbench.liveNetwork.browserConnected': 'Navigateurs connectés : {count}',
+  'workbench.liveNetwork.noBrowser': 'Aucun navigateur connecté',
+  'workbench.liveNetwork.pickTab': 'Surveiller un onglet du navigateur…',
+  'workbench.liveNetwork.refreshTabs': 'Actualiser la liste des onglets',
+  'workbench.liveNetwork.untitledTab': 'Onglet sans titre',
+  'workbench.liveNetwork.emptyWatching': 'En attente de trafic…',
+  'workbench.liveNetwork.emptyWatchingHint':
+    'Naviguez dans l’onglet surveillé — ses requêtes apparaissent ici en direct',
+  'workbench.liveNetwork.emptyNoTab': 'Aucun onglet sélectionné',
+  'workbench.liveNetwork.emptyNoTabHint': 'Choisissez un onglet ci-dessus pour suivre son trafic en direct',
+  'workbench.liveNetwork.emptyNoBrowser': 'Aucun navigateur connecté',
+  'workbench.liveNetwork.emptyNoBrowserHint':
+    'Ouvrez un navigateur dont l’extension OpenHeaders est connectée à cette application',
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

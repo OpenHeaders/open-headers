@@ -122,6 +122,21 @@ export type {
   SyncWsResponseExamplePostState,
 } from './sync-bridge';
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
+export type {
+  BrowserTabWire,
+  TelemetryLifecycleBatchMessage,
+  TelemetryLifecycleConsumerMessage,
+  TelemetryLifecycleDetachMessage,
+  TelemetryStreamMessage,
+  TelemetryTabsListMessage,
+  TelemetryTabsListResponsePayload,
+} from './telemetry-stream';
+export {
+  TELEMETRY_LIFECYCLE_BATCH_TYPE,
+  TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
+  TELEMETRY_LIFECYCLE_DETACH_TYPE,
+  TELEMETRY_TABS_LIST_TYPE,
+} from './telemetry-stream';
 export type { IncompatibleProtocolReason } from './version';
 export {
   HANDSHAKE_REJECT_CLOSE_CODE,

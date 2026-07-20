@@ -14,7 +14,7 @@
 
 import type { MessageKey } from '@openheaders/i18n';
 
-export type DesktopFeature = 'terminal' | 'git' | 'proxy' | 'mcp';
+export type DesktopFeature = 'terminal' | 'git' | 'proxy' | 'mcp' | 'liveNetwork';
 
 export interface DesktopTeaserCopy {
   title: MessageKey;
@@ -37,5 +37,9 @@ export const DESKTOP_TEASER_COPY: Record<DesktopFeature, DesktopTeaserCopy> = {
   mcp: {
     title: 'shared.desktopTeaser.mcp.title',
     body: 'shared.desktopTeaser.mcp.body',
+  },
+  liveNetwork: {
+    title: 'shared.desktopTeaser.liveNetwork.title',
+    body: 'shared.desktopTeaser.liveNetwork.body',
   },
 };

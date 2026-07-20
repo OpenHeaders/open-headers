@@ -36,6 +36,8 @@ const TerminalPanel = lazy(() => import('../panels/terminal/TerminalPanel'));
 // Pulls the panel-package network table (TrafficList + detail); lazy so
 // browser workbenches that never register `proxyCapture` don't bundle it.
 const ProxyCapturePanel = lazy(() => import('../panels/ProxyCapturePanel'));
+// Same lazy posture for the browser live view (`liveNetwork` capability).
+const LiveNetworkPanel = lazy(() => import('../panels/LiveNetworkPanel'));
 // Lazy for the same reason: the window exists solely on hosts with the
 // `workspaceGit` capability (registry `requiresCapability` gate).
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
@@ -97,6 +99,7 @@ interface WorkbenchToolWindowProps {
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
   openProxyRequestInspect: UseTabOpenersApi['openProxyRequestInspect'];
+  openLiveNetworkRequestInspect: UseTabOpenersApi['openLiveNetworkRequestInspect'];
   openSettingsTab: UseTabOpenersApi['openSettingsTab'];
 
   // Shell-local handlers.
@@ -162,6 +165,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openWsResponseExampleTab,
   openLiveVariableEdit,
   openProxyRequestInspect,
+  openLiveNetworkRequestInspect,
   openSettingsTab,
   handleDeleteRule,
   handleCloseTab,
@@ -312,6 +316,16 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
             info={getToolWindowInfo(id, t)}
             onHide={() => tl.closeDock(slot)}
             onOpenRequest={openProxyRequestInspect}
+          />
+        </Suspense>
+      );
+    case 'live-network':
+      return (
+        <Suspense fallback={null}>
+          <LiveNetworkPanel
+            info={getToolWindowInfo(id, t)}
+            onHide={() => tl.closeDock(slot)}
+            onOpenRequest={openLiveNetworkRequestInspect}
           />
         </Suspense>
       );

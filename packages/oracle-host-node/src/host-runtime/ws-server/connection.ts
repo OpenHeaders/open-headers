@@ -19,7 +19,7 @@ import {
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
 import { type RawData, WebSocket } from 'ws';
-import type { PeerSummary, WsAdmissionHooks, WsPeerRpcHooks } from './contract';
+import type { PeerSummary, WsAdmissionHooks, WsPeerPushHooks, WsPeerRpcHooks } from './contract';
 import type { PeerRegistry } from './peer-registry';
 import { SCOPE } from './shared';
 
@@ -58,6 +58,8 @@ export interface ConnectionDeps {
   admission?: WsAdmissionHooks;
   /** Optional peer-facing RPC seam — see {@link WsPeerRpcHooks}. */
   peerRpc?: WsPeerRpcHooks;
+  /** Optional peer-facing push seam — see {@link WsPeerPushHooks}. */
+  peerPush?: WsPeerPushHooks;
 }
 
 /**
@@ -66,7 +68,7 @@ export interface ConnectionDeps {
  * cleanup. All shared state lives in `deps.registry`.
  */
 export function handleConnection(socket: WebSocket, request: IncomingMessage, deps: ConnectionDeps): void {
-  const { registry, handshakeIdentity, reach, classifyLoopback, admission, peerRpc } = deps;
+  const { registry, handshakeIdentity, reach, classifyLoopback, admission, peerRpc, peerPush } = deps;
   const { ready, peerBySocket, summaryBySocket, alive } = registry;
   // Auth is mandatory on every connection. Loopback is reachable
   // cross-user on a shared box and TCP blocks OS peer-cred, so
@@ -268,6 +270,24 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         }).catch((err) => {
           logger.warn(SCOPE, `handleStateVector threw for peer ${peerConn.peerId}`, err);
         });
+        return;
+      }
+
+      // Push seam (telemetry plane): one-way frames the consumer never
+      // answers. Consulted ahead of the sync/RPC dispatch so the hot
+      // streaming path costs one map lookup and no reply machinery.
+      // Routed by the peer's REGISTRY summary — the frame can't claim a
+      // foreign identity.
+      const pushType = (parsed as RpcMessage).type;
+      if (peerPush && typeof pushType === 'string' && peerPush.owns(pushType)) {
+        const summary = summaryBySocket.get(socket);
+        if (summary) {
+          try {
+            peerPush.handle(parsed as Record<string, unknown>, summary);
+          } catch (err) {
+            logger.warn(SCOPE, `push handler for ${pushType} threw`, err);
+          }
+        }
         return;
       }
 
