@@ -13,6 +13,7 @@ import { panelInspector } from './panel-inspector';
 import { panelInspectorCookies } from './panel-inspector-cookies';
 import { panelInspectorHeaders } from './panel-inspector-headers';
 import { panelInspectorStreams } from './panel-inspector-streams';
+import { panelNetwork } from './panel-network';
 import { panelQuickEditor } from './panel-quick-editor';
 import { panelStorage } from './panel-storage';
 import { popup } from './popup';
@@ -43,6 +44,7 @@ export const zhCN = {
   ...panelInspectorCookies,
   ...panelInspectorHeaders,
   ...panelInspectorStreams,
+  ...panelNetwork,
   ...panelQuickEditor,
   ...panelStorage,
   ...popup,
