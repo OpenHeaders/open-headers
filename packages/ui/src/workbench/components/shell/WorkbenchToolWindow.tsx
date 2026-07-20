@@ -39,6 +39,7 @@ const ProxyCapturePanel = lazy(() => import('../panels/ProxyCapturePanel'));
 // Lazy for the same reason: the window exists solely on hosts with the
 // `workspaceGit` capability (registry `requiresCapability` gate).
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
+import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import type { SidebarView } from '../sidebar/types';
 import { buildEntityExportScope, buildSelectionExportScope } from '../workspace-export/build-export-scope';
 import type { ImportExportModalsHandle } from '../workspace-export/ImportExportModals';
@@ -48,6 +49,7 @@ import type { UseTabOpenersApi } from '../../hooks/useTabOpeners';
 import type { ToolLayoutApi } from '../../hooks/useToolLayout';
 import type { UseWorkbenchSidebarStateApi } from '../../hooks/useWorkbenchSidebarState';
 import { getToolWindowInfo } from '../../tool-window-info';
+import { isToolWindowTeased, TOOL_WINDOW_MAP } from '../../tool-windows';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from '../../types';
 
 interface WorkbenchToolWindowProps {
@@ -176,6 +178,14 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   liveWorkflows,
 }) => {
   const t = useT();
+  // Capability-gated window on a host without the capability: render
+  // the desktop teaser instead of the real panel. Checked BEFORE the
+  // switch so the lazy chunks below (xterm, git, proxy table) are
+  // never fetched on hosts that can't run them.
+  const def = TOOL_WINDOW_MAP[id];
+  if (isToolWindowTeased(def)) {
+    return <DesktopTeaser feature={def.teaserWhenUnavailable} icon={def.icon} />;
+  }
   switch (id) {
     case 'http-rules':
     case 'api-requests':

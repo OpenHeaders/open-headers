@@ -1,6 +1,11 @@
 import { registerCapability, type TerminalHostApi, unregisterCapability } from '@openheaders/core/capabilities';
 import { normalizeDockLayout, type ToolLayoutState } from '@openheaders/ui/shared/dock-layout';
-import { availableToolWindowMap, availableToolWindows, TOOL_WINDOWS } from '@openheaders/ui/workbench/tool-windows';
+import {
+  availableToolWindowMap,
+  availableToolWindows,
+  isToolWindowTeased,
+  TOOL_WINDOWS,
+} from '@openheaders/ui/workbench/tool-windows';
 import type { ToolWindowId } from '@openheaders/ui/workbench/types';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -25,32 +30,35 @@ afterEach(() => {
 });
 
 describe('capability-gated tool windows', () => {
-  it('drops every capability-gated window on a host without the capabilities', () => {
-    const ids = availableToolWindows().map((def) => def.id);
-    expect(ids).not.toContain('terminal');
-    expect(ids).not.toContain('git');
-    expect(availableToolWindowMap().terminal).toBeUndefined();
-    // Everything ungated stays.
-    const gated = TOOL_WINDOWS.filter((def) => def.requiresCapability !== undefined).length;
-    expect(ids).toHaveLength(TOOL_WINDOWS.length - gated);
+  it('keeps capability-gated windows as desktop teasers on a host without the capabilities', () => {
+    // Every gated window in the registry declares `teaserWhenUnavailable`,
+    // so a browser host sees the full registry — the gated tabs render
+    // the desktop teaser body instead of disappearing.
+    const defs = availableToolWindows();
+    expect(defs.map((def) => def.id)).toEqual(TOOL_WINDOWS.map((def) => def.id));
+    expect(availableToolWindowMap().terminal).toBeDefined();
+    for (const def of defs) {
+      expect(isToolWindowTeased(def)).toBe(def.requiresCapability !== undefined);
+    }
   });
 
-  it('includes the terminal window once the capability is registered', () => {
+  it('renders the terminal window for real once the capability is registered', () => {
     registerCapability('terminal', fakeTerminalHost);
     const terminal = availableToolWindows().find((def) => def.id === 'terminal');
     expect(terminal).toBeDefined();
+    expect(terminal && isToolWindowTeased(terminal)).toBe(false);
     expect(terminal?.defaultSlot).toBe('bottom-left');
     expect(terminal?.openByDefault).toBe(false);
   });
 
-  it('normalize drops a persisted terminal id on a capability-less host', () => {
+  it('normalize keeps a persisted terminal id on a capability-less host (teased tab)', () => {
     const out = normalizeDockLayout(
       { docks: docksWith({ 'bottom-left': { windows: ['terminal'], active: 'terminal' } }) },
       availableToolWindows(),
       availableToolWindowMap(),
     );
-    expect(out.docks['bottom-left'].windows).not.toContain('terminal');
-    expect(out.docks['bottom-left'].active).toBeNull();
+    expect(out.docks['bottom-left'].windows).toContain('terminal');
+    expect(out.docks['bottom-left'].active).toBe('terminal');
   });
 
   it('normalize seats the terminal in its default slot when the capability exists', () => {
@@ -59,5 +67,11 @@ describe('capability-gated tool windows', () => {
     expect(out.docks['bottom-left'].windows).toContain('terminal');
     // Dormant until the user opens it.
     expect(out.docks['bottom-left'].active).not.toBe('terminal');
+  });
+
+  it('orders the bottom dock terminal→git (left) and proxy→workflow-status→activity (right)', () => {
+    const out = normalizeDockLayout(null, availableToolWindows(), availableToolWindowMap());
+    expect(out.docks['bottom-left'].windows).toEqual(['terminal', 'git']);
+    expect(out.docks['bottom-right'].windows).toEqual(['proxy-capture', 'workflow-status', 'activity']);
   });
 });

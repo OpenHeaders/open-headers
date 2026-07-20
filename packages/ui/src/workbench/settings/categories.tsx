@@ -71,7 +71,9 @@ registerCategory({
   renderPane: McpPane,
   // The desktop app is the only host that runs the MCP server; the
   // `when` is read at render time, after the host seam is installed.
+  // Browser hosts keep the nav entry and render the desktop teaser.
   when: () => getCurrentHost() === 'desktop',
+  teaserWhenUnavailable: 'mcp',
 });
 
 registerCategory({
@@ -105,8 +107,10 @@ registerCategory({
   order: 17,
   descriptionKey: 'workbench.settings.category.terminal.description',
   // The Terminal tool window rides the `terminal` capability, which
-  // only the desktop host installs.
+  // only the desktop host installs. Browser hosts keep the nav entry
+  // and render the desktop teaser.
   when: () => getCurrentHost() === 'desktop',
+  teaserWhenUnavailable: 'terminal',
 });
 
 registerCategory({
@@ -249,7 +253,9 @@ registerCategory({
   // Only Node hosts have a filesystem to bind (GIT_PLAN.md §12): the
   // desktop is Phase 2's host; the daemon's served web tab follows
   // with the admin console work, and the extension never qualifies.
+  // Browser hosts keep the nav entry and render the desktop teaser.
   when: () => getCurrentHost() === 'desktop',
+  teaserWhenUnavailable: 'git',
 });
 
 registerCategory({
@@ -262,8 +268,10 @@ registerCategory({
   // The trust plane rides the daemon admin table: the desktop operator
   // administers their own spine; a served web tab shows it only to
   // subjects whose `daemon.admin` probe resolves. The extension never
-  // reaches the daemon's trust RPCs.
+  // reaches the daemon's trust RPCs. Hosts where the probe denies keep
+  // the nav entry and render the desktop teaser.
   when: ({ daemonAdmin }) => getCurrentHost() === 'desktop' || daemonAdmin === 'admin',
+  teaserWhenUnavailable: 'proxy',
 });
 
 registerCategory({

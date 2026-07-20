@@ -436,4 +436,20 @@ export const sharedComponents = {
   //    entries for the two-pane split direction. ─────────────────────
   'shared.splitLayout.horizontal': 'Horizontal layout — side by side',
   'shared.splitLayout.vertical': 'Vertical layout — stacked',
+
+  // ── Desktop teaser (shared/desktop-teaser) — placeholder body for
+  //    capability-gated features on browser hosts: per-feature
+  //    explainer + the download CTA. ──────────────────────────────────
+  'shared.desktopTeaser.availability': 'Available in the OpenHeaders desktop app.',
+  'shared.desktopTeaser.cta': 'Download the desktop app',
+  'shared.desktopTeaser.terminal.title': 'Integrated terminal',
+  'shared.desktopTeaser.terminal.body':
+    'Open a real terminal inside your workspace — your own shell, running locally right next to your rules and requests.',
+  'shared.desktopTeaser.git.title': 'Git history',
+  'shared.desktopTeaser.git.body': 'Browse your workspace’s commit timeline, with per-commit detail and file diffs.',
+  'shared.desktopTeaser.proxy.title': 'Capture proxy',
+  'shared.desktopTeaser.proxy.body':
+    'Capture live HTTP(S) traffic with the built-in proxy and inspect every request as it happens.',
+  'shared.desktopTeaser.mcp.title': 'MCP server',
+  'shared.desktopTeaser.mcp.body': 'Connect AI assistants to your workspaces through the built-in MCP server.',
 } as const satisfies Catalog;

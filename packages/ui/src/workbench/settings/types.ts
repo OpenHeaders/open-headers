@@ -22,6 +22,7 @@
 import type { Capabilities } from '@openheaders/core/capabilities';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ComponentType, ReactNode } from 'react';
 import type * as v from 'valibot';
 import type { SettingScope } from './storage/adapter';
@@ -313,6 +314,14 @@ export type CategoryDef = LabeledText &
      * (admin-ness) arrive through the context and re-evaluate on change.
      */
     when?: (ctx: CategoryVisibilityContext) => boolean;
+    /**
+     * Keep the category in the nav when `when` returns false and render
+     * a desktop teaser (explainer + download CTA) for the named feature
+     * instead of the pane — the settings twin of the dock registry's
+     * `teaserWhenUnavailable`. Omitted → `when` hides as before. Only
+     * meaningful together with `when`.
+     */
+    teaserWhenUnavailable?: DesktopFeature;
     /**
      * Optional custom renderer for the right-hand pane. When omitted the
      * default `CategoryPane` (rows-in-cards) is used. Categories with

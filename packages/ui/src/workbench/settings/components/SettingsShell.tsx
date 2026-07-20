@@ -12,6 +12,7 @@ import { Button, ConfigProvider, type InputRef, Popconfirm, Skeleton, theme } fr
 import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
 import { allCategories, getDef } from '../registry';
@@ -63,15 +64,24 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
 
   // ── Active category (first non-empty, by category order) ────────────
   // Categories with a custom pane stay selectable even with zero setting
-  // defs — group landing pages own no settings of their own.
+  // defs — group landing pages own no settings of their own. A category
+  // whose `when` denies this host but declares `teaserWhenUnavailable`
+  // stays in the nav too: its pane renders the desktop teaser instead of
+  // disappearing, so browser hosts keep discovering the desktop features.
   const daemonAdmin = useDaemonAdminStatus();
   const orderedCategories = useMemo(() => {
-    const cats = allCategories().filter((c) => c.when?.({ daemonAdmin }) !== false);
+    const teased = new Set<string>();
+    const cats = allCategories().filter((c) => {
+      if (c.when?.({ daemonAdmin }) !== false) return true;
+      if (c.teaserWhenUnavailable === undefined) return false;
+      teased.add(c.id);
+      return true;
+    });
     const visible: CategoryDef[] = [];
     for (const cat of cats) {
-      if ((byCategory.get(cat.id)?.length ?? 0) > 0 || cat.renderPane) visible.push(cat);
+      if ((byCategory.get(cat.id)?.length ?? 0) > 0 || cat.renderPane || teased.has(cat.id)) visible.push(cat);
     }
-    return { all: cats, visible };
+    return { all: cats, visible, teased };
   }, [byCategory, daemonAdmin]);
 
   // The setting's own category wins over an explicit initialCategoryId
@@ -210,6 +220,11 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none', background: token.colorBgContainer }}>
             {isSearching ? (
               <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
+            ) : activeCategory && orderedCategories.teased.has(activeCategory.id) ? (
+              // `teased` only admits categories with `teaserWhenUnavailable`.
+              activeCategory.teaserWhenUnavailable && (
+                <DesktopTeaser feature={activeCategory.teaserWhenUnavailable} icon={activeCategory.icon} />
+              )
             ) : activeCategory ? (
               (() => {
                 const Pane = activeCategory.renderPane ?? CategoryPane;

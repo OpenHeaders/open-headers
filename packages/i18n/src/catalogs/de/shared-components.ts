@@ -443,4 +443,20 @@ export const sharedComponents = {
   //    entries for the two-pane split direction. ─────────────────────
   'shared.splitLayout.horizontal': 'Horizontales Layout — nebeneinander',
   'shared.splitLayout.vertical': 'Vertikales Layout — gestapelt',
+
+  // ── Desktop teaser ─────────────────────────────────────────────────
+  'shared.desktopTeaser.availability': 'Verfügbar in der Desktop-App von OpenHeaders.',
+  'shared.desktopTeaser.cta': 'Desktop-App herunterladen',
+  'shared.desktopTeaser.terminal.title': 'Integriertes Terminal',
+  'shared.desktopTeaser.terminal.body':
+    'Öffne ein echtes Terminal direkt im Arbeitsbereich — deine eigene Shell, lokal ausgeführt, gleich neben deinen Regeln und Anfragen.',
+  'shared.desktopTeaser.git.title': 'Git-Verlauf',
+  'shared.desktopTeaser.git.body':
+    'Durchstöbere die Commit-Chronik deines Arbeitsbereichs — mit Details pro Commit und Datei-Diffs.',
+  'shared.desktopTeaser.proxy.title': 'Capture-Proxy',
+  'shared.desktopTeaser.proxy.body':
+    'Erfasse laufenden HTTP(S)-Verkehr mit dem integrierten Proxy und untersuche jede Anfrage in dem Moment, in dem sie passiert.',
+  'shared.desktopTeaser.mcp.title': 'MCP-Server',
+  'shared.desktopTeaser.mcp.body':
+    'Verbinde KI-Assistenten über den integrierten MCP-Server mit deinen Arbeitsbereichen.',
 } as const satisfies Catalog;

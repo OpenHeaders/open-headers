@@ -426,4 +426,16 @@ export const sharedComponents = {
   //    entries for the two-pane split direction. ─────────────────────
   'shared.splitLayout.horizontal': '水平布局——并排',
   'shared.splitLayout.vertical': '垂直布局——堆叠',
+
+  // ── Desktop teaser ─────────────────────────────────────────────────
+  'shared.desktopTeaser.availability': '此功能在 OpenHeaders 桌面应用中提供。',
+  'shared.desktopTeaser.cta': '下载桌面应用',
+  'shared.desktopTeaser.terminal.title': '集成终端',
+  'shared.desktopTeaser.terminal.body': '在工作区中打开真正的终端——你自己的 shell 在本地运行，就在规则和请求旁边。',
+  'shared.desktopTeaser.git.title': 'Git 历史',
+  'shared.desktopTeaser.git.body': '浏览工作区的提交时间线，查看每个提交的详情和文件差异。',
+  'shared.desktopTeaser.proxy.title': '捕获代理',
+  'shared.desktopTeaser.proxy.body': '使用内置代理实时捕获 HTTP(S) 流量，在请求发生的同时进行检查。',
+  'shared.desktopTeaser.mcp.title': 'MCP 服务器',
+  'shared.desktopTeaser.mcp.body': '通过内置的 MCP 服务器，把 AI 助手连接到你的工作区。',
 } as const satisfies Catalog;

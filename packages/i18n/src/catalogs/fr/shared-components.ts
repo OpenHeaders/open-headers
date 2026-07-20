@@ -420,4 +420,19 @@ export const sharedComponents = {
   // ── Split-layout orientation ───────────────────────────────────────
   'shared.splitLayout.horizontal': 'Disposition horizontale — côte à côte',
   'shared.splitLayout.vertical': 'Disposition verticale — empilée',
+
+  // ── Desktop teaser ─────────────────────────────────────────────────
+  'shared.desktopTeaser.availability': "Disponible dans l'application de bureau OpenHeaders.",
+  'shared.desktopTeaser.cta': "Télécharger l'application de bureau",
+  'shared.desktopTeaser.terminal.title': 'Terminal intégré',
+  'shared.desktopTeaser.terminal.body':
+    'Ouvrez un vrai terminal dans votre espace de travail — votre propre shell, exécuté en local juste à côté de vos règles et de vos requêtes.',
+  'shared.desktopTeaser.git.title': 'Historique Git',
+  'shared.desktopTeaser.git.body':
+    'Parcourez la chronologie des commits de votre espace de travail, avec le détail par commit et les diffs de fichiers.',
+  'shared.desktopTeaser.proxy.title': 'Proxy de capture',
+  'shared.desktopTeaser.proxy.body':
+    'Capturez le trafic HTTP(S) en direct avec le proxy intégré et inspectez chaque requête au moment où elle se produit.',
+  'shared.desktopTeaser.mcp.title': 'Serveur MCP',
+  'shared.desktopTeaser.mcp.body': 'Connectez des assistants IA à vos espaces de travail via le serveur MCP intégré.',
 } as const satisfies Catalog;

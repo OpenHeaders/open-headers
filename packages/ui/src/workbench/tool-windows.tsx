@@ -17,6 +17,7 @@ import {
   SisternodeOutlined,
 } from '@ant-design/icons';
 import { hasCapability } from '@openheaders/core/capabilities';
+import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon, WorkflowStatusIcon } from '@openheaders/ui/shared/icons';
@@ -93,50 +94,18 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'right-bottom',
   },
-  // Per-workflow circuit-breaker dashboard (state, consecutive
-  // failures, openings, next-attempt countdown, manual Retry /
-  // Reset-circuit actions).
-  {
-    id: 'workflow-status',
-    labelKey: 'workbench.toolWindows.workflowStatus',
-    icon: <WorkflowStatusIcon />,
-    core: false,
-    defaultSlot: 'bottom-left',
-  },
-  // Workspace-wide Activity Feed — inbound mutation log with classifier
-  // highlights (sensitive-field rotations, permission-scope expansions,
-  // local-edit supersedes). Bottom-right slot pairs it with the Proxy
-  // window so both inbound surfaces sit together; `openByDefault` is
-  // false so the panel stays dormant until the user opens it via
-  // Shift+Alt+A or the bar icon — discoverability rides the badge
-  // instead.
-  {
-    id: 'activity',
-    labelKey: 'workbench.toolWindows.activity',
-    tooltipKey: 'workbench.toolWindows.activityTooltip',
-    icon: <ActivityFeedIcon />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-  },
-  // The L7 capture proxy's control surface + live capture feed (Proxy
-  // epic S6). Only hosts that run the daemon spine in-process register
-  // the `proxyCapture` capability, so the window drops out of every
-  // browser surface's dock registry. Dormant until opened.
-  {
-    id: 'proxy-capture',
-    labelKey: 'workbench.toolWindows.proxyCapture',
-    icon: <FundViewOutlined />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-    requiresCapability: 'proxyCapture',
-  },
+  // Bottom dock, left pane: the host-process surfaces (a shell, the
+  // workspace tree's git plane). Bottom dock, right pane: the live
+  // observability surfaces (capture feed, workflow health, activity).
+  // The three capability-gated windows below declare
+  // `teaserWhenUnavailable`, so browser hosts keep their tabs and
+  // render the desktop teaser instead of dropping the feature from
+  // the dock — discoverability over silence.
+  //
   // Integrated terminal — a real pty running the user's shell,
   // supplied by the host through the `terminal` capability. Only pty
-  // hosts (the desktop renderer) register it; everywhere else the
-  // window is filtered out of the registry entirely. Dormant until
-  // opened, like the other bottom-dock panels.
+  // hosts (the desktop renderer) register it. Dormant until opened,
+  // like the other bottom-dock panels.
   {
     id: 'terminal',
     labelKey: 'workbench.toolWindows.terminal',
@@ -145,12 +114,12 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-left',
     openByDefault: false,
     requiresCapability: 'terminal',
+    teaserWhenUnavailable: 'terminal',
   },
   // The git log/history surface over the workspace-tree verb table
   // (GIT_PLAN.md §9) — commit timeline + per-commit detail for the
   // active workspace's binding. Only hosts whose bridge reaches a
-  // workspace-tree runtime register `workspaceGit`, so the window
-  // drops out of every browser surface's dock registry. Dormant until
+  // workspace-tree runtime register `workspaceGit`. Dormant until
   // opened, like the other bottom-dock panels.
   {
     id: 'git',
@@ -160,6 +129,44 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-left',
     openByDefault: false,
     requiresCapability: 'workspaceGit',
+    teaserWhenUnavailable: 'git',
+  },
+  // The L7 capture proxy's control surface + live capture feed (Proxy
+  // epic S6). Only hosts that run the daemon spine in-process register
+  // the `proxyCapture` capability. Dormant until opened.
+  {
+    id: 'proxy-capture',
+    labelKey: 'workbench.toolWindows.proxyCapture',
+    icon: <FundViewOutlined />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+    requiresCapability: 'proxyCapture',
+    teaserWhenUnavailable: 'proxy',
+  },
+  // Per-workflow circuit-breaker dashboard (state, consecutive
+  // failures, openings, next-attempt countdown, manual Retry /
+  // Reset-circuit actions).
+  {
+    id: 'workflow-status',
+    labelKey: 'workbench.toolWindows.workflowStatus',
+    icon: <WorkflowStatusIcon />,
+    core: false,
+    defaultSlot: 'bottom-right',
+  },
+  // Workspace-wide Activity Feed — inbound mutation log with classifier
+  // highlights (sensitive-field rotations, permission-scope expansions,
+  // local-edit supersedes). `openByDefault` is false so the panel stays
+  // dormant until the user opens it via Shift+Alt+A or the bar icon —
+  // discoverability rides the badge instead.
+  {
+    id: 'activity',
+    labelKey: 'workbench.toolWindows.activity',
+    tooltipKey: 'workbench.toolWindows.activityTooltip',
+    icon: <ActivityFeedIcon />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
   },
 ];
 
@@ -173,12 +180,29 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
 
 /**
  * The registry as seen by THIS host — capability-gated windows drop
- * out when their capability isn't registered. Must be read at mount
- * time, not module scope: hosts install capabilities during boot,
- * after module graphs evaluate.
+ * out when their capability isn't registered, unless they declare
+ * `teaserWhenUnavailable` (then the tab stays and the panel body
+ * renders the desktop teaser, see `WorkbenchToolWindow`). Must be
+ * read at mount time, not module scope: hosts install capabilities
+ * during boot, after module graphs evaluate.
  */
 export function availableToolWindows(): readonly ToolWindowDef[] {
-  return TOOL_WINDOWS.filter((def) => !def.requiresCapability || hasCapability(def.requiresCapability));
+  return TOOL_WINDOWS.filter(
+    (def) =>
+      !def.requiresCapability || hasCapability(def.requiresCapability) || def.teaserWhenUnavailable !== undefined,
+  );
+}
+
+/** Whether this host renders `def` as a desktop teaser instead of the
+ *  real panel — gated, capability absent, teaser declared. */
+export function isToolWindowTeased(
+  def: ToolWindowDef,
+): def is ToolWindowDef & { teaserWhenUnavailable: DesktopFeature } {
+  return (
+    def.teaserWhenUnavailable !== undefined &&
+    def.requiresCapability !== undefined &&
+    !hasCapability(def.requiresCapability)
+  );
 }
 
 /** Lookup map over {@link availableToolWindows} — absent ids read as

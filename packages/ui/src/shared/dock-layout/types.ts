@@ -9,6 +9,7 @@
 
 import type { CapabilityName } from '@openheaders/core/capabilities';
 import type { MessageKey } from '@openheaders/i18n';
+import type { DesktopFeature } from '@openheaders/ui/shared/desktop-teaser';
 
 /** The six dock slots a tool window can live in. */
 export type DockSlot = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom' | 'bottom-left' | 'bottom-right';
@@ -79,6 +80,14 @@ export type ToolWindowDef<TWindowId extends string = string> = {
    * every host can render.
    */
   requiresCapability?: CapabilityName;
+  /**
+   * Keep the window visible when `requiresCapability` is missing and
+   * render a desktop teaser (explainer + download CTA) for the named
+   * feature instead of the real panel. Omitted → the hard drop
+   * described on `requiresCapability` stays the behavior. Only
+   * meaningful together with `requiresCapability`.
+   */
+  teaserWhenUnavailable?: DesktopFeature;
 } & (
   | {
       label: string;
