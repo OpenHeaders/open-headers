@@ -279,6 +279,18 @@ describe('updateExtensionBadge', () => {
       mockLanguageSetting('en');
     });
 
+    it('renders the Simplified Chinese badge tooltip from the statically bundled slice', async () => {
+      const action = getActionMock();
+      mockLanguageSetting('zh-CN');
+
+      await updateExtensionBadge(makeInput({ matchedRuleCount: 3, configuredRuleCount: 7 }));
+      expect(action.setTitle).toHaveBeenCalledWith({
+        title: 'Open Headers - 活动\n你的 7 条规则 中有 3 条在此页面上匹配了请求',
+      });
+
+      mockLanguageSetting('en');
+    });
+
     it('re-titles into French when the language setting switches after an English paint', async () => {
       const action = getActionMock();
 
