@@ -1,9 +1,11 @@
 /**
  * Command seam for the trust-store modules — every `security` /
- * `certutil` / `osascript` invocation routes through an {@link ExecFn}
- * so tests inject fakes and the elevation posture stays explicit
+ * `certutil` invocation routes through an {@link ExecFn} so tests
+ * inject fakes and the elevation posture stays explicit
  * (PROXY_SECURITY.md §2.6: elevation only for trust-store operations,
- * each request through its own dedicated seam, never ambient).
+ * and only via the signed privileged helper — never an app-drawn
+ * prompt, never osascript, whose detached security session cannot
+ * manage admin-domain trust).
  *
  * Results never throw on non-zero exit — callers read `code`/`stderr`
  * and decide; only that keeps "already removed" distinguishable from
@@ -35,32 +37,3 @@ export const defaultExec: ExecFn = (cmd, args) =>
       resolve({ code, stdout, stderr });
     });
   });
-
-/** POSIX single-quote escaping for embedding one argv inside a shell string. */
-function shellQuote(arg: string): string {
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
-
-/**
- * macOS admin elevation via the OS authorization dialog: wraps the
- * command in `osascript … with administrator privileges`, which puts
- * the system's own password prompt in front of the user — the request
- * is visible, scoped to this one command, and deniable. A denial
- * surfaces as a non-zero exit; callers report it and stop (§5: never
- * retry around a denial).
- *
- * LIMITATION (field finding, PROXY_SECURITY.md §2.6): this path runs as
- * root but in a security session DETACHED from the user's GUI, so any
- * `SecTrustSettings{Set,Remove}TrustSettings` call — i.e. writing or
- * removing System-keychain (admin-domain) *trust* — fails with "The
- * authorization was denied since no user interaction was possible."
- * The plain cert import/delete (which do not touch SecTrustSettings)
- * succeed. It is therefore usable for the login keychain's cert bytes
- * but CANNOT manage admin-domain trust; System-keychain trust is gated
- * off until the signed privileged helper (session-preserving) ships.
- */
-export const osascriptElevatedExec: ExecFn = (cmd, args) => {
-  const shellLine = [cmd, ...args].map(shellQuote).join(' ');
-  const script = `do shell script ${JSON.stringify(shellLine)} with administrator privileges`;
-  return defaultExec('osascript', ['-e', script]);
-};

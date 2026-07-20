@@ -33,12 +33,15 @@ import {
   proxyCaPublicInfo,
   readProxyCa,
 } from './ca-store';
-import { defaultExec, type ExecFn, osascriptElevatedExec } from './exec';
+import { defaultExec, type ExecFn } from './exec';
+import { createSystemTrustHelper, type SystemTrustHelper } from './trust-helper';
 import {
   installCaInKeychain,
+  installCaViaHelper,
   loginKeychainPath,
   probeKeychain,
   removeCaFromKeychain,
+  removeCaViaHelper,
   SYSTEM_KEYCHAIN_PATH,
   type TrustStoreOpResult,
 } from './trust-macos';
@@ -80,31 +83,26 @@ export interface ProxyTrustService {
 export interface ProxyTrustDeps {
   /** Test seams — default to the real process/host values. */
   exec?: ExecFn;
-  /** One command behind the OS admin prompt (System keychain only). */
-  execElevated?: ExecFn;
   homedir?: string;
   platform?: string;
   tmpdir?: string;
   now?: () => number;
   /**
-   * Whether admin-domain (System-keychain) trust can be installed AND
-   * removed on this build. Defaults to false: the osascript elevation
-   * seam cannot write/remove admin trust settings (its session is
-   * detached — see `exec.ts`), so System-keychain trust is gated off
-   * until the signed privileged helper lands, which flips this to a
-   * real probe of the helper's availability.
+   * Admin-domain (System-keychain) trust rides the signed SMAppService
+   * privileged helper (§2.6 amendment). The default client probes the
+   * embedded helper binary live on every ask — unsigned/dev builds
+   * have none and stay honestly unsupported.
    */
-  systemTrustSupported?: boolean;
+  systemHelper?: SystemTrustHelper;
 }
 
 export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustService {
   const exec = deps.exec ?? defaultExec;
-  const execElevated = deps.execElevated ?? osascriptElevatedExec;
   const homedir = deps.homedir ?? os.homedir();
   const platform = deps.platform ?? process.platform;
   const now = deps.now ?? Date.now;
-  const systemTrustSupported = deps.systemTrustSupported ?? false;
-  const keychainDeps = { exec, execElevated, ...(deps.tmpdir !== undefined ? { tmpdir: deps.tmpdir } : {}) };
+  const systemHelper = deps.systemHelper ?? createSystemTrustHelper();
+  const keychainDeps = { exec, ...(deps.tmpdir !== undefined ? { tmpdir: deps.tmpdir } : {}) };
 
   function keychainPath(store: 'macos-login-keychain' | 'macos-system-keychain'): string {
     return store === 'macos-login-keychain' ? loginKeychainPath(homedir) : SYSTEM_KEYCHAIN_PATH;
@@ -146,7 +144,12 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
       const expected = caFingerprint ?? recorded?.fingerprintSha256 ?? null;
       stores.push(await probeStore(target.store, target.ref, expected));
     }
-    return { ca: caRecord !== null ? proxyCaPublicInfo(caRecord) : null, stores, changes, systemKeychainTrustSupported: systemTrustSupported };
+    return {
+      ca: caRecord !== null ? proxyCaPublicInfo(caRecord) : null,
+      stores,
+      changes,
+      systemKeychainTrustSupported: (await systemHelper.probe()).available,
+    };
   }
 
   async function installOne(ca: ProxyCaRecord, store: ProxyTrustStoreId, ref: string): Promise<ProxyTrustStoreResult> {
@@ -157,7 +160,9 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
     const result: TrustStoreOpResult =
       store === 'nss-firefox'
         ? await installCaInNssProfile(ca.certPem, ref, exec, deps.tmpdir)
-        : await installCaInKeychain(ca.certPem, keychainPath(store), keychainDeps);
+        : store === 'macos-system-keychain'
+          ? await installCaViaHelper(ca.certPem, systemHelper)
+          : await installCaInKeychain(ca.certPem, keychainPath(store), keychainDeps);
     if (!result.ok) {
       // The command refused. Re-probe to see what actually landed: only a
       // store that verifiably holds nothing of ours retracts the row; a
@@ -195,11 +200,11 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
         results.push({ store, ref: '', ok: false, error: `${store} is not available on this platform` });
         continue;
       }
-      if (store === 'macos-system-keychain' && !systemTrustSupported) {
-        // Refuse rather than half-install: the elevation seam can import
-        // the cert but cannot write admin-domain trust settings (nor undo
-        // them), so an attempt would leave an un-removable residue. No row
-        // is written; the wizard disables this option while unsupported.
+      if (store === 'macos-system-keychain' && !(await systemHelper.probe()).available) {
+        // Refuse rather than half-install: without a reachable privileged
+        // helper nothing can write (or undo) admin-domain trust, so an
+        // attempt could only leave an un-removable residue. No row is
+        // written; the wizard disables this option while unsupported.
         results.push({
           store,
           ref: SYSTEM_KEYCHAIN_PATH,
@@ -229,6 +234,8 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
     let result: TrustStoreOpResult;
     if (store === 'nss-firefox') {
       result = await removeCaFromNssProfile(ref, exec);
+    } else if (certPem !== null && store === 'macos-system-keychain') {
+      result = await removeCaViaHelper(certPem, change.fingerprintSha1, systemHelper);
     } else if (certPem !== null) {
       result = await removeCaFromKeychain(certPem, change.fingerprintSha1, ref, keychainDeps);
     } else {

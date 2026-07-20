@@ -1,8 +1,62 @@
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+
+// Compiles the SMAppService trust helper (dual-mode Swift binary) and
+// embeds it with its launchd plist. Runs before signing, so the helper
+// is signed and sealed with the app. A missing Swift toolchain skips
+// the helper — the daemon's capability probe then stays honestly off.
+function embedMacTrustHelper(context) {
+    const { appOutDir } = context;
+    const helperSrcDir = path.join(__dirname, '..', '..', 'build', 'mac', 'trust-helper');
+    const appName = context.packager.appInfo.productFilename;
+    const contentsDir = path.join(appOutDir, `${appName}.app`, 'Contents');
+    const sources = fs.readdirSync(helperSrcDir)
+        .filter((f) => f.endsWith('.swift'))
+        .sort()
+        .map((f) => path.join(helperSrcDir, f));
+    // electron-builder Arch enum: 1 = x64, 3 = arm64, 4 = universal
+    const archNames = context.arch === 1 ? ['x86_64'] : context.arch === 3 ? ['arm64'] : ['arm64', 'x86_64'];
+    const binaryPath = path.join(contentsDir, 'MacOS', 'oh-trust-helper');
+    const slicePaths = [];
+    try {
+        for (const archName of archNames) {
+            const slicePath = archNames.length === 1 ? binaryPath : `${binaryPath}-${archName}`;
+            execFileSync('xcrun', [
+                'swiftc', '-O',
+                '-target', `${archName}-apple-macos13.0`,
+                '-o', slicePath,
+                ...sources
+            ], { stdio: 'pipe' });
+            slicePaths.push(slicePath);
+        }
+        if (slicePaths.length > 1) {
+            execFileSync('lipo', ['-create', ...slicePaths, '-output', binaryPath], { stdio: 'pipe' });
+            for (const slicePath of slicePaths) fs.rmSync(slicePath);
+        }
+    } catch (error) {
+        console.warn('⚠ Trust helper compile failed — System-keychain trust will stay unavailable in this build');
+        console.warn(`  ${error.message}`);
+        for (const slicePath of slicePaths) fs.rmSync(slicePath, { force: true });
+        fs.rmSync(binaryPath, { force: true });
+        return;
+    }
+    const daemonsDir = path.join(contentsDir, 'Library', 'LaunchDaemons');
+    fs.mkdirSync(daemonsDir, { recursive: true });
+    fs.copyFileSync(
+        path.join(helperSrcDir, 'io.openheaders.trust-helper.plist'),
+        path.join(daemonsDir, 'io.openheaders.trust-helper.plist')
+    );
+    console.log(`✓ Trust helper embedded (${archNames.join('+')})`);
+}
 
 exports.default = async function(context) {
     const { appOutDir, electronPlatformName } = context;
+
+    if (electronPlatformName === 'darwin') {
+        embedMacTrustHelper(context);
+        return;
+    }
 
     // Windows builds - verify native module is included
     if (electronPlatformName === 'win32') {

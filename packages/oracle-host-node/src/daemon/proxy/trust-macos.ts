@@ -1,12 +1,15 @@
 /**
  * macOS keychain trust-store operations (PROXY_SECURITY.md §4 row 1) —
  * install, remove, and probe the proxy CA against the login and System
- * keychains via the `security` CLI.
+ * keychains.
  *
- * Elevation posture (§2.6): the login keychain is the user's own —
- * plain exec. The System keychain is admin territory — every operation
- * on it runs through the caller-supplied elevated exec, which fronts
- * the OS authorization dialog; a denial is reported and never retried.
+ * Elevation posture (§2.6 amendment): the login keychain is the user's
+ * own — plain `security` exec. The System keychain is admin territory —
+ * its operations ride the signed SMAppService privileged helper (the
+ * only session-preserving path; osascript elevation was proven unable
+ * to manage admin-domain trust and app-drawn password prompts are
+ * forbidden). The helper is a dumb executor returning raw exit codes;
+ * every semantic decision stays here.
  *
  * Removal undoes both halves of what install did: the trust settings
  * (`remove-trusted-cert`) and the certificate itself
@@ -18,6 +21,7 @@ import * as path from 'node:path';
 import type { ProxyTrustStoreState } from '@openheaders/core/types';
 import type { ExecFn } from './exec';
 import { withTempPem } from './temp-pem';
+import type { SystemTrustHelper } from './trust-helper';
 
 export const SYSTEM_KEYCHAIN_PATH = '/Library/Keychains/System.keychain';
 
@@ -27,8 +31,6 @@ export function loginKeychainPath(homedir: string): string {
 
 export interface KeychainOpDeps {
   exec: ExecFn;
-  /** Runs one command behind the OS admin prompt — System keychain only. */
-  execElevated: ExecFn;
   tmpdir?: string;
 }
 
@@ -37,10 +39,6 @@ export interface TrustStoreOpResult {
   error?: string;
   /** The operation needs admin rights the runner could not obtain. */
   elevationRequired?: boolean;
-}
-
-function isSystemKeychain(keychain: string): boolean {
-  return keychain === SYSTEM_KEYCHAIN_PATH;
 }
 
 /** Heuristic over `security` stderr for a rights refusal (denied dialog, no TTY auth). */
@@ -56,22 +54,20 @@ function looksLikeElevationFailure(stderr: string): boolean {
 }
 
 /**
- * `security add-trusted-cert` — adds the cert to the keychain AND
- * writes a trustRoot trust-settings entry for it. `-d` (admin trust
- * domain) rides only with the System keychain, elevated.
+ * `security add-trusted-cert` — adds the cert to the login keychain AND
+ * writes a trustRoot trust-settings entry for it. System-keychain
+ * installs never come here — they ride {@link installCaViaHelper}.
  */
 export async function installCaInKeychain(
   certPem: string,
   keychain: string,
   deps: KeychainOpDeps,
 ): Promise<TrustStoreOpResult> {
-  const system = isSystemKeychain(keychain);
-  const runner = system ? deps.execElevated : deps.exec;
   return withTempPem(
     certPem,
     async (pemPath) => {
-      const args = ['add-trusted-cert', ...(system ? ['-d'] : []), '-r', 'trustRoot', '-k', keychain, pemPath];
-      const result = await runner('security', args);
+      const args = ['add-trusted-cert', '-r', 'trustRoot', '-k', keychain, pemPath];
+      const result = await deps.exec('security', args);
       if (result.code === 0) return { ok: true };
       if (result.notFound) return { ok: false, error: 'security CLI not found' };
       const stderr = result.stderr.trim();
@@ -96,11 +92,9 @@ export async function removeCaFromKeychain(
   keychain: string,
   deps: KeychainOpDeps,
 ): Promise<TrustStoreOpResult> {
-  const system = isSystemKeychain(keychain);
-  const runner = system ? deps.execElevated : deps.exec;
   const untrust = await withTempPem(
     certPem,
-    (pemPath) => runner('security', ['remove-trusted-cert', ...(system ? ['-d'] : []), pemPath]),
+    (pemPath) => deps.exec('security', ['remove-trusted-cert', pemPath]),
     deps.tmpdir,
   );
   if (untrust.notFound) return { ok: false, error: 'security CLI not found' };
@@ -108,7 +102,7 @@ export async function removeCaFromKeychain(
   if (untrust.code !== 0 && looksLikeElevationFailure(untrustStderr)) {
     return { ok: false, error: untrustStderr, elevationRequired: true };
   }
-  const del = await runner('security', ['delete-certificate', '-Z', fingerprintSha1.toUpperCase(), keychain]);
+  const del = await deps.exec('security', ['delete-certificate', '-Z', fingerprintSha1.toUpperCase(), keychain]);
   if (del.code === 0) return { ok: true };
   const stderr = del.stderr.trim();
   // "Unable to delete certificate matching …" is security's no-such-cert
@@ -119,6 +113,40 @@ export async function removeCaFromKeychain(
     error: stderr || `security exited ${del.code}`,
     ...(looksLikeElevationFailure(stderr) ? { elevationRequired: true } : {}),
   };
+}
+
+/**
+ * System-keychain install through the privileged helper. The helper
+ * runs the same `add-trusted-cert` (admin domain) as root in its own
+ * launchd session and hands back the raw exit; a transport failure
+ * (helper missing, unregistered, or refusing the peer) reads as an
+ * elevation problem — the store was not reached.
+ */
+export async function installCaViaHelper(certPem: string, helper: SystemTrustHelper): Promise<TrustStoreOpResult> {
+  const reply = await helper.install(certPem);
+  if (!reply.ok) return { ok: false, error: reply.error ?? 'trust helper unavailable', elevationRequired: true };
+  if (reply.code === 0) return { ok: true };
+  const stderr = (reply.stderr ?? '').trim();
+  return { ok: false, error: stderr || `security exited ${reply.code ?? -1}` };
+}
+
+/**
+ * System-keychain removal through the privileged helper — same
+ * two-halves semantics as {@link removeCaFromKeychain}: the trust
+ * settings come off, then the cert goes, and "no such cert" counts as
+ * already done.
+ */
+export async function removeCaViaHelper(
+  certPem: string,
+  fingerprintSha1: string,
+  helper: SystemTrustHelper,
+): Promise<TrustStoreOpResult> {
+  const reply = await helper.remove(certPem, fingerprintSha1.toUpperCase());
+  if (!reply.ok) return { ok: false, error: reply.error ?? 'trust helper unavailable', elevationRequired: true };
+  if (reply.deleteCode === 0) return { ok: true };
+  const stderr = (reply.deleteStderr ?? '').trim();
+  if (stderr.toLowerCase().includes('unable to delete certificate matching')) return { ok: true };
+  return { ok: false, error: stderr || `security exited ${reply.deleteCode ?? -1}` };
 }
 
 /** Hex SHA-256 fingerprints of every cert in `keychain` whose CN matches. */
@@ -174,7 +202,12 @@ export async function probeKeychain(
   const trusted = await trustSettingsContain(commonName, store === 'macos-system-keychain', exec);
   if (trusted === null) return { store, ref: keychain, state: 'unavailable', detail: 'trust settings not readable' };
   if (!trusted) {
-    return { store, ref: keychain, state: 'untrusted', detail: 'certificate present but not trusted (no trust settings)' };
+    return {
+      store,
+      ref: keychain,
+      state: 'untrusted',
+      detail: 'certificate present but not trusted (no trust settings)',
+    };
   }
   return { store, ref: keychain, state: 'trusted' };
 }

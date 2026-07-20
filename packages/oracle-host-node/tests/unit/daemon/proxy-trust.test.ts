@@ -5,8 +5,10 @@
  * RPC results carry no key material; leaves are short-lived, signed by
  * the CA, correctly SAN'd; install writes the what-we-changed row
  * BEFORE the store command; System-keychain operations ride the
- * elevated seam and a denial reports `elevationRequired` without
- * retry; status re-probes on every call (never a cached flag) and
+ * signed privileged helper and an unreachable helper reports
+ * `elevationRequired` without retry (an absent helper refuses before
+ * any row is written); status re-probes on every call (never a cached
+ * flag), asks the helper live for the System capability, and
  * flags foreign fingerprints as mismatch; teardown removes exactly the
  * recorded rows, drops each only on verified removal, is idempotent
  * over already-gone certs, and releases the sealed CA only when every
@@ -31,6 +33,12 @@ import {
 } from '../../../src/daemon/proxy/ca-store';
 import type { ExecFn, ExecResult } from '../../../src/daemon/proxy/exec';
 import { createProxyTrustService, type ProxyTrustService } from '../../../src/daemon/proxy/proxy-trust';
+import type {
+  SystemTrustHelper,
+  SystemTrustHelperInstallReply,
+  SystemTrustHelperProbe,
+  SystemTrustHelperRemoveReply,
+} from '../../../src/daemon/proxy/trust-helper';
 import { listTrustChanges } from '../../../src/daemon/proxy/trust-record';
 import { FileBackedHostStorage } from '../../../src/host-storage';
 
@@ -139,18 +147,50 @@ describe('ca-store', () => {
   });
 });
 
+interface HelperFake extends SystemTrustHelper {
+  calls: string[];
+}
+
+/**
+ * Fake privileged helper — defaults to the dev-build reality: not
+ * present, every ask honestly unavailable.
+ */
+function createHelperFake(
+  overrides: {
+    probe?: SystemTrustHelperProbe;
+    install?: SystemTrustHelperInstallReply;
+    remove?: SystemTrustHelperRemoveReply;
+  } = {},
+): HelperFake {
+  const calls: string[] = [];
+  return {
+    calls,
+    probe: async () => {
+      calls.push('probe');
+      return overrides.probe ?? { available: false, reason: 'helper not present in this build' };
+    },
+    install: async () => {
+      calls.push('install');
+      return overrides.install ?? { ok: false, error: 'helper not present in this build' };
+    },
+    remove: async () => {
+      calls.push('remove');
+      return overrides.remove ?? { ok: false, error: 'helper not present in this build' };
+    },
+  };
+}
+
 describe('proxy-trust service', () => {
   let fake: ExecFake;
-  let elevated: ExecFake;
+  let helper: HelperFake;
 
-  function service(overrides: { systemTrustSupported?: boolean } = {}): ProxyTrustService {
+  function service(overrides: { systemHelper?: SystemTrustHelper } = {}): ProxyTrustService {
     return createProxyTrustService({
       exec: fake.exec,
-      execElevated: elevated.exec,
       homedir: dir,
       platform: 'darwin',
       tmpdir: dir,
-      ...overrides,
+      systemHelper: overrides.systemHelper ?? helper,
     });
   }
 
@@ -166,7 +206,7 @@ describe('proxy-trust service', () => {
 
   beforeEach(() => {
     fake = createExecFake();
-    elevated = createExecFake();
+    helper = createHelperFake();
   });
 
   it('login-keychain install records the row, runs add-trusted-cert unelevated, and reports per store', async () => {
@@ -180,7 +220,7 @@ describe('proxy-trust service', () => {
     const install = fake.calls.find((c) => c.cmd === 'security' && c.args[0] === 'add-trusted-cert');
     expect(install).toBeDefined();
     expect(install?.args).not.toContain('-d');
-    expect(elevated.calls).toHaveLength(0);
+    expect(helper.calls).not.toContain('install');
 
     const changes = await listTrustChanges();
     expect(changes).toHaveLength(1);
@@ -188,45 +228,65 @@ describe('proxy-trust service', () => {
     expect(changes[0].fingerprintSha256).toBe(result.ca.fingerprintSha256);
   });
 
-  it('System-keychain install is refused on a build without the privileged helper — no row, no elevated call', async () => {
+  it('System-keychain install is refused on a build without the privileged helper — no row, no helper install', async () => {
     const result = await service().install(['macos-system-keychain']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
     expect(result.results[0].error).toContain('privileged helper');
-    expect(elevated.calls).toHaveLength(0);
+    expect(helper.calls).not.toContain('install');
     expect(await listTrustChanges()).toHaveLength(0);
   });
 
-  it('System-keychain install rides the elevated seam with -d; a clean denial reports elevationRequired and stops', async () => {
-    elevated.when((c) => c.args[0] === 'add-trusted-cert', {
-      code: 1,
-      stderr: 'security: SecTrustSettingsSetTrustSettings: User canceled the operation.',
+  it('System-keychain install rides the helper; an unreachable helper reports elevationRequired and the clean-store row retracts', async () => {
+    const reachable = createHelperFake({
+      probe: { available: true },
+      install: { ok: false, error: 'helper unreachable' },
     });
     // The probe that follows the refusal finds nothing — the row retracts.
     fake.when((c) => c.args[0] === 'find-certificate', { stdout: '' });
-    const result = await service({ systemTrustSupported: true }).install(['macos-system-keychain']);
+    const result = await service({ systemHelper: reachable }).install(['macos-system-keychain']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
     expect(result.results[0].elevationRequired).toBe(true);
-    const attempted = elevated.calls.find((c) => c.args[0] === 'add-trusted-cert');
-    expect(attempted?.args).toContain('-d');
+    expect(reachable.calls).toContain('install');
     expect(await listTrustChanges()).toHaveLength(0);
+  });
+
+  it('a System-keychain install succeeds through the helper and records the row', async () => {
+    const reachable = createHelperFake({
+      probe: { available: true },
+      install: { ok: true, code: 0, stderr: '' },
+    });
+    const result = await service({ systemHelper: reachable }).install(['macos-system-keychain']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.results[0].ok).toBe(true);
+    // The privileged half never rides the plain exec seam.
+    expect(fake.calls.some((c) => c.args[0] === 'add-trusted-cert')).toBe(false);
+    const changes = await listTrustChanges();
+    expect(changes).toHaveLength(1);
+    expect(changes[0].store).toBe('macos-system-keychain');
   });
 
   it('a cert that imported but could not be trusted is residue — row kept, never reported as elevation-declined', async () => {
     const ca = await ensureProxyCa();
-    elevated.when((c) => c.args[0] === 'add-trusted-cert', {
-      code: 1,
-      stderr: 'SecTrustSettingsSetTrustSettings: The authorization was denied since no user interaction was possible.',
+    const reachable = createHelperFake({
+      probe: { available: true },
+      install: {
+        ok: true,
+        code: 1,
+        stderr:
+          'SecTrustSettingsSetTrustSettings: The authorization was denied since no user interaction was possible.',
+      },
     });
     // The probe finds our cert bytes but no trust settings — `untrusted`.
     fake.when((c) => c.args[0] === 'find-certificate', {
       stdout: `SHA-256 hash: ${certFingerprints(ca.certPem).sha256.toUpperCase()}\n`,
     });
     fake.when((c) => c.args[0] === 'dump-trust-settings', { stdout: 'No Trust Settings were found.\n' });
-    const result = await service({ systemTrustSupported: true }).install(['macos-system-keychain']);
+    const result = await service({ systemHelper: reachable }).install(['macos-system-keychain']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
@@ -301,9 +361,35 @@ describe('proxy-trust service', () => {
     expect(login?.state).toBe('untrusted');
   });
 
-  it('status reports whether System-keychain trust is supported on this build', async () => {
+  it('status asks the helper live whether System-keychain trust is supported on this build', async () => {
     expect((await service().status()).systemKeychainTrustSupported).toBe(false);
-    expect((await service({ systemTrustSupported: true }).status()).systemKeychainTrustSupported).toBe(true);
+    const reachable = createHelperFake({ probe: { available: true } });
+    expect((await service({ systemHelper: reachable }).status()).systemKeychainTrustSupported).toBe(true);
+    expect(reachable.calls).toContain('probe');
+  });
+
+  it('System-keychain teardown rides the helper and treats an already-gone cert as removed', async () => {
+    const reachable = createHelperFake({
+      probe: { available: true },
+      install: { ok: true, code: 0, stderr: '' },
+      remove: {
+        ok: true,
+        untrustCode: 0,
+        untrustStderr: '',
+        deleteCode: 1,
+        deleteStderr: 'security: Unable to delete certificate matching "ABCD"',
+      },
+    });
+    const svc = service({ systemHelper: reachable });
+    await svc.install(['macos-system-keychain']);
+    fake.when((c) => c.args[0] === 'find-certificate', { stdout: '' });
+    const removed = await svc.remove();
+    expect(removed.ok).toBe(true);
+    expect(reachable.calls).toContain('remove');
+    // The privileged halves never ride the plain exec seam.
+    expect(fake.calls.some((c) => c.args[0] === 'remove-trusted-cert')).toBe(false);
+    expect(fake.calls.some((c) => c.args[0] === 'delete-certificate')).toBe(false);
+    expect(await listTrustChanges()).toHaveLength(0);
   });
 
   it('teardown undoes exactly the recorded rows, drops them on verified removal, and releases the CA only then', async () => {
