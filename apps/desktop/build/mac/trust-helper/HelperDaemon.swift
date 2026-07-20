@@ -3,15 +3,19 @@ import XPC
 
 /// The privileged side — a launchd daemon (root, registered via
 /// SMAppService) exposing exactly three verbs over a Mach XPC service:
-/// `status`, `install`, `remove`. Scope is enforced twice: the peer
+/// `status`, `import`, `delete`. Scope is enforced twice: the peer
 /// must carry our own team's code signature, and the certificate must
 /// be the proxy CA by subject CN. Anything else is refused.
 ///
-/// The daemon is a dumb executor: it runs the same `security` commands
-/// the unprivileged trust path uses (with `-d`, against the System
-/// keychain) and returns raw exit codes + stderr — all interpretation
-/// (idempotency, residue, verification) stays in the app's daemon,
-/// where the trust laws are tested.
+/// Root handles ONLY the System-keychain cert bytes (the keychain file
+/// is root's). Admin-domain trust settings are NOT written here — the
+/// authd rule for them (`entitled` or `authenticate-admin`) cannot be
+/// satisfied from a session-less daemon, root or not (live-proven);
+/// they ride the in-session client verbs instead, behind macOS's own
+/// admin authentication. The daemon is a dumb executor returning raw
+/// exit codes + stderr — all interpretation (idempotency, residue,
+/// verification) stays in the app's daemon, where the trust laws are
+/// tested.
 func runDaemon() -> Never {
   guard let team = selfTeamIdentifier() else {
     // Unsigned helper serves nobody — the capability probe stays
@@ -53,20 +57,20 @@ private func handleRequest(_ message: xpc_object_t, into reply: xpc_object_t) {
   case "status":
     xpc_dictionary_set_bool(reply, "ok", true)
     xpc_dictionary_set_int64(reply, "version", Int64(HelperConstants.protocolVersion))
-  case "install":
-    handleInstall(message, into: reply)
-  case "remove":
-    handleRemove(message, into: reply)
+  case "import":
+    handleImport(message, into: reply)
+  case "delete":
+    handleDelete(message, into: reply)
   default:
     setError(reply, "unknown verb")
   }
 }
 
-private func handleInstall(_ message: xpc_object_t, into reply: xpc_object_t) {
+private func handleImport(_ message: xpc_object_t, into reply: xpc_object_t) {
   guard let pem = requireProxyCaPem(message, reply) else { return }
   withTemporaryPem(pem) { pemPath in
     let result = runCommand("/usr/bin/security", [
-      "add-trusted-cert", "-d", "-r", "trustRoot", "-k", HelperConstants.systemKeychainPath, pemPath,
+      "add-certificates", "-k", HelperConstants.systemKeychainPath, pemPath,
     ])
     xpc_dictionary_set_bool(reply, "ok", true)
     xpc_dictionary_set_int64(reply, "code", Int64(result.code))
@@ -74,8 +78,8 @@ private func handleInstall(_ message: xpc_object_t, into reply: xpc_object_t) {
   }
 }
 
-private func handleRemove(_ message: xpc_object_t, into reply: xpc_object_t) {
-  guard let pem = requireProxyCaPem(message, reply) else { return }
+private func handleDelete(_ message: xpc_object_t, into reply: xpc_object_t) {
+  guard requireProxyCaPem(message, reply) != nil else { return }
   guard let sha1Raw = xpc_dictionary_get_string(message, "sha1") else {
     setError(reply, "missing sha1")
     return
@@ -85,32 +89,21 @@ private func handleRemove(_ message: xpc_object_t, into reply: xpc_object_t) {
     setError(reply, "sha1 is not a 40-char hex fingerprint")
     return
   }
-  withTemporaryPem(pem) { pemPath in
-    let untrust = runCommand("/usr/bin/security", ["remove-trusted-cert", "-d", pemPath])
-    let del = runCommand("/usr/bin/security", [
-      "delete-certificate", "-Z", sha1, HelperConstants.systemKeychainPath,
-    ])
-    xpc_dictionary_set_bool(reply, "ok", true)
-    xpc_dictionary_set_int64(reply, "untrustCode", Int64(untrust.code))
-    xpc_dictionary_set_string(reply, "untrustStderr", untrust.stderr)
-    xpc_dictionary_set_int64(reply, "deleteCode", Int64(del.code))
-    xpc_dictionary_set_string(reply, "deleteStderr", del.stderr)
-  }
+  let del = runCommand("/usr/bin/security", [
+    "delete-certificate", "-Z", sha1, HelperConstants.systemKeychainPath,
+  ])
+  xpc_dictionary_set_bool(reply, "ok", true)
+  xpc_dictionary_set_int64(reply, "code", Int64(del.code))
+  xpc_dictionary_set_string(reply, "stderr", del.stderr)
 }
 
-/// The scope guard: the PEM must parse and its subject CN must be the
-/// proxy CA's. The helper never touches any other certificate.
 private func requireProxyCaPem(_ message: xpc_object_t, _ reply: xpc_object_t) -> String? {
   guard let pemRaw = xpc_dictionary_get_string(message, "pem") else {
     setError(reply, "missing pem")
     return nil
   }
   let pem = String(cString: pemRaw)
-  guard let cn = certificateCommonName(pem: pem) else {
-    setError(reply, "pem does not parse as a certificate")
-    return nil
-  }
-  guard cn == HelperConstants.requiredCommonName else {
+  guard parseProxyCaCertificate(pem: pem) != nil else {
     setError(reply, "certificate is not the OpenHeaders proxy CA")
     return nil
   }

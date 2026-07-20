@@ -33,15 +33,23 @@ func peerRequirement(team: String) -> String {
   "anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
 }
 
-/// Subject common name of a PEM certificate, or nil when unparseable.
-func certificateCommonName(pem: String) -> String? {
+/// Parses a PEM certificate, or nil when unparseable.
+func parseCertificate(pem: String) -> SecCertificate? {
   let body = pem
     .components(separatedBy: .newlines)
     .filter { !$0.hasPrefix("-----") && !$0.trimmingCharacters(in: .whitespaces).isEmpty }
     .joined()
   guard let der = Data(base64Encoded: body) else { return nil }
-  guard let cert = SecCertificateCreateWithData(nil, der as CFData) else { return nil }
-  return SecCertificateCopySubjectSummary(cert) as String?
+  return SecCertificateCreateWithData(nil, der as CFData)
+}
+
+/// The scope guard both modes share: the PEM must parse and its
+/// subject CN must be the proxy CA's — no other certificate is ever
+/// touched, privileged or not.
+func parseProxyCaCertificate(pem: String) -> SecCertificate? {
+  guard let cert = parseCertificate(pem: pem) else { return nil }
+  guard let cn = SecCertificateCopySubjectSummary(cert) as String? else { return nil }
+  return cn == HelperConstants.requiredCommonName ? cert : nil
 }
 
 struct CommandOutput {

@@ -3,18 +3,26 @@ import ServiceManagement
 import XPC
 
 /// The unprivileged side — client verbs the app (or a terminal) runs
-/// against the same binary. Talks to the daemon over the privileged
-/// Mach service and prints exactly one JSON object to stdout; exit
-/// code 0 means "the JSON is the answer", never "the operation
-/// succeeded" — callers read the JSON.
+/// against the same binary, always from the user's GUI session. The
+/// daemon pass-throughs (`import`/`delete`) move System-keychain cert
+/// bytes via the root daemon; `trust-set`/`trust-remove` write the
+/// admin-domain trust settings HERE, in-session, where authd can put
+/// macOS's own admin authentication in front of the user (a
+/// session-less root cannot — live-proven). Every verb prints exactly
+/// one JSON object to stdout; exit code 0 means "the JSON is the
+/// answer", never "the operation succeeded" — callers read the JSON.
 func runClient(verb: String, arguments: [String]) {
   switch verb {
   case "status":
     clientStatus()
-  case "install":
-    clientInstall()
-  case "remove":
-    clientRemove(arguments: arguments)
+  case "import":
+    clientImport()
+  case "delete":
+    clientDelete(arguments: arguments)
+  case "trust-set":
+    clientTrustSettings(remove: false)
+  case "trust-remove":
+    clientTrustSettings(remove: true)
   case "register":
     clientRegister()
   case "unregister":
@@ -78,15 +86,34 @@ private func readStdinPem() -> String? {
   return String(data: data, encoding: .utf8)
 }
 
-private func clientInstall() {
+private func clientImport() {
   guard let pem = readStdinPem(), !pem.isEmpty else {
     printJson(["ok": false, "error": "expected the CA PEM on stdin"])
     return
   }
   let request = xpc_dictionary_create(nil, nil, 0)
-  xpc_dictionary_set_string(request, "verb", "install")
+  xpc_dictionary_set_string(request, "verb", "import")
   xpc_dictionary_set_string(request, "pem", pem)
-  let reply = roundTrip(request)
+  printDaemonCommandReply(roundTrip(request))
+}
+
+private func clientDelete(arguments: [String]) {
+  guard let sha1 = arguments.first else {
+    printJson(["ok": false, "error": "expected the SHA-1 fingerprint as the argument"])
+    return
+  }
+  guard let pem = readStdinPem(), !pem.isEmpty else {
+    printJson(["ok": false, "error": "expected the CA PEM on stdin"])
+    return
+  }
+  let request = xpc_dictionary_create(nil, nil, 0)
+  xpc_dictionary_set_string(request, "verb", "delete")
+  xpc_dictionary_set_string(request, "pem", pem)
+  xpc_dictionary_set_string(request, "sha1", sha1)
+  printDaemonCommandReply(roundTrip(request))
+}
+
+private func printDaemonCommandReply(_ reply: xpc_object_t) {
   if let error = replyError(reply) {
     printJson(["ok": false, "error": error])
     return
@@ -98,31 +125,24 @@ private func clientInstall() {
   ])
 }
 
-private func clientRemove(arguments: [String]) {
-  guard let sha1 = arguments.first else {
-    printJson(["ok": false, "error": "expected the SHA-1 fingerprint as the argument"])
-    return
-  }
+/// Writes/removes the admin-domain trust settings for the proxy CA
+/// IN-PROCESS, from the user's session — authd fronts its own admin
+/// authentication and a denial comes back as a plain OSStatus, never
+/// an app-drawn prompt.
+private func clientTrustSettings(remove: Bool) {
   guard let pem = readStdinPem(), !pem.isEmpty else {
     printJson(["ok": false, "error": "expected the CA PEM on stdin"])
     return
   }
-  let request = xpc_dictionary_create(nil, nil, 0)
-  xpc_dictionary_set_string(request, "verb", "remove")
-  xpc_dictionary_set_string(request, "pem", pem)
-  xpc_dictionary_set_string(request, "sha1", sha1)
-  let reply = roundTrip(request)
-  if let error = replyError(reply) {
-    printJson(["ok": false, "error": error])
+  guard let cert = parseProxyCaCertificate(pem: pem) else {
+    printJson(["ok": false, "error": "certificate is not the OpenHeaders proxy CA"])
     return
   }
-  printJson([
-    "ok": true,
-    "untrustCode": Int(xpc_dictionary_get_int64(reply, "untrustCode")),
-    "untrustStderr": xpc_dictionary_get_string(reply, "untrustStderr").map { String(cString: $0) } ?? "",
-    "deleteCode": Int(xpc_dictionary_get_int64(reply, "deleteCode")),
-    "deleteStderr": xpc_dictionary_get_string(reply, "deleteStderr").map { String(cString: $0) } ?? "",
-  ])
+  let status = remove
+    ? SecTrustSettingsRemoveTrustSettings(cert, .admin)
+    : SecTrustSettingsSetTrustSettings(cert, .admin, nil)
+  let message = SecCopyErrorMessageString(status, nil).map { String($0) } ?? "OSStatus \(status)"
+  printJson(["ok": true, "status": Int(status), "message": message])
 }
 
 private func serviceStatusLabel(_ status: SMAppService.Status) -> String {

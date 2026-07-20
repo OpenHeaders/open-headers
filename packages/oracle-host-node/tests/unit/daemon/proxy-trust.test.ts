@@ -35,9 +35,9 @@ import type { ExecFn, ExecResult } from '../../../src/daemon/proxy/exec';
 import { createProxyTrustService, type ProxyTrustService } from '../../../src/daemon/proxy/proxy-trust';
 import type {
   SystemTrustHelper,
-  SystemTrustHelperInstallReply,
+  SystemTrustHelperCommandReply,
   SystemTrustHelperProbe,
-  SystemTrustHelperRemoveReply,
+  SystemTrustHelperTrustReply,
 } from '../../../src/daemon/proxy/trust-helper';
 import { listTrustChanges } from '../../../src/daemon/proxy/trust-record';
 import { FileBackedHostStorage } from '../../../src/host-storage';
@@ -158,24 +158,35 @@ interface HelperFake extends SystemTrustHelper {
 function createHelperFake(
   overrides: {
     probe?: SystemTrustHelperProbe;
-    install?: SystemTrustHelperInstallReply;
-    remove?: SystemTrustHelperRemoveReply;
+    importCert?: SystemTrustHelperCommandReply;
+    deleteCert?: SystemTrustHelperCommandReply;
+    trustSet?: SystemTrustHelperTrustReply;
+    trustRemove?: SystemTrustHelperTrustReply;
   } = {},
 ): HelperFake {
   const calls: string[] = [];
+  const unavailable = { ok: false, error: 'helper not present in this build' };
   return {
     calls,
     probe: async () => {
       calls.push('probe');
       return overrides.probe ?? { available: false, reason: 'helper not present in this build' };
     },
-    install: async () => {
-      calls.push('install');
-      return overrides.install ?? { ok: false, error: 'helper not present in this build' };
+    importCert: async () => {
+      calls.push('import');
+      return overrides.importCert ?? unavailable;
     },
-    remove: async () => {
-      calls.push('remove');
-      return overrides.remove ?? { ok: false, error: 'helper not present in this build' };
+    deleteCert: async () => {
+      calls.push('delete');
+      return overrides.deleteCert ?? unavailable;
+    },
+    trustSet: async () => {
+      calls.push('trust-set');
+      return overrides.trustSet ?? unavailable;
+    },
+    trustRemove: async () => {
+      calls.push('trust-remove');
+      return overrides.trustRemove ?? unavailable;
     },
   };
 }
@@ -220,7 +231,7 @@ describe('proxy-trust service', () => {
     const install = fake.calls.find((c) => c.cmd === 'security' && c.args[0] === 'add-trusted-cert');
     expect(install).toBeDefined();
     expect(install?.args).not.toContain('-d');
-    expect(helper.calls).not.toContain('install');
+    expect(helper.calls).not.toContain('import');
 
     const changes = await listTrustChanges();
     expect(changes).toHaveLength(1);
@@ -234,14 +245,14 @@ describe('proxy-trust service', () => {
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
     expect(result.results[0].error).toContain('privileged helper');
-    expect(helper.calls).not.toContain('install');
+    expect(helper.calls).not.toContain('import');
     expect(await listTrustChanges()).toHaveLength(0);
   });
 
   it('System-keychain install rides the helper; an unreachable helper reports elevationRequired and the clean-store row retracts', async () => {
     const reachable = createHelperFake({
       probe: { available: true },
-      install: { ok: false, error: 'helper unreachable' },
+      importCert: { ok: false, error: 'helper unreachable' },
     });
     // The probe that follows the refusal finds nothing — the row retracts.
     fake.when((c) => c.args[0] === 'find-certificate', { stdout: '' });
@@ -250,19 +261,22 @@ describe('proxy-trust service', () => {
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(false);
     expect(result.results[0].elevationRequired).toBe(true);
-    expect(reachable.calls).toContain('install');
+    expect(reachable.calls).toContain('import');
     expect(await listTrustChanges()).toHaveLength(0);
   });
 
-  it('a System-keychain install succeeds through the helper and records the row', async () => {
+  it('a System-keychain install imports via the root daemon, trusts in-session, and records the row', async () => {
     const reachable = createHelperFake({
       probe: { available: true },
-      install: { ok: true, code: 0, stderr: '' },
+      importCert: { ok: true, code: 0, stderr: '' },
+      trustSet: { ok: true, status: 0, message: 'No error.' },
     });
     const result = await service({ systemHelper: reachable }).install(['macos-system-keychain']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.results[0].ok).toBe(true);
+    expect(reachable.calls).toContain('import');
+    expect(reachable.calls).toContain('trust-set');
     // The privileged half never rides the plain exec seam.
     expect(fake.calls.some((c) => c.args[0] === 'add-trusted-cert')).toBe(false);
     const changes = await listTrustChanges();
@@ -274,12 +288,10 @@ describe('proxy-trust service', () => {
     const ca = await ensureProxyCa();
     const reachable = createHelperFake({
       probe: { available: true },
-      install: {
-        ok: true,
-        code: 1,
-        stderr:
-          'SecTrustSettingsSetTrustSettings: The authorization was denied since no user interaction was possible.',
-      },
+      importCert: { ok: true, code: 0, stderr: '' },
+      // The in-session trust write was declined by the user at the OS
+      // dialog — an authd denial status, with the cert bytes already in.
+      trustSet: { ok: true, status: -60005, message: 'The authorization was denied.' },
     });
     // The probe finds our cert bytes but no trust settings — `untrusted`.
     fake.when((c) => c.args[0] === 'find-certificate', {
@@ -368,24 +380,21 @@ describe('proxy-trust service', () => {
     expect(reachable.calls).toContain('probe');
   });
 
-  it('System-keychain teardown rides the helper and treats an already-gone cert as removed', async () => {
+  it('System-keychain teardown untrusts in-session, deletes via the root daemon, and treats an already-gone cert as removed', async () => {
     const reachable = createHelperFake({
       probe: { available: true },
-      install: { ok: true, code: 0, stderr: '' },
-      remove: {
-        ok: true,
-        untrustCode: 0,
-        untrustStderr: '',
-        deleteCode: 1,
-        deleteStderr: 'security: Unable to delete certificate matching "ABCD"',
-      },
+      importCert: { ok: true, code: 0, stderr: '' },
+      trustSet: { ok: true, status: 0, message: 'No error.' },
+      trustRemove: { ok: true, status: 0, message: 'No error.' },
+      deleteCert: { ok: true, code: 1, stderr: 'security: Unable to delete certificate matching "ABCD"' },
     });
     const svc = service({ systemHelper: reachable });
     await svc.install(['macos-system-keychain']);
     fake.when((c) => c.args[0] === 'find-certificate', { stdout: '' });
     const removed = await svc.remove();
     expect(removed.ok).toBe(true);
-    expect(reachable.calls).toContain('remove');
+    expect(reachable.calls).toContain('trust-remove');
+    expect(reachable.calls).toContain('delete');
     // The privileged halves never ride the plain exec seam.
     expect(fake.calls.some((c) => c.args[0] === 'remove-trusted-cert')).toBe(false);
     expect(fake.calls.some((c) => c.args[0] === 'delete-certificate')).toBe(false);

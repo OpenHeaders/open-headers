@@ -1,9 +1,17 @@
 /**
  * Transport client for the OpenHeaders trust helper — the signed
- * SMAppService privileged daemon that manages System-keychain (admin
+ * SMAppService dual-mode binary that manages System-keychain (admin
  * domain) trust for the proxy CA (PROXY_SECURITY.md §2.6 amendment).
  *
- * The helper is a dual-mode binary embedded next to the app executable
+ * Two halves, split by what each context is allowed to do
+ * (live-proven): the root launchd daemon moves the System-keychain
+ * CERT BYTES (`import`/`delete` — the keychain file is root's), while
+ * the ADMIN TRUST SETTINGS are written by the in-session client verbs
+ * (`trust-set`/`trust-remove`) — authd's rule for them demands
+ * interactive admin authentication, which only a process in the user's
+ * GUI session can front, and macOS draws that dialog itself.
+ *
+ * The helper sits next to the app executable
  * (`Contents/MacOS/oh-trust-helper`). This module only spawns its
  * client verbs and parses their single-JSON-object stdout; keychain
  * semantics (idempotency, residue, verification) stay in
@@ -22,26 +30,28 @@ export interface SystemTrustHelperProbe {
   reason?: string;
 }
 
-export interface SystemTrustHelperInstallReply {
+/** Raw `security` exit of a root-daemon verb (`import` / `delete`). */
+export interface SystemTrustHelperCommandReply {
   ok: boolean;
   error?: string;
   code?: number;
   stderr?: string;
 }
 
-export interface SystemTrustHelperRemoveReply {
+/** OSStatus of an in-session trust-settings verb (`trust-set` / `trust-remove`). */
+export interface SystemTrustHelperTrustReply {
   ok: boolean;
   error?: string;
-  untrustCode?: number;
-  untrustStderr?: string;
-  deleteCode?: number;
-  deleteStderr?: string;
+  status?: number;
+  message?: string;
 }
 
 export interface SystemTrustHelper {
   probe(): Promise<SystemTrustHelperProbe>;
-  install(certPem: string): Promise<SystemTrustHelperInstallReply>;
-  remove(certPem: string, fingerprintSha1: string): Promise<SystemTrustHelperRemoveReply>;
+  importCert(certPem: string): Promise<SystemTrustHelperCommandReply>;
+  deleteCert(certPem: string, fingerprintSha1: string): Promise<SystemTrustHelperCommandReply>;
+  trustSet(certPem: string): Promise<SystemTrustHelperTrustReply>;
+  trustRemove(certPem: string): Promise<SystemTrustHelperTrustReply>;
 }
 
 /** The embedded helper sits beside the app executable in the bundle. */
@@ -119,9 +129,9 @@ export function createSystemTrustHelper(binaryPath: string | null = defaultSyste
     return { available: true };
   }
 
-  async function install(certPem: string): Promise<SystemTrustHelperInstallReply> {
+  async function runCommandVerb(args: readonly string[], certPem: string): Promise<SystemTrustHelperCommandReply> {
     if (binaryPath === null) return { ok: false, error: 'helper not present in this build' };
-    const run = await runHelper(binaryPath, ['install'], certPem);
+    const run = await runHelper(binaryPath, args, certPem);
     const reply = parseReply(run);
     if (reply === null) return { ok: false, error: run.spawnError ?? 'helper produced no parseable answer' };
     if (reply.ok !== true) return { ok: false, error: str(reply.error) ?? 'helper refused' };
@@ -132,20 +142,24 @@ export function createSystemTrustHelper(binaryPath: string | null = defaultSyste
     };
   }
 
-  async function remove(certPem: string, fingerprintSha1: string): Promise<SystemTrustHelperRemoveReply> {
+  async function runTrustVerb(verb: string, certPem: string): Promise<SystemTrustHelperTrustReply> {
     if (binaryPath === null) return { ok: false, error: 'helper not present in this build' };
-    const run = await runHelper(binaryPath, ['remove', fingerprintSha1], certPem);
+    const run = await runHelper(binaryPath, [verb], certPem);
     const reply = parseReply(run);
     if (reply === null) return { ok: false, error: run.spawnError ?? 'helper produced no parseable answer' };
     if (reply.ok !== true) return { ok: false, error: str(reply.error) ?? 'helper refused' };
     return {
       ok: true,
-      ...(num(reply.untrustCode) !== undefined ? { untrustCode: num(reply.untrustCode) } : {}),
-      ...(str(reply.untrustStderr) !== undefined ? { untrustStderr: str(reply.untrustStderr) } : {}),
-      ...(num(reply.deleteCode) !== undefined ? { deleteCode: num(reply.deleteCode) } : {}),
-      ...(str(reply.deleteStderr) !== undefined ? { deleteStderr: str(reply.deleteStderr) } : {}),
+      ...(num(reply.status) !== undefined ? { status: num(reply.status) } : {}),
+      ...(str(reply.message) !== undefined ? { message: str(reply.message) } : {}),
     };
   }
 
-  return { probe, install, remove };
+  return {
+    probe,
+    importCert: (certPem) => runCommandVerb(['import'], certPem),
+    deleteCert: (certPem, fingerprintSha1) => runCommandVerb(['delete', fingerprintSha1], certPem),
+    trustSet: (certPem) => runTrustVerb('trust-set', certPem),
+    trustRemove: (certPem) => runTrustVerb('trust-remove', certPem),
+  };
 }

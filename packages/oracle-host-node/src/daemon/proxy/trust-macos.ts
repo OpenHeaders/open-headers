@@ -115,38 +115,68 @@ export async function removeCaFromKeychain(
   };
 }
 
+/** authd refusals from the in-session trust verbs: denied, canceled, user-canceled. */
+const TRUST_DENIAL_STATUSES = new Set([-60005, -60006, -128]);
+
+/** `errSecItemNotFound` — no trust settings to remove is an honest empty set. */
+const TRUST_STATUS_NOT_FOUND = -25300;
+
 /**
- * System-keychain install through the privileged helper. The helper
- * runs the same `add-trusted-cert` (admin domain) as root in its own
- * launchd session and hands back the raw exit; a transport failure
- * (helper missing, unregistered, or refusing the peer) reads as an
- * elevation problem — the store was not reached.
+ * System-keychain install, split across the helper's two halves: the
+ * root daemon imports the cert bytes (`import`), then the in-session
+ * client writes the admin-domain trust settings (`trust-set`) behind
+ * macOS's own admin authentication. A transport failure before the
+ * store changed reads as an elevation problem; an authd denial after
+ * the import leaves `untrusted` residue the caller's probe will keep a
+ * row for.
  */
 export async function installCaViaHelper(certPem: string, helper: SystemTrustHelper): Promise<TrustStoreOpResult> {
-  const reply = await helper.install(certPem);
-  if (!reply.ok) return { ok: false, error: reply.error ?? 'trust helper unavailable', elevationRequired: true };
-  if (reply.code === 0) return { ok: true };
-  const stderr = (reply.stderr ?? '').trim();
-  return { ok: false, error: stderr || `security exited ${reply.code ?? -1}` };
+  const imported = await helper.importCert(certPem);
+  if (!imported.ok) return { ok: false, error: imported.error ?? 'trust helper unavailable', elevationRequired: true };
+  const importStderr = (imported.stderr ?? '').trim();
+  if (imported.code !== 0 && !importStderr.toLowerCase().includes('already exists')) {
+    return { ok: false, error: importStderr || `security exited ${imported.code ?? -1}` };
+  }
+  const trusted = await helper.trustSet(certPem);
+  if (!trusted.ok) return { ok: false, error: trusted.error ?? 'trust helper unavailable' };
+  if (trusted.status === 0) return { ok: true };
+  return {
+    ok: false,
+    error: trusted.message ?? `trust settings write failed (${trusted.status ?? '?'})`,
+    ...(trusted.status !== undefined && TRUST_DENIAL_STATUSES.has(trusted.status) ? { elevationRequired: true } : {}),
+  };
 }
 
 /**
- * System-keychain removal through the privileged helper — same
- * two-halves semantics as {@link removeCaFromKeychain}: the trust
- * settings come off, then the cert goes, and "no such cert" counts as
- * already done.
+ * System-keychain removal — same two-halves semantics as
+ * {@link removeCaFromKeychain}: the trust settings come off in-session
+ * (`trust-remove`, absent settings count as done), then the root
+ * daemon deletes the cert bytes (`delete`, "no such cert" counts as
+ * done).
  */
 export async function removeCaViaHelper(
   certPem: string,
   fingerprintSha1: string,
   helper: SystemTrustHelper,
 ): Promise<TrustStoreOpResult> {
-  const reply = await helper.remove(certPem, fingerprintSha1.toUpperCase());
-  if (!reply.ok) return { ok: false, error: reply.error ?? 'trust helper unavailable', elevationRequired: true };
-  if (reply.deleteCode === 0) return { ok: true };
-  const stderr = (reply.deleteStderr ?? '').trim();
+  const untrusted = await helper.trustRemove(certPem);
+  if (!untrusted.ok)
+    return { ok: false, error: untrusted.error ?? 'trust helper unavailable', elevationRequired: true };
+  if (untrusted.status !== 0 && untrusted.status !== TRUST_STATUS_NOT_FOUND) {
+    return {
+      ok: false,
+      error: untrusted.message ?? `trust settings removal failed (${untrusted.status ?? '?'})`,
+      ...(untrusted.status !== undefined && TRUST_DENIAL_STATUSES.has(untrusted.status)
+        ? { elevationRequired: true }
+        : {}),
+    };
+  }
+  const deleted = await helper.deleteCert(certPem, fingerprintSha1.toUpperCase());
+  if (!deleted.ok) return { ok: false, error: deleted.error ?? 'trust helper unavailable', elevationRequired: true };
+  if (deleted.code === 0) return { ok: true };
+  const stderr = (deleted.stderr ?? '').trim();
   if (stderr.toLowerCase().includes('unable to delete certificate matching')) return { ok: true };
-  return { ok: false, error: stderr || `security exited ${reply.deleteCode ?? -1}` };
+  return { ok: false, error: stderr || `security exited ${deleted.code ?? -1}` };
 }
 
 /** Hex SHA-256 fingerprints of every cert in `keychain` whose CN matches. */
