@@ -839,6 +839,127 @@ export async function listRepoRefs(run: GitRunner, rootDir: string): Promise<Rep
   return refs;
 }
 
+// ── Commit file diff (Phase 7 slice 3: §9 log view's diff pane) ──────
+
+/** Per-side blob cap for the diff pane — bigger blobs answer `tooLarge` with no contents. */
+export const COMMIT_FILE_DIFF_MAX_BYTES = 1_048_576;
+
+/**
+ * Strict commit-hash gate for caller-supplied diff targets: a FULL hex
+ * object name only (40 for SHA-1, 64 for SHA-256 repos) — never an
+ * abbreviation, ref name, or revision expression.
+ */
+export function isCommitSha(sha: string): boolean {
+  return /^[0-9a-f]{40}$/.test(sha) || /^[0-9a-f]{64}$/.test(sha);
+}
+
+/**
+ * Strict tree-path gate for caller-supplied diff targets: a plain
+ * repo-relative file path — no option injection (leading `-`), no
+ * absolute paths, no `.`/`..` segments, no trailing slash.
+ */
+export function isSafeTreePath(filePath: string): boolean {
+  if (filePath.length === 0 || filePath.length > 4096) return false;
+  if (filePath.includes('\0') || filePath.startsWith('-') || filePath.startsWith('/') || filePath.endsWith('/')) {
+    return false;
+  }
+  return !filePath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..');
+}
+
+/** One file's old/new blob pair in one commit — the Monaco diff pane's feed. */
+export interface CommitFileDiff {
+  path: string;
+  /** Old blob text; null when the commit added the file (or binary/over-cap). */
+  oldContent: string | null;
+  /** New blob text; null when the commit deleted the file (or binary/over-cap). */
+  newContent: string | null;
+  /** True when git reports the change as binary — no text contents ride along. */
+  binary: boolean;
+  /** True when either side exceeds the size cap — no contents ride along. */
+  tooLarge: boolean;
+  /** Byte size per side; null on an absent side. */
+  oldSize: number | null;
+  newSize: number | null;
+}
+
+export type CommitFileDiffResult =
+  | { ok: true; diff: CommitFileDiff }
+  | { ok: false; reason: 'unknown-commit' | 'unknown-path' | 'diff-failed'; detail?: string };
+
+/** A blob side of the diff (`<sha>:<path>` / `<sha>^:<path>`); absent when that side doesn't exist. */
+async function readBlobSize(run: GitRunner, rootDir: string, rev: string): Promise<number | null> {
+  const result = await run([...repoArgs(rootDir), 'cat-file', '-s', rev], { cwd: rootDir });
+  const size = Number(result.stdout.trim());
+  return result.code === 0 && Number.isFinite(size) ? size : null;
+}
+
+/**
+ * One file's change in one commit as an old/new blob pair — the slice-3
+ * diff read. The old side is the FIRST parent's blob (`<sha>^:<path>`),
+ * so an added file answers a null old side and a deleted file a null
+ * new side; a rename's old-name blob is not chased (the record already
+ * reports where the file lives now, like {@link listCommitLog}). The
+ * caller supplies a validated full sha ({@link isCommitSha}) and plain
+ * tree path ({@link isSafeTreePath}); both are re-checked here as
+ * defense in depth. Binary changes (git's own `--numstat` verdict) and
+ * blobs over `maxBytes` answer typed flags with sizes but no contents.
+ */
+export async function readCommitFileDiff(
+  run: GitRunner,
+  rootDir: string,
+  sha: string,
+  filePath: string,
+  maxBytes: number = COMMIT_FILE_DIFF_MAX_BYTES,
+): Promise<CommitFileDiffResult> {
+  if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
+  if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
+  const commit = await run([...repoArgs(rootDir), 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`], {
+    cwd: rootDir,
+  });
+  if (commit.code !== 0) return { ok: false, reason: 'unknown-commit' };
+
+  const numstat = await run(
+    [...repoArgs(rootDir), 'diff-tree', '-r', '-z', '--root', '--no-commit-id', '--numstat', sha, '--', filePath],
+    { cwd: rootDir },
+  );
+  if (numstat.code !== 0) return { ok: false, reason: 'diff-failed', detail: failureDetail(numstat) };
+  const record = numstat.stdout.split('\0').find((token) => token.length > 0);
+  if (record === undefined) return { ok: false, reason: 'unknown-path' };
+  const binary = record.startsWith('-\t-\t');
+
+  const oldRev = `${sha}^:${filePath}`;
+  const newRev = `${sha}:${filePath}`;
+  const oldSize = await readBlobSize(run, rootDir, oldRev);
+  const newSize = await readBlobSize(run, rootDir, newRev);
+  if (oldSize === null && newSize === null) return { ok: false, reason: 'unknown-path' };
+  const tooLarge = (oldSize ?? 0) > maxBytes || (newSize ?? 0) > maxBytes;
+
+  const base: CommitFileDiff = {
+    path: filePath,
+    oldContent: null,
+    newContent: null,
+    binary,
+    tooLarge,
+    oldSize,
+    newSize,
+  };
+  if (binary || tooLarge) return { ok: true, diff: base };
+
+  let oldContent: string | null = null;
+  if (oldSize !== null) {
+    const blob = await run([...repoArgs(rootDir), 'show', oldRev], { cwd: rootDir });
+    if (blob.code !== 0) return { ok: false, reason: 'diff-failed', detail: failureDetail(blob) };
+    oldContent = blob.stdout;
+  }
+  let newContent: string | null = null;
+  if (newSize !== null) {
+    const blob = await run([...repoArgs(rootDir), 'show', newRev], { cwd: rootDir });
+    if (blob.code !== 0) return { ok: false, reason: 'diff-failed', detail: failureDetail(blob) };
+    newContent = blob.stdout;
+  }
+  return { ok: true, diff: { ...base, oldContent, newContent } };
+}
+
 // ── Temp-index commit (§3.3 / §23.4) ─────────────────────────────────
 
 export interface CommitWorkspaceTreeOptions {

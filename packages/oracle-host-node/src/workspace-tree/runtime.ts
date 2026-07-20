@@ -37,6 +37,7 @@ import {
 } from '@openheaders/oracle/sync/service';
 import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import {
+  type CommitFileDiff,
   type CommitIntent,
   type CommitLogEntry,
   type CommitUserAttribution,
@@ -52,7 +53,9 @@ import {
   type GitRunner,
   gitOperationInProgress,
   isAncestorOf,
+  isCommitSha,
   isSafeRefName,
+  isSafeTreePath,
   isWorkspaceRepo,
   listCommitLog,
   listFileLog,
@@ -62,6 +65,7 @@ import {
   pushHeadToNewBranch,
   pushWorkspaceBranch,
   type RepoRef,
+  readCommitFileDiff,
   resolveCommitIdentity,
   resolveUpstream,
   type UpstreamState,
@@ -245,6 +249,14 @@ export type WorkspaceTreeRefsRpcResult =
   | { ok: true; refs: RepoRef[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
 
+export type WorkspaceTreeFileDiffRpcResult =
+  | { ok: true; diff: CommitFileDiff }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' | 'diff-failed';
+      detail?: string;
+    };
+
 export interface WorkspaceTreeGitStatusRpcResult {
   bound: boolean;
   git: GitAvailability;
@@ -339,6 +351,12 @@ export interface WorkspaceTreeRuntime {
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
   /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */
   listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult>;
+  /**
+   * One file's old/new blob pair in one commit (§9, Phase 7 slice 3) —
+   * the diff pane's feed. `sha` must be a FULL commit hash from `log`'s
+   * answer and `path` a plain tree path; anything else refuses typed.
+   */
+  fileDiff(workspaceId: string, sha: string, path: string): Promise<WorkspaceTreeFileDiffRpcResult>;
   setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }>;
   /** The explicit setting behind `--no-verify` (§3.3) — per binding, like the cadence. */
   setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }>;
@@ -1553,6 +1571,20 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       const refs = await listRepoRefs(gitRun, rootDir);
       if (refs === null) return { ok: false, reason: 'refs-failed' };
       return { ok: true, refs, current: await currentBranch(gitRun, rootDir) };
+    },
+
+    async fileDiff(workspaceId: string, sha: string, filePath: string): Promise<WorkspaceTreeFileDiffRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      const { rootDir } = binding.record;
+      const availability = await ensureGitAvailability(rootDir);
+      if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+      if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+      // Same posture as the ref-scoped log: caller-supplied targets are
+      // validated shapes, never revision expressions (§9 slice 2/3).
+      if (!isCommitSha(sha)) return { ok: false, reason: 'unknown-commit' };
+      if (!isSafeTreePath(filePath)) return { ok: false, reason: 'unknown-path' };
+      return readCommitFileDiff(gitRun, rootDir, sha, filePath);
     },
 
     async setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }> {

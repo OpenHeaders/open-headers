@@ -6,9 +6,10 @@
  * background fetch brought in, the panel never touches the network), a
  * commit timeline (`oh.workspaceTree.log`, ref-scoped when a ref is
  * selected), and the selected commit's detail — authorship, co-author
- * trailers, changed paths; clicking a path opens its `--follow`
- * timeline (`oh.workspaceTree.fileLog`). Pure reads off the
- * per-binding chain; the panel never mutates the repo.
+ * trailers, changed paths; clicking a path opens that change as an
+ * old/new Monaco diff (`oh.workspaceTree.fileDiff` — binary and
+ * over-cap blobs answer typed flags rendered as plain notices). Pure
+ * reads off the per-binding chain; the panel never mutates the repo.
  *
  * Only hosts that register the `workspaceGit` capability (the desktop
  * renderer, whose bridge reaches the workspace-tree runtime in-process)
@@ -19,15 +20,26 @@
  */
 
 import { BranchesOutlined, ReloadOutlined } from '@ant-design/icons';
-import { hostBridge, type WorkspaceTreeLogEntryWire, type WorkspaceTreeRefWire } from '@openheaders/core/bridge';
+import {
+  hostBridge,
+  type WorkspaceTreeFileDiffPairWire,
+  type WorkspaceTreeLogEntryWire,
+  type WorkspaceTreeRefWire,
+} from '@openheaders/core/bridge';
 import { Button, Input, Modal, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import '@openheaders/ui/workbench/components/monaco/bootstrap';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { formatAgo } from '@openheaders/ui/shared/awareness/format-ago';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import {
+  DEFAULT_DIFF_VIEWER_OPTIONS,
+  type DiffViewerOptions,
+  RichDiffEditor,
+} from '@openheaders/ui/workbench/components/diff-viewer';
 
 export interface GitLogPanelProps {
   info: InfoPopoverContent;
@@ -35,6 +47,14 @@ export interface GitLogPanelProps {
 }
 
 const LOG_LIMIT = 200;
+
+/** Monaco language for a tree path — the workspace tree is YAML-first. */
+function diffLanguage(filePath: string): string {
+  if (/\.ya?ml$/i.test(filePath)) return 'yaml';
+  if (/\.json$/i.test(filePath)) return 'json';
+  if (/\.md$/i.test(filePath)) return 'markdown';
+  return 'plaintext';
+}
 
 /** Porcelain status letter → theme color, IDE-style (added green,
  *  modified blue, deleted red, rename/copy amber). */
@@ -69,8 +89,9 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [selectedSha, setSelectedSha] = useState<string | null>(null);
-  const [fileHistory, setFileHistory] = useState<{ path: string; entries: WorkspaceTreeLogEntryWire[] } | null>(null);
-  const [fileHistoryLoading, setFileHistoryLoading] = useState<string | null>(null);
+  const [fileDiff, setFileDiff] = useState<WorkspaceTreeFileDiffPairWire | null>(null);
+  const [fileDiffLoading, setFileDiffLoading] = useState<string | null>(null);
+  const [diffOptions, setDiffOptions] = useState<DiffViewerOptions>(DEFAULT_DIFF_VIEWER_OPTIONS);
 
   const reload = useCallback(async (): Promise<void> => {
     if (workspaceId === null) {
@@ -162,21 +183,21 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
     [refs, t],
   );
 
-  const openFileHistory = async (filePath: string): Promise<void> => {
+  const openFileDiff = async (sha: string, filePath: string): Promise<void> => {
     if (workspaceId === null) return;
-    setFileHistoryLoading(filePath);
+    setFileDiffLoading(filePath);
     try {
-      const result = await hostBridge.call('oh.workspaceTree.fileLog', {
+      const result = await hostBridge.call('oh.workspaceTree.fileDiff', {
         workspaceId,
+        sha,
         path: filePath,
-        limit: 20,
       });
-      if (result.ok) setFileHistory({ path: filePath, entries: result.entries });
+      if (result.ok) setFileDiff(result.diff);
       else setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setFileHistoryLoading(null);
+      setFileDiffLoading(null);
     }
   };
 
@@ -511,8 +532,8 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
                         <Button
                           type="link"
                           size="small"
-                          loading={fileHistoryLoading === file.path}
-                          onClick={() => void openFileHistory(file.path)}
+                          loading={fileDiffLoading === file.path}
+                          onClick={() => void openFileDiff(selected.sha, file.path)}
                           style={{ padding: 0, height: 'auto', fontSize: 11 }}
                           data-testid="git-tool-file"
                         >
@@ -530,35 +551,36 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
         )}
       </div>
       <Modal
-        open={fileHistory !== null}
-        title={fileHistory !== null ? t('workbench.gitLog.fileHistoryTitle', { path: fileHistory.path }) : ''}
-        onCancel={() => setFileHistory(null)}
+        open={fileDiff !== null}
+        title={fileDiff !== null ? t('workbench.gitLog.diff.title', { path: fileDiff.path }) : ''}
+        onCancel={() => setFileDiff(null)}
         footer={null}
-        data-testid="git-tool-file-history-modal"
+        width="82%"
+        destroyOnHidden
+        data-testid="git-tool-diff-modal"
       >
-        {fileHistory !== null && fileHistory.entries.length === 0 && (
-          <p style={{ fontSize: 12, margin: 0 }} data-testid="git-tool-file-history-empty">
-            {t('workbench.gitLog.fileHistoryEmpty')}
+        {fileDiff !== null && fileDiff.binary && (
+          <p style={{ fontSize: 12, margin: 0 }} data-testid="git-tool-diff-binary">
+            {t('workbench.gitLog.diff.binary')}
           </p>
         )}
-        {fileHistory !== null && fileHistory.entries.length > 0 && (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} data-testid="git-tool-file-history-list">
-            {fileHistory.entries.map((entry) => (
-              <li
-                key={entry.sha}
-                style={{ padding: '6px 0', borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-                data-testid="git-tool-file-history-entry"
-              >
-                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorTextSecondary }}>
-                    {entry.sha.slice(0, 7)}
-                  </span>
-                  <span style={{ fontSize: 12, color: token.colorText, flex: 1 }}>{entry.subject}</span>
-                </div>
-                <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>{authorLine(entry)}</div>
-              </li>
-            ))}
-          </ul>
+        {fileDiff !== null && !fileDiff.binary && fileDiff.tooLarge && (
+          <p style={{ fontSize: 12, margin: 0 }} data-testid="git-tool-diff-too-large">
+            {t('workbench.gitLog.diff.tooLarge', {
+              size: String(Math.ceil(Math.max(fileDiff.oldSize ?? 0, fileDiff.newSize ?? 0) / 1024)),
+            })}
+          </p>
+        )}
+        {fileDiff !== null && !fileDiff.binary && !fileDiff.tooLarge && (
+          <div style={{ height: '62vh' }} data-testid="git-tool-diff-editor">
+            <RichDiffEditor
+              original={fileDiff.oldContent ?? ''}
+              modified={fileDiff.newContent ?? ''}
+              language={diffLanguage(fileDiff.path)}
+              options={diffOptions}
+              onOptionsChange={setDiffOptions}
+            />
+          </div>
         )}
       </Modal>
     </div>

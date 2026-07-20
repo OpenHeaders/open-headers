@@ -34,6 +34,7 @@ export type {
   ResolveForcePushRpcResult,
   SwitchBranchRpcResult,
   WorkspaceTreeCommitCadence,
+  WorkspaceTreeFileDiffRpcResult,
   WorkspaceTreeGitStatusRpcResult,
   WorkspaceTreeLogRpcResult,
   WorkspaceTreeRefsRpcResult,

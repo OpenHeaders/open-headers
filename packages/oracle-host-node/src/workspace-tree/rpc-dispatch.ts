@@ -188,6 +188,13 @@ export async function dispatchWorkspaceTreeRpc(
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
     return await runtime.listRefs(workspaceId);
   }
+  if (type === 'oh.workspaceTree.fileDiff') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    const sha = typeof message.sha === 'string' ? message.sha : '';
+    const filePath = typeof message.path === 'string' ? message.path : '';
+    if (!workspaceId || !sha || !filePath || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.fileDiff(workspaceId, sha, filePath);
+  }
   if (type === 'oh.workspaceTree.fileLog') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     const filePath = typeof message.path === 'string' ? message.path : '';

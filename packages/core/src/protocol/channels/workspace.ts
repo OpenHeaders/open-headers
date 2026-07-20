@@ -456,6 +456,17 @@ export interface WorkspaceRpc {
     res: WorkspaceTreeLogWire;
   };
   /**
+   * One file's change in one commit (§9, Phase 7 slice 3): the old and
+   * new blob contents as a pair — the Monaco diff pane's feed. `sha`
+   * must be a full commit hash from `log`'s answer (never a revision
+   * expression); the old side is the first parent's blob. Binary files
+   * and blobs over the size cap answer typed flags with no contents.
+   */
+  'oh.workspaceTree.fileDiff': {
+    req: { workspaceId: string; sha: string; path: string };
+    res: WorkspaceTreeFileDiffWire;
+  };
+  /**
    * Focus left the app (every window blurred) — the `on-blur` cadence
    * trigger. Fired by the host shell (desktop main observes its own
    * windows); bindings on other cadences ignore it.
@@ -625,6 +636,30 @@ export interface WorkspaceTreeRefWire {
 export type WorkspaceTreeRefsWire =
   | { ok: true; refs: WorkspaceTreeRefWire[]; current: string | null }
   | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
+
+/** One file's old/new blob pair in one commit (Phase 7 slice 3) — the diff pane's feed. */
+export interface WorkspaceTreeFileDiffPairWire {
+  path: string;
+  /** Old blob text; null when the commit added the file (or the blob is binary/over-cap). */
+  oldContent: string | null;
+  /** New blob text; null when the commit deleted the file (or the blob is binary/over-cap). */
+  newContent: string | null;
+  /** True when either side is binary — no text contents ride along. */
+  binary: boolean;
+  /** True when either side exceeds the size cap — no contents ride along. */
+  tooLarge: boolean;
+  /** Byte size per side; null on an absent side. */
+  oldSize: number | null;
+  newSize: number | null;
+}
+
+export type WorkspaceTreeFileDiffWire =
+  | { ok: true; diff: WorkspaceTreeFileDiffPairWire }
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-commit' | 'unknown-path' | 'diff-failed';
+      detail?: string;
+    };
 
 /** A detected remote history rewrite (§16) — the trichotomy dialog's feed. */
 export interface WorkspaceTreeForcePushStateWire {

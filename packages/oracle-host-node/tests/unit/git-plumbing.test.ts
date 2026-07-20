@@ -33,7 +33,9 @@ import {
   fetchWorkspaceRemote,
   gitOperationInProgress,
   isAncestorOf,
+  isCommitSha,
   isSafeRefName,
+  isSafeTreePath,
   isWorkspaceRepo,
   listCommitLog,
   listFileLog,
@@ -46,6 +48,7 @@ import {
   parsePorcelainCount,
   pushHeadToNewBranch,
   pushWorkspaceBranch,
+  readCommitFileDiff,
   readCommitTreeFiles,
   resolveCommitIdentity,
   resolveRefSha,
@@ -953,5 +956,140 @@ describe('ref tree (Phase 7 slice 2)', () => {
 
     expect(await listCommitLog(run, tmpDir, 20, 'main..feature')).toBeNull();
     expect(await listCommitLog(run, tmpDir, 20, '--all')).toBeNull();
+  });
+});
+
+describe('commit file diff (Phase 7 slice 3)', () => {
+  const commitHere = async (message: string): Promise<string> => {
+    const result = await commitWorkspaceTree({ run, rootDir: tmpDir, message, identityEnv: IDENTITY_ENV });
+    if (!result.ok || !result.committed) throw new Error('commit failed');
+    return result.sha;
+  };
+
+  it('isCommitSha admits full hex object names only', () => {
+    expect(isCommitSha('a'.repeat(40))).toBe(true);
+    expect(isCommitSha('0123456789abcdef0123456789abcdef01234567')).toBe(true);
+    expect(isCommitSha('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef')).toBe(true);
+    expect(isCommitSha('0123456')).toBe(false);
+    expect(isCommitSha('HEAD')).toBe(false);
+    expect(isCommitSha('main')).toBe(false);
+    expect(isCommitSha('0123456789ABCDEF0123456789abcdef01234567')).toBe(false);
+    expect(isCommitSha('')).toBe(false);
+  });
+
+  it('isSafeTreePath admits plain tree paths and rejects escapes', () => {
+    expect(isSafeTreePath('workspace.yaml')).toBe(true);
+    expect(isSafeTreePath('rules/block-r0000001/rule.yaml')).toBe(true);
+    expect(isSafeTreePath('')).toBe(false);
+    expect(isSafeTreePath('-n')).toBe(false);
+    expect(isSafeTreePath('/etc/passwd')).toBe(false);
+    expect(isSafeTreePath('../outside.yaml')).toBe(false);
+    expect(isSafeTreePath('rules/../../outside.yaml')).toBe(false);
+    expect(isSafeTreePath('rules/./rule.yaml')).toBe(false);
+    expect(isSafeTreePath('rules//rule.yaml')).toBe(false);
+    expect(isSafeTreePath('rules/')).toBe(false);
+  });
+
+  it('answers old/new blob contents for a modified file', async () => {
+    await initialCommit();
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Edited\n');
+    const sha = await commitHere('Edit manifest');
+
+    const result = await readCommitFileDiff(run, tmpDir, sha, 'workspace.yaml');
+    if (!result.ok) throw new Error(`diff refused: ${result.reason}`);
+    expect(result.diff.oldContent).toBe('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    expect(result.diff.newContent).toBe('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Edited\n');
+    expect(result.diff.binary).toBe(false);
+    expect(result.diff.tooLarge).toBe(false);
+    expect(result.diff.oldSize).toBe(Buffer.byteLength('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n'));
+    expect(result.diff.newSize).toBe(Buffer.byteLength('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe Edited\n'));
+  });
+
+  it('answers a null old side for an added file — including the root commit', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    const rootSha = await commitHere('Initial tree');
+
+    const root = await readCommitFileDiff(run, tmpDir, rootSha, 'workspace.yaml');
+    if (!root.ok) throw new Error(`diff refused: ${root.reason}`);
+    expect(root.diff.oldContent).toBeNull();
+    expect(root.diff.oldSize).toBeNull();
+    expect(root.diff.newContent).toBe('schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const addSha = await commitHere('Add rule');
+    const added = await readCommitFileDiff(run, tmpDir, addSha, 'rules/block-r0000001/rule.yaml');
+    if (!added.ok) throw new Error(`diff refused: ${added.reason}`);
+    expect(added.diff.oldContent).toBeNull();
+    expect(added.diff.newContent).toBe('schemaVersion: 5\nuid: r0000001\n');
+  });
+
+  it('answers a null new side for a deleted file', async () => {
+    await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitHere('Add rule');
+    await fs.rm(path.join(tmpDir, 'rules/block-r0000001/rule.yaml'), { force: true });
+    const sha = await commitHere('Remove rule');
+
+    const result = await readCommitFileDiff(run, tmpDir, sha, 'rules/block-r0000001/rule.yaml');
+    if (!result.ok) throw new Error(`diff refused: ${result.reason}`);
+    expect(result.diff.oldContent).toBe('schemaVersion: 5\nuid: r0000001\n');
+    expect(result.diff.newContent).toBeNull();
+    expect(result.diff.newSize).toBeNull();
+  });
+
+  it('flags a binary change and ships no contents', async () => {
+    await initialCommit();
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x02, 0x00, 0xff]);
+    await fs.writeFile(path.join(tmpDir, 'logo.png'), bytes);
+    const sha = await commitHere('Add logo');
+
+    const result = await readCommitFileDiff(run, tmpDir, sha, 'logo.png');
+    if (!result.ok) throw new Error(`diff refused: ${result.reason}`);
+    expect(result.diff.binary).toBe(true);
+    expect(result.diff.oldContent).toBeNull();
+    expect(result.diff.newContent).toBeNull();
+    expect(result.diff.newSize).toBe(bytes.length);
+  });
+
+  it('flags an over-cap blob and ships no contents', async () => {
+    await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', `schemaVersion: 5\nuid: r0000001\nnote: ${'x'.repeat(64)}\n`);
+    const sha = await commitHere('Add big rule');
+
+    const result = await readCommitFileDiff(run, tmpDir, sha, 'rules/block-r0000001/rule.yaml', 32);
+    if (!result.ok) throw new Error(`diff refused: ${result.reason}`);
+    expect(result.diff.tooLarge).toBe(true);
+    expect(result.diff.oldContent).toBeNull();
+    expect(result.diff.newContent).toBeNull();
+    expect(result.diff.newSize).toBeGreaterThan(32);
+  });
+
+  it('refuses unknown commits, revision expressions, and untouched paths typed', async () => {
+    await initialCommit();
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    const sha = await commitHere('Add rule');
+
+    expect(await readCommitFileDiff(run, tmpDir, 'HEAD', 'workspace.yaml')).toEqual({
+      ok: false,
+      reason: 'unknown-commit',
+    });
+    expect(await readCommitFileDiff(run, tmpDir, `${sha.slice(0, -2)}^^`, 'workspace.yaml')).toEqual({
+      ok: false,
+      reason: 'unknown-commit',
+    });
+    expect(await readCommitFileDiff(run, tmpDir, 'f'.repeat(40), 'workspace.yaml')).toEqual({
+      ok: false,
+      reason: 'unknown-commit',
+    });
+    expect(await readCommitFileDiff(run, tmpDir, sha, '../outside.yaml')).toEqual({
+      ok: false,
+      reason: 'unknown-path',
+    });
+    // workspace.yaml exists in the tree but this commit didn't touch it.
+    expect(await readCommitFileDiff(run, tmpDir, sha, 'workspace.yaml')).toEqual({
+      ok: false,
+      reason: 'unknown-path',
+    });
   });
 });

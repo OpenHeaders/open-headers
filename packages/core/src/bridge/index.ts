@@ -55,6 +55,8 @@ export type {
   WorkspaceSnapshot,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCreateBranchWire,
+  WorkspaceTreeFileDiffPairWire,
+  WorkspaceTreeFileDiffWire,
   WorkspaceTreeForcePushResolveWire,
   WorkspaceTreeForcePushStateWire,
   WorkspaceTreeGitStatusWire,

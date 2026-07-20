@@ -98,6 +98,8 @@ export type {
   WorkspaceTreeCommitCadence,
   WorkspaceTreeCommitWire,
   WorkspaceTreeCreateBranchWire,
+  WorkspaceTreeFileDiffPairWire,
+  WorkspaceTreeFileDiffWire,
   WorkspaceTreeForcePushResolveWire,
   WorkspaceTreeForcePushStateWire,
   WorkspaceTreeGitStatusWire,

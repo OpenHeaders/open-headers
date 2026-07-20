@@ -19,6 +19,9 @@ export {
 } from './git-exec';
 export {
   type BranchOpResult,
+  COMMIT_FILE_DIFF_MAX_BYTES,
+  type CommitFileDiff,
+  type CommitFileDiffResult,
   type CommitLogEntry,
   type CommitLogFileChange,
   type CommitUserAttribution,
@@ -43,7 +46,9 @@ export {
   fetchWorkspaceRemote,
   gitOperationInProgress,
   isAncestorOf,
+  isCommitSha,
   isSafeRefName,
+  isSafeTreePath,
   isWorkspaceRepo,
   type LeftRightCounts,
   listCommitLog,
@@ -60,6 +65,7 @@ export {
   pushWorkspaceBranch,
   type RepoRef,
   type ResolvedCommitIdentity,
+  readCommitFileDiff,
   readCommitTreeFiles,
   resolveCommitIdentity,
   resolveRefSha,
