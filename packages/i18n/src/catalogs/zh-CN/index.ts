@@ -6,7 +6,13 @@
 
 import type { Catalog } from '../../types';
 import { shared } from './shared';
+import { sharedHeaderValidation } from './shared-header-validation';
+import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedResolutionHints } from './shared-resolution-hints';
 
 export const zhCN = {
   ...shared,
+  ...sharedHeaderValidation,
+  ...sharedInfoCookies,
+  ...sharedResolutionHints,
 } as const satisfies Catalog;
