@@ -30,6 +30,14 @@ export interface IncomingLifelinePort {
   /** Port name the renderer set at connect time. */
   readonly name: string;
   /**
+   * Stream a message down to the renderer end of the port. Data-bearing
+   * lifelines (the request-lifecycle pipe) are host→surface push
+   * channels, so the host side sends on the same port the surface
+   * opened. Best-effort: a frame posted after the port dropped is
+   * silently discarded — the disconnect handler is the loss signal.
+   */
+  postMessage(message: unknown): void;
+  /**
    * Register a handler for messages the renderer streams up this port.
    * The transport delivers raw frames, so `T` is the caller's typed
    * assertion about the stream.

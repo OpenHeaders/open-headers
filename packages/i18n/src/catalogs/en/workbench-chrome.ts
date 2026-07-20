@@ -334,6 +334,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
   'workbench.toolWindows.deepNetworkInspection': 'Deep Network Inspection',
+  'workbench.toolWindows.proxyCapture': 'Proxy',
   'workbench.toolWindows.terminal': 'Terminal',
 
   // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
@@ -401,6 +402,9 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.deepNetworkInspection.summary':
     'Connection-level (L4) and HTTP (L7) inspection in one view — TCP/TLS health like RTT, retransmissions, ' +
     'and handshake timing alongside full request/response visibility, modification, and replay.',
+  'workbench.toolWindows.info.proxyCapture.summary':
+    'The capture proxy — traffic from any tool on this machine pointed at the local proxy port, captured as a live ' +
+    'network log. Decryption is scoped: only hosts you list are TLS-terminated, everything else tunnels through opaque.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
     'countdown, with manual Retry and Reset-circuit actions.',
@@ -448,6 +452,20 @@ export const workbenchChrome = {
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
   // roadmap's quoted scenario copy ride raw as illustration data —
   // only the panel chrome keys here. ──────────────────────────────────
+  // ── Proxy capture tool window (control strip) ────────────────────
+  'workbench.proxyCapture.running': 'Running · :{port}',
+  'workbench.proxyCapture.stopped': 'Stopped',
+  'workbench.proxyCapture.start': 'Start',
+  'workbench.proxyCapture.stop': 'Stop',
+  'workbench.proxyCapture.port': 'Port',
+  'workbench.proxyCapture.scopePlaceholder': 'Decrypt scope — example.com, *.example.com',
+  'workbench.proxyCapture.scopeSaved': 'Decrypt scope updated',
+  'workbench.proxyCapture.scopeFailed': 'Could not update scope: {message}',
+  'workbench.proxyCapture.startFailed': 'Could not start the proxy: {message}',
+  'workbench.proxyCapture.noCa':
+    'No CA is trusted, so HTTPS connections tunnel through opaque — nothing is decrypted. Install the CA under ' +
+    'Settings › Proxy, then add hosts to the decrypt scope.',
+
   'workbench.deepNetwork.comingSoon': 'COMING SOON — DESKTOP APP',
   'workbench.deepNetwork.heading': 'Connection (L4) + HTTP (L7) inspection',
   'workbench.deepNetwork.description':

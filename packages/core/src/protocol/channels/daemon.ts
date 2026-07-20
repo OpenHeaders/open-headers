@@ -11,7 +11,13 @@
  */
 
 import type { LicenseSnapshot } from '../../licensing';
-import type { ProxyCaPublicInfo, ProxyTrustChange, ProxyTrustStoreId, ProxyTrustStoreState } from '../../types';
+import type {
+  ProxyCaPublicInfo,
+  ProxyCaptureStatus,
+  ProxyTrustChange,
+  ProxyTrustStoreId,
+  ProxyTrustStoreState,
+} from '../../types';
 
 export interface DaemonRpc {
   /**
@@ -474,6 +480,56 @@ export interface DaemonRpc {
       /** Present when the teardown pass itself failed to run. */
       error?: string;
     };
+  };
+
+  // ── Proxy capture plane (PROXY_PLAN.md Phase 2) ──────────────────
+  //
+  // Admin-only. The L7 capture proxy's control surface — bind/unbind
+  // the local proxy port, read live state, and set the §2.4 decrypt
+  // scope. Captured traffic NEVER rides these contracts: it flows on the
+  // lifecycle lifeline (`oh-lifecycle:<PROXY_LIFECYCLE_TAB_ID>`), the
+  // same pipe the browser panel's network table consumes. These are the
+  // knobs; the capture stream is a separate transport.
+
+  /**
+   * Live capture-proxy state, re-derived per call (bound port from the
+   * live server, CA presence from a fresh sealed-slot read — never a
+   * cached flag). `boundPort` is null while stopped; `port` is the
+   * persisted preference the next start binds; `caPresent` false means
+   * every CONNECT rides an opaque blind tunnel (no leaf minting).
+   */
+  'oh.daemon.proxy.status': {
+    req: Record<string, never>;
+    res: ProxyCaptureStatus;
+  };
+
+  /**
+   * Bind the capture proxy. `port` overrides AND persists the port
+   * preference; omit to bind the stored one. Refuses a port change
+   * while running (stop first) and refuses an out-of-range port.
+   */
+  'oh.daemon.proxy.start': {
+    req: { port?: number };
+    res: { ok: true; port: number } | { ok: false; error: string };
+  };
+
+  /** Unbind the capture proxy. Captured lifecycles stay inspectable
+   *  until the next start — a stop closes the tap, not the record. */
+  'oh.daemon.proxy.stop': {
+    req: Record<string, never>;
+    res: { ok: true };
+  };
+
+  /**
+   * Replace the decrypt-scope list — live immediately (no rebind) and
+   * persisted. Patterns are `example.com` / `*.example.com` / IP
+   * literal; an invalid entry refuses the whole edit (the bare `*`
+   * catch-all is unrepresentable by construction). Empty list =
+   * intercept nothing (scoped-decrypt-by-default).
+   */
+  'oh.daemon.proxy.scope.set': {
+    req: { patterns: ReadonlyArray<string> };
+    res: { ok: true; scopePatterns: ReadonlyArray<string> } | { ok: false; error: string };
   };
 
   'oh.daemon.audit.query': {

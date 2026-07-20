@@ -40,6 +40,7 @@ import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
 import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
+import type { ProxyCaptureControl } from './proxy/proxy-capture-service';
 import type { ProxyTrustService } from './proxy/proxy-trust';
 
 export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
@@ -69,6 +70,9 @@ export interface AdminChannelDeps {
   cliProvision: CliProvisionService;
   /** The `oh.daemon.proxy.trust.*` backing — see `proxy/proxy-trust.ts`. */
   proxyTrust: ProxyTrustService;
+  /** The `oh.daemon.proxy.{status,start,stop,scope.*}` backing — see
+   *  `proxy/proxy-capture-service.ts`. */
+  proxyCapture: ProxyCaptureControl;
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -246,6 +250,42 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       return await deps.proxyTrust.remove(message.dropCa === true);
     } catch (err) {
       return { ok: false, results: [], error: (err as Error).message };
+    }
+  });
+
+  // Proxy capture plane (`oh.daemon.proxy.*` sans `.trust`) — the L7
+  // capture proxy's control surface. Status is re-derived live per call;
+  // start/stop drive the bind; scope.set replaces the §2.4 decrypt list
+  // (validated — an invalid pattern refuses the whole edit). Captures
+  // themselves ride the lifecycle lifeline, never these contracts.
+  handlers.set('oh.daemon.proxy.status', async () => await deps.proxyCapture.status());
+
+  handlers.set('oh.daemon.proxy.start', async (message) => {
+    const port = typeof message.port === 'number' ? message.port : undefined;
+    try {
+      return await deps.proxyCapture.start(port);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.proxy.stop', async () => {
+    try {
+      return await deps.proxyCapture.stop();
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.proxy.scope.set', async (message) => {
+    const patterns = Array.isArray(message.patterns)
+      ? message.patterns.filter((p): p is string => typeof p === 'string')
+      : null;
+    if (patterns === null) return { ok: false, error: 'missing patterns' };
+    try {
+      return await deps.proxyCapture.setScope(patterns);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
     }
   });
 

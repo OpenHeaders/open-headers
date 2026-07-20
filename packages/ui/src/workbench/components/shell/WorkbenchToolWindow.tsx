@@ -34,6 +34,9 @@ import Sidebar from '../sidebar/Sidebar';
 // exists solely on hosts with the `terminal` capability (registry
 // `requiresCapability` gate), so other hosts never fetch the chunk.
 const TerminalPanel = lazy(() => import('../panels/terminal/TerminalPanel'));
+// Pulls the panel-package network table (TrafficList + detail); lazy so
+// browser workbenches that never register `proxyCapture` don't bundle it.
+const ProxyCapturePanel = lazy(() => import('../panels/ProxyCapturePanel'));
 import type { SidebarView } from '../sidebar/types';
 import { buildEntityExportScope, buildSelectionExportScope } from '../workspace-export/build-export-scope';
 import type { ImportExportModalsHandle } from '../workspace-export/ImportExportModals';
@@ -281,6 +284,12 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
       );
     case 'deep-network-inspection':
       return <DeepNetworkInspectionPanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />;
+    case 'proxy-capture':
+      return (
+        <Suspense fallback={null}>
+          <ProxyCapturePanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />
+        </Suspense>
+      );
     case 'terminal':
       return (
         <Suspense fallback={null}>

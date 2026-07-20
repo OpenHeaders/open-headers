@@ -29,6 +29,9 @@ function makePort(name: string): FakePort {
   const messageListeners: Array<(message: unknown) => void> = [];
   return {
     name,
+    postMessage() {
+      // The awareness lifeline never streams host→surface.
+    },
     onMessage(handler) {
       // The transport delivers raw frames — the handler's `T` is its
       // own typed assertion about the stream, mirroring the real seam.

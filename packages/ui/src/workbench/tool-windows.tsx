@@ -13,6 +13,7 @@ import {
   CodeOutlined,
   DashboardOutlined,
   FundViewOutlined,
+  NodeIndexOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
@@ -125,6 +126,19 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'bottom-right',
     openByDefault: false,
+  },
+  // The L7 capture proxy's control surface + live capture feed (Proxy
+  // epic S6). Only hosts that run the daemon spine in-process register
+  // the `proxyCapture` capability, so the window drops out of every
+  // browser surface's dock registry. Dormant until opened.
+  {
+    id: 'proxy-capture',
+    labelKey: 'workbench.toolWindows.proxyCapture',
+    icon: <NodeIndexOutlined />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+    requiresCapability: 'proxyCapture',
   },
   // Integrated terminal — a real pty running the user's shell,
   // supplied by the host through the `terminal` capability. Only pty

@@ -76,8 +76,10 @@ export function acceptLifecyclePort(
   port: chrome.runtime.Port,
   options: AcceptLifecyclePortOptions = {},
 ): boolean {
+  // Negative ids are reserved synthetic partitions (the daemon's proxy
+  // capture source) — the extension host only serves real browser tabs.
   const tabId = parseLifecyclePortName(port.name);
-  if (tabId === null) return false;
+  if (tabId === null || tabId < 0) return false;
   const sink = createPortSink(port);
   const tracker = attachPanelWatchingTracker(tabId, options.trackerDeps ?? defaultTrackerDeps);
   const { ready, provenance, bodyFetcher } = options;

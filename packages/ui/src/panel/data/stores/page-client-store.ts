@@ -25,9 +25,12 @@ export interface PageClientSnapshot {
   readonly pages: readonly Page[];
 }
 
-const EMPTY_SNAPSHOT: PageClientSnapshot = Object.freeze({
+/** Shared frozen empty snapshot — a surface with no page stream (the
+ *  proxy capture view) feeds this to `usePanelData`. */
+export const EMPTY_PAGE_SNAPSHOT: PageClientSnapshot = Object.freeze({
   pages: Object.freeze([]) as readonly Page[],
 });
+const EMPTY_SNAPSHOT = EMPTY_PAGE_SNAPSHOT;
 
 export class PageClientStore {
   private pages: readonly Page[] = EMPTY_SNAPSHOT.pages;

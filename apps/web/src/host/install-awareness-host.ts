@@ -55,8 +55,18 @@ const loopbackLifelineTransport: LifelineTransport = {
     const pending: unknown[] = [];
     let closed = false;
 
+    const surfaceMessageHandlers = new Set<MessageHandler>();
+
     const incoming: IncomingLifelinePort = {
       name,
+      postMessage(message: unknown): void {
+        // Host→surface leg of the loopback — delivered to the handlers
+        // the surface registered on its LifelinePort end.
+        if (closed) return;
+        for (const handler of [...surfaceMessageHandlers]) {
+          deliver(handler, message);
+        }
+      },
       onMessage<T = unknown>(handler: (message: T) => void): void {
         messageHandlers.add(handler as MessageHandler);
         if (pending.length > 0) {
@@ -91,9 +101,9 @@ const loopbackLifelineTransport: LifelineTransport = {
           deliver(handler, message);
         }
       },
-      onMessage(): void {
-        // Host→surface streams don't exist on the loopback yet — no
-        // in-tab consumer opens a data-bearing lifeline.
+      onMessage<T = unknown>(handler: (message: T) => void): void {
+        // Host→surface leg — fed by the incoming port's postMessage.
+        surfaceMessageHandlers.add(handler as MessageHandler);
       },
       onDisconnect(): void {
         // The in-process host never drops a port; only the surface

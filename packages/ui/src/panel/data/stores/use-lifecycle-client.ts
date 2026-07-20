@@ -77,7 +77,16 @@ export interface UseLifecycleClientResult {
   requestResponseBody(requestId: string, hopIndex: number): void;
 }
 
-export function useLifecycleClient(): UseLifecycleClientResult {
+export interface UseLifecycleClientOptions {
+  /**
+   * Bind a fixed partition instead of the inspected tab — the daemon
+   * proxy capture source passes `PROXY_LIFECYCLE_TAB_ID`. Omit on
+   * DevTools surfaces to inherit `hostNavigation.inspectedTabId()`.
+   */
+  readonly tabId?: number;
+}
+
+export function useLifecycleClient(options: UseLifecycleClientOptions = {}): UseLifecycleClientResult {
   const storeRef = useRef<LifecycleClientStore | null>(null);
   if (!storeRef.current) storeRef.current = new LifecycleClientStore();
   const store = storeRef.current;
@@ -94,6 +103,7 @@ export function useLifecycleClient(): UseLifecycleClientResult {
   // same floor on every reconnect/remount.
   const { tabId, post } = useLifelineClient<LifecycleWireMessage>({
     portName: lifecyclePortName,
+    ...(options.tabId !== undefined ? { tabId: options.tabId } : {}),
     onConnect: (send) => {
       requestedBodiesRef.current.clear();
       send({ kind: 'subscribe' } satisfies LifecycleSubscribeMessage);

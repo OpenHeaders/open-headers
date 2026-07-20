@@ -33,6 +33,13 @@ const RECONNECT_DELAY_MS = 250;
 export interface UseLifelineClientOptions<TWire> {
   /** Per-channel port name encoder, e.g. `lifecyclePortName`. */
   readonly portName: (tabId: number) => string;
+  /**
+   * Explicit tab id to bind, overriding `hostNavigation.inspectedTabId()`.
+   * Surfaces that watch a fixed synthetic partition (the daemon proxy
+   * capture source) pass it here; DevTools surfaces omit it and inherit
+   * the inspected tab.
+   */
+  readonly tabId?: number;
   /** Per-channel wire-message router. Called once per inbound frame. */
   readonly handler: (msg: TWire) => void;
   /**
@@ -51,7 +58,7 @@ export interface UseLifelineClientResult {
 }
 
 export function useLifelineClient<TWire>(opts: UseLifelineClientOptions<TWire>): UseLifelineClientResult {
-  const tabIdRef = useRef<number | null>(hostNavigation.inspectedTabId());
+  const tabIdRef = useRef<number | null>(opts.tabId ?? hostNavigation.inspectedTabId());
 
   const handlerRef = useRef(opts.handler);
   handlerRef.current = opts.handler;

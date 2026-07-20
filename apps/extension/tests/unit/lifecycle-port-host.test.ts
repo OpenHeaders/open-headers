@@ -73,8 +73,13 @@ describe('parseLifecyclePortName', () => {
     expect(parseLifecyclePortName('devtools-inspector:1')).toBeNull();
     expect(parseLifecyclePortName('oh-lifecycle:')).toBeNull();
     expect(parseLifecyclePortName('oh-lifecycle:not-a-number')).toBeNull();
-    expect(parseLifecyclePortName('oh-lifecycle:-1')).toBeNull();
     expect(parseLifecyclePortName('')).toBeNull();
+  });
+
+  it('parses a negative id (the reserved synthetic proxy partition)', () => {
+    // Valid at the parse layer — the extension acceptor refuses < 0
+    // itself (below); the daemon acceptor serves the proxy sentinel.
+    expect(parseLifecyclePortName('oh-lifecycle:-59210')).toBe(-59210);
   });
 
   it('lifecyclePortName + parseLifecyclePortName roundtrip', () => {
@@ -151,6 +156,17 @@ describe('acceptLifecyclePort', () => {
     const store = new RequestLifecycleStore();
     const hub = new RequestLifecycleHub({ store });
     const port = fakePort('devtools-inspector:1');
+    const accepted = acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+    expect(accepted).toBe(false);
+    expect(port.posted).toEqual([]);
+  });
+
+  it('refuses a reserved synthetic partition — the extension serves only real browser tabs', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    // PROXY_LIFECYCLE_TAB_ID rides a negative sentinel; a Node host's
+    // acceptor serves it, the extension never does.
+    const port = fakePort('oh-lifecycle:-59210');
     const accepted = acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
     expect(accepted).toBe(false);
     expect(port.posted).toEqual([]);

@@ -274,6 +274,7 @@ export type ToolWindowId =
   | 'docs'
   | 'var-scope'
   | 'deep-network-inspection'
+  | 'proxy-capture'
   | 'activity'
   | 'notifications'
   | 'terminal';

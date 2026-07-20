@@ -20,9 +20,11 @@
  *   - `oh:lifeline:close`         (send)   — renderer voluntarily
  *     closes the port (`disconnect()` call). Fires `onDisconnect`
  *     with an empty info object.
- *   - `oh:lifeline:host-message`  (push, future) — host → renderer
- *     frame; reserved for host→renderer streams (e.g. the DevTools
- *     inspector record feed). Not exercised by the awareness lifeline.
+ *   - `oh:lifeline:host-message`  (push) — host → renderer frame
+ *     `{ portId, message }`; the data-bearing lifelines (the proxy
+ *     capture source's `oh-lifecycle:` pipe) stream down this channel
+ *     via `IncomingLifelinePort.postMessage`. The awareness lifeline
+ *     never sends host→renderer.
  *   - `oh:lifeline:host-disconnect` (push) — host-initiated disconnect.
  *
  * Disconnect cascades:
@@ -60,8 +62,20 @@ class ManagedIncomingPort implements IncomingLifelinePort {
   private readonly disconnectHandlers = new Set<DisconnectHandler>();
   private disconnected = false;
 
-  constructor(name: string) {
+  constructor(
+    name: string,
+    private readonly portId: string,
+    private readonly wcId: number,
+  ) {
     this.name = name;
+  }
+
+  /** Host→renderer frame on the reserved `host-message` channel. */
+  postMessage(message: unknown): void {
+    if (this.disconnected) return;
+    const wc = webContentsApi.fromId(this.wcId);
+    if (!wc || wc.isDestroyed()) return;
+    wc.send(CHANNEL.hostMessage, { portId: this.portId, message });
   }
 
   onMessage<T = unknown>(handler: (message: T) => void): void {
@@ -147,7 +161,7 @@ export function installLifelineServer(): void {
       // renderer, but be defensive.
       return { ok: false, error: 'portId already open' };
     }
-    const port = new ManagedIncomingPort(name);
+    const port = new ManagedIncomingPort(name, portId, event.sender.id);
     ports.set(portId, { port, wcId: event.sender.id });
     trackWebContents(event.sender.id);
     for (const handler of connectHandlers) {

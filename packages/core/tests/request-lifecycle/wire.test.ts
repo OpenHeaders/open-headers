@@ -24,7 +24,12 @@ describe('parseLifecyclePortName', () => {
     expect(parseLifecyclePortName('oh-lifecycle:1.5')).toBeNull();
   });
 
-  it('rejects negative tab ids', () => {
-    expect(parseLifecyclePortName('oh-lifecycle:-1')).toBeNull();
+  it('accepts negative tab ids — reserved synthetic partitions (the proxy source)', () => {
+    // The proxy capture source lives under the fixed negative sentinel
+    // PROXY_LIFECYCLE_TAB_ID; the parser admits it and each acceptor
+    // decides which partitions it serves (the extension refuses < 0).
+    expect(parseLifecyclePortName('oh-lifecycle:-1')).toBe(-1);
+    expect(parseLifecyclePortName('oh-lifecycle:-59210')).toBe(-59210);
+    expect(parseLifecyclePortName(lifecyclePortName(-59210))).toBe(-59210);
   });
 });

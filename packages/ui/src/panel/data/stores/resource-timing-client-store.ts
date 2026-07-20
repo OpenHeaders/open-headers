@@ -37,9 +37,12 @@ export interface ResourceTimingClientSnapshot {
   readonly groups: readonly ResourceTimingPageGroup[];
 }
 
-const EMPTY_SNAPSHOT: ResourceTimingClientSnapshot = Object.freeze({
+/** Shared frozen empty snapshot — a surface with no resource-timing
+ *  feed (the proxy capture view) feeds this to `usePanelData`. */
+export const EMPTY_RESOURCE_TIMING_SNAPSHOT: ResourceTimingClientSnapshot = Object.freeze({
   groups: Object.freeze([]) as readonly ResourceTimingPageGroup[],
 });
+const EMPTY_SNAPSHOT = EMPTY_RESOURCE_TIMING_SNAPSHOT;
 
 export class ResourceTimingClientStore {
   // Keyed by rounded time origin so the rare `Date.now()-performance.now()`

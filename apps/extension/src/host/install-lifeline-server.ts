@@ -37,6 +37,14 @@ const chromeLifelineServer: LifelineServer = {
     const listener = (port: chrome.runtime.Port): void => {
       handler({
         name: port.name,
+        postMessage(message: unknown): void {
+          try {
+            port.postMessage(message);
+          } catch {
+            // Port already disconnected — best-effort by contract; the
+            // onDisconnect handler is the loss signal.
+          }
+        },
         onMessage<T = unknown>(messageHandler: (message: T) => void): void {
           port.onMessage.addListener((raw) => messageHandler(raw as T));
         },

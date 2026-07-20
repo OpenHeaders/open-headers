@@ -21,6 +21,7 @@ export const panelInspector = {
   'panel.inspector.detailEmpty.requestGone': 'Request no longer available (cleared or navigated away)',
   'panel.inspector.detailEmpty.selectPrefix': 'Select a request from the',
   'panel.inspector.detailEmpty.selectSuffix': 'Network panel to inspect',
+  'panel.inspector.detailEmpty.noSelection': 'Select a captured request to inspect',
 
   // ── Inspector shell (editor tab bar + detail section tabs) ──────────
   // Raw by design: method badges, status codes, tab labels (URLs, storage

@@ -98,5 +98,19 @@ async function spawnTerminalSession(options: TerminalSpawnOptions): Promise<Term
 
 registerCapability('terminal', () => ({ spawn: spawnTerminalSession }));
 
+// The workbench Proxy tool window — the desktop runs the daemon spine
+// in-process (capture service + lifecycle lifeline over the same IPC
+// lifeline transport the awareness pipe uses), so it drives the L7
+// capture proxy. Browser surfaces never register this, which drops the
+// Proxy window from their dock registry.
+registerCapability('proxyCapture', () => true);
+
+// The workbench Proxy tool window — the desktop runs the daemon spine
+// in-process (capture service + lifecycle lifeline over the same IPC
+// lifeline transport the awareness pipe uses), so it drives the L7
+// capture proxy. Browser surfaces never register this, which drops the
+// Proxy window from their dock registry.
+registerCapability('proxyCapture', () => true);
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

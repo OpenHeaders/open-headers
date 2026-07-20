@@ -214,6 +214,10 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
       title: t('workbench.toolWindows.deepNetworkInspection'),
       summary: t('workbench.toolWindows.info.deepNetworkInspection.summary'),
     },
+    'proxy-capture': {
+      title: t('workbench.toolWindows.proxyCapture'),
+      summary: t('workbench.toolWindows.info.proxyCapture.summary'),
+    },
     'workflow-status': {
       title: t('workbench.toolWindows.workflowStatus'),
       summary: t('workbench.toolWindows.info.workflowStatus.summary'),

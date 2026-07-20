@@ -386,6 +386,18 @@ export interface Capabilities {
    * `requiresCapability` filtering.
    */
   terminal?: () => TerminalHostApi;
+
+  /**
+   * Availability gate for the workbench Proxy tool window — the L7
+   * capture proxy's control surface + capture feed. Registered only by
+   * hosts that run the daemon spine in-process and expose its lifecycle
+   * lifeline (the desktop renderer); browser surfaces have no daemon and
+   * leave it absent, which drops the Proxy tool window from the dock
+   * registry via `requiresCapability` filtering. The control RPCs ride
+   * `hostBridge` and the capture stream rides the lifeline — this flag
+   * only says "this host has a capture proxy to drive."
+   */
+  proxyCapture?: () => boolean;
 }
 
 export type CapabilityName = keyof Capabilities;

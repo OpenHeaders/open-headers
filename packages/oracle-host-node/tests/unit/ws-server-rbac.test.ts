@@ -650,6 +650,19 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
         install: async () => ({ ok: false as const, error: 'not under test' }),
         remove: async () => ({ ok: true, results: [] }),
       },
+      proxyCapture: {
+        status: async () => ({
+          running: false,
+          boundPort: null,
+          port: 59212,
+          scopePatterns: [],
+          caPresent: false,
+          lastError: null,
+        }),
+        start: async () => ({ ok: false as const, error: 'not under test' }),
+        stop: async () => ({ ok: true as const }),
+        setScope: async () => ({ ok: false as const, error: 'not under test' }),
+      },
       workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
     }),
   });

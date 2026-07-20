@@ -159,6 +159,8 @@ import { createPasswordHttpHandler } from './password/password-http';
 import { createDaemonPasswordLoginService } from './password/password-login-service';
 import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
+import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
+import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
@@ -672,6 +674,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       ? null
       : installLicenseRefreshAgent({ slot: licenseSlot, appVersion: config.appVersion });
 
+  // Proxy capture service — created before the admin table that fronts
+  // it; the lifeline acceptor serves the workbench's `oh-lifecycle:`
+  // pipe for the reserved proxy partition (no-op on a headless host
+  // with no lifeline server installed).
+  const proxyCaptureService = createProxyCaptureService();
+  const uninstallProxyCaptureLifeline = installProxyCaptureLifeline(proxyCaptureService.hub);
+
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
     getBoundPort: () => boundPort,
@@ -686,10 +695,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       getBoundPort: () => boundPort,
       closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
     }),
-    // Proxy trust plane (PROXY_SECURITY.md §6) — CA lifecycle only; no
-    // traffic path exists yet. Elevation rides the per-command OS
-    // prompt seam, requested only for System-keychain operations.
+    // Proxy trust plane (PROXY_SECURITY.md §6) — CA lifecycle only.
+    // Elevation rides the per-command OS prompt seam, requested only
+    // for System-keychain operations.
     proxyTrust: createProxyTrustService(),
+    // Proxy capture plane (PROXY_PLAN.md Phase 2) — the L7 capture
+    // proxy's control surface + the daemon-side lifecycle hub the
+    // workbench's Proxy source attaches to (lifeline acceptor below).
+    proxyCapture: proxyCaptureService,
     // The admin console's Git card rides the same verb table the local
     // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.
@@ -1099,6 +1112,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     await workspaceTreeRuntime?.dispose();
     workspaceTreeRuntime = null;
     stopLiveRunner();
+    uninstallProxyCaptureLifeline();
+    await proxyCaptureService.dispose();
     stopActivityPruneScheduler();
     stopAuditPruneScheduler();
     auditForwarder?.stop();

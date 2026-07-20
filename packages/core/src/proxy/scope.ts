@@ -65,6 +65,20 @@ function parsePattern(raw: string): ScopePattern | null {
 }
 
 /**
+ * True when `raw` is a well-formed scope pattern: a non-empty exact
+ * host, IP literal, or `*.` wildcard with a non-empty apex. Rejects the
+ * bare `*` catch-all by construction (`*.` with an empty base parses to
+ * `null`, and `*` alone is an exact-host pattern that can never match a
+ * normalised hostname — but refusing it here keeps the list honest at
+ * edit time instead of storing a dead entry).
+ */
+export function isValidScopePattern(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed === '*') return false;
+  return parsePattern(trimmed) !== null;
+}
+
+/**
  * True when `host` is in scope for decryption under `patterns`. The
  * empty (or all-invalid) list matches nothing. `host` may carry a port
  * or IPv6 brackets — it is normalised first.

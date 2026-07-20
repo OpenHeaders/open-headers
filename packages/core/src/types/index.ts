@@ -156,6 +156,7 @@ export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from '.
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────
 export type { PerfResourceEntry } from './perf';
+export type { ProxyCaptureSettings, ProxyCaptureStatus } from './proxy-capture';
 export type {
   ProxyCaPublicInfo,
   ProxyCaRecord,

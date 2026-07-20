@@ -118,13 +118,18 @@ export type LifecycleConsumerMessage =
 /** Channel-name prefix for the per-tab lifecycle pipe. */
 export const LIFECYCLE_PORT_PREFIX = 'oh-lifecycle:';
 
-/** Parse `oh-lifecycle:<tabId>`. Returns `null` for any other shape. */
+/**
+ * Parse `oh-lifecycle:<tabId>`. Returns `null` for any other shape.
+ * Negative ids are valid — they are the reserved synthetic partitions
+ * (the proxy capture source); acceptors that only serve real browser
+ * tabs must refuse `tabId < 0` themselves.
+ */
 export function parseLifecyclePortName(name: string): number | null {
   if (!name.startsWith(LIFECYCLE_PORT_PREFIX)) return null;
   const suffix = name.slice(LIFECYCLE_PORT_PREFIX.length);
   if (!/^-?\d+$/.test(suffix)) return null;
   const parsed = Number.parseInt(suffix, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (!Number.isFinite(parsed)) return null;
   return parsed;
 }
 

@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { hostInScope, normalizeHost } from '../../src/proxy/scope';
+import { hostInScope, isValidScopePattern, normalizeHost } from '../../src/proxy/scope';
 
 describe('proxy scope — hostInScope', () => {
   it('matches nothing when the list is empty (passthrough is the default)', () => {
@@ -60,5 +60,24 @@ describe('proxy scope — normalizeHost', () => {
 
   it('returns empty for a blank host', () => {
     expect(normalizeHost('   ')).toBe('');
+  });
+});
+
+describe('proxy scope — isValidScopePattern', () => {
+  it('accepts an exact host, a `*.` wildcard, and an IP literal', () => {
+    expect(isValidScopePattern('openheaders.io')).toBe(true);
+    expect(isValidScopePattern('*.openheaders.io')).toBe(true);
+    expect(isValidScopePattern('10.0.0.5')).toBe(true);
+  });
+
+  it('rejects blank entries and a wildcard with no apex', () => {
+    expect(isValidScopePattern('')).toBe(false);
+    expect(isValidScopePattern('   ')).toBe(false);
+    expect(isValidScopePattern('*.')).toBe(false);
+  });
+
+  it('rejects the bare catch-all so a scope list can never hold `*`', () => {
+    expect(isValidScopePattern('*')).toBe(false);
+    expect(isValidScopePattern('  *  ')).toBe(false);
   });
 });

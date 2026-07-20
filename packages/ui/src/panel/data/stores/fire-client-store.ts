@@ -24,9 +24,12 @@ export interface FireClientSnapshot {
   readonly fires: readonly InspectorFire[];
 }
 
-const EMPTY_SNAPSHOT: FireClientSnapshot = Object.freeze({
+/** Shared frozen empty snapshot — a surface with no fire feed (the
+ *  proxy capture view) feeds this to `usePanelData`. */
+export const EMPTY_FIRE_SNAPSHOT: FireClientSnapshot = Object.freeze({
   fires: Object.freeze([]) as readonly InspectorFire[],
 });
+const EMPTY_SNAPSHOT = EMPTY_FIRE_SNAPSHOT;
 
 export class FireClientStore {
   private fires: InspectorFire[] = [];

@@ -40,6 +40,7 @@ import type {
   LiveWorkflow,
   LogEntry,
   Org,
+  ProxyCaptureSettings,
   ProxyCaRecord,
   ProxyTrustChange,
   Request,
@@ -465,6 +466,12 @@ export const OH = {
    * only the derived public projection (`ProxyCaPublicInfo`).
    */
   proxyCa: storageKey<ProxyCaRecord>('oh.proxyCa', { sensitive: true }),
+  /**
+   * Capture-proxy settings on this host (PROXY_PLAN.md Phase 2) — the
+   * bind-port preference and the §2.4 decrypt-scope list. Host-local by
+   * design; not sensitive (host patterns + a port, no secret material).
+   */
+  proxyCaptureSettings: storageKey<ProxyCaptureSettings>('oh.proxyCaptureSettings'),
   /**
    * Durable "what we changed" rows for the proxy CA's trust-store
    * installs (PROXY_SECURITY.md §2.5) — one row per concrete store the
