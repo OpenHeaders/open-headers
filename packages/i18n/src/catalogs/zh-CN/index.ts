@@ -13,6 +13,7 @@ import { panelInspector } from './panel-inspector';
 import { panelInspectorHeaders } from './panel-inspector-headers';
 import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelQuickEditor } from './panel-quick-editor';
+import { panelStorage } from './panel-storage';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
 import { sharedChrome } from './shared-chrome';
@@ -40,6 +41,7 @@ export const zhCN = {
   ...panelInspectorHeaders,
   ...panelInspectorStreams,
   ...panelQuickEditor,
+  ...panelStorage,
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
