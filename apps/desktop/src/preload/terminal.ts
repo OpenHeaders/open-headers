@@ -24,6 +24,7 @@ export const terminal = {
     cols: number;
     rows: number;
     profile?: { shell: string; args: string[]; cwd?: string };
+    cwd?: string;
   }): Promise<TerminalSpawnResult> {
     return ipcRenderer.invoke(TERMINAL_CHANNEL.spawn, req) as Promise<TerminalSpawnResult>;
   },

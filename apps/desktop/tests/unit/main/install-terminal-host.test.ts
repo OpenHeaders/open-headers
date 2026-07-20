@@ -1,19 +1,21 @@
+import os from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Handler = (event: unknown, raw: unknown) => unknown;
 
 const ipcHandlers = new Map<string, Handler>();
 const ipcListeners = new Map<string, Handler>();
-const appListeners = new Map<string, () => void>();
+const appListeners = new Map<string, (event?: { preventDefault: () => void }) => void>();
 const wcOnceListeners = new Map<number, Map<string, () => void>>();
 
 let fakeWebContents: { id: number } | null = null;
 
 vi.mock('electron', () => ({
   app: {
-    on: (event: string, listener: () => void) => {
+    on: (event: string, listener: (event?: { preventDefault: () => void }) => void) => {
       appListeners.set(event, listener);
     },
+    quit: vi.fn(),
   },
   ipcMain: {
     handle: (channel: string, handler: Handler) => {
@@ -121,6 +123,31 @@ describe('installTerminalHost', () => {
     expect(opts.rows).toBe(1000);
   });
 
+  it('starts in the request cwd when the profile names none', () => {
+    const dir = process.cwd();
+    spawnSession(makeSender(7), { cols: 80, rows: 24, cwd: dir });
+    const opts = ptySpawn.mock.calls[0][2] as { cwd: string };
+    expect(opts.cwd).toBe(dir);
+  });
+
+  it('lets a profile cwd win over the request cwd', () => {
+    const profileDir = os.tmpdir();
+    spawnSession(makeSender(7), {
+      cols: 80,
+      rows: 24,
+      profile: { shell: '/bin/zsh', args: [], cwd: profileDir },
+      cwd: process.cwd(),
+    });
+    const opts = ptySpawn.mock.calls[0][2] as { cwd: string };
+    expect(opts.cwd).toBe(profileDir);
+  });
+
+  it('falls back to home when the request cwd is not a directory', () => {
+    spawnSession(makeSender(7), { cols: 80, rows: 24, cwd: '/openheaders-io-definitely-missing' });
+    const opts = ptySpawn.mock.calls[0][2] as { cwd: string };
+    expect(opts.cwd).toBe(os.homedir());
+  });
+
   it('routes writes to the pty only from the owning sender', () => {
     const sender = makeSender(7);
     const { id } = spawnSession(sender);
@@ -153,9 +180,14 @@ describe('installTerminalHost', () => {
     kill?.({ sender }, { id: first.id });
     expect(spawnedPtys[0].kill).toHaveBeenCalledTimes(1);
 
-    appListeners.get('before-quit')?.();
+    // A live session holds the quit while the pty drain runs — the
+    // handler prevents the default and requits once the exits land.
+    const quitEvent = { preventDefault: vi.fn() };
+    appListeners.get('before-quit')?.(quitEvent);
+    expect(quitEvent.preventDefault).toHaveBeenCalledTimes(1);
     expect(spawnedPtys[1].kill).toHaveBeenCalledTimes(1);
     expect(second.ok).toBe(true);
+    spawnedPtys[1].emitExit(0);
   });
 
   it('kills a renderer’s sessions when its webContents is destroyed', () => {

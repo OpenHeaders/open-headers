@@ -21,6 +21,7 @@ import { Button, Dropdown, Input, Modal, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
+import { useSettingValue } from '../../../settings/hooks';
 import OverlayScrollThumb from '../../tabbar/OverlayScrollThumb';
 import { buildTerminalTabContextMenu } from './build-terminal-tab-context-menu';
 import TerminalTabSearchDropdown from './TerminalTabSearchDropdown';
@@ -56,8 +57,10 @@ export interface TerminalTabStripProps {
   onOpenSettings: () => void;
 }
 
-export function terminalTabLabel(t: Translate, tab: TerminalTabInfo): string {
+export function terminalTabLabel(t: Translate, tab: TerminalTabInfo, defaultName = ''): string {
   if (tab.title !== undefined) return tab.title;
+  const custom = defaultName.trim();
+  if (custom.length > 0) return tab.titleIndex === 1 ? custom : `${custom} (${tab.titleIndex})`;
   return tab.titleIndex === 1
     ? t('workbench.terminal.tabLocal')
     : t('workbench.terminal.tabLocalN', { n: tab.titleIndex });
@@ -92,6 +95,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const chevronRef = useRef<HTMLDivElement>(null);
   const newTabShortcut = useShortcutLabel('terminal-new-tab');
+  const defaultTabName = useSettingValue('terminal.defaultTabName');
 
   // ── Auto-scroll the active tab into view (editor strip posture:
   // instant, and snap to the end when the last tab is active). ──────
@@ -144,7 +148,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
                     tabCount: tabs.length,
                     onRename: (id) => {
                       setRenameId(id);
-                      setRenameValue(terminalTabLabel(t, tab));
+                      setRenameValue(terminalTabLabel(t, tab, defaultTabName));
                     },
                     onClose,
                     onCloseOther,
@@ -186,7 +190,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
                   color: active ? token.colorText : token.colorTextSecondary,
                 }}
               >
-                {terminalTabLabel(t, tab)}
+                {terminalTabLabel(t, tab, defaultTabName)}
                 <span
                   role="button"
                   tabIndex={-1}
@@ -305,7 +309,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
         anchorRef={chevronRef}
         tabs={tabs}
         activeId={activeId}
-        tabLabel={(tab) => terminalTabLabel(t, tab)}
+        tabLabel={(tab) => terminalTabLabel(t, tab, defaultTabName)}
         onActivate={onActivate}
         recentlyClosed={recentlyClosed}
         onReopenClosed={onReopenClosed}

@@ -100,6 +100,55 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
     'Demander avant de fermer un onglet de terminal dont le shell exécute encore un processus. Les shells ' +
     'inactifs se ferment toujours sans confirmation.',
+  'workbench.settings.def.terminal.startDirectory.label': 'Répertoire de démarrage',
+  'workbench.settings.def.terminal.startDirectory.description':
+    'Répertoire dans lequel démarrent les nouveaux onglets de terminal. Un profil avec son propre répertoire ' +
+    'a priorité ; vide signifie votre répertoire personnel. S’applique au prochain onglet ouvert.',
+  'workbench.settings.def.terminal.defaultTabName.label': 'Nom d’onglet par défaut',
+  'workbench.settings.def.terminal.defaultTabName.description':
+    'Nom des onglets de terminal ouverts sans profil et non renommés. Vide utilise « Local ». Plusieurs ' +
+    'onglets partageant le nom restent numérotés.',
+  'workbench.settings.def.terminal.fontFamilyPreset.label': 'Police',
+  'workbench.settings.def.terminal.fontFamilyPreset.description':
+    'Police du texte du terminal. Les préréglages sont fournis avec l’application ou reposent sur des polices ' +
+    'présentes sur chaque système d’exploitation.',
+  'workbench.settings.def.terminal.fontSize.label': 'Taille de police',
+  'workbench.settings.def.terminal.fontSize.description': 'Taille du texte du terminal en pixels.',
+  'workbench.settings.def.terminal.lineHeight.label': 'Hauteur de ligne',
+  'workbench.settings.def.terminal.lineHeight.description':
+    'Espacement des lignes en multiple de la taille de police. 1 correspond à l’espacement naturel de la police.',
+  'workbench.settings.def.terminal.cursorStyle.label': 'Forme du curseur',
+  'workbench.settings.def.terminal.cursorStyle.description': 'Apparence du curseur du terminal.',
+  'workbench.settings.def.terminal.cursorStyle.option.block.label': 'Bloc',
+  'workbench.settings.def.terminal.cursorStyle.option.underline.label': 'Soulignement',
+  'workbench.settings.def.terminal.cursorStyle.option.bar.label': 'Barre verticale',
+  'workbench.settings.def.terminal.cursorBlink.label': 'Curseur clignotant',
+  'workbench.settings.def.terminal.cursorBlink.description': 'Faire clignoter le curseur du terminal.',
+  'workbench.settings.def.terminal.minimumContrastRatio.label': 'Rapport de contraste minimal',
+  'workbench.settings.def.terminal.minimumContrastRatio.description':
+    'Ajuste les couleurs du texte jusqu’à atteindre ce contraste avec l’arrière-plan. 1 laisse les couleurs ' +
+    'inchangées ; 4,5 respecte le niveau AA des WCAG ; 21 force le contraste maximal.',
+  'workbench.settings.def.terminal.scrollback.label': 'Tampon de défilement',
+  'workbench.settings.def.terminal.scrollback.description':
+    'Nombre de lignes conservées au-dessus de l’écran visible. Des valeurs élevées consomment plus de mémoire ' +
+    'par onglet.',
+  'workbench.settings.def.terminal.macOptionIsMeta.label': 'Utiliser Option comme touche Méta',
+  'workbench.settings.def.terminal.macOptionIsMeta.description':
+    'Sur macOS, traite la touche Option comme Méta afin que des raccourcis comme Option+B atteignent ' +
+    'l’édition de ligne du shell au lieu de saisir des caractères spéciaux.',
+  'workbench.settings.def.terminal.copyOnSelect.label': 'Copier à la sélection',
+  'workbench.settings.def.terminal.copyOnSelect.description':
+    'Copie le texte sélectionné dans le terminal vers le presse-papiers dès la sélection.',
+  'workbench.settings.def.terminal.hyperlinks.label': 'Mettre les liens en évidence',
+  'workbench.settings.def.terminal.hyperlinks.description':
+    'Détecte les URL dans la sortie du terminal et les ouvre dans votre navigateur au clic.',
+  'workbench.settings.def.terminal.audibleBell.label': 'Cloche sonore',
+  'workbench.settings.def.terminal.audibleBell.description':
+    'Émet un bref bip lorsqu’un programme déclenche la cloche du terminal.',
+  'workbench.settings.def.terminal.closeTabOnExit.label': 'Fermer l’onglet à la fin du shell',
+  'workbench.settings.def.terminal.closeTabOnExit.description':
+    'Ferme l’onglet de terminal dès que son shell se termine. Désactivé, l’onglet reste ouvert avec un ' +
+    'bouton Redémarrer.',
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restaurer les onglets au démarrage',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     "Rouvre les onglets d'éditeur qui étaient ouverts à la fin de la session précédente.",

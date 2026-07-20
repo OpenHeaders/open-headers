@@ -103,12 +103,15 @@ export interface TerminalSpawnProfile {
  * owns command resolution (the user's shell, login-mode args, home cwd,
  * TERM env) — callers describe the viewport so the pty is born at the
  * right size instead of resizing on first paint, and optionally which
- * shell to run.
+ * shell to run. `cwd` is the starting directory when the profile names
+ * none (or there is no profile); the host still falls back to the home
+ * directory when it is absent or unusable.
  */
 export interface TerminalSpawnOptions {
   readonly cols: number;
   readonly rows: number;
   readonly profile?: TerminalSpawnProfile;
+  readonly cwd?: string;
 }
 
 /**

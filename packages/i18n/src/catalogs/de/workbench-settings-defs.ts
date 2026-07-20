@@ -102,6 +102,55 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
     'Fragt nach, bevor ein Terminal-Tab geschlossen wird, dessen Shell noch einen laufenden Prozess hat. ' +
     'Untätige Shells schließen immer still.',
+  'workbench.settings.def.terminal.startDirectory.label': 'Startverzeichnis',
+  'workbench.settings.def.terminal.startDirectory.description':
+    'Verzeichnis, in dem neue Terminal-Tabs starten. Ein Profil mit eigenem Verzeichnis hat Vorrang; leer ' +
+    'bedeutet dein Benutzerverzeichnis. Gilt für den nächsten geöffneten Tab.',
+  'workbench.settings.def.terminal.defaultTabName.label': 'Standard-Tab-Name',
+  'workbench.settings.def.terminal.defaultTabName.description':
+    'Name für Terminal-Tabs, die ohne Profil geöffnet und nicht umbenannt wurden. Leer verwendet „Local“. ' +
+    'Mehrere Tabs mit demselben Namen bleiben nummeriert.',
+  'workbench.settings.def.terminal.fontFamilyPreset.label': 'Schriftart',
+  'workbench.settings.def.terminal.fontFamilyPreset.description':
+    'Schrift für den Terminaltext. Die Voreinstellungen liegen der App bei oder nutzen Schriften, die jedes ' +
+    'Betriebssystem mitbringt.',
+  'workbench.settings.def.terminal.fontSize.label': 'Schriftgröße',
+  'workbench.settings.def.terminal.fontSize.description': 'Größe des Terminaltexts in Pixeln.',
+  'workbench.settings.def.terminal.lineHeight.label': 'Zeilenhöhe',
+  'workbench.settings.def.terminal.lineHeight.description':
+    'Zeilenabstand als Vielfaches der Schriftgröße. 1 ist der natürliche Abstand der Schrift.',
+  'workbench.settings.def.terminal.cursorStyle.label': 'Cursorform',
+  'workbench.settings.def.terminal.cursorStyle.description': 'Wie der Terminal-Cursor gezeichnet wird.',
+  'workbench.settings.def.terminal.cursorStyle.option.block.label': 'Block',
+  'workbench.settings.def.terminal.cursorStyle.option.underline.label': 'Unterstrich',
+  'workbench.settings.def.terminal.cursorStyle.option.bar.label': 'Senkrechter Strich',
+  'workbench.settings.def.terminal.cursorBlink.label': 'Cursor blinken lassen',
+  'workbench.settings.def.terminal.cursorBlink.description': 'Lässt den Terminal-Cursor blinken.',
+  'workbench.settings.def.terminal.minimumContrastRatio.label': 'Minimales Kontrastverhältnis',
+  'workbench.settings.def.terminal.minimumContrastRatio.description':
+    'Passt Textfarben an, bis sie diesen Kontrast zum Hintergrund erreichen. 1 lässt die Farben unverändert; ' +
+    '4,5 erfüllt WCAG AA; 21 erzwingt maximalen Kontrast.',
+  'workbench.settings.def.terminal.scrollback.label': 'Scrollback-Puffer',
+  'workbench.settings.def.terminal.scrollback.description':
+    'Wie viele Zeilen das Terminal oberhalb des sichtbaren Bildschirms behält. Höhere Werte verbrauchen mehr ' +
+    'Speicher pro Tab.',
+  'workbench.settings.def.terminal.macOptionIsMeta.label': 'Option als Meta-Taste verwenden',
+  'workbench.settings.def.terminal.macOptionIsMeta.description':
+    'Behandelt die Option-Taste unter macOS als Meta, damit Kürzel wie Option+B die Zeilenbearbeitung der ' +
+    'Shell erreichen, statt Sonderzeichen einzugeben.',
+  'workbench.settings.def.terminal.copyOnSelect.label': 'Beim Auswählen kopieren',
+  'workbench.settings.def.terminal.copyOnSelect.description':
+    'Kopiert ausgewählten Terminaltext sofort bei der Auswahl in die Zwischenablage.',
+  'workbench.settings.def.terminal.hyperlinks.label': 'Links hervorheben',
+  'workbench.settings.def.terminal.hyperlinks.description':
+    'Erkennt URLs in der Terminalausgabe und öffnet sie per Klick im Browser.',
+  'workbench.settings.def.terminal.audibleBell.label': 'Akustisches Signal',
+  'workbench.settings.def.terminal.audibleBell.description':
+    'Spielt einen kurzen Piepton, wenn ein Programm die Terminalglocke auslöst.',
+  'workbench.settings.def.terminal.closeTabOnExit.label': 'Tab beim Beenden der Shell schließen',
+  'workbench.settings.def.terminal.closeTabOnExit.description':
+    'Schließt den Terminal-Tab, sobald seine Shell endet. Ausgeschaltet bleibt der Tab mit einer ' +
+    'Neustart-Schaltfläche geöffnet.',
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Tabs beim Start wiederherstellen',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     'Öffnet die Editor-Tabs wieder, die am Ende der vorherigen Sitzung offen waren.',

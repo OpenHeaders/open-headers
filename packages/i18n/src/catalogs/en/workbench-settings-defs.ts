@@ -84,6 +84,48 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.terminal.confirmCloseRunningProcess.label': 'Confirm Closing a Running Process',
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
     'Ask before closing a terminal tab whose shell still has a running process. Idle shells always close silently.',
+  'workbench.settings.def.terminal.startDirectory.label': 'Start Directory',
+  'workbench.settings.def.terminal.startDirectory.description':
+    'Directory new terminal tabs start in. A profile with its own directory overrides this; blank means your home directory. Applies to the next tab you open.',
+  'workbench.settings.def.terminal.defaultTabName.label': 'Default Tab Name',
+  'workbench.settings.def.terminal.defaultTabName.description':
+    'Name for terminal tabs that were not opened with a profile or renamed. Blank uses "Local". Several tabs sharing the name stay numbered.',
+  'workbench.settings.def.terminal.fontFamilyPreset.label': 'Font',
+  'workbench.settings.def.terminal.fontFamilyPreset.description':
+    'Typeface for terminal text. Presets either ship with the app or rely on fonts every operating system provides.',
+  'workbench.settings.def.terminal.fontSize.label': 'Font Size',
+  'workbench.settings.def.terminal.fontSize.description': 'Terminal text size in pixels.',
+  'workbench.settings.def.terminal.lineHeight.label': 'Line Height',
+  'workbench.settings.def.terminal.lineHeight.description':
+    "Line spacing as a multiple of the font size. 1 is the font's natural spacing.",
+  'workbench.settings.def.terminal.cursorStyle.label': 'Cursor Shape',
+  'workbench.settings.def.terminal.cursorStyle.description': 'How the terminal caret is drawn.',
+  'workbench.settings.def.terminal.cursorStyle.option.block.label': 'Block',
+  'workbench.settings.def.terminal.cursorStyle.option.underline.label': 'Underline',
+  'workbench.settings.def.terminal.cursorStyle.option.bar.label': 'Vertical bar',
+  'workbench.settings.def.terminal.cursorBlink.label': 'Blink Cursor',
+  'workbench.settings.def.terminal.cursorBlink.description': 'Blink the terminal caret.',
+  'workbench.settings.def.terminal.minimumContrastRatio.label': 'Minimum Contrast Ratio',
+  'workbench.settings.def.terminal.minimumContrastRatio.description':
+    'Adjust text colors until they reach this contrast against the background. 1 leaves colors untouched; 4.5 meets WCAG AA; 21 forces maximum contrast.',
+  'workbench.settings.def.terminal.scrollback.label': 'Scrollback Buffer',
+  'workbench.settings.def.terminal.scrollback.description':
+    'How many lines the terminal keeps above the visible screen. Higher values use more memory per tab.',
+  'workbench.settings.def.terminal.macOptionIsMeta.label': 'Use Option as Meta Key',
+  'workbench.settings.def.terminal.macOptionIsMeta.description':
+    'On macOS, treat the Option key as Meta so shortcuts like Option+B reach shell line editing instead of typing special characters.',
+  'workbench.settings.def.terminal.copyOnSelect.label': 'Copy on Selection',
+  'workbench.settings.def.terminal.copyOnSelect.description':
+    'Copy selected terminal text to the clipboard as soon as you select it.',
+  'workbench.settings.def.terminal.hyperlinks.label': 'Highlight Links',
+  'workbench.settings.def.terminal.hyperlinks.description':
+    'Detect URLs in terminal output and open them in your browser on click.',
+  'workbench.settings.def.terminal.audibleBell.label': 'Audible Bell',
+  'workbench.settings.def.terminal.audibleBell.description':
+    'Play a short beep when a program rings the terminal bell.',
+  'workbench.settings.def.terminal.closeTabOnExit.label': 'Close Tab When Shell Exits',
+  'workbench.settings.def.terminal.closeTabOnExit.description':
+    'Close a terminal tab as soon as its shell exits. When off, the tab stays open with a Restart button.',
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restore Tabs on Startup',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     'Re-open the editor tabs that were open at the end of the previous session.',

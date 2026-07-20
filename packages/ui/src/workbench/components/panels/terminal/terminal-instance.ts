@@ -26,10 +26,13 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability, type TerminalSession, type TerminalSpawnProfile } from '@openheaders/core/capabilities';
 import { hostStorage, type PersistedTerminalTab, UI } from '@openheaders/core/storage';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { type ITheme, Terminal } from '@xterm/xterm';
-import type { TerminalProfilesValue } from '../../../settings/schema/terminal';
-import { get as getSetting } from '../../../settings/store';
+import { resolveFontFamily } from '../../../settings/schema/editor';
+import type { TerminalCursorStyle, TerminalProfilesValue } from '../../../settings/schema/terminal';
+import { get as getSetting, subscribeKey } from '../../../settings/store';
+import type { SettingKey, SettingsMap } from '../../../settings/types';
 
 export interface WorkbenchTerminal {
   readonly term: Terminal;
@@ -127,6 +130,7 @@ interface TabState {
   sentRows: number;
   webgl: WebglAddon | null;
   webglFailed: boolean;
+  webLinks: WebLinksAddon | null;
   api: WorkbenchTerminal;
 }
 
@@ -149,38 +153,109 @@ interface RegistryState {
 
 let registry: RegistryState | null = null;
 
-/** Bundled terminal face (woff2 shipped via `rules.less` @fontsource
- *  imports); the trailing stack is the OS fallback if the load fails. */
-const TERMINAL_FONT_FAMILY =
-  '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+/**
+ * The xterm options the Terminal settings category drives, read as one
+ * snapshot. Falls back to the registered defaults when the settings
+ * store isn't initialized (unit environments) so a terminal can always
+ * be built.
+ */
+interface TerminalOptionSettings {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  cursorStyle: TerminalCursorStyle;
+  cursorBlink: boolean;
+  minimumContrastRatio: number;
+  scrollback: number;
+  macOptionIsMeta: boolean;
+}
 
-/** JetBrains Mono is drawn for 13px UI rendering — the vendor's own
- *  terminal default. */
-const TERMINAL_FONT_SIZE = 13;
+function readSetting<K extends SettingKey>(key: K, fallback: SettingsMap[K]): SettingsMap[K] {
+  try {
+    return getSetting(key);
+  } catch {
+    // Store not initialized (unit envs) — the registered default.
+    return fallback;
+  }
+}
 
-let fontReady: Promise<void> | null = null;
+function readOptionSettings(): TerminalOptionSettings {
+  return {
+    fontFamily: resolveFontFamily(readSetting('terminal.fontFamilyPreset', 'jetbrains-mono')),
+    fontSize: readSetting('terminal.fontSize', 13),
+    lineHeight: readSetting('terminal.lineHeight', 1),
+    cursorStyle: readSetting('terminal.cursorStyle', 'block'),
+    cursorBlink: readSetting('terminal.cursorBlink', true),
+    minimumContrastRatio: readSetting('terminal.minimumContrastRatio', 1),
+    scrollback: readSetting('terminal.scrollback', 5000),
+    macOptionIsMeta: readSetting('terminal.macOptionIsMeta', false),
+  };
+}
+
+/** First family of a CSS font stack, unquoted — the face to preload. */
+function primaryFontFamily(stack: string): string {
+  return stack
+    .split(',')[0]
+    .trim()
+    .replace(/^['"]|['"]$/g, '');
+}
+
+const fontReadyByFamily = new Map<string, Promise<void>>();
 
 /**
- * Resolves once the bundled terminal font is loaded, regular and bold.
+ * Resolves once the active terminal font is loaded, regular and bold.
  * xterm measures its cell grid when a terminal opens, so opening before
  * the woff2 arrives measures the fallback font and misaligns every
- * glyph until the next refit — the panel awaits this before attaching.
- * Environments without the CSS Font Loading API resolve immediately.
+ * glyph until the next refit — the panel awaits this before attaching,
+ * and the font-family subscription awaits it before re-optioning live
+ * tabs. Environments without the CSS Font Loading API resolve
+ * immediately.
  */
 export function whenTerminalFontReady(): Promise<void> {
-  if (!fontReady) {
+  const family = primaryFontFamily(readOptionSettings().fontFamily);
+  let ready = fontReadyByFamily.get(family);
+  if (!ready) {
     const fonts = typeof document === 'undefined' ? undefined : document.fonts;
-    fontReady = fonts
-      ? Promise.all([
-          fonts.load(`${TERMINAL_FONT_SIZE}px "JetBrains Mono"`),
-          fonts.load(`bold ${TERMINAL_FONT_SIZE}px "JetBrains Mono"`),
-        ]).then(
+    ready = fonts
+      ? Promise.all([fonts.load(`13px "${family}"`), fonts.load(`bold 13px "${family}"`)]).then(
           () => undefined,
           () => undefined,
         )
       : Promise.resolve();
+    fontReadyByFamily.set(family, ready);
   }
-  return fontReady;
+  return ready;
+}
+
+let bellContext: AudioContext | null = null;
+
+/** Short WebAudio beep for the audible-bell setting — no asset, no
+ *  media element; best-effort (no audio device = silent). */
+function playBell(): void {
+  try {
+    bellContext ??= new AudioContext();
+    const context = bellContext;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.06, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.15);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.15);
+  } catch {
+    // No audio output — the bell is best-effort.
+  }
+}
+
+/** Route an activated terminal link to the host's external opener —
+ *  terminal URLs open in the user's browser, never inside the app. */
+function openTerminalLink(uri: string): void {
+  if (!readSetting('terminal.hyperlinks', true)) return;
+  const open = getCapability('openExternalUrl');
+  if (!open) return;
+  void open(uri).catch(() => {});
 }
 
 function notifyTabsChange(state: RegistryState): void {
@@ -276,7 +351,7 @@ function resolveSpawnProfile(profileId: string | null): TerminalSpawnProfile | u
   };
 }
 
-async function ensureSession(tab: TabState): Promise<void> {
+async function ensureSession(state: RegistryState, tab: TabState): Promise<void> {
   if (tab.session || tab.spawning) return;
   const host = getCapability('terminal');
   if (!host) return;
@@ -286,10 +361,15 @@ async function ensureSession(tab: TabState): Promise<void> {
     // from the dead shell reads as live state otherwise.
     if (tab.everSpawned) tab.term.reset();
     const profile = resolveSpawnProfile(tab.profileId);
+    // The Start Directory setting rides the spawn as a fallback cwd —
+    // resolved at spawn time like the profile itself; a profile's own
+    // directory wins host-side.
+    const startDirectory = readSetting('terminal.startDirectory', '').trim();
     const session = await host().spawn({
       cols: tab.term.cols,
       rows: tab.term.rows,
       ...(profile !== undefined ? { profile } : {}),
+      ...(startDirectory.length > 0 ? { cwd: startDirectory } : {}),
     });
     tab.everSpawned = true;
     tab.session = session;
@@ -314,6 +394,10 @@ async function ensureSession(tab: TabState): Promise<void> {
         tab.session = null;
         tab.exited = true;
         notifyExitChange(tab);
+        // Close-on-exit: the tab goes with its shell instead of parking
+        // on the restart affordance. User-initiated closes never reach
+        // here — closeTab unsubscribes this listener before disposing.
+        if (readSetting('terminal.closeTabOnExit', false)) closeTab(state, tab.id);
       }),
     ];
     notifyExitChange(tab);
@@ -378,15 +462,33 @@ interface TabInit {
 }
 
 function buildTab(state: RegistryState, init: TabInit): TabState {
+  const options = readOptionSettings();
   const term = new Terminal({
-    cursorBlink: true,
-    scrollback: 5000,
-    fontSize: TERMINAL_FONT_SIZE,
-    fontFamily: TERMINAL_FONT_FAMILY,
+    cursorBlink: options.cursorBlink,
+    cursorStyle: options.cursorStyle,
+    scrollback: options.scrollback,
+    fontSize: options.fontSize,
+    fontFamily: options.fontFamily,
+    lineHeight: options.lineHeight,
+    minimumContrastRatio: options.minimumContrastRatio,
+    macOptionIsMeta: options.macOptionIsMeta,
     theme: state.theme,
+    // OSC 8 hyperlinks (programs emitting explicit links); the
+    // detection of plain-text URLs rides the web-links addon. Both
+    // funnel through the same gated opener.
+    linkHandler: { activate: (_event, uri) => openTerminalLink(uri) },
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
+  term.onSelectionChange(() => {
+    if (!readSetting('terminal.copyOnSelect', false)) return;
+    const selection = term.getSelection();
+    if (selection.length === 0 || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(selection).catch(() => {});
+  });
+  term.onBell(() => {
+    if (readSetting('terminal.audibleBell', false)) playBell();
+  });
 
   const tab: TabState = {
     id: `tab-${state.nextTabSeq++}`,
@@ -407,6 +509,7 @@ function buildTab(state: RegistryState, init: TabInit): TabState {
     sentRows: 0,
     webgl: null,
     webglFailed: false,
+    webLinks: null,
     api: {
       term,
       fit,
@@ -417,7 +520,7 @@ function buildTab(state: RegistryState, init: TabInit): TabState {
           tab.exitListeners.delete(listener);
         };
       },
-      ensureSession: () => ensureSession(tab),
+      ensureSession: () => ensureSession(state, tab),
       syncSize: () => syncSize(tab),
       ensureRenderer: () => ensureRenderer(tab),
       hasRunningProcess: async () => {
@@ -431,8 +534,72 @@ function buildTab(state: RegistryState, init: TabInit): TabState {
     },
   };
   term.onData((data) => tab.session?.write(data));
+  syncWebLinks(tab);
   state.tabs.push(tab);
   return tab;
+}
+
+/** Converge the web-links addon (plain-text URL detection) on the
+ *  hyperlinks setting — loaded while on, disposed while off. */
+function syncWebLinks(tab: TabState): void {
+  const enabled = readSetting('terminal.hyperlinks', true);
+  if (enabled && tab.webLinks === null) {
+    const addon = new WebLinksAddon((_event, uri) => openTerminalLink(uri));
+    tab.term.loadAddon(addon);
+    tab.webLinks = addon;
+    return;
+  }
+  if (!enabled && tab.webLinks !== null) {
+    tab.webLinks.dispose();
+    tab.webLinks = null;
+  }
+}
+
+/** Push the current option settings onto every live terminal, then
+ *  refit — font metrics changes re-measure the cell grid, and the
+ *  attached tab must tell its pty about the new cols/rows. */
+function applyOptionSettings(state: RegistryState): void {
+  const options = readOptionSettings();
+  for (const tab of state.tabs) {
+    const target = tab.term.options;
+    if (target.fontFamily !== options.fontFamily) target.fontFamily = options.fontFamily;
+    if (target.fontSize !== options.fontSize) target.fontSize = options.fontSize;
+    if (target.lineHeight !== options.lineHeight) target.lineHeight = options.lineHeight;
+    if (target.cursorStyle !== options.cursorStyle) target.cursorStyle = options.cursorStyle;
+    if (target.cursorBlink !== options.cursorBlink) target.cursorBlink = options.cursorBlink;
+    if (target.minimumContrastRatio !== options.minimumContrastRatio)
+      target.minimumContrastRatio = options.minimumContrastRatio;
+    if (target.scrollback !== options.scrollback) target.scrollback = options.scrollback;
+    if (target.macOptionIsMeta !== options.macOptionIsMeta) target.macOptionIsMeta = options.macOptionIsMeta;
+    syncSize(tab);
+  }
+}
+
+const OPTION_SETTING_KEYS = [
+  'terminal.fontSize',
+  'terminal.lineHeight',
+  'terminal.cursorStyle',
+  'terminal.cursorBlink',
+  'terminal.minimumContrastRatio',
+  'terminal.scrollback',
+  'terminal.macOptionIsMeta',
+] as const;
+
+/** Live settings → live terminals. Registered once with the registry;
+ *  spawn-time settings (profiles, start directory, close-on-exit,
+ *  copy-on-select, bell) are read at their moment of use instead. */
+function installSettingsSync(state: RegistryState): void {
+  for (const key of OPTION_SETTING_KEYS) {
+    subscribeKey(key, () => applyOptionSettings(state));
+  }
+  // A new font family must be loaded before xterm measures it, or every
+  // glyph misaligns until the next refit.
+  subscribeKey('terminal.fontFamilyPreset', () => {
+    void whenTerminalFontReady().then(() => applyOptionSettings(state));
+  });
+  subscribeKey('terminal.hyperlinks', () => {
+    for (const tab of state.tabs) syncWebLinks(tab);
+  });
 }
 
 function createTab(state: RegistryState, options?: TerminalTabOptions): string {
@@ -554,6 +721,7 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
     },
   };
   state.ready = hydrate(state);
+  installSettingsSync(state);
   // The tray-resident window hides on close instead of dying, so this
   // module survives what the user experiences as quitting the app. The
   // recently-closed ring is session-scoped — reset it at that boundary.

@@ -68,7 +68,16 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
   const [exited, setExited] = useState(false);
 
-  useEffect(() => tabsApi?.onTabsChange(bumpVersion), [tabsApi]);
+  // Registry-initiated closes (close-on-exit) must hide the panel when
+  // the last tab goes, exactly like a close from the strip.
+  useEffect(
+    () =>
+      tabsApi?.onTabsChange(() => {
+        bumpVersion();
+        if (tabsApi.list().length === 0) onHide();
+      }),
+    [tabsApi, onHide],
+  );
 
   // First open (and reopen after a close-last-tab hide) starts a tab —
   // after the persisted-identity restore settles, so a restored session
@@ -154,6 +163,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   // an idle shell closes silently. The whole guard sits behind
   // Settings → Terminal → "Confirm Closing a Running Process".
   const confirmCloseRunning = useSettingValue('terminal.confirmCloseRunningProcess');
+  const defaultTabName = useSettingValue('terminal.defaultTabName');
   const requestClose = useCallback(
     (id: string) => {
       if (!tabsApi) return;
@@ -178,7 +188,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           content: (
             <p style={{ fontSize: 12, margin: '4px 0 0' }}>
               {t('workbench.terminal.closeConfirm.bodyPrefix')}
-              <strong>{terminalTabLabel(t, info)}</strong>
+              <strong>{terminalTabLabel(t, info, defaultTabName)}</strong>
               {t('workbench.terminal.closeConfirm.bodySuffix')}
             </p>
           ),
@@ -189,7 +199,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
         });
       });
     },
-    [tabsApi, closeTab, confirmCloseRunning, modal, t],
+    [tabsApi, closeTab, confirmCloseRunning, defaultTabName, modal, t],
   );
 
   // Context-menu bulk closes (Close Others / All / to the Left / Right)

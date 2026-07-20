@@ -70,6 +70,7 @@ async function spawnTerminalSession(options: TerminalSpawnOptions): Promise<Term
           },
         }
       : {}),
+    ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
   });
   if (!result.ok) throw new Error(result.error);
   const id = result.id;

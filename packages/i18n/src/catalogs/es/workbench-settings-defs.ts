@@ -118,6 +118,55 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.terminal.confirmCloseRunningProcess.description':
     'Preguntar antes de cerrar una pestaña de terminal cuyo shell todavía ejecuta un proceso. Los shells ' +
     'inactivos siempre se cierran sin confirmación.',
+  'workbench.settings.def.terminal.startDirectory.label': 'Directorio de inicio',
+  'workbench.settings.def.terminal.startDirectory.description':
+    'Directorio en el que empiezan las nuevas pestañas de terminal. Un perfil con su propio directorio tiene ' +
+    'prioridad; en blanco significa su directorio personal. Se aplica a la próxima pestaña que abra.',
+  'workbench.settings.def.terminal.defaultTabName.label': 'Nombre de pestaña predeterminado',
+  'workbench.settings.def.terminal.defaultTabName.description':
+    'Nombre de las pestañas de terminal abiertas sin perfil y sin renombrar. En blanco usa «Local». Varias ' +
+    'pestañas con el mismo nombre siguen numeradas.',
+  'workbench.settings.def.terminal.fontFamilyPreset.label': 'Fuente',
+  'workbench.settings.def.terminal.fontFamilyPreset.description':
+    'Tipografía del texto del terminal. Los preajustes se incluyen con la aplicación o usan fuentes presentes ' +
+    'en todos los sistemas operativos.',
+  'workbench.settings.def.terminal.fontSize.label': 'Tamaño de fuente',
+  'workbench.settings.def.terminal.fontSize.description': 'Tamaño del texto del terminal en píxeles.',
+  'workbench.settings.def.terminal.lineHeight.label': 'Altura de línea',
+  'workbench.settings.def.terminal.lineHeight.description':
+    'Espaciado de las líneas como múltiplo del tamaño de fuente. 1 es el espaciado natural de la fuente.',
+  'workbench.settings.def.terminal.cursorStyle.label': 'Forma del cursor',
+  'workbench.settings.def.terminal.cursorStyle.description': 'Cómo se dibuja el cursor del terminal.',
+  'workbench.settings.def.terminal.cursorStyle.option.block.label': 'Bloque',
+  'workbench.settings.def.terminal.cursorStyle.option.underline.label': 'Subrayado',
+  'workbench.settings.def.terminal.cursorStyle.option.bar.label': 'Barra vertical',
+  'workbench.settings.def.terminal.cursorBlink.label': 'Cursor parpadeante',
+  'workbench.settings.def.terminal.cursorBlink.description': 'Hacer parpadear el cursor del terminal.',
+  'workbench.settings.def.terminal.minimumContrastRatio.label': 'Relación de contraste mínima',
+  'workbench.settings.def.terminal.minimumContrastRatio.description':
+    'Ajusta los colores del texto hasta alcanzar este contraste con el fondo. 1 deja los colores intactos; ' +
+    '4,5 cumple el nivel AA de las WCAG; 21 fuerza el contraste máximo.',
+  'workbench.settings.def.terminal.scrollback.label': 'Búfer de desplazamiento',
+  'workbench.settings.def.terminal.scrollback.description':
+    'Cuántas líneas conserva el terminal por encima de la pantalla visible. Valores altos consumen más ' +
+    'memoria por pestaña.',
+  'workbench.settings.def.terminal.macOptionIsMeta.label': 'Usar Opción como tecla Meta',
+  'workbench.settings.def.terminal.macOptionIsMeta.description':
+    'En macOS, trata la tecla Opción como Meta para que atajos como Opción+B lleguen a la edición de línea ' +
+    'del shell en lugar de escribir caracteres especiales.',
+  'workbench.settings.def.terminal.copyOnSelect.label': 'Copiar al seleccionar',
+  'workbench.settings.def.terminal.copyOnSelect.description':
+    'Copia el texto seleccionado del terminal al portapapeles en cuanto lo selecciona.',
+  'workbench.settings.def.terminal.hyperlinks.label': 'Resaltar enlaces',
+  'workbench.settings.def.terminal.hyperlinks.description':
+    'Detecta URL en la salida del terminal y las abre en su navegador al hacer clic.',
+  'workbench.settings.def.terminal.audibleBell.label': 'Campana audible',
+  'workbench.settings.def.terminal.audibleBell.description':
+    'Reproduce un breve pitido cuando un programa hace sonar la campana del terminal.',
+  'workbench.settings.def.terminal.closeTabOnExit.label': 'Cerrar la pestaña al terminar el shell',
+  'workbench.settings.def.terminal.closeTabOnExit.description':
+    'Cierra la pestaña de terminal en cuanto su shell termina. Desactivado, la pestaña permanece abierta con ' +
+    'un botón Reiniciar.',
   'workbench.settings.def.general.restoreTabsOnStartup.label': 'Restaurar las pestañas al iniciar',
   'workbench.settings.def.general.restoreTabsOnStartup.description':
     'Reabre las pestañas de editor que estaban abiertas al final de la sesión anterior.',

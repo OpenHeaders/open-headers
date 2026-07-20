@@ -10,12 +10,14 @@
  * Wire protocol (all session traffic scoped by `(webContents.id, id)`
  * so one renderer can't address another's ptys):
  *
- *   - `oh:terminal:spawn`  (invoke) — `{ cols, rows, profile? }` →
- *     `{ ok, id }`. Spawns the user's shell (login mode on POSIX so
+ *   - `oh:terminal:spawn`  (invoke) — `{ cols, rows, profile?, cwd? }`
+ *     → `{ ok, id }`. Spawns the user's shell (login mode on POSIX so
  *     PATH matches a real terminal on GUI-launched apps) with cwd at
  *     the home dir; a `profile` (`{ shell, args, cwd? }` — a terminal
- *     profile) overrides the command line, with cwd falling back to
- *     the home dir when absent or not a directory.
+ *     profile) overrides the command line. The starting directory is
+ *     the profile's cwd, else the request-level cwd (the Start
+ *     Directory setting), falling back to the home dir when absent or
+ *     not a directory.
  *   - `oh:terminal:write`  (send)   — `{ id, data }` keystrokes → pty.
  *   - `oh:terminal:resize` (send)   — `{ id, cols, rows }` → SIGWINCH.
  *   - `oh:terminal:has-children` (invoke) — `{ id }` → boolean; true
@@ -159,8 +161,14 @@ export function installTerminalHost(): void {
   }
 
   ipcMain.handle(CHANNEL.spawn, (event, raw: unknown) => {
-    const { cols, rows, profile } = (raw ?? {}) as { cols?: unknown; rows?: unknown; profile?: unknown };
+    const { cols, rows, profile, cwd } = (raw ?? {}) as {
+      cols?: unknown;
+      rows?: unknown;
+      profile?: unknown;
+      cwd?: unknown;
+    };
     const shell = parseProfile(profile) ?? resolveShell();
+    if (shell.cwd === undefined && typeof cwd === 'string' && cwd.trim().length > 0) shell.cwd = cwd;
     const id = `pty-${nextSessionSeq++}`;
     let pty: IPty;
     try {
