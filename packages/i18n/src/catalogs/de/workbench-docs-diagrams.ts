@@ -203,4 +203,120 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.multiTab.local.footer1': 'Jeder Tab behält seinen Teiler + seinen Entwurf.',
   'workbench.docs.diagrams.multiTab.local.footer2':
     'Ein Tab, der NACH deinem Ziehen geöffnet wird, erbt das neue Layout.',
+
+  // ── Header actions: shared kickers ──────────────────────────────────
+  'workbench.docs.diagrams.headerActions.shared.ruleKicker': 'REGEL',
+  'workbench.docs.diagrams.headerActions.shared.beforeKicker': 'VORHER',
+  'workbench.docs.diagrams.headerActions.shared.afterKicker': 'NACHHER',
+  'workbench.docs.diagrams.headerActions.shared.wontFireKicker': 'WENN DIE REGEL NICHT GREIFT',
+  'workbench.docs.diagrams.headerActions.shared.suggestion': 'Vorschlag',
+
+  // ── Header actions: operations overview ─────────────────────────────
+  'workbench.docs.diagrams.headerActions.overview.aria':
+    'Vier Header-Operationen auf denselben Ausgangs-Header angewendet — Überschreiben ersetzt den Wert, Anfügen ' +
+    'ergänzt ein Duplikat, Entfernen löscht, Zusammenführen verkettet.',
+  'workbench.docs.diagrams.headerActions.overview.title': 'Gleicher Ausgangs-Header → vier Ergebnisse',
+  'workbench.docs.diagrams.headerActions.overview.before': 'Cookie: a=1',
+  'workbench.docs.diagrams.headerActions.overview.opOverride': 'Überschreiben',
+  'workbench.docs.diagrams.headerActions.overview.opAppend': 'Anfügen',
+  'workbench.docs.diagrams.headerActions.overview.opRemove': 'Entfernen',
+  'workbench.docs.diagrams.headerActions.overview.opMerge': 'Zusammenführen',
+  'workbench.docs.diagrams.headerActions.overview.engineDnr': 'DNR',
+  'workbench.docs.diagrams.headerActions.overview.engineScript': 'Script',
+  'workbench.docs.diagrams.headerActions.overview.afterOverrideNew': 'Z',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendKept': 'a=1 ·',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendNew': '+Cookie: Z',
+  'workbench.docs.diagrams.headerActions.overview.afterRemoveGone': '(Header weg)',
+  'workbench.docs.diagrams.headerActions.overview.afterMergeNew': '; new=val',
+  'workbench.docs.diagrams.headerActions.overview.legendDnr': 'DNR — nativ, von Chrome angewendet',
+  'workbench.docs.diagrams.headerActions.overview.legendScript': 'Script — gepatchte fetch / XHR (nur Zusammenführen)',
+
+  // ── Header actions: add / replace ───────────────────────────────────
+  'workbench.docs.diagrams.headerActions.override.aria':
+    'Hinzufügen / Überschreiben — dieselbe Regel deckt beide Fälle ab. Ersetzt den Wert eines vorhandenen ' +
+    'X-Auth-Headers oder fügt den Header hinzu, wenn er fehlt. Beide kommen beim selben Ergebnis an.',
+  'workbench.docs.diagrams.headerActions.override.rule': 'Override X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.replaceLabel': 'Überschreiben',
+  'workbench.docs.diagrams.headerActions.override.addLabel': 'Hinzufügen',
+  'workbench.docs.diagrams.headerActions.override.replaceSub': 'Header bereits vorhanden',
+  'workbench.docs.diagrams.headerActions.override.addSub': 'noch kein X-Auth-Header',
+  'workbench.docs.diagrams.headerActions.override.beforeOld': 'X-Auth: old-value',
+  'workbench.docs.diagrams.headerActions.override.lineContentType': 'Content-Type: html',
+  'workbench.docs.diagrams.headerActions.override.afterNew': 'X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.noHeaderNote': '(kein X-Auth)',
+  'workbench.docs.diagrams.headerActions.override.arrowReplaced': 'Wert ersetzt',
+  'workbench.docs.diagrams.headerActions.override.arrowAdded': 'Header hinzugefügt',
+  'workbench.docs.diagrams.headerActions.override.stamp': 'So oder so → ein X-Auth-Header mit deinem Wert',
+  'workbench.docs.diagrams.headerActions.override.wontAria':
+    'Hinzufügen / Überschreiben greift nicht, wenn die Bedingungen der Regel die Anfrage nicht treffen — es ' +
+    'passiert still nichts. Vorschlag: prüfe die Bedingungen Anfrage-Domains oder URL-Muster.',
+  'workbench.docs.diagrams.headerActions.override.wontTitle': 'Anfrage an eine Domain, die nicht passt',
+  'workbench.docs.diagrams.headerActions.override.wontDetail':
+    'Die Bedingungen entscheiden, ob die Aktion greift — kein Treffer, ein No-op.',
+  'workbench.docs.diagrams.headerActions.override.wontSuggestion':
+    'Prüfe die Anfrage-Domains oder das URL-Muster der Regel.',
+
+  // ── Header actions: append ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.append.aria':
+    'Anfügen ergänzt eine zweite Header-Zeile mit demselben Namen — beide werden ausgeliefert. VORHER zeigt eine ' +
+    'Set-Cookie-Zeile; NACHHER zwei, die neue hervorgehoben.',
+  'workbench.docs.diagrams.headerActions.append.rule': 'Append Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.lineSession': 'Set-Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.append.arrowLabel': '+1 doppelte Zeile',
+  'workbench.docs.diagrams.headerActions.append.afterNew': 'Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.stamp1': 'Zwei Set-Cookie-Zeilen — beide werden ausgeliefert.',
+  'workbench.docs.diagrams.headerActions.append.stamp2':
+    'Nutze es für Set-Cookie, Link, Via — Header, die Duplikate erlauben.',
+  'workbench.docs.diagrams.headerActions.append.wontAria':
+    'Anfügen greift nicht sauber bei Headern, die keine Duplikate erlauben — der Browser behält nur einen. Nutze ' +
+    'Überschreiben zum Ersetzen oder Zusammenführen zum Verketten.',
+  'workbench.docs.diagrams.headerActions.append.wontTitle': 'Header, die keine Duplikate erlauben',
+  'workbench.docs.diagrams.headerActions.append.wontDetail':
+    'z. B. Authorization, Host, Content-Type — der Browser behält nur einen.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion1': 'Nutze Überschreiben, um den Wert zu ersetzen.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion2':
+    'Nutze Zusammenführen, um an den vorhandenen Wert anzuhängen.',
+
+  // ── Header actions: remove ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.remove.aria':
+    'Entfernen löscht den anvisierten Header. VORHER zeigt X-Frame-Options durchgestrichen; NACHHER nur den ' +
+    'verbleibenden Content-Type-Header.',
+  'workbench.docs.diagrams.headerActions.remove.rule': 'Remove X-Frame-Options',
+  'workbench.docs.diagrams.headerActions.remove.beforeStruck': 'X-Frame-Options: DENY',
+  'workbench.docs.diagrams.headerActions.remove.lineContentType': 'Content-Type: text/html',
+  'workbench.docs.diagrams.headerActions.remove.arrowLabel': 'Ziel entfernt',
+  'workbench.docs.diagrams.headerActions.remove.stamp1': 'Alle Instanzen von X-Frame-Options gelöscht.',
+  'workbench.docs.diagrams.headerActions.remove.stamp2':
+    'Doppelte Zeilen desselben Headers werden alle auf einmal entfernt.',
+  'workbench.docs.diagrams.headerActions.remove.wontAria':
+    'Entfernen ist ein No-op, wenn der anvisierte Header fehlt — kein Fehler. Nutze Überschreiben, wenn du ' +
+    'stattdessen einen anderen Wert setzen wolltest.',
+  'workbench.docs.diagrams.headerActions.remove.wontTitle': 'Header gar nicht vorhanden',
+  'workbench.docs.diagrams.headerActions.remove.wontDetail':
+    'No-op — kein Fehler, die Anfrage geht einfach unverändert durch.',
+  'workbench.docs.diagrams.headerActions.remove.wontSuggestion':
+    'Nutze Überschreiben, wenn du den Wert setzen wolltest, nicht entfernen.',
+
+  // ── Header actions: merge ───────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.merge.aria':
+    'Zusammenführen liest den vorhandenen Header-Wert zur Laufzeit, verbindet deinen Wert über ein Trennzeichen ' +
+    'und ersetzt das Original.',
+  'workbench.docs.diagrams.headerActions.merge.rule': "Merge Cookie + new=val  (sep: '; ')",
+  'workbench.docs.diagrams.headerActions.merge.lineSession': 'Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.merge.arrowLabel': 'mit Trennzeichen verbinden',
+  'workbench.docs.diagrams.headerActions.merge.afterNew': 'new=val',
+  'workbench.docs.diagrams.headerActions.merge.stamp1':
+    'Vorhandener Wert + dein Wert, verbunden durch das Trennzeichen.',
+  'workbench.docs.diagrams.headerActions.merge.stamp2':
+    "Standard-Trennzeichen: '; ' für Cookie, ', ' für andere Header.",
+  'workbench.docs.diagrams.headerActions.merge.wontAria':
+    'Zusammenführen fängt nur JS-initiierte fetch / XHR ab — Seitennavigationen und statische Ressourcen fließen ' +
+    'unverändert durch. Nutze dafür Überschreiben oder Anfügen (DNR).',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle1': 'Seitennavigationen',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail1':
+    'Nur JS-initiierte fetch / XHR laufen durch die Script-Engine.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle2': 'Statische Ressourcen (img, script, link)',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail2': 'Vom Browser ausgelöst — sie berühren fetch / XHR nie.',
+  'workbench.docs.diagrams.headerActions.merge.wontSuggestion':
+    'Für Header auf Seitenebene nutze Überschreiben oder Anfügen (DNR).',
 } as const satisfies Catalog;

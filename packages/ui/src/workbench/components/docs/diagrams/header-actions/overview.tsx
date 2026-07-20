@@ -1,6 +1,7 @@
 // ── Header operations comparison (overview) ──────────────────────
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ArrowDefs,
   FILL_BLUE,
@@ -20,57 +21,63 @@ import {
  * Locked color contract preserved (blue=DNR, purple=Script).
  */
 export const HeaderOpsDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'hop';
-  const BEFORE = 'Cookie: a=1';
+  const BEFORE = t('workbench.docs.diagrams.headerActions.overview.before');
 
   type Op = {
     name: string;
-    engine: 'DNR' | 'Script';
+    engineLabel: string;
+    isScript: boolean;
     after: React.ReactNode;
   };
 
   const OPS: Op[] = [
     {
-      name: 'Override',
-      engine: 'DNR',
+      name: t('workbench.docs.diagrams.headerActions.overview.opOverride'),
+      engineLabel: t('workbench.docs.diagrams.headerActions.overview.engineDnr'),
+      isScript: false,
       after: (
         <tspan>
           Cookie:{' '}
           <tspan fontWeight={700} fill={STROKE_BLUE}>
-            Z
+            {t('workbench.docs.diagrams.headerActions.overview.afterOverrideNew')}
           </tspan>
         </tspan>
       ),
     },
     {
-      name: 'Append',
-      engine: 'DNR',
+      name: t('workbench.docs.diagrams.headerActions.overview.opAppend'),
+      engineLabel: t('workbench.docs.diagrams.headerActions.overview.engineDnr'),
+      isScript: false,
       after: (
         <tspan>
-          a=1 ·{' '}
+          {t('workbench.docs.diagrams.headerActions.overview.afterAppendKept')}{' '}
           <tspan fontWeight={700} fill={STROKE_BLUE}>
-            +Cookie: Z
+            {t('workbench.docs.diagrams.headerActions.overview.afterAppendNew')}
           </tspan>
         </tspan>
       ),
     },
     {
-      name: 'Remove',
-      engine: 'DNR',
+      name: t('workbench.docs.diagrams.headerActions.overview.opRemove'),
+      engineLabel: t('workbench.docs.diagrams.headerActions.overview.engineDnr'),
+      isScript: false,
       after: (
         <tspan fontStyle="italic" fill={TEXT_DIM}>
-          (header gone)
+          {t('workbench.docs.diagrams.headerActions.overview.afterRemoveGone')}
         </tspan>
       ),
     },
     {
-      name: 'Merge',
-      engine: 'Script',
+      name: t('workbench.docs.diagrams.headerActions.overview.opMerge'),
+      engineLabel: t('workbench.docs.diagrams.headerActions.overview.engineScript'),
+      isScript: true,
       after: (
         <tspan>
-          Cookie: a=1
+          {BEFORE}
           <tspan fontWeight={700} fill={STROKE_PURPLE}>
-            ; new=val
+            {t('workbench.docs.diagrams.headerActions.overview.afterMergeNew')}
           </tspan>
         </tspan>
       ),
@@ -95,12 +102,12 @@ export const HeaderOpsDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Four header operations applied to the same starting header — Override replaces, Append adds duplicate, Remove deletes, Merge concatenates."
+      aria-label={t('workbench.docs.diagrams.headerActions.overview.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={HEADER_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Same starting header → four outcomes
+        {t('workbench.docs.diagrams.headerActions.overview.title')}
       </text>
       <rect
         x={BEFORE_BOX_X}
@@ -120,7 +127,7 @@ export const HeaderOpsDiagram: React.FC = () => {
         fill={TEXT_DIM}
         letterSpacing={0.5}
       >
-        BEFORE
+        {t('workbench.docs.diagrams.headerActions.shared.beforeKicker')}
       </text>
       <text
         x={BEFORE_BOX_X + BEFORE_BOX_W / 2}
@@ -146,9 +153,8 @@ export const HeaderOpsDiagram: React.FC = () => {
 
       {OPS.map((op, i) => {
         const y = ROW_Y0 + i * (ROW_H + ROW_GAP);
-        const isScript = op.engine === 'Script';
-        const accent = isScript ? STROKE_PURPLE : STROKE_BLUE;
-        const accentFill = isScript ? FILL_PURPLE : FILL_BLUE;
+        const accent = op.isScript ? STROKE_PURPLE : STROKE_BLUE;
+        const accentFill = op.isScript ? FILL_PURPLE : FILL_BLUE;
         return (
           <g key={op.name}>
             <rect
@@ -174,7 +180,7 @@ export const HeaderOpsDiagram: React.FC = () => {
               stroke={accent}
             />
             <text x={ROW_X + 33} y={y + 31} textAnchor="middle" fontSize={8} fontWeight={700} fill={accent}>
-              {op.engine}
+              {op.engineLabel}
             </text>
 
             <line
@@ -197,11 +203,11 @@ export const HeaderOpsDiagram: React.FC = () => {
       <g transform={`translate(0, ${ROW_Y0 + 4 * (ROW_H + ROW_GAP) + 8})`}>
         <rect x={ROW_X} y={0} width={12} height={12} rx={2} fill={FILL_BLUE} stroke={STROKE_BLUE} />
         <text x={ROW_X + 18} y={9} fontSize={9} fill={TEXT_DIM}>
-          DNR — native, applied by Chrome
+          {t('workbench.docs.diagrams.headerActions.overview.legendDnr')}
         </text>
         <rect x={ROW_X} y={16} width={12} height={12} rx={2} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
         <text x={ROW_X + 18} y={25} fontSize={9} fill={TEXT_DIM}>
-          Script — patched fetch / XHR (Merge only)
+          {t('workbench.docs.diagrams.headerActions.overview.legendScript')}
         </text>
       </g>
     </svg>

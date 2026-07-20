@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 
 /**
@@ -9,6 +10,7 @@ import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT
  * AFTER has two rows with the new one highlighted.
  */
 export const AppendDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'ap';
   const RULE_Y = 22;
   const RULE_H = 22;
@@ -29,13 +31,13 @@ export const AppendDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Append adds a second header row with the same name — both delivered. BEFORE has one Set-Cookie row; AFTER has two, the new one highlighted."
+      aria-label={t('workbench.docs.diagrams.headerActions.append.aria')}
     >
       <ArrowDefs id={ID} />
 
       {/* Rule banner */}
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.headerActions.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text
@@ -47,7 +49,7 @@ export const AppendDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Append Set-Cookie: tracking=xyz
+        {t('workbench.docs.diagrams.headerActions.append.rule')}
       </text>
 
       {/* BEFORE — full width row */}
@@ -61,10 +63,10 @@ export const AppendDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        BEFORE
+        {t('workbench.docs.diagrams.headerActions.shared.beforeKicker')}
       </text>
       <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        Set-Cookie: session=abc
+        {t('workbench.docs.diagrams.headerActions.append.lineSession')}
       </text>
 
       {/* Vertical arrow with label aside */}
@@ -84,27 +86,27 @@ export const AppendDiagram: React.FC = () => {
         fontStyle="italic"
         fill={STROKE_BLUE}
       >
-        +1 duplicate row
+        {t('workbench.docs.diagrams.headerActions.append.arrowLabel')}
       </text>
 
       {/* AFTER — full width, two rows clearly visible */}
       <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={AFTER_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
-        AFTER
+        {t('workbench.docs.diagrams.headerActions.shared.afterKicker')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        Set-Cookie: session=abc
+        {t('workbench.docs.diagrams.headerActions.append.lineSession')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 46} fontFamily="monospace" fontSize={10} fontWeight={700} fill={STROKE_GREEN}>
-        Set-Cookie: tracking=xyz
+        {t('workbench.docs.diagrams.headerActions.append.afterNew')}
       </text>
 
       {/* Outcome stamps */}
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Two Set-Cookie rows — both delivered.
+        {t('workbench.docs.diagrams.headerActions.append.stamp1')}
       </text>
       <text x={160} y={STAMP_Y + 14} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Use for Set-Cookie, Link, Via — headers that allow duplicates.
+        {t('workbench.docs.diagrams.headerActions.append.stamp2')}
       </text>
     </svg>
   );
@@ -117,6 +119,7 @@ export const AppendDiagram: React.FC = () => {
  * routes out: Override to replace, or Merge to concatenate.
  */
 export const AppendWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -125,10 +128,10 @@ export const AppendWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Append won't apply cleanly to headers that don't support duplicates — the browser keeps only one. Use Override to replace or Merge to concatenate."
+      aria-label={t('workbench.docs.diagrams.headerActions.append.wontAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.headerActions.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -146,23 +149,23 @@ export const AppendWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Headers that don't allow duplicates
+        {t('workbench.docs.diagrams.headerActions.append.wontTitle')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        e.g. Authorization, Host, Content-Type — browser keeps only one.
+        {t('workbench.docs.diagrams.headerActions.append.wontDetail')}
       </text>
 
       <text x={28} y={88} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.headerActions.shared.suggestion')}
       </text>
       <text x={48} y={102} fontSize={9} fill={TEXT}>
-        Use Override to replace the value.
+        {t('workbench.docs.diagrams.headerActions.append.wontSuggestion1')}
       </text>
       <text x={48} y={116} fontSize={9} fill={TEXT}>
-        Use Merge to append to the existing value.
+        {t('workbench.docs.diagrams.headerActions.append.wontSuggestion2')}
       </text>
     </svg>
   );

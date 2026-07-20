@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 
 /**
@@ -8,6 +9,7 @@ import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT
  * — labels never overlap the rule banner or the colored cards.
  */
 export const OverrideDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'ov';
 
   const TILE_W = 138;
@@ -26,7 +28,7 @@ export const OverrideDiagram: React.FC = () => {
 
   const renderTile = (
     xOff: number,
-    label: 'Replace' | 'Add',
+    label: string,
     sub: string,
     before: { line: string; matched: boolean }[],
     after: { line: string; highlight: boolean }[],
@@ -65,7 +67,7 @@ export const OverrideDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={xOff + 6} y={BEFORE_Y + 12} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        BEFORE
+        {t('workbench.docs.diagrams.headerActions.shared.beforeKicker')}
       </text>
       {before.map((h, i) => (
         <text
@@ -108,7 +110,7 @@ export const OverrideDiagram: React.FC = () => {
 
       <rect x={xOff} y={AFTER_Y} width={TILE_W} height={STATE_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={xOff + 6} y={AFTER_Y + 12} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
-        AFTER
+        {t('workbench.docs.diagrams.headerActions.shared.afterKicker')}
       </text>
       {after.map((h, i) => (
         <text
@@ -132,12 +134,12 @@ export const OverrideDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Add / Replace — same rule covers both cases. Replaces an existing X-Auth header value, or adds the header when absent. Both arrive at the same outcome."
+      aria-label={t('workbench.docs.diagrams.headerActions.override.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.headerActions.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text
@@ -149,34 +151,34 @@ export const OverrideDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Override X-Auth: Bearer token
+        {t('workbench.docs.diagrams.headerActions.override.rule')}
       </text>
 
       {renderTile(
         TILE_LEFT_X,
-        'Replace',
-        'header already present',
+        t('workbench.docs.diagrams.headerActions.override.replaceLabel'),
+        t('workbench.docs.diagrams.headerActions.override.replaceSub'),
         [
-          { line: 'X-Auth: old-value', matched: true },
-          { line: 'Content-Type: html', matched: false },
+          { line: t('workbench.docs.diagrams.headerActions.override.beforeOld'), matched: true },
+          { line: t('workbench.docs.diagrams.headerActions.override.lineContentType'), matched: false },
         ],
         [
-          { line: 'X-Auth: Bearer token', highlight: true },
-          { line: 'Content-Type: html', highlight: false },
+          { line: t('workbench.docs.diagrams.headerActions.override.afterNew'), highlight: true },
+          { line: t('workbench.docs.diagrams.headerActions.override.lineContentType'), highlight: false },
         ],
-        'value replaced',
+        t('workbench.docs.diagrams.headerActions.override.arrowReplaced'),
       )}
       {renderTile(
         TILE_RIGHT_X,
-        'Add',
-        'no X-Auth header yet',
-        [{ line: 'Content-Type: html', matched: false }],
+        t('workbench.docs.diagrams.headerActions.override.addLabel'),
+        t('workbench.docs.diagrams.headerActions.override.addSub'),
+        [{ line: t('workbench.docs.diagrams.headerActions.override.lineContentType'), matched: false }],
         [
-          { line: 'X-Auth: Bearer token', highlight: true },
-          { line: 'Content-Type: html', highlight: false },
+          { line: t('workbench.docs.diagrams.headerActions.override.afterNew'), highlight: true },
+          { line: t('workbench.docs.diagrams.headerActions.override.lineContentType'), highlight: false },
         ],
-        'header added',
-        '(no X-Auth)',
+        t('workbench.docs.diagrams.headerActions.override.arrowAdded'),
+        t('workbench.docs.diagrams.headerActions.override.noHeaderNote'),
       )}
 
       <line
@@ -189,7 +191,7 @@ export const OverrideDiagram: React.FC = () => {
       />
 
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Either way → one X-Auth header with your value
+        {t('workbench.docs.diagrams.headerActions.override.stamp')}
       </text>
     </svg>
   );
@@ -202,6 +204,7 @@ export const OverrideDiagram: React.FC = () => {
  * diagram so the gotcha gets its own breathing room.
  */
 export const OverrideWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -210,10 +213,10 @@ export const OverrideWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Add / Replace won't apply when the rule's conditions don't match the request — it silently no-ops. Suggestion: check Request Domains or URL Pattern conditions."
+      aria-label={t('workbench.docs.diagrams.headerActions.override.wontAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.headerActions.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -232,10 +235,10 @@ export const OverrideWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Request to a non-matching domain
+        {t('workbench.docs.diagrams.headerActions.override.wontTitle')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Conditions gate the action — no match, no-op.
+        {t('workbench.docs.diagrams.headerActions.override.wontDetail')}
       </text>
 
       {/* → suggestion row */}
@@ -243,10 +246,10 @@ export const OverrideWontApplyDiagram: React.FC = () => {
         →
       </text>
       <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.headerActions.shared.suggestion')}
       </text>
       <text x={48} y={100} fontSize={9} fill={TEXT}>
-        Check the rule's Request Domains or URL Pattern.
+        {t('workbench.docs.diagrams.headerActions.override.wontSuggestion')}
       </text>
     </svg>
   );

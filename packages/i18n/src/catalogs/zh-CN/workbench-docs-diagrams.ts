@@ -186,4 +186,100 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.multiTab.local.noUnsaved': '没有未保存的更改',
   'workbench.docs.diagrams.multiTab.local.footer1': '每个标签页保留自己的分隔条和草稿。',
   'workbench.docs.diagrams.multiTab.local.footer2': '在你拖动之后打开的标签页会继承新布局。',
+
+  // ── Header actions: shared kickers ──────────────────────────────────
+  'workbench.docs.diagrams.headerActions.shared.ruleKicker': '规则',
+  'workbench.docs.diagrams.headerActions.shared.beforeKicker': '之前',
+  'workbench.docs.diagrams.headerActions.shared.afterKicker': '之后',
+  'workbench.docs.diagrams.headerActions.shared.wontFireKicker': '何时不生效',
+  'workbench.docs.diagrams.headerActions.shared.suggestion': '建议',
+
+  // ── Header actions: operations overview ─────────────────────────────
+  'workbench.docs.diagrams.headerActions.overview.aria':
+    '四种标头操作应用于同一个起始标头——覆盖替换值，追加添加重复行，移除删除，合并拼接。',
+  'workbench.docs.diagrams.headerActions.overview.title': '同一个起始标头 → 四种结果',
+  'workbench.docs.diagrams.headerActions.overview.before': 'Cookie: a=1',
+  'workbench.docs.diagrams.headerActions.overview.opOverride': '覆盖',
+  'workbench.docs.diagrams.headerActions.overview.opAppend': '追加',
+  'workbench.docs.diagrams.headerActions.overview.opRemove': '移除',
+  'workbench.docs.diagrams.headerActions.overview.opMerge': '合并',
+  'workbench.docs.diagrams.headerActions.overview.engineDnr': 'DNR',
+  'workbench.docs.diagrams.headerActions.overview.engineScript': 'Script',
+  'workbench.docs.diagrams.headerActions.overview.afterOverrideNew': 'Z',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendKept': 'a=1 ·',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendNew': '+Cookie: Z',
+  'workbench.docs.diagrams.headerActions.overview.afterRemoveGone': '（标头已移除）',
+  'workbench.docs.diagrams.headerActions.overview.afterMergeNew': '; new=val',
+  'workbench.docs.diagrams.headerActions.overview.legendDnr': 'DNR——原生，由 Chrome 应用',
+  'workbench.docs.diagrams.headerActions.overview.legendScript': 'Script——打补丁的 fetch / XHR（仅限合并）',
+
+  // ── Header actions: add / replace ───────────────────────────────────
+  'workbench.docs.diagrams.headerActions.override.aria':
+    '添加 / 覆盖——同一条规则覆盖两种情况。已有 X-Auth 标头则替换其值，缺失则添加。两种情况都到达同一结果。',
+  'workbench.docs.diagrams.headerActions.override.rule': 'Override X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.replaceLabel': '覆盖',
+  'workbench.docs.diagrams.headerActions.override.addLabel': '添加',
+  'workbench.docs.diagrams.headerActions.override.replaceSub': '标头已存在',
+  'workbench.docs.diagrams.headerActions.override.addSub': '尚无 X-Auth 标头',
+  'workbench.docs.diagrams.headerActions.override.beforeOld': 'X-Auth: old-value',
+  'workbench.docs.diagrams.headerActions.override.lineContentType': 'Content-Type: html',
+  'workbench.docs.diagrams.headerActions.override.afterNew': 'X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.noHeaderNote': '（无 X-Auth）',
+  'workbench.docs.diagrams.headerActions.override.arrowReplaced': '值已替换',
+  'workbench.docs.diagrams.headerActions.override.arrowAdded': '标头已添加',
+  'workbench.docs.diagrams.headerActions.override.stamp': '两种情况 → 一个带你的值的 X-Auth 标头',
+  'workbench.docs.diagrams.headerActions.override.wontAria':
+    '当规则的条件不匹配请求时，添加 / 覆盖不会生效——静默无操作。建议：检查“请求域名”或“URL 模式”条件。',
+  'workbench.docs.diagrams.headerActions.override.wontTitle': '请求发往不匹配的域名',
+  'workbench.docs.diagrams.headerActions.override.wontDetail': '条件把守着操作——不匹配，就无操作。',
+  'workbench.docs.diagrams.headerActions.override.wontSuggestion': '检查规则的“请求域名”或“URL 模式”。',
+
+  // ── Header actions: append ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.append.aria':
+    '追加会添加第二行同名标头——两行都会送达。之前只有一行 Set-Cookie；之后有两行，新的一行高亮。',
+  'workbench.docs.diagrams.headerActions.append.rule': 'Append Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.lineSession': 'Set-Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.append.arrowLabel': '+1 重复行',
+  'workbench.docs.diagrams.headerActions.append.afterNew': 'Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.stamp1': '两行 Set-Cookie——两行都会送达。',
+  'workbench.docs.diagrams.headerActions.append.stamp2': '用于 Set-Cookie、Link、Via——允许重复的标头。',
+  'workbench.docs.diagrams.headerActions.append.wontAria':
+    '对不支持重复的标头，追加无法干净地生效——浏览器只保留一个。改用覆盖来替换，或用合并来拼接。',
+  'workbench.docs.diagrams.headerActions.append.wontTitle': '不允许重复的标头',
+  'workbench.docs.diagrams.headerActions.append.wontDetail':
+    '例如 Authorization、Host、Content-Type——浏览器只保留一个。',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion1': '用覆盖来替换值。',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion2': '用合并把值接到现有值后面。',
+
+  // ── Header actions: remove ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.remove.aria':
+    '移除会删除目标标头。之前显示被划掉的 X-Frame-Options；之后只剩存留的 Content-Type 标头。',
+  'workbench.docs.diagrams.headerActions.remove.rule': 'Remove X-Frame-Options',
+  'workbench.docs.diagrams.headerActions.remove.beforeStruck': 'X-Frame-Options: DENY',
+  'workbench.docs.diagrams.headerActions.remove.lineContentType': 'Content-Type: text/html',
+  'workbench.docs.diagrams.headerActions.remove.arrowLabel': '目标已移除',
+  'workbench.docs.diagrams.headerActions.remove.stamp1': 'X-Frame-Options 的所有实例都被删除。',
+  'workbench.docs.diagrams.headerActions.remove.stamp2': '同名标头的重复行会被一次性全部移除。',
+  'workbench.docs.diagrams.headerActions.remove.wontAria':
+    '目标标头不存在时，移除是无操作——不会报错。若你想设置另一个值，请改用添加 / 覆盖。',
+  'workbench.docs.diagrams.headerActions.remove.wontTitle': '标头本就不存在',
+  'workbench.docs.diagrams.headerActions.remove.wontDetail': '无操作——没有错误，请求原样通过。',
+  'workbench.docs.diagrams.headerActions.remove.wontSuggestion': '若你想设置值而不是移除它，请用添加 / 覆盖。',
+
+  // ── Header actions: merge ───────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.merge.aria':
+    '合并在运行时读取现有标头值，用分隔符把你的值接在后面，然后替换原值。',
+  'workbench.docs.diagrams.headerActions.merge.rule': "Merge Cookie + new=val  (sep: '; ')",
+  'workbench.docs.diagrams.headerActions.merge.lineSession': 'Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.merge.arrowLabel': '用分隔符拼接',
+  'workbench.docs.diagrams.headerActions.merge.afterNew': 'new=val',
+  'workbench.docs.diagrams.headerActions.merge.stamp1': '现有值 + 你的值，由分隔符连接。',
+  'workbench.docs.diagrams.headerActions.merge.stamp2': "默认分隔符：'; ' 用于 Cookie，', ' 用于其他标头。",
+  'workbench.docs.diagrams.headerActions.merge.wontAria':
+    '合并只拦截 JS 发起的 fetch / XHR——页面导航和静态资源原样流过。这些情况请用添加 / 覆盖或追加（DNR）。',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle1': '页面导航',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail1': '只有 JS 发起的 fetch / XHR 经过脚本引擎。',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle2': '静态资源（img、script、link）',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail2': '由浏览器发出——从不经过 fetch / XHR。',
+  'workbench.docs.diagrams.headerActions.merge.wontSuggestion': '页面级标头请用添加 / 覆盖或追加（DNR）。',
 } as const satisfies Catalog;

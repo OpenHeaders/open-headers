@@ -201,4 +201,122 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.multiTab.local.footer1': 'Chaque onglet garde son séparateur + son brouillon.',
   'workbench.docs.diagrams.multiTab.local.footer2':
     'Un onglet ouvert APRÈS votre glissement hérite de la nouvelle disposition.',
+
+  // ── Header actions: shared kickers ──────────────────────────────────
+  'workbench.docs.diagrams.headerActions.shared.ruleKicker': 'RÈGLE',
+  'workbench.docs.diagrams.headerActions.shared.beforeKicker': 'AVANT',
+  'workbench.docs.diagrams.headerActions.shared.afterKicker': 'APRÈS',
+  'workbench.docs.diagrams.headerActions.shared.wontFireKicker': 'QUAND ÇA NE SE DÉCLENCHE PAS',
+  'workbench.docs.diagrams.headerActions.shared.suggestion': 'Suggestion',
+
+  // ── Header actions: operations overview ─────────────────────────────
+  'workbench.docs.diagrams.headerActions.overview.aria':
+    'Quatre opérations appliquées au même en-tête de départ — Remplacer remplace la valeur, Ajouter à la suite ' +
+    'ajoute un doublon, Retirer supprime, Fusionner concatène.',
+  'workbench.docs.diagrams.headerActions.overview.title': 'Même en-tête de départ → quatre résultats',
+  'workbench.docs.diagrams.headerActions.overview.before': 'Cookie: a=1',
+  'workbench.docs.diagrams.headerActions.overview.opOverride': 'Remplacer',
+  'workbench.docs.diagrams.headerActions.overview.opAppend': 'Ajouter à la suite',
+  'workbench.docs.diagrams.headerActions.overview.opRemove': 'Retirer',
+  'workbench.docs.diagrams.headerActions.overview.opMerge': 'Fusionner',
+  'workbench.docs.diagrams.headerActions.overview.engineDnr': 'DNR',
+  'workbench.docs.diagrams.headerActions.overview.engineScript': 'Script',
+  'workbench.docs.diagrams.headerActions.overview.afterOverrideNew': 'Z',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendKept': 'a=1 ·',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendNew': '+Cookie: Z',
+  'workbench.docs.diagrams.headerActions.overview.afterRemoveGone': '(en-tête supprimé)',
+  'workbench.docs.diagrams.headerActions.overview.afterMergeNew': '; new=val',
+  'workbench.docs.diagrams.headerActions.overview.legendDnr': 'DNR — natif, appliqué par Chrome',
+  'workbench.docs.diagrams.headerActions.overview.legendScript': 'Script — fetch / XHR patchés (Fusionner uniquement)',
+
+  // ── Header actions: add / replace ───────────────────────────────────
+  'workbench.docs.diagrams.headerActions.override.aria':
+    "Ajouter / Remplacer — la même règle couvre les deux cas. Elle remplace la valeur d'un en-tête X-Auth existant, " +
+    "ou ajoute l'en-tête quand il est absent. Les deux aboutissent au même résultat.",
+  'workbench.docs.diagrams.headerActions.override.rule': 'Override X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.replaceLabel': 'Remplacer',
+  'workbench.docs.diagrams.headerActions.override.addLabel': 'Ajouter',
+  'workbench.docs.diagrams.headerActions.override.replaceSub': 'en-tête déjà présent',
+  'workbench.docs.diagrams.headerActions.override.addSub': "pas encore d'en-tête X-Auth",
+  'workbench.docs.diagrams.headerActions.override.beforeOld': 'X-Auth: old-value',
+  'workbench.docs.diagrams.headerActions.override.lineContentType': 'Content-Type: html',
+  'workbench.docs.diagrams.headerActions.override.afterNew': 'X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.noHeaderNote': '(pas de X-Auth)',
+  'workbench.docs.diagrams.headerActions.override.arrowReplaced': 'valeur remplacée',
+  'workbench.docs.diagrams.headerActions.override.arrowAdded': 'en-tête ajouté',
+  'workbench.docs.diagrams.headerActions.override.stamp':
+    'Dans les deux cas → un seul en-tête X-Auth avec votre valeur',
+  'workbench.docs.diagrams.headerActions.override.wontAria':
+    "Ajouter / Remplacer ne s'applique pas quand les conditions de la règle ne correspondent pas à la requête — " +
+    "silencieusement, aucune opération. Suggestion : vérifiez les conditions Domaines de requête ou Motif d'URL.",
+  'workbench.docs.diagrams.headerActions.override.wontTitle': 'Requête vers un domaine qui ne correspond pas',
+  'workbench.docs.diagrams.headerActions.override.wontDetail':
+    "Les conditions verrouillent l'action — pas de correspondance, aucune opération.",
+  'workbench.docs.diagrams.headerActions.override.wontSuggestion':
+    "Vérifiez les Domaines de requête ou le Motif d'URL de la règle.",
+
+  // ── Header actions: append ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.append.aria':
+    "Ajouter à la suite ajoute une seconde ligne d'en-tête du même nom — les deux sont livrées. AVANT montre une " +
+    'ligne Set-Cookie ; APRÈS en montre deux, la nouvelle mise en évidence.',
+  'workbench.docs.diagrams.headerActions.append.rule': 'Append Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.lineSession': 'Set-Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.append.arrowLabel': '+1 ligne dupliquée',
+  'workbench.docs.diagrams.headerActions.append.afterNew': 'Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.stamp1': 'Deux lignes Set-Cookie — les deux sont livrées.',
+  'workbench.docs.diagrams.headerActions.append.stamp2':
+    'À utiliser pour Set-Cookie, Link, Via — les en-têtes qui acceptent les doublons.',
+  'workbench.docs.diagrams.headerActions.append.wontAria':
+    "Ajouter à la suite ne s'applique pas proprement aux en-têtes qui n'acceptent pas les doublons — le navigateur " +
+    "n'en garde qu'un. Utilisez Ajouter / Remplacer pour remplacer ou Fusionner pour concaténer.",
+  'workbench.docs.diagrams.headerActions.append.wontTitle': "En-têtes qui n'acceptent pas les doublons",
+  'workbench.docs.diagrams.headerActions.append.wontDetail':
+    "p. ex. Authorization, Host, Content-Type — le navigateur n'en garde qu'un.",
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion1':
+    'Utilisez Ajouter / Remplacer pour remplacer la valeur.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion2':
+    'Utilisez Fusionner pour compléter la valeur existante.',
+
+  // ── Header actions: remove ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.remove.aria':
+    "Retirer supprime l'en-tête ciblé. AVANT montre X-Frame-Options barré ; APRÈS ne montre que l'en-tête " +
+    'Content-Type restant.',
+  'workbench.docs.diagrams.headerActions.remove.rule': 'Remove X-Frame-Options',
+  'workbench.docs.diagrams.headerActions.remove.beforeStruck': 'X-Frame-Options: DENY',
+  'workbench.docs.diagrams.headerActions.remove.lineContentType': 'Content-Type: text/html',
+  'workbench.docs.diagrams.headerActions.remove.arrowLabel': 'cible retirée',
+  'workbench.docs.diagrams.headerActions.remove.stamp1': 'Toutes les instances de X-Frame-Options sont supprimées.',
+  'workbench.docs.diagrams.headerActions.remove.stamp2':
+    "Les lignes dupliquées du même en-tête sont toutes retirées d'un coup.",
+  'workbench.docs.diagrams.headerActions.remove.wontAria':
+    "Retirer est sans effet quand l'en-tête ciblé est absent — aucune erreur. Utilisez Ajouter / Remplacer si vous " +
+    'vouliez définir une autre valeur.',
+  'workbench.docs.diagrams.headerActions.remove.wontTitle': 'En-tête déjà absent',
+  'workbench.docs.diagrams.headerActions.remove.wontDetail':
+    'Sans effet — aucune erreur, la requête passe simplement inchangée.',
+  'workbench.docs.diagrams.headerActions.remove.wontSuggestion':
+    'Utilisez Ajouter / Remplacer si vous vouliez définir la valeur, pas la retirer.',
+
+  // ── Header actions: merge ───────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.merge.aria':
+    "Fusionner lit la valeur existante de l'en-tête à l'exécution, joint votre valeur avec un séparateur et " +
+    "remplace l'original.",
+  'workbench.docs.diagrams.headerActions.merge.rule': "Merge Cookie + new=val  (sep: '; ')",
+  'workbench.docs.diagrams.headerActions.merge.lineSession': 'Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.merge.arrowLabel': 'jonction avec le séparateur',
+  'workbench.docs.diagrams.headerActions.merge.afterNew': 'new=val',
+  'workbench.docs.diagrams.headerActions.merge.stamp1': 'Valeur existante + votre valeur, jointes par le séparateur.',
+  'workbench.docs.diagrams.headerActions.merge.stamp2':
+    "Séparateur par défaut : '; ' pour Cookie, ', ' pour les autres en-têtes.",
+  'workbench.docs.diagrams.headerActions.merge.wontAria':
+    "Fusionner n'intercepte que les fetch / XHR initiés par JS — les navigations de page et les ressources " +
+    'statiques passent inchangées. Utilisez Ajouter / Remplacer ou Ajouter à la suite (DNR) pour celles-ci.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle1': 'Navigations de page',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail1':
+    'Seuls les fetch / XHR initiés par JS passent par le moteur Script.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle2': 'Ressources statiques (img, script, link)',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail2':
+    'Émises par le navigateur — elles ne touchent jamais fetch / XHR.',
+  'workbench.docs.diagrams.headerActions.merge.wontSuggestion':
+    'Pour les en-têtes au niveau de la page, utilisez Ajouter / Remplacer ou Ajouter à la suite (DNR).',
 } as const satisfies Catalog;

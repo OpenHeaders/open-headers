@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 
 /**
@@ -9,6 +10,7 @@ import { ArrowDefs, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } fr
  * the two values so the "concatenation" story is unambiguous.
  */
 export const MergeDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'mg';
   const RULE_Y = 22;
   const RULE_H = 22;
@@ -29,12 +31,12 @@ export const MergeDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Merge reads the existing header value at runtime, joins your value with a separator, and replaces the original."
+      aria-label={t('workbench.docs.diagrams.headerActions.merge.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.headerActions.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text
@@ -46,7 +48,7 @@ export const MergeDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Merge Cookie + new=val{'  '}(sep: '; ')
+        {t('workbench.docs.diagrams.headerActions.merge.rule')}
       </text>
 
       {/* BEFORE */}
@@ -60,10 +62,10 @@ export const MergeDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        BEFORE
+        {t('workbench.docs.diagrams.headerActions.shared.beforeKicker')}
       </text>
       <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        Cookie: session=abc
+        {t('workbench.docs.diagrams.headerActions.merge.lineSession')}
       </text>
 
       {/* Arrow */}
@@ -83,29 +85,29 @@ export const MergeDiagram: React.FC = () => {
         fontStyle="italic"
         fill={STROKE_PURPLE}
       >
-        join with separator
+        {t('workbench.docs.diagrams.headerActions.merge.arrowLabel')}
       </text>
 
       {/* AFTER — concatenated value with separator highlighted */}
       <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={AFTER_H} rx={5} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_PURPLE} letterSpacing={0.5}>
-        AFTER
+        {t('workbench.docs.diagrams.headerActions.shared.afterKicker')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        Cookie: session=abc
+        {t('workbench.docs.diagrams.headerActions.merge.lineSession')}
         <tspan fontWeight={700} fill={STROKE_PURPLE}>
           {'; '}
         </tspan>
         <tspan fontWeight={700} fill={STROKE_PURPLE}>
-          new=val
+          {t('workbench.docs.diagrams.headerActions.merge.afterNew')}
         </tspan>
       </text>
 
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Existing value + your value, joined by the separator.
+        {t('workbench.docs.diagrams.headerActions.merge.stamp1')}
       </text>
       <text x={160} y={STAMP_Y + 14} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Default separator: '; ' for Cookie, ', ' for other headers.
+        {t('workbench.docs.diagrams.headerActions.merge.stamp2')}
       </text>
     </svg>
   );
@@ -118,6 +120,7 @@ export const MergeDiagram: React.FC = () => {
  * DevTools-visibility callout.
  */
 export const MergeWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -126,10 +129,10 @@ export const MergeWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Merge only intercepts JS-initiated fetch / XHR — page navigations and static resources flow through unchanged. Use Override or Append (DNR) for those."
+      aria-label={t('workbench.docs.diagrams.headerActions.merge.wontAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.headerActions.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -148,10 +151,10 @@ export const MergeWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Page navigations
+        {t('workbench.docs.diagrams.headerActions.merge.wontTitle1')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Only JS-initiated fetch / XHR pass through the script engine.
+        {t('workbench.docs.diagrams.headerActions.merge.wontDetail1')}
       </text>
 
       {/* Row 2 */}
@@ -159,10 +162,10 @@ export const MergeWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={84} fontSize={10} fontWeight={700} fill={TEXT}>
-        Static resources (img, script, link)
+        {t('workbench.docs.diagrams.headerActions.merge.wontTitle2')}
       </text>
       <text x={48} y={98} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Browser-issued — never touch fetch / XHR.
+        {t('workbench.docs.diagrams.headerActions.merge.wontDetail2')}
       </text>
 
       {/* Suggestion */}
@@ -170,10 +173,10 @@ export const MergeWontApplyDiagram: React.FC = () => {
         →
       </text>
       <text x={48} y={124} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.headerActions.shared.suggestion')}
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        For page-level headers, use Override or Append (DNR).
+        {t('workbench.docs.diagrams.headerActions.merge.wontSuggestion')}
       </text>
     </svg>
   );

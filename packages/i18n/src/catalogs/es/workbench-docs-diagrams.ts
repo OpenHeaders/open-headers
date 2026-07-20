@@ -202,4 +202,118 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.multiTab.local.footer1': 'Cada pestaña conserva su divisor + su borrador.',
   'workbench.docs.diagrams.multiTab.local.footer2':
     'Una pestaña abierta DESPUÉS de tu arrastre hereda la nueva disposición.',
+
+  // ── Header actions: shared kickers ──────────────────────────────────
+  'workbench.docs.diagrams.headerActions.shared.ruleKicker': 'REGLA',
+  'workbench.docs.diagrams.headerActions.shared.beforeKicker': 'ANTES',
+  'workbench.docs.diagrams.headerActions.shared.afterKicker': 'DESPUÉS',
+  'workbench.docs.diagrams.headerActions.shared.wontFireKicker': 'CUANDO NO SE DISPARA',
+  'workbench.docs.diagrams.headerActions.shared.suggestion': 'Sugerencia',
+
+  // ── Header actions: operations overview ─────────────────────────────
+  'workbench.docs.diagrams.headerActions.overview.aria':
+    'Cuatro operaciones aplicadas al mismo encabezado inicial — Reemplazar sustituye el valor, Anexar añade un ' +
+    'duplicado, Quitar elimina, Fusionar concatena.',
+  'workbench.docs.diagrams.headerActions.overview.title': 'Mismo encabezado de partida → cuatro resultados',
+  'workbench.docs.diagrams.headerActions.overview.before': 'Cookie: a=1',
+  'workbench.docs.diagrams.headerActions.overview.opOverride': 'Reemplazar',
+  'workbench.docs.diagrams.headerActions.overview.opAppend': 'Anexar',
+  'workbench.docs.diagrams.headerActions.overview.opRemove': 'Quitar',
+  'workbench.docs.diagrams.headerActions.overview.opMerge': 'Fusionar',
+  'workbench.docs.diagrams.headerActions.overview.engineDnr': 'DNR',
+  'workbench.docs.diagrams.headerActions.overview.engineScript': 'Script',
+  'workbench.docs.diagrams.headerActions.overview.afterOverrideNew': 'Z',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendKept': 'a=1 ·',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendNew': '+Cookie: Z',
+  'workbench.docs.diagrams.headerActions.overview.afterRemoveGone': '(encabezado eliminado)',
+  'workbench.docs.diagrams.headerActions.overview.afterMergeNew': '; new=val',
+  'workbench.docs.diagrams.headerActions.overview.legendDnr': 'DNR — nativo, aplicado por Chrome',
+  'workbench.docs.diagrams.headerActions.overview.legendScript': 'Script — fetch / XHR parcheados (solo Fusionar)',
+
+  // ── Header actions: add / replace ───────────────────────────────────
+  'workbench.docs.diagrams.headerActions.override.aria':
+    'Añadir / Reemplazar — la misma regla cubre ambos casos. Reemplaza el valor de un encabezado X-Auth existente, ' +
+    'o añade el encabezado si falta. Ambos llegan al mismo resultado.',
+  'workbench.docs.diagrams.headerActions.override.rule': 'Override X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.replaceLabel': 'Reemplazar',
+  'workbench.docs.diagrams.headerActions.override.addLabel': 'Añadir',
+  'workbench.docs.diagrams.headerActions.override.replaceSub': 'encabezado ya presente',
+  'workbench.docs.diagrams.headerActions.override.addSub': 'aún sin encabezado X-Auth',
+  'workbench.docs.diagrams.headerActions.override.beforeOld': 'X-Auth: old-value',
+  'workbench.docs.diagrams.headerActions.override.lineContentType': 'Content-Type: html',
+  'workbench.docs.diagrams.headerActions.override.afterNew': 'X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.noHeaderNote': '(sin X-Auth)',
+  'workbench.docs.diagrams.headerActions.override.arrowReplaced': 'valor reemplazado',
+  'workbench.docs.diagrams.headerActions.override.arrowAdded': 'encabezado añadido',
+  'workbench.docs.diagrams.headerActions.override.stamp': 'En ambos casos → un único encabezado X-Auth con tu valor',
+  'workbench.docs.diagrams.headerActions.override.wontAria':
+    'Añadir / Reemplazar no se aplica cuando las condiciones de la regla no coinciden con la solicitud — ninguna ' +
+    'operación, en silencio. Sugerencia: revisa las condiciones Dominios de solicitud o Patrón de URL.',
+  'workbench.docs.diagrams.headerActions.override.wontTitle': 'Solicitud a un dominio que no coincide',
+  'workbench.docs.diagrams.headerActions.override.wontDetail':
+    'Las condiciones cierran el paso a la acción — sin coincidencia, ninguna operación.',
+  'workbench.docs.diagrams.headerActions.override.wontSuggestion':
+    'Revisa los Dominios de solicitud o el Patrón de URL de la regla.',
+
+  // ── Header actions: append ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.append.aria':
+    'Anexar añade una segunda fila de encabezado con el mismo nombre — ambas se entregan. ANTES muestra una fila ' +
+    'Set-Cookie; DESPUÉS muestra dos, la nueva resaltada.',
+  'workbench.docs.diagrams.headerActions.append.rule': 'Append Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.lineSession': 'Set-Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.append.arrowLabel': '+1 fila duplicada',
+  'workbench.docs.diagrams.headerActions.append.afterNew': 'Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.stamp1': 'Dos filas Set-Cookie — ambas se entregan.',
+  'workbench.docs.diagrams.headerActions.append.stamp2':
+    'Úsalo para Set-Cookie, Link, Via — encabezados que admiten duplicados.',
+  'workbench.docs.diagrams.headerActions.append.wontAria':
+    'Anexar no se aplica limpiamente a los encabezados que no admiten duplicados — el navegador conserva solo uno. ' +
+    'Usa Añadir / Reemplazar para reemplazar o Fusionar para concatenar.',
+  'workbench.docs.diagrams.headerActions.append.wontTitle': 'Encabezados que no admiten duplicados',
+  'workbench.docs.diagrams.headerActions.append.wontDetail':
+    'p. ej. Authorization, Host, Content-Type — el navegador conserva solo uno.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion1': 'Usa Añadir / Reemplazar para reemplazar el valor.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion2': 'Usa Fusionar para anexar al valor existente.',
+
+  // ── Header actions: remove ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.remove.aria':
+    'Quitar elimina el encabezado objetivo. ANTES muestra X-Frame-Options tachado; DESPUÉS muestra solo el ' +
+    'encabezado Content-Type superviviente.',
+  'workbench.docs.diagrams.headerActions.remove.rule': 'Remove X-Frame-Options',
+  'workbench.docs.diagrams.headerActions.remove.beforeStruck': 'X-Frame-Options: DENY',
+  'workbench.docs.diagrams.headerActions.remove.lineContentType': 'Content-Type: text/html',
+  'workbench.docs.diagrams.headerActions.remove.arrowLabel': 'objetivo eliminado',
+  'workbench.docs.diagrams.headerActions.remove.stamp1': 'Todas las instancias de X-Frame-Options quedan eliminadas.',
+  'workbench.docs.diagrams.headerActions.remove.stamp2':
+    'Las filas duplicadas del mismo encabezado se quitan todas a la vez.',
+  'workbench.docs.diagrams.headerActions.remove.wontAria':
+    'Quitar no hace nada cuando el encabezado objetivo no está presente — sin error. Usa Añadir / Reemplazar si ' +
+    'querías establecer otro valor.',
+  'workbench.docs.diagrams.headerActions.remove.wontTitle': 'Encabezado ya ausente',
+  'workbench.docs.diagrams.headerActions.remove.wontDetail':
+    'Ninguna operación — sin error, la solicitud simplemente pasa sin cambios.',
+  'workbench.docs.diagrams.headerActions.remove.wontSuggestion':
+    'Usa Añadir / Reemplazar si querías establecer el valor, no quitarlo.',
+
+  // ── Header actions: merge ───────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.merge.aria':
+    'Fusionar lee el valor existente del encabezado en tiempo de ejecución, une el tuyo con un separador y ' +
+    'reemplaza el original.',
+  'workbench.docs.diagrams.headerActions.merge.rule': "Merge Cookie + new=val  (sep: '; ')",
+  'workbench.docs.diagrams.headerActions.merge.lineSession': 'Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.merge.arrowLabel': 'unión con el separador',
+  'workbench.docs.diagrams.headerActions.merge.afterNew': 'new=val',
+  'workbench.docs.diagrams.headerActions.merge.stamp1': 'Valor existente + tu valor, unidos por el separador.',
+  'workbench.docs.diagrams.headerActions.merge.stamp2':
+    "Separador por defecto: '; ' para Cookie, ', ' para los demás encabezados.",
+  'workbench.docs.diagrams.headerActions.merge.wontAria':
+    'Fusionar solo intercepta los fetch / XHR iniciados por JS — las navegaciones de página y los recursos ' +
+    'estáticos pasan sin cambios. Usa Añadir / Reemplazar o Anexar (DNR) para esos casos.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle1': 'Navegaciones de página',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail1':
+    'Solo los fetch / XHR iniciados por JS pasan por el motor Script.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle2': 'Recursos estáticos (img, script, link)',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail2': 'Emitidos por el navegador — nunca tocan fetch / XHR.',
+  'workbench.docs.diagrams.headerActions.merge.wontSuggestion':
+    'Para encabezados a nivel de página, usa Añadir / Reemplazar o Anexar (DNR).',
 } as const satisfies Catalog;

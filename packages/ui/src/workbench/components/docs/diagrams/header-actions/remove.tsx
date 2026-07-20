@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 
 /**
@@ -9,6 +10,7 @@ import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT
  * row."
  */
 export const RemoveDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rm';
   const errColor = 'var(--ant-color-error)';
   const errBg = 'var(--ant-color-error-bg)';
@@ -31,12 +33,12 @@ export const RemoveDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Remove deletes the targeted header. BEFORE shows X-Frame-Options struck through; AFTER shows only the surviving Content-Type header."
+      aria-label={t('workbench.docs.diagrams.headerActions.remove.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.headerActions.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text
@@ -48,7 +50,7 @@ export const RemoveDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Remove X-Frame-Options
+        {t('workbench.docs.diagrams.headerActions.remove.rule')}
       </text>
 
       {/* BEFORE — two rows, target highlighted in red with strikethrough */}
@@ -62,7 +64,7 @@ export const RemoveDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        BEFORE
+        {t('workbench.docs.diagrams.headerActions.shared.beforeKicker')}
       </text>
       {/* Targeted row */}
       <rect x={STATE_X + 4} y={BEFORE_Y + 18} width={STATE_W - 8} height={16} rx={2} fill={errBg} />
@@ -74,11 +76,11 @@ export const RemoveDiagram: React.FC = () => {
         fill={errColor}
         textDecoration="line-through"
       >
-        X-Frame-Options: DENY
+        {t('workbench.docs.diagrams.headerActions.remove.beforeStruck')}
       </text>
       {/* Other row */}
       <text x={STATE_X + 10} y={BEFORE_Y + 48} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        Content-Type: text/html
+        {t('workbench.docs.diagrams.headerActions.remove.lineContentType')}
       </text>
 
       {/* Arrow */}
@@ -98,24 +100,24 @@ export const RemoveDiagram: React.FC = () => {
         fontStyle="italic"
         fill={STROKE_BLUE}
       >
-        target removed
+        {t('workbench.docs.diagrams.headerActions.remove.arrowLabel')}
       </text>
 
       {/* AFTER — single row */}
       <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={AFTER_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
-        AFTER
+        {t('workbench.docs.diagrams.headerActions.shared.afterKicker')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
-        Content-Type: text/html
+        {t('workbench.docs.diagrams.headerActions.remove.lineContentType')}
       </text>
 
       {/* Outcome stamps */}
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        All instances of X-Frame-Options deleted.
+        {t('workbench.docs.diagrams.headerActions.remove.stamp1')}
       </text>
       <text x={160} y={STAMP_Y + 14} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Duplicate rows of the same header are all removed at once.
+        {t('workbench.docs.diagrams.headerActions.remove.stamp2')}
       </text>
     </svg>
   );
@@ -127,6 +129,7 @@ export const RemoveDiagram: React.FC = () => {
  * remove implied "replace with empty"), Override is the right tool.
  */
 export const RemoveWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -135,10 +138,10 @@ export const RemoveWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Remove is a no-op when the targeted header isn't present — no error fires. Use Override if you wanted to set a different value instead."
+      aria-label={t('workbench.docs.diagrams.headerActions.remove.wontAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.headerActions.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -156,20 +159,20 @@ export const RemoveWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Header already absent
+        {t('workbench.docs.diagrams.headerActions.remove.wontTitle')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        No-op — no error, the request just goes through unchanged.
+        {t('workbench.docs.diagrams.headerActions.remove.wontDetail')}
       </text>
 
       <text x={28} y={88} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.headerActions.shared.suggestion')}
       </text>
       <text x={48} y={102} fontSize={9} fill={TEXT}>
-        Use Override if you wanted to set the value, not remove it.
+        {t('workbench.docs.diagrams.headerActions.remove.wontSuggestion')}
       </text>
     </svg>
   );

@@ -191,4 +191,112 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.multiTab.local.noUnsaved': 'no unsaved changes',
   'workbench.docs.diagrams.multiTab.local.footer1': 'Each tab keeps its own splitter + draft.',
   'workbench.docs.diagrams.multiTab.local.footer2': 'A tab opened AFTER your drag inherits the new layout.',
+
+  // ── Header actions: shared kickers ──────────────────────────────────
+  'workbench.docs.diagrams.headerActions.shared.ruleKicker': 'RULE',
+  'workbench.docs.diagrams.headerActions.shared.beforeKicker': 'BEFORE',
+  'workbench.docs.diagrams.headerActions.shared.afterKicker': 'AFTER',
+  'workbench.docs.diagrams.headerActions.shared.wontFireKicker': "WHEN IT DOESN'T FIRE",
+  'workbench.docs.diagrams.headerActions.shared.suggestion': 'Suggestion',
+
+  // ── Header actions: operations overview ─────────────────────────────
+  'workbench.docs.diagrams.headerActions.overview.aria':
+    'Four header operations applied to the same starting header — Override replaces, Append adds duplicate, Remove ' +
+    'deletes, Merge concatenates.',
+  'workbench.docs.diagrams.headerActions.overview.title': 'Same starting header → four outcomes',
+  'workbench.docs.diagrams.headerActions.overview.before': 'Cookie: a=1',
+  'workbench.docs.diagrams.headerActions.overview.opOverride': 'Override',
+  'workbench.docs.diagrams.headerActions.overview.opAppend': 'Append',
+  'workbench.docs.diagrams.headerActions.overview.opRemove': 'Remove',
+  'workbench.docs.diagrams.headerActions.overview.opMerge': 'Merge',
+  'workbench.docs.diagrams.headerActions.overview.engineDnr': 'DNR',
+  'workbench.docs.diagrams.headerActions.overview.engineScript': 'Script',
+  'workbench.docs.diagrams.headerActions.overview.afterOverrideNew': 'Z',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendKept': 'a=1 ·',
+  'workbench.docs.diagrams.headerActions.overview.afterAppendNew': '+Cookie: Z',
+  'workbench.docs.diagrams.headerActions.overview.afterRemoveGone': '(header gone)',
+  'workbench.docs.diagrams.headerActions.overview.afterMergeNew': '; new=val',
+  'workbench.docs.diagrams.headerActions.overview.legendDnr': 'DNR — native, applied by Chrome',
+  'workbench.docs.diagrams.headerActions.overview.legendScript': 'Script — patched fetch / XHR (Merge only)',
+
+  // ── Header actions: add / replace ───────────────────────────────────
+  'workbench.docs.diagrams.headerActions.override.aria':
+    'Add / Replace — same rule covers both cases. Replaces an existing X-Auth header value, or adds the header when ' +
+    'absent. Both arrive at the same outcome.',
+  'workbench.docs.diagrams.headerActions.override.rule': 'Override X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.replaceLabel': 'Replace',
+  'workbench.docs.diagrams.headerActions.override.addLabel': 'Add',
+  'workbench.docs.diagrams.headerActions.override.replaceSub': 'header already present',
+  'workbench.docs.diagrams.headerActions.override.addSub': 'no X-Auth header yet',
+  'workbench.docs.diagrams.headerActions.override.beforeOld': 'X-Auth: old-value',
+  'workbench.docs.diagrams.headerActions.override.lineContentType': 'Content-Type: html',
+  'workbench.docs.diagrams.headerActions.override.afterNew': 'X-Auth: Bearer token',
+  'workbench.docs.diagrams.headerActions.override.noHeaderNote': '(no X-Auth)',
+  'workbench.docs.diagrams.headerActions.override.arrowReplaced': 'value replaced',
+  'workbench.docs.diagrams.headerActions.override.arrowAdded': 'header added',
+  'workbench.docs.diagrams.headerActions.override.stamp': 'Either way → one X-Auth header with your value',
+  'workbench.docs.diagrams.headerActions.override.wontAria':
+    "Add / Replace won't apply when the rule's conditions don't match the request — it silently no-ops. Suggestion: " +
+    'check Request Domains or URL Pattern conditions.',
+  'workbench.docs.diagrams.headerActions.override.wontTitle': 'Request to a non-matching domain',
+  'workbench.docs.diagrams.headerActions.override.wontDetail': 'Conditions gate the action — no match, no-op.',
+  'workbench.docs.diagrams.headerActions.override.wontSuggestion': "Check the rule's Request Domains or URL Pattern.",
+
+  // ── Header actions: append ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.append.aria':
+    'Append adds a second header row with the same name — both delivered. BEFORE has one Set-Cookie row; AFTER has ' +
+    'two, the new one highlighted.',
+  'workbench.docs.diagrams.headerActions.append.rule': 'Append Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.lineSession': 'Set-Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.append.arrowLabel': '+1 duplicate row',
+  'workbench.docs.diagrams.headerActions.append.afterNew': 'Set-Cookie: tracking=xyz',
+  'workbench.docs.diagrams.headerActions.append.stamp1': 'Two Set-Cookie rows — both delivered.',
+  'workbench.docs.diagrams.headerActions.append.stamp2':
+    'Use for Set-Cookie, Link, Via — headers that allow duplicates.',
+  'workbench.docs.diagrams.headerActions.append.wontAria':
+    "Append won't apply cleanly to headers that don't support duplicates — the browser keeps only one. Use Override " +
+    'to replace or Merge to concatenate.',
+  'workbench.docs.diagrams.headerActions.append.wontTitle': "Headers that don't allow duplicates",
+  'workbench.docs.diagrams.headerActions.append.wontDetail':
+    'e.g. Authorization, Host, Content-Type — browser keeps only one.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion1': 'Use Override to replace the value.',
+  'workbench.docs.diagrams.headerActions.append.wontSuggestion2': 'Use Merge to append to the existing value.',
+
+  // ── Header actions: remove ──────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.remove.aria':
+    'Remove deletes the targeted header. BEFORE shows X-Frame-Options struck through; AFTER shows only the ' +
+    'surviving Content-Type header.',
+  'workbench.docs.diagrams.headerActions.remove.rule': 'Remove X-Frame-Options',
+  'workbench.docs.diagrams.headerActions.remove.beforeStruck': 'X-Frame-Options: DENY',
+  'workbench.docs.diagrams.headerActions.remove.lineContentType': 'Content-Type: text/html',
+  'workbench.docs.diagrams.headerActions.remove.arrowLabel': 'target removed',
+  'workbench.docs.diagrams.headerActions.remove.stamp1': 'All instances of X-Frame-Options deleted.',
+  'workbench.docs.diagrams.headerActions.remove.stamp2': 'Duplicate rows of the same header are all removed at once.',
+  'workbench.docs.diagrams.headerActions.remove.wontAria':
+    "Remove is a no-op when the targeted header isn't present — no error fires. Use Override if you wanted to set a " +
+    'different value instead.',
+  'workbench.docs.diagrams.headerActions.remove.wontTitle': 'Header already absent',
+  'workbench.docs.diagrams.headerActions.remove.wontDetail':
+    'No-op — no error, the request just goes through unchanged.',
+  'workbench.docs.diagrams.headerActions.remove.wontSuggestion':
+    'Use Override if you wanted to set the value, not remove it.',
+
+  // ── Header actions: merge ───────────────────────────────────────────
+  'workbench.docs.diagrams.headerActions.merge.aria':
+    'Merge reads the existing header value at runtime, joins your value with a separator, and replaces the original.',
+  'workbench.docs.diagrams.headerActions.merge.rule': "Merge Cookie + new=val  (sep: '; ')",
+  'workbench.docs.diagrams.headerActions.merge.lineSession': 'Cookie: session=abc',
+  'workbench.docs.diagrams.headerActions.merge.arrowLabel': 'join with separator',
+  'workbench.docs.diagrams.headerActions.merge.afterNew': 'new=val',
+  'workbench.docs.diagrams.headerActions.merge.stamp1': 'Existing value + your value, joined by the separator.',
+  'workbench.docs.diagrams.headerActions.merge.stamp2': "Default separator: '; ' for Cookie, ', ' for other headers.",
+  'workbench.docs.diagrams.headerActions.merge.wontAria':
+    'Merge only intercepts JS-initiated fetch / XHR — page navigations and static resources flow through unchanged. ' +
+    'Use Override or Append (DNR) for those.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle1': 'Page navigations',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail1':
+    'Only JS-initiated fetch / XHR pass through the script engine.',
+  'workbench.docs.diagrams.headerActions.merge.wontTitle2': 'Static resources (img, script, link)',
+  'workbench.docs.diagrams.headerActions.merge.wontDetail2': 'Browser-issued — never touch fetch / XHR.',
+  'workbench.docs.diagrams.headerActions.merge.wontSuggestion': 'For page-level headers, use Override or Append (DNR).',
 } as const satisfies Catalog;
