@@ -50,7 +50,8 @@ export type TabMode =
   | 'live-variable-edit'
   | 'live-variable-create'
   | 'live-workflow-edit'
-  | 'live-workflow-create';
+  | 'live-workflow-create'
+  | 'proxy-request-inspect';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -158,6 +159,11 @@ export interface WorkbenchTab {
    * provenance field.
    */
   seedFromExampleName?: string;
+  /** For proxy-request-inspect tabs: the captured lifecycle's requestId on
+   *  the proxy partition. Ephemeral by nature — the row lives in the
+   *  daemon's in-memory capture log, so the tab renders a "request gone"
+   *  empty state once the capture is cleared or evicted. */
+  proxyRequestId?: string;
   /** For live-variable-edit tabs: the LV uid being edited. */
   liveVariableUid?: string;
   /** For live-workflow-edit tabs: the workflow uid being edited. */

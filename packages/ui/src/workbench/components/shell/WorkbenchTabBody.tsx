@@ -14,6 +14,7 @@
 
 import type { Collection, CollectionTree, ExtensionRuleType, LiveWorkflow } from '@openheaders/core/types';
 import type React from 'react';
+import { lazy, Suspense } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { findFolderByUid } from '@openheaders/ui/shared/variables';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
@@ -36,6 +37,10 @@ import GrpcResponseExampleView from '../grpc-response-example/GrpcResponseExampl
 import WsResponseExampleView from '../ws-response-example/WsResponseExampleView';
 import ResponseExampleView from '../response-example/ResponseExampleView';
 import RuleEditor from '../rule/RuleEditor';
+// Lazy: pulls the panel-package network detail — browser workbenches
+// that never register `proxyCapture` don't fetch the chunk (mirrors
+// `WorkbenchToolWindow`'s ProxyCapturePanel).
+const ProxyRequestInspectTab = lazy(() => import('../panels/ProxyRequestInspectTab'));
 import SpecEditorTab from '../specs/SpecEditorTab';
 import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview';
 import TemplateEditor from '../template/TemplateEditor';
@@ -278,6 +283,13 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   }
   if (tab.mode === 'daemon-admin') {
     return <DaemonAdminConsole />;
+  }
+  if (tab.mode === 'proxy-request-inspect' && tab.proxyRequestId) {
+    return (
+      <Suspense fallback={null}>
+        <ProxyRequestInspectTab requestId={tab.proxyRequestId} />
+      </Suspense>
+    );
   }
   if (tab.mode === 'env-edit' && tab.environmentUid) {
     return (

@@ -19,6 +19,7 @@ import type { Collection, Rule, Template } from '@openheaders/core/types';
 import { useState } from 'react';
 import type { ClosedTab, WorkbenchTab } from '../types';
 import { useLiveOpeners } from './tab-openers/live-openers';
+import { useProxyOpeners } from './tab-openers/proxy-openers';
 import { useRequestOpeners } from './tab-openers/request-openers';
 import { useRuleOpeners } from './tab-openers/rule-openers';
 import type { TabOpenerContext, UseTabOpenersApi } from './tab-openers/shared';
@@ -66,6 +67,7 @@ export function useTabOpeners({
   const requestOpeners = useRequestOpeners({ requestCollections, workspaceId, surfaceId }, context);
   const templateOpeners = useTemplateOpeners({ templates }, context);
   const liveOpeners = useLiveOpeners(context);
+  const proxyOpeners = useProxyOpeners(context);
   const workspaceOpeners = useWorkspaceOpeners(context);
 
   return {
@@ -75,6 +77,7 @@ export function useTabOpeners({
     ...requestOpeners,
     ...templateOpeners,
     ...liveOpeners,
+    ...proxyOpeners,
     ...workspaceOpeners,
   };
 }

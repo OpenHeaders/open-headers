@@ -168,6 +168,13 @@ export interface UseTabOpenersApi {
    */
   openGrpcResponseExampleTab: (uid: string, name: string, grpcRequestUid: string) => void;
   openWsResponseExampleTab: (uid: string, name: string, websocketRequestUid: string) => void;
+  /**
+   * Open a captured proxy request's read-only inspector tab. Tab id
+   * `proxy-req-<requestId>` — reopening the same capture switches to
+   * the existing tab. `label` carries the request's display name
+   * (method + URL leaf) resolved by the caller from the capture row.
+   */
+  openProxyRequestInspect: (requestId: string, label: string) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**

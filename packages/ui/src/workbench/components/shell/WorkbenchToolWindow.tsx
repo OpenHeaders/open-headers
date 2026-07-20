@@ -92,6 +92,7 @@ interface WorkbenchToolWindowProps {
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
+  openProxyRequestInspect: UseTabOpenersApi['openProxyRequestInspect'];
 
   // Shell-local handlers.
   handleDeleteRule: (uid: string) => void;
@@ -155,6 +156,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openGrpcResponseExampleTab,
   openWsResponseExampleTab,
   openLiveVariableEdit,
+  openProxyRequestInspect,
   handleDeleteRule,
   handleCloseTab,
   handleViewActivityEntity,
@@ -287,7 +289,11 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'proxy-capture':
       return (
         <Suspense fallback={null}>
-          <ProxyCapturePanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />
+          <ProxyCapturePanel
+            info={getToolWindowInfo(id, t)}
+            onHide={() => tl.closeDock(slot)}
+            onOpenRequest={openProxyRequestInspect}
+          />
         </Suspense>
       );
     case 'terminal':

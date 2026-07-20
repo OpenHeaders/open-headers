@@ -24,13 +24,17 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NetworkCaptureView } from '../../../panel/components/NetworkCaptureView';
+import { extractName } from '../../../panel/components/traffic/formatters';
+import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-projection';
 
 export interface ProxyCapturePanelProps {
   info: InfoPopoverContent;
   onHide: () => void;
+  /** Open a captured request's inspector as a main editor tab. */
+  onOpenRequest: (requestId: string, label: string) => void;
 }
 
-const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide }) => {
+const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onOpenRequest }) => {
   const t = useT();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
@@ -59,6 +63,14 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide }) =
   }, [reload]);
 
   const running = status?.running === true;
+
+  const inspectRequest = useCallback(
+    (row: InspectorRowWithFires) => {
+      const { name } = extractName(row.lifecycle.url);
+      onOpenRequest(row.lifecycle.requestId, `${row.lifecycle.method} ${name}`);
+    },
+    [onOpenRequest],
+  );
 
   const start = async (): Promise<void> => {
     setBusy(true);
@@ -161,6 +173,7 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide }) =
         <div style={{ flex: '1 1 auto', minHeight: 0 }}>
           <NetworkCaptureView
             tabId={PROXY_LIFECYCLE_TAB_ID}
+            onInspectRequest={inspectRequest}
             emptyHero={
               <div className="dt-empty-hero">
                 <strong>
