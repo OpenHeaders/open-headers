@@ -33,8 +33,11 @@ import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
+import { workbench } from './workbench';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
+import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchScriptPackages } from './workbench-script-packages';
 
 export const zhCN = {
   ...desktop,
@@ -65,6 +68,9 @@ export const zhCN = {
   ...sharedWorkspace,
   ...tui,
   ...web,
+  ...workbench,
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
+  ...workbenchDocsDebugMode,
+  ...workbenchScriptPackages,
 } as const satisfies Catalog;
