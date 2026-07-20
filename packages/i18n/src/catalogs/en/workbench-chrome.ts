@@ -470,10 +470,6 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.tags': 'Tags',
   'workbench.gitLog.refs.empty': 'Branches appear after the first commit.',
 
-  // ── Deep Network Inspection placeholder panel. The sample connection
-  // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
-  // roadmap's quoted scenario copy ride raw as illustration data —
-  // only the panel chrome keys here. ──────────────────────────────────
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': 'Running · :{port}',
   'workbench.proxyCapture.stopped': 'Stopped',

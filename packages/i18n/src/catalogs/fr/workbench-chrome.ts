@@ -525,11 +525,6 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.tags': 'Tags',
   'workbench.gitLog.refs.empty': 'Les branches apparaissent après le premier commit.',
 
-  // ── Deep Network Inspection placeholder panel. The sample connection
-  // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
-  // roadmap's quoted scenario copy ride raw as illustration data —
-  // only the panel chrome keys here. ──────────────────────────────────
-
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Titre',
   'workbench.markdown.bold': 'Gras',

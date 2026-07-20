@@ -16,7 +16,7 @@
  * scope) vs `alcance` (debug reach) two-word law, «Sin entorno»
  * runtime quote (S57). MINTS: scratch = `provisional` (the sidebar
  * badge word as entity prefix); splitter = `divisor`, unsplit =
- * `Deshacer la división`; tier = `nivel` (settings-panes quote).
+ * `Deshacer la división`.
  * Raw by design: `Docs` / `Params` tab names (gRPC precedent), auth
  * scheme and body-mode enums (Basic, Bearer Token, Form data, raw,
  * GraphQL), Chrome ResourceType values (Page, Frame, Fetch/XHR,
@@ -527,11 +527,6 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.remote': 'Remotas',
   'workbench.gitLog.refs.tags': 'Etiquetas',
   'workbench.gitLog.refs.empty': 'Las ramas aparecen tras el primer commit.',
-
-  // ── Deep Network Inspection placeholder panel. The sample connection
-  // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
-  // roadmap's quoted scenario copy ride raw as illustration data —
-  // only the panel chrome keys here. ──────────────────────────────────
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Título',

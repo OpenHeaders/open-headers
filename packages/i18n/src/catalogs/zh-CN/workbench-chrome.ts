@@ -16,14 +16,13 @@
  * (popup), 跟踪 = tracking (追踪 stays distributed tracing), 这台电脑,
  * 新功能 = What's New (shared-notifications 查看新功能). MINTS: 分隔条
  * = splitter (取消拆分 = unsplit); 对等方 = peer (noun; extends the
- * adjectival 对等 of shared-awareness); 深度网络检查 = Deep Network
- * Inspection; 层级 = deep-network tier (档 stays the seat tier);
+ * adjectival 对等 of shared-awareness);
  * 红绿灯指示 = the traffic-light status pill; 签发 = mint (a token);
  * 外壳 carried = the UI chrome. Raw by design: `Docs` / `Params` tab
  * names (gRPC precedent), auth scheme and body-mode enums (Basic,
  * Bearer Token, Form data, raw, GraphQL), Chrome ResourceType values
- * (Page, Frame, Fetch/XHR, Script), DNR / AND / DOM / L4 / L7 / TCP /
- * TLS / RTT, lowercase vault / live / shell / pty / oh (token case
+ * (Page, Frame, Fetch/XHR, Script), DNR / AND / DOM / TLS,
+ * lowercase vault / live / shell / pty / oh (token case
  * follows en), the proxy scope placeholder wire value, footer key
  * caps (↑↓ / ← / → / ↵ / esc) and the {chord} / {unit} / {units}
  * holes.
@@ -476,10 +475,6 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.tags': '标签',
   'workbench.gitLog.refs.empty': '还没有分支',
 
-  // ── Deep Network Inspection placeholder panel. The sample connection
-  // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
-  // roadmap's quoted scenario copy ride raw as illustration data —
-  // only the panel chrome keys here. ──────────────────────────────────
   // ── Proxy capture tool window (control strip) ────────────────────
   'workbench.proxyCapture.running': '运行中 · :{port}',
   'workbench.proxyCapture.stopped': '已停止',

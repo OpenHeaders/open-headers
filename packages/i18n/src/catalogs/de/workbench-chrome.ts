@@ -13,7 +13,7 @@
  * runtime quote (S57). MINTS: scratch = Skizzen- entity prefix
  * (Skizzen-Anfrage, from the Skizze mint); anheften / lösen =
  * pin / unpin; der Teiler = splitter, Teilung aufheben = unsplit;
- * die Stufe = tier; die Ampelanzeige = the traffic-light status
+ * die Ampelanzeige = the traffic-light status
  * pill; der Schutzschalter = circuit breaker with the actions
  * Wiederholen / Schaltkreis zurücksetzen (de workbench-live must
  * reuse); Peers raw (m. pl., matches peer-adressierbar);
@@ -523,11 +523,6 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.remote': 'Remote',
   'workbench.gitLog.refs.tags': 'Tags',
   'workbench.gitLog.refs.empty': 'Branches erscheinen nach dem ersten Commit.',
-
-  // ── Deep Network Inspection placeholder panel. The sample connection
-  // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
-  // roadmap's quoted scenario copy ride raw as illustration data —
-  // only the panel chrome keys here. ──────────────────────────────────
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Überschrift',

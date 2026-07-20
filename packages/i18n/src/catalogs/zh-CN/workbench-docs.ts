@@ -19,7 +19,7 @@
  * titles (workbench-chrome), 动态（JavaScript）／静态数据 mode
  * labels, rule kickers (-规则 family), 第一方 / 第三方. Reuses 触达
  * = reach (debug referent), 引擎 = engine, 模拟 = mock, 徽章 =
- * badge, 工具窗口, 分隔条 = splitter, 深度网络检查, 转换 =
+ * badge, 工具窗口, 分隔条 = splitter, 转换 =
  * transform, 匿名化 = anonymize, lowercase `vault` per-case law.
  * MINTS: 取舍 = trade-off; 固定测试数据 = fixture; 等待页 = the
  * local waiting page; 泳道 = delay lane.
