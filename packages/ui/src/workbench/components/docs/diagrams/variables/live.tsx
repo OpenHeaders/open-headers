@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, STROKE, STROKE_BLUE, TEXT, TEXT_DIM } from '../_shared';
 import { scopeBg, scopeColor } from './_scope-palette';
 
@@ -10,27 +11,32 @@ import { scopeBg, scopeColor } from './_scope-palette';
  * re-runs the workflow to keep the value fresh.
  */
 export const VariablesLiveLifecycleDiagram: React.FC = () => {
+  const t = useT();
   const liveColor = scopeColor('live');
+  const steps = [
+    t('workbench.docs.diagrams.variables.live.step1'),
+    t('workbench.docs.diagrams.variables.live.step2'),
+  ];
   return (
     <svg
       viewBox="0 0 320 210"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="A live workflow runs its steps, publishes the exposed capture as a live variable, and rules and requests consume it; auto-refresh re-runs the workflow"
+      aria-label={t('workbench.docs.diagrams.variables.live.aria')}
     >
       <ArrowDefs id="var-live-arrow" />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        A successful run publishes the value
+        {t('workbench.docs.diagrams.variables.live.title')}
       </text>
 
       {/* Workflow card */}
       <rect x={16} y={30} width={130} height={104} rx={5} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} />
       <rect x={16} y={30} width={130} height={18} rx={5} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={81} y={43} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        Live Workflow
+        {t('workbench.docs.diagrams.variables.live.workflowTitle')}
       </text>
-      {['Step 1 · sign in', 'Step 2 · fetch token'].map((step, i) => (
+      {steps.map((step, i) => (
         <g key={step}>
           <rect
             x={26}
@@ -48,16 +54,16 @@ export const VariablesLiveLifecycleDiagram: React.FC = () => {
       ))}
       <rect x={26} y={106} width={110} height={16} rx={3} fill={scopeBg('step')} stroke={scopeColor('step')} />
       <text x={32} y={117} fontSize={8} fontWeight={600} fill={scopeColor('step')}>
-        expose: token
+        {t('workbench.docs.diagrams.variables.live.expose')}
       </text>
 
       {/* Publish arrow */}
       <line x1={146} y1={86} x2={194} y2={86} stroke={STROKE} markerEnd="url(#var-live-arrow)" />
       <text x={170} y={80} textAnchor="middle" fontSize={7.5} fill={TEXT_DIM}>
-        run succeeds
+        {t('workbench.docs.diagrams.variables.live.runSucceeds')}
       </text>
       <text x={170} y={98} textAnchor="middle" fontSize={7.5} fill={TEXT_DIM}>
-        publishes
+        {t('workbench.docs.diagrams.variables.live.publishes')}
       </text>
 
       {/* Live variable chip */}
@@ -71,11 +77,11 @@ export const VariablesLiveLifecycleDiagram: React.FC = () => {
       <line x1={274} y1={98} x2={282} y2={126} stroke={STROKE} markerEnd="url(#var-live-arrow)" />
       <rect x={196} y={130} width={48} height={20} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={220} y={143.5} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Rules
+        {t('workbench.docs.diagrams.variables.live.rules')}
       </text>
       <rect x={252} y={130} width={56} height={20} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={280} y={143.5} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Requests
+        {t('workbench.docs.diagrams.variables.live.requests')}
       </text>
 
       {/* Refresh loop back to the workflow */}
@@ -87,14 +93,14 @@ export const VariablesLiveLifecycleDiagram: React.FC = () => {
         markerEnd="url(#var-live-arrow)"
       />
       <text x={218} y={26} textAnchor="middle" fontSize={7.5} fontStyle="italic" fill={TEXT_DIM}>
-        auto-refresh re-runs
+        {t('workbench.docs.diagrams.variables.live.autoRefresh')}
       </text>
 
       <text x={160} y={176} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Saving activates the workflow — the value appears only after
+        {t('workbench.docs.diagrams.variables.live.footer1')}
       </text>
       <text x={160} y={189} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        a run that succeeds, and refreshes on the workflow's schedule.
+        {t('workbench.docs.diagrams.variables.live.footer2')}
       </text>
     </svg>
   );

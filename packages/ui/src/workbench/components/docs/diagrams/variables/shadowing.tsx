@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, STROKE, TEXT, TEXT_DIM } from '../_shared';
 import { scopeBg, scopeColor } from './_scope-palette';
 
@@ -10,6 +11,7 @@ import { scopeBg, scopeColor } from './_scope-palette';
  * definition is shadowed but stays reachable through its namespace.
  */
 export const VariablesShadowingDiagram: React.FC = () => {
+  const t = useT();
   const envColor = scopeColor('environment');
   const wsColor = scopeColor('workspace');
   return (
@@ -18,11 +20,11 @@ export const VariablesShadowingDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="api_host defined in both environment and workspace — the bare reference resolves to the environment value; the namespaced form still reads the workspace value"
+      aria-label={t('workbench.docs.diagrams.variables.shadowing.aria')}
     >
       <ArrowDefs id="var-shadow-arrow" />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Same name in two scopes — the higher one wins
+        {t('workbench.docs.diagrams.variables.shadowing.title')}
       </text>
 
       {/* Bare reference */}
@@ -34,18 +36,18 @@ export const VariablesShadowingDiagram: React.FC = () => {
       {/* Winner path */}
       <line x1={140} y1={46} x2={92} y2={74} stroke={envColor} strokeWidth={1.4} markerEnd="url(#var-shadow-arrow)" />
       <text x={95} y={58} textAnchor="end" fontSize={8} fontWeight={600} fill={envColor}>
-        ✓ wins
+        {t('workbench.docs.diagrams.variables.shadowing.wins')}
       </text>
       {/* Shadowed path */}
       <line x1={180} y1={46} x2={230} y2={74} stroke={TEXT_DIM} strokeDasharray="3 3" />
       <text x={228} y={58} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        shadowed
+        {t('workbench.docs.diagrams.variables.shadowing.shadowed')}
       </text>
 
       {/* Environment definition */}
       <rect x={16} y={78} width={140} height={44} rx={4} fill={scopeBg('environment')} stroke={envColor} />
       <text x={24} y={92} fontSize={9} fontWeight={600} fill={envColor}>
-        Environment · staging
+        {t('workbench.docs.diagrams.variables.shadowing.envLabel')}
       </text>
       <text x={24} y={108} fontFamily="monospace" fontSize={7.5} fill={TEXT}>
         api_host=stg.openheaders.io
@@ -54,7 +56,7 @@ export const VariablesShadowingDiagram: React.FC = () => {
       {/* Workspace definition */}
       <rect x={164} y={78} width={140} height={44} rx={4} fill={scopeBg('workspace')} stroke={wsColor} />
       <text x={172} y={92} fontSize={9} fontWeight={600} fill={wsColor}>
-        Workspace
+        {t('workbench.docs.diagrams.variables.shadowing.wsLabel')}
       </text>
       <text x={172} y={108} fontFamily="monospace" fontSize={7.5} fill={TEXT}>
         api_host=openheaders.io
@@ -68,7 +70,7 @@ export const VariablesShadowingDiagram: React.FC = () => {
       <line x1={200} y1={150} x2={232} y2={126} stroke={wsColor} strokeWidth={1.4} markerEnd="url(#var-shadow-arrow)" />
 
       <text x={160} y={196} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        The prefix skips the ladder and reads one scope directly.
+        {t('workbench.docs.diagrams.variables.shadowing.footer')}
       </text>
     </svg>
   );

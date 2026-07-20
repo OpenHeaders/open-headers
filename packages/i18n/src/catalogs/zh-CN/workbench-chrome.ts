@@ -466,6 +466,7 @@ export const workbenchChrome = {
   'workbench.gitLog.selectCommit': '选择一个提交以查看其更改',
   'workbench.gitLog.notBound.title': '此工作区没有 Git 绑定',
   'workbench.gitLog.notBound.body': '在设置 › Git 下将工作区绑定到一个文件夹，即可查看其历史。',
+  'workbench.gitLog.notBound.cta': '打开 Git 设置',
   'workbench.gitLog.loadFailed': '无法加载历史：{detail}',
   'workbench.gitLog.authorLine': '{author} <{email}> 于 {date}',
   'workbench.gitLog.coAuthors': '共同作者：{authors}',

@@ -40,6 +40,7 @@ import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocs } from './workbench-docs';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsDiagrams } from './workbench-docs-diagrams';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
@@ -94,6 +95,7 @@ export const zhCN = {
   ...workbenchDaemonAdmin,
   ...workbenchDocs,
   ...workbenchDocsDebugMode,
+  ...workbenchDocsDiagrams,
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
