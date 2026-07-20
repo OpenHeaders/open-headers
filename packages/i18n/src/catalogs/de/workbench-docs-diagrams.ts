@@ -594,4 +594,295 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.actions.taxonomy.nameDelay': 'Verzögerung',
   'workbench.docs.diagrams.actions.taxonomy.subDelay': 'Navigationen + fetch / XHR',
   'workbench.docs.diagrams.actions.taxonomy.verdict': 'Kategorie wählen · Aktion wählen · mit Bedingungen kombinieren',
+
+  // ── System status: shared ───────────────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.shared.sync': 'Synchronisierung',
+  'workbench.docs.diagrams.systemStatus.shared.rules': 'Regeln',
+  'workbench.docs.diagrams.systemStatus.shared.requests': 'Anfragen',
+  'workbench.docs.diagrams.systemStatus.shared.permissions': 'Berechtigungen',
+  'workbench.docs.diagrams.systemStatus.shared.secrets': 'Secrets',
+  'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.systemStatus': 'Systemstatus',
+  'workbench.docs.diagrams.systemStatus.shared.noEventsYet': 'Noch keine Ereignisse',
+  'workbench.docs.diagrams.systemStatus.shared.green': 'grün',
+  'workbench.docs.diagrams.systemStatus.shared.yellow': 'gelb',
+  'workbench.docs.diagrams.systemStatus.shared.red': 'rot',
+  'workbench.docs.diagrams.systemStatus.shared.desktopApp': 'Desktop-App',
+  'workbench.docs.diagrams.systemStatus.shared.swWakes': 'SW wacht auf',
+
+  // ── System status: surfaces ─────────────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.surfacesWorkbench.aria':
+    'Workbench-Oberfläche — der Workbench-Tab von OpenHeaders. Die Statuszeile lebt in der Fußleiste, mit ' +
+    'einer Pille pro Subsystem.',
+  'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': 'Workbench: Statuszeile in der Fußleiste',
+  'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
+    '↑ sechs Pillen — eine pro Subsystem; ein Klick öffnet das Popover.',
+  'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
+    'Popup-Oberfläche — das Popup der Erweiterung hängt am Toolbar-Symbol. Die Status-Pille sitzt in der ' +
+    'Fußleiste des Popups: ein Punkt plus das Label „Systemstatus“.',
+  'workbench.docs.diagrams.systemStatus.surfacesPopup.title': 'Popup: Systemstatus-Pille in der Fußleiste',
+  'workbench.docs.diagrams.systemStatus.surfacesPopup.wsChip': 'ws ▾',
+  'workbench.docs.diagrams.systemStatus.surfacesPopup.callout':
+    '↑ Punkt + Label „Systemstatus“ sitzt im Fußstreifen des Popups.',
+
+  // ── System status: worst-level aggregator ───────────────────────────
+  'workbench.docs.diagrams.systemStatus.worstLevel.aria':
+    'Schlechtester-Zustand-Aggregator — sechs Subsystem-Zustände speisen einen einzigen zusammengesetzten ' +
+    'Punkt. Die schlechteste Farbe gewinnt: Rot schlägt Gelb schlägt Grün.',
+  'workbench.docs.diagrams.systemStatus.worstLevel.title': 'Die schlechteste Farbe gewinnt',
+  'workbench.docs.diagrams.systemStatus.worstLevel.subtitle':
+    'rot > gelb > grün · grau = noch keine Ereignisse (zählt als grün)',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgConnected': 'verbunden',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgActive': '12 aktiv',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgNoEvents': 'noch keine Ereignisse',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': 'Host eingeschränkt',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': 'Entschlüsselung',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': '3 frisch',
+  'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
+  'workbench.docs.diagrams.systemStatus.worstLevel.composite': 'zusammengesetzter',
+  'workbench.docs.diagrams.systemStatus.worstLevel.dot': 'Punkt',
+  'workbench.docs.diagrams.systemStatus.worstLevel.footer':
+    'Ein Rot irgendwo → Komposit rot. Steuert den Punkt in Popup / Seitenleiste.',
+
+  // ── System status: popover ──────────────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.popover.aria':
+    'Layout des Status-Popovers — graue Zeilen (noch keine Ereignisse) stehen über den farbigen Zeilen ' +
+    '(die bereits gemeldet haben).',
+  'workbench.docs.diagrams.systemStatus.popover.title': 'Popover-Reihenfolge: erst Grau, dann Farbe',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle':
+    'Innerhalb jeder Stufe bleibt die kanonische Subsystem-Reihenfolge erhalten',
+  'workbench.docs.diagrams.systemStatus.popover.header': '● Systemstatus',
+  'workbench.docs.diagrams.systemStatus.popover.msgConnected': 'Verbunden',
+  'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': '12 aktive Regeln',
+  'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': 'Hosts eingeschränkt',
+  'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': 'Entschlüsselung fehlgeschlagen',
+  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ keine Ereignisse · ↓ haben gemeldet',
+  'workbench.docs.diagrams.systemStatus.popover.footer':
+    'Beim ersten Bericht wandert eine Zeile einmalig von grau zu farbig.',
+
+  // ── System status: sync topology ────────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.syncTopology.aria':
+    'Sync-Topologie — der Service Worker der Erweiterung hält einen WebSocket zur Desktop-App auf ' +
+    '127.0.0.1:8137 und tauscht Arbeitsbereiche, Variablen und Team-Synchronisierung aus.',
+  'workbench.docs.diagrams.systemStatus.syncTopology.title': 'Wie sich das Subsystem Synchronisierung verbindet',
+  'workbench.docs.diagrams.systemStatus.syncTopology.extension': 'Erweiterung',
+  'workbench.docs.diagrams.systemStatus.syncTopology.serviceWorker': 'Service Worker',
+  'workbench.docs.diagrams.systemStatus.syncTopology.wsClient': 'WS-Client',
+  'workbench.docs.diagrams.systemStatus.syncTopology.onYourMachine': 'auf deinem Rechner',
+  'workbench.docs.diagrams.systemStatus.syncTopology.wsServer': 'WS-Server',
+  'workbench.docs.diagrams.systemStatus.syncTopology.webSocket': 'WebSocket',
+  'workbench.docs.diagrams.systemStatus.syncTopology.carries':
+    'Transportiert: dynamische Variablen · Arbeitsbereiche · Team-Sync',
+  'workbench.docs.diagrams.systemStatus.syncTopology.loopback': 'Nur Loopback — verlässt deinen Rechner nie.',
+
+  // ── System status: sync lifecycle ───────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.aria':
+    'Lebenszyklus der Sync-Verbindung als Sequenzdiagramm — der Service Worker der Erweiterung verbindet sich ' +
+    'mit der Desktop-App; die Pille wechselt von grün zu gelb und zurück zu grün',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.title': 'Wie sich die Sync-Pille über die Zeit verändert',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.extensionSw': 'Erweiterungs-SW',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.syncPill': 'Sync-Pille',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.readsSettings': 'liest Einstellungen',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.autoConnectOff': 'wenn Auto-Verbinden = aus →',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.stateDisabled': 'Deaktiviert',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.stateConnecting': 'Verbindet',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.stateConnected': 'Verbunden',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.retry1': 'Versuch #1',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.retry2': 'Versuch #2',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.otherwise': 'andernfalls →',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.wsConnect': 'WebSocket-Verbindung',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.handshakeOk': 'Handshake OK',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.pingPong': 'Ping ⇄ Pong',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.connectionDrops': '✗ Verbindung bricht ab',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.backoff': 'Backoff',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.retryConnect': 'erneut verbinden',
+  'workbench.docs.diagrams.systemStatus.syncLifecycle.footer':
+    'Exponentieller Backoff zwischen Versuchen · Pings erkennen stille Proxy-Abbrüche',
+
+  // ── System status: rules pipeline ───────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.aria':
+    'Regel-Pipeline — die Regel wird kompiliert, Variablen aufgelöst, das Limit geprüft, dann wendet Chrome ' +
+    'sie an. Jede Stufe kann einen Status-Level melden, wenn etwas schiefgeht.',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.title': 'Wie eine Regel zum aktiven DNR-Eintrag wird',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.stageYourRule': 'Deine Regel',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.stageCompile': 'Kompilieren',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.stageResolve': '{{VAR}} auflösen',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.stageCapCheck': 'Limit-Prüfung',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.stageChromeApply': 'Chrome wendet an',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.stageLiveRule': 'Aktive Regel',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.subToDnrJson': 'zu DNR-JSON',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.subResolveScopes': 'vault · env · Arbeitsbereich',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.subMatches': 'matcht Anfragen',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.outUnresolved': 'unaufgelöst → gelb',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.outOverCap': 'über dem Limit → gelb',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.outRejected': 'abgelehnt → rot',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.outActive': 'N aktiv → grün',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.footerRebuild': 'Der Neuaufbau feuert bei jedem Speichern.',
+  'workbench.docs.diagrams.systemStatus.rulesPipeline.footerPaused':
+    'Pausiert bleibt grün („Regelausführung pausiert“).',
+
+  // ── System status: rules capacity ───────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.aria':
+    'DNR-Kapazitätsleiste — grün bis zur Warnschwelle, gelb bis zum Kürzungslimit, rot darüber. Regeln über ' +
+    'dem Limit werden verworfen, die rote Zone wird zur Laufzeit nie erreicht.',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.title': 'Regelkapazität — wo jede Anzahl landet',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.zoneHealthy': '✓ gesund',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.zoneApproach': 'nähert sich',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.zoneTruncated': 'gekürzt',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.countHealthy': '1,200',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.countApproaching': '4,500',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.countOver': '5,600',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.warnLabel': 'Warnung',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.capLabel': 'Limit',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.warnValue': '4,000',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.capValue': '5,000',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.footerDrop':
+    'Regeln über dem Limit werden in Match-Reihenfolge verworfen (oben gewinnt).',
+  'workbench.docs.diagrams.systemStatus.rulesCapacity.footerCeiling':
+    'Die harte Obergrenze von Chrome liegt viel weiter draußen, bei 30.000.',
+
+  // ── System status: request outcomes ─────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.aria':
+    'Ergebnisse des Anfrage-Executors — jede HTTP-Antwort, auch 4xx und 5xx, stellt die Pille auf grün. Nur ' +
+    'Netzwerkfehler ohne Antwort stellen sie auf gelb.',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.title': 'Was färbt die Anfragen-Pille in welche Farbe?',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.requestEditor': 'Anfrage-Editor',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.sendButton': 'Senden ▸',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.executorFires': 'Executor feuert',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.gotResponse': '✓ HTTP-Antwort erhalten',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.anyStatus': 'jeder Statuscode zählt',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.exOk': 'OK',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.exNotFound': 'Nicht gefunden',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.exServerError': 'Serverfehler',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.exAborted': 'Abgebrochen',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.exOffline': 'Offline / DNS',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.pillGreen': 'Pille → grün',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.pillYellow': 'Pille → gelb',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.noResponse': '✗ keine Antwort',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.networkFailure': 'Fehler auf Netzwerkebene',
+  'workbench.docs.diagrams.systemStatus.requestsOutcomes.footer':
+    'Ein 500 ist trotzdem „grün“ — die Anfrage kam durch, du hast eben einen 500 bekommen.',
+
+  // ── System status: request scope ────────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.requestsScope.aria':
+    'Geltungsbereich des Executors — nur Senden-Button-Anfragen aktualisieren die Pille. Live-Workflow-' +
+    'Aktualisierungen sind still; Seitenverkehr läuft über die Regel-Engine.',
+  'workbench.docs.diagrams.systemStatus.requestsScope.title': 'Was aktualisiert die Anfragen-Pille?',
+  'workbench.docs.diagrams.systemStatus.requestsScope.srcSend': 'Senden ▸ im Editor',
+  'workbench.docs.diagrams.systemStatus.requestsScope.srcLive': 'Live-Workflow-Refresh',
+  'workbench.docs.diagrams.systemStatus.requestsScope.srcWebpage': 'fetch / XHR der Seite',
+  'workbench.docs.diagrams.systemStatus.requestsScope.subUser': 'vom Nutzer ausgelöst',
+  'workbench.docs.diagrams.systemStatus.requestsScope.subBackground': 'Hintergrund-Tick',
+  'workbench.docs.diagrams.systemStatus.requestsScope.subObserved': 'von der Regel-Engine beobachtet',
+  'workbench.docs.diagrams.systemStatus.requestsScope.updatesPill': 'aktualisiert die Pille',
+  'workbench.docs.diagrams.systemStatus.requestsScope.differentSystem': 'anderes System',
+  'workbench.docs.diagrams.systemStatus.requestsScope.noUpdate': 'keine Aktualisierung',
+  'workbench.docs.diagrams.systemStatus.requestsScope.footer':
+    'Nur Ad-hoc-Verkehr des Senden-Buttons formt diese Pille.',
+
+  // ── System status: permissions impact ───────────────────────────────
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.aria':
+    'Gleiche Regel, zwei Berechtigungszustände. Mit gewährtem all_urls greift die DNR-Regel. Mit entzogenem ' +
+    'Host tut die Regel still nichts und der Header kommt nie an.',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.title': 'Gleiche Regel, zwei Berechtigungszustände',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.granted': 'Gewährt',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.narrowed': 'Eingeschränkt',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.hostRevoked': 'Host entzogen',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.addHeader': 'Header hinzufügen',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.page': 'Seite',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.fetchCall': 'fetch()',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.applies': 'greift',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.noOp': 'No-op',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.headerArrives': '✓ Header kommt an',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.headerMissing': '✗ Header fehlt',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.ruleFired': 'Regel griff',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.silentNoOp': 'stilles No-op',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.footer1':
+    'Eingeschränkte Hosts werfen keinen Fehler — Regeln tun einfach still nichts.',
+  'workbench.docs.diagrams.systemStatus.permissionsImpact.footer2':
+    'Das Rot der Pille ist der einzige Hinweis, bis du den Zugriff wiederherstellst.',
+
+  // ── System status: permissions audit ────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.aria':
+    'Wann das Audit läuft und welchen Status-Level jeder Zweig meldet.',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.title': 'Wann läuft das Audit, und was meldet jeder Zweig?',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.firstHydration': 'erste Hydration',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.happyPath': 'Normalfall',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.userRevoked': 'ein Host wurde entzogen',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.apiUnavailable': 'API nicht verfügbar',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.throws': 'wirft Fehler',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.msgAllGranted': '„Alles gewährt“',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.msgHostsNarrowed': '„Hosts eingeschränkt“',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.msgAuditFailed': '„Audit fehlgeschlagen“',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.footer1':
+    'MV3 hat keinen Beobachter für Berechtigungsänderungen —',
+  'workbench.docs.diagrams.systemStatus.permissionsAudit.footer2':
+    'die Prüfung feuert bei jedem Aufwachen des SW erneut.',
+
+  // ── System status: vault hydration ──────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.vaultHydration.aria':
+    'Vault-Hydration — der vault-Blob lädt aus dem Speicher, jeder Eintrag läuft durchs Schema. Passende bleiben; ' +
+    'abgedriftete Einträge werden verworfen und als gelb gemeldet.',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.title': 'Vault-Hydration beim Aufwachen des SW',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.blobSuffix': ' (verschlüsselter Blob)',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.schemaValidator': 'Schema-Validator',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.matchesSchema': 'passt zum Schema',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.driftOldShape': 'Drift: alte Form',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.kept': '✓ behalten',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.dropped': '✗ verworfen',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.secretsYellow': 'Secrets · gelb',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.keptEntries': 'behaltene Einträge',
+  'workbench.docs.diagrams.systemStatus.vaultHydration.hydrateCleanly': 'hydrieren sauber',
+
+  // ── System status: vault drift detail ───────────────────────────────
+  'workbench.docs.diagrams.systemStatus.vaultDrift.aria':
+    'Wie Schema-Drift konkret aussieht — ein gültiger Eintrag hat uid, label und cipher; einem abgedrifteten ' +
+    'kann das cipher-Feld fehlen. Der Validator verwirft die schlechte Zeile und meldet gelb.',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.title': 'Wie „Schema-Drift“ konkret aussieht',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.validEntry': 'Gültiger Eintrag',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.driftEntry': 'Drift-Eintrag',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.apiToken': 'API-token',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.oldToken': 'alter token',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.missing': '— fehlt —',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.issue': '2 Schema-Probleme → verworfen',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.footer1':
+    'Drift-Einträge werden beim Hydrieren verworfen und die Pille wird gelb.',
+  'workbench.docs.diagrams.systemStatus.vaultDrift.footer2':
+    'Erneutes Speichern im Vault-Editor gibt dem Eintrag seine aktuelle Form zurück.',
+
+  // ── System status: live freshness ───────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.liveFreshness.aria':
+    'Zustandsregeln pro Workflow — frisch, veraltet/wackelnd, fehlschlagend — an die echten Schwellen ' + 'gepinnt.',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.title': 'Zustandsregeln pro Workflow',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.stateFresh': 'frisch',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.stateStale': 'veraltet / wackelnd',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.stateFailing': 'fehlschlagend',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.ruleFresh': 'letzter Lauf OK · innerhalb 2× Kadenz · 0 Fehler',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.ruleStale': 'über 2× Kadenz · ODER 1–4 Fehler in Folge',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.ruleFailing': '≥ 5 Fehler in Folge',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.egFresh': 'z. B. jeder Refresh trifft die 200',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.egStale': 'z. B. ein Timeout, neuer Versuch',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.egFailing': 'z. B. API eine Stunde down',
+  'workbench.docs.diagrams.systemStatus.liveFreshness.footer':
+    'Kadenz = das konfigurierte Aktualisierungsintervall des Workflows.',
+
+  // ── System status: live aggregation ─────────────────────────────────
+  'workbench.docs.diagrams.systemStatus.liveAggregation.aria':
+    'Live-Pillen-Aggregation — drei Workflows des aktiven Arbeitsbereichs falten sich via max zu einem ' +
+    'Komposit; Workflows inaktiver Arbeitsbereiche sind ausgeschlossen.',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.title':
+    'Workflows des aktiven Arbeitsbereichs falten sich zu einer Pille',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.activeWorkspace': 'Aktiver Arbeitsbereich',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.contributes': 'zählt für die Pille',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.msgFresh': 'frisch',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.msgConsecFails': '2 Fehler in Folge',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.otherWorkspaces': 'Andere Arbeitsbereiche',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.excluded': 'bewusst ausgeschlossen',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.skipped': '✗ nicht handhabbar — übersprungen',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.livePill': 'Live-Pille',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.maxYellow': 'max() = gelb',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.footer1':
+    'Ein einziger Workflow im schlechtesten Zustand kippt die ganze Pille.',
+  'workbench.docs.diagrams.systemStatus.liveAggregation.footer2':
+    'Wechsle den Arbeitsbereich und die Pille rechnet mit den Läufen dieses Bereichs neu.',
 } as const satisfies Catalog;

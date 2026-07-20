@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,STROKE,TEXT,TEXT_DIM } from '../_shared';
 import { SUCCESS_BG,WARNING_BG,ERROR_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,dotColor } from './_shared';
 
@@ -9,6 +10,7 @@ import { SUCCESS_BG,WARNING_BG,ERROR_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,dotCo
  * Three concrete rows make the keep/drop outcome visible at a glance.
  */
 export const VaultHydrationDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'vault-hyd';
   const errBorder = 'var(--ant-color-error-border)';
 
@@ -25,11 +27,11 @@ export const VaultHydrationDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Vault hydration — vault blob loads from storage, every entry runs through the schema. Matches are kept; drift entries are dropped and reported as yellow."
+      aria-label={t('workbench.docs.diagrams.systemStatus.vaultHydration.aria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Vault hydrate on SW wake
+        {t('workbench.docs.diagrams.systemStatus.vaultHydration.title')}
       </text>
 
       {/* Storage source */}
@@ -38,7 +40,7 @@ export const VaultHydrationDiagram: React.FC = () => {
         chrome.storage.local
       </text>
       <text x={32} y={62} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-        oh.ws.{'<id>'}.vault (encrypted blob)
+        oh.ws.{'<id>'}.vault{t('workbench.docs.diagrams.systemStatus.vaultHydration.blobSuffix')}
       </text>
       <rect x={234} y={42} width={56} height={20} rx={3} fill={FILL_SECONDARY} stroke={BORDER} />
       <text x={262} y={56} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
@@ -51,7 +53,7 @@ export const VaultHydrationDiagram: React.FC = () => {
       {/* Validator box */}
       <rect x={100} y={90} width={120} height={24} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
       <text x={160} y={105} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Schema validator
+        {t('workbench.docs.diagrams.systemStatus.vaultHydration.schemaValidator')}
       </text>
 
       {/* Arrow down to entries */}
@@ -69,7 +71,9 @@ export const VaultHydrationDiagram: React.FC = () => {
               {entry.uid}
             </text>
             <text x={120} y={y + 14} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-              {entry.ok ? 'matches schema' : `drift: ${entry.reason}`}
+              {entry.ok
+                ? t('workbench.docs.diagrams.systemStatus.vaultHydration.matchesSchema')
+                : t('workbench.docs.diagrams.systemStatus.vaultHydration.driftOldShape')}
             </text>
             {/* Outcome arrow */}
             <line
@@ -93,7 +97,9 @@ export const VaultHydrationDiagram: React.FC = () => {
               stroke={dotColor(entry.ok ? 'green' : 'yellow')}
             />
             <text x={266} y={y + 14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-              {entry.ok ? '✓ kept' : '✗ dropped'}
+              {entry.ok
+                ? t('workbench.docs.diagrams.systemStatus.vaultHydration.kept')
+                : t('workbench.docs.diagrams.systemStatus.vaultHydration.dropped')}
             </text>
           </g>
         );
@@ -112,14 +118,14 @@ export const VaultHydrationDiagram: React.FC = () => {
       <rect x={222} y={224} width={88} height={18} rx={4} fill={WARNING_BG} stroke={dotColor('yellow')} />
       <circle cx={232} cy={233} r={3} fill={dotColor('yellow')} />
       <text x={272} y={236} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Secrets · yellow
+        {t('workbench.docs.diagrams.systemStatus.vaultHydration.secretsYellow')}
       </text>
 
       <text x={20} y={234} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        kept entries
+        {t('workbench.docs.diagrams.systemStatus.vaultHydration.keptEntries')}
       </text>
       <text x={20} y={246} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        hydrate cleanly
+        {t('workbench.docs.diagrams.systemStatus.vaultHydration.hydrateCleanly')}
       </text>
     </svg>
   );
@@ -132,6 +138,7 @@ export const VaultHydrationDiagram: React.FC = () => {
  * before "Schema drift" reads as anything but jargon.
  */
 export const VaultDriftDetailDiagram: React.FC = () => {
+  const t = useT();
   const errBorder = 'var(--ant-color-error-border)';
   const errBg = 'var(--ant-color-error-bg)';
   const errColor = dotColor('red');
@@ -178,7 +185,7 @@ export const VaultDriftDetailDiagram: React.FC = () => {
               fill={f.missing ? errColor : TEXT}
               fontStyle={f.missing ? 'italic' : undefined}
             >
-              {f.missing ? '— missing —' : f.value}
+              {f.missing ? t('workbench.docs.diagrams.systemStatus.vaultDrift.missing') : f.value}
             </text>
           </g>
         );
@@ -197,20 +204,20 @@ export const VaultDriftDetailDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="What schema drift actually looks like — a valid entry has uid, label, and cipher; a drift entry might be missing the cipher field. The validator drops the bad row and emits a yellow status."
+      aria-label={t('workbench.docs.diagrams.systemStatus.vaultDrift.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        What "schema drift" actually looks like
+        {t('workbench.docs.diagrams.systemStatus.vaultDrift.title')}
       </text>
 
       <Card
         xOff={10}
-        title="Valid entry"
+        title={t('workbench.docs.diagrams.systemStatus.vaultDrift.validEntry')}
         accent={SUCCESS_BG}
         accentStroke={dotColor('green')}
         fields={[
           { key: 'uid', value: 'sec_a1f3' },
-          { key: 'label', value: 'API token' },
+          { key: 'label', value: t('workbench.docs.diagrams.systemStatus.vaultDrift.apiToken') },
           { key: 'cipher', value: 'aes-gcm…' },
           { key: 'created', value: '1715000…' },
         ]}
@@ -218,23 +225,23 @@ export const VaultDriftDetailDiagram: React.FC = () => {
 
       <Card
         xOff={170}
-        title="Drift entry"
+        title={t('workbench.docs.diagrams.systemStatus.vaultDrift.driftEntry')}
         accent={errBg}
         accentStroke={errBorder}
         fields={[
           { key: 'uid', value: 'sec_c3d5' },
-          { key: 'label', value: 'Old token' },
+          { key: 'label', value: t('workbench.docs.diagrams.systemStatus.vaultDrift.oldToken') },
           { key: 'cipher', value: '', missing: true },
           { key: 'created', value: '"yesterday"', ok: false },
         ]}
-        issue="2 schema issues → dropped"
+        issue={t('workbench.docs.diagrams.systemStatus.vaultDrift.issue')}
       />
 
       <text x={160} y={198} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        Drift entries are dropped on hydrate and the pill goes yellow.
+        {t('workbench.docs.diagrams.systemStatus.vaultDrift.footer1')}
       </text>
       <text x={160} y={212} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Re-saving from the Vault editor restores the entry's current shape.
+        {t('workbench.docs.diagrams.systemStatus.vaultDrift.footer2')}
       </text>
     </svg>
   );

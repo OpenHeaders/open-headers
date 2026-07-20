@@ -38,8 +38,6 @@ export type Level = 'green' | 'yellow' | 'red' | 'grey';
 export const dotColor = (lvl: Level): string =>
   lvl === 'red' ? ERROR : lvl === 'yellow' ? WARNING : lvl === 'green' ? SUCCESS : GREY;
 
-export const SUBSYSTEMS = ['Sync', 'Rules', 'Requests', 'Permissions', 'Secrets', 'Live'] as const;
-
 // ─── Surfaces — where the pill renders ────────────────────────────
 
 /**

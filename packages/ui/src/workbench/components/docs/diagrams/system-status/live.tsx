@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,TEXT,TEXT_DIM } from '../_shared';
 import { SUCCESS_BG,WARNING_BG,ERROR_BG,GREY_BG,Level,dotColor } from './_shared';
 
@@ -9,6 +10,7 @@ import { SUCCESS_BG,WARNING_BG,ERROR_BG,GREY_BG,Level,dotColor } from './_shared
  * 1–4 consecutive-failure yellow band, and the ≥ 5 red threshold.
  */
 export const LiveWorkflowFreshnessDiagram: React.FC = () => {
+  const t = useT();
   type StateDef = {
     level: Exclude<Level, 'grey'>;
     label: string;
@@ -18,21 +20,21 @@ export const LiveWorkflowFreshnessDiagram: React.FC = () => {
   const STATES: StateDef[] = [
     {
       level: 'green',
-      label: 'fresh',
-      rule: 'last run OK · within 2× cadence · 0 failures',
-      example: 'every refresh hits the 200',
+      label: t('workbench.docs.diagrams.systemStatus.liveFreshness.stateFresh'),
+      rule: t('workbench.docs.diagrams.systemStatus.liveFreshness.ruleFresh'),
+      example: t('workbench.docs.diagrams.systemStatus.liveFreshness.egFresh'),
     },
     {
       level: 'yellow',
-      label: 'stale / faltering',
-      rule: 'past 2× cadence  · OR  1–4 consecutive failures',
-      example: 'one timeout, retrying',
+      label: t('workbench.docs.diagrams.systemStatus.liveFreshness.stateStale'),
+      rule: t('workbench.docs.diagrams.systemStatus.liveFreshness.ruleStale'),
+      example: t('workbench.docs.diagrams.systemStatus.liveFreshness.egStale'),
     },
     {
       level: 'red',
-      label: 'failing',
-      rule: '≥ 5 consecutive failures',
-      example: 'API down for an hour',
+      label: t('workbench.docs.diagrams.systemStatus.liveFreshness.stateFailing'),
+      rule: t('workbench.docs.diagrams.systemStatus.liveFreshness.ruleFailing'),
+      example: t('workbench.docs.diagrams.systemStatus.liveFreshness.egFailing'),
     },
   ];
 
@@ -48,10 +50,10 @@ export const LiveWorkflowFreshnessDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Live workflow per-state rules — fresh, stale/faltering, failing — pinned to the actual thresholds."
+      aria-label={t('workbench.docs.diagrams.systemStatus.liveFreshness.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Per-workflow state rules
+        {t('workbench.docs.diagrams.systemStatus.liveFreshness.title')}
       </text>
 
       {STATES.map((s, i) => {
@@ -70,14 +72,14 @@ export const LiveWorkflowFreshnessDiagram: React.FC = () => {
               {s.rule}
             </text>
             <text x={ROW_X + 26} y={y + 44} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-              e.g. {s.example}
+              {s.example}
             </text>
           </g>
         );
       })}
 
       <text x={160} y={208} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Cadence = the workflow's configured refresh interval.
+        {t('workbench.docs.diagrams.systemStatus.liveFreshness.footer')}
       </text>
     </svg>
   );
@@ -91,13 +93,19 @@ export const LiveWorkflowFreshnessDiagram: React.FC = () => {
  * skipped — the user can't act on them, so they don't pill.
  */
 export const LivePillAggregationDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'live-agg';
   const dimStroke = 'var(--ant-color-border-secondary)';
 
+  const freshMsg = t('workbench.docs.diagrams.systemStatus.liveAggregation.msgFresh');
   const ACTIVE = [
-    { name: 'fetchToken', level: 'green' as const, msg: 'fresh' },
-    { name: 'invoiceList', level: 'yellow' as const, msg: '2 consecutive fails' },
-    { name: 'healthCheck', level: 'green' as const, msg: 'fresh' },
+    { name: 'fetchToken', level: 'green' as const, msg: freshMsg },
+    {
+      name: 'invoiceList',
+      level: 'yellow' as const,
+      msg: t('workbench.docs.diagrams.systemStatus.liveAggregation.msgConsecFails'),
+    },
+    { name: 'healthCheck', level: 'green' as const, msg: freshMsg },
   ];
 
   return (
@@ -106,19 +114,19 @@ export const LivePillAggregationDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Live pill aggregation — three active-workspace workflows fold into one composite via max; inactive workspace workflows are excluded."
+      aria-label={t('workbench.docs.diagrams.systemStatus.liveAggregation.aria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Active-workspace workflows fold into one pill
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.title')}
       </text>
 
       {/* Section header: active workspace */}
       <text x={20} y={36} fontSize={9} fontWeight={700} fill={TEXT}>
-        Active workspace
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.activeWorkspace')}
       </text>
       <text x={20} y={48} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        contributes to the pill
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.contributes')}
       </text>
 
       {ACTIVE.map((wf, i) => {
@@ -151,31 +159,31 @@ export const LivePillAggregationDiagram: React.FC = () => {
 
       {/* Section header: inactive workspace */}
       <text x={20} y={150} fontSize={9} fontWeight={700} fill={TEXT_DIM}>
-        Other workspaces
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.otherWorkspaces')}
       </text>
       <text x={20} y={162} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        deliberately excluded
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.excluded')}
       </text>
       <rect x={20} y={170} width={180} height={22} rx={3} fill={GREY_BG} stroke={dimStroke} strokeDasharray="3 2" />
       <text x={32} y={184} fontSize={9} fill={TEXT_DIM}>
-        ✗ user can't act on them — skipped
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.skipped')}
       </text>
 
       {/* Composite pill */}
       <rect x={216} y={120} width={84} height={56} rx={6} fill={WARNING_BG} stroke={dotColor('yellow')} />
       <circle cx={258} cy={138} r={7} fill={dotColor('yellow')} />
       <text x={258} y={158} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Live pill
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.livePill')}
       </text>
       <text x={258} y={170} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        max() = yellow
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.maxYellow')}
       </text>
 
       <text x={160} y={216} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        One worst-state workflow flips the whole pill.
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.footer1')}
       </text>
       <text x={160} y={230} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Switch workspace and the pill recomputes against that workspace's runs.
+        {t('workbench.docs.diagrams.systemStatus.liveAggregation.footer2')}
       </text>
     </svg>
   );

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,FILL_BLUE,STROKE,STROKE_BLUE,TEXT,TEXT_DIM } from '../_shared';
 import { SUCCESS_BG,WARNING_BG,ERROR_BG,BORDER,BG_CONTAINER,Level,dotColor } from './_shared';
 
@@ -9,20 +10,51 @@ import { SUCCESS_BG,WARNING_BG,ERROR_BG,BORDER,BG_CONTAINER,Level,dotColor } fro
  * sideways.
  */
 export const RulesPipelineDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rules-pipe';
 
   type Stage = { name: string; sub: string; outcome?: { label: string; level: Exclude<Level, 'grey'> } };
   const STAGES: Stage[] = [
-    { name: 'Your rule', sub: 'Auth: Bearer {{TOKEN}}' },
-    { name: 'Compile', sub: 'to DNR JSON' },
     {
-      name: 'Resolve {{VAR}}',
-      sub: 'vault · env · workspace',
-      outcome: { label: 'unresolved → yellow', level: 'yellow' },
+      name: t('workbench.docs.diagrams.systemStatus.rulesPipeline.stageYourRule'),
+      sub: 'Auth: Bearer {{TOKEN}}',
     },
-    { name: 'Cap check', sub: 'maxActiveRules', outcome: { label: 'over cap → yellow', level: 'yellow' } },
-    { name: 'Chrome apply', sub: 'updateDynamicRules', outcome: { label: 'rejected → red', level: 'red' } },
-    { name: 'Live rule', sub: 'matches requests', outcome: { label: 'N active → green', level: 'green' } },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.rulesPipeline.stageCompile'),
+      sub: t('workbench.docs.diagrams.systemStatus.rulesPipeline.subToDnrJson'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.rulesPipeline.stageResolve'),
+      sub: t('workbench.docs.diagrams.systemStatus.rulesPipeline.subResolveScopes'),
+      outcome: {
+        label: t('workbench.docs.diagrams.systemStatus.rulesPipeline.outUnresolved'),
+        level: 'yellow',
+      },
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.rulesPipeline.stageCapCheck'),
+      sub: 'maxActiveRules',
+      outcome: {
+        label: t('workbench.docs.diagrams.systemStatus.rulesPipeline.outOverCap'),
+        level: 'yellow',
+      },
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.rulesPipeline.stageChromeApply'),
+      sub: 'updateDynamicRules',
+      outcome: {
+        label: t('workbench.docs.diagrams.systemStatus.rulesPipeline.outRejected'),
+        level: 'red',
+      },
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.rulesPipeline.stageLiveRule'),
+      sub: t('workbench.docs.diagrams.systemStatus.rulesPipeline.subMatches'),
+      outcome: {
+        label: t('workbench.docs.diagrams.systemStatus.rulesPipeline.outActive'),
+        level: 'green',
+      },
+    },
   ];
 
   const ROW_X = 30;
@@ -37,11 +69,11 @@ export const RulesPipelineDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Rules pipeline — user rule compiles, resolves variables, passes cap check, then Chrome applies it. Each stage can emit a Status level if it goes wrong."
+      aria-label={t('workbench.docs.diagrams.systemStatus.rulesPipeline.aria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        How a rule becomes a live DNR entry
+        {t('workbench.docs.diagrams.systemStatus.rulesPipeline.title')}
       </text>
 
       {STAGES.map((stage, i) => {
@@ -105,10 +137,10 @@ export const RulesPipelineDiagram: React.FC = () => {
       })}
 
       <text x={160} y={244} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Rebuild fires on every save.
+        {t('workbench.docs.diagrams.systemStatus.rulesPipeline.footerRebuild')}
       </text>
       <text x={160} y={256} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Paused stays green ("Rule execution paused").
+        {t('workbench.docs.diagrams.systemStatus.rulesPipeline.footerPaused')}
       </text>
     </svg>
   );
@@ -121,6 +153,7 @@ export const RulesPipelineDiagram: React.FC = () => {
  * 5000. The 30k figure is a footer note, not bar geometry.
  */
 export const RulesCapacityDiagram: React.FC = () => {
+  const t = useT();
   // Stylised defaults — the real values come from settings.
   const CAP = 5000; // rulesEngine.maxActiveRules
   const WARN = 4000; // rulesEngine.largeRuleSetThreshold
@@ -148,15 +181,15 @@ export const RulesCapacityDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="DNR capacity bar — green up to the warning threshold, yellow up to the truncation cap, red beyond. Rules over the cap are dropped, so the red zone is never reached at runtime."
+      aria-label={t('workbench.docs.diagrams.systemStatus.rulesCapacity.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Rule capacity — where each rule count lands
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.title')}
       </text>
 
       {/* Zone labels above the bar */}
       <text x={(BAR_X + warnX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('green')}>
-        ✓ healthy
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.zoneHealthy')}
       </text>
       <text
         x={(warnX + capX) / 2 - 10}
@@ -166,17 +199,29 @@ export const RulesCapacityDiagram: React.FC = () => {
         fontWeight={700}
         fill={dotColor('yellow')}
       >
-        approach
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.zoneApproach')}
       </text>
       <text x={(capX + endX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('red')}>
-        truncated
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.zoneTruncated')}
       </text>
 
       {/* Example count needles above the bar */}
       {[
-        { count: HEALTHY, label: '1,200', level: 'green' as const },
-        { count: APPROACHING, label: '4,500', level: 'yellow' as const },
-        { count: OVER, label: '5,600', level: 'red' as const },
+        {
+          count: HEALTHY,
+          label: t('workbench.docs.diagrams.systemStatus.rulesCapacity.countHealthy'),
+          level: 'green' as const,
+        },
+        {
+          count: APPROACHING,
+          label: t('workbench.docs.diagrams.systemStatus.rulesCapacity.countApproaching'),
+          level: 'yellow' as const,
+        },
+        {
+          count: OVER,
+          label: t('workbench.docs.diagrams.systemStatus.rulesCapacity.countOver'),
+          level: 'red' as const,
+        },
       ].map((m) => (
         <g key={m.count}>
           <rect
@@ -218,40 +263,40 @@ export const RulesCapacityDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={warnX} y={BAR_Y + BAR_H + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        warn
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.warnLabel')}
       </text>
       <text x={warnX} y={BAR_Y + BAR_H + 29} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        4,000
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.warnValue')}
       </text>
 
       <line x1={capX} y1={BAR_Y + BAR_H} x2={capX} y2={BAR_Y + BAR_H + 6} stroke={dotColor('red')} strokeWidth={1.5} />
       <text x={capX} y={BAR_Y + BAR_H + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        cap
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.capLabel')}
       </text>
       <text x={capX} y={BAR_Y + BAR_H + 29} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        5,000
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.capValue')}
       </text>
 
       {/* Legend / footer notes */}
       <text x={20} y={172} fontSize={8} fontWeight={700} fill={TEXT}>
-        warn
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.warnLabel')}
       </text>
       <text x={48} y={172} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
         rulesEngine.largeRuleSetThreshold
       </text>
 
       <text x={20} y={186} fontSize={8} fontWeight={700} fill={TEXT}>
-        cap
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.capLabel')}
       </text>
       <text x={48} y={186} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
         rulesEngine.maxActiveRules
       </text>
 
       <text x={160} y={208} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Rules over the cap are dropped in match-order (top wins).
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.footerDrop')}
       </text>
       <text x={160} y={222} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        Chrome's hard ceiling sits much further out at 30,000.
+        {t('workbench.docs.diagrams.systemStatus.rulesCapacity.footerCeiling')}
       </text>
     </svg>
   );

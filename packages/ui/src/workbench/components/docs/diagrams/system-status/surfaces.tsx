@@ -1,6 +1,21 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,STROKE,STROKE_BLUE,TEXT,TEXT_DIM } from '../_shared';
-import { SUCCESS,ERROR,SUCCESS_BG,WARNING_BG,ERROR_BG,GREY_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,Level,dotColor,SUBSYSTEMS,OhLogo,BrowserFrame } from './_shared';
+import { SUCCESS,ERROR,SUCCESS_BG,WARNING_BG,ERROR_BG,GREY_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,Level,dotColor,OhLogo,BrowserFrame } from './_shared';
+
+const SUBSYSTEM_KEYS = [
+  'workbench.docs.diagrams.systemStatus.shared.sync',
+  'workbench.docs.diagrams.systemStatus.shared.rules',
+  'workbench.docs.diagrams.systemStatus.shared.requests',
+  'workbench.docs.diagrams.systemStatus.shared.permissions',
+  'workbench.docs.diagrams.systemStatus.shared.secrets',
+  'workbench.docs.diagrams.systemStatus.shared.live',
+] as const;
+
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven pills.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
 
 /**
  * Workbench surface: the browser shows a workbench.html tab and the
@@ -9,22 +24,30 @@ import { SUCCESS,ERROR,SUCCESS_BG,WARNING_BG,ERROR_BG,GREY_BG,BORDER,FILL_SECOND
  * footer strip with the six pills as the focal point.
  */
 export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
+  const t = useT();
   const charW = 4.3;
   const PAD_X = 4;
   const DOT_R = 2;
   const DOT_GAP = 3;
   const PILL_H = 14;
   const PILL_GAP = 3;
-  const widthOf = (name: string) => Math.ceil(name.length * charW) + PAD_X * 2 + DOT_R * 2 + DOT_GAP;
 
-  const ROW: { name: string; level: Level }[] = SUBSYSTEMS.map((s) => ({ name: s, level: 'green' }));
-  const totalW = ROW.reduce((sum, p) => sum + widthOf(p.name), 0) + PILL_GAP * (ROW.length - 1);
+  const ROW: { name: string; level: Level }[] = SUBSYSTEM_KEYS.map((k) => ({ name: t(k), level: 'green' }));
 
   // Footer strip lives at the bottom of the body area.
   const FOOTER_H = 22;
   const FOOTER_Y = 178 - FOOTER_H; // frame bottom edge - footer height
   const FOOTER_X = 8;
   const FOOTER_W = 304;
+
+  // Long locale names can outgrow the footer — squeeze the text scale
+  // (and font size with it) until the six pills fit the strip.
+  const FIXED_W = PAD_X * 2 + DOT_R * 2 + DOT_GAP;
+  const rawTextW = ROW.reduce((sum, p) => sum + unitLen(p.name) * charW, 0);
+  const availTextW = FOOTER_W - 12 - FIXED_W * ROW.length - PILL_GAP * (ROW.length - 1);
+  const k = Math.min(1, availTextW / rawTextW);
+  const widthOf = (name: string) => Math.ceil(unitLen(name) * charW * k) + FIXED_W;
+  const totalW = ROW.reduce((sum, p) => sum + widthOf(p.name), 0) + PILL_GAP * (ROW.length - 1);
   const pillsStartX = FOOTER_X + (FOOTER_W - totalW) / 2;
   const pillsCenterY = FOOTER_Y + FOOTER_H / 2;
 
@@ -45,7 +68,13 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
           stroke={BORDER}
         />
         <circle cx={x + PAD_X + DOT_R} cy={pillsCenterY} r={DOT_R} fill={dotColor(p.level)} />
-        <text x={x + PAD_X + DOT_R * 2 + DOT_GAP} y={pillsCenterY + 3} fontSize={8} fontWeight={600} fill={TEXT}>
+        <text
+          x={x + PAD_X + DOT_R * 2 + DOT_GAP}
+          y={pillsCenterY + 3}
+          fontSize={8 * k}
+          fontWeight={600}
+          fill={TEXT}
+        >
           {p.name}
         </text>
       </g>
@@ -58,10 +87,10 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Workbench surface — the OpenHeaders workbench tab. The status row lives in the bottom footer with one pill per subsystem."
+      aria-label={t('workbench.docs.diagrams.systemStatus.surfacesWorkbench.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Workbench: status row in the footer
+        {t('workbench.docs.diagrams.systemStatus.surfacesWorkbench.title')}
       </text>
 
       <BrowserFrame tabLabel="Open Headers" addressBar="chrome-extension://…/workbench.html">
@@ -98,7 +127,7 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
 
       {/* Callout */}
       <text x={160} y={204} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        ↑ six pills — one per subsystem, click any to open the popover.
+        {t('workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout')}
       </text>
     </svg>
   );
@@ -112,6 +141,7 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
  * bottom of the popup, alongside the Debug + help icons.
  */
 export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
+  const t = useT();
   // Popup dimensions — anchored BELOW the address bar so the
   // browser-frame separators don't draw through the popup header.
   const PU_W = 172;
@@ -129,10 +159,10 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Popup surface — the extension popup hangs from the toolbar icon. The status pill sits in the popup's bottom footer as a dot plus 'System status' label."
+      aria-label={t('workbench.docs.diagrams.systemStatus.surfacesPopup.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Popup: System status pill in the footer
+        {t('workbench.docs.diagrams.systemStatus.surfacesPopup.title')}
       </text>
 
       <BrowserFrame tabLabel="example.com" addressBar="https://example.com">
@@ -176,7 +206,7 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
         </text>
         <rect x={PU_X + PU_W - 32} y={PU_Y + 5} width={26} height={12} rx={6} fill={BG_CONTAINER} stroke={BORDER} />
         <text x={PU_X + PU_W - 19} y={PU_Y + 14} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
-          ws ▾
+          {t('workbench.docs.diagrams.systemStatus.surfacesPopup.wsChip')}
         </text>
 
         {/* Popup body — a few faded placeholder rows */}
@@ -219,7 +249,7 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
         {/* Status pill — dot + label */}
         <circle cx={PU_X + 38} cy={FOOTER_Y + FOOTER_H / 2} r={3.5} fill={SUCCESS} />
         <text x={PU_X + 46} y={FOOTER_Y + FOOTER_H / 2 + 3} fontSize={9} fontWeight={700} fill={TEXT}>
-          System status
+          {t('workbench.docs.diagrams.systemStatus.shared.systemStatus')}
         </text>
         {/* Right-aligned version chip */}
         <text x={PU_X + PU_W - 8} y={FOOTER_Y + FOOTER_H / 2 + 3} textAnchor="end" fontSize={8} fill={TEXT_DIM}>
@@ -228,7 +258,7 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
       </BrowserFrame>
 
       <text x={160} y={204} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        ↑ dot + "System status" label sits in the popup's footer strip.
+        {t('workbench.docs.diagrams.systemStatus.surfacesPopup.callout')}
       </text>
     </svg>
   );
@@ -237,15 +267,40 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
 // ─── Worst-level aggregator ───────────────────────────────────────
 
 export const SystemStatusWorstLevelDiagram: React.FC = () => {
+  const t = useT();
   // A scenario where two subsystems mis-fire — Permissions yellow,
   // Secrets red. Composite output is red.
   const ROWS: { name: string; level: Level; msg: string }[] = [
-    { name: 'Sync', level: 'green', msg: 'connected' },
-    { name: 'Rules', level: 'green', msg: '12 active' },
-    { name: 'Requests', level: 'grey', msg: 'no events yet' },
-    { name: 'Permissions', level: 'yellow', msg: 'host narrowed' },
-    { name: 'Secrets', level: 'red', msg: 'cipher decrypt' },
-    { name: 'Live', level: 'green', msg: '3 fresh' },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.sync'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgConnected'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.rules'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgActive'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.requests'),
+      level: 'grey',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgNoEvents'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.permissions'),
+      level: 'yellow',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.secrets'),
+      level: 'red',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgCipher'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.live'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgFresh'),
+    },
   ];
 
   const ID = 'sys-worst';
@@ -261,14 +316,14 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Worst-state aggregator — six subsystem states feed into one composite dot. The worst color wins: red beats yellow beats green."
+      aria-label={t('workbench.docs.diagrams.systemStatus.worstLevel.aria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Worst color wins
+        {t('workbench.docs.diagrams.systemStatus.worstLevel.title')}
       </text>
       <text x={160} y={26} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        red &gt; yellow &gt; green &nbsp;·&nbsp; grey = no events yet (treated as green)
+        {t('workbench.docs.diagrams.systemStatus.worstLevel.subtitle')}
       </text>
 
       {ROWS.map((row, i) => {
@@ -321,24 +376,24 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        max()
+        {t('workbench.docs.diagrams.systemStatus.worstLevel.maxFn')}
       </text>
 
       {/* Composite output */}
       <rect x={240} y={68} width={64} height={64} rx={6} fill={ERROR_BG} stroke={ERROR} />
       <circle cx={272} cy={94} r={8} fill={ERROR} />
       <text x={272} y={120} textAnchor="middle" fontSize={9} fontWeight={700} fill={ERROR}>
-        red
+        {t('workbench.docs.diagrams.systemStatus.shared.red')}
       </text>
       <text x={272} y={144} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        composite
+        {t('workbench.docs.diagrams.systemStatus.worstLevel.composite')}
       </text>
       <text x={272} y={156} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        dot
+        {t('workbench.docs.diagrams.systemStatus.worstLevel.dot')}
       </text>
 
       <text x={160} y={186} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        One red anywhere → composite is red. Drives the popup/sidepanel dot.
+        {t('workbench.docs.diagrams.systemStatus.worstLevel.footer')}
       </text>
     </svg>
   );
@@ -346,21 +401,39 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
 
 // ─── Sync subsystem — topology + lifecycle ────────────────────────
 export const SystemStatusPopoverDiagram: React.FC = () => {
+  const t = useT();
+  const noEvents = t('workbench.docs.diagrams.systemStatus.shared.noEventsYet');
   const GREYS = [
-    { name: 'Requests', msg: 'No events yet' },
-    { name: 'Live', msg: 'No events yet' },
+    { name: t('workbench.docs.diagrams.systemStatus.shared.requests'), msg: noEvents },
+    { name: t('workbench.docs.diagrams.systemStatus.shared.live'), msg: noEvents },
   ];
   const COLOREDS: { name: string; level: Exclude<Level, 'grey'>; msg: string }[] = [
-    { name: 'Sync', level: 'green', msg: 'Connected' },
-    { name: 'Rules', level: 'green', msg: '12 active rules' },
-    { name: 'Permissions', level: 'yellow', msg: 'Hosts narrowed' },
-    { name: 'Secrets', level: 'red', msg: 'Cipher decrypt failed' },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.sync'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.popover.msgConnected'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.rules'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.popover.msgActiveRules'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.permissions'),
+      level: 'yellow',
+      msg: t('workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.secrets'),
+      level: 'red',
+      msg: t('workbench.docs.diagrams.systemStatus.popover.msgCipherFailed'),
+    },
   ];
 
   const PAD_X = 14;
   const ROW_H = 16;
   const ROW_GAP = 3;
-  const TAG_W = 64;
+  const TAG_W = 70;
   const TAG_X = PAD_X;
   const FRAME_X = 30;
   const FRAME_W = 260;
@@ -417,20 +490,20 @@ export const SystemStatusPopoverDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Status popover layout — grey rows for subsystems with no events yet appear above colored rows for subsystems that have reported."
+      aria-label={t('workbench.docs.diagrams.systemStatus.popover.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Popover order: greys first, then coloreds
+        {t('workbench.docs.diagrams.systemStatus.popover.title')}
       </text>
       <text x={160} y={26} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Within each tier, canonical subsystem order is preserved
+        {t('workbench.docs.diagrams.systemStatus.popover.subtitle')}
       </text>
 
       {/* Popover frame */}
       <rect x={FRAME_X} y={36} width={FRAME_W} height={frameH} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
       {/* Header inside the popover */}
       <text x={FRAME_X + 14} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        ● System status
+        {t('workbench.docs.diagrams.systemStatus.popover.header')}
       </text>
       <circle cx={FRAME_X + 14 - 7} cy={45} r={3.5} fill={ERROR} />
 
@@ -453,13 +526,13 @@ export const SystemStatusPopoverDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        ↑ no events yet · ↓ have reported
+        {t('workbench.docs.diagrams.systemStatus.popover.dividerNote')}
       </text>
 
       {coloredRows}
 
       <text x={160} y={210} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        On first report, a row migrates from grey → colored once.
+        {t('workbench.docs.diagrams.systemStatus.popover.footer')}
       </text>
     </svg>
   );

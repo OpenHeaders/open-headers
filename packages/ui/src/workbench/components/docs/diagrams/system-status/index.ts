@@ -10,8 +10,8 @@
  *   vault.tsx       — Vault (hydration + drift).
  *   live.tsx        — Live runners (workflow freshness + pill aggregation).
  *
- * Theme tokens, the SUBSYSTEMS canonical order, OhLogo and BrowserFrame
- * live in `_shared.tsx` and are imported by individual subsystem files.
+ * Theme tokens, OhLogo and BrowserFrame live in `_shared.tsx` and are
+ * imported by individual subsystem files.
  */
 
 export {

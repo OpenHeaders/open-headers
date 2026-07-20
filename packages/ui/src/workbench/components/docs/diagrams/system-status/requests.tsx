@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,FILL_BLUE,STROKE,STROKE_BLUE,TEXT,TEXT_DIM } from '../_shared';
 import { SUCCESS_BG,WARNING_BG,GREY,GREY_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,dotColor } from './_shared';
 
@@ -10,18 +11,19 @@ import { SUCCESS_BG,WARNING_BG,GREY,GREY_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,d
  * the distinction visual.
  */
 export const RequestExecutorOutcomesDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'req-out';
   const errBorder = 'var(--ant-color-error-border)';
 
   const GREEN_EXAMPLES = [
-    { status: '200', text: 'OK' },
-    { status: '404', text: 'Not Found' },
-    { status: '500', text: 'Server Error' },
+    { status: '200', text: t('workbench.docs.diagrams.systemStatus.requestsOutcomes.exOk') },
+    { status: '404', text: t('workbench.docs.diagrams.systemStatus.requestsOutcomes.exNotFound') },
+    { status: '500', text: t('workbench.docs.diagrams.systemStatus.requestsOutcomes.exServerError') },
   ];
   const YELLOW_EXAMPLES = [
     { status: '—', text: 'NetworkError' },
-    { status: '—', text: 'Aborted' },
-    { status: '—', text: 'Offline / DNS' },
+    { status: '—', text: t('workbench.docs.diagrams.systemStatus.requestsOutcomes.exAborted') },
+    { status: '—', text: t('workbench.docs.diagrams.systemStatus.requestsOutcomes.exOffline') },
   ];
 
   return (
@@ -30,21 +32,21 @@ export const RequestExecutorOutcomesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Request executor outcomes — any HTTP response, including 4xx and 5xx, turns the pill green. Only network-level failures with no response turn it yellow."
+      aria-label={t('workbench.docs.diagrams.systemStatus.requestsOutcomes.aria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        What turns the Requests pill which color?
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.title')}
       </text>
 
       {/* Source: Send button card */}
       <rect x={100} y={30} width={120} height={36} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
       <text x={160} y={45} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Request editor
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.requestEditor')}
       </text>
       <rect x={140} y={51} width={40} height={12} rx={3} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={160} y={60} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT}>
-        Send ▸
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.sendButton')}
       </text>
 
       {/* Arrow down to executor */}
@@ -53,7 +55,7 @@ export const RequestExecutorOutcomesDiagram: React.FC = () => {
       {/* Executor box */}
       <rect x={120} y={84} width={80} height={22} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
       <text x={160} y={99} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Executor fires
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.executorFires')}
       </text>
 
       {/* Split arrows down to two outcomes */}
@@ -71,10 +73,10 @@ export const RequestExecutorOutcomesDiagram: React.FC = () => {
       {/* LEFT column — got HTTP response */}
       <rect x={10} y={132} width={140} height={130} rx={6} fill={SUCCESS_BG} stroke={dotColor('green')} />
       <text x={80} y={148} textAnchor="middle" fontSize={10} fontWeight={700} fill={dotColor('green')}>
-        ✓ got HTTP response
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.gotResponse')}
       </text>
       <text x={80} y={161} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        any status code counts
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.anyStatus')}
       </text>
       {GREEN_EXAMPLES.map((ex, i) => {
         const ry = 174 + i * 22;
@@ -100,16 +102,16 @@ export const RequestExecutorOutcomesDiagram: React.FC = () => {
         );
       })}
       <text x={80} y={252} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('green')}>
-        Pill → green
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.pillGreen')}
       </text>
 
       {/* RIGHT column — network failure */}
       <rect x={170} y={132} width={140} height={130} rx={6} fill={WARNING_BG} stroke={dotColor('yellow')} />
       <text x={240} y={148} textAnchor="middle" fontSize={10} fontWeight={700} fill={dotColor('yellow')}>
-        ✗ no response
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.noResponse')}
       </text>
       <text x={240} y={161} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        network-level failure
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.networkFailure')}
       </text>
       {YELLOW_EXAMPLES.map((ex, i) => {
         const ry = 174 + i * 22;
@@ -135,11 +137,11 @@ export const RequestExecutorOutcomesDiagram: React.FC = () => {
         );
       })}
       <text x={240} y={252} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('yellow')}>
-        Pill → yellow
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.pillYellow')}
       </text>
 
       <text x={160} y={274} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        A 500 is still "green" — the request completed, you just got a 500.
+        {t('workbench.docs.diagrams.systemStatus.requestsOutcomes.footer')}
       </text>
     </svg>
   );
@@ -153,25 +155,26 @@ export const RequestExecutorOutcomesDiagram: React.FC = () => {
  * system entirely.
  */
 export const RequestExecutorScopeDiagram: React.FC = () => {
+  const t = useT();
   type Row = { source: string; sub: string; updates: boolean; reason: string };
   const ROWS: Row[] = [
     {
-      source: 'Send ▸ in Request editor',
-      sub: 'user-initiated',
+      source: t('workbench.docs.diagrams.systemStatus.requestsScope.srcSend'),
+      sub: t('workbench.docs.diagrams.systemStatus.requestsScope.subUser'),
       updates: true,
-      reason: 'updates pill',
+      reason: t('workbench.docs.diagrams.systemStatus.requestsScope.updatesPill'),
     },
     {
-      source: 'Live workflow refresh',
-      sub: 'background tick',
+      source: t('workbench.docs.diagrams.systemStatus.requestsScope.srcLive'),
+      sub: t('workbench.docs.diagrams.systemStatus.requestsScope.subBackground'),
       updates: false,
       reason: 'silentStatus: true',
     },
     {
-      source: 'Webpage fetch / XHR',
-      sub: 'observed by Rules engine',
+      source: t('workbench.docs.diagrams.systemStatus.requestsScope.srcWebpage'),
+      sub: t('workbench.docs.diagrams.systemStatus.requestsScope.subObserved'),
       updates: false,
-      reason: 'different system',
+      reason: t('workbench.docs.diagrams.systemStatus.requestsScope.differentSystem'),
     },
   ];
 
@@ -181,10 +184,10 @@ export const RequestExecutorScopeDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Request executor scope — only Send-button requests update the pill. Live workflow refreshes are silent; webpage traffic uses the Rules engine instead."
+      aria-label={t('workbench.docs.diagrams.systemStatus.requestsScope.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        What updates the Requests pill?
+        {t('workbench.docs.diagrams.systemStatus.requestsScope.title')}
       </text>
 
       {ROWS.map((row, i) => {
@@ -229,7 +232,7 @@ export const RequestExecutorScopeDiagram: React.FC = () => {
                   ✗
                 </text>
                 <text x={214} y={y + 18} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-                  no update
+                  {t('workbench.docs.diagrams.systemStatus.requestsScope.noUpdate')}
                 </text>
                 <text x={214} y={y + 28} fontFamily="monospace" fontSize={7} fill={TEXT_DIM}>
                   {row.reason}
@@ -248,7 +251,7 @@ export const RequestExecutorScopeDiagram: React.FC = () => {
       </defs>
 
       <text x={160} y={194} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Only ad-hoc Send-button traffic shapes this pill.
+        {t('workbench.docs.diagrams.systemStatus.requestsScope.footer')}
       </text>
     </svg>
   );
