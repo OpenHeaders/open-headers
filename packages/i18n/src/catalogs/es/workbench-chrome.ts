@@ -463,6 +463,8 @@ export const workbenchChrome = {
     'El modo TUI funciona con la herramienta de línea de comandos oh, que aún no está conectada a esta ' +
     'aplicación. Conectarla crea un token de acceso y lo guarda en {path} — después, oh funciona en ' +
     'cualquier terminal de esta máquina.',
+  'workbench.terminal.cliGate.enableMcp':
+    'Activar también el servidor MCP para que oh pueda conectarse a esta aplicación',
   'workbench.terminal.cliGate.ok': 'Conectar y abrir',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.terminal.summary':

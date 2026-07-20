@@ -8,7 +8,7 @@
  * tab hides the panel; reopening starts a fresh tab.
  */
 
-import { Button, Modal, message, theme } from 'antd';
+import { App as AntApp, Button, Checkbox, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
@@ -18,6 +18,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
+import { set as setSettingValue } from '../../../settings/store';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getWorkbenchTerminalTabs, whenTerminalFontReady, type WorkbenchTerminal } from './terminal-instance';
@@ -55,6 +56,10 @@ interface TerminalPanelProps {
 
 const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide }) => {
   const t = useT();
+  // Context-aware modal/message: the static `Modal.confirm` mounts
+  // outside the ConfigProvider tree, so it renders unthemed (light
+  // chrome on a dark workbench). The App context APIs inherit theme.
+  const { modal, message } = AntApp.useApp();
   const { token } = theme.useToken();
   const { isDarkMode } = useUiTheme();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -164,11 +169,12 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           closeTab(id);
           return;
         }
-        Modal.confirm({
+        modal.confirm({
           title: (
             <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.closeConfirm.title')}</span>
           ),
           width: 380,
+          centered: true,
           content: (
             <p style={{ fontSize: 12, margin: '4px 0 0' }}>
               {t('workbench.terminal.closeConfirm.bodyPrefix')}
@@ -183,7 +189,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
         });
       });
     },
-    [tabsApi, closeTab, confirmCloseRunning, t],
+    [tabsApi, closeTab, confirmCloseRunning, modal, t],
   );
 
   // Context-menu bulk closes (Close Others / All / to the Left / Right)
@@ -209,11 +215,12 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           closeAll();
           return;
         }
-        Modal.confirm({
+        modal.confirm({
           title: (
             <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.closeConfirm.title')}</span>
           ),
           width: 380,
+          centered: true,
           content: (
             <p style={{ fontSize: 12, margin: '4px 0 0' }}>{t('workbench.terminal.closeConfirm.bodyMany', { count })}</p>
           ),
@@ -224,7 +231,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
         });
       });
     },
-    [tabsApi, confirmCloseRunning, t, onHide],
+    [tabsApi, confirmCloseRunning, modal, t, onHide],
   );
 
   const dockFocused = useIsDockFocused(dockSlot);
@@ -255,6 +262,14 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   // away; a probe failure opens too — the gate must never be the thing
   // that blocks the terminal. Provisioning itself is host-side: the
   // secret goes straight to disk and never enters this renderer.
+  //
+  // The CLI rides the daemon's `/mcp` surface, which the `mcp.enabled`
+  // master switch 404s while off (its default) — a token against a dead
+  // endpoint parks the TUI on "daemon unreachable". When the switch is
+  // off, the same consent dialog carries a default-checked checkbox
+  // that turns it on with the connect; unchecking provisions only.
+  const mcpEnabled = useSettingValue('mcp.enabled');
+  const enableMcpRef = useRef(true);
   const openTui = useCallback(() => {
     if (!tabsApi) return;
     const open = () => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' });
@@ -266,9 +281,10 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           return;
         }
         if (status.state === 'malformed') {
-          Modal.confirm({
+          modal.confirm({
             title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.title')}</span>,
             width: 420,
+            centered: true,
             content: (
               <p style={{ fontSize: 12, margin: '4px 0 0' }}>
                 {t('workbench.settings.cliAccess.statusMalformed', { message: status.error ?? status.configPath })}
@@ -281,13 +297,28 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           });
           return;
         }
-        Modal.confirm({
+        enableMcpRef.current = true;
+        modal.confirm({
           title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.title')}</span>,
           width: 420,
+          centered: true,
           content: (
-            <p style={{ fontSize: 12, margin: '4px 0 0' }}>
-              {t('workbench.terminal.cliGate.body', { path: status.configPath })}
-            </p>
+            <>
+              <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+                {t('workbench.terminal.cliGate.body', { path: status.configPath })}
+              </p>
+              {mcpEnabled !== true && (
+                <Checkbox
+                  defaultChecked
+                  onChange={(event) => {
+                    enableMcpRef.current = event.target.checked;
+                  }}
+                  style={{ fontSize: 12, marginTop: 12 }}
+                >
+                  {t('workbench.terminal.cliGate.enableMcp')}
+                </Checkbox>
+              )}
+            </>
           ),
           okText: t('workbench.terminal.cliGate.ok'),
           okButtonProps: { size: 'small' },
@@ -298,12 +329,13 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
               message.error(t('workbench.settings.cliAccess.provisionFailed', { message: result.error }));
               return;
             }
+            if (mcpEnabled !== true && enableMcpRef.current) setSettingValue('mcp.enabled', true);
             open();
           },
         });
       })
       .catch(open);
-  }, [tabsApi, t, openSettings]);
+  }, [tabsApi, modal, message, mcpEnabled, t, openSettings]);
 
   const strip = tabsApi ? (
     <TerminalTabStrip

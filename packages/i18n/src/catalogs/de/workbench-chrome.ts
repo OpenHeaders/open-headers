@@ -459,6 +459,7 @@ export const workbenchChrome = {
     'Der TUI-Modus wird vom Kommandozeilen-Tool oh angetrieben, das noch nicht mit dieser App verbunden ist. ' +
     'Beim Verbinden wird ein Zugriffstoken erstellt und in {path} gespeichert — danach funktioniert oh in ' +
     'jedem Terminal auf diesem Rechner.',
+  'workbench.terminal.cliGate.enableMcp': 'Auch den MCP-Server aktivieren, damit oh diese App erreichen kann',
   'workbench.terminal.cliGate.ok': 'Verbinden und öffnen',
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
   'workbench.toolWindows.info.terminal.summary':

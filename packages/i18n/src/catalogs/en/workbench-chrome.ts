@@ -428,6 +428,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.body':
     'TUI mode is powered by the oh command-line tool, which isn’t connected to this app yet. Connecting ' +
     'creates an access token and saves it in {path} — after that, oh works in any terminal on this machine.',
+  'workbench.terminal.cliGate.enableMcp': 'Also enable the MCP server so oh can reach this app',
   'workbench.terminal.cliGate.ok': 'Connect and open',
   'workbench.terminal.cliGate.openSettings': 'Open Settings',
   'workbench.toolWindows.info.terminal.summary':
