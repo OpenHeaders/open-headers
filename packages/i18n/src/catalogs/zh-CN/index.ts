@@ -5,7 +5,9 @@
  */
 
 import type { Catalog } from '../../types';
+import { desktop } from './desktop';
 import { extension } from './extension';
+import { panelConsole } from './panel-console';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
 import { sharedChrome } from './shared-chrome';
@@ -19,10 +21,13 @@ import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
+import { tui } from './tui';
 import { web } from './web';
 
 export const zhCN = {
+  ...desktop,
   ...extension,
+  ...panelConsole,
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
@@ -36,5 +41,6 @@ export const zhCN = {
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
+  ...tui,
   ...web,
 } as const satisfies Catalog;
