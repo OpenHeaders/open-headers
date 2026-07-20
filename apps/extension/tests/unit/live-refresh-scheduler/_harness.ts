@@ -50,6 +50,10 @@ export const markWorkflowDefinitionallyStaleMock = vi.fn<(...args: unknown[]) =>
 export const markRunDefinitionallyStaleMock = vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true);
 
 vi.mock('@utils/browser-api', () => ({
+  isFirefox: false,
+  isEdge: false,
+  isChrome: true,
+  isSafari: false,
   alarms: {
     create: (name: string, info: chrome.alarms.AlarmCreateInfo) => alarmsCreateMock(name, info),
     clear: (name: string) => alarmsClearMock(name),

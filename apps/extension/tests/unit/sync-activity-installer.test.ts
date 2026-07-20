@@ -34,11 +34,14 @@ vi.mock('@openheaders/oracle/sync', async () => {
   return {
     ...actual,
     hasRecentlyApplied: (id: string) => hasRecentlyAppliedMock(id),
-    getOracleForWorkspace: () => ({
-      materializeOne: (type: string, id: string) => materializeOneMock(type, id),
-    }),
   };
 });
+
+vi.mock('@openheaders/oracle/sync/service/accessors', () => ({
+  getOracleForWorkspace: () => ({
+    materializeOne: (type: string, id: string) => materializeOneMock(type, id),
+  }),
+}));
 
 import {
   __getDroppedNoLogCount,

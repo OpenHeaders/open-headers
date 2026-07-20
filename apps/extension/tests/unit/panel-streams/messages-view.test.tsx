@@ -136,13 +136,17 @@ describe('MessagesView — toolbar filters', () => {
     expect(rowTexts(container)).toEqual(['out', 'in']);
   });
 
-  it('the regex filter matches the payload; an invalid pattern degrades to a literal', () => {
+  it('the filter matches the payload; regex mode matches patterns and a broken one flags the input', () => {
     const { container } = renderView(makeWsLifecycle([ws({ data: 'push 1/9999' }), ws({ data: 'echo: hi' })]));
-    const input = screen.getByPlaceholderText('Filter using regex (example: (web)?socket)');
+    const input = screen.getByPlaceholderText('Filter messages');
+    fireEvent.change(input, { target: { value: 'push' } });
+    expect(rowTexts(container)).toEqual(['push 1/9999']);
+    fireEvent.click(screen.getByTitle('Use Regular Expression (Alt+R)'));
     fireEvent.change(input, { target: { value: 'push \\d' } });
     expect(rowTexts(container)).toEqual(['push 1/9999']);
     fireEvent.change(input, { target: { value: 'echo: (' } });
-    expect(rowTexts(container)).toEqual([]);
+    expect(rowTexts(container)).toEqual(['push 1/9999', 'echo: hi']);
+    expect(input.className).toContain('dt-filter-input--error');
   });
 
   it('Clear all hides everything so far; later frames still arrive', () => {
@@ -244,17 +248,17 @@ describe('MessagesView — preview pane', () => {
     expect(screen.queryByRole('button', { name: 'Raw' })).toBeNull();
   });
 
-  it('View ▾ hides the payload preview (and the orientation toggle with it); toggling back restores both', () => {
+  it('View ▾ hides the payload preview (and disables the Split control with it); toggling back restores both', () => {
     const { container } = renderView(makeWsLifecycle([ws()]));
     expect(container.querySelector('.dt-ws-preview')).toBeTruthy();
-    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    expect((screen.getByLabelText('Split') as HTMLSelectElement).disabled).toBe(false);
     fireEvent.click(screen.getByLabelText('Show payload preview'));
     expect(container.querySelector('.dt-ws-preview')).toBeNull();
-    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(0);
+    expect((screen.getByLabelText('Split') as HTMLSelectElement).disabled).toBe(true);
     fireEvent.click(screen.getByLabelText('Show payload preview'));
     expect(container.querySelector('.dt-ws-preview')).toBeTruthy();
-    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(2);
+    expect((screen.getByLabelText('Split') as HTMLSelectElement).disabled).toBe(false);
   });
 
   it('selecting a plain-text frame shows it in the Monaco viewer', async () => {
@@ -568,7 +572,7 @@ describe('MessagesView — Original | Modified split', () => {
     expect(screen.queryByLabelText('About Derived, not captured')).toBeNull();
   });
 
-  it('the regex filter matches the derived modified side too', () => {
+  it('the filter matches the derived modified side too', () => {
     const rule = makeWsRule({
       operation: 'modify',
       direction: 'receive',
@@ -579,7 +583,7 @@ describe('MessagesView — Original | Modified split', () => {
       fires: [makeFire()],
       rules: [rule],
     });
-    const input = screen.getByPlaceholderText('Filter using regex (example: (web)?socket)');
+    const input = screen.getByPlaceholderText('Filter messages');
     fireEvent.change(input, { target: { value: 'replaced' } });
     const rows = [...container.querySelectorAll('[role="option"]')];
     expect(rows).toHaveLength(1);

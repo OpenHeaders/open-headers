@@ -126,20 +126,22 @@ describe('EventStreamView — grid', () => {
 });
 
 describe('EventStreamView — toolbar filters', () => {
-  it('the regex filter matches name, id and data; an invalid pattern matches nothing', () => {
+  it('the filter matches name, id and data; a broken regex matches all and flags the input', () => {
     const { container } = renderView(
       makeSseLifecycle([
         sse({ eventName: 'tick', eventId: 'a1', data: 'one' }),
         sse({ eventName: 'message', eventId: 'b2', data: 'two' }),
       ]),
     );
-    const input = screen.getByPlaceholderText('Filter using regex (example: https?)');
+    const input = screen.getByPlaceholderText('Filter events');
     fireEvent.change(input, { target: { value: 'tick' } });
     expect(rowTexts(container)).toEqual(['one']);
     fireEvent.change(input, { target: { value: 'b2' } });
     expect(rowTexts(container)).toEqual(['two']);
+    fireEvent.click(screen.getByTitle('Use Regular Expression (Alt+R)'));
     fireEvent.change(input, { target: { value: 'https?(' } });
-    expect(rowTexts(container)).toEqual([]);
+    expect(rowTexts(container)).toEqual(['one', 'two']);
+    expect(input.className).toContain('dt-filter-input--error');
   });
 
   it('Clear all hides everything so far; later events still arrive', () => {
@@ -268,7 +270,7 @@ describe('EventStreamView — Original | Modified split', () => {
     expect(splitSides(rows[1])).toBeNull();
   });
 
-  it('the regex filter matches the derived modified side too', () => {
+  it('the filter matches the derived modified side too', () => {
     const rule = makeSseRule({
       operation: 'modify',
       payload: '{"replaced":true}',
@@ -278,7 +280,7 @@ describe('EventStreamView — Original | Modified split', () => {
       fires: [makeFire()],
       rules: [rule],
     });
-    const input = screen.getByPlaceholderText('Filter using regex (example: https?)');
+    const input = screen.getByPlaceholderText('Filter events');
     fireEvent.change(input, { target: { value: 'replaced' } });
     const rows = [...container.querySelectorAll('[role="option"]')];
     expect(rows).toHaveLength(1);
@@ -502,17 +504,17 @@ describe('EventStreamView — preview pane', () => {
     expect(screen.queryByRole('button', { name: 'Raw' })).toBeNull();
   });
 
-  it('View ▾ hides the payload preview (and the orientation toggle with it); toggling back restores both', () => {
+  it('View ▾ hides the payload preview (and disables the Split control with it); toggling back restores both', () => {
     const { container } = renderView(makeSseLifecycle([sse()]));
     expect(container.querySelector('.dt-ws-preview')).toBeTruthy();
-    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    expect((screen.getByLabelText('Split') as HTMLSelectElement).disabled).toBe(false);
     fireEvent.click(screen.getByLabelText('Show payload preview'));
     expect(container.querySelector('.dt-ws-preview')).toBeNull();
-    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(0);
+    expect((screen.getByLabelText('Split') as HTMLSelectElement).disabled).toBe(true);
     fireEvent.click(screen.getByLabelText('Show payload preview'));
     expect(container.querySelector('.dt-ws-preview')).toBeTruthy();
-    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(2);
+    expect((screen.getByLabelText('Split') as HTMLSelectElement).disabled).toBe(false);
   });
 });
 

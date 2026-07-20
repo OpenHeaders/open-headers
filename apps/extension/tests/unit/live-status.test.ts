@@ -19,6 +19,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const listWorkflowRunCachesMock = vi.fn();
 
 vi.mock('@utils/browser-api', () => ({
+  isFirefox: false,
+  isEdge: false,
+  isChrome: true,
+  isSafari: false,
   alarms: {
     create: vi.fn(),
     clear: vi.fn(),

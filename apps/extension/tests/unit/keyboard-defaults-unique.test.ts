@@ -35,6 +35,16 @@ function keybindingDefs(): ChordDef[] {
     .filter((d) => d.chord.length > 0);
 }
 
+/**
+ * Key sets that share a default chord ON PURPOSE — their dispatch is
+ * region-arbitrated (the schema def's comment documents the
+ * arbitration; `keyboard.terminalNewTab` fires only while the bottom
+ * region is focused and falls through to the editor new-tab action
+ * otherwise). Keyed by the sorted key list so an accidental third
+ * rider on the same chord still fails the law.
+ */
+const REGION_ARBITRATED = new Set(['keyboard.newTab+keyboard.terminalNewTab']);
+
 function collisions(defs: ChordDef[]): string[] {
   const byChord = new Map<string, string[]>();
   for (const d of defs) {
@@ -43,7 +53,7 @@ function collisions(defs: ChordDef[]): string[] {
     else byChord.set(d.chord, [d.key]);
   }
   return Array.from(byChord.entries())
-    .filter(([, keys]) => keys.length > 1)
+    .filter(([, keys]) => keys.length > 1 && !REGION_ARBITRATED.has([...keys].sort().join('+')))
     .map(([chord, keys]) => `${chord} → ${keys.join(', ')}`);
 }
 

@@ -24,13 +24,18 @@ describe('classifyFetchFailure — recovered net code', () => {
     expect(r.message).toMatch(/is the service running/i);
   });
 
-  it('maps certificate codes to the self-signed guidance with the open-in-tab hint (local host)', () => {
+  it('maps certificate codes to the self-signed guidance with the certificate open-in-tab hint (local host)', () => {
     const url = 'https://localhost:8080/v1/workspaces/123/rules';
     const r = classifyFetchFailure(url, RAW, 'net::ERR_CERT_AUTHORITY_INVALID');
     expect(r.message).toContain('net::ERR_CERT_AUTHORITY_INVALID');
     expect(r.message).toMatch(/self-signed/i);
-    expect(r.message).toMatch(/accept the certificate/i);
-    expect(r.hint).toEqual({ kind: 'open-in-tab', url });
+    expect(r.message).toMatch(/before the request is sent/i);
+    expect(r.hint).toEqual({
+      kind: 'open-in-tab',
+      url,
+      certificate: true,
+      netError: 'net::ERR_CERT_AUTHORITY_INVALID',
+    });
   });
 
   it('keeps the certificate hint for public hosts without the self-signed note', () => {
@@ -38,7 +43,7 @@ describe('classifyFetchFailure — recovered net code', () => {
     const r = classifyFetchFailure(url, RAW, 'net::ERR_CERT_DATE_INVALID');
     expect(r.message).toContain('net::ERR_CERT_DATE_INVALID');
     expect(r.message).not.toMatch(/self-signed/i);
-    expect(r.hint).toEqual({ kind: 'open-in-tab', url });
+    expect(r.hint).toEqual({ kind: 'open-in-tab', url, certificate: true, netError: 'net::ERR_CERT_DATE_INVALID' });
   });
 
   it('maps ERR_SSL_PROTOCOL_ERROR to the https-on-http-port explanation with no tab hint', () => {
@@ -66,7 +71,7 @@ describe('classifyFetchFailure — heuristic fallback (no net code)', () => {
     const url = 'https://localhost:8080/v1/rules';
     const r = classifyFetchFailure(url, RAW);
     expect(r.message).toMatch(/self-signed/i);
-    expect(r.hint).toEqual({ kind: 'open-in-tab', url });
+    expect(r.hint).toEqual({ kind: 'open-in-tab', url, certificate: true });
   });
 
   it('asks "is the service running" for local http with no hint', () => {
