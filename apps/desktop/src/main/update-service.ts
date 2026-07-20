@@ -45,6 +45,14 @@ export interface UpdaterPort {
   download(onProgressPercent: (percent: number) => void): Promise<void>;
   /** Quit the app and apply the staged update. */
   quitAndInstall(): void;
+  /**
+   * Allow or block the staged download from applying on a natural app
+   * quit. The machine blocks when the feed stops offering the staged
+   * version (rollback) or offers a different one (the stale stage must
+   * not apply while its replacement downloads); explicit
+   * {@link quitAndInstall} is unaffected.
+   */
+  setInstallOnQuit(enabled: boolean): void;
 }
 
 export interface UpdatePreferences {
@@ -133,6 +141,11 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
   // flight: the completing download installs instead of parking in
   // `downloaded`. Cleared on failure — an error never restarts the app.
   let installAfterDownload = false;
+  // Version currently staged on disk (null when nothing is). Checks
+  // compare the feed's offer against it: same version → stay
+  // `downloaded` without re-downloading; different or gone → the stale
+  // stage is blocked from installing on quit.
+  let stagedVersion: string | null = null;
 
   function transition(next: Partial<AppUpdateState>): AppUpdateState {
     state = { ...state, ...next };
@@ -166,6 +179,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     // A running check/download is single-flight; report current state.
     if (!deps.supported || state.phase === 'checking' || state.phase === 'downloading') return state;
     if (reason === 'scheduled' && deps.getPreferences().check === 'off') return state;
+    const before = state;
     transition({ phase: 'checking', errorMessage: null, lastCheckReason: reason });
     // Severity first (same static-GET posture as the feed): the tier
     // gate below needs it, and escalation state must never lag a check.
@@ -181,21 +195,39 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     }
     // The security-only tier keys off the safe floor: a scheduled check
     // that finds no security exposure ends silently — no feed check, no
-    // "available" surfaces. Manual checks always look (the user asked).
+    // NEW "available" surfaces. An offer the user already saw (or a
+    // staged download) survives untouched: the feed was never consulted,
+    // so there is nothing to contradict it.
     if (reason === 'scheduled' && deps.getPreferences().check === 'security-only' && !belowSafeFloor) {
-      transition({ phase: 'idle', availableVersion: null, releaseNotesUrl: null, lastCheckedAt: deps.now() });
+      const pending = before.phase === 'available' || before.phase === 'downloaded';
+      transition({
+        phase: pending ? before.phase : 'idle',
+        availableVersion: pending ? before.availableVersion : null,
+        releaseNotesUrl: pending ? before.releaseNotesUrl : null,
+        lastCheckedAt: deps.now(),
+      });
       scheduleNext(CHECK_INTERVAL_MS);
       return state;
     }
     try {
       const found = await deps.updater.check();
+      const stillStaged = found !== null && found.version === stagedVersion;
+      if (stagedVersion !== null && !stillStaged) {
+        // The feed no longer offers what sits staged on disk (rollback,
+        // or a newer release superseding it). Block the stale stage from
+        // applying on quit; a fresh download re-enables it.
+        deps.updater.setInstallOnQuit(false);
+        deps.log.warn(`staged update ${stagedVersion} no longer offered — install on quit disabled`);
+        stagedVersion = null;
+      }
       transition({
-        phase: found ? 'available' : 'idle',
+        phase: found ? (stillStaged ? 'downloaded' : 'available') : 'idle',
         availableVersion: found?.version ?? null,
         releaseNotesUrl: found?.releaseNotesUrl ?? null,
+        progressPercent: stillStaged ? 100 : null,
         lastCheckedAt: deps.now(),
       });
-      if (found) {
+      if (found && !stillStaged) {
         deps.log.info(`update available: ${found.version} (current ${state.currentVersion})`);
         if (deps.getPreferences().autoDownload) await download();
       }
@@ -220,6 +252,8 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
         if (rounded !== state.progressPercent) transition({ progressPercent: rounded });
       });
       transition({ phase: 'downloaded', progressPercent: 100 });
+      stagedVersion = state.availableVersion;
+      deps.updater.setInstallOnQuit(true);
       deps.log.info(`update ${state.availableVersion} downloaded — installs on restart`);
       if (installAfterDownload) {
         installAfterDownload = false;

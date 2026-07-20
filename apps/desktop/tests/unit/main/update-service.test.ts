@@ -19,8 +19,10 @@ interface Harness {
     downloadCalls: number;
     installCalls: number;
     severityCalls: number;
+    installOnQuitFlips: boolean[];
   };
   setPreferences(next: Partial<UpdatePreferences>): void;
+  setCheckResult(next: AvailableUpdate | null): void;
 }
 
 function makeHarness(
@@ -34,15 +36,21 @@ function makeHarness(
 ): Harness {
   const broadcasts: AppUpdateState[] = [];
   const timers: Array<{ fn: () => void; ms: number }> = [];
-  const counters = { checkCalls: 0, downloadCalls: 0, installCalls: 0, severityCalls: 0 };
+  const counters = {
+    checkCalls: 0,
+    downloadCalls: 0,
+    installCalls: 0,
+    severityCalls: 0,
+    installOnQuitFlips: [] as boolean[],
+  };
   let prefs: UpdatePreferences = { check: 'all', autoDownload: false, channel: 'stable', ...overrides.preferences };
+  let checkResult = overrides.checkResult ?? null;
 
   const updater: UpdaterPort = {
     async check() {
       counters.checkCalls += 1;
-      const result = overrides.checkResult ?? null;
-      if (result instanceof Error) throw result;
-      return result;
+      if (checkResult instanceof Error) throw checkResult;
+      return checkResult;
     },
     async download(onProgress) {
       counters.downloadCalls += 1;
@@ -53,6 +61,9 @@ function makeHarness(
     },
     quitAndInstall() {
       counters.installCalls += 1;
+    },
+    setInstallOnQuit(enabled) {
+      counters.installOnQuitFlips.push(enabled);
     },
   };
 
@@ -82,6 +93,9 @@ function makeHarness(
     updater: counters,
     setPreferences: (next) => {
       prefs = { ...prefs, ...next };
+    },
+    setCheckResult: (next) => {
+      checkResult = next;
     },
   };
 }
@@ -213,6 +227,60 @@ describe('update service state machine', () => {
     const state = await h.service.dispatchRpc('oh.updates.updateAndRestart');
     expect(state?.phase).toBe('error');
     expect(h.updater.installCalls).toBe(0);
+  });
+
+  it('re-check offering the staged version stays downloaded without re-downloading', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      preferences: { autoDownload: true },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'downloaded', availableVersion: '2026.8.0', progressPercent: 100 });
+    expect(h.updater.downloadCalls).toBe(1);
+    expect(h.updater.installOnQuitFlips).toEqual([true]);
+  });
+
+  it('a rolled-back feed discards the staged update and blocks install on quit', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      preferences: { autoDownload: true },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    h.setCheckResult(null);
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'idle', availableVersion: null });
+    expect(h.updater.installOnQuitFlips).toEqual([true, false]);
+  });
+
+  it('a superseding release blocks the stale stage until its replacement lands', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      preferences: { autoDownload: true },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    h.setCheckResult({ version: '2026.9.0', releaseNotesUrl: null });
+    const state = await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(state).toMatchObject({ phase: 'downloaded', availableVersion: '2026.9.0' });
+    expect(h.updater.downloadCalls).toBe(2);
+    // stage 8.0 → block on supersession → stage 9.0
+    expect(h.updater.installOnQuitFlips).toEqual([true, false, true]);
+  });
+
+  it('security-only scheduled silence preserves a pending offer instead of wiping it', async () => {
+    const h = makeHarness({
+      checkResult: { version: '2026.8.0', releaseNotesUrl: null },
+      severityResult: { latest: '2026.8.0', severity: 'normal' },
+      preferences: { autoDownload: true },
+    });
+    await h.service.dispatchRpc('oh.updates.checkNow');
+    expect(h.service.state().phase).toBe('downloaded');
+    h.setPreferences({ check: 'security-only' });
+    h.service.start();
+    h.timers[0]?.fn();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.updater.checkCalls).toBe(1);
+    expect(h.service.state()).toMatchObject({ phase: 'downloaded', availableVersion: '2026.8.0' });
   });
 
   it('never checks when unsupported, and getState still answers', async () => {

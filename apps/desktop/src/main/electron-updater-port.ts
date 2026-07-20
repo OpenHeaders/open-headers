@@ -6,8 +6,11 @@
  * Posture (docs/UPDATES_PLAN.md): `autoDownload` stays FALSE at the
  * library level — the service decides when to download, so the
  * `updates.autoDownload` preference is enforced in one place.
- * `autoInstallOnAppQuit` stays true: it only ever applies an update the
- * user already consented to download, on a quit that happens anyway.
+ * `autoInstallOnAppQuit` starts true (a staged download applies on a
+ * quit that happens anyway) but is owned by the service through the
+ * setInstallOnQuit seam: it flips false when the feed stops offering
+ * the staged version, so a rolled-back or superseded stage can never
+ * apply itself.
  */
 
 import { app } from 'electron';
@@ -138,10 +141,16 @@ export function createElectronUpdaterPort(getChannel: () => UpdateChannel): Upda
       // quit never completes, and "Restart to install" just hides the
       // window.
       markQuitting();
-      // isSilent=false, isForceRunAfter=true — run the installer UI as
-      // needed and relaunch the app once the update is applied.
-      autoUpdater.quitAndInstall(false, true);
+      // isSilent=true, isForceRunAfter=true — the Windows installer
+      // runs without its wizard window (macOS/AppImage swaps were
+      // always silent) and the app relaunches once the update is
+      // applied, so Update & Restart feels like one motion.
+      autoUpdater.quitAndInstall(true, true);
       setTimeout(() => app.exit(0), INSTALL_EXIT_FAILSAFE_MS);
+    },
+
+    setInstallOnQuit(enabled: boolean): void {
+      autoUpdater.autoInstallOnAppQuit = enabled;
     },
   };
 }
