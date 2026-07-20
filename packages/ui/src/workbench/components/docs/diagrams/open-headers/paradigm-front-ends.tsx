@@ -35,7 +35,6 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
   };
 
   const badgeToday = t('workbench.docs.diagrams.openHeaders.shared.badgeToday');
-  const badgeRoadmap = t('workbench.docs.diagrams.openHeaders.shared.badgeRoadmap');
   const workbench = t('workbench.docs.diagrams.openHeaders.shared.workbench');
   const inBrowser = t('workbench.docs.diagrams.openHeaders.shared.inBrowser');
   const desktopApp = t('workbench.docs.diagrams.openHeaders.shared.desktopApp');
@@ -71,7 +70,8 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
     {
       title: desktopApp,
       sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subDesktop'),
-      badge: badgeRoadmap,
+      badge: badgeToday,
+      today: true,
       icon: 'desktop-app',
       surfaces: [{ label: workbench }],
       backEnds: [
@@ -84,7 +84,8 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
     {
       title: 'CLI',
       sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subCli'),
-      badge: badgeRoadmap,
+      badge: badgeToday,
+      today: true,
       icon: 'cli',
       surfaces: [{ label: t('workbench.docs.diagrams.openHeaders.frontEnds.surfCommandLine') }],
       backEnds: [{ label: desktopApp }, { label: localDaemon }, { label: yourVm }],
@@ -93,7 +94,8 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
     {
       title: t('workbench.docs.diagrams.openHeaders.frontEnds.titleWeb'),
       sub: t('workbench.docs.diagrams.openHeaders.frontEnds.subWeb'),
-      badge: badgeRoadmap,
+      badge: badgeToday,
+      today: true,
       icon: 'web',
       surfaces: [{ label: workbench }],
       backEnds: [

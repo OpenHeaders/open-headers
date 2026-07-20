@@ -39,7 +39,6 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
   };
 
   const badgeToday = t('workbench.docs.diagrams.openHeaders.shared.badgeToday');
-  const badgeRoadmap = t('workbench.docs.diagrams.openHeaders.shared.badgeRoadmap');
   const inBrowser = t('workbench.docs.diagrams.openHeaders.shared.inBrowser');
   const desktopApp = t('workbench.docs.diagrams.openHeaders.shared.desktopApp');
   const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localDaemon');
@@ -88,7 +87,8 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
     {
       title: desktopApp,
       sub: t('workbench.docs.diagrams.openHeaders.localFirst.subDesktop'),
-      badge: badgeRoadmap,
+      badge: badgeToday,
+      today: true,
       icon: 'desktop',
       inheritsFrom: inBrowser,
       bullets: [
@@ -108,7 +108,8 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
     {
       title: localDaemon,
       sub: t('workbench.docs.diagrams.openHeaders.localFirst.subDaemon'),
-      badge: badgeRoadmap,
+      badge: badgeToday,
+      today: true,
       icon: 'daemon',
       inheritsFrom: desktopApp,
       bullets: [
@@ -144,7 +145,8 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
     {
       title: yourVm,
       sub: t('workbench.docs.diagrams.openHeaders.localFirst.subVm'),
-      badge: badgeRoadmap,
+      badge: badgeToday,
+      today: true,
       icon: 'vm',
       inheritsFrom: localDaemon,
       bullets: [
