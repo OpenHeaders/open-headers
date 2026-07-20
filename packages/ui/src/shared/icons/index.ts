@@ -4,3 +4,4 @@ export { LanguageIcon, type LanguageIconProps } from './LanguageIcon';
 export { RequestRulesIcon } from './RequestRulesIcon';
 export type { GlyphIconProps } from './types';
 export { VariablesIcon } from './VariablesIcon';
+export { WorkflowStatusIcon } from './WorkflowStatusIcon';

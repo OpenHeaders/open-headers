@@ -12,7 +12,6 @@ import {
   BookOutlined,
   BranchesOutlined,
   CodeOutlined,
-  DashboardOutlined,
   FundViewOutlined,
   NodeIndexOutlined,
   ScanOutlined,
@@ -21,7 +20,7 @@ import {
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
-import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
+import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon, WorkflowStatusIcon } from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 
@@ -101,7 +100,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   {
     id: 'workflow-status',
     labelKey: 'workbench.toolWindows.workflowStatus',
-    icon: <DashboardOutlined />,
+    icon: <WorkflowStatusIcon />,
     core: false,
     defaultSlot: 'bottom-left',
   },
