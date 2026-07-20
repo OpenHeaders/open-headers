@@ -1,6 +1,7 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_ORANGE,FILL_PURPLE,STROKE,STROKE_GREEN,STROKE_ORANGE,STROKE_PURPLE,TEXT,TEXT_DIM } from '../_shared';
-import { Row,FILL_CYAN,STROKE_CYAN,FILL_GOLD,STROKE_GOLD,FILL_MAGENTA,STROKE_MAGENTA } from './_shared';
+import { FILL_CYAN,STROKE_CYAN,FILL_GOLD,STROKE_GOLD,FILL_MAGENTA,STROKE_MAGENTA } from './_shared';
 
 /**
  * Methods — multi-select pills + verb-based test requests.
@@ -13,6 +14,7 @@ import { Row,FILL_CYAN,STROKE_CYAN,FILL_GOLD,STROKE_GOLD,FILL_MAGENTA,STROKE_MAG
  * connection between selection and outcome is explicit.
  */
 export const MethodsDiagram: React.FC = () => {
+  const t = useT();
   const selectedFill = FILL_ORANGE;
   const selectedStroke = STROKE_ORANGE;
   const unselectedFill = 'var(--ant-color-fill-quaternary)';
@@ -34,13 +36,13 @@ export const MethodsDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Methods — multi-select HTTP verbs; only the selected (orange) methods match"
+      aria-label={t('workbench.docs.diagrams.conditions.methods.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Methods — pick which HTTP verbs match
+        {t('workbench.docs.diagrams.conditions.methods.title')}
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Multi-select — orange methods match; the rest don't trigger the rule
+        {t('workbench.docs.diagrams.conditions.methods.subtitle')}
       </text>
 
       {/* Method pills */}
@@ -78,41 +80,41 @@ export const MethodsDiagram: React.FC = () => {
 
       {/* Test requests */}
       <text x={20} y={96} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Test requests:
+        {t('workbench.docs.diagrams.conditions.shared.testRequests')}
       </text>
 
       <text x={24} y={118} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={118} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        GET /api/users
+        {t('workbench.docs.diagrams.conditions.methods.testGet')}
       </text>
 
       <text x={24} y={136} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={136} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        POST /api/login
+        {t('workbench.docs.diagrams.conditions.methods.testPost')}
       </text>
 
       <text x={24} y={158} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={158} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        PUT /api/users/1
+        {t('workbench.docs.diagrams.conditions.methods.testPut')}
       </text>
       <text x={40} y={170} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        method not in selected list
+        {t('workbench.docs.diagrams.conditions.methods.notSelected')}
       </text>
 
       <text x={24} y={192} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={192} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        DELETE /api/users/1
+        {t('workbench.docs.diagrams.conditions.methods.testDelete')}
       </text>
       <text x={40} y={204} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        method not in selected list
+        {t('workbench.docs.diagrams.conditions.methods.notSelected')}
       </text>
 
       {/* Footer */}
@@ -127,10 +129,10 @@ export const MethodsDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={239} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Want to match every method?
+        {t('workbench.docs.diagrams.conditions.methods.footerQ')}
       </text>
       <text x={160} y={253} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Remove this condition — it defaults to all methods.
+        {t('workbench.docs.diagrams.conditions.methods.footerA')}
       </text>
     </svg>
   );
@@ -147,6 +149,7 @@ export const MethodsDiagram: React.FC = () => {
  * traceable in one glance.
  */
 export const ResourceTypesDiagram: React.FC = () => {
+  const t = useT();
   const selectedFill = FILL_PURPLE;
   const selectedStroke = STROKE_PURPLE;
   const unselectedFill = 'var(--ant-color-fill-quaternary)';
@@ -200,13 +203,13 @@ export const ResourceTypesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Resource Types — multi-select request kinds; selected purple types match, others are skipped"
+      aria-label={t('workbench.docs.diagrams.conditions.resourceTypes.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Resource Types — multi-select request kinds
+        {t('workbench.docs.diagrams.conditions.resourceTypes.title')}
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Purple kinds match; the rest don't trigger the rule
+        {t('workbench.docs.diagrams.conditions.resourceTypes.subtitle')}
       </text>
 
       {/* Row 1 — 5 pills, centered (5 × 40 + 4 × 4 = 216 → start x=52) */}
@@ -218,7 +221,7 @@ export const ResourceTypesDiagram: React.FC = () => {
 
       {/* Test requests */}
       <text x={20} y={120} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Test requests:
+        {t('workbench.docs.diagrams.conditions.shared.testRequests')}
       </text>
 
       <text x={24} y={142} fontSize={11} fontWeight={700} fill={matchOk}>
@@ -228,37 +231,37 @@ export const ResourceTypesDiagram: React.FC = () => {
         fetch('/api/users')
       </text>
       <text x={210} y={142} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        xhr
+        {t('workbench.docs.diagrams.conditions.resourceTypes.kindXhr')}
       </text>
 
       <text x={24} y={160} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={160} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        visit /dashboard
+        {t('workbench.docs.diagrams.conditions.resourceTypes.testVisit')}
       </text>
       <text x={210} y={160} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        page
+        {t('workbench.docs.diagrams.conditions.resourceTypes.kindPage')}
       </text>
 
       <text x={24} y={182} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={182} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        GET /img/logo.png
+        {t('workbench.docs.diagrams.conditions.resourceTypes.testImage')}
       </text>
       <text x={210} y={182} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        image — skipped
+        {t('workbench.docs.diagrams.conditions.resourceTypes.kindImageSkipped')}
       </text>
 
       <text x={24} y={200} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={200} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        GET /js/app.js
+        {t('workbench.docs.diagrams.conditions.resourceTypes.testScript')}
       </text>
       <text x={210} y={200} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        script — skipped
+        {t('workbench.docs.diagrams.conditions.resourceTypes.kindScriptSkipped')}
       </text>
 
       {/* Footer */}
@@ -273,10 +276,10 @@ export const ResourceTypesDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={239} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Want to match every resource type?
+        {t('workbench.docs.diagrams.conditions.resourceTypes.footerQ')}
       </text>
       <text x={160} y={253} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Remove this condition — it defaults to all kinds.
+        {t('workbench.docs.diagrams.conditions.resourceTypes.footerA')}
       </text>
     </svg>
   );
@@ -294,6 +297,7 @@ export const ResourceTypesDiagram: React.FC = () => {
  * destination → its type → did it match the rule.
  */
 export const DomainTypeDiagram: React.FC = () => {
+  const t = useT();
   const matchOk = STROKE_GREEN;
   const matchFail = 'var(--ant-color-error)';
   const fpFill = 'var(--ant-color-fill-quaternary)';
@@ -301,10 +305,26 @@ export const DomainTypeDiagram: React.FC = () => {
   const tpFill = FILL_GOLD;
   const tpStroke = STROKE_GOLD;
   const rows: { dest: string; party: string; matched: boolean }[] = [
-    { dest: 'api.openheaders.io', party: 'first-party', matched: false },
-    { dest: 'cdn.openheaders.io', party: 'first-party', matched: false },
-    { dest: 'analytics.google.com', party: 'third-party', matched: true },
-    { dest: 'ads.example.com', party: 'third-party', matched: true },
+    {
+      dest: 'api.openheaders.io',
+      party: t('workbench.docs.diagrams.conditions.domainType.partyFirst'),
+      matched: false,
+    },
+    {
+      dest: 'cdn.openheaders.io',
+      party: t('workbench.docs.diagrams.conditions.domainType.partyFirst'),
+      matched: false,
+    },
+    {
+      dest: 'analytics.google.com',
+      party: t('workbench.docs.diagrams.conditions.domainType.partyThird'),
+      matched: true,
+    },
+    {
+      dest: 'ads.example.com',
+      party: t('workbench.docs.diagrams.conditions.domainType.partyThird'),
+      matched: true,
+    },
   ];
   return (
     <svg
@@ -312,19 +332,19 @@ export const DomainTypeDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Domain Type — each request is classified first-party (same registrable domain) or third-party; the rule selector decides which type matches"
+      aria-label={t('workbench.docs.diagrams.conditions.domainType.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Domain Type — first-party vs third-party
+        {t('workbench.docs.diagrams.conditions.domainType.title')}
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Classified by relationship between the page and the request URL
+        {t('workbench.docs.diagrams.conditions.domainType.subtitle')}
       </text>
 
       {/* Page banner */}
       <rect x={40} y={36} width={240} height={22} rx={3} fill={FILL_CYAN} stroke={STROKE_CYAN} />
       <text x={56} y={51} fontSize={9} fill={TEXT_DIM}>
-        Page:
+        {t('workbench.docs.diagrams.conditions.domainType.pageLabel')}
       </text>
       <text x={88} y={51} fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
         portal.openheaders.io
@@ -332,28 +352,28 @@ export const DomainTypeDiagram: React.FC = () => {
 
       {/* Rule selector */}
       <text x={20} y={80} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Rule selection:
+        {t('workbench.docs.diagrams.conditions.domainType.ruleSelection')}
       </text>
       <rect x={120} y={70} width={74} height={20} rx={3} fill={fpFill} stroke={fpStroke} />
       <text x={157} y={84} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={500} fill={TEXT_DIM}>
-        firstParty
+        {t('workbench.docs.diagrams.conditions.domainType.pillFirstParty')}
       </text>
       <rect x={200} y={70} width={74} height={20} rx={3} fill={tpFill} stroke={tpStroke} strokeWidth={1.5} />
       <text x={237} y={84} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        thirdParty
+        {t('workbench.docs.diagrams.conditions.domainType.pillThirdParty')}
       </text>
 
       <line x1={20} y1={104} x2={300} y2={104} stroke={STROKE} strokeDasharray="2 3" />
 
       {/* Table header */}
       <text x={28} y={120} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        DESTINATION
+        {t('workbench.docs.diagrams.conditions.domainType.colDestination')}
       </text>
       <text x={195} y={120} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        TYPE
+        {t('workbench.docs.diagrams.conditions.domainType.colType')}
       </text>
       <text x={290} y={120} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        MATCH
+        {t('workbench.docs.diagrams.conditions.domainType.colMatch')}
       </text>
 
       {/* Rows */}
@@ -393,10 +413,10 @@ export const DomainTypeDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={261} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Want both? Select firstParty AND thirdParty.
+        {t('workbench.docs.diagrams.conditions.domainType.footerBoth')}
       </text>
       <text x={160} y={275} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Or remove the condition — defaults to both.
+        {t('workbench.docs.diagrams.conditions.domainType.footerRemove')}
       </text>
     </svg>
   );
@@ -413,6 +433,7 @@ export const DomainTypeDiagram: React.FC = () => {
  * header name, and absent header.
  */
 export const HeadersConditionDiagram: React.FC = () => {
+  const t = useT();
   const headerFill = FILL_MAGENTA;
   const headerStroke = STROKE_MAGENTA;
   const matchOk = STROKE_GREEN;
@@ -423,18 +444,18 @@ export const HeadersConditionDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Response Headers condition — exact name plus exact value, response-side only (Chrome DNR doesn't match on request headers)"
+      aria-label={t('workbench.docs.diagrams.conditions.headers.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Response Headers — exact name + exact value
+        {t('workbench.docs.diagrams.conditions.headers.title')}
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Response-side only — Chrome DNR doesn't match request headers
+        {t('workbench.docs.diagrams.conditions.headers.subtitle')}
       </text>
 
       {/* Rule visualization */}
       <text x={20} y={60} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Rule:
+        {t('workbench.docs.diagrams.conditions.shared.ruleLabel')}
       </text>
       <rect x={56} y={48} width={84} height={20} rx={3} fill={headerFill} stroke={headerStroke} strokeWidth={1.5} />
       <text x={98} y={62} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
@@ -448,54 +469,54 @@ export const HeadersConditionDiagram: React.FC = () => {
         application/json
       </text>
       <text x={98} y={82} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        exact name
+        {t('workbench.docs.diagrams.conditions.headers.exactName')}
       </text>
       <text x={216} y={82} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        exact value
+        {t('workbench.docs.diagrams.conditions.headers.exactValue')}
       </text>
 
       <line x1={20} y1={96} x2={300} y2={96} stroke={STROKE} strokeDasharray="2 3" />
 
       {/* Test response headers */}
       <text x={20} y={112} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Test response headers:
+        {t('workbench.docs.diagrams.conditions.headers.testHeaders')}
       </text>
 
       <text x={24} y={132} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={132} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        Content-Type: application/json
+        {t('workbench.docs.diagrams.conditions.headers.testJson')}
       </text>
 
       <text x={24} y={154} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={154} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        Content-Type: text/html
+        {t('workbench.docs.diagrams.conditions.headers.testHtml')}
       </text>
       <text x={40} y={166} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        name matches, but value differs
+        {t('workbench.docs.diagrams.conditions.headers.reasonValue')}
       </text>
 
       <text x={24} y={186} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={186} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        Server: nginx
+        {t('workbench.docs.diagrams.conditions.headers.testServer')}
       </text>
       <text x={40} y={198} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        different header name
+        {t('workbench.docs.diagrams.conditions.headers.reasonName')}
       </text>
 
       <text x={24} y={218} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={218} fontFamily="monospace" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        (response without Content-Type)
+        {t('workbench.docs.diagrams.conditions.headers.absentLine')}
       </text>
       <text x={40} y={230} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        header absent — must be present to match
+        {t('workbench.docs.diagrams.conditions.headers.reasonAbsent')}
       </text>
 
       {/* Footer */}
@@ -510,7 +531,7 @@ export const HeadersConditionDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={265} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Common use: filter rules by response Content-Type or custom flags
+        {t('workbench.docs.diagrams.conditions.headers.footer')}
       </text>
     </svg>
   );

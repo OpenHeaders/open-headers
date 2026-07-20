@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,FILL_BLUE,FILL_GREEN,FILL_ORANGE,FILL_PURPLE,STROKE,STROKE_BLUE,STROKE_GREEN,STROKE_ORANGE,STROKE_PURPLE,TEXT,TEXT_DIM } from '../_shared';
 import { Row,FILL_CYAN,STROKE_CYAN,FILL_GOLD,STROKE_GOLD,FILL_MAGENTA,STROKE_MAGENTA } from './_shared';
 
@@ -15,6 +16,7 @@ import { Row,FILL_CYAN,STROKE_CYAN,FILL_GOLD,STROKE_GOLD,FILL_MAGENTA,STROKE_MAG
  * conditions stop being the same thing.
  */
 export const ConditionsHostVsOriginDiagram: React.FC = () => {
+  const t = useT();
   const browserStroke = 'var(--ant-color-border)';
   const chromeBg = 'var(--ant-color-fill-secondary)';
   const inputBg = 'var(--ant-color-bg-container)';
@@ -24,10 +26,10 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Two URLs in one fetch — the address bar URL is the origin (Initiator Domains); the fetch destination URL is the host (Request Domains)"
+      aria-label={t('workbench.docs.diagrams.conditions.hostVsOrigin.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Two URLs, two conditions
+        {t('workbench.docs.diagrams.conditions.hostVsOrigin.title')}
       </text>
 
       {/* Browser frame outline */}
@@ -52,7 +54,7 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
 
       {/* Caption above code */}
       <text x={160} y={64} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        JS in this page does:
+        {t('workbench.docs.diagrams.conditions.hostVsOrigin.pageDoes')}
       </text>
 
       {/* Code box */}
@@ -67,7 +69,7 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
         strokeDasharray="2 2"
       />
       <text x={44} y={95} fontFamily="monospace" fontSize={11} fill={TEXT_DIM}>
-        fetch('
+        {t('workbench.docs.diagrams.conditions.hostVsOrigin.fetchOpen')}
       </text>
       <rect x={92} y={84} width={160} height={16} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={172} y={95} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
@@ -78,7 +80,7 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
       </text>
 
       <text x={160} y={130} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Same fetch — two different URLs.
+        {t('workbench.docs.diagrams.conditions.hostVsOrigin.sameFetch')}
       </text>
 
       {/* Legend */}
@@ -94,64 +96,102 @@ export const ConditionsHostVsOriginDiagram: React.FC = () => {
       />
       <rect x={26} y={170} width={12} height={12} rx={2} fill={FILL_CYAN} stroke={STROKE_CYAN} />
       <text x={44} y={179} fontSize={9} fill={TEXT}>
-        <tspan fontWeight={600}>origin</tspan> — the page URL → checked by{' '}
-        <tspan fontWeight={600}>Initiator Domains</tspan>
+        <tspan fontWeight={600}>{t('workbench.docs.diagrams.conditions.hostVsOrigin.legendOriginTerm')}</tspan>
+        {t('workbench.docs.diagrams.conditions.hostVsOrigin.legendOriginRest')}
+        <tspan fontWeight={600}>{t('workbench.docs.diagrams.conditions.shared.initiatorDomainsName')}</tspan>
       </text>
       <rect x={26} y={192} width={12} height={12} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={44} y={201} fontSize={9} fill={TEXT}>
-        <tspan fontWeight={600}>host</tspan> — the fetch destination → checked by{' '}
-        <tspan fontWeight={600}>Request Domains</tspan>
+        <tspan fontWeight={600}>{t('workbench.docs.diagrams.conditions.hostVsOrigin.legendHostTerm')}</tspan>
+        {t('workbench.docs.diagrams.conditions.hostVsOrigin.legendHostRest')}
+        <tspan fontWeight={600}>{t('workbench.docs.diagrams.conditions.shared.requestDomainsName')}</tspan>
       </text>
     </svg>
   );
 };
 
-const ROWS: Row[] = [
-  { attr: 'method', value: 'POST', cond: 'Methods', fill: FILL_ORANGE, stroke: STROKE_ORANGE },
-  { attr: 'URL', value: 'api.openheaders.io/v2/users', cond: 'URL Pattern', fill: FILL_BLUE, stroke: STROKE_BLUE },
-  { attr: 'host', value: 'api.openheaders.io', cond: 'Request Domains', fill: FILL_GREEN, stroke: STROKE_GREEN },
-  { attr: 'origin', value: 'portal.openheaders.io', cond: 'Initiator Domains', fill: FILL_CYAN, stroke: STROKE_CYAN },
-  { attr: 'type', value: 'xhr', cond: 'Resource Types', fill: FILL_PURPLE, stroke: STROKE_PURPLE },
-  { attr: 'party', value: 'third-party', cond: 'Domain Type', fill: FILL_GOLD, stroke: STROKE_GOLD },
-  {
-    attr: 'header',
-    value: 'Content-Type: application/json',
-    cond: 'Headers',
-    fill: FILL_MAGENTA,
-    stroke: STROKE_MAGENTA,
-  },
-];
-
 const ROW_H = 22;
 const Y0 = 50;
 
 export const ConditionsMatchingDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'cn-match';
-  const tableEnd = Y0 + ROWS.length * ROW_H;
+  const rows: Row[] = [
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrMethod'),
+      value: 'POST',
+      cond: t('workbench.docs.diagrams.conditions.matching.condMethods'),
+      fill: FILL_ORANGE,
+      stroke: STROKE_ORANGE,
+    },
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrUrl'),
+      value: 'api.openheaders.io/v2/users',
+      cond: t('workbench.docs.diagrams.conditions.matching.condUrlPattern'),
+      fill: FILL_BLUE,
+      stroke: STROKE_BLUE,
+    },
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrHost'),
+      value: 'api.openheaders.io',
+      cond: t('workbench.docs.diagrams.conditions.matching.condRequestDomains'),
+      fill: FILL_GREEN,
+      stroke: STROKE_GREEN,
+    },
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrOrigin'),
+      value: 'portal.openheaders.io',
+      cond: t('workbench.docs.diagrams.conditions.matching.condInitiatorDomains'),
+      fill: FILL_CYAN,
+      stroke: STROKE_CYAN,
+    },
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrType'),
+      value: 'xhr',
+      cond: t('workbench.docs.diagrams.conditions.matching.condResourceTypes'),
+      fill: FILL_PURPLE,
+      stroke: STROKE_PURPLE,
+    },
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrParty'),
+      value: 'third-party',
+      cond: t('workbench.docs.diagrams.conditions.matching.condDomainType'),
+      fill: FILL_GOLD,
+      stroke: STROKE_GOLD,
+    },
+    {
+      attr: t('workbench.docs.diagrams.conditions.matching.attrHeader'),
+      value: 'Content-Type: application/json',
+      cond: t('workbench.docs.diagrams.conditions.matching.condHeaders'),
+      fill: FILL_MAGENTA,
+      stroke: STROKE_MAGENTA,
+    },
+  ];
+  const tableEnd = Y0 + rows.length * ROW_H;
   return (
     <svg
       viewBox="0 0 380 290"
       width="100%"
       style={{ maxWidth: 460 }}
       role="img"
-      aria-label="Each condition checks one attribute of a request — colored pills on the right name the condition type that checks each row's attribute. All conditions are AND-combined."
+      aria-label={t('workbench.docs.diagrams.conditions.matching.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={190} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Each condition checks one attribute of a request
+        {t('workbench.docs.diagrams.conditions.matching.title')}
       </text>
 
       {/* Column headers */}
       <text x={110} y={32} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        REQUEST ATTRIBUTE
+        {t('workbench.docs.diagrams.conditions.matching.colAttribute')}
       </text>
       <text x={300} y={32} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        CHECKED BY
+        {t('workbench.docs.diagrams.conditions.matching.colCheckedBy')}
       </text>
       <line x1={10} y1={40} x2={370} y2={40} stroke={STROKE} strokeDasharray="2 3" />
 
-      {ROWS.map((row, i) => {
+      {rows.map((row, i) => {
         const y = Y0 + i * ROW_H;
         const baseline = y + 14;
         return (
@@ -162,7 +202,7 @@ export const ConditionsMatchingDiagram: React.FC = () => {
             <rect x={10} y={y + 2} width={3} height={ROW_H - 4} fill={row.stroke} />
             {/* Attribute label + value */}
             <text x={20} y={baseline} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-              {row.attr}:
+              {row.attr}
             </text>
             <text x={72} y={baseline} fontFamily="monospace" fontSize={8} fill={TEXT}>
               {row.value}
@@ -199,10 +239,10 @@ export const ConditionsMatchingDiagram: React.FC = () => {
       <line x1={10} y1={tableEnd + 8} x2={370} y2={tableEnd + 8} stroke={STROKE} strokeDasharray="2 3" />
       <rect x={80} y={tableEnd + 18} width={220} height={36} rx={4} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={190} y={tableEnd + 33} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        All must match (AND)
+        {t('workbench.docs.diagrams.conditions.matching.allMustMatch')}
       </text>
       <text x={190} y={tableEnd + 47} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        → rule fires
+        {t('workbench.docs.diagrams.conditions.matching.ruleFires')}
       </text>
     </svg>
   );
@@ -219,6 +259,7 @@ export const ConditionsMatchingDiagram: React.FC = () => {
  * on the left and highlighted green on the right.
  */
 export const ConditionsRuleFiresDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'cn-fires';
   const cardStroke = 'var(--ant-color-border)';
   const cardBg = 'var(--ant-color-bg-container)';
@@ -230,33 +271,33 @@ export const ConditionsRuleFiresDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="When all conditions match, the rule fires — the Authorization header is replaced before the request leaves the browser"
+      aria-label={t('workbench.docs.diagrams.conditions.ruleFires.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Conditions match → rule fires → request changes
+        {t('workbench.docs.diagrams.conditions.ruleFires.title')}
       </text>
 
       {/* Rule definition card */}
       <rect x={20} y={24} width={280} height={26} rx={4} fill="var(--ant-color-fill-quaternary)" stroke={cardStroke} />
       <text x={32} y={42} fontSize={10} fontWeight={600} fill={TEXT_DIM}>
-        Rule:
+        {t('workbench.docs.diagrams.conditions.shared.ruleLabel')}
       </text>
       <rect x={64} y={28} width={50} height={18} rx={9} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={89} y={41} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        Override
+        {t('workbench.docs.diagrams.conditions.ruleFires.opOverride')}
       </text>
       <text x={122} y={42} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        Authorization: Bearer NEW
+        {t('workbench.docs.diagrams.conditions.ruleFires.ruleValue')}
       </text>
 
       {/* Column labels */}
       <text x={80} y={70} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        BEFORE
+        {t('workbench.docs.diagrams.conditions.shared.beforeKicker')}
       </text>
       <text x={240} y={70} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        AFTER
+        {t('workbench.docs.diagrams.conditions.shared.afterKicker')}
       </text>
 
       {/* BEFORE card */}
@@ -276,22 +317,22 @@ export const ConditionsRuleFiresDiagram: React.FC = () => {
       </text>
       <rect x={20} y={150} width={120} height={14} rx={2} fill={errBg} stroke={errStroke} />
       <text x={28} y={160} fontFamily="monospace" fontSize={10} fill={TEXT_DIM} textDecoration="line-through">
-        Bearer OLD
+        {t('workbench.docs.diagrams.conditions.ruleFires.beforeOld')}
       </text>
       <text x={20} y={184} fontFamily="monospace" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
         Cookie:
       </text>
       <text x={20} y={196} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        session=abc
+        {t('workbench.docs.diagrams.conditions.ruleFires.lineSession')}
       </text>
 
       {/* Arrow between cards (aligned with the Authorization pill row) */}
       <line x1={152} y1={157} x2={168} y2={157} stroke={STROKE_BLUE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
       <text x={160} y={148} textAnchor="middle" fontSize={9} fontWeight={600} fill={STROKE_BLUE}>
-        rule
+        {t('workbench.docs.diagrams.conditions.ruleFires.arrowRule')}
       </text>
       <text x={160} y={172} textAnchor="middle" fontSize={9} fontWeight={600} fill={STROKE_BLUE}>
-        fires
+        {t('workbench.docs.diagrams.conditions.ruleFires.arrowFires')}
       </text>
 
       {/* AFTER card */}
@@ -311,18 +352,18 @@ export const ConditionsRuleFiresDiagram: React.FC = () => {
       </text>
       <rect x={180} y={150} width={120} height={14} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={188} y={160} fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
-        Bearer NEW
+        {t('workbench.docs.diagrams.conditions.ruleFires.afterNew')}
       </text>
       <text x={180} y={184} fontFamily="monospace" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
         Cookie:
       </text>
       <text x={180} y={196} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        session=abc
+        {t('workbench.docs.diagrams.conditions.ruleFires.lineSession')}
       </text>
 
       {/* Footer */}
       <text x={160} y={232} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Rule changes only its target — rest passes through.
+        {t('workbench.docs.diagrams.conditions.ruleFires.footer')}
       </text>
     </svg>
   );

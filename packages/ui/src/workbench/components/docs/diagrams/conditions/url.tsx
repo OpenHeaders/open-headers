@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { FILL_GREEN,FILL_PURPLE,STROKE,STROKE_GREEN,STROKE_PURPLE,TEXT,TEXT_DIM } from '../_shared';
 
 /**
@@ -13,6 +14,7 @@ import { FILL_GREEN,FILL_PURPLE,STROKE,STROKE_GREEN,STROKE_PURPLE,TEXT,TEXT_DIM 
  * Request Domains for the "all subdomains" case.
  */
 export const UrlPatternDiagram: React.FC = () => {
+  const t = useT();
   const wildcardFill = 'rgba(250, 173, 20, 0.18)';
   const wildcardStroke = 'rgba(250, 173, 20, 0.6)';
   const literalFill = FILL_GREEN;
@@ -25,10 +27,10 @@ export const UrlPatternDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="URL Pattern uses wildcards on the full URL — pattern anatomy plus match and no-match examples"
+      aria-label={t('workbench.docs.diagrams.conditions.urlPattern.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        URL Pattern — wildcards (*) on the full URL
+        {t('workbench.docs.diagrams.conditions.urlPattern.title')}
       </text>
 
       {/* Pattern: 3 colored segments rendered side-by-side */}
@@ -52,41 +54,41 @@ export const UrlPatternDiagram: React.FC = () => {
       <line x1={240} y1={48} x2={240} y2={60} stroke={wildcardStroke} strokeWidth={1} />
 
       <text x={84} y={72} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        any
+        {t('workbench.docs.diagrams.conditions.urlPattern.labelAny')}
       </text>
       <text x={84} y={84} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        protocol
+        {t('workbench.docs.diagrams.conditions.urlPattern.labelProtocol')}
       </text>
 
       <text x={164} y={72} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        literal host
+        {t('workbench.docs.diagrams.conditions.urlPattern.labelLiteralHost')}
       </text>
       <text x={164} y={84} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        (no wildcards)
+        {t('workbench.docs.diagrams.conditions.urlPattern.labelNoWildcards')}
       </text>
 
       <text x={240} y={72} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        any path
+        {t('workbench.docs.diagrams.conditions.urlPattern.labelAnyPath')}
       </text>
       <text x={240} y={84} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        + query string
+        {t('workbench.docs.diagrams.conditions.urlPattern.labelQueryString')}
       </text>
 
       {/* Color legend */}
       <rect x={20} y={100} width={10} height={10} fill={wildcardFill} stroke={wildcardStroke} />
       <text x={36} y={109} fontSize={9} fill={TEXT_DIM}>
-        wildcard — matches anything
+        {t('workbench.docs.diagrams.conditions.urlPattern.legendWildcard')}
       </text>
       <rect x={170} y={100} width={10} height={10} fill={literalFill} stroke={literalStroke} />
       <text x={186} y={109} fontSize={9} fill={TEXT_DIM}>
-        literal — exact match
+        {t('workbench.docs.diagrams.conditions.shared.legendLiteral')}
       </text>
 
       <line x1={20} y1={124} x2={300} y2={124} stroke={STROKE} strokeDasharray="2 3" />
 
       {/* Test URLs */}
       <text x={20} y={140} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Tested against URLs:
+        {t('workbench.docs.diagrams.conditions.shared.testedAgainst')}
       </text>
 
       <text x={24} y={162} fontSize={12} fontWeight={700} fill={matchOk}>
@@ -110,7 +112,7 @@ export const UrlPatternDiagram: React.FC = () => {
         https://cdn.openheaders.io/img.png
       </text>
       <text x={40} y={218} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        "cdn" ≠ "api" — subdomain mismatch
+        {t('workbench.docs.diagrams.conditions.urlPattern.reasonSubdomain')}
       </text>
 
       <text x={24} y={240} fontSize={12} fontWeight={700} fill={matchFail}>
@@ -120,7 +122,7 @@ export const UrlPatternDiagram: React.FC = () => {
         https://other-site.com/api
       </text>
       <text x={40} y={252} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        different host entirely
+        {t('workbench.docs.diagrams.conditions.urlPattern.reasonHost')}
       </text>
 
       {/* Footer suggestion */}
@@ -135,10 +137,12 @@ export const UrlPatternDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={289} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Need to match all subdomains at once?
+        {t('workbench.docs.diagrams.conditions.urlPattern.footerQ')}
       </text>
       <text x={160} y={303} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Use <tspan fontWeight={600}>Request Domains: openheaders.io</tspan> instead.
+        {t('workbench.docs.diagrams.conditions.shared.usePrefix')}
+        <tspan fontWeight={600}>{t('workbench.docs.diagrams.conditions.urlPattern.footerExample')}</tspan>
+        {t('workbench.docs.diagrams.conditions.shared.useSuffix')}
       </text>
     </svg>
   );
@@ -158,6 +162,7 @@ export const UrlPatternDiagram: React.FC = () => {
  * (digit class with one-or-more quantifier).
  */
 export const UrlRegexDiagram: React.FC = () => {
+  const t = useT();
   const regexFill = FILL_PURPLE;
   const regexStroke = STROKE_PURPLE;
   const literalFill = FILL_GREEN;
@@ -170,10 +175,10 @@ export const UrlRegexDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="URL Regex anatomy plus match and no-match examples — purple bits are real regex; everything else is literal"
+      aria-label={t('workbench.docs.diagrams.conditions.urlRegex.aria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        URL Regex — RE2 regex on the full URL
+        {t('workbench.docs.diagrams.conditions.urlRegex.title')}
       </text>
 
       {/* Pattern: 3 segments — ^ (regex), literal middle, [0-9]+ (regex) */}
@@ -198,41 +203,41 @@ export const UrlRegexDiagram: React.FC = () => {
 
       {/* Labels */}
       <text x={39} y={72} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        start
+        {t('workbench.docs.diagrams.conditions.urlRegex.labelStart')}
       </text>
       <text x={39} y={84} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        anchor
+        {t('workbench.docs.diagrams.conditions.urlRegex.labelAnchor')}
       </text>
 
       <text x={145} y={72} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        literal characters
+        {t('workbench.docs.diagrams.conditions.urlRegex.labelLiteralChars')}
       </text>
       <text x={145} y={84} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        (\. matches the . character)
+        {t('workbench.docs.diagrams.conditions.urlRegex.labelDotNote')}
       </text>
 
       <text x={266} y={72} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        one or more
+        {t('workbench.docs.diagrams.conditions.urlRegex.labelOneOrMore')}
       </text>
       <text x={266} y={84} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        digits
+        {t('workbench.docs.diagrams.conditions.urlRegex.labelDigits')}
       </text>
 
       {/* Color legend */}
       <rect x={50} y={100} width={10} height={10} fill={regexFill} stroke={regexStroke} />
       <text x={66} y={109} fontSize={9} fill={TEXT_DIM}>
-        regex syntax — special meaning
+        {t('workbench.docs.diagrams.conditions.urlRegex.legendRegex')}
       </text>
       <rect x={210} y={100} width={10} height={10} fill={literalFill} stroke={literalStroke} />
       <text x={226} y={109} fontSize={9} fill={TEXT_DIM}>
-        literal — exact match
+        {t('workbench.docs.diagrams.conditions.shared.legendLiteral')}
       </text>
 
       <line x1={20} y1={124} x2={300} y2={124} stroke={STROKE} strokeDasharray="2 3" />
 
       {/* Test URLs */}
       <text x={20} y={140} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Tested against URLs:
+        {t('workbench.docs.diagrams.conditions.shared.testedAgainst')}
       </text>
 
       <text x={24} y={162} fontSize={12} fontWeight={700} fill={matchOk}>
@@ -256,7 +261,7 @@ export const UrlRegexDiagram: React.FC = () => {
         http://api.openheaders.io/v2
       </text>
       <text x={40} y={218} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        regex specifies https:// — http isn't matched
+        {t('workbench.docs.diagrams.conditions.urlRegex.reasonHttp')}
       </text>
 
       <text x={24} y={240} fontSize={12} fontWeight={700} fill={matchFail}>
@@ -266,7 +271,7 @@ export const UrlRegexDiagram: React.FC = () => {
         https://api.openheaders.io/latest
       </text>
       <text x={40} y={252} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        "latest" doesn't match /v[0-9]+
+        {t('workbench.docs.diagrams.conditions.urlRegex.reasonLatest')}
       </text>
 
       {/* Footer hint */}
@@ -281,18 +286,18 @@ export const UrlRegexDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={289} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Want both http and https?
+        {t('workbench.docs.diagrams.conditions.urlRegex.footerQ')}
       </text>
       <text x={160} y={303} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Use{' '}
+        {t('workbench.docs.diagrams.conditions.urlRegex.footerUsePrefix')}
         <tspan fontFamily="monospace" fontWeight={600}>
           ^https?://
-        </tspan>{' '}
-        — the{' '}
+        </tspan>
+        {t('workbench.docs.diagrams.conditions.urlRegex.footerMid')}
         <tspan fontFamily="monospace" fontWeight={600}>
           ?
-        </tspan>{' '}
-        makes the s optional.
+        </tspan>
+        {t('workbench.docs.diagrams.conditions.urlRegex.footerEnd')}
       </text>
     </svg>
   );

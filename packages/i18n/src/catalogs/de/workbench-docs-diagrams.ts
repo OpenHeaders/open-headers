@@ -319,4 +319,218 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.headerActions.merge.wontDetail2': 'Vom Browser ausgelöst — sie berühren fetch / XHR nie.',
   'workbench.docs.diagrams.headerActions.merge.wontSuggestion':
     'Für Header auf Seitenebene nutze Überschreiben oder Anfügen (DNR).',
+
+  // ── Conditions: shared ──────────────────────────────────────────────
+  'workbench.docs.diagrams.conditions.shared.ruleLabel': 'Regel:',
+  'workbench.docs.diagrams.conditions.shared.testRequests': 'Testanfragen:',
+  'workbench.docs.diagrams.conditions.shared.testedAgainst': 'Gegen diese URLs getestet:',
+  'workbench.docs.diagrams.conditions.shared.beforeKicker': 'VORHER',
+  'workbench.docs.diagrams.conditions.shared.afterKicker': 'NACHHER',
+  'workbench.docs.diagrams.conditions.shared.legendLiteral': 'literal — exakte Übereinstimmung',
+  'workbench.docs.diagrams.conditions.shared.usePrefix': 'Verwende stattdessen ',
+  'workbench.docs.diagrams.conditions.shared.useSuffix': '.',
+  'workbench.docs.diagrams.conditions.shared.requestDomainsName': 'Anfrage-Domains',
+  'workbench.docs.diagrams.conditions.shared.urlPatternName': 'URL-Muster',
+  'workbench.docs.diagrams.conditions.shared.initiatorDomainsName': 'Initiator-Domains',
+
+  // ── Conditions: host vs origin ──────────────────────────────────────
+  'workbench.docs.diagrams.conditions.hostVsOrigin.aria':
+    'Zwei URLs in einem fetch — die URL der Adressleiste ist der Origin (Initiator-Domains); die Ziel-URL des ' +
+    'fetch ist der Host (Anfrage-Domains)',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.title': 'Zwei URLs, zwei Bedingungen',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.pageDoes': 'Das JS dieser Seite ruft auf:',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.fetchOpen': "fetch('",
+  'workbench.docs.diagrams.conditions.hostVsOrigin.sameFetch': 'Derselbe fetch — zwei verschiedene URLs.',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.legendOriginTerm': 'Origin',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.legendOriginRest': ' — die URL der Seite → geprüft durch ',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.legendHostTerm': 'Host',
+  'workbench.docs.diagrams.conditions.hostVsOrigin.legendHostRest': ' — das Ziel des fetch → geprüft durch ',
+
+  // ── Conditions: matching attributes ─────────────────────────────────
+  'workbench.docs.diagrams.conditions.matching.aria':
+    'Jede Bedingung prüft ein Attribut der Anfrage — die farbigen Pillen rechts nennen den Bedingungstyp, der das ' +
+    'Attribut der jeweiligen Zeile prüft. Alle Bedingungen werden mit AND verknüpft.',
+  'workbench.docs.diagrams.conditions.matching.title': 'Jede Bedingung prüft ein Attribut der Anfrage',
+  'workbench.docs.diagrams.conditions.matching.colAttribute': 'ANFRAGE-ATTRIBUT',
+  'workbench.docs.diagrams.conditions.matching.colCheckedBy': 'GEPRÜFT DURCH',
+  'workbench.docs.diagrams.conditions.matching.attrMethod': 'Methode:',
+  'workbench.docs.diagrams.conditions.matching.attrUrl': 'URL:',
+  'workbench.docs.diagrams.conditions.matching.attrHost': 'Host:',
+  'workbench.docs.diagrams.conditions.matching.attrOrigin': 'Origin:',
+  'workbench.docs.diagrams.conditions.matching.attrType': 'Typ:',
+  'workbench.docs.diagrams.conditions.matching.attrParty': 'Partei:',
+  'workbench.docs.diagrams.conditions.matching.attrHeader': 'Header:',
+  'workbench.docs.diagrams.conditions.matching.condMethods': 'Methoden',
+  'workbench.docs.diagrams.conditions.matching.condUrlPattern': 'URL-Muster',
+  'workbench.docs.diagrams.conditions.matching.condRequestDomains': 'Anfrage-Domains',
+  'workbench.docs.diagrams.conditions.matching.condInitiatorDomains': 'Initiator-Domains',
+  'workbench.docs.diagrams.conditions.matching.condResourceTypes': 'Ressourcentypen',
+  'workbench.docs.diagrams.conditions.matching.condDomainType': 'Domain-Typ',
+  'workbench.docs.diagrams.conditions.matching.condHeaders': 'Header',
+  'workbench.docs.diagrams.conditions.matching.allMustMatch': 'Alle müssen zutreffen (AND)',
+  'workbench.docs.diagrams.conditions.matching.ruleFires': '→ Regel greift',
+
+  // ── Conditions: rule fires ──────────────────────────────────────────
+  'workbench.docs.diagrams.conditions.ruleFires.aria':
+    'Wenn alle Bedingungen zutreffen, greift die Regel — der Authorization-Header wird ersetzt, bevor die Anfrage ' +
+    'den Browser verlässt',
+  'workbench.docs.diagrams.conditions.ruleFires.title': 'Bedingungen treffen zu → Regel greift → Anfrage ändert sich',
+  'workbench.docs.diagrams.conditions.ruleFires.opOverride': 'Überschreiben',
+  'workbench.docs.diagrams.conditions.ruleFires.ruleValue': 'Authorization: Bearer NEW',
+  'workbench.docs.diagrams.conditions.ruleFires.beforeOld': 'Bearer OLD',
+  'workbench.docs.diagrams.conditions.ruleFires.afterNew': 'Bearer NEW',
+  'workbench.docs.diagrams.conditions.ruleFires.lineSession': 'session=abc',
+  'workbench.docs.diagrams.conditions.ruleFires.arrowRule': 'Regel',
+  'workbench.docs.diagrams.conditions.ruleFires.arrowFires': 'greift',
+  'workbench.docs.diagrams.conditions.ruleFires.footer':
+    'Die Regel ändert nur ihr Ziel — der Rest läuft unverändert durch.',
+
+  // ── Conditions: request domains ─────────────────────────────────────
+  'workbench.docs.diagrams.conditions.requestDomains.aria':
+    'Anfrage-Domains: ein Eintrag schließt automatisch die Apex-Domain und jede Subdomain ein, auf jedem Pfad ' +
+    'und Query',
+  'workbench.docs.diagrams.conditions.requestDomains.title':
+    'Anfrage-Domains — ein Eintrag, alle Subdomains, jeder Pfad',
+  'workbench.docs.diagrams.conditions.requestDomains.autoIncludes': 'schließt automatisch ein',
+  'workbench.docs.diagrams.conditions.requestDomains.hostOnly':
+    'Nur der Host zählt — jeder Pfad und Query-String passt',
+  'workbench.docs.diagrams.conditions.requestDomains.doesntMatch': 'Trifft nicht zu:',
+  'workbench.docs.diagrams.conditions.requestDomains.reasonTld': 'andere TLD (.com ≠ .io)',
+  'workbench.docs.diagrams.conditions.requestDomains.reasonNotSub':
+    'keine echte Subdomain — kein Punkt vor „openheaders.io“',
+  'workbench.docs.diagrams.conditions.requestDomains.footerPathPrefix': 'Nach Pfad eingrenzen? Ergänze ',
+  'workbench.docs.diagrams.conditions.requestDomains.footerPathSuffix': ' in der Regel.',
+  'workbench.docs.diagrams.conditions.requestDomains.footerCross':
+    'Mehrere Domains? Füge jede Domain als eigenen Eintrag hinzu.',
+
+  // ── Conditions: exclude domains ─────────────────────────────────────
+  'workbench.docs.diagrams.conditions.excludeDomains.aria':
+    'Domains ausschließen zieht Hosts von den Treffern einer anderen Bedingung ab; allein trifft es auf nichts zu',
+  'workbench.docs.diagrams.conditions.excludeDomains.title':
+    'Domains ausschließen — zieht von einer anderen Bedingung ab',
+  'workbench.docs.diagrams.conditions.excludeDomains.subtitle': 'Zieht von den Treffern einer anderen Bedingung ab',
+  'workbench.docs.diagrams.conditions.excludeDomains.includeKicker': '+ ANFRAGE-DOMAINS',
+  'workbench.docs.diagrams.conditions.excludeDomains.excludeKicker': '− DOMAINS AUSSCHLIESSEN',
+  'workbench.docs.diagrams.conditions.excludeDomains.finalHosts': 'Final passende Hosts:',
+  'workbench.docs.diagrams.conditions.excludeDomains.excluded': 'ausgeschlossen',
+  'workbench.docs.diagrams.conditions.excludeDomains.excludedSub':
+    'ausgeschlossen — die Subdomain-Regel gilt auch fürs Ausschließen',
+  'workbench.docs.diagrams.conditions.excludeDomains.warnTitle': 'Ausschließen allein trifft auf nichts zu.',
+  'workbench.docs.diagrams.conditions.excludeDomains.warnBody':
+    'Es zieht nur von den Treffern einer anderen Bedingung ab.',
+
+  // ── Conditions: initiator domains ───────────────────────────────────
+  'workbench.docs.diagrams.conditions.initiatorDomains.aria':
+    'Initiator-Domains: gleiches Ziel, verschiedene Seiten-Origins, entgegengesetzte Ergebnisse',
+  'workbench.docs.diagrams.conditions.initiatorDomains.title':
+    'Initiator-Domains — nach der Seite, die den Aufruf macht',
+  'workbench.docs.diagrams.conditions.initiatorDomains.subtitle':
+    'Gleicher fetch, zwei Seitenkontexte → verschiedene Ergebnisse',
+  'workbench.docs.diagrams.conditions.initiatorDomains.ruleBanner': 'Initiator-Domains: portal.openheaders.io',
+  'workbench.docs.diagrams.conditions.initiatorDomains.openPage': 'OFFENE SEITE',
+  'workbench.docs.diagrams.conditions.initiatorDomains.fetches': '↓ ruft ab',
+  'workbench.docs.diagrams.conditions.initiatorDomains.matches': '✓ TRIFFT ZU',
+  'workbench.docs.diagrams.conditions.initiatorDomains.noMatch': '✗ KEIN TREFFER',
+  'workbench.docs.diagrams.conditions.initiatorDomains.initiatorEq': 'Initiator =',
+  'workbench.docs.diagrams.conditions.initiatorDomains.footerQ': 'Nach Ziel statt Origin matchen?',
+
+  // ── Conditions: methods ─────────────────────────────────────────────
+  'workbench.docs.diagrams.conditions.methods.aria':
+    'Methoden — HTTP-Verben mit Mehrfachauswahl; nur die ausgewählten (orangen) Methoden treffen zu',
+  'workbench.docs.diagrams.conditions.methods.title': 'Methoden — wähle, welche HTTP-Verben zutreffen',
+  'workbench.docs.diagrams.conditions.methods.subtitle': 'Mehrfachauswahl — Orange trifft zu; der Rest löst nichts aus',
+  'workbench.docs.diagrams.conditions.methods.testGet': 'GET /api/users',
+  'workbench.docs.diagrams.conditions.methods.testPost': 'POST /api/login',
+  'workbench.docs.diagrams.conditions.methods.testPut': 'PUT /api/users/1',
+  'workbench.docs.diagrams.conditions.methods.testDelete': 'DELETE /api/users/1',
+  'workbench.docs.diagrams.conditions.methods.notSelected': 'Methode nicht in der Auswahl',
+  'workbench.docs.diagrams.conditions.methods.footerQ': 'Alle Methoden matchen?',
+  'workbench.docs.diagrams.conditions.methods.footerA': 'Entferne die Bedingung — Standard sind alle Methoden.',
+
+  // ── Conditions: resource types ──────────────────────────────────────
+  'workbench.docs.diagrams.conditions.resourceTypes.aria':
+    'Ressourcentypen — Anfragearten mit Mehrfachauswahl; ausgewählte (lila) Typen treffen zu, andere werden ' +
+    'übersprungen',
+  'workbench.docs.diagrams.conditions.resourceTypes.title': 'Ressourcentypen — Anfragearten mit Mehrfachauswahl',
+  'workbench.docs.diagrams.conditions.resourceTypes.subtitle': 'Lila trifft zu; der Rest löst die Regel nicht aus',
+  'workbench.docs.diagrams.conditions.resourceTypes.testVisit': 'öffne /dashboard',
+  'workbench.docs.diagrams.conditions.resourceTypes.testImage': 'GET /img/logo.png',
+  'workbench.docs.diagrams.conditions.resourceTypes.testScript': 'GET /js/app.js',
+  'workbench.docs.diagrams.conditions.resourceTypes.kindXhr': 'xhr',
+  'workbench.docs.diagrams.conditions.resourceTypes.kindPage': 'Seite',
+  'workbench.docs.diagrams.conditions.resourceTypes.kindImageSkipped': 'Bild — übersprungen',
+  'workbench.docs.diagrams.conditions.resourceTypes.kindScriptSkipped': 'Skript — übersprungen',
+  'workbench.docs.diagrams.conditions.resourceTypes.footerQ': 'Jeden Ressourcentyp matchen?',
+  'workbench.docs.diagrams.conditions.resourceTypes.footerA': 'Entferne die Bedingung — Standard sind alle Arten.',
+
+  // ── Conditions: domain type ─────────────────────────────────────────
+  'workbench.docs.diagrams.conditions.domainType.aria':
+    'Domain-Typ — jede Anfrage wird als Erstanbieter (gleiche registrierbare Domain) oder Drittanbieter ' +
+    'eingestuft; die Auswahl der Regel entscheidet, welcher Typ zutrifft',
+  'workbench.docs.diagrams.conditions.domainType.title': 'Domain-Typ — Erstanbieter vs. Drittanbieter',
+  'workbench.docs.diagrams.conditions.domainType.subtitle': 'Eingestuft nach dem Verhältnis von Seite und Anfrage-URL',
+  'workbench.docs.diagrams.conditions.domainType.pageLabel': 'Seite:',
+  'workbench.docs.diagrams.conditions.domainType.ruleSelection': 'Auswahl der Regel:',
+  'workbench.docs.diagrams.conditions.domainType.pillFirstParty': 'firstParty',
+  'workbench.docs.diagrams.conditions.domainType.pillThirdParty': 'thirdParty',
+  'workbench.docs.diagrams.conditions.domainType.colDestination': 'ZIEL',
+  'workbench.docs.diagrams.conditions.domainType.colType': 'TYP',
+  'workbench.docs.diagrams.conditions.domainType.colMatch': 'TREFFER',
+  'workbench.docs.diagrams.conditions.domainType.partyFirst': 'Erstanbieter',
+  'workbench.docs.diagrams.conditions.domainType.partyThird': 'Drittanbieter',
+  'workbench.docs.diagrams.conditions.domainType.footerBoth': 'Beides? Wähle firstParty UND thirdParty.',
+  'workbench.docs.diagrams.conditions.domainType.footerRemove': 'Oder entferne die Bedingung — Standard ist beides.',
+
+  // ── Conditions: response headers ────────────────────────────────────
+  'workbench.docs.diagrams.conditions.headers.aria':
+    'Bedingung Antwort-Header — exakter Name plus exakter Wert, nur auf Antwortseite (Chrome DNR matcht keine ' +
+    'Anfrage-Header)',
+  'workbench.docs.diagrams.conditions.headers.title': 'Antwort-Header — exakter Name + exakter Wert',
+  'workbench.docs.diagrams.conditions.headers.subtitle': 'Nur Antwortseite — Chrome DNR matcht keine Anfrage-Header',
+  'workbench.docs.diagrams.conditions.headers.exactName': 'exakter Name',
+  'workbench.docs.diagrams.conditions.headers.exactValue': 'exakter Wert',
+  'workbench.docs.diagrams.conditions.headers.testHeaders': 'Getestete Antwort-Header:',
+  'workbench.docs.diagrams.conditions.headers.testJson': 'Content-Type: application/json',
+  'workbench.docs.diagrams.conditions.headers.testHtml': 'Content-Type: text/html',
+  'workbench.docs.diagrams.conditions.headers.testServer': 'Server: nginx',
+  'workbench.docs.diagrams.conditions.headers.reasonValue': 'Name passt, aber der Wert weicht ab',
+  'workbench.docs.diagrams.conditions.headers.reasonName': 'anderer Header-Name',
+  'workbench.docs.diagrams.conditions.headers.absentLine': '(Antwort ohne Content-Type)',
+  'workbench.docs.diagrams.conditions.headers.reasonAbsent': 'Header fehlt — er muss vorhanden sein, um zu treffen',
+  'workbench.docs.diagrams.conditions.headers.footer':
+    'Typisch: nach Content-Type der Antwort oder eigenen Flags filtern',
+
+  // ── Conditions: URL pattern ─────────────────────────────────────────
+  'workbench.docs.diagrams.conditions.urlPattern.aria':
+    'URL-Muster nutzt Platzhalter auf der ganzen URL — Aufbau des Musters plus Beispiele mit und ohne Treffer',
+  'workbench.docs.diagrams.conditions.urlPattern.title': 'URL-Muster — Platzhalter (*) auf der ganzen URL',
+  'workbench.docs.diagrams.conditions.urlPattern.labelAny': 'jedes',
+  'workbench.docs.diagrams.conditions.urlPattern.labelProtocol': 'Protokoll',
+  'workbench.docs.diagrams.conditions.urlPattern.labelLiteralHost': 'literaler Host',
+  'workbench.docs.diagrams.conditions.urlPattern.labelNoWildcards': '(keine Platzhalter)',
+  'workbench.docs.diagrams.conditions.urlPattern.labelAnyPath': 'jeder Pfad',
+  'workbench.docs.diagrams.conditions.urlPattern.labelQueryString': '+ Query-String',
+  'workbench.docs.diagrams.conditions.urlPattern.legendWildcard': 'Platzhalter — matcht alles',
+  'workbench.docs.diagrams.conditions.urlPattern.reasonSubdomain': '„cdn“ ≠ „api“ — Subdomain passt nicht',
+  'workbench.docs.diagrams.conditions.urlPattern.reasonHost': 'völlig anderer Host',
+  'workbench.docs.diagrams.conditions.urlPattern.footerQ': 'Alle Subdomains auf einmal matchen?',
+  'workbench.docs.diagrams.conditions.urlPattern.footerExample': 'Anfrage-Domains: openheaders.io',
+
+  // ── Conditions: URL regex ───────────────────────────────────────────
+  'workbench.docs.diagrams.conditions.urlRegex.aria':
+    'Aufbau der URL-Regex plus Beispiele — das Lila ist echte Regex; alles andere ist literal',
+  'workbench.docs.diagrams.conditions.urlRegex.title': 'URL-Regex — RE2-Regex auf der ganzen URL',
+  'workbench.docs.diagrams.conditions.urlRegex.labelStart': 'Start-',
+  'workbench.docs.diagrams.conditions.urlRegex.labelAnchor': 'Anker',
+  'workbench.docs.diagrams.conditions.urlRegex.labelLiteralChars': 'literale Zeichen',
+  'workbench.docs.diagrams.conditions.urlRegex.labelDotNote': '(\\. matcht das Zeichen .)',
+  'workbench.docs.diagrams.conditions.urlRegex.labelOneOrMore': 'eine oder mehr',
+  'workbench.docs.diagrams.conditions.urlRegex.labelDigits': 'Ziffern',
+  'workbench.docs.diagrams.conditions.urlRegex.legendRegex': 'Regex-Syntax — besondere Bedeutung',
+  'workbench.docs.diagrams.conditions.urlRegex.reasonHttp': 'die Regex verlangt https:// — http trifft nicht',
+  'workbench.docs.diagrams.conditions.urlRegex.reasonLatest': '„latest“ passt nicht auf /v[0-9]+',
+  'workbench.docs.diagrams.conditions.urlRegex.footerQ': 'http und https zugleich?',
+  'workbench.docs.diagrams.conditions.urlRegex.footerUsePrefix': 'Verwende ',
+  'workbench.docs.diagrams.conditions.urlRegex.footerMid': ' — das ',
+  'workbench.docs.diagrams.conditions.urlRegex.footerEnd': ' macht das s optional.',
 } as const satisfies Catalog;
