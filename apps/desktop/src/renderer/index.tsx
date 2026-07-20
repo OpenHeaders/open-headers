@@ -17,6 +17,10 @@ import { createRoot } from 'react-dom/client';
 import { resolveWorkbenchIdentity } from './host/surface-identity-resolvers';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
+// Panel component styles (tokens + dt-* modules) for the workbench Proxy
+// tool window's NetworkCaptureView — the surface-agnostic sheet only; the
+// devtools shell globals in panel.css stay out of the workbench document.
+import '@openheaders/ui/panel/styles/panel-surface.css';
 
 // Declare desktop as the running host BEFORE any UI renders so user-facing
 // strings ("window" vs "tab") read from the desktop vocabulary on first paint.

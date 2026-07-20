@@ -1,0 +1,199 @@
+/*
+ * panel-surface.css — surface-agnostic DevTools Network styles.
+ *
+ * Everything the panel COMPONENTS need to render correctly on any host
+ * surface: the `--dt-*` theme token palettes, the bundled fonts, and
+ * every component style module. Deliberately free of app-shell globals
+ * (element resets, `html`/`body` rules, antd overrides) — those belong
+ * to `panel.css`, the standalone devtools-panel shell entry, so a host
+ * that already owns its shell (the desktop workbench rendering
+ * `NetworkCaptureView`) can import this sheet without having its
+ * document-level styling rewritten.
+ *
+ * Adding a new UI piece? Drop its styles in the matching module (or
+ * create a new one and `@import` it from here) rather than growing
+ * this file.
+ *
+ * Theme switching is a single attribute flip on the root element: the
+ * `[data-theme]` attribute is set by the ThemeContext (from the app's
+ * global settings store) and by the pre-mount theme-init.js script for
+ * first-paint correctness, and every module below consumes the CSS
+ * custom properties declared here.
+ *
+ * `@import` rules are required to appear before any other rules in a
+ * stylesheet — so the module imports live here, above `@font-face`
+ * and the variables.
+ */
+
+@import './panel-shell.css';
+@import './panel-toolbar.css';
+@import './panel-traffic.css';
+@import './column-headers.css';
+@import './panel-detail.css';
+@import './panel-editor.css';
+@import './panel-search.css';
+@import './panel-console.css';
+@import './panel-storage.css';
+@import './panel-menus.css';
+@import './panel-dnd.css';
+/* Inter — bundled UI font available via the appearance.fontFamilyPreset
+   "Inter" option. Three weights (regular / medium / bold), latin subset
+   only — ~70 KB total. */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-700.css';
+/* Atkinson Hyperlegible — accessibility-first sans bundled for the
+   matching preset. Only 400 and 700 weights ship upstream. */
+@import '@fontsource/atkinson-hyperlegible/latin-400.css';
+@import '@fontsource/atkinson-hyperlegible/latin-700.css';
+/* JetBrains Mono — monospace chrome option of
+   `appearance.fontFamilyPreset`. Same three weights as Inter. */
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../assets/fonts/PressStart2P-Regular.woff2') format('woff2');
+}
+
+/* ── Light palette (default) ────────────────────────────── */
+:root,
+[data-theme='light'] {
+  /* Vertical cap (with inner scroll) for fields that hold long pasted
+   * values — JWTs, Bearer tokens, dt-kv value cells. Mirrors the
+   * `--oh-multiline-cap` declared in `workbench/styles/rules.less` so
+   * panels rendered inside the workbench OR standalone (devtools panel)
+   * resolve the same value. One number, four call sites. */
+  --oh-multiline-cap: 96px;
+  /* Product mark at its original colors, as a data URI so branded
+     chrome (`.dt-btn--oh` CTAs, `.dt-oh-mark` inline marks) shares one
+     definition. Theme-independent — declared once here, valid under
+     both palettes. */
+  --dt-oh-logo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%235890FF'/%3E%3Cstop offset='100%25' stop-color='%234A7FE8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' rx='80' fill='url(%23g)'/%3E%3Cg transform='translate(32 32) scale(0.875)'%3E%3Cg fill='white'%3E%3Crect x='80' y='112' width='128' height='32'/%3E%3Crect x='48' y='144' width='64' height='160'/%3E%3Crect x='176' y='144' width='64' height='160'/%3E%3Crect x='80' y='304' width='128' height='32'/%3E%3Crect x='272' y='112' width='64' height='224'/%3E%3Crect x='400' y='112' width='64' height='224'/%3E%3Crect x='272' y='208' width='192' height='32'/%3E%3C/g%3E%3Crect x='112' y='144' width='64' height='160' fill='%23FF4444'/%3E%3Cpath d='M80 388C180 448 332 448 432 388' stroke='white' stroke-width='28' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+  /* Outer shell frame — the grey gutter color behind dock-body "cards".
+     Mirrors the workspace `colorBgLayout` token so both surfaces render
+     the same elegant card-on-frame visual hierarchy. `--dt-bg` stays
+     white for content backgrounds (cards, inputs, toolbar rows). */
+  --dt-frame-bg: #e8e8e8;
+  --dt-bg: #fff;
+  --dt-bg-alt: #f5f5f5;
+  --dt-text: #303030;
+  --dt-text-muted: #888;
+  --dt-border: #dcdcdc;
+  --dt-row-hover: #f0f0f0;
+  --dt-row-selected: #e8f0fe;
+  /* Clear-everything reach highlight — a muted dark-leaning yellow so the
+     "about to be wiped" tint reads as caution, distinct from selection blue. */
+  --dt-row-clear-target: #f3e6b0;
+  --dt-row-zebra: #f8f8f8;
+  --dt-row-attributed: #eef3fc;
+  /* Removed-row tint — soft red so "the page never saw this" reads at a
+   * glance against the blue (added/modified) and yellow (system) tints. */
+  --dt-row-attributed-removed: #fdecec;
+  --dt-row-attributed-removed-accent: #d93026;
+  /* System-injected headers (live-rules cache-control / pragma) are
+     tinted to blend in — they're implementation detail, not user
+     intent. Light grey in light theme, subtle dark tone in dark. */
+  --dt-row-attributed-system: #f4f4f4;
+  --dt-accent-system: #9e9e9e;
+  --dt-header-bg: #f1f1f1;
+  --dt-link: #1a73e8;
+  /* Filled primary buttons (CTA rows). Separate from --dt-link: the link
+   * hue is tuned for TEXT on the page background, not as a fill behind
+   * white text. Hover darkens the fill (never opacity — fading a filled
+   * button toward the page background washes out its label). */
+  --dt-btn-primary-bg: #1a73e8;
+  --dt-btn-primary-bg-hover: #1765cc;
+  --dt-btn-primary-text: #fff;
+  --dt-status-green: #00a800;
+  /* Error reds mirror the browser's own devtools palette — three distinct
+     roles: row/status text, the filled ✕ badge (a step brighter), and
+     console error text sitting on its tinted row surface. */
+  --dt-status-red: #b3261e;
+  --dt-icon-error: #dc362e;
+  --dt-console-error-text: #410e0b;
+  --dt-console-error-bg: #fcebeb;
+  --dt-status-orange: #e68a00;
+  --dt-sidebar-bg: #f5f5f5;
+  --dt-sidebar-active: #e8f0fe;
+  --dt-tab-active-border: #1a73e8;
+  --dt-details-bg: transparent;
+  --dt-pill-active-bg: #e8f0fe;
+  --dt-pill-active-text: #1a73e8;
+  --dt-fire-auth: #2f54eb;
+  --dt-fire-inferred: #d48806;
+  --dt-fire-contradicted: #cf1322;
+  --dt-input-bg: #fff;
+  --dt-input-border: #c9c9c9;
+
+  /* Waterfall timing-phase palette — the browser's per-phase network colors.
+   * Only Stalled and DNS differ by theme (overridden in the dark block); the
+   * rest are fixed hues. Queueing is white with a grey edge (hollow) and
+   * Content Download carries a blue edge — both styled in panel-traffic.css. */
+  --dt-wf-queueing: #fff;
+  --dt-wf-stalled: #000;
+  --dt-wf-dns: #00677f;
+  --dt-wf-connect: #eab308;
+  --dt-wf-ssl: #d190ff;
+  --dt-wf-send: #009dc1;
+  --dt-wf-wait: #37be5f;
+  --dt-wf-receive: #4c8df6;
+}
+
+/* ── Dark palette ───────────────────────────────────────── */
+[data-theme='dark'] {
+  --dt-frame-bg: #262626;
+  /* Matches the dark `colorBgContainer` card (#141414) exactly, same as
+     the light palette's #fff — painted surfaces (tab bodies, sticky
+     headers, menus) must blend into the dock card, sitting DARKER than
+     the #262626 frame gutter like every workspace card does. */
+  --dt-bg: #141414;
+  --dt-bg-alt: #252525;
+  --dt-text: #e0e0e0;
+  --dt-text-muted: #888;
+  --dt-border: #3d3d3d;
+  --dt-row-hover: #2a2a2a;
+  --dt-row-selected: #062e61;
+  --dt-row-clear-target: #4a3d12;
+  --dt-row-zebra: #222;
+  --dt-row-attributed: #23314a;
+  --dt-row-attributed-removed: #3a1f1f;
+  --dt-row-attributed-removed-accent: #ff6b6b;
+  --dt-row-attributed-system: #2a2a2a;
+  --dt-accent-system: #6a6a6a;
+  --dt-header-bg: #292929;
+  --dt-link: #8ab4f8;
+  /* Dark primary fill: a deep, muted blue with white text — the pastel
+   * --dt-link as a fill reads as a glaring light slab in dark UI. */
+  --dt-btn-primary-bg: #0e639c;
+  --dt-btn-primary-bg-hover: #1177bb;
+  --dt-btn-primary-text: #fff;
+  --dt-status-green: #4caf50;
+  /* Dark error reds — soft salmon text, a warmer mid red for the ✕ badge,
+     pale pink console text on a muted maroon surface (browser parity). */
+  --dt-status-red: #f2b8b5;
+  --dt-icon-error: #e46962;
+  --dt-console-error-text: #f9dedc;
+  --dt-console-error-bg: #4e3534;
+  --dt-status-orange: #ffb74d;
+  --dt-sidebar-bg: #252525;
+  --dt-sidebar-active: #062e61;
+  --dt-tab-active-border: #8ab4f8;
+  --dt-details-bg: transparent;
+  --dt-pill-active-bg: #1a3a5c;
+  --dt-pill-active-text: #8ab4f8;
+  --dt-fire-auth: #6990f0;
+  --dt-fire-inferred: #e8b339;
+  --dt-fire-contradicted: #e84749;
+  --dt-input-bg: #2a2a2a;
+  --dt-input-border: #4d4d4d;
+
+  /* Stalled flips to white on dark; DNS lightens. The other waterfall-phase
+   * tokens are theme-neutral and fall through from the light palette. */
+  --dt-wf-stalled: #fff;
+  --dt-wf-dns: #5cd5fb;
+}
