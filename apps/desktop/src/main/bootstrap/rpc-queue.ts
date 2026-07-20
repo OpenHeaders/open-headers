@@ -9,7 +9,7 @@
  * returned `signalEngineReady`.
  */
 
-import { app, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import { getOhRpcDispatcher } from '../install-rpc-host';
 
 const RPC_CHANNEL = 'oh:rpc';
@@ -36,9 +36,10 @@ export function installRpcQueue(): RpcQueueHandle {
     return dispatcher(raw);
   });
 
-  app.on('before-quit', () => {
-    ipcMain.removeHandler(RPC_CHANNEL);
-  });
+  // No handler teardown on quit: `before-quit` fires while renderer
+  // windows are still alive and flushing state, so deregistering here
+  // turns their last calls into "No handler registered" errors. The
+  // handler dies with the process.
 
   return { signalEngineReady: () => resolveEngineReady() };
 }

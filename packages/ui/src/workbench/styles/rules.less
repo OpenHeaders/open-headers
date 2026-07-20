@@ -1780,6 +1780,30 @@ body {
   height: 100%;
 }
 
+// ── Git tool window ref rows (hover/selected mirror the sidebar tree
+// nodes' grey/blue so the rail reads as the same control family) ────
+.git-tool-ref-row {
+  background: transparent;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+
+  &.selected {
+    background: rgba(24, 144, 255, 0.08);
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: rgba(24, 144, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
+  }
+
+  &.selected:focus-visible {
+    background: rgba(24, 144, 255, 0.12);
+  }
+}
+
 .rules-bottom-tabs {
   display: flex;
   align-items: center;
@@ -2227,6 +2251,14 @@ body {
  * until its tree row is hovered. The empty-group inline "Add …" row is
  * always visible (it IS the group's content).
  */
+/* The outline rail lives in the editor area, not a dock body, so the
+ * PanelHeader action cluster's dock-scoped reveal never fires — mirror
+ * it on the pane's own hover/focus. */
+.oh-spec-outline-pane:hover .rules-panel-header-actions,
+.oh-spec-outline-pane:focus-within .rules-panel-header-actions {
+  opacity: 1;
+}
+
 .oh-spec-outline-tree {
   /* Vendor-parity density: shallow per-level indent + slim switcher
    * column so nested rows (schemas, operations) stay close to the rail
@@ -2240,17 +2272,56 @@ body {
     align-self: center;
   }
 
+  /* Caret matches the dock-panel tree rows (TreeNodeRow): 10px
+   * CaretRightOutlined in tertiary color, rotating 90° when open.
+   * antd's default closed-state -90° svg rotation is neutralized —
+   * the open-state rotation carries the same visual instead. */
+  .ant-tree-switcher-icon {
+    font-size: 10px;
+    color: var(--ant-color-text-tertiary, #999);
+
+    svg {
+      transition: transform 0.2s;
+      transform: rotate(90deg);
+    }
+  }
+
+  .ant-tree-switcher_close .ant-tree-switcher-icon svg {
+    transform: rotate(0deg);
+  }
+
   .ant-tree-treenode {
-    padding-bottom: 1px;
+    padding-bottom: 0;
     align-items: center;
   }
 
+  /* Root group rows echo the dock panel's section headers
+   * (.rules-sidebar-section): secondary-color caret, taller row. */
+  .ant-tree-treenode.oh-spec-outline-root {
+    .ant-tree-switcher-icon {
+      color: var(--ant-color-text-secondary, #666);
+    }
+
+    .ant-tree-node-content-wrapper {
+      min-height: 30px;
+      line-height: 30px;
+    }
+  }
+
   .ant-tree-node-content-wrapper {
-    min-height: 22px;
-    line-height: 22px;
+    min-height: 26px;
+    line-height: 26px;
     padding: 0 4px;
     display: flex;
     align-items: center;
+    min-width: 0;
+  }
+
+  /* antd's title slot is inline — stretch it so row-end affordances
+   * (the hover "+" / "⋯" with margin-left: auto) reach the row edge
+   * like the dock rows' action cluster. */
+  .ant-tree-node-content-wrapper .ant-tree-title {
+    flex: 1;
     min-width: 0;
   }
 
@@ -2272,7 +2343,8 @@ body {
   }
 
   .ant-tree-treenode:hover .oh-spec-outline-add,
-  .oh-spec-outline-add:focus-visible {
+  .oh-spec-outline-add:focus-visible,
+  .oh-spec-outline-add.ant-dropdown-open {
     opacity: 1;
   }
 
@@ -2299,6 +2371,5 @@ body {
   background: var(--ant-color-primary, #1677ff);
   width: 3px !important;
   margin-left: 4px;
-  border-radius: 2px;
 }
 

@@ -5,8 +5,9 @@
  *
  * In packaged builds the process has no stdout a user can see, so
  * `console.*` calls effectively disappear. Every line here lands in
- * `<userData>/logs/main.log` with a 5 MB rolling cap. When a user
- * files a bug we ask for that file.
+ * electron-log's platform log file (macOS: `~/Library/Logs/<app>/
+ * main.log`) with a 5 MB rolling cap. When a user files a bug we ask
+ * for that file — `getLogDirectory()` reports the live path.
  *
  * Capabilities beyond `electron-log/main`'s built-in `.scope()`:
  *   - `setGlobalLogLevel('debug' | 'info' | 'warn' | 'error')` — runtime
@@ -18,6 +19,7 @@
  */
 
 import path from 'node:path';
+import type { HostLogger } from '@openheaders/core/logger';
 import log from 'electron-log/main';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -124,4 +126,37 @@ export class MainLogger {
 
 export function createLogger(component: string): MainLogger {
   return new MainLogger(component);
+}
+
+// One MainLogger per engine scope so every line keeps its `[scope]`
+// prefix in the shared main.log stream.
+const engineScopeLoggers = new Map<string, MainLogger>();
+
+function scopedLogger(scope: string): MainLogger {
+  let scoped = engineScopeLoggers.get(scope);
+  if (!scoped) {
+    scoped = new MainLogger(scope);
+    engineScopeLoggers.set(scope, scoped);
+  }
+  return scoped;
+}
+
+/**
+ * `HostLogger` implementation for the engine (`setHostLogger`), backed
+ * by the same electron-log transports as the rest of the main process.
+ * The engine's rows — spine boot, sync, workspace-tree git audit —
+ * land in main.log alongside everything else instead of dying on the
+ * invisible stdout of a packaged app.
+ */
+export function createEngineHostLogger(): HostLogger {
+  const emit =
+    (level: 'error' | 'warn' | 'info' | 'debug') =>
+    (scope: string, ...args: unknown[]): void => {
+      const [first, ...rest] = args;
+      const message = typeof first === 'string' ? first : formatData(first);
+      if (rest.length === 0) scopedLogger(scope)[level](message);
+      else if (rest.length === 1) scopedLogger(scope)[level](message, rest[0]);
+      else scopedLogger(scope)[level](message, rest);
+    };
+  return { error: emit('error'), warn: emit('warn'), info: emit('info'), debug: emit('debug') };
 }

@@ -141,12 +141,10 @@ export function installHostStorage(options: InstallHostStorageOptions = {}): Hos
     return undefined;
   });
 
-  app.on('before-quit', () => {
-    for (const channel of Object.values(CHANNEL)) {
-      if (channel === CHANNEL.change) continue;
-      ipcMain.removeHandler(channel);
-    }
-  });
+  // No handler teardown on quit: `before-quit` fires while renderer
+  // windows are still alive and flushing state, so deregistering here
+  // turns their last writes into "No handler registered" errors. The
+  // handlers die with the process.
 
   return { backend, dispatcher };
 }

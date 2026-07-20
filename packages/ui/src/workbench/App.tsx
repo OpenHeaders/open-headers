@@ -1310,6 +1310,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openWsResponseExampleTab={openWsResponseExampleTab}
         openLiveVariableEdit={openLiveVariableEdit}
         openProxyRequestInspect={openProxyRequestInspect}
+        openSettingsTab={openSettingsTab}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
         handleViewActivityEntity={handleViewActivityEntity}
@@ -1371,6 +1372,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       sidebarState,
       openLiveVariableEdit,
       openProxyRequestInspect,
+      openSettingsTab,
       handleViewActivityEntity,
     ],
   );

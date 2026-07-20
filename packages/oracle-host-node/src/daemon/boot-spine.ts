@@ -55,7 +55,7 @@ import {
   setAuditSink,
 } from '@openheaders/core/identity';
 import { setLicenseSnapshotProvider, setPersonalSeatRedemptionProvider } from '@openheaders/core/licensing';
-import { setHostLogger } from '@openheaders/core/logger';
+import { type HostLogger, hostLogger, setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { WS_PORT } from '@openheaders/core/protocol';
 import type { HostStorage } from '@openheaders/core/storage';
@@ -199,6 +199,13 @@ export interface DaemonSpineConfig {
   localAppId: string;
   /** Already-composed host storage backend; the spine installs it as the process-wide seam. */
   hostStorage: HostStorage;
+  /**
+   * Host-owned logger installed as the process-wide seam. Hosts with a
+   * durable sink pass their own (desktop: electron-log's main.log —
+   * packaged apps have no visible stdout); omitted, the spine falls
+   * back to the console logger (headless daemon under systemd/journal).
+   */
+  logger?: HostLogger;
   /** The host's status store (see `status-seam.ts`). */
   status: SpineStatusStore;
   /**
@@ -352,7 +359,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
 
   // 1. Cross-host seams. Order: logger first (so subsequent installs
   //    can log), then storage, lock, persistence.
-  setHostLogger(consoleLogger);
+  setHostLogger(config.logger ?? consoleLogger);
   setHostStorage(config.hostStorage);
   // U1.6 / U1.7 — materialize the synthetic identity-row tuple before
   // any privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12
@@ -364,7 +371,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // `hostOs` re-stamps on every boot (machine-derived); it rides the
   // home Org row into WELCOME so joiners render this server's OS mark.
   await ensureSyntheticIdentity({ ...config.identity, hostOs: detectNodeHostOs() }).catch((err: unknown) => {
-    consoleLogger.warn(SCOPE, 'ensureSyntheticIdentity failed', err);
+    hostLogger.warn(SCOPE, 'ensureSyntheticIdentity failed', err);
   });
   setLockRuntime(singleProcessLockRuntime);
   const syncPersistence = createSqliteSyncPersistence({
@@ -397,7 +404,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       .append(entry)
       .then(() => auditForwarder?.wake())
       .catch((err: unknown) => {
-        consoleLogger.warn(SCOPE, 'audit log append failed', err);
+        hostLogger.warn(SCOPE, 'audit log append failed', err);
       });
   });
   // §9.1 retention — hourly sweep drops rows older than the window.
@@ -519,13 +526,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // the process lifetime. Errors are logged but non-fatal — the next
   // mutation re-fires the reconcile.
   await ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
-    consoleLogger.warn(SCOPE, 'ensureWorkspaceRoleAssignments failed', err);
+    hostLogger.warn(SCOPE, 'ensureWorkspaceRoleAssignments failed', err);
   });
   // U2.1 — hydrate the in-memory identity snapshot the resolver reads
   // from. One refresh after both ensure-* runs is sufficient at boot;
   // the workspace-store listener below repeats it on changes.
   await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
-    consoleLogger.warn(SCOPE, 'refreshIdentitySnapshotFromHostStorage failed', err);
+    hostLogger.warn(SCOPE, 'refreshIdentitySnapshotFromHostStorage failed', err);
   });
   // U2.6 — install the workspaceId → orgId resolver consulted by every
   // envelope mint site (UNIFIED_ORACLE_MODEL.md §6.1). Per-workspace
@@ -543,7 +550,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id))
       .then(() => refreshIdentitySnapshotFromHostStorage())
       .catch((err: unknown) => {
-        consoleLogger.warn(SCOPE, 'ensureWorkspaceRoleAssignments reconcile failed', err);
+        hostLogger.warn(SCOPE, 'ensureWorkspaceRoleAssignments reconcile failed', err);
       });
     invalidateAllWorkspaceOrgCache();
   });
@@ -605,7 +612,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     resolveUserAttribution: resolveDaemonUserGitAttribution,
   });
   await workspaceTreeRuntime.start().catch((err: unknown) => {
-    consoleLogger.warn(SCOPE, 'workspace-tree runtime start failed', err);
+    hostLogger.warn(SCOPE, 'workspace-tree runtime start failed', err);
   });
 
   // 4a. WS-C C3/C4 — live runner. With the active workspace's stores
@@ -1100,7 +1107,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       },
     });
   } catch (err) {
-    consoleLogger.error(SCOPE, 'WS supervisor failed to start; continuing without the peer pipe', err);
+    hostLogger.error(SCOPE, 'WS supervisor failed to start; continuing without the peer pipe', err);
   }
 
   // 7. Teardown — the host wires this to its shutdown signal (desktop:

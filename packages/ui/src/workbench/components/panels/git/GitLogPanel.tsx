@@ -23,6 +23,7 @@ import { BranchesOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   hostBridge,
   type WorkspaceTreeFileDiffPairWire,
+  type WorkspaceTreeGitStatusWire,
   type WorkspaceTreeLogEntryWire,
   type WorkspaceTreeRefWire,
 } from '@openheaders/core/bridge';
@@ -44,6 +45,7 @@ import {
 export interface GitLogPanelProps {
   info: InfoPopoverContent;
   onHide: () => void;
+  onOpenGitSettings: () => void;
 }
 
 const LOG_LIMIT = 200;
@@ -72,7 +74,7 @@ function statusColor(status: string, token: ReturnType<typeof theme.useToken>['t
   }
 }
 
-const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
+const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide, onOpenGitSettings }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -93,7 +95,12 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
   const [fileDiffLoading, setFileDiffLoading] = useState<string | null>(null);
   const [diffOptions, setDiffOptions] = useState<DiffViewerOptions>(DEFAULT_DIFF_VIEWER_OPTIONS);
 
-  const reload = useCallback(async (): Promise<void> => {
+  // A `workspaceTreeGitStatus` frame already carries the full status —
+  // frame-driven reloads reuse it instead of re-querying `gitStatus`
+  // (each query spawns its own git probes; the engine just computed
+  // this exact answer to build the frame).
+  const reload = useCallback(
+    async (frameStatus?: WorkspaceTreeGitStatusWire): Promise<void> => {
     if (workspaceId === null) {
       setBound(false);
       setEntries([]);
@@ -102,16 +109,26 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
     setLoading(true);
     setError(null);
     try {
-      const list = await hostBridge.call('oh.workspaceTree.list');
-      const isBound = list.bindings.some((row) => row.workspaceId === workspaceId);
-      setBound(isBound);
-      if (!isBound) {
-        setBranch(null);
-        setEntries([]);
-        return;
+      if (frameStatus !== undefined) {
+        setBound(frameStatus.bound);
+        if (!frameStatus.bound) {
+          setBranch(null);
+          setEntries([]);
+          return;
+        }
+        setBranch(frameStatus.branch);
+      } else {
+        const list = await hostBridge.call('oh.workspaceTree.list');
+        const isBound = list.bindings.some((row) => row.workspaceId === workspaceId);
+        setBound(isBound);
+        if (!isBound) {
+          setBranch(null);
+          setEntries([]);
+          return;
+        }
+        const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
+        setBranch(status.branch);
       }
-      const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
-      setBranch(status.branch);
       const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
       if (refsResult.ok) {
         setRefs(refsResult.refs);
@@ -135,13 +152,15 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
         setEntries([]);
         setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
       }
-    } catch (err) {
-      setEntries([]);
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId, selectedRef, t]);
+      } catch (err) {
+        setEntries([]);
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [workspaceId, selectedRef, t],
+  );
 
   useEffect(() => {
     void reload();
@@ -151,7 +170,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
     if (workspaceId === null) return;
     return hostBridge.subscribe('workspaceTreeGitStatus', (payload) => {
       if (payload.workspaceId !== workspaceId) return;
-      void reload();
+      void reload(payload.status);
     });
   }, [workspaceId, reload]);
 
@@ -171,6 +190,15 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
     [entries, selectedSha],
   );
 
+  // The branch gitStatus reports but listRefs doesn't: an unborn HEAD
+  // (fresh repo, first commit pending). Shown as the current branch in
+  // the Local group, IDE-log style; its name must never scope `log` —
+  // the membership gate would refuse it — so selecting it is HEAD scope.
+  const unbornBranch = useMemo(
+    () => (branch !== null && !refs.some((ref) => ref.kind === 'local' && ref.name === branch) ? branch : null),
+    [branch, refs],
+  );
+
   const refGroups = useMemo(
     () =>
       (
@@ -179,8 +207,13 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
           ['remote', t('workbench.gitLog.refs.remote')],
           ['tag', t('workbench.gitLog.refs.tags')],
         ] as const
-      ).map(([kind, label]) => ({ kind, label, refs: refs.filter((ref) => ref.kind === kind) })),
-    [refs, t],
+      ).map(([kind, label]) => ({
+        kind,
+        label,
+        refs: refs.filter((ref) => ref.kind === kind),
+        unborn: kind === 'local' ? unbornBranch : null,
+      })),
+    [refs, t, unbornBranch],
   );
 
   const openFileDiff = async (sha: string, filePath: string): Promise<void> => {
@@ -286,6 +319,15 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
           >
             <strong style={{ fontSize: 13, color: token.colorText }}>{t('workbench.gitLog.notBound.title')}</strong>
             <span style={{ fontSize: 12 }}>{t('workbench.gitLog.notBound.body')}</span>
+            <Button
+              type="link"
+              size="small"
+              onClick={onOpenGitSettings}
+              style={{ fontSize: 12 }}
+              data-testid="git-tool-open-settings"
+            >
+              {t('workbench.gitLog.notBound.cta')}
+            </Button>
           </div>
         ) : (
           <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
@@ -301,7 +343,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
                 }}
                 data-testid="git-tool-refs"
               >
-                {refs.length === 0 ? (
+                {refs.length === 0 && unbornBranch === null ? (
                   <div
                     style={{ padding: '12px', fontSize: 12, color: token.colorTextSecondary }}
                     data-testid="git-tool-refs-empty"
@@ -310,7 +352,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
                   </div>
                 ) : (
                   refGroups.map((group) =>
-                    group.refs.length === 0 ? null : (
+                    group.refs.length === 0 && group.unborn === null ? null : (
                       <div key={group.kind} data-testid="git-tool-ref-group" data-kind={group.kind}>
                         <div
                           style={{
@@ -324,6 +366,45 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
                         >
                           {group.label}
                         </div>
+                        {group.unborn !== null && (
+                          <button
+                            type="button"
+                            className="git-tool-ref-row"
+                            onClick={() => setSelectedRef(null)}
+                            title={group.unborn}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              width: '100%',
+                              padding: '2px 12px',
+                              border: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              fontSize: 12,
+                              color: token.colorText,
+                              fontWeight: 600,
+                            }}
+                            data-testid="git-tool-ref-row"
+                            data-ref={group.unborn}
+                            data-kind="local"
+                          >
+                            <span
+                              style={{
+                                flex: '1 1 auto',
+                                minWidth: 0,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {group.unborn}
+                            </span>
+                            <span aria-hidden style={{ flex: '0 0 auto', color: token.colorWarningText }}>
+                              ★
+                            </span>
+                          </button>
+                        )}
                         {group.refs.map((ref) => {
                           const isCurrent = ref.kind === 'local' && ref.name === currentRef;
                           const isActive = ref.name === selectedRef;
@@ -331,6 +412,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
                             <button
                               key={`${ref.kind}:${ref.name}`}
                               type="button"
+                              className={isActive ? 'git-tool-ref-row selected' : 'git-tool-ref-row'}
                               onClick={() => setSelectedRef(isActive ? null : ref.name)}
                               title={ref.name}
                               style={{
@@ -343,7 +425,6 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
                                 textAlign: 'left',
                                 cursor: 'pointer',
                                 fontSize: 12,
-                                background: isActive ? token.controlItemBgActive : 'transparent',
                                 color: token.colorText,
                                 fontWeight: isCurrent ? 600 : 400,
                               }}

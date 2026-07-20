@@ -46,7 +46,6 @@ import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import type { TelemetryEvent } from '@openheaders/core/telemetry';
-import { logger as consoleLogger } from '@openheaders/core/utils';
 import {
   clearImportReports,
   findImportReportBySourceHash,
@@ -70,6 +69,7 @@ import {
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog } from 'electron';
 import { installLocaleSubscription } from './bootstrap/locale';
+import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
@@ -85,6 +85,12 @@ import { fetchDesktopSeverity } from './versions-manifest';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 
 const SCOPE = 'install-rpc-host';
+
+/** Hard deadline for the engine's quit-time dispose before force-exit. */
+const ENGINE_DISPOSE_DEADLINE_MS = 10_000;
+
+/** Post-dispose grace for the re-quit to complete before force-exit. */
+const REQUIT_DEADLINE_MS = 5_000;
 
 export type OhRpcDispatcher = (raw: unknown) => Promise<unknown>;
 
@@ -132,8 +138,11 @@ function safeOsHostname(): string {
  */
 export async function installRpcHost(): Promise<void> {
   // Logger first so the storage + lifeline installs below can log; the
-  // spine re-installs the same adapter, which is a no-op.
-  setHostLogger(consoleLogger);
+  // spine re-installs the same adapter, which is a no-op. Electron-log
+  // backed: engine rows reach main.log, not just the (invisible in
+  // packaged builds) stdout.
+  const engineLogger = createEngineHostLogger();
+  setHostLogger(engineLogger);
   // Secrets-storage state (the "unlock secrets storage" surface): the
   // file-backed store observes cipher availability from sensitive-slot
   // traffic — never probing, so no keychain prompt fires for users who
@@ -171,7 +180,7 @@ export async function installRpcHost(): Promise<void> {
   });
   const webRootPresent = existsSync(path.join(webRoot, 'index.html'));
   if (!webRootPresent) {
-    consoleLogger.info(SCOPE, `web bundle not found at ${webRoot}; the serve-web-app setting stays inert`);
+    engineLogger.info(SCOPE, `web bundle not found at ${webRoot}; the serve-web-app setting stays inert`);
   }
   // Native-surface locale (tray / menus / dialogs) follows the same
   // settings blob — bound here because the menus install before this
@@ -231,8 +240,8 @@ export async function installRpcHost(): Promise<void> {
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle),
     log: {
-      info: (msg) => consoleLogger.info(SCOPE, msg),
-      warn: (msg, err) => consoleLogger.warn(SCOPE, msg, err),
+      info: (msg) => engineLogger.info(SCOPE, msg),
+      warn: (msg, err) => engineLogger.warn(SCOPE, msg, err),
     },
   });
   updateService.start();
@@ -250,6 +259,7 @@ export async function installRpcHost(): Promise<void> {
   const spine = await bootDaemonSpine({
     dataDir: app.getPath('userData'),
     appVersion: app.getVersion(),
+    logger: engineLogger,
     identity: {
       // `hostKind: 'desktop'` + the machine name as the local-org name
       // make this host's Org distinguishable from a joined peer's.
@@ -468,14 +478,45 @@ export async function installRpcHost(): Promise<void> {
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };
 
-  // Clean up engine-owned resources on app quit. The `oh:rpc` channel
-  // is registered in `main.ts` (so it can queue pre-engine calls) and
-  // is removed there.
-  app.on('before-quit', () => {
+  // Clean up engine-owned resources on app quit. The spine's dispose
+  // flushes in-flight work (workspace-tree materializer, binding
+  // chains, SQLite close) — the quit HOLDS until it completes, else
+  // Electron exits mid-flush and can cut a materialize or commit pass
+  // short on disk. First `before-quit` cancels the quit, disposes,
+  // then re-quits; the guard lets the second pass through. A watchdog
+  // deadline force-exits if dispose ever hangs — a tray-resident app
+  // with no window must never wedge un-quittable.
+  let engineDisposeStarted = false;
+  app.on('before-quit', (event) => {
+    if (engineDisposeStarted) return;
+    engineDisposeStarted = true;
+    event.preventDefault();
     rpcDispatcher = null;
     updateService.dispose();
     productTelemetry.dispose();
     scriptSandbox.dispose();
-    void spine.dispose();
+    const watchdog = setTimeout(() => {
+      engineLogger.warn(SCOPE, 'engine dispose deadline hit; force exit');
+      app.exit(0);
+    }, ENGINE_DISPOSE_DEADLINE_MS);
+    void (async () => {
+      try {
+        await spine.dispose();
+      } catch (err) {
+        engineLogger.warn(SCOPE, 'engine dispose failed during quit', err);
+      } finally {
+        clearTimeout(watchdog);
+        engineLogger.info(SCOPE, 'engine disposed; quitting');
+        app.quit();
+        // The graceful re-quit can be swallowed (a renderer beforeunload,
+        // another module's quit hold). The engine is gone either way, so
+        // the app must not outlive it: force-exit once every legitimate
+        // hold (the terminal host's 1.5s pty drain) has had its window.
+        setTimeout(() => {
+          engineLogger.warn(SCOPE, 'quit did not complete after engine dispose; force exit');
+          app.exit(0);
+        }, REQUIT_DEADLINE_MS).unref();
+      }
+    })();
   });
 }

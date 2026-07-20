@@ -113,6 +113,9 @@ const FETCH_INTERVAL_MS = 5 * 60_000;
 /** Minimum spacing between focus-triggered fetches (cmd-tab is bursty). */
 const FETCH_FOCUS_MIN_MS = 30_000;
 
+/** Trailing debounce for the §9 status feed — a bind/sweep/flush burst probes once. */
+const STATUS_PUBLISH_DEBOUNCE_MS = 150;
+
 /** Retry window while an in-progress git operation holds reconcile (§3.3). */
 const OP_HOLD_RETRY_MS = 5_000;
 
@@ -389,6 +392,10 @@ interface OpenBinding {
   lastFetchAt: number;
   /** Retry timer while an in-progress git op holds reconcile (§3.3). */
   holdRetryTimer: NodeJS.Timeout | null;
+  /** Trailing debounce for the §9 status feed — bursts collapse to one frame. */
+  statusPublishTimer: NodeJS.Timeout | null;
+  /** Hash of the last published status frame — identical recomputes stay silent. */
+  lastStatusHash: string | null;
   /** Batch intents since the last successful commit — the semantic-message feed. */
   intents: CommitIntent[];
   /**
@@ -805,15 +812,32 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
    * Live git-slot feed (§9) — recompute after a pass that can move
    * `git status` and hand the result to the host's sink. Skipped
    * entirely when no sink is wired (the porcelain spawns aren't free).
+   *
+   * Trailing-debounced (150ms) and deduplicated by frame hash, the
+   * same discipline as the extension's rule updates: a bind/sweep/
+   * flush burst probes git once and emits at most one frame, and a
+   * recompute that lands on identical status stays silent — consumers
+   * only ever refetch on real movement.
    */
   const publishGitStatus = async (binding: OpenBinding): Promise<void> => {
     const sink = options.onGitStatus;
     if (!sink || binding.closed) return;
-    try {
-      sink(binding.record.workspaceId, await computeGitStatus(binding));
-    } catch (err) {
-      logger.warn(SCOPE, `git status publish failed for ${binding.record.rootDir}`, err);
-    }
+    if (binding.statusPublishTimer) clearTimeout(binding.statusPublishTimer);
+    binding.statusPublishTimer = setTimeout(() => {
+      binding.statusPublishTimer = null;
+      void (async () => {
+        if (binding.closed) return;
+        try {
+          const status = await computeGitStatus(binding);
+          const hash = JSON.stringify(status);
+          if (hash === binding.lastStatusHash) return;
+          binding.lastStatusHash = hash;
+          sink(binding.record.workspaceId, status);
+        } catch (err) {
+          logger.warn(SCOPE, `git status publish failed for ${binding.record.rootDir}`, err);
+        }
+      })();
+    }, STATUS_PUBLISH_DEBOUNCE_MS);
   };
 
   /**
@@ -1219,6 +1243,8 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       fetchInterval: null,
       lastFetchAt: 0,
       holdRetryTimer: null,
+      statusPublishTimer: null,
+      lastStatusHash: null,
       intents: [],
       contributors: new Set(),
       issues: [],
@@ -1278,6 +1304,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     if (binding.holdRetryTimer) {
       clearTimeout(binding.holdRetryTimer);
       binding.holdRetryTimer = null;
+    }
+    if (binding.statusPublishTimer) {
+      clearTimeout(binding.statusPublishTimer);
+      binding.statusPublishTimer = null;
     }
     binding.materializer.dispose();
     await binding.chain;

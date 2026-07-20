@@ -13,7 +13,15 @@
  * the settings store: `data.logLevel` in `rules/settings/schema/data.ts`.
  * The bootstrap helper `wireLoggerToSettings()` (utils/settings-bootstrap)
  * reads that setting at init and subscribes for future changes.
+ *
+ * Sink: lines delegate to the installed {@link HostLogger} (hosts with
+ * a durable sink — the desktop's main.log — capture every module this
+ * way), falling back to the console when no host adapter is installed
+ * or when this logger IS the installed adapter (the extension installs
+ * it directly; the self-check breaks the recursion).
  */
+
+import { getHostLogger } from '../logger/host-logger';
 
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
@@ -45,21 +53,38 @@ export function isValidLogLevel(value: unknown): value is LogLevel {
   return typeof value === 'string' && value in LOG_LEVELS;
 }
 
+function hostSink(): ReturnType<typeof getHostLogger> {
+  const host = getHostLogger();
+  return host !== null && host !== logger ? host : null;
+}
+
 export const logger = {
   error(module: string, ...args: unknown[]): void {
-    if (shouldLog('error')) console.error(formatPrefix('error', module), ...args);
+    if (!shouldLog('error')) return;
+    const host = hostSink();
+    if (host) host.error(module, ...args);
+    else console.error(formatPrefix('error', module), ...args);
   },
 
   warn(module: string, ...args: unknown[]): void {
-    if (shouldLog('warn')) console.warn(formatPrefix('warn', module), ...args);
+    if (!shouldLog('warn')) return;
+    const host = hostSink();
+    if (host) host.warn(module, ...args);
+    else console.warn(formatPrefix('warn', module), ...args);
   },
 
   info(module: string, ...args: unknown[]): void {
-    if (shouldLog('info')) console.log(formatPrefix('info', module), ...args);
+    if (!shouldLog('info')) return;
+    const host = hostSink();
+    if (host) host.info(module, ...args);
+    else console.log(formatPrefix('info', module), ...args);
   },
 
   debug(module: string, ...args: unknown[]): void {
-    if (shouldLog('debug')) console.log(formatPrefix('debug', module), ...args);
+    if (!shouldLog('debug')) return;
+    const host = hostSink();
+    if (host) host.debug(module, ...args);
+    else console.log(formatPrefix('debug', module), ...args);
   },
 
   getLevel(): LogLevel {
