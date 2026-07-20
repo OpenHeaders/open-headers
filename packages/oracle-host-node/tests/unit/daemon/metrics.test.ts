@@ -12,12 +12,13 @@ import type { StatusSnapshot } from '@openheaders/core/types';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { ensureAuditLogSchema, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
 import { ensureMutationLogSchema } from '@openheaders/oracle-host-node/sync/sqlite-mutation-log';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DaemonBindState } from '../../../src/daemon/bind-supervisor';
 import { createMetricsProvider, type MetricsProviderDeps } from '../../../src/daemon/metrics';
 import { installObservabilityLog } from '../../../src/daemon/observability-log';
 import type { PeerSummary } from '../../../src/host-runtime/ws-server';
+import { openSqliteDatabase } from '../../../src/sync/sqlite-database';
 
 const ORG = '0193a8ff-c000-7000-8000-00000000000a';
 const NOW = Date.now();
@@ -52,7 +53,7 @@ describe('createMetricsProvider', () => {
 
   beforeEach(() => {
     setHostLogger(consoleLogger);
-    db = new Database(':memory:');
+    db = openSqliteDatabase(':memory:');
     ensureMutationLogSchema(db);
     ensureAuditLogSchema(db);
     installObservabilityLog({ db, appVersion: '2026.7.0', broadcast: () => undefined });

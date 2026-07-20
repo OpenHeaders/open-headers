@@ -6,14 +6,14 @@
  * idempotent, so we can call it on a fresh `:memory:` DB inline.
  */
 
-import Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import {
-  SqlitePendingOutQueue,
   ensurePendingOutQueueSchema,
+  SqlitePendingOutQueue,
 } from '@openheaders/oracle-host-node/sync/sqlite-pending-out-queue';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 
 let db: Database.Database;
 let q: SqlitePendingOutQueue;
@@ -35,7 +35,7 @@ const collect = async (it: AsyncIterable<MutationEnvelope>): Promise<MutationEnv
 };
 
 beforeEach(() => {
-  db = new Database(':memory:');
+  db = openSqliteDatabase(':memory:');
   ensurePendingOutQueueSchema(db);
   q = new SqlitePendingOutQueue(db);
 });

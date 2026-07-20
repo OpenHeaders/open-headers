@@ -6,11 +6,11 @@
  * idempotent so each test runs on a fresh `:memory:` handle.
  */
 
-import Database from 'better-sqlite3';
+import { type ActivityEntry, type ActivityEntryKind, activityEntryId } from '@openheaders/core/sync';
+import { ensureActivityLogSchema, SqliteActivityLog } from '@openheaders/oracle-host-node/sync/sqlite-activity-log';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { activityEntryId, type ActivityEntry, type ActivityEntryKind } from '@openheaders/core/sync';
-import { SqliteActivityLog, ensureActivityLogSchema } from '@openheaders/oracle-host-node/sync/sqlite-activity-log';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 
@@ -35,7 +35,7 @@ function makeEntry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
 }
 
 beforeEach(() => {
-  db = new Database(':memory:');
+  db = openSqliteDatabase(':memory:');
   ensureActivityLogSchema(db);
   log = new SqliteActivityLog(db);
 });
@@ -46,15 +46,9 @@ afterEach(() => {
 
 describe('SqliteActivityLog', () => {
   it('append + list returns newest first by HLC', async () => {
-    await log.append(
-      makeEntry({ mutationId: 'm1', hlc: { physicalMs: 1_000, logical: 0, nodeId: 'n' } }),
-    );
-    await log.append(
-      makeEntry({ mutationId: 'm3', hlc: { physicalMs: 3_000, logical: 0, nodeId: 'n' } }),
-    );
-    await log.append(
-      makeEntry({ mutationId: 'm2', hlc: { physicalMs: 2_000, logical: 0, nodeId: 'n' } }),
-    );
+    await log.append(makeEntry({ mutationId: 'm1', hlc: { physicalMs: 1_000, logical: 0, nodeId: 'n' } }));
+    await log.append(makeEntry({ mutationId: 'm3', hlc: { physicalMs: 3_000, logical: 0, nodeId: 'n' } }));
+    await log.append(makeEntry({ mutationId: 'm2', hlc: { physicalMs: 2_000, logical: 0, nodeId: 'n' } }));
     const rows = await log.list(WS);
     expect(rows.map((r) => r.mutationId)).toEqual(['m3', 'm2', 'm1']);
   });
@@ -93,10 +87,7 @@ describe('SqliteActivityLog', () => {
     await log.append(e3);
 
     expect((await log.list(WS, { limit: 2 })).map((r) => r.mutationId)).toEqual(['m3', 'm2']);
-    expect((await log.list(WS, { sinceHlcKey: e1.id.split('|')[0] })).map((r) => r.mutationId)).toEqual([
-      'm3',
-      'm2',
-    ]);
+    expect((await log.list(WS, { sinceHlcKey: e1.id.split('|')[0] })).map((r) => r.mutationId)).toEqual(['m3', 'm2']);
     expect((await log.list(WS, { unreadOnly: true })).map((r) => r.mutationId)).toEqual(['m2', 'm1']);
   });
 

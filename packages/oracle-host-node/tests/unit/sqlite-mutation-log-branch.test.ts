@@ -12,8 +12,9 @@ import {
   SqliteMutationLog,
   supportsBranchScope,
 } from '@openheaders/oracle-host-node/sync/sqlite-mutation-log';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 
 let db: Database.Database;
 let log: SqliteMutationLog;
@@ -35,7 +36,7 @@ const collect = async (it: AsyncIterable<MutationEnvelope>): Promise<string[]> =
 };
 
 beforeEach(() => {
-  db = new Database(':memory:');
+  db = openSqliteDatabase(':memory:');
   ensureMutationLogSchema(db);
   log = new SqliteMutationLog(db, 'ws-1');
 });
@@ -114,7 +115,7 @@ describe('SqliteMutationLog per-branch scope', () => {
   });
 
   it('a pre-Phase-6 table gains the branch column in place; legacy rows read as trunk', async () => {
-    const legacy = new Database(':memory:');
+    const legacy = openSqliteDatabase(':memory:');
     legacy.exec(
       `CREATE TABLE mutation_log (
         scope TEXT NOT NULL, org_id TEXT NOT NULL, hlc_key TEXT NOT NULL,

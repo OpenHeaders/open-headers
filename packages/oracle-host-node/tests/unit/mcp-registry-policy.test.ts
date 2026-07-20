@@ -22,7 +22,7 @@ import {
 import { setHostStorage } from '@openheaders/core/storage';
 import type { DaemonUserRecord } from '@openheaders/core/types';
 import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { gateMcpToolCall, McpPermissionDeniedError, type McpPolicy } from '../../src/mcp/policy';
 import {
@@ -31,6 +31,7 @@ import {
   type McpToolDefinition,
   type McpToolTier,
 } from '../../src/mcp/registry';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const WS_ID = 'ws-openheaders-io';
@@ -98,7 +99,7 @@ describe('gateMcpToolCall', () => {
     // Dual sink — the array for in-test assertions, the SQLite log for
     // the slice-4 "denials land as queryable rows" leg (the same sink
     // shape the boot spine installs).
-    auditDb = new Database(':memory:');
+    auditDb = openSqliteDatabase(':memory:');
     const sqliteAudit = new SqliteAuditLog(auditDb);
     setAuditSink((entry) => {
       audits.push(entry);

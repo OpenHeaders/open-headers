@@ -5,13 +5,13 @@
  * in-memory reference against an in-memory SQLite database.
  */
 
-import Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import {
-  SqliteActivityMuteStore,
   ensureActivityMuteSchema,
+  SqliteActivityMuteStore,
 } from '@openheaders/oracle-host-node/sync/sqlite-activity-mute-store';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 const WS2 = '0193a8ff-c000-7000-8000-000000000002';
@@ -20,7 +20,7 @@ let db: Database.Database;
 let store: SqliteActivityMuteStore;
 
 beforeEach(() => {
-  db = new Database(':memory:');
+  db = openSqliteDatabase(':memory:');
   ensureActivityMuteSchema(db);
   store = new SqliteActivityMuteStore(db);
 });

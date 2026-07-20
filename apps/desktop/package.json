@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "start": "electron .",
-    "postinstall": "electron-rebuild -f -o better-sqlite3,node-pty --build-from-source",
+    "postinstall": "node scripts/rebuild-native.mjs",
     "dev": "electron-vite dev",
     "build": "cross-env NODE_ENV=production electron-vite build",
     "build:dev": "cross-env NODE_ENV=development electron-vite build",

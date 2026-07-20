@@ -77,7 +77,7 @@ import {
   __resetForTests as resetWorkspaceStore,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { queryAuditEntries, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 import { createAdminChannelHandlers } from '../../src/daemon/admin-channels';
@@ -86,6 +86,7 @@ import { offerWorkspaceRowsToUserPeers } from '../../src/daemon/grant-workspace-
 import { ADMIN_DENIED_MESSAGE, createPeerAdminRpc } from '../../src/daemon/peer-admin-rpc';
 import { createFilteredPeerBroadcast, makeWorkspaceReadFilter } from '../../src/daemon/peer-read-filter';
 import { type OracleWsServer, startOracleWsServer } from '../../src/host-runtime/ws-server';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const IDENTITY = { role: 'desktop' as const, nodeId: 'host-node-1', agent: '@openheaders/desktop@test' };
@@ -207,7 +208,7 @@ beforeEach(async () => {
   // Dual sink — the array for in-test assertions, the SQLite log for
   // the slice-4 "denials land as queryable rows" leg (the same sink
   // shape the boot spine installs).
-  auditDb = new Database(':memory:');
+  auditDb = openSqliteDatabase(':memory:');
   const sqliteAudit = new SqliteAuditLog(auditDb);
   setAuditSink((entry) => {
     audits.push(entry);

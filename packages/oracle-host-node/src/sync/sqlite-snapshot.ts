@@ -9,10 +9,10 @@
  * cross-file consistency (`storage.json`/`blobs/`), not for SQLite.
  */
 
-import Database from 'better-sqlite3';
+import { openSqliteDatabase } from './sqlite-database';
 
 export async function snapshotSqliteDatabase(sourcePath: string, destPath: string): Promise<void> {
-  const db = new Database(sourcePath, { readonly: true, fileMustExist: true });
+  const db = openSqliteDatabase(sourcePath, { readonly: true, fileMustExist: true });
   try {
     await db.backup(destPath);
   } finally {

@@ -16,8 +16,9 @@ import type { AddressInfo } from 'node:net';
 import type { AuditLogEntry } from '@openheaders/core/types';
 import type { AuditLogAppendInput } from '@openheaders/oracle/sync/audit-log';
 import { ensureAuditLogSchema, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { openSqliteDatabase } from '../../../src/sync/sqlite-database';
 
 vi.mock('@openheaders/core/logger', () => ({
   hostLogger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -85,7 +86,7 @@ function makeInput(seqHint: number, overrides: Partial<AuditLogAppendInput> = {}
 }
 
 beforeEach(async () => {
-  db = new Database(':memory:');
+  db = openSqliteDatabase(':memory:');
   ensureAuditLogSchema(db);
   log = new SqliteAuditLog(db);
   collector = await startCollector();

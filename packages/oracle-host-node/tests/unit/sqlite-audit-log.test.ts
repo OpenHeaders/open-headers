@@ -16,9 +16,10 @@ import {
   queryAuditEntries,
   SqliteAuditLog,
 } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installAuditPruneScheduler } from '../../src/daemon/audit-prune-scheduler';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 
 const ORG_A = '0193a8ff-c000-7000-8000-00000000000a';
 const ORG_B = '0193a8ff-c000-7000-8000-00000000000b';
@@ -41,7 +42,7 @@ function makeInput(overrides: Partial<AuditLogAppendInput> = {}): AuditLogAppend
 
 beforeEach(() => {
   setHostLogger(consoleLogger);
-  db = new Database(':memory:');
+  db = openSqliteDatabase(':memory:');
   ensureAuditLogSchema(db);
   log = new SqliteAuditLog(db);
 });
@@ -109,7 +110,7 @@ describe('SqliteAuditLog', () => {
 
 describe('queryAuditEntries', () => {
   it('returns empty on a database without the audit tables', () => {
-    const bare = new Database(':memory:');
+    const bare = openSqliteDatabase(':memory:');
     expect(queryAuditEntries(bare)).toEqual([]);
     bare.close();
   });

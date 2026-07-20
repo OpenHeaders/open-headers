@@ -22,7 +22,6 @@
  *   - **Close:** flushes WAL and closes the database. Idempotent.
  */
 
-import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ActivityLog } from '@openheaders/oracle/sync/activity/activity-log';
@@ -31,8 +30,10 @@ import type { MutationLog } from '@openheaders/oracle/sync/mutation-log';
 import type { PendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import type { PendingOutQueue } from '@openheaders/oracle/sync/pending-out-queue';
 import type { SyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
+import type Database from 'better-sqlite3';
 import { ensureActivityLogSchema, SqliteActivityLog } from './sqlite-activity-log';
 import { ensureActivityMuteSchema, SqliteActivityMuteStore } from './sqlite-activity-mute-store';
+import { openSqliteDatabase } from './sqlite-database';
 import { ensureMutationLogSchema, SqliteMutationLog } from './sqlite-mutation-log';
 import { ensurePendingIntentsSchema, SqlitePendingIntents } from './sqlite-pending-intents';
 import { ensurePendingOutQueueSchema, SqlitePendingOutQueue } from './sqlite-pending-out-queue';
@@ -51,11 +52,9 @@ export interface SqliteSyncPersistenceHandle extends SyncPersistenceProvider {
   close(): void;
 }
 
-export function createSqliteSyncPersistence(
-  options: SqliteSyncPersistenceOptions,
-): SqliteSyncPersistenceHandle {
+export function createSqliteSyncPersistence(options: SqliteSyncPersistenceOptions): SqliteSyncPersistenceHandle {
   fs.mkdirSync(path.dirname(options.dbPath), { recursive: true, mode: 0o700 });
-  const db = new Database(options.dbPath, options.verbose ? { verbose: options.verbose } : undefined);
+  const db = openSqliteDatabase(options.dbPath, options.verbose ? { verbose: options.verbose } : undefined);
   // Owner-only at rest — the database holds sync payloads and the audit
   // log. SQLite creates WAL/SHM sidecars with the database file's mode,
   // so tightening it here covers them too.

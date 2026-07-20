@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { snapshotSqliteDatabase } from '@openheaders/oracle-host-node/sync/sqlite-snapshot';
-import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
+import { openSqliteDatabase } from '../../src/sync/sqlite-database';
 
 const tempDirs: string[] = [];
 
@@ -32,7 +32,7 @@ describe('snapshotSqliteDatabase', () => {
     const dir = makeDir();
     const sourcePath = path.join(dir, 'oracle.db');
     const destPath = path.join(dir, 'copy.db');
-    const source = new Database(sourcePath);
+    const source = openSqliteDatabase(sourcePath);
     try {
       source.pragma('journal_mode = WAL');
       source.exec('CREATE TABLE rows (id INTEGER PRIMARY KEY, value TEXT NOT NULL)');
@@ -45,7 +45,7 @@ describe('snapshotSqliteDatabase', () => {
       source.close();
     }
     expect(fs.existsSync(`${destPath}-wal`)).toBe(false);
-    const copy = new Database(destPath, { readonly: true });
+    const copy = openSqliteDatabase(destPath, { readonly: true });
     try {
       const rows = copy.prepare('SELECT value FROM rows').all() as Array<{ value: string }>;
       expect(rows).toEqual([{ value: 'https://openheaders.io' }]);
