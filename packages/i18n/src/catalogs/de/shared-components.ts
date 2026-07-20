@@ -447,6 +447,7 @@ export const sharedComponents = {
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.availability': 'Verfügbar in der Desktop-App von OpenHeaders.',
   'shared.desktopTeaser.cta': 'Desktop-App herunterladen',
+  'shared.desktopTeaser.otherPlatforms': 'Weitere Plattformen und Kanäle',
   'shared.desktopTeaser.terminal.title': 'Integriertes Terminal',
   'shared.desktopTeaser.terminal.body':
     'Öffne ein echtes Terminal direkt im Arbeitsbereich — deine eigene Shell, lokal ausgeführt, gleich neben deinen Regeln und Anfragen.',

@@ -4,17 +4,27 @@
  * explainer + a download CTA, so gated tabs and settings categories
  * stay discoverable instead of silently disappearing.
  *
- * The CTA opens the website's desktop install section outside the
- * current surface via the `openExternalUrl` capability; hosts without
- * it (the web app) fall back to a plain new tab.
+ * The CTA resolves the latest installer for this platform from the
+ * update feed's versions manifest (see `update-feed.ts`) and opens it
+ * outside the current surface via the `openExternalUrl` capability;
+ * hosts without it (the web app) fall back to a plain new tab. When
+ * the feed is unreachable, the CTA and the "other platforms" link
+ * both route to the website's install section instead.
  */
 
 import { DownloadOutlined } from '@ant-design/icons';
 import { Button, theme } from 'antd';
 import type React from 'react';
+import { useEffect, useState } from 'react';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { DESKTOP_DOWNLOAD_URL, DESKTOP_TEASER_COPY, type DesktopFeature } from './features';
+import { DESKTOP_TEASER_COPY, type DesktopFeature } from './features';
+import {
+  DESKTOP_DOWNLOAD_URL,
+  DESKTOP_PLATFORM_LABELS,
+  type DesktopInstaller,
+  fetchLatestDesktopInstaller,
+} from './update-feed';
 
 export interface DesktopTeaserProps {
   feature: DesktopFeature;
@@ -22,16 +32,26 @@ export interface DesktopTeaserProps {
   icon?: React.ReactNode;
 }
 
-function openDownloadPage(): void {
+function openExternal(url: string): void {
   const openUrl = getCapability('openExternalUrl');
-  if (openUrl) void openUrl(DESKTOP_DOWNLOAD_URL);
-  else window.open(DESKTOP_DOWNLOAD_URL, '_blank', 'noopener');
+  if (openUrl) void openUrl(url);
+  else window.open(url, '_blank', 'noopener');
 }
 
 const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
   const { token } = theme.useToken();
   const t = useT();
   const copy = DESKTOP_TEASER_COPY[feature];
+  const [installer, setInstaller] = useState<DesktopInstaller | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetchLatestDesktopInstaller().then((resolved) => {
+      if (alive) setInstaller(resolved);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <div
       data-testid="desktop-teaser"
@@ -57,11 +77,24 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
       <Button
         type="primary"
         icon={<DownloadOutlined />}
-        onClick={openDownloadPage}
+        onClick={() => openExternal(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
         data-testid="desktop-teaser-cta"
         style={{ marginTop: 6 }}
       >
         {t('shared.desktopTeaser.cta')}
+      </Button>
+      {installer && (
+        <div style={{ fontSize: 11, color: token.colorTextTertiary }}>
+          {`v${installer.version} · ${DESKTOP_PLATFORM_LABELS[installer.platform]}`}
+        </div>
+      )}
+      <Button
+        type="link"
+        size="small"
+        onClick={() => openExternal(DESKTOP_DOWNLOAD_URL)}
+        style={{ fontSize: 12, padding: 0, height: 'auto' }}
+      >
+        {t('shared.desktopTeaser.otherPlatforms')}
       </Button>
     </div>
   );

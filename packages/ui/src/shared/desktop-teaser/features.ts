@@ -16,13 +16,6 @@ import type { MessageKey } from '@openheaders/i18n';
 
 export type DesktopFeature = 'terminal' | 'git' | 'proxy' | 'mcp';
 
-/**
- * Where the CTA sends the user. The website's install section carries
- * the per-OS desktop downloads under this anchor (`#install-desktop`
- * in `Download.astro`); there is no dedicated /download page.
- */
-export const DESKTOP_DOWNLOAD_URL = 'https://openheaders.io/#install-desktop';
-
 export interface DesktopTeaserCopy {
   title: MessageKey;
   body: MessageKey;

@@ -424,6 +424,7 @@ export const sharedComponents = {
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.availability': "Disponible dans l'application de bureau OpenHeaders.",
   'shared.desktopTeaser.cta': "Télécharger l'application de bureau",
+  'shared.desktopTeaser.otherPlatforms': 'Autres plateformes et canaux',
   'shared.desktopTeaser.terminal.title': 'Terminal intégré',
   'shared.desktopTeaser.terminal.body':
     'Ouvrez un vrai terminal dans votre espace de travail — votre propre shell, exécuté en local juste à côté de vos règles et de vos requêtes.',
