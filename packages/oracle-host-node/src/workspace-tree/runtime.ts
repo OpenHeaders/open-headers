@@ -81,6 +81,7 @@ import { mergeWorkspaceBranch } from './merge';
 import { pullWorkspaceTree } from './pull';
 import { readWorkspaceTreeFromDisk } from './reader';
 import { readTreeUnknownFields } from './sidecar';
+import { StatusCache } from './status-cache';
 import { type SweepWorkspaceTreeResult, sweepWorkspaceTree } from './sweep';
 import { type SwitchDirtyAction, switchWorkspaceBranch } from './switch';
 import { WorkspaceTreeWatcher } from './watcher';
@@ -396,6 +397,11 @@ interface OpenBinding {
   statusPublishTimer: NodeJS.Timeout | null;
   /** Hash of the last published status frame — identical recomputes stay silent. */
   lastStatusHash: string | null;
+  /**
+   * The §9 status authority: movement invalidates, readers (RPC,
+   * refs rail, the debounced sink) share one compute and snapshot it.
+   */
+  status: StatusCache<WorkspaceTreeGitStatusRpcResult>;
   /** Batch intents since the last successful commit — the semantic-message feed. */
   intents: CommitIntent[];
   /**
@@ -809,17 +815,27 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
   };
 
   /**
-   * Live git-slot feed (§9) — recompute after a pass that can move
-   * `git status` and hand the result to the host's sink. Skipped
-   * entirely when no sink is wired (the porcelain spawns aren't free).
-   *
-   * Trailing-debounced (150ms) and deduplicated by frame hash, the
-   * same discipline as the extension's rule updates: a bind/sweep/
-   * flush burst probes git once and emits at most one frame, and a
-   * recompute that lands on identical status stays silent — consumers
-   * only ever refetch on real movement.
+   * The one status READ path (§9): the cached frame when the world
+   * hasn't moved since the last compute, else one shared recompute.
+   * Every consumer — the `gitStatus` RPC, the refs rail's `current`,
+   * the debounced sink below — reads through here, so a burst of
+   * surfaces mounting costs at most one porcelain spawn cluster.
+   */
+  const readGitStatus = (binding: OpenBinding): Promise<WorkspaceTreeGitStatusRpcResult> =>
+    binding.status.read(() => computeGitStatus(binding));
+
+  /**
+   * Live git-slot feed (§9) — called after every pass that can move
+   * `git status` and on setting changes; the ONE invalidation point of
+   * the status authority. Invalidates the snapshot immediately (so any
+   * reader from here on recomputes against the post-movement world),
+   * then hands the sink a frame on the trailing debounce, deduplicated
+   * by frame hash — the same discipline as the extension's rule
+   * updates: a bind/sweep/flush burst emits at most one frame, and a
+   * recompute that lands on identical status stays silent.
    */
   const publishGitStatus = async (binding: OpenBinding): Promise<void> => {
+    binding.status.invalidate();
     const sink = options.onGitStatus;
     if (!sink || binding.closed) return;
     if (binding.statusPublishTimer) clearTimeout(binding.statusPublishTimer);
@@ -828,7 +844,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       void (async () => {
         if (binding.closed) return;
         try {
-          const status = await computeGitStatus(binding);
+          const status = await readGitStatus(binding);
           const hash = JSON.stringify(status);
           if (hash === binding.lastStatusHash) return;
           binding.lastStatusHash = hash;
@@ -1245,6 +1261,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       holdRetryTimer: null,
       statusPublishTimer: null,
       lastStatusHash: null,
+      status: new StatusCache(),
       intents: [],
       contributors: new Set(),
       issues: [],
@@ -1579,7 +1596,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     async gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult> {
       const binding = open.get(workspaceId);
       if (!binding) return notBoundStatus();
-      return computeGitStatus(binding);
+      return readGitStatus(binding);
     },
 
     async log(workspaceId: string, limit?: number, ref?: string): Promise<WorkspaceTreeLogRpcResult> {
@@ -1600,7 +1617,10 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
       const refs = await listRepoRefs(gitRun, rootDir);
       if (refs === null) return { ok: false, reason: 'refs-failed' };
-      return { ok: true, refs, current: await currentBranch(gitRun, rootDir) };
+      // `current` comes from the status authority, not a fresh spawn —
+      // HEAD moves invalidate it (head watcher, switch, checkout), so
+      // the two reads stay coherent by construction.
+      return { ok: true, refs, current: (await readGitStatus(binding)).branch };
     },
 
     async fileDiff(workspaceId: string, sha: string, filePath: string): Promise<WorkspaceTreeFileDiffRpcResult> {
