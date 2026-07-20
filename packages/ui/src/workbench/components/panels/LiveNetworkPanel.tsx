@@ -124,13 +124,14 @@ const LiveNetworkPanel: React.FC<LiveNetworkPanelProps> = ({ info, onHide, onOpe
           }}
         >
           <Space size={8} wrap align="center">
-            <Tag color={peerCount > 0 ? 'green' : undefined} style={{ margin: 0 }}>
+            <Tag color={peerCount > 0 ? 'green' : undefined} style={{ margin: 0 }} data-testid="live-network-peers">
               {peerCount > 0
                 ? t('workbench.liveNetwork.browserConnected', { count: peerCount })
                 : t('workbench.liveNetwork.noBrowser')}
             </Tag>
             <Select
               size="small"
+              data-testid="live-network-tab-picker"
               showSearch
               optionFilterProp="label"
               placeholder={t('workbench.liveNetwork.pickTab')}
@@ -141,7 +142,13 @@ const LiveNetworkPanel: React.FC<LiveNetworkPanelProps> = ({ info, onHide, onOpe
               style={{ minWidth: 320, maxWidth: 480 }}
             />
             <Tooltip title={t('workbench.liveNetwork.refreshTabs')}>
-              <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={() => void reload()} />
+              <Button
+                size="small"
+                data-testid="live-network-refresh"
+                icon={<ReloadOutlined />}
+                loading={loading}
+                onClick={() => void reload()}
+              />
             </Tooltip>
           </Space>
         </div>
