@@ -24,7 +24,6 @@ import type { MutableRefObject, RefObject } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
 import ActivityFeedPanel from '../panels/ActivityFeedPanel';
-import DeepNetworkInspectionPanel from '../panels/DeepNetworkInspectionPanel';
 import DocsPanel from '../panels/DocsPanel';
 import { NotificationsPanel } from '@openheaders/ui/shared/notifications';
 import VariablesPanel from '../panels/variables-panel';
@@ -96,6 +95,7 @@ interface WorkbenchToolWindowProps {
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
   openProxyRequestInspect: UseTabOpenersApi['openProxyRequestInspect'];
+  openSettingsTab: UseTabOpenersApi['openSettingsTab'];
 
   // Shell-local handlers.
   handleDeleteRule: (uid: string) => void;
@@ -160,6 +160,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openWsResponseExampleTab,
   openLiveVariableEdit,
   openProxyRequestInspect,
+  openSettingsTab,
   handleDeleteRule,
   handleCloseTab,
   handleViewActivityEntity,
@@ -294,8 +295,6 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
         />
       );
-    case 'deep-network-inspection':
-      return <DeepNetworkInspectionPanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />;
     case 'proxy-capture':
       return (
         <Suspense fallback={null}>
@@ -315,7 +314,11 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'git':
       return (
         <Suspense fallback={null}>
-          <GitLogPanel info={getToolWindowInfo('git', t)} onHide={() => tl.closeDock(slot)} />
+          <GitLogPanel
+            info={getToolWindowInfo('git', t)}
+            onHide={() => tl.closeDock(slot)}
+            onOpenGitSettings={() => openSettingsTab({ categoryId: 'git' })}
+          />
         </Suspense>
       );
     default:

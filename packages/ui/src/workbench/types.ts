@@ -209,13 +209,7 @@ export interface PanelVisibility {
  *   - `api-requests` — api-request collections + environment quick-reference
  *   - `variables`    — full variable management (vault, workspace-vars, envs)
  */
-export type LeftPanelKey =
-  | 'http-rules'
-  | 'api-requests'
-  | 'variables'
-  | 'workflows'
-  | 'workflow-status'
-  | 'deep-network-inspection';
+export type LeftPanelKey = 'http-rules' | 'api-requests' | 'variables' | 'workflows' | 'workflow-status';
 
 /**
  * Right-side panel keys — all shown in the right Allotment pane.
@@ -279,7 +273,6 @@ export type ToolWindowId =
   | 'workflow-status'
   | 'docs'
   | 'var-scope'
-  | 'deep-network-inspection'
   | 'proxy-capture'
   | 'activity'
   | 'notifications'

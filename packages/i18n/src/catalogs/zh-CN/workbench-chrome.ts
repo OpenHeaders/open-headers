@@ -352,7 +352,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': '工作流状态',
   'workbench.toolWindows.activity': '活动',
   'workbench.toolWindows.activityTooltip': '活动流——来自对等方的入站更改',
-  'workbench.toolWindows.deepNetworkInspection': '深度网络检查',
   'workbench.toolWindows.proxyCapture': '代理',
   'workbench.toolWindows.terminal': '终端',
   'workbench.toolWindows.git': 'Git',
@@ -412,12 +411,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.scriptsDesc': '请求前与响应后的 JavaScript 钩子。',
   'workbench.toolWindows.info.apiRequests.settingsLabel': '设置',
   'workbench.toolWindows.info.apiRequests.settingsDesc': '按请求的行为——SSL 验证、重定向等。',
-  'workbench.toolWindows.info.deepNetworkInspection.summary':
-    '连接层（L4）与 HTTP 层（L7）检查合于一个视图——RTT、重传、握手时序等 TCP/TLS ' +
-    '健康状况，与完整的请求/响应查看、修改和重放并列呈现。',
-  'workbench.toolWindows.info.proxyCapture.summary':
-    '捕获代理——这台电脑上任何工具指向本地代理端口的流量，都会被捕获为实时网络日志。解密按范围进行：' +
-    '只有你列出的主机会被 TLS 终止，其余流量以不透明隧道通过。',
   'workbench.toolWindows.info.workflowStatus.summary':
     '按工作流的断路器仪表盘——状态、连续失败次数、断开次数和下次尝试倒计时，' +
     '并提供手动的“立即重试”和“重置电路”操作。',
@@ -453,6 +446,9 @@ export const workbenchChrome = {
     '取消勾选则只签发 token。',
   'workbench.terminal.cliGate.ok': '连接并打开',
   'workbench.terminal.cliGate.openSettings': '打开设置',
+  'workbench.toolWindows.info.proxyCapture.summary':
+    '捕获代理——本机任何指向本地代理端口的工具流量，以实时网络日志的形式捕获。解密有明确范围：' +
+    '只有你列出的主机才会终止 TLS，其余流量以不透明隧道方式通过。',
   'workbench.toolWindows.info.terminal.summary':
     '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
     '包括对本地应用使用 oh CLI。',
@@ -504,20 +500,6 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     '没有受信任的 CA，因此 HTTPS 连接以不透明隧道通过——不会解密任何内容。在设置 › 代理 下安装 CA，' +
     '然后把主机加入解密范围。',
-
-  'workbench.deepNetwork.comingSoon': '即将推出——桌面端应用',
-  'workbench.deepNetwork.heading': '连接（L4）+ HTTP（L7）检查',
-  'workbench.deepNetwork.description':
-    '连接健康状况与完整 HTTP 合于一个视图——这些正是你实际操作的层，便于检查和修改。' +
-    '尚未上线；下方显示的是示例数据。',
-  'workbench.deepNetwork.viewTiers': '层级路线图',
-  'workbench.deepNetwork.viewConnection': '连接视图',
-  'workbench.deepNetwork.stats': '统计',
-  'workbench.deepNetwork.rowSolves': '解决',
-  'workbench.deepNetwork.rowTrust': '所需信任',
-  'workbench.deepNetwork.rowPower': '能力',
-  'workbench.deepNetwork.rowFriction': '摩擦',
-  'workbench.deepNetwork.wall': '你撞上了一堵墙：',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': '标题',

@@ -19,6 +19,7 @@ export const panelInspector = {
   'panel.inspector.detailEmpty.requestGone': 'La solicitud ya no está disponible (borrada o página abandonada)',
   'panel.inspector.detailEmpty.selectPrefix': 'Selecciona una solicitud en el',
   'panel.inspector.detailEmpty.selectSuffix': 'panel Network para inspeccionarla',
+  'panel.inspector.detailEmpty.noSelection': 'Selecciona una solicitud capturada para inspeccionarla',
 
   // ── Inspector shell (editor tab bar + detail section tabs) ──────────
   'panel.inspector.tabBar.closeTab': 'Cerrar la pestaña',

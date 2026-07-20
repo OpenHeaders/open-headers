@@ -14,10 +14,9 @@
  *
  * Dockable tool-window semantics — left activity bar splits into two groups:
  *   - Top group (items, recordings…) drives the left Allotment pane.
- *   - Bottom group (deep-network-inspection…) is a set of launchers to
- *     specific bottomTab values; clicking swaps bottomTab AND forces
- *     bottomOpen=true. A second click on the active launcher closes the
- *     bottom pane.
+ *   - Bottom group is a set of launchers to specific bottomTab values;
+ *     clicking swaps bottomTab AND forces bottomOpen=true. A second
+ *     click on the active launcher closes the bottom pane.
  *
  * Right activity bar has one group; all right panels share the right pane.
  *
@@ -38,9 +37,7 @@ import type { FocusRegion, LeftPanelKey, RightPanelKey, WorkspaceLayout } from '
 export const BOTTOM_TAB_INSPECTION = 'inspection';
 
 /** Map from a left-bottom activity-bar key to its bottom-tab target. */
-export const LEFT_BOTTOM_LAUNCHERS: Partial<Record<LeftPanelKey, string>> = {
-  'deep-network-inspection': BOTTOM_TAB_INSPECTION,
-};
+export const LEFT_BOTTOM_LAUNCHERS: Partial<Record<LeftPanelKey, string>> = {};
 
 // ── Initial layout ─────────────────────────────────────────────────
 

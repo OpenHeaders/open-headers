@@ -15,6 +15,7 @@ export const panelInspector = {
   'panel.inspector.detailEmpty.requestGone': "La requête n'est plus disponible (effacée ou page quittée)",
   'panel.inspector.detailEmpty.selectPrefix': 'Sélectionnez une requête dans le',
   'panel.inspector.detailEmpty.selectSuffix': "panneau Network pour l'inspecter",
+  'panel.inspector.detailEmpty.noSelection': 'Sélectionnez une requête capturée à inspecter',
 
   // ── Inspector shell (editor tab bar + detail section tabs) ──────────
   'panel.inspector.tabBar.closeTab': "Fermer l'onglet",

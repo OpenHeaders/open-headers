@@ -333,7 +333,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow Status',
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
-  'workbench.toolWindows.deepNetworkInspection': 'Deep Network Inspection',
   'workbench.toolWindows.proxyCapture': 'Proxy',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
@@ -400,9 +399,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Settings',
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Per-request behavior — SSL verification, redirects, and more.',
-  'workbench.toolWindows.info.deepNetworkInspection.summary':
-    'Connection-level (L4) and HTTP (L7) inspection in one view — TCP/TLS health like RTT, retransmissions, ' +
-    'and handshake timing alongside full request/response visibility, modification, and replay.',
   'workbench.toolWindows.info.proxyCapture.summary':
     'The capture proxy — traffic from any tool on this machine pointed at the local proxy port, captured as a live ' +
     'network log. Decryption is scoped: only hosts you list are TLS-terminated, everything else tunnels through opaque.',
@@ -455,10 +451,12 @@ export const workbenchChrome = {
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filter by message, author, or hash',
   'workbench.gitLog.refresh': 'Refresh',
-  'workbench.gitLog.empty': 'No commits yet',
+  'workbench.gitLog.empty':
+    'No commits yet — commits land on your configured cadence, or commit manually under Settings › Git.',
   'workbench.gitLog.selectCommit': 'Select a commit to view its changes',
   'workbench.gitLog.notBound.title': 'This workspace has no Git binding',
   'workbench.gitLog.notBound.body': 'Bind the workspace to a folder under Settings › Git to see its history.',
+  'workbench.gitLog.notBound.cta': 'Open Git settings',
   'workbench.gitLog.loadFailed': 'Could not load history: {detail}',
   'workbench.gitLog.authorLine': '{author} <{email}> on {date}',
   'workbench.gitLog.coAuthors': 'Co-authored by {authors}',
@@ -470,7 +468,7 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.local': 'Local',
   'workbench.gitLog.refs.remote': 'Remote',
   'workbench.gitLog.refs.tags': 'Tags',
-  'workbench.gitLog.refs.empty': 'No branches yet',
+  'workbench.gitLog.refs.empty': 'Branches appear after the first commit.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
@@ -497,20 +495,6 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'No CA is trusted, so HTTPS connections tunnel through opaque — nothing is decrypted. Install the CA under ' +
     'Settings › Proxy, then add hosts to the decrypt scope.',
-
-  'workbench.deepNetwork.comingSoon': 'COMING SOON — DESKTOP APP',
-  'workbench.deepNetwork.heading': 'Connection (L4) + HTTP (L7) inspection',
-  'workbench.deepNetwork.description':
-    'Connection health and full HTTP in one view — the layers you actually act on, easy to inspect and modify. ' +
-    'Not yet live; sample data shown below.',
-  'workbench.deepNetwork.viewTiers': 'Tier roadmap',
-  'workbench.deepNetwork.viewConnection': 'Connection view',
-  'workbench.deepNetwork.stats': 'Stats',
-  'workbench.deepNetwork.rowSolves': 'Solves',
-  'workbench.deepNetwork.rowTrust': 'Trust required',
-  'workbench.deepNetwork.rowPower': 'Power',
-  'workbench.deepNetwork.rowFriction': 'Friction',
-  'workbench.deepNetwork.wall': 'You hit a wall:',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

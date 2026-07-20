@@ -358,7 +358,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Estado de los workflows',
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
-  'workbench.toolWindows.deepNetworkInspection': 'Inspección profunda de red',
+  'workbench.toolWindows.proxyCapture': 'Proxy',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -431,10 +431,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Configuración',
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Comportamiento por solicitud — verificación SSL, redirecciones y más.',
-  'workbench.toolWindows.info.deepNetworkInspection.summary':
-    'Inspección a nivel de conexión (L4) y HTTP (L7) en una sola vista — salud TCP/TLS (RTT, retransmisiones ' +
-    'y tiempos del handshake) junto a visibilidad, modificación y repetición completas de las ' +
-    'solicitudes/respuestas.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Panel de control del disyuntor por workflow — estado, fallos consecutivos, aperturas y cuenta atrás del ' +
     'siguiente intento, con las acciones manuales Reintentar y Restablecer el circuito.',
@@ -475,6 +471,10 @@ export const workbenchChrome = {
     '404 y la TUI informa de que el daemon es inalcanzable. Desmarca para crear solo el token.',
   'workbench.terminal.cliGate.ok': 'Conectar y abrir',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
+  'workbench.toolWindows.info.proxyCapture.summary':
+    'El proxy de captura: el tráfico de cualquier herramienta de esta máquina apuntada al puerto del proxy local, ' +
+    'capturado como un registro de red en vivo. El descifrado está acotado: solo los hosts que listas terminan TLS; ' +
+    'todo lo demás pasa por un túnel opaco.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
@@ -482,14 +482,39 @@ export const workbenchChrome = {
     'El historial de commits de la vinculación Git del espacio de trabajo activo — la cronología del espacio ' +
     'de trabajo con los archivos modificados por commit, la autoría y el historial por archivo.',
 
+  // ── Proxy capture tool window (control strip) ──────────────────
+  'workbench.proxyCapture.running': 'En ejecución · :{port}',
+  'workbench.proxyCapture.stopped': 'Detenido',
+  'workbench.proxyCapture.start': 'Iniciar',
+  'workbench.proxyCapture.stop': 'Detener',
+  'workbench.proxyCapture.port': 'Puerto',
+  'workbench.proxyCapture.scope': 'Ámbito de descifrado',
+  'workbench.proxyCapture.scopeCount': 'Ámbito de descifrado · {count}',
+  'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
+  'workbench.proxyCapture.scopeHint':
+    'Solo se descifran los hosts listados; el resto del tráfico HTTPS pasa como túnel opaco.',
+  'workbench.proxyCapture.scopeSaved': 'Ámbito de descifrado actualizado',
+  'workbench.proxyCapture.scopeFailed': 'No se pudo actualizar el ámbito: {message}',
+  'workbench.proxyCapture.startFailed': 'No se pudo iniciar el proxy: {message}',
+  'workbench.proxyCapture.emptyRunning': 'Esperando tráfico a través del proxy…',
+  'workbench.proxyCapture.emptyRunningHint':
+    'Apunta un cliente a http://127.0.0.1:{port} para capturar sus solicitudes',
+  'workbench.proxyCapture.emptyStopped': 'El proxy está detenido',
+  'workbench.proxyCapture.emptyStoppedHint': 'Inicia el proxy para empezar a capturar tráfico',
+  'workbench.proxyCapture.noCa':
+    'No hay ninguna CA de confianza, así que las conexiones HTTPS pasan por un túnel opaco: no se descifra nada. ' +
+    'Instala la CA en Configuración › Proxy y añade hosts al ámbito de descifrado.',
+
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',
   'workbench.gitLog.refresh': 'Actualizar',
-  'workbench.gitLog.empty': 'Aún no hay commits',
+  'workbench.gitLog.empty':
+    'Aún no hay commits — los commits llegan según la cadencia configurada, o haz commit manualmente en Configuración › Git.',
   'workbench.gitLog.selectCommit': 'Selecciona un commit para ver sus cambios',
   'workbench.gitLog.notBound.title': 'Este espacio de trabajo no tiene vinculación Git',
   'workbench.gitLog.notBound.body':
     'Vincula el espacio de trabajo a una carpeta en Configuración › Git para ver su historial.',
+  'workbench.gitLog.notBound.cta': 'Abrir configuración de Git',
   'workbench.gitLog.loadFailed': 'No se pudo cargar el historial: {detail}',
   'workbench.gitLog.authorLine': '{author} <{email}> el {date}',
   'workbench.gitLog.coAuthors': 'Coautoría de {authors}',
@@ -501,25 +526,12 @@ export const workbenchChrome = {
   'workbench.gitLog.refs.local': 'Locales',
   'workbench.gitLog.refs.remote': 'Remotas',
   'workbench.gitLog.refs.tags': 'Etiquetas',
-  'workbench.gitLog.refs.empty': 'Aún no hay ramas',
+  'workbench.gitLog.refs.empty': 'Las ramas aparecen tras el primer commit.',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier
   // roadmap's quoted scenario copy ride raw as illustration data —
   // only the panel chrome keys here. ──────────────────────────────────
-  'workbench.deepNetwork.comingSoon': 'PRÓXIMAMENTE — APLICACIÓN DE ESCRITORIO',
-  'workbench.deepNetwork.heading': 'Inspección de conexión (L4) + HTTP (L7)',
-  'workbench.deepNetwork.description':
-    'La salud de la conexión y el HTTP completo en una sola vista — las capas sobre las que realmente actúas, ' +
-    'fáciles de inspeccionar y modificar. Aún no está activo; abajo se muestran datos de ejemplo.',
-  'workbench.deepNetwork.viewTiers': 'Hoja de ruta de niveles',
-  'workbench.deepNetwork.viewConnection': 'Vista de conexión',
-  'workbench.deepNetwork.stats': 'Estadísticas',
-  'workbench.deepNetwork.rowSolves': 'Resuelve',
-  'workbench.deepNetwork.rowTrust': 'Confianza requerida',
-  'workbench.deepNetwork.rowPower': 'Potencia',
-  'workbench.deepNetwork.rowFriction': 'Fricción',
-  'workbench.deepNetwork.wall': 'Te topas con un muro:',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Título',

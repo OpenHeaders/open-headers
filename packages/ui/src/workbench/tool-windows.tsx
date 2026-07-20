@@ -13,7 +13,6 @@ import {
   BranchesOutlined,
   CodeOutlined,
   FundViewOutlined,
-  NodeIndexOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
@@ -106,23 +105,16 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   },
   // Workspace-wide Activity Feed — inbound mutation log with classifier
   // highlights (sensitive-field rotations, permission-scope expansions,
-  // local-edit supersedes). Bottom-right slot pairs it with Deep Network Inspection
-  // so both inbound surfaces sit together; `openByDefault` is false so
-  // the panel stays dormant until the user opens it via Shift+Alt+A or
-  // the bar icon — discoverability rides the badge instead.
+  // local-edit supersedes). Bottom-right slot pairs it with the Proxy
+  // window so both inbound surfaces sit together; `openByDefault` is
+  // false so the panel stays dormant until the user opens it via
+  // Shift+Alt+A or the bar icon — discoverability rides the badge
+  // instead.
   {
     id: 'activity',
     labelKey: 'workbench.toolWindows.activity',
     tooltipKey: 'workbench.toolWindows.activityTooltip',
     icon: <ActivityFeedIcon />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-  },
-  {
-    id: 'deep-network-inspection',
-    labelKey: 'workbench.toolWindows.deepNetworkInspection',
-    icon: <FundViewOutlined />,
     core: false,
     defaultSlot: 'bottom-right',
     openByDefault: false,
@@ -134,7 +126,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   {
     id: 'proxy-capture',
     labelKey: 'workbench.toolWindows.proxyCapture',
-    icon: <NodeIndexOutlined />,
+    icon: <FundViewOutlined />,
     core: false,
     defaultSlot: 'bottom-right',
     openByDefault: false,

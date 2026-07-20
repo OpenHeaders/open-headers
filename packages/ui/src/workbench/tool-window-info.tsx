@@ -210,10 +210,6 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
         },
       ],
     },
-    'deep-network-inspection': {
-      title: t('workbench.toolWindows.deepNetworkInspection'),
-      summary: t('workbench.toolWindows.info.deepNetworkInspection.summary'),
-    },
     'proxy-capture': {
       title: t('workbench.toolWindows.proxyCapture'),
       summary: t('workbench.toolWindows.info.proxyCapture.summary'),
