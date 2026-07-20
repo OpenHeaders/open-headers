@@ -35,11 +35,22 @@ const EDITOR_MIN = 400;
 // snaps to min-width.
 const SIDEBAR_SEED_RATIO = 0.22;
 const INSPECTOR_SEED_RATIO = 0.31;
-// Bottom seeds tall enough that the TUI dashboard opens in its full
-// two-column layout (it collapses to one pane at a time when the
-// terminal grid falls under ~16 rows), not just tall enough for a
-// shell prompt.
-const BOTTOM_SEED_RATIO = 0.42;
+// Bottom seeds at half the viewport so the terminal / TUI dashboard
+// opens in its full two-column layout (it collapses to one pane at a
+// time when the terminal grid falls under ~16 rows), never as a
+// compact strip that only fits a shell prompt.
+const BOTTOM_SEED_RATIO = 0.5;
+
+// The fallback record when a resize fires before any persisted layout
+// exists (Allotment emits onChange during initial mount). MUST mirror
+// the seed ratios: independent literals here silently persist a
+// bottom height the user never chose, overriding the first-open seed
+// before the bottom panel has ever been opened.
+const SEED_LAYOUT: PersistedLayout = {
+  sidebarRatio: SIDEBAR_SEED_RATIO,
+  inspectorRatio: INSPECTOR_SEED_RATIO,
+  bottomRatio: BOTTOM_SEED_RATIO,
+};
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -264,7 +275,7 @@ export function useResponsiveLayout(workspaceId: string | null): ResponsiveLayou
     (panelSizes: number[]) => {
       const vw = getViewportWidth();
       if (vw <= 0) return;
-      const prev = latestPersistedRef.current ?? { sidebarRatio: 0.17, inspectorRatio: 0.2, bottomRatio: 0.25 };
+      const prev = latestPersistedRef.current ?? SEED_LAYOUT;
       const sidebarRatio = panelSizes[0] != null && panelSizes[0] > 0 ? panelSizes[0] / vw : prev.sidebarRatio;
       const inspectorRatio = panelSizes[2] != null && panelSizes[2] > 0 ? panelSizes[2] / vw : prev.inspectorRatio;
       schedulePersist({ ...prev, sidebarRatio, inspectorRatio });
@@ -278,7 +289,7 @@ export function useResponsiveLayout(workspaceId: string | null): ResponsiveLayou
     (panelSizes: number[]) => {
       const vh = getViewportHeight();
       if (vh <= 0) return;
-      const prev = latestPersistedRef.current ?? { sidebarRatio: 0.17, inspectorRatio: 0.2, bottomRatio: 0.25 };
+      const prev = latestPersistedRef.current ?? SEED_LAYOUT;
       const bottomRatio = panelSizes[1] != null && panelSizes[1] > 0 ? panelSizes[1] / vh : prev.bottomRatio;
       schedulePersist({ ...prev, bottomRatio });
     },
