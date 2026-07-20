@@ -10,6 +10,7 @@
  * path from the shell hook.
  */
 
+import { hasCapability } from '@openheaders/core/capabilities';
 import { BAR_LABELED_MAX, BAR_LABELED_MIN } from '@openheaders/ui/shared/dock-layout';
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
@@ -96,6 +97,10 @@ registerSetting({
   key: 'workspaceLayout.bottomPanelAlignment',
   type: 'enum',
   default: 'center',
+  // Host-aware default: hosts with a terminal (the desktop app) give
+  // its bottom panel the full window width; terminal-less workbench
+  // hosts keep the centered stack.
+  getDefault: () => (hasCapability('terminal') ? 'justify' : 'center'),
   schema: bottomPanelAlignmentSchema,
   labelKey: 'workbench.settings.def.workspaceLayout.bottomPanelAlignment.label',
   descriptionKey: 'workbench.settings.def.workspaceLayout.bottomPanelAlignment.description',
