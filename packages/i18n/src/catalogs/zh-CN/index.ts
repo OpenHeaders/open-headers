@@ -26,6 +26,7 @@ import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { tui } from './tui';
 import { web } from './web';
+import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 
 export const zhCN = {
@@ -50,5 +51,6 @@ export const zhCN = {
   ...sharedWorkspace,
   ...tui,
   ...web,
+  ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
 } as const satisfies Catalog;
