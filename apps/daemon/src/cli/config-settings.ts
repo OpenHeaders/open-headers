@@ -2,9 +2,10 @@
  * `ohd config set / get / list` — the headless settings surface.
  * A whitelisted window onto the `oh.settings.user` record inside the
  * daemon's `storage.json`, NOT a generic storage editor: only the MCP
- * switches are exposed (all default-off), and unknown keys refuse with
- * the whitelist printed. Bind/proxy/web-root live in `daemon.json` and
- * stay with the config chain.
+ * switches and the unattended auto-update opt-in are exposed (all
+ * default-off), and unknown keys refuse with the whitelist printed.
+ * Bind/proxy/web-root live in `daemon.json` and stay with the config
+ * chain.
  *
  * Writes are offline by design — same single-writer law as show-token:
  * `FileBackedHostStorage` loads once and rewrites the whole envelope,
@@ -20,7 +21,13 @@ import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storag
 import type { DaemonConfig } from '../config';
 import { resolveDaemonCipher } from '../vault-cipher';
 
-export const DAEMON_SETTING_KEYS = ['mcp.enabled', 'mcp.allowWrite', 'mcp.allowExecute', 'mcp.allowSecrets'] as const;
+export const DAEMON_SETTING_KEYS = [
+  'mcp.enabled',
+  'mcp.allowWrite',
+  'mcp.allowExecute',
+  'mcp.allowSecrets',
+  'updates.autoUpdate',
+] as const;
 
 export type DaemonSettingKey = (typeof DAEMON_SETTING_KEYS)[number];
 

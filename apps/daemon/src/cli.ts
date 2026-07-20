@@ -41,6 +41,8 @@ import { fetchMetrics, formatMetrics } from './cli/metrics-probe';
 import { resolvePasswordInput, USER_PASSWORD_ENV, USER_PASSWORD_FILE_ENV } from './cli/password-input';
 import { installServiceUnit, type ServiceHost, startService, stopService } from './cli/service-manager';
 import { mintBootstrapToken } from './cli/show-token';
+import { fetchAvailabilityLine } from './cli/update-notify';
+import { commandUpgrade } from './cli/upgrade';
 import {
   addUser,
   deactivateUser,
@@ -69,7 +71,12 @@ Commands:
                 execs; Ctrl-C / SIGTERM shuts it down cleanly)
   status        Probe the daemon's /healthz; --verbose reads /metrics
                 (peers, throughput, audit counts — needs a paired token
-                via --token or OH_DAEMON_TOKEN)
+                via --token or OH_DAEMON_TOKEN); also notes when a newer
+                ohd release is available
+  upgrade       Download and install the newest release of this binary,
+                then restart the installed service into it (skip the
+                restart with --no-restart); unattended upgrades are the
+                opt-in updates.autoUpdate setting
   show-token    Mint a client auth token against the daemon's data dir
                 (first-boot bootstrap; requires the daemon to be stopped)
   config set <key> <true|false>
@@ -206,6 +213,10 @@ async function commandStatus(argv: readonly string[]): Promise<void> {
     return;
   }
   console.log(`running — /healthz OK on 127.0.0.1:${config.bindPort} (configured bind ${config.bindAddress})`);
+  // Availability notify (DISTRIBUTION_PLAN.md §5): one best-effort,
+  // abort-capped feed read — silent unless a newer release exists.
+  const availability = await fetchAvailabilityLine();
+  if (availability !== null) console.log(availability);
   if (values.verbose !== true) return;
   const token = values.token ?? process.env.OH_DAEMON_TOKEN;
   if (token === undefined || token === '') {
@@ -461,6 +472,8 @@ async function main(): Promise<void> {
       return (await import('./daemon-run')).runDaemon(rest);
     case 'status':
       return commandStatus(rest);
+    case 'upgrade':
+      return commandUpgrade(rest);
     case 'show-token':
       return commandShowToken(rest);
     case 'config':

@@ -32,6 +32,7 @@ import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
+import { installDaemonAutoUpdate } from './auto-update';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
 import { createDaemonLogger } from './logger';
@@ -190,11 +191,22 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     // scriptless posture) or when the runner bundle is absent.
     const scriptRuntime = installScriptRuntime();
 
+    // Unattended auto-update — opt-in (`updates.autoUpdate`, default
+    // off) and read at boot like every daemon setting. When armed on a
+    // self-managed binary install it stages verified upgrades daily and
+    // restarts through the service manager (auto-update.ts).
+    const autoUpdate = installDaemonAutoUpdate({
+      enabled: settings['updates.autoUpdate'] === true,
+      channel: getBuildInfo()?.channel ?? null,
+      log,
+    });
+
     let shuttingDown = false;
     const shutdown = (signal: NodeJS.Signals): void => {
       if (shuttingDown) return;
       shuttingDown = true;
       log.info(SCOPE, `${signal} — shutting down`);
+      autoUpdate.dispose();
       scriptRuntime?.dispose();
       void spine
         .dispose()
