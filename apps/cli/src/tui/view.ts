@@ -204,7 +204,6 @@ function paneBoxRows(app: TuiApp, input: PaneRenderInput, ctx: ViewContext): str
   const selected = app.selectedIndex(pane);
   const scroll = Math.max(0, Math.min(app.state.cursors[pane].scroll, Math.max(0, rows.length - 1)));
 
-  const digit = PANE_ORDER.indexOf(pane) + 1;
   const paneName = t(
     pane === 'workspaces'
       ? 'tui.pane.workspaces'
@@ -212,7 +211,7 @@ function paneBoxRows(app: TuiApp, input: PaneRenderInput, ctx: ViewContext): str
         ? 'tui.pane.environments'
         : 'tui.pane.rules',
   );
-  let title = `${digit} ${paneName}`;
+  let title = paneName;
   if (pane === 'rules' && app.state.snapshot !== null) {
     const all = app.state.rows.rules;
     const on = all.filter((rule) => rule.enabled).length;
@@ -349,8 +348,7 @@ function composeDashboard(app: TuiApp, size: TerminalSize, ctx: ViewContext): st
     if (row === layout.statusRow) {
       content = padToWidth(` ${statusLineText(app, ctx)}`, layout.contentWidth, glyphs.ellipsis);
     } else if (row === layout.tabsRow) {
-      const tabs: TabEntry[] = PANE_ORDER.map((pane, index) => ({
-        digit: index + 1,
+      const tabs: TabEntry[] = PANE_ORDER.map((pane) => ({
         title: ctx.t(
           pane === 'workspaces'
             ? 'tui.pane.workspaces'

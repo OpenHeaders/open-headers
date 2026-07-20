@@ -155,7 +155,7 @@ describe('runTui', () => {
     tty.output.columns = 60;
     tty.output.rows = 20;
     tty.proc.emit('SIGWINCH');
-    expect(tty.output.written()).toContain('1 Workspaces');
+    expect(tty.output.written()).toContain('Workspaces');
     tty.input.emit('q');
     await done;
   });

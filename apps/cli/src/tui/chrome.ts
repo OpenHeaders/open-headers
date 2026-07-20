@@ -1,7 +1,7 @@
 /**
  * Screen chrome — the header context strip riding the outer frame's
  * top border, the frame bottom border, the footer verb legend, and the
- * single-pane digit tab row. Legends are measured with visibleWidth
+ * single-pane tab row. Legends are measured with visibleWidth
  * and drop lowest-priority entries first when the terminal is narrow
  * (TUI_DESIGN.md §6.3) — never assumed widths, never wrapped.
  */
@@ -57,15 +57,14 @@ export function composeFooterLegend(entries: readonly LegendEntry[], ctx: Chrome
 }
 
 export interface TabEntry {
-  readonly digit: number;
   readonly title: string;
   readonly focused: boolean;
 }
 
-/** Single-pane mode: the digit row acting as tabs (design §4.1). */
+/** Single-pane mode: the pane row acting as tabs (design §4.1). */
 export function composeTabRow(tabs: readonly TabEntry[], ctx: ChromeContext): string {
   const parts = tabs.map((tab) => {
-    const label = `${tab.digit} ${tab.title}`;
+    const label = tab.title;
     if (!tab.focused) return label;
     return ctx.tier === 'none' ? `[${label}]` : bold(paint(label, 'accent', ctx.tier), ctx.tier);
   });

@@ -44,13 +44,13 @@ describe('chrome', () => {
   it('tab row brackets the focused pane on the none tier', () => {
     const row = composeTabRow(
       [
-        { digit: 1, title: 'Workspaces', focused: false },
-        { digit: 3, title: 'Rules', focused: true },
+        { title: 'Workspaces', focused: false },
+        { title: 'Rules', focused: true },
       ],
       CTX,
     );
-    expect(row).toContain('1 Workspaces');
-    expect(row).toContain('[3 Rules]');
+    expect(row).toContain('Workspaces');
+    expect(row).toContain('[Rules]');
   });
 
   it('bottom border spans the width', () => {

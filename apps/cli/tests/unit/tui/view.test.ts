@@ -36,8 +36,8 @@ describe('view', () => {
     expect(text[0]).toContain('env: staging');
     expect(text[0]).toContain('● connected');
     expect(text[0]).toContain('synced just now');
-    expect(text[1]).toContain('[1 Workspaces]');
-    expect(text[1]).toContain('3 Rules ── 2 on · 1 off · 1 draft');
+    expect(text[1]).toContain('[Workspaces]');
+    expect(text[1]).toContain('Rules ── 2 on · 1 off · 1 draft');
     expect(text.join('\n')).toContain('▸ team-a (git) *');
     expect(text.join('\n')).toContain('No environment');
     expect(text.join('\n')).toContain('◐ on  rate-limit-probe (draft)');
@@ -82,12 +82,12 @@ describe('view', () => {
     expect(text.join('\n')).not.toContain('uid copied');
   });
 
-  it('below 80 columns only the focused pane renders, under a digit tab row', () => {
+  it('below 80 columns only the focused pane renders, under a tab row', () => {
     const fx = makeReadyApp();
     const frame = strip(viewTui(fx.app, { columns: 60, rows: 20 }, fx.ctx()));
-    expect(frame[1]).toContain('[1 Workspaces]');
-    expect(frame[1]).toContain('2 Environments');
-    expect(frame[1]).toContain('3 Rules');
+    expect(frame[1]).toContain('[Workspaces]');
+    expect(frame[1]).toContain('Environments');
+    expect(frame[1]).toContain('Rules');
     expect(frame.join('\n')).toContain('team-a (git)');
     expect(frame.join('\n')).not.toContain('auth-header-inject');
   });

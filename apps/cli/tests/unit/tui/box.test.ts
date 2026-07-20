@@ -15,15 +15,15 @@ describe('box', () => {
       height: 5,
       glyphs: UNICODE_GLYPHS,
       tier: 'none',
-      title: '1 Workspaces',
+      title: 'Workspaces',
     });
     expect(rows).toHaveLength(5);
     for (const row of rows) expect(visibleWidth(row)).toBe(20);
   });
 
   it('embeds the title after the corner: ┌ title ───┐', () => {
-    const [top] = makeBox([], { width: 20, height: 3, glyphs: UNICODE_GLYPHS, tier: 'none', title: '3 Rules' });
-    expect(top).toBe('┌ 3 Rules ─────────┐');
+    const [top] = makeBox([], { width: 20, height: 3, glyphs: UNICODE_GLYPHS, tier: 'none', title: 'Rules' });
+    expect(top).toBe('┌ Rules ───────────┐');
   });
 
   it('focused: [bracketed] title on the none tier, accent border on color tiers', () => {
@@ -32,16 +32,16 @@ describe('box', () => {
       height: 3,
       glyphs: UNICODE_GLYPHS,
       tier: 'none',
-      title: '2 Environments',
+      title: 'Environments',
       focused: true,
     });
-    expect(plainTop).toContain('[2 Environments]');
+    expect(plainTop).toContain('[Environments]');
     const [colorTop] = makeBox([], {
       width: 22,
       height: 3,
       glyphs: UNICODE_GLYPHS,
       tier: '16',
-      title: '2 Environments',
+      title: 'Environments',
       focused: true,
     });
     expect(colorTop).toContain('\x1b[36m');
