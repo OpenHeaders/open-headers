@@ -81,7 +81,7 @@ async function cliLedgerRows(): Promise<TokenRow[]> {
 /** One `oh` invocation resolving the daemon purely from the provisioned
  *  config file — no OH_DAEMON_URL / OH_TOKEN unless a test injects them. */
 function oh(args: string[], envOverrides: Record<string, string> = {}): CliRun {
-  const env = { ...(process.env as Record<string, string>), XDG_CONFIG_HOME: configHome };
+  const env: NodeJS.ProcessEnv = { ...process.env, XDG_CONFIG_HOME: configHome };
   delete env.OH_DAEMON_URL;
   delete env.OH_TOKEN;
   for (const [key, value] of Object.entries(envOverrides)) env[key] = value;

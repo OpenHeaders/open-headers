@@ -38,7 +38,7 @@ describe('updateMenuItems labels', () => {
     expect(labels()).toEqual(['Checking for Updates…']);
 
     updateMenusOnState(makeState({ phase: 'available', availableVersion: '2026.8.1' }));
-    expect(labels()).toEqual(['Download Open Headers 2026.8.1']);
+    expect(labels()).toEqual(['Update to Open Headers 2026.8.1 & Restart']);
 
     updateMenusOnState(makeState({ phase: 'downloading', availableVersion: '2026.8.1', progressPercent: 42 }));
     expect(labels()).toEqual(['Downloading Update… 42%']);
