@@ -8,9 +8,11 @@ import type { Catalog } from '../../types';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
 import { sharedChrome } from './shared-chrome';
+import { sharedConflicts } from './shared-conflicts';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
 import { sharedInfoStatus } from './shared-info-status';
+import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
@@ -19,9 +21,11 @@ export const zhCN = {
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
+  ...sharedConflicts,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
   ...sharedInfoStatus,
+  ...sharedMergeEditor,
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
