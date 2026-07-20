@@ -159,7 +159,21 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide }) =
           )}
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0 }}>
-          <NetworkCaptureView tabId={PROXY_LIFECYCLE_TAB_ID} />
+          <NetworkCaptureView
+            tabId={PROXY_LIFECYCLE_TAB_ID}
+            emptyHero={
+              <div className="dt-empty-hero">
+                <strong>
+                  {running ? t('workbench.proxyCapture.emptyRunning') : t('workbench.proxyCapture.emptyStopped')}
+                </strong>
+                <span className="dt-empty-hero-sub">
+                  {running
+                    ? t('workbench.proxyCapture.emptyRunningHint', { port: status?.boundPort ?? status?.port ?? 0 })
+                    : t('workbench.proxyCapture.emptyStoppedHint')}
+                </span>
+              </div>
+            }
+          />
         </div>
       </div>
     </div>

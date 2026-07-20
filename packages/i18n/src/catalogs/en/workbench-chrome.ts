@@ -462,6 +462,10 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeSaved': 'Decrypt scope updated',
   'workbench.proxyCapture.scopeFailed': 'Could not update scope: {message}',
   'workbench.proxyCapture.startFailed': 'Could not start the proxy: {message}',
+  'workbench.proxyCapture.emptyRunning': 'Waiting for proxied traffic…',
+  'workbench.proxyCapture.emptyRunningHint': 'Point a client at http://127.0.0.1:{port} to capture its requests',
+  'workbench.proxyCapture.emptyStopped': 'Proxy is stopped',
+  'workbench.proxyCapture.emptyStoppedHint': 'Start the proxy to begin capturing traffic',
   'workbench.proxyCapture.noCa':
     'No CA is trusted, so HTTPS connections tunnel through opaque — nothing is decrypted. Install the CA under ' +
     'Settings › Proxy, then add hosts to the decrypt scope.',

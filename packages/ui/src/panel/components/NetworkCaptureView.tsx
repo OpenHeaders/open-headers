@@ -17,7 +17,7 @@
  * `usePanelData` — pages markers and fire dots simply never appear.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { Allotment } from 'allotment';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -41,12 +41,15 @@ import { usePanelData } from '../data/use-panel-data';
 export interface NetworkCaptureViewProps {
   /** Lifecycle partition to watch — a reserved synthetic tab id. */
   readonly tabId: number;
+  /** Empty-log hero for the list — the default TrafficList copy assumes an
+   *  inspected browser tab ("reload the page"), which no capture surface has. */
+  readonly emptyHero?: ReactNode;
 }
 
 const NOOP = (): void => {};
 
 /** Inner view — assumes the popover host wraps it. */
-function NetworkCaptureBody({ tabId }: NetworkCaptureViewProps) {
+function NetworkCaptureBody({ tabId, emptyHero }: NetworkCaptureViewProps) {
   const t = useT();
   const lifecycleClient = useLifecycleClient({ tabId });
   const rulesByUid = useRulesLookup();
@@ -116,6 +119,7 @@ function NetworkCaptureBody({ tabId }: NetworkCaptureViewProps) {
       filterHiddenHint={null}
       onFilterHintClear={NOOP}
       onFilterHintDismiss={NOOP}
+      emptyHero={emptyHero}
     />
   );
 
@@ -152,13 +156,13 @@ function NetworkCaptureBody({ tabId }: NetworkCaptureViewProps) {
   );
 }
 
-export function NetworkCaptureView({ tabId }: NetworkCaptureViewProps) {
+export function NetworkCaptureView({ tabId, emptyHero }: NetworkCaptureViewProps) {
   // Host popover for rule chips in the detail's Headers tab — the panel
   // App provides the same wrapper; kept local so this view drops into
   // any surface without the full panel provider stack.
   return (
     <RulePopoverProvider>
-      <NetworkCaptureBody tabId={tabId} />
+      <NetworkCaptureBody tabId={tabId} emptyHero={emptyHero} />
     </RulePopoverProvider>
   );
 }

@@ -2,6 +2,7 @@ import type { Page } from '@openheaders/core/page-stream';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -90,6 +91,10 @@ interface TrafficListProps {
   filterHiddenHint: FilterHiddenHint | null;
   onFilterHintClear: () => void;
   onFilterHintDismiss: () => void;
+  /** Replaces the empty-log hero. The default copy assumes an inspected
+   *  browser tab ("reload the page") — surfaces watching a non-browser
+   *  partition (the proxy capture view) supply their own. */
+  emptyHero?: ReactNode;
 }
 
 export function TrafficList({
@@ -123,6 +128,7 @@ export function TrafficList({
   filterHiddenHint,
   onFilterHintClear,
   onFilterHintDismiss,
+  emptyHero,
 }: TrafficListProps) {
   const {
     compact,
@@ -638,7 +644,8 @@ export function TrafficList({
       </div>
       {!hasRows &&
         (rows.length === 0 ? (
-          <div className="dt-empty-hero">
+          (emptyHero ?? (
+            <div className="dt-empty-hero">
             <strong>{recording ? 'Recording network activity…' : 'No network activity recorded'}</strong>
             <span className="dt-empty-hero-sub">
               {recording ? 'Perform a request or reload the page' : 'Record network log to display network activity'}
@@ -651,6 +658,7 @@ export function TrafficList({
               {recording ? t('panel.network.reloadPage') : t('panel.network.startRecording')}
             </button>
           </div>
+          ))
         ) : (
           <div className="dt-empty">{t('panel.network.noMatches')}</div>
         ))}
