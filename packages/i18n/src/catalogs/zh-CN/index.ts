@@ -38,8 +38,10 @@ import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
 import { workbenchScriptPackages } from './workbench-script-packages';
@@ -79,8 +81,10 @@ export const zhCN = {
   ...workbenchChromeWorkspace,
   ...workbenchDaemonAdmin,
   ...workbenchDocsDebugMode,
+  ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
+  ...workbenchEditorsGrpc,
   ...workbenchEditorsSpec,
   ...workbenchEditorsWebsocket,
   ...workbenchSettingsDefsKeyboard,
