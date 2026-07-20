@@ -36,11 +36,11 @@ import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
+import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
 import { initMainLocale } from './main/bootstrap/locale';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
-import { markQuitting } from './main/bootstrap/quit-state';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
 import { enforceSingleInstanceLock } from './main/bootstrap/single-instance';
 import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
@@ -100,12 +100,18 @@ function bootstrapDesktopApp(): void {
   app.setName(APP_DISPLAY_NAME);
 
   enforceSingleInstanceLock();
+  // Single quit owner (bootstrap/lifecycle.ts) — after the lock check
+  // so a lost race's `app.quit()` still routes through the machine.
+  installAppLifecycle();
   installStartupDataBridge();
   const { signalEngineReady } = installRpcQueue();
   installExternalLinkHandler();
   installProtocolHandler();
 
   void app.whenReady().then(() => {
+    // A quit already committed (lost single-instance race, instant
+    // Cmd+Q) must not grow windows, a tray, or an engine mid-teardown.
+    if (isQuitting()) return;
     registerAsProtocolHandler();
     installAboutPanel();
     // OS-resolved locale default before the first menu build; the
@@ -122,14 +128,16 @@ function bootstrapDesktopApp(): void {
     // macOS: dock click re-shows the existing (hidden) window.
     app.on('activate', showMainWindow);
 
-    installRpcHost()
+    // The lifecycle machine serializes quit-vs-boot on this promise: a
+    // quit requested mid-boot waits for it to settle before disposing.
+    const engineBoot = installRpcHost();
+    trackEngineBoot(engineBoot);
+    engineBoot
       .catch((err) => {
         logger.error('installRpcHost failed', err);
       })
       .finally(signalEngineReady);
   });
-
-  app.on('before-quit', markQuitting);
 
   // Tray-resident: explicit `app.quit()` (tray menu / `Cmd+Q`) is the only exit.
   app.on('window-all-closed', () => {});

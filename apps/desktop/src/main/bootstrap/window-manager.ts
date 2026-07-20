@@ -7,9 +7,9 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, screen } from 'electron';
 import { shouldLaunchHidden } from './launch-flags';
+import { isQuitting } from './lifecycle';
 import { attachRendererDiagnostics } from './process-diagnostics';
 import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
-import { isQuitting } from './quit-state';
 import { sendToRendererWindow } from './renderer-broadcast';
 import { attachWindowSecurity } from './security';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
@@ -94,14 +94,18 @@ export function createMainWindow(): BrowserWindow {
 
   // Hide-on-launch: skip the auto-show. Window stays invisible (but
   // mounted and hydrating in the background) until something — tray
-  // click, dock click, deep link — calls `showMainWindow()`.
+  // click, dock click, deep link — calls `showMainWindow()`. Never
+  // show once a quit has committed — teardown destroys windows and a
+  // late `ready-to-show` must not resurface one.
   if (!shouldLaunchHidden()) {
-    win.once('ready-to-show', () => win.show());
+    win.once('ready-to-show', () => {
+      if (!isQuitting()) win.show();
+    });
   }
 
-  // Close intercept: hide instead of destroy. Real quit comes through
-  // `before-quit` (which sets `isQuitting`), the tray Quit menu, or
-  // `Cmd+Q`.
+  // Close intercept: hide instead of destroy. Real quit goes through
+  // the lifecycle machine (tray Quit menu, `Cmd+Q`), which flips
+  // `isQuitting` and destroys windows itself.
   win.on('close', (event) => {
     if (isQuitting()) return;
     event.preventDefault();
@@ -116,6 +120,9 @@ export function createMainWindow(): BrowserWindow {
 }
 
 export function showMainWindow(): void {
+  // Mid-teardown (dock 'activate' racing a quit): never recreate or
+  // reveal a window the lifecycle machine is tearing down.
+  if (isQuitting()) return;
   if (!mainWindow || mainWindow.isDestroyed()) {
     createMainWindow();
     return;
@@ -187,7 +194,9 @@ export function createChildWindow(): BrowserWindow {
     void win.loadFile(join(__dirname, '..', 'renderer', 'index.html'));
   }
 
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    if (!isQuitting()) win.show();
+  });
   return win;
 }
 
@@ -197,7 +206,5 @@ export function createChildWindow(): BrowserWindow {
  * root of `process.resourcesPath` at pack time.
  */
 export function buildAssetPath(name: string): string {
-  return app.isPackaged
-    ? join(process.resourcesPath, name)
-    : join(__dirname, '..', '..', 'build', name);
+  return app.isPackaged ? join(process.resourcesPath, name) : join(__dirname, '..', '..', 'build', name);
 }

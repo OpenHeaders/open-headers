@@ -16,18 +16,11 @@
 import { app } from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
 import { writeRestartHiddenFlag } from './bootstrap/launch-flags';
+import { requestQuit } from './bootstrap/lifecycle';
 import { createLogger } from './bootstrap/logger';
-import { markQuitting } from './bootstrap/quit-state';
 import { getMainWindow } from './bootstrap/window-manager';
 import { desktopFeedUrl, releaseNotesUrl, type UpdateChannel } from './update-feed';
 import type { AvailableUpdate, UpdaterPort } from './update-service';
-
-/**
- * If the quit stalls (a stray close-intercept, a hung before-quit
- * handler), force the process down — the staged update then applies on
- * the installer's relaunch.
- */
-const INSTALL_EXIT_FAILSAFE_MS = 3_000;
 
 /**
  * Where an updater can actually run: packaged builds on macOS/Windows,
@@ -132,21 +125,22 @@ export function createElectronUpdaterPort(getChannel: () => UpdateChannel): Upda
     quitAndInstall(): void {
       // Tray-resident hidden window (e.g. install triggered from the
       // tray menu): keep the relaunch silent instead of flashing the
-      // window visible.
+      // window visible. Checked NOW — the lifecycle teardown destroys
+      // windows before the finisher fires.
       const win = getMainWindow();
       if (win && !win.isDestroyed() && !win.isVisible()) writeRestartHiddenFlag();
-      // quitAndInstall closes every window BEFORE quitting — and the
-      // tray-resident primary intercepts 'close' into a hide unless the
-      // quitting flag is up. Without this the close is swallowed, the
-      // quit never completes, and "Restart to install" just hides the
-      // window.
-      markQuitting();
+      // The install rides the lifecycle machine: engine flush + pty
+      // drain first, then the installer swap as the exit finisher.
       // isSilent=true, isForceRunAfter=true — the Windows installer
       // runs without its wizard window (macOS/AppImage swaps were
       // always silent) and the app relaunches once the update is
-      // applied, so Update & Restart feels like one motion.
-      autoUpdater.quitAndInstall(true, true);
-      setTimeout(() => app.exit(0), INSTALL_EXIT_FAILSAFE_MS);
+      // applied, so Update & Restart feels like one motion. If the
+      // swap ever stalls, the machine's exit-grace rail force-exits
+      // and the staged update applies on the next launch.
+      requestQuit({
+        reason: 'update-install',
+        finish: () => autoUpdater.quitAndInstall(true, true),
+      });
     },
 
     setInstallOnQuit(enabled: boolean): void {

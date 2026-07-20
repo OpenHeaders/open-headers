@@ -5,18 +5,18 @@ type Handler = (event: unknown, raw: unknown) => unknown;
 
 const ipcHandlers = new Map<string, Handler>();
 const ipcListeners = new Map<string, Handler>();
-const appListeners = new Map<string, (event?: { preventDefault: () => void }) => void>();
+const teardowns = new Map<string, () => void | Promise<void>>();
 const wcOnceListeners = new Map<number, Map<string, () => void>>();
 
 let fakeWebContents: { id: number } | null = null;
 
-vi.mock('electron', () => ({
-  app: {
-    on: (event: string, listener: (event?: { preventDefault: () => void }) => void) => {
-      appListeners.set(event, listener);
-    },
-    quit: vi.fn(),
+vi.mock('../../../src/main/bootstrap/lifecycle', () => ({
+  registerTeardown: (name: string, _deadlineMs: number, run: () => void | Promise<void>) => {
+    teardowns.set(name, run);
   },
+}));
+
+vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, handler: Handler) => {
       ipcHandlers.set(channel, handler);
@@ -86,7 +86,7 @@ describe('installTerminalHost', () => {
   beforeEach(() => {
     ipcHandlers.clear();
     ipcListeners.clear();
-    appListeners.clear();
+    teardowns.clear();
     wcOnceListeners.clear();
     spawnedPtys.length = 0;
     ptySpawn.mockClear();
@@ -172,22 +172,31 @@ describe('installTerminalHost', () => {
     expect(spawnedPtys[0].write).not.toHaveBeenCalled();
   });
 
-  it('kill disposes the pty; before-quit sweeps the rest', () => {
+  it('kill disposes the pty; the quit teardown sweeps the rest and drains exits', async () => {
     const sender = makeSender(7);
     const first = spawnSession(sender);
     const second = spawnSession(sender);
+    expect(second.ok).toBe(true);
     const kill = ipcListeners.get('oh:terminal:kill');
     kill?.({ sender }, { id: first.id });
     expect(spawnedPtys[0].kill).toHaveBeenCalledTimes(1);
 
-    // A live session holds the quit while the pty drain runs — the
-    // handler prevents the default and requits once the exits land.
-    const quitEvent = { preventDefault: vi.fn() };
-    appListeners.get('before-quit')?.(quitEvent);
-    expect(quitEvent.preventDefault).toHaveBeenCalledTimes(1);
+    // The lifecycle participant kills what's left and holds the drain
+    // open until every pty's exit callback has landed — including the
+    // one killed above whose exit is still pending.
+    const drain = teardowns.get('pty-drain');
+    expect(drain).toBeDefined();
+    const drained = vi.fn();
+    void Promise.resolve(drain?.()).then(drained);
+    await Promise.resolve();
+    await Promise.resolve();
     expect(spawnedPtys[1].kill).toHaveBeenCalledTimes(1);
-    expect(second.ok).toBe(true);
+    expect(drained).not.toHaveBeenCalled();
+
+    spawnedPtys[0].emitExit(0);
     spawnedPtys[1].emitExit(0);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(drained).toHaveBeenCalledTimes(1);
   });
 
   it('kills a renderer’s sessions when its webContents is destroyed', () => {

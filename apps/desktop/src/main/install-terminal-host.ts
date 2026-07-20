@@ -28,17 +28,21 @@
  *   - `oh:terminal:exit`   (push)   — `{ id, exitCode }`, once.
  *
  * Teardown: renderer gone (window close / crash) kills that renderer's
- * ptys; `before-quit` kills everything left.
+ * ptys; the app lifecycle's quit teardown drains everything left.
  */
 
 import { execFile } from 'node:child_process';
 import { statSync } from 'node:fs';
 import os from 'node:os';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { app, ipcMain, webContents as webContentsApi } from 'electron';
+import { ipcMain, webContents as webContentsApi } from 'electron';
 import { type IPty, spawn as ptySpawn } from 'node-pty';
+import { registerTeardown } from './bootstrap/lifecycle';
 
 const SCOPE = 'TerminalHost';
+
+/** Quit-time cap on waiting for killed ptys' exit callbacks to land. */
+const PTY_DRAIN_DEADLINE_MS = 1_500;
 
 const CHANNEL = {
   spawn: 'oh:terminal:spawn',
@@ -124,6 +128,10 @@ function resolveCwd(cwd: string | undefined): string {
 export function installTerminalHost(): void {
   const sessions = new Map<string, SessionEntry>();
   const trackedWebContents = new Set<number>();
+  // Exit promises for every pty whose exit callback hasn't landed yet —
+  // killed-but-not-dead ptys included, which the `sessions` map no
+  // longer tracks. The quit-time drain awaits these.
+  const pendingExits = new Set<Promise<void>>();
   let nextSessionSeq = 1;
 
   function disposeSession(id: string): void {
@@ -187,6 +195,12 @@ export function installTerminalHost(): void {
     sessions.set(id, entry);
     trackWebContents(event.sender.id);
 
+    let resolveExit!: () => void;
+    const exitLanded = new Promise<void>((resolve) => {
+      resolveExit = resolve;
+    });
+    pendingExits.add(exitLanded);
+
     const sender = event.sender;
     pty.onData((data) => {
       if (sender.isDestroyed()) return;
@@ -195,6 +209,8 @@ export function installTerminalHost(): void {
     pty.onExit(({ exitCode }) => {
       entry.exited = true;
       sessions.delete(id);
+      pendingExits.delete(exitLanded);
+      resolveExit();
       if (sender.isDestroyed()) return;
       sender.send(CHANNEL.exit, { id, exitCode });
     });
@@ -241,38 +257,12 @@ export function installTerminalHost(): void {
   // exit callbacks over a ThreadSafeFunction, and one landing while the
   // Node environment is mid-cleanup aborts the whole process (SIGABRT
   // in `Napi::Error::ThrowAsJavaScriptException` — macOS shows "quit
-  // unexpectedly"). Hold the quit, drain the exits, then requit; the
-  // timeout keeps a hung shell from wedging quit forever.
-  let quitReady = false;
-  let quitDraining = false;
-  app.on('before-quit', (event) => {
-    if (quitReady) return;
-    if (quitDraining) {
-      // A second quit request while the drain runs must keep waiting —
-      // the session map is already empty, but the ptys aren't dead yet.
-      event.preventDefault();
-      return;
-    }
-    const live = [...sessions.values()].filter((entry) => !entry.exited);
-    if (live.length === 0) {
-      quitReady = true;
-      return;
-    }
-    event.preventDefault();
-    quitDraining = true;
-    const exits = live.map(
-      (entry) =>
-        new Promise<void>((resolve) => {
-          entry.pty.onExit(() => resolve());
-        }),
-    );
+  // unexpectedly"). Registered as a lifecycle teardown participant:
+  // kill whatever is left (the machine's window destroy already swept
+  // renderer-owned sessions), then drain the outstanding exits — the
+  // participant deadline keeps a hung shell from wedging quit forever.
+  registerTeardown('pty-drain', PTY_DRAIN_DEADLINE_MS, async () => {
     for (const id of [...sessions.keys()]) disposeSession(id);
-    const timeout = new Promise<void>((resolve) => {
-      setTimeout(resolve, 1500);
-    });
-    void Promise.race([Promise.all(exits), timeout]).then(() => {
-      quitReady = true;
-      app.quit();
-    });
+    await Promise.all([...pendingExits]);
   });
 }

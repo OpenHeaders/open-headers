@@ -25,8 +25,8 @@
  *     `webContents.send`; the spine forwards to WS peers itself.
  *   - Status store: the shared `@openheaders/ui` store both hosts and
  *     renderers read; handed to the spine through its status seam.
- *   - Paths + lifecycle: `<userData>` as the data dir; `before-quit`
- *     drives the spine's dispose.
+ *   - Paths + lifecycle: `<userData>` as the data dir; the app
+ *     lifecycle's quit teardown drives the spine's dispose.
  *
  * Inbound wires:
  *
@@ -68,6 +68,7 @@ import {
 } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog } from 'electron';
+import { registerTeardown } from './bootstrap/lifecycle';
 import { installLocaleSubscription } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
@@ -86,11 +87,8 @@ import { readServeWebApp, webAppRootCandidate } from './web-app-root';
 
 const SCOPE = 'install-rpc-host';
 
-/** Hard deadline for the engine's quit-time dispose before force-exit. */
+/** Deadline for the engine's quit-time dispose (lifecycle participant). */
 const ENGINE_DISPOSE_DEADLINE_MS = 10_000;
-
-/** Post-dispose grace for the re-quit to complete before force-exit. */
-const REQUIT_DEADLINE_MS = 5_000;
 
 export type OhRpcDispatcher = (raw: unknown) => Promise<unknown>;
 
@@ -478,45 +476,19 @@ export async function installRpcHost(): Promise<void> {
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };
 
-  // Clean up engine-owned resources on app quit. The spine's dispose
+  // Quit-time teardown, as a lifecycle participant: the spine's dispose
   // flushes in-flight work (workspace-tree materializer, binding
-  // chains, SQLite close) — the quit HOLDS until it completes, else
-  // Electron exits mid-flush and can cut a materialize or commit pass
-  // short on disk. First `before-quit` cancels the quit, disposes,
-  // then re-quits; the guard lets the second pass through. A watchdog
-  // deadline force-exits if dispose ever hangs — a tray-resident app
-  // with no window must never wedge un-quittable.
-  let engineDisposeStarted = false;
-  app.on('before-quit', (event) => {
-    if (engineDisposeStarted) return;
-    engineDisposeStarted = true;
-    event.preventDefault();
+  // chains, SQLite close), so the exit waits for it — else Electron
+  // exits mid-flush and can cut a materialize or commit pass short on
+  // disk. The lifecycle machine has already destroyed every renderer
+  // window by the time this runs, so nulling the dispatcher can no
+  // longer strand a live renderer.
+  registerTeardown('engine', ENGINE_DISPOSE_DEADLINE_MS, async () => {
     rpcDispatcher = null;
     updateService.dispose();
     productTelemetry.dispose();
     scriptSandbox.dispose();
-    const watchdog = setTimeout(() => {
-      engineLogger.warn(SCOPE, 'engine dispose deadline hit; force exit');
-      app.exit(0);
-    }, ENGINE_DISPOSE_DEADLINE_MS);
-    void (async () => {
-      try {
-        await spine.dispose();
-      } catch (err) {
-        engineLogger.warn(SCOPE, 'engine dispose failed during quit', err);
-      } finally {
-        clearTimeout(watchdog);
-        engineLogger.info(SCOPE, 'engine disposed; quitting');
-        app.quit();
-        // The graceful re-quit can be swallowed (a renderer beforeunload,
-        // another module's quit hold). The engine is gone either way, so
-        // the app must not outlive it: force-exit once every legitimate
-        // hold (the terminal host's 1.5s pty drain) has had its window.
-        setTimeout(() => {
-          engineLogger.warn(SCOPE, 'quit did not complete after engine dispose; force exit');
-          app.exit(0);
-        }, REQUIT_DEADLINE_MS).unref();
-      }
-    })();
+    await spine.dispose();
+    engineLogger.info(SCOPE, 'engine disposed');
   });
 }

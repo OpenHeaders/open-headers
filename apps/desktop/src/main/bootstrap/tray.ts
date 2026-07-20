@@ -9,10 +9,10 @@
  * without any window open.
  */
 
-import { app, Menu, nativeImage, Tray } from 'electron';
+import { Menu, nativeImage, Tray } from 'electron';
 import { openSettingsSurface } from './application-menu';
+import { requestQuit } from './lifecycle';
 import { mainTranslator } from './locale';
-import { markQuitting } from './quit-state';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { buildAssetPath, showMainWindow } from './window-manager';
 
@@ -30,10 +30,7 @@ function buildTrayMenu(): Menu {
     { label: t('desktop.menu.settings'), click: openSettingsSurface },
     {
       label: t('desktop.tray.quit'),
-      click: () => {
-        markQuitting();
-        app.quit();
-      },
+      click: () => requestQuit({ reason: 'tray-quit' }),
     },
   ]);
 }
