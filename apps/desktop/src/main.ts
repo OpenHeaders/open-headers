@@ -30,6 +30,7 @@
  *                                       drains the RPC queue on completion.
  */
 
+import { join } from 'node:path';
 import { app } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
@@ -52,6 +53,17 @@ import { runMcpStdioBridge } from './mcp-stdio';
 
 const APP_DISPLAY_NAME = 'Open Headers';
 
+/**
+ * Canonical data-directory name — TitleCase, space-free, identical on
+ * every platform (macOS `~/Library/Application Support/OpenHeaders`,
+ * Windows `%APPDATA%\OpenHeaders`, Linux `~/.config/OpenHeaders`), the
+ * Electron-ecosystem convention (Postman, Slack, Code). Set explicitly
+ * because the derived default is whatever the packaged `package.json`
+ * `name` happens to be — and `app.setName` never re-points userData.
+ * Must stay in step with the log dir's pinned name (bootstrap/logger).
+ */
+const APP_DATA_DIR_NAME = 'OpenHeaders';
+
 // ── Eval-time wiring ──────────────────────────────────────────────
 
 // `--mcp-stdio` runs the protocol bridge INSTEAD of the app — decided
@@ -66,15 +78,18 @@ if (process.argv.includes('--mcp-stdio')) {
 }
 
 function bootstrapDesktopApp(): void {
-  // userData override — must land before ANY consumer of
-  // `app.getPath('userData')`: the logger writes there, storage/persistence
-  // key off it, and the single-instance lock is scoped to it (so an
-  // overridden instance never races a real install). E2E harnesses point
-  // this at a temp dir to run a fully isolated app.
+  // userData — must land before ANY consumer of `app.getPath('userData')`:
+  // the logger writes there, storage/persistence key off it, and the
+  // single-instance lock is scoped to it (so an overridden instance never
+  // races a real install). E2E harnesses point OPENHEADERS_USER_DATA_DIR
+  // at a temp dir to run a fully isolated app; otherwise the canonical
+  // name replaces the package.json-derived default (`open-headers`
+  // packaged, `@openheaders/desktop` in dev). Dev runs get their own
+  // suffixed dir so `pnpm dev` never shares data — or the userData-scoped
+  // single-instance lock — with an installed copy.
   const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
-  if (userDataOverride) {
-    app.setPath('userData', userDataOverride);
-  }
+  const dataDirName = app.isPackaged ? APP_DATA_DIR_NAME : `${APP_DATA_DIR_NAME}-Dev`;
+  app.setPath('userData', userDataOverride || join(app.getPath('appData'), dataDirName));
 
   // Chromium command-line switches must precede `app` initialization —
   // they're consumed once at network-stack construction.
