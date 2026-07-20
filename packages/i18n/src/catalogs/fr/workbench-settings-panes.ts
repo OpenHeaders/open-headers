@@ -666,6 +666,8 @@ export const workbenchSettingsPanes = {
     'Firefox garde son propre magasin de confiance — installation dans chaque profil trouvé.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
     "Aucun profil Firefox n'a été trouvé sur cette machine.",
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
+    "Des profils Firefox ont été trouvés, mais certutil (outils NSS) n'est pas installé — leurs magasins de confiance ne peuvent pas être gérés depuis cette machine.",
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Installer dans {count} magasin',

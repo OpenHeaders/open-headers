@@ -173,6 +173,7 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
 
   async function installOne(ca: ProxyCaRecord, store: ProxyTrustStoreId, ref: string): Promise<ProxyTrustStoreResult> {
     const prints = certFingerprints(ca.certPem);
+    const hadRow = (await listTrustChanges()).some((c) => c.store === store && c.ref === ref);
     // Record-before-change: a crash between here and the command leaves
     // a row teardown will re-verify, never trust the record misses.
     await upsertTrustChange({ store, ref, fingerprintSha256: prints.sha256, fingerprintSha1: prints.sha1, at: now() });
@@ -183,6 +184,13 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
           ? await installCaViaHelper(ca.certPem, systemHelper)
           : await installCaInKeychain(ca.certPem, keychainPath(store), keychainDeps);
     if (!result.ok) {
+      if (result.toolMissing === true) {
+        // The tool never ran, so THIS attempt cannot have changed the
+        // store — a first-time row retracts (nothing to guard); a
+        // pre-existing row may guard real earlier content and stays.
+        if (!hadRow) await dropTrustChange(store, ref);
+        return { store, ref, ok: false, ...(result.error !== undefined ? { error: result.error } : {}) };
+      }
       // The command refused. Re-probe to see what actually landed: only a
       // store that verifiably holds nothing of ours retracts the row; a
       // cert that imported but could not be trusted (`untrusted`) is

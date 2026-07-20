@@ -665,6 +665,8 @@ export const workbenchSettingsPanes = {
     'Firefox führt einen eigenen Vertrauensspeicher — installiert in jedes gefundene Profil.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
     'Auf dieser Maschine wurden keine Firefox-Profile gefunden.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
+    'Firefox-Profile wurden gefunden, aber certutil (NSS-Tools) ist nicht installiert — ihre Vertrauensspeicher können von dieser Maschine aus nicht verwaltet werden.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'In {count} Speicher installieren',

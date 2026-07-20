@@ -377,6 +377,35 @@ describe('proxy-trust service', () => {
     expect(add?.args).toContain('C,,');
   });
 
+  it('a missing certutil cannot have changed the store — the first-time row retracts', async () => {
+    const profile = path.join(dir, 'Library', 'Application Support', 'Firefox', 'Profiles', 'abc.default');
+    await mkdir(profile, { recursive: true });
+    await writeFile(path.join(profile, 'cert9.db'), '');
+    fake.when((c) => c.cmd === 'certutil', { code: 127, notFound: true });
+    const result = await service().install(['nss-firefox']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.results[0].ok).toBe(false);
+    expect(result.results[0].error).toContain('certutil');
+    expect(await listTrustChanges()).toHaveLength(0);
+  });
+
+  it('a missing certutil never drops a pre-existing row — it may guard real earlier content', async () => {
+    const profile = path.join(dir, 'Library', 'Application Support', 'Firefox', 'Profiles', 'abc.default');
+    await mkdir(profile, { recursive: true });
+    await writeFile(path.join(profile, 'cert9.db'), '');
+    const svc = service();
+    const first = await svc.install(['nss-firefox']);
+    expect(first.ok).toBe(true);
+    expect(await listTrustChanges()).toHaveLength(1);
+    fake.when((c) => c.cmd === 'certutil', { code: 127, notFound: true });
+    const second = await svc.install(['nss-firefox']);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.results[0].ok).toBe(false);
+    expect(await listTrustChanges()).toHaveLength(1);
+  });
+
   it('status re-probes live on every call — trusted, then absent after the store changes underneath', async () => {
     const ca = await ensureProxyCa();
     const svc = service();

@@ -550,6 +550,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
     'Firefox 有自己的信任存储——会安装进找到的每个配置文件。',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone': '这台机器上没有找到 Firefox 配置文件。',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
+    '找到了 Firefox 配置文件，但未安装 certutil（NSS 工具）— 无法在这台机器上管理它们的信任存储。',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), { other: '安装进 {count} 个存储' }),
   'workbench.settings.proxyTrustPane.wizard.results.allOk': '你选中的每个存储都已安装信任。',

@@ -569,6 +569,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
     'Firefox keeps its own trust store — installs into every profile found.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone': 'No Firefox profiles were found on this machine.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
+    'Firefox profiles were found, but certutil (NSS tools) is not installed — their trust stores cannot be managed from this machine.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Install into {count} store',

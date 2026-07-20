@@ -39,6 +39,8 @@ export interface TrustStoreOpResult {
   error?: string;
   /** The operation needs admin rights the runner could not obtain. */
   elevationRequired?: boolean;
+  /** The store's tooling is absent — the command never ran, so the store cannot have changed. */
+  toolMissing?: boolean;
 }
 
 /** Heuristic over `security` stderr for a rights refusal (denied dialog, no TTY auth). */

@@ -75,7 +75,7 @@ export async function installCaInNssProfile(
         pemPath,
       ]);
       if (result.code === 0) return { ok: true };
-      if (result.notFound) return { ok: false, error: CERTUTIL_MISSING_DETAIL };
+      if (result.notFound) return { ok: false, error: CERTUTIL_MISSING_DETAIL, toolMissing: true };
       return { ok: false, error: result.stderr.trim() || `certutil exited ${result.code}` };
     },
     tmpdir,
@@ -85,7 +85,7 @@ export async function installCaInNssProfile(
 export async function removeCaFromNssProfile(profileDir: string, exec: ExecFn): Promise<TrustStoreOpResult> {
   const result = await exec('certutil', ['-D', '-d', `sql:${profileDir}`, '-n', NSS_CERT_NICKNAME]);
   if (result.code === 0) return { ok: true };
-  if (result.notFound) return { ok: false, error: CERTUTIL_MISSING_DETAIL };
+  if (result.notFound) return { ok: false, error: CERTUTIL_MISSING_DETAIL, toolMissing: true };
   const stderr = result.stderr.trim();
   // "could not find certificate named …" — already gone; teardown's
   // idempotent success case.

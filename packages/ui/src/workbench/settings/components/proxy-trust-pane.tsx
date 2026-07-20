@@ -61,10 +61,16 @@ const HELPER_STATE_COLOR: Record<HelperRegistration, string | undefined> = {
   unknown: undefined,
 };
 
-/** Firefox rows are per-profile — the basename tells them apart. */
+/**
+ * Firefox rows are per-profile — profile dirs are `<salt>.<name>`, so
+ * the name part tells them apart ("default", "default-release"); the
+ * full path stays in the row tooltip.
+ */
 function storeRefName(store: ProxyTrustStoreId, ref: string): string {
   if (store !== 'nss-firefox') return ref;
-  return ref.split('/').pop() ?? ref;
+  const basename = ref.split('/').pop() ?? ref;
+  const dot = basename.indexOf('.');
+  return dot > 0 ? basename.slice(dot + 1) : basename;
 }
 
 type WizardStep = { step: 'explain' } | { step: 'choose' } | { step: 'results'; results: ReadonlyArray<StoreResult> };
@@ -235,6 +241,10 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const changes = status?.changes ?? [];
   const hasMismatch = stores.some((s) => s.state === 'mismatch');
   const hasFirefoxProfiles = stores.some((s) => s.store === 'nss-firefox');
+  // Profiles whose probe answers `unavailable` (certutil missing,
+  // unreadable db) cannot be written either — offering them would only
+  // manufacture a failed install.
+  const hasUsableFirefoxProfiles = stores.some((s) => s.store === 'nss-firefox' && s.state !== 'unavailable');
   const hasKeychains = stores.some((s) => s.store === 'macos-login-keychain' || s.store === 'macos-system-keychain');
   const systemTrustSupported = status?.systemKeychainTrustSupported ?? false;
   const failedResults = wizard?.step === 'results' ? wizard.results.filter((r) => !r.ok) : [];
@@ -580,8 +590,10 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
             {storeOption(
               'nss-firefox',
               'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote',
-              hasFirefoxProfiles,
-              'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone',
+              hasFirefoxProfiles && hasUsableFirefoxProfiles,
+              hasFirefoxProfiles
+                ? 'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable'
+                : 'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone',
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
               <Button

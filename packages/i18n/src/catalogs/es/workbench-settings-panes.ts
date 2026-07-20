@@ -658,6 +658,8 @@ export const workbenchSettingsPanes = {
     'Firefox mantiene su propio almacén de confianza — se instala en cada perfil encontrado.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNone':
     'No se encontraron perfiles de Firefox en esta máquina.',
+  'workbench.settings.proxyTrustPane.wizard.choose.firefoxUnavailable':
+    'Se encontraron perfiles de Firefox, pero certutil (herramientas NSS) no está instalado — sus almacenes de confianza no se pueden gestionar desde esta máquina.',
   'workbench.settings.proxyTrustPane.wizard.choose.confirm': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: 'Instalar en {count} almacén',
