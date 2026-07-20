@@ -467,7 +467,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.enableMcp': 'Activer le serveur MCP',
   'workbench.terminal.cliGate.enableMcpInfo.title': 'Serveur MCP',
   'workbench.terminal.cliGate.enableMcpInfo.summary':
-    "oh joint cette application via le point de terminaison /mcp du démon (Model Context Protocol sur HTTP " +
+    'oh joint cette application via le point de terminaison /mcp du démon (Model Context Protocol sur HTTP ' +
     "en flux). Le réglage mcp.enabled contrôle ce point de terminaison — tant qu'il est désactivé, il " +
     'renvoie 404 et la TUI signale le démon comme injoignable. Décochez pour ne créer que le jeton.',
   'workbench.terminal.cliGate.ok': 'Connecter et ouvrir',
@@ -493,6 +493,11 @@ export const workbenchChrome = {
   'workbench.gitLog.filesHeading': 'Fichiers modifiés',
   'workbench.gitLog.fileHistoryTitle': 'Historique — {path}',
   'workbench.gitLog.fileHistoryEmpty': 'Aucun historique enregistré pour ce fichier pour le moment.',
+  'workbench.gitLog.refs.toggle': 'Afficher les branches et les tags',
+  'workbench.gitLog.refs.local': 'Locales',
+  'workbench.gitLog.refs.remote': 'Distantes',
+  'workbench.gitLog.refs.tags': 'Tags',
+  'workbench.gitLog.refs.empty': 'Aucune branche pour le moment',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

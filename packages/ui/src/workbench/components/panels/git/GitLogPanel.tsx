@@ -1,10 +1,13 @@
 /**
  * GitLogPanel — the workbench Git tool window (GIT_PLAN.md §9 history
- * view, IDE-log layout). Two panes over the S14 read verbs: a commit
- * timeline for the active workspace's binding (`oh.workspaceTree.log`)
- * on the left, and the selected commit's detail — authorship, co-author
- * trailers, changed paths — on the right; clicking a path opens its
- * `--follow` timeline (`oh.workspaceTree.fileLog`). Pure reads off the
+ * view, IDE-log layout). Three panes over the Phase 7 read verbs: a
+ * collapsible ref tree (`oh.workspaceTree.listRefs` — Local / Remote /
+ * Tags, current branch starred; remote refs are whatever the last
+ * background fetch brought in, the panel never touches the network), a
+ * commit timeline (`oh.workspaceTree.log`, ref-scoped when a ref is
+ * selected), and the selected commit's detail — authorship, co-author
+ * trailers, changed paths; clicking a path opens its `--follow`
+ * timeline (`oh.workspaceTree.fileLog`). Pure reads off the
  * per-binding chain; the panel never mutates the repo.
  *
  * Only hosts that register the `workspaceGit` capability (the desktop
@@ -15,8 +18,8 @@
  * workspace — an engine commit shows up without a manual refresh.
  */
 
-import { ReloadOutlined } from '@ant-design/icons';
-import { hostBridge, type WorkspaceTreeLogEntryWire } from '@openheaders/core/bridge';
+import { BranchesOutlined, ReloadOutlined } from '@ant-design/icons';
+import { hostBridge, type WorkspaceTreeLogEntryWire, type WorkspaceTreeRefWire } from '@openheaders/core/bridge';
 import { Button, Input, Modal, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -58,6 +61,10 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
   const [bound, setBound] = useState(false);
   const [branch, setBranch] = useState<string | null>(null);
   const [entries, setEntries] = useState<WorkspaceTreeLogEntryWire[]>([]);
+  const [refs, setRefs] = useState<WorkspaceTreeRefWire[]>([]);
+  const [currentRef, setCurrentRef] = useState<string | null>(null);
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [refsCollapsed, setRefsCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -84,9 +91,25 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
       }
       const status = await hostBridge.call('oh.workspaceTree.gitStatus', { workspaceId });
       setBranch(status.branch);
-      const result = await hostBridge.call('oh.workspaceTree.log', { workspaceId, limit: LOG_LIMIT });
+      const refsResult = await hostBridge.call('oh.workspaceTree.listRefs', { workspaceId });
+      if (refsResult.ok) {
+        setRefs(refsResult.refs);
+        setCurrentRef(refsResult.current);
+      } else {
+        setRefs([]);
+        setCurrentRef(null);
+      }
+      const result = await hostBridge.call('oh.workspaceTree.log', {
+        workspaceId,
+        limit: LOG_LIMIT,
+        ...(selectedRef !== null ? { ref: selectedRef } : {}),
+      });
       if (result.ok) {
         setEntries(result.entries);
+      } else if (result.reason === 'unknown-ref') {
+        // The scoped ref vanished (branch deleted, tag dropped) —
+        // fall back to HEAD; the effect below refetches.
+        setSelectedRef(null);
       } else {
         setEntries([]);
         setError(t('workbench.gitLog.loadFailed', { detail: result.detail ?? result.reason }));
@@ -97,7 +120,7 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, t]);
+  }, [workspaceId, selectedRef, t]);
 
   useEffect(() => {
     void reload();
@@ -125,6 +148,18 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
   const selected = useMemo(
     () => (selectedSha !== null ? (entries.find((entry) => entry.sha === selectedSha) ?? null) : null),
     [entries, selectedSha],
+  );
+
+  const refGroups = useMemo(
+    () =>
+      (
+        [
+          ['local', t('workbench.gitLog.refs.local')],
+          ['remote', t('workbench.gitLog.refs.remote')],
+          ['tag', t('workbench.gitLog.refs.tags')],
+        ] as const
+      ).map(([kind, label]) => ({ kind, label, refs: refs.filter((ref) => ref.kind === kind) })),
+    [refs, t],
   );
 
   const openFileHistory = async (filePath: string): Promise<void> => {
@@ -167,6 +202,15 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
             background: token.colorFillQuaternary,
           }}
         >
+          <Button
+            size="small"
+            type={refsCollapsed ? 'text' : 'default'}
+            icon={<BranchesOutlined />}
+            title={t('workbench.gitLog.refs.toggle')}
+            aria-pressed={!refsCollapsed}
+            onClick={() => setRefsCollapsed((collapsed) => !collapsed)}
+            data-testid="git-tool-refs-toggle"
+          />
           <Input
             size="small"
             allowClear
@@ -224,6 +268,93 @@ const GitLogPanel: React.FC<GitLogPanelProps> = ({ info, onHide }) => {
           </div>
         ) : (
           <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
+            {!refsCollapsed && (
+              <div
+                style={{
+                  flex: '0 0 190px',
+                  minWidth: 0,
+                  overflowY: 'auto',
+                  padding: '4px 0',
+                  borderRight: `1px solid ${token.colorBorderSecondary}`,
+                  background: token.colorFillQuaternary,
+                }}
+                data-testid="git-tool-refs"
+              >
+                {refs.length === 0 ? (
+                  <div
+                    style={{ padding: '12px', fontSize: 12, color: token.colorTextSecondary }}
+                    data-testid="git-tool-refs-empty"
+                  >
+                    {t('workbench.gitLog.refs.empty')}
+                  </div>
+                ) : (
+                  refGroups.map((group) =>
+                    group.refs.length === 0 ? null : (
+                      <div key={group.kind} data-testid="git-tool-ref-group" data-kind={group.kind}>
+                        <div
+                          style={{
+                            padding: '6px 12px 2px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.4,
+                            color: token.colorTextSecondary,
+                          }}
+                        >
+                          {group.label}
+                        </div>
+                        {group.refs.map((ref) => {
+                          const isCurrent = ref.kind === 'local' && ref.name === currentRef;
+                          const isActive = ref.name === selectedRef;
+                          return (
+                            <button
+                              key={`${ref.kind}:${ref.name}`}
+                              type="button"
+                              onClick={() => setSelectedRef(isActive ? null : ref.name)}
+                              title={ref.name}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                width: '100%',
+                                padding: '2px 12px',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                background: isActive ? token.controlItemBgActive : 'transparent',
+                                color: token.colorText,
+                                fontWeight: isCurrent ? 600 : 400,
+                              }}
+                              data-testid="git-tool-ref-row"
+                              data-ref={ref.name}
+                              data-kind={ref.kind}
+                            >
+                              <span
+                                style={{
+                                  flex: '1 1 auto',
+                                  minWidth: 0,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {ref.name}
+                              </span>
+                              {isCurrent && (
+                                <span aria-hidden style={{ flex: '0 0 auto', color: token.colorWarningText }}>
+                                  ★
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ),
+                  )
+                )}
+              </div>
+            )}
             <div
               style={{ flex: '1 1 55%', minWidth: 0, overflowY: 'auto', borderRight: `1px solid ${token.colorBorderSecondary}` }}
               data-testid="git-tool-list"

@@ -465,6 +465,11 @@ export const workbenchChrome = {
   'workbench.gitLog.filesHeading': 'Changed files',
   'workbench.gitLog.fileHistoryTitle': 'History — {path}',
   'workbench.gitLog.fileHistoryEmpty': 'No history recorded for this file yet.',
+  'workbench.gitLog.refs.toggle': 'Show branches and tags',
+  'workbench.gitLog.refs.local': 'Local',
+  'workbench.gitLog.refs.remote': 'Remote',
+  'workbench.gitLog.refs.tags': 'Tags',
+  'workbench.gitLog.refs.empty': 'No branches yet',
 
   // ── Deep Network Inspection placeholder panel. The sample connection
   // feed (TCP/TLS lines, HPACK fields, stat figures) and the tier

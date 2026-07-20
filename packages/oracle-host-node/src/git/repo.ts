@@ -723,12 +723,30 @@ function parseCommitLog(stdout: string): CommitLogEntry[] {
 /**
  * Recent commits with their changed paths — the §9 history view's
  * workspace timeline. One invocation regardless of `limit`; an unborn
- * HEAD answers an empty list (a fresh repo has no history yet).
+ * HEAD answers an empty list (a fresh repo has no history yet). `ref`
+ * scopes the walk to a branch/tag instead of HEAD — a validated ref
+ * NAME only ({@link isSafeRefName}), never a revision expression.
  */
-export async function listCommitLog(run: GitRunner, rootDir: string, limit: number): Promise<CommitLogEntry[] | null> {
-  if ((await localHeadSha(run, rootDir)) === null) return [];
+export async function listCommitLog(
+  run: GitRunner,
+  rootDir: string,
+  limit: number,
+  ref?: string,
+): Promise<CommitLogEntry[] | null> {
+  if (ref !== undefined && !isSafeRefName(ref)) return null;
+  if (ref === undefined && (await localHeadSha(run, rootDir)) === null) return [];
   const result = await run(
-    [...repoArgs(rootDir), 'log', '-z', '--name-status', '-M', `-n`, String(limit), `--format=${LOG_FORMAT}`],
+    [
+      ...repoArgs(rootDir),
+      'log',
+      '-z',
+      '--name-status',
+      '-M',
+      `-n`,
+      String(limit),
+      `--format=${LOG_FORMAT}`,
+      ...(ref !== undefined ? [ref, '--'] : []),
+    ],
     { cwd: rootDir },
   );
   if (result.code !== 0) return null;
@@ -753,6 +771,72 @@ export async function listFileLog(
   );
   if (result.code !== 0) return null;
   return parseCommitLog(result.stdout);
+}
+
+// ── Ref tree (Phase 7 slice 2: §9 log view's left rail) ──────────────
+
+/** One ref in the log view's tree, grouped by namespace. */
+export interface RepoRef {
+  /** Short name (`main`, `origin/main`, `v1.0`). */
+  name: string;
+  kind: 'local' | 'remote' | 'tag';
+  sha: string;
+}
+
+/**
+ * Strict refname gate for caller-supplied log scopes: a plain ref NAME
+ * only — never a revision expression. Rejects range/exclusion syntax
+ * (`..`, `^`, `~`), reflog syntax (`@{`), option injection (leading
+ * `-`), and everything else `check-ref-format` would — without a spawn,
+ * so the dispatch layer can refuse before touching git.
+ */
+export function isSafeRefName(ref: string): boolean {
+  if (ref.length === 0 || ref.length > 512) return false;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(ref)) return false;
+  return !ref.includes('..') && !ref.includes('//') && !ref.endsWith('/') && !ref.endsWith('.lock');
+}
+
+/**
+ * Every branch and tag of the repo — `for-each-ref` over the three
+ * namespaces in one invocation. Annotated tags report the PEELED commit
+ * sha (the log target), and the symbolic `<remote>/HEAD` pointer is
+ * dropped (it duplicates the remote's default branch). A fresh repo
+ * with no commits answers an empty list.
+ */
+export async function listRepoRefs(run: GitRunner, rootDir: string): Promise<RepoRef[] | null> {
+  const result = await run(
+    [
+      ...repoArgs(rootDir),
+      'for-each-ref',
+      '--format=%(refname)%1f%(objectname)%1f%(*objectname)',
+      '--sort=refname',
+      'refs/heads',
+      'refs/remotes',
+      'refs/tags',
+    ],
+    { cwd: rootDir },
+  );
+  if (result.code !== 0) return null;
+  const refs: RepoRef[] = [];
+  for (const line of result.stdout.split('\n')) {
+    if (line.length === 0) continue;
+    const [refname, sha, peeled] = line.split('\x1f');
+    if (refname === undefined || sha === undefined) continue;
+    if (refname.startsWith('refs/heads/')) {
+      refs.push({ name: refname.slice('refs/heads/'.length), kind: 'local', sha });
+    } else if (refname.startsWith('refs/remotes/')) {
+      const name = refname.slice('refs/remotes/'.length);
+      if (name.endsWith('/HEAD')) continue;
+      refs.push({ name, kind: 'remote', sha });
+    } else if (refname.startsWith('refs/tags/')) {
+      refs.push({
+        name: refname.slice('refs/tags/'.length),
+        kind: 'tag',
+        sha: peeled !== undefined && peeled.length > 0 ? peeled : sha,
+      });
+    }
+  }
+  return refs;
 }
 
 // ── Temp-index commit (§3.3 / §23.4) ─────────────────────────────────

@@ -35,6 +35,8 @@ export type {
   SwitchBranchRpcResult,
   WorkspaceTreeCommitCadence,
   WorkspaceTreeGitStatusRpcResult,
+  WorkspaceTreeLogRpcResult,
+  WorkspaceTreeRefsRpcResult,
   WorkspaceTreeRuntime,
   WorkspaceTreeRuntimeOptions,
 } from './runtime';

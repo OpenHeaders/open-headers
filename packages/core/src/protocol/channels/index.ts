@@ -108,6 +108,8 @@ export type {
   WorkspaceTreeMergeBranchWire,
   WorkspaceTreePullWire,
   WorkspaceTreePushWire,
+  WorkspaceTreeRefsWire,
+  WorkspaceTreeRefWire,
   WorkspaceTreeSweepSummary,
   WorkspaceTreeSwitchBranchWire,
 } from './workspace';

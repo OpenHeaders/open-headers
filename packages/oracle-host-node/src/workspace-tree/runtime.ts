@@ -52,13 +52,16 @@ import {
   type GitRunner,
   gitOperationInProgress,
   isAncestorOf,
+  isSafeRefName,
   isWorkspaceRepo,
   listCommitLog,
   listFileLog,
   listLocalBranches,
+  listRepoRefs,
   probeGitAvailability,
   pushHeadToNewBranch,
   pushWorkspaceBranch,
+  type RepoRef,
   resolveCommitIdentity,
   resolveUpstream,
   type UpstreamState,
@@ -232,7 +235,15 @@ export type MergeBranchRpcResult =
 
 export type WorkspaceTreeLogRpcResult =
   | { ok: true; entries: CommitLogEntry[] }
-  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'log-failed'; detail?: string };
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'log-failed';
+      detail?: string;
+    };
+
+export type WorkspaceTreeRefsRpcResult =
+  | { ok: true; refs: RepoRef[]; current: string | null }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
 
 export interface WorkspaceTreeGitStatusRpcResult {
   bound: boolean;
@@ -318,10 +329,16 @@ export interface WorkspaceTreeRuntime {
   notifyAppFocus(): void;
   /** Git slot feed for the card/pill — availability, dirty count, draft message. */
   gitStatus(workspaceId: string): Promise<WorkspaceTreeGitStatusRpcResult>;
-  /** Workspace history timeline (§9, Phase 7) — recent commits with changed paths. */
-  log(workspaceId: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
+  /**
+   * Workspace history timeline (§9, Phase 7) — recent commits with
+   * changed paths. `ref` scopes the walk to a branch/tag from
+   * {@link listRefs}'s answer; anything else refuses `unknown-ref`.
+   */
+  log(workspaceId: string, limit?: number, ref?: string): Promise<WorkspaceTreeLogRpcResult>;
   /** One path's timeline (`--follow`) — the newest entry is "who last touched this". */
   fileLog(workspaceId: string, path: string, limit?: number): Promise<WorkspaceTreeLogRpcResult>;
+  /** The log view's ref tree (§9, Phase 7 slice 2) — local branches, remote-tracking refs, tags. */
+  listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult>;
   setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }>;
   /** The explicit setting behind `--no-verify` (§3.3) — per binding, like the cadence. */
   setBypassHooks(workspaceId: string, bypassHooks: boolean): Promise<{ ok: boolean }>;
@@ -743,6 +760,7 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     workspaceId: string,
     read: (rootDir: string, limit: number) => Promise<CommitLogEntry[] | null>,
     limit?: number,
+    ref?: string,
   ): Promise<WorkspaceTreeLogRpcResult> => {
     const binding = open.get(workspaceId);
     if (!binding) return { ok: false, reason: 'not-bound' };
@@ -750,6 +768,15 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
     const availability = await ensureGitAvailability(rootDir);
     if (!availability.available) return { ok: false, reason: 'git-unavailable' };
     if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+    if (ref !== undefined) {
+      // A caller-supplied scope must be a ref NAME the tree lists —
+      // never a revision expression (no `..`, no flags, §9 slice 2).
+      if (!isSafeRefName(ref)) return { ok: false, reason: 'unknown-ref' };
+      const refs = await listRepoRefs(gitRun, rootDir);
+      if (refs === null || !refs.some((repoRef) => repoRef.name === ref)) {
+        return { ok: false, reason: 'unknown-ref' };
+      }
+    }
     const capped = Math.min(Math.max(1, Math.floor(limit ?? LOG_DEFAULT_LIMIT)), LOG_MAX_LIMIT);
     const entries = await read(rootDir, capped);
     if (entries === null) return { ok: false, reason: 'log-failed' };
@@ -1507,13 +1534,25 @@ export function createWorkspaceTreeRuntime(options: WorkspaceTreeRuntimeOptions)
       return computeGitStatus(binding);
     },
 
-    async log(workspaceId: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
-      return runLog(workspaceId, (rootDir, capped) => listCommitLog(gitRun, rootDir, capped), limit);
+    async log(workspaceId: string, limit?: number, ref?: string): Promise<WorkspaceTreeLogRpcResult> {
+      return runLog(workspaceId, (rootDir, capped) => listCommitLog(gitRun, rootDir, capped, ref), limit, ref);
     },
 
     async fileLog(workspaceId: string, filePath: string, limit?: number): Promise<WorkspaceTreeLogRpcResult> {
       if (filePath.length === 0) return { ok: false, reason: 'log-failed', detail: 'empty path' };
       return runLog(workspaceId, (rootDir, capped) => listFileLog(gitRun, rootDir, filePath, capped), limit);
+    },
+
+    async listRefs(workspaceId: string): Promise<WorkspaceTreeRefsRpcResult> {
+      const binding = open.get(workspaceId);
+      if (!binding) return { ok: false, reason: 'not-bound' };
+      const { rootDir } = binding.record;
+      const availability = await ensureGitAvailability(rootDir);
+      if (!availability.available) return { ok: false, reason: 'git-unavailable' };
+      if (!(await isWorkspaceRepo(gitRun, rootDir))) return { ok: false, reason: 'not-a-repo' };
+      const refs = await listRepoRefs(gitRun, rootDir);
+      if (refs === null) return { ok: false, reason: 'refs-failed' };
+      return { ok: true, refs, current: await currentBranch(gitRun, rootDir) };
     },
 
     async setCommitCadence(workspaceId: string, cadence: WorkspaceTreeCommitCadence): Promise<{ ok: boolean }> {

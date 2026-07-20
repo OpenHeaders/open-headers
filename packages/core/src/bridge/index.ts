@@ -63,6 +63,8 @@ export type {
   WorkspaceTreeMergeBranchWire,
   WorkspaceTreePullWire,
   WorkspaceTreePushWire,
+  WorkspaceTreeRefsWire,
+  WorkspaceTreeRefWire,
   WorkspaceTreeSwitchBranchWire,
   WsSendSocketIoWire,
   WsStreamEventWire,

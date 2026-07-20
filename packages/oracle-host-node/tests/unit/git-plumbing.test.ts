@@ -33,11 +33,13 @@ import {
   fetchWorkspaceRemote,
   gitOperationInProgress,
   isAncestorOf,
+  isSafeRefName,
   isWorkspaceRepo,
   listCommitLog,
   listFileLog,
   listForeignAuthors,
   listLocalBranches,
+  listRepoRefs,
   listTreeYamlPaths,
   localHeadSha,
   mergeBaseOf,
@@ -856,5 +858,100 @@ describe('history feeds (Phase 7)', () => {
     const manifest = await listFileLog(run, tmpDir, 'workspace.yaml', 20);
     if (manifest === null) throw new Error('file log failed');
     expect(manifest.map((entry) => entry.subject)).toEqual(['Edit manifest', 'Initial tree']);
+  });
+});
+
+describe('ref tree (Phase 7 slice 2)', () => {
+  const raw = (dir: string, ...args: string[]) =>
+    run(['--git-dir', path.join(dir, '.git'), '--work-tree', dir, ...args], { cwd: dir });
+
+  const writeIn = async (dir: string, rel: string, content: string): Promise<void> => {
+    const target = path.join(dir, rel);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, 'utf-8');
+  };
+
+  const commitIn = async (dir: string, message: string): Promise<string> => {
+    const result = await commitWorkspaceTree({ run, rootDir: dir, message, identityEnv: IDENTITY_ENV });
+    if (!result.ok || !result.committed) throw new Error(`commit failed in ${dir}`);
+    return result.sha;
+  };
+
+  it('isSafeRefName admits plain ref names and rejects revision expressions', () => {
+    expect(isSafeRefName('main')).toBe(true);
+    expect(isSafeRefName('origin/main')).toBe(true);
+    expect(isSafeRefName('release/v2026.7')).toBe(true);
+    expect(isSafeRefName('oh-rescue-20260720')).toBe(true);
+    expect(isSafeRefName('')).toBe(false);
+    expect(isSafeRefName('--all')).toBe(false);
+    expect(isSafeRefName('-n')).toBe(false);
+    expect(isSafeRefName('main..feature')).toBe(false);
+    expect(isSafeRefName('main^')).toBe(false);
+    expect(isSafeRefName('HEAD~1')).toBe(false);
+    expect(isSafeRefName('main@{1}')).toBe(false);
+    expect(isSafeRefName('a b')).toBe(false);
+    expect(isSafeRefName('branch.lock')).toBe(false);
+  });
+
+  it('lists local branches, remote-tracking refs, and peeled tags — origin/HEAD dropped', async () => {
+    const bare = path.join(tmpDir, 'remote.git');
+    const repoA = path.join(tmpDir, 'a');
+    const repoB = path.join(tmpDir, 'b');
+    await run(['init', '--bare', bare], { cwd: tmpDir });
+    await run(['--git-dir', bare, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: tmpDir });
+    await fs.mkdir(repoA, { recursive: true });
+    await ensureWorkspaceRepo(run, repoA);
+    await raw(repoA, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await writeIn(repoA, 'workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    const mainSha = await commitIn(repoA, 'Initial tree');
+    await raw(repoA, 'checkout', '-q', '-b', 'feature');
+    await writeIn(repoA, 'rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(repoA, 'Feature edit');
+    await raw(repoA, 'checkout', '-q', 'main');
+    await raw(repoA, 'tag', '-a', 'v1', '-m', 'release v1');
+    await raw(repoA, 'remote', 'add', 'origin', bare);
+    await raw(repoA, 'push', '--quiet', '-u', 'origin', 'main');
+    await raw(repoA, 'push', '--quiet', 'origin', 'feature', 'v1');
+    await run(['clone', '--quiet', bare, repoB], { cwd: tmpDir });
+
+    const refs = await listRepoRefs(run, repoB);
+    if (refs === null) throw new Error('refs listing failed');
+    expect(refs.filter((ref) => ref.kind === 'local').map((ref) => ref.name)).toEqual(['main']);
+    expect(refs.filter((ref) => ref.kind === 'remote').map((ref) => ref.name)).toEqual([
+      'origin/feature',
+      'origin/main',
+    ]);
+    // The annotated tag reports the PEELED commit, not the tag object.
+    expect(refs.filter((ref) => ref.kind === 'tag')).toEqual([{ name: 'v1', kind: 'tag', sha: mainSha }]);
+  });
+
+  it('answers an empty list on a fresh repo and null outside one', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    expect(await listRepoRefs(run, tmpDir)).toEqual([]);
+    const bareDir = path.join(tmpDir, 'not-a-repo');
+    await fs.mkdir(bareDir, { recursive: true });
+    expect(await listRepoRefs(run, bareDir)).toBeNull();
+  });
+
+  it('scopes the commit log to a ref and refuses revision expressions', async () => {
+    await ensureWorkspaceRepo(run, tmpDir);
+    await raw(tmpDir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    await write('workspace.yaml', 'schemaVersion: 5\nuid: wsaaaaaa\nname: Probe\n');
+    await commitIn(tmpDir, 'Initial tree');
+    await raw(tmpDir, 'checkout', '-q', '-b', 'feature');
+    await write('rules/block-r0000001/rule.yaml', 'schemaVersion: 5\nuid: r0000001\n');
+    await commitIn(tmpDir, 'Feature edit');
+    await raw(tmpDir, 'checkout', '-q', 'main');
+
+    const scoped = await listCommitLog(run, tmpDir, 20, 'feature');
+    if (scoped === null) throw new Error('scoped log failed');
+    expect(scoped.map((entry) => entry.subject)).toEqual(['Feature edit', 'Initial tree']);
+
+    const head = await listCommitLog(run, tmpDir, 20);
+    if (head === null) throw new Error('log failed');
+    expect(head.map((entry) => entry.subject)).toEqual(['Initial tree']);
+
+    expect(await listCommitLog(run, tmpDir, 20, 'main..feature')).toBeNull();
+    expect(await listCommitLog(run, tmpDir, 20, '--all')).toBeNull();
   });
 });

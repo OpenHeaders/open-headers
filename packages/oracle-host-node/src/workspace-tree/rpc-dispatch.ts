@@ -177,7 +177,16 @@ export async function dispatchWorkspaceTreeRpc(
   if (type === 'oh.workspaceTree.log') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
     if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
-    return await runtime.log(workspaceId, typeof message.limit === 'number' ? message.limit : undefined);
+    return await runtime.log(
+      workspaceId,
+      typeof message.limit === 'number' ? message.limit : undefined,
+      typeof message.ref === 'string' && message.ref.length > 0 ? message.ref : undefined,
+    );
+  }
+  if (type === 'oh.workspaceTree.listRefs') {
+    const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';
+    if (!workspaceId || runtime === null) return { ok: false, reason: 'not-bound' };
+    return await runtime.listRefs(workspaceId);
   }
   if (type === 'oh.workspaceTree.fileLog') {
     const workspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : '';

@@ -427,8 +427,24 @@ export interface WorkspaceRpc {
    * HEAD answers an empty list.
    */
   'oh.workspaceTree.log': {
-    req: { workspaceId: string; limit?: number };
+    req: {
+      workspaceId: string;
+      limit?: number;
+      /** Scope the walk to a branch/tag from `listRefs` — a validated
+       *  ref NAME, never a revision expression; unknown names refuse. */
+      ref?: string;
+    };
     res: WorkspaceTreeLogWire;
+  };
+  /**
+   * The log view's ref tree (§9, Phase 7 slice 2): local branches,
+   * remote-tracking refs (as of the last background fetch — the panel
+   * never touches the network), and tags. Pure read; `current` names
+   * the checked-out branch for the ★ marker.
+   */
+  'oh.workspaceTree.listRefs': {
+    req: { workspaceId: string };
+    res: WorkspaceTreeRefsWire;
   };
   /**
    * One path's timeline (`--follow`, renames included) — the blame
@@ -591,7 +607,24 @@ export interface WorkspaceTreeLogEntryWire {
 
 export type WorkspaceTreeLogWire =
   | { ok: true; entries: WorkspaceTreeLogEntryWire[] }
-  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'log-failed'; detail?: string };
+  | {
+      ok: false;
+      reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'unknown-ref' | 'log-failed';
+      detail?: string;
+    };
+
+/** One ref in the log view's tree (Phase 7 slice 2), grouped by namespace. */
+export interface WorkspaceTreeRefWire {
+  /** Short name (`main`, `origin/main`, `v1.0`). */
+  name: string;
+  kind: 'local' | 'remote' | 'tag';
+  /** Commit sha (annotated tags report the peeled commit). */
+  sha: string;
+}
+
+export type WorkspaceTreeRefsWire =
+  | { ok: true; refs: WorkspaceTreeRefWire[]; current: string | null }
+  | { ok: false; reason: 'not-bound' | 'git-unavailable' | 'not-a-repo' | 'refs-failed'; detail?: string };
 
 /** A detected remote history rewrite (§16) — the trichotomy dialog's feed. */
 export interface WorkspaceTreeForcePushStateWire {
