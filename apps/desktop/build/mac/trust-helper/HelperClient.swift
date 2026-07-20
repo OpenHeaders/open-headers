@@ -23,6 +23,8 @@ func runClient(verb: String, arguments: [String]) {
     clientTrustSettings(remove: false)
   case "trust-remove":
     clientTrustSettings(remove: true)
+  case "sm-status":
+    clientSmStatus()
   case "register":
     clientRegister()
   case "unregister":
@@ -153,6 +155,13 @@ private func serviceStatusLabel(_ status: SMAppService.Status) -> String {
   case .notFound: return "notFound"
   @unknown default: return "unknown"
   }
+}
+
+/// Read-only registration state — SMAppService.status never mutates,
+/// so surfaces can render the truth without triggering registration.
+private func clientSmStatus() {
+  let service = SMAppService.daemon(plistName: HelperConstants.plistName)
+  printJson(["ok": true, "status": serviceStatusLabel(service.status), "bundle": Bundle.main.bundlePath])
 }
 
 private func clientRegister() {

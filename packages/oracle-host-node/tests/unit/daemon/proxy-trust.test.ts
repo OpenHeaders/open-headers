@@ -37,6 +37,7 @@ import type {
   SystemTrustHelper,
   SystemTrustHelperCommandReply,
   SystemTrustHelperProbe,
+  SystemTrustHelperRegistrationReply,
   SystemTrustHelperTrustReply,
 } from '../../../src/daemon/proxy/trust-helper';
 import { listTrustChanges } from '../../../src/daemon/proxy/trust-record';
@@ -162,12 +163,16 @@ function createHelperFake(
     deleteCert?: SystemTrustHelperCommandReply;
     trustSet?: SystemTrustHelperTrustReply;
     trustRemove?: SystemTrustHelperTrustReply;
+    smStatus?: SystemTrustHelperRegistrationReply;
+    register?: SystemTrustHelperRegistrationReply;
+    unregister?: SystemTrustHelperRegistrationReply;
   } = {},
 ): HelperFake {
   const calls: string[] = [];
   const unavailable = { ok: false, error: 'helper not present in this build' };
   return {
     calls,
+    present: () => overrides.probe !== undefined || overrides.smStatus !== undefined,
     probe: async () => {
       calls.push('probe');
       return overrides.probe ?? { available: false, reason: 'helper not present in this build' };
@@ -187,6 +192,22 @@ function createHelperFake(
     trustRemove: async () => {
       calls.push('trust-remove');
       return overrides.trustRemove ?? unavailable;
+    },
+    smStatus: async () => {
+      calls.push('sm-status');
+      return overrides.smStatus ?? unavailable;
+    },
+    register: async () => {
+      calls.push('register');
+      return overrides.register ?? unavailable;
+    },
+    unregister: async () => {
+      calls.push('unregister');
+      return overrides.unregister ?? unavailable;
+    },
+    openLoginItems: async () => {
+      calls.push('login-items');
+      return { ok: true };
     },
   };
 }
@@ -390,6 +411,22 @@ describe('proxy-trust service', () => {
     const status = await service().status();
     const login = status.stores.find((s) => s.store === 'macos-login-keychain');
     expect(login?.state).toBe('untrusted');
+  });
+
+  it('helper state on a build without the binary answers absent without running any verb', async () => {
+    const state = await service().helperState();
+    expect(state).toEqual({ present: false, available: false, registration: null });
+    expect(helper.calls).toHaveLength(0);
+  });
+
+  it('helper state combines the live probe with the read-only registration state', async () => {
+    const reachable = createHelperFake({
+      probe: { available: false, reason: 'Peer Forbidden' },
+      smStatus: { ok: true, status: 'enabled' },
+    });
+    const state = await service({ systemHelper: reachable }).helperState();
+    expect(state).toEqual({ present: true, available: false, reason: 'Peer Forbidden', registration: 'enabled' });
+    expect(reachable.calls).toEqual(['probe', 'sm-status']);
   });
 
   it('status asks the helper live whether System-keychain trust is supported on this build', async () => {

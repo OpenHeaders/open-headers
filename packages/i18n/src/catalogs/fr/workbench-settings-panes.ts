@@ -695,6 +695,27 @@ export const workbenchSettingsPanes = {
     "Certains magasins n'ont pas pu être vérifiés propres. Leurs enregistrements sont conservés — relancez " +
     'le retrait une fois la cause corrigée.',
   'workbench.settings.proxyTrustPane.removeFailed': 'Le retrait a échoué : {message}',
+  'workbench.settings.proxyTrustPane.helper.title': 'Assistant privilégié',
+  'workbench.settings.proxyTrustPane.helper.blurb':
+    'La confiance du trousseau Système passe par un assistant signé, enregistré auprès de macOS comme élément d’arrière-plan. Il ne déplace que les octets du certificat — chaque décision de confiance passe toujours par la boîte de dialogue d’administration macOS.',
+  'workbench.settings.proxyTrustPane.helper.notPresent':
+    'Absent de cette version — uniquement dans les versions macOS empaquetées.',
+  'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Enregistrement',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Démon',
+  'workbench.settings.proxyTrustPane.helper.state.enabled': 'Enregistré',
+  'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'En attente d’approbation',
+  'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Non enregistré',
+  'workbench.settings.proxyTrustPane.helper.state.notFound':
+    'Introuvable — installez d’abord l’application dans Applications',
+  'workbench.settings.proxyTrustPane.helper.state.unknown': 'Inconnu',
+  'workbench.settings.proxyTrustPane.helper.probe.ok': 'Répond',
+  'workbench.settings.proxyTrustPane.helper.probe.down': 'Ne répond pas',
+  'workbench.settings.proxyTrustPane.helper.approvalHint':
+    'macOS attend une approbation : activez OpenHeaders dans Éléments ouverts à la connexion › « Autoriser en arrière-plan », puis vérifiez à nouveau.',
+  'workbench.settings.proxyTrustPane.helper.registerButton': 'Enregistrer',
+  'workbench.settings.proxyTrustPane.helper.unregisterButton': 'Désenregistrer',
+  'workbench.settings.proxyTrustPane.helper.loginItemsButton': 'Ouvrir les éléments de connexion',
+  'workbench.settings.proxyTrustPane.helper.actionFailed': 'L’action de l’assistant a échoué : {message}',
 
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·

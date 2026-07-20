@@ -569,6 +569,25 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.removed': '信任已移除——每个已记录的存储都已验证干净。',
   'workbench.settings.proxyTrustPane.removePartial': '部分存储无法验证干净。它们的记录被保留——修复原因后再次运行移除。',
   'workbench.settings.proxyTrustPane.removeFailed': '移除失败：{message}',
+  'workbench.settings.proxyTrustPane.helper.title': '特权助手',
+  'workbench.settings.proxyTrustPane.helper.blurb':
+    '系统钥匙串信任经由一个已签名的助手完成，它以后台项目的身份注册到 macOS。它只搬运证书字节 — 每一次信任决定仍要经过 macOS 管理员对话框。',
+  'workbench.settings.proxyTrustPane.helper.notPresent': '此构建不包含 — 仅限打包的 macOS 构建。',
+  'workbench.settings.proxyTrustPane.helper.registrationLabel': '注册',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': '守护进程',
+  'workbench.settings.proxyTrustPane.helper.state.enabled': '已注册',
+  'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '等待批准',
+  'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未注册',
+  'workbench.settings.proxyTrustPane.helper.state.notFound': '未找到 — 请先将应用安装到“应用程序”',
+  'workbench.settings.proxyTrustPane.helper.state.unknown': '未知',
+  'workbench.settings.proxyTrustPane.helper.probe.ok': '有响应',
+  'workbench.settings.proxyTrustPane.helper.probe.down': '无响应',
+  'workbench.settings.proxyTrustPane.helper.approvalHint':
+    'macOS 正在等待批准：在“登录项” › “允许在后台运行”中启用 OpenHeaders，然后重新检查。',
+  'workbench.settings.proxyTrustPane.helper.registerButton': '注册',
+  'workbench.settings.proxyTrustPane.helper.unregisterButton': '取消注册',
+  'workbench.settings.proxyTrustPane.helper.loginItemsButton': '打开登录项',
+  'workbench.settings.proxyTrustPane.helper.actionFailed': '助手操作失败：{message}',
 
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·

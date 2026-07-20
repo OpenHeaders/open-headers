@@ -34,7 +34,12 @@ import {
   readProxyCa,
 } from './ca-store';
 import { defaultExec, type ExecFn } from './exec';
-import { createSystemTrustHelper, type SystemTrustHelper } from './trust-helper';
+import {
+  createSystemTrustHelper,
+  type SystemTrustHelper,
+  type SystemTrustHelperRegistration,
+  type SystemTrustHelperRegistrationReply,
+} from './trust-helper';
 import {
   installCaInKeychain,
   installCaViaHelper,
@@ -74,10 +79,24 @@ export interface ProxyTrustRemoveResult {
   results: ProxyTrustStoreResult[];
 }
 
+export interface ProxyTrustHelperState {
+  /** The helper binary ships in this build (macOS packaged app). */
+  present: boolean;
+  /** Live XPC reachability of the registered daemon. */
+  available: boolean;
+  reason?: string;
+  /** SMAppService registration state; null when no binary answers. */
+  registration: SystemTrustHelperRegistration | null;
+}
+
 export interface ProxyTrustService {
   status(): Promise<ProxyTrustStatus>;
   install(stores: readonly ProxyTrustStoreId[]): Promise<ProxyTrustInstallResult>;
   remove(dropCa?: boolean): Promise<ProxyTrustRemoveResult>;
+  helperState(): Promise<ProxyTrustHelperState>;
+  helperRegister(): Promise<SystemTrustHelperRegistrationReply>;
+  helperUnregister(): Promise<SystemTrustHelperRegistrationReply>;
+  helperOpenLoginItems(): Promise<{ ok: boolean; error?: string }>;
 }
 
 export interface ProxyTrustDeps {
@@ -289,5 +308,32 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
     return { ok: allClean, results };
   }
 
-  return { status, install, remove };
+  /**
+   * Helper-management surface for the Settings card: binary presence,
+   * live XPC reachability, and the read-only SMAppService registration
+   * state — all re-derived per call, never cached.
+   */
+  async function helperState(): Promise<ProxyTrustHelperState> {
+    if (!systemHelper.present()) {
+      return { present: false, available: false, registration: null };
+    }
+    const probed = await systemHelper.probe();
+    const sm = await systemHelper.smStatus();
+    return {
+      present: true,
+      available: probed.available,
+      ...(probed.reason !== undefined ? { reason: probed.reason } : {}),
+      registration: sm.ok && sm.status !== undefined ? sm.status : null,
+    };
+  }
+
+  return {
+    status,
+    install,
+    remove,
+    helperState,
+    helperRegister: () => systemHelper.register(),
+    helperUnregister: () => systemHelper.unregister(),
+    helperOpenLoginItems: () => systemHelper.openLoginItems(),
+  };
 }

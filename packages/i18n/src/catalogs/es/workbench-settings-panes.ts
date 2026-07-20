@@ -690,6 +690,27 @@ export const workbenchSettingsPanes = {
     'Algunos almacenes no se pudieron verificar limpios. Sus registros se conservan — vuelve a ejecutar la ' +
     'eliminación cuando la causa esté corregida.',
   'workbench.settings.proxyTrustPane.removeFailed': 'La eliminación falló: {message}',
+  'workbench.settings.proxyTrustPane.helper.title': 'Asistente privilegiado',
+  'workbench.settings.proxyTrustPane.helper.blurb':
+    'La confianza del llavero del Sistema pasa por un asistente firmado, registrado en macOS como elemento en segundo plano. Solo mueve los bytes del certificado — cada decisión de confianza sigue pasando por el diálogo de administración de macOS.',
+  'workbench.settings.proxyTrustPane.helper.notPresent':
+    'No incluido en esta compilación — solo compilaciones macOS empaquetadas.',
+  'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registro',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Demonio',
+  'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registrado',
+  'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Esperando aprobación',
+  'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'No registrado',
+  'workbench.settings.proxyTrustPane.helper.state.notFound':
+    'No encontrado — primero instala la aplicación en Aplicaciones',
+  'workbench.settings.proxyTrustPane.helper.state.unknown': 'Desconocido',
+  'workbench.settings.proxyTrustPane.helper.probe.ok': 'Responde',
+  'workbench.settings.proxyTrustPane.helper.probe.down': 'No responde',
+  'workbench.settings.proxyTrustPane.helper.approvalHint':
+    'macOS espera una aprobación: activa OpenHeaders en Ítems de inicio › «Permitir en segundo plano» y vuelve a comprobar.',
+  'workbench.settings.proxyTrustPane.helper.registerButton': 'Registrar',
+  'workbench.settings.proxyTrustPane.helper.unregisterButton': 'Anular registro',
+  'workbench.settings.proxyTrustPane.helper.loginItemsButton': 'Abrir ítems de inicio',
+  'workbench.settings.proxyTrustPane.helper.actionFailed': 'La acción del asistente falló: {message}',
 
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·

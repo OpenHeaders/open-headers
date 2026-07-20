@@ -482,6 +482,50 @@ export interface DaemonRpc {
     };
   };
 
+  /**
+   * Privileged-helper management for the Settings card (macOS only).
+   * State is re-derived per call: `present` = the helper binary ships
+   * in this build; `available` = the registered daemon answered a live
+   * XPC probe; `registration` = the read-only SMAppService state
+   * (`requiresApproval` means macOS is waiting for the Login Items
+   * toggle), null when no binary answers. Register/unregister run the
+   * helper's client verbs and report the resulting registration state;
+   * neither touches any trust store. `helperLoginItems` opens System
+   * Settings › Login Items for the approval step.
+   */
+  'oh.daemon.proxy.trust.helper': {
+    req: Record<string, never>;
+    res: {
+      present: boolean;
+      available: boolean;
+      reason?: string;
+      registration: 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound' | 'unknown' | null;
+    };
+  };
+
+  'oh.daemon.proxy.trust.helperRegister': {
+    req: Record<string, never>;
+    res: {
+      ok: boolean;
+      error?: string;
+      status?: 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound' | 'unknown';
+    };
+  };
+
+  'oh.daemon.proxy.trust.helperUnregister': {
+    req: Record<string, never>;
+    res: {
+      ok: boolean;
+      error?: string;
+      status?: 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound' | 'unknown';
+    };
+  };
+
+  'oh.daemon.proxy.trust.helperLoginItems': {
+    req: Record<string, never>;
+    res: { ok: boolean; error?: string };
+  };
+
   // ── Proxy capture plane (PROXY_PLAN.md Phase 2) ──────────────────
   //
   // Admin-only. The L7 capture proxy's control surface — bind/unbind

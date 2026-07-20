@@ -563,8 +563,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.wizard.explain.next': 'Choose trust stores',
   'workbench.settings.proxyTrustPane.wizard.choose.blurb': 'Pick where to install. Nothing changes until you confirm.',
   'workbench.settings.proxyTrustPane.wizard.choose.loginNote': 'Apps running as you — no admin approval needed.',
-  'workbench.settings.proxyTrustPane.wizard.choose.systemNote':
-    'Every user on this machine — asks for admin approval.',
+  'workbench.settings.proxyTrustPane.wizard.choose.systemNote': 'Every user on this machine — asks for admin approval.',
   'workbench.settings.proxyTrustPane.wizard.choose.systemUnavailable':
     'System-wide trust isn’t available in this build yet — it needs the OpenHeaders helper. Use the login keychain for now.',
   'workbench.settings.proxyTrustPane.wizard.choose.firefoxNote':
@@ -595,6 +594,25 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.removePartial':
     'Some stores could not be verified clean. Their records are kept — run removal again once the cause is fixed.',
   'workbench.settings.proxyTrustPane.removeFailed': 'Removal failed: {message}',
+  'workbench.settings.proxyTrustPane.helper.title': 'Privileged helper',
+  'workbench.settings.proxyTrustPane.helper.blurb':
+    'System-keychain trust rides a signed helper registered with macOS as a background item. It only moves certificate bytes — every trust decision still goes through the macOS admin dialog.',
+  'workbench.settings.proxyTrustPane.helper.notPresent': 'Not included in this build — packaged macOS builds only.',
+  'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registration',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Daemon',
+  'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registered',
+  'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Waiting for approval',
+  'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Not registered',
+  'workbench.settings.proxyTrustPane.helper.state.notFound': 'Not found — install the app in Applications first',
+  'workbench.settings.proxyTrustPane.helper.state.unknown': 'Unknown',
+  'workbench.settings.proxyTrustPane.helper.probe.ok': 'Responding',
+  'workbench.settings.proxyTrustPane.helper.probe.down': 'Not responding',
+  'workbench.settings.proxyTrustPane.helper.approvalHint':
+    'macOS is waiting for approval: enable OpenHeaders under Login Items › “Allow in the Background”, then check again.',
+  'workbench.settings.proxyTrustPane.helper.registerButton': 'Register',
+  'workbench.settings.proxyTrustPane.helper.unregisterButton': 'Unregister',
+  'workbench.settings.proxyTrustPane.helper.loginItemsButton': 'Open Login Items',
+  'workbench.settings.proxyTrustPane.helper.actionFailed': 'Helper action failed: {message}',
 
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·

@@ -181,6 +181,10 @@ describe('users.setPassword admin channel', () => {
         status: async () => ({ ca: null, stores: [], changes: [], systemKeychainTrustSupported: false }),
         install: async () => ({ ok: false as const, error: 'not under test' }),
         remove: async () => ({ ok: true, results: [] }),
+        helperState: async () => ({ present: false, available: false, registration: null }),
+        helperRegister: async () => ({ ok: false as const, error: 'not under test' }),
+        helperUnregister: async () => ({ ok: false as const, error: 'not under test' }),
+        helperOpenLoginItems: async () => ({ ok: false as const, error: 'not under test' }),
       },
       proxyCapture: {
         status: async () => ({

@@ -697,6 +697,27 @@ export const workbenchSettingsPanes = {
     'Einige Speicher ließen sich nicht als sauber verifizieren. Ihre Einträge bleiben — führe die ' +
     'Entfernung erneut aus, sobald die Ursache behoben ist.',
   'workbench.settings.proxyTrustPane.removeFailed': 'Entfernung fehlgeschlagen: {message}',
+  'workbench.settings.proxyTrustPane.helper.title': 'Privilegierter Helfer',
+  'workbench.settings.proxyTrustPane.helper.blurb':
+    'System-Schlüsselbund-Vertrauen läuft über einen signierten Helfer, der bei macOS als Hintergrundelement registriert ist. Er bewegt nur die Zertifikat-Bytes — jede Vertrauensentscheidung läuft weiterhin über den macOS-Admin-Dialog.',
+  'workbench.settings.proxyTrustPane.helper.notPresent':
+    'In diesem Build nicht enthalten — nur paketierte macOS-Builds.',
+  'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registrierung',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Daemon',
+  'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registriert',
+  'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Wartet auf Genehmigung',
+  'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Nicht registriert',
+  'workbench.settings.proxyTrustPane.helper.state.notFound':
+    'Nicht gefunden — installiere die App zuerst unter „Programme“',
+  'workbench.settings.proxyTrustPane.helper.state.unknown': 'Unbekannt',
+  'workbench.settings.proxyTrustPane.helper.probe.ok': 'Antwortet',
+  'workbench.settings.proxyTrustPane.helper.probe.down': 'Antwortet nicht',
+  'workbench.settings.proxyTrustPane.helper.approvalHint':
+    'macOS wartet auf eine Genehmigung: aktiviere OpenHeaders unter Anmeldeobjekte › „Im Hintergrund erlauben“ und prüfe dann erneut.',
+  'workbench.settings.proxyTrustPane.helper.registerButton': 'Registrieren',
+  'workbench.settings.proxyTrustPane.helper.unregisterButton': 'Registrierung aufheben',
+  'workbench.settings.proxyTrustPane.helper.loginItemsButton': 'Anmeldeobjekte öffnen',
+  'workbench.settings.proxyTrustPane.helper.actionFailed': 'Helfer-Aktion fehlgeschlagen: {message}',
 
   // ── Backend-details scene pills ────────────────────────────────────
   // Architecture component names (sync-engine · rule-engine · oracle ·

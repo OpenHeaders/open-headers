@@ -46,12 +46,30 @@ export interface SystemTrustHelperTrustReply {
   message?: string;
 }
 
+/** SMAppService registration state as the helper's client labels it. */
+export type SystemTrustHelperRegistration = 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound' | 'unknown';
+
+/** Outcome of a registration verb (`sm-status` / `register` / `unregister`). */
+export interface SystemTrustHelperRegistrationReply {
+  ok: boolean;
+  error?: string;
+  status?: SystemTrustHelperRegistration;
+}
+
 export interface SystemTrustHelper {
+  /** Whether the helper binary ships in this build at all. */
+  present(): boolean;
   probe(): Promise<SystemTrustHelperProbe>;
   importCert(certPem: string): Promise<SystemTrustHelperCommandReply>;
   deleteCert(certPem: string, fingerprintSha1: string): Promise<SystemTrustHelperCommandReply>;
   trustSet(certPem: string): Promise<SystemTrustHelperTrustReply>;
   trustRemove(certPem: string): Promise<SystemTrustHelperTrustReply>;
+  /** Read-only SMAppService registration state — never mutates. */
+  smStatus(): Promise<SystemTrustHelperRegistrationReply>;
+  register(): Promise<SystemTrustHelperRegistrationReply>;
+  unregister(): Promise<SystemTrustHelperRegistrationReply>;
+  /** Opens System Settings › Login Items for the approval step. */
+  openLoginItems(): Promise<{ ok: boolean; error?: string }>;
 }
 
 /** The embedded helper sits beside the app executable in the bundle. */
@@ -155,11 +173,47 @@ export function createSystemTrustHelper(binaryPath: string | null = defaultSyste
     };
   }
 
+  function registration(value: unknown): SystemTrustHelperRegistration | undefined {
+    return value === 'enabled' ||
+      value === 'requiresApproval' ||
+      value === 'notRegistered' ||
+      value === 'notFound' ||
+      value === 'unknown'
+      ? value
+      : undefined;
+  }
+
+  async function runRegistrationVerb(verb: string): Promise<SystemTrustHelperRegistrationReply> {
+    if (binaryPath === null) return { ok: false, error: 'helper not present in this build' };
+    const run = await runHelper(binaryPath, [verb]);
+    const reply = parseReply(run);
+    if (reply === null) return { ok: false, error: run.spawnError ?? 'helper produced no parseable answer' };
+    const status = registration(reply.status);
+    return {
+      ok: reply.ok === true,
+      ...(reply.ok !== true ? { error: str(reply.error) ?? 'helper refused' } : {}),
+      ...(status !== undefined ? { status } : {}),
+    };
+  }
+
+  async function openLoginItems(): Promise<{ ok: boolean; error?: string }> {
+    if (binaryPath === null) return { ok: false, error: 'helper not present in this build' };
+    const run = await runHelper(binaryPath, ['login-items']);
+    const reply = parseReply(run);
+    if (reply === null) return { ok: false, error: run.spawnError ?? 'helper produced no parseable answer' };
+    return reply.ok === true ? { ok: true } : { ok: false, error: str(reply.error) ?? 'helper refused' };
+  }
+
   return {
+    present: () => binaryPath !== null,
     probe,
     importCert: (certPem) => runCommandVerb(['import'], certPem),
     deleteCert: (certPem, fingerprintSha1) => runCommandVerb(['delete', fingerprintSha1], certPem),
     trustSet: (certPem) => runTrustVerb('trust-set', certPem),
     trustRemove: (certPem) => runTrustVerb('trust-remove', certPem),
+    smStatus: () => runRegistrationVerb('sm-status'),
+    register: () => runRegistrationVerb('register'),
+    unregister: () => runRegistrationVerb('unregister'),
+    openLoginItems,
   };
 }

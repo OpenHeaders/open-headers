@@ -36,6 +36,37 @@ interface StoreResult {
   residue?: boolean;
 }
 
+type HelperRegistration = 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound' | 'unknown';
+
+interface HelperInfo {
+  present: boolean;
+  available: boolean;
+  reason?: string;
+  registration: HelperRegistration | null;
+}
+
+const HELPER_STATE_TEXT: Record<HelperRegistration, MessageKey> = {
+  enabled: 'workbench.settings.proxyTrustPane.helper.state.enabled',
+  requiresApproval: 'workbench.settings.proxyTrustPane.helper.state.requiresApproval',
+  notRegistered: 'workbench.settings.proxyTrustPane.helper.state.notRegistered',
+  notFound: 'workbench.settings.proxyTrustPane.helper.state.notFound',
+  unknown: 'workbench.settings.proxyTrustPane.helper.state.unknown',
+};
+
+const HELPER_STATE_COLOR: Record<HelperRegistration, string | undefined> = {
+  enabled: 'green',
+  requiresApproval: 'gold',
+  notRegistered: undefined,
+  notFound: 'red',
+  unknown: undefined,
+};
+
+/** Firefox rows are per-profile — the basename tells them apart. */
+function storeRefName(store: ProxyTrustStoreId, ref: string): string {
+  if (store !== 'nss-firefox') return ref;
+  return ref.split('/').pop() ?? ref;
+}
+
 type WizardStep = { step: 'explain' } | { step: 'choose' } | { step: 'results'; results: ReadonlyArray<StoreResult> };
 
 const STORE_LABEL: Record<ProxyTrustStoreId, MessageKey> = {
@@ -85,6 +116,8 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const [installing, setInstalling] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeResults, setRemoveResults] = useState<ReadonlyArray<StoreResult>>([]);
+  const [helperInfo, setHelperInfo] = useState<HelperInfo | null>(null);
+  const [helperBusy, setHelperBusy] = useState(false);
 
   const reload = useCallback(async (): Promise<void> => {
     try {
@@ -99,6 +132,11 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
     } catch (err) {
       setStatus(null);
       setLoadError((err as Error).message);
+    }
+    try {
+      setHelperInfo(await hostBridge.call('oh.daemon.proxy.trust.helper'));
+    } catch {
+      setHelperInfo(null);
     }
   }, []);
 
@@ -162,6 +200,31 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
       message.error(t('workbench.settings.proxyTrustPane.ca.deleteFailed', { message: (err as Error).message }));
     }
     void reload();
+  };
+
+  const runHelperVerb = async (
+    verb: 'oh.daemon.proxy.trust.helperRegister' | 'oh.daemon.proxy.trust.helperUnregister',
+  ): Promise<void> => {
+    setHelperBusy(true);
+    try {
+      const result = await hostBridge.call(verb);
+      if (!result.ok) {
+        message.error(t('workbench.settings.proxyTrustPane.helper.actionFailed', { message: result.error ?? '' }));
+      }
+    } catch (err) {
+      message.error(t('workbench.settings.proxyTrustPane.helper.actionFailed', { message: (err as Error).message }));
+    } finally {
+      setHelperBusy(false);
+      void reload();
+    }
+  };
+
+  const openLoginItems = async (): Promise<void> => {
+    try {
+      await hostBridge.call('oh.daemon.proxy.trust.helperLoginItems');
+    } catch (err) {
+      message.error(t('workbench.settings.proxyTrustPane.helper.actionFailed', { message: (err as Error).message }));
+    }
   };
 
   const toggleStore = (store: ProxyTrustStoreId, checked: boolean): void => {
@@ -375,12 +438,93 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {s.detail ?? s.ref}
+                {s.detail !== undefined ? `${storeRefName(s.store, s.ref)} — ${s.detail}` : storeRefName(s.store, s.ref)}
               </span>
             </div>
           ))}
         </div>
       </section>
+
+      {helperInfo !== null && hasKeychains && (
+        <section style={{ marginTop: 14 }}>
+          <div className="settings-card" style={{ padding: '8px 14px 10px' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, padding: '4px 0 2px' }}>
+              {t('workbench.settings.proxyTrustPane.helper.title')}
+            </div>
+            <p style={{ margin: '2px 0 4px', fontSize: 12, color: token.colorTextSecondary }}>
+              {t('workbench.settings.proxyTrustPane.helper.blurb')}
+            </p>
+            {!helperInfo.present && (
+              <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
+                {t('workbench.settings.proxyTrustPane.helper.notPresent')}
+              </p>
+            )}
+            {helperInfo.present && (
+              <>
+                <DetailRow label={t('workbench.settings.proxyTrustPane.helper.registrationLabel')}>
+                  <Tag
+                    color={helperInfo.registration !== null ? HELPER_STATE_COLOR[helperInfo.registration] : undefined}
+                    style={{ fontSize: 11 }}
+                  >
+                    {helperInfo.registration !== null
+                      ? t(HELPER_STATE_TEXT[helperInfo.registration])
+                      : t('workbench.settings.proxyTrustPane.helper.state.unknown')}
+                  </Tag>
+                </DetailRow>
+                <DetailRow label={t('workbench.settings.proxyTrustPane.helper.daemonLabel')}>
+                  <Tag color={helperInfo.available ? 'green' : 'orange'} style={{ fontSize: 11 }}>
+                    {helperInfo.available
+                      ? t('workbench.settings.proxyTrustPane.helper.probe.ok')
+                      : t('workbench.settings.proxyTrustPane.helper.probe.down')}
+                  </Tag>
+                  {!helperInfo.available && helperInfo.reason !== undefined && (
+                    <span style={{ color: token.colorTextSecondary }}>({helperInfo.reason})</span>
+                  )}
+                </DetailRow>
+                {helperInfo.registration === 'requiresApproval' && (
+                  <p style={{ margin: '4px 0', fontSize: 12, color: token.colorTextSecondary }}>
+                    {t('workbench.settings.proxyTrustPane.helper.approvalHint')}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0 4px' }}>
+                  {helperInfo.registration !== 'enabled' && helperInfo.registration !== 'requiresApproval' && (
+                    <Button
+                      data-testid="proxy-trust-helper-register"
+                      type="primary"
+                      size="small"
+                      loading={helperBusy}
+                      onClick={() => void runHelperVerb('oh.daemon.proxy.trust.helperRegister')}
+                    >
+                      {t('workbench.settings.proxyTrustPane.helper.registerButton')}
+                    </Button>
+                  )}
+                  {helperInfo.registration === 'requiresApproval' && (
+                    <Button
+                      data-testid="proxy-trust-helper-login-items"
+                      type="primary"
+                      size="small"
+                      onClick={() => void openLoginItems()}
+                    >
+                      {t('workbench.settings.proxyTrustPane.helper.loginItemsButton')}
+                    </Button>
+                  )}
+                  {(helperInfo.registration === 'enabled' || helperInfo.registration === 'requiresApproval') && (
+                    <Button
+                      data-testid="proxy-trust-helper-unregister"
+                      danger
+                      size="small"
+                      loading={helperBusy}
+                      onClick={() => void runHelperVerb('oh.daemon.proxy.trust.helperUnregister')}
+                    >
+                      {t('workbench.settings.proxyTrustPane.helper.unregisterButton')}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       <Modal
         title={t('workbench.settings.proxyTrustPane.wizard.title')}

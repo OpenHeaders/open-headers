@@ -253,6 +253,35 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     }
   });
 
+  // Privileged-helper management — the Settings card's registration
+  // surface. Read state is derived live per call; register/unregister
+  // drive the helper's own client verbs and never touch a trust store.
+  handlers.set('oh.daemon.proxy.trust.helper', async () => await deps.proxyTrust.helperState());
+
+  handlers.set('oh.daemon.proxy.trust.helperRegister', async () => {
+    try {
+      return await deps.proxyTrust.helperRegister();
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.proxy.trust.helperUnregister', async () => {
+    try {
+      return await deps.proxyTrust.helperUnregister();
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set('oh.daemon.proxy.trust.helperLoginItems', async () => {
+    try {
+      return await deps.proxyTrust.helperOpenLoginItems();
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
   // Proxy capture plane (`oh.daemon.proxy.*` sans `.trust`) — the L7
   // capture proxy's control surface. Status is re-derived live per call;
   // start/stop drive the bind; scope.set replaces the §2.4 decrypt list
