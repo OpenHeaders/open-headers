@@ -36,10 +36,12 @@ import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
+import { workbenchDaemonAdmin } from './workbench-daemon-admin';
 import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchScriptPackages } from './workbench-script-packages';
+import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 
 export const zhCN = {
   ...desktop,
@@ -73,8 +75,10 @@ export const zhCN = {
   ...workbench,
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
+  ...workbenchDaemonAdmin,
   ...workbenchDocsDebugMode,
   ...workbenchEditors,
   ...workbenchEditorsSpec,
+  ...workbenchSettingsDefsKeyboard,
   ...workbenchScriptPackages,
 } as const satisfies Catalog;
