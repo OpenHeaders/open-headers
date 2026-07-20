@@ -6,13 +6,19 @@
 
 import type { Catalog } from '../../types';
 import { shared } from './shared';
+import { sharedAwareness } from './shared-awareness';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
+import { sharedWorkspace } from './shared-workspace';
 
 export const zhCN = {
   ...shared,
+  ...sharedAwareness,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
+  ...sharedNotifications,
   ...sharedResolutionHints,
+  ...sharedWorkspace,
 } as const satisfies Catalog;
