@@ -10,6 +10,7 @@ import { extension } from './extension';
 import { panelConsole } from './panel-console';
 import { panelDocs } from './panel-docs';
 import { panelInspector } from './panel-inspector';
+import { panelInspectorCookies } from './panel-inspector-cookies';
 import { panelInspectorHeaders } from './panel-inspector-headers';
 import { panelInspectorStreams } from './panel-inspector-streams';
 import { panelQuickEditor } from './panel-quick-editor';
@@ -38,6 +39,7 @@ export const zhCN = {
   ...panelConsole,
   ...panelDocs,
   ...panelInspector,
+  ...panelInspectorCookies,
   ...panelInspectorHeaders,
   ...panelInspectorStreams,
   ...panelQuickEditor,
