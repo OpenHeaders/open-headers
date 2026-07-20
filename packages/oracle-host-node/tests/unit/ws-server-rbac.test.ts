@@ -654,7 +654,7 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
         status: async () => ({
           running: false,
           boundPort: null,
-          port: 59212,
+          port: 8138,
           scopePatterns: [],
           caPresent: false,
           lastError: null,

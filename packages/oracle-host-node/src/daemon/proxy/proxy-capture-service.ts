@@ -22,6 +22,7 @@
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { isValidScopePattern } from '@openheaders/core/proxy';
 import { ProxyCaptureSettingsSchema } from '@openheaders/core/schemas';
+import { WS_PORT } from '@openheaders/core/protocol';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import type { ProxyCaptureSettings, ProxyCaptureStatus } from '@openheaders/core/types';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
@@ -32,8 +33,8 @@ import { createProxyCaptureEngine } from './proxy-capture-engine';
 
 const SCOPE = 'proxy-capture';
 
-/** Default bind port for the capture proxy — loopback-only, WS_PORT + 2. */
-export const DEFAULT_PROXY_CAPTURE_PORT = 59212;
+/** Default bind port for the capture proxy — loopback-only, next to the main sync/HTTP port. */
+export const DEFAULT_PROXY_CAPTURE_PORT = WS_PORT + 1;
 
 export type ProxyCaptureStartResult = { ok: true; port: number } | { ok: false; error: string };
 export type ProxyCaptureScopeResult = { ok: true; scopePatterns: string[] } | { ok: false; error: string };
