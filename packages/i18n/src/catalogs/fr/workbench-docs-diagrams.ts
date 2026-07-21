@@ -1493,6 +1493,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.shared.useCasesKicker': "CAS D'USAGE COURANTS",
   'workbench.docs.diagrams.shared.wontFireKicker': 'QUAND ÇA NE SE DÉCLENCHE PAS',
   'workbench.docs.diagrams.shared.suggestion': 'Suggestion',
+  'workbench.docs.diagrams.shared.beforeKicker': 'AVANT',
+  'workbench.docs.diagrams.shared.afterKicker': 'APRÈS',
 
   // ── Block ───────────────────────────────────────────────────────────
   'workbench.docs.diagrams.block.aria':
@@ -1562,4 +1564,110 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.redirect.loops': 'Boucles de redirection',
   'workbench.docs.diagrams.redirect.loopsSub': 'Chrome plafonne — ERR_TOO_MANY_REDIRECTS.',
   'workbench.docs.diagrams.redirect.suggestionText': 'Rechargez. Vérifiez que les conditions ne bouclent pas.',
+
+  // ── Inject JS / CSS ─────────────────────────────────────────────────
+  'workbench.docs.diagrams.inject.timingAria':
+    "Moment d'injection — Dès que possible s'exécute avant les scripts de la page ; Après chargement une fois " +
+    'le DOM analysé.',
+  'workbench.docs.diagrams.inject.timeAxis': 'temps →',
+  'workbench.docs.diagrams.inject.navigation': 'navigation',
+  'workbench.docs.diagrams.inject.domParsed': 'DOM analysé',
+  'workbench.docs.diagrams.inject.loadEvent': 'événement load',
+  'workbench.docs.diagrams.inject.asap': 'Dès que possible',
+  'workbench.docs.diagrams.inject.prePageScript': 'avant les scripts',
+  'workbench.docs.diagrams.inject.afterLoad': 'Après chargement',
+  'workbench.docs.diagrams.inject.domSafe': 'sûr pour le DOM',
+  'workbench.docs.diagrams.inject.timingFooter': 'Dès que possible pour les races · Après chargement pour le DOM',
+  'workbench.docs.diagrams.inject.scriptAria':
+    "Injection de script — le JavaScript s'exécute dans la page, soit Dès que possible (avant les scripts), " +
+    'soit Après chargement (sûr pour le DOM).',
+  'workbench.docs.diagrams.inject.ruleScript': 'Script (ASAP) : tracer chaque appel fetch',
+  'workbench.docs.diagrams.inject.injectedComment': "<script> // injecté par l'extension",
+  'workbench.docs.diagrams.inject.runsInPage': "S'exécute dans la page — mêmes globales que son JS.",
+  'workbench.docs.diagrams.inject.scriptFooter': "Dès que possible devance l'app ; Après chargement lit le DOM.",
+  'workbench.docs.diagrams.inject.cssAria':
+    'Injection CSS — une balise <style> est ajoutée au head de la page et masque la bannière.',
+  'workbench.docs.diagrams.inject.ruleCss': 'CSS: header.banner { display: none }',
+  'workbench.docs.diagrams.inject.ruleApplied1': 'règle',
+  'workbench.docs.diagrams.inject.ruleApplied2': 'active',
+  'workbench.docs.diagrams.inject.hidden': '(masqué)',
+  'workbench.docs.diagrams.inject.cssFooter': 'Injecté en balise <style> — même spécificité que le CSS de la page.',
+  'workbench.docs.diagrams.inject.wontApplyAria':
+    "L'injection ne s'applique pas aux iframes sandboxées ni aux pages dont la CSP stricte bloque les " +
+    'scripts inline.',
+  'workbench.docs.diagrams.inject.sandboxed': 'Iframes sandboxées',
+  'workbench.docs.diagrams.inject.sandboxedSub': 'Pages avec sandbox="" qui désactive les scripts.',
+  'workbench.docs.diagrams.inject.strictCsp': "CSP stricte (script-src 'self')",
+  'workbench.docs.diagrams.inject.strictCspSub': 'Les scripts injectés inline sont bloqués par la page.',
+  'workbench.docs.diagrams.inject.suggestionText': "Injectez dans la page parente ; postMessage vers l'iframe.",
+  'workbench.docs.diagrams.inject.useCasesAria':
+    "Injecter JS / CSS — cas d'usage courants : monkey-patch, mode sombre, masquer des éléments, feature flags.",
+  'workbench.docs.diagrams.inject.card1Title': 'Monkey-patch',
+  'workbench.docs.diagrams.inject.card1Example': 'Wrapper fetch / XHR (ASAP)',
+  'workbench.docs.diagrams.inject.card2Title': 'Mode sombre',
+  'workbench.docs.diagrams.inject.card2Example': 'Forcer un thème CSS',
+  'workbench.docs.diagrams.inject.card3Title': 'Masquer le bruit',
+  'workbench.docs.diagrams.inject.card3Example': 'Bannières en display: none',
+  'workbench.docs.diagrams.inject.card4Title': 'Feature flags',
+  'workbench.docs.diagrams.inject.card4Example': 'Flags window au plus tôt',
+  'workbench.docs.diagrams.inject.useCasesFooter':
+    'Dès que possible pour passer en premier ; Après chargement pour le DOM.',
+
+  // ── Delay ───────────────────────────────────────────────────────────
+  'workbench.docs.diagrams.delay.routingAria':
+    'Routage du délai entre navigation, fetch et sous-ressources — seules les deux premières voies sont ' +
+    'interceptées, les sous-ressources passent.',
+  'workbench.docs.diagrams.delay.matchedRequest': 'Requête reconnue',
+  'workbench.docs.diagrams.delay.document': 'Document',
+  'workbench.docs.diagrams.delay.documentSub': 'nav iframe',
+  'workbench.docs.diagrams.delay.navCap': '≤ 30,000 ms',
+  'workbench.docs.diagrams.delay.viaWaitingPage': "via page d'attente",
+  'workbench.docs.diagrams.delay.fetchXhr': 'Fetch / XHR',
+  'workbench.docs.diagrams.delay.jsInitiated': 'initié par JS',
+  'workbench.docs.diagrams.delay.xhrCap': '≤ 5,000 ms',
+  'workbench.docs.diagrams.delay.monkeyPatched': 'monkey-patché',
+  'workbench.docs.diagrams.delay.subResource': 'Sous-ressource',
+  'workbench.docs.diagrams.delay.subResourceSub': 'img / css / js',
+  'workbench.docs.diagrams.delay.notDelayed': 'non retardée',
+  'workbench.docs.diagrams.delay.passesThrough': 'passe direct',
+  'workbench.docs.diagrams.delay.routingFooter': 'Des plafonds plus hauts exigent un vrai proxy local',
+  'workbench.docs.diagrams.delay.navAria':
+    "Délai de navigation — le navigateur est redirigé vers une page d'attente locale qui retient N ms avant " +
+    "de renvoyer vers l'URL cible réelle.",
+  'workbench.docs.diagrams.delay.ruleNav': 'Delay 8,000 ms · navigation de page',
+  'workbench.docs.diagrams.delay.click': 'Clic',
+  'workbench.docs.diagrams.delay.waitingPage': "Page d'attente",
+  'workbench.docs.diagrams.delay.holds8s': '⏱ retient 8 s',
+  'workbench.docs.diagrams.delay.loadsNow': 'charge ensuite',
+  'workbench.docs.diagrams.delay.navStamp': "Honoré jusqu'à 30,000 ms — le plafond de redirection de Chrome.",
+  'workbench.docs.diagrams.delay.navStampSub': "Réalisé par une redirection DNR vers une page d'attente locale.",
+  'workbench.docs.diagrams.delay.xhrAria':
+    'Délai des fetch/XHR initiés par JS — un setTimeout monkey-patché retient la résolution. Plafonné à 5000 ms.',
+  'workbench.docs.diagrams.delay.ruleXhr': 'Delay 3,000 ms · fetch / XHR JS',
+  'workbench.docs.diagrams.delay.intercept': 'interception',
+  'workbench.docs.diagrams.delay.network': 'réseau',
+  'workbench.docs.diagrams.delay.hold3000': 'pause de 3,000 ms',
+  'workbench.docs.diagrams.delay.realRequest': 'requête réelle',
+  'workbench.docs.diagrams.delay.responseDelayed': 'réponse (retardée de 3 s)',
+  'workbench.docs.diagrams.delay.xhrStamp': 'Plafonné à 5,000 ms — les valeurs au-delà sont ramenées au plafond.',
+  'workbench.docs.diagrams.delay.wontApplyAria':
+    "Le délai ne s'applique pas aux sous-ressources (img/css/js) ni aux fetch de service worker qui " +
+    'contournent le patch de la page.',
+  'workbench.docs.diagrams.delay.subResources': 'Sous-ressources (img, css, js, fonts)',
+  'workbench.docs.diagrams.delay.subResourcesSub': 'Le navigateur les émet — aucun patch ne peut les retenir.',
+  'workbench.docs.diagrams.delay.swFetches': 'Fetch de service worker',
+  'workbench.docs.diagrams.delay.swFetchesSub': 'Autre scope ; les patchs côté page ne les atteignent pas.',
+  'workbench.docs.diagrams.delay.suggestionText': "Le throttling des sous-ressources arrive avec l'app de bureau.",
+  'workbench.docs.diagrams.delay.useCasesAria':
+    "Délai — cas d'usage courants : QA des états de chargement, tests de debounce, mise au jour des races, " +
+    'simulation de réseau lent.',
+  'workbench.docs.diagrams.delay.card1Title': 'États de chargement',
+  'workbench.docs.diagrams.delay.card1Example': 'Voir les spinners à coup sûr',
+  'workbench.docs.diagrams.delay.card2Title': 'Tests de debounce',
+  'workbench.docs.diagrams.delay.card2Example': 'Tester les limites de frappe',
+  'workbench.docs.diagrams.delay.card3Title': 'Race conditions',
+  'workbench.docs.diagrams.delay.card3Example': "Révéler l'ordre des requêtes",
+  'workbench.docs.diagrams.delay.card4Title': 'Simuler réseau lent',
+  'workbench.docs.diagrams.delay.card4Example': 'Latence approx. type 3G',
+  'workbench.docs.diagrams.delay.useCasesFooter': 'Ressources statiques : un vrai proxy est requis, pas une extension.',
 } as const satisfies Catalog;

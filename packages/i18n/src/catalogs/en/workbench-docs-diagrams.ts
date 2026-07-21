@@ -1436,6 +1436,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.shared.useCasesKicker': 'COMMON USE CASES',
   'workbench.docs.diagrams.shared.wontFireKicker': "WHEN IT DOESN'T FIRE",
   'workbench.docs.diagrams.shared.suggestion': 'Suggestion',
+  'workbench.docs.diagrams.shared.beforeKicker': 'BEFORE',
+  'workbench.docs.diagrams.shared.afterKicker': 'AFTER',
 
   // ── Block ───────────────────────────────────────────────────────────
   'workbench.docs.diagrams.block.aria':
@@ -1501,4 +1503,106 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.redirect.loops': 'Redirect loops',
   'workbench.docs.diagrams.redirect.loopsSub': 'Chrome caps it — ERR_TOO_MANY_REDIRECTS.',
   'workbench.docs.diagrams.redirect.suggestionText': "Reload. Make sure conditions don't loop.",
+
+  // ── Inject JS / CSS ─────────────────────────────────────────────────
+  'workbench.docs.diagrams.inject.timingAria':
+    'Inject timing — ASAP runs pre-page-script; After Load runs once DOM is parsed.',
+  'workbench.docs.diagrams.inject.timeAxis': 'time →',
+  'workbench.docs.diagrams.inject.navigation': 'navigation',
+  'workbench.docs.diagrams.inject.domParsed': 'DOM parsed',
+  'workbench.docs.diagrams.inject.loadEvent': 'load event',
+  'workbench.docs.diagrams.inject.asap': 'ASAP',
+  'workbench.docs.diagrams.inject.prePageScript': 'pre-page-script',
+  'workbench.docs.diagrams.inject.afterLoad': 'After Load',
+  'workbench.docs.diagrams.inject.domSafe': 'DOM-safe',
+  'workbench.docs.diagrams.inject.timingFooter': 'ASAP for races · After Load for DOM',
+  'workbench.docs.diagrams.inject.scriptAria':
+    'Script injection — JavaScript runs inside the page, either ASAP (pre-page-script) or After Load (DOM-safe).',
+  'workbench.docs.diagrams.inject.ruleScript': 'Script (ASAP): wrap fetch to log every call',
+  'workbench.docs.diagrams.inject.injectedComment': '<script> // injected by extension',
+  'workbench.docs.diagrams.inject.runsInPage': 'Runs in the page context — sees the same globals as page JS.',
+  'workbench.docs.diagrams.inject.scriptFooter': 'ASAP wins races before app code; After Load reads a parsed DOM.',
+  'workbench.docs.diagrams.inject.cssAria':
+    "CSS injection — a <style> tag is appended to the page's head, hiding the banner element.",
+  'workbench.docs.diagrams.inject.ruleCss': 'CSS: header.banner { display: none }',
+  'workbench.docs.diagrams.inject.ruleApplied1': 'rule',
+  'workbench.docs.diagrams.inject.ruleApplied2': 'applied',
+  'workbench.docs.diagrams.inject.hidden': '(hidden)',
+  'workbench.docs.diagrams.inject.cssFooter': 'Injected as a <style> tag — same CSS specificity as page CSS.',
+  'workbench.docs.diagrams.inject.wontApplyAria':
+    "Inject doesn't apply to sandboxed iframes or pages with strict CSP that blocks inline scripts.",
+  'workbench.docs.diagrams.inject.sandboxed': 'Sandboxed iframes',
+  'workbench.docs.diagrams.inject.sandboxedSub': 'Pages with sandbox="" that disables scripts.',
+  'workbench.docs.diagrams.inject.strictCsp': "Strict CSP (script-src 'self')",
+  'workbench.docs.diagrams.inject.strictCspSub': "Inline injected scripts get blocked by the page's policy.",
+  'workbench.docs.diagrams.inject.suggestionText': 'Inject in the parent page; postMessage into the iframe.',
+  'workbench.docs.diagrams.inject.useCasesAria':
+    'Inject JS / CSS — common use cases: monkey-patching, dark mode, hiding elements, feature flags.',
+  'workbench.docs.diagrams.inject.card1Title': 'Monkey-patch',
+  'workbench.docs.diagrams.inject.card1Example': 'Wrap fetch / XHR (ASAP)',
+  'workbench.docs.diagrams.inject.card2Title': 'Dark mode',
+  'workbench.docs.diagrams.inject.card2Example': 'Force a CSS theme',
+  'workbench.docs.diagrams.inject.card3Title': 'Hide noise',
+  'workbench.docs.diagrams.inject.card3Example': 'display: none banners',
+  'workbench.docs.diagrams.inject.card4Title': 'Feature flags',
+  'workbench.docs.diagrams.inject.card4Example': 'Set window flags ASAP',
+  'workbench.docs.diagrams.inject.useCasesFooter': 'Use ASAP for code that must run first; After Load for DOM reads.',
+
+  // ── Delay ───────────────────────────────────────────────────────────
+  'workbench.docs.diagrams.delay.routingAria':
+    'Delay routing across navigation, fetch, and sub-resource lanes — only the first two are intercepted, ' +
+    'sub-resources pass through.',
+  'workbench.docs.diagrams.delay.matchedRequest': 'Matched request',
+  'workbench.docs.diagrams.delay.document': 'Document',
+  'workbench.docs.diagrams.delay.documentSub': 'iframe nav',
+  'workbench.docs.diagrams.delay.navCap': '≤ 30,000 ms',
+  'workbench.docs.diagrams.delay.viaWaitingPage': 'via waiting page',
+  'workbench.docs.diagrams.delay.fetchXhr': 'Fetch / XHR',
+  'workbench.docs.diagrams.delay.jsInitiated': 'JS-initiated',
+  'workbench.docs.diagrams.delay.xhrCap': '≤ 5,000 ms',
+  'workbench.docs.diagrams.delay.monkeyPatched': 'monkey-patched',
+  'workbench.docs.diagrams.delay.subResource': 'Sub-resource',
+  'workbench.docs.diagrams.delay.subResourceSub': 'img / css / js',
+  'workbench.docs.diagrams.delay.notDelayed': 'not delayed',
+  'workbench.docs.diagrams.delay.passesThrough': 'passes through',
+  'workbench.docs.diagrams.delay.routingFooter': 'Higher caps require a real local proxy',
+  'workbench.docs.diagrams.delay.navAria':
+    'Navigation delay — the browser is redirected to a local waiting page that holds for N ms before ' +
+    'forwarding to the real target URL.',
+  'workbench.docs.diagrams.delay.ruleNav': 'Delay 8,000 ms · page navigation',
+  'workbench.docs.diagrams.delay.click': 'Click',
+  'workbench.docs.diagrams.delay.waitingPage': 'Waiting page',
+  'workbench.docs.diagrams.delay.holds8s': '⏱ holds 8s',
+  'workbench.docs.diagrams.delay.loadsNow': 'loads now',
+  'workbench.docs.diagrams.delay.navStamp': "Honored up to 30,000 ms — Chrome's redirect ceiling.",
+  'workbench.docs.diagrams.delay.navStampSub': 'Implemented as a DNR redirect to a local waiting page.',
+  'workbench.docs.diagrams.delay.xhrAria':
+    'JS-initiated fetch/XHR delay — a monkey-patched setTimeout holds the resolution. Capped at 5000ms.',
+  'workbench.docs.diagrams.delay.ruleXhr': 'Delay 3,000 ms · JS fetch / XHR',
+  'workbench.docs.diagrams.delay.intercept': 'intercept',
+  'workbench.docs.diagrams.delay.network': 'network',
+  'workbench.docs.diagrams.delay.hold3000': '3,000 ms hold',
+  'workbench.docs.diagrams.delay.realRequest': 'real request',
+  'workbench.docs.diagrams.delay.responseDelayed': 'response (delayed by 3s)',
+  'workbench.docs.diagrams.delay.xhrStamp': 'Capped at 5,000 ms — values above are clamped on the wire.',
+  'workbench.docs.diagrams.delay.wontApplyAria':
+    "Delay doesn't apply to sub-resources (img/css/js) or service-worker fetches that bypass the page-level " +
+    'monkey-patch.',
+  'workbench.docs.diagrams.delay.subResources': 'Sub-resources (img, css, js, fonts)',
+  'workbench.docs.diagrams.delay.subResourcesSub': 'Browser issues these — no monkey-patch can hold them.',
+  'workbench.docs.diagrams.delay.swFetches': 'Service-worker fetches',
+  'workbench.docs.diagrams.delay.swFetchesSub': "Run in a different scope; page-level patches don't reach them.",
+  'workbench.docs.diagrams.delay.suggestionText': 'Sub-resource throttling lands with the desktop app soon.',
+  'workbench.docs.diagrams.delay.useCasesAria':
+    'Delay — common use cases: loading-state QA, debounce testing, race-condition surfacing, slow-network ' +
+    'simulation.',
+  'workbench.docs.diagrams.delay.card1Title': 'Loading states',
+  'workbench.docs.diagrams.delay.card1Example': 'Show spinners reliably',
+  'workbench.docs.diagrams.delay.card2Title': 'Debounce checks',
+  'workbench.docs.diagrams.delay.card2Example': 'Test typing throttles',
+  'workbench.docs.diagrams.delay.card3Title': 'Race conditions',
+  'workbench.docs.diagrams.delay.card3Example': 'Surface request orders',
+  'workbench.docs.diagrams.delay.card4Title': 'Slow network sim',
+  'workbench.docs.diagrams.delay.card4Example': 'Approx 3G-ish latency',
+  'workbench.docs.diagrams.delay.useCasesFooter': "Static resources need a real proxy — extensions can't hold them.",
 } as const satisfies Catalog;

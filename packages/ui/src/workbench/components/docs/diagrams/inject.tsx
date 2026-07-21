@@ -9,6 +9,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ArrowDefs,
   FILL_BLUE,
@@ -24,52 +25,66 @@ import {
   TEXT_DIM,
 } from './_shared';
 
-export const InjectTimingDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 280 140"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="Inject timing — ASAP runs pre-page-script; After Load runs once DOM is parsed."
-  >
-    <ArrowDefs id="inj-arrow" />
-    <line x1="20" y1="80" x2="260" y2="80" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#inj-arrow)" />
-    <text x={260} y={94} textAnchor="end" fontSize="9" fill={TEXT_DIM}>
-      time →
-    </text>
-    <circle cx="60" cy="80" r="3" fill={STROKE} />
-    <text x={60} y={100} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      navigation
-    </text>
-    <circle cx="140" cy="80" r="3" fill={STROKE} />
-    <text x={140} y={100} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      DOM parsed
-    </text>
-    <circle cx="220" cy="80" r="3" fill={STROKE} />
-    <text x={220} y={100} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      load event
-    </text>
-    <rect x={50} y={30} width={50} height={30} rx={4} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
-    <text x={75} y={48} textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      ASAP
-    </text>
-    <text x={75} y={20} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      pre-page-script
-    </text>
-    <rect x={205} y={30} width={50} height={30} rx={4} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-    <text x={230} y={48} textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      After Load
-    </text>
-    <text x={230} y={20} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      DOM-safe
-    </text>
-    <line x1="75" y1="60" x2="60" y2="78" stroke={STROKE} strokeWidth="1" strokeDasharray="2 2" />
-    <line x1="230" y1="60" x2="220" y2="78" stroke={STROKE} strokeWidth="1" strokeDasharray="2 2" />
-    <text x={140} y={130} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      ASAP for races · After Load for DOM
-    </text>
-  </svg>
-);
+// CJK glyphs render close to the full em box, not the ~0.55em a Latin
+// glyph averages — weigh them accordingly when sizing text-driven boxes.
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
+
+export const InjectTimingDiagram: React.FC = () => {
+  const t = useT();
+  const asap = t('workbench.docs.diagrams.inject.asap');
+  const afterLoad = t('workbench.docs.diagrams.inject.afterLoad');
+  const asapW = Math.max(50, Math.round(unitLen(asap) * 4.2) + 8);
+  const afterW = Math.max(50, Math.round(unitLen(afterLoad) * 4.2) + 8);
+  const asapCx = 50 + asapW / 2;
+  const afterCx = 255 - afterW / 2;
+  return (
+    <svg
+      viewBox="0 0 280 140"
+      width="100%"
+      style={{ maxWidth: 320 }}
+      role="img"
+      aria-label={t('workbench.docs.diagrams.inject.timingAria')}
+    >
+      <ArrowDefs id="inj-arrow" />
+      <line x1="20" y1="80" x2="260" y2="80" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#inj-arrow)" />
+      <text x={260} y={94} textAnchor="end" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.timeAxis')}
+      </text>
+      <circle cx="60" cy="80" r="3" fill={STROKE} />
+      <text x={60} y={100} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.navigation')}
+      </text>
+      <circle cx="140" cy="80" r="3" fill={STROKE} />
+      <text x={140} y={100} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.domParsed')}
+      </text>
+      <circle cx="220" cy="80" r="3" fill={STROKE} />
+      <text x={220} y={100} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.loadEvent')}
+      </text>
+      <rect x={50} y={30} width={asapW} height={30} rx={4} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
+      <text x={asapCx} y={48} textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
+        {asap}
+      </text>
+      <text x={asapCx} y={20} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.prePageScript')}
+      </text>
+      <rect x={255 - afterW} y={30} width={afterW} height={30} rx={4} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+      <text x={afterCx} y={48} textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
+        {afterLoad}
+      </text>
+      <text x={afterCx} y={20} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.domSafe')}
+      </text>
+      <line x1={asapCx} y1="60" x2="60" y2="78" stroke={STROKE} strokeWidth="1" strokeDasharray="2 2" />
+      <line x1={afterCx} y1="60" x2="220" y2="78" stroke={STROKE} strokeWidth="1" strokeDasharray="2 2" />
+      <text x={140} y={130} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.inject.timingFooter')}
+      </text>
+    </svg>
+  );
+};
 
 /**
  * Script injection — show the JS landing inside a stylized page,
@@ -77,7 +92,12 @@ export const InjectTimingDiagram: React.FC = () => (
  * are dim; the injected `<script>` is highlighted purple.
  */
 export const InjectScriptDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'inj-js';
+  const asap = t('workbench.docs.diagrams.inject.asap');
+  const afterLoad = t('workbench.docs.diagrams.inject.afterLoad');
+  const asapW = Math.max(62, Math.round(unitLen(asap) * 4.2) + 8);
+  const afterW = Math.max(62, Math.round(unitLen(afterLoad) * 4.2) + 8);
 
   return (
     <svg
@@ -85,16 +105,16 @@ export const InjectScriptDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Script injection — JavaScript runs inside the page, either ASAP (pre-page-script) or After Load (DOM-safe)."
+      aria-label={t('workbench.docs.diagrams.inject.scriptAria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={22} width={280} height={22} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={160} y={37} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
-        Script (ASAP): wrap fetch to log every call
+        {t('workbench.docs.diagrams.inject.ruleScript')}
       </text>
 
       {/* Page mockup */}
@@ -123,7 +143,7 @@ export const InjectScriptDiagram: React.FC = () => {
       {/* Injected script — purple highlighted block at the top */}
       <rect x={40} y={90} width={240} height={28} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={48} y={102} fontFamily="monospace" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>
-        &lt;script&gt; // injected by extension
+        {t('workbench.docs.diagrams.inject.injectedComment')}
       </text>
       <text x={48} y={114} fontFamily="monospace" fontSize={9} fill={TEXT}>
         const _f = window.fetch;
@@ -145,22 +165,22 @@ export const InjectScriptDiagram: React.FC = () => {
         </text>
       </g>
 
-      {/* Timing chips on the right edge */}
-      <rect x={222} y={90} width={62} height={14} rx={3} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
-      <text x={253} y={100} textAnchor="middle" fontSize={8} fontWeight={700} fill={STROKE_ORANGE}>
-        ASAP
+      {/* Timing chips on the right edge — width follows the label */}
+      <rect x={284 - asapW} y={90} width={asapW} height={14} rx={3} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
+      <text x={284 - asapW / 2} y={100} textAnchor="middle" fontSize={8} fontWeight={700} fill={STROKE_ORANGE}>
+        {asap}
       </text>
 
-      <rect x={222} y={158} width={62} height={14} rx={3} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-      <text x={253} y={168} textAnchor="middle" fontSize={8} fontWeight={700} fill={STROKE_GREEN}>
-        After Load
+      <rect x={284 - afterW} y={158} width={afterW} height={14} rx={3} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+      <text x={284 - afterW / 2} y={168} textAnchor="middle" fontSize={8} fontWeight={700} fill={STROKE_GREEN}>
+        {afterLoad}
       </text>
 
       <text x={160} y={216} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Runs in the page context — sees the same globals as page JS.
+        {t('workbench.docs.diagrams.inject.runsInPage')}
       </text>
       <text x={160} y={230} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        ASAP wins races before app code; After Load reads a parsed DOM.
+        {t('workbench.docs.diagrams.inject.scriptFooter')}
       </text>
     </svg>
   );
@@ -172,6 +192,7 @@ export const InjectScriptDiagram: React.FC = () => {
  * "before / after" render preview.
  */
 export const InjectCssDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'inj-css';
   return (
     <svg
@@ -179,16 +200,16 @@ export const InjectCssDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="CSS injection — a <style> tag is appended to the page's head, hiding the banner element."
+      aria-label={t('workbench.docs.diagrams.inject.cssAria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={22} width={280} height={22} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={160} y={37} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
-        CSS: header.banner {'{ display: none }'}
+        {t('workbench.docs.diagrams.inject.ruleCss')}
       </text>
 
       {/* Before page card */}
@@ -202,7 +223,7 @@ export const InjectCssDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={80} y={78} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM}>
-        BEFORE
+        {t('workbench.docs.diagrams.shared.beforeKicker')}
       </text>
       {/* Banner shown */}
       <rect x={20} y={84} width={120} height={20} rx={2} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
@@ -225,10 +246,10 @@ export const InjectCssDiagram: React.FC = () => {
       {/* Arrow */}
       <line x1={156} y1={134} x2={170} y2={134} stroke={STROKE_PURPLE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
       <text x={163} y={126} textAnchor="middle" fontSize={8} fontStyle="italic" fill={STROKE_PURPLE}>
-        rule
+        {t('workbench.docs.diagrams.inject.ruleApplied1')}
       </text>
       <text x={163} y={148} textAnchor="middle" fontSize={8} fontStyle="italic" fill={STROKE_PURPLE}>
-        applied
+        {t('workbench.docs.diagrams.inject.ruleApplied2')}
       </text>
 
       {/* After page card */}
@@ -242,7 +263,7 @@ export const InjectCssDiagram: React.FC = () => {
         stroke={STROKE_PURPLE}
       />
       <text x={242} y={78} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>
-        AFTER
+        {t('workbench.docs.diagrams.shared.afterKicker')}
       </text>
       {/* Banner hidden — shown as struck-through dim */}
       <rect
@@ -256,7 +277,7 @@ export const InjectCssDiagram: React.FC = () => {
         strokeDasharray="2 2"
       />
       <text x={242} y={97} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        (hidden)
+        {t('workbench.docs.diagrams.inject.hidden')}
       </text>
       {/* Page rows shift up — show only 4 lower rows */}
       {[0, 1, 2, 3].map((i) => (
@@ -272,13 +293,14 @@ export const InjectCssDiagram: React.FC = () => {
       ))}
 
       <text x={160} y={224} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Injected as a {'<style>'} tag — same CSS specificity as page CSS.
+        {t('workbench.docs.diagrams.inject.cssFooter')}
       </text>
     </svg>
   );
 };
 
 export const InjectWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -287,10 +309,10 @@ export const InjectWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Inject doesn't apply to sandboxed iframes or pages with strict CSP that blocks inline scripts."
+      aria-label={t('workbench.docs.diagrams.inject.wontApplyAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -308,42 +330,55 @@ export const InjectWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Sandboxed iframes
+        {t('workbench.docs.diagrams.inject.sandboxed')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Pages with sandbox="" that disables scripts.
+        {t('workbench.docs.diagrams.inject.sandboxedSub')}
       </text>
 
       <text x={28} y={84} fontSize={14} fontWeight={700} fill={errColor}>
         ✗
       </text>
       <text x={48} y={84} fontSize={10} fontWeight={700} fill={TEXT}>
-        Strict CSP (script-src 'self')
+        {t('workbench.docs.diagrams.inject.strictCsp')}
       </text>
       <text x={48} y={98} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Inline injected scripts get blocked by the page's policy.
+        {t('workbench.docs.diagrams.inject.strictCspSub')}
       </text>
 
       <text x={28} y={124} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={124} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.shared.suggestion')}
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Inject in the parent page; postMessage into the iframe.
+        {t('workbench.docs.diagrams.inject.suggestionText')}
       </text>
     </svg>
   );
 };
 
 export const InjectUseCasesDiagram: React.FC = () => {
+  const t = useT();
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'Monkey-patch', example: 'Wrap fetch / XHR (ASAP)' },
-    { title: 'Dark mode', example: 'Force a CSS theme' },
-    { title: 'Hide noise', example: 'display: none banners' },
-    { title: 'Feature flags', example: 'Set window flags ASAP' },
+    {
+      title: t('workbench.docs.diagrams.inject.card1Title'),
+      example: t('workbench.docs.diagrams.inject.card1Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.inject.card2Title'),
+      example: t('workbench.docs.diagrams.inject.card2Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.inject.card3Title'),
+      example: t('workbench.docs.diagrams.inject.card3Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.inject.card4Title'),
+      example: t('workbench.docs.diagrams.inject.card4Example'),
+    },
   ];
 
   const CARD_W = 142;
@@ -358,10 +393,10 @@ export const InjectUseCasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Inject JS / CSS — common use cases: monkey-patching, dark mode, hiding elements, feature flags."
+      aria-label={t('workbench.docs.diagrams.inject.useCasesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON USE CASES
+        {t('workbench.docs.diagrams.shared.useCasesKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -396,7 +431,7 @@ export const InjectUseCasesDiagram: React.FC = () => {
       })}
 
       <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Use ASAP for code that must run first; After Load for DOM reads.
+        {t('workbench.docs.diagrams.inject.useCasesFooter')}
       </text>
     </svg>
   );
