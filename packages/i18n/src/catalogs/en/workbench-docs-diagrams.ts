@@ -1430,4 +1430,75 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.webApp.chromeTitle': 'Open Headers · web',
   'workbench.docs.diagrams.openHeaders.webApp.bodySub': 'same surface as extension + desktop',
   'workbench.docs.diagrams.openHeaders.webApp.verdict': 'Same UI · your origin · no extension required',
+
+  // ── Root shared — kickers recurring across root-level diagrams ──────
+  'workbench.docs.diagrams.shared.ruleKicker': 'RULE',
+  'workbench.docs.diagrams.shared.useCasesKicker': 'COMMON USE CASES',
+  'workbench.docs.diagrams.shared.wontFireKicker': "WHEN IT DOESN'T FIRE",
+  'workbench.docs.diagrams.shared.suggestion': 'Suggestion',
+
+  // ── Block ───────────────────────────────────────────────────────────
+  'workbench.docs.diagrams.block.aria':
+    'Block cancels matching requests at the network layer — the page sees a network error. main_frame blocks ' +
+    'render ERR_BLOCKED_BY_CLIENT; sub-resource blocks fail silently.',
+  'workbench.docs.diagrams.block.rule': 'Block · Request Domains: ads.openheaders.io',
+  'workbench.docs.diagrams.block.pageTitle': 'Page',
+  'workbench.docs.diagrams.block.dnrBlock': 'DNR block',
+  'workbench.docs.diagrams.block.network': 'Network',
+  'workbench.docs.diagrams.block.neverReached': 'never reached',
+  'workbench.docs.diagrams.block.requestCancelled': 'request cancelled',
+  'workbench.docs.diagrams.block.pageSeesKicker': 'WHAT THE PAGE SEES',
+  'workbench.docs.diagrams.block.chromeBlockPage': "Chrome's block page",
+  'workbench.docs.diagrams.block.silentFailure': 'Silent failure',
+  'workbench.docs.diagrams.block.pageHandlesError': 'page handles its own error',
+  'workbench.docs.diagrams.block.useCasesAria':
+    'Block — common use cases: ads & trackers, outage simulation, endpoint denial, and page-only block.',
+  'workbench.docs.diagrams.block.card1Title': 'Ads & trackers',
+  'workbench.docs.diagrams.block.card1Example': 'Block ads.openheaders.io',
+  'workbench.docs.diagrams.block.card2Title': 'Outage simulation',
+  'workbench.docs.diagrams.block.card2Example': 'Take a host offline to test',
+  'workbench.docs.diagrams.block.card3Title': 'Endpoint denial',
+  'workbench.docs.diagrams.block.card3Example': 'Block /api/admin only',
+  'workbench.docs.diagrams.block.card4Title': 'Page-only block',
+  'workbench.docs.diagrams.block.card4Example': 'Add main_frame condition',
+  'workbench.docs.diagrams.block.useCasesFooter': 'Pair Block with Conditions to scope it down.',
+  'workbench.docs.diagrams.block.wontApplyAria':
+    "Block doesn't retro-cancel already-loaded resources. Reload the page after enabling the rule to catch " +
+    'future requests.',
+  'workbench.docs.diagrams.block.alreadyLoaded': 'Already-loaded resources',
+  'workbench.docs.diagrams.block.alreadyLoadedSub': 'Only future requests are intercepted — past ones stay loaded.',
+  'workbench.docs.diagrams.block.suggestionText': 'Reload the page after enabling the rule.',
+
+  // ── Redirect ────────────────────────────────────────────────────────
+  'workbench.docs.diagrams.redirect.staticAria':
+    'Static redirect — every matching request is rewritten to the same destination URL.',
+  'workbench.docs.diagrams.redirect.ruleStatic': 'Redirect → https://openheaders.io/new-page',
+  'workbench.docs.diagrams.redirect.originalRequestKicker': 'ORIGINAL REQUEST',
+  'workbench.docs.diagrams.redirect.urlRewritten': 'URL rewritten',
+  'workbench.docs.diagrams.redirect.redirectedToKicker': 'REDIRECTED TO',
+  'workbench.docs.diagrams.redirect.staticStamp': 'Every match → same destination URL.',
+  'workbench.docs.diagrams.redirect.staticStampSub': 'Browser navigates as if the server returned a redirect.',
+  'workbench.docs.diagrams.redirect.regexAria':
+    "Regex redirect — the URL pattern's capture groups are referenced as \\1, \\2 in the destination URL.",
+  'workbench.docs.diagrams.redirect.ruleRegexLine1': 'URL Regex: ^http://(openheaders\\.io/.*)$',
+  'workbench.docs.diagrams.redirect.ruleRegexLine2': 'Redirect → https://\\1',
+  'workbench.docs.diagrams.redirect.originalUrlKicker': 'ORIGINAL URL',
+  'workbench.docs.diagrams.redirect.captureChip': '\\1 = openheaders.io/page',
+  'workbench.docs.diagrams.redirect.substituted': '\\1 substituted',
+  'workbench.docs.diagrams.redirect.regexStamp': '\\1 inherits whatever the capture group matched.',
+  'workbench.docs.diagrams.redirect.useCasesAria':
+    'Redirect — common use cases: HTTP→HTTPS upgrade, domain migration, path rewrite, local dev proxy.',
+  'workbench.docs.diagrams.redirect.card1Example': 'Force all http to https',
+  'workbench.docs.diagrams.redirect.card2Title': 'Domain migration',
+  'workbench.docs.diagrams.redirect.card3Title': 'Path rewrite',
+  'workbench.docs.diagrams.redirect.card4Title': 'Local dev proxy',
+  'workbench.docs.diagrams.redirect.useCasesFooter': 'Use URL Regex with backreferences for path-preserving rewrites.',
+  'workbench.docs.diagrams.redirect.wontApplyAria':
+    "Redirect doesn't retro-apply to loaded pages, and redirect loops are capped by Chrome to prevent infinite " +
+    'cycles.',
+  'workbench.docs.diagrams.redirect.pageLoaded': 'Page already loaded',
+  'workbench.docs.diagrams.redirect.pageLoadedSub': 'Only future navigations and fetches are intercepted.',
+  'workbench.docs.diagrams.redirect.loops': 'Redirect loops',
+  'workbench.docs.diagrams.redirect.loopsSub': 'Chrome caps it — ERR_TOO_MANY_REDIRECTS.',
+  'workbench.docs.diagrams.redirect.suggestionText': "Reload. Make sure conditions don't loop.",
 } as const satisfies Catalog;

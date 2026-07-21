@@ -1478,4 +1478,76 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.webApp.chromeTitle': 'Open Headers · web',
   'workbench.docs.diagrams.openHeaders.webApp.bodySub': 'gleiche Oberfläche wie Erweiterung + Desktop',
   'workbench.docs.diagrams.openHeaders.webApp.verdict': 'Gleiche UI · dein Origin · keine Erweiterung nötig',
+
+  // ── Root shared — kickers recurring across root-level diagrams ──────
+  'workbench.docs.diagrams.shared.ruleKicker': 'REGEL',
+  'workbench.docs.diagrams.shared.useCasesKicker': 'HÄUFIGE ANWENDUNGSFÄLLE',
+  'workbench.docs.diagrams.shared.wontFireKicker': 'WENN DIE REGEL NICHT GREIFT',
+  'workbench.docs.diagrams.shared.suggestion': 'Vorschlag',
+
+  // ── Block ───────────────────────────────────────────────────────────
+  'workbench.docs.diagrams.block.aria':
+    'Blockieren bricht passende Anfragen auf der Netzwerkebene ab — die Seite sieht einen Netzwerkfehler. Ein ' +
+    'main_frame-Block zeigt ERR_BLOCKED_BY_CLIENT; ein Subressourcen-Block scheitert still.',
+  'workbench.docs.diagrams.block.rule': 'Block · Request Domains: ads.openheaders.io',
+  'workbench.docs.diagrams.block.pageTitle': 'Seite',
+  'workbench.docs.diagrams.block.dnrBlock': 'DNR-Block',
+  'workbench.docs.diagrams.block.network': 'Netzwerk',
+  'workbench.docs.diagrams.block.neverReached': 'nie erreicht',
+  'workbench.docs.diagrams.block.requestCancelled': 'Anfrage abgebrochen',
+  'workbench.docs.diagrams.block.pageSeesKicker': 'WAS DIE SEITE SIEHT',
+  'workbench.docs.diagrams.block.chromeBlockPage': 'Blockseite von Chrome',
+  'workbench.docs.diagrams.block.silentFailure': 'Stilles Scheitern',
+  'workbench.docs.diagrams.block.pageHandlesError': 'Seite behandelt den Fehler selbst',
+  'workbench.docs.diagrams.block.useCasesAria':
+    'Blockieren — häufige Anwendungsfälle: Werbung und Tracker, Ausfall-Simulation, Endpoint sperren und ' +
+    'Nur-Seiten-Block.',
+  'workbench.docs.diagrams.block.card1Title': 'Werbung & Tracker',
+  'workbench.docs.diagrams.block.card1Example': 'ads.openheaders.io blockieren',
+  'workbench.docs.diagrams.block.card2Title': 'Ausfall-Simulation',
+  'workbench.docs.diagrams.block.card2Example': 'Host zum Testen offline nehmen',
+  'workbench.docs.diagrams.block.card3Title': 'Endpoint sperren',
+  'workbench.docs.diagrams.block.card3Example': 'Nur /api/admin blockieren',
+  'workbench.docs.diagrams.block.card4Title': 'Nur-Seiten-Block',
+  'workbench.docs.diagrams.block.card4Example': 'main_frame-Bedingung ergänzen',
+  'workbench.docs.diagrams.block.useCasesFooter': 'Kombiniere Blockieren mit Bedingungen, um es einzugrenzen.',
+  'workbench.docs.diagrams.block.wontApplyAria':
+    'Blockieren bricht bereits geladene Ressourcen nicht rückwirkend ab. Lade die Seite nach dem Aktivieren ' +
+    'der Regel neu, um künftige Anfragen zu erfassen.',
+  'workbench.docs.diagrams.block.alreadyLoaded': 'Bereits geladene Ressourcen',
+  'workbench.docs.diagrams.block.alreadyLoadedSub': 'Nur künftige Anfragen werden abgefangen — Geladenes bleibt.',
+  'workbench.docs.diagrams.block.suggestionText': 'Lade die Seite nach dem Aktivieren der Regel neu.',
+
+  // ── Redirect ────────────────────────────────────────────────────────
+  'workbench.docs.diagrams.redirect.staticAria':
+    'Statische Umleitung — jede passende Anfrage wird auf dieselbe Ziel-URL umgeschrieben.',
+  'workbench.docs.diagrams.redirect.ruleStatic': 'Redirect → https://openheaders.io/new-page',
+  'workbench.docs.diagrams.redirect.originalRequestKicker': 'URSPRÜNGLICHE ANFRAGE',
+  'workbench.docs.diagrams.redirect.urlRewritten': 'URL umgeschrieben',
+  'workbench.docs.diagrams.redirect.redirectedToKicker': 'UMGELEITET ZU',
+  'workbench.docs.diagrams.redirect.staticStamp': 'Jeder Treffer → dieselbe Ziel-URL.',
+  'workbench.docs.diagrams.redirect.staticStampSub':
+    'Der Browser navigiert, als hätte der Server eine Umleitung geliefert.',
+  'workbench.docs.diagrams.redirect.regexAria':
+    'Regex-Umleitung — die Capture-Gruppen des URL-Musters werden als \\1, \\2 in der Ziel-URL referenziert.',
+  'workbench.docs.diagrams.redirect.ruleRegexLine1': 'URL Regex: ^http://(openheaders\\.io/.*)$',
+  'workbench.docs.diagrams.redirect.ruleRegexLine2': 'Redirect → https://\\1',
+  'workbench.docs.diagrams.redirect.originalUrlKicker': 'URSPRÜNGLICHE URL',
+  'workbench.docs.diagrams.redirect.captureChip': '\\1 = openheaders.io/page',
+  'workbench.docs.diagrams.redirect.substituted': '\\1 ersetzt',
+  'workbench.docs.diagrams.redirect.regexStamp': '\\1 erbt, was die Capture-Gruppe getroffen hat.',
+  'workbench.docs.diagrams.redirect.useCasesAria':
+    'Umleiten — häufige Anwendungsfälle: HTTP→HTTPS, Domain-Umzug, Pfad-Rewrite, lokaler Dev-Proxy.',
+  'workbench.docs.diagrams.redirect.card1Example': 'http zu https erzwingen',
+  'workbench.docs.diagrams.redirect.card2Title': 'Domain-Umzug',
+  'workbench.docs.diagrams.redirect.card3Title': 'Pfad-Rewrite',
+  'workbench.docs.diagrams.redirect.card4Title': 'Lokaler Dev-Proxy',
+  'workbench.docs.diagrams.redirect.useCasesFooter': 'URL-Regex mit Backreferences erhält den Pfad beim Rewrite.',
+  'workbench.docs.diagrams.redirect.wontApplyAria':
+    'Umleiten wirkt nicht rückwirkend auf geladene Seiten, und Chrome deckelt Umleitungsschleifen.',
+  'workbench.docs.diagrams.redirect.pageLoaded': 'Seite bereits geladen',
+  'workbench.docs.diagrams.redirect.pageLoadedSub': 'Nur künftige Navigationen und Fetches werden abgefangen.',
+  'workbench.docs.diagrams.redirect.loops': 'Umleitungsschleifen',
+  'workbench.docs.diagrams.redirect.loopsSub': 'Chrome deckelt sie — ERR_TOO_MANY_REDIRECTS.',
+  'workbench.docs.diagrams.redirect.suggestionText': 'Neu laden. Bedingungen dürfen keine Schleife bilden.',
 } as const satisfies Catalog;

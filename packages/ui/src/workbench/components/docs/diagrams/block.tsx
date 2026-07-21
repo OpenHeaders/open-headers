@@ -10,9 +10,11 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 export const BlockDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'bl';
   const errColor = 'var(--ant-color-error)';
   const errBg = 'var(--ant-color-error-bg)';
@@ -41,13 +43,13 @@ export const BlockDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Block cancels matching requests at the network layer — the page sees a network error. main_frame blocks render ERR_BLOCKED_BY_CLIENT; sub-resource blocks fail silently."
+      aria-label={t('workbench.docs.diagrams.block.aria')}
     >
       <ArrowDefs id={ID} />
 
       {/* Rule banner */}
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text
@@ -59,7 +61,7 @@ export const BlockDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Block · Request Domains: ads.openheaders.io
+        {t('workbench.docs.diagrams.block.rule')}
       </text>
 
       {/* Flow row — Page → ✗ intercept → Network */}
@@ -75,7 +77,7 @@ export const BlockDiagram: React.FC = () => {
       />
       <rect x={PAGE_X} y={FLOW_Y} width={PAGE_W} height={14} rx={5} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={PAGE_X + PAGE_W / 2} y={FLOW_Y + 10} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Page
+        {t('workbench.docs.diagrams.block.pageTitle')}
       </text>
       <text x={PAGE_X + PAGE_W / 2} y={FLOW_Y + 32} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
         fetch()
@@ -122,7 +124,7 @@ export const BlockDiagram: React.FC = () => {
         strokeLinecap="round"
       />
       <text x={160} y={FLOW_Y + FLOW_H + 14} textAnchor="middle" fontSize={9} fontWeight={700} fill={errColor}>
-        DNR block
+        {t('workbench.docs.diagrams.block.dnrBlock')}
       </text>
 
       {/* Dashed line continuing toward Network (cancelled) */}
@@ -148,10 +150,10 @@ export const BlockDiagram: React.FC = () => {
         strokeDasharray="3 3"
       />
       <text x={NET_X + NET_W / 2} y={FLOW_Y + 16} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM}>
-        Network
+        {t('workbench.docs.diagrams.block.network')}
       </text>
       <text x={NET_X + NET_W / 2} y={FLOW_Y + 36} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        never reached
+        {t('workbench.docs.diagrams.block.neverReached')}
       </text>
       <text
         x={NET_X + NET_W / 2}
@@ -161,7 +163,7 @@ export const BlockDiagram: React.FC = () => {
         fontSize={8}
         fill={TEXT_DIM}
       >
-        request cancelled
+        {t('workbench.docs.diagrams.block.requestCancelled')}
       </text>
 
       {/* Outcome cards — what the user sees */}
@@ -174,7 +176,7 @@ export const BlockDiagram: React.FC = () => {
         fill={TEXT_DIM}
         letterSpacing={0.5}
       >
-        WHAT THE PAGE SEES
+        {t('workbench.docs.diagrams.block.pageSeesKicker')}
       </text>
 
       {/* main_frame outcome */}
@@ -210,7 +212,7 @@ export const BlockDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        Chrome's block page
+        {t('workbench.docs.diagrams.block.chromeBlockPage')}
       </text>
 
       {/* sub-resource outcome */}
@@ -236,7 +238,7 @@ export const BlockDiagram: React.FC = () => {
         sub-resource
       </text>
       <text x={164 + OUTCOME_W / 2} y={OUTCOMES_Y + 32} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Silent failure
+        {t('workbench.docs.diagrams.block.silentFailure')}
       </text>
       <text
         x={164 + OUTCOME_W / 2}
@@ -246,7 +248,7 @@ export const BlockDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        page handles its own error
+        {t('workbench.docs.diagrams.block.pageHandlesError')}
       </text>
     </svg>
   );
@@ -258,12 +260,25 @@ export const BlockDiagram: React.FC = () => {
  * users can recognise their own intent without reading prose.
  */
 export const BlockUseCasesDiagram: React.FC = () => {
+  const t = useT();
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'Ads & trackers', example: 'Block ads.openheaders.io' },
-    { title: 'Outage simulation', example: 'Take a host offline to test' },
-    { title: 'Endpoint denial', example: 'Block /api/admin only' },
-    { title: 'Page-only block', example: 'Add main_frame condition' },
+    {
+      title: t('workbench.docs.diagrams.block.card1Title'),
+      example: t('workbench.docs.diagrams.block.card1Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.block.card2Title'),
+      example: t('workbench.docs.diagrams.block.card2Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.block.card3Title'),
+      example: t('workbench.docs.diagrams.block.card3Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.block.card4Title'),
+      example: t('workbench.docs.diagrams.block.card4Example'),
+    },
   ];
 
   const CARD_W = 142;
@@ -278,10 +293,10 @@ export const BlockUseCasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Block — common use cases: ads & trackers, outage simulation, endpoint denial, and page-only block."
+      aria-label={t('workbench.docs.diagrams.block.useCasesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON USE CASES
+        {t('workbench.docs.diagrams.shared.useCasesKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -320,13 +335,14 @@ export const BlockUseCasesDiagram: React.FC = () => {
       })}
 
       <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Pair Block with Conditions to scope it down.
+        {t('workbench.docs.diagrams.block.useCasesFooter')}
       </text>
     </svg>
   );
 };
 
 export const BlockWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -335,10 +351,10 @@ export const BlockWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Block doesn't retro-cancel already-loaded resources. Reload the page after enabling the rule to catch future requests."
+      aria-label={t('workbench.docs.diagrams.block.wontApplyAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -356,20 +372,20 @@ export const BlockWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Already-loaded resources
+        {t('workbench.docs.diagrams.block.alreadyLoaded')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Only future requests are intercepted — past ones stay loaded.
+        {t('workbench.docs.diagrams.block.alreadyLoadedSub')}
       </text>
 
       <text x={28} y={88} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.shared.suggestion')}
       </text>
       <text x={48} y={102} fontSize={9} fill={TEXT}>
-        Reload the page after enabling the rule.
+        {t('workbench.docs.diagrams.block.suggestionText')}
       </text>
     </svg>
   );

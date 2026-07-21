@@ -8,6 +8,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 /**
@@ -16,6 +17,7 @@ import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TE
  * destination URL is highlighted green to mark it as the result.
  */
 export const RedirectStaticDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rds';
   const RULE_Y = 22;
   const RULE_H = 22;
@@ -34,12 +36,12 @@ export const RedirectStaticDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Static redirect — every matching request is rewritten to the same destination URL."
+      aria-label={t('workbench.docs.diagrams.redirect.staticAria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text
@@ -51,7 +53,7 @@ export const RedirectStaticDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Redirect → https://openheaders.io/new-page
+        {t('workbench.docs.diagrams.redirect.ruleStatic')}
       </text>
 
       <rect
@@ -64,7 +66,7 @@ export const RedirectStaticDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        ORIGINAL REQUEST
+        {t('workbench.docs.diagrams.redirect.originalRequestKicker')}
       </text>
       <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         https://openheaders.io/old-page
@@ -86,22 +88,22 @@ export const RedirectStaticDiagram: React.FC = () => {
         fontStyle="italic"
         fill={STROKE_BLUE}
       >
-        URL rewritten
+        {t('workbench.docs.diagrams.redirect.urlRewritten')}
       </text>
 
       <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={ROW_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
-        REDIRECTED TO
+        {t('workbench.docs.diagrams.redirect.redirectedToKicker')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fontWeight={700} fill={STROKE_GREEN}>
         https://openheaders.io/new-page
       </text>
 
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Every match → same destination URL.
+        {t('workbench.docs.diagrams.redirect.staticStamp')}
       </text>
       <text x={160} y={STAMP_Y + 14} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Browser navigates as if the server returned a redirect.
+        {t('workbench.docs.diagrams.redirect.staticStampSub')}
       </text>
     </svg>
   );
@@ -114,6 +116,7 @@ export const RedirectStaticDiagram: React.FC = () => {
  * substitution is visible.
  */
 export const RedirectRegexDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rdr';
   const GOLD = 'rgba(212, 145, 0, 1)';
   const GOLD_BG = 'rgba(250, 173, 20, 0.18)';
@@ -135,16 +138,16 @@ export const RedirectRegexDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Regex redirect — the URL pattern's capture groups are referenced as \\1, \\2 in the destination URL."
+      aria-label={t('workbench.docs.diagrams.redirect.regexAria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H + 12} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={160} y={RULE_Y + 14} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
-        URL Regex: ^http://(openheaders\.io/.*)$
+        {t('workbench.docs.diagrams.redirect.ruleRegexLine1')}
       </text>
       <text
         x={160}
@@ -155,7 +158,7 @@ export const RedirectRegexDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Redirect → https://\1
+        {t('workbench.docs.diagrams.redirect.ruleRegexLine2')}
       </text>
 
       {/* MATCHED URL with capture group highlighted */}
@@ -169,7 +172,7 @@ export const RedirectRegexDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        ORIGINAL URL
+        {t('workbench.docs.diagrams.redirect.originalUrlKicker')}
       </text>
       <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         http://
@@ -188,7 +191,7 @@ export const RedirectRegexDiagram: React.FC = () => {
         fontWeight={700}
         fill={GOLD}
       >
-        \1 = openheaders.io/page
+        {t('workbench.docs.diagrams.redirect.captureChip')}
       </text>
 
       <line
@@ -207,12 +210,12 @@ export const RedirectRegexDiagram: React.FC = () => {
         fontStyle="italic"
         fill={STROKE_BLUE}
       >
-        \1 substituted
+        {t('workbench.docs.diagrams.redirect.substituted')}
       </text>
 
       <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={38} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
-        REDIRECTED TO
+        {t('workbench.docs.diagrams.redirect.redirectedToKicker')}
       </text>
       <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         https://
@@ -222,7 +225,7 @@ export const RedirectRegexDiagram: React.FC = () => {
       </text>
 
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        \1 inherits whatever the capture group matched.
+        {t('workbench.docs.diagrams.redirect.regexStamp')}
       </text>
     </svg>
   );
@@ -233,12 +236,13 @@ export const RedirectRegexDiagram: React.FC = () => {
  * shape as Block's use-cases diagram for visual consistency.
  */
 export const RedirectUseCasesDiagram: React.FC = () => {
+  const t = useT();
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'HTTP → HTTPS', example: 'Force all http to https' },
-    { title: 'Domain migration', example: 'old.com → new.com' },
-    { title: 'Path rewrite', example: '/v1/* → /v2/*' },
-    { title: 'Local dev proxy', example: 'cdn.example → localhost' },
+    { title: 'HTTP → HTTPS', example: t('workbench.docs.diagrams.redirect.card1Example') },
+    { title: t('workbench.docs.diagrams.redirect.card2Title'), example: 'old.com → new.com' },
+    { title: t('workbench.docs.diagrams.redirect.card3Title'), example: '/v1/* → /v2/*' },
+    { title: t('workbench.docs.diagrams.redirect.card4Title'), example: 'cdn.example → localhost' },
   ];
 
   const CARD_W = 142;
@@ -253,10 +257,10 @@ export const RedirectUseCasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Redirect — common use cases: HTTP→HTTPS upgrade, domain migration, path rewrite, local dev proxy."
+      aria-label={t('workbench.docs.diagrams.redirect.useCasesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON USE CASES
+        {t('workbench.docs.diagrams.shared.useCasesKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -291,7 +295,7 @@ export const RedirectUseCasesDiagram: React.FC = () => {
       })}
 
       <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Use URL Regex with backreferences for path-preserving rewrites.
+        {t('workbench.docs.diagrams.redirect.useCasesFooter')}
       </text>
     </svg>
   );
@@ -302,6 +306,7 @@ export const RedirectUseCasesDiagram: React.FC = () => {
  * redirect loops are silently capped by Chrome's network stack.
  */
 export const RedirectWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -310,10 +315,10 @@ export const RedirectWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Redirect doesn't retro-apply to loaded pages, and redirect loops are capped by Chrome to prevent infinite cycles."
+      aria-label={t('workbench.docs.diagrams.redirect.wontApplyAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -331,30 +336,30 @@ export const RedirectWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Page already loaded
+        {t('workbench.docs.diagrams.redirect.pageLoaded')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Only future navigations and fetches are intercepted.
+        {t('workbench.docs.diagrams.redirect.pageLoadedSub')}
       </text>
 
       <text x={28} y={84} fontSize={14} fontWeight={700} fill={errColor}>
         ✗
       </text>
       <text x={48} y={84} fontSize={10} fontWeight={700} fill={TEXT}>
-        Redirect loops
+        {t('workbench.docs.diagrams.redirect.loops')}
       </text>
       <text x={48} y={98} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Chrome caps it — ERR_TOO_MANY_REDIRECTS.
+        {t('workbench.docs.diagrams.redirect.loopsSub')}
       </text>
 
       <text x={28} y={124} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={124} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.shared.suggestion')}
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Reload. Make sure conditions don't loop.
+        {t('workbench.docs.diagrams.redirect.suggestionText')}
       </text>
     </svg>
   );
