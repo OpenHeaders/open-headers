@@ -65,6 +65,19 @@ interface TabSelection {
   tabId: number;
 }
 
+/**
+ * Panel UI state that survives dock-tab switches. The tool-window
+ * dispatcher unmounts inactive bodies, so the last source selection and
+ * rail width re-seed the next mount (the terminal panel's
+ * survive-unmount posture, scoped to plain values — the peer inventory
+ * and lifelines re-fetch on their own).
+ */
+const lastPanelState: {
+  selectedKey: string | null;
+  tabSelection: TabSelection | null;
+  railWidth: number;
+} = { selectedKey: null, tabSelection: null, railWidth: RAIL_DEFAULT_WIDTH };
+
 const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   info,
   onHide,
@@ -79,8 +92,8 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   const [peers, setPeers] = useState<RailPeer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [tabSelection, setTabSelection] = useState<TabSelection | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => lastPanelState.selectedKey);
+  const [tabSelection, setTabSelection] = useState<TabSelection | null>(() => lastPanelState.tabSelection);
 
   const reload = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -230,7 +243,13 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const wireSelected = selectedKey === WIRE_SOURCE_KEY;
 
   // Draggable rail width — the vertical sash resizes it, clamped.
-  const [railWidth, setRailWidth] = useState(RAIL_DEFAULT_WIDTH);
+  const [railWidth, setRailWidth] = useState(() => lastPanelState.railWidth);
+
+  useEffect(() => {
+    lastPanelState.selectedKey = selectedKey;
+    lastPanelState.tabSelection = tabSelection;
+    lastPanelState.railWidth = railWidth;
+  }, [selectedKey, tabSelection, railWidth]);
   const onRailSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startX = e.clientX;

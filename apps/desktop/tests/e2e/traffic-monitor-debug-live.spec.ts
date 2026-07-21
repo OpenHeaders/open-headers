@@ -488,6 +488,22 @@ test('the routing popover flips routing and shows the On tag + ack alert', async
   await expect(trigger.locator('.ant-tag')).toHaveCount(0, { timeout: 15000 });
 });
 
+// ── Selection survives dock-tab switches ────────────────────────────
+
+test('the panel keeps its source selection across dock-tab switches', async () => {
+  // The wire source is selected from the routing leg. Switch the dock
+  // to a sibling tool window and back — the dispatcher unmounts the
+  // panel; the remount must re-seed the last selection instead of the
+  // empty no-source hero.
+  await workbench.locator('[data-tool-window="workflow-status"]').first().click();
+  await setToolWindowOpen(true);
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-wire"]').first()).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(workbench.locator('[data-testid="proxy-routing-trigger"]').first()).toBeVisible();
+});
+
 // ── Manual-inspection hold ──────────────────────────────────────────
 
 test('hold the stack open for manual inspection', async () => {
