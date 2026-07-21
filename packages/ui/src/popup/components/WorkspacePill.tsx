@@ -42,6 +42,7 @@ const WorkspacePill: React.FC = () => {
       onOpenChange={setOpen}
       popupRender={() => (
         <WorkspaceDropdownBody
+          open={open}
           workspaces={workspaces}
           selectedId={activeWorkspaceId}
           activeId={activeWorkspaceId}
@@ -110,7 +111,11 @@ const WorkspacePill: React.FC = () => {
             className="oh-workspace-pill-org"
             style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, flexShrink: 1, overflow: 'hidden' }}
           >
-            <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+            <WorkspaceOrgBadge
+              descriptor={describeOrg(snapshot, activeWorkspace.orgId)}
+              compact
+              suppressTooltip={open}
+            />
           </span>
         )}
         <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary, flexShrink: 0 }} />

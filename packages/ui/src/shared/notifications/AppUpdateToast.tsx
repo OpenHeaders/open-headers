@@ -25,7 +25,7 @@ import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { App, Button, Dropdown, Progress, Tooltip } from 'antd';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { readIgnoredVersion, releasePageUrl, writeIgnoredVersion } from '../updates/release-notes';
 import { openUpdateDialog } from '../updates/store';
@@ -61,6 +61,42 @@ function writeAck(version: string): void {
 // every corner notice, not just the update balloons.
 const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 13 };
 
+// The ⋮ next to the ✕ — Settings… plus a per-version mute, so the
+// balloon can be tamed without hunting through Settings. Own component
+// (not built inline in the effect) so it can hold the menu-open state
+// that suppresses the hover tooltip while the menu is showing — the
+// pointer stays on the trigger after the click, so without the
+// suppression the tooltip would sit over the opened menu.
+const ToastCornerMenu: React.FC<{ onPick: (key: string) => void }> = ({ onPick }) => {
+  const t = useT();
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <Dropdown
+      trigger={['click']}
+      placement="bottomRight"
+      overlayStyle={{ zIndex: OVERLAY_Z }}
+      onOpenChange={setMenuOpen}
+      menu={{
+        items: [
+          { key: 'settings', label: t('shared.notifications.toast.settings') },
+          { key: 'ignore', label: t('shared.notifications.toast.dontShowAgain') },
+        ],
+        onClick: ({ key }) => onPick(key),
+      }}
+    >
+      <Tooltip
+        title={t('shared.notifications.toast.optionsTooltip')}
+        zIndex={OVERLAY_Z}
+        open={menuOpen ? false : undefined}
+      >
+        <button type="button" aria-label={t('shared.notifications.toast.optionsAria')} className="oh-update-toast-menu">
+          <MoreOutlined />
+        </button>
+      </Tooltip>
+    </Dropdown>
+  );
+};
+
 interface AppUpdateToastProps {
   /** Route to the Settings update row (the ⋮ menu's Settings… item). */
   onOpenUpdateSettings: () => void;
@@ -94,35 +130,14 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       notification.destroy(TOAST_KEY);
     };
 
-    // The ⋮ next to the ✕ — Settings… plus a per-version mute, so the
-    // balloon can be tamed without hunting through Settings.
     const cornerMenu = (version: string): React.ReactNode => (
-      <Dropdown
-        trigger={['click']}
-        placement="bottomRight"
-        overlayStyle={{ zIndex: OVERLAY_Z }}
-        menu={{
-          items: [
-            { key: 'settings', label: t('shared.notifications.toast.settings') },
-            { key: 'ignore', label: t('shared.notifications.toast.dontShowAgain') },
-          ],
-          onClick: ({ key }) => {
-            close();
-            if (key === 'settings') onOpenUpdateSettings();
-            else writeIgnoredVersion(version);
-          },
+      <ToastCornerMenu
+        onPick={(key) => {
+          close();
+          if (key === 'settings') onOpenUpdateSettings();
+          else writeIgnoredVersion(version);
         }}
-      >
-        <Tooltip title={t('shared.notifications.toast.optionsTooltip')} zIndex={OVERLAY_Z}>
-          <button
-            type="button"
-            aria-label={t('shared.notifications.toast.optionsAria')}
-            className="oh-update-toast-menu"
-          >
-            <MoreOutlined />
-          </button>
-        </Tooltip>
-      </Dropdown>
+      />
     );
 
     const show = (marker: string | null, message: string, description: React.ReactNode, version?: string): void => {

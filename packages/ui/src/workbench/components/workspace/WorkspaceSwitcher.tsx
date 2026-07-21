@@ -87,6 +87,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         onOpenChange={setOpen}
         popupRender={() => (
           <WorkspaceDropdownBody
+            open={open}
             workspaces={workspaces}
             selectedId={activeWorkspaceId}
             activeId={activeGlobalId}
@@ -125,7 +126,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               {selected.name}
             </Text>
             {catalogue.length > 1 && (
-              <WorkspaceOrgBadge descriptor={describeOrg(snapshot, selected.orgId)} compact />
+              <WorkspaceOrgBadge descriptor={describeOrg(snapshot, selected.orgId)} compact suppressTooltip={open} />
             )}
             <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
           </Space>

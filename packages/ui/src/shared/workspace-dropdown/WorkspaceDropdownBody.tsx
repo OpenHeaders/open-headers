@@ -57,6 +57,15 @@ const { Text } = Typography;
 export type WorkspaceDropdownMode = 'workbench' | 'system';
 
 export interface WorkspaceDropdownBodyProps {
+  /**
+   * The hosting dropdown's open state. The body stays mounted across
+   * open/close, so when a click closes the dropdown while the pointer
+   * rests on a hover hint (org header popover, check-icon tooltip,
+   * reach-row popover), no mouseout ever fires and the hint would
+   * linger over whatever the click revealed. All hover hints inside
+   * the body force-hide while this is false.
+   */
+  open?: boolean;
   workspaces: ExtensionWorkspace[];
   /** Editing-scope (selected) workspace id for this surface. */
   selectedId: string | null;
@@ -138,6 +147,7 @@ const baseRowStyle: React.CSSProperties = {
 };
 
 export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
+  open = true,
   workspaces,
   selectedId,
   activeId,
@@ -155,6 +165,9 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  // `undefined` keeps antd's hover behavior; `false` force-hides every
+  // hover hint the moment the surrounding dropdown closes.
+  const hintOpen = open ? undefined : false;
   // widest drives the "extend your reach" ladder (a step already reached
   // anywhere drops out); self labels the home Org's host-kind hint.
   const { widest: reach, self: selfReach } = useBackendReach();
@@ -369,6 +382,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             placement={popoverPlacement}
             mouseEnterDelay={0.3}
             zIndex={token.zIndexPopupBase + 100}
+            open={hintOpen}
             content={renderPopoverBlock(
               t('shared.workspaceDropdown.activePopoverTitle'),
               t('shared.workspaceDropdown.activePopoverBody'),
@@ -398,6 +412,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
               }
               placement="top"
               mouseEnterDelay={0.3}
+              open={hintOpen}
             >
               <span
                 role="button"
@@ -513,6 +528,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         placement={popoverPlacement}
         mouseEnterDelay={0.4}
         zIndex={token.zIndexPopupBase + 100}
+        open={hintOpen}
         content={renderOrgSwitchPopover(orgId, label, targetWs)}
       >
         <div
@@ -625,7 +641,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             <Text style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {activeWorkspace.name}
             </Text>
-            <WorkspaceOrgBadge descriptor={orgGrouping.describe(activeWorkspace.orgId)} compact />
+            <WorkspaceOrgBadge descriptor={orgGrouping.describe(activeWorkspace.orgId)} compact suppressTooltip={!open} />
           </div>
         </>
       )}
@@ -638,6 +654,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
               key={row.key}
               placement={popoverPlacement}
               mouseEnterDelay={0.3}
+              open={hintOpen}
               content={row.popover}
               // The Dropdown panel this body lives in portals at
               // `zIndexPopupBase + 50`; lift the popover above it so it

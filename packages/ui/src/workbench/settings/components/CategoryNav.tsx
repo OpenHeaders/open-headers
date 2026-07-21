@@ -48,6 +48,10 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
   const t = useT();
   const buttonsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [showLabels, setShowLabels] = useSetting('general.settingsShowCategoryLabels');
+  // Row tooltips (icons-only mode) force-hide while the right-click
+  // context menu is open — the menu appears at the cursor, and the
+  // hovered row's tooltip would otherwise sit on top of it.
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   // ── Tree shape ───────────────────────────────────────────────────────
   const tree = useMemo(() => {
@@ -272,7 +276,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
     const row = showLabels ? (
       button
     ) : (
-      <Tooltip key={cat.id} title={resolveLabel(cat, t)} placement="right">
+      <Tooltip key={cat.id} title={resolveLabel(cat, t)} placement="right" open={contextMenuOpen ? false : undefined}>
         {button}
       </Tooltip>
     );
@@ -288,7 +292,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
   const rows = showLabels ? tree.top : categories;
 
   return (
-    <Dropdown menu={{ items: contextMenu }} trigger={['contextMenu']}>
+    <Dropdown menu={{ items: contextMenu }} trigger={['contextMenu']} onOpenChange={setContextMenuOpen}>
       <nav
         className="settings-category-nav"
         aria-label={t('workbench.settings.shell.navAria')}

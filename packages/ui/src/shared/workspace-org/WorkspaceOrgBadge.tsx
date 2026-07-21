@@ -26,9 +26,17 @@ export interface WorkspaceOrgBadgeProps {
   descriptor: OrgDescriptor | null;
   /** Compact variant for dense list rows. */
   compact?: boolean;
+  /**
+   * Force-hide the hover tooltip. Hosts that mount the badge inside a
+   * click-to-open trigger (workspace switcher / pill) pass their
+   * surface's open state here — otherwise the tooltip lingers over the
+   * opened dropdown, because the pointer never leaves the badge and no
+   * mouseout ever fires.
+   */
+  suppressTooltip?: boolean;
 }
 
-export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor, compact }) => {
+export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor, compact, suppressTooltip }) => {
   // The scope description reads the host's OWN bind tier (self) — how
   // far this host's server reaches, not a joined backend's tier.
   const { self: reach } = useBackendReach();
@@ -49,6 +57,7 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
       }
       placement="top"
       mouseEnterDelay={0.4}
+      open={suppressTooltip ? false : undefined}
     >
       <Tag
         color={visual.tagColor}

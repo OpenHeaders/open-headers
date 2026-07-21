@@ -38,6 +38,10 @@ interface StepRunDotProps {
 export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMessage, captures, responseBytes }) => {
   const { token } = theme.useToken();
   const t = useT();
+  // Suppress the hover tooltip while the click-opened capture popover
+  // shows — the pointer stays on the dot after the click, so the
+  // tooltip would otherwise linger over the popover.
+  const [capturesOpen, setCapturesOpen] = useState(false);
   const level = stepRunLevel(state);
   const hollow = state === 'skipped' || state === 'not-run';
   const hollowBorder = state === 'skipped' ? token.colorWarning : token.colorTextQuaternary;
@@ -71,6 +75,7 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
   return (
     <Popover
       trigger="click"
+      onOpenChange={setCapturesOpen}
       content={
         <StepCapturePopover
           stepId={stepId}
@@ -81,7 +86,9 @@ export const StepRunDot: React.FC<StepRunDotProps> = ({ stepId, state, errorMess
         />
       }
     >
-      <Tooltip title={describeStepRun(state, t)}>{dot}</Tooltip>
+      <Tooltip title={describeStepRun(state, t)} open={capturesOpen ? false : undefined}>
+        {dot}
+      </Tooltip>
     </Popover>
   );
 };

@@ -50,6 +50,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const togglePauseFocusedLabel = usePopupShortcutLabel('toggle-pause-focused');
   const [searchText, setSearchText] = useState('');
   const [sortMode, setSortMode] = useState<'status' | 'manual'>('status');
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<readonly React.Key[]>([]);
   const expandInitialized = useRef(false);
 
@@ -279,8 +280,9 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                 }}
                 placement="bottomRight"
                 trigger={['click']}
+                onOpenChange={setSortMenuOpen}
               >
-                <Tooltip title={t('popup.table.sortOrder')}>
+                <Tooltip title={t('popup.table.sortOrder')} open={sortMenuOpen ? false : undefined}>
                   <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>

@@ -23,7 +23,7 @@
 import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 
 // ── Public types ────────────────────────────────────────────────────
@@ -78,6 +78,10 @@ const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(
   ({ side, topItems, bottomItems = [], trailingItem, labelsVisible, onToggleLabels }, ref) => {
     const { token } = theme.useToken();
     const t = useT();
+    // Item tooltips force-hide while the right-click context menu is
+    // open — the menu appears at the cursor, and the hovered item's
+    // tooltip would otherwise sit on top of it.
+    const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
     const contextMenuItems = useMemo<ItemType[]>(
       () => [
@@ -133,6 +137,7 @@ const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(
           key={item.key}
           title={item.tooltip ?? (item.enabled ? item.label : undefined)}
           placement={side === 'left' ? 'right' : 'left'}
+          open={contextMenuOpen ? false : undefined}
         >
           <div
             className={`rules-activity-icon ${item.enabled ? '' : 'disabled'} ${item.active ? 'active' : ''} ${isFocused ? 'focused' : ''}`}
@@ -152,7 +157,7 @@ const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(
     };
 
     return (
-      <Dropdown menu={{ items: contextMenuItems }} trigger={['contextMenu']}>
+      <Dropdown menu={{ items: contextMenuItems }} trigger={['contextMenu']} onOpenChange={setContextMenuOpen}>
         <div
           ref={ref}
           className={`rules-activity-bar ${side === 'right' ? 'rules-activity-bar--right' : ''} ${labelsVisible ? '' : 'rules-activity-bar--compact'}`}

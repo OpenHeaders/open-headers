@@ -41,6 +41,7 @@ export const PanelWorkspaceSelector: React.FC = () => {
       onOpenChange={setOpen}
       popupRender={() => (
         <WorkspaceDropdownBody
+          open={open}
           workspaces={workspaces}
           selectedId={activeWorkspaceId}
           activeId={activeWorkspaceId}
@@ -95,7 +96,11 @@ export const PanelWorkspaceSelector: React.FC = () => {
             {activeWorkspace.name}
           </Text>
           {catalogue.length > 1 && (
-            <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+            <WorkspaceOrgBadge
+              descriptor={describeOrg(snapshot, activeWorkspace.orgId)}
+              compact
+              suppressTooltip={open}
+            />
           )}
           <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
         </Space>

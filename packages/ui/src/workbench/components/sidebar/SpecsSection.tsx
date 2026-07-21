@@ -10,6 +10,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { SPEC_FORMAT_LABELS } from '../specs/spec-format-labels';
 import type { SpecCreateFormat } from '../specs/spec-scaffold';
@@ -36,6 +37,7 @@ const SpecsSection: React.FC<SpecsSectionProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
   return (
     <>
       <SectionHeader
@@ -45,6 +47,7 @@ const SpecsSection: React.FC<SpecsSectionProps> = ({
         actions={
           <Dropdown
             trigger={['click']}
+            onOpenChange={setCreateMenuOpen}
             menu={{
               items: CREATE_FORMATS.map((format) => ({
                 key: format,
@@ -53,7 +56,11 @@ const SpecsSection: React.FC<SpecsSectionProps> = ({
               })),
             }}
           >
-            <Tooltip title={t('workbench.sidebar.header.createNewSpec')} placement="bottom">
+            <Tooltip
+              title={t('workbench.sidebar.header.createNewSpec')}
+              placement="bottom"
+              open={createMenuOpen ? false : undefined}
+            >
               <PlusOutlined
                 style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
                 onClick={(e) => {
