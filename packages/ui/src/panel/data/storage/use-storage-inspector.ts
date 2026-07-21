@@ -17,9 +17,9 @@
  * navigation changed is dropped, never rendered.
  */
 
-import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invalidateJarCache } from '../cookies/cookie-jar-cache';
+import { useInspectedTabId } from '../inspected-tab-context';
 import { notifyDomStorageWrite } from './dom-storage-write-notifier';
 import type { DomStorageArea, DomStorageFullValue, DomStorageSnapshot, StorageScope } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
@@ -85,7 +85,7 @@ export interface StorageInspectorState {
 
 export function useStorageInspector(section: StorageSection): StorageInspectorState {
   const host = getStorageInspectorHost();
-  const tabId = hostNavigation.inspectedTabId();
+  const tabId = useInspectedTabId();
   const available = host !== null && tabId !== null;
 
   // The two DOM areas map onto the read/write plane; the other sections

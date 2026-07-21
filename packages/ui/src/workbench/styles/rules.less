@@ -659,6 +659,48 @@ body {
   }
 }
 
+// Draggable divider above the Traffic Monitor's stacked storage pane.
+.traffic-monitor-storage-sash {
+  flex: 0 0 auto;
+  height: 6px;
+  cursor: row-resize;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: rgba(128, 128, 128, 0.25);
+    transition: background 0.12s ease;
+  }
+
+  &:hover::after {
+    background: rgba(24, 144, 255, 0.5);
+    height: 2px;
+  }
+}
+
+// Collapsed storage pane — a slim reopen strip along the bottom edge.
+.traffic-monitor-storage-strip {
+  flex: 0 0 auto;
+  border: none;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  text-align: left;
+  padding: 3px 10px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.12);
+  }
+}
+
 .rules-sidebar-item-hover-action {
   opacity: 0;
   font-size: 12px;

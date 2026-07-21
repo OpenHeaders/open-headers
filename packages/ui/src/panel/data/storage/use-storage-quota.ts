@@ -11,8 +11,8 @@
  * identities), callbacks keyed on primitives.
  */
 
-import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useInspectedTabId } from '../inspected-tab-context';
 import type { SiteDataType, StorageQuota } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
@@ -54,7 +54,7 @@ export interface StorageQuotaState {
 
 export function useStorageQuota(active: boolean, frameId: number | null): StorageQuotaState {
   const host = getStorageInspectorHost();
-  const tabId = hostNavigation.inspectedTabId();
+  const tabId = useInspectedTabId();
 
   const [quota, setQuota] = useState<StorageQuota | null>(null);
   const [loading, setLoading] = useState(true);

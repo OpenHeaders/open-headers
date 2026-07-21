@@ -12,8 +12,8 @@
  * return fresh identities), callbacks keyed on primitives.
  */
 
-import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useInspectedTabId } from '../inspected-tab-context';
 import type { IdbDatabase, IdbRecordsPage } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
@@ -85,7 +85,7 @@ export interface IdbBrowserState {
 
 export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrowserState {
   const host = getStorageInspectorHost();
-  const tabId = hostNavigation.inspectedTabId();
+  const tabId = useInspectedTabId();
 
   const [databases, setDatabases] = useState<ReadonlyArray<IdbDatabase> | null>(null);
   const [loading, setLoading] = useState(true);

@@ -99,6 +99,7 @@ interface WorkbenchToolWindowProps {
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
   openProxyRequestInspect: UseTabOpenersApi['openProxyRequestInspect'];
   openLiveNetworkRequestInspect: UseTabOpenersApi['openLiveNetworkRequestInspect'];
+  openLiveStorageDocInspect: UseTabOpenersApi['openLiveStorageDocInspect'];
   openSettingsTab: UseTabOpenersApi['openSettingsTab'];
 
   // Shell-local handlers.
@@ -165,6 +166,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openLiveVariableEdit,
   openProxyRequestInspect,
   openLiveNetworkRequestInspect,
+  openLiveStorageDocInspect,
   openSettingsTab,
   handleDeleteRule,
   handleCloseTab,
@@ -316,6 +318,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
             onHide={() => tl.closeDock(slot)}
             onOpenProxyRequest={openProxyRequestInspect}
             onOpenLiveRequest={openLiveNetworkRequestInspect}
+            onOpenStorageDoc={openLiveStorageDocInspect}
             onOpenProxySettings={() => openSettingsTab({ categoryId: 'proxy' })}
             activeTab={activeTab ?? null}
           />

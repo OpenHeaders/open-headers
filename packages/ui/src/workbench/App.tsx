@@ -118,6 +118,7 @@ import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirr
 import { useWorkbenchShortcutActions } from './hooks/useWorkbenchShortcutActions';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
+import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
@@ -400,6 +401,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // ── Tool-window layout state machine ───────────────────────────
   const tl = useToolLayout(perTab);
 
+  // "Reveal in Storage" from a storage-document editor tab: activate
+  // the Traffic Monitor; the mounted panel consumes the parked intent.
+  useEffect(() => subscribeTrafficStorageReveal(() => tl.activateWindow('traffic-monitor')), [tl]);
+
   // Host-reported app updates land in the Notifications timeline
   // (no-op on hosts without the getAppUpdate capability), and the
   // updater's busy phases drive the footer's background-task indicator.
@@ -544,6 +549,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateLiveWorkflow,
     openProxyRequestInspect,
     openLiveNetworkRequestInspect,
+    openLiveStorageDocInspect,
   } = openers;
 
   // First workbench open after a feature release auto-opens the
@@ -1312,6 +1318,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openLiveVariableEdit={openLiveVariableEdit}
         openProxyRequestInspect={openProxyRequestInspect}
         openLiveNetworkRequestInspect={openLiveNetworkRequestInspect}
+        openLiveStorageDocInspect={openLiveStorageDocInspect}
         openSettingsTab={openSettingsTab}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
@@ -1375,6 +1382,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openLiveVariableEdit,
       openProxyRequestInspect,
       openLiveNetworkRequestInspect,
+      openLiveStorageDocInspect,
       openSettingsTab,
       handleViewActivityEntity,
     ],

@@ -5,9 +5,14 @@
  */
 
 import { useCallback } from 'react';
+import { storageDocInnerId } from '../../data/storage-doc-ref';
+import type { LiveStorageDocRef } from '../../types';
 import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
-export type ProxyOpeners = Pick<UseTabOpenersApi, 'openProxyRequestInspect' | 'openLiveNetworkRequestInspect'>;
+export type ProxyOpeners = Pick<
+  UseTabOpenersApi,
+  'openProxyRequestInspect' | 'openLiveNetworkRequestInspect' | 'openLiveStorageDocInspect'
+>;
 
 export function useProxyOpeners({ allTabs, addTab, switchTab }: TabOpenerContext): ProxyOpeners {
   const openProxyRequestInspect = useCallback(
@@ -50,5 +55,26 @@ export function useProxyOpeners({ allTabs, addTab, switchTab }: TabOpenerContext
     [allTabs, addTab, switchTab],
   );
 
-  return { openProxyRequestInspect, openLiveNetworkRequestInspect };
+  const openLiveStorageDocInspect = useCallback(
+    (nodeId: string, tabId: number, doc: LiveStorageDocRef, label: string) => {
+      const id = `live-storage-${tabId}@${nodeId}-${storageDocInnerId(doc)}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label,
+        ruleType: '',
+        dirty: false,
+        mode: 'live-storage-doc-inspect',
+        liveStorageNodeId: nodeId,
+        liveStorageTabId: tabId,
+        liveStorageDoc: doc,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  return { openProxyRequestInspect, openLiveNetworkRequestInspect, openLiveStorageDocInspect };
 }

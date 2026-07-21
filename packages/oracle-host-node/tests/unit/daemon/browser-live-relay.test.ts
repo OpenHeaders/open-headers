@@ -20,6 +20,10 @@ import {
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
+  TELEMETRY_STORAGE_CALL_TYPE,
+  TELEMETRY_STORAGE_CONSUMER_TYPE,
+  TELEMETRY_STORAGE_DETACH_TYPE,
+  TELEMETRY_STORAGE_INVALIDATION_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
 } from '@openheaders/core/protocol';
 import type { LifecycleConsumerMessage } from '@openheaders/core/request-lifecycle';
@@ -28,6 +32,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createBrowserLiveRelay,
   DEBUG_CONTROL_TIMEOUT_MS,
+  STORAGE_CALL_TIMEOUT_MS,
   TABS_LIST_TIMEOUT_MS,
 } from '../../../src/daemon/telemetry/browser-live-relay';
 import type { OracleWsServer, PeerChangeListener, PeerSummary } from '../../../src/host-runtime/ws-server';
@@ -389,6 +394,110 @@ describe('createBrowserLiveRelay', () => {
     const pending = relay.debugControl('node-a', { kind: 'enable', enabled: true });
     await vi.advanceTimersByTimeAsync(DEBUG_CONTROL_TIMEOUT_MS + 10);
     expect(await pending).toBeNull();
+    relay.dispose();
+  });
+
+  it('accepts storage ports, opens a per-consumer watch, and routes invalidations point-to-point', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server, frames, emitPeerConnect } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const first = fakePort('oh-storage:7@node-a');
+    const second = fakePort('oh-storage:7@node-a');
+    connect(first);
+    connect(second);
+
+    const opens = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CONSUMER_TYPE);
+    expect(opens).toHaveLength(2);
+    expect(opens[0].frame.tabId).toBe(7);
+    expect(opens[0].to).toEqual(['peer-node-a']);
+    const firstId = opens[0].frame.consumerId as string;
+    const secondId = opens[1].frame.consumerId as string;
+
+    // The note lands ONLY on the consumer it addresses, and only from
+    // the owning peer (partition identity is peer-qualified).
+    relay.peerPush.handle(
+      { type: TELEMETRY_STORAGE_INVALIDATION_TYPE, tabId: 7, consumerId: secondId, kind: 'indexeddb' },
+      peerSummary('node-a'),
+    );
+    relay.peerPush.handle(
+      { type: TELEMETRY_STORAGE_INVALIDATION_TYPE, tabId: 7, consumerId: firstId, kind: 'indexeddb' },
+      peerSummary('node-other'),
+    );
+    expect(first.posted).toHaveLength(0);
+    expect(second.posted).toEqual([{ tabId: 7, kind: 'indexeddb' }]);
+
+    // A leaving viewer ends ITS watch; a reconnect re-opens survivors.
+    first.disconnect();
+    const detaches = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_DETACH_TYPE);
+    expect(detaches).toHaveLength(1);
+    expect(detaches[0].frame.consumerId).toBe(firstId);
+    const before = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CONSUMER_TYPE).length;
+    emitPeerConnect(peerSummary('node-a'));
+    const rejoins = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CONSUMER_TYPE).slice(before);
+    expect(rejoins).toHaveLength(1);
+    expect(rejoins[0].frame.consumerId).toBe(secondId);
+    relay.dispose();
+  });
+
+  it('storageCall correlates concurrent replies by callId, out of order', async () => {
+    const relay = createBrowserLiveRelay();
+    const { server, frames } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+
+    const firstPending = relay.storageCall('node-a', 'getDomStorageEntries', { tabId: 7, frameId: 0, area: 'local' });
+    const secondPending = relay.storageCall('node-a', 'getStorageQuota', { tabId: 7, frameId: 0 });
+    const calls = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CALL_TYPE);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].to).toEqual(['peer-node-a']);
+    const firstCallId = calls[0].frame.callId as string;
+    const secondCallId = calls[1].frame.callId as string;
+    expect(firstCallId).not.toBe(secondCallId);
+
+    // Replies land LIFO — each must settle its own caller.
+    relay.peerPush.handle(
+      {
+        type: `${TELEMETRY_STORAGE_CALL_TYPE}:response`,
+        callId: secondCallId,
+        payload: { quota: { usage: 1, quota: 2 } },
+      },
+      peerSummary('node-a'),
+    );
+    relay.peerPush.handle(
+      {
+        type: `${TELEMETRY_STORAGE_CALL_TYPE}:response`,
+        callId: firstCallId,
+        payload: { entries: [], truncated: false },
+      },
+      peerSummary('node-a'),
+    );
+    expect(await firstPending).toEqual({ ok: true, payload: { entries: [], truncated: false } });
+    expect(await secondPending).toEqual({ ok: true, payload: { quota: { usage: 1, quota: 2 } } });
+    relay.dispose();
+  });
+
+  it('storageCall settles ok:false for unknown peers, non-whitelisted methods, and the reply timeout', async () => {
+    vi.useFakeTimers();
+    const relay = createBrowserLiveRelay();
+    const { server, frames } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+
+    expect(await relay.storageCall('node-gone', 'getStorageQuota', { tabId: 7, frameId: 0 })).toEqual({
+      ok: false,
+      payload: null,
+    });
+    // The whitelist is enforced at the relay too — a console verb never
+    // reaches the wire regardless of caller.
+    expect(
+      await relay.storageCall('node-a', 'consoleEval' as unknown as 'getStorageQuota', { tabId: 7, frameId: 0 }),
+    ).toEqual({ ok: false, payload: null });
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CALL_TYPE)).toHaveLength(0);
+
+    const pending = relay.storageCall('node-a', 'getStorageQuota', { tabId: 7, frameId: 0 });
+    await vi.advanceTimersByTimeAsync(STORAGE_CALL_TIMEOUT_MS + 10);
+    expect(await pending).toEqual({ ok: false, payload: null });
     relay.dispose();
   });
 });

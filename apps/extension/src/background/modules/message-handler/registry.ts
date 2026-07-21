@@ -7,6 +7,7 @@
  */
 
 import { connectionHandlers } from './handlers/connection';
+import { cookieJarHandlers } from './handlers/cookie-jar';
 import { environmentHandlers } from './handlers/environments';
 import { exportImportHandlers } from './handlers/export-import';
 import { fileHandlers } from './handlers/files';
@@ -46,5 +47,6 @@ export const registry: HandlerMap = {
   ...oauthHandlers,
   ...liveHandlers,
   ...storageInspectorHandlers,
+  ...cookieJarHandlers,
   ...miscHandlers,
 };

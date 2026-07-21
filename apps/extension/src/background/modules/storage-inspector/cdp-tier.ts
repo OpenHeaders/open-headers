@@ -47,6 +47,22 @@ let accessUnsubscribers: Array<() => void> = [];
 /** Storage keys with live tracking subscriptions, per attached tab. */
 const armedKeys = new Map<number, Set<string>>();
 
+/**
+ * SW-internal invalidation listeners — the telemetry storage host
+ * forwards these notes to desktop watchers over the backend wire. Fired
+ * beside the extension-page {@link broadcast}, same armed-tab gate.
+ */
+type StorageInvalidationListener = (tabId: number, kind: StorageInvalidationKind) => void;
+const invalidationListeners = new Set<StorageInvalidationListener>();
+
+/** Observe armed-tab invalidation notes in-process. Returns unsubscribe. */
+export function subscribeStorageInvalidations(listener: StorageInvalidationListener): () => void {
+  invalidationListeners.add(listener);
+  return () => {
+    invalidationListeners.delete(listener);
+  };
+}
+
 /** Registered once by the lifecycle pipeline. Idempotent (SW re-init). */
 export function registerStorageCdpAccess(next: StorageCdpAccess): void {
   for (const off of accessUnsubscribers) off();
@@ -57,7 +73,9 @@ export function registerStorageCdpAccess(next: StorageCdpAccess): void {
     // Relay only for a tab this module armed — the panel treats the note
     // as WHAT went stale, never as data.
     next.subscribeStorageUpdated((tabId, _storageKey, kind) => {
-      if (armedKeys.has(tabId)) broadcast('storageInvalidated', { tabId, kind });
+      if (!armedKeys.has(tabId)) return;
+      broadcast('storageInvalidated', { tabId, kind });
+      for (const listener of invalidationListeners) listener(tabId, kind);
     }),
     // The browser drops tracking subscriptions with the attachment; drop
     // the bookkeeping too so a re-attach re-arms on its next listing.

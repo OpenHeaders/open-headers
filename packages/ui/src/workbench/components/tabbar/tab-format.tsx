@@ -96,8 +96,12 @@ export function tabIcon(
       )
     );
   }
-  if (tab.mode === 'proxy-request-inspect' || tab.mode === 'live-network-request-inspect')
-    // Captured-traffic inspect tabs — the Traffic Monitor's vocabulary.
+  if (
+    tab.mode === 'proxy-request-inspect' ||
+    tab.mode === 'live-network-request-inspect' ||
+    tab.mode === 'live-storage-doc-inspect'
+  )
+    // Captured-traffic + storage inspect tabs — the Traffic Monitor's vocabulary.
     return <GlobalOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-manager') return <AppstoreOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'daemon-admin') return <TeamOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;

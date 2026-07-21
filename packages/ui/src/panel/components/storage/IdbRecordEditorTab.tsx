@@ -17,12 +17,12 @@
  */
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { hostNavigation } from '@openheaders/core/navigation';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { App } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useInspectedTabId } from '../../data/inspected-tab-context';
 import type { IdbRecordInspectorTab } from '../../data/inspector-tab';
 import { clipConflictValue, useStorageDocConflicts } from '../../data/storage/doc-conflicts';
 import type { IdbRecordDocument, IdbRecordWriteFailure } from '../../data/storage/storage-inspector-host';
@@ -81,6 +81,7 @@ export function IdbRecordEditorTab({
 }: IdbRecordEditorTabProps) {
   const t = useT();
   const { message } = App.useApp();
+  const inspectedTabId = useInspectedTabId();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
   // The Source edit buffer; null ⇒ pristine (mirrors the document).
@@ -112,7 +113,7 @@ export function IdbRecordEditorTab({
 
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     const token = ++fetchTokenRef.current;
     if (!host || tabId === null) {
       setSlot('unavailable');
@@ -125,7 +126,7 @@ export function IdbRecordEditorTab({
     if (doc) seedConflicts({ text: doc.text });
     setDraftText(null);
     setSaveError(null);
-  }, [frameId, database, store, primaryKeyWire, seedConflicts]);
+  }, [frameId, database, store, primaryKeyWire, seedConflicts, inspectedTabId]);
 
   useEffect(() => {
     void fetchDocument();
@@ -151,7 +152,7 @@ export function IdbRecordEditorTab({
   const syncDocument = useCallback(async () => {
     if (docRef.current === null) return;
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null) return;
     const token = ++fetchTokenRef.current;
     const next = await host.readIndexedDbRecordDocument(tabId, frameId, database, store, primaryKeyWire);
@@ -179,7 +180,7 @@ export function IdbRecordEditorTab({
     if (current.gone !== true && next.text === current.text && next.editable === current.editable) return;
     setSlot(next);
     if (!touched) setDraftText(null);
-  }, [frameId, database, store, primaryKeyWire]);
+  }, [frameId, database, store, primaryKeyWire, inspectedTabId]);
 
   const runSync = useCallback(() => {
     void syncDocument();
@@ -187,10 +188,10 @@ export function IdbRecordEditorTab({
 
   const subscribeInvalidations = useCallback((listener: () => void) => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null) return () => {};
     return host.subscribeStorageInvalidations(tabId, 'indexeddb', listener);
-  }, []);
+  }, [inspectedTabId]);
 
   useDocumentSync({
     enabled: doc !== null && !saving,
@@ -200,7 +201,7 @@ export function IdbRecordEditorTab({
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null || draftText === null) return false;
     setSaving(true);
     const result = await host.writeIndexedDbRecord(tabId, frameId, database, store, primaryKeyWire, draftText);
@@ -213,7 +214,7 @@ export function IdbRecordEditorTab({
     }
     setSaveError(result.reason ?? 'write');
     return false;
-  }, [draftText, frameId, database, store, primaryKeyWire, fetchDocument]);
+  }, [draftText, frameId, database, store, primaryKeyWire, fetchDocument, inspectedTabId]);
 
   useEffect(() => {
     registerSave?.(handleSave);

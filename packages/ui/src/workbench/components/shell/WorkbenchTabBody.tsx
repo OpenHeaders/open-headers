@@ -42,6 +42,7 @@ import RuleEditor from '../rule/RuleEditor';
 // `WorkbenchToolWindow`'s ProxyCapturePanel).
 const ProxyRequestInspectTab = lazy(() => import('../panels/ProxyRequestInspectTab'));
 const LiveNetworkRequestInspectTab = lazy(() => import('../panels/LiveNetworkRequestInspectTab'));
+const LiveStorageDocInspectTab = lazy(() => import('../panels/LiveStorageDocInspectTab'));
 import SpecEditorTab from '../specs/SpecEditorTab';
 import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview';
 import TemplateEditor from '../template/TemplateEditor';
@@ -304,6 +305,24 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           nodeId={tab.liveNetworkNodeId}
           tabId={tab.liveNetworkTabId}
           requestId={tab.liveNetworkRequestId}
+        />
+      </Suspense>
+    );
+  }
+  if (
+    tab.mode === 'live-storage-doc-inspect' &&
+    tab.liveStorageDoc &&
+    tab.liveStorageNodeId &&
+    tab.liveStorageTabId !== undefined
+  ) {
+    return (
+      <Suspense fallback={null}>
+        <LiveStorageDocInspectTab
+          nodeId={tab.liveStorageNodeId}
+          tabId={tab.liveStorageTabId}
+          doc={tab.liveStorageDoc}
+          onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+          registerSave={(saveFn) => registerSaveRef(tab.id, saveFn ? () => void saveFn() : () => {})}
         />
       </Suspense>
     );

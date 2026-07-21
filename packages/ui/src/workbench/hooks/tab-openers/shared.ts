@@ -7,7 +7,7 @@
 import type { Collection, Request, Rule, RuleDraft } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import type { WorkbenchTab, WorkflowSeedStep } from '../../types';
+import type { LiveStorageDocRef, WorkbenchTab, WorkflowSeedStep } from '../../types';
 
 /** Tab plumbing every opener family closes over. */
 export interface TabOpenerContext {
@@ -176,6 +176,13 @@ export interface UseTabOpenersApi {
    */
   openProxyRequestInspect: (requestId: string, label: string) => void;
   openLiveNetworkRequestInspect: (nodeId: string, tabId: number, requestId: string, label: string) => void;
+  /**
+   * Open a watched browser tab's storage document (cookie / DOM storage
+   * entry / IndexedDB record / cache entry) as an editor tab. Tab id
+   * derives from the document identity — reopening the same document
+   * switches to the existing tab.
+   */
+  openLiveStorageDocInspect: (nodeId: string, tabId: number, doc: LiveStorageDocRef, label: string) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**

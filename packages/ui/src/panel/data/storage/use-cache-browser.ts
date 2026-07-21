@@ -14,8 +14,8 @@
  * refetch through the read path — never trust the local outcome.
  */
 
-import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useInspectedTabId } from '../inspected-tab-context';
 import type { CacheEntriesPage, CacheSummary } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
@@ -67,7 +67,7 @@ export interface CacheBrowserState {
 
 export function useCacheBrowser(active: boolean, frameId: number | null): CacheBrowserState {
   const host = getStorageInspectorHost();
-  const tabId = hostNavigation.inspectedTabId();
+  const tabId = useInspectedTabId();
 
   const [caches, setCaches] = useState<ReadonlyArray<CacheSummary> | null>(null);
   const [loading, setLoading] = useState(true);

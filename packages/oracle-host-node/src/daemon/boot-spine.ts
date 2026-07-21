@@ -742,6 +742,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // Debug-mode control (the Traffic Monitor's per-tab fidelity
     // affordance) — relayed to the owning extension peer.
     telemetryDebugControl: (nodeId, command) => browserLiveRelay.debugControl(nodeId, command),
+    // Storage plane (Phase 3) — storage/cookie bridge verbs relayed to
+    // the owning extension peer; invalidation watches ride the
+    // qualified storage lifeline, not RPC.
+    telemetryStorageCall: (nodeId, method, params) => browserLiveRelay.storageCall(nodeId, method, params),
     // The admin console's Git card rides the same verb table the local
     // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.

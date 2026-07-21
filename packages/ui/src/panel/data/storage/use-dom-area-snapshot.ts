@@ -7,8 +7,8 @@
  * data-plane cost of the panel is unchanged.
  */
 
-import { hostNavigation } from '@openheaders/core/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { useInspectedTabId } from '../inspected-tab-context';
 import type { DomStorageArea, DomStorageSnapshot } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
@@ -21,10 +21,10 @@ export function useDomAreaSnapshot(
 ): DomStorageSnapshot | null {
   const [snapshot, setSnapshot] = useState<DomStorageSnapshot | null>(null);
   const tokenRef = useRef(0);
+  const tabId = useInspectedTabId();
 
   useEffect(() => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
     if (!active || host === null || tabId === null || frameId === null) {
       tokenRef.current++;
       setSnapshot(null);
@@ -42,7 +42,7 @@ export function useDomAreaSnapshot(
       void read();
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [active, frameId, area]);
+  }, [active, frameId, area, tabId]);
 
   return snapshot;
 }

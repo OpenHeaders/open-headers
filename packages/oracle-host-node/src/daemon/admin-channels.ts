@@ -31,7 +31,8 @@ import {
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '@openheaders/core/identity';
 import { verifyLicense } from '@openheaders/core/licensing';
-import type { TelemetryDebugCommand, TelemetryDebugState } from '@openheaders/core/protocol';
+import type { TelemetryDebugCommand, TelemetryDebugState, TelemetryStorageMethod } from '@openheaders/core/protocol';
+import { isTelemetryStorageMethod } from '@openheaders/core/protocol';
 import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
@@ -89,6 +90,14 @@ export interface AdminChannelDeps {
   /** The `oh.daemon.telemetry.debug.control` backing — one Debug-mode
    *  command relayed to the named extension peer. Optional as above. */
   telemetryDebugControl?(nodeId: string, command: TelemetryDebugCommand): Promise<TelemetryDebugState | null>;
+  /** The `oh.daemon.telemetry.storage.call` backing — one storage
+   *  bridge verb relayed to the named extension peer (Phase 3 storage
+   *  plane, reads and writes). Optional as above. */
+  telemetryStorageCall?(
+    nodeId: string,
+    method: TelemetryStorageMethod,
+    params: unknown,
+  ): Promise<{ ok: boolean; payload: unknown }>;
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -373,6 +382,21 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     if (!isTelemetryDebugCommand(message.command)) return { ok: false, debug: null };
     const debug = (await deps.telemetryDebugControl?.(message.nodeId, message.command)) ?? null;
     return { ok: debug !== null, debug };
+  });
+
+  // One storage bridge verb (read or write) relayed to the named
+  // extension peer — the Traffic Monitor's Storage pane. `method` is
+  // gated on the storage whitelist here too, so a console/source-map
+  // verb never reaches the relay regardless of caller.
+  handlers.set('oh.daemon.telemetry.storage.call', async (message) => {
+    if (typeof message.nodeId !== 'string' || message.nodeId.length === 0) return { ok: false, payload: null };
+    if (!isTelemetryStorageMethod(message.method)) return { ok: false, payload: null };
+    return (
+      (await deps.telemetryStorageCall?.(message.nodeId, message.method, message.params)) ?? {
+        ok: false,
+        payload: null,
+      }
+    );
   });
 
   handlers.set('oh.daemon.users.create', async (message) => {

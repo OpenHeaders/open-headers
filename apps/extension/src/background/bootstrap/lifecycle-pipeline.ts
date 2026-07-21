@@ -58,6 +58,7 @@ import { recordFiresForReport } from '../rule-engine-driver/fire-recorder';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { startTelemetryStreamHost } from '../telemetry-stream-host';
+import { startTelemetryStorageHost } from '../telemetry-stream-host/storage-host';
 import { debouncedUpdateBadge } from './badge-update';
 import { setCdpMasterSwitch } from './cdp-master-switch';
 
@@ -369,6 +370,13 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     // tab is a clean no-op.
     bodyFetcher: lifecycleBodyFetcher,
   });
+  // Desktop storage plane (OBSERVABILITY_PLAN.md Phase 3): the DevTools-
+  // bridge storage/cookie verbs relayed over the backend wire, plus
+  // per-consumer invalidation watches; loopback wires only. Started
+  // BEFORE the stream host so its inbound handlers are registered when
+  // the stream host's `host ready` announce triggers the daemon's
+  // re-join (which re-subscribes storage watches too).
+  startTelemetryStorageHost();
   // Desktop live-view plane (OBSERVABILITY_PLAN.md Phase 1): the same
   // hub + floors + provenance + body fetcher served over the backend
   // wire — a forwarded workbench subscribe raises the tracking ref and

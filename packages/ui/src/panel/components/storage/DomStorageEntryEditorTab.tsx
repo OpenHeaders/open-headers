@@ -17,12 +17,12 @@
  */
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { hostNavigation } from '@openheaders/core/navigation';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 import { App } from 'antd';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useInspectedTabId } from '../../data/inspected-tab-context';
 import { type DomStorageEntryInspectorTab, domStorageAreaName } from '../../data/inspector-tab';
 import { clipConflictValue, useStorageDocConflicts } from '../../data/storage/doc-conflicts';
 import { notifyDomStorageWrite, subscribeDomStorageWrites } from '../../data/storage/dom-storage-write-notifier';
@@ -91,6 +91,7 @@ export function DomStorageEntryEditorTab({
 }: DomStorageEntryEditorTabProps) {
   const t = useT();
   const { message } = App.useApp();
+  const inspectedTabId = useInspectedTabId();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
   // Edit buffers; null ⇒ pristine (mirrors the document).
@@ -134,7 +135,7 @@ export function DomStorageEntryEditorTab({
 
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     const token = ++fetchTokenRef.current;
     if (!host || tabId === null) {
       setSlot('unavailable');
@@ -151,7 +152,7 @@ export function DomStorageEntryEditorTab({
     setKeyDraft(null);
     setValueDraft(null);
     setSaveError(null);
-  }, [frameId, area, entryKey, seedConflicts]);
+  }, [frameId, area, entryKey, seedConflicts, inspectedTabId]);
 
   useEffect(() => {
     void fetchDocument();
@@ -185,7 +186,7 @@ export function DomStorageEntryEditorTab({
   const syncDocument = useCallback(async () => {
     if (docRef.current === null) return;
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null) return;
     const token = ++fetchTokenRef.current;
     const full = await host.readDomStorageValue(tabId, frameId, area, entryKey);
@@ -207,7 +208,7 @@ export function DomStorageEntryEditorTab({
     if (current.gone !== true && full.value === current.value) return;
     setSlot({ value: full.value });
     if (!valueTouched) setValueDraft(null);
-  }, [frameId, area, entryKey]);
+  }, [frameId, area, entryKey, inspectedTabId]);
 
   const runSync = useCallback(() => {
     void syncDocument();
@@ -221,7 +222,7 @@ export function DomStorageEntryEditorTab({
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null || doc === null || !savable) return false;
     const nextKey = keyDraft ?? entryKey;
     const nextValue = valueDraft ?? doc.value;
@@ -250,7 +251,7 @@ export function DomStorageEntryEditorTab({
     // under the new key, which re-fetches through the read path.
     onRenamed?.(nextKey);
     return true;
-  }, [doc, savable, keyDraft, valueDraft, frameId, area, entryKey, fetchDocument, onRenamed]);
+  }, [doc, savable, keyDraft, valueDraft, frameId, area, entryKey, fetchDocument, onRenamed, inspectedTabId]);
 
   useEffect(() => {
     registerSave?.(handleSave);

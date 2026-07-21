@@ -22,6 +22,12 @@
  *      switch inside the popover flips routing, the trigger grows the
  *      "On" tag, and the ack alert renders.
  *
+ * Phase 3 storage legs (S10): the stacked storage pane observes the
+ * watched tab's localStorage over the relay, a row opens as a
+ * storage-document editor tab, a desktop-side delete actuates in the
+ * page (the extension executes — the actuator model), and the pane's
+ * collapse state survives dock switches.
+ *
  * Deliberately NOT covered (manual live-pass items): the debugger
  * banner's look and its Cancel fall-back (browser chrome, unreachable
  * from Playwright), tooltip copy on hover, and the Firefox peer's
@@ -465,20 +471,83 @@ test('inspect-tab CTAs hand off locally: rule draft + Create API request', async
   // editor. Keep-alive editor tabs hold the same URL text hidden, so
   // match the VISIBLE occurrence only.
   await expect(
-    workbench
-      .getByText('http://127.0.0.1:3000/api/echo?probe=debug-live-1')
-      .filter({ visible: true })
-      .first(),
+    workbench.getByText('http://127.0.0.1:3000/api/echo?probe=debug-live-1').filter({ visible: true }).first(),
   ).toBeVisible();
 
   // Back on the inspect tab: Create API request opens a scratch
   // request tab seeded from the capture (`createRequestDraft`).
-  await workbench.getByRole('tab', { name: /ug-live-1/ }).first().click();
+  await workbench
+    .getByRole('tab', { name: /ug-live-1/ })
+    .first()
+    .click();
   await workbench.getByRole('tab', { name: 'Headers', exact: true }).first().click();
   await workbench.getByRole('button', { name: 'Create API request' }).first().click();
   await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'API Requests' }).first()).toBeVisible({
     timeout: 10000,
   });
+});
+
+// ── Phase 3: the stacked storage pane ───────────────────────────────
+
+test("the storage pane lists the watched tab's localStorage over the relay", async () => {
+  await setToolWindowOpen(true);
+  await playgroundRow().click();
+
+  // Seed an entry in the WATCHED page — the pane must observe it
+  // through the relayed reads (never a desktop-side derivation).
+  await playground.evaluate(() => localStorage.setItem('oh-e2e-storage-key', 'oh-e2e-storage-value'));
+
+  const pane = workbench.locator('[data-testid="traffic-monitor-storage-pane"]');
+  await expect(pane).toBeVisible();
+  const row = pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' }).first();
+  await expect(row).toBeVisible({ timeout: 20000 });
+  await expect(row).toContainText('oh-e2e-storage-value');
+});
+
+test('a storage row opens as an editor tab and a desktop delete actuates in the page', async () => {
+  const pane = workbench.locator('[data-testid="traffic-monitor-storage-pane"]');
+
+  // Row click → storage-document editor tab: Traffic Monitor
+  // breadcrumb, live value in the document body.
+  await pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' }).first().click();
+  const editorTab = workbench.getByRole('tab', { name: /storage-key/ }).first();
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
+  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic Monitor' }).first()).toBeVisible();
+  await expect(workbench.locator('.view-line').filter({ hasText: 'oh-e2e-storage-value' }).first()).toBeVisible({
+    timeout: 20000,
+  });
+
+  // Delete the row from the desktop — the verb executes IN the
+  // extension (the actuator model), so the page's own localStorage
+  // loses the key and the grid refetch drops the row.
+  await setToolWindowOpen(true);
+  const row = pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' }).first();
+  await row.hover();
+  await row.getByRole('button', { name: 'Delete oh-e2e-storage-key' }).click();
+  await expect
+    .poll(() => playground.evaluate(() => localStorage.getItem('oh-e2e-storage-key')), { timeout: 20000 })
+    .toBeNull();
+  await expect(pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' })).toHaveCount(0, {
+    timeout: 20000,
+  });
+});
+
+test('the storage pane collapses to the reopen strip and survives dock-tab switches', async () => {
+  const pane = workbench.locator('[data-testid="traffic-monitor-storage-pane"]');
+  // Hide via the pane's own header affordance → the slim reopen strip.
+  await pane.getByRole('button', { name: 'Hide panel' }).first().click();
+  await expect(pane).toHaveCount(0);
+  const strip = workbench.locator('[data-testid="traffic-monitor-storage-strip"]');
+  await expect(strip).toBeVisible();
+
+  // The collapsed state survives the dispatcher unmount (dock switch).
+  await workbench.locator('[data-tool-window="workflow-status"]').first().click();
+  await setToolWindowOpen(true);
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-strip"]')).toBeVisible();
+
+  // Reopen from the strip.
+  await workbench.locator('[data-testid="traffic-monitor-storage-strip"]').click();
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toBeVisible();
 });
 
 // ── Leg 5: unpin from the rail ──────────────────────────────────────

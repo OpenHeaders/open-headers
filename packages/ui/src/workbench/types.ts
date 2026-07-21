@@ -3,6 +3,19 @@
  */
 
 import type { Request, Rule, RuleDraft } from '@openheaders/core/types';
+import type { JarCookieKey } from '../panel/host-cookie-jar';
+import type { DomStorageArea } from '../panel/host-storage-inspector';
+
+/**
+ * Which storage document a `live-storage-doc-inspect` tab shows — the
+ * Traffic Monitor storage pane's four editor-tab kinds, carrying the
+ * document identity the shared editor components re-fetch by.
+ */
+export type LiveStorageDocRef =
+  | { kind: 'cookie'; cookieKey: JarCookieKey; scopeUrl: string }
+  | { kind: 'dom'; frameId: number; area: DomStorageArea; entryKey: string }
+  | { kind: 'idb'; frameId: number; database: string; store: string; primaryKeyWire: string; keyPreview: string }
+  | { kind: 'cache'; frameId: number; cache: string; url: string; method: string };
 
 /**
  * One pending workflow step handed to the Live Workflow editor by a
@@ -52,7 +65,8 @@ export type TabMode =
   | 'live-workflow-edit'
   | 'live-workflow-create'
   | 'proxy-request-inspect'
-  | 'live-network-request-inspect';
+  | 'live-network-request-inspect'
+  | 'live-storage-doc-inspect';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -172,6 +186,14 @@ export interface WorkbenchTab {
   liveNetworkTabId?: number;
   liveNetworkNodeId?: string;
   liveNetworkRequestId?: string;
+  /** For live-storage-doc-inspect tabs: the watched browser tab, the
+   *  owning extension peer, and which storage document to show.
+   *  Ephemeral like the live-network detail — the document re-fetches
+   *  through the storage relay and renders its unavailable state once
+   *  the entry (or the peer) is gone. */
+  liveStorageTabId?: number;
+  liveStorageNodeId?: string;
+  liveStorageDoc?: LiveStorageDocRef;
   /** For live-variable-edit tabs: the LV uid being edited. */
   liveVariableUid?: string;
   /** For live-workflow-edit tabs: the workflow uid being edited. */

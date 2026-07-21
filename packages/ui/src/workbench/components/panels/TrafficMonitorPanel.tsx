@@ -36,9 +36,27 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NetworkCaptureView } from '../../../panel/components/NetworkCaptureView';
+import {
+  StoragePanel,
+  type OpenCacheEntryRequest,
+  type OpenCookieRequest,
+  type OpenDomStorageEntryRequest,
+  type StorageRevealRequest,
+} from '../../../panel/components/storage/StoragePanel';
+import type { OpenIdbRecordRequest } from '../../../panel/components/storage/IndexedDbSection';
 import { extractName } from '../../../panel/components/traffic/formatters';
+import { cacheEntryLabel } from '../../../panel/data/inspector-tab';
+import { jarCookieToKey } from '../../../panel/data/cookies/cookie-edit';
+import { InspectedTabContext } from '../../../panel/data/inspected-tab-context';
 import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-projection';
-import type { WorkbenchTab } from '../../types';
+import { storageDocInnerId } from '../../data/storage-doc-ref';
+import {
+  installTrafficStorageHost,
+  setTrafficStorageCookieTarget,
+  trafficStorageHandle,
+} from '../../data/traffic-storage-host';
+import { subscribeTrafficStorageReveal, takeTrafficStorageReveal } from '../../data/traffic-storage-reveal';
+import type { LiveStorageDocRef, WorkbenchTab } from '../../types';
 import {
   RAIL_DEFAULT_WIDTH,
   RAIL_MAX_WIDTH,
@@ -57,6 +75,8 @@ export interface TrafficMonitorPanelProps {
   onOpenProxyRequest: (requestId: string, label: string) => void;
   /** Open a browser-tab row's inspector as a main editor tab. */
   onOpenLiveRequest: (nodeId: string, tabId: number, requestId: string, label: string) => void;
+  /** Open a watched tab's storage document as a main editor tab. */
+  onOpenStorageDoc: (nodeId: string, tabId: number, doc: LiveStorageDocRef, label: string) => void;
   /** Open Settings › Proxy (CA install + trust). */
   onOpenProxySettings: () => void;
   /** The focused editor tab — an inspect tab highlights its row in the
@@ -76,17 +96,36 @@ interface TabSelection {
  * survive-unmount posture, scoped to plain values — the peer inventory
  * and lifelines re-fetch on their own).
  */
+/** Storage pane geometry — height of the stacked pane, clamped. */
+const STORAGE_PANE_DEFAULT_HEIGHT = 260;
+const STORAGE_PANE_MIN_HEIGHT = 120;
+const STORAGE_PANE_MAX_HEIGHT = 560;
+
 const lastPanelState: {
   selectedKey: string | null;
   tabSelection: TabSelection | null;
   railWidth: number;
-} = { selectedKey: null, tabSelection: null, railWidth: RAIL_DEFAULT_WIDTH };
+  storageHeight: number;
+  storageCollapsed: boolean;
+} = {
+  selectedKey: null,
+  tabSelection: null,
+  railWidth: RAIL_DEFAULT_WIDTH,
+  storageHeight: STORAGE_PANE_DEFAULT_HEIGHT,
+  storageCollapsed: false,
+};
+
+// The relay-backed storage + cookie seams are process-wide; install
+// them when the Traffic Monitor's module loads (idempotent — the
+// storage-document editor tab does the same).
+installTrafficStorageHost();
 
 const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   info,
   onHide,
   onOpenProxyRequest,
   onOpenLiveRequest,
+  onOpenStorageDoc,
   onOpenProxySettings,
   activeTab,
 }) => {
@@ -260,6 +299,110 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
       ? (activeTab.liveNetworkRequestId ?? null)
       : null;
 
+  // ── Storage pane (Phase 3) — stacked below the network view for
+  // browser-tab sources only (the wire has no storage domain). ────────
+  const storageHandle = tabSelection !== null ? trafficStorageHandle(tabSelection.nodeId, tabSelection.tabId) : null;
+  const cookieNodeId = tabSelection?.nodeId ?? null;
+  // Cookie-jar seams are URL-keyed (no tab identity) — bind them to the
+  // selected peer; the setter drops the jar cache on a change.
+  useEffect(() => {
+    setTrafficStorageCookieTarget(cookieNodeId);
+  }, [cookieNodeId]);
+  const [storageHeight, setStorageHeight] = useState(() => lastPanelState.storageHeight);
+  const [storageCollapsed, setStorageCollapsed] = useState(() => lastPanelState.storageCollapsed);
+  const [storageReveal, setStorageReveal] = useState<StorageRevealRequest | null>(null);
+
+  // Reveal intents posted by storage-document editor tabs: adopt the
+  // intent's source, expand the pane, hand the reveal down (the pane
+  // consumes it exactly once).
+  const consumeRevealIntent = useCallback(() => {
+    const intent = takeTrafficStorageReveal();
+    if (!intent) return;
+    setSelectedKey(tabSourceKey(intent.nodeId, intent.tabId));
+    setTabSelection({ nodeId: intent.nodeId, tabId: intent.tabId });
+    setStorageCollapsed(false);
+    setStorageReveal(intent.reveal);
+  }, []);
+  useEffect(() => {
+    consumeRevealIntent();
+    return subscribeTrafficStorageReveal(consumeRevealIntent);
+  }, [consumeRevealIntent]);
+
+  const openStorageDoc = useCallback(
+    (doc: LiveStorageDocRef, label: string) => {
+      if (!tabSelection) return;
+      onOpenStorageDoc(tabSelection.nodeId, tabSelection.tabId, doc, label);
+    },
+    [tabSelection, onOpenStorageDoc],
+  );
+  const openIdbRecord = useCallback(
+    (r: OpenIdbRecordRequest & { frameId: number }) =>
+      openStorageDoc(
+        {
+          kind: 'idb',
+          frameId: r.frameId,
+          database: r.database,
+          store: r.store,
+          primaryKeyWire: r.primaryKeyWire,
+          keyPreview: r.keyPreview,
+        },
+        r.keyPreview,
+      ),
+    [openStorageDoc],
+  );
+  const openDomEntry = useCallback(
+    (r: OpenDomStorageEntryRequest & { frameId: number }) =>
+      openStorageDoc({ kind: 'dom', frameId: r.frameId, area: r.area, entryKey: r.entryKey }, r.entryKey),
+    [openStorageDoc],
+  );
+  const openCookie = useCallback(
+    (r: OpenCookieRequest) =>
+      openStorageDoc({ kind: 'cookie', cookieKey: jarCookieToKey(r.cookie), scopeUrl: r.scopeUrl }, r.cookie.name),
+    [openStorageDoc],
+  );
+  const openCacheEntry = useCallback(
+    (r: OpenCacheEntryRequest & { frameId: number }) =>
+      openStorageDoc(
+        { kind: 'cache', frameId: r.frameId, cache: r.cache, url: r.url, method: r.method },
+        cacheEntryLabel(r.url),
+      ),
+    [openStorageDoc],
+  );
+
+  // The focused storage-document editor tab → its grid row highlighted
+  // in the MATCHING pane (association only, like the network view).
+  const activeStorageTabId =
+    activeTab?.mode === 'live-storage-doc-inspect' &&
+    tabSelection !== null &&
+    activeTab.liveStorageNodeId === tabSelection.nodeId &&
+    activeTab.liveStorageTabId === tabSelection.tabId &&
+    activeTab.liveStorageDoc
+      ? storageDocInnerId(activeTab.liveStorageDoc)
+      : null;
+
+  // Storage-pane sash — vertical twin of the rail sash below.
+  const storageHeightRef = useRef(storageHeight);
+  storageHeightRef.current = storageHeight;
+  const onStorageSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = storageHeightRef.current;
+    const move = (ev: PointerEvent): void => {
+      // Pane is at the bottom, so dragging up (smaller clientY) grows it.
+      const next = Math.min(
+        Math.max(startHeight + (startY - ev.clientY), STORAGE_PANE_MIN_HEIGHT),
+        STORAGE_PANE_MAX_HEIGHT,
+      );
+      setStorageHeight(next);
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }, []);
+
   // Draggable rail width — the vertical sash resizes it, clamped.
   const [railWidth, setRailWidth] = useState(() => lastPanelState.railWidth);
 
@@ -267,7 +410,9 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     lastPanelState.selectedKey = selectedKey;
     lastPanelState.tabSelection = tabSelection;
     lastPanelState.railWidth = railWidth;
-  }, [selectedKey, tabSelection, railWidth]);
+    lastPanelState.storageHeight = storageHeight;
+    lastPanelState.storageCollapsed = storageCollapsed;
+  }, [selectedKey, tabSelection, railWidth, storageHeight, storageCollapsed]);
   const onRailSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -319,19 +464,63 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 }
               />
             ) : tabSelection && tabPortName ? (
-              <NetworkCaptureView
-                key={tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}
-                tabId={tabSelection.tabId}
-                portName={tabPortName}
-                onInspectRequest={inspectTabRequest}
-                highlightRequestId={tabHighlight}
-                emptyHero={
-                  <div className="dt-empty-hero">
-                    <strong>{t('workbench.trafficMonitor.emptyWatching')}</strong>
-                    <span className="dt-empty-hero-sub">{t('workbench.trafficMonitor.emptyWatchingHint')}</span>
-                  </div>
-                }
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                <div style={{ flex: '1 1 auto', minHeight: 0 }}>
+                  <NetworkCaptureView
+                    key={tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}
+                    tabId={tabSelection.tabId}
+                    portName={tabPortName}
+                    onInspectRequest={inspectTabRequest}
+                    highlightRequestId={tabHighlight}
+                    emptyHero={
+                      <div className="dt-empty-hero">
+                        <strong>{t('workbench.trafficMonitor.emptyWatching')}</strong>
+                        <span className="dt-empty-hero-sub">{t('workbench.trafficMonitor.emptyWatchingHint')}</span>
+                      </div>
+                    }
+                  />
+                </div>
+                {storageCollapsed ? (
+                  <button
+                    type="button"
+                    className="traffic-monitor-storage-strip"
+                    data-testid="traffic-monitor-storage-strip"
+                    onClick={() => setStorageCollapsed(false)}
+                  >
+                    {t('panel.toolWindows.storage')}
+                  </button>
+                ) : (
+                  <>
+                    <div
+                      className="traffic-monitor-storage-sash"
+                      data-testid="traffic-monitor-storage-sash"
+                      role="separator"
+                      aria-orientation="horizontal"
+                      onPointerDown={onStorageSashDown}
+                    />
+                    <div
+                      key={`storage-${tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}`}
+                      data-testid="traffic-monitor-storage-pane"
+                      style={{ height: storageHeight, flex: '0 0 auto', minHeight: 0 }}
+                    >
+                      <InspectedTabContext.Provider value={storageHandle}>
+                        <div className="dt-capture-surface">
+                          <StoragePanel
+                            onHide={() => setStorageCollapsed(true)}
+                            onOpenIdbRecord={openIdbRecord}
+                            onOpenDomEntry={openDomEntry}
+                            onOpenCookie={openCookie}
+                            onOpenCacheEntry={openCacheEntry}
+                            reveal={storageReveal}
+                            onRevealConsumed={() => setStorageReveal(null)}
+                            activeStorageTabId={activeStorageTabId}
+                          />
+                        </div>
+                      </InspectedTabContext.Provider>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <div className="dt-empty-hero" style={{ height: '100%' }}>
                 <strong>{t('workbench.trafficMonitor.emptyNoSource')}</strong>

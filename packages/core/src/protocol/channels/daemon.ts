@@ -19,6 +19,7 @@ import type {
   ProxyTrustStoreId,
   ProxyTrustStoreState,
 } from '../../types';
+import type { TelemetryStorageMethod } from '../telemetry-storage';
 import type {
   BrowserTabWire,
   TelemetryBrowserIdentity,
@@ -649,6 +650,20 @@ export interface DaemonRpc {
   'oh.daemon.telemetry.debug.control': {
     req: { nodeId: string; command: TelemetryDebugCommand };
     res: { ok: boolean; debug: TelemetryDebugState | null };
+  };
+
+  /**
+   * One storage bridge call relayed to the extension peer named by
+   * `nodeId` (OBSERVABILITY_PLAN.md Phase 3 — the storage plane).
+   * `method`/`params`/`payload` are the verb's own `DevToolsRpc`
+   * shapes, carried opaquely here; the caller's typed client narrows
+   * them at the wire boundary. `ok` false = the peer is absent or never
+   * answered inside the call window (`payload` null) — distinct from a
+   * verb-level failure, which rides inside the verb's own payload.
+   */
+  'oh.daemon.telemetry.storage.call': {
+    req: { nodeId: string; method: TelemetryStorageMethod; params: unknown };
+    res: { ok: boolean; payload: unknown };
   };
 
   'oh.daemon.audit.query': {

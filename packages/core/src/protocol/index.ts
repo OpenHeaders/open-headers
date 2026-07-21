@@ -134,6 +134,27 @@ export type {
 } from './sync-bridge';
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
+  QualifiedStoragePortTarget,
+  TelemetryStorageCallMessage,
+  TelemetryStorageCallResponseMessage,
+  TelemetryStorageConsumerMessage,
+  TelemetryStorageDetachMessage,
+  TelemetryStorageInvalidationMessage,
+  TelemetryStorageMethod,
+  TelemetryStorageWireMessage,
+} from './telemetry-storage';
+export {
+  isTelemetryStorageMethod,
+  parseQualifiedStoragePortName,
+  qualifiedStoragePortName,
+  STORAGE_PORT_PREFIX,
+  TELEMETRY_STORAGE_CALL_TYPE,
+  TELEMETRY_STORAGE_CONSUMER_TYPE,
+  TELEMETRY_STORAGE_DETACH_TYPE,
+  TELEMETRY_STORAGE_INVALIDATION_TYPE,
+  TELEMETRY_STORAGE_METHODS,
+} from './telemetry-storage';
+export type {
   BrowserTabWire,
   TelemetryBrowserIdentity,
   TelemetryDebugCommand,

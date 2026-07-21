@@ -12,11 +12,11 @@
  */
 
 import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
-import { hostNavigation } from '@openheaders/core/navigation';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatBody, isFormattableBody } from '@openheaders/ui/shared/body-format';
 import { detectLanguage } from '@openheaders/ui/shared/mime';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useInspectedTabId } from '../../data/inspected-tab-context';
 import type { CacheEntryInspectorTab } from '../../data/inspector-tab';
 import type { CacheEntryDocument } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
@@ -63,6 +63,7 @@ interface CacheEntryEditorTabProps {
 
 export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditorTabProps) {
   const t = useT();
+  const inspectedTabId = useInspectedTabId();
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [headerFilter, setHeaderFilter] = useState('');
   const [headerFilterConfig, setHeaderFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
@@ -78,7 +79,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
 
   const fetchDocument = useCallback(async () => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     const token = ++fetchTokenRef.current;
     if (!host || tabId === null) {
       setSlot('unavailable');
@@ -89,7 +90,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
     if (token !== fetchTokenRef.current) return;
     setSlot(next ?? 'unavailable');
     setDeleteFailed(false);
-  }, [frameId, cache, url, method]);
+  }, [frameId, cache, url, method, inspectedTabId]);
 
   useEffect(() => {
     void fetchDocument();
@@ -107,7 +108,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
   const syncDocument = useCallback(async () => {
     if (docRef.current === null) return;
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null) return;
     const token = ++fetchTokenRef.current;
     const next = await host.readCacheEntryDocument(tabId, frameId, cache, url, method);
@@ -119,7 +120,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
       return;
     }
     if (!documentsEqual(current, next)) setSlot(next);
-  }, [frameId, cache, url, method]);
+  }, [frameId, cache, url, method, inspectedTabId]);
 
   const runSync = useCallback(() => {
     void syncDocument();
@@ -127,10 +128,10 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
 
   const subscribeInvalidations = useCallback((listener: () => void) => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null) return () => {};
     return host.subscribeStorageInvalidations(tabId, 'cachestorage', listener);
-  }, []);
+  }, [inspectedTabId]);
 
   useDocumentSync({
     enabled: doc !== null,
@@ -140,7 +141,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
 
   const handleDelete = useCallback(async () => {
     const host = getStorageInspectorHost();
-    const tabId = hostNavigation.inspectedTabId();
+    const tabId = inspectedTabId;
     if (!host || tabId === null) return;
     const ok = await host.deleteCacheEntry(tabId, frameId, cache, url, method);
     if (ok) {
@@ -151,7 +152,7 @@ export function CacheEntryEditorTab({ tab, onRevealInStorage }: CacheEntryEditor
       setDeleteFailed(true);
       void syncDocument();
     }
-  }, [frameId, cache, url, method, syncDocument]);
+  }, [frameId, cache, url, method, syncDocument, inspectedTabId]);
 
   const contentType = useMemo(
     () => doc?.headers.find((h) => h.name.toLowerCase() === 'content-type')?.value ?? '',
