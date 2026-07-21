@@ -745,6 +745,30 @@ describe('peer admin plane — gated oh.daemon.* over real sockets', () => {
     expect(rows.map((r) => r.actorUserId)).toContain(viewer.user.id);
   });
 
+  it('telemetry consumer verbs ride the same daemon.admin gate — a directory user is denied, an operator reaches the inventory', async () => {
+    const viewer = await addUserWithGrant('Bob', 'viewer');
+    const port = await freePort();
+    server = await startServerWithAdminPlane(port);
+    const operator = await connectOperator(port, 'web-operator');
+    const viewerClient = await connectAs(port, viewer, 'ext-bob');
+
+    // The telemetry attach path (tab inventory, Debug-mode arming) is
+    // admin-plane surface: a non-admin authenticated peer must not be
+    // able to enumerate or arm another browser's streams over the wire.
+    const deniedTabs = await callOverWire(viewerClient, { type: 'oh.daemon.telemetry.tabs.list' });
+    expect(deniedTabs.__error).toBe(ADMIN_DENIED_MESSAGE);
+    expect(deniedTabs.payload).toBeUndefined();
+    const deniedDebug = await callOverWire(viewerClient, {
+      type: 'oh.daemon.telemetry.debug.control',
+      nodeId: 'ext-bob',
+      command: 'status',
+    });
+    expect(deniedDebug.__error).toBe(ADMIN_DENIED_MESSAGE);
+
+    const allowed = await callOverWire(operator, { type: 'oh.daemon.telemetry.tabs.list' });
+    expect(allowed.payload).toEqual({ peers: [] });
+  });
+
   it('an operator deactivates a connected directory user over the wire — tokens revoked, live socket evicted', async () => {
     const viewer = await addUserWithGrant('Bob', 'viewer');
     const port = await freePort();

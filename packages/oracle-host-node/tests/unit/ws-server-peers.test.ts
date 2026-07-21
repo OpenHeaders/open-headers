@@ -23,7 +23,12 @@ import {
   mintDaemonAuthToken,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
-import { PROTOCOL_VERSION, SYNC_HELLO_TYPE, SYNC_WELCOME_TYPE } from '@openheaders/core/protocol';
+import {
+  PROTOCOL_VERSION,
+  SYNC_HELLO_TYPE,
+  SYNC_WELCOME_TYPE,
+  TELEMETRY_LIFECYCLE_BATCH_TYPE,
+} from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
 import {
   type OracleWsServer,
@@ -312,6 +317,30 @@ describe('OracleWsServer — peer registry', () => {
     // which is the pre-auth memory-amplification bound A-4 closes.
     client.send(Buffer.alloc(8 * 1024 * 1024 + 1));
     expect(await closed).toBe(1009);
+    expect(server.connectedCount()).toBe(0);
+  });
+
+  it('closes a pre-handshake telemetry push frame with 1002 — only HELLO is accepted before auth', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const client = new WebSocket(`ws://127.0.0.1:${port}`);
+    clients.push(client);
+    await new Promise<void>((resolve, reject) => {
+      client.once('open', () => resolve());
+      client.once('error', reject);
+    });
+    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+      client.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
+    // A telemetry batch from a socket that never authenticated — the
+    // handshake gate closes it before the push/RPC seams can see it, so
+    // an unauthenticated peer can neither inject telemetry nor probe
+    // which channels exist.
+    client.send(JSON.stringify({ type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: 7, consumerId: 'c1', messages: [] }));
+    const { code, reason } = await closed;
+    expect(code).toBe(1002);
+    expect(reason).toBe(`expected ${SYNC_HELLO_TYPE}`);
     expect(server.connectedCount()).toBe(0);
   });
 

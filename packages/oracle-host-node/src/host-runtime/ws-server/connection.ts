@@ -252,14 +252,15 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
       }
 
       // STATE_VECTOR is handshake-flow, not RPC — needs streaming reply
-      // bound to this socket via the PeerConnection. Only valid for
-      // HELLO-connected peers; browserInfo-connected peers (no
-      // workspace binding) get a hard reject so the client knows to
-      // upgrade.
+      // bound to this socket via the PeerConnection. Post-handshake the
+      // registry entry is always present; it can only be missing when
+      // the socket's 'close' handler ran while this frame's async IIFE
+      // was still queued, so the frame is dropped rather than answered
+      // on a dead socket.
       if ((parsed as { type?: unknown })?.type === SYNC_STATE_VECTOR_TYPE) {
         const peerConn = peerBySocket.get(socket);
         if (!peerConn) {
-          logger.warn(SCOPE, 'STATE_VECTOR from a peer that connected via legacy browserInfo; dropping');
+          logger.warn(SCOPE, 'STATE_VECTOR raced the socket close; dropping');
           return;
         }
         void handleStateVector(parsed as Record<string, unknown>, peerConn, {
