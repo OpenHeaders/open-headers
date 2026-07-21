@@ -493,9 +493,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyRunningHint': '将客户端指向 http://127.0.0.1:{port} 即可捕获其请求',
   'workbench.proxyCapture.emptyStopped': '代理已停止',
   'workbench.proxyCapture.emptyStoppedHint': '启动代理以开始捕获流量',
-  'workbench.proxyCapture.noCa':
-    '尚无受信任的 CA：明文 HTTP 会被完整捕获，但 HTTPS 连接以不透明隧道通过——其内部内容不可见。' +
-    '在设置 › 代理 下安装 CA，然后把主机加入解密范围。',
+  'workbench.proxyCapture.noCa': '尚无受信任的 CA——明文 HTTP 会被完整捕获；未安装前 HTTPS 仍为不透明隧道。',
+  'workbench.proxyCapture.noCaAction': '安装 CA',
   'workbench.proxyCapture.routing': '路由浏览器',
   'workbench.proxyCapture.routingFailed': '无法更新路由：{message}',
   'workbench.proxyCapture.routingActiveLead': '这些浏览器现在会把解密范围内的主机经捕获代理发送；其余流量保持直连。',

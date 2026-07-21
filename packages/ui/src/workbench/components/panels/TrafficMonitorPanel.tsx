@@ -30,14 +30,22 @@ import { hasCapability } from '@openheaders/core/capabilities';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NetworkCaptureView } from '../../../panel/components/NetworkCaptureView';
 import { extractName } from '../../../panel/components/traffic/formatters';
 import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-projection';
-import { TrafficMonitorSourceRail, type RailPeer, tabSourceKey, WIRE_SOURCE_KEY } from './TrafficMonitorSourceRail';
+import {
+  RAIL_DEFAULT_WIDTH,
+  RAIL_MAX_WIDTH,
+  RAIL_MIN_WIDTH,
+  TrafficMonitorSourceRail,
+  type RailPeer,
+  tabSourceKey,
+  WIRE_SOURCE_KEY,
+} from './TrafficMonitorSourceRail';
 import { ProxyCaptureStrip, useProxyCaptureStatus } from './ProxyCaptureStrip';
 
 export interface TrafficMonitorPanelProps {
@@ -47,6 +55,8 @@ export interface TrafficMonitorPanelProps {
   onOpenProxyRequest: (requestId: string, label: string) => void;
   /** Open a browser-tab row's inspector as a main editor tab. */
   onOpenLiveRequest: (nodeId: string, tabId: number, requestId: string, label: string) => void;
+  /** Open Settings › Proxy (CA install + trust). */
+  onOpenProxySettings: () => void;
 }
 
 interface TabSelection {
@@ -54,7 +64,13 @@ interface TabSelection {
   tabId: number;
 }
 
-const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({ info, onHide, onOpenProxyRequest, onOpenLiveRequest }) => {
+const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
+  info,
+  onHide,
+  onOpenProxyRequest,
+  onOpenLiveRequest,
+  onOpenProxySettings,
+}) => {
   const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const showWire = hasCapability('proxyCapture');
@@ -134,12 +150,34 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({ info, onHide,
 
   const wireSelected = selectedKey === WIRE_SOURCE_KEY;
 
+  // Draggable rail width — the vertical sash resizes it, clamped.
+  const [railWidth, setRailWidth] = useState(RAIL_DEFAULT_WIDTH);
+  const onRailSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = railWidthRef.current;
+    const move = (ev: PointerEvent): void => {
+      // Rail is on the right, so dragging left (smaller clientX) widens it.
+      const next = Math.min(Math.max(startWidth + (startX - ev.clientX), RAIL_MIN_WIDTH), RAIL_MAX_WIDTH);
+      setRailWidth(next);
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }, []);
+  // Live width for the drag closure without re-binding the handler.
+  const railWidthRef = useRef(railWidth);
+  railWidthRef.current = railWidth;
+
   return (
     <div className="rules-bottom-panel">
       <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.trafficMonitor')}</strong>} info={info} />
       <div style={{ display: 'flex', minHeight: 0, height: '100%' }}>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {wireSelected && <ProxyCaptureStrip controls={proxy} />}
+          {wireSelected && <ProxyCaptureStrip controls={proxy} onOpenProxySettings={onOpenProxySettings} />}
           <div style={{ flex: '1 1 auto', minHeight: 0 }}>
             {wireSelected ? (
               <NetworkCaptureView
@@ -184,6 +222,13 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({ info, onHide,
             )}
           </div>
         </div>
+        <div
+          className="traffic-monitor-rail-sash"
+          data-testid="traffic-monitor-rail-sash"
+          role="separator"
+          aria-orientation="vertical"
+          onPointerDown={onRailSashDown}
+        />
         <TrafficMonitorSourceRail
           peers={peers}
           loading={loading}
@@ -193,6 +238,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({ info, onHide,
           wirePort={proxy.status?.boundPort ?? null}
           selected={selectedKey}
           onSelect={onSelect}
+          width={railWidth}
         />
       </div>
     </div>

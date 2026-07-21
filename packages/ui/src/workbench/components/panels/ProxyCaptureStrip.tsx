@@ -64,9 +64,11 @@ export function useProxyCaptureStatus(): ProxyCaptureControls {
 
 export interface ProxyCaptureStripProps {
   controls: ProxyCaptureControls;
+  /** Opens Settings › Proxy — the CA-install action on the no-CA alert. */
+  onOpenProxySettings: () => void;
 }
 
-export const ProxyCaptureStrip: React.FC<ProxyCaptureStripProps> = ({ controls }) => {
+export const ProxyCaptureStrip: React.FC<ProxyCaptureStripProps> = ({ controls, onOpenProxySettings }) => {
   const t = useT();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
@@ -248,6 +250,11 @@ export const ProxyCaptureStrip: React.FC<ProxyCaptureStripProps> = ({ controls }
           showIcon
           style={{ marginTop: 8, padding: '4px 10px' }}
           message={t('workbench.proxyCapture.noCa')}
+          action={
+            <Button size="small" type="link" style={{ padding: 0 }} onClick={onOpenProxySettings}>
+              {t('workbench.proxyCapture.noCaAction')}
+            </Button>
+          }
         />
       )}
     </div>

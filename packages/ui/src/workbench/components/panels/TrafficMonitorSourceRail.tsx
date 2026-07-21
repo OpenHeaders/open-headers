@@ -24,8 +24,10 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { SectionHeader } from '../sidebar/SectionHeader';
 import { BrowserBrandIcon } from './browser-brand-icons';
 
-/** Fixed rail width — expand/collapse never reflows it. */
-const RAIL_WIDTH = 250;
+/** Default rail width; the vertical sash can resize it within bounds. */
+export const RAIL_DEFAULT_WIDTH = 250;
+export const RAIL_MIN_WIDTH = 180;
+export const RAIL_MAX_WIDTH = 520;
 /** Min height either sash pane keeps; drag clamps against this. */
 const MIN_PANE_HEIGHT = 96;
 
@@ -83,6 +85,8 @@ export interface TrafficMonitorSourceRailProps {
   wirePort: number | null;
   selected: TrafficSourceKey | null;
   onSelect: (key: TrafficSourceKey) => void;
+  /** Current rail width — the panel owns it (vertical sash resizes it). */
+  width: number;
 }
 
 /** `@openheaders/extension@2026.7.11` → `2026.7.11` (null when unparsable). */
@@ -128,6 +132,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   wirePort,
   selected,
   onSelect,
+  width,
 }) => {
   const t = useT();
   const { token } = theme.useToken();
@@ -292,10 +297,9 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
     <div
       data-testid="traffic-monitor-source-rail"
       style={{
-        flex: `0 0 ${RAIL_WIDTH}px`,
-        width: RAIL_WIDTH,
-        maxWidth: RAIL_WIDTH,
-        borderLeft: `1px solid ${token.colorBorderSecondary}`,
+        flex: `0 0 ${width}px`,
+        width,
+        maxWidth: width,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,

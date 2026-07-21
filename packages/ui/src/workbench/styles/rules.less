@@ -590,6 +590,32 @@ body {
   }
 }
 
+// Draggable vertical divider between the plane views and the source
+// rail — carries the rail's left border (the rail no longer draws it).
+.traffic-monitor-rail-sash {
+  flex: 0 0 auto;
+  width: 6px;
+  cursor: col-resize;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: rgba(128, 128, 128, 0.25);
+    transition: background 0.12s ease;
+  }
+
+  &:hover::after {
+    background: rgba(24, 144, 255, 0.5);
+    width: 2px;
+  }
+}
+
 // Draggable divider between the browser-tabs pane and the wire pane.
 .traffic-monitor-sash {
   flex: 0 0 auto;

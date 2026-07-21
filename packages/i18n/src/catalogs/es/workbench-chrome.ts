@@ -503,9 +503,9 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': 'El proxy está detenido',
   'workbench.proxyCapture.emptyStoppedHint': 'Inicia el proxy para empezar a capturar tráfico',
   'workbench.proxyCapture.noCa':
-    'Aún no hay ninguna CA de confianza: el HTTP plano se captura por completo, pero las conexiones HTTPS pasan ' +
-    'como túneles opacos, sin que nada de su interior sea visible. Instala la CA en Configuración › Proxy y añade ' +
-    'hosts al ámbito de descifrado.',
+    'Ninguna CA de confianza: el HTTP plano se captura por completo; el HTTPS sigue siendo un túnel opaco hasta ' +
+    'que la instales.',
+  'workbench.proxyCapture.noCaAction': 'Instalar CA',
   'workbench.proxyCapture.routing': 'Enrutar navegadores',
   'workbench.proxyCapture.routingFailed': 'No se pudo actualizar el enrutamiento: {message}',
   'workbench.proxyCapture.routingActiveLead':

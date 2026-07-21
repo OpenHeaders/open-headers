@@ -503,9 +503,9 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': 'Le proxy est arrêté',
   'workbench.proxyCapture.emptyStoppedHint': 'Démarrez le proxy pour commencer à capturer le trafic',
   'workbench.proxyCapture.noCa':
-    'Aucune AC n’est encore approuvée : le HTTP en clair est capturé en entier, mais les connexions HTTPS ' +
-    'transitent en tunnel opaque — rien de leur contenu n’est visible. Installez l’AC dans Paramètres › Proxy, ' +
-    'puis ajoutez des hôtes au périmètre de déchiffrement.',
+    'Aucune AC approuvée — le HTTP en clair est capturé en entier ; le HTTPS reste un tunnel opaque tant qu’elle ' +
+    'n’est pas installée.',
+  'workbench.proxyCapture.noCaAction': 'Installer l’AC',
   'workbench.proxyCapture.routing': 'Router les navigateurs',
   'workbench.proxyCapture.routingFailed': 'Impossible de mettre à jour le routage : {message}',
   'workbench.proxyCapture.routingActiveLead':
