@@ -74,6 +74,10 @@ export function acceptProxyCaptureLifeline(
       // place so the replay is the canonical view after a reconnect.
       handle?.detach();
       handle = hub.attach(tabId, sink);
+      // Provenance frame: proxy rows retain bodies out-of-row, so the
+      // consumer's detail must pull them lazily instead of assuming the
+      // heuristic engine's eager attachment.
+      port.postMessage({ kind: 'source', tabId, source: 'proxy' } satisfies LifecycleWireMessage);
       return;
     }
     if (msg?.kind === 'clear-session') {

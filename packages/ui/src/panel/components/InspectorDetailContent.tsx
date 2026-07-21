@@ -423,14 +423,16 @@ export function InspectorDetailContent({
   // row that has the tab restores it.
   const section: DetailSection = sections.some((s) => s.key === activeSection) ? activeSection : 'headers';
 
-  // Lazy response-body fetch for CDP rows. The heuristic path attaches
-  // bodies eagerly, but CDP fetches on demand to spare the attached
-  // session per-request round-trips — so when the user opens
-  // Response/Preview and the body slot is still empty, ask for it. The
-  // request is de-duped per hop in the client; the body lands as a
-  // `body-attached` update and the classifier's `loading` covers the gap.
+  // Lazy response-body fetch for CDP and proxy rows. The heuristic path
+  // attaches bodies eagerly, but CDP fetches on demand to spare the
+  // attached session per-request round-trips, and the proxy partition
+  // retains bodies out-of-row in the daemon's body store — so when the
+  // user opens Response/Preview and the body slot is still empty, ask
+  // for it. The request is de-duped per hop in the client; the body
+  // lands as a `body-attached` update and the classifier's `loading`
+  // covers the gap.
   useEffect(() => {
-    if (source !== 'cdp') return;
+    if (source !== 'cdp' && source !== 'proxy') return;
     if (section !== 'response' && section !== 'preview') return;
     if (currentResponseBody(lc) !== null) return;
     requestResponseBody(lc.requestId, lc.redirectHopCount);

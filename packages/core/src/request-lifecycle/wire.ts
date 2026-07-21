@@ -47,11 +47,14 @@ import type { RequestLifecycleUpdate } from './types';
  * Which correlator currently feeds a tab. `'cdp'` means the tab's rows are
  * the higher-fidelity CDP-sourced view (exact initiator stack, precise
  * blocked reasons, on-the-wire headers); `'heuristic'` is the default
- * `webRequest`+HAR path. Drives the panel's "CDP-enhanced" badge. Mirrors
- * the engine-side `TabOwner` — the literal lives here so the boundary can
- * carry it without the consumer importing the chrome-side router.
+ * `webRequest`+HAR path; `'proxy'` is the wire-truth capture partition
+ * served by a daemon host — like CDP, its response bodies are retained
+ * out-of-row and fetched on demand over the lifeline. Drives the panel's
+ * "CDP-enhanced" badge and the lazy body pull. Mirrors the engine-side
+ * `TabOwner` — the literal lives here so the boundary can carry it
+ * without the consumer importing the chrome-side router.
  */
-export type LifecycleSource = 'heuristic' | 'cdp';
+export type LifecycleSource = 'heuristic' | 'cdp' | 'proxy';
 
 export type LifecycleWireMessage =
   | { kind: 'ready'; tabId: number; watermarkMs: number; sessionToken?: string }

@@ -93,6 +93,11 @@ describe('acceptProxyCaptureLifeline', () => {
     const replayed = port.posted.filter((m) => m.kind === 'lifecycle-update');
     expect(replayed).toHaveLength(1);
 
+    // Provenance frame on the handshake: proxy rows retain bodies
+    // out-of-row, so the consumer must know to pull them lazily.
+    const sources = port.posted.filter((m) => m.kind === 'source');
+    expect(sources).toEqual([{ kind: 'source', tabId: PROXY_LIFECYCLE_TAB_ID, source: 'proxy' }]);
+
     // A live capture after attach streams straight through.
     store.apply(startedUpdate('b', 'http://127.0.0.1/b'));
     const live = port.posted.filter((m) => m.kind === 'lifecycle-update');
