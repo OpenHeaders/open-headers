@@ -12,8 +12,8 @@
  *   - a browser tab renders the shared {@link NetworkCaptureView} on
  *     that tab's QUALIFIED lifeline (`oh-lifecycle:<tabId>@<nodeId>`,
  *     relayed to the owning extension peer, subscription-gated end to
- *     end) — the storage plane stacks below it when Phase 3 lands
- *     (browser-truth only: the wire has no storage domain);
+ *     end) — the storage (Phase 3) and console (Phase 4) planes stack
+ *     below it (browser-truth only: the wire has neither domain);
  *   - the wire renders the {@link ProxyCaptureStrip} (capture
  *     infrastructure, contextual to the source that owns it) over the
  *     same view bound to the reserved proxy partition.
@@ -27,7 +27,8 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
-import type { TelemetryDebugCommand } from '@openheaders/core/protocol';
+import type { JsContext } from '@openheaders/core/js-contexts';
+import { qualifiedConsolePortName, type TelemetryDebugCommand, type TelemetryDebugState } from '@openheaders/core/protocol';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type React from 'react';
@@ -35,6 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { ConsoleView, type RemoteConsoleCapture } from '../../../panel/components/ConsoleView';
 import { NetworkCaptureView } from '../../../panel/components/NetworkCaptureView';
 import {
   StoragePanel,
@@ -49,6 +51,8 @@ import { cacheEntryLabel } from '../../../panel/data/inspector-tab';
 import { jarCookieToKey } from '../../../panel/data/cookies/cookie-edit';
 import { InspectedTabContext } from '../../../panel/data/inspected-tab-context';
 import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-projection';
+import type { XhrLogConsoleEntry } from '../../../panel/data/console-xhr-log';
+import { useConsoleClient } from '../../../panel/data/stores/use-console-client';
 import { storageDocInnerId } from '../../data/storage-doc-ref';
 import {
   installTrafficStorageHost,
@@ -101,19 +105,85 @@ const STORAGE_PANE_DEFAULT_HEIGHT = 260;
 const STORAGE_PANE_MIN_HEIGHT = 120;
 const STORAGE_PANE_MAX_HEIGHT = 560;
 
+/** Console pane geometry — same clamps as the storage twin. Collapsed
+ *  by default: three stacked planes contend for height, and the strip
+ *  keeps the plane one click away. */
+const CONSOLE_PANE_DEFAULT_HEIGHT = 220;
+const CONSOLE_PANE_MIN_HEIGHT = 120;
+const CONSOLE_PANE_MAX_HEIGHT = 560;
+
 const lastPanelState: {
   selectedKey: string | null;
   tabSelection: TabSelection | null;
   railWidth: number;
   storageHeight: number;
   storageCollapsed: boolean;
+  consoleHeight: number;
+  consoleCollapsed: boolean;
 } = {
   selectedKey: null,
   tabSelection: null,
   railWidth: RAIL_DEFAULT_WIDTH,
   storageHeight: STORAGE_PANE_DEFAULT_HEIGHT,
   storageCollapsed: false,
+  consoleHeight: CONSOLE_PANE_DEFAULT_HEIGHT,
+  consoleCollapsed: true,
 };
+
+/** Reported for a peer that vanished from the inventory mid-selection. */
+const DEBUG_NONE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
+
+// Identity-stable statics for the console pane's unwired seams: the
+// workbench streams no JS-contexts plane (selector hides on empty), has
+// no network-plane join source for derived XHR rows, and row→request
+// cross-navigation stays panel-only for now.
+const NO_CONSOLE_CONTEXTS: readonly JsContext[] = [];
+const NO_XHR_LOG: readonly XhrLogConsoleEntry[] = [];
+const resolveNoRequest = (): null => null;
+const noopRequestClick = (): void => {};
+const noopRevealConsumed = (): void => {};
+
+interface TrafficConsolePaneProps {
+  nodeId: string;
+  tabId: number;
+  debug: TelemetryDebugState;
+  onHide: () => void;
+}
+
+/**
+ * The console plane of one watched browser tab — the shared ConsoleView
+ * over the qualified `oh-console:<tabId>@<nodeId>` lifeline, view-only
+ * (OBSERVABILITY_PLAN.md Phase 4): capture is the peer's CDP console
+ * stream, arming belongs to the source rail's Debug affordance, and the
+ * REPL prompt never mounts (remoteCapture suppresses it).
+ */
+function TrafficConsolePane({ nodeId, tabId, debug, onHide }: TrafficConsolePaneProps) {
+  const portName = useCallback((tid: number) => qualifiedConsolePortName(tid, nodeId), [nodeId]);
+  const { snapshot, store } = useConsoleClient({ tabId, portName });
+  const remoteCapture = useMemo<RemoteConsoleCapture>(
+    () => ({
+      available: debug.available,
+      enabled: debug.enabled,
+      capturing: debug.attachedTabs.includes(tabId),
+    }),
+    [debug, tabId],
+  );
+  const onClear = useCallback(() => store.clear(), [store]);
+  return (
+    <ConsoleView
+      entries={snapshot.entries}
+      xhrLogEntries={NO_XHR_LOG}
+      contexts={NO_CONSOLE_CONTEXTS}
+      resolveRequest={resolveNoRequest}
+      onRequestClick={noopRequestClick}
+      onClear={onClear}
+      onHide={onHide}
+      reveal={null}
+      onRevealConsumed={noopRevealConsumed}
+      remoteCapture={remoteCapture}
+    />
+  );
+}
 
 // The relay-backed storage + cookie seams are process-wide; install
 // them when the Traffic Monitor's module loads (idempotent — the
@@ -312,6 +382,16 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const [storageCollapsed, setStorageCollapsed] = useState(() => lastPanelState.storageCollapsed);
   const [storageReveal, setStorageReveal] = useState<StorageRevealRequest | null>(null);
 
+  // ── Console pane (Phase 4) — third stacked pane, browser-tab sources
+  // only (the wire has no console domain). View-only; capture posture
+  // comes from the selected peer's Debug state in the rail inventory.
+  const [consoleHeight, setConsoleHeight] = useState(() => lastPanelState.consoleHeight);
+  const [consoleCollapsed, setConsoleCollapsed] = useState(() => lastPanelState.consoleCollapsed);
+  const selectedPeerDebug = useMemo(
+    () => (tabSelection !== null ? (peers.find((p) => p.nodeId === tabSelection.nodeId)?.debug ?? DEBUG_NONE) : DEBUG_NONE),
+    [peers, tabSelection],
+  );
+
   // Reveal intents posted by storage-document editor tabs: adopt the
   // intent's source, expand the pane, hand the reveal down (the pane
   // consumes it exactly once).
@@ -403,6 +483,28 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     window.addEventListener('pointerup', up);
   }, []);
 
+  // Console-pane sash — same drag mechanics as the storage twin above.
+  const consoleHeightRef = useRef(consoleHeight);
+  consoleHeightRef.current = consoleHeight;
+  const onConsoleSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = consoleHeightRef.current;
+    const move = (ev: PointerEvent): void => {
+      const next = Math.min(
+        Math.max(startHeight + (startY - ev.clientY), CONSOLE_PANE_MIN_HEIGHT),
+        CONSOLE_PANE_MAX_HEIGHT,
+      );
+      setConsoleHeight(next);
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }, []);
+
   // Draggable rail width — the vertical sash resizes it, clamped.
   const [railWidth, setRailWidth] = useState(() => lastPanelState.railWidth);
 
@@ -412,7 +514,9 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     lastPanelState.railWidth = railWidth;
     lastPanelState.storageHeight = storageHeight;
     lastPanelState.storageCollapsed = storageCollapsed;
-  }, [selectedKey, tabSelection, railWidth, storageHeight, storageCollapsed]);
+    lastPanelState.consoleHeight = consoleHeight;
+    lastPanelState.consoleCollapsed = consoleCollapsed;
+  }, [selectedKey, tabSelection, railWidth, storageHeight, storageCollapsed, consoleHeight, consoleCollapsed]);
   const onRailSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -517,6 +621,40 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                           />
                         </div>
                       </InspectedTabContext.Provider>
+                    </div>
+                  </>
+                )}
+                {consoleCollapsed ? (
+                  <button
+                    type="button"
+                    className="traffic-monitor-console-strip"
+                    data-testid="traffic-monitor-console-strip"
+                    onClick={() => setConsoleCollapsed(false)}
+                  >
+                    {t('panel.toolWindows.console')}
+                  </button>
+                ) : (
+                  <>
+                    <div
+                      className="traffic-monitor-console-sash"
+                      data-testid="traffic-monitor-console-sash"
+                      role="separator"
+                      aria-orientation="horizontal"
+                      onPointerDown={onConsoleSashDown}
+                    />
+                    <div
+                      key={`console-${tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}`}
+                      data-testid="traffic-monitor-console-pane"
+                      style={{ height: consoleHeight, flex: '0 0 auto', minHeight: 0 }}
+                    >
+                      <div className="dt-capture-surface">
+                        <TrafficConsolePane
+                          nodeId={tabSelection.nodeId}
+                          tabId={tabSelection.tabId}
+                          debug={selectedPeerDebug}
+                          onHide={() => setConsoleCollapsed(true)}
+                        />
+                      </div>
                     </div>
                   </>
                 )}

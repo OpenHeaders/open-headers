@@ -134,6 +134,20 @@ export type {
 } from './sync-bridge';
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
+  QualifiedConsolePortTarget,
+  TelemetryConsoleBatchMessage,
+  TelemetryConsoleConsumerMessage,
+  TelemetryConsoleDetachMessage,
+  TelemetryConsoleWireMessage,
+} from './telemetry-console';
+export {
+  parseQualifiedConsolePortName,
+  qualifiedConsolePortName,
+  TELEMETRY_CONSOLE_BATCH_TYPE,
+  TELEMETRY_CONSOLE_CONSUMER_TYPE,
+  TELEMETRY_CONSOLE_DETACH_TYPE,
+} from './telemetry-console';
+export type {
   QualifiedStoragePortTarget,
   TelemetryStorageCallMessage,
   TelemetryStorageCallResponseMessage,

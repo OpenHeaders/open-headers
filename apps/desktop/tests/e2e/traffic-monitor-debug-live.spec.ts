@@ -550,6 +550,41 @@ test('the storage pane collapses to the reopen strip and survives dock-tab switc
   await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toBeVisible();
 });
 
+// ── Phase 4: the stacked console pane ───────────────────────────────
+
+test("the console pane streams the watched tab's console output, view-only", async () => {
+  await setToolWindowOpen(true);
+  // Collapsed by default — the strip reopens the plane.
+  await workbench.locator('[data-testid="traffic-monitor-console-strip"]').click();
+  const pane = workbench.locator('[data-testid="traffic-monitor-console-pane"]');
+  await expect(pane).toBeVisible();
+
+  // Emit in the WATCHED page — the entry must arrive through the CDP
+  // console stream relayed over the wire (never a desktop derivation).
+  await playground.evaluate(() => console.log('oh-e2e-console-probe'));
+  await expect(pane.locator('.dt-console-row').filter({ hasText: 'oh-e2e-console-probe' }).first()).toBeVisible({
+    timeout: 20000,
+  });
+
+  // View-only law: the REPL prompt never mounts on the remote surface.
+  await expect(pane.locator('.dt-console-prompt')).toHaveCount(0);
+});
+
+test('the console pane replays the retained log across collapse/reopen', async () => {
+  const pane = workbench.locator('[data-testid="traffic-monitor-console-pane"]');
+  await pane.getByRole('button', { name: 'Hide panel' }).first().click();
+  await expect(pane).toHaveCount(0);
+  const strip = workbench.locator('[data-testid="traffic-monitor-console-strip"]');
+  await expect(strip).toBeVisible();
+
+  // Reopen: a fresh consumer session replays the hub's retained log —
+  // the earlier probe returns without re-emitting it.
+  await strip.click();
+  await expect(pane.locator('.dt-console-row').filter({ hasText: 'oh-e2e-console-probe' }).first()).toBeVisible({
+    timeout: 20000,
+  });
+});
+
 // ── Leg 5: unpin from the rail ──────────────────────────────────────
 
 test('un-pinning from the rail detaches and returns the row to the ghost state', async () => {

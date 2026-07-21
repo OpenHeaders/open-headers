@@ -18,19 +18,36 @@ import { useMemo, useRef, useSyncExternalStore } from 'react';
 import { useLifelineClient } from '../use-lifeline-client';
 import { type ConsoleClientSnapshot, ConsoleClientStore } from './console-client-store';
 
+export interface UseConsoleClientOptions {
+  /**
+   * Bind a fixed browser tab instead of the inspected tab — the
+   * workbench Traffic Monitor passes the watched tab. Omit on DevTools
+   * surfaces to inherit `hostNavigation.inspectedTabId()`.
+   */
+  readonly tabId?: number;
+  /**
+   * Override the port-name encoder — the workbench console pane passes
+   * `qualifiedConsolePortName(tabId, nodeId)` so the daemon's relay
+   * routes the watch to the owning extension peer. Defaults to the
+   * local `oh-console:<tabId>` shape.
+   */
+  readonly portName?: (tabId: number) => string;
+}
+
 export interface UseConsoleClientResult {
   readonly snapshot: ConsoleClientSnapshot;
   readonly tabId: number | null;
   readonly store: ConsoleClientStore;
 }
 
-export function useConsoleClient(): UseConsoleClientResult {
+export function useConsoleClient(options: UseConsoleClientOptions = {}): UseConsoleClientResult {
   const storeRef = useRef<ConsoleClientStore | null>(null);
   if (!storeRef.current) storeRef.current = new ConsoleClientStore();
   const store = storeRef.current;
 
   const { tabId } = useLifelineClient<ConsoleStreamWireMessage>({
-    portName: consoleStreamPortName,
+    ...(options.tabId !== undefined ? { tabId: options.tabId } : {}),
+    portName: options.portName ?? consoleStreamPortName,
     handler: (msg) => {
       switch (msg.kind) {
         case 'ready':

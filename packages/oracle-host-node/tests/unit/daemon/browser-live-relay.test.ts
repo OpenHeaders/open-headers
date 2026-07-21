@@ -15,6 +15,9 @@
 import { type IncomingLifelinePort, setLifelineServer } from '@openheaders/core/awareness';
 import { setHostLogger } from '@openheaders/core/logger';
 import {
+  TELEMETRY_CONSOLE_BATCH_TYPE,
+  TELEMETRY_CONSOLE_CONSUMER_TYPE,
+  TELEMETRY_CONSOLE_DETACH_TYPE,
   TELEMETRY_DEBUG_CONTROL_TYPE,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
@@ -437,6 +440,61 @@ describe('createBrowserLiveRelay', () => {
     const before = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CONSUMER_TYPE).length;
     emitPeerConnect(peerSummary('node-a'));
     const rejoins = frames.filter((f) => f.frame.type === TELEMETRY_STORAGE_CONSUMER_TYPE).slice(before);
+    expect(rejoins).toHaveLength(1);
+    expect(rejoins[0].frame.consumerId).toBe(secondId);
+    relay.dispose();
+  });
+
+  it('accepts console ports, opens a per-consumer watch, and routes batches point-to-point', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server, frames, emitPeerConnect } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const first = fakePort('oh-console:7@node-a');
+    const second = fakePort('oh-console:7@node-a');
+    connect(first);
+    connect(second);
+
+    const opens = frames.filter((f) => f.frame.type === TELEMETRY_CONSOLE_CONSUMER_TYPE);
+    expect(opens).toHaveLength(2);
+    expect(opens[0].frame.tabId).toBe(7);
+    expect(opens[0].to).toEqual(['peer-node-a']);
+    const firstId = opens[0].frame.consumerId as string;
+    const secondId = opens[1].frame.consumerId as string;
+
+    // The batch lands ONLY on the consumer it addresses, and only from
+    // the owning peer (partition identity is peer-qualified).
+    relay.peerPush.handle(
+      {
+        type: TELEMETRY_CONSOLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: secondId,
+        messages: [{ kind: 'ready', tabId: 7 }],
+      },
+      peerSummary('node-a'),
+    );
+    relay.peerPush.handle(
+      {
+        type: TELEMETRY_CONSOLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: firstId,
+        messages: [{ kind: 'ready', tabId: 7 }],
+      },
+      peerSummary('node-other'),
+    );
+    expect(first.posted).toHaveLength(0);
+    expect(second.posted).toEqual([{ kind: 'ready', tabId: 7 }]);
+
+    // A leaving viewer ends ITS watch; a reconnect re-opens survivors.
+    first.disconnect();
+    const detaches = frames.filter((f) => f.frame.type === TELEMETRY_CONSOLE_DETACH_TYPE);
+    expect(detaches).toHaveLength(1);
+    expect(detaches[0].frame.consumerId).toBe(firstId);
+    const before = frames.filter((f) => f.frame.type === TELEMETRY_CONSOLE_CONSUMER_TYPE).length;
+    emitPeerConnect(peerSummary('node-a'));
+    const rejoins = frames.filter((f) => f.frame.type === TELEMETRY_CONSOLE_CONSUMER_TYPE).slice(before);
     expect(rejoins).toHaveLength(1);
     expect(rejoins[0].frame.consumerId).toBe(secondId);
     relay.dispose();

@@ -58,6 +58,7 @@ import { recordFiresForReport } from '../rule-engine-driver/fire-recorder';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { startTelemetryStreamHost } from '../telemetry-stream-host';
+import { startTelemetryConsoleHost } from '../telemetry-stream-host/console-host';
 import { startTelemetryStorageHost } from '../telemetry-stream-host/storage-host';
 import { debouncedUpdateBadge } from './badge-update';
 import { setCdpMasterSwitch } from './cdp-master-switch';
@@ -370,6 +371,19 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     // tab is a clean no-op.
     bodyFetcher: lifecycleBodyFetcher,
   });
+  // Console capture (Phase G): a CDP-attached tab's console output + uncaught
+  // exceptions ride E4's standing Runtime.enable — already arriving, formerly
+  // dropped, now un-dropped in the debugger source's Runtime.* router and fanned
+  // here as host-neutral ConsoleEntry. The hub holds a bounded per-tab log
+  // (replay source) and broadcasts live to oh-console:<tabId> ports; tab-cleared
+  // is bus-driven on tab close (mirror of the page + rule-fire hubs).
+  // Observation-only — no page effect, no oracle/control involvement.
+  // Constructed here, before the telemetry hosts, so the desktop console
+  // watch registers ahead of the stream host's `host ready` announce.
+  const consoleStreamHub = new ConsoleStreamHub({ bus: tabLifecycleBus });
+  startConsoleStreamPortHost({ hub: consoleStreamHub });
+  lifecycleHost.debuggerSource.subscribeConsole((tabId, entry) => consoleStreamHub.recordEntry(tabId, entry));
+
   // Desktop storage plane (OBSERVABILITY_PLAN.md Phase 3): the DevTools-
   // bridge storage/cookie verbs relayed over the backend wire, plus
   // per-consumer invalidation watches; loopback wires only. Started
@@ -377,6 +391,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // the stream host's `host ready` announce triggers the daemon's
   // re-join (which re-subscribes storage watches too).
   startTelemetryStorageHost();
+  // Desktop console plane (OBSERVABILITY_PLAN.md Phase 4): the SAME
+  // console hub streamed over the backend wire, per-consumer sessions,
+  // view-only (no eval verbs cross this seam); loopback wires only.
+  // Same start-order law as the storage host — before the announce.
+  startTelemetryConsoleHost({ hub: consoleStreamHub });
   // Desktop live-view plane (OBSERVABILITY_PLAN.md Phase 1): the same
   // hub + floors + provenance + body fetcher served over the backend
   // wire — a forwarded workbench subscribe raises the tracking ref and
@@ -438,17 +457,6 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     isCdpOwned: (tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp',
   });
   reportFire = (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record);
-
-  // Console capture (Phase G): a CDP-attached tab's console output + uncaught
-  // exceptions ride E4's standing Runtime.enable — already arriving, formerly
-  // dropped, now un-dropped in the debugger source's Runtime.* router and fanned
-  // here as host-neutral ConsoleEntry. The hub holds a bounded per-tab log
-  // (replay source) and broadcasts live to oh-console:<tabId> ports; tab-cleared
-  // is bus-driven on tab close (mirror of the page + rule-fire hubs).
-  // Observation-only — no page effect, no oracle/control involvement.
-  const consoleStreamHub = new ConsoleStreamHub({ bus: tabLifecycleBus });
-  startConsoleStreamPortHost({ hub: consoleStreamHub });
-  lifecycleHost.debuggerSource.subscribeConsole((tabId, entry) => consoleStreamHub.recordEntry(tabId, entry));
 
   // JS-contexts registry (JS contexts Phase A): the live execution-context
   // set of a CDP-attached tab, from the executionContext* events the standing

@@ -74,6 +74,20 @@ export interface ConsoleRevealRequest {
   nonce: number;
 }
 
+/**
+ * Capture posture of a REMOTE mount — the workbench feeds the owning
+ * peer's Debug-mode state (from the telemetry inventory) instead of the
+ * local status roster a DevTools mount derives it from.
+ */
+export interface RemoteConsoleCapture {
+  /** The peer's browser can drive CDP at all (false on Firefox/Safari). */
+  available: boolean;
+  /** The peer's Debug-mode master switch. */
+  enabled: boolean;
+  /** The watched tab is in the peer's committed attach set. */
+  capturing: boolean;
+}
+
 interface ConsoleViewProps {
   entries: readonly ConsoleEntry[];
   /** Synthesized "finished/failed loading" rows derived from the network
@@ -91,6 +105,13 @@ interface ConsoleViewProps {
   /** Pending search-jump — consumed exactly once via `onRevealConsumed`. */
   reveal: ConsoleRevealRequest | null;
   onRevealConsumed: () => void;
+  /**
+   * Remote-mount capture posture. When set the view is VIEW-ONLY: the
+   * REPL prompt never renders and the local Debug-mode controls are
+   * suppressed — arming the tab belongs to the workbench's source rail
+   * (desktop→page eval is scriptable-plane territory, never relayed).
+   */
+  remoteCapture?: RemoteConsoleCapture;
 }
 
 /**
@@ -286,12 +307,18 @@ export function ConsoleView({
   onHide,
   reveal,
   onRevealConsumed,
+  remoteCapture,
 }: ConsoleViewProps) {
   const t = useT();
   const [textFilter, setTextFilter] = useState('');
   const [filterConfig, setFilterConfig] = useState<TextMatchConfig>(DEFAULT_TEXT_MATCH_CONFIG);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const { hasCdpCapability, cdpEnabled, cdpOwned } = useInspectedTabCdp();
+  // A remote mount reads the OWNING peer's Debug posture; the local
+  // roster describes this host, which is the wrong browser there.
+  const localCdp = useInspectedTabCdp();
+  const hasCdpCapability = remoteCapture?.available ?? localCdp.hasCdpCapability;
+  const cdpEnabled = remoteCapture?.enabled ?? localCdp.cdpEnabled;
+  const cdpOwned = remoteCapture?.capturing ?? localCdp.cdpOwned;
   const [, setCdpEnabled] = useSetting('inspection.cdpEnabled');
 
   // Console settings + level mask live in a panel-session store (the view
@@ -572,7 +599,9 @@ export function ConsoleView({
   // the one out-of-scope case we can resolve in place (flip the master switch);
   // an in-scope-but-unpinned tab is steered from Debug mode itself.
   const capturing = cdpOwned;
-  const canEnableDebug = hasCdpCapability && !cdpEnabled;
+  // The in-place "turn Debug mode on" resolve writes the LOCAL setting —
+  // never offered on a remote mount, where the source rail owns arming.
+  const canEnableDebug = remoteCapture === undefined && hasCdpCapability && !cdpEnabled;
 
   const enableDebug = (): void => setCdpEnabled(true);
 
@@ -861,7 +890,9 @@ export function ConsoleView({
           </>
         )}
       </div>
-      {capturing && <ConsolePrompt contextKey={effectiveContextKey} onSubmit={evaluate} onPreview={previewExpression} />}
+      {capturing && remoteCapture === undefined && (
+        <ConsolePrompt contextKey={effectiveContextKey} onSubmit={evaluate} onPreview={previewExpression} />
+      )}
     </div>
   );
 }

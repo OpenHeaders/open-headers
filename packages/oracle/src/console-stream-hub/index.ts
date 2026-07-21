@@ -5,4 +5,4 @@
  */
 
 export { ConsoleStreamHub } from './hub';
-export type { Sink } from './types';
+export type { AttachmentHandle, Sink } from './types';
