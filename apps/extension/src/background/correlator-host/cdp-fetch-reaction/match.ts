@@ -8,14 +8,13 @@ import type { RequestBodyAction, ResourceType, ResponseAction, Rule } from '@ope
 import {
   CDP_REQUEST_STAGE_CONDITIONS,
   CDP_RESPONSE_STAGE_CONDITIONS,
+  doesGraphqlBodyGatePass,
   doesHostMatchDomains,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   getRuleMatchPatterns,
 } from '@openheaders/core/utils';
 import type { CdpHeaderEntry } from '@openheaders/oracle/correlator-cdp';
-
-type GraphqlFilter = NonNullable<ResponseAction['graphqlFilter']>;
 
 export interface RequestStageContext {
   readonly url: string;
@@ -150,21 +149,7 @@ export function matchedPatternFor(rule: Rule, url: string): string {
  * restructured around.
  */
 export function graphqlGate(action: ResponseAction | RequestBodyAction, postData: string | undefined): boolean {
-  if (action.resourceType !== 'graphql' || !action.graphqlFilter?.key) return true;
-  return matchesGraphqlBody(postData ?? '', action.graphqlFilter);
-}
-
-function matchesGraphqlBody(bodyStr: string, filter: GraphqlFilter): boolean {
-  if (bodyStr.length === 0) return false;
-  try {
-    const parsed: unknown = JSON.parse(bodyStr);
-    if (parsed == null || typeof parsed !== 'object') return false;
-    const value = (parsed as Record<string, unknown>)[filter.key];
-    if (typeof value !== 'string') return false;
-    return filter.operator === 'Contains' ? value.includes(filter.value) : value === filter.value;
-  } catch {
-    return false;
-  }
+  return doesGraphqlBodyGatePass(action, postData);
 }
 
 function hostOf(url: string): string | null {

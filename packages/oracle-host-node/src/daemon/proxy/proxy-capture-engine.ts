@@ -11,6 +11,7 @@
 
 import { hostInScope } from '@openheaders/core/proxy';
 import type { ProxyCaRecord } from '@openheaders/core/types';
+import type { ProxyBodyRetainer } from './body-store';
 import { readProxyCa } from './ca-store';
 import { type LifecycleSink, ProxyCaptureLifecycleMapper } from './capture-lifecycle';
 import { createProxyMitmServer, type ProxyMitmServer } from './mitm-server';
@@ -43,6 +44,8 @@ export interface ProxyCaptureEngineOptions {
   readonly sink: LifecycleSink;
   /** Phase-3 rule enforcement on captured exchanges; absent = read-only. */
   readonly enforcer?: ProxyRuleEnforcer;
+  /** Out-of-row retention for teed response bodies; absent = not retained. */
+  readonly bodyRetainer?: ProxyBodyRetainer;
   readonly caProvider?: ProxyCaProvider;
   readonly now?: () => number;
 }
@@ -52,7 +55,7 @@ export interface ProxyCaptureEngine {
 }
 
 export function createProxyCaptureEngine(options: ProxyCaptureEngineOptions): ProxyCaptureEngine {
-  const mapper = new ProxyCaptureLifecycleMapper(options.sink);
+  const mapper = new ProxyCaptureLifecycleMapper(options.sink, options.bodyRetainer);
   const server = createProxyMitmServer({
     caProvider: options.caProvider ?? sealedCaProvider(),
     scope: scopeFromPatterns(options.getScopePatterns),

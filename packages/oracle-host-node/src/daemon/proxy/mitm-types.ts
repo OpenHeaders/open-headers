@@ -6,7 +6,9 @@
  * is driven in tests without OS trust or a real CA install.
  */
 
+import type { RequestOverride, ResponseOverride } from '@openheaders/core/request-lifecycle';
 import type { ProxyCaRecord } from '@openheaders/core/types';
+import type { CapturedBody } from './body-store';
 
 /** One request/response header, preserving on-the-wire order + case. */
 export interface ProxyHeader {
@@ -78,6 +80,15 @@ export interface ProxyExchangeEnd {
   /** Encoded request body bytes forwarded upstream. */
   readonly requestBytes?: number;
   readonly timing?: ProxyHopTiming;
+  /** Bounded tee of the request body the proxy forwarded (§6 contract). */
+  readonly requestBody?: CapturedBody;
+  /**
+   * Bounded tee of the encoded response body relayed downstream —
+   * retained out-of-row and decoded lazily on inspect.
+   */
+  readonly responseBody?: CapturedBody;
+  /** The response's `Content-Encoding`, lower-cased; absent = identity. */
+  readonly responseContentEncoding?: string;
 }
 
 /** One rule-driven in-place URL rewrite on a captured exchange. */
@@ -109,6 +120,18 @@ export interface ProxyCaptureObserver {
    * response callback, once per rewrite in application order.
    */
   onInternalRedirect(id: string, redirect: ProxyInternalRedirect): void;
+  /**
+   * A request-body rule substituted the outgoing body — the two-sided
+   * capture (`sent` vs `original`), fired before re-origination.
+   */
+  onRequestOverride(id: string, override: RequestOverride): void;
+  /**
+   * A response rule acted on the exchange — `served` is what went
+   * downstream; `original` is the real reply for a `network`-source rule
+   * (a `mock` never hit the server, so there is no original). Fired at
+   * exchange end, when the original tee is complete.
+   */
+  onResponseOverride(id: string, override: ResponseOverride): void;
   onResponseHeaders(id: string, head: ProxyResponseHead): void;
   onComplete(id: string, end: ProxyExchangeEnd): void;
   onError(id: string, error: ProxyExchangeError): void;

@@ -164,8 +164,8 @@ import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
 import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
 import { createProxyCaptureService } from './proxy/proxy-capture-service';
-import { createProxyRoutingControl } from './proxy/routing-push';
 import { createProxyTrustService } from './proxy/proxy-trust';
+import { createProxyRoutingControl } from './proxy/routing-push';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
 import type { SpineStatusReporter, SpineStatusStore } from './status-seam';
@@ -691,7 +691,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // pipe for the reserved proxy partition (no-op on a headless host
   // with no lifeline server installed).
   const proxyCaptureService = createProxyCaptureService();
-  const uninstallProxyCaptureLifeline = installProxyCaptureLifeline(proxyCaptureService.hub);
+  const uninstallProxyCaptureLifeline = installProxyCaptureLifeline(proxyCaptureService.hub, (requestId, hopIndex) =>
+    proxyCaptureService.serveRequestBody(requestId, hopIndex),
+  );
 
   // Scoped browser-routing controller (OBSERVABILITY_PLAN.md §5.1) —
   // pushes the capture service's folded routing verdict to same-device

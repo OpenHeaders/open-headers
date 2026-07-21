@@ -102,10 +102,11 @@ export type { ActionDetail } from './rule-display';
 export { DNR_PRIORITY, getActionDetail } from './rule-display';
 export type { DraftUrlStrategy } from './rule-draft';
 export { DRAFT_URL_STRATEGIES, deriveUrlFilter } from './rule-draft';
-export type { MatchPattern, MatchPatternKind } from './rule-matcher';
+export type { GraphqlBodyGate, MatchPattern, MatchPatternKind } from './rule-matcher';
 export {
   compilePatternToRegexSource,
   compileRuleForInjection,
+  doesGraphqlBodyGatePass,
   doesHostMatchDomains,
   doesInitiatorMatchRule,
   doesMethodMatchRule,

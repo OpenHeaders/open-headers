@@ -9,10 +9,20 @@
  *  - block wins outright; redirect rewrites once; query-param mutates
  *    on top; delay rules sum;
  *  - a response-gated rule acts only on the response side, judged
- *    against the arrived headers.
+ *    against the arrived headers;
+ *  - body-touching rules: static-only candidates, first-match exclusive
+ *    across both types, the GraphQL gate falls through to the next
+ *    candidate, mock envelope defaults and the network-source
+ *    keep-original sentinels mirror the CDP `Fetch` reaction.
  */
 
-import type { HeaderModification, Rule, RuleCondition } from '@openheaders/core/types';
+import type {
+  HeaderModification,
+  RequestBodyAction,
+  ResponseAction,
+  Rule,
+  RuleCondition,
+} from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { createProxyRuleEnforcer } from '../../../src/daemon/proxy/rule-enforcement';
 
@@ -216,6 +226,169 @@ describe('proxy rule enforcement planner', () => {
     expect(approved.appliedRuleUids).toEqual([gated.uid]);
     expect(approved.headers.filter((h) => h.name.toLowerCase() === 'cache-control')).toEqual([
       { name: 'Cache-Control', value: 'no-store' },
+    ]);
+  });
+});
+
+// ── Body-touching rules ─────────────────────────────────────────────
+
+function requestBodyRule(overrides: Partial<RequestBodyAction> = {}): Rule {
+  return {
+    ...baseRule('request-body', [urlCondition('*://api.openheaders.io/*')]),
+    type: 'request-body',
+    action: { bodyType: 'static', requestBody: '{"sent":true}', resourceType: 'rest', ...overrides },
+  } as Rule;
+}
+
+function responseRule(overrides: Partial<ResponseAction> = {}): Rule {
+  return {
+    ...baseRule('response', [urlCondition('*://api.openheaders.io/*')]),
+    type: 'response',
+    action: {
+      responseSource: 'mock',
+      bodyType: 'static',
+      responseBody: '{"mock":true}',
+      statusCode: 0,
+      contentType: '',
+      responseHeaders: {},
+      ...overrides,
+    },
+  } as Rule;
+}
+
+describe('proxy body-rule planning', () => {
+  it('selects static candidates only, first-match exclusive across both types', () => {
+    const dynamic = requestBodyRule({ bodyType: 'dynamic' });
+    const winner = responseRule();
+    const later = requestBodyRule();
+    const enforcer = enforcerOf([dynamic, winner, later]);
+    const plan = enforcer.planRequest({ url: URL, method: 'POST', headers: [] });
+    expect(plan.bodyRules.map((r) => r.uid)).toEqual([winner.uid, later.uid]);
+    const body = enforcer.planBody(plan, undefined);
+    expect(body).toMatchObject({ kind: 'mock', ruleUid: winner.uid });
+  });
+
+  it('plans a static request-body substitution', () => {
+    const rule = requestBodyRule();
+    const enforcer = enforcerOf([rule]);
+    const plan = enforcer.planRequest({ url: URL, method: 'POST', headers: [] });
+    expect(enforcer.needsRequestBodyText(plan)).toBe(false);
+    expect(enforcer.planBody(plan, undefined)).toEqual({
+      kind: 'request-body',
+      ruleUid: rule.uid,
+      body: '{"sent":true}',
+    });
+  });
+
+  it('applies the mock envelope defaults: status → 200, CT default with header layering', () => {
+    const rule = responseRule({ responseHeaders: { 'X-Mocked': 'yes', 'Content-Type': 'text/plain' } });
+    const enforcer = enforcerOf([rule]);
+    const body = enforcer.planBody(enforcer.planRequest({ url: URL, method: 'GET', headers: [] }), undefined);
+    expect(body).toEqual({
+      kind: 'mock',
+      ruleUid: rule.uid,
+      statusCode: 200,
+      headers: [
+        { name: 'Content-Type', value: 'text/plain' },
+        { name: 'X-Mocked', value: 'yes' },
+      ],
+      body: '{"mock":true}',
+    });
+  });
+
+  it('GraphQL gate: a failing candidate falls through to the next; an unreadable body never fires a filtered rule', () => {
+    const filtered = requestBodyRule({
+      resourceType: 'graphql',
+      graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'GetItems' },
+    });
+    const fallback = responseRule();
+    const enforcer = enforcerOf([filtered, fallback]);
+    const plan = enforcer.planRequest({ url: URL, method: 'POST', headers: [] });
+    expect(enforcer.needsRequestBodyText(plan)).toBe(true);
+
+    const hit = enforcer.planBody(plan, '{"operationName":"GetItems"}');
+    expect(hit).toMatchObject({ kind: 'request-body', ruleUid: filtered.uid });
+
+    const miss = enforcer.planBody(plan, '{"operationName":"Other"}');
+    expect(miss).toMatchObject({ kind: 'mock', ruleUid: fallback.uid });
+
+    const unreadable = enforcer.planBody(plan, undefined);
+    expect(unreadable).toMatchObject({ kind: 'mock', ruleUid: fallback.uid });
+  });
+
+  it('skips a response-gated mock but defers a response-gated network rule to arrival', () => {
+    const gatedMock = responseRule();
+    gatedMock.conditions.push({ uid: uid(), type: 'response-header', values: [], headerName: 'X-Flag' });
+    const gatedNetwork = responseRule({ responseSource: 'network', responseBody: 'substituted' });
+    gatedNetwork.conditions.push({ uid: uid(), type: 'response-header', values: [], headerName: 'X-Flag' });
+    const enforcer = enforcerOf([gatedMock, gatedNetwork]);
+    const plan = enforcer.planRequest({ url: URL, method: 'GET', headers: [] });
+    expect(plan.bodyRules.map((r) => r.uid)).toEqual([gatedNetwork.uid]);
+
+    const body = enforcer.planBody(plan, undefined);
+    expect(body).toMatchObject({ kind: 'network-response' });
+    if (body?.kind !== 'network-response') throw new Error('expected network-response plan');
+
+    const denied = enforcer.resolveNetworkResponse(body, {
+      statusCode: 200,
+      statusText: 'OK',
+      headers: [{ name: 'Content-Type', value: 'text/plain' }],
+    });
+    expect(denied).toBeNull();
+
+    const fired = enforcer.resolveNetworkResponse(body, {
+      statusCode: 200,
+      statusText: 'OK',
+      headers: [{ name: 'X-Flag', value: 'yes' }],
+    });
+    expect(fired).toMatchObject({ ruleUid: gatedNetwork.uid, body: 'substituted' });
+  });
+
+  it('network substitution keeps the real status/CT via the 0/empty sentinels and drops body framing', () => {
+    const keepOriginal = responseRule({ responseSource: 'network', responseBody: 'new-body' });
+    const enforcer = enforcerOf([keepOriginal]);
+    const body = enforcer.planBody(enforcer.planRequest({ url: URL, method: 'GET', headers: [] }), undefined);
+    if (body?.kind !== 'network-response') throw new Error('expected network-response plan');
+    const served = enforcer.resolveNetworkResponse(body, {
+      statusCode: 418,
+      statusText: 'Teapot',
+      headers: [
+        { name: 'Content-Type', value: 'application/json' },
+        { name: 'Content-Encoding', value: 'gzip' },
+        { name: 'Content-Length', value: '999' },
+        { name: 'X-Real', value: 'kept' },
+      ],
+    });
+    expect(served).toMatchObject({ statusCode: 418, statusText: 'Teapot', body: 'new-body' });
+    expect(served?.headers).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Real', value: 'kept' },
+    ]);
+  });
+
+  it('network substitution layers the CT and header overrides onto the real head', () => {
+    const overriding = responseRule({
+      responseSource: 'network',
+      responseBody: 'x',
+      statusCode: 503,
+      contentType: 'text/html',
+      responseHeaders: { 'X-Real': 'replaced' },
+    });
+    const enforcer = enforcerOf([overriding]);
+    const body = enforcer.planBody(enforcer.planRequest({ url: URL, method: 'GET', headers: [] }), undefined);
+    if (body?.kind !== 'network-response') throw new Error('expected network-response plan');
+    const served = enforcer.resolveNetworkResponse(body, {
+      statusCode: 200,
+      statusText: 'OK',
+      headers: [
+        { name: 'Content-Type', value: 'application/json' },
+        { name: 'X-Real', value: 'kept' },
+      ],
+    });
+    expect(served).toMatchObject({ statusCode: 503 });
+    expect(served?.headers).toEqual([
+      { name: 'Content-Type', value: 'text/html' },
+      { name: 'X-Real', value: 'replaced' },
     ]);
   });
 });

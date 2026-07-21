@@ -103,4 +103,14 @@ describe('acceptProxyCaptureLifeline', () => {
     store.apply(startedUpdate('c', 'http://127.0.0.1/c'));
     expect(port.posted.filter((m) => m.kind === 'lifecycle-update')).toHaveLength(2);
   });
+
+  it('routes the request-body pull to the injected handler', () => {
+    const hub = new RequestLifecycleHub({ store: new RequestLifecycleStore() });
+    const pulls: Array<{ requestId: string; hopIndex: number }> = [];
+    const port = fakePort(`oh-lifecycle:${PROXY_LIFECYCLE_TAB_ID}`);
+    acceptProxyCaptureLifeline(hub, port, (requestId, hopIndex) => pulls.push({ requestId, hopIndex }));
+    port.send({ kind: 'subscribe' });
+    port.send({ kind: 'request-body', requestId: 'proxy-1', hopIndex: 0 });
+    expect(pulls).toEqual([{ requestId: 'proxy-1', hopIndex: 0 }]);
+  });
 });

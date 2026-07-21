@@ -21,12 +21,13 @@
 
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { WS_PORT } from '@openheaders/core/protocol';
-import { isValidScopePattern } from '@openheaders/core/proxy';
+import { isValidScopePattern, PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import { ProxyCaptureSettingsSchema } from '@openheaders/core/schemas';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import type { ProxyCaptureSettings, ProxyCaptureStatus } from '@openheaders/core/types';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import { ProxyBodyStore } from './body-store';
 import { readProxyCa } from './ca-store';
 import type { ProxyMitmServer } from './mitm-server';
 import { createProxyCaptureEngine } from './proxy-capture-engine';
@@ -66,6 +67,13 @@ export interface ProxyCaptureControl {
 export interface ProxyCaptureService extends ProxyCaptureControl {
   /** The hub the lifecycle-port acceptor attaches panel sinks to. */
   readonly hub: RequestLifecycleHub;
+  /**
+   * Answer a consumer's on-demand body pull: resolve the retained body
+   * (decoding lazily) and apply a `body-attached` update to the store —
+   * the hub streams it to every attached sink. Unanswerable pulls
+   * (never captured, evicted) are silently dropped per the wire contract.
+   */
+  serveRequestBody(requestId: string, hopIndex: number): void;
   /** Persist the scoped browser-routing desire (§5.1). */
   setRoutingEnabled(enabled: boolean): Promise<void>;
   /** The persisted routing desire, before folding with run state. */
@@ -84,6 +92,9 @@ export interface ProxyCaptureService extends ProxyCaptureControl {
 export function createProxyCaptureService(): ProxyCaptureService {
   const store = new RequestLifecycleStore();
   const hub = new RequestLifecycleHub({ store });
+  // Out-of-row body retention — survives stop (a stop is a tap being
+  // closed, not evidence being destroyed), cleared only on dispose.
+  const bodyStore = new ProxyBodyStore();
 
   // In-memory working copy of the persisted settings, hydrated once —
   // every read/write goes through `settings()`, which awaits the
@@ -156,6 +167,7 @@ export function createProxyCaptureService(): ProxyCaptureService {
       getScopePatterns: () => current.scopePatterns,
       sink: (update) => store.apply(update),
       enforcer: createProxyRuleEnforcer(ruleSource),
+      bodyRetainer: bodyStore,
     });
     try {
       const bound = await engine.server.listen(current.port);
@@ -222,11 +234,18 @@ export function createProxyCaptureService(): ProxyCaptureService {
     };
   }
 
+  function serveRequestBody(requestId: string, hopIndex: number): void {
+    const body = bodyStore.resolve(requestId, hopIndex);
+    if (body === null) return;
+    store.apply({ kind: 'body-attached', tabId: PROXY_LIFECYCLE_TAB_ID, requestId, hopIndex, body });
+  }
+
   async function dispose(): Promise<void> {
     await stop();
     routingListeners.clear();
     ruleSource?.dispose();
     ruleSource = null;
+    bodyStore.clear();
     hub.dispose();
   }
 
@@ -239,6 +258,7 @@ export function createProxyCaptureService(): ProxyCaptureService {
     getRoutingEnabled,
     getRoutingWireState,
     subscribeRoutingChange,
+    serveRequestBody,
     hub,
     dispose,
   };

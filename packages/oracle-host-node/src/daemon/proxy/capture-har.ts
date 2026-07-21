@@ -5,14 +5,17 @@
  * carries genuine L4 legs (connect / ssl / send / wait / receive) the
  * browser-side correlators can only get from CDP. No sizes are invented:
  * byte counts are the encoded bytes the proxy itself relayed;
- * `content.size` keeps the exporter's unknown marker (bodies are not
- * captured on this plane yet).
+ * `content.size` is stated only when the tee captured the whole identity-
+ * encoded body (captured length = decoded length), else it keeps the
+ * exporter's unknown marker. A fully-captured UTF-8 request body rides
+ * `request.postData` — the wire body, post any rule substitution.
  *
  * Both header sets are the post-rewrite wire sets the proxy actually
  * forwarded/relayed, so the capture stamp is effective/effective.
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { type CapturedBody, shapeBodyContent } from './body-store';
 import type { ProxyExchangeEnd, ProxyHeader, ProxyHopTiming, ProxyRequestStart, ProxyResponseHead } from './mitm-types';
 
 const toHarHeaders = (headers: readonly ProxyHeader[]): Array<{ name: string; value: string }> =>
@@ -98,6 +101,26 @@ function exporterTimeSum(t: ProxyHarTimings): number {
  * carries the ORIGINAL request identity; `url` is the hop's effective
  * (post-rewrite) target the entry describes.
  */
+/** A fully-captured UTF-8 request body as the HAR `postData` block. */
+function postDataOf(
+  body: CapturedBody | undefined,
+  requestHeaders: readonly ProxyHeader[],
+): { mimeType: string; text: string } | undefined {
+  if (body === undefined || body.truncated || body.totalBytes === 0) return undefined;
+  const shaped = shapeBodyContent(body.bytes);
+  if (shaped.encoding !== '') return undefined;
+  return { mimeType: mimeFromContentType(findHeader(requestHeaders, 'Content-Type')), text: shaped.content };
+}
+
+/** Decoded body size — stated only when the tee holds the whole identity-
+ *  encoded body; anything else keeps the unknown marker. */
+function contentSizeOf(end: ProxyExchangeEnd): number {
+  const body = end.responseBody;
+  if (body === undefined || body.truncated) return 0;
+  if (end.responseContentEncoding !== undefined && end.responseContentEncoding !== 'identity') return 0;
+  return body.bytes.length;
+}
+
 export function proxyHarEntry(
   start: ProxyRequestStart,
   url: string,
@@ -106,6 +129,7 @@ export function proxyHarEntry(
 ): InspectorHarEntry {
   const timings =
     end.timing !== undefined ? timingsOf(start.startedAtMs, end.timing, head.atMs, end.completedAtMs) : undefined;
+  const postData = postDataOf(end.requestBody, start.headers);
   return {
     _priority: null,
     _resourceType: 'other',
@@ -119,13 +143,14 @@ export function proxyHarEntry(
       queryString: queryStringOf(url),
       headersSize: -1,
       bodySize: end.requestBytes ?? -1,
+      ...(postData !== undefined ? { postData } : {}),
     },
     response: {
       status: head.statusCode,
       statusText: head.statusText,
       headers: toHarHeaders(head.headers),
       content: {
-        size: 0,
+        size: contentSizeOf(end),
         mimeType: mimeFromContentType(findHeader(head.headers, 'Content-Type')),
       },
       redirectURL: findHeader(head.headers, 'Location') ?? '',

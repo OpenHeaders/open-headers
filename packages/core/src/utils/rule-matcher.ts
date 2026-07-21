@@ -446,6 +446,43 @@ function escapeRegexChar(ch: string): string {
   return /[.*+?^${}()|[\]\\]/.test(ch) ? `\\${ch}` : ch;
 }
 
+// ── GraphQL body gate ────────────────────────────────────────────
+
+/**
+ * The GraphQL-filter surface of a body-touching action — structurally
+ * satisfied by both `RequestBodyAction` and `ResponseAction`, so every
+ * enforcement plane (CDP `Fetch` reaction, proxy MITM path) judges the
+ * gate through this one function.
+ */
+export interface GraphqlBodyGate {
+  readonly resourceType?: 'rest' | 'graphql';
+  readonly graphqlFilter?: { readonly key: string; readonly operator: 'Equals' | 'Contains'; readonly value: string };
+}
+
+/**
+ * True unless a GraphQL filter is active and the request body fails it.
+ *
+ * `bodyText === undefined` means the observing plane could not read the
+ * body (too large for its inline bound, or absent) — the gate then sees
+ * no body and a filtered rule does NOT fire, the same documented bound
+ * on every plane.
+ */
+export function doesGraphqlBodyGatePass(action: GraphqlBodyGate, bodyText: string | undefined): boolean {
+  if (action.resourceType !== 'graphql' || !action.graphqlFilter?.key) return true;
+  const filter = action.graphqlFilter;
+  const bodyStr = bodyText ?? '';
+  if (bodyStr.length === 0) return false;
+  try {
+    const parsed: unknown = JSON.parse(bodyStr);
+    if (parsed == null || typeof parsed !== 'object') return false;
+    const value = (parsed as Record<string, unknown>)[filter.key];
+    if (typeof value !== 'string') return false;
+    return filter.operator === 'Contains' ? value.includes(filter.value) : value === filter.value;
+  } catch {
+    return false;
+  }
+}
+
 // ── Injection compilation ────────────────────────────────────────
 
 /**

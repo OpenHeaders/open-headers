@@ -19,6 +19,7 @@ import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import type { ProxyCaRecord, Rule, RuleCondition } from '@openheaders/core/types';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { ProxyBodyStore } from '../../../src/daemon/proxy/body-store';
 import { mintLeafCertificate, mintProxyCa } from '../../../src/daemon/proxy/ca-store';
 import { ProxyCaptureLifecycleMapper } from '../../../src/daemon/proxy/capture-lifecycle';
 import { createProxyMitmServer, type ProxyMitmServer } from '../../../src/daemon/proxy/mitm-server';
@@ -127,6 +128,31 @@ function proxiedHttpGet(proxyPort: number, targetUrl: string): Promise<HttpResul
   });
 }
 
+/** A plain proxied POST with a body — same absolute-form shape. */
+function proxiedHttpPost(proxyPort: number, targetUrl: string, body: string): Promise<HttpResult> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(targetUrl);
+    const req = http.request(
+      {
+        host: HOST,
+        port: proxyPort,
+        method: 'POST',
+        path: targetUrl,
+        headers: { host: u.host, 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () =>
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks).toString() }),
+        );
+      },
+    );
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
 async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
@@ -146,6 +172,7 @@ function caProviderOf(ca: ProxyCaRecord | null): ProxyCaProvider {
 describe('proxy MITM capture core', () => {
   let ca: ProxyCaRecord;
   let store: RequestLifecycleStore;
+  let bodyStore: ProxyBodyStore;
   let mapper: ProxyCaptureLifecycleMapper;
   let proxy: ProxyMitmServer;
   const cleanups: Array<() => Promise<void>> = [];
@@ -153,7 +180,8 @@ describe('proxy MITM capture core', () => {
   beforeEach(async () => {
     ca = await mintProxyCa();
     store = new RequestLifecycleStore();
-    mapper = new ProxyCaptureLifecycleMapper((u) => store.apply(u));
+    bodyStore = new ProxyBodyStore();
+    mapper = new ProxyCaptureLifecycleMapper((u) => store.apply(u), bodyStore);
   });
 
   afterEach(async () => {
@@ -426,6 +454,189 @@ describe('proxy MITM capture core', () => {
     expect(timings?.wait).toBeGreaterThanOrEqual(0);
     expect(timings?.receive).toBeGreaterThanOrEqual(0);
     expect(har?.time).toBeGreaterThanOrEqual(0);
+  });
+
+  // ── Body tee + body-touching rules ─────────────────────────────────
+
+  it('tees the response body out-of-row and states the identity content size', async () => {
+    const upstream = await startHttpUpstream();
+    cleanups.push(() => closeServer(upstream.server));
+
+    proxy = createProxyMitmServer({ caProvider: caProviderOf(ca), scope: scopeOf([]), observer: mapper });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstream.port}/teed`);
+    expect(res.status).toBe(200);
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed' && r.har[0] != null));
+    const [row] = proxyRows();
+    expect(row.har[0]?.response?.content.size).toBe(Buffer.byteLength(res.body));
+    // The lazy pull's answer — resolved from the store, shaped as text.
+    expect(bodyStore.resolve(row.requestId, 0)).toMatchObject({ content: 'plain:/teed', encoding: '' });
+  });
+
+  it('substitutes a static request-body rule and records the two-sided override', async () => {
+    let seenBody = '';
+    let seenLength: string | undefined;
+    const server = http.createServer((req, res) => {
+      seenLength = req.headers['content-length'];
+      const chunks: Buffer[] = [];
+      req.on('data', (c: Buffer) => chunks.push(c));
+      req.on('end', () => {
+        seenBody = Buffer.concat(chunks).toString();
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end('{"ok":true}');
+      });
+    });
+    const upstreamPort = await listen(server);
+    cleanups.push(() => closeServer(server));
+
+    const rule: Rule = {
+      ...ruleBase('request-body'),
+      type: 'request-body',
+      action: { bodyType: 'static', requestBody: '{"sent":"literal"}', resourceType: 'rest' },
+    } as Rule;
+
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpPost(port, `http://${HOST}:${upstreamPort}/replace`, '{"original":1}');
+    expect(res.status).toBe(200);
+    expect(seenBody).toBe('{"sent":"literal"}');
+    expect(seenLength).toBe(String(Buffer.byteLength('{"sent":"literal"}')));
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed' && r.har[0] != null));
+    const [row] = proxyRows();
+    expect(row.requestOverride?.ruleUid).toBe(rule.uid);
+    expect(row.requestOverride?.sent.body).toEqual({ content: '{"sent":"literal"}', encoding: '' });
+    expect(row.requestOverride?.original?.body).toEqual({ content: '{"original":1}', encoding: '' });
+    // The HAR carries the WIRE body — the substituted literal.
+    expect(row.har[0]?.request?.postData?.text).toBe('{"sent":"literal"}');
+    expect(row.har[0]?.request?.bodySize).toBe(Buffer.byteLength('{"sent":"literal"}'));
+  });
+
+  it('answers a mock response rule without re-originating', async () => {
+    // A dead upstream port — a mock that tried to dial it would 502.
+    const deadPort = await freePort();
+
+    const rule: Rule = {
+      ...ruleBase('response'),
+      type: 'response',
+      action: {
+        responseSource: 'mock',
+        bodyType: 'static',
+        responseBody: '{"mocked":true}',
+        statusCode: 0,
+        contentType: '',
+        responseHeaders: { 'X-Mock': 'yes' },
+      },
+    } as Rule;
+
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${deadPort}/mocked`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/json');
+    expect(res.headers['x-mock']).toBe('yes');
+    expect(res.body).toBe('{"mocked":true}');
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed' && r.har[0] != null));
+    const [row] = proxyRows();
+    expect(row.statusCode).toBe(200);
+    expect(row.responseOverride?.ruleUid).toBe(rule.uid);
+    expect(row.responseOverride?.served.body).toEqual({ content: '{"mocked":true}', encoding: '' });
+    expect(row.responseOverride?.original).toBeUndefined();
+    expect(bodyStore.resolve(row.requestId, 0)).toMatchObject({ content: '{"mocked":true}' });
+  });
+
+  it('substitutes a network-source response and captures the real reply as the original', async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(418, 'Teapot', { 'content-type': 'text/plain', 'x-real': 'kept' });
+      res.end('real-body');
+    });
+    const upstreamPort = await listen(server);
+    cleanups.push(() => closeServer(server));
+
+    const rule: Rule = {
+      ...ruleBase('response'),
+      type: 'response',
+      action: {
+        responseSource: 'network',
+        bodyType: 'static',
+        responseBody: 'served-body',
+        statusCode: 0,
+        contentType: '',
+        responseHeaders: {},
+      },
+    } as Rule;
+
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstreamPort}/substituted`);
+    // The 0-sentinel keeps the real status; the body is the literal.
+    expect(res.status).toBe(418);
+    expect(res.headers['x-real']).toBe('kept');
+    expect(res.body).toBe('served-body');
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed' && r.responseOverride !== undefined));
+    const [row] = proxyRows();
+    expect(row.statusCode).toBe(418);
+    expect(row.responseOverride?.served.body).toEqual({ content: 'served-body', encoding: '' });
+    expect(row.responseOverride?.original?.statusCode).toBe(418);
+    expect(row.responseOverride?.original?.body).toEqual({ content: 'real-body', encoding: '' });
+    expect(bodyStore.resolve(row.requestId, 0)).toMatchObject({ content: 'served-body' });
+  });
+
+  it('releases the reply untouched when a response-gated network rule fails at arrival', async () => {
+    const upstream = await startHttpUpstream();
+    cleanups.push(() => closeServer(upstream.server));
+
+    const rule: Rule = {
+      ...ruleBase('response'),
+      type: 'response',
+      action: {
+        responseSource: 'network',
+        bodyType: 'static',
+        responseBody: 'never-served',
+        statusCode: 0,
+        contentType: '',
+        responseHeaders: {},
+      },
+    } as Rule;
+    rule.conditions.push({ uid: uid(), type: 'response-header', values: [], headerName: 'X-Absent' });
+
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstream.port}/untouched`);
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('plain:/untouched');
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed'));
+    const [row] = proxyRows();
+    expect(row.responseOverride).toBeUndefined();
   });
 
   it('captures an upstream failure on a scoped host as a failed lifecycle', async () => {

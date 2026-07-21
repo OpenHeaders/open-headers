@@ -16,11 +16,21 @@
  *  - completion attaches a synthesized HAR entry (`har-attached`) on the
  *    final hop, carrying the wire headers, measured byte counts and the
  *    proxy's own L4 timing legs — the waterfall and detail tabs light up
- *    through the panel's existing HAR path.
+ *    through the panel's existing HAR path;
+ *  - a body rule's two-sided capture rides `request-override-attached` /
+ *    `response-override-attached`, and the teed response body is retained
+ *    OUT of the row (the injected {@link ProxyBodyRetainer}) for the
+ *    lifeline's lazy `request-body` pull.
  */
 
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
-import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type {
+  RequestLifecycle,
+  RequestLifecycleUpdate,
+  RequestOverride,
+  ResponseOverride,
+} from '@openheaders/core/request-lifecycle';
+import type { ProxyBodyRetainer } from './body-store';
 import { proxyHarEntry } from './capture-har';
 import type {
   ProxyCaptureObserver,
@@ -56,7 +66,10 @@ interface PendingExchange {
 export class ProxyCaptureLifecycleMapper implements ProxyCaptureObserver {
   private readonly pending = new Map<string, PendingExchange>();
 
-  constructor(private readonly emit: LifecycleSink) {}
+  constructor(
+    private readonly emit: LifecycleSink,
+    private readonly bodies?: ProxyBodyRetainer,
+  ) {}
 
   onRequestStart(start: ProxyRequestStart): void {
     this.pending.set(start.id, { start, url: start.url, hopIndex: 0 });
@@ -102,6 +115,14 @@ export class ProxyCaptureLifecycleMapper implements ProxyCaptureObserver {
     });
   }
 
+  onRequestOverride(id: string, override: RequestOverride): void {
+    this.emit({ kind: 'request-override-attached', tabId: PROXY_LIFECYCLE_TAB_ID, requestId: id, override });
+  }
+
+  onResponseOverride(id: string, override: ResponseOverride): void {
+    this.emit({ kind: 'response-override-attached', tabId: PROXY_LIFECYCLE_TAB_ID, requestId: id, override });
+  }
+
   onResponseHeaders(id: string, head: ProxyResponseHead): void {
     const entry = this.pending.get(id);
     if (entry !== undefined) entry.head = head;
@@ -135,6 +156,15 @@ export class ProxyCaptureLifecycleMapper implements ProxyCaptureObserver {
       hopIndex: entry.hopIndex,
       har: proxyHarEntry(entry.start, entry.url, entry.head, end),
     });
+    if (this.bodies !== undefined && end.responseBody !== undefined && end.responseBody.totalBytes > 0) {
+      this.bodies.retain(id, entry.hopIndex, {
+        method: entry.start.method,
+        url: entry.url,
+        startedAtMs: entry.start.startedAtMs,
+        body: end.responseBody,
+        ...(end.responseContentEncoding !== undefined ? { contentEncoding: end.responseContentEncoding } : {}),
+      });
+    }
   }
 
   onError(id: string, error: ProxyExchangeError): void {

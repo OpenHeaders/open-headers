@@ -18,6 +18,14 @@
  * header mods rewrite the wire sets both directions. Blind tunnels stay
  * untouched — un-scoped traffic is never captured NOR enforced.
  *
+ * Body plane (§6 capture contract): both directions tee into bounded
+ * buffers on the existing stream listeners — forwarding never awaits
+ * capture; over-cap captures truncate, throughput is untouched. The
+ * static body-touching rule types ride the tee: `request-body`
+ * substitutes the outgoing body, a `mock` response answers without
+ * re-originating, a `network` response substitutes the arrived reply
+ * while the real body drains into the two-sided override capture.
+ *
  * L4 timings are measured on the proxy's own upstream sockets and
  * reported with the terminal callback; the lifecycle mapper folds them
  * into a synthesized HAR entry. Every capture is surfaced through a
@@ -29,9 +37,18 @@ import * as https from 'node:https';
 import * as net from 'node:net';
 import type { Duplex } from 'node:stream';
 import * as tls from 'node:tls';
+import type { InspectorOverrideBody } from '@openheaders/core/request-lifecycle';
+import {
+  BoundedBodyBuffer,
+  type CapturedBody,
+  decodeContentEncoding,
+  PROXY_BODY_CAPTURE_CAP_BYTES,
+  PROXY_BODY_GATE_CAP_BYTES,
+  shapeBodyContent,
+} from './body-store';
 import { LeafContextCache } from './leaf-context';
-import type { ProxyCaProvider, ProxyCaptureObserver, ProxyHeader, ProxyScope } from './mitm-types';
-import type { ProxyRequestPlan, ProxyRuleEnforcer } from './rule-enforcement';
+import type { ProxyCaProvider, ProxyCaptureObserver, ProxyExchangeEnd, ProxyHeader, ProxyScope } from './mitm-types';
+import type { ProxyBodyPlan, ProxyRequestPlan, ProxyRuleEnforcer, ProxyServedResponse } from './rule-enforcement';
 
 export interface ProxyMitmServerOptions {
   readonly caProvider: ProxyCaProvider;
@@ -134,6 +151,94 @@ function outboundHeaders(pairs: readonly ProxyHeader[], authority: string | null
     }
   }
   return out;
+}
+
+/** Request framing headers recomputed when a rule substitutes the body. */
+const REQUEST_FRAMING_HEADERS: ReadonlySet<string> = new Set([
+  'content-length',
+  'transfer-encoding',
+  'content-encoding',
+]);
+
+/** The wire header set for a substituted request body — framing recomputed. */
+function substitutedBodyHeaders(pairs: readonly ProxyHeader[], byteLength: number): ProxyHeader[] {
+  const out = pairs.filter((h) => !REQUEST_FRAMING_HEADERS.has(h.name.toLowerCase()));
+  out.push({ name: 'Content-Length', value: String(byteLength) });
+  return out;
+}
+
+const toPlainHeaders = (pairs: readonly ProxyHeader[]): Array<{ name: string; value: string }> =>
+  pairs.map((h) => ({ name: h.name, value: h.value }));
+
+/** Case-insensitive first-match header lookup. */
+function headerValue(pairs: readonly ProxyHeader[], target: string): string | undefined {
+  const lower = target.toLowerCase();
+  for (const h of pairs) {
+    if (h.name.toLowerCase() === lower) return h.value;
+  }
+  return undefined;
+}
+
+/** A fully-known wire buffer as a capture (tee-capped like any other body). */
+function wireBodyOf(bytes: Buffer): CapturedBody {
+  const tee = new BoundedBodyBuffer(PROXY_BODY_CAPTURE_CAP_BYTES);
+  tee.push(bytes);
+  return tee.snapshot();
+}
+
+/** The read-ahead prefix of an inbound body — collected until the gate
+ *  bound or EOF, with the stream paused when more remains. */
+interface InboundReadAhead {
+  readonly prefix: Buffer;
+  readonly ended: boolean;
+}
+
+function readAhead(req: http.IncomingMessage, capBytes: number): Promise<InboundReadAhead> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const finish = (ended: boolean): void => {
+      req.removeListener('data', onData);
+      req.removeListener('end', onEnd);
+      resolve({ prefix: Buffer.concat(chunks), ended });
+    };
+    const onData = (chunk: Buffer): void => {
+      chunks.push(chunk);
+      size += chunk.length;
+      if (size >= capBytes) {
+        req.pause();
+        finish(false);
+      }
+    };
+    const onEnd = (): void => finish(true);
+    req.on('data', onData);
+    req.on('end', onEnd);
+  });
+}
+
+/** Drain the rest of an inbound body into the capture tee (nothing forwards). */
+function drainRemaining(req: http.IncomingMessage, ended: boolean, tee: BoundedBodyBuffer): Promise<void> {
+  if (ended) return Promise.resolve();
+  return new Promise((resolve) => {
+    req.on('data', (chunk: Buffer) => tee.push(chunk));
+    req.once('end', () => resolve());
+    req.once('error', () => resolve());
+    req.resume();
+  });
+}
+
+/** Shape a captured original body for an override snapshot — omitted when
+ *  truncated or undecodable (an honest absence, never partial bytes posing
+ *  as the whole). */
+function snapshotBody(capture: CapturedBody, contentEncoding?: string): InspectorOverrideBody | undefined {
+  if (capture.truncated || capture.totalBytes === 0) return undefined;
+  let bytes = capture.bytes;
+  if (contentEncoding !== undefined && contentEncoding !== 'identity') {
+    const decoded = decodeContentEncoding(bytes, contentEncoding);
+    if (decoded === null) return undefined;
+    bytes = decoded;
+  }
+  return shapeBodyContent(bytes);
 }
 
 /** Header pairs → the downstream `writeHead` shape (same collapsing). */
@@ -266,7 +371,7 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
       this.enforcer !== null
         ? this.enforcer.planRequest({ url: requested.url, method, headers: inboundHeaders })
         : null;
-    const wireHeaders = plan?.requestHeaders ?? inboundHeaders;
+    let wireHeaders = plan?.requestHeaders ?? inboundHeaders;
 
     this.observer.onRequestStart({
       id,
@@ -316,6 +421,43 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
       await new Promise<void>((resolve) => setTimeout(resolve, plan.delayMs));
     }
 
+    // ── Body-rule resolution (§6 tee + body-touching rule types) ─────
+    // The inbound body is read ahead only when a body candidate exists;
+    // the gate text is bounded exactly as the CDP plane's inline bound.
+    const requestTee = new BoundedBodyBuffer(PROXY_BODY_CAPTURE_CAP_BYTES);
+    let inboundPrefix: Buffer = Buffer.alloc(0);
+    let inboundEnded = false;
+    let bodyPlan: ProxyBodyPlan | null = null;
+    if (plan !== null && this.enforcer !== null && plan.bodyRules.length > 0) {
+      const ahead = await readAhead(req, PROXY_BODY_GATE_CAP_BYTES);
+      inboundPrefix = ahead.prefix;
+      inboundEnded = ahead.ended;
+      requestTee.push(inboundPrefix);
+      const gateText =
+        this.enforcer.needsRequestBodyText(plan) && ahead.ended ? ahead.prefix.toString('utf8') : undefined;
+      bodyPlan = this.enforcer.planBody(plan, gateText);
+    }
+
+    if (bodyPlan !== null && bodyPlan.kind === 'mock') {
+      await drainRemaining(req, inboundEnded, requestTee);
+      this.serveMock(id, plan, bodyPlan, res, requestTee.snapshot());
+      return;
+    }
+
+    let sentBodyBytes: Buffer | null = null;
+    if (bodyPlan !== null && bodyPlan.kind === 'request-body') {
+      await drainRemaining(req, inboundEnded, requestTee);
+      sentBodyBytes = Buffer.from(bodyPlan.body, 'utf8');
+      wireHeaders = substitutedBodyHeaders(wireHeaders, sentBodyBytes.length);
+      const original = requestTee.snapshot();
+      const originalBody = snapshotBody(original);
+      this.observer.onRequestOverride(id, {
+        ruleUid: bodyPlan.ruleUid,
+        sent: { headers: toPlainHeaders(wireHeaders), body: shapeBodyContent(sentBodyBytes) },
+        ...(originalBody !== undefined ? { original: { body: originalBody } } : {}),
+      });
+    }
+
     const atStartMs = this.now();
     const timing: {
       reusedSocket: boolean;
@@ -347,6 +489,24 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
     const upstream = transport.request(requestOptions, (upRes) => {
       timing.responseAtMs = this.now();
       const upstreamHeadPairs = rawHeaderPairs(upRes.rawHeaders);
+      const arrived = {
+        statusCode: upRes.statusCode ?? 0,
+        statusText: upRes.statusMessage ?? '',
+        headers: upstreamHeadPairs,
+      };
+
+      const substitution =
+        bodyPlan !== null && bodyPlan.kind === 'network-response' && this.enforcer !== null
+          ? this.enforcer.resolveNetworkResponse(bodyPlan, arrived)
+          : null;
+      if (substitution !== null) {
+        this.serveSubstitutedResponse(id, plan, substitution, upRes, arrived, res, () => ({
+          requestBytes,
+          timing: { atStartMs, ...timing },
+        }));
+        return;
+      }
+
       const served =
         plan !== null && this.enforcer !== null
           ? this.enforcer.applyResponseHeaders(plan, upstreamHeadPairs).headers
@@ -358,16 +518,22 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
         atMs: this.now(),
       });
       res.writeHead(upRes.statusCode ?? 502, upRes.statusMessage, downstreamHeaders(served));
+      const responseTee = new BoundedBodyBuffer(PROXY_BODY_CAPTURE_CAP_BYTES);
       let bytes = 0;
       upRes.on('data', (chunk: Buffer) => {
         bytes += chunk.length;
+        responseTee.push(chunk);
       });
       upRes.on('end', () => {
+        const contentEncoding = headerValue(upstreamHeadPairs, 'content-encoding');
         this.observer.onComplete(id, {
           completedAtMs: this.now(),
           responseBytes: bytes,
           requestBytes,
           timing: { atStartMs, ...timing },
+          requestBody: sentBodyBytes !== null ? wireBodyOf(sentBodyBytes) : requestTee.snapshot(),
+          responseBody: responseTee.snapshot(),
+          ...(contentEncoding !== undefined ? { responseContentEncoding: contentEncoding.toLowerCase() } : {}),
         });
       });
       upRes.pipe(res);
@@ -403,10 +569,124 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
     });
 
     let requestBytes = 0;
-    req.on('data', (chunk: Buffer) => {
-      requestBytes += chunk.length;
+    if (sentBodyBytes !== null) {
+      // Substituted body — the original inbound stream is already drained.
+      requestBytes = sentBodyBytes.length;
+      upstream.end(sentBodyBytes);
+    } else if (inboundEnded) {
+      // Read-ahead consumed the whole body; `end` has already fired, so a
+      // pipe would never close the upstream side.
+      requestBytes = inboundPrefix.length;
+      if (inboundPrefix.length > 0) upstream.write(inboundPrefix);
+      upstream.end();
+    } else {
+      if (inboundPrefix.length > 0) {
+        requestBytes += inboundPrefix.length;
+        upstream.write(inboundPrefix);
+      }
+      req.on('data', (chunk: Buffer) => {
+        requestBytes += chunk.length;
+        requestTee.push(chunk);
+      });
+      req.pipe(upstream);
+    }
+  }
+
+  /** Answer a `mock` response rule — the exchange never re-originates. */
+  private serveMock(
+    id: string,
+    plan: ProxyRequestPlan | null,
+    mock: Extract<ProxyBodyPlan, { kind: 'mock' }>,
+    res: http.ServerResponse,
+    requestBody: CapturedBody,
+  ): void {
+    const served =
+      this.enforcer !== null && plan !== null
+        ? this.enforcer.applyResponseHeaders(plan, mock.headers).headers
+        : mock.headers;
+    const bodyBytes = Buffer.from(mock.body, 'utf8');
+    this.observer.onResponseHeaders(id, {
+      statusCode: mock.statusCode,
+      statusText: '',
+      headers: served,
+      atMs: this.now(),
     });
-    req.pipe(upstream);
+    this.observer.onResponseOverride(id, {
+      ruleUid: mock.ruleUid,
+      served: {
+        statusCode: mock.statusCode,
+        headers: toPlainHeaders(served),
+        body: shapeBodyContent(bodyBytes),
+      },
+    });
+    res.writeHead(mock.statusCode, downstreamHeaders(served));
+    res.end(bodyBytes);
+    this.observer.onComplete(id, {
+      completedAtMs: this.now(),
+      responseBytes: bodyBytes.length,
+      requestBytes: requestBody.totalBytes,
+      requestBody,
+      responseBody: wireBodyOf(bodyBytes),
+    });
+  }
+
+  /**
+   * Serve a `network`-source response substitution: the literal goes
+   * downstream immediately; the real reply keeps draining into the
+   * bounded original tee so the two-sided override lands at upstream end.
+   */
+  private serveSubstitutedResponse(
+    id: string,
+    plan: ProxyRequestPlan | null,
+    served: ProxyServedResponse,
+    upRes: http.IncomingMessage,
+    arrived: { statusCode: number; statusText: string; headers: readonly ProxyHeader[] },
+    res: http.ServerResponse,
+    endFacts: () => { requestBytes: number; timing: ProxyExchangeEnd['timing'] },
+  ): void {
+    const finalHeaders =
+      this.enforcer !== null && plan !== null
+        ? this.enforcer.applyResponseHeaders(plan, served.headers).headers
+        : served.headers;
+    const bodyBytes = Buffer.from(served.body, 'utf8');
+    this.observer.onResponseHeaders(id, {
+      statusCode: served.statusCode,
+      statusText: served.statusText,
+      headers: finalHeaders,
+      atMs: this.now(),
+    });
+    res.writeHead(served.statusCode, served.statusText, downstreamHeaders(finalHeaders));
+    res.end(bodyBytes);
+
+    const originalTee = new BoundedBodyBuffer(PROXY_BODY_CAPTURE_CAP_BYTES);
+    upRes.on('data', (chunk: Buffer) => originalTee.push(chunk));
+    upRes.on('end', () => {
+      const originalBody = snapshotBody(originalTee.snapshot(), headerValue(arrived.headers, 'content-encoding'));
+      this.observer.onResponseOverride(id, {
+        ruleUid: served.ruleUid,
+        served: {
+          statusCode: served.statusCode,
+          statusText: served.statusText,
+          headers: toPlainHeaders(finalHeaders),
+          body: shapeBodyContent(bodyBytes),
+        },
+        original: {
+          statusCode: arrived.statusCode,
+          statusText: arrived.statusText,
+          headers: toPlainHeaders(arrived.headers),
+          ...(originalBody !== undefined ? { body: originalBody } : {}),
+        },
+      });
+      const facts = endFacts();
+      this.observer.onComplete(id, {
+        completedAtMs: this.now(),
+        responseBytes: bodyBytes.length,
+        requestBytes: facts.requestBytes,
+        timing: facts.timing,
+        responseBody: wireBodyOf(bodyBytes),
+      });
+    });
+    upRes.resume();
   }
 
   // ── CONNECT ────────────────────────────────────────────────────────

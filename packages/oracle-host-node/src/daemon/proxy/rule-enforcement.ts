@@ -21,10 +21,21 @@
  *    arrived headers via `doesResponseHeaderMatchRule` — its
  *    request-side actions are unjudgeable at request time and skipped.
  *
- * Enforceable set this slice: header (request+response), redirect,
- * query-param, block, delay. Body-touching types (request-body,
- * response) need the capture body tee and are the next slice;
- * inject/ws/sse/auth stay browser-plane.
+ * Enforceable set: header (request+response), redirect, query-param,
+ * block, delay, plus — with the capture body tee — the two body-touching
+ * types, STATIC bodies only (a dynamic body is user JS whose eval plane
+ * is the page/CDP; the wire plane skips it defensively, the
+ * capability-refused posture):
+ *
+ *  - `request-body` substitutes the outgoing body before re-origination;
+ *  - `response` `mock` answers synthetically without re-originating;
+ *  - `response` `network` sends the real request and substitutes the
+ *    arrived reply (deferred response-header conditions judged there).
+ *
+ * Body-rule selection is first-match exclusive in rule order across both
+ * types — the CDP `Fetch` reaction's resolver contract. A GraphQL-
+ * filtered rule judges against the read-ahead request body under the
+ * shared inline bound (over-bound ⇒ the gate sees no body ⇒ no fire).
  *
  * Rules are evaluated against the ORIGINAL request URL (one pass, no
  * rewrite chaining); query-param mutations apply on top of a redirect
@@ -33,6 +44,7 @@
 
 import type { HeaderModification, QueryParamEntry, Rule } from '@openheaders/core/types';
 import {
+  doesGraphqlBodyGatePass,
   doesMethodMatchRule,
   doesRequestDomainMatchRule,
   doesResourceTypeMatchRule,
@@ -79,6 +91,44 @@ export interface ProxyRequestPlan {
   readonly appliedRuleUids: readonly string[];
   /** Header rules holding response-side mods, judged/applied at arrival. */
   readonly responseHeaderRules: readonly Rule[];
+  /**
+   * Static body-capable candidates (`request-body`, `response`
+   * mock/network) that matched the request stage, in rule order — their
+   * gates (GraphQL filter, deferred response-header conditions) are
+   * judged later when the evidence exists, and a gate-failing candidate
+   * falls through to the next (the CDP resolver's contract). Empty = no
+   * body rule participates.
+   */
+  readonly bodyRules: readonly Rule[];
+}
+
+/** What the server must do about bodies, judged once the gate evidence exists. */
+export type ProxyBodyPlan =
+  /** Substitute the outgoing request body with the rule's literal. */
+  | { readonly kind: 'request-body'; readonly ruleUid: string; readonly body: string }
+  /** Answer synthetically — the exchange never re-originates. */
+  | {
+      readonly kind: 'mock';
+      readonly ruleUid: string;
+      readonly statusCode: number;
+      readonly headers: readonly ProxyHeader[];
+      readonly body: string;
+    }
+  /**
+   * Send the real request; substitution is judged/applied at arrival.
+   * Carries every gate-passed `network`-source candidate in order — the
+   * arrival judgment takes the first whose deferred response-header
+   * conditions match the real reply.
+   */
+  | { readonly kind: 'network-response'; readonly rules: readonly Rule[] };
+
+/** The substituted reply a `network`-source response rule serves. */
+export interface ProxyServedResponse {
+  readonly ruleUid: string;
+  readonly statusCode: number;
+  readonly statusText: string;
+  readonly headers: readonly ProxyHeader[];
+  readonly body: string;
 }
 
 export interface ProxyResponseHeadersResult {
@@ -88,6 +138,31 @@ export interface ProxyResponseHeadersResult {
 
 export interface ProxyRuleEnforcer {
   planRequest(input: { url: string; method: string; headers: readonly ProxyHeader[] }): ProxyRequestPlan;
+  /**
+   * True when judging the plan's body candidate needs the request-body
+   * text (an active GraphQL filter) — the server reads ahead up to the
+   * gate bound before calling {@link planBody}.
+   */
+  needsRequestBodyText(plan: ProxyRequestPlan): boolean;
+  /**
+   * Judge the plan's body candidate against the read-ahead body text
+   * (`undefined` = absent or over the gate bound). `null` = no body
+   * action on this exchange.
+   */
+  planBody(plan: ProxyRequestPlan, requestBodyText: string | undefined): ProxyBodyPlan | null;
+  /**
+   * Judge a `network-response` plan against the arrived reply and
+   * assemble the substituted head+body from the first candidate whose
+   * deferred response-header conditions match: the real status unless
+   * the rule overrides it (`statusCode === 0` keeps it), the real
+   * headers minus body-framing with the CT/header overrides layered on,
+   * the rule's literal body. `null` = no candidate fires — release the
+   * reply untouched.
+   */
+  resolveNetworkResponse(
+    plan: Extract<ProxyBodyPlan, { kind: 'network-response' }>,
+    arrived: { statusCode: number; statusText: string; headers: readonly ProxyHeader[] },
+  ): ProxyServedResponse | null;
   /** Apply the plan's response-side header mods to the arrived head. */
   applyResponseHeaders(plan: ProxyRequestPlan, headers: readonly ProxyHeader[]): ProxyResponseHeadersResult;
 }
@@ -144,6 +219,56 @@ function applyHeaderMods(
   return out;
 }
 
+/** Response headers describing the original body's framing — dropped when a
+ *  rule substitutes the body, so the framing is recomputed from the new bytes. */
+const BODY_FRAMING_HEADERS: ReadonlySet<string> = new Set(['content-encoding', 'content-length', 'transfer-encoding']);
+
+/**
+ * True for a rule the wire plane can realize as a body action: static
+ * bodies only (dynamic is page/CDP-eval territory), and a response-gated
+ * rule only where the gate is judgeable — a `network`-source response
+ * defers it to arrival; a mock or request-body rule can never prove it.
+ */
+function isBodyCandidate(rule: Rule): boolean {
+  if (rule.type === 'request-body') {
+    return rule.action.bodyType === 'static' && !isResponseGatedRule(rule);
+  }
+  if (rule.type === 'response') {
+    if (rule.action.bodyType !== 'static') return false;
+    return rule.action.responseSource === 'network' || !isResponseGatedRule(rule);
+  }
+  return false;
+}
+
+/** A mock's head: default Content-Type first, the rule's response headers
+ *  layered on (an exact-name entry overrides the default). */
+function mockHeaders(contentType: string, extra: Readonly<Record<string, string>>): ProxyHeader[] {
+  const headerMap = new Map<string, string>([['Content-Type', contentType]]);
+  for (const [name, value] of Object.entries(extra)) headerMap.set(name, value);
+  return [...headerMap].map(([name, value]) => ({ name, value }));
+}
+
+/** Real reply headers minus body-framing, with the CT / response-header
+ *  overrides replacing any same-named entries (an empty CT is no override). */
+function mergeNetworkHeaders(
+  real: readonly ProxyHeader[],
+  contentType: string,
+  responseHeaders: Readonly<Record<string, string>>,
+): ProxyHeader[] {
+  const overrides = new Map<string, ProxyHeader>();
+  if (contentType !== '') overrides.set('content-type', { name: 'Content-Type', value: contentType });
+  for (const [name, value] of Object.entries(responseHeaders)) overrides.set(name.toLowerCase(), { name, value });
+
+  const out: ProxyHeader[] = [];
+  for (const h of real) {
+    const lower = h.name.toLowerCase();
+    if (BODY_FRAMING_HEADERS.has(lower) || overrides.has(lower)) continue;
+    out.push(h);
+  }
+  out.push(...overrides.values());
+  return out;
+}
+
 /** Apply query-param entries to a URL; unparseable URLs pass through. */
 function applyQueryParams(url: string, params: readonly QueryParamEntry[]): string {
   let parsed: URL;
@@ -176,13 +301,15 @@ export function createProxyRuleEnforcer(source: ProxyRuleSource): ProxyRuleEnfor
     const rules = source.getRules();
     const matched: Rule[] = [];
     const responseHeaderRules: Rule[] = [];
+    const bodyRules: Rule[] = [];
     for (const rule of rules) {
       if (!matchesRequest(rule, input.url, input.method)) continue;
       if (rule.type === 'header' && rule.action.responseHeaders.length > 0) {
         responseHeaderRules.push(rule);
       }
+      if (isBodyCandidate(rule)) bodyRules.push(rule);
       // Response-gated rules cannot prove themselves at request time —
-      // they participate only in the response-side application above.
+      // they participate only in the response-side applications above.
       if (isResponseGatedRule(rule)) continue;
       matched.push(rule);
     }
@@ -200,6 +327,7 @@ export function createProxyRuleEnforcer(source: ProxyRuleSource): ProxyRuleEnfor
         rewrites: [],
         appliedRuleUids: [blocking.uid],
         responseHeaderRules: [],
+        bodyRules: [],
       };
     }
 
@@ -240,7 +368,63 @@ export function createProxyRuleEnforcer(source: ProxyRuleSource): ProxyRuleEnfor
       appliedRuleUids.push(rule.uid);
     }
 
-    return { url, requestHeaders, delayMs, rewrites, appliedRuleUids, responseHeaderRules };
+    return { url, requestHeaders, delayMs, rewrites, appliedRuleUids, responseHeaderRules, bodyRules };
+  }
+
+  function needsRequestBodyText(plan: ProxyRequestPlan): boolean {
+    return plan.bodyRules.some(
+      (rule) =>
+        (rule.type === 'request-body' || rule.type === 'response') &&
+        rule.action.resourceType === 'graphql' &&
+        (rule.action.graphqlFilter?.key ?? '') !== '',
+    );
+  }
+
+  function planBody(plan: ProxyRequestPlan, requestBodyText: string | undefined): ProxyBodyPlan | null {
+    const gatePassed = plan.bodyRules.filter(
+      (rule) =>
+        (rule.type === 'request-body' || rule.type === 'response') &&
+        doesGraphqlBodyGatePass(rule.action, requestBodyText),
+    );
+    const first = gatePassed[0];
+    if (first === undefined) return null;
+    if (first.type === 'request-body') {
+      return { kind: 'request-body', ruleUid: first.uid, body: first.action.requestBody };
+    }
+    if (first.type !== 'response') return null;
+    if (first.action.responseSource === 'mock') {
+      return {
+        kind: 'mock',
+        ruleUid: first.uid,
+        statusCode: first.action.statusCode || 200,
+        headers: mockHeaders(first.action.contentType || 'application/json', first.action.responseHeaders),
+        body: first.action.responseBody,
+      };
+    }
+    return {
+      kind: 'network-response',
+      rules: gatePassed.filter((rule) => rule.type === 'response' && rule.action.responseSource === 'network'),
+    };
+  }
+
+  function resolveNetworkResponse(
+    plan: Extract<ProxyBodyPlan, { kind: 'network-response' }>,
+    arrived: { statusCode: number; statusText: string; headers: readonly ProxyHeader[] },
+  ): ProxyServedResponse | null {
+    for (const rule of plan.rules) {
+      if (rule.type !== 'response') continue;
+      // Judge the deferred response-header conditions the moment the
+      // reply exists — the request-stage values were proven at plan time.
+      if (!doesResponseHeaderMatchRule(arrived.headers, rule)) continue;
+      return {
+        ruleUid: rule.uid,
+        statusCode: rule.action.statusCode !== 0 ? rule.action.statusCode : arrived.statusCode,
+        statusText: arrived.statusText,
+        headers: mergeNetworkHeaders(arrived.headers, rule.action.contentType, rule.action.responseHeaders),
+        body: rule.action.responseBody,
+      };
+    }
+    return null;
   }
 
   function applyResponseHeaders(plan: ProxyRequestPlan, headers: readonly ProxyHeader[]): ProxyResponseHeadersResult {
@@ -256,5 +440,5 @@ export function createProxyRuleEnforcer(source: ProxyRuleSource): ProxyRuleEnfor
     return { headers: out, appliedRuleUids };
   }
 
-  return { planRequest, applyResponseHeaders };
+  return { planRequest, needsRequestBodyText, planBody, resolveNetworkResponse, applyResponseHeaders };
 }
