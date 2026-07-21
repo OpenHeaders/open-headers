@@ -1804,4 +1804,15 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.caseEdge': '极端用例',
   'workbench.docs.diagrams.mock.caseEdgeEx': '空数组、超大载荷',
   'workbench.docs.diagrams.mock.useCasesFooter': '静态 = 固定数据模式 · 动态 = 真实调用后再编辑。',
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────
+  'workbench.docs.diagrams.keyboardShortcuts.aria':
+    'Workbench 焦点区域——左侧边栏、编辑器、右侧边栏和底部面板——每个区域都标注了各自的焦点组合键。',
+  'workbench.docs.diagrams.keyboardShortcuts.title': '焦点组合键把你带到四个区域之一',
+  'workbench.docs.diagrams.keyboardShortcuts.windowTitle': 'Open Headers — Workbench',
+  'workbench.docs.diagrams.keyboardShortcuts.leftSidebar': '左侧边栏',
+  'workbench.docs.diagrams.keyboardShortcuts.editor': '编辑器',
+  'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': '右侧边栏',
+  'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': '底部面板',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': '可在“设置 → 键盘”中重新分配任何组合键。',
 } as const satisfies Catalog;

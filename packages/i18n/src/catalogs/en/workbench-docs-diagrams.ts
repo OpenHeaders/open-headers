@@ -1955,4 +1955,16 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.caseEdge': 'Corner cases',
   'workbench.docs.diagrams.mock.caseEdgeEx': 'Empty arrays, huge payloads',
   'workbench.docs.diagrams.mock.useCasesFooter': 'Static = fixture mode · Dynamic = real-call passthrough + edit.',
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────
+  'workbench.docs.diagrams.keyboardShortcuts.aria':
+    'Workbench focus regions — left sidebar, editor, right sidebar, and bottom panel — each labeled with its ' +
+    'focus-shortcut chord.',
+  'workbench.docs.diagrams.keyboardShortcuts.title': 'Focus chords land you in one of four regions',
+  'workbench.docs.diagrams.keyboardShortcuts.windowTitle': 'Open Headers — Workbench',
+  'workbench.docs.diagrams.keyboardShortcuts.leftSidebar': 'Left sidebar',
+  'workbench.docs.diagrams.keyboardShortcuts.editor': 'Editor',
+  'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Right sidebar',
+  'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Bottom panel',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Rebind any chord in Settings → Keyboard.',
 } as const satisfies Catalog;

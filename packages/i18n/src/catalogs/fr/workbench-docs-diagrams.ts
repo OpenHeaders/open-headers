@@ -2029,4 +2029,16 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.caseEdge': 'Cas limites',
   'workbench.docs.diagrams.mock.caseEdgeEx': 'Tableaux vides, gros payloads',
   'workbench.docs.diagrams.mock.useCasesFooter': 'Statique = mode fixture · Dynamique = passage réel + édition.',
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────
+  'workbench.docs.diagrams.keyboardShortcuts.aria':
+    'Régions de focus du workbench — barre latérale gauche, éditeur, barre latérale droite et panneau ' +
+    'inférieur — chacune étiquetée avec sa combinaison de focus.',
+  'workbench.docs.diagrams.keyboardShortcuts.title': 'Les combinaisons de focus mènent à une des quatre régions',
+  'workbench.docs.diagrams.keyboardShortcuts.windowTitle': 'Open Headers — Workbench',
+  'workbench.docs.diagrams.keyboardShortcuts.leftSidebar': 'Barre gauche',
+  'workbench.docs.diagrams.keyboardShortcuts.editor': 'Éditeur',
+  'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Barre droite',
+  'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Panneau inférieur',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Réassignez chaque combinaison dans Paramètres → Clavier.',
 } as const satisfies Catalog;

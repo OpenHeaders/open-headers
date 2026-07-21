@@ -2021,4 +2021,16 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.caseEdge': 'Casos límite',
   'workbench.docs.diagrams.mock.caseEdgeEx': 'Arrays vacíos, gran payload',
   'workbench.docs.diagrams.mock.useCasesFooter': 'Estático = modo fixture · Dinámico = paso real + edición.',
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────
+  'workbench.docs.diagrams.keyboardShortcuts.aria':
+    'Regiones de foco del workbench — barra lateral izquierda, editor, barra lateral derecha y panel ' +
+    'inferior — cada una etiquetada con su combinación de foco.',
+  'workbench.docs.diagrams.keyboardShortcuts.title': 'Cada combinación de foco te lleva a una de cuatro regiones',
+  'workbench.docs.diagrams.keyboardShortcuts.windowTitle': 'Open Headers — Workbench',
+  'workbench.docs.diagrams.keyboardShortcuts.leftSidebar': 'Barra izquierda',
+  'workbench.docs.diagrams.keyboardShortcuts.editor': 'Editor',
+  'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Barra derecha',
+  'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Panel inferior',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Reasigna cualquier combinación en Configuración → Teclado.',
 } as const satisfies Catalog;

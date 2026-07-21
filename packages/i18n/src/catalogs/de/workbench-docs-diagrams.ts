@@ -2018,4 +2018,16 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.mock.caseEdge': 'Grenzfälle',
   'workbench.docs.diagrams.mock.caseEdgeEx': 'Leere Arrays, XXL-Payloads',
   'workbench.docs.diagrams.mock.useCasesFooter': 'Statisch = Fixture-Modus · Dynamisch = echter Aufruf + Edit.',
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────
+  'workbench.docs.diagrams.keyboardShortcuts.aria':
+    'Fokus-Regionen der Workbench — linke Seitenleiste, Editor, rechte Seitenleiste und unteres Panel — ' +
+    'jede trägt ihre Fokus-Tastenfolge.',
+  'workbench.docs.diagrams.keyboardShortcuts.title': 'Fokus-Tastenfolgen bringen dich in eine von vier Regionen',
+  'workbench.docs.diagrams.keyboardShortcuts.windowTitle': 'Open Headers — Workbench',
+  'workbench.docs.diagrams.keyboardShortcuts.leftSidebar': 'Linke Leiste',
+  'workbench.docs.diagrams.keyboardShortcuts.editor': 'Editor',
+  'workbench.docs.diagrams.keyboardShortcuts.rightSidebar': 'Rechte Leiste',
+  'workbench.docs.diagrams.keyboardShortcuts.bottomPanel': 'Unteres Panel',
+  'workbench.docs.diagrams.keyboardShortcuts.footer': 'Belege jede Tastenfolge neu unter Einstellungen → Tastatur.',
 } as const satisfies Catalog;
