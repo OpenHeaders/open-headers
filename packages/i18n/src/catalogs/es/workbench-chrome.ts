@@ -358,8 +358,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Estado de los workflows',
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
-  'workbench.toolWindows.proxyCapture': 'Proxy',
-  'workbench.toolWindows.liveNetwork': 'Red en vivo',
+  'workbench.toolWindows.trafficMonitor': 'Monitor de tráfico',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -472,14 +471,11 @@ export const workbenchChrome = {
     '404 y la TUI informa de que el daemon es inalcanzable. Desmarca para crear solo el token.',
   'workbench.terminal.cliGate.ok': 'Conectar y abrir',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
-  'workbench.toolWindows.info.proxyCapture.summary':
-    'El proxy de captura: el tráfico de cualquier herramienta de esta máquina apuntada al puerto del proxy local, ' +
-    'capturado como un registro de red en vivo. El descifrado está acotado: solo los hosts que listas terminan TLS; ' +
-    'todo lo demás pasa por un túnel opaco.',
-  'workbench.toolWindows.info.liveNetwork.summary':
-    'La vista del navegador en vivo: la extensión conectada transmite el tráfico de una pestaña observada a la ' +
-    'aplicación de escritorio, mostrado con el mismo registro de red del panel DevTools. No se transmite nada ' +
-    'hasta que eliges una pestaña que observar.',
+  'workbench.toolWindows.info.trafficMonitor.summary':
+    'La vista unificada del tráfico en vivo: elige una fuente a la derecha, una pestaña de navegador conectada ' +
+    '(la extensión transmite su tráfico en vivo) o la captura en el cable (cualquier herramienta de esta máquina ' +
+    'apuntada al puerto del proxy local). Ambas usan el mismo registro de red del panel DevTools; no se transmite ' +
+    'nada hasta que se selecciona una fuente.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
@@ -519,18 +515,18 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingUnsupported': '{agent} · no compatible',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
-  'workbench.liveNetwork.browserConnected': 'Navegadores conectados: {count}',
-  'workbench.liveNetwork.noBrowser': 'Ningún navegador conectado',
-  'workbench.liveNetwork.pickTab': 'Observar una pestaña del navegador…',
-  'workbench.liveNetwork.refreshTabs': 'Actualizar la lista de pestañas',
-  'workbench.liveNetwork.untitledTab': 'Pestaña sin título',
-  'workbench.liveNetwork.emptyWatching': 'Esperando tráfico…',
-  'workbench.liveNetwork.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
-  'workbench.liveNetwork.emptyNoTab': 'Ninguna pestaña seleccionada',
-  'workbench.liveNetwork.emptyNoTabHint': 'Elige una pestaña arriba para ver su tráfico en vivo',
-  'workbench.liveNetwork.emptyNoBrowser': 'Ningún navegador conectado',
-  'workbench.liveNetwork.emptyNoBrowserHint':
-    'Abre un navegador con la extensión OpenHeaders conectada a esta aplicación',
+  'workbench.trafficMonitor.browserConnected': 'Navegadores conectados: {count}',
+  'workbench.trafficMonitor.noBrowser': 'Ningún navegador conectado',
+  'workbench.trafficMonitor.refreshTabs': 'Actualizar la lista de pestañas',
+  'workbench.trafficMonitor.untitledTab': 'Pestaña sin título',
+  'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',
+  'workbench.trafficMonitor.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
+  'workbench.trafficMonitor.sources': 'Fuentes',
+  'workbench.trafficMonitor.wire': 'En el cable',
+  'workbench.trafficMonitor.wireCapture': 'Captura en el cable',
+  'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',
+  'workbench.trafficMonitor.emptyNoSourceHint':
+    'Elige a la derecha una pestaña del navegador o la captura en el cable para ver su tráfico',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',

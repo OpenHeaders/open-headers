@@ -358,8 +358,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow-Status',
   'workbench.toolWindows.activity': 'Aktivität',
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
-  'workbench.toolWindows.proxyCapture': 'Proxy',
-  'workbench.toolWindows.liveNetwork': 'Live-Netzwerk',
+  'workbench.toolWindows.trafficMonitor': 'Traffic-Monitor',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -468,14 +467,11 @@ export const workbenchChrome = {
     'meldet den Daemon als nicht erreichbar. Abwählen erstellt nur das Token.',
   'workbench.terminal.cliGate.ok': 'Verbinden und öffnen',
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
-  'workbench.toolWindows.info.proxyCapture.summary':
-    'Der Capture-Proxy — Datenverkehr beliebiger Tools dieser Maschine, die auf den lokalen Proxy-Port zeigen, ' +
-    'erfasst als Live-Netzwerkprotokoll. Die Entschlüsselung ist eingegrenzt: Nur gelistete Hosts werden ' +
-    'TLS-terminiert, alles andere läuft als opaker Tunnel durch.',
-  'workbench.toolWindows.info.liveNetwork.summary':
-    'Die Live-Browseransicht — die verbundene Erweiterung streamt den Verkehr eines beobachteten Tabs in die ' +
-    'Desktop-App, dargestellt mit demselben Netzwerkprotokoll wie das DevTools-Panel. Es wird nichts gestreamt, ' +
-    'bis du einen Tab zum Beobachten wählst.',
+  'workbench.toolWindows.info.trafficMonitor.summary':
+    'Die vereinte Live-Verkehrsansicht — wähle rechts eine Quelle: einen verbundenen Browser-Tab (die Erweiterung ' +
+    'streamt seinen Verkehr live) oder den Leitungsmitschnitt (beliebige Tools dieser Maschine, die auf den ' +
+    'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
+    'gestreamt, bis eine Quelle ausgewählt ist.',
   'workbench.toolWindows.info.terminal.summary':
     'Ein integriertes Terminal, das deine Shell in einem echten pty ausführt — alles, was in einem ' +
     'eigenständigen Terminal läuft, läuft auch hier, einschließlich der CLI oh gegen die lokale App.',
@@ -514,18 +510,18 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingUnsupported': '{agent} · nicht unterstützt',
 
   // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
-  'workbench.liveNetwork.browserConnected': 'Verbundene Browser: {count}',
-  'workbench.liveNetwork.noBrowser': 'Kein Browser verbunden',
-  'workbench.liveNetwork.pickTab': 'Browser-Tab beobachten…',
-  'workbench.liveNetwork.refreshTabs': 'Tab-Liste aktualisieren',
-  'workbench.liveNetwork.untitledTab': 'Unbenannter Tab',
-  'workbench.liveNetwork.emptyWatching': 'Warte auf Verkehr…',
-  'workbench.liveNetwork.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
-  'workbench.liveNetwork.emptyNoTab': 'Kein Tab ausgewählt',
-  'workbench.liveNetwork.emptyNoTabHint': 'Wähle oben einen Browser-Tab, um seinen Verkehr live zu sehen',
-  'workbench.liveNetwork.emptyNoBrowser': 'Kein Browser verbunden',
-  'workbench.liveNetwork.emptyNoBrowserHint':
-    'Öffne einen Browser, dessen OpenHeaders-Erweiterung mit dieser App verbunden ist',
+  'workbench.trafficMonitor.browserConnected': 'Verbundene Browser: {count}',
+  'workbench.trafficMonitor.noBrowser': 'Kein Browser verbunden',
+  'workbench.trafficMonitor.refreshTabs': 'Tab-Liste aktualisieren',
+  'workbench.trafficMonitor.untitledTab': 'Unbenannter Tab',
+  'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',
+  'workbench.trafficMonitor.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
+  'workbench.trafficMonitor.sources': 'Quellen',
+  'workbench.trafficMonitor.wire': 'Leitung',
+  'workbench.trafficMonitor.wireCapture': 'Leitungsmitschnitt',
+  'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
+  'workbench.trafficMonitor.emptyNoSourceHint':
+    'Wähle rechts einen Browser-Tab oder den Leitungsmitschnitt, um seinen Verkehr live zu sehen',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',

@@ -333,8 +333,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Workflow Status',
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
-  'workbench.toolWindows.proxyCapture': 'Proxy',
-  'workbench.toolWindows.liveNetwork': 'Live Network',
+  'workbench.toolWindows.trafficMonitor': 'Traffic Monitor',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -400,12 +399,10 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Settings',
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Per-request behavior — SSL verification, redirects, and more.',
-  'workbench.toolWindows.info.proxyCapture.summary':
-    'The capture proxy — traffic from any tool on this machine pointed at the local proxy port, captured as a live ' +
-    'network log. Decryption is scoped: only hosts you list are TLS-terminated, everything else tunnels through opaque.',
-  'workbench.toolWindows.info.liveNetwork.summary':
-    'The live browser view — the connected extension streams a watched tab’s traffic into the desktop app, rendered ' +
-    'with the same network log the DevTools panel uses. Nothing streams until you pick a tab to watch.',
+  'workbench.toolWindows.info.trafficMonitor.summary':
+    'The unified live traffic view — pick a source on the right: a connected browser tab (the extension streams its ' +
+    'traffic live) or the wire capture (any tool on this machine pointed at the local proxy port). Both render the ' +
+    'same network log the DevTools panel uses; nothing streams until a source is selected.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
     'countdown, with manual Retry and Reset-circuit actions.',
@@ -503,18 +500,19 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInactive': 'Browsers route scoped hosts once the proxy is running.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · not supported',
 
-  // ── Live Network tool window (Observability Phase 1) ────────────────
-  'workbench.liveNetwork.browserConnected': 'Connected browsers: {count}',
-  'workbench.liveNetwork.noBrowser': 'No browser connected',
-  'workbench.liveNetwork.pickTab': 'Watch a browser tab…',
-  'workbench.liveNetwork.refreshTabs': 'Refresh tab list',
-  'workbench.liveNetwork.untitledTab': 'Untitled tab',
-  'workbench.liveNetwork.emptyWatching': 'Waiting for traffic…',
-  'workbench.liveNetwork.emptyWatchingHint': 'Browse in the watched tab — its requests appear here live',
-  'workbench.liveNetwork.emptyNoTab': 'No tab selected',
-  'workbench.liveNetwork.emptyNoTabHint': 'Pick a browser tab above to watch its traffic live',
-  'workbench.liveNetwork.emptyNoBrowser': 'No browser connected',
-  'workbench.liveNetwork.emptyNoBrowserHint': 'Open a browser with the OpenHeaders extension connected to this app',
+  // ── Traffic Monitor tool window (unified observability surface) ─────
+  'workbench.trafficMonitor.browserConnected': 'Connected browsers: {count}',
+  'workbench.trafficMonitor.noBrowser': 'No browser connected',
+  'workbench.trafficMonitor.refreshTabs': 'Refresh tab list',
+  'workbench.trafficMonitor.untitledTab': 'Untitled tab',
+  'workbench.trafficMonitor.emptyWatching': 'Waiting for traffic…',
+  'workbench.trafficMonitor.emptyWatchingHint': 'Browse in the watched tab — its requests appear here live',
+  'workbench.trafficMonitor.sources': 'Sources',
+  'workbench.trafficMonitor.wire': 'Wire',
+  'workbench.trafficMonitor.wireCapture': 'Wire capture',
+  'workbench.trafficMonitor.emptyNoSource': 'No source selected',
+  'workbench.trafficMonitor.emptyNoSourceHint':
+    'Pick a browser tab or the wire capture on the right to watch its traffic',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

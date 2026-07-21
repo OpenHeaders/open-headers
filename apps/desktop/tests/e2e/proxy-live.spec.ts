@@ -167,9 +167,18 @@ function viaProxy(
 
 /** State-driven dock-strip toggle — click only when the state is wrong. */
 async function setToolWindowOpen(open: boolean): Promise<void> {
-  const tab = workbench.locator('[data-tool-window="proxy-capture"]').first();
+  const tab = workbench.locator('[data-tool-window="traffic-monitor"]').first();
   if (((await tab.getAttribute('aria-selected')) === 'true') !== open) {
     await tab.click();
+  }
+}
+
+/** Open the Traffic Monitor and select the wire-capture source. */
+async function openWireSource(): Promise<void> {
+  await setToolWindowOpen(true);
+  const wire = workbench.locator('[data-testid="traffic-monitor-source-wire"]').first();
+  if ((await wire.getAttribute('aria-pressed')) !== 'true') {
+    await wire.click();
   }
 }
 
@@ -396,8 +405,8 @@ test.afterAll(async () => {
 
 // ── Panel reflects the running capture ──────────────────────────────
 
-test('the Proxy window shows the capture running on its port', async () => {
-  await setToolWindowOpen(true);
+test('the Traffic Monitor shows the wire capture running on its port', async () => {
+  await openWireSource();
   await expect(workbench.locator('.rules-bottom-panel').getByText(String(PROXY_PORT)).first()).toBeVisible();
 });
 
@@ -450,7 +459,7 @@ test('a scoped host arrives at the proxy; an un-scoped host stays direct', async
       `http://${SCOPED_HOST}:3000/api/echo?probe=routed-1`,
     )
     .catch(() => undefined);
-  await setToolWindowOpen(true);
+  await openWireSource();
   await expect(probeRows('routed-1').first()).toBeVisible({ timeout: 15000 });
 
   // The un-scoped mapped host resolves IN the browser and succeeds
@@ -506,7 +515,7 @@ test('a captured response body is retained and the Response tab pulls it lazily'
   expect(echoed.status).toBe(200);
   expect(echoed.body).toContain('retained-1');
 
-  await setToolWindowOpen(true);
+  await openWireSource();
   await expect(probeRows('retained-1').first()).toBeVisible({ timeout: 15000 });
 
   // Inspect the row as a main editor tab, open its Response tab — the
@@ -643,6 +652,15 @@ test('an over-cap body truncates the capture, never the wire', async () => {
   expect(served.body.length).toBeGreaterThan(BODY_CAP_BYTES);
   expect(served.body).toContain(filler.slice(0, 64));
 
-  await setToolWindowOpen(true);
+  await openWireSource();
   await expect(probeRows('overcap-1').first()).toBeVisible({ timeout: 15000 });
+});
+
+// ── Manual-inspection hold ──────────────────────────────────────────
+
+test('hold the stack open for manual inspection', async () => {
+  test.skip(process.env.OH_E2E_HOLD !== '1', 'set OH_E2E_HOLD=1 to keep the stack open after the run');
+  test.setTimeout(0);
+  console.log('[proxy-live] holding the desktop + extension + playground open — stop the runner to tear down');
+  await new Promise(() => {});
 });

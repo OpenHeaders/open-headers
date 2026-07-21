@@ -12,7 +12,6 @@ import {
   BookOutlined,
   BranchesOutlined,
   CodeOutlined,
-  FundViewOutlined,
   GlobalOutlined,
   ScanOutlined,
   SisternodeOutlined,
@@ -132,26 +131,16 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     requiresCapability: 'workspaceGit',
     teaserWhenUnavailable: 'git',
   },
-  // The L7 capture proxy's control surface + live capture feed (Proxy
-  // epic S6). Only hosts that run the daemon spine in-process register
-  // the `proxyCapture` capability. Dormant until opened.
+  // The unified observability surface (Observability epic): every
+  // source's live view in ONE window — connected browser tabs streamed
+  // through the daemon spine's telemetry relay, plus the L7 wire
+  // capture with its control strip. Gated on `liveNetwork`; the wire
+  // source additionally checks `proxyCapture` inside the panel — every
+  // host that registers one registers both (the desktop renderer,
+  // which runs the spine in-process). Dormant until opened.
   {
-    id: 'proxy-capture',
-    labelKey: 'workbench.toolWindows.proxyCapture',
-    icon: <FundViewOutlined />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-    requiresCapability: 'proxyCapture',
-    teaserWhenUnavailable: 'proxy',
-  },
-  // The always-on live view of browser traffic (Observability Phase 1):
-  // the connected extension streams each watched tab's lifecycle rows
-  // through the daemon spine's telemetry relay. Only hosts that run the
-  // spine in-process register `liveNetwork`. Dormant until opened.
-  {
-    id: 'live-network',
-    labelKey: 'workbench.toolWindows.liveNetwork',
+    id: 'traffic-monitor',
+    labelKey: 'workbench.toolWindows.trafficMonitor',
     icon: <GlobalOutlined />,
     core: false,
     defaultSlot: 'bottom-right',

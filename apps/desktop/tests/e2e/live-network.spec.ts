@@ -117,16 +117,19 @@ async function peerCount(): Promise<number> {
 
 /** State-driven dock-strip toggle — click only when the state is wrong. */
 async function setToolWindowOpen(open: boolean): Promise<void> {
-  const tab = workbench.locator('[data-tool-window="live-network"]').first();
+  const tab = workbench.locator('[data-tool-window="traffic-monitor"]').first();
   if (((await tab.getAttribute('aria-selected')) === 'true') !== open) {
     await tab.click();
   }
 }
 
-/** Pick the playground tab in the panel's antd Select. */
+/** Pick the playground tab in the Traffic Monitor's source rail. */
 async function pickPlaygroundTab(): Promise<void> {
-  await workbench.locator('[data-testid="live-network-tab-picker"]').click();
-  await workbench.locator('.ant-select-item-option').filter({ hasText: PLAYGROUND_TITLE }).first().click();
+  await workbench
+    .locator('[data-testid="traffic-monitor-source-tab"]')
+    .filter({ hasText: PLAYGROUND_TITLE })
+    .first()
+    .click();
 }
 
 /** Rows currently rendered for the echo probes. */
@@ -407,8 +410,8 @@ test('the daemon inventories the connected browser tabs', async () => {
 
 test('the Live Network window streams a watched playground tab live', async () => {
   await setToolWindowOpen(true);
-  await workbench.locator('[data-testid="live-network-refresh"]').click();
-  await expect(workbench.locator('[data-testid="live-network-peers"]')).toHaveText('Connected browsers: 1');
+  await workbench.locator('[data-testid="traffic-monitor-refresh"]').click();
+  await expect(workbench.locator('[data-testid="traffic-monitor-peers"]')).toHaveText('Connected browsers: 1');
 
   await pickPlaygroundTab();
 
@@ -428,7 +431,7 @@ test('the Live Network window streams a watched playground tab live', async () =
 
 test('reopening the window rebuilds the view from replay', async () => {
   await setToolWindowOpen(false);
-  await expect(workbench.locator('[data-testid="live-network-tab-picker"]')).toHaveCount(0);
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-rail"]')).toHaveCount(0);
 
   await setToolWindowOpen(true);
   await pickPlaygroundTab();

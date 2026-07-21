@@ -352,8 +352,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.workflowStatus': 'Statut des workflows',
   'workbench.toolWindows.activity': 'Activité',
   'workbench.toolWindows.activityTooltip': "Flux d'activité — modifications entrantes des pairs",
-  'workbench.toolWindows.proxyCapture': 'Proxy',
-  'workbench.toolWindows.liveNetwork': 'Réseau en direct',
+  'workbench.toolWindows.trafficMonitor': 'Moniteur de trafic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -469,14 +468,11 @@ export const workbenchChrome = {
     'renvoie 404 et la TUI signale le démon comme injoignable. Décochez pour ne créer que le jeton.',
   'workbench.terminal.cliGate.ok': 'Connecter et ouvrir',
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
-  'workbench.toolWindows.info.proxyCapture.summary':
-    'Le proxy de capture — le trafic de n’importe quel outil de cette machine pointé vers le port du proxy local, ' +
-    'capturé sous forme de journal réseau en direct. Le déchiffrement est délimité : seuls les hôtes que vous listez ' +
-    'sont déchiffrés (TLS terminé), tout le reste transite en tunnel opaque.',
-  'workbench.toolWindows.info.liveNetwork.summary':
-    'La vue navigateur en direct — l’extension connectée diffuse le trafic d’un onglet surveillé vers l’application ' +
-    'de bureau, affiché avec le même journal réseau que le panneau DevTools. Rien n’est diffusé tant que vous ne ' +
-    'choisissez pas d’onglet à surveiller.',
+  'workbench.toolWindows.info.trafficMonitor.summary':
+    'La vue unifiée du trafic en direct — choisissez une source à droite : un onglet de navigateur connecté ' +
+    '(l’extension diffuse son trafic en direct) ou la capture sur le fil (tout outil de cette machine pointé vers ' +
+    'le port du proxy local). Les deux s’affichent avec le même journal réseau que le panneau DevTools ; rien ' +
+    'n’est diffusé tant qu’aucune source n’est sélectionnée.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal intégré qui exécute votre shell dans un vrai pty — tout ce qui tourne dans un terminal ' +
     "autonome tourne ici, y compris la CLI oh contre l'application locale.",
@@ -518,19 +514,19 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingUnsupported': '{agent} · non pris en charge',
 
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
-  'workbench.liveNetwork.browserConnected': 'Navigateurs connectés : {count}',
-  'workbench.liveNetwork.noBrowser': 'Aucun navigateur connecté',
-  'workbench.liveNetwork.pickTab': 'Surveiller un onglet du navigateur…',
-  'workbench.liveNetwork.refreshTabs': 'Actualiser la liste des onglets',
-  'workbench.liveNetwork.untitledTab': 'Onglet sans titre',
-  'workbench.liveNetwork.emptyWatching': 'En attente de trafic…',
-  'workbench.liveNetwork.emptyWatchingHint':
+  'workbench.trafficMonitor.browserConnected': 'Navigateurs connectés : {count}',
+  'workbench.trafficMonitor.noBrowser': 'Aucun navigateur connecté',
+  'workbench.trafficMonitor.refreshTabs': 'Actualiser la liste des onglets',
+  'workbench.trafficMonitor.untitledTab': 'Onglet sans titre',
+  'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',
+  'workbench.trafficMonitor.emptyWatchingHint':
     'Naviguez dans l’onglet surveillé — ses requêtes apparaissent ici en direct',
-  'workbench.liveNetwork.emptyNoTab': 'Aucun onglet sélectionné',
-  'workbench.liveNetwork.emptyNoTabHint': 'Choisissez un onglet ci-dessus pour suivre son trafic en direct',
-  'workbench.liveNetwork.emptyNoBrowser': 'Aucun navigateur connecté',
-  'workbench.liveNetwork.emptyNoBrowserHint':
-    'Ouvrez un navigateur dont l’extension OpenHeaders est connectée à cette application',
+  'workbench.trafficMonitor.sources': 'Sources',
+  'workbench.trafficMonitor.wire': 'Sur le fil',
+  'workbench.trafficMonitor.wireCapture': 'Capture sur le fil',
+  'workbench.trafficMonitor.emptyNoSource': 'Aucune source sélectionnée',
+  'workbench.trafficMonitor.emptyNoSourceHint':
+    'Choisissez à droite un onglet de navigateur ou la capture sur le fil pour suivre son trafic',
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

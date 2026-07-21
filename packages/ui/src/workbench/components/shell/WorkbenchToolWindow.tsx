@@ -34,10 +34,9 @@ import Sidebar from '../sidebar/Sidebar';
 // `requiresCapability` gate), so other hosts never fetch the chunk.
 const TerminalPanel = lazy(() => import('../panels/terminal/TerminalPanel'));
 // Pulls the panel-package network table (TrafficList + detail); lazy so
-// browser workbenches that never register `proxyCapture` don't bundle it.
-const ProxyCapturePanel = lazy(() => import('../panels/ProxyCapturePanel'));
-// Same lazy posture for the browser live view (`liveNetwork` capability).
-const LiveNetworkPanel = lazy(() => import('../panels/LiveNetworkPanel'));
+// browser workbenches that never register the observability capabilities
+// don't bundle it.
+const TrafficMonitorPanel = lazy(() => import('../panels/TrafficMonitorPanel'));
 // Lazy for the same reason: the window exists solely on hosts with the
 // `workspaceGit` capability (registry `requiresCapability` gate).
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
@@ -309,23 +308,14 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
         />
       );
-    case 'proxy-capture':
+    case 'traffic-monitor':
       return (
         <Suspense fallback={null}>
-          <ProxyCapturePanel
+          <TrafficMonitorPanel
             info={getToolWindowInfo(id, t)}
             onHide={() => tl.closeDock(slot)}
-            onOpenRequest={openProxyRequestInspect}
-          />
-        </Suspense>
-      );
-    case 'live-network':
-      return (
-        <Suspense fallback={null}>
-          <LiveNetworkPanel
-            info={getToolWindowInfo(id, t)}
-            onHide={() => tl.closeDock(slot)}
-            onOpenRequest={openLiveNetworkRequestInspect}
+            onOpenProxyRequest={openProxyRequestInspect}
+            onOpenLiveRequest={openLiveNetworkRequestInspect}
           />
         </Suspense>
       );
