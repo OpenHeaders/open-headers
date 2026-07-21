@@ -557,7 +557,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.noBrowser': 'Aucun navigateur connecté',
   'workbench.trafficMonitor.refreshTabs': 'Actualiser la liste des onglets',
   'workbench.trafficMonitor.untitledTab': 'Onglet sans titre',
-  'workbench.trafficMonitor.extensionVersion': 'Extension v{version}',
+  'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',
   'workbench.trafficMonitor.emptyWatchingHint':
     'Naviguez dans l’onglet surveillé — ses requêtes apparaissent ici en direct',

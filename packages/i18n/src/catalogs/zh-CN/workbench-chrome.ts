@@ -532,7 +532,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.noBrowser': '未连接浏览器',
   'workbench.trafficMonitor.refreshTabs': '刷新标签页列表',
   'workbench.trafficMonitor.untitledTab': '无标题标签页',
-  'workbench.trafficMonitor.extensionVersion': '扩展 v{version}',
+  'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': '等待流量…',
   'workbench.trafficMonitor.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
   'workbench.trafficMonitor.sources': '来源',

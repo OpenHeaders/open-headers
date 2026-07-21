@@ -22,6 +22,7 @@ import {
   CaretRightOutlined,
   FileOutlined,
   GlobalOutlined,
+  LoadingOutlined,
   PushpinFilled,
   ReloadOutlined,
 } from '@ant-design/icons';
@@ -100,6 +101,10 @@ export interface TrafficMonitorSourceRailProps {
   onDebugPin: (nodeId: string, tabId: number, pinned: boolean) => void;
   /** Flip the peer's Debug-mode master switch. */
   onDebugEnable: (nodeId: string, enabled: boolean) => void;
+  /** Tab sources whose attach/detach is in flight — spinner state. */
+  debugPending: ReadonlySet<TrafficSourceKey>;
+  /** Peers whose master-switch command is in flight — switch loading. */
+  debugEnablePending: ReadonlySet<string>;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -147,10 +152,13 @@ function SourceRow({
 function TabDebugAffordance({
   attached,
   pinned,
+  pending,
   onToggle,
 }: {
   attached: boolean;
   pinned: boolean;
+  /** An attach/detach the last click triggered is still in flight. */
+  pending: boolean;
   onToggle: () => void;
 }) {
   const t = useT();
@@ -160,7 +168,9 @@ function TabDebugAffordance({
     : pinned
       ? t('workbench.trafficMonitor.debugPinned')
       : t('workbench.trafficMonitor.debugTab');
-  const icon = attached ? (
+  const icon = pending ? (
+    <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
+  ) : attached ? (
     <BugFilled style={{ fontSize: 12, color: token.colorPrimary }} />
   ) : pinned ? (
     <PushpinFilled style={{ fontSize: 12, color: token.colorWarning }} />
@@ -175,17 +185,18 @@ function TabDebugAffordance({
         data-testid="traffic-monitor-tab-debug"
         aria-label={t('workbench.trafficMonitor.debugPinAria')}
         aria-pressed={attached || pinned}
-        className={attached || pinned ? undefined : 'rules-sidebar-item-hover-action'}
+        aria-busy={pending}
+        className={pending || attached || pinned ? undefined : 'rules-sidebar-item-hover-action'}
         style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
         onClick={(e) => {
           e.stopPropagation();
-          onToggle();
+          if (!pending) onToggle();
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             e.stopPropagation();
-            onToggle();
+            if (!pending) onToggle();
           }
         }}
       >
@@ -206,6 +217,8 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   onSelect,
   onDebugPin,
   onDebugEnable,
+  debugPending,
+  debugEnablePending,
   width,
 }) => {
   const t = useT();
@@ -302,13 +315,19 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                 </button>
                 {peer.debug.available && (
                   <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="left">
-                    <Switch
-                      size="small"
-                      data-testid="traffic-monitor-peer-debug"
-                      checked={peer.debug.enabled}
-                      onChange={(checked) => onDebugEnable(peer.nodeId, checked)}
-                      aria-label={t('shared.chrome.debug.toggleAria')}
-                    />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                      <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
+                        {t('shared.chrome.debug.title')}
+                      </span>
+                      <Switch
+                        size="small"
+                        data-testid="traffic-monitor-peer-debug"
+                        checked={peer.debug.enabled}
+                        loading={debugEnablePending.has(peer.nodeId)}
+                        onChange={(checked) => onDebugEnable(peer.nodeId, checked)}
+                        aria-label={t('shared.chrome.debug.toggleAria')}
+                      />
+                    </span>
                   </Tooltip>
                 )}
               </div>
@@ -347,6 +366,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                               <TabDebugAffordance
                                 attached={peer.debug.attachedTabs.includes(tab.tabId)}
                                 pinned={peer.debug.pinnedTabs.includes(tab.tabId)}
+                                pending={debugPending.has(key)}
                                 onToggle={() =>
                                   onDebugPin(peer.nodeId, tab.tabId, !peer.debug.pinnedTabs.includes(tab.tabId))
                                 }

@@ -113,7 +113,11 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   // owning extension peer. The reply's snapshot patches the rail
   // immediately; the attach a pin just triggered commits only after the
   // browser's banner handshake, so a delayed inventory read converges
-  // the indicator.
+  // the indicator. Sources whose attach/detach that leaves in flight are
+  // held in a pending set — the rail shows a spinner instead of the
+  // misleading intermediate snapshot (pin-then-bug flash, dead unpin).
+  const [debugPending, setDebugPending] = useState<ReadonlySet<string>>(() => new Set());
+  const [debugEnablePending, setDebugEnablePending] = useState<ReadonlySet<string>>(() => new Set());
   const debugConvergeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -135,10 +139,46 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
       if (debugConvergeTimer.current !== null) clearTimeout(debugConvergeTimer.current);
       debugConvergeTimer.current = setTimeout(() => {
         debugConvergeTimer.current = null;
-        void reload();
+        void reload().finally(() => {
+          setDebugPending(new Set());
+          setDebugEnablePending(new Set());
+        });
       }, 800);
     },
     [reload],
+  );
+
+  const onDebugPin = useCallback(
+    (nodeId: string, tabId: number, pinned: boolean) => {
+      // With the master switch off the pin is terminal in the reply
+      // snapshot — only an enabled peer has an attach/detach in flight.
+      const peer = peers.find((p) => p.nodeId === nodeId);
+      if (peer?.debug.enabled === true) {
+        setDebugPending((prev) => new Set(prev).add(tabSourceKey(nodeId, tabId)));
+      }
+      void debugControl(nodeId, { kind: 'pin', tabId, pinned });
+    },
+    [peers, debugControl],
+  );
+
+  const onDebugEnable = useCallback(
+    (nodeId: string, enabled: boolean) => {
+      // The switch flip re-reconciles every pinned/attached tab.
+      const peer = peers.find((p) => p.nodeId === nodeId);
+      setDebugEnablePending((prev) => new Set(prev).add(nodeId));
+      if (peer) {
+        const affected = new Set([...peer.debug.pinnedTabs, ...peer.debug.attachedTabs]);
+        if (affected.size > 0) {
+          setDebugPending((prev) => {
+            const next = new Set(prev);
+            for (const tabId of affected) next.add(tabSourceKey(nodeId, tabId));
+            return next;
+          });
+        }
+      }
+      void debugControl(nodeId, { kind: 'enable', enabled });
+    },
+    [peers, debugControl],
   );
 
   const onSelect = useCallback(
@@ -277,8 +317,10 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           wirePort={proxy.status?.boundPort ?? null}
           selected={selectedKey}
           onSelect={onSelect}
-          onDebugPin={(nodeId, tabId, pinned) => void debugControl(nodeId, { kind: 'pin', tabId, pinned })}
-          onDebugEnable={(nodeId, enabled) => void debugControl(nodeId, { kind: 'enable', enabled })}
+          onDebugPin={onDebugPin}
+          onDebugEnable={onDebugEnable}
+          debugPending={debugPending}
+          debugEnablePending={debugEnablePending}
           width={railWidth}
         />
       </div>

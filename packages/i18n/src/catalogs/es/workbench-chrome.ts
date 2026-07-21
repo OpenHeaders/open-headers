@@ -557,7 +557,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.noBrowser': 'Ningún navegador conectado',
   'workbench.trafficMonitor.refreshTabs': 'Actualizar la lista de pestañas',
   'workbench.trafficMonitor.untitledTab': 'Pestaña sin título',
-  'workbench.trafficMonitor.extensionVersion': 'Extensión v{version}',
+  'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
   'workbench.trafficMonitor.sources': 'Fuentes',
