@@ -494,13 +494,12 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': '代理已停止',
   'workbench.proxyCapture.emptyStoppedHint': '启动代理以开始捕获流量',
   'workbench.proxyCapture.noCa':
-    '没有受信任的 CA，因此 HTTPS 连接以不透明隧道通过——不会解密任何内容。在设置 › 代理 下安装 CA，' +
-    '然后把主机加入解密范围。',
+    '尚无受信任的 CA：明文 HTTP 会被完整捕获，但 HTTPS 连接以不透明隧道通过——其内部内容不可见。' +
+    '在设置 › 代理 下安装 CA，然后把主机加入解密范围。',
   'workbench.proxyCapture.routing': '路由浏览器',
   'workbench.proxyCapture.routingFailed': '无法更新路由：{message}',
-  'workbench.proxyCapture.routingCaveat':
-    '已连接的浏览器将范围内的主机经本地代理路由：HTTP/3 会回退到 HTTP/2 或 1.1，固定证书的端点可能失败。' +
-    '范围外的流量保持直连。',
+  'workbench.proxyCapture.routingActiveLead': '这些浏览器现在会把解密范围内的主机经捕获代理发送；其余流量保持直连。',
+  'workbench.proxyCapture.routingCaveat': '被路由的主机上 HTTP/3 会回退到 HTTP/2 或 1.1，固定证书的端点可能失败。',
   'workbench.proxyCapture.routingInactive': '代理运行后，浏览器才会路由范围内的主机。',
   'workbench.proxyCapture.routingUnsupported': '{agent} · 不支持',
   'workbench.proxyCapture.scopeInfo.exampleCaption': '范围示例',
@@ -533,6 +532,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.emptyWatching': '等待流量…',
   'workbench.trafficMonitor.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
   'workbench.trafficMonitor.sources': '来源',
+  'workbench.trafficMonitor.browserTabs': '浏览器标签页',
+  'workbench.trafficMonitor.windowLabel': '窗口 {n}',
   'workbench.trafficMonitor.wire': '线路',
   'workbench.trafficMonitor.wireCapture': '线路捕获',
   'workbench.trafficMonitor.emptyNoSource': '未选择来源',

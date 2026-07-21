@@ -571,6 +571,18 @@ body {
   white-space: nowrap;
 }
 
+// Traffic Monitor source rows are <button>s wearing the sidebar-item
+// idiom — neutralize the UA button chrome so the shared hover/selected
+// states show through (the width accounts for the item's 4px margins).
+.traffic-monitor-source-row {
+  width: calc(100% - 8px);
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
 .rules-sidebar-item-hover-action {
   opacity: 0;
   font-size: 12px;

@@ -19,8 +19,20 @@ import type { ProxyCaptureStatus, ProxyRoutingStatus } from '@openheaders/core/t
 import { Alert, App as AntApp, Button, InputNumber, Popover, Select, Space, Switch, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { RoutingInfoTrigger, ScopeInfoTrigger } from './ProxyCaptureStripInfo';
+import { agentVersion } from './TrafficMonitorSourceRail';
+
+/**
+ * Per-browser ack tag: the extension identity in friendly form plus the
+ * applied routing mode (`PAC` / `onRequest` — wire vocabulary, raw).
+ */
+function peerAckLabel(t: Translate, peer: { agent: string; mode: string }): string {
+  const version = agentVersion(peer.agent);
+  const identity = version !== null ? t('workbench.trafficMonitor.extensionVersion', { version }) : peer.agent;
+  if (peer.mode === 'unsupported') return t('workbench.proxyCapture.routingUnsupported', { agent: identity });
+  return peer.mode === 'pac' ? `${identity} · PAC` : `${identity} · ${peer.mode}`;
+}
 
 export interface ProxyCaptureControls {
   status: ProxyCaptureStatus | null;
@@ -205,24 +217,28 @@ export const ProxyCaptureStrip: React.FC<ProxyCaptureStripProps> = ({ controls }
           showIcon
           style={{ marginTop: 8, padding: '4px 10px' }}
           message={
-            <Space size={6} wrap>
-              <span>
-                {routing.active ? t('workbench.proxyCapture.routingCaveat') : t('workbench.proxyCapture.routingInactive')}
-              </span>
-              {routing.active &&
-                routing.peers.map((peer) => (
-                  <Tooltip key={peer.nodeId} title={peer.error}>
-                    <Tag
-                      color={peer.applied ? 'green' : peer.mode === 'unsupported' ? undefined : 'red'}
-                      style={{ margin: 0 }}
-                    >
-                      {peer.mode === 'unsupported'
-                        ? t('workbench.proxyCapture.routingUnsupported', { agent: peer.agent })
-                        : peer.agent}
-                    </Tag>
-                  </Tooltip>
-                ))}
-            </Space>
+            routing.active ? (
+              <>
+                <Space size={6} wrap>
+                  <span>{t('workbench.proxyCapture.routingActiveLead')}</span>
+                  {routing.peers.map((peer) => (
+                    <Tooltip key={peer.nodeId} title={peer.error}>
+                      <Tag
+                        color={peer.applied ? 'green' : peer.mode === 'unsupported' ? undefined : 'red'}
+                        style={{ margin: 0 }}
+                      >
+                        {peerAckLabel(t, peer)}
+                      </Tag>
+                    </Tooltip>
+                  ))}
+                </Space>
+                <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                  {t('workbench.proxyCapture.routingCaveat')}
+                </div>
+              </>
+            ) : (
+              <span>{t('workbench.proxyCapture.routingInactive')}</span>
+            )
           }
         />
       )}

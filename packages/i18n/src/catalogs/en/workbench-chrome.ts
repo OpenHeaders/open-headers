@@ -490,13 +490,14 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': 'Proxy is stopped',
   'workbench.proxyCapture.emptyStoppedHint': 'Start the proxy to begin capturing traffic',
   'workbench.proxyCapture.noCa':
-    'No CA is trusted, so HTTPS connections tunnel through opaque — nothing is decrypted. Install the CA under ' +
-    'Settings › Proxy, then add hosts to the decrypt scope.',
+    'No CA is trusted yet: plain HTTP is captured in full, but HTTPS connections pass through as opaque tunnels — ' +
+    'nothing inside them is visible. Install the CA under Settings › Proxy, then add hosts to the decrypt scope.',
   'workbench.proxyCapture.routing': 'Route browsers',
   'workbench.proxyCapture.routingFailed': 'Could not update routing: {message}',
+  'workbench.proxyCapture.routingActiveLead':
+    'These browsers now send decrypt-scope hosts through the capture proxy; everything else stays direct.',
   'workbench.proxyCapture.routingCaveat':
-    'Connected browsers route scoped hosts through the local proxy: HTTP/3 falls back to HTTP/2 or 1.1, and ' +
-    'certificate-pinned endpoints may fail. Un-scoped traffic stays direct.',
+    'HTTP/3 falls back to HTTP/2 or 1.1 on routed hosts, and certificate-pinned endpoints may fail.',
   'workbench.proxyCapture.routingInactive': 'Browsers route scoped hosts once the proxy is running.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · not supported',
   'workbench.proxyCapture.scopeInfo.exampleCaption': 'Example scope',
@@ -535,6 +536,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.emptyWatching': 'Waiting for traffic…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Browse in the watched tab — its requests appear here live',
   'workbench.trafficMonitor.sources': 'Sources',
+  'workbench.trafficMonitor.browserTabs': 'Browser tabs',
+  'workbench.trafficMonitor.windowLabel': 'Window {n}',
   'workbench.trafficMonitor.wire': 'Wire',
   'workbench.trafficMonitor.wireCapture': 'Wire capture',
   'workbench.trafficMonitor.emptyNoSource': 'No source selected',

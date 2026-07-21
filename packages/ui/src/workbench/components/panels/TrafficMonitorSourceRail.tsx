@@ -1,10 +1,12 @@
 /**
  * TrafficMonitorSourceRail — the right-hand source list of the Traffic Monitor
- * tool window. One row per observable source: every connected browser
- * peer's tabs (favicon + title, like the browser's own tab strip, under
- * a browser-identity header) and the wire-capture partition (the L7
- * proxy — any app routed through the capture port). Selecting a row
- * binds the panel's plane views on the left to that source.
+ * tool window. Two collapsible sections in the sidebar's own idiom
+ * (shared {@link SectionHeader} + `rules-sidebar-item` rows): BROWSER
+ * TABS — every connected peer under a colored brand roundel with its
+ * extension version, each tab as favicon + title like the browser's own
+ * tab strip — and WIRE, the L7 capture partition (any app routed
+ * through the capture port). Selecting a row binds the panel's plane
+ * views on the left to that source.
  *
  * Favicons arrive as `data:` URIs the EXTENSION resolved from the
  * browser's own favicon cache — the workbench renderer's CSP forbids
@@ -14,17 +16,41 @@
  * the selection; the rail renders and reports clicks.
  */
 
-import { ChromeOutlined, CompassOutlined, FileOutlined, FireOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Tag, theme, Tooltip, Typography } from 'antd';
+import { FileOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { SectionHeader } from '../sidebar/SectionHeader';
+import { BrowserBrandIcon } from './browser-brand-icons';
 
 export interface RailPeerTab {
   tabId: number;
+  windowId: number;
   url: string;
   title: string;
   /** Small `data:` URI resolved by the extension; absent while cold. */
   favIconUrl?: string;
+}
+
+/**
+ * Tabs grouped by browser window, in order of appearance. One browser
+ * instance is ONE peer — multiple windows show as labeled groups inside
+ * it (the label renders only when there is more than one window).
+ */
+function groupByWindow(tabs: readonly RailPeerTab[]): Array<{ windowId: number; tabs: RailPeerTab[] }> {
+  const groups: Array<{ windowId: number; tabs: RailPeerTab[] }> = [];
+  const byWindow = new Map<number, RailPeerTab[]>();
+  for (const tab of tabs) {
+    let group = byWindow.get(tab.windowId);
+    if (!group) {
+      group = [];
+      byWindow.set(tab.windowId, group);
+      groups.push({ windowId: tab.windowId, tabs: group });
+    }
+    group.push(tab);
+  }
+  return groups;
 }
 
 export interface RailPeer {
@@ -32,26 +58,6 @@ export interface RailPeer {
   agent: string;
   browser: { name: string; platform: string | null };
   tabs: RailPeerTab[];
-}
-
-/** Metaphoric brand glyphs — antd's icon set, no trademark artwork. */
-function browserGlyph(name: string): React.ReactElement {
-  switch (name) {
-    case 'Chrome':
-      return <ChromeOutlined />;
-    case 'Firefox':
-      return <FireOutlined />;
-    case 'Safari':
-      return <CompassOutlined />;
-    default:
-      return <GlobalOutlined />;
-  }
-}
-
-/** `@openheaders/extension@2026.7.11` → `2026.7.11` (null when unparsable). */
-function agentVersion(agent: string): string | null {
-  const match = agent.match(/@(\d[\w.-]*)$/);
-  return match ? match[1] : null;
 }
 
 export type TrafficSourceKey = string;
@@ -74,20 +80,35 @@ export interface TrafficMonitorSourceRailProps {
   onSelect: (key: TrafficSourceKey) => void;
 }
 
-const rowStyle = (active: boolean, token: ReturnType<typeof theme.useToken>['token']): React.CSSProperties => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  width: '100%',
-  padding: '4px 10px',
-  border: 'none',
-  background: active ? token.controlItemBgActive : 'transparent',
-  color: token.colorText,
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontSize: 12,
-  lineHeight: '20px',
-});
+/** `@openheaders/extension@2026.7.11` → `2026.7.11` (null when unparsable). */
+export function agentVersion(agent: string): string | null {
+  const match = agent.match(/@(\d[\w.-]*)$/);
+  return match ? match[1] : null;
+}
+
+function SourceRow({
+  testid,
+  active,
+  onClick,
+  children,
+}: {
+  testid: string;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testid}
+      aria-pressed={active}
+      className={`rules-sidebar-item traffic-monitor-source-row${active ? ' selected' : ''}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
 
 export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> = ({
   peers,
@@ -101,27 +122,14 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
 }) => {
   const t = useT();
   const { token } = theme.useToken();
-
-  const sectionLabel = (text: string): React.ReactElement => (
-    <div
-      style={{
-        padding: '6px 10px 2px',
-        fontSize: 11,
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: 0.4,
-        color: token.colorTextTertiary,
-      }}
-    >
-      {text}
-    </div>
-  );
+  const [browsersOpen, setBrowsersOpen] = useState(true);
+  const [wireOpen, setWireOpen] = useState(true);
 
   return (
     <div
       data-testid="traffic-monitor-source-rail"
       style={{
-        flex: '0 0 240px',
+        flex: '0 0 250px',
         borderLeft: `1px solid ${token.colorBorderSecondary}`,
         display: 'flex',
         flexDirection: 'column',
@@ -157,76 +165,103 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         </span>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingBottom: 8 }}>
-        {peers.map((peer) => {
-          const version = agentVersion(peer.agent);
-          const browserLabel = peer.browser.platform
-            ? `${peer.browser.name} · ${peer.browser.platform}`
-            : peer.browser.name;
-          return (
-            <div key={peer.nodeId}>
-              <div style={{ padding: '8px 10px 4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600 }}>
-                  {browserGlyph(peer.browser.name)}
-                  <span>{browserLabel}</span>
+        <SectionHeader
+          title={t('workbench.trafficMonitor.browserTabs')}
+          expanded={browsersOpen}
+          onToggle={() => setBrowsersOpen((v) => !v)}
+        />
+        {browsersOpen &&
+          peers.map((peer) => {
+            const version = agentVersion(peer.agent);
+            return (
+              <div key={peer.nodeId}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 14px 2px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  <BrowserBrandIcon name={peer.browser.name} />
+                  <span>{peer.browser.name}</span>
+                  <span style={{ fontWeight: 400, color: token.colorTextTertiary }}>
+                    {version !== null
+                      ? `· ${t('workbench.trafficMonitor.extensionVersion', { version })}`
+                      : `· ${peer.agent}`}
+                  </span>
                 </div>
-                <div style={{ fontSize: 11, color: token.colorTextTertiary, paddingLeft: 20 }}>
-                  {version !== null ? t('workbench.trafficMonitor.extensionVersion', { version }) : peer.agent}
-                </div>
+                {groupByWindow(peer.tabs).map((group, index, groups) => (
+                  <div key={group.windowId}>
+                    {groups.length > 1 && (
+                      <div
+                        style={{
+                          padding: '4px 14px 0',
+                          fontSize: 11,
+                          color: token.colorTextTertiary,
+                        }}
+                      >
+                        {t('workbench.trafficMonitor.windowLabel', { n: index + 1 })}
+                      </div>
+                    )}
+                    {group.tabs.map((tab) => {
+                      const key = tabSourceKey(peer.nodeId, tab.tabId);
+                      const title = tab.title || tab.url || t('workbench.trafficMonitor.untitledTab');
+                      return (
+                        <Tooltip key={key} title={tab.url} placement="left">
+                          <SourceRow
+                            testid="traffic-monitor-source-tab"
+                            active={selected === key}
+                            onClick={() => onSelect(key)}
+                          >
+                            {tab.favIconUrl?.startsWith('data:') ? (
+                              <img
+                                src={tab.favIconUrl}
+                                alt=""
+                                width={14}
+                                height={14}
+                                style={{ flex: '0 0 auto', borderRadius: 2 }}
+                              />
+                            ) : (
+                              <FileOutlined
+                                style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }}
+                              />
+                            )}
+                            <span className="rules-sidebar-item-label">{title}</span>
+                          </SourceRow>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-              {peer.tabs.map((tab) => {
-                const key = tabSourceKey(peer.nodeId, tab.tabId);
-                const title = tab.title || tab.url || t('workbench.trafficMonitor.untitledTab');
-                return (
-                  <Tooltip key={key} title={tab.url} placement="left">
-                    <button
-                      type="button"
-                      data-testid="traffic-monitor-source-tab"
-                      aria-pressed={selected === key}
-                      style={rowStyle(selected === key, token)}
-                      onClick={() => onSelect(key)}
-                    >
-                      {tab.favIconUrl?.startsWith('data:') ? (
-                        <img
-                          src={tab.favIconUrl}
-                          alt=""
-                          width={14}
-                          height={14}
-                          style={{ flex: '0 0 auto', borderRadius: 2 }}
-                        />
-                      ) : (
-                        <FileOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
-                      )}
-                      <Typography.Text style={{ fontSize: 12 }} ellipsis>
-                        {title}
-                      </Typography.Text>
-                    </button>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          );
-        })}
+            );
+          })}
         {showWire && (
-          <div>
-            {sectionLabel(t('workbench.trafficMonitor.wire'))}
-            <button
-              type="button"
-              data-testid="traffic-monitor-source-wire"
-              aria-pressed={selected === WIRE_SOURCE_KEY}
-              style={rowStyle(selected === WIRE_SOURCE_KEY, token)}
-              onClick={() => onSelect(WIRE_SOURCE_KEY)}
-            >
-              <GlobalOutlined style={{ fontSize: 12 }} />
-              <Typography.Text style={{ fontSize: 12, flex: '1 1 auto' }} ellipsis>
-                {t('workbench.trafficMonitor.wireCapture')}
-              </Typography.Text>
-              <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0 }}>
-                {wireRunning && wirePort !== null
-                  ? t('workbench.proxyCapture.running', { port: wirePort })
-                  : t('workbench.proxyCapture.stopped')}
-              </Tag>
-            </button>
-          </div>
+          <>
+            <SectionHeader
+              title={t('workbench.trafficMonitor.wire')}
+              expanded={wireOpen}
+              onToggle={() => setWireOpen((v) => !v)}
+            />
+            {wireOpen && (
+              <SourceRow
+                testid="traffic-monitor-source-wire"
+                active={selected === WIRE_SOURCE_KEY}
+                onClick={() => onSelect(WIRE_SOURCE_KEY)}
+              >
+                <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
+                <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.wireCapture')}</span>
+                <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
+                  {wireRunning && wirePort !== null
+                    ? t('workbench.proxyCapture.running', { port: wirePort })
+                    : t('workbench.proxyCapture.stopped')}
+                </Tag>
+              </SourceRow>
+            )}
+          </>
         )}
       </div>
     </div>

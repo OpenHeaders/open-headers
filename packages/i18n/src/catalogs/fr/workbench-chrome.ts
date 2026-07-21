@@ -503,13 +503,17 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': 'Le proxy est arrêté',
   'workbench.proxyCapture.emptyStoppedHint': 'Démarrez le proxy pour commencer à capturer le trafic',
   'workbench.proxyCapture.noCa':
-    'Aucune AC n’est approuvée, les connexions HTTPS transitent donc en tunnel opaque — rien n’est déchiffré. ' +
-    'Installez l’AC dans Paramètres › Proxy, puis ajoutez des hôtes au périmètre de déchiffrement.',
+    'Aucune AC n’est encore approuvée : le HTTP en clair est capturé en entier, mais les connexions HTTPS ' +
+    'transitent en tunnel opaque — rien de leur contenu n’est visible. Installez l’AC dans Paramètres › Proxy, ' +
+    'puis ajoutez des hôtes au périmètre de déchiffrement.',
   'workbench.proxyCapture.routing': 'Router les navigateurs',
   'workbench.proxyCapture.routingFailed': 'Impossible de mettre à jour le routage : {message}',
+  'workbench.proxyCapture.routingActiveLead':
+    'Ces navigateurs envoient désormais les hôtes du périmètre de déchiffrement par le proxy de capture ; tout le ' +
+    'reste reste en direct.',
   'workbench.proxyCapture.routingCaveat':
-    'Les navigateurs connectés routent les hôtes du périmètre par le proxy local : HTTP/3 retombe en HTTP/2 ou 1.1, ' +
-    'et les points de terminaison à certificat épinglé peuvent échouer. Le reste du trafic reste direct.',
+    'HTTP/3 retombe en HTTP/2 ou 1.1 sur les hôtes routés, et les points de terminaison à certificat épinglé ' +
+    'peuvent échouer.',
   'workbench.proxyCapture.routingInactive': 'Les navigateurs routent les hôtes du périmètre dès que le proxy tourne.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · non pris en charge',
   'workbench.proxyCapture.scopeInfo.exampleCaption': 'Exemple de périmètre',
@@ -551,6 +555,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.emptyWatchingHint':
     'Naviguez dans l’onglet surveillé — ses requêtes apparaissent ici en direct',
   'workbench.trafficMonitor.sources': 'Sources',
+  'workbench.trafficMonitor.browserTabs': 'Onglets du navigateur',
+  'workbench.trafficMonitor.windowLabel': 'Fenêtre {n}',
   'workbench.trafficMonitor.wire': 'Sur le fil',
   'workbench.trafficMonitor.wireCapture': 'Capture sur le fil',
   'workbench.trafficMonitor.emptyNoSource': 'Aucune source sélectionnée',

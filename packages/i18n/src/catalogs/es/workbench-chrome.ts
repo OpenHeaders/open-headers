@@ -503,13 +503,16 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': 'El proxy está detenido',
   'workbench.proxyCapture.emptyStoppedHint': 'Inicia el proxy para empezar a capturar tráfico',
   'workbench.proxyCapture.noCa':
-    'No hay ninguna CA de confianza, así que las conexiones HTTPS pasan por un túnel opaco: no se descifra nada. ' +
-    'Instala la CA en Configuración › Proxy y añade hosts al ámbito de descifrado.',
+    'Aún no hay ninguna CA de confianza: el HTTP plano se captura por completo, pero las conexiones HTTPS pasan ' +
+    'como túneles opacos, sin que nada de su interior sea visible. Instala la CA en Configuración › Proxy y añade ' +
+    'hosts al ámbito de descifrado.',
   'workbench.proxyCapture.routing': 'Enrutar navegadores',
   'workbench.proxyCapture.routingFailed': 'No se pudo actualizar el enrutamiento: {message}',
+  'workbench.proxyCapture.routingActiveLead':
+    'Estos navegadores ahora envían los hosts del ámbito de descifrado a través del proxy de captura; todo lo ' +
+    'demás va directo.',
   'workbench.proxyCapture.routingCaveat':
-    'Los navegadores conectados enrutan los hosts del ámbito por el proxy local: HTTP/3 cae a HTTP/2 o 1.1, y los ' +
-    'endpoints con certificado fijado pueden fallar. El resto del tráfico va directo.',
+    'HTTP/3 cae a HTTP/2 o 1.1 en los hosts enrutados, y los endpoints con certificado fijado pueden fallar.',
   'workbench.proxyCapture.routingInactive':
     'Los navegadores enrutan los hosts del ámbito cuando el proxy está en marcha.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · no compatible',
@@ -551,6 +554,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
   'workbench.trafficMonitor.sources': 'Fuentes',
+  'workbench.trafficMonitor.browserTabs': 'Pestañas del navegador',
+  'workbench.trafficMonitor.windowLabel': 'Ventana {n}',
   'workbench.trafficMonitor.wire': 'En el cable',
   'workbench.trafficMonitor.wireCapture': 'Captura en el cable',
   'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',

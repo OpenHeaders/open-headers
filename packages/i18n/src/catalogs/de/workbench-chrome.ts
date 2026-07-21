@@ -499,13 +499,16 @@ export const workbenchChrome = {
   'workbench.proxyCapture.emptyStopped': 'Der Proxy ist gestoppt',
   'workbench.proxyCapture.emptyStoppedHint': 'Starte den Proxy, um Verkehr zu erfassen',
   'workbench.proxyCapture.noCa':
-    'Keiner CA wird vertraut, HTTPS-Verbindungen laufen daher als opaker Tunnel durch — nichts wird entschlüsselt. ' +
-    'Installiere die CA unter Einstellungen › Proxy und füge dann Hosts zum Entschlüsselungsbereich hinzu.',
+    'Noch wird keiner CA vertraut: Klartext-HTTP wird vollständig erfasst, HTTPS-Verbindungen laufen aber als ' +
+    'opake Tunnel durch — nichts darin ist sichtbar. Installiere die CA unter Einstellungen › Proxy und füge dann ' +
+    'Hosts zum Entschlüsselungsbereich hinzu.',
   'workbench.proxyCapture.routing': 'Browser routen',
   'workbench.proxyCapture.routingFailed': 'Routing konnte nicht aktualisiert werden: {message}',
+  'workbench.proxyCapture.routingActiveLead':
+    'Diese Browser senden Hosts im Entschlüsselungsbereich jetzt durch den Capture-Proxy; alles andere bleibt direkt.',
   'workbench.proxyCapture.routingCaveat':
-    'Verbundene Browser leiten Hosts im Bereich über den lokalen Proxy: HTTP/3 fällt auf HTTP/2 oder 1.1 zurück, ' +
-    'und Endpunkte mit Zertifikats-Pinning können fehlschlagen. Übriger Verkehr bleibt direkt.',
+    'HTTP/3 fällt auf gerouteten Hosts auf HTTP/2 oder 1.1 zurück, und Endpunkte mit Zertifikats-Pinning können ' +
+    'fehlschlagen.',
   'workbench.proxyCapture.routingInactive': 'Browser routen Hosts im Bereich, sobald der Proxy läuft.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · nicht unterstützt',
   'workbench.proxyCapture.scopeInfo.exampleCaption': 'Beispiel-Geltungsbereich',
@@ -546,6 +549,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
   'workbench.trafficMonitor.sources': 'Quellen',
+  'workbench.trafficMonitor.browserTabs': 'Browser-Tabs',
+  'workbench.trafficMonitor.windowLabel': 'Fenster {n}',
   'workbench.trafficMonitor.wire': 'Leitung',
   'workbench.trafficMonitor.wireCapture': 'Leitungsmitschnitt',
   'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
