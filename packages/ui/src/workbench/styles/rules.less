@@ -574,13 +574,46 @@ body {
 // Traffic Monitor source rows are <button>s wearing the sidebar-item
 // idiom — neutralize the UA button chrome so the shared hover/selected
 // states show through (the width accounts for the item's 4px margins).
+// `min-width: 0` lets the flex label actually ellipsize instead of the
+// row growing the fixed-width rail.
 .traffic-monitor-source-row {
   width: calc(100% - 8px);
+  min-width: 0;
   border: none;
   background: transparent;
   color: inherit;
   text-align: left;
   font: inherit;
+
+  .rules-sidebar-item-label {
+    min-width: 0;
+  }
+}
+
+// Draggable divider between the browser-tabs pane and the wire pane.
+.traffic-monitor-sash {
+  flex: 0 0 auto;
+  height: 6px;
+  margin: 2px 0;
+  cursor: row-resize;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: rgba(128, 128, 128, 0.25);
+    transition: background 0.12s ease;
+  }
+
+  &:hover::after {
+    background: rgba(24, 144, 255, 0.5);
+    height: 2px;
+  }
 }
 
 .rules-sidebar-item-hover-action {
