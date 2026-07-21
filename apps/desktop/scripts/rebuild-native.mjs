@@ -38,7 +38,13 @@ const sqlitePkgDir = path.dirname(desktopRequire.resolve('better-sqlite3/package
 const builtBinary = path.join(sqlitePkgDir, 'build', 'Release', 'better_sqlite3.node');
 const prebuildsDir = path.join(sqlitePkgDir, 'prebuilds');
 
-const electronRebuildCli = path.join(desktopDir, 'node_modules', '@electron', 'rebuild', 'lib', 'cli.js');
+// Resolve through the package's REALPATH: the symlinked path's walk-up
+// chain misses pnpm's hidden hoist dir (`node_modules/.pnpm/node_modules`),
+// so on a store without a root-hoisted node-gyp the literal path can't
+// see @electron/rebuild's own dependency.
+const electronRebuildCli = fs.realpathSync(
+  path.join(desktopDir, 'node_modules', '@electron', 'rebuild', 'lib', 'cli.js'),
+);
 const nodeGypCli = createRequire(electronRebuildCli).resolve('node-gyp/bin/node-gyp.js');
 const prebuildInstallCli = createRequire(path.join(sqlitePkgDir, 'noop.js')).resolve('prebuild-install/bin.js');
 const electronBinary = desktopRequire('electron');
