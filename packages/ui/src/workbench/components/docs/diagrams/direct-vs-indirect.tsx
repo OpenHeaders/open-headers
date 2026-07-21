@@ -10,9 +10,11 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, FILL_GREEN, STROKE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 export const DirectVsIndirectDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'di-msg';
   const matchFill = FILL_GREEN;
   const matchStroke = STROKE_GREEN;
@@ -23,7 +25,7 @@ export const DirectVsIndirectDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Direct vs indirect matches — same rule, two page contexts"
+      aria-label={t('workbench.docs.diagrams.directVsIndirect.aria')}
     >
       <ArrowDefs id={ID} />
       {/* Rule banner at top */}
@@ -37,10 +39,10 @@ export const DirectVsIndirectDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={160} y={16} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Rule
+        {t('workbench.docs.diagrams.directVsIndirect.ruleLabel')}
       </text>
       <text x={160} y={26} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={600} fill={TEXT}>
-        Request Domains: openheaders.io
+        {t('workbench.docs.diagrams.directVsIndirect.ruleBanner')}
       </text>
 
       {/* Vertical separator between scenes */}
@@ -48,16 +50,16 @@ export const DirectVsIndirectDiagram: React.FC = () => {
 
       {/* ── LEFT: DIRECT ────────────────────────────────────────── */}
       <text x={80} y={48} textAnchor="middle" fontSize={11} fontWeight={600} fill={TEXT}>
-        Direct
+        {t('workbench.docs.diagrams.directVsIndirect.directTitle')}
       </text>
       <text x={80} y={60} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        page URL itself matches
+        {t('workbench.docs.diagrams.directVsIndirect.directSub')}
       </text>
 
       {/* Page (matches) */}
       <rect x={20} y={68} width={120} height={28} rx={3} fill={matchFill} stroke={matchStroke} />
       <text x={80} y={80} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        page
+        {t('workbench.docs.diagrams.directVsIndirect.pageLabel')}
       </text>
       <text x={80} y={92} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={600} fill={TEXT}>
         openheaders.io/dash
@@ -88,24 +90,24 @@ export const DirectVsIndirectDiagram: React.FC = () => {
       </text>
       {/* Caption */}
       <text x={80} y={166} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Page + same-host
+        {t('workbench.docs.diagrams.directVsIndirect.directCaption1')}
       </text>
       <text x={80} y={177} textAnchor="middle" fontSize={9} fill={TEXT}>
-        sub-resources tracked
+        {t('workbench.docs.diagrams.directVsIndirect.directCaption2')}
       </text>
       <text x={80} y={195} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        badge:{' '}
+        {t('workbench.docs.diagrams.directVsIndirect.badgePrefix')}{' '}
         <tspan fontWeight={600} fill={TEXT}>
-          direct
+          {t('workbench.docs.diagrams.directVsIndirect.badgeDirect')}
         </tspan>
       </text>
 
       {/* ── RIGHT: INDIRECT ─────────────────────────────────────── */}
       <text x={240} y={48} textAnchor="middle" fontSize={11} fontWeight={600} fill={TEXT}>
-        Indirect
+        {t('workbench.docs.diagrams.directVsIndirect.indirectTitle')}
       </text>
       <text x={240} y={60} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        only a sub-resource matches
+        {t('workbench.docs.diagrams.directVsIndirect.indirectSub')}
       </text>
 
       {/* Page (no match) */}
@@ -120,7 +122,7 @@ export const DirectVsIndirectDiagram: React.FC = () => {
         strokeDasharray="2 2"
       />
       <text x={240} y={80} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        page
+        {t('workbench.docs.diagrams.directVsIndirect.pageLabel')}
       </text>
       <text x={240} y={92} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={600} fill={TEXT_DIM}>
         app.example.com
@@ -150,22 +152,22 @@ export const DirectVsIndirectDiagram: React.FC = () => {
         cdn.example
       </text>
       <text x={240} y={166} textAnchor="middle" fontSize={9} fill={TEXT}>
-        Only the matching
+        {t('workbench.docs.diagrams.directVsIndirect.indirectCaption1')}
       </text>
       <text x={240} y={177} textAnchor="middle" fontSize={9} fill={TEXT}>
-        sub-resource tracked
+        {t('workbench.docs.diagrams.directVsIndirect.indirectCaption2')}
       </text>
       <text x={240} y={195} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        badge:{' '}
+        {t('workbench.docs.diagrams.directVsIndirect.badgePrefix')}{' '}
         <tspan fontWeight={600} fill={TEXT}>
-          indirect
+          {t('workbench.docs.diagrams.directVsIndirect.badgeIndirect')}
         </tspan>
       </text>
 
       {/* Legend at bottom */}
       <rect x={20} y={216} width={10} height={10} fill={matchFill} stroke={matchStroke} />
       <text x={36} y={225} fontSize={9} fill={TEXT_DIM}>
-        matches rule
+        {t('workbench.docs.diagrams.directVsIndirect.legendMatches')}
       </text>
       <rect
         x={120}
@@ -177,7 +179,7 @@ export const DirectVsIndirectDiagram: React.FC = () => {
         strokeDasharray="2 2"
       />
       <text x={136} y={225} fontSize={9} fill={TEXT_DIM}>
-        does not match
+        {t('workbench.docs.diagrams.directVsIndirect.legendNoMatch')}
       </text>
     </svg>
   );

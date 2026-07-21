@@ -17,6 +17,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ArrowDefs,
   Box,
@@ -32,6 +33,7 @@ import {
 } from './_shared';
 
 export const ExecutionStackDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'ex-stack';
   return (
     <svg
@@ -39,25 +41,43 @@ export const ExecutionStackDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Where each engine intercepts the request flow — JS goes through Script then DNR; static and navigation skip Script"
+      aria-label={t('workbench.docs.diagrams.execution.stackAria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Where each engine intercepts
+        {t('workbench.docs.diagrams.execution.stackTitle')}
       </text>
 
       {/* Source labels (above each top box) */}
       <text x={80} y={32} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        JS-initiated
+        {t('workbench.docs.diagrams.execution.stackJsLane')}
       </text>
       <text x={240} y={32} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Static / navigation
+        {t('workbench.docs.diagrams.execution.stackStaticLane')}
       </text>
 
       {/* Top sources */}
-      <Box x={30} y={38} w={100} h={36} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Page JS" sub="fetch / XHR" />
-      <Box x={190} y={38} w={100} h={36} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Browser" sub="<img>, nav, etc." />
+      <Box
+        x={30}
+        y={38}
+        w={100}
+        h={36}
+        fill={FILL_BLUE}
+        stroke={STROKE_BLUE}
+        label={t('workbench.docs.diagrams.execution.stackPageJs')}
+        sub={t('workbench.docs.diagrams.execution.stackPageJsSub')}
+      />
+      <Box
+        x={190}
+        y={38}
+        w={100}
+        h={36}
+        fill={FILL_BLUE}
+        stroke={STROKE_BLUE}
+        label={t('workbench.docs.diagrams.execution.stackBrowser')}
+        sub={t('workbench.docs.diagrams.execution.stackBrowserSub')}
+      />
 
       {/* Left lane — solid arrow into Script engine */}
       <line x1={80} y1={74} x2={80} y2={94} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
@@ -70,8 +90,8 @@ export const ExecutionStackDiagram: React.FC = () => {
         h={36}
         fill={FILL_PURPLE}
         stroke={STROKE_PURPLE}
-        label="Script engine"
-        sub="monkey-patch"
+        label={t('workbench.docs.diagrams.execution.stackScriptEngine')}
+        sub={t('workbench.docs.diagrams.execution.stackScriptEngineSub')}
       />
 
       {/* Right lane — long dashed arrow indicating "passes through, no script intercept" */}
@@ -86,10 +106,10 @@ export const ExecutionStackDiagram: React.FC = () => {
         markerEnd={`url(#${ID})`}
       />
       <text x={250} y={120} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        bypasses
+        {t('workbench.docs.diagrams.execution.stackBypasses1')}
       </text>
       <text x={250} y={132} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        script engine
+        {t('workbench.docs.diagrams.execution.stackBypasses2')}
       </text>
 
       {/* Left lane — Script down to DNR */}
@@ -103,17 +123,25 @@ export const ExecutionStackDiagram: React.FC = () => {
         h={36}
         fill={FILL_GREEN}
         stroke={STROKE_GREEN}
-        label="DNR engine"
-        sub="Chrome network — catches everything"
+        label={t('workbench.docs.diagrams.execution.stackDnrEngine')}
+        sub={t('workbench.docs.diagrams.execution.stackDnrEngineSub')}
       />
 
       {/* Down to network */}
       <line x1={160} y1={208} x2={160} y2={234} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
 
-      <Box x={110} y={236} w={100} h={28} fill="var(--ant-color-fill-secondary)" stroke={STROKE} label="Network" />
+      <Box
+        x={110}
+        y={236}
+        w={100}
+        h={28}
+        fill="var(--ant-color-fill-secondary)"
+        stroke={STROKE}
+        label={t('workbench.docs.diagrams.execution.stackNetwork')}
+      />
 
       <text x={160} y={275} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        DNR is broad; Script is narrow but can read response bodies.
+        {t('workbench.docs.diagrams.execution.stackFooter')}
       </text>
     </svg>
   );
@@ -130,12 +158,13 @@ export const ExecutionStackDiagram: React.FC = () => {
  * emphasizes coverage.
  */
 export const ExecutionDnrReachDiagram: React.FC = () => {
+  const t = useT();
   const items: [string, string][] = [
-    ['page navigation', 'images'],
-    ['sub-frame', 'fonts'],
-    ['fetch / XHR', 'media'],
-    ['scripts', 'websocket'],
-    ['stylesheets', 'ping / beacon'],
+    [t('workbench.docs.diagrams.execution.dnrItemNav'), t('workbench.docs.diagrams.execution.dnrItemImages')],
+    [t('workbench.docs.diagrams.execution.dnrItemSubFrame'), t('workbench.docs.diagrams.execution.dnrItemFonts')],
+    [t('workbench.docs.diagrams.execution.dnrItemFetch'), t('workbench.docs.diagrams.execution.dnrItemMedia')],
+    [t('workbench.docs.diagrams.execution.dnrItemScripts'), t('workbench.docs.diagrams.execution.dnrItemWebsocket')],
+    [t('workbench.docs.diagrams.execution.dnrItemStylesheets'), t('workbench.docs.diagrams.execution.dnrItemPing')],
   ];
   return (
     <svg
@@ -143,10 +172,10 @@ export const ExecutionDnrReachDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="DNR's broad reach — every resource type the browser fetches is intercepted"
+      aria-label={t('workbench.docs.diagrams.execution.dnrAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        DNR catches every kind of request
+        {t('workbench.docs.diagrams.execution.dnrTitle')}
       </text>
 
       <rect x={20} y={26} width={280} height={130} rx={4} fill={FILL_GREEN} stroke={STROKE_GREEN} />
@@ -172,13 +201,14 @@ export const ExecutionDnrReachDiagram: React.FC = () => {
       })}
 
       <text x={160} y={172} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        every resource type the browser fetches
+        {t('workbench.docs.diagrams.execution.dnrFooter')}
       </text>
     </svg>
   );
 };
 
 export const ExecutionScriptReachDiagram: React.FC = () => {
+  const t = useT();
   const errBg = 'var(--ant-color-error-bg)';
   const errStroke = 'var(--ant-color-error-border)';
   const errText = 'var(--ant-color-error)';
@@ -190,58 +220,58 @@ export const ExecutionScriptReachDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Script engine reach — what it catches versus what it bypasses"
+      aria-label={t('workbench.docs.diagrams.execution.reachAria')}
     >
       {/* Header bar — title */}
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        What the script engine actually sees
+        {t('workbench.docs.diagrams.execution.reachTitle')}
       </text>
 
       {/* LEFT — Caught */}
       <rect x={10} y={26} width={145} height={166} rx={4} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={82} y={44} textAnchor="middle" fontSize={11} fontWeight={700} fill={okText}>
-        ✓ caught
+        {t('workbench.docs.diagrams.execution.reachCaught')}
       </text>
       <text x={82} y={58} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        the engine sees these
+        {t('workbench.docs.diagrams.execution.reachCaughtSub')}
       </text>
       <line x1={20} y1={68} x2={145} y2={68} stroke={STROKE_GREEN} />
       <text x={20} y={88} fontFamily={codeFont} fontSize={10} fill={TEXT}>
-        fetch()
+        {t('workbench.docs.diagrams.execution.reachFetch')}
       </text>
       <text x={20} y={108} fontFamily={codeFont} fontSize={10} fill={TEXT}>
-        XMLHttpRequest
+        {t('workbench.docs.diagrams.execution.reachXhr')}
       </text>
       <text x={20} y={128} fontFamily={codeFont} fontSize={10} fill={TEXT}>
-        SW fetch
+        {t('workbench.docs.diagrams.execution.reachSwFetch')}
       </text>
       <text x={32} y={140} fontSize={9} fill={TEXT_DIM}>
-        (in scope)
+        {t('workbench.docs.diagrams.execution.reachInScope')}
       </text>
 
       {/* RIGHT — Missed */}
       <rect x={165} y={26} width={145} height={166} rx={4} fill={errBg} stroke={errStroke} />
       <text x={237} y={44} textAnchor="middle" fontSize={11} fontWeight={700} fill={errText}>
-        ✗ missed
+        {t('workbench.docs.diagrams.execution.reachMissed')}
       </text>
       <text x={237} y={58} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        bypasses entirely
+        {t('workbench.docs.diagrams.execution.reachMissedSub')}
       </text>
       <line x1={175} y1={68} x2={300} y2={68} stroke={errStroke} />
       <text x={175} y={88} fontFamily={codeFont} fontSize={10} fill={TEXT}>
-        {'<img src>'}
+        {t('workbench.docs.diagrams.execution.reachImgSrc')}
       </text>
       <text x={175} y={108} fontFamily={codeFont} fontSize={10} fill={TEXT}>
-        {'<script src>'}
+        {t('workbench.docs.diagrams.execution.reachScriptSrc')}
       </text>
       <text x={175} y={128} fontSize={10} fill={TEXT}>
-        page navigation
+        {t('workbench.docs.diagrams.execution.reachPageNav')}
       </text>
       <text x={175} y={148} fontSize={10} fill={TEXT}>
-        browser-internal
+        {t('workbench.docs.diagrams.execution.reachBrowserInternal')}
       </text>
       <text x={175} y={168} fontSize={9} fill={TEXT_DIM}>
-        (favicon, etc.)
+        {t('workbench.docs.diagrams.execution.reachFaviconEtc')}
       </text>
     </svg>
   );

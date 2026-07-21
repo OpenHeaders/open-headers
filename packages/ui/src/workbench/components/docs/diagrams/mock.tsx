@@ -9,6 +9,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ArrowDefs,
   Box,
@@ -25,54 +26,105 @@ import {
   TEXT_DIM,
 } from './_shared';
 
-export const MockFlowDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 300 240"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="Static skips the network entirely; Dynamic hits it first, then transforms the real response."
-  >
-    <ArrowDefs id="mk-arrow" />
-    <text x="75" y="14" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      Static
-    </text>
-    <text x="225" y="14" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      Dynamic
-    </text>
-    <Box x={20} y={22} w={110} h={26} fill={FILL_BLUE} stroke={STROKE_BLUE} label="fetch('/api')" />
-    <Box x={170} y={22} w={110} h={26} fill={FILL_BLUE} stroke={STROKE_BLUE} label="fetch('/api')" />
-    <line x1="75" y1="48" x2="75" y2="62" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <line x1="225" y1="48" x2="225" y2="62" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <Box x={20} y={64} w={110} h={26} fill={FILL_PURPLE} stroke={STROKE_PURPLE} label="Intercept" />
-    <Box x={170} y={64} w={110} h={26} fill={FILL_PURPLE} stroke={STROKE_PURPLE} label="Intercept" />
-    <line x1="75" y1="90" x2="75" y2="108" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <text x="75" y="125" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      (real network
-    </text>
-    <text x="75" y="136" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      never hit)
-    </text>
-    <line x1="225" y1="90" x2="225" y2="108" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <Box
-      x={170}
-      y={110}
-      w={110}
-      h={26}
-      fill={FILL_ORANGE}
-      stroke={STROKE_ORANGE}
-      label="real network"
-      sub="real response"
-    />
-    <line x1="225" y1="146" x2="225" y2="160" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <Box x={20} y={148} w={110} h={26} fill={FILL_GREEN} stroke={STROKE_GREEN} label="synthetic body" />
-    <line x1="75" y1="174" x2="75" y2="188" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <Box x={170} y={162} w={110} h={26} fill={FILL_GREEN} stroke={STROKE_GREEN} label="fn(response)" />
-    <line x1="225" y1="188" x2="225" y2="202" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
-    <Box x={20} y={190} w={110} h={26} fill={FILL_BLUE} stroke={STROKE_BLUE} label="page receives" />
-    <Box x={170} y={204} w={110} h={26} fill={FILL_BLUE} stroke={STROKE_BLUE} label="page receives" />
-  </svg>
-);
+export const MockFlowDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <svg
+      viewBox="0 0 300 240"
+      width="100%"
+      style={{ maxWidth: 320 }}
+      role="img"
+      aria-label={t('workbench.docs.diagrams.mock.flowAria')}
+    >
+      <ArrowDefs id="mk-arrow" />
+      <text x="75" y="14" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
+        {t('workbench.docs.diagrams.mock.flowStatic')}
+      </text>
+      <text x="225" y="14" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
+        {t('workbench.docs.diagrams.mock.flowDynamic')}
+      </text>
+      <Box x={20} y={22} w={110} h={26} fill={FILL_BLUE} stroke={STROKE_BLUE} label="fetch('/api')" />
+      <Box x={170} y={22} w={110} h={26} fill={FILL_BLUE} stroke={STROKE_BLUE} label="fetch('/api')" />
+      <line x1="75" y1="48" x2="75" y2="62" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <line x1="225" y1="48" x2="225" y2="62" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <Box
+        x={20}
+        y={64}
+        w={110}
+        h={26}
+        fill={FILL_PURPLE}
+        stroke={STROKE_PURPLE}
+        label={t('workbench.docs.diagrams.mock.flowIntercept')}
+      />
+      <Box
+        x={170}
+        y={64}
+        w={110}
+        h={26}
+        fill={FILL_PURPLE}
+        stroke={STROKE_PURPLE}
+        label={t('workbench.docs.diagrams.mock.flowIntercept')}
+      />
+      <line x1="75" y1="90" x2="75" y2="108" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <text x="75" y="125" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.mock.flowNeverHit1')}
+      </text>
+      <text x="75" y="136" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.mock.flowNeverHit2')}
+      </text>
+      <line x1="225" y1="90" x2="225" y2="108" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <Box
+        x={170}
+        y={110}
+        w={110}
+        h={26}
+        fill={FILL_ORANGE}
+        stroke={STROKE_ORANGE}
+        label={t('workbench.docs.diagrams.mock.flowRealNetwork')}
+        sub={t('workbench.docs.diagrams.mock.flowRealNetworkSub')}
+      />
+      <line x1="225" y1="146" x2="225" y2="160" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <Box
+        x={20}
+        y={148}
+        w={110}
+        h={26}
+        fill={FILL_GREEN}
+        stroke={STROKE_GREEN}
+        label={t('workbench.docs.diagrams.mock.flowSynthetic')}
+      />
+      <line x1="75" y1="174" x2="75" y2="188" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <Box
+        x={170}
+        y={162}
+        w={110}
+        h={26}
+        fill={FILL_GREEN}
+        stroke={STROKE_GREEN}
+        label={t('workbench.docs.diagrams.mock.flowFnResponse')}
+      />
+      <line x1="225" y1="188" x2="225" y2="202" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mk-arrow)" />
+      <Box
+        x={20}
+        y={190}
+        w={110}
+        h={26}
+        fill={FILL_BLUE}
+        stroke={STROKE_BLUE}
+        label={t('workbench.docs.diagrams.mock.flowPageReceives')}
+      />
+      <Box
+        x={170}
+        y={204}
+        w={110}
+        h={26}
+        fill={FILL_BLUE}
+        stroke={STROKE_BLUE}
+        label={t('workbench.docs.diagrams.mock.flowPageReceives')}
+      />
+    </svg>
+  );
+};
 
 const STATE_X = 30;
 const STATE_W = 260;
@@ -94,12 +146,13 @@ const MockCard: React.FC<{
   arrowLabel: string;
   stamp: string;
 }> = ({ idSuffix, rule, beforeTitle, beforeLines, afterTitle, afterLines, arrowLabel, stamp }) => {
+  const t = useT();
   const ID = `mk-${idSuffix}`;
   return (
     <svg viewBox="0 0 320 240" width="100%" style={{ maxWidth: 360 }} role="img">
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={RULE_Y} width={280} height={22} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text
@@ -175,57 +228,64 @@ const MockCard: React.FC<{
   );
 };
 
-export const MockStaticDiagram: React.FC = () => (
-  <MockCard
-    idSuffix="st"
-    rule='Static response: 200 { "users": [] }'
-    beforeTitle="REAL NETWORK"
-    beforeLines={[
-      <tspan key="b" fontStyle="italic" fill={TEXT_DIM}>
-        (never reached)
-      </tspan>,
-      <tspan key="b2" fontStyle="italic" fill={TEXT_DIM}>
-        — request short-circuited
-      </tspan>,
-    ]}
-    afterTitle="PAGE RECEIVES"
-    afterLines={[
-      <tspan key="a">{'200 OK · Content-Type: application/json'}</tspan>,
-      <tspan key="a2" fontWeight={700} fill={STROKE_PURPLE}>
-        {'{ "users": [] }'}
-      </tspan>,
-    ]}
-    arrowLabel="synthetic response served"
-    stamp="Fixed body + status + headers — server is never contacted."
-  />
-);
+export const MockStaticDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <MockCard
+      idSuffix="st"
+      rule={t('workbench.docs.diagrams.mock.staticRule')}
+      beforeTitle={t('workbench.docs.diagrams.mock.staticBeforeKicker')}
+      beforeLines={[
+        <tspan key="b" fontStyle="italic" fill={TEXT_DIM}>
+          {t('workbench.docs.diagrams.mock.staticNever1')}
+        </tspan>,
+        <tspan key="b2" fontStyle="italic" fill={TEXT_DIM}>
+          {t('workbench.docs.diagrams.mock.staticNever2')}
+        </tspan>,
+      ]}
+      afterTitle={t('workbench.docs.diagrams.mock.pageReceivesKicker')}
+      afterLines={[
+        <tspan key="a">{t('workbench.docs.diagrams.mock.staticAfterLine1')}</tspan>,
+        <tspan key="a2" fontWeight={700} fill={STROKE_PURPLE}>
+          {t('workbench.docs.diagrams.mock.staticAfterBody')}
+        </tspan>,
+      ]}
+      arrowLabel={t('workbench.docs.diagrams.mock.staticArrow')}
+      stamp={t('workbench.docs.diagrams.mock.staticStamp')}
+    />
+  );
+};
 
-export const MockDynamicDiagram: React.FC = () => (
-  <MockCard
-    idSuffix="dyn"
-    rule="Dynamic response: redact PII fields"
-    beforeTitle="REAL RESPONSE"
-    beforeLines={[
-      <tspan key="b">{'{ "user":'}</tspan>,
-      <tspan key="b2">{'  { "email": "alice@openheaders.io" } }'}</tspan>,
-    ]}
-    afterTitle="PAGE RECEIVES"
-    afterLines={[
-      <tspan key="a">{'{ "user":'}</tspan>,
-      <tspan key="a2">
-        {'  { "email": '}
-        <tspan fontWeight={700} fill={STROKE_PURPLE}>
-          "[redacted]"
-        </tspan>
-        {' } }'}
-      </tspan>,
-    ]}
-    arrowLabel="fn(real response) →"
-    stamp="Real call still happens; your function rewrites the body."
-  />
-);
+export const MockDynamicDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <MockCard
+      idSuffix="dyn"
+      rule={t('workbench.docs.diagrams.mock.dynamicRule')}
+      beforeTitle={t('workbench.docs.diagrams.mock.dynamicBeforeKicker')}
+      beforeLines={[
+        <tspan key="b">{t('workbench.docs.diagrams.mock.dynBodyOpen')}</tspan>,
+        <tspan key="b2">{t('workbench.docs.diagrams.mock.dynBodyEmail')}</tspan>,
+      ]}
+      afterTitle={t('workbench.docs.diagrams.mock.pageReceivesKicker')}
+      afterLines={[
+        <tspan key="a">{t('workbench.docs.diagrams.mock.dynBodyOpen')}</tspan>,
+        <tspan key="a2">
+          {t('workbench.docs.diagrams.mock.dynAfterPrefix')}
+          <tspan fontWeight={700} fill={STROKE_PURPLE}>
+            {t('workbench.docs.diagrams.mock.dynRedacted')}
+          </tspan>
+          {' } }'}
+        </tspan>,
+      ]}
+      arrowLabel={t('workbench.docs.diagrams.mock.dynamicArrow')}
+      stamp={t('workbench.docs.diagrams.mock.dynamicStamp')}
+    />
+  );
+};
 
 export const MockWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -234,10 +294,10 @@ export const MockWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Mocks only intercept JS-initiated fetch / XHR — static resources flow through unchanged. Use a real local proxy for sub-resource fixtures."
+      aria-label={t('workbench.docs.diagrams.mock.wontAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -255,42 +315,55 @@ export const MockWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Static resources (img, script, link)
+        {t('workbench.docs.diagrams.mock.wontStatic')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Browser-issued — never touch fetch / XHR.
+        {t('workbench.docs.diagrams.mock.wontStaticSub')}
       </text>
 
       <text x={28} y={84} fontSize={14} fontWeight={700} fill={errColor}>
         ✗
       </text>
       <text x={48} y={84} fontSize={10} fontWeight={700} fill={TEXT}>
-        Page navigations
+        {t('workbench.docs.diagrams.mock.wontNav')}
       </text>
       <text x={48} y={98} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Top-level HTML loads bypass the script engine entirely.
+        {t('workbench.docs.diagrams.mock.wontNavSub')}
       </text>
 
       <text x={28} y={124} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={124} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.shared.suggestion')}
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Use a real local proxy for sub-resource fixtures.
+        {t('workbench.docs.diagrams.mock.suggestionText')}
       </text>
     </svg>
   );
 };
 
 export const MockUseCasesDiagram: React.FC = () => {
+  const t = useT();
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'Offline dev', example: 'Stub the whole API' },
-    { title: 'Error simulation', example: 'Force 500 on one route' },
-    { title: 'PII redaction', example: 'Mask emails on the wire' },
-    { title: 'Edge cases', example: 'Empty arrays, huge payloads' },
+    {
+      title: t('workbench.docs.diagrams.mock.caseOffline'),
+      example: t('workbench.docs.diagrams.mock.caseOfflineEx'),
+    },
+    {
+      title: t('workbench.docs.diagrams.mock.caseError'),
+      example: t('workbench.docs.diagrams.mock.caseErrorEx'),
+    },
+    {
+      title: t('workbench.docs.diagrams.mock.casePii'),
+      example: t('workbench.docs.diagrams.mock.casePiiEx'),
+    },
+    {
+      title: t('workbench.docs.diagrams.mock.caseEdge'),
+      example: t('workbench.docs.diagrams.mock.caseEdgeEx'),
+    },
   ];
 
   const CARD_W = 142;
@@ -305,10 +378,10 @@ export const MockUseCasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Response Body + Status — common use cases: offline dev, error simulation, PII redaction, edge-case payload shapes."
+      aria-label={t('workbench.docs.diagrams.mock.useCasesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON USE CASES
+        {t('workbench.docs.diagrams.shared.useCasesKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -343,7 +416,7 @@ export const MockUseCasesDiagram: React.FC = () => {
       })}
 
       <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Static = fixture mode · Dynamic = real-call passthrough + edit.
+        {t('workbench.docs.diagrams.mock.useCasesFooter')}
       </text>
     </svg>
   );
