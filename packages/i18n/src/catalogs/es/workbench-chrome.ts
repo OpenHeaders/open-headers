@@ -579,6 +579,9 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Modo Depuración: adjunta el depurador del navegador a las pestañas del ámbito y fijadas para obtener cuerpos y ' +
     'cabeceras exactas. El navegador muestra un aviso en cada pestaña adjuntada.',
+  'workbench.trafficMonitor.noBrowsersHint':
+    'No hay navegadores conectados. Abre un navegador con la extensión instalada, o instálala:',
+  'workbench.trafficMonitor.installExtension': 'Instalar la extensión de {browser}',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',

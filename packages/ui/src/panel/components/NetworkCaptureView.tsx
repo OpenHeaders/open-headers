@@ -59,6 +59,10 @@ export interface NetworkCaptureViewProps {
    *  Selection only: never routes outward (DevTools posture — the list
    *  follows focus, it doesn't navigate). `null` keeps the last pick. */
   readonly highlightRequestId?: string | null;
+  /** Toolbar minus — the host decides what hiding means (the Traffic
+   *  Monitor collapses the network plane to its strip row). Omitted, the
+   *  minus is inert. */
+  readonly onHide?: () => void;
 }
 
 const NOOP = (): void => {};
@@ -90,6 +94,7 @@ export function NetworkCaptureView({
   onInspectRequest,
   emptyHero,
   highlightRequestId,
+  onHide,
 }: NetworkCaptureViewProps) {
   const { data } = useNetworkCaptureData(tabId, portName);
 
@@ -151,7 +156,7 @@ export function NetworkCaptureView({
       onSaveAsHar={NOOP}
       onSaveAllAsHar={NOOP}
       onCopyAllAsHar={NOOP}
-      onHide={NOOP}
+      onHide={onHide ?? NOOP}
       onAnnotationJump={handleSelect}
       filterHiddenHint={null}
       onFilterHintClear={NOOP}

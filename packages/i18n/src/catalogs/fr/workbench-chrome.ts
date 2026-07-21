@@ -580,6 +580,9 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Mode Débogage — attache le débogueur du navigateur aux onglets du périmètre et épinglés pour obtenir corps et ' +
     'en-têtes exacts. Le navigateur affiche un bandeau sur chaque onglet attaché.',
+  'workbench.trafficMonitor.noBrowsersHint':
+    "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
+  'workbench.trafficMonitor.installExtension': "Installer l'extension {browser}",
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

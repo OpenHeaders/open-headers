@@ -573,6 +573,9 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug-Modus — verbindet den Debugger des Browsers mit Tabs im Geltungsbereich und angepinnten Tabs für Bodies ' +
     'und exakte Header. Der Browser zeigt auf jedem verbundenen Tab einen Hinweis an.',
+  'workbench.trafficMonitor.noBrowsersHint':
+    'Keine Browser verbunden. Öffne einen Browser mit installierter Erweiterung oder installiere sie:',
+  'workbench.trafficMonitor.installExtension': 'Erweiterung für {browser} installieren',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',

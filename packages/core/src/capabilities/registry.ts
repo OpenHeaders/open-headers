@@ -153,6 +153,12 @@ export interface TerminalHostApi {
 export type RequestRuntimeKind = 'browser' | 'node';
 
 /**
+ * Browsers an {@link Capabilities.openUrlInBrowser} call can target —
+ * the extension-store install CTAs' vocabulary.
+ */
+export type InstallTargetBrowser = 'chrome' | 'edge' | 'firefox';
+
+/**
  * The universe of capabilities. Optional members (`name?:`) are
  * host-specific; required members are universal contracts every host
  * must implement.
@@ -178,6 +184,17 @@ export interface Capabilities {
    * the OS handoff fails.
    */
   openExternalUrl?: (url: string) => Promise<{ ok: boolean; error?: string }>;
+
+  /**
+   * Open a URL in a NAMED browser rather than the OS default — the
+   * extension-install CTAs' seam: a store listing must land in the
+   * browser that will install the extension, which the default-browser
+   * path can't guarantee. Implementations fall back to the default
+   * browser when the named one isn't installed. Registered only by
+   * hosts with an OS process plane under them (the desktop renderer);
+   * surfaces without it branch to {@link Capabilities.openExternalUrl}.
+   */
+  openUrlInBrowser?: (url: string, browser: InstallTargetBrowser) => Promise<{ ok: boolean; error?: string }>;
 
   /**
    * Dismiss the current surface — the extension popup closes its own

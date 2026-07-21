@@ -34,6 +34,11 @@ registerCapability('scriptRuntime', () => 'safe');
 // preload bridge takes care of marshalling.
 registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
 
+// Named-browser opens for the extension-install CTAs — a store listing
+// must land in the browser that will install the extension. Main falls
+// back to the default browser when the named one isn't installed.
+registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser(url, browser));
+
 // In-app updater (docs/UPDATES_PLAN.md): report a seen-but-not-installed
 // update so the gear menu shows its dot. No `url` — the gear routes to
 // the Settings update row, where download/restart run in-app.

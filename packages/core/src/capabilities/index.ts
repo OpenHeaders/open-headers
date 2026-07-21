@@ -2,6 +2,7 @@ export type {
   AppUpdateInfo,
   Capabilities,
   CapabilityName,
+  InstallTargetBrowser,
   PairWithCodeInput,
   PairWithCodeResult,
   RequestRuntimeKind,

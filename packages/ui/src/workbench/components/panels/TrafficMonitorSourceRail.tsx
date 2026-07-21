@@ -26,11 +26,17 @@ import {
   PushpinFilled,
   ReloadOutlined,
 } from '@ant-design/icons';
+import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
 import { Button, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  EXTENSION_STORE_URLS,
+  INSTALL_BROWSER_LABELS,
+  INSTALLABLE_BROWSERS,
+} from '../../data/extension-stores';
 import { SectionHeader } from '../sidebar/SectionHeader';
 import { BrowserBrandIcon } from './browser-brand-icons';
 
@@ -268,6 +274,19 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
 
   const splitActive = showWire && wireOpen;
 
+  // Install CTA — a store listing must land in the browser that will
+  // install the extension, so the named-browser capability leads and
+  // the default-browser open is the degraded path.
+  const openStore = useCallback((browser: InstallTargetBrowser) => {
+    const url = EXTENSION_STORE_URLS[browser];
+    const named = getCapability('openUrlInBrowser');
+    if (named) {
+      void named(url, browser);
+      return;
+    }
+    void getCapability('openExternalUrl')?.(url);
+  }, []);
+
   const browsersPane = (
     <div
       style={
@@ -281,6 +300,27 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         expanded={browsersOpen}
         onToggle={() => setBrowsersOpen((v) => !v)}
       />
+      {browsersOpen && peers.length === 0 && !loading && (
+        <div
+          data-testid="traffic-monitor-install-ctas"
+          style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}
+        >
+          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.trafficMonitor.noBrowsersHint')}
+          </span>
+          {INSTALLABLE_BROWSERS.map((browser) => (
+            <Button
+              key={browser}
+              size="small"
+              data-testid={`traffic-monitor-install-${browser}`}
+              icon={<BrowserBrandIcon name={INSTALL_BROWSER_LABELS[browser]} size={14} />}
+              onClick={() => openStore(browser)}
+            >
+              {t('workbench.trafficMonitor.installExtension', { browser: INSTALL_BROWSER_LABELS[browser] })}
+            </Button>
+          ))}
+        </div>
+      )}
       {browsersOpen &&
         peers.map((peer) => {
           const version = agentVersion(peer.agent);

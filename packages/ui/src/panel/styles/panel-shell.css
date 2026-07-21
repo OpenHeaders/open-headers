@@ -46,12 +46,16 @@
 }
 
 /* Layout-neutral fill: the wrapper takes its host slot's full height
- * and lets its single child (TrafficList / detail body) own scrolling. */
+ * and lets its single child (TrafficList / detail body) own scrolling.
+ * Opaque and clipped — stacked capture surfaces (the Traffic Monitor's
+ * planes) must never paint through each other when height runs short. */
 .dt-capture-surface {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
+  background: var(--dt-bg);
 }
 
 .dt-capture-surface > * {

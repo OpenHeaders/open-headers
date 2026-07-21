@@ -32,6 +32,7 @@ const api = {
   storage,
   lifeline,
   openExternal: externalLinks.openExternal,
+  openInBrowser: externalLinks.openInBrowser,
   protocol,
   terminal,
 };

@@ -70,6 +70,7 @@ declare global {
         onHostDisconnect(handler: (envelope: { portId: string; errorMessage?: string }) => void): () => void;
       };
       openExternal(url: string): Promise<{ ok: boolean; error?: string }>;
+      openInBrowser(url: string, browser: 'chrome' | 'edge' | 'firefox'): Promise<{ ok: boolean; error?: string }>;
       protocol: {
         onUrl(handler: (url: string) => void): () => void;
       };

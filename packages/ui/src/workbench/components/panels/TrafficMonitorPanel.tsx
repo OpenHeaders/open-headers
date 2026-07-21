@@ -112,10 +112,22 @@ const CONSOLE_PANE_DEFAULT_HEIGHT = 220;
 const CONSOLE_PANE_MIN_HEIGHT = 120;
 const CONSOLE_PANE_MAX_HEIGHT = 560;
 
+/** Dragging a pane's sash this far below its min height collapses the
+ *  pane to its strip row instead of pinning it at the clamp. */
+const SASH_COLLAPSE_SLACK = 48;
+
+/** A pane that grows to fill the column keeps at least a few rows. */
+const GROW_PANE_MIN_HEIGHT = 88;
+
+/** A fixed-height pane crushed by a short window degrades to its own
+ *  toolbar row (clipped below) instead of painting over its siblings. */
+const FIXED_PANE_MIN_HEIGHT = 28;
+
 const lastPanelState: {
   selectedKey: string | null;
   tabSelection: TabSelection | null;
   railWidth: number;
+  networkCollapsed: boolean;
   storageHeight: number;
   storageCollapsed: boolean;
   consoleHeight: number;
@@ -124,6 +136,7 @@ const lastPanelState: {
   selectedKey: null,
   tabSelection: null,
   railWidth: RAIL_DEFAULT_WIDTH,
+  networkCollapsed: false,
   storageHeight: STORAGE_PANE_DEFAULT_HEIGHT,
   storageCollapsed: false,
   consoleHeight: CONSOLE_PANE_DEFAULT_HEIGHT,
@@ -234,6 +247,34 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  // Peer connect/disconnect invalidation: the daemon's sync-status
+  // reporter re-emits on every WS peer change, so the `statusUpdated`
+  // broadcast doubles as the rail's refresh signal — a closed browser
+  // drops out of the inventory without a manual refresh. Debounced: an
+  // SW-eviction flap fires disconnect+connect within a breath, and the
+  // trailing reload sees the settled peer set.
+  const lastPeerSignal = useRef<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = hostBridge.subscribe('statusUpdated', (snapshot) => {
+      const sync = snapshot.sync;
+      if (!sync) return;
+      const count = sync.context?.peerCount;
+      const signal = typeof count === 'number' ? `peers:${count}` : `state:${sync.state}`;
+      if (lastPeerSignal.current === signal) return;
+      lastPeerSignal.current = signal;
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void reload();
+      }, 300);
+    });
+    return () => {
+      unsubscribe();
+      if (timer !== null) clearTimeout(timer);
+    };
   }, [reload]);
 
   // Debug-mode control (per-tab pin / master switch) relayed to the
@@ -378,6 +419,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   useEffect(() => {
     setTrafficStorageCookieTarget(cookieNodeId);
   }, [cookieNodeId]);
+  const [networkCollapsed, setNetworkCollapsed] = useState(() => lastPanelState.networkCollapsed);
   const [storageHeight, setStorageHeight] = useState(() => lastPanelState.storageHeight);
   const [storageCollapsed, setStorageCollapsed] = useState(() => lastPanelState.storageCollapsed);
   const [storageReveal, setStorageReveal] = useState<StorageRevealRequest | null>(null);
@@ -460,50 +502,99 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
       ? storageDocInnerId(activeTab.liveStorageDoc)
       : null;
 
-  // Storage-pane sash — vertical twin of the rail sash below.
+  // Sash drags — shared mechanics for the storage/console twins. The
+  // sash resizes the pane BELOW it; the growing pane above absorbs the
+  // difference. Both edges auto-collapse live, DevTools-style: dragging
+  // down past the pane's floor collapses the dragged pane to its strip;
+  // dragging up past the point that crushes the grower collapses the
+  // grower instead (its space hands to the pane below). The grower's
+  // rendered height is measured at drag start — every other pane is
+  // fixed during the drag, so the implied grower height is exact.
+  const growerPaneRef = useRef<HTMLDivElement | null>(null);
+  const beginSashDrag = useCallback(
+    (
+      e: React.PointerEvent<HTMLDivElement>,
+      spec: {
+        start: number;
+        min: number;
+        max: number;
+        setHeight: (h: number) => void;
+        collapseSelf: () => void;
+        collapseGrower: () => void;
+      },
+    ) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const { start, min, max } = spec;
+      const growerHeight = growerPaneRef.current?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY;
+      // Largest height the dragged pane can reach before the grower
+      // above hits its own floor.
+      const maxRaw = start + Math.max(0, growerHeight - GROW_PANE_MIN_HEIGHT);
+      const cap = Math.max(min, Math.min(max, maxRaw));
+      let done = false;
+      const finish = (): void => {
+        done = true;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+      };
+      const move = (ev: PointerEvent): void => {
+        if (done) return;
+        // Pane is at the bottom, so dragging up (smaller clientY) grows it.
+        const raw = start + (startY - ev.clientY);
+        if (raw < min - SASH_COLLAPSE_SLACK) {
+          spec.setHeight(start);
+          spec.collapseSelf();
+          finish();
+          return;
+        }
+        if (raw > maxRaw + SASH_COLLAPSE_SLACK) {
+          spec.setHeight(cap);
+          spec.collapseGrower();
+          finish();
+          return;
+        }
+        spec.setHeight(Math.min(Math.max(raw, min), cap));
+      };
+      const up = (): void => finish();
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    },
+    [],
+  );
+
+  // Storage sash — rendered only while the network plane above is
+  // expanded, so the grower it can collapse is always the network pane.
   const storageHeightRef = useRef(storageHeight);
   storageHeightRef.current = storageHeight;
-  const onStorageSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = storageHeightRef.current;
-    const move = (ev: PointerEvent): void => {
-      // Pane is at the bottom, so dragging up (smaller clientY) grows it.
-      const next = Math.min(
-        Math.max(startHeight + (startY - ev.clientY), STORAGE_PANE_MIN_HEIGHT),
-        STORAGE_PANE_MAX_HEIGHT,
-      );
-      setStorageHeight(next);
-    };
-    const up = (): void => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  }, []);
+  const onStorageSashDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) =>
+      beginSashDrag(e, {
+        start: storageHeightRef.current,
+        min: STORAGE_PANE_MIN_HEIGHT,
+        max: STORAGE_PANE_MAX_HEIGHT,
+        setHeight: setStorageHeight,
+        collapseSelf: () => setStorageCollapsed(true),
+        collapseGrower: () => setNetworkCollapsed(true),
+      }),
+    [beginSashDrag],
+  );
 
-  // Console-pane sash — same drag mechanics as the storage twin above.
+  // Console sash — the grower above is the network pane, or the storage
+  // pane once the network plane is collapsed.
   const consoleHeightRef = useRef(consoleHeight);
   consoleHeightRef.current = consoleHeight;
-  const onConsoleSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = consoleHeightRef.current;
-    const move = (ev: PointerEvent): void => {
-      const next = Math.min(
-        Math.max(startHeight + (startY - ev.clientY), CONSOLE_PANE_MIN_HEIGHT),
-        CONSOLE_PANE_MAX_HEIGHT,
-      );
-      setConsoleHeight(next);
-    };
-    const up = (): void => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  }, []);
+  const onConsoleSashDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) =>
+      beginSashDrag(e, {
+        start: consoleHeightRef.current,
+        min: CONSOLE_PANE_MIN_HEIGHT,
+        max: CONSOLE_PANE_MAX_HEIGHT,
+        setHeight: setConsoleHeight,
+        collapseSelf: () => setConsoleCollapsed(true),
+        collapseGrower: () => (networkCollapsed ? setStorageCollapsed(true) : setNetworkCollapsed(true)),
+      }),
+    [beginSashDrag, networkCollapsed],
+  );
 
   // Draggable rail width — the vertical sash resizes it, clamped.
   const [railWidth, setRailWidth] = useState(() => lastPanelState.railWidth);
@@ -512,11 +603,21 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     lastPanelState.selectedKey = selectedKey;
     lastPanelState.tabSelection = tabSelection;
     lastPanelState.railWidth = railWidth;
+    lastPanelState.networkCollapsed = networkCollapsed;
     lastPanelState.storageHeight = storageHeight;
     lastPanelState.storageCollapsed = storageCollapsed;
     lastPanelState.consoleHeight = consoleHeight;
     lastPanelState.consoleCollapsed = consoleCollapsed;
-  }, [selectedKey, tabSelection, railWidth, storageHeight, storageCollapsed, consoleHeight, consoleCollapsed]);
+  }, [
+    selectedKey,
+    tabSelection,
+    railWidth,
+    networkCollapsed,
+    storageHeight,
+    storageCollapsed,
+    consoleHeight,
+    consoleCollapsed,
+  ]);
   const onRailSashDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -536,6 +637,12 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   // Live width for the drag closure without re-binding the handler.
   const railWidthRef = useRef(railWidth);
   railWidthRef.current = railWidth;
+
+  // Exactly one expanded pane fills the column: the first in stack
+  // order grows, later expanded panes keep their drag-set heights. A
+  // grower needs no sash — there is nothing above it to trade with.
+  const storageGrows = networkCollapsed && !storageCollapsed;
+  const consoleGrows = networkCollapsed && storageCollapsed && !consoleCollapsed;
 
   return (
     <div className="rules-bottom-panel">
@@ -568,26 +675,38 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 }
               />
             ) : tabSelection && tabPortName ? (
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                <div style={{ flex: '1 1 auto', minHeight: 0 }}>
-                  <NetworkCaptureView
-                    key={tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}
-                    tabId={tabSelection.tabId}
-                    portName={tabPortName}
-                    onInspectRequest={inspectTabRequest}
-                    highlightRequestId={tabHighlight}
-                    emptyHero={
-                      <div className="dt-empty-hero">
-                        <strong>{t('workbench.trafficMonitor.emptyWatching')}</strong>
-                        <span className="dt-empty-hero-sub">{t('workbench.trafficMonitor.emptyWatchingHint')}</span>
-                      </div>
-                    }
-                  />
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+                {networkCollapsed ? (
+                  <button
+                    type="button"
+                    className="traffic-monitor-plane-strip"
+                    data-testid="traffic-monitor-network-strip"
+                    onClick={() => setNetworkCollapsed(false)}
+                  >
+                    {t('panel.toolWindows.network')}
+                  </button>
+                ) : (
+                  <div ref={growerPaneRef} style={{ flex: '1 1 auto', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }}>
+                    <NetworkCaptureView
+                      key={tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}
+                      tabId={tabSelection.tabId}
+                      portName={tabPortName}
+                      onInspectRequest={inspectTabRequest}
+                      highlightRequestId={tabHighlight}
+                      onHide={() => setNetworkCollapsed(true)}
+                      emptyHero={
+                        <div className="dt-empty-hero">
+                          <strong>{t('workbench.trafficMonitor.emptyWatching')}</strong>
+                          <span className="dt-empty-hero-sub">{t('workbench.trafficMonitor.emptyWatchingHint')}</span>
+                        </div>
+                      }
+                    />
+                  </div>
+                )}
                 {storageCollapsed ? (
                   <button
                     type="button"
-                    className="traffic-monitor-storage-strip"
+                    className="traffic-monitor-plane-strip"
                     data-testid="traffic-monitor-storage-strip"
                     onClick={() => setStorageCollapsed(false)}
                   >
@@ -595,17 +714,24 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                   </button>
                 ) : (
                   <>
-                    <div
-                      className="traffic-monitor-storage-sash"
-                      data-testid="traffic-monitor-storage-sash"
-                      role="separator"
-                      aria-orientation="horizontal"
-                      onPointerDown={onStorageSashDown}
-                    />
+                    {!storageGrows && (
+                      <div
+                        className="traffic-monitor-storage-sash"
+                        data-testid="traffic-monitor-storage-sash"
+                        role="separator"
+                        aria-orientation="horizontal"
+                        onPointerDown={onStorageSashDown}
+                      />
+                    )}
                     <div
                       key={`storage-${tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}`}
+                      ref={storageGrows ? growerPaneRef : undefined}
                       data-testid="traffic-monitor-storage-pane"
-                      style={{ height: storageHeight, flex: '0 0 auto', minHeight: 0 }}
+                      style={
+                        storageGrows
+                          ? { flex: '1 1 auto', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }
+                          : { height: storageHeight, flex: '0 1 auto', minHeight: FIXED_PANE_MIN_HEIGHT, overflow: 'hidden' }
+                      }
                     >
                       <InspectedTabContext.Provider value={storageHandle}>
                         <div className="dt-capture-surface">
@@ -627,7 +753,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 {consoleCollapsed ? (
                   <button
                     type="button"
-                    className="traffic-monitor-console-strip"
+                    className="traffic-monitor-plane-strip"
                     data-testid="traffic-monitor-console-strip"
                     onClick={() => setConsoleCollapsed(false)}
                   >
@@ -635,17 +761,23 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                   </button>
                 ) : (
                   <>
-                    <div
-                      className="traffic-monitor-console-sash"
-                      data-testid="traffic-monitor-console-sash"
-                      role="separator"
-                      aria-orientation="horizontal"
-                      onPointerDown={onConsoleSashDown}
-                    />
+                    {!consoleGrows && (
+                      <div
+                        className="traffic-monitor-console-sash"
+                        data-testid="traffic-monitor-console-sash"
+                        role="separator"
+                        aria-orientation="horizontal"
+                        onPointerDown={onConsoleSashDown}
+                      />
+                    )}
                     <div
                       key={`console-${tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}`}
                       data-testid="traffic-monitor-console-pane"
-                      style={{ height: consoleHeight, flex: '0 0 auto', minHeight: 0 }}
+                      style={
+                        consoleGrows
+                          ? { flex: '1 1 auto', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }
+                          : { height: consoleHeight, flex: '0 1 auto', minHeight: FIXED_PANE_MIN_HEIGHT, overflow: 'hidden' }
+                      }
                     >
                       <div className="dt-capture-surface">
                         <TrafficConsolePane

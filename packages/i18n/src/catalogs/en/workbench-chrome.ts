@@ -557,6 +557,9 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug mode — attaches the browser’s debugger to scoped and pinned tabs for bodies and exact headers. The browser ' +
     'shows a banner on each attached tab.',
+  'workbench.trafficMonitor.noBrowsersHint':
+    'No browsers connected. Open a browser with the extension installed, or install it:',
+  'workbench.trafficMonitor.installExtension': 'Install {browser} extension',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

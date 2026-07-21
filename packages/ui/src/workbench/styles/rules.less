@@ -685,21 +685,38 @@ body {
   }
 }
 
-// Collapsed storage/console panes — slim reopen strips along the bottom edge.
-.traffic-monitor-storage-strip,
-.traffic-monitor-console-strip {
+// Collapsed planes — one-row section headers (the request-metadata
+// disclosure idiom): opaque, caret + title, click reopens the pane.
+// Mirrors the shared 32px PanelHeader metrics (height, inset, 13px
+// title) so a plane's title doesn't jump when it collapses.
+.traffic-monitor-plane-strip {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
   border: none;
-  border-top: 1px solid rgba(128, 128, 128, 0.25);
-  background: transparent;
-  color: inherit;
-  font-size: 11px;
+  border-top: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  font-size: 13px;
+  font-weight: 600;
   text-align: left;
-  padding: 3px 10px;
+  padding: 0 12px;
   cursor: pointer;
 
+  &::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid currentColor;
+    border-top: 3px solid transparent;
+    border-bottom: 3px solid transparent;
+    opacity: 0.6;
+  }
+
   &:hover {
-    background: rgba(128, 128, 128, 0.12);
+    background: var(--dt-row-hover);
   }
 }
 

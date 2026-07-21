@@ -550,6 +550,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugPinAria': '切换此标签页的调试',
   'workbench.trafficMonitor.debugModeHint':
     '调试模式——将浏览器调试器附加到范围内及已固定的标签页，以获取响应体和精确标头。浏览器会在每个已附加的标签页上显示横幅。',
+  'workbench.trafficMonitor.noBrowsersHint': '未连接任何浏览器。请打开已安装扩展的浏览器，或安装扩展：',
+  'workbench.trafficMonitor.installExtension': '安装 {browser} 扩展',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': '标题',
