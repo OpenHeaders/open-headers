@@ -16,7 +16,7 @@
  * the selection; the rail renders and reports clicks.
  */
 
-import { FileOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, FileOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Button, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -89,11 +89,14 @@ export function agentVersion(agent: string): string | null {
 function SourceRow({
   testid,
   active,
+  indent = false,
   onClick,
   children,
 }: {
   testid: string;
   active: boolean;
+  /** Nested under a caret row (peer) — indents like tree children. */
+  indent?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -103,6 +106,7 @@ function SourceRow({
       data-testid={testid}
       aria-pressed={active}
       className={`rules-sidebar-item traffic-monitor-source-row${active ? ' selected' : ''}`}
+      style={indent ? { paddingLeft: 30 } : undefined}
       onClick={onClick}
     >
       {children}
@@ -124,6 +128,17 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   const { token } = theme.useToken();
   const [browsersOpen, setBrowsersOpen] = useState(true);
   const [wireOpen, setWireOpen] = useState(true);
+  // Per-peer expansion, expanded by default — the peer row is a
+  // collection-style caret row over its window groups and tab rows.
+  const [collapsedPeers, setCollapsedPeers] = useState<ReadonlySet<string>>(() => new Set());
+  const togglePeer = (nodeId: string): void => {
+    setCollapsedPeers((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  };
 
   return (
     <div
@@ -173,32 +188,41 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         {browsersOpen &&
           peers.map((peer) => {
             const version = agentVersion(peer.agent);
+            const expanded = !collapsedPeers.has(peer.nodeId);
             return (
               <div key={peer.nodeId}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 14px 2px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
+                <button
+                  type="button"
+                  data-testid="traffic-monitor-peer"
+                  aria-expanded={expanded}
+                  className="rules-sidebar-item traffic-monitor-source-row"
+                  onClick={() => togglePeer(peer.nodeId)}
                 >
+                  <CaretRightOutlined
+                    style={{
+                      color: token.colorTextTertiary,
+                      fontSize: 10,
+                      transition: 'transform 0.2s',
+                      transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                    }}
+                  />
                   <BrowserBrandIcon name={peer.browser.name} />
-                  <span>{peer.browser.name}</span>
-                  <span style={{ fontWeight: 400, color: token.colorTextTertiary }}>
-                    {version !== null
-                      ? `· ${t('workbench.trafficMonitor.extensionVersion', { version })}`
-                      : `· ${peer.agent}`}
+                  <span className="rules-sidebar-item-label">
+                    {peer.browser.name}
+                    <span style={{ color: token.colorTextTertiary }}>
+                      {version !== null
+                        ? ` · ${t('workbench.trafficMonitor.extensionVersion', { version })}`
+                        : ` · ${peer.agent}`}
+                    </span>
                   </span>
-                </div>
-                {groupByWindow(peer.tabs).map((group, index, groups) => (
+                </button>
+                {expanded &&
+                  groupByWindow(peer.tabs).map((group, index, groups) => (
                   <div key={group.windowId}>
                     {groups.length > 1 && (
                       <div
                         style={{
-                          padding: '4px 14px 0',
+                          padding: '4px 14px 0 30px',
                           fontSize: 11,
                           color: token.colorTextTertiary,
                         }}
@@ -214,6 +238,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                           <SourceRow
                             testid="traffic-monitor-source-tab"
                             active={selected === key}
+                            indent
                             onClick={() => onSelect(key)}
                           >
                             {tab.favIconUrl?.startsWith('data:') ? (
