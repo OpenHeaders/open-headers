@@ -192,7 +192,7 @@ const CertTrustSteps: React.FC<CertTrustStepsProps> = ({ url, direction }) => {
       }}
     >
       <span style={stepIndex}>{index}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>{lines}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>{lines}</div>
     </div>
   );
 
@@ -213,6 +213,8 @@ const CertTrustSteps: React.FC<CertTrustStepsProps> = ({ url, direction }) => {
           </Text>
           <Button
             size="small"
+            color="orange"
+            variant="solid"
             icon={<ExportOutlined />}
             data-testid="oh-response-error-open-tab"
             style={{ alignSelf: 'flex-start' }}
