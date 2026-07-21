@@ -27,6 +27,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
+import type { TelemetryDebugCommand } from '@openheaders/core/protocol';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type React from 'react';
@@ -86,7 +87,13 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     try {
       const resp = await hostBridge.call('oh.daemon.telemetry.tabs.list');
       setPeers(
-        resp.peers.map((peer) => ({ nodeId: peer.nodeId, agent: peer.agent, browser: peer.browser, tabs: [...peer.tabs] })),
+        resp.peers.map((peer) => ({
+          nodeId: peer.nodeId,
+          agent: peer.agent,
+          browser: peer.browser,
+          debug: peer.debug,
+          tabs: [...peer.tabs],
+        })),
       );
       // A picked tab that disappeared from the inventory (closed,
       // browser gone) stays selected — the lifeline keeps replaying the
@@ -101,6 +108,38 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Debug-mode control (per-tab pin / master switch) relayed to the
+  // owning extension peer. The reply's snapshot patches the rail
+  // immediately; the attach a pin just triggered commits only after the
+  // browser's banner handshake, so a delayed inventory read converges
+  // the indicator.
+  const debugConvergeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (debugConvergeTimer.current !== null) clearTimeout(debugConvergeTimer.current);
+    },
+    [],
+  );
+  const debugControl = useCallback(
+    async (nodeId: string, command: TelemetryDebugCommand): Promise<void> => {
+      try {
+        const resp = await hostBridge.call('oh.daemon.telemetry.debug.control', { nodeId, command });
+        const debug = resp.debug;
+        if (resp.ok && debug !== null) {
+          setPeers((prev) => prev.map((peer) => (peer.nodeId === nodeId ? { ...peer, debug } : peer)));
+        }
+      } catch {
+        // Peer gone mid-command — the delayed reload drops it from the rail.
+      }
+      if (debugConvergeTimer.current !== null) clearTimeout(debugConvergeTimer.current);
+      debugConvergeTimer.current = setTimeout(() => {
+        debugConvergeTimer.current = null;
+        void reload();
+      }, 800);
+    },
+    [reload],
+  );
 
   const onSelect = useCallback(
     (key: string) => {
@@ -238,6 +277,8 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           wirePort={proxy.status?.boundPort ?? null}
           selected={selectedKey}
           onSelect={onSelect}
+          onDebugPin={(nodeId, tabId, pinned) => void debugControl(nodeId, { kind: 'pin', tabId, pinned })}
+          onDebugEnable={(nodeId, enabled) => void debugControl(nodeId, { kind: 'enable', enabled })}
           width={railWidth}
         />
       </div>

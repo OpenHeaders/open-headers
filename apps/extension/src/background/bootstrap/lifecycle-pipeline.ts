@@ -1,3 +1,4 @@
+import { hasCapability } from '@openheaders/core/capabilities';
 import type { CdpScopeMode, RequestRecord, Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { ConsoleStreamHub } from '@openheaders/oracle/console-stream-hub';
@@ -58,6 +59,7 @@ import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { startTelemetryStreamHost } from '../telemetry-stream-host';
 import { debouncedUpdateBadge } from './badge-update';
+import { setCdpMasterSwitch } from './cdp-master-switch';
 
 /** Pairing window between a capture's page clock and the lifecycle's host
  *  clock — the same posture as the fire hub's translation window. */
@@ -376,6 +378,27 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     ready: sessionFloors.ready,
     provenance: lifecycleHost.router,
     bodyFetcher: lifecycleBodyFetcher,
+    // Debug-mode seam for the desktop's per-tab fidelity affordance:
+    // state + pins feed off the ONE attach reconciler; the master
+    // switch writes through the SETTING so every surface reflects it.
+    // Omitted where the browser has no CDP — the host then reports
+    // `available: false` and drops control commands.
+    debug: hasCapability('cdpInspection')
+      ? {
+          getState: () => {
+            const state = cdpAttachController.getState();
+            return {
+              available: true,
+              enabled: state.enabled,
+              attachedTabs: [...state.attachedTabs],
+              pinnedTabs: [...state.pinnedTabs],
+            };
+          },
+          setPin: (tabId, pinned) =>
+            pinned ? cdpAttachController.notePinned(tabId) : cdpAttachController.noteUnpinned(tabId),
+          setEnabled: (enabled) => setCdpMasterSwitch(enabled),
+        }
+      : undefined,
   });
 
   // Page stream: two sources, one per tab-owner (same ownership the request

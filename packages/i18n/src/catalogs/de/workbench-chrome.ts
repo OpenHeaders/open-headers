@@ -495,7 +495,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.startFailed': 'Proxy konnte nicht gestartet werden: {message}',
   'workbench.proxyCapture.emptyRunning': 'Warten auf Proxy-Verkehr…',
   'workbench.proxyCapture.emptyRunningHint':
-    'Richte einen Client auf http://127.0.0.1:{port}, um seine Anfragen zu erfassen',
+    'Richte jede beliebige App — CLI-Tools, Skripte, ein anderes Gerät — auf http://127.0.0.1:{port}, um ihre ' +
+    'Anfragen zu erfassen',
   'workbench.proxyCapture.emptyStopped': 'Der Proxy ist gestoppt',
   'workbench.proxyCapture.emptyStoppedHint': 'Starte den Proxy, um Verkehr zu erfassen',
   'workbench.proxyCapture.noCa':
@@ -525,8 +526,9 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeInfo.ipDesc': 'Ein IP-Literal trifft exakt.',
   'workbench.proxyCapture.routingInfo.exampleCaption': 'Beispiel-Routing',
   'workbench.proxyCapture.routingInfo.summary':
-    'Verbundene Browser leiten Hosts im Geltungsbereich automatisch durch den Capture-Proxy — keine ' +
-    'OS-Proxy-Einstellungen, keine manuelle Einrichtung; alles andere bleibt direkt.',
+    'Verbundene Browser leiten Hosts im Entschlüsselungsbereich durch den Capture-Proxy — keine ' +
+    'OS-Proxy-Einstellungen, keine manuelle Einrichtung; alles andere bleibt direkt. Vor allem für Browser, die ' +
+    'sich nicht direkt beobachten oder debuggen lassen.',
   'workbench.proxyCapture.routingInfo.description':
     'Das Routing bleibt bestehen, bis du es ausschaltest — ein App-Neustart oder Verbindungsabriss lässt den ' +
     'Browser nie hinter einem toten Proxy hängen.',
@@ -539,6 +541,11 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.h3Desc':
     'Geroutete Hosts fallen von HTTP/3 auf HTTP/2 oder 1.1 zurück; Endpunkte mit Certificate-Pinning können ' +
     'während des Routings fehlschlagen.',
+  'workbench.proxyCapture.routingPopoverHint':
+    'Leitet Hosts im Entschlüsselungsbereich verbundener Browser über die Leitung. Vor allem für Browser, die sich ' +
+    'nicht direkt beobachten oder debuggen lassen — ein beobachtbarer Tab bekommt mehr über den Debug-Modus in ' +
+    'seiner Zeile.',
+  'workbench.proxyCapture.routingOnTag': 'An',
 
   // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
   'workbench.trafficMonitor.browserConnected': 'Verbundene Browser: {count}',
@@ -553,9 +560,19 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.windowLabel': 'Fenster {n}',
   'workbench.trafficMonitor.wire': 'Leitung',
   'workbench.trafficMonitor.wireCapture': 'Leitungsmitschnitt',
+  'workbench.trafficMonitor.wireCaptureHint':
+    'Nicht-Browser- und nicht beobachtbarer Verkehr — alles, was über den Capture-Port geroutet wird: CLI-Tools, ' +
+    'native Apps, andere Geräte',
   'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
   'workbench.trafficMonitor.emptyNoSourceHint':
     'Wähle rechts einen Browser-Tab oder den Leitungsmitschnitt, um seinen Verkehr live zu sehen',
+  'workbench.trafficMonitor.debugTab': 'Diesen Tab debuggen — volle Genauigkeit: Bodies, exakte Header, Timing',
+  'workbench.trafficMonitor.debugAttached': 'Tab wird debuggt — volle Genauigkeit über den Debugger des Browsers',
+  'workbench.trafficMonitor.debugPinned': 'Zum Debuggen angepinnt — verbindet sich, sobald der Debug-Modus an ist',
+  'workbench.trafficMonitor.debugPinAria': 'Debugging für diesen Tab umschalten',
+  'workbench.trafficMonitor.debugModeHint':
+    'Debug-Modus — verbindet den Debugger des Browsers mit Tabs im Geltungsbereich und angepinnten Tabs für Bodies ' +
+    'und exakte Header. Der Browser zeigt auf jedem verbundenen Tab einen Hinweis an.',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',

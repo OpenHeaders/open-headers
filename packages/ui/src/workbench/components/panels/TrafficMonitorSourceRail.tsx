@@ -16,8 +16,17 @@
  * the selection; the rail renders and reports clicks.
  */
 
-import { CaretRightOutlined, FileOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Tag, theme, Tooltip } from 'antd';
+import {
+  BugFilled,
+  BugOutlined,
+  CaretRightOutlined,
+  FileOutlined,
+  GlobalOutlined,
+  PushpinFilled,
+  ReloadOutlined,
+} from '@ant-design/icons';
+import type { TelemetryDebugState } from '@openheaders/core/protocol';
+import { Button, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -64,6 +73,8 @@ export interface RailPeer {
   nodeId: string;
   agent: string;
   browser: { name: string; platform: string | null };
+  /** The peer's Debug-mode (CDP) posture — drives the tab-row affordance. */
+  debug: TelemetryDebugState;
   tabs: RailPeerTab[];
 }
 
@@ -85,6 +96,10 @@ export interface TrafficMonitorSourceRailProps {
   wirePort: number | null;
   selected: TrafficSourceKey | null;
   onSelect: (key: TrafficSourceKey) => void;
+  /** Pin/unpin a tab into the peer's Debug-mode attach scope. */
+  onDebugPin: (nodeId: string, tabId: number, pinned: boolean) => void;
+  /** Flip the peer's Debug-mode master switch. */
+  onDebugEnable: (nodeId: string, enabled: boolean) => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -123,6 +138,63 @@ function SourceRow({
   );
 }
 
+/**
+ * Per-tab Debug-mode toggle: a hover-revealed "debug this tab" action
+ * that stays visible once the tab is pinned or attached. Renders inside
+ * the row button as a `span` (a nested `<button>` would be invalid), so
+ * the click stops propagation instead of selecting the row.
+ */
+function TabDebugAffordance({
+  attached,
+  pinned,
+  onToggle,
+}: {
+  attached: boolean;
+  pinned: boolean;
+  onToggle: () => void;
+}) {
+  const t = useT();
+  const { token } = theme.useToken();
+  const title = attached
+    ? t('workbench.trafficMonitor.debugAttached')
+    : pinned
+      ? t('workbench.trafficMonitor.debugPinned')
+      : t('workbench.trafficMonitor.debugTab');
+  const icon = attached ? (
+    <BugFilled style={{ fontSize: 12, color: token.colorPrimary }} />
+  ) : pinned ? (
+    <PushpinFilled style={{ fontSize: 12, color: token.colorWarning }} />
+  ) : (
+    <BugOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+  );
+  return (
+    <Tooltip title={title} placement="left">
+      <span
+        role="button"
+        tabIndex={0}
+        data-testid="traffic-monitor-tab-debug"
+        aria-label={t('workbench.trafficMonitor.debugPinAria')}
+        aria-pressed={attached || pinned}
+        className={attached || pinned ? undefined : 'rules-sidebar-item-hover-action'}
+        style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggle();
+          }
+        }}
+      >
+        {icon}
+      </span>
+    </Tooltip>
+  );
+}
+
 export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> = ({
   peers,
   loading,
@@ -132,6 +204,8 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   wirePort,
   selected,
   onSelect,
+  onDebugPin,
+  onDebugEnable,
   width,
 }) => {
   const t = useT();
@@ -200,31 +274,44 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
           const expanded = !collapsedPeers.has(peer.nodeId);
           return (
             <div key={peer.nodeId}>
-              <button
-                type="button"
-                data-testid="traffic-monitor-peer"
-                aria-expanded={expanded}
-                className="rules-sidebar-item traffic-monitor-source-row"
-                onClick={() => togglePeer(peer.nodeId)}
-              >
-                <CaretRightOutlined
-                  style={{
-                    color: token.colorTextTertiary,
-                    fontSize: 10,
-                    transition: 'transform 0.2s',
-                    transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                  }}
-                />
-                <BrowserBrandIcon name={peer.browser.name} />
-                <span className="rules-sidebar-item-label">
-                  {peer.browser.name}
-                  <span style={{ color: token.colorTextTertiary }}>
-                    {version !== null
-                      ? ` · ${t('workbench.trafficMonitor.extensionVersion', { version })}`
-                      : ` · ${peer.agent}`}
+              <div className="traffic-monitor-peer-row">
+                <button
+                  type="button"
+                  data-testid="traffic-monitor-peer"
+                  aria-expanded={expanded}
+                  className="rules-sidebar-item traffic-monitor-source-row"
+                  onClick={() => togglePeer(peer.nodeId)}
+                >
+                  <CaretRightOutlined
+                    style={{
+                      color: token.colorTextTertiary,
+                      fontSize: 10,
+                      transition: 'transform 0.2s',
+                      transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                    }}
+                  />
+                  <BrowserBrandIcon name={peer.browser.name} />
+                  <span className="rules-sidebar-item-label">
+                    {peer.browser.name}
+                    <span style={{ color: token.colorTextTertiary }}>
+                      {version !== null
+                        ? ` · ${t('workbench.trafficMonitor.extensionVersion', { version })}`
+                        : ` · ${peer.agent}`}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+                {peer.debug.available && (
+                  <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="left">
+                    <Switch
+                      size="small"
+                      data-testid="traffic-monitor-peer-debug"
+                      checked={peer.debug.enabled}
+                      onChange={(checked) => onDebugEnable(peer.nodeId, checked)}
+                      aria-label={t('shared.chrome.debug.toggleAria')}
+                    />
+                  </Tooltip>
+                )}
+              </div>
               {expanded &&
                 groupByWindow(peer.tabs).map((group, index, groups) => (
                   <div key={group.windowId}>
@@ -256,6 +343,15 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                               <FileOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
                             )}
                             <span className="rules-sidebar-item-label">{title}</span>
+                            {peer.debug.available && (
+                              <TabDebugAffordance
+                                attached={peer.debug.attachedTabs.includes(tab.tabId)}
+                                pinned={peer.debug.pinnedTabs.includes(tab.tabId)}
+                                onToggle={() =>
+                                  onDebugPin(peer.nodeId, tab.tabId, !peer.debug.pinnedTabs.includes(tab.tabId))
+                                }
+                              />
+                            )}
                           </SourceRow>
                         </Tooltip>
                       );
@@ -276,19 +372,21 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         onToggle={() => setWireOpen((v) => !v)}
       />
       {wireOpen && (
-        <SourceRow
-          testid="traffic-monitor-source-wire"
-          active={selected === WIRE_SOURCE_KEY}
-          onClick={() => onSelect(WIRE_SOURCE_KEY)}
-        >
-          <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
-          <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.wireCapture')}</span>
-          <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
-            {wireRunning && wirePort !== null
-              ? t('workbench.proxyCapture.running', { port: wirePort })
-              : t('workbench.proxyCapture.stopped')}
-          </Tag>
-        </SourceRow>
+        <Tooltip title={t('workbench.trafficMonitor.wireCaptureHint')} placement="left">
+          <SourceRow
+            testid="traffic-monitor-source-wire"
+            active={selected === WIRE_SOURCE_KEY}
+            onClick={() => onSelect(WIRE_SOURCE_KEY)}
+          >
+            <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
+            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.wireCapture')}</span>
+            <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
+              {wireRunning && wirePort !== null
+                ? t('workbench.proxyCapture.running', { port: wirePort })
+                : t('workbench.proxyCapture.stopped')}
+            </Tag>
+          </SourceRow>
+        </Tooltip>
       )}
     </div>
   ) : null;

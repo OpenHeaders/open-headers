@@ -736,6 +736,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // Browser telemetry plane (Phase 1) — the tab-inventory read the
     // Live Network picker renders; streams ride the lifeline, not RPC.
     telemetryTabs: () => browserLiveRelay.listTabs(),
+    // Debug-mode control (the Traffic Monitor's per-tab fidelity
+    // affordance) — relayed to the owning extension peer.
+    telemetryDebugControl: (nodeId, command) => browserLiveRelay.debugControl(nodeId, command),
     // The admin console's Git card rides the same verb table the local
     // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.

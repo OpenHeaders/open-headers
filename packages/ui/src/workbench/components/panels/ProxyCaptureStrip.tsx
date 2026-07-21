@@ -207,11 +207,39 @@ export const ProxyCaptureStrip: React.FC<ProxyCaptureStripProps> = ({ controls, 
           </Button>
         </Popover>
         <ScopeInfoTrigger />
-        <Space size={6} align="center">
-          <Switch size="small" checked={routing?.enabled === true} onChange={(checked) => void toggleRouting(checked)} />
-          <span style={{ fontSize: 12 }}>{t('workbench.proxyCapture.routing')}</span>
-        </Space>
-        <RoutingInfoTrigger port={status?.boundPort ?? status?.port ?? null} />
+        <Popover
+          trigger="click"
+          placement="bottomLeft"
+          arrow={false}
+          content={
+            <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{t('workbench.proxyCapture.routing')}</span>
+                <Space size={6} align="center">
+                  <RoutingInfoTrigger port={status?.boundPort ?? status?.port ?? null} />
+                  <Switch
+                    size="small"
+                    data-testid="proxy-routing-switch"
+                    checked={routing?.enabled === true}
+                    onChange={(checked) => void toggleRouting(checked)}
+                  />
+                </Space>
+              </div>
+              <div style={{ fontSize: 12, color: token.colorTextTertiary }}>
+                {t('workbench.proxyCapture.routingPopoverHint')}
+              </div>
+            </div>
+          }
+        >
+          <Button size="small" type="text" data-testid="proxy-routing-trigger" style={{ color: token.colorTextSecondary }}>
+            {t('workbench.proxyCapture.routing')}
+            {routing?.enabled === true && (
+              <Tag color="green" style={{ marginInlineStart: 6, marginInlineEnd: 0 }}>
+                {t('workbench.proxyCapture.routingOnTag')}
+              </Tag>
+            )}
+          </Button>
+        </Popover>
       </Space>
       {routing?.enabled === true && (
         <Alert

@@ -38,6 +38,7 @@ export const TELEMETRY_LIFECYCLE_DETACH_TYPE = 'oh.telemetry.lifecycle.detach' a
 export const TELEMETRY_LIFECYCLE_BATCH_TYPE = 'oh.telemetry.lifecycle.batch' as const;
 export const TELEMETRY_TABS_LIST_TYPE = 'oh.telemetry.tabs.list' as const;
 export const TELEMETRY_HOST_READY_TYPE = 'oh.telemetry.host.ready' as const;
+export const TELEMETRY_DEBUG_CONTROL_TYPE = 'oh.telemetry.debug.control' as const;
 
 /** Host → extension: one consumer message for one browser tab. */
 export interface TelemetryLifecycleConsumerMessage {
@@ -105,11 +106,55 @@ export interface TelemetryBrowserIdentity {
   platform: string | null;
 }
 
+/**
+ * The answering browser's Debug-mode (CDP) posture — the fidelity ladder
+ * the Traffic Monitor's tab rows render. Mirrors the extension's own
+ * attach reconciler: `pinnedTabs` is the explicit per-tab overlay
+ * (recorded even while the master switch is off), `attachedTabs` is the
+ * committed set. `available` is false where the browser cannot drive
+ * the debugging protocol (Firefox / Safari).
+ */
+export interface TelemetryDebugState {
+  available: boolean;
+  /** The `inspection.cdpEnabled` master switch. */
+  enabled: boolean;
+  attachedTabs: number[];
+  pinnedTabs: number[];
+}
+
+/**
+ * Host → extension: one Debug-mode control command from the paired
+ * desktop — pin/unpin a tab into the attach scope, or flip the master
+ * switch. Same consent posture as the extension's own footer control:
+ * the command only feeds the attach reconciler's inputs, and the
+ * browser's debugger banner remains the per-tab consent surface.
+ */
+export type TelemetryDebugCommand =
+  | { kind: 'pin'; tabId: number; pinned: boolean }
+  | { kind: 'enable'; enabled: boolean };
+
+export interface TelemetryDebugControlMessage {
+  type: typeof TELEMETRY_DEBUG_CONTROL_TYPE;
+  command: TelemetryDebugCommand;
+}
+
+/**
+ * `payload` of the `oh.telemetry.debug.control:response` reply frame —
+ * the post-command state snapshot. An attach the command just triggered
+ * may still be mid-handshake (the banner), so `attachedTabs` converges
+ * on a later inventory read.
+ */
+export interface TelemetryDebugControlResponsePayload {
+  debug: TelemetryDebugState;
+}
+
 /** `payload` of the `oh.telemetry.tabs.list:response` reply frame. */
 export interface TelemetryTabsListResponsePayload {
   tabs: BrowserTabWire[];
   /** Who is answering — drives the source rail's per-browser header. */
   browser: TelemetryBrowserIdentity;
+  /** The browser's Debug-mode posture — drives the tab rows' attach affordance. */
+  debug: TelemetryDebugState;
 }
 
 export type TelemetryStreamMessage =
@@ -117,4 +162,5 @@ export type TelemetryStreamMessage =
   | TelemetryLifecycleDetachMessage
   | TelemetryLifecycleBatchMessage
   | TelemetryTabsListMessage
-  | TelemetryHostReadyMessage;
+  | TelemetryHostReadyMessage
+  | TelemetryDebugControlMessage;

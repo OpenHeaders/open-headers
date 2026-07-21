@@ -486,7 +486,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeFailed': 'Could not update scope: {message}',
   'workbench.proxyCapture.startFailed': 'Could not start the proxy: {message}',
   'workbench.proxyCapture.emptyRunning': 'Waiting for proxied traffic…',
-  'workbench.proxyCapture.emptyRunningHint': 'Point a client at http://127.0.0.1:{port} to capture its requests',
+  'workbench.proxyCapture.emptyRunningHint':
+    'Point any app — CLI tools, scripts, another device — at http://127.0.0.1:{port} to capture its requests',
   'workbench.proxyCapture.emptyStopped': 'Proxy is stopped',
   'workbench.proxyCapture.emptyStoppedHint': 'Start the proxy to begin capturing traffic',
   'workbench.proxyCapture.noCa':
@@ -514,8 +515,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeInfo.ipDesc': 'An IP literal matches exactly.',
   'workbench.proxyCapture.routingInfo.exampleCaption': 'Example routing',
   'workbench.proxyCapture.routingInfo.summary':
-    'Connected browsers send scoped hosts through the capture proxy automatically — no OS proxy settings, no manual ' +
-    'setup; everything else stays direct.',
+    'Connected browsers send decrypt-scope hosts through the capture proxy — no OS proxy settings, no manual setup; ' +
+    'everything else stays direct. Mainly for browsers you can’t watch or debug directly.',
   'workbench.proxyCapture.routingInfo.description':
     'Routing persists until you switch it off — an app restart or connection drop never leaves the browser stuck ' +
     'behind a dead proxy.',
@@ -526,6 +527,10 @@ export const workbenchChrome = {
     'If the capture port is unreachable, traffic falls back to a direct connection — a capture gap, never broken browsing.',
   'workbench.proxyCapture.routingInfo.h3Desc':
     'Routed hosts fall back from HTTP/3 to HTTP/2 or 1.1; certificate-pinned endpoints may fail while routed.',
+  'workbench.proxyCapture.routingPopoverHint':
+    'Routes decrypt-scope hosts from connected browsers through the wire. Mainly for browsers you can’t watch or ' +
+    'debug directly — a watchable tab gets more via Debug mode on its row.',
+  'workbench.proxyCapture.routingOnTag': 'On',
 
   // ── Traffic Monitor tool window (unified observability surface) ─────
   'workbench.trafficMonitor.browserConnected': 'Connected browsers: {count}',
@@ -540,9 +545,18 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.windowLabel': 'Window {n}',
   'workbench.trafficMonitor.wire': 'Wire',
   'workbench.trafficMonitor.wireCapture': 'Wire capture',
+  'workbench.trafficMonitor.wireCaptureHint':
+    'Non-browser & un-watchable traffic — anything routed through the capture port: CLI tools, native apps, other devices',
   'workbench.trafficMonitor.emptyNoSource': 'No source selected',
   'workbench.trafficMonitor.emptyNoSourceHint':
     'Pick a browser tab or the wire capture on the right to watch its traffic',
+  'workbench.trafficMonitor.debugTab': 'Debug this tab — full fidelity: bodies, exact headers, timing',
+  'workbench.trafficMonitor.debugAttached': 'Debugging this tab — full fidelity via the browser’s debugger',
+  'workbench.trafficMonitor.debugPinned': 'Pinned for debugging — attaches once Debug mode is on',
+  'workbench.trafficMonitor.debugPinAria': 'Toggle debugging for this tab',
+  'workbench.trafficMonitor.debugModeHint':
+    'Debug mode — attaches the browser’s debugger to scoped and pinned tabs for bodies and exact headers. The browser ' +
+    'shows a banner on each attached tab.',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

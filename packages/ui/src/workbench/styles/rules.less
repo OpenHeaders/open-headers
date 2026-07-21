@@ -590,6 +590,23 @@ body {
   }
 }
 
+// Peer header row: the collapsible caret <button> plus the Debug-mode
+// switch, which must sit OUTSIDE the button (nested buttons are invalid
+// markup) while reading as one row.
+.traffic-monitor-peer-row {
+  display: flex;
+  align-items: center;
+
+  > .traffic-monitor-source-row {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  > :last-child:not(.traffic-monitor-source-row) {
+    margin-right: 12px;
+  }
+}
+
 // Draggable vertical divider between the plane views and the source
 // rail — carries the rail's left border (the rail no longer draws it).
 .traffic-monitor-rail-sash {

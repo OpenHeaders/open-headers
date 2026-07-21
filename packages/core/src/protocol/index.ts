@@ -136,6 +136,10 @@ export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
   BrowserTabWire,
   TelemetryBrowserIdentity,
+  TelemetryDebugCommand,
+  TelemetryDebugControlMessage,
+  TelemetryDebugControlResponsePayload,
+  TelemetryDebugState,
   TelemetryHostReadyMessage,
   TelemetryLifecycleBatchMessage,
   TelemetryLifecycleConsumerMessage,
@@ -145,6 +149,7 @@ export type {
   TelemetryTabsListResponsePayload,
 } from './telemetry-stream';
 export {
+  TELEMETRY_DEBUG_CONTROL_TYPE,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,

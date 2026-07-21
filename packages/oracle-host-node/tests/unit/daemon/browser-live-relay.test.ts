@@ -7,11 +7,14 @@
  *   - the last port's disconnect sends the detach frame
  *   - a peer reconnect re-sends subscribe for live watches
  *   - listTabs correlates per-peer replies and drops silent peers
+ *   - debugControl targets the named peer, resolves its snapshot, and
+ *     nulls out on unknown peers / the reply timeout
  */
 
 import { type IncomingLifelinePort, setLifelineServer } from '@openheaders/core/awareness';
 import { setHostLogger } from '@openheaders/core/logger';
 import {
+  TELEMETRY_DEBUG_CONTROL_TYPE,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
@@ -21,7 +24,11 @@ import {
 import type { LifecycleConsumerMessage } from '@openheaders/core/request-lifecycle';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createBrowserLiveRelay, TABS_LIST_TIMEOUT_MS } from '../../../src/daemon/telemetry/browser-live-relay';
+import {
+  createBrowserLiveRelay,
+  DEBUG_CONTROL_TIMEOUT_MS,
+  TABS_LIST_TIMEOUT_MS,
+} from '../../../src/daemon/telemetry/browser-live-relay';
 import type { OracleWsServer, PeerChangeListener, PeerSummary } from '../../../src/host-runtime/ws-server';
 
 interface FakePort extends IncomingLifelinePort {
@@ -273,6 +280,7 @@ describe('createBrowserLiveRelay', () => {
         payload: {
           tabs: [{ tabId: 7, windowId: 1, title: 'Docs', url: 'https://openheaders.io/docs', active: true }],
           browser: { name: 'Chrome', platform: 'macOS' },
+          debug: { available: true, enabled: false, attachedTabs: [], pinnedTabs: [7] },
         },
       },
       peerSummary('node-a'),
@@ -284,6 +292,44 @@ describe('createBrowserLiveRelay', () => {
     expect(result.peers[0].nodeId).toBe('node-a');
     expect(result.peers[0].tabs[0].url).toBe('https://openheaders.io/docs');
     expect(result.peers[0].browser).toEqual({ name: 'Chrome', platform: 'macOS' });
+    // The Debug-mode posture rides the same reply, per peer.
+    expect(result.peers[0].debug).toEqual({ available: true, enabled: false, attachedTabs: [], pinnedTabs: [7] });
+    relay.dispose();
+  });
+
+  it('debugControl targets the named peer and resolves its post-command snapshot', async () => {
+    const relay = createBrowserLiveRelay();
+    const { server, frames } = fakeServer([peerSummary('node-a'), peerSummary('node-b')]);
+    relay.setWsServer(server);
+
+    const pending = relay.debugControl('node-a', { kind: 'pin', tabId: 7, pinned: true });
+    const requests = frames.filter((f) => f.frame.type === TELEMETRY_DEBUG_CONTROL_TYPE);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].to).toEqual(['peer-node-a']);
+    expect(requests[0].frame.command).toEqual({ kind: 'pin', tabId: 7, pinned: true });
+
+    relay.peerPush.handle(
+      {
+        type: `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`,
+        payload: { debug: { available: true, enabled: true, attachedTabs: [], pinnedTabs: [7] } },
+      },
+      peerSummary('node-a'),
+    );
+    expect(await pending).toEqual({ available: true, enabled: true, attachedTabs: [], pinnedTabs: [7] });
+    relay.dispose();
+  });
+
+  it('debugControl resolves null for an unknown peer and on the reply timeout', async () => {
+    vi.useFakeTimers();
+    const relay = createBrowserLiveRelay();
+    const { server } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+
+    expect(await relay.debugControl('node-gone', { kind: 'enable', enabled: true })).toBeNull();
+
+    const pending = relay.debugControl('node-a', { kind: 'enable', enabled: true });
+    await vi.advanceTimersByTimeAsync(DEBUG_CONTROL_TIMEOUT_MS + 10);
+    expect(await pending).toBeNull();
     relay.dispose();
   });
 });

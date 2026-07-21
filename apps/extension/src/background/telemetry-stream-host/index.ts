@@ -25,10 +25,13 @@
 import type {
   BrowserTabWire,
   TelemetryBrowserIdentity,
+  TelemetryDebugControlMessage,
+  TelemetryDebugState,
   TelemetryLifecycleConsumerMessage,
   TelemetryLifecycleDetachMessage,
 } from '@openheaders/core/protocol';
 import {
+  TELEMETRY_DEBUG_CONTROL_TYPE,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
@@ -62,6 +65,19 @@ export const TELEMETRY_FLUSH_INTERVAL_MS = 25;
  */
 export const TELEMETRY_MAX_QUEUED_MESSAGES = 4000;
 
+/**
+ * Debug-mode (CDP) seam for the desktop's per-tab fidelity affordance:
+ * `getState` snapshots the attach reconciler's posture for the
+ * inventory reply; `setPin` / `setEnabled` feed its inputs on a relayed
+ * control command. Absent on hosts without CDP — the reply then reports
+ * `available: false` and control frames are dropped.
+ */
+export interface TelemetryDebugSeam {
+  getState(): TelemetryDebugState;
+  setPin(tabId: number, pinned: boolean): void;
+  setEnabled(enabled: boolean): void;
+}
+
 export interface TelemetryStreamHostOptions {
   readonly hub: RequestLifecycleHub;
   /** Hydration gate for the watch-session floors, as for the port host. */
@@ -70,6 +86,8 @@ export interface TelemetryStreamHostOptions {
   readonly provenance?: LifecycleProvenance;
   /** On-demand response-body fetch for the `request-body` pull. */
   readonly bodyFetcher?: LifecycleBodyFetcher;
+  /** Debug-mode posture + controls; absent where the browser has no CDP. */
+  readonly debug?: TelemetryDebugSeam;
   /** Test seams — default to the real connection manager + chrome.tabs. */
   readonly send?: (backendId: string, frame: Record<string, unknown>) => boolean;
   readonly registerInbound?: typeof registerInboundFrameHandler;
@@ -208,8 +226,11 @@ function browserIdentity(): TelemetryBrowserIdentity {
   return { name: browserName(), platform: platformName() };
 }
 
+/** The reported posture where the browser cannot drive CDP at all. */
+const DEBUG_UNAVAILABLE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
+
 export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): TelemetryStreamHost {
-  const { hub, ready, provenance, bodyFetcher } = options;
+  const { hub, ready, provenance, bodyFetcher, debug } = options;
   const send = options.send ?? sendToBackend;
   const registerInbound = options.registerInbound ?? registerInboundFrameHandler;
   const subscribeClose = options.subscribeClose ?? subscribeOnWebSocketClose;
@@ -370,7 +391,30 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     if (type === TELEMETRY_TABS_LIST_TYPE) {
       if (wire.isLoopback()) {
         void queryTabs().then((tabs) => {
-          wire.send({ type: `${TELEMETRY_TABS_LIST_TYPE}:response`, payload: { tabs, browser: browserIdentity() } });
+          wire.send({
+            type: `${TELEMETRY_TABS_LIST_TYPE}:response`,
+            payload: { tabs, browser: browserIdentity(), debug: debug?.getState() ?? DEBUG_UNAVAILABLE },
+          });
+        });
+      }
+      return true;
+    }
+    if (type === TELEMETRY_DEBUG_CONTROL_TYPE) {
+      if (wire.isLoopback()) {
+        const { command } = frame as TelemetryDebugControlMessage;
+        if (debug && command && typeof command === 'object') {
+          if (command.kind === 'pin' && typeof command.tabId === 'number') {
+            debug.setPin(command.tabId, command.pinned === true);
+          } else if (command.kind === 'enable') {
+            debug.setEnabled(command.enabled === true);
+          }
+        }
+        // Reply even without a seam so the daemon's collection slot
+        // settles instead of timing out; the attach a pin just triggered
+        // may still be mid-handshake — the inventory read converges it.
+        wire.send({
+          type: `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`,
+          payload: { debug: debug?.getState() ?? DEBUG_UNAVAILABLE },
         });
       }
       return true;

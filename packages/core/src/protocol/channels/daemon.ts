@@ -19,7 +19,12 @@ import type {
   ProxyTrustStoreId,
   ProxyTrustStoreState,
 } from '../../types';
-import type { BrowserTabWire, TelemetryBrowserIdentity } from '../telemetry-stream';
+import type {
+  BrowserTabWire,
+  TelemetryBrowserIdentity,
+  TelemetryDebugCommand,
+  TelemetryDebugState,
+} from '../telemetry-stream';
 
 export interface DaemonRpc {
   /**
@@ -628,9 +633,22 @@ export interface DaemonRpc {
         nodeId: string;
         agent: string;
         browser: TelemetryBrowserIdentity;
+        debug: TelemetryDebugState;
         tabs: ReadonlyArray<BrowserTabWire>;
       }>;
     };
+  };
+
+  /**
+   * One Debug-mode control command relayed to the extension peer named
+   * by `nodeId` — pin/unpin a tab into the CDP attach scope or flip the
+   * master switch (the Traffic Monitor's per-tab fidelity affordance).
+   * `debug` is the peer's post-command state snapshot, `null` when the
+   * peer never answered inside the collection window (`ok` false).
+   */
+  'oh.daemon.telemetry.debug.control': {
+    req: { nodeId: string; command: TelemetryDebugCommand };
+    res: { ok: boolean; debug: TelemetryDebugState | null };
   };
 
   'oh.daemon.audit.query': {

@@ -499,7 +499,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.startFailed': 'Impossible de démarrer le proxy : {message}',
   'workbench.proxyCapture.emptyRunning': 'En attente de trafic proxifié…',
   'workbench.proxyCapture.emptyRunningHint':
-    'Pointez un client vers http://127.0.0.1:{port} pour capturer ses requêtes',
+    'Pointez n’importe quelle application — outils CLI, scripts, autre appareil — vers http://127.0.0.1:{port} pour ' +
+    'capturer ses requêtes',
   'workbench.proxyCapture.emptyStopped': 'Le proxy est arrêté',
   'workbench.proxyCapture.emptyStoppedHint': 'Démarrez le proxy pour commencer à capturer le trafic',
   'workbench.proxyCapture.noCa':
@@ -530,8 +531,9 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeInfo.ipDesc': 'Un littéral IP correspond exactement.',
   'workbench.proxyCapture.routingInfo.exampleCaption': 'Exemple de routage',
   'workbench.proxyCapture.routingInfo.summary':
-    'Les navigateurs connectés envoient automatiquement les hôtes du périmètre à travers le proxy de capture — ' +
-    'aucun réglage proxy de l’OS, aucune configuration manuelle ; tout le reste reste en direct.',
+    'Les navigateurs connectés envoient les hôtes du périmètre de déchiffrement à travers le proxy de capture — ' +
+    'aucun réglage proxy de l’OS, aucune configuration manuelle ; tout le reste reste en direct. Surtout pour les ' +
+    'navigateurs impossibles à surveiller ou à déboguer directement.',
   'workbench.proxyCapture.routingInfo.description':
     'Le routage persiste jusqu’à ce que vous le désactiviez — un redémarrage de l’application ou une coupure de ' +
     'connexion ne laisse jamais le navigateur bloqué derrière un proxy mort.',
@@ -544,6 +546,11 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.h3Desc':
     'Les hôtes routés retombent de HTTP/3 vers HTTP/2 ou 1.1 ; les points de terminaison à épinglage de certificat ' +
     'peuvent échouer pendant le routage.',
+  'workbench.proxyCapture.routingPopoverHint':
+    'Route les hôtes du périmètre de déchiffrement des navigateurs connectés à travers le fil. Surtout pour les ' +
+    'navigateurs impossibles à surveiller ou à déboguer directement — un onglet observable obtient davantage via le ' +
+    'mode Débogage sur sa ligne.',
+  'workbench.proxyCapture.routingOnTag': 'Activé',
 
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
   'workbench.trafficMonitor.browserConnected': 'Navigateurs connectés : {count}',
@@ -559,9 +566,20 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.windowLabel': 'Fenêtre {n}',
   'workbench.trafficMonitor.wire': 'Sur le fil',
   'workbench.trafficMonitor.wireCapture': 'Capture sur le fil',
+  'workbench.trafficMonitor.wireCaptureHint':
+    'Trafic hors navigateur et non observable — tout ce qui est routé par le port de capture : outils CLI, ' +
+    'applications natives, autres appareils',
   'workbench.trafficMonitor.emptyNoSource': 'Aucune source sélectionnée',
   'workbench.trafficMonitor.emptyNoSourceHint':
     'Choisissez à droite un onglet de navigateur ou la capture sur le fil pour suivre son trafic',
+  'workbench.trafficMonitor.debugTab': 'Déboguer cet onglet — fidélité maximale : corps, en-têtes exacts, timings',
+  'workbench.trafficMonitor.debugAttached':
+    'Onglet en cours de débogage — fidélité maximale via le débogueur du navigateur',
+  'workbench.trafficMonitor.debugPinned': 'Épinglé pour le débogage — s’attache dès que le mode Débogage est activé',
+  'workbench.trafficMonitor.debugPinAria': 'Basculer le débogage de cet onglet',
+  'workbench.trafficMonitor.debugModeHint':
+    'Mode Débogage — attache le débogueur du navigateur aux onglets du périmètre et épinglés pour obtenir corps et ' +
+    'en-têtes exacts. Le navigateur affiche un bandeau sur chaque onglet attaché.',
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

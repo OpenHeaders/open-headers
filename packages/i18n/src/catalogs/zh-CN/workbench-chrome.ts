@@ -490,7 +490,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeFailed': '无法更新范围：{message}',
   'workbench.proxyCapture.startFailed': '无法启动代理：{message}',
   'workbench.proxyCapture.emptyRunning': '等待代理流量…',
-  'workbench.proxyCapture.emptyRunningHint': '将客户端指向 http://127.0.0.1:{port} 即可捕获其请求',
+  'workbench.proxyCapture.emptyRunningHint':
+    '将任意应用——CLI 工具、脚本、其他设备——指向 http://127.0.0.1:{port} 即可捕获其请求',
   'workbench.proxyCapture.emptyStopped': '代理已停止',
   'workbench.proxyCapture.emptyStoppedHint': '启动代理以开始捕获流量',
   'workbench.proxyCapture.noCa': '尚无受信任的 CA——明文 HTTP 会被完整捕获；未安装前 HTTPS 仍为不透明隧道。',
@@ -513,7 +514,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeInfo.ipDesc': 'IP 字面量精确匹配。',
   'workbench.proxyCapture.routingInfo.exampleCaption': '路由示例',
   'workbench.proxyCapture.routingInfo.summary':
-    '已连接的浏览器会自动把范围内的主机经由捕获代理发送——无需系统代理设置，无需手动配置；其余流量保持直连。',
+    '已连接的浏览器会把解密范围内的主机经由捕获代理发送——无需系统代理设置，无需手动配置；其余流量保持直连。' +
+    '主要用于无法直接监视或调试的浏览器。',
   'workbench.proxyCapture.routingInfo.description':
     '路由会一直保持，直到你关闭它——应用重启或连接中断绝不会让浏览器卡在失效的代理后面。',
   'workbench.proxyCapture.routingInfo.behaviorHeading': '行为',
@@ -521,6 +523,9 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.failoverDesc': '若捕获端口不可达，流量回退为直连——只是捕获缺口，绝不破坏浏览。',
   'workbench.proxyCapture.routingInfo.h3Desc':
     '被路由的主机从 HTTP/3 回退到 HTTP/2 或 1.1；证书固定的端点在路由期间可能失败。',
+  'workbench.proxyCapture.routingPopoverHint':
+    '把已连接浏览器中解密范围内的主机经线路路由。主要用于无法直接监视或调试的浏览器——可监视的标签页在其行上启用调试模式能获得更多。',
+  'workbench.proxyCapture.routingOnTag': '开',
 
   // ── 流量监视工具窗口（统一可观测性界面） ────────────────────────────
   'workbench.trafficMonitor.browserConnected': '已连接浏览器：{count}',
@@ -535,8 +540,16 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.windowLabel': '窗口 {n}',
   'workbench.trafficMonitor.wire': '线路',
   'workbench.trafficMonitor.wireCapture': '线路捕获',
+  'workbench.trafficMonitor.wireCaptureHint':
+    '非浏览器及不可监视的流量——所有经捕获端口路由的内容：CLI 工具、原生应用、其他设备',
   'workbench.trafficMonitor.emptyNoSource': '未选择来源',
   'workbench.trafficMonitor.emptyNoSourceHint': '在右侧选择一个浏览器标签页或线路捕获，即可实时查看其流量',
+  'workbench.trafficMonitor.debugTab': '调试此标签页——完整保真：响应体、精确标头、时序',
+  'workbench.trafficMonitor.debugAttached': '正在调试此标签页——经浏览器调试器获得完整保真',
+  'workbench.trafficMonitor.debugPinned': '已固定用于调试——调试模式开启后即会附加',
+  'workbench.trafficMonitor.debugPinAria': '切换此标签页的调试',
+  'workbench.trafficMonitor.debugModeHint':
+    '调试模式——将浏览器调试器附加到范围内及已固定的标签页，以获取响应体和精确标头。浏览器会在每个已附加的标签页上显示横幅。',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': '标题',

@@ -31,6 +31,7 @@ import {
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '@openheaders/core/identity';
 import { verifyLicense } from '@openheaders/core/licensing';
+import type { TelemetryDebugCommand, TelemetryDebugState } from '@openheaders/core/protocol';
 import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
@@ -85,6 +86,9 @@ export interface AdminChannelDeps {
    *  tables composed without the relay (test rigs) answer an empty
    *  inventory instead of failing construction. */
   telemetryTabs?(): Promise<{ peers: BrowserTelemetryPeerTabs[] }>;
+  /** The `oh.daemon.telemetry.debug.control` backing — one Debug-mode
+   *  command relayed to the named extension peer. Optional as above. */
+  telemetryDebugControl?(nodeId: string, command: TelemetryDebugCommand): Promise<TelemetryDebugState | null>;
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -108,6 +112,14 @@ function parseAuditCursor(value: unknown): AuditQueryCursor | undefined {
     return undefined;
   }
   return { occurredAt: candidate.occurredAt, orgId: candidate.orgId, seq: candidate.seq };
+}
+
+function isTelemetryDebugCommand(value: unknown): value is TelemetryDebugCommand {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as { kind?: unknown; tabId?: unknown; pinned?: unknown; enabled?: unknown };
+  if (candidate.kind === 'pin') return typeof candidate.tabId === 'number' && typeof candidate.pinned === 'boolean';
+  if (candidate.kind === 'enable') return typeof candidate.enabled === 'boolean';
+  return false;
 }
 
 /**
@@ -352,6 +364,16 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   // gathered live per call from every answering extension peer. The
   // lifecycle streams themselves never ride this table.
   handlers.set('oh.daemon.telemetry.tabs.list', async () => (await deps.telemetryTabs?.()) ?? { peers: [] });
+
+  // One Debug-mode control command (pin a tab / flip the master switch)
+  // relayed to the named extension peer — the Traffic Monitor's per-tab
+  // fidelity affordance. `debug: null` = peer absent or never answered.
+  handlers.set('oh.daemon.telemetry.debug.control', async (message) => {
+    if (typeof message.nodeId !== 'string' || message.nodeId.length === 0) return { ok: false, debug: null };
+    if (!isTelemetryDebugCommand(message.command)) return { ok: false, debug: null };
+    const debug = (await deps.telemetryDebugControl?.(message.nodeId, message.command)) ?? null;
+    return { ok: debug !== null, debug };
+  });
 
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';

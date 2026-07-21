@@ -7,9 +7,13 @@
  *   - the detach frame releases the ref and stops streaming
  *   - a wire close tears down every session it carried
  *   - the tabs-list request answers on the `<type>:response` channel
+ *   - the debug seam: state rides the inventory reply, control frames
+ *     drive pin/enable and answer with a fresh snapshot, loopback-only
  */
 
+import type { TelemetryDebugState } from '@openheaders/core/protocol';
 import {
+  TELEMETRY_DEBUG_CONTROL_TYPE,
   TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
@@ -26,7 +30,11 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isTracked, __resetForTests as resetTabTelemetry } from '@/background/modules/tab-telemetry';
-import { startTelemetryStreamHost, type TelemetryStreamHost } from '@/background/telemetry-stream-host';
+import {
+  startTelemetryStreamHost,
+  type TelemetryDebugSeam,
+  type TelemetryStreamHost,
+} from '@/background/telemetry-stream-host';
 
 const TAB_ID = 7;
 
@@ -83,7 +91,7 @@ function makeWire(backendId: string, loopback: boolean, wireSent: Record<string,
   };
 }
 
-function makeHarness(): Harness {
+function makeHarness(debug?: TelemetryDebugSeam): Harness {
   const store = new RequestLifecycleStore();
   const hub = new RequestLifecycleHub({ store });
   const sent: SentFrame[] = [];
@@ -112,6 +120,7 @@ function makeHarness(): Harness {
     queryTabs: async () => [
       { tabId: TAB_ID, windowId: 1, title: 'Docs', url: 'https://openheaders.io/docs', active: true },
     ],
+    debug,
   });
   return {
     host,
@@ -219,11 +228,77 @@ describe('startTelemetryStreamHost', () => {
     await vi.advanceTimersByTimeAsync(10);
     const reply = h.wireSent.find((f) => f.type === `${TELEMETRY_TABS_LIST_TYPE}:response`);
     expect(reply).toBeDefined();
-    const payload = reply?.payload as { tabs: Array<{ url: string }>; browser: { name: string } };
+    const payload = reply?.payload as {
+      tabs: Array<{ url: string }>;
+      browser: { name: string };
+      debug: TelemetryDebugState;
+    };
     expect(payload.tabs[0].url).toBe('https://openheaders.io/docs');
     // The reply carries the answering browser's display identity for
     // the workbench source rail.
     expect(payload.browser.name.length).toBeGreaterThan(0);
+    // Without a debug seam the reply reports the unavailable posture.
+    expect(payload.debug).toEqual({ available: false, enabled: false, attachedTabs: [], pinnedTabs: [] });
+    h.host.dispose();
+  });
+
+  it('tabs-list reply carries the debug seam state when present', async () => {
+    const state: TelemetryDebugState = { available: true, enabled: true, attachedTabs: [TAB_ID], pinnedTabs: [] };
+    const h = makeHarness({ getState: () => state, setPin: vi.fn(), setEnabled: vi.fn() });
+    await h.deliver({ type: TELEMETRY_TABS_LIST_TYPE }, h.wire);
+    await vi.advanceTimersByTimeAsync(10);
+    const reply = h.wireSent.find((f) => f.type === `${TELEMETRY_TABS_LIST_TYPE}:response`);
+    expect((reply?.payload as { debug: TelemetryDebugState }).debug).toEqual(state);
+    h.host.dispose();
+  });
+
+  it('debug control pin drives the seam and answers with the fresh state', async () => {
+    const pinned: number[] = [];
+    const seam: TelemetryDebugSeam = {
+      getState: () => ({ available: true, enabled: false, attachedTabs: [], pinnedTabs: [...pinned] }),
+      setPin: (tabId, isPinned) => {
+        if (isPinned) pinned.push(tabId);
+        else pinned.splice(pinned.indexOf(tabId), 1);
+      },
+      setEnabled: vi.fn(),
+    };
+    const h = makeHarness(seam);
+    const claimed = await h.deliver(
+      { type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'pin', tabId: TAB_ID, pinned: true } },
+      h.wire,
+    );
+    expect(claimed).toBe(true);
+    const reply = h.wireSent.find((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`);
+    expect((reply?.payload as { debug: TelemetryDebugState }).debug.pinnedTabs).toEqual([TAB_ID]);
+    h.host.dispose();
+  });
+
+  it('debug control enable drives the seam master switch', async () => {
+    const setEnabled = vi.fn();
+    const h = makeHarness({
+      getState: () => ({ available: true, enabled: false, attachedTabs: [], pinnedTabs: [] }),
+      setPin: vi.fn(),
+      setEnabled,
+    });
+    await h.deliver({ type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'enable', enabled: true } }, h.wire);
+    expect(setEnabled).toHaveBeenCalledWith(true);
+    h.host.dispose();
+  });
+
+  it('claims and drops debug control frames from non-loopback wires', async () => {
+    const setPin = vi.fn();
+    const h = makeHarness({
+      getState: () => ({ available: true, enabled: true, attachedTabs: [], pinnedTabs: [] }),
+      setPin,
+      setEnabled: vi.fn(),
+    });
+    const claimed = await h.deliver(
+      { type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'pin', tabId: TAB_ID, pinned: true } },
+      h.offWire,
+    );
+    expect(claimed).toBe(true);
+    expect(setPin).not.toHaveBeenCalled();
+    expect(h.wireSent.some((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`)).toBe(false);
     h.host.dispose();
   });
 });

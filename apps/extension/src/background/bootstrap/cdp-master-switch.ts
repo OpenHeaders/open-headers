@@ -13,7 +13,7 @@
  * the persisted (or default) value rather than `undefined`.
  */
 
-import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
+import { get as getSetting, set as setSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 
 /**
  * Seed `setCdpEnabled` with the current value, then keep it in sync with
@@ -22,4 +22,14 @@ import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/setti
 export function installCdpMasterSwitch(setCdpEnabled: (enabled: boolean) => void): () => void {
   setCdpEnabled(getSetting('inspection.cdpEnabled'));
   return subscribeKey('inspection.cdpEnabled', () => setCdpEnabled(getSetting('inspection.cdpEnabled')));
+}
+
+/**
+ * Write the master switch — the remote control path (a desktop-relayed
+ * telemetry Debug-mode command). Writes the SETTING, never the
+ * reconciler: propagation rides the same single-effector subscription as
+ * a write from any local surface, so the popup/panel switches reflect it.
+ */
+export function setCdpMasterSwitch(enabled: boolean): void {
+  setSetting('inspection.cdpEnabled', enabled);
 }

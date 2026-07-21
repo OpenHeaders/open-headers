@@ -499,7 +499,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.startFailed': 'No se pudo iniciar el proxy: {message}',
   'workbench.proxyCapture.emptyRunning': 'Esperando tráfico a través del proxy…',
   'workbench.proxyCapture.emptyRunningHint':
-    'Apunta un cliente a http://127.0.0.1:{port} para capturar sus solicitudes',
+    'Apunta cualquier aplicación — herramientas CLI, scripts, otro dispositivo — a http://127.0.0.1:{port} para ' +
+    'capturar sus solicitudes',
   'workbench.proxyCapture.emptyStopped': 'El proxy está detenido',
   'workbench.proxyCapture.emptyStoppedHint': 'Inicia el proxy para empezar a capturar tráfico',
   'workbench.proxyCapture.noCa':
@@ -530,8 +531,9 @@ export const workbenchChrome = {
   'workbench.proxyCapture.scopeInfo.ipDesc': 'Un literal IP coincide exactamente.',
   'workbench.proxyCapture.routingInfo.exampleCaption': 'Ejemplo de enrutamiento',
   'workbench.proxyCapture.routingInfo.summary':
-    'Los navegadores conectados envían automáticamente los hosts del alcance a través del proxy de captura: sin ' +
-    'ajustes de proxy del sistema, sin configuración manual; todo lo demás va directo.',
+    'Los navegadores conectados envían los hosts del ámbito de descifrado a través del proxy de captura: sin ajustes ' +
+    'de proxy del sistema, sin configuración manual; todo lo demás va directo. Sobre todo para navegadores que no ' +
+    'puedes observar ni depurar directamente.',
   'workbench.proxyCapture.routingInfo.description':
     'El enrutamiento persiste hasta que lo desactives: un reinicio de la aplicación o un corte de conexión nunca ' +
     'deja al navegador atascado tras un proxy muerto.',
@@ -544,6 +546,11 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.h3Desc':
     'Los hosts enrutados caen de HTTP/3 a HTTP/2 o 1.1; los endpoints con certificado fijado pueden fallar mientras ' +
     'están enrutados.',
+  'workbench.proxyCapture.routingPopoverHint':
+    'Enruta los hosts del ámbito de descifrado de los navegadores conectados a través del cable. Sobre todo para ' +
+    'navegadores que no puedes observar ni depurar directamente: una pestaña observable obtiene más con el modo ' +
+    'Depuración en su fila.',
+  'workbench.proxyCapture.routingOnTag': 'Activado',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
   'workbench.trafficMonitor.browserConnected': 'Navegadores conectados: {count}',
@@ -558,9 +565,20 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.windowLabel': 'Ventana {n}',
   'workbench.trafficMonitor.wire': 'En el cable',
   'workbench.trafficMonitor.wireCapture': 'Captura en el cable',
+  'workbench.trafficMonitor.wireCaptureHint':
+    'Tráfico fuera del navegador y no observable: todo lo enrutado por el puerto de captura — herramientas CLI, ' +
+    'aplicaciones nativas, otros dispositivos',
   'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',
   'workbench.trafficMonitor.emptyNoSourceHint':
     'Elige a la derecha una pestaña del navegador o la captura en el cable para ver su tráfico',
+  'workbench.trafficMonitor.debugTab': 'Depurar esta pestaña: fidelidad completa — cuerpos, cabeceras exactas, tiempos',
+  'workbench.trafficMonitor.debugAttached':
+    'Depurando esta pestaña: fidelidad completa mediante el depurador del navegador',
+  'workbench.trafficMonitor.debugPinned': 'Fijada para depurar: se adjunta cuando el modo Depuración esté activado',
+  'workbench.trafficMonitor.debugPinAria': 'Alternar la depuración de esta pestaña',
+  'workbench.trafficMonitor.debugModeHint':
+    'Modo Depuración: adjunta el depurador del navegador a las pestañas del ámbito y fijadas para obtener cuerpos y ' +
+    'cabeceras exactas. El navegador muestra un aviso en cada pestaña adjuntada.',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',
