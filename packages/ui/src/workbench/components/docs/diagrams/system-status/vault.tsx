@@ -40,7 +40,8 @@ export const VaultHydrationDiagram: React.FC = () => {
         chrome.storage.local
       </text>
       <text x={32} y={62} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-        oh.ws.{'<id>'}.vault{t('workbench.docs.diagrams.systemStatus.vaultHydration.blobSuffix')}
+        oh.ws.{t('workbench.docs.diagrams.systemStatus.vaultHydration.wireId')}.vault
+        {t('workbench.docs.diagrams.systemStatus.vaultHydration.blobSuffix')}
       </text>
       <rect x={234} y={42} width={56} height={20} rx={3} fill={FILL_SECONDARY} stroke={BORDER} />
       <text x={262} y={56} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>

@@ -203,7 +203,7 @@ export const PermissionsAuditFlowDiagram: React.FC = () => {
         chrome.permissions.contains
       </text>
       <text x={160} y={99} textAnchor="middle" fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-        {"{ origins: ['<all_urls>'] }"}
+        {t('workbench.docs.diagrams.systemStatus.permissionsAudit.wireOrigins')}
       </text>
 
       {/* Three branch arrows */}

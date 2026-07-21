@@ -137,7 +137,7 @@ export const InjectScriptDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={40} y={78} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        &lt;!doctype html&gt;
+        {t('workbench.docs.diagrams.inject.wireDoctype')}
       </text>
 
       {/* Injected script — purple highlighted block at the top */}
@@ -146,19 +146,19 @@ export const InjectScriptDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.inject.injectedComment')}
       </text>
       <text x={48} y={114} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        const _f = window.fetch;
+        {t('workbench.docs.diagrams.inject.wireHookLine')}
       </text>
 
       {/* Page body — dim */}
       <g opacity={0.55}>
         <text x={40} y={130} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-          &lt;body&gt;
+          {t('workbench.docs.diagrams.inject.wireBodyOpen')}
         </text>
         <text x={48} y={144} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
           &lt;h1&gt;App&lt;/h1&gt;
         </text>
         <text x={48} y={158} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-          &lt;script src="app.js"&gt;&lt;/script&gt;
+          {t('workbench.docs.diagrams.inject.wireScriptSrc')}
         </text>
         <text x={40} y={172} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
           &lt;/body&gt;

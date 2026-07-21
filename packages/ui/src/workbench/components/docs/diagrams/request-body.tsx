@@ -207,11 +207,14 @@ export const RequestBodyStaticDiagram: React.FC = () => {
     <RequestBodyCard
       idSuffix="st"
       rule={t('workbench.docs.diagrams.requestBody.ruleStatic')}
-      beforeLines={[<tspan key="b">{'POST /api/save  body:'}</tspan>, <tspan key="b2">{'{ "userId": "abc" }'}</tspan>]}
+      beforeLines={[
+        <tspan key="b">{t('workbench.docs.diagrams.requestBody.wirePostSave')}</tspan>,
+        <tspan key="b2">{t('workbench.docs.diagrams.requestBody.wireBodyAbc')}</tspan>,
+      ]}
       afterLines={[
-        <tspan key="a">{'POST /api/save  body:'}</tspan>,
+        <tspan key="a">{t('workbench.docs.diagrams.requestBody.wirePostSave')}</tspan>,
         <tspan key="a2" fontWeight={700} fill={STROKE_PURPLE}>
-          {'{ "userId": "test-1" }'}
+          {t('workbench.docs.diagrams.requestBody.wireBodyTest')}
         </tspan>,
       ]}
       arrowLabel={t('workbench.docs.diagrams.requestBody.staticArrow')}
@@ -227,16 +230,16 @@ export const RequestBodyDynamicDiagram: React.FC = () => {
       idSuffix="dyn"
       rule={t('workbench.docs.diagrams.requestBody.ruleDynamic')}
       beforeLines={[
-        <tspan key="b">{'{ "userId": "abc" }'}</tspan>,
+        <tspan key="b">{t('workbench.docs.diagrams.requestBody.wireBodyAbc')}</tspan>,
         <tspan key="b2" fontStyle="italic" fill={TEXT_DIM}>
           {t('workbench.docs.diagrams.requestBody.fnReads')}
         </tspan>,
       ]}
       afterLines={[
         <tspan key="a">
-          {'{ "userId": "abc", '}
+          {t('workbench.docs.diagrams.requestBody.wireBodyAbcOpen')}
           <tspan fontWeight={700} fill={STROKE_PURPLE}>
-            {'"debug": true'}
+            {t('workbench.docs.diagrams.requestBody.wireDebugTrue')}
           </tspan>
           {' }'}
         </tspan>,
@@ -275,7 +278,7 @@ export const RequestBodyGraphqlDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.requestBody.match')}
       </text>
       <text x={86} y={94} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        operationName = GetUser
+        {t('workbench.docs.diagrams.requestBody.wireOpEquals')}
       </text>
       <rect
         x={14}
@@ -293,7 +296,7 @@ export const RequestBodyGraphqlDiagram: React.FC = () => {
         {'"operationName":'}
       </text>
       <text x={28} y={144} fontFamily="monospace" fontSize={8} fontWeight={700} fill={STROKE_PURPLE}>
-        {'  "GetUser", ...'}
+        {t('workbench.docs.diagrams.requestBody.wireGetUser')}
       </text>
       <line x1={86} y1={158} x2={86} y2={178} stroke={STROKE_PURPLE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
       <rect x={14} y={180} width={144} height={32} rx={5} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
@@ -323,7 +326,7 @@ export const RequestBodyGraphqlDiagram: React.FC = () => {
         {'"operationName":'}
       </text>
       <text x={176} y={144} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-        {'  "ListPosts", ...'}
+        {t('workbench.docs.diagrams.requestBody.wireListPosts')}
       </text>
       <line
         x1={234}

@@ -161,7 +161,7 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
         fontWeight={700}
         fill={OH_GREEN}
       >
-        push
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.wirePush')}
       </text>
 
       <line
@@ -181,7 +181,7 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
         fontWeight={700}
         fill={OH_GREEN}
       >
-        pull
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.wirePull')}
       </text>
 
       {/* Git repo card */}
@@ -197,7 +197,7 @@ export const RoadmapGitWorkspacesDiagram: React.FC = () => {
       />
       <rect x={REPO_X} y={REPO_Y} width={REPO_W} height={24} rx={6} fill={OH_GREEN_TINT} stroke={OH_GREEN} />
       <text x={REPO_X + REPO_W / 2} y={REPO_Y + 16} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        ⎇ workspace.git
+        {t('workbench.docs.diagrams.openHeaders.roadmapGit.wireRepoName')}
       </text>
       {/* Commit log */}
       {[

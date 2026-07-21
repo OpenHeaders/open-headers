@@ -89,7 +89,7 @@ export const MultiTabSyncDiagram: React.FC = () => {
         {mode === 'env' && (
           <g>
             <text x={x + 50} y={68} fontSize={8} fontWeight={600} fill={TEXT}>
-              staging
+              {t('workbench.docs.diagrams.multiTab.sync.wireStagingEnv')}
             </text>
             {['API_HOST', 'API_KEY', 'DEBUG'].map((k, i) => {
               const ry = 84 + i * 16;

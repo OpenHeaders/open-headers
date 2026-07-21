@@ -396,7 +396,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       <text x={88} y={114} fontFamily="monospace" fontSize={9} fill={TEXT}>
         ads.openheaders.io/track
       </text>
-      <ResourceTag x={246} y={106} label="xhr" />
+      <ResourceTag x={246} y={106} label={t('workbench.docs.diagrams.requestTracking.wireTagXhr')} />
       <text x={88} y={125} fontSize={9} fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.requestTracking.matchedPattern')}
       </text>
@@ -409,7 +409,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       <text x={88} y={146} fontFamily="monospace" fontSize={9} fill={TEXT}>
         ads.openheaders.io/pixel
       </text>
-      <ResourceTag x={246} y={138} label="image" />
+      <ResourceTag x={246} y={138} label={t('workbench.docs.diagrams.requestTracking.wireTagImage')} />
       <text x={88} y={157} fontSize={9} fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.requestTracking.matchedPattern')}
       </text>
@@ -422,7 +422,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       <text x={88} y={178} fontFamily="monospace" fontSize={9} fill={TEXT}>
         ads.openheaders.io/beacon
       </text>
-      <ResourceTag x={246} y={170} label="ping" />
+      <ResourceTag x={246} y={170} label={t('workbench.docs.diagrams.requestTracking.wireTagPing')} />
       <text x={88} y={189} fontSize={9} fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.requestTracking.matchedPattern')}
       </text>

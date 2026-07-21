@@ -137,12 +137,12 @@ export const QueryParamAddReplaceDiagram: React.FC = () => {
     <BeforeAfterCards
       idSuffix="add"
       rule={t('workbench.docs.diagrams.queryParams.ruleAdd')}
-      before={<>?page=1</>}
+      before={<>{t('workbench.docs.diagrams.queryParams.wirePage')}</>}
       after={
         <>
-          ?page=1
+          {t('workbench.docs.diagrams.queryParams.wirePage')}
           <tspan fontWeight={700} fill={STROKE_GREEN}>
-            &debug=true
+            {t('workbench.docs.diagrams.queryParams.wireDebugParam')}
           </tspan>
         </>
       }
@@ -329,10 +329,10 @@ export const QueryParamRemoveDiagram: React.FC = () => {
           <tspan fontWeight={700} fill="var(--ant-color-error)" textDecoration="line-through">
             utm_source=google
           </tspan>
-          &page=1
+          {t('workbench.docs.diagrams.queryParams.wireAmpPage')}
         </>
       }
-      after={<>?page=1</>}
+      after={<>{t('workbench.docs.diagrams.queryParams.wirePage')}</>}
       arrowLabel={t('workbench.docs.diagrams.queryParams.removeArrow')}
       stamp={t('workbench.docs.diagrams.queryParams.removeStamp')}
     />

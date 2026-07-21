@@ -130,22 +130,25 @@ export const ImageIcon: React.FC<IconProps> = ({ size }) => (
   </IconFrame>
 );
 
-export const FontIcon: React.FC<IconProps> = ({ size }) => (
-  <IconFrame accent={ICON_VOLCANO} size={size}>
-    {/* Stylised 'Aa' */}
-    <text
-      x={20}
-      y={28}
-      textAnchor="middle"
-      fontFamily="Georgia, 'Times New Roman', serif"
-      fontSize={20}
-      fontWeight={700}
-      fill={ICON_VOLCANO}
-    >
-      Aa
-    </text>
-  </IconFrame>
-);
+export const FontIcon: React.FC<IconProps> = ({ size }) => {
+  const t = useT();
+  return (
+    <IconFrame accent={ICON_VOLCANO} size={size}>
+      {/* Stylised 'Aa' */}
+      <text
+        x={20}
+        y={28}
+        textAnchor="middle"
+        fontFamily="Georgia, 'Times New Roman', serif"
+        fontSize={20}
+        fontWeight={700}
+        fill={ICON_VOLCANO}
+      >
+        {t('workbench.docs.diagrams.resourceTypes.wireAa')}
+      </text>
+    </IconFrame>
+  );
+};
 
 export const MediaIcon: React.FC<IconProps> = ({ size }) => (
   <IconFrame accent={ICON_GOLD} size={size}>
@@ -279,7 +282,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
         fontWeight={700}
         fill={STROKE_ORANGE}
       >
-        {'<script>'}
+        {t('workbench.docs.diagrams.resourceTypes.wireScriptTag')}
       </text>
 
       {/* Stylesheet */}
@@ -293,13 +296,13 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
         fontWeight={700}
         fill={STROKE_PURPLE}
       >
-        {'<link css>'}
+        {t('workbench.docs.diagrams.resourceTypes.wireLinkCss')}
       </text>
 
       {/* Image */}
       <rect x={PAGE_X + 8} y={PAGE_Y + 50} width={56} height={40} rx={2} fill={MAGENTA_BG} stroke={MAGENTA} />
       <text x={PAGE_X + 36} y={PAGE_Y + 74} textAnchor="middle" fontSize={9} fontWeight={700} fill={MAGENTA}>
-        {'<img>'}
+        {t('workbench.docs.diagrams.resourceTypes.wireImgTag')}
       </text>
 
       {/* Font (web font / @font-face) */}
@@ -327,7 +330,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
         fontWeight={700}
         fill={GOLD}
       >
-        {'<video>'}
+        {t('workbench.docs.diagrams.resourceTypes.wireVideoTag')}
       </text>
 
       {/* Iframe (sub_frame) */}
@@ -350,7 +353,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
         fontWeight={700}
         fill={CYAN}
       >
-        {'<iframe>'}
+        {t('workbench.docs.diagrams.resourceTypes.wireIframeTag')}
       </text>
       <text x={PAGE_X + 164} y={PAGE_Y + 80} textAnchor="middle" fontSize={7} fontStyle="italic" fill={CYAN}>
         sub_frame
@@ -377,7 +380,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
 
       <rect x={PAGE_X + 8} y={PAGE_Y + 162} width={184} height={18} rx={3} fill={LIME_BG} stroke={LIME} />
       <text x={PAGE_X + 14} y={PAGE_Y + 175} fontFamily="monospace" fontSize={9} fontWeight={700} fill={LIME}>
-        new WebSocket('wss://…')
+        {t('workbench.docs.diagrams.resourceTypes.wireNewWebSocket')}
       </text>
 
       <rect x={PAGE_X + 8} y={PAGE_Y + 184} width={184} height={18} rx={3} fill={GEEK_BG} stroke={GEEK} />

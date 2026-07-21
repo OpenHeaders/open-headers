@@ -179,7 +179,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
               fontWeight={700}
               fill={STROKE_PURPLE}
             >
-              stdio
+              {t('workbench.docs.diagrams.openHeaders.mcpArch.wireStdio')}
             </text>
             <text x={midCx} y={pillY + pillH + 27} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
               {t('workbench.docs.diagrams.openHeaders.mcpArch.transportLocal')}
@@ -192,7 +192,7 @@ export const RoadmapMcpArchitectureDiagram: React.FC = () => {
               fontWeight={700}
               fill={STROKE_PURPLE}
             >
-              HTTP / SSE
+              {t('workbench.docs.diagrams.openHeaders.mcpArch.wireHttpSse')}
             </text>
             <text x={midCx} y={pillY + pillH + 57} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
               {t('workbench.docs.diagrams.openHeaders.mcpArch.transportRemote')}

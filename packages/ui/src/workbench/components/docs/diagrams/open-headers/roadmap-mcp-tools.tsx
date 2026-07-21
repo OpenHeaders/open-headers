@@ -207,7 +207,7 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
               fontWeight={600}
               fill={TEXT}
             >
-              list
+              {t('workbench.docs.diagrams.openHeaders.mcpTools.wireList')}
             </text>
             <text x={arrowX + 48} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
               {t('workbench.docs.diagrams.openHeaders.mcpTools.activityNote')}

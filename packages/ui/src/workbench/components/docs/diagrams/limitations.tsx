@@ -43,7 +43,7 @@ export const LimitationsOverviewDiagram: React.FC = () => {
       line2: t('workbench.docs.diagrams.limitations.scriptLine2'),
       glyph: (
         <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={ERR}>
-          fn
+          {t('workbench.docs.diagrams.limitations.wireFn')}
         </text>
       ),
     },

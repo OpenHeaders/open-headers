@@ -80,7 +80,7 @@ export const BlockDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.block.pageTitle')}
       </text>
       <text x={PAGE_X + PAGE_W / 2} y={FLOW_Y + 32} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
-        fetch()
+        {t('workbench.docs.diagrams.block.wireFetch')}
       </text>
       <text
         x={PAGE_X + PAGE_W / 2}

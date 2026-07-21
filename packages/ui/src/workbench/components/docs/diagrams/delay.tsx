@@ -223,13 +223,13 @@ export const DelayXhrDiagram: React.FC = () => {
       {/* call out */}
       <line x1={40} y1={86} x2={158} y2={86} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
       <text x={100} y={82} textAnchor="middle" fontSize={9} fill={TEXT}>
-        fetch()
+        {t('workbench.docs.diagrams.delay.wireFetch')}
       </text>
 
       {/* Intercept holds */}
       <rect x={150} y={86} width={20} height={66} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={186} y={112} fontSize={9} fontStyle="italic" fill={STROKE_PURPLE}>
-        setTimeout
+        {t('workbench.docs.diagrams.delay.wireSetTimeout')}
       </text>
       <text x={186} y={125} fontSize={9} fontStyle="italic" fill={STROKE_PURPLE}>
         {t('workbench.docs.diagrams.delay.hold3000')}
