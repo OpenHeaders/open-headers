@@ -104,6 +104,8 @@ export interface TelemetryStreamHost {
 interface StreamSession {
   readonly backendId: string;
   readonly tabId: number;
+  /** The relay-minted workbench-viewer id this stream is addressed to. */
+  readonly consumerId: string;
   readonly trackingReason: string;
   handle: AttachmentHandle | null;
   queue: LifecycleWireMessage[];
@@ -112,8 +114,15 @@ interface StreamSession {
   closed: boolean;
 }
 
-function sessionKey(backendId: string, tabId: number): string {
-  return `${backendId} ${tabId}`;
+/**
+ * One independent session per `(wire, tab, consumer)` — each workbench
+ * viewer gets its own replay stream, so a late-joining viewer's fresh
+ * `ready` never rides a sibling's stream. The per-tab ingestion refs
+ * refcount across consumers, so the no-viewer → silence law holds
+ * unchanged.
+ */
+function sessionKey(backendId: string, tabId: number, consumerId: string): string {
+  return `${backendId} ${tabId} ${consumerId}`;
 }
 
 /** Bounds for the favicon → `data:` URI resolution below. */
@@ -248,7 +257,12 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     // A failed send means the wire is down mid-flight — drop the run;
     // the wire-close teardown (or the daemon's re-subscribe on
     // reconnect) rebuilds the view from a fresh replay.
-    send(session.backendId, { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: session.tabId, messages });
+    send(session.backendId, {
+      type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
+      tabId: session.tabId,
+      consumerId: session.consumerId,
+      messages,
+    });
   }
 
   function enqueue(session: StreamSession, message: LifecycleWireMessage): void {
@@ -297,14 +311,15 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     }
   }
 
-  function ensureSession(backendId: string, tabId: number): StreamSession {
-    const key = sessionKey(backendId, tabId);
+  function ensureSession(backendId: string, tabId: number, consumerId: string): StreamSession {
+    const key = sessionKey(backendId, tabId, consumerId);
     let session = sessions.get(key);
     if (session) return session;
     const created: StreamSession = {
       backendId,
       tabId,
-      trackingReason: `desktop-watching:${tabId}:${backendId}`,
+      consumerId,
+      trackingReason: `desktop-watching:${tabId}:${backendId}:${consumerId}`,
       handle: null,
       queue: [],
       flushTimer: null,
@@ -326,7 +341,7 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
   function teardown(session: StreamSession): void {
     if (session.closed) return;
     session.closed = true;
-    sessions.delete(sessionKey(session.backendId, session.tabId));
+    sessions.delete(sessionKey(session.backendId, session.tabId, session.consumerId));
     session.handle?.detach();
     session.handle = null;
     if (session.flushTimer !== null) {
@@ -350,10 +365,11 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
   };
 
   function handleConsumerFrame(frame: TelemetryLifecycleConsumerMessage, wire: BackendWireHandle): void {
-    const { tabId, message } = frame;
-    if (typeof tabId !== 'number' || tabId < 0 || typeof message?.kind !== 'string') return;
+    const { tabId, consumerId, message } = frame;
+    if (typeof tabId !== 'number' || tabId < 0 || typeof consumerId !== 'string' || typeof message?.kind !== 'string')
+      return;
     if (message.kind === 'subscribe') {
-      const session = ensureSession(wire.backendId, tabId);
+      const session = ensureSession(wire.backendId, tabId, consumerId);
       // Attach waits on the floors' hydration so a cold-SW re-subscribe
       // resolves the persisted session floor, exactly like the port host.
       whenReady(() => {
@@ -380,9 +396,9 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     }
     if (type === TELEMETRY_LIFECYCLE_DETACH_TYPE) {
       if (wire.isLoopback()) {
-        const { tabId } = frame as TelemetryLifecycleDetachMessage;
-        if (typeof tabId === 'number') {
-          const session = sessions.get(sessionKey(wire.backendId, tabId));
+        const { tabId, consumerId } = frame as TelemetryLifecycleDetachMessage;
+        if (typeof tabId === 'number' && typeof consumerId === 'string') {
+          const session = sessions.get(sessionKey(wire.backendId, tabId, consumerId));
           if (session) teardown(session);
         }
       }

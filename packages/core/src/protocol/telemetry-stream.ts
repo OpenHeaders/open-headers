@@ -40,27 +40,39 @@ export const TELEMETRY_TABS_LIST_TYPE = 'oh.telemetry.tabs.list' as const;
 export const TELEMETRY_HOST_READY_TYPE = 'oh.telemetry.host.ready' as const;
 export const TELEMETRY_DEBUG_CONTROL_TYPE = 'oh.telemetry.debug.control' as const;
 
-/** Host → extension: one consumer message for one browser tab. */
+/**
+ * Host → extension: one consumer message for one browser tab, on behalf
+ * of ONE workbench consumer. `consumerId` is minted by the host's relay
+ * per workbench viewer port and scopes the whole stream: the extension
+ * keeps an independent session per `(wire, tab, consumer)`, so a new
+ * viewer's subscribe/replay never resets a sibling viewer's stream (the
+ * redundant-`ready` flash), and an overflow self-heal replays only the
+ * consumer whose queue overflowed.
+ */
 export interface TelemetryLifecycleConsumerMessage {
   type: typeof TELEMETRY_LIFECYCLE_CONSUMER_TYPE;
   tabId: number;
+  consumerId: string;
   message: LifecycleConsumerMessage;
 }
 
-/** Host → extension: the host's last viewer of the tab disconnected. */
+/** Host → extension: one workbench viewer of the tab disconnected. */
 export interface TelemetryLifecycleDetachMessage {
   type: typeof TELEMETRY_LIFECYCLE_DETACH_TYPE;
   tabId: number;
+  consumerId: string;
 }
 
 /**
  * Extension → host: an ordered, tick-coalesced run of lifecycle wire
- * envelopes for one tab. Order within and across batches is delivery
- * order — a `ready` always precedes its replay, replay precedes live.
+ * envelopes for one tab, addressed to the one consumer whose session
+ * produced it. Order within and across batches is delivery order — a
+ * `ready` always precedes its replay, replay precedes live.
  */
 export interface TelemetryLifecycleBatchMessage {
   type: typeof TELEMETRY_LIFECYCLE_BATCH_TYPE;
   tabId: number;
+  consumerId: string;
   messages: LifecycleWireMessage[];
 }
 

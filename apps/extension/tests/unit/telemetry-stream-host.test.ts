@@ -139,9 +139,13 @@ function makeHarness(debug?: TelemetryDebugSeam): Harness {
   };
 }
 
-function batchMessages(sent: SentFrame[]): LifecycleWireMessage[] {
+function batchMessages(sent: SentFrame[], consumerId?: string): LifecycleWireMessage[] {
   return sent
-    .filter((s) => s.frame.type === TELEMETRY_LIFECYCLE_BATCH_TYPE)
+    .filter(
+      (s) =>
+        s.frame.type === TELEMETRY_LIFECYCLE_BATCH_TYPE &&
+        (consumerId === undefined || s.frame.consumerId === consumerId),
+    )
     .flatMap((s) => s.frame.messages as LifecycleWireMessage[]);
 }
 
@@ -160,7 +164,7 @@ describe('startTelemetryStreamHost', () => {
     expect(isTracked(TAB_ID)).toBe(false);
 
     const claimed = await h.deliver(
-      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, message: { kind: 'subscribe' } },
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
       h.wire,
     );
     expect(claimed).toBe(true);
@@ -181,7 +185,7 @@ describe('startTelemetryStreamHost', () => {
   it('claims and drops frames from non-loopback wires', async () => {
     const h = makeHarness();
     const claimed = await h.deliver(
-      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, message: { kind: 'subscribe' } },
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
       h.offWire,
     );
     expect(claimed).toBe(true);
@@ -192,9 +196,12 @@ describe('startTelemetryStreamHost', () => {
 
   it('detach releases the ref and stops streaming', async () => {
     const h = makeHarness();
-    await h.deliver({ type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, message: { kind: 'subscribe' } }, h.wire);
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
+      h.wire,
+    );
     await vi.advanceTimersByTimeAsync(50);
-    await h.deliver({ type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: TAB_ID }, h.wire);
+    await h.deliver({ type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: TAB_ID, consumerId: 'c1' }, h.wire);
     expect(isTracked(TAB_ID)).toBe(false);
 
     const before = batchMessages(h.sent).length;
@@ -206,9 +213,66 @@ describe('startTelemetryStreamHost', () => {
 
   it('a wire close tears down its sessions', async () => {
     const h = makeHarness();
-    await h.deliver({ type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, message: { kind: 'subscribe' } }, h.wire);
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
+      h.wire,
+    );
     expect(isTracked(TAB_ID)).toBe(true);
     h.closeWire(h.wire);
+    expect(isTracked(TAB_ID)).toBe(false);
+    h.host.dispose();
+  });
+
+  it('a second consumer gets its own replay without resetting the first stream', async () => {
+    const h = makeHarness();
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
+      h.wire,
+    );
+    await vi.advanceTimersByTimeAsync(50);
+    const readiesBefore = batchMessages(h.sent, 'c1').filter((m) => m.kind === 'ready').length;
+
+    // A late-joining viewer subscribes with its own consumer id — ITS
+    // stream carries the fresh ready + replay; the first stream sees no
+    // redundant ready (the Monaco-flash law).
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c2', message: { kind: 'subscribe' } },
+      h.wire,
+    );
+    await vi.advanceTimersByTimeAsync(50);
+    expect(batchMessages(h.sent, 'c2')[0]?.kind).toBe('ready');
+    expect(batchMessages(h.sent, 'c1').filter((m) => m.kind === 'ready')).toHaveLength(readiesBefore);
+
+    // Live updates fan to BOTH consumer streams, addressed per frame.
+    h.store.apply(startedUpdate('c', 'https://openheaders.io/c'));
+    await vi.advanceTimersByTimeAsync(50);
+    expect(batchMessages(h.sent, 'c1').filter((m) => m.kind === 'lifecycle-update')).toHaveLength(1);
+    expect(batchMessages(h.sent, 'c2').filter((m) => m.kind === 'lifecycle-update')).toHaveLength(1);
+    h.host.dispose();
+  });
+
+  it('detaching one consumer keeps the sibling streaming; the last release stops tracking', async () => {
+    const h = makeHarness();
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
+      h.wire,
+    );
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c2', message: { kind: 'subscribe' } },
+      h.wire,
+    );
+    await vi.advanceTimersByTimeAsync(50);
+
+    await h.deliver({ type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: TAB_ID, consumerId: 'c1' }, h.wire);
+    // The per-tab ingestion refs refcount across consumers.
+    expect(isTracked(TAB_ID)).toBe(true);
+    const c2Before = batchMessages(h.sent, 'c2').length;
+    h.store.apply(startedUpdate('d', 'https://openheaders.io/d'));
+    await vi.advanceTimersByTimeAsync(50);
+    expect(batchMessages(h.sent, 'c2').length).toBeGreaterThan(c2Before);
+    expect(batchMessages(h.sent, 'c1').filter((m) => m.kind === 'lifecycle-update')).toHaveLength(0);
+
+    await h.deliver({ type: TELEMETRY_LIFECYCLE_DETACH_TYPE, tabId: TAB_ID, consumerId: 'c2' }, h.wire);
     expect(isTracked(TAB_ID)).toBe(false);
     h.host.dispose();
   });

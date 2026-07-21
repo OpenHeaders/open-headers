@@ -3,8 +3,9 @@
  * qualified lifecycle lifelines and the owning extension peer. Asserts:
  *   - qualified port names are claimed, local/synthetic shapes refused
  *   - consumer messages forward to the OWNING peer only
- *   - batches route by the sender's registry nodeId to watching ports
- *   - the last port's disconnect sends the detach frame
+ *   - batches route by the sender's registry nodeId, point-to-point to
+ *     the one consumer they address
+ *   - each port's disconnect sends a consumer-scoped detach frame
  *   - a peer reconnect re-sends subscribe for live watches
  *   - listTabs correlates per-peer replies and drops silent peers
  *   - debugControl targets the named peer, resolves its snapshot, and
@@ -144,20 +145,61 @@ describe('createBrowserLiveRelay', () => {
     const consumerFrames = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE);
     expect(consumerFrames).toHaveLength(1);
     expect(consumerFrames[0].frame.tabId).toBe(7);
+    // The relay mints the consumer id the whole stream is scoped by.
+    expect(consumerFrames[0].frame.consumerId).toBe('c1');
     expect(consumerFrames[0].to).toEqual(['peer-node-a']);
 
     // Batch from the owning peer reaches the port; the same tab id from
     // ANOTHER peer does not (partition identity is peer-qualified).
     relay.peerPush.handle(
-      { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: 7, messages: [{ kind: 'tab-cleared', tabId: 7 }] },
+      {
+        type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: 'c1',
+        messages: [{ kind: 'tab-cleared', tabId: 7 }],
+      },
       peerSummary('node-a'),
     );
     relay.peerPush.handle(
-      { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: 7, messages: [{ kind: 'tab-cleared', tabId: 7 }] },
+      {
+        type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: 'c1',
+        messages: [{ kind: 'tab-cleared', tabId: 7 }],
+      },
       peerSummary('node-b'),
     );
     expect(port.posted).toHaveLength(1);
 
+    relay.dispose();
+  });
+
+  it('routes batches point-to-point by consumer id', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const first = fakePort('oh-lifecycle:7@node-a');
+    const second = fakePort('oh-lifecycle:7@node-a');
+    connect(first);
+    connect(second);
+
+    // Each viewer rides its own extension-side session — a batch lands
+    // ONLY on the consumer it addresses (a late joiner's replay can't
+    // reset a sibling's mirror).
+    relay.peerPush.handle(
+      {
+        type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: 'c2',
+        messages: [{ kind: 'tab-cleared', tabId: 7 }],
+      },
+      peerSummary('node-a'),
+    );
+    expect(first.posted).toHaveLength(0);
+    expect(second.posted).toHaveLength(1);
     relay.dispose();
   });
 
@@ -177,7 +219,7 @@ describe('createBrowserLiveRelay', () => {
     relay.dispose();
   });
 
-  it('sends detach when the last port leaves and re-subscribes on peer reconnect', () => {
+  it('sends a consumer-scoped detach per leaving port and re-subscribes survivors on peer reconnect', () => {
     const connect = installFakeLifeline();
     const relay = createBrowserLiveRelay();
     const { server, frames, emitPeerConnect } = fakeServer([peerSummary('node-a')]);
@@ -191,23 +233,35 @@ describe('createBrowserLiveRelay', () => {
     first.send({ kind: 'subscribe' });
     second.send({ kind: 'subscribe' });
 
+    // A leaving viewer ends ITS stream session only — the extension's
+    // per-tab ingestion refs refcount across consumers.
     first.disconnect();
-    expect(frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_DETACH_TYPE)).toHaveLength(0);
+    let detaches = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_DETACH_TYPE);
+    expect(detaches).toHaveLength(1);
+    expect(detaches[0].frame.consumerId).toBe('c1');
 
-    // A peer reconnect while a watch is live re-sends the subscribe so
-    // the extension re-attaches and replays.
+    // A peer reconnect while a watch is live re-sends the subscribe for
+    // each SURVIVING consumer so the extension re-attaches and replays.
     const before = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length;
     emitPeerConnect(peerSummary('node-a'));
-    expect(frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length).toBe(before + 1);
+    const rejoins = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).slice(before);
+    expect(rejoins).toHaveLength(1);
+    expect(rejoins[0].frame.consumerId).toBe('c2');
 
     second.disconnect();
-    const detaches = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_DETACH_TYPE);
-    expect(detaches).toHaveLength(1);
-    expect(detaches[0].frame.tabId).toBe(7);
+    detaches = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_DETACH_TYPE);
+    expect(detaches).toHaveLength(2);
+    expect(detaches[1].frame.tabId).toBe(7);
+    expect(detaches[1].frame.consumerId).toBe('c2');
 
     // Batches after the watch ended are dropped.
     relay.peerPush.handle(
-      { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: 7, messages: [{ kind: 'tab-cleared', tabId: 7 }] },
+      {
+        type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: 'c2',
+        messages: [{ kind: 'tab-cleared', tabId: 7 }],
+      },
       peerSummary('node-a'),
     );
     expect(first.posted).toHaveLength(0);
@@ -238,7 +292,12 @@ describe('createBrowserLiveRelay', () => {
     expect(frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length).toBe(before + 1);
 
     relay.peerPush.handle(
-      { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: 7, messages: [{ kind: 'tab-cleared', tabId: 7 }] },
+      {
+        type: TELEMETRY_LIFECYCLE_BATCH_TYPE,
+        tabId: 7,
+        consumerId: 'c1',
+        messages: [{ kind: 'tab-cleared', tabId: 7 }],
+      },
       peerSummary('node-adopted', 'peer-2', 'install-a'),
     );
     expect(port.posted).toHaveLength(1);
