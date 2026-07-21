@@ -513,7 +513,12 @@ test('a captured response body is retained and the Response tab pulls it lazily'
   // body arrives over the lifeline's lazy `request-body` pull, served
   // from the out-of-row store.
   await probeRows('retained-1').first().click();
-  await workbench.getByText('Response', { exact: true }).first().click();
+  const editorTab = workbench.getByRole('tab', { name: /etained-1/ }).first();
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
+  await workbench.getByRole('tab', { name: 'Response', exact: true }).first().click();
+  // The inspected tab must HOLD selection — a data update stealing it
+  // would be an identity-churn bug, not a test flake.
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
   await expect(workbench.locator('.view-line').filter({ hasText: 'retained-1' }).first()).toBeVisible({
     timeout: 15000,
   });
@@ -528,7 +533,7 @@ test('a mock rule serves without re-origination', async () => {
       type: 'response',
       enabled: true,
       published: true,
-      conditions: [{ type: 'url-filter', values: ['probe=mock-1'] }],
+      conditions: [{ type: 'url-filter', values: ['/api/none?probe=mock-1'] }],
       action: {
         responseSource: 'mock',
         bodyType: 'static',
@@ -561,7 +566,7 @@ test('a network substitution keeps the real wire and replaces the body', async (
       type: 'response',
       enabled: true,
       published: true,
-      conditions: [{ type: 'url-filter', values: ['probe=netsub-1'] }],
+      conditions: [{ type: 'url-filter', values: ['/api/echo?probe=netsub-1'] }],
       action: {
         responseSource: 'network',
         bodyType: 'static',
@@ -598,7 +603,7 @@ test('a request-body rule rewrites the upstream body', async () => {
       type: 'request-body',
       enabled: true,
       published: true,
-      conditions: [{ type: 'url-filter', values: ['probe=reqbody-1'] }],
+      conditions: [{ type: 'url-filter', values: ['/api/echo?probe=reqbody-1'] }],
       action: {
         bodyType: 'static',
         requestBody: '{"rewritten":true}',
