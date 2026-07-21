@@ -715,10 +715,12 @@ body {
 /* Footer language switcher menu — compact rows; the default menu
  * sizing reads oversized for a six-entry picker anchored to a small
  * footer icon. */
+.language-menu .ant-dropdown-menu.ant-dropdown-menu-root {
+  min-width: 130px !important;
+}
 .language-menu .ant-dropdown-menu-item {
   padding: 5px 12px !important;
   font-size: 13px !important;
-  min-width: 130px;
 }
 
 /* Dropdown theme selector styling */
