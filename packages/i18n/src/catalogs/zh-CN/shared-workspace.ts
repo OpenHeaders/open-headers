@@ -75,14 +75,10 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.reach.multiUserBody':
     '连接到共享服务器——在你的网络中或通过互联网——让服务器上的每个人都在相同的工作区中工作。',
 
-  // ── Org-switch header popover ───────────────────────────────────────
-  'shared.workspaceDropdown.orgSwitch.title': '切换到 {label}',
+  // ── Org-switch header (inline landing annotation + why-tooltip) ─────
   'shared.workspaceDropdown.orgSwitch.aria': '切换到 {label}',
   'shared.workspaceDropdown.orgSwitch.ariaWithTarget': '切换到 {label} → {name}',
-  'shared.workspaceDropdown.orgSwitch.noWorkspaces': '此 Org 还没有工作区，因此没有可切换的目标。',
-  'shared.workspaceDropdown.orgSwitch.alreadyOn': '你已在此 Org 的“{name}”中。',
-  'shared.workspaceDropdown.orgSwitch.orgLine': 'Org：{from} → {to}',
-  'shared.workspaceDropdown.orgSwitch.workspaceLine': '工作区：{from} → {to}',
+  'shared.workspaceDropdown.orgSwitch.landsOnInline': '→ {name}',
   'shared.workspaceDropdown.orgSwitch.landsOnLastUsed': '会落在“{name}”，因为它是你在此 Org 中最近使用的工作区。',
   'shared.workspaceDropdown.orgSwitch.landsOnDefault': '会落在“{name}”，因为它是此 Org 的默认工作区。',
   'shared.workspaceDropdown.orgSwitch.landsOnFirst': '会落在“{name}”，因为它是此 Org 的第一个工作区。',

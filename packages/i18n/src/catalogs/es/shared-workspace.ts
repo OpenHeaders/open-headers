@@ -81,15 +81,10 @@ export const sharedWorkspace = {
     'Conéctate a un servidor compartido — en tu red o por internet — para que todos los que estén en él ' +
     'trabajen en los mismos espacios de trabajo.',
 
-  // ── Org-switch header popover ───────────────────────────────────────
-  'shared.workspaceDropdown.orgSwitch.title': 'Cambiar a {label}',
+  // ── Org-switch header (inline landing annotation + why-tooltip) ─────
   'shared.workspaceDropdown.orgSwitch.aria': 'Cambiar a {label}',
   'shared.workspaceDropdown.orgSwitch.ariaWithTarget': 'Cambiar a {label} → {name}',
-  'shared.workspaceDropdown.orgSwitch.noWorkspaces':
-    'Esta Org aún no tiene espacios de trabajo, así que no hay nada a lo que cambiar.',
-  'shared.workspaceDropdown.orgSwitch.alreadyOn': 'Ya estás en «{name}» en esta Org.',
-  'shared.workspaceDropdown.orgSwitch.orgLine': 'Org: {from} → {to}',
-  'shared.workspaceDropdown.orgSwitch.workspaceLine': 'Espacio de trabajo: {from} → {to}',
+  'shared.workspaceDropdown.orgSwitch.landsOnInline': '→ {name}',
   'shared.workspaceDropdown.orgSwitch.landsOnLastUsed':
     'Te lleva a «{name}» porque es el último espacio de trabajo que usaste en esta Org.',
   'shared.workspaceDropdown.orgSwitch.landsOnDefault':

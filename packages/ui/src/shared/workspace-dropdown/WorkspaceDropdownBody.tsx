@@ -446,70 +446,6 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     );
   };
 
-  // The popover an Org header shows on hover: the full consequence of
-  // the click — which Org and which workspace the switch moves FROM and
-  // TO, plus why that workspace is the landing target (it mirrors the
-  // remembered → default → first chain of `resolveOrgActiveWorkspace`).
-  const renderOrgSwitchPopover = (
-    orgId: string,
-    label: string,
-    targetWs: ExtensionWorkspace | null,
-  ): React.ReactNode => {
-    const currentId = mode === 'workbench' ? selectedId : activeId;
-    const currentWs = currentId ? (workspaces.find((w) => w.id === currentId) ?? null) : null;
-    const currentOrg = currentWs && orgGrouping ? orgGrouping.describe(currentWs.orgId) : null;
-    const currentOrgLabel = currentOrg ? orgFullLabelText(t, currentOrg, selfReach) : null;
-    const landsOn = targetWs
-      ? orgPrefs.remembered[orgId] === targetWs.id
-        ? t('shared.workspaceDropdown.orgSwitch.landsOnLastUsed', { name: targetWs.name })
-        : orgPrefs.defaults[orgId] === targetWs.id
-          ? t('shared.workspaceDropdown.orgSwitch.landsOnDefault', { name: targetWs.name })
-          : t('shared.workspaceDropdown.orgSwitch.landsOnFirst', { name: targetWs.name })
-      : null;
-    return (
-      <div style={{ maxWidth: 280 }}>
-        <Text strong style={{ fontSize: 12 }}>
-          {t('shared.workspaceDropdown.orgSwitch.title', { label })}
-        </Text>
-        {!targetWs ? (
-          <div>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {t('shared.workspaceDropdown.orgSwitch.noWorkspaces')}
-            </Text>
-          </div>
-        ) : targetWs.id === currentWs?.id ? (
-          <div>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {t('shared.workspaceDropdown.orgSwitch.alreadyOn', { name: targetWs.name })}
-            </Text>
-          </div>
-        ) : (
-          <>
-            {currentOrgLabel && currentWs && currentWs.orgId !== orgId && (
-              <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t('shared.workspaceDropdown.orgSwitch.orgLine', { from: currentOrgLabel, to: label })}
-                </Text>
-              </div>
-            )}
-            {currentWs && (
-              <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t('shared.workspaceDropdown.orgSwitch.workspaceLine', { from: currentWs.name, to: targetWs.name })}
-                </Text>
-              </div>
-            )}
-            <div style={{ marginTop: 4 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {landsOn}
-              </Text>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  };
-
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
@@ -517,70 +453,91 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       ? orgFullLabelText(t, descriptor, selfReach)
       : t('shared.workspaceDropdown.orphanedOrgHeader');
     const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
-    // Name the workspace the switch lands on — the header shows the Org's
-    // intent; the popover makes the concrete consequence visible.
+    // Name the workspace the switch lands on, inline in the header —
+    // the consequence of the click is visible before hovering. Shown
+    // only when the click actually moves somewhere; the "why" (the
+    // remembered → default → first chain of `resolveOrgActiveWorkspace`)
+    // lives in a one-line tooltip on the annotation.
     const targetWs = resolveOrgTarget(orgId);
+    const currentId = mode === 'workbench' ? selectedId : activeId;
+    const landingWs = targetWs && targetWs.id !== currentId ? targetWs : null;
+    const landsOnWhy = landingWs
+      ? orgPrefs.remembered[orgId] === landingWs.id
+        ? t('shared.workspaceDropdown.orgSwitch.landsOnLastUsed', { name: landingWs.name })
+        : orgPrefs.defaults[orgId] === landingWs.id
+          ? t('shared.workspaceDropdown.orgSwitch.landsOnDefault', { name: landingWs.name })
+          : t('shared.workspaceDropdown.orgSwitch.landsOnFirst', { name: landingWs.name })
+      : null;
     const ariaLabel = targetWs
       ? t('shared.workspaceDropdown.orgSwitch.ariaWithTarget', { label, name: targetWs.name })
       : t('shared.workspaceDropdown.orgSwitch.aria', { label });
     return (
-      <Popover
-        placement={popoverPlacement}
-        mouseEnterDelay={0.4}
-        zIndex={token.zIndexPopupBase + 100}
-        open={hintOpen}
-        content={renderOrgSwitchPopover(orgId, label, targetWs)}
+      <div
+        role="button"
+        aria-label={ariaLabel}
+        className="oh-env-row"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 8px',
+          margin: '2px 0 0',
+          borderRadius: 4,
+          cursor: 'pointer',
+        }}
+        onClick={() => handleSwitchOrg(orgId)}
       >
-        <div
-          role="button"
-          aria-label={ariaLabel}
-          className="oh-env-row"
+        {descriptor && (
+          <OrgIcon descriptor={descriptor} size={12} style={{ color: token.colorTextTertiary }} />
+        )}
+        <Text
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 8px',
-            margin: '2px 0 0',
-            borderRadius: 4,
-            cursor: 'pointer',
+            flex: 1,
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: 0.3,
+            textTransform: 'uppercase',
+            color: token.colorTextTertiary,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
-          onClick={() => handleSwitchOrg(orgId)}
         >
-          {descriptor && (
-            <OrgIcon descriptor={descriptor} size={12} style={{ color: token.colorTextTertiary }} />
-          )}
-          <Text
-            style={{
-              flex: 1,
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: 0.3,
-              textTransform: 'uppercase',
-              color: token.colorTextTertiary,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {label}
-          </Text>
-          {annotation && (
+          {label}
+        </Text>
+        {landingWs && (
+          <Tooltip title={landsOnWhy} placement="top" mouseEnterDelay={0.4} open={hintOpen}>
             <Text
               style={{
                 fontSize: 10,
-                color: annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
-                maxWidth: 190,
+                color: token.colorTextTertiary,
+                maxWidth: 120,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
               }}
             >
-              {orgSyncAnnotationText(t, annotation)}
+              {t('shared.workspaceDropdown.orgSwitch.landsOnInline', { name: landingWs.name })}
             </Text>
-          )}
-        </div>
-      </Popover>
+          </Tooltip>
+        )}
+        {annotation && (
+          <Text
+            style={{
+              fontSize: 10,
+              color: annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
+              maxWidth: 190,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            {orgSyncAnnotationText(t, annotation)}
+          </Text>
+        )}
+      </div>
     );
   };
 
