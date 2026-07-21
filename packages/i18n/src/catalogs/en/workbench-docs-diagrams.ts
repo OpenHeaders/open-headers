@@ -1807,4 +1807,33 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.matchedPattern': 'matched: ads.openheaders.io',
   'workbench.docs.diagrams.requestTracking.legendFields': 'timestamp · URL · resource type · matched pattern',
   'workbench.docs.diagrams.requestTracking.legendBadge': 'badge count = number of rows',
+
+  // ── Resource Types ──────────────────────────────────────────────────
+  'workbench.docs.diagrams.resourceTypes.anatomyAria':
+    'Resource Types anatomy — a stylised page mockup with callouts to each Chrome ResourceType: Page, ' +
+    'Frame, Script, CSS, Image, Font, Media, Fetch/XHR, WebSocket, Ping, Other.',
+  'workbench.docs.diagrams.resourceTypes.anatomyTitle': 'Each kind of request maps to one ResourceType',
+  'workbench.docs.diagrams.resourceTypes.otherExamples': 'favicon, manifest, …',
+  'workbench.docs.diagrams.resourceTypes.legendKicker': 'LEGEND',
+  'workbench.docs.diagrams.resourceTypes.footer': "Each entry maps 1:1 — there's no overlap between rows.",
+
+  // ── Limitations ─────────────────────────────────────────────────────
+  'workbench.docs.diagrams.limitations.overviewAria':
+    'Common limitations — DevTools blind spot for modified headers; script engine only sees fetch/XHR; ' +
+    'Merge only sees page-set headers; header matching needs Chrome 128+.',
+  'workbench.docs.diagrams.limitations.gotchasKicker': 'COMMON GOTCHAS',
+  'workbench.docs.diagrams.limitations.devtoolsTitle': 'DevTools blind',
+  'workbench.docs.diagrams.limitations.devtoolsLine1': 'Network tab shows',
+  'workbench.docs.diagrams.limitations.devtoolsLine2': 'the original headers.',
+  'workbench.docs.diagrams.limitations.scriptTitle': 'Script reach',
+  'workbench.docs.diagrams.limitations.scriptLine1': 'Only fetch / XHR —',
+  'workbench.docs.diagrams.limitations.scriptLine2': 'no nav, no static.',
+  'workbench.docs.diagrams.limitations.mergeTitle': 'Merge scope',
+  'workbench.docs.diagrams.limitations.mergeLine1': 'Sees only headers',
+  'workbench.docs.diagrams.limitations.mergeLine2': 'set by page code.',
+  'workbench.docs.diagrams.limitations.chromeTitle': 'Chrome 128+',
+  'workbench.docs.diagrams.limitations.chromeLine1': 'Older browsers',
+  'workbench.docs.diagrams.limitations.chromeLine2': 'skip header match.',
+  'workbench.docs.diagrams.limitations.seeCallout': 'See callout below.',
+  'workbench.docs.diagrams.limitations.footer': 'Each gotcha is also called out inline in the section it affects.',
 } as const satisfies Catalog;

@@ -1871,4 +1871,34 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.legendFields':
     'marca de tiempo · URL · tipo de recurso · patrón coincidente',
   'workbench.docs.diagrams.requestTracking.legendBadge': 'contador del badge = número de filas',
+
+  // ── Resource Types ──────────────────────────────────────────────────
+  'workbench.docs.diagrams.resourceTypes.anatomyAria':
+    'Anatomía de los tipos de recursos — una maqueta de página estilizada con llamadas a cada ' +
+    'ResourceType de Chrome: Page, Frame, Script, CSS, Image, Font, Media, Fetch/XHR, WebSocket, Ping, Other.',
+  'workbench.docs.diagrams.resourceTypes.anatomyTitle': 'Cada clase de solicitud corresponde a un ResourceType',
+  'workbench.docs.diagrams.resourceTypes.otherExamples': 'favicon, manifest, …',
+  'workbench.docs.diagrams.resourceTypes.legendKicker': 'LEYENDA',
+  'workbench.docs.diagrams.resourceTypes.footer': 'Cada entrada corresponde 1:1 — sin solapamiento entre filas.',
+
+  // ── Limitations ─────────────────────────────────────────────────────
+  'workbench.docs.diagrams.limitations.overviewAria':
+    'Limitaciones comunes — DevTools no muestra los encabezados modificados; el motor de scripts solo ve ' +
+    'fetch/XHR; Fusionar solo ve encabezados puestos por la página; la coincidencia de encabezados ' +
+    'necesita Chrome 128+.',
+  'workbench.docs.diagrams.limitations.gotchasKicker': 'TRAMPAS HABITUALES',
+  'workbench.docs.diagrams.limitations.devtoolsTitle': 'DevTools ciego',
+  'workbench.docs.diagrams.limitations.devtoolsLine1': 'La pestaña Network muestra',
+  'workbench.docs.diagrams.limitations.devtoolsLine2': 'los encabezados originales.',
+  'workbench.docs.diagrams.limitations.scriptTitle': 'Alcance del script',
+  'workbench.docs.diagrams.limitations.scriptLine1': 'Solo fetch / XHR —',
+  'workbench.docs.diagrams.limitations.scriptLine2': 'ni nav, ni estáticos.',
+  'workbench.docs.diagrams.limitations.mergeTitle': 'Alcance de Fusionar',
+  'workbench.docs.diagrams.limitations.mergeLine1': 'Solo ve los encabezados',
+  'workbench.docs.diagrams.limitations.mergeLine2': 'del código de la página.',
+  'workbench.docs.diagrams.limitations.chromeTitle': 'Chrome 128+',
+  'workbench.docs.diagrams.limitations.chromeLine1': 'Navegadores antiguos: sin',
+  'workbench.docs.diagrams.limitations.chromeLine2': 'coincidencia de encabezados.',
+  'workbench.docs.diagrams.limitations.seeCallout': 'Ver el aviso de abajo.',
+  'workbench.docs.diagrams.limitations.footer': 'Cada trampa también se señala en la sección afectada.',
 } as const satisfies Catalog;

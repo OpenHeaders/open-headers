@@ -9,6 +9,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   FILL_BLUE,
   FILL_GREEN,
@@ -212,6 +213,7 @@ export const RESOURCE_TYPE_ICONS: Record<string, React.FC<IconProps>> = {
 };
 
 export const ResourceTypesAnatomyDiagram: React.FC = () => {
+  const t = useT();
   // Locked color contract has fixed roles; for a reference like this
   // we tone them down by using both fill + accent text for each
   // resource type so the visual table stays readable even with the
@@ -241,10 +243,10 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Resource Types anatomy — a stylised page mockup with callouts to each Chrome ResourceType: Page, Frame, Script, CSS, Image, Font, Media, Fetch/XHR, WebSocket, Ping, Other."
+      aria-label={t('workbench.docs.diagrams.resourceTypes.anatomyAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Each kind of request maps to one ResourceType
+        {t('workbench.docs.diagrams.resourceTypes.anatomyTitle')}
       </text>
 
       {/* Outer page card */}
@@ -394,7 +396,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={PAGE_X + 14} y={PAGE_Y + 219} fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT_DIM}>
-        favicon, manifest, …
+        {t('workbench.docs.diagrams.resourceTypes.otherExamples')}
       </text>
 
       {/* Body page rows */}
@@ -412,7 +414,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
 
       {/* Legend on the right side */}
       <text x={PAGE_X + PAGE_W + 16} y={PAGE_Y + 12} fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        LEGEND
+        {t('workbench.docs.diagrams.resourceTypes.legendKicker')}
       </text>
 
       {[
@@ -454,7 +456,7 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       })}
 
       <text x={160} y={332} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Each entry maps 1:1 — there's no overlap between rows.
+        {t('workbench.docs.diagrams.resourceTypes.footer')}
       </text>
     </svg>
   );

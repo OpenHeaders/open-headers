@@ -1879,4 +1879,34 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.matchedPattern': 'reconnu : ads.openheaders.io',
   'workbench.docs.diagrams.requestTracking.legendFields': 'horodatage · URL · type de ressource · motif reconnu',
   'workbench.docs.diagrams.requestTracking.legendBadge': 'compteur du badge = nombre de lignes',
+
+  // ── Resource Types ──────────────────────────────────────────────────
+  'workbench.docs.diagrams.resourceTypes.anatomyAria':
+    'Anatomie des types de ressources — une maquette de page stylisée avec des rappels vers chaque ' +
+    'ResourceType de Chrome : Page, Frame, Script, CSS, Image, Font, Media, Fetch/XHR, WebSocket, Ping, Other.',
+  'workbench.docs.diagrams.resourceTypes.anatomyTitle': 'Chaque genre de requête correspond à un ResourceType',
+  'workbench.docs.diagrams.resourceTypes.otherExamples': 'favicon, manifest, …',
+  'workbench.docs.diagrams.resourceTypes.legendKicker': 'LÉGENDE',
+  'workbench.docs.diagrams.resourceTypes.footer': 'Correspondance 1:1 — aucun chevauchement entre les lignes.',
+
+  // ── Limitations ─────────────────────────────────────────────────────
+  'workbench.docs.diagrams.limitations.overviewAria':
+    "Limitations courantes — DevTools n'affiche pas les en-têtes modifiés ; le moteur de script ne voit " +
+    "que fetch/XHR ; Fusionner ne voit que les en-têtes posés par la page ; la correspondance d'en-têtes " +
+    'nécessite Chrome 128+.',
+  'workbench.docs.diagrams.limitations.gotchasKicker': 'PIÈGES COURANTS',
+  'workbench.docs.diagrams.limitations.devtoolsTitle': 'DevTools aveugle',
+  'workbench.docs.diagrams.limitations.devtoolsLine1': "L'onglet Network affiche",
+  'workbench.docs.diagrams.limitations.devtoolsLine2': "les en-têtes d'origine.",
+  'workbench.docs.diagrams.limitations.scriptTitle': 'Portée des scripts',
+  'workbench.docs.diagrams.limitations.scriptLine1': 'Seulement fetch / XHR —',
+  'workbench.docs.diagrams.limitations.scriptLine2': 'ni nav, ni statique.',
+  'workbench.docs.diagrams.limitations.mergeTitle': 'Portée de Fusionner',
+  'workbench.docs.diagrams.limitations.mergeLine1': 'Ne voit que les en-têtes',
+  'workbench.docs.diagrams.limitations.mergeLine2': 'du code de la page.',
+  'workbench.docs.diagrams.limitations.chromeTitle': 'Chrome 128+',
+  'workbench.docs.diagrams.limitations.chromeLine1': "Correspondance d'en-têtes",
+  'workbench.docs.diagrams.limitations.chromeLine2': 'ignorée par les anciens.',
+  'workbench.docs.diagrams.limitations.seeCallout': "Voir l'encadré ci-dessous.",
+  'workbench.docs.diagrams.limitations.footer': 'Chaque piège est aussi signalé dans la section concernée.',
 } as const satisfies Catalog;

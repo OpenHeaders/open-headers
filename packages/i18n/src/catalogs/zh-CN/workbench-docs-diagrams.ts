@@ -1662,4 +1662,33 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.matchedPattern': '匹配：ads.openheaders.io',
   'workbench.docs.diagrams.requestTracking.legendFields': '时间戳 · URL · 资源类型 · 匹配的模式',
   'workbench.docs.diagrams.requestTracking.legendBadge': '徽章计数 = 行数',
+
+  // ── Resource Types ──────────────────────────────────────────────────
+  'workbench.docs.diagrams.resourceTypes.anatomyAria':
+    '资源类型解剖图——一个风格化的页面示意图，标注了 Chrome 的每种 ResourceType：Page、Frame、Script、CSS、' +
+    'Image、Font、Media、Fetch/XHR、WebSocket、Ping、Other。',
+  'workbench.docs.diagrams.resourceTypes.anatomyTitle': '每种请求都对应一个 ResourceType',
+  'workbench.docs.diagrams.resourceTypes.otherExamples': 'favicon, manifest, …',
+  'workbench.docs.diagrams.resourceTypes.legendKicker': '图例',
+  'workbench.docs.diagrams.resourceTypes.footer': '每一项都是 1:1 映射——行与行之间没有重叠。',
+
+  // ── Limitations ─────────────────────────────────────────────────────
+  'workbench.docs.diagrams.limitations.overviewAria':
+    '常见限制——DevTools 不显示修改后的标头；脚本引擎只看到 fetch/XHR；合并只看到页面设置的标头；' +
+    '标头匹配需要 Chrome 128+。',
+  'workbench.docs.diagrams.limitations.gotchasKicker': '常见陷阱',
+  'workbench.docs.diagrams.limitations.devtoolsTitle': 'DevTools 盲区',
+  'workbench.docs.diagrams.limitations.devtoolsLine1': 'Network 标签页显示的',
+  'workbench.docs.diagrams.limitations.devtoolsLine2': '仍是原始标头。',
+  'workbench.docs.diagrams.limitations.scriptTitle': '脚本触达范围',
+  'workbench.docs.diagrams.limitations.scriptLine1': '仅限 fetch / XHR——',
+  'workbench.docs.diagrams.limitations.scriptLine2': '不含导航与静态资源。',
+  'workbench.docs.diagrams.limitations.mergeTitle': '合并的范围',
+  'workbench.docs.diagrams.limitations.mergeLine1': '只能看到页面代码',
+  'workbench.docs.diagrams.limitations.mergeLine2': '显式设置的标头。',
+  'workbench.docs.diagrams.limitations.chromeTitle': 'Chrome 128+',
+  'workbench.docs.diagrams.limitations.chromeLine1': '较旧的浏览器',
+  'workbench.docs.diagrams.limitations.chromeLine2': '会跳过标头匹配。',
+  'workbench.docs.diagrams.limitations.seeCallout': '详见下方提示框。',
+  'workbench.docs.diagrams.limitations.footer': '每个陷阱也会在受影响的章节中单独标注。',
 } as const satisfies Catalog;

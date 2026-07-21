@@ -1868,4 +1868,33 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestTracking.matchedPattern': 'gematcht: ads.openheaders.io',
   'workbench.docs.diagrams.requestTracking.legendFields': 'Zeitstempel · URL · Ressourcentyp · gematchtes Muster',
   'workbench.docs.diagrams.requestTracking.legendBadge': 'Badge-Zähler = Anzahl der Zeilen',
+
+  // ── Resource Types ──────────────────────────────────────────────────
+  'workbench.docs.diagrams.resourceTypes.anatomyAria':
+    'Anatomie der Ressourcentypen — ein stilisiertes Seiten-Mockup mit Hinweisen auf jeden ResourceType ' +
+    'von Chrome: Page, Frame, Script, CSS, Image, Font, Media, Fetch/XHR, WebSocket, Ping, Other.',
+  'workbench.docs.diagrams.resourceTypes.anatomyTitle': 'Jede Anfrageart entspricht genau einem ResourceType',
+  'workbench.docs.diagrams.resourceTypes.otherExamples': 'favicon, manifest, …',
+  'workbench.docs.diagrams.resourceTypes.legendKicker': 'LEGENDE',
+  'workbench.docs.diagrams.resourceTypes.footer': 'Zuordnung 1:1 — keine Überschneidung zwischen den Zeilen.',
+
+  // ── Limitations ─────────────────────────────────────────────────────
+  'workbench.docs.diagrams.limitations.overviewAria':
+    'Häufige Einschränkungen — DevTools zeigt geänderte Header nicht; die Script-Engine sieht nur ' +
+    'fetch/XHR; Zusammenführen sieht nur Header der Seite; Header-Abgleich braucht Chrome 128+.',
+  'workbench.docs.diagrams.limitations.gotchasKicker': 'HÄUFIGE STOLPERFALLEN',
+  'workbench.docs.diagrams.limitations.devtoolsTitle': 'DevTools blind',
+  'workbench.docs.diagrams.limitations.devtoolsLine1': 'Der Netzwerk-Tab zeigt',
+  'workbench.docs.diagrams.limitations.devtoolsLine2': 'die Original-Header.',
+  'workbench.docs.diagrams.limitations.scriptTitle': 'Script-Reichweite',
+  'workbench.docs.diagrams.limitations.scriptLine1': 'Nur fetch / XHR —',
+  'workbench.docs.diagrams.limitations.scriptLine2': 'keine Nav, keine Statik.',
+  'workbench.docs.diagrams.limitations.mergeTitle': 'Zusammenführen',
+  'workbench.docs.diagrams.limitations.mergeLine1': 'Sieht nur Header,',
+  'workbench.docs.diagrams.limitations.mergeLine2': 'die die Seite setzt.',
+  'workbench.docs.diagrams.limitations.chromeTitle': 'Chrome 128+',
+  'workbench.docs.diagrams.limitations.chromeLine1': 'Ältere Browser',
+  'workbench.docs.diagrams.limitations.chromeLine2': 'ohne Header-Abgleich.',
+  'workbench.docs.diagrams.limitations.seeCallout': 'Siehe Hinweis unten.',
+  'workbench.docs.diagrams.limitations.footer': 'Jede Stolperfalle steht auch direkt im betroffenen Abschnitt.',
 } as const satisfies Catalog;

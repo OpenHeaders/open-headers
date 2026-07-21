@@ -8,13 +8,15 @@
  */
 
 import type React from 'react';
-import { STROKE_BLUE, TEXT, TEXT_DIM } from './_shared';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { TEXT, TEXT_DIM } from './_shared';
 
 const ERR_BG = 'var(--ant-color-error-bg)';
 const ERR_BORDER = 'var(--ant-color-error-border)';
 const ERR = 'var(--ant-color-error)';
 
 export const LimitationsOverviewDiagram: React.FC = () => {
+  const t = useT();
   type Card = {
     title: string;
     /** Tagline split across two lines to fit inside the 142px card. */
@@ -26,9 +28,9 @@ export const LimitationsOverviewDiagram: React.FC = () => {
 
   const CARDS: Card[] = [
     {
-      title: 'DevTools blind',
-      line1: 'Network tab shows',
-      line2: 'the original headers.',
+      title: t('workbench.docs.diagrams.limitations.devtoolsTitle'),
+      line1: t('workbench.docs.diagrams.limitations.devtoolsLine1'),
+      line2: t('workbench.docs.diagrams.limitations.devtoolsLine2'),
       glyph: (
         <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={ERR}>
           {'</>'}
@@ -36,9 +38,9 @@ export const LimitationsOverviewDiagram: React.FC = () => {
       ),
     },
     {
-      title: 'Script reach',
-      line1: 'Only fetch / XHR —',
-      line2: 'no nav, no static.',
+      title: t('workbench.docs.diagrams.limitations.scriptTitle'),
+      line1: t('workbench.docs.diagrams.limitations.scriptLine1'),
+      line2: t('workbench.docs.diagrams.limitations.scriptLine2'),
       glyph: (
         <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={ERR}>
           fn
@@ -46,9 +48,9 @@ export const LimitationsOverviewDiagram: React.FC = () => {
       ),
     },
     {
-      title: 'Merge scope',
-      line1: 'Sees only headers',
-      line2: 'set by page code.',
+      title: t('workbench.docs.diagrams.limitations.mergeTitle'),
+      line1: t('workbench.docs.diagrams.limitations.mergeLine1'),
+      line2: t('workbench.docs.diagrams.limitations.mergeLine2'),
       glyph: (
         <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={ERR}>
           ;,
@@ -56,9 +58,9 @@ export const LimitationsOverviewDiagram: React.FC = () => {
       ),
     },
     {
-      title: 'Chrome 128+',
-      line1: 'Older browsers',
-      line2: 'skip header match.',
+      title: t('workbench.docs.diagrams.limitations.chromeTitle'),
+      line1: t('workbench.docs.diagrams.limitations.chromeLine1'),
+      line2: t('workbench.docs.diagrams.limitations.chromeLine2'),
       glyph: (
         <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill={ERR}>
           128+
@@ -79,10 +81,10 @@ export const LimitationsOverviewDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Common limitations — DevTools blind spot for modified headers; script engine only sees fetch/XHR; Merge only sees page-set headers; header matching needs Chrome 128+."
+      aria-label={t('workbench.docs.diagrams.limitations.overviewAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON GOTCHAS
+        {t('workbench.docs.diagrams.limitations.gotchasKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -117,14 +119,14 @@ export const LimitationsOverviewDiagram: React.FC = () => {
               {card.line2}
             </text>
             <text x={x + 10} y={y + 70} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-              See callout below.
+              {t('workbench.docs.diagrams.limitations.seeCallout')}
             </text>
           </g>
         );
       })}
 
       <text x={160} y={216} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Each gotcha is also called out inline in the section it affects.
+        {t('workbench.docs.diagrams.limitations.footer')}
       </text>
     </svg>
   );
