@@ -10,7 +10,8 @@
  */
 
 import type React from 'react';
-import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 const SHARED = {
   RULE_Y: 22,
@@ -35,12 +36,13 @@ const BeforeAfterCards: React.FC<{
   arrowLabel: string;
   stamp: string;
 }> = ({ idSuffix, rule, before, after, arrowLabel, stamp }) => {
+  const t = useT();
   const ID = `qp-${idSuffix}`;
   return (
     <svg viewBox="0 0 320 200" width="100%" style={{ maxWidth: 360 }} role="img">
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={SHARED.RULE_Y} width={280} height={SHARED.RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text
@@ -73,7 +75,7 @@ const BeforeAfterCards: React.FC<{
         fill={TEXT_DIM}
         letterSpacing={0.5}
       >
-        BEFORE
+        {t('workbench.docs.diagrams.shared.beforeKicker')}
       </text>
       <text x={SHARED.STATE_X + 10} y={SHARED.BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         {before}
@@ -116,7 +118,7 @@ const BeforeAfterCards: React.FC<{
         fill={STROKE_GREEN}
         letterSpacing={0.5}
       >
-        AFTER
+        {t('workbench.docs.diagrams.shared.afterKicker')}
       </text>
       <text x={SHARED.STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         {after}
@@ -129,25 +131,29 @@ const BeforeAfterCards: React.FC<{
   );
 };
 
-export const QueryParamAddReplaceDiagram: React.FC = () => (
-  <BeforeAfterCards
-    idSuffix="add"
-    rule="Add / Replace · debug = true"
-    before={<>?page=1</>}
-    after={
-      <>
-        ?page=1
-        <tspan fontWeight={700} fill={STROKE_GREEN}>
-          &debug=true
-        </tspan>
-      </>
-    }
-    arrowLabel="param added or replaced"
-    stamp="Adds when missing, replaces when present."
-  />
-);
+export const QueryParamAddReplaceDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <BeforeAfterCards
+      idSuffix="add"
+      rule={t('workbench.docs.diagrams.queryParams.ruleAdd')}
+      before={<>?page=1</>}
+      after={
+        <>
+          ?page=1
+          <tspan fontWeight={700} fill={STROKE_GREEN}>
+            &debug=true
+          </tspan>
+        </>
+      }
+      arrowLabel={t('workbench.docs.diagrams.queryParams.addArrow')}
+      stamp={t('workbench.docs.diagrams.queryParams.addStamp')}
+    />
+  );
+};
 
 export const QueryParamReplaceOnlyDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'qp-rep';
   const TILE_W = 138;
   const LEFT_X = 14;
@@ -163,7 +169,7 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
 
   const renderTile = (
     xOff: number,
-    label: 'Present' | 'Absent',
+    label: string,
     sub: string,
     beforeText: string,
     afterText: string,
@@ -202,7 +208,7 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={xOff + 6} y={BEFORE_Y + 12} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        BEFORE
+        {t('workbench.docs.diagrams.shared.beforeKicker')}
       </text>
       <text x={xOff + 8} y={BEFORE_Y + 28} fontFamily="monospace" fontSize={9} fill={TEXT}>
         {beforeText}
@@ -244,7 +250,7 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
         fill={afterHighlight ? STROKE_GREEN : TEXT_DIM}
         letterSpacing={0.5}
       >
-        AFTER
+        {t('workbench.docs.diagrams.shared.afterKicker')}
       </text>
       <text
         x={xOff + 8}
@@ -265,19 +271,35 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Replace only — replaces existing query param values, but leaves URLs without the param untouched."
+      aria-label={t('workbench.docs.diagrams.queryParams.replaceOnlyAria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={22} width={280} height={22} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={160} y={37} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
-        Replace only · region = eu
+        {t('workbench.docs.diagrams.queryParams.ruleReplaceOnly')}
       </text>
 
-      {renderTile(LEFT_X, 'Present', 'param already there', '?region=us', '?region=eu', true, 'value replaced')}
-      {renderTile(RIGHT_X, 'Absent', 'no region param', '?page=1', '?page=1', false, 'unchanged')}
+      {renderTile(
+        LEFT_X,
+        t('workbench.docs.diagrams.queryParams.present'),
+        t('workbench.docs.diagrams.queryParams.presentSub'),
+        '?region=us',
+        '?region=eu',
+        true,
+        t('workbench.docs.diagrams.queryParams.valueReplaced'),
+      )}
+      {renderTile(
+        RIGHT_X,
+        t('workbench.docs.diagrams.queryParams.absent'),
+        t('workbench.docs.diagrams.queryParams.absentSub'),
+        '?page=1',
+        '?page=1',
+        false,
+        t('workbench.docs.diagrams.queryParams.unchanged'),
+      )}
 
       <line
         x1={160}
@@ -289,47 +311,54 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
       />
 
       <text x={160} y={STAMP} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Replaces, never adds — URLs without the param pass through.
+        {t('workbench.docs.diagrams.queryParams.replaceOnlyStamp')}
       </text>
     </svg>
   );
 };
 
-export const QueryParamRemoveDiagram: React.FC = () => (
-  <BeforeAfterCards
-    idSuffix="rem"
-    rule="Remove · utm_source"
-    before={
-      <>
-        ?
-        <tspan fontWeight={700} fill="var(--ant-color-error)" textDecoration="line-through">
-          utm_source=google
-        </tspan>
-        &page=1
-      </>
-    }
-    after={<>?page=1</>}
-    arrowLabel="param stripped"
-    stamp="Named param removed; everything else passes through."
-  />
-);
+export const QueryParamRemoveDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <BeforeAfterCards
+      idSuffix="rem"
+      rule={t('workbench.docs.diagrams.queryParams.ruleRemove')}
+      before={
+        <>
+          ?
+          <tspan fontWeight={700} fill="var(--ant-color-error)" textDecoration="line-through">
+            utm_source=google
+          </tspan>
+          &page=1
+        </>
+      }
+      after={<>?page=1</>}
+      arrowLabel={t('workbench.docs.diagrams.queryParams.removeArrow')}
+      stamp={t('workbench.docs.diagrams.queryParams.removeStamp')}
+    />
+  );
+};
 
-export const QueryParamRemoveAllDiagram: React.FC = () => (
-  <BeforeAfterCards
-    idSuffix="rma"
-    rule="Remove All"
-    before={<>?utm_source=google&page=1&debug=true</>}
-    after={
-      <tspan fontStyle="italic" fill={TEXT_DIM}>
-        (no query string)
-      </tspan>
-    }
-    arrowLabel="entire query stripped"
-    stamp="Whole query string removed in one step."
-  />
-);
+export const QueryParamRemoveAllDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <BeforeAfterCards
+      idSuffix="rma"
+      rule={t('workbench.docs.diagrams.queryParams.ruleRemoveAll')}
+      before={<>?utm_source=google&page=1&debug=true</>}
+      after={
+        <tspan fontStyle="italic" fill={TEXT_DIM}>
+          {t('workbench.docs.diagrams.queryParams.noQueryString')}
+        </tspan>
+      }
+      arrowLabel={t('workbench.docs.diagrams.queryParams.removeAllArrow')}
+      stamp={t('workbench.docs.diagrams.queryParams.removeAllStamp')}
+    />
+  );
+};
 
 export const QueryParamWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -338,10 +367,10 @@ export const QueryParamWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Query Params gotcha — Remove All can't be combined with Add/Replace in the same rule."
+      aria-label={t('workbench.docs.diagrams.queryParams.wontApplyAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHAT TO WATCH FOR
+        {t('workbench.docs.diagrams.queryParams.watchForKicker')}
       </text>
 
       <rect
@@ -359,35 +388,48 @@ export const QueryParamWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        Combining Remove All with Add / Replace
+        {t('workbench.docs.diagrams.queryParams.combining')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        DNR rejects rules that strip the whole query and add new params.
+        {t('workbench.docs.diagrams.queryParams.combiningSub')}
       </text>
 
       <text x={28} y={88} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.shared.suggestion')}
       </text>
       <text x={48} y={102} fontSize={9} fill={TEXT}>
-        Use two rules — Remove All first, then Add / Replace.
+        {t('workbench.docs.diagrams.queryParams.suggestionText')}
       </text>
       <text x={48} y={116} fontSize={9} fill={TEXT_DIM}>
-        Rule order matters; both must match the same request.
+        {t('workbench.docs.diagrams.queryParams.suggestionSub')}
       </text>
     </svg>
   );
 };
 
 export const QueryParamUseCasesDiagram: React.FC = () => {
+  const t = useT();
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'Force a flag', example: 'Add debug=true' },
-    { title: 'Canonicalize', example: 'Replace region only' },
-    { title: 'Strip trackers', example: 'Remove utm_* params' },
-    { title: 'Privacy mode', example: 'Strip all queries' },
+    {
+      title: t('workbench.docs.diagrams.queryParams.card1Title'),
+      example: t('workbench.docs.diagrams.queryParams.card1Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.queryParams.card2Title'),
+      example: t('workbench.docs.diagrams.queryParams.card2Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.queryParams.card3Title'),
+      example: t('workbench.docs.diagrams.queryParams.card3Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.queryParams.card4Title'),
+      example: t('workbench.docs.diagrams.queryParams.card4Example'),
+    },
   ];
 
   const CARD_W = 142;
@@ -402,10 +444,10 @@ export const QueryParamUseCasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Query Params — common use cases: force a flag, canonicalize a value, strip trackers, privacy-mode strip-all."
+      aria-label={t('workbench.docs.diagrams.queryParams.useCasesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON USE CASES
+        {t('workbench.docs.diagrams.shared.useCasesKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -440,7 +482,7 @@ export const QueryParamUseCasesDiagram: React.FC = () => {
       })}
 
       <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Pair with URL Pattern or Domains to scope to specific routes.
+        {t('workbench.docs.diagrams.queryParams.useCasesFooter')}
       </text>
     </svg>
   );

@@ -11,6 +11,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ArrowDefs,
   Box,
@@ -25,67 +26,87 @@ import {
   TEXT_DIM,
 } from './_shared';
 
-export const RequestBodyInterceptDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 300 220"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="Request body interception pipeline — page.js call enters the script-engine intercept, branches into Static / Dynamic / GraphQL transforms, then leaves for the real network."
-  >
-    <ArrowDefs id="bd-arrow" />
-    <Box x={105} y={10} w={90} h={32} fill={FILL_BLUE} stroke={STROKE_BLUE} label="page.js" sub="fetch / XHR call" />
-    <line x1="150" y1="42" x2="150" y2="58" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <Box
-      x={75}
-      y={60}
-      w={150}
-      h={36}
-      fill={FILL_PURPLE}
-      stroke={STROKE_PURPLE}
-      label="Intercept"
-      sub="extension monkey-patch"
-    />
-    <line x1="150" y1="96" x2="150" y2="112" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="112" x2="240" y2="112" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="112" x2="60" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <line x1="150" y1="112" x2="150" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <line x1="240" y1="112" x2="240" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <text x="60" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      Static
-    </text>
-    <text x="60" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      replace body
-    </text>
-    <text x="60" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      wholesale
-    </text>
-    <text x="150" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      Dynamic
-    </text>
-    <text x="150" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      fn(orig) →
-    </text>
-    <text x="150" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      modified body
-    </text>
-    <text x="240" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      GraphQL
-    </text>
-    <text x="240" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      match op? →
-    </text>
-    <text x="240" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      apply : skip
-    </text>
-    <line x1="60" y1="170" x2="60" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="150" y1="170" x2="150" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="240" y1="170" x2="240" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="180" x2="240" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="150" y1="180" x2="150" y2="192" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <Box x={105} y={194} w={90} h={22} fill={FILL_GREEN} stroke={STROKE_GREEN} label="real network" />
-  </svg>
-);
+export const RequestBodyInterceptDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <svg
+      viewBox="0 0 300 220"
+      width="100%"
+      style={{ maxWidth: 320 }}
+      role="img"
+      aria-label={t('workbench.docs.diagrams.requestBody.interceptAria')}
+    >
+      <ArrowDefs id="bd-arrow" />
+      <Box
+        x={105}
+        y={10}
+        w={90}
+        h={32}
+        fill={FILL_BLUE}
+        stroke={STROKE_BLUE}
+        label="page.js"
+        sub={t('workbench.docs.diagrams.requestBody.pageSub')}
+      />
+      <line x1="150" y1="42" x2="150" y2="58" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
+      <Box
+        x={75}
+        y={60}
+        w={150}
+        h={36}
+        fill={FILL_PURPLE}
+        stroke={STROKE_PURPLE}
+        label={t('workbench.docs.diagrams.requestBody.intercept')}
+        sub={t('workbench.docs.diagrams.requestBody.interceptSub')}
+      />
+      <line x1="150" y1="96" x2="150" y2="112" stroke={STROKE} strokeWidth="1.5" />
+      <line x1="60" y1="112" x2="240" y2="112" stroke={STROKE} strokeWidth="1.5" />
+      <line x1="60" y1="112" x2="60" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
+      <line x1="150" y1="112" x2="150" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
+      <line x1="240" y1="112" x2="240" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
+      <text x="60" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
+        {t('workbench.docs.diagrams.requestBody.branchStatic')}
+      </text>
+      <text x="60" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.requestBody.branchStaticSub1')}
+      </text>
+      <text x="60" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.requestBody.branchStaticSub2')}
+      </text>
+      <text x="150" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
+        {t('workbench.docs.diagrams.requestBody.branchDynamic')}
+      </text>
+      <text x="150" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.requestBody.branchDynamicSub1')}
+      </text>
+      <text x="150" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.requestBody.branchDynamicSub2')}
+      </text>
+      <text x="240" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
+        GraphQL
+      </text>
+      <text x="240" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.requestBody.branchGraphqlSub1')}
+      </text>
+      <text x="240" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
+        {t('workbench.docs.diagrams.requestBody.branchGraphqlSub2')}
+      </text>
+      <line x1="60" y1="170" x2="60" y2="180" stroke={STROKE} strokeWidth="1.5" />
+      <line x1="150" y1="170" x2="150" y2="180" stroke={STROKE} strokeWidth="1.5" />
+      <line x1="240" y1="170" x2="240" y2="180" stroke={STROKE} strokeWidth="1.5" />
+      <line x1="60" y1="180" x2="240" y2="180" stroke={STROKE} strokeWidth="1.5" />
+      <line x1="150" y1="180" x2="150" y2="192" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
+      <Box
+        x={105}
+        y={194}
+        w={90}
+        h={22}
+        fill={FILL_GREEN}
+        stroke={STROKE_GREEN}
+        label={t('workbench.docs.diagrams.requestBody.realNetwork')}
+      />
+    </svg>
+  );
+};
 
 // ─── Shared before/after card helper for body anchors ────────────
 
@@ -106,12 +127,13 @@ const RequestBodyCard: React.FC<{
   arrowLabel: string;
   stamp: string;
 }> = ({ idSuffix, rule, beforeLines, afterLines, arrowLabel, stamp }) => {
+  const t = useT();
   const ID = `bd-${idSuffix}`;
   return (
     <svg viewBox="0 0 320 240" width="100%" style={{ maxWidth: 360 }} role="img">
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={22} width={280} height={22} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={160} y={37} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
@@ -128,7 +150,7 @@ const RequestBodyCard: React.FC<{
         stroke="var(--ant-color-border)"
       />
       <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        ORIGINAL BODY
+        {t('workbench.docs.diagrams.requestBody.originalBodyKicker')}
       </text>
       {beforeLines.map((line, i) => (
         <text
@@ -164,7 +186,7 @@ const RequestBodyCard: React.FC<{
 
       <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={ROW_H} rx={5} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_PURPLE} letterSpacing={0.5}>
-        BODY SENT
+        {t('workbench.docs.diagrams.requestBody.bodySentKicker')}
       </text>
       {afterLines.map((line, i) => (
         <text key={`a-${i}`} x={STATE_X + 10} y={AFTER_Y + 30 + i * 14} fontFamily="monospace" fontSize={9} fill={TEXT}>
@@ -179,47 +201,54 @@ const RequestBodyCard: React.FC<{
   );
 };
 
-export const RequestBodyStaticDiagram: React.FC = () => (
-  <RequestBodyCard
-    idSuffix="st"
-    rule='Static body: { "userId": "test-1" }'
-    beforeLines={[<tspan key="b">{'POST /api/save  body:'}</tspan>, <tspan key="b2">{'{ "userId": "abc" }'}</tspan>]}
-    afterLines={[
-      <tspan key="a">{'POST /api/save  body:'}</tspan>,
-      <tspan key="a2" fontWeight={700} fill={STROKE_PURPLE}>
-        {'{ "userId": "test-1" }'}
-      </tspan>,
-    ]}
-    arrowLabel="body substituted wholesale"
-    stamp="Whole body replaced; rule never inspects the original."
-  />
-);
+export const RequestBodyStaticDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <RequestBodyCard
+      idSuffix="st"
+      rule={t('workbench.docs.diagrams.requestBody.ruleStatic')}
+      beforeLines={[<tspan key="b">{'POST /api/save  body:'}</tspan>, <tspan key="b2">{'{ "userId": "abc" }'}</tspan>]}
+      afterLines={[
+        <tspan key="a">{'POST /api/save  body:'}</tspan>,
+        <tspan key="a2" fontWeight={700} fill={STROKE_PURPLE}>
+          {'{ "userId": "test-1" }'}
+        </tspan>,
+      ]}
+      arrowLabel={t('workbench.docs.diagrams.requestBody.staticArrow')}
+      stamp={t('workbench.docs.diagrams.requestBody.staticStamp')}
+    />
+  );
+};
 
-export const RequestBodyDynamicDiagram: React.FC = () => (
-  <RequestBodyCard
-    idSuffix="dyn"
-    rule="Dynamic body: fn(orig) → stamped"
-    beforeLines={[
-      <tspan key="b">{'{ "userId": "abc" }'}</tspan>,
-      <tspan key="b2" fontStyle="italic" fill={TEXT_DIM}>
-        {'→ fn reads & rewrites'}
-      </tspan>,
-    ]}
-    afterLines={[
-      <tspan key="a">
-        {'{ "userId": "abc", '}
-        <tspan fontWeight={700} fill={STROKE_PURPLE}>
-          {'"debug": true'}
-        </tspan>
-        {' }'}
-      </tspan>,
-    ]}
-    arrowLabel="function transforms"
-    stamp="Function receives the original; returns the new body."
-  />
-);
+export const RequestBodyDynamicDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <RequestBodyCard
+      idSuffix="dyn"
+      rule={t('workbench.docs.diagrams.requestBody.ruleDynamic')}
+      beforeLines={[
+        <tspan key="b">{'{ "userId": "abc" }'}</tspan>,
+        <tspan key="b2" fontStyle="italic" fill={TEXT_DIM}>
+          {t('workbench.docs.diagrams.requestBody.fnReads')}
+        </tspan>,
+      ]}
+      afterLines={[
+        <tspan key="a">
+          {'{ "userId": "abc", '}
+          <tspan fontWeight={700} fill={STROKE_PURPLE}>
+            {'"debug": true'}
+          </tspan>
+          {' }'}
+        </tspan>,
+      ]}
+      arrowLabel={t('workbench.docs.diagrams.requestBody.dynamicArrow')}
+      stamp={t('workbench.docs.diagrams.requestBody.dynamicStamp')}
+    />
+  );
+};
 
 export const RequestBodyGraphqlDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'bd-gql';
   return (
     <svg
@@ -227,23 +256,23 @@ export const RequestBodyGraphqlDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="GraphQL filter — the rule only fires when the JSON body's named field matches. Other operations pass through untouched."
+      aria-label={t('workbench.docs.diagrams.requestBody.graphqlAria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        RULE
+        {t('workbench.docs.diagrams.shared.ruleKicker')}
       </text>
       <rect x={20} y={22} width={280} height={36} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={160} y={37} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        GraphQL: operationName Equals "GetUser"
+        {t('workbench.docs.diagrams.requestBody.ruleGraphql')}
       </text>
       <text x={160} y={51} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
-        → static body substitution
+        {t('workbench.docs.diagrams.requestBody.ruleGraphqlAction')}
       </text>
 
       {/* Two scenarios side by side */}
       <text x={86} y={80} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_PURPLE}>
-        Match
+        {t('workbench.docs.diagrams.requestBody.match')}
       </text>
       <text x={86} y={94} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         operationName = GetUser
@@ -269,14 +298,14 @@ export const RequestBodyGraphqlDiagram: React.FC = () => {
       <line x1={86} y1={158} x2={86} y2={178} stroke={STROKE_PURPLE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
       <rect x={14} y={180} width={144} height={32} rx={5} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={86} y={200} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        rule fires
+        {t('workbench.docs.diagrams.requestBody.ruleFires')}
       </text>
 
       <text x={234} y={80} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT_DIM}>
-        No match
+        {t('workbench.docs.diagrams.requestBody.noMatch')}
       </text>
       <text x={234} y={94} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        any other operation
+        {t('workbench.docs.diagrams.requestBody.noMatchSub')}
       </text>
       <rect
         x={162}
@@ -316,22 +345,23 @@ export const RequestBodyGraphqlDiagram: React.FC = () => {
         strokeDasharray="3 3"
       />
       <text x={234} y={200} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT_DIM}>
-        passes through
+        {t('workbench.docs.diagrams.requestBody.passesThrough')}
       </text>
 
       <line x1={160} y1={74} x2={160} y2={216} stroke="var(--ant-color-border-secondary)" strokeDasharray="2 4" />
 
       <text x={160} y={234} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Field-level filter — only matching ops apply.
+        {t('workbench.docs.diagrams.requestBody.graphqlStamp')}
       </text>
       <text x={160} y={248} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Requests with missing fields or non-JSON bodies skip the rule.
+        {t('workbench.docs.diagrams.requestBody.graphqlStampSub')}
       </text>
     </svg>
   );
 };
 
 export const RequestBodyWontApplyDiagram: React.FC = () => {
+  const t = useT();
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -340,10 +370,10 @@ export const RequestBodyWontApplyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Body rules only fire on JS-initiated fetch/XHR with a body. GET and HEAD requests have nothing to replace; static resources never enter the script intercept."
+      aria-label={t('workbench.docs.diagrams.requestBody.wontApplyAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        WHEN IT DOESN'T FIRE
+        {t('workbench.docs.diagrams.shared.wontFireKicker')}
       </text>
 
       <rect
@@ -361,42 +391,55 @@ export const RequestBodyWontApplyDiagram: React.FC = () => {
         ✗
       </text>
       <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
-        GET / HEAD requests
+        {t('workbench.docs.diagrams.requestBody.getHead')}
       </text>
       <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Spec-wise no body — nothing to replace.
+        {t('workbench.docs.diagrams.requestBody.getHeadSub')}
       </text>
 
       <text x={28} y={84} fontSize={14} fontWeight={700} fill={errColor}>
         ✗
       </text>
       <text x={48} y={84} fontSize={10} fontWeight={700} fill={TEXT}>
-        Static resources (img, script, link)
+        {t('workbench.docs.diagrams.requestBody.staticResources')}
       </text>
       <text x={48} y={98} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Browser-issued — never touch fetch / XHR.
+        {t('workbench.docs.diagrams.requestBody.staticResourcesSub')}
       </text>
 
       <text x={28} y={124} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
       <text x={48} y={124} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
-        Suggestion
+        {t('workbench.docs.diagrams.shared.suggestion')}
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Confirm the request is a POST/PUT/PATCH from page JS.
+        {t('workbench.docs.diagrams.requestBody.suggestionText')}
       </text>
     </svg>
   );
 };
 
 export const RequestBodyUseCasesDiagram: React.FC = () => {
+  const t = useT();
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'Test fixtures', example: 'Force a known payload' },
-    { title: 'Stamp metadata', example: 'Add debug: true' },
-    { title: 'GraphQL ops', example: 'Mock one operationName' },
-    { title: 'Replay shaping', example: 'Anonymize PII fields' },
+    {
+      title: t('workbench.docs.diagrams.requestBody.card1Title'),
+      example: t('workbench.docs.diagrams.requestBody.card1Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.requestBody.card2Title'),
+      example: t('workbench.docs.diagrams.requestBody.card2Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.requestBody.card3Title'),
+      example: t('workbench.docs.diagrams.requestBody.card3Example'),
+    },
+    {
+      title: t('workbench.docs.diagrams.requestBody.card4Title'),
+      example: t('workbench.docs.diagrams.requestBody.card4Example'),
+    },
   ];
 
   const CARD_W = 142;
@@ -411,10 +454,10 @@ export const RequestBodyUseCasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Request Body — common use cases: test fixtures, metadata stamping, GraphQL operation mocking, PII anonymization."
+      aria-label={t('workbench.docs.diagrams.requestBody.useCasesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-        COMMON USE CASES
+        {t('workbench.docs.diagrams.shared.useCasesKicker')}
       </text>
 
       {CARDS.map((card, i) => {
@@ -449,7 +492,7 @@ export const RequestBodyUseCasesDiagram: React.FC = () => {
       })}
 
       <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Script-engine only — applies to JS-initiated fetch / XHR.
+        {t('workbench.docs.diagrams.requestBody.useCasesFooter')}
       </text>
     </svg>
   );

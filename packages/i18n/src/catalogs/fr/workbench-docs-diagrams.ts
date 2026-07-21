@@ -1670,4 +1670,111 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.delay.card4Title': 'Simuler réseau lent',
   'workbench.docs.diagrams.delay.card4Example': 'Latence approx. type 3G',
   'workbench.docs.diagrams.delay.useCasesFooter': 'Ressources statiques : un vrai proxy est requis, pas une extension.',
+
+  // ── Query Params ────────────────────────────────────────────────────
+  'workbench.docs.diagrams.queryParams.ruleAdd': 'Add / Replace · debug = true',
+  'workbench.docs.diagrams.queryParams.addArrow': 'paramètre ajouté ou remplacé',
+  'workbench.docs.diagrams.queryParams.addStamp': 'Ajoute si absent, remplace si présent.',
+  'workbench.docs.diagrams.queryParams.replaceOnlyAria':
+    'Remplacer uniquement — remplace la valeur des paramètres existants, mais laisse intactes les URL sans ' +
+    'le paramètre.',
+  'workbench.docs.diagrams.queryParams.ruleReplaceOnly': 'Replace only · region = eu',
+  'workbench.docs.diagrams.queryParams.present': 'Présent',
+  'workbench.docs.diagrams.queryParams.presentSub': 'paramètre déjà là',
+  'workbench.docs.diagrams.queryParams.absent': 'Absent',
+  'workbench.docs.diagrams.queryParams.absentSub': 'aucun paramètre region',
+  'workbench.docs.diagrams.queryParams.valueReplaced': 'valeur remplacée',
+  'workbench.docs.diagrams.queryParams.unchanged': 'inchangé',
+  'workbench.docs.diagrams.queryParams.replaceOnlyStamp':
+    "Remplace, n'ajoute jamais — les URL sans le paramètre passent telles quelles.",
+  'workbench.docs.diagrams.queryParams.ruleRemove': 'Remove · utm_source',
+  'workbench.docs.diagrams.queryParams.removeArrow': 'paramètre retiré',
+  'workbench.docs.diagrams.queryParams.removeStamp': 'Le paramètre nommé est retiré ; tout le reste passe tel quel.',
+  'workbench.docs.diagrams.queryParams.ruleRemoveAll': 'Remove All',
+  'workbench.docs.diagrams.queryParams.noQueryString': '(pas de chaîne de requête)',
+  'workbench.docs.diagrams.queryParams.removeAllArrow': 'chaîne de requête supprimée',
+  'workbench.docs.diagrams.queryParams.removeAllStamp': 'Toute la chaîne de requête est retirée en une étape.',
+  'workbench.docs.diagrams.queryParams.wontApplyAria':
+    'Piège des paramètres de requête — Tout retirer ne se combine pas avec Ajouter / Remplacer dans la ' +
+    'même règle.',
+  'workbench.docs.diagrams.queryParams.watchForKicker': 'À SURVEILLER',
+  'workbench.docs.diagrams.queryParams.combining': 'Combiner Tout retirer avec Ajouter / Remplacer',
+  'workbench.docs.diagrams.queryParams.combiningSub':
+    'DNR rejette les règles qui vident la requête et ajoutent de nouveaux paramètres.',
+  'workbench.docs.diagrams.queryParams.suggestionText':
+    "Utilisez deux règles — Tout retirer d'abord, puis Ajouter / Remplacer.",
+  'workbench.docs.diagrams.queryParams.suggestionSub':
+    "L'ordre des règles compte ; les deux doivent reconnaître la même requête.",
+  'workbench.docs.diagrams.queryParams.useCasesAria':
+    "Paramètres de requête — cas d'usage courants : forcer un flag, canoniser une valeur, retirer les " +
+    'traqueurs, tout retirer en mode privé.',
+  'workbench.docs.diagrams.queryParams.card1Title': 'Forcer un flag',
+  'workbench.docs.diagrams.queryParams.card1Example': 'Ajouter debug=true',
+  'workbench.docs.diagrams.queryParams.card2Title': 'Canoniser',
+  'workbench.docs.diagrams.queryParams.card2Example': 'Ne remplacer que region',
+  'workbench.docs.diagrams.queryParams.card3Title': 'Retirer les traqueurs',
+  'workbench.docs.diagrams.queryParams.card3Example': 'Retirer les params utm_*',
+  'workbench.docs.diagrams.queryParams.card4Title': 'Mode privé',
+  'workbench.docs.diagrams.queryParams.card4Example': 'Vider la chaîne de requête',
+  'workbench.docs.diagrams.queryParams.useCasesFooter':
+    "Associez Motif d'URL ou Domaines pour cibler des routes précises.",
+
+  // ── Request Body ────────────────────────────────────────────────────
+  'workbench.docs.diagrams.requestBody.interceptAria':
+    "Pipeline d'interception du corps de requête — l'appel de page.js entre dans l'interception du moteur " +
+    'de script, se ramifie en transformations Statique / Dynamique / GraphQL, puis part vers le vrai réseau.',
+  'workbench.docs.diagrams.requestBody.pageSub': 'appel fetch / XHR',
+  'workbench.docs.diagrams.requestBody.intercept': 'Interception',
+  'workbench.docs.diagrams.requestBody.interceptSub': "monkey-patch de l'extension",
+  'workbench.docs.diagrams.requestBody.branchStatic': 'Statique',
+  'workbench.docs.diagrams.requestBody.branchStaticSub1': 'remplace le corps',
+  'workbench.docs.diagrams.requestBody.branchStaticSub2': 'en bloc',
+  'workbench.docs.diagrams.requestBody.branchDynamic': 'Dynamique',
+  'workbench.docs.diagrams.requestBody.branchDynamicSub1': 'fn(orig) →',
+  'workbench.docs.diagrams.requestBody.branchDynamicSub2': 'corps modifié',
+  'workbench.docs.diagrams.requestBody.branchGraphqlSub1': 'op reconnue ? →',
+  'workbench.docs.diagrams.requestBody.branchGraphqlSub2': 'applique : ignore',
+  'workbench.docs.diagrams.requestBody.realNetwork': 'vrai réseau',
+  'workbench.docs.diagrams.requestBody.originalBodyKicker': 'CORPS ORIGINAL',
+  'workbench.docs.diagrams.requestBody.bodySentKicker': 'CORPS ENVOYÉ',
+  'workbench.docs.diagrams.requestBody.ruleStatic': 'Static body: { "userId": "test-1" }',
+  'workbench.docs.diagrams.requestBody.staticArrow': 'corps substitué en bloc',
+  'workbench.docs.diagrams.requestBody.staticStamp': "Corps entier remplacé ; la règle n'inspecte jamais l'original.",
+  'workbench.docs.diagrams.requestBody.ruleDynamic': 'Dynamic body: fn(orig) → estampillé',
+  'workbench.docs.diagrams.requestBody.fnReads': '→ fn lit et réécrit',
+  'workbench.docs.diagrams.requestBody.dynamicArrow': 'la fonction transforme',
+  'workbench.docs.diagrams.requestBody.dynamicStamp': "La fonction reçoit l'original ; elle renvoie le nouveau corps.",
+  'workbench.docs.diagrams.requestBody.graphqlAria':
+    'Filtre GraphQL — la règle ne se déclenche que si le champ nommé du corps JSON correspond. Les autres ' +
+    'opérations passent intactes.',
+  'workbench.docs.diagrams.requestBody.ruleGraphql': 'GraphQL: operationName Equals "GetUser"',
+  'workbench.docs.diagrams.requestBody.ruleGraphqlAction': '→ substitution de corps statique',
+  'workbench.docs.diagrams.requestBody.match': 'Correspond',
+  'workbench.docs.diagrams.requestBody.noMatch': 'Sans correspondance',
+  'workbench.docs.diagrams.requestBody.noMatchSub': 'toute autre opération',
+  'workbench.docs.diagrams.requestBody.ruleFires': 'règle déclenchée',
+  'workbench.docs.diagrams.requestBody.passesThrough': 'passe intact',
+  'workbench.docs.diagrams.requestBody.graphqlStamp': 'Filtre au niveau du champ — seules les op correspondantes.',
+  'workbench.docs.diagrams.requestBody.graphqlStampSub': 'Champs manquants ou corps non JSON : la règle est ignorée.',
+  'workbench.docs.diagrams.requestBody.wontApplyAria':
+    'Les règles de corps ne visent que les fetch/XHR initiés par JS avec un corps. Les requêtes GET et HEAD ' +
+    "n'ont rien à remplacer ; les ressources statiques n'entrent jamais dans l'interception de script.",
+  'workbench.docs.diagrams.requestBody.getHead': 'Requêtes GET / HEAD',
+  'workbench.docs.diagrams.requestBody.getHeadSub': 'Pas de corps selon la spec — rien à remplacer.',
+  'workbench.docs.diagrams.requestBody.staticResources': 'Ressources statiques (img, script, link)',
+  'workbench.docs.diagrams.requestBody.staticResourcesSub': 'Émises par le navigateur — jamais via fetch / XHR.',
+  'workbench.docs.diagrams.requestBody.suggestionText':
+    'Vérifiez que la requête est un POST/PUT/PATCH du JS de la page.',
+  'workbench.docs.diagrams.requestBody.useCasesAria':
+    "Corps de requête — cas d'usage courants : fixtures de test, estampillage de métadonnées, mock " +
+    "d'opération GraphQL, anonymisation de PII.",
+  'workbench.docs.diagrams.requestBody.card1Title': 'Fixtures de test',
+  'workbench.docs.diagrams.requestBody.card1Example': 'Forcer un payload connu',
+  'workbench.docs.diagrams.requestBody.card2Title': 'Estampiller des méta',
+  'workbench.docs.diagrams.requestBody.card2Example': 'Ajouter debug: true',
+  'workbench.docs.diagrams.requestBody.card3Title': 'Op GraphQL',
+  'workbench.docs.diagrams.requestBody.card3Example': 'Mocker un operationName',
+  'workbench.docs.diagrams.requestBody.card4Title': 'Façonner un replay',
+  'workbench.docs.diagrams.requestBody.card4Example': 'Anonymiser les champs PII',
+  'workbench.docs.diagrams.requestBody.useCasesFooter': 'Moteur de script seul — vise les fetch / XHR initiés par JS.',
 } as const satisfies Catalog;
