@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, STROKE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
 import { type DiagramScope, scopeBg, scopeColor } from './_scope-palette';
 
@@ -40,11 +41,14 @@ interface ScopeRefSpec {
 const CHIP_LABEL_CHAR_W = 6.6;
 const CHIP_SUB_CHAR_W = 4.2;
 
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
+
 const ScopeRefDiagram: React.FC<{ spec: ScopeRefSpec }> = ({ spec }) => {
   const accent = scopeColor(spec.scope);
   const matchFail = 'var(--ant-color-error)';
 
-  const chipTextW = Math.max(spec.chipLabel.length * CHIP_LABEL_CHAR_W, spec.chipSub.length * CHIP_SUB_CHAR_W);
+  const chipTextW = Math.max(spec.chipLabel.length * CHIP_LABEL_CHAR_W, unitLen(spec.chipSub) * CHIP_SUB_CHAR_W);
   const chipW = Math.min(288, Math.max(150, Math.round(chipTextW) + 28));
   const chipX = 160 - chipW / 2;
   const chipY = 22;
@@ -169,121 +173,204 @@ const ScopeRefDiagram: React.FC<{ spec: ScopeRefSpec }> = ({ spec }) => {
 
 // ─── The five specs ────────────────────────────────────────────────
 
-const VAULT_SPEC: ScopeRefSpec = {
-  scope: 'vault',
-  title: 'Vault — secrets that never leave this device',
-  chipLabel: 'api_key = ••••••••••',
-  chipSub: 'Vault · kind: string',
-  arrowCaption: 'resolved locally',
-  goods: [
-    { text: 'Authorization: {{vault.api_key}}', note: 'synced rule — each teammate’s own key fills in' },
-    { text: '{{vault.mfa}} → 214908', note: 'TOTP entry — resolves the current code, never the seed' },
-  ],
-  goodFootnote: 'vault entries stay out of sync, exports, and git',
-  badsLabel: "Don't:",
-  bads: [
-    { text: 'Bearer sk-live-9f3d… in a rule', reason: 'pasted plaintext syncs to the whole workspace' },
-    { text: 'api_key as a workspace variable', reason: 'synced too — the vault is the only local scope' },
-  ],
-  footer: [
-    'Vault outranks every scope — a bare {{api_key}}',
-    'always picks the vault value when one exists.',
-  ],
-  aria: 'Vault: reference secrets from synced entities via vault templates; never paste raw keys into rules or workspace variables',
+export const VariablesVaultRefDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <ScopeRefDiagram
+      spec={{
+        scope: 'vault',
+        title: t('workbench.docs.diagrams.variables.refs.vault.title'),
+        chipLabel: 'api_key = ••••••••••',
+        chipSub: t('workbench.docs.diagrams.variables.refs.vault.chipSub'),
+        arrowCaption: t('workbench.docs.diagrams.variables.refs.vault.arrowCaption'),
+        goods: [
+          {
+            text: 'Authorization: {{vault.api_key}}',
+            note: t('workbench.docs.diagrams.variables.refs.vault.good1Note'),
+          },
+          { text: '{{vault.mfa}} → 214908', note: t('workbench.docs.diagrams.variables.refs.vault.good2Note') },
+        ],
+        goodFootnote: t('workbench.docs.diagrams.variables.refs.vault.goodFootnote'),
+        badsLabel: t('workbench.docs.diagrams.variables.refs.shared.dont'),
+        bads: [
+          {
+            text: t('workbench.docs.diagrams.variables.refs.vault.bad1Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.vault.bad1Reason'),
+          },
+          {
+            text: t('workbench.docs.diagrams.variables.refs.vault.bad2Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.vault.bad2Reason'),
+          },
+        ],
+        footer: [
+          t('workbench.docs.diagrams.variables.refs.vault.footer1'),
+          t('workbench.docs.diagrams.variables.refs.vault.footer2'),
+        ],
+        aria: t('workbench.docs.diagrams.variables.refs.vault.aria'),
+      }}
+    />
+  );
 };
 
-const ENVIRONMENT_SPEC: ScopeRefSpec = {
-  scope: 'environment',
-  title: 'Environment — one name, a value per stage',
-  chipLabel: 'api_host = stg.openheaders.io',
-  chipSub: 'Environments · staging (active)',
-  arrowCaption: 'active environment wins',
-  goods: [
-    { text: '{{api_host}} → stg.openheaders.io', note: 'while staging is active' },
-    { text: 'production → openheaders.io', note: 'switch environments — same rules, zero edits' },
-  ],
-  goodFootnote: 'a miss falls back to the default environment first',
-  badsLabel: "Don't:",
-  bads: [
-    { text: 'sk-live key typed into production', reason: 'environments sync — secrets belong in the Vault' },
-    { text: 'a staging copy of every rule', reason: 'don’t duplicate rules per stage — switch the environment' },
-  ],
-  footer: [
-    'Same value in every stage? Use Workspace.',
-    'Per-user secret? Vault outranks every environment.',
-  ],
-  aria: 'Environment: one variable name resolves to a different value per stage; switch environments instead of duplicating rules, and keep secrets in the vault',
+export const VariablesEnvironmentRefDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <ScopeRefDiagram
+      spec={{
+        scope: 'environment',
+        title: t('workbench.docs.diagrams.variables.refs.environment.title'),
+        chipLabel: 'api_host = stg.openheaders.io',
+        chipSub: t('workbench.docs.diagrams.variables.refs.environment.chipSub'),
+        arrowCaption: t('workbench.docs.diagrams.variables.refs.environment.arrowCaption'),
+        goods: [
+          {
+            text: '{{api_host}} → stg.openheaders.io',
+            note: t('workbench.docs.diagrams.variables.refs.environment.good1Note'),
+          },
+          {
+            text: 'production → openheaders.io',
+            note: t('workbench.docs.diagrams.variables.refs.environment.good2Note'),
+          },
+        ],
+        goodFootnote: t('workbench.docs.diagrams.variables.refs.environment.goodFootnote'),
+        badsLabel: t('workbench.docs.diagrams.variables.refs.shared.dont'),
+        bads: [
+          {
+            text: t('workbench.docs.diagrams.variables.refs.environment.bad1Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.environment.bad1Reason'),
+          },
+          {
+            text: t('workbench.docs.diagrams.variables.refs.environment.bad2Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.environment.bad2Reason'),
+          },
+        ],
+        footer: [
+          t('workbench.docs.diagrams.variables.refs.environment.footer1'),
+          t('workbench.docs.diagrams.variables.refs.environment.footer2'),
+        ],
+        aria: t('workbench.docs.diagrams.variables.refs.environment.aria'),
+      }}
+    />
+  );
 };
 
-const COLLECTION_SPEC: ScopeRefSpec = {
-  scope: 'collection',
-  title: 'Collection — scoped to one API',
-  chipLabel: 'base_url = pay.openheaders.io',
-  chipSub: 'Payments API · Variables',
-  arrowCaption: 'resolves inside Payments API',
-  goods: [
-    { text: 'GET {{base_url}}/v2/charges', note: 'request in the Payments API collection' },
-    { text: 'redirect → {{base_url}}/sandbox', note: 'rule in the Payments API collection' },
-  ],
-  badsLabel: "Doesn't resolve:",
-  bads: [
-    { text: '{{base_url}} in Billing API', reason: 'different collection — define it there instead' },
-    { text: '{{base_url}} in an uncollected rule', reason: 'no collection → the reference walks past this scope' },
-  ],
-  footer: [
-    'Needed by every collection? Move it to Workspace.',
-    'A same-named environment variable outranks it.',
-  ],
-  aria: 'Collection: variables resolve only for rules and requests inside their collection; move workspace-wide values to workspace scope',
+export const VariablesCollectionRefDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <ScopeRefDiagram
+      spec={{
+        scope: 'collection',
+        title: t('workbench.docs.diagrams.variables.refs.collection.title'),
+        chipLabel: 'base_url = pay.openheaders.io',
+        chipSub: t('workbench.docs.diagrams.variables.refs.collection.chipSub'),
+        arrowCaption: t('workbench.docs.diagrams.variables.refs.collection.arrowCaption'),
+        goods: [
+          {
+            text: 'GET {{base_url}}/v2/charges',
+            note: t('workbench.docs.diagrams.variables.refs.collection.good1Note'),
+          },
+          {
+            text: 'redirect → {{base_url}}/sandbox',
+            note: t('workbench.docs.diagrams.variables.refs.collection.good2Note'),
+          },
+        ],
+        badsLabel: t('workbench.docs.diagrams.variables.refs.collection.badsLabel'),
+        bads: [
+          {
+            text: t('workbench.docs.diagrams.variables.refs.collection.bad1Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.collection.bad1Reason'),
+          },
+          {
+            text: t('workbench.docs.diagrams.variables.refs.collection.bad2Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.collection.bad2Reason'),
+          },
+        ],
+        footer: [
+          t('workbench.docs.diagrams.variables.refs.collection.footer1'),
+          t('workbench.docs.diagrams.variables.refs.collection.footer2'),
+        ],
+        aria: t('workbench.docs.diagrams.variables.refs.collection.aria'),
+      }}
+    />
+  );
 };
 
-const WORKSPACE_SPEC: ScopeRefSpec = {
-  scope: 'workspace',
-  title: 'Workspace — the shared base layer',
-  chipLabel: 'team_id = acme-42',
-  chipSub: 'Workspace Variables',
-  arrowCaption: 'resolves everywhere',
-  goods: [
-    { text: 'X-Team: {{team_id}}', note: 'header rule — any collection, any environment' },
-    { text: 'api.openheaders.io/{{team_id}}/usage', note: 'request URL' },
-    { text: '{{workspace.team_id}}', note: 'pinned — even when a higher scope shadows the name' },
-  ],
-  badsLabel: "Don't:",
-  bads: [
-    { text: 'api_key = sk-live-9f3d…', reason: 'synced to everyone — keep secrets in the Vault' },
-    { text: 'api_host = stg.openheaders.io', reason: 'changes per stage — define it in each Environment' },
-  ],
-  footer: [
-    'Secret? Use Vault. Different per stage? Use Environment.',
-    'Workspace is for values that are true everywhere.',
-  ],
-  aria: 'Workspace: workspace variables resolve everywhere and rank lowest; keep secrets in the vault and per-stage values in environments',
+export const VariablesWorkspaceRefDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <ScopeRefDiagram
+      spec={{
+        scope: 'workspace',
+        title: t('workbench.docs.diagrams.variables.refs.workspace.title'),
+        chipLabel: 'team_id = acme-42',
+        chipSub: t('workbench.docs.diagrams.variables.refs.workspace.chipSub'),
+        arrowCaption: t('workbench.docs.diagrams.variables.refs.workspace.arrowCaption'),
+        goods: [
+          { text: 'X-Team: {{team_id}}', note: t('workbench.docs.diagrams.variables.refs.workspace.good1Note') },
+          {
+            text: 'api.openheaders.io/{{team_id}}/usage',
+            note: t('workbench.docs.diagrams.variables.refs.workspace.good2Note'),
+          },
+          { text: '{{workspace.team_id}}', note: t('workbench.docs.diagrams.variables.refs.workspace.good3Note') },
+        ],
+        badsLabel: t('workbench.docs.diagrams.variables.refs.shared.dont'),
+        bads: [
+          {
+            text: 'api_key = sk-live-9f3d…',
+            reason: t('workbench.docs.diagrams.variables.refs.workspace.bad1Reason'),
+          },
+          {
+            text: 'api_host = stg.openheaders.io',
+            reason: t('workbench.docs.diagrams.variables.refs.workspace.bad2Reason'),
+          },
+        ],
+        footer: [
+          t('workbench.docs.diagrams.variables.refs.workspace.footer1'),
+          t('workbench.docs.diagrams.variables.refs.workspace.footer2'),
+        ],
+        aria: t('workbench.docs.diagrams.variables.refs.workspace.aria'),
+      }}
+    />
+  );
 };
 
-const LIVE_SPEC: ScopeRefSpec = {
-  scope: 'live',
-  title: 'Live — produced by a workflow run',
-  chipLabel: '{{live.token}}',
-  chipSub: 'Live Variables · OAuth login workflow',
-  arrowCaption: 'published by the last run',
-  goods: [
-    { text: 'Authorization: Bearer {{live.token}}', note: 'header rule that never goes stale' },
-    { text: '{{live.token}} in requests & workflows', note: 'always the latest published value' },
-  ],
-  badsLabel: "Don't:",
-  bads: [
-    { text: '{{token}} — bare', reason: 'live never joins the bare walk — write {{live.token}}' },
-    { text: 'a pasted token in an env variable', reason: 'expires silently — back it with a workflow instead' },
-  ],
-  footer: [
-    'Edited the workflow? The value shows stale —',
-    'only the next successful run re-publishes it.',
-  ],
-  aria: 'Live: reference workflow-published values with the live prefix; a bare reference never resolves live, and hand-pasted tokens go stale',
+export const VariablesLiveRefDiagram: React.FC = () => {
+  const t = useT();
+  return (
+    <ScopeRefDiagram
+      spec={{
+        scope: 'live',
+        title: t('workbench.docs.diagrams.variables.refs.live.title'),
+        chipLabel: '{{live.token}}',
+        chipSub: t('workbench.docs.diagrams.variables.refs.live.chipSub'),
+        arrowCaption: t('workbench.docs.diagrams.variables.refs.live.arrowCaption'),
+        goods: [
+          {
+            text: 'Authorization: Bearer {{live.token}}',
+            note: t('workbench.docs.diagrams.variables.refs.live.good1Note'),
+          },
+          {
+            text: t('workbench.docs.diagrams.variables.refs.live.good2Text'),
+            note: t('workbench.docs.diagrams.variables.refs.live.good2Note'),
+          },
+        ],
+        badsLabel: t('workbench.docs.diagrams.variables.refs.shared.dont'),
+        bads: [
+          {
+            text: t('workbench.docs.diagrams.variables.refs.live.bad1Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.live.bad1Reason'),
+          },
+          {
+            text: t('workbench.docs.diagrams.variables.refs.live.bad2Text'),
+            reason: t('workbench.docs.diagrams.variables.refs.live.bad2Reason'),
+          },
+        ],
+        footer: [
+          t('workbench.docs.diagrams.variables.refs.live.footer1'),
+          t('workbench.docs.diagrams.variables.refs.live.footer2'),
+        ],
+        aria: t('workbench.docs.diagrams.variables.refs.live.aria'),
+      }}
+    />
+  );
 };
-
-export const VariablesVaultRefDiagram: React.FC = () => <ScopeRefDiagram spec={VAULT_SPEC} />;
-export const VariablesEnvironmentRefDiagram: React.FC = () => <ScopeRefDiagram spec={ENVIRONMENT_SPEC} />;
-export const VariablesCollectionRefDiagram: React.FC = () => <ScopeRefDiagram spec={COLLECTION_SPEC} />;
-export const VariablesWorkspaceRefDiagram: React.FC = () => <ScopeRefDiagram spec={WORKSPACE_SPEC} />;
-export const VariablesLiveRefDiagram: React.FC = () => <ScopeRefDiagram spec={LIVE_SPEC} />;

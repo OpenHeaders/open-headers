@@ -100,6 +100,85 @@ export const workbenchDocsDiagrams = {
     'Values are substituted at use time — change the variable once,',
   'workbench.docs.diagrams.variables.consumers.footer2': 'and every rule, request, and workflow picks it up.',
 
+  // ── Variables: per-scope references ─────────────────────────────────
+  'workbench.docs.diagrams.variables.refs.shared.dont': "Don't:",
+  'workbench.docs.diagrams.variables.refs.vault.aria':
+    'Vault: reference secrets from synced entities via vault templates; never paste raw keys into rules or ' +
+    'workspace variables',
+  'workbench.docs.diagrams.variables.refs.vault.title': 'Vault — secrets that never leave this device',
+  'workbench.docs.diagrams.variables.refs.vault.chipSub': 'Vault · kind: string',
+  'workbench.docs.diagrams.variables.refs.vault.arrowCaption': 'resolved locally',
+  'workbench.docs.diagrams.variables.refs.vault.good1Note': "synced rule — each teammate's own key fills in",
+  'workbench.docs.diagrams.variables.refs.vault.good2Note': 'TOTP entry — resolves the current code, never the seed',
+  'workbench.docs.diagrams.variables.refs.vault.goodFootnote': 'vault entries stay out of sync, exports, and git',
+  'workbench.docs.diagrams.variables.refs.vault.bad1Text': 'Bearer sk-live-9f3d… in a rule',
+  'workbench.docs.diagrams.variables.refs.vault.bad1Reason': 'pasted plaintext syncs to the whole workspace',
+  'workbench.docs.diagrams.variables.refs.vault.bad2Text': 'api_key as a workspace variable',
+  'workbench.docs.diagrams.variables.refs.vault.bad2Reason': 'synced too — the vault is the only local scope',
+  'workbench.docs.diagrams.variables.refs.vault.footer1': 'Vault outranks every scope — a bare {{api_key}}',
+  'workbench.docs.diagrams.variables.refs.vault.footer2': 'always picks the vault value when one exists.',
+  'workbench.docs.diagrams.variables.refs.environment.aria':
+    'Environment: one variable name resolves to a different value per stage; switch environments instead of ' +
+    'duplicating rules, and keep secrets in the vault',
+  'workbench.docs.diagrams.variables.refs.environment.title': 'Environment — one name, a value per stage',
+  'workbench.docs.diagrams.variables.refs.environment.chipSub': 'Environments · staging (active)',
+  'workbench.docs.diagrams.variables.refs.environment.arrowCaption': 'active environment wins',
+  'workbench.docs.diagrams.variables.refs.environment.good1Note': 'while staging is active',
+  'workbench.docs.diagrams.variables.refs.environment.good2Note': 'switch environments — same rules, zero edits',
+  'workbench.docs.diagrams.variables.refs.environment.goodFootnote':
+    'a miss falls back to the default environment first',
+  'workbench.docs.diagrams.variables.refs.environment.bad1Text': 'sk-live key typed into production',
+  'workbench.docs.diagrams.variables.refs.environment.bad1Reason': 'environments sync — secrets belong in the Vault',
+  'workbench.docs.diagrams.variables.refs.environment.bad2Text': 'a staging copy of every rule',
+  'workbench.docs.diagrams.variables.refs.environment.bad2Reason':
+    "don't duplicate rules per stage — switch the environment",
+  'workbench.docs.diagrams.variables.refs.environment.footer1': 'Same value in every stage? Use Workspace.',
+  'workbench.docs.diagrams.variables.refs.environment.footer2': 'Per-user secret? Vault outranks every environment.',
+  'workbench.docs.diagrams.variables.refs.collection.aria':
+    'Collection: variables resolve only for rules and requests inside their collection; move workspace-wide ' +
+    'values to workspace scope',
+  'workbench.docs.diagrams.variables.refs.collection.title': 'Collection — scoped to one API',
+  'workbench.docs.diagrams.variables.refs.collection.chipSub': 'Payments API · Variables',
+  'workbench.docs.diagrams.variables.refs.collection.arrowCaption': 'resolves inside Payments API',
+  'workbench.docs.diagrams.variables.refs.collection.good1Note': 'request in the Payments API collection',
+  'workbench.docs.diagrams.variables.refs.collection.good2Note': 'rule in the Payments API collection',
+  'workbench.docs.diagrams.variables.refs.collection.badsLabel': "Doesn't resolve:",
+  'workbench.docs.diagrams.variables.refs.collection.bad1Text': '{{base_url}} in Billing API',
+  'workbench.docs.diagrams.variables.refs.collection.bad1Reason': 'different collection — define it there instead',
+  'workbench.docs.diagrams.variables.refs.collection.bad2Text': '{{base_url}} in an uncollected rule',
+  'workbench.docs.diagrams.variables.refs.collection.bad2Reason': 'no collection → the reference walks past this scope',
+  'workbench.docs.diagrams.variables.refs.collection.footer1': 'Needed by every collection? Move it to Workspace.',
+  'workbench.docs.diagrams.variables.refs.collection.footer2': 'A same-named environment variable outranks it.',
+  'workbench.docs.diagrams.variables.refs.workspace.aria':
+    'Workspace: workspace variables resolve everywhere and rank lowest; keep secrets in the vault and per-stage ' +
+    'values in environments',
+  'workbench.docs.diagrams.variables.refs.workspace.title': 'Workspace — the shared base layer',
+  'workbench.docs.diagrams.variables.refs.workspace.chipSub': 'Workspace Variables',
+  'workbench.docs.diagrams.variables.refs.workspace.arrowCaption': 'resolves everywhere',
+  'workbench.docs.diagrams.variables.refs.workspace.good1Note': 'header rule — any collection, any environment',
+  'workbench.docs.diagrams.variables.refs.workspace.good2Note': 'request URL',
+  'workbench.docs.diagrams.variables.refs.workspace.good3Note': 'pinned — even when a higher scope shadows the name',
+  'workbench.docs.diagrams.variables.refs.workspace.bad1Reason': 'synced to everyone — keep secrets in the Vault',
+  'workbench.docs.diagrams.variables.refs.workspace.bad2Reason': 'changes per stage — define it in each Environment',
+  'workbench.docs.diagrams.variables.refs.workspace.footer1':
+    'Secret? Use Vault. Different per stage? Use Environment.',
+  'workbench.docs.diagrams.variables.refs.workspace.footer2': 'Workspace is for values that are true everywhere.',
+  'workbench.docs.diagrams.variables.refs.live.aria':
+    'Live: reference workflow-published values with the live prefix; a bare reference never resolves live, and ' +
+    'hand-pasted tokens go stale',
+  'workbench.docs.diagrams.variables.refs.live.title': 'Live — produced by a workflow run',
+  'workbench.docs.diagrams.variables.refs.live.chipSub': 'Live Variables · OAuth login workflow',
+  'workbench.docs.diagrams.variables.refs.live.arrowCaption': 'published by the last run',
+  'workbench.docs.diagrams.variables.refs.live.good1Note': 'header rule that never goes stale',
+  'workbench.docs.diagrams.variables.refs.live.good2Text': '{{live.token}} in requests & workflows',
+  'workbench.docs.diagrams.variables.refs.live.good2Note': 'always the latest published value',
+  'workbench.docs.diagrams.variables.refs.live.bad1Text': '{{token}} — bare',
+  'workbench.docs.diagrams.variables.refs.live.bad1Reason': 'live never joins the bare walk — write {{live.token}}',
+  'workbench.docs.diagrams.variables.refs.live.bad2Text': 'a pasted token in an env variable',
+  'workbench.docs.diagrams.variables.refs.live.bad2Reason': 'expires silently — back it with a workflow instead',
+  'workbench.docs.diagrams.variables.refs.live.footer1': 'Edited the workflow? The value shows stale —',
+  'workbench.docs.diagrams.variables.refs.live.footer2': 'only the next successful run re-publishes it.',
+
   // ── Multi-tab: side-by-side sync overview ───────────────────────────
   'workbench.docs.diagrams.multiTab.sync.aria':
     'Two workspace tabs open side by side — different workspaces or different layouts, working in parallel',

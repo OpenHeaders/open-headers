@@ -104,6 +104,100 @@ export const workbenchDocsDiagrams = {
     'Los valores se sustituyen al usarse — cambia la variable una vez,',
   'workbench.docs.diagrams.variables.consumers.footer2': 'y cada regla, solicitud y workflow la recoge.',
 
+  // ── Variables: referencias por ámbito ───────────────────────────────
+  'workbench.docs.diagrams.variables.refs.shared.dont': 'Evita:',
+  'workbench.docs.diagrams.variables.refs.vault.aria':
+    'Vault: referencia los secretos desde las entidades sincronizadas mediante plantillas vault; nunca pegues ' +
+    'claves en bruto en reglas o variables del espacio de trabajo',
+  'workbench.docs.diagrams.variables.refs.vault.title': 'Vault — secretos que nunca salen de este dispositivo',
+  'workbench.docs.diagrams.variables.refs.vault.chipSub': 'Vault · kind: string',
+  'workbench.docs.diagrams.variables.refs.vault.arrowCaption': 'resuelto localmente',
+  'workbench.docs.diagrams.variables.refs.vault.good1Note':
+    'regla sincronizada — se rellena con la clave propia de cada compañero',
+  'workbench.docs.diagrams.variables.refs.vault.good2Note':
+    'entrada TOTP — resuelve el código actual, nunca la semilla',
+  'workbench.docs.diagrams.variables.refs.vault.goodFootnote':
+    'las entradas del vault quedan fuera de la sincronización, las exportaciones y git',
+  'workbench.docs.diagrams.variables.refs.vault.bad1Text': 'Bearer sk-live-9f3d… en una regla',
+  'workbench.docs.diagrams.variables.refs.vault.bad1Reason':
+    'el texto plano pegado se sincroniza a todo el espacio de trabajo',
+  'workbench.docs.diagrams.variables.refs.vault.bad2Text': 'api_key como variable del espacio de trabajo',
+  'workbench.docs.diagrams.variables.refs.vault.bad2Reason': 'también sincronizada — el vault es el único ámbito local',
+  'workbench.docs.diagrams.variables.refs.vault.footer1':
+    'El Vault está por encima de todo ámbito — un {{api_key}} sin prefijo',
+  'workbench.docs.diagrams.variables.refs.vault.footer2': 'elige siempre el valor del vault cuando existe.',
+  'workbench.docs.diagrams.variables.refs.environment.aria':
+    'Entorno: un mismo nombre de variable se resuelve a un valor distinto por etapa; cambia de entorno en lugar ' +
+    'de duplicar reglas, y guarda los secretos en el vault',
+  'workbench.docs.diagrams.variables.refs.environment.title': 'Entorno — un nombre, un valor por etapa',
+  'workbench.docs.diagrams.variables.refs.environment.chipSub': 'Entornos · staging (activo)',
+  'workbench.docs.diagrams.variables.refs.environment.arrowCaption': 'gana el entorno activo',
+  'workbench.docs.diagrams.variables.refs.environment.good1Note': 'mientras staging está activo',
+  'workbench.docs.diagrams.variables.refs.environment.good2Note': 'cambia de entorno — mismas reglas, cero ediciones',
+  'workbench.docs.diagrams.variables.refs.environment.goodFootnote': 'un fallo recurre primero al entorno por defecto',
+  'workbench.docs.diagrams.variables.refs.environment.bad1Text': 'clave sk-live escrita en production',
+  'workbench.docs.diagrams.variables.refs.environment.bad1Reason':
+    'los entornos se sincronizan — los secretos van en el Vault',
+  'workbench.docs.diagrams.variables.refs.environment.bad2Text': 'una copia staging de cada regla',
+  'workbench.docs.diagrams.variables.refs.environment.bad2Reason':
+    'no dupliques las reglas por etapa — cambia el entorno',
+  'workbench.docs.diagrams.variables.refs.environment.footer1':
+    '¿El mismo valor en cada etapa? Usa Espacio de trabajo.',
+  'workbench.docs.diagrams.variables.refs.environment.footer2':
+    '¿Secreto por usuario? El Vault está por encima de todo entorno.',
+  'workbench.docs.diagrams.variables.refs.collection.aria':
+    'Colección: las variables solo se resuelven para las reglas y solicitudes de su colección; mueve los ' +
+    'valores comunes a todo el espacio de trabajo al ámbito de espacio de trabajo',
+  'workbench.docs.diagrams.variables.refs.collection.title': 'Colección — limitada a una sola API',
+  'workbench.docs.diagrams.variables.refs.collection.chipSub': 'API de Pagos · Variables',
+  'workbench.docs.diagrams.variables.refs.collection.arrowCaption': 'se resuelve dentro de la API de Pagos',
+  'workbench.docs.diagrams.variables.refs.collection.good1Note': 'solicitud en la colección API de Pagos',
+  'workbench.docs.diagrams.variables.refs.collection.good2Note': 'regla en la colección API de Pagos',
+  'workbench.docs.diagrams.variables.refs.collection.badsLabel': 'No se resuelve:',
+  'workbench.docs.diagrams.variables.refs.collection.bad1Text': '{{base_url}} en la API de Facturación',
+  'workbench.docs.diagrams.variables.refs.collection.bad1Reason': 'otra colección — defínela allí',
+  'workbench.docs.diagrams.variables.refs.collection.bad2Text': '{{base_url}} en una regla sin colección',
+  'workbench.docs.diagrams.variables.refs.collection.bad2Reason':
+    'sin colección → la referencia pasa de largo este ámbito',
+  'workbench.docs.diagrams.variables.refs.collection.footer1':
+    '¿La necesitan todas las colecciones? Muévela a Espacio de trabajo.',
+  'workbench.docs.diagrams.variables.refs.collection.footer2':
+    'Una variable de entorno con el mismo nombre está por encima.',
+  'workbench.docs.diagrams.variables.refs.workspace.aria':
+    'Espacio de trabajo: las variables del espacio de trabajo se resuelven en todas partes y tienen el rango ' +
+    'más bajo; guarda los secretos en el vault y los valores por etapa en los entornos',
+  'workbench.docs.diagrams.variables.refs.workspace.title': 'Espacio de trabajo — la capa base compartida',
+  'workbench.docs.diagrams.variables.refs.workspace.chipSub': 'Variables del espacio de trabajo',
+  'workbench.docs.diagrams.variables.refs.workspace.arrowCaption': 'se resuelve en todas partes',
+  'workbench.docs.diagrams.variables.refs.workspace.good1Note':
+    'regla de encabezado — cualquier colección, cualquier entorno',
+  'workbench.docs.diagrams.variables.refs.workspace.good2Note': 'URL de solicitud',
+  'workbench.docs.diagrams.variables.refs.workspace.good3Note':
+    'fijada — incluso cuando un ámbito más alto oculta el nombre',
+  'workbench.docs.diagrams.variables.refs.workspace.bad1Reason':
+    'sincronizado con todos — guarda los secretos en el Vault',
+  'workbench.docs.diagrams.variables.refs.workspace.bad2Reason': 'cambia por etapa — defínela en cada Entorno',
+  'workbench.docs.diagrams.variables.refs.workspace.footer1':
+    '¿Secreto? Usa el Vault. ¿Distinto por etapa? Usa Entorno.',
+  'workbench.docs.diagrams.variables.refs.workspace.footer2':
+    'El Espacio de trabajo es para valores válidos en todas partes.',
+  'workbench.docs.diagrams.variables.refs.live.aria':
+    'Live: referencia los valores publicados por un workflow con el prefijo live; una referencia sin prefijo ' +
+    'nunca resuelve live, y los tokens pegados a mano caducan',
+  'workbench.docs.diagrams.variables.refs.live.title': 'Live — producido por una ejecución de workflow',
+  'workbench.docs.diagrams.variables.refs.live.chipSub': 'Variables Live · workflow de inicio de sesión OAuth',
+  'workbench.docs.diagrams.variables.refs.live.arrowCaption': 'publicado por la última ejecución',
+  'workbench.docs.diagrams.variables.refs.live.good1Note': 'regla de encabezado que nunca caduca',
+  'workbench.docs.diagrams.variables.refs.live.good2Text': '{{live.token}} en solicitudes y workflows',
+  'workbench.docs.diagrams.variables.refs.live.good2Note': 'siempre el último valor publicado',
+  'workbench.docs.diagrams.variables.refs.live.bad1Text': '{{token}} — sin prefijo',
+  'workbench.docs.diagrams.variables.refs.live.bad1Reason':
+    'live nunca entra en el recorrido sin prefijo — escribe {{live.token}}',
+  'workbench.docs.diagrams.variables.refs.live.bad2Text': 'un token pegado en una variable de entorno',
+  'workbench.docs.diagrams.variables.refs.live.bad2Reason': 'caduca en silencio — respáldalo con un workflow',
+  'workbench.docs.diagrams.variables.refs.live.footer1': '¿Editaste el workflow? El valor se muestra caducado —',
+  'workbench.docs.diagrams.variables.refs.live.footer2': 'solo la próxima ejecución con éxito lo vuelve a publicar.',
+
   // ── Multipestaña: vista de sincronización ───────────────────────────
   'workbench.docs.diagrams.multiTab.sync.aria':
     'Dos pestañas del espacio de trabajo abiertas lado a lado — espacios de trabajo distintos o disposiciones ' +
