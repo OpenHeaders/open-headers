@@ -10,6 +10,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   SEQ_DIM,
   SEQ_TEXT,
@@ -20,7 +21,7 @@ import {
   SeqMessage,
   SeqParticipant,
 } from './_sequence';
-import { FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
+import { FILL_BLUE, STROKE_BLUE, TEXT, TEXT_DIM } from './_shared';
 
 /**
  * Phases overview — two stacked cards with a thin saturated accent
@@ -31,6 +32,7 @@ import { FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from
  * the pale success-green tint that doesn't survive a light theme.
  */
 export const RequestTrackingPhasesDiagram: React.FC = () => {
+  const t = useT();
   const CARD_X = 10;
   const CARD_W = 300;
   const CARD_H = 84;
@@ -46,9 +48,9 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
 
   type PhaseDef = {
     n: number;
-    name: 'REQUEST' | 'RESPONSE';
-    direction: 'Page → Network' | 'Network → Page';
-    sub: 'outbound' | 'inbound';
+    name: string;
+    direction: string;
+    sub: string;
     captured: string[];
     accent: string;
   };
@@ -56,18 +58,28 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
   const PHASES: PhaseDef[] = [
     {
       n: 1,
-      name: 'REQUEST',
-      direction: 'Page → Network',
-      sub: 'outbound',
-      captured: ['URL', 'Method', 'Headers', 'Body'],
+      name: t('workbench.docs.diagrams.requestTracking.phaseRequest'),
+      direction: t('workbench.docs.diagrams.requestTracking.phaseRequestDir'),
+      sub: t('workbench.docs.diagrams.requestTracking.outbound'),
+      captured: [
+        'URL',
+        t('workbench.docs.diagrams.requestTracking.capMethod'),
+        t('workbench.docs.diagrams.requestTracking.capHeaders'),
+        t('workbench.docs.diagrams.requestTracking.capBody'),
+      ],
       accent: REQUEST_ACCENT,
     },
     {
       n: 2,
-      name: 'RESPONSE',
-      direction: 'Network → Page',
-      sub: 'inbound',
-      captured: ['Status code', 'Headers', 'Body', 'Timings'],
+      name: t('workbench.docs.diagrams.requestTracking.phaseResponse'),
+      direction: t('workbench.docs.diagrams.requestTracking.phaseResponseDir'),
+      sub: t('workbench.docs.diagrams.requestTracking.inbound'),
+      captured: [
+        t('workbench.docs.diagrams.requestTracking.capStatus'),
+        t('workbench.docs.diagrams.requestTracking.capHeaders'),
+        t('workbench.docs.diagrams.requestTracking.capBody'),
+        t('workbench.docs.diagrams.requestTracking.capTimings'),
+      ],
       accent: RESPONSE_ACCENT,
     },
   ];
@@ -121,12 +133,12 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
           {phase.direction}
         </text>
         <text x={leftColX} y={yOff + 72} fontSize={8} fill={TEXT_DIM}>
-          per HTTP roundtrip
+          {t('workbench.docs.diagrams.requestTracking.perRoundtrip')}
         </text>
 
         {/* Captured header */}
         <text x={rightColX} y={yOff + 16} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.6}>
-          CAPTURED
+          {t('workbench.docs.diagrams.requestTracking.capturedKicker')}
         </text>
 
         {/* Two-column captured list (2 columns × 2 rows) */}
@@ -166,10 +178,10 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Two phases of every connection — request and response — each with its own captured fields."
+      aria-label={t('workbench.docs.diagrams.requestTracking.phasesAria')}
     >
       <text x={160} y={18} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Every connection has two phases
+        {t('workbench.docs.diagrams.requestTracking.phasesTitle')}
       </text>
 
       {renderCard(card1Y, PHASES[0])}
@@ -195,17 +207,18 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
         stroke="var(--ant-color-border)"
       />
       <text x={160} y={connectorY + CARD_GAP / 2 + 3} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        same connection
+        {t('workbench.docs.diagrams.requestTracking.sameConnection')}
       </text>
 
       <text x={160} y={236} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Both phases contribute data to the badge count in This Page.
+        {t('workbench.docs.diagrams.requestTracking.phasesFooter')}
       </text>
     </svg>
   );
 };
 
 export const RequestTrackingDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'rt-msg';
   // Three participants centered at x = 60, 160, 260
   return (
@@ -214,46 +227,83 @@ export const RequestTrackingDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Sequence diagram: request observed, matched, recorded, then read by the popup"
+      aria-label={t('workbench.docs.diagrams.requestTracking.seqAria')}
     >
       <SeqArrowDefs id={ID} />
-      <SeqParticipant x={60} label="Browser" sub="network stack" />
-      <SeqParticipant x={160} label="Extension" sub="service worker" />
-      <SeqParticipant x={260} label="Popup" sub="This Page tab" />
+      <SeqParticipant
+        x={60}
+        label={t('workbench.docs.diagrams.requestTracking.pBrowser')}
+        sub={t('workbench.docs.diagrams.requestTracking.pBrowserSub')}
+      />
+      <SeqParticipant
+        x={160}
+        label={t('workbench.docs.diagrams.requestTracking.pExtension')}
+        sub={t('workbench.docs.diagrams.requestTracking.pExtensionSub')}
+      />
+      <SeqParticipant
+        x={260}
+        label={t('workbench.docs.diagrams.requestTracking.pPopup')}
+        sub={t('workbench.docs.diagrams.requestTracking.pPopupSub')}
+      />
       <SeqLifeline x={60} y1={38} y2={282} />
       <SeqLifeline x={160} y1={38} y2={282} />
       <SeqLifeline x={260} y1={38} y2={282} />
 
       {/* Phase 1 — request observed + matched + recorded */}
-      <SeqMessage fromX={60} toX={160} y={64} label="webRequest (request)" marker={ID} />
+      <SeqMessage
+        fromX={60}
+        toX={160}
+        y={64}
+        label={t('workbench.docs.diagrams.requestTracking.msgRequest')}
+        marker={ID}
+      />
       <SeqActivation x={160} y={64} height={52} />
       <text x={172} y={78} fontSize={9} fill={SEQ_TEXT}>
-        match against rules
+        {t('workbench.docs.diagrams.requestTracking.noteMatch')}
       </text>
       <text x={172} y={91} fontSize={9} fill={SEQ_TEXT}>
-        record (rule + URL +
+        {t('workbench.docs.diagrams.requestTracking.noteRecord1')}
       </text>
       <text x={172} y={102} fontSize={9} fill={SEQ_TEXT}>
-        resource type)
+        {t('workbench.docs.diagrams.requestTracking.noteRecord2')}
       </text>
 
       {/* Phase 2 — response phase recorded too */}
-      <SeqMessage fromX={60} toX={160} y={140} label="webRequest (response)" marker={ID} />
+      <SeqMessage
+        fromX={60}
+        toX={160}
+        y={140}
+        label={t('workbench.docs.diagrams.requestTracking.msgResponse')}
+        marker={ID}
+      />
       <SeqActivation x={160} y={140} height={28} />
       <text x={172} y={154} fontSize={9} fill={SEQ_TEXT}>
-        record response phase
+        {t('workbench.docs.diagrams.requestTracking.noteResponse')}
       </text>
 
       {/* Time gap */}
       <SeqLaterGap y={195} />
 
       {/* Phase 3 — popup reads recorded data on open */}
-      <SeqMessage fromX={260} toX={160} y={222} label="user opens popup" marker={ID} />
+      <SeqMessage
+        fromX={260}
+        toX={160}
+        y={222}
+        label={t('workbench.docs.diagrams.requestTracking.msgOpenPopup')}
+        marker={ID}
+      />
       <SeqActivation x={160} y={222} height={20} />
-      <SeqMessage fromX={160} toX={260} y={252} label="matched rules + badges" dashed marker={ID} />
+      <SeqMessage
+        fromX={160}
+        toX={260}
+        y={252}
+        label={t('workbench.docs.diagrams.requestTracking.msgReadBack')}
+        dashed
+        marker={ID}
+      />
 
       <text x={160} y={278} textAnchor="middle" fontSize={9} fontStyle="italic" fill={SEQ_DIM}>
-        Recording happens live; the popup just reads it back.
+        {t('workbench.docs.diagrams.requestTracking.seqFooter')}
       </text>
     </svg>
   );
@@ -270,6 +320,7 @@ export const RequestTrackingDiagram: React.FC = () => {
  * sequence diagram answers "how does the data get there."
  */
 export const RequestTrackingUiDiagram: React.FC = () => {
+  const t = useT();
   const cardStroke = 'var(--ant-color-border)';
   const cardBg = 'var(--ant-color-bg-container)';
   const rowDivider = 'var(--ant-color-border-secondary)';
@@ -304,15 +355,15 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="UI anatomy — collapsed badge expands into a list of matched requests"
+      aria-label={t('workbench.docs.diagrams.requestTracking.uiAria')}
     >
       {/* Collapsed state */}
       <text x={160} y={12} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Rule row in the popup
+        {t('workbench.docs.diagrams.requestTracking.uiTitle')}
       </text>
       <rect x={20} y={20} width={280} height={28} rx={4} fill={cardBg} stroke={cardStroke} />
       <text x={32} y={38} fontSize={11} fontWeight={600} fill={TEXT}>
-        Block ads.openheaders.io
+        {t('workbench.docs.diagrams.requestTracking.uiRule')}
       </text>
       <Badge x={258} y={27} n="3" />
       <text x={282} y={37} fontSize={11} fill={TEXT_DIM}>
@@ -322,14 +373,14 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       {/* Click → expand affordance */}
       <line x1={160} y1={52} x2={160} y2={68} stroke={accent} strokeWidth={1.5} strokeDasharray="3 2" />
       <text x={166} y={64} fontSize={9} fill={accent}>
-        click badge
+        {t('workbench.docs.diagrams.requestTracking.clickBadge')}
       </text>
 
       {/* Expanded state */}
       <rect x={20} y={72} width={280} height={166} rx={4} fill={cardBg} stroke={cardStroke} />
       {/* Header */}
       <text x={32} y={90} fontSize={11} fontWeight={600} fill={TEXT}>
-        Block ads.openheaders.io
+        {t('workbench.docs.diagrams.requestTracking.uiRule')}
       </text>
       <Badge x={258} y={79} n="3" />
       <text x={282} y={89} fontSize={11} fill={TEXT_DIM}>
@@ -347,7 +398,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       </text>
       <ResourceTag x={246} y={106} label="xhr" />
       <text x={88} y={125} fontSize={9} fill={TEXT_DIM}>
-        matched: ads.openheaders.io
+        {t('workbench.docs.diagrams.requestTracking.matchedPattern')}
       </text>
       <line x1={28} y1={132} x2={292} y2={132} stroke={rowDivider} strokeDasharray="2 3" />
 
@@ -360,7 +411,7 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       </text>
       <ResourceTag x={246} y={138} label="image" />
       <text x={88} y={157} fontSize={9} fill={TEXT_DIM}>
-        matched: ads.openheaders.io
+        {t('workbench.docs.diagrams.requestTracking.matchedPattern')}
       </text>
       <line x1={28} y1={164} x2={292} y2={164} stroke={rowDivider} strokeDasharray="2 3" />
 
@@ -373,16 +424,16 @@ export const RequestTrackingUiDiagram: React.FC = () => {
       </text>
       <ResourceTag x={246} y={170} label="ping" />
       <text x={88} y={189} fontSize={9} fill={TEXT_DIM}>
-        matched: ads.openheaders.io
+        {t('workbench.docs.diagrams.requestTracking.matchedPattern')}
       </text>
 
       {/* Annotation legend at bottom */}
       <rect x={28} y={206} width={264} height={26} rx={3} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={160} y={217} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        timestamp · URL · resource type · matched pattern
+        {t('workbench.docs.diagrams.requestTracking.legendFields')}
       </text>
       <text x={160} y={228} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        badge count = number of rows
+        {t('workbench.docs.diagrams.requestTracking.legendBadge')}
       </text>
     </svg>
   );

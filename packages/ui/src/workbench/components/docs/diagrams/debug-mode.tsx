@@ -16,6 +16,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs, BrowserWindow, STROKE, TEXT, TEXT_DIM } from './_shared';
 
 const SUCCESS = 'var(--ant-color-success)';
@@ -53,6 +54,7 @@ const SwitchGlyph: React.FC<{ x: number; y: number; on: boolean; w?: number }> =
 // ─── Surface — where the control lives ────────────────────────────
 
 export const DebugModeSurfaceDiagram: React.FC = () => {
+  const t = useT();
   const FOOTER_Y = 152;
   const FOOTER_H = 22;
   const midY = FOOTER_Y + FOOTER_H / 2;
@@ -62,10 +64,10 @@ export const DebugModeSurfaceDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Debug mode lives in the footer — an inline switch toggles it; the dot and label open a popover with scope, the per-tab pin, and the attached-tabs list."
+      aria-label={t('workbench.docs.diagrams.debugMode.surfaceAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Debug mode lives in the footer
+        {t('workbench.docs.diagrams.debugMode.surfaceTitle')}
       </text>
 
       <BrowserWindow
@@ -74,7 +76,7 @@ export const DebugModeSurfaceDiagram: React.FC = () => {
         w={304}
         h={150}
         title="example.com"
-        caption="Switch toggles it · dot + label open the popover."
+        caption={t('workbench.docs.diagrams.debugMode.surfaceCaption')}
       >
         {/* dimmed page body */}
         <g opacity={0.32}>
@@ -95,39 +97,39 @@ export const DebugModeSurfaceDiagram: React.FC = () => {
         <rect x={12} y={FOOTER_Y} width={296} height={FOOTER_H} fill={FILL_SECONDARY} stroke={SUCCESS} strokeWidth={1.5} />
         <circle cx={22} cy={midY} r={3.5} fill={SUCCESS} />
         <text x={29} y={midY + 3} fontSize={9} fontWeight={700} fill={TEXT}>
-          Debug mode
+          {t('workbench.docs.diagrams.debugMode.debugMode')}
         </text>
         <SwitchGlyph x={92} y={midY - 5.5} on />
         <circle cx={132} cy={midY} r={3} fill={GREY} />
         <text x={139} y={midY + 3} fontSize={9} fill={TEXT_DIM}>
-          System status
+          {t('workbench.docs.diagrams.debugMode.systemStatus')}
         </text>
 
         {/* popover anchored to the pill */}
         <path d="M 34 146 L 46 146 L 40 154 Z" fill={BG_CONTAINER} stroke={BORDER} />
         <rect x={20} y={54} width={196} height={92} rx={6} fill={BG_CONTAINER} stroke={BORDER} />
         <text x={30} y={69} fontSize={9} fontWeight={700} fill={TEXT}>
-          Debug mode
+          {t('workbench.docs.diagrams.debugMode.debugMode')}
         </text>
         <SwitchGlyph x={186} y={62} on />
         <line x1={30} y1={75} x2={206} y2={75} stroke={BORDER} strokeDasharray="2 2" />
         <text x={30} y={89} fontSize={8.5} fill={TEXT}>
-          Inspect
+          {t('workbench.docs.diagrams.debugMode.inspectLabel')}
         </text>
         <rect x={150} y={81} width={56} height={13} rx={3} fill={FILL_SECONDARY} stroke={BORDER} />
         <text x={178} y={90} textAnchor="middle" fontSize={8} fill={TEXT}>
-          Both ▾
+          {t('workbench.docs.diagrams.debugMode.scopeBoth')}
         </text>
         <text x={30} y={107} fontSize={8.5} fill={TEXT}>
-          Include this tab
+          {t('workbench.docs.diagrams.debugMode.includeThisTab')}
         </text>
         <SwitchGlyph x={188} y={101} on={false} w={16} />
         <text x={30} y={122} fontSize={8} fill={TEXT_DIM}>
-          Attached tabs (1)
+          {t('workbench.docs.diagrams.debugMode.attachedTabs')}
         </text>
         <rect x={28} y={127} width={180} height={14} rx={3} fill={PRIMARY_BG} />
         <text x={34} y={137} fontSize={8} fill={TEXT}>
-          Tab #11 · example.com
+          {t('workbench.docs.diagrams.debugMode.tabRow')}
         </text>
       </BrowserWindow>
     </svg>
@@ -137,6 +139,7 @@ export const DebugModeSurfaceDiagram: React.FC = () => {
 // ─── Scope — the attach derivation ────────────────────────────────
 
 export const DebugModeScopeDiagram: React.FC = () => {
+  const t = useT();
   const ID = 'dbg-scope';
   return (
     <svg
@@ -144,29 +147,29 @@ export const DebugModeScopeDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="The attached set is derived: the chosen scope unioned with pinned tabs, intersected with the master switch. With debug mode off, nothing attaches."
+      aria-label={t('workbench.docs.diagrams.debugMode.scopeAria')}
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        What gets attached
+        {t('workbench.docs.diagrams.debugMode.scopeTitle')}
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        ( scope ∪ pins ) ∩ master switch
+        {t('workbench.docs.diagrams.debugMode.scopeFormula')}
       </text>
 
       {/* scope input */}
       <rect x={10} y={46} width={120} height={42} rx={4} fill={PRIMARY_BG} stroke={PRIMARY_BORDER} />
       <text x={70} y={64} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Inspect: Both
+        {t('workbench.docs.diagrams.debugMode.inspectBoth')}
       </text>
       <text x={70} y={78} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        DevTools ∪ focused tab
+        {t('workbench.docs.diagrams.debugMode.devtoolsUnion')}
       </text>
 
       {/* pins input */}
       <rect x={10} y={98} width={120} height={34} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
       <text x={70} y={119} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        Pinned: Tab #11
+        {t('workbench.docs.diagrams.debugMode.pinnedTab')}
       </text>
 
       {/* union node */}
@@ -175,33 +178,33 @@ export const DebugModeScopeDiagram: React.FC = () => {
         ∪
       </text>
       <text x={176} y={108} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
-        candidates
+        {t('workbench.docs.diagrams.debugMode.candidates')}
       </text>
       <line x1={130} y1={67} x2={146} y2={80} stroke={STROKE} strokeWidth={1.3} markerEnd={`url(#${ID})`} />
       <line x1={130} y1={115} x2={146} y2={100} stroke={STROKE} strokeWidth={1.3} markerEnd={`url(#${ID})`} />
 
       {/* gate → output */}
       <text x={222} y={82} textAnchor="middle" fontSize={7.5} fontStyle="italic" fill={TEXT_DIM}>
-        ∩ Debug ON
+        {t('workbench.docs.diagrams.debugMode.gateLabel')}
       </text>
       <line x1={204} y1={90} x2={238} y2={90} stroke={STROKE} strokeWidth={1.3} markerEnd={`url(#${ID})`} />
 
       <rect x={240} y={62} width={72} height={56} rx={4} fill={SUCCESS_BG} stroke={SUCCESS} />
       <text x={276} y={78} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Attached
+        {t('workbench.docs.diagrams.debugMode.attached')}
       </text>
       <text x={276} y={94} textAnchor="middle" fontSize={8} fill={TEXT}>
-        Tab #7
+        {t('workbench.docs.diagrams.debugMode.attachedTab1')}
       </text>
       <text x={276} y={106} textAnchor="middle" fontSize={8} fill={TEXT}>
-        Tab #11
+        {t('workbench.docs.diagrams.debugMode.attachedTab2')}
       </text>
 
       <text x={160} y={158} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Debug OFF → nothing attaches, whatever the scope.
+        {t('workbench.docs.diagrams.debugMode.scopeFooter1')}
       </text>
       <text x={160} y={174} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Re-attach replays from this — never a stored snapshot.
+        {t('workbench.docs.diagrams.debugMode.scopeFooter2')}
       </text>
     </svg>
   );
@@ -210,12 +213,13 @@ export const DebugModeScopeDiagram: React.FC = () => {
 // ─── Reach — standard vs debug ────────────────────────────────────
 
 export const DebugModeReachDiagram: React.FC = () => {
+  const t = useT();
   const ROWS: { label: string; standard: boolean }[] = [
-    { label: 'Page fetch / XHR', standard: true },
-    { label: 'Navigations', standard: false },
-    { label: 'Workers', standard: false },
-    { label: 'Cross-origin iframes', standard: false },
-    { label: 'Tab environment', standard: false },
+    { label: t('workbench.docs.diagrams.debugMode.rowFetch'), standard: true },
+    { label: t('workbench.docs.diagrams.debugMode.rowNavigations'), standard: false },
+    { label: t('workbench.docs.diagrams.debugMode.rowWorkers'), standard: false },
+    { label: t('workbench.docs.diagrams.debugMode.rowIframes'), standard: false },
+    { label: t('workbench.docs.diagrams.debugMode.rowTabEnv'), standard: false },
   ];
   const ROW_Y0 = 64;
   const ROW_STEP = 26;
@@ -227,19 +231,19 @@ export const DebugModeReachDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Standard mode reaches only page fetch and XHR. An attached debug-mode tab also reaches navigations, workers, cross-origin iframes, and the tab environment."
+      aria-label={t('workbench.docs.diagrams.debugMode.reachAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        What each mode can touch
+        {t('workbench.docs.diagrams.debugMode.reachTitle')}
       </text>
 
       <text x={84} y={36} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Standard mode
+        {t('workbench.docs.diagrams.debugMode.standardMode')}
       </text>
       <rect x={12} y={42} width={144} height={150} rx={6} fill={FILL_SECONDARY} stroke={BORDER} />
 
       <text x={236} y={36} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Debug mode
+        {t('workbench.docs.diagrams.debugMode.debugMode')}
       </text>
       <rect x={164} y={42} width={144} height={150} rx={6} fill={PRIMARY_BG} stroke={PRIMARY_BORDER} />
 
@@ -264,10 +268,10 @@ export const DebugModeReachDiagram: React.FC = () => {
       })}
 
       <text x={84} y={206} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        banner-free
+        {t('workbench.docs.diagrams.debugMode.bannerFree')}
       </text>
       <text x={236} y={206} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        shows the banner
+        {t('workbench.docs.diagrams.debugMode.showsBanner')}
       </text>
     </svg>
   );
@@ -276,11 +280,28 @@ export const DebugModeReachDiagram: React.FC = () => {
 // ─── States — the dot at a glance ─────────────────────────────────
 
 export const DebugModeStatesDiagram: React.FC = () => {
+  const t = useT();
   const ROWS: { level: Level; label: string; msg: string }[] = [
-    { level: 'grey', label: 'Off', msg: 'debug mode disabled' },
-    { level: 'green', label: 'On · 2 tabs', msg: 'attached & healthy' },
-    { level: 'yellow', label: 'Fell back', msg: 'banner dismissed → heuristic' },
-    { level: 'red', label: 'Attach failed', msg: "couldn't engage the protocol" },
+    {
+      level: 'grey',
+      label: t('workbench.docs.diagrams.debugMode.stateOff'),
+      msg: t('workbench.docs.diagrams.debugMode.stateOffMsg'),
+    },
+    {
+      level: 'green',
+      label: t('workbench.docs.diagrams.debugMode.stateOn'),
+      msg: t('workbench.docs.diagrams.debugMode.stateOnMsg'),
+    },
+    {
+      level: 'yellow',
+      label: t('workbench.docs.diagrams.debugMode.stateFellBack'),
+      msg: t('workbench.docs.diagrams.debugMode.stateFellBackMsg'),
+    },
+    {
+      level: 'red',
+      label: t('workbench.docs.diagrams.debugMode.stateFailed'),
+      msg: t('workbench.docs.diagrams.debugMode.stateFailedMsg'),
+    },
   ];
   const X = 18;
   const W = 284;
@@ -293,10 +314,10 @@ export const DebugModeStatesDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="The dot has four states: grey off, green on and attached, yellow fell back to heuristic when the banner was dismissed, and red when a tab failed to attach."
+      aria-label={t('workbench.docs.diagrams.debugMode.statesAria')}
     >
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        The dot at a glance
+        {t('workbench.docs.diagrams.debugMode.statesTitle')}
       </text>
       {ROWS.map((row, i) => {
         const y = 28 + i * STEP;

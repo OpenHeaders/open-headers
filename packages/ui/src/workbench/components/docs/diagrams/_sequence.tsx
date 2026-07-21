@@ -10,6 +10,7 @@
  */
 
 import type React from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 
 export const SEQ_TEXT = 'var(--ant-color-text)';
 export const SEQ_DIM = 'var(--ant-color-text-tertiary)';
@@ -99,21 +100,27 @@ export function SeqActivation({ x, y, height }: { x: number; y: number; height: 
   return <rect x={x - 4} y={y} width={8} height={height} fill={SEQ_ACTIVATION_FILL} stroke={SEQ_ACTIVATION_STROKE} />;
 }
 
-export function SeqLaterGap({ y, label = 'later' }: { y: number; label?: string }) {
+const unitLen = (s: string): number =>
+  Array.from(s).reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1.85 : 1), 0);
+
+export function SeqLaterGap({ y, label }: { y: number; label?: string }) {
+  const t = useT();
+  const text = label ?? t('workbench.docs.diagrams.sequence.later');
+  const w = Math.max(32, Math.round(unitLen(text) * 4.2) + 8);
   return (
     <g>
       <line x1={20} y1={y} x2={300} y2={y} stroke={SEQ_LIFELINE} strokeDasharray="2 4" />
       <rect
-        x={144}
+        x={160 - w / 2}
         y={y - 7}
-        width={32}
+        width={w}
         height={14}
         rx={3}
         fill="var(--ant-color-bg-container)"
         stroke={SEQ_LIFELINE}
       />
       <text x={160} y={y + 3} textAnchor="middle" fontSize={9} fill={SEQ_DIM}>
-        {label}
+        {text}
       </text>
     </g>
   );

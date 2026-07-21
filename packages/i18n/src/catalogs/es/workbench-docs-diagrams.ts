@@ -1769,4 +1769,106 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.requestBody.card4Example': 'Anonimizar campos PII',
   'workbench.docs.diagrams.requestBody.useCasesFooter':
     'Solo motor de scripts — aplica a fetch / XHR iniciados por JS.',
+
+  // ── Sequence primitives ─────────────────────────────────────────────
+  'workbench.docs.diagrams.sequence.later': 'más tarde',
+
+  // ── Debug mode ──────────────────────────────────────────────────────
+  'workbench.docs.diagrams.debugMode.surfaceAria':
+    'El modo de depuración vive en el pie — un interruptor en línea lo activa; el punto y la etiqueta abren ' +
+    'un popover con el alcance, el pin por pestaña y la lista de pestañas adjuntas.',
+  'workbench.docs.diagrams.debugMode.surfaceTitle': 'El modo de depuración vive en el pie',
+  'workbench.docs.diagrams.debugMode.surfaceCaption': 'El interruptor lo activa · punto + etiqueta abren el popover.',
+  'workbench.docs.diagrams.debugMode.debugMode': 'Modo de depuración',
+  'workbench.docs.diagrams.debugMode.systemStatus': 'Estado del sistema',
+  'workbench.docs.diagrams.debugMode.inspectLabel': 'Inspeccionar',
+  'workbench.docs.diagrams.debugMode.scopeBoth': 'Ambas ▾',
+  'workbench.docs.diagrams.debugMode.includeThisTab': 'Incluir esta pestaña',
+  'workbench.docs.diagrams.debugMode.attachedTabs': 'Pestañas adjuntas (1)',
+  'workbench.docs.diagrams.debugMode.tabRow': 'Pestaña #11 · example.com',
+  'workbench.docs.diagrams.debugMode.scopeAria':
+    'El conjunto adjunto se deriva: el alcance elegido unido a las pestañas fijadas, intersectado con el ' +
+    'interruptor maestro. Con el modo apagado, nada se adjunta.',
+  'workbench.docs.diagrams.debugMode.scopeTitle': 'Qué se adjunta',
+  'workbench.docs.diagrams.debugMode.scopeFormula': '( alcance ∪ pines ) ∩ interruptor maestro',
+  'workbench.docs.diagrams.debugMode.inspectBoth': 'Inspeccionar: Ambas',
+  'workbench.docs.diagrams.debugMode.devtoolsUnion': 'DevTools ∪ pestaña con foco',
+  'workbench.docs.diagrams.debugMode.pinnedTab': 'Fijada: Pestaña #11',
+  'workbench.docs.diagrams.debugMode.candidates': 'candidatas',
+  'workbench.docs.diagrams.debugMode.gateLabel': '∩ Depuración ON',
+  'workbench.docs.diagrams.debugMode.attached': 'Adjuntas',
+  'workbench.docs.diagrams.debugMode.attachedTab1': 'Pestaña #7',
+  'workbench.docs.diagrams.debugMode.attachedTab2': 'Pestaña #11',
+  'workbench.docs.diagrams.debugMode.scopeFooter1': 'Depuración OFF → nada se adjunta, sea cual sea el alcance.',
+  'workbench.docs.diagrams.debugMode.scopeFooter2': 'Re-adjuntar reproduce desde aquí — nunca una instantánea.',
+  'workbench.docs.diagrams.debugMode.reachAria':
+    'El modo estándar solo alcanza fetch y XHR de la página. Una pestaña adjunta en modo de depuración ' +
+    'alcanza además navegaciones, workers, iframes cross-origin y el entorno de la pestaña.',
+  'workbench.docs.diagrams.debugMode.reachTitle': 'Qué puede tocar cada modo',
+  'workbench.docs.diagrams.debugMode.standardMode': 'Modo estándar',
+  'workbench.docs.diagrams.debugMode.rowFetch': 'Fetch / XHR de página',
+  'workbench.docs.diagrams.debugMode.rowNavigations': 'Navegaciones',
+  'workbench.docs.diagrams.debugMode.rowWorkers': 'Workers',
+  'workbench.docs.diagrams.debugMode.rowIframes': 'Iframes cross-origin',
+  'workbench.docs.diagrams.debugMode.rowTabEnv': 'Entorno de la pestaña',
+  'workbench.docs.diagrams.debugMode.bannerFree': 'sin banner',
+  'workbench.docs.diagrams.debugMode.showsBanner': 'muestra el banner',
+  'workbench.docs.diagrams.debugMode.statesAria':
+    'El punto tiene cuatro estados: gris apagado, verde adjunto y sano, amarillo replegado a la heurística ' +
+    'al cerrar el banner, y rojo cuando una pestaña no pudo adjuntarse.',
+  'workbench.docs.diagrams.debugMode.statesTitle': 'El punto de un vistazo',
+  'workbench.docs.diagrams.debugMode.stateOff': 'Apagado',
+  'workbench.docs.diagrams.debugMode.stateOffMsg': 'modo de depuración desactivado',
+  'workbench.docs.diagrams.debugMode.stateOn': 'Activo · 2 pestañas',
+  'workbench.docs.diagrams.debugMode.stateOnMsg': 'adjunto y sano',
+  'workbench.docs.diagrams.debugMode.stateFellBack': 'Replegado',
+  'workbench.docs.diagrams.debugMode.stateFellBackMsg': 'banner cerrado → heurística',
+  'workbench.docs.diagrams.debugMode.stateFailed': 'Fallo al adjuntar',
+  'workbench.docs.diagrams.debugMode.stateFailedMsg': 'no pudo activar el protocolo',
+
+  // ── Request Tracking ────────────────────────────────────────────────
+  'workbench.docs.diagrams.requestTracking.phasesAria':
+    'Las dos fases de cada conexión — solicitud y respuesta — cada una con sus campos capturados.',
+  'workbench.docs.diagrams.requestTracking.phasesTitle': 'Cada conexión tiene dos fases',
+  'workbench.docs.diagrams.requestTracking.phaseRequest': 'SOLICITUD',
+  'workbench.docs.diagrams.requestTracking.phaseRequestDir': 'Página → Red',
+  'workbench.docs.diagrams.requestTracking.outbound': 'saliente',
+  'workbench.docs.diagrams.requestTracking.capMethod': 'Método',
+  'workbench.docs.diagrams.requestTracking.capHeaders': 'Encabezados',
+  'workbench.docs.diagrams.requestTracking.capBody': 'Cuerpo',
+  'workbench.docs.diagrams.requestTracking.phaseResponse': 'RESPUESTA',
+  'workbench.docs.diagrams.requestTracking.phaseResponseDir': 'Red → Página',
+  'workbench.docs.diagrams.requestTracking.inbound': 'entrante',
+  'workbench.docs.diagrams.requestTracking.capStatus': 'Código de estado',
+  'workbench.docs.diagrams.requestTracking.capTimings': 'Tiempos',
+  'workbench.docs.diagrams.requestTracking.perRoundtrip': 'por ida y vuelta HTTP',
+  'workbench.docs.diagrams.requestTracking.capturedKicker': 'CAPTURADO',
+  'workbench.docs.diagrams.requestTracking.sameConnection': 'misma conexión',
+  'workbench.docs.diagrams.requestTracking.phasesFooter': 'Ambas fases alimentan el contador del badge en Esta página.',
+  'workbench.docs.diagrams.requestTracking.seqAria':
+    'Diagrama de secuencia: solicitud observada, coincidida, registrada y luego leída por el popup',
+  'workbench.docs.diagrams.requestTracking.pBrowser': 'Navegador',
+  'workbench.docs.diagrams.requestTracking.pBrowserSub': 'pila de red',
+  'workbench.docs.diagrams.requestTracking.pExtension': 'Extensión',
+  'workbench.docs.diagrams.requestTracking.pExtensionSub': 'service worker',
+  'workbench.docs.diagrams.requestTracking.pPopup': 'Popup',
+  'workbench.docs.diagrams.requestTracking.pPopupSub': 'pestaña Esta página',
+  'workbench.docs.diagrams.requestTracking.msgRequest': 'webRequest (solicitud)',
+  'workbench.docs.diagrams.requestTracking.noteMatch': 'cotejar con las reglas',
+  'workbench.docs.diagrams.requestTracking.noteRecord1': 'registrar (regla + URL +',
+  'workbench.docs.diagrams.requestTracking.noteRecord2': 'tipo de recurso)',
+  'workbench.docs.diagrams.requestTracking.msgResponse': 'webRequest (respuesta)',
+  'workbench.docs.diagrams.requestTracking.noteResponse': 'registrar la fase de respuesta',
+  'workbench.docs.diagrams.requestTracking.msgOpenPopup': 'el usuario abre el popup',
+  'workbench.docs.diagrams.requestTracking.msgReadBack': 'reglas coincididas + badges',
+  'workbench.docs.diagrams.requestTracking.seqFooter': 'El registro ocurre en directo; el popup solo lo relee.',
+  'workbench.docs.diagrams.requestTracking.uiAria':
+    'Anatomía de la UI — el badge plegado se expande en una lista de solicitudes coincidentes',
+  'workbench.docs.diagrams.requestTracking.uiTitle': 'Fila de regla en el popup',
+  'workbench.docs.diagrams.requestTracking.uiRule': 'Block ads.openheaders.io',
+  'workbench.docs.diagrams.requestTracking.clickBadge': 'clic en el badge',
+  'workbench.docs.diagrams.requestTracking.matchedPattern': 'coincidió: ads.openheaders.io',
+  'workbench.docs.diagrams.requestTracking.legendFields':
+    'marca de tiempo · URL · tipo de recurso · patrón coincidente',
+  'workbench.docs.diagrams.requestTracking.legendBadge': 'contador del badge = número de filas',
 } as const satisfies Catalog;
