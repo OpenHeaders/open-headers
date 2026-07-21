@@ -20,7 +20,7 @@
  * `usePanelData` — pages markers and fire dots simply never appear.
  */
 
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { InspectorDetailContent } from './InspectorDetailContent';
@@ -54,6 +54,11 @@ export interface NetworkCaptureViewProps {
   /** Empty-log hero for the list — the default TrafficList copy assumes an
    *  inspected browser tab ("reload the page"), which no capture surface has. */
   readonly emptyHero?: ReactNode;
+  /** Externally-driven row highlight — the active editor tab's request,
+   *  so the list shows which row a focused inspect tab belongs to.
+   *  Selection only: never routes outward (DevTools posture — the list
+   *  follows focus, it doesn't navigate). `null` keeps the last pick. */
+  readonly highlightRequestId?: string | null;
 }
 
 const NOOP = (): void => {};
@@ -79,7 +84,13 @@ function useNetworkCaptureData(tabId: number, portName?: (tabId: number) => stri
 }
 
 /** The capture list — filter toolbar + columns, selection routes outward. */
-export function NetworkCaptureView({ tabId, portName, onInspectRequest, emptyHero }: NetworkCaptureViewProps) {
+export function NetworkCaptureView({
+  tabId,
+  portName,
+  onInspectRequest,
+  emptyHero,
+  highlightRequestId,
+}: NetworkCaptureViewProps) {
   const { data } = useNetworkCaptureData(tabId, portName);
 
   // Local filter + view state — the proxy view owns its own, no shared
@@ -88,7 +99,13 @@ export function NetworkCaptureView({ tabId, portName, onInspectRequest, emptyHer
   const [filterConfig, setFilterConfig] = useState<FilterConfig>(DEFAULT_FILTER_CONFIG);
   const [urlFilter, setUrlFilter] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<ReadonlySet<ColumnKey>>(() => new Set(DEFAULT_VISIBLE_COLUMNS));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(highlightRequestId ?? null);
+
+  // Follow the focused editor tab's request without routing outward; a
+  // null highlight (a non-inspect tab focused) keeps the last pick.
+  useEffect(() => {
+    if (highlightRequestId != null) setSelectedId(highlightRequestId);
+  }, [highlightRequestId]);
 
   const filterTokens = useMemo(() => parseFilter(urlFilter, filterConfig), [urlFilter, filterConfig]);
   const filterError = useMemo(() => hasFilterError(filterTokens), [filterTokens]);

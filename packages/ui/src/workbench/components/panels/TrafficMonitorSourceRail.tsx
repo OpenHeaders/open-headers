@@ -35,7 +35,7 @@ import { SectionHeader } from '../sidebar/SectionHeader';
 import { BrowserBrandIcon } from './browser-brand-icons';
 
 /** Default rail width; the vertical sash can resize it within bounds. */
-export const RAIL_DEFAULT_WIDTH = 250;
+export const RAIL_DEFAULT_WIDTH = 350;
 export const RAIL_MIN_WIDTH = 180;
 export const RAIL_MAX_WIDTH = 520;
 /** Min height either sash pane keeps; drag clamps against this. */

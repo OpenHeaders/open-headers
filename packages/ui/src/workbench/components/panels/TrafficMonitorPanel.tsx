@@ -38,6 +38,7 @@ import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NetworkCaptureView } from '../../../panel/components/NetworkCaptureView';
 import { extractName } from '../../../panel/components/traffic/formatters';
 import type { InspectorRowWithFires } from '../../../panel/data/inspector-row-projection';
+import type { WorkbenchTab } from '../../types';
 import {
   RAIL_DEFAULT_WIDTH,
   RAIL_MAX_WIDTH,
@@ -58,6 +59,9 @@ export interface TrafficMonitorPanelProps {
   onOpenLiveRequest: (nodeId: string, tabId: number, requestId: string, label: string) => void;
   /** Open Settings › Proxy (CA install + trust). */
   onOpenProxySettings: () => void;
+  /** The focused editor tab — an inspect tab highlights its row in the
+   *  list (association only, never navigation). */
+  activeTab: WorkbenchTab | null;
 }
 
 interface TabSelection {
@@ -84,6 +88,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   onOpenProxyRequest,
   onOpenLiveRequest,
   onOpenProxySettings,
+  activeTab,
 }) => {
   const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -242,6 +247,19 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   const wireSelected = selectedKey === WIRE_SOURCE_KEY;
 
+  // Focused inspect tab → its row highlighted in the matching view
+  // (association only — the source binding never changes on tab focus,
+  // the DevTools posture).
+  const wireHighlight =
+    activeTab?.mode === 'proxy-request-inspect' ? (activeTab.proxyRequestId ?? null) : null;
+  const tabHighlight =
+    activeTab?.mode === 'live-network-request-inspect' &&
+    tabSelection !== null &&
+    activeTab.liveNetworkNodeId === tabSelection.nodeId &&
+    activeTab.liveNetworkTabId === tabSelection.tabId
+      ? (activeTab.liveNetworkRequestId ?? null)
+      : null;
+
   // Draggable rail width — the vertical sash resizes it, clamped.
   const [railWidth, setRailWidth] = useState(() => lastPanelState.railWidth);
 
@@ -282,6 +300,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 key={WIRE_SOURCE_KEY}
                 tabId={PROXY_LIFECYCLE_TAB_ID}
                 onInspectRequest={inspectWireRequest}
+                highlightRequestId={wireHighlight}
                 emptyHero={
                   <div className="dt-empty-hero">
                     <strong>
@@ -305,6 +324,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 tabId={tabSelection.tabId}
                 portName={tabPortName}
                 onInspectRequest={inspectTabRequest}
+                highlightRequestId={tabHighlight}
                 emptyHero={
                   <div className="dt-empty-hero">
                     <strong>{t('workbench.trafficMonitor.emptyWatching')}</strong>

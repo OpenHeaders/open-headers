@@ -317,6 +317,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
             onOpenProxyRequest={openProxyRequestInspect}
             onOpenLiveRequest={openLiveNetworkRequestInspect}
             onOpenProxySettings={() => openSettingsTab({ categoryId: 'proxy' })}
+            activeTab={activeTab ?? null}
           />
         </Suspense>
       );
