@@ -124,8 +124,9 @@ export function NetworkCaptureView({
   );
 
   return (
-    <TrafficList
-      rows={data.rows}
+    <div className="dt-capture-surface">
+      <TrafficList
+        rows={data.rows}
       filteredRows={filteredRows}
       pages={data.pages}
       cdpEnhanced={false}
@@ -156,7 +157,8 @@ export function NetworkCaptureView({
       onFilterHintClear={NOOP}
       onFilterHintDismiss={NOOP}
       emptyHero={emptyHero}
-    />
+      />
+    </div>
   );
 }
 
@@ -217,8 +219,10 @@ function NetworkCaptureRequestDetailBody({ tabId, portName, requestId }: Network
  */
 export function NetworkCaptureRequestDetail({ tabId, portName, requestId }: NetworkCaptureRequestDetailProps) {
   return (
-    <RulePopoverProvider>
-      <NetworkCaptureRequestDetailBody tabId={tabId} portName={portName} requestId={requestId} />
-    </RulePopoverProvider>
+    <div className="dt-capture-surface">
+      <RulePopoverProvider>
+        <NetworkCaptureRequestDetailBody tabId={tabId} portName={portName} requestId={requestId} />
+      </RulePopoverProvider>
+    </div>
   );
 }

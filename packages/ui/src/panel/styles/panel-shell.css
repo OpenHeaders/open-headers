@@ -29,11 +29,34 @@
    * so it can never punch through app-level modal masks (which portal to
    * <body>, outside this context). */
   isolation: isolate;
+  background: var(--dt-frame-bg);
+}
+
+/* Shared DevTools type scale — the standalone panel root AND the
+ * workbench-embedded capture surfaces (Traffic Monitor planes, inspect
+ * editor tabs). The workbench mounts capture components without the
+ * panel root's chrome, so without this wrapper they inherit the
+ * workbench's larger antd base and render oversized. */
+.dt-panel-root,
+.dt-capture-surface {
   font-family: system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
-  background: var(--dt-frame-bg);
   color: var(--dt-text);
+}
+
+/* Layout-neutral fill: the wrapper takes its host slot's full height
+ * and lets its single child (TrafficList / detail body) own scrolling. */
+.dt-capture-surface {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-capture-surface > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Panel status bar lifts above the popovers portalled into the root, so a
