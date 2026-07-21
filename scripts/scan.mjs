@@ -13,8 +13,7 @@
  * (identifiers, paths, acronyms, bare punctuation), raw containers
  * (`<code>`/`<pre>`/`<kbd>`/`<samp>` and elements carrying a boolean
  * `code` prop, e.g. antd `<Typography.Text code>`), and exempt paths
- * (docs diagrams stay raw by decision; dev showcases and tests are
- * not shipped surfaces).
+ * (dev showcases and tests are not shipped surfaces).
  *
  * Usage: node scripts/scan.mjs [--warn] <dir...>
  * Directories resolve against the invoking package's cwd (turbo runs
@@ -38,7 +37,7 @@ const RAW_CONTAINERS = new Set(['code', 'pre', 'kbd', 'samp', 'Kbd']);
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'out', 'tests', 'e2e', '__mocks__', 'coverage', 'dev']);
 // ConsoleSettingInfo's fake console transcript is an illustration —
 // its internals stay raw under the same boundary as docs diagrams.
-const EXEMPT_PATHS = ['/docs/diagrams/', '/panel/components/ConsoleSettingInfo.tsx'];
+const EXEMPT_PATHS = ['/panel/components/ConsoleSettingInfo.tsx'];
 
 function fail(message) {
   console.error(`scan: ${message}`);
