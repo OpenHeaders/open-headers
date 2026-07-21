@@ -167,6 +167,26 @@ describe('createTransportConnection', () => {
     expect(h.sockets).toHaveLength(2);
   });
 
+  it('tearing down an OPEN wire synthesizes the close notification', async () => {
+    // The cancelled attempt's own `onclose` abandons quietly, so the
+    // open → closed transition must still reach onClose — close
+    // subscribers (telemetry session teardown, handshake FSM reset)
+    // key off it; without it a disabled/re-dialed record leaks them.
+    const h = makeHarness();
+    h.transport.ensureConnected();
+    await Promise.resolve();
+    h.sockets[0].fireOpen();
+
+    h.transport.reconnect();
+    expect(h.onClose).toHaveBeenCalledTimes(1);
+    expect(h.onClose.mock.calls[0][0]).toMatchObject({ wasOpen: true, peerRefused: false });
+
+    // A teardown of a NOT-open attempt (still probing) stays silent.
+    await Promise.resolve();
+    h.transport.reconnect();
+    expect(h.onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('unreachable host backs off, then retries on the timer', async () => {
     const probeReachable = vi
       .fn<(url: string) => Promise<boolean>>()

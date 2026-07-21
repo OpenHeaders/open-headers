@@ -229,6 +229,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           agent: peerConn.agent,
           workspaceId: peerConn.workspaceId,
           nodeId: peerConn.nodeId,
+          installId: outcome.hello.installId ?? null,
           tokenId: peerConn.tokenId,
           userId: peerConn.claims?.userId ?? null,
           isLoopback,

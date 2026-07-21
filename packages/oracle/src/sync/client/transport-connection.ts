@@ -219,6 +219,7 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
     currentAttempt = null;
     clearConnectTimeout();
     clearPing();
+    const wasOpen = socket !== null && state === 'open';
     if (socket) {
       try {
         socket.close();
@@ -226,6 +227,16 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
         /* ignore */
       }
       socket = null;
+    }
+    // The cancelled attempt's own `onclose` abandons quietly (the
+    // orphan-socket guard), so an intentional teardown of an OPEN wire
+    // must synthesize the open → closed notification itself: close
+    // subscribers (telemetry session teardown, handshake FSM reset)
+    // key off it, and without it a disabled/re-dialed record leaks the
+    // consumers attached to the old wire.
+    if (wasOpen) {
+      openedAtMs = null;
+      deps.onClose({ wasOpen: true, protocolIncompatible: false, peerRefused: false, rejectReason: null });
     }
   }
 

@@ -147,6 +147,11 @@ export interface PeerSummary {
    *  exclusion matches an envelope's `hlc.nodeId` against this so a
    *  relayed mutation never bounces straight back to its sender. */
   readonly nodeId: string;
+  /** The peer's HELLO installId — its stable per-install identity,
+   *  invariant across reconnects and active-workspace changes (unlike
+   *  `nodeId`). Null on older clients that don't send one; peer-scoped
+   *  server state (telemetry watch partitions) falls back to `nodeId`. */
+  readonly installId: string | null;
   readonly tokenId: string | null;
   /** The user the peer acts as (resolved at HELLO from the token's
    *  directory binding; unbound tokens resolve to the daemon operator).

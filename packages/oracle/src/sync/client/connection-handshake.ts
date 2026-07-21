@@ -63,6 +63,13 @@ export interface ConnectionHandshakeDeps {
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getAgent: () => string;
   /**
+   * Stable per-install identity for HELLO's `installId`, or null when
+   * the host has none hydrated. Unlike `getNodeId` this must not vary
+   * with the active workspace — it is what lets the server re-bind
+   * peer-scoped state across reconnects.
+   */
+  readonly getInstallId?: () => string | null;
+  /**
    * The long-lived daemon auth token from settings, or null. Sent on
    * HELLO so non-loopback daemons can validate the peer (U3.2).
    */
@@ -170,6 +177,7 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
       return;
     }
     const authToken = deps.getAuthToken?.() ?? null;
+    const installId = deps.getInstallId?.() ?? null;
     const hello: SyncHelloMessage = {
       type: SYNC_HELLO_TYPE,
       protocolVersion: PROTOCOL_VERSION,
@@ -177,6 +185,7 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
       nodeId: deps.getNodeId(workspaceId),
       workspaceId,
       agent: deps.getAgent(),
+      ...(installId ? { installId } : {}),
       ...(authToken ? { authToken } : {}),
     };
     if (!deps.send(hello)) {

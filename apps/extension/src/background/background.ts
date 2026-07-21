@@ -98,6 +98,7 @@ import { installParityFireReadback } from './modules/rules/parity-fire-readback'
 import { installParityRuleImport } from './modules/rules/parity-rule-import';
 import { scheduleUpdate } from './modules/rules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rules/rule-state-observer';
+import { hydrateSyncInstallId } from './modules/sync-install-id';
 import { registerCdpTabPinControls } from './modules/tabs/cdp-tab-pin';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tabs/tab-listeners';
 import { rehydrateTabOverridesFromSession } from './modules/tabs/tab-overrides';
@@ -136,6 +137,9 @@ const workspacesReady = bootstrapWorkspaces();
 // wanted, and its watch keeps cross-context settings-pane edits live.
 const settingsReady = workspacesReady
   .then(bootstrapSettings)
+  // The install id must be warm before the registry can trigger a dial —
+  // every HELLO carries it as the peer's stable telemetry identity.
+  .then(() => hydrateSyncInstallId())
   .then(() => refreshBackendsFromHostStorage())
   .then(() => {
     watchBackendsInHostStorage();

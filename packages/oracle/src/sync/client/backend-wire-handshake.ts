@@ -34,6 +34,13 @@ export interface BackendWireHandshakeDeps {
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getAgent: () => string;
   /**
+   * Stable per-install identity for HELLO's `installId`, or null when
+   * the host has none hydrated. Must not vary with the active
+   * workspace — the server re-binds peer-scoped state (telemetry watch
+   * partitions) to it across reconnects.
+   */
+  readonly getInstallId?: () => string | null;
+  /**
    * Optional host hook fired after each scope's SYNCED, once the
    * pending-out queue has flushed. The extension pushes its current
    * awareness presence snapshot here so the peer folds this host's
@@ -105,6 +112,7 @@ export function createSyncHandshakeForWire(
       }
     },
     getAgent: deps.getAgent,
+    getInstallId: deps.getInstallId,
     getAuthToken: () => {
       const raw = wire.record().authToken;
       return raw && raw.length > 0 ? raw : null;

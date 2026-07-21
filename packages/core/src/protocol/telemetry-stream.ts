@@ -37,6 +37,7 @@ export const TELEMETRY_LIFECYCLE_CONSUMER_TYPE = 'oh.telemetry.lifecycle.consume
 export const TELEMETRY_LIFECYCLE_DETACH_TYPE = 'oh.telemetry.lifecycle.detach' as const;
 export const TELEMETRY_LIFECYCLE_BATCH_TYPE = 'oh.telemetry.lifecycle.batch' as const;
 export const TELEMETRY_TABS_LIST_TYPE = 'oh.telemetry.tabs.list' as const;
+export const TELEMETRY_HOST_READY_TYPE = 'oh.telemetry.host.ready' as const;
 
 /** Host → extension: one consumer message for one browser tab. */
 export interface TelemetryLifecycleConsumerMessage {
@@ -67,6 +68,19 @@ export interface TelemetryTabsListMessage {
   type: typeof TELEMETRY_TABS_LIST_TYPE;
 }
 
+/**
+ * Extension → host: the telemetry stream host just came up on an
+ * already-connected wire. A cold service worker HELLOs from its
+ * eval-time sync wiring BEFORE the lifecycle pipeline registers the
+ * telemetry handlers, so a subscribe the host relays at the peer's
+ * connect event can land unhandled and drop. This announce closes that
+ * boot race: the relay re-joins the peer's live watches on receipt,
+ * exactly as it does at the connect event.
+ */
+export interface TelemetryHostReadyMessage {
+  type: typeof TELEMETRY_HOST_READY_TYPE;
+}
+
 /** One open browser tab, as the extension's context-provider reports it. */
 export interface BrowserTabWire {
   tabId: number;
@@ -85,4 +99,5 @@ export type TelemetryStreamMessage =
   | TelemetryLifecycleConsumerMessage
   | TelemetryLifecycleDetachMessage
   | TelemetryLifecycleBatchMessage
-  | TelemetryTabsListMessage;
+  | TelemetryTabsListMessage
+  | TelemetryHostReadyMessage;

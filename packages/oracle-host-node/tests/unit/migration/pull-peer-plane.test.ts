@@ -53,6 +53,7 @@ function makePeer(userId: string | null): PeerSummary {
     agent: '@openheaders/extension@2026.7.1',
     workspaceId: 'ws-1',
     nodeId: 'node-1',
+    installId: null,
     tokenId: 'tok-1',
     userId,
     isLoopback: true,

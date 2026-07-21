@@ -449,6 +449,13 @@ export function sendToBackend(backendId: string, data: Record<string, unknown>):
 }
 
 /** True when the given backend's wire is currently connected. */
+/** Handles of every wire whose transport is currently open. Late-started
+ *  consumers (the telemetry stream host on a revived service worker) use
+ *  this to announce themselves on wires that connected before they did. */
+export function listConnectedWires(): BackendWireHandle[] {
+  return [...wires.values()].filter((w) => w.transport.isConnected()).map((w) => w.handle);
+}
+
 export function isBackendConnected(backendId: string): boolean {
   return wires.get(backendId)?.transport.isConnected() ?? false;
 }

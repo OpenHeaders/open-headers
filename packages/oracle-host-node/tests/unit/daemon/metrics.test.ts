@@ -31,6 +31,7 @@ function makePeer(overrides: Partial<PeerSummary> = {}): PeerSummary {
     agent: '@openheaders/extension@2026.7.0',
     workspaceId: 'ws-1',
     nodeId: 'node-1',
+    installId: null,
     tokenId: 'token-1',
     userId: 'user-1',
     isLoopback: true,

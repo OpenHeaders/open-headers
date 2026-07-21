@@ -10,14 +10,17 @@
  */
 
 import { type IncomingLifelinePort, setLifelineServer } from '@openheaders/core/awareness';
+import { setHostLogger } from '@openheaders/core/logger';
 import {
+  TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
 } from '@openheaders/core/protocol';
 import type { LifecycleConsumerMessage } from '@openheaders/core/request-lifecycle';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger as consoleLogger } from '@openheaders/core/utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBrowserLiveRelay, TABS_LIST_TIMEOUT_MS } from '../../../src/daemon/telemetry/browser-live-relay';
 import type { OracleWsServer, PeerChangeListener, PeerSummary } from '../../../src/host-runtime/ws-server';
 
@@ -46,13 +49,14 @@ function fakePort(name: string): FakePort {
   };
 }
 
-function peerSummary(nodeId: string, peerId = `peer-${nodeId}`): PeerSummary {
+function peerSummary(nodeId: string, peerId = `peer-${nodeId}`, installId: string | null = null): PeerSummary {
   return {
     peerId,
     role: 'extension',
     agent: '@openheaders/extension@1.0.0',
     workspaceId: 'default',
     nodeId,
+    installId,
     tokenId: null,
     userId: null,
     isLoopback: true,
@@ -109,6 +113,10 @@ function installFakeLifeline(): (port: IncomingLifelinePort) => void {
     for (const handler of handlers) handler(port);
   };
 }
+
+beforeEach(() => {
+  setHostLogger(consoleLogger);
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -197,6 +205,55 @@ describe('createBrowserLiveRelay', () => {
     );
     expect(first.posted).toHaveLength(0);
     expect(second.posted).toHaveLength(0);
+    relay.dispose();
+  });
+
+  it('keys watches on installId so a reconnect with a changed nodeId still re-subscribes', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    // The peer sends a stable installId; its nodeId is the ACTIVE
+    // workspace's writer identity and changes after a join → adopt.
+    const { server, frames, emitPeerConnect } = fakeServer([peerSummary('node-home', 'peer-1', 'install-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    // The workbench opens the lifeline against the inventory's stable
+    // qualifier (the installId).
+    const port = fakePort('oh-lifecycle:7@install-a');
+    connect(port);
+    port.send({ kind: 'subscribe' });
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE)).toHaveLength(1);
+
+    // Reconnect under a DIFFERENT nodeId, same install: the watch must
+    // re-subscribe (the wire-flap orphan bug) and batches still route.
+    const before = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length;
+    emitPeerConnect(peerSummary('node-adopted', 'peer-2', 'install-a'));
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length).toBe(before + 1);
+
+    relay.peerPush.handle(
+      { type: TELEMETRY_LIFECYCLE_BATCH_TYPE, tabId: 7, messages: [{ kind: 'tab-cleared', tabId: 7 }] },
+      peerSummary('node-adopted', 'peer-2', 'install-a'),
+    );
+    expect(port.posted).toHaveLength(1);
+    relay.dispose();
+  });
+
+  it('re-subscribes live watches on the telemetry-host-ready announce', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server, frames } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const port = fakePort('oh-lifecycle:7@node-a');
+    connect(port);
+    port.send({ kind: 'subscribe' });
+    const before = frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length;
+
+    // A cold SW registers its telemetry handlers AFTER the wire's
+    // HELLO — the ready announce re-joins the watches it missed.
+    relay.peerPush.handle({ type: TELEMETRY_HOST_READY_TYPE }, peerSummary('node-a'));
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_LIFECYCLE_CONSUMER_TYPE).length).toBe(before + 1);
     relay.dispose();
   });
 

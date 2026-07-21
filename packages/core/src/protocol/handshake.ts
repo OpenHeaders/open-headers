@@ -186,6 +186,16 @@ export interface SyncHelloMessage {
   /** Free-form software version (`@openheaders/extension@5.0.0-pre.42`) for diagnostics only. */
   agent: string;
   /**
+   * Stable per-install identity, minted once by the client and carried
+   * on every HELLO. Unlike `nodeId` (the ACTIVE workspace's HLC writer
+   * identity, which changes when the active workspace changes — e.g.
+   * after a join → adopt), this survives reconnects, so peer-scoped
+   * server state (telemetry watch partitions) can re-bind to the same
+   * peer across wire flaps. Optional: absent on older clients, and the
+   * server falls back to `nodeId`.
+   */
+  installId?: string;
+  /**
    * Long-lived daemon access token presented by the peer when the
    * daemon is bound non-loopback (U3.2, `UNIFIED_ORACLE_MODEL.md` §4.2
    * / `DATA_PLANE_TOPOLOGIES.md` §11.4). Omitted on loopback handshakes
@@ -203,6 +213,7 @@ export const SyncHelloMessageSchema = v.object({
   nodeId: v.pipe(v.string(), v.minLength(1)),
   workspaceId: v.pipe(v.string(), v.minLength(1)),
   agent: v.string(),
+  installId: v.optional(v.pipe(v.string(), v.minLength(1))),
   authToken: v.optional(v.pipe(v.string(), v.minLength(1))),
 }) satisfies v.GenericSchema<SyncHelloMessage>;
 

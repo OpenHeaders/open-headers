@@ -68,6 +68,8 @@ export interface SyncHandshakeInitiatorDeps {
   readonly getNodeId: (workspaceId: string) => string;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getAgent: () => string;
+  /** Stable per-install identity for HELLO's `installId`, or null. */
+  readonly getInstallId?: () => string | null;
   /**
    * Returns the long-lived daemon auth token the user pasted into
    * settings, or null when none is configured. Sent on HELLO so
@@ -226,6 +228,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     getActiveWorkspaceId: deps.getActiveWorkspaceId,
     getNodeId: deps.getNodeId,
     getAgent: deps.getAgent,
+    getInstallId: deps.getInstallId,
     getAuthToken: deps.getAuthToken,
     onJoinedOrg: deps.onJoinedOrg,
     onReach: deps.onReach,

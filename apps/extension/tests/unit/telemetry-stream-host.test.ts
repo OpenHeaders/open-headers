@@ -10,6 +10,7 @@
  */
 
 import {
+  TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
@@ -89,6 +90,8 @@ function makeHarness(): Harness {
   const wireSent: Record<string, unknown>[] = [];
   let inbound: InboundFrameHandler | null = null;
   const closeSubscribers: Array<(wire: BackendWireHandle) => void> = [];
+  const wire = makeWire('b1', true, wireSent);
+  const offWire = makeWire('b2', false, wireSent);
   const host = startTelemetryStreamHost({
     hub,
     send: (backendId, frame) => {
@@ -105,6 +108,7 @@ function makeHarness(): Harness {
       closeSubscribers.push(cb);
       return () => undefined;
     },
+    listWires: () => [wire, offWire],
     queryTabs: async () => [
       { tabId: TAB_ID, windowId: 1, title: 'Docs', url: 'https://openheaders.io/docs', active: true },
     ],
@@ -114,8 +118,8 @@ function makeHarness(): Harness {
     store,
     sent,
     wireSent,
-    wire: makeWire('b1', true, wireSent),
-    offWire: makeWire('b2', false, wireSent),
+    wire,
+    offWire,
     deliver: async (frame, wire) => {
       if (!inbound) throw new Error('inbound handler not registered');
       return await inbound(frame, wire);
@@ -197,6 +201,15 @@ describe('startTelemetryStreamHost', () => {
     expect(isTracked(TAB_ID)).toBe(true);
     h.closeWire(h.wire);
     expect(isTracked(TAB_ID)).toBe(false);
+    h.host.dispose();
+  });
+
+  it('announces host-ready on already-connected loopback wires at startup', () => {
+    const h = makeHarness();
+    // One announce total: the loopback wire got it, the off-device
+    // wire (same capture array) did not.
+    const announces = h.wireSent.filter((f) => f.type === TELEMETRY_HOST_READY_TYPE);
+    expect(announces).toHaveLength(1);
     h.host.dispose();
   });
 

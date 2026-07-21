@@ -11,6 +11,7 @@ import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/aw
 import { installBackendSyncPlane, type SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
 import { runtime } from '@utils/browser-api';
 import { handleIncomingMigrationPullFrame } from '../modules/migration-mirror';
+import { peekSyncInstallId } from '../modules/sync-install-id';
 
 export type { HandshakeLifecycleEvent, SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
 
@@ -18,6 +19,7 @@ export function installWsFrameRouting(): SyncWiring {
   return installBackendSyncPlane({
     role: HANDSHAKE_ROLES.EXTENSION,
     getAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
+    getInstallId: () => peekSyncInstallId(),
     onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('extension'),
     extraInboundHandlers: [
       (frame) => handleIncomingAwarenessFrame(frame),

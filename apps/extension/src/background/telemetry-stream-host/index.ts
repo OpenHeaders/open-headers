@@ -28,6 +28,7 @@ import type {
   TelemetryLifecycleDetachMessage,
 } from '@openheaders/core/protocol';
 import {
+  TELEMETRY_HOST_READY_TYPE,
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
@@ -37,6 +38,7 @@ import type { LifecycleWireMessage, RequestLifecycleUpdate } from '@openheaders/
 import type { AttachmentHandle, RequestLifecycleHub, Sink } from '@openheaders/oracle/request-lifecycle-hub';
 import {
   type BackendWireHandle,
+  listConnectedWires,
   registerInboundFrameHandler,
   sendToBackend,
   subscribeOnWebSocketClose,
@@ -70,6 +72,7 @@ export interface TelemetryStreamHostOptions {
   readonly send?: (backendId: string, frame: Record<string, unknown>) => boolean;
   readonly registerInbound?: typeof registerInboundFrameHandler;
   readonly subscribeClose?: typeof subscribeOnWebSocketClose;
+  readonly listWires?: typeof listConnectedWires;
   readonly queryTabs?: () => Promise<BrowserTabWire[]>;
   readonly flushIntervalMs?: number;
 }
@@ -293,6 +296,17 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
       if (session.backendId === wire.backendId) teardown(session);
     }
   });
+
+  // Boot-race closer: a cold service worker HELLOs from eval-time sync
+  // wiring BEFORE this host exists, so a subscribe the daemon relays at
+  // the connect event can land unhandled. Announce on every wire that
+  // is already up (same-device only — the whole plane is loopback-
+  // gated) so the relay re-joins its live watches now that the
+  // handlers are registered.
+  const listWires = options.listWires ?? listConnectedWires;
+  for (const wire of listWires()) {
+    if (wire.isLoopback()) wire.send({ type: TELEMETRY_HOST_READY_TYPE });
+  }
 
   return {
     dispose(): void {
