@@ -128,12 +128,15 @@ export interface InspectorHarHeaderCapture {
  *   - `webrequest-partial` — synthesized from webRequest wire facts; the
  *     standing fallback for rows whose devtools entry never arrives.
  *   - `cdp` — built from debugger-session protocol events.
+ *   - `proxy` — synthesized by the host capture plane from its own socket
+ *     facts (exact wire headers + L4 timings measured on the re-origination
+ *     sockets).
  *
  * Stamped at emit time by the producer, like {@link InspectorHarHeaderCapture}
  * — provenance is declared, never inferred from entry shape. Internal:
  * HAR exports strip it.
  */
-export type InspectorHarEntrySource = 'devtools' | 'webrequest-partial' | 'cdp';
+export type InspectorHarEntrySource = 'devtools' | 'webrequest-partial' | 'cdp' | 'proxy';
 
 /**
  * Full HAR entry forwarded verbatim from the devtools_page via

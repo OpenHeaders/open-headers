@@ -6,19 +6,27 @@
  * ({@link PROXY_LIFECYCLE_TAB_ID}), so proxy captures render in the same
  * panel as browser tabs with zero new inspection UI.
  *
- * Read-only phase: only the fields an existing correlator already
- * populates are used (method / url / headers / status / phase timings) —
- * no new lifecycle field is introduced, so the store reducer and the
- * panel client reducer need no twin change. Body/HAR attachment and L4
- * socket timings are later slices.
+ * Phase 3 additions ride EXISTING update shapes only — no new lifecycle
+ * field, so the store reducer and the panel client reducer need no twin
+ * change:
+ *
+ *  - a rule's in-place URL rewrite emits the `redirect` update with the
+ *    internal hop (status 307, `internal: true`) — the exact synthetic
+ *    hop the heuristic correlator mints for a DNR rewrite;
+ *  - completion attaches a synthesized HAR entry (`har-attached`) on the
+ *    final hop, carrying the wire headers, measured byte counts and the
+ *    proxy's own L4 timing legs — the waterfall and detail tabs light up
+ *    through the panel's existing HAR path.
  */
 
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import { proxyHarEntry } from './capture-har';
 import type {
   ProxyCaptureObserver,
   ProxyExchangeEnd,
   ProxyExchangeError,
+  ProxyInternalRedirect,
   ProxyRequestStart,
   ProxyResponseHead,
 } from './mitm-types';
@@ -33,10 +41,25 @@ export type LifecycleSink = (update: RequestLifecycleUpdate) => void;
  */
 const PROXY_RESOURCE_TYPE = 'other';
 
+/** The internal-rewrite hop's status — the heuristic correlator's synthetic 307. */
+const INTERNAL_REDIRECT_STATUS = 307;
+
+/** In-flight facts held per exchange until the terminal callback. */
+interface PendingExchange {
+  start: ProxyRequestStart;
+  /** Current (post-rewrite) URL — the hop the HAR entry describes. */
+  url: string;
+  hopIndex: number;
+  head?: ProxyResponseHead;
+}
+
 export class ProxyCaptureLifecycleMapper implements ProxyCaptureObserver {
+  private readonly pending = new Map<string, PendingExchange>();
+
   constructor(private readonly emit: LifecycleSink) {}
 
   onRequestStart(start: ProxyRequestStart): void {
+    this.pending.set(start.id, { start, url: start.url, hopIndex: 0 });
     const lifecycle: RequestLifecycle = {
       tabId: PROXY_LIFECYCLE_TAB_ID,
       requestId: start.id,
@@ -58,7 +81,30 @@ export class ProxyCaptureLifecycleMapper implements ProxyCaptureObserver {
     this.emit({ kind: 'started', lifecycle });
   }
 
+  onInternalRedirect(id: string, redirect: ProxyInternalRedirect): void {
+    const entry = this.pending.get(id);
+    if (entry !== undefined) {
+      entry.url = redirect.redirectUrl;
+      entry.hopIndex += 1;
+    }
+    this.emit({
+      kind: 'redirect',
+      tabId: PROXY_LIFECYCLE_TAB_ID,
+      requestId: id,
+      hop: {
+        sourceUrl: redirect.sourceUrl,
+        redirectUrl: redirect.redirectUrl,
+        statusCode: INTERNAL_REDIRECT_STATUS,
+        timestampMs: redirect.atMs,
+        internal: true,
+      },
+      nextUrl: redirect.redirectUrl,
+    });
+  }
+
   onResponseHeaders(id: string, head: ProxyResponseHead): void {
+    const entry = this.pending.get(id);
+    if (entry !== undefined) entry.head = head;
     this.emit({
       kind: 'phase',
       tabId: PROXY_LIFECYCLE_TAB_ID,
@@ -79,9 +125,20 @@ export class ProxyCaptureLifecycleMapper implements ProxyCaptureObserver {
       requestId: id,
       patch: { phase: 'completed', completedAtMs: end.completedAtMs },
     });
+    const entry = this.pending.get(id);
+    this.pending.delete(id);
+    if (entry?.head === undefined) return;
+    this.emit({
+      kind: 'har-attached',
+      tabId: PROXY_LIFECYCLE_TAB_ID,
+      requestId: id,
+      hopIndex: entry.hopIndex,
+      har: proxyHarEntry(entry.start, entry.url, entry.head, end),
+    });
   }
 
   onError(id: string, error: ProxyExchangeError): void {
+    this.pending.delete(id);
     this.emit({
       kind: 'phase',
       tabId: PROXY_LIFECYCLE_TAB_ID,

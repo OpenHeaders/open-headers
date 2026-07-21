@@ -15,6 +15,7 @@ import { readProxyCa } from './ca-store';
 import { type LifecycleSink, ProxyCaptureLifecycleMapper } from './capture-lifecycle';
 import { createProxyMitmServer, type ProxyMitmServer } from './mitm-server';
 import type { ProxyCaProvider, ProxyScope } from './mitm-types';
+import type { ProxyRuleEnforcer } from './rule-enforcement';
 
 /** CA provider over the sealed slot — `undecryptable` reads as no CA (no leaf). */
 export function sealedCaProvider(): ProxyCaProvider {
@@ -40,6 +41,8 @@ export interface ProxyCaptureEngineOptions {
   readonly getScopePatterns: () => readonly string[];
   /** Where lifecycle updates land — typically `store.apply.bind(store)`. */
   readonly sink: LifecycleSink;
+  /** Phase-3 rule enforcement on captured exchanges; absent = read-only. */
+  readonly enforcer?: ProxyRuleEnforcer;
   readonly caProvider?: ProxyCaProvider;
   readonly now?: () => number;
 }
@@ -54,6 +57,7 @@ export function createProxyCaptureEngine(options: ProxyCaptureEngineOptions): Pr
     caProvider: options.caProvider ?? sealedCaProvider(),
     scope: scopeFromPatterns(options.getScopePatterns),
     observer: mapper,
+    ...(options.enforcer !== undefined ? { enforcer: options.enforcer } : {}),
     ...(options.now !== undefined ? { now: options.now } : {}),
   });
   return { server };

@@ -16,13 +16,14 @@ import * as https from 'node:https';
 import * as net from 'node:net';
 import * as tls from 'node:tls';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
-import type { ProxyCaRecord } from '@openheaders/core/types';
+import type { ProxyCaRecord, Rule, RuleCondition } from '@openheaders/core/types';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mintLeafCertificate, mintProxyCa } from '../../../src/daemon/proxy/ca-store';
 import { ProxyCaptureLifecycleMapper } from '../../../src/daemon/proxy/capture-lifecycle';
 import { createProxyMitmServer, type ProxyMitmServer } from '../../../src/daemon/proxy/mitm-server';
 import type { ProxyCaProvider, ProxyScope } from '../../../src/daemon/proxy/mitm-types';
+import { createProxyRuleEnforcer } from '../../../src/daemon/proxy/rule-enforcement';
 
 const HOST = '127.0.0.1';
 
@@ -249,6 +250,182 @@ describe('proxy MITM capture core', () => {
     expect(res.status).toBe(200);
     await new Promise((r) => setTimeout(r, 50));
     expect(proxyRows()).toHaveLength(0);
+  });
+
+  // ── Phase 3: rule enforcement + L4 timings ────────────────────────
+
+  let fixtureSeq = 0;
+  const uid = (): string => `fixture-${++fixtureSeq}`;
+  const matchAll = (): RuleCondition[] => [{ uid: uid(), type: 'url-filter', values: ['*'] }];
+  const ruleBase = (type: Rule['type']) => ({
+    schemaVersion: 5,
+    uid: uid(),
+    path: `rules/collection/${type}`,
+    name: `${type}-rule`,
+    enabled: true,
+    published: true,
+    conditions: matchAll(),
+  });
+
+  function enforcerOf(rules: Rule[]) {
+    return createProxyRuleEnforcer({ getRules: () => rules });
+  }
+
+  it('enforces header rules both directions on a captured exchange', async () => {
+    let seenUpstream: http.IncomingHttpHeaders = {};
+    const server = http.createServer((req, res) => {
+      seenUpstream = req.headers;
+      res.writeHead(200, { 'content-type': 'text/plain', 'x-upstream-only': 'strip-me' });
+      res.end('ok');
+    });
+    const upstreamPort = await listen(server);
+    cleanups.push(() => closeServer(server));
+
+    const rule: Rule = {
+      ...ruleBase('header'),
+      type: 'header',
+      action: {
+        requestHeaders: [{ uid: uid(), operation: 'override', headerName: 'X-Minted', value: 'proxy-plane' }],
+        responseHeaders: [
+          { uid: uid(), operation: 'remove', headerName: 'X-Upstream-Only' },
+          { uid: uid(), operation: 'add', headerName: 'Via', value: 'oh-proxy' },
+        ],
+      },
+    } as Rule;
+
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstreamPort}/mod`);
+    expect(res.status).toBe(200);
+    expect(seenUpstream['x-minted']).toBe('proxy-plane');
+    expect(res.headers['x-upstream-only']).toBeUndefined();
+    expect(res.headers.via).toBe('oh-proxy');
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed'));
+    const [row] = proxyRows();
+    // The lifecycle reports the wire-truth sets — post-rewrite both ways.
+    expect(row.requestHeaders?.some((h) => h.name === 'X-Minted' && h.value === 'proxy-plane')).toBe(true);
+    expect(row.responseHeaders?.some((h) => h.name.toLowerCase() === 'x-upstream-only')).toBe(false);
+    expect(row.responseHeaders?.some((h) => h.name === 'Via' && h.value === 'oh-proxy')).toBe(true);
+  });
+
+  it('answers a block rule with a synthesized 502 and a failed lifecycle', async () => {
+    const rule: Rule = { ...ruleBase('block'), type: 'block', action: {} } as Rule;
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:1/blocked`);
+    expect(res.status).toBe(502);
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'failed'));
+    const [row] = proxyRows();
+    expect(row.error?.code).toBe('oh:rule-blocked');
+    expect(row.error?.reason).toContain(rule.uid);
+  });
+
+  it('rewrites the target in place for a redirect rule and records the internal hop', async () => {
+    const paths: string[] = [];
+    const server = http.createServer((req, res) => {
+      paths.push(req.url ?? '');
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('rewritten');
+    });
+    const upstreamPort = await listen(server);
+    cleanups.push(() => closeServer(server));
+
+    const rule: Rule = {
+      ...ruleBase('redirect'),
+      type: 'redirect',
+      action: { redirectTo: `http://${HOST}:${upstreamPort}/rewritten` },
+    } as Rule;
+    rule.conditions = [{ uid: uid(), type: 'url-filter', values: [`*://${HOST}:${upstreamPort}/original`] }];
+
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstreamPort}/original`);
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('rewritten');
+    expect(paths).toEqual(['/rewritten']);
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed'));
+    const [row] = proxyRows();
+    expect(row.url).toBe(`http://${HOST}:${upstreamPort}/rewritten`);
+    expect(row.redirectHops).toHaveLength(1);
+    expect(row.redirectHops[0]).toMatchObject({
+      sourceUrl: `http://${HOST}:${upstreamPort}/original`,
+      redirectUrl: `http://${HOST}:${upstreamPort}/rewritten`,
+      internal: true,
+    });
+  });
+
+  it('holds a matched delay rule’s duration before re-originating', async () => {
+    const upstream = await startHttpUpstream();
+    cleanups.push(() => closeServer(upstream.server));
+
+    const rule: Rule = { ...ruleBase('delay'), type: 'delay', action: { delayMs: 120 } } as Rule;
+    proxy = createProxyMitmServer({
+      caProvider: caProviderOf(ca),
+      scope: scopeOf([]),
+      observer: mapper,
+      enforcer: enforcerOf([rule]),
+    });
+    const port = await proxy.listen();
+
+    const before = Date.now();
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstream.port}/slow`);
+    expect(res.status).toBe(200);
+    expect(Date.now() - before).toBeGreaterThanOrEqual(115);
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed'));
+    const [row] = proxyRows();
+    const timings = row.har[0]?.timings;
+    // The rule's hold lands in the queueing leg — deliberate, honest.
+    expect(timings?.blocked).toBeGreaterThanOrEqual(115);
+  });
+
+  it('attaches a synthesized HAR entry with measured L4 legs and byte counts', async () => {
+    const upstream = await startHttpUpstream();
+    cleanups.push(() => closeServer(upstream.server));
+
+    proxy = createProxyMitmServer({ caProvider: caProviderOf(ca), scope: scopeOf([]), observer: mapper });
+    const port = await proxy.listen();
+
+    const res = await proxiedHttpGet(port, `http://${HOST}:${upstream.port}/timed`);
+    expect(res.status).toBe(200);
+
+    await waitFor(() => proxyRows().some((r) => r.phase === 'completed' && r.har[0] != null));
+    const [row] = proxyRows();
+    const har = row.har[0];
+    expect(har?._ohEntrySource).toBe('proxy');
+    expect(har?._ohHeaderCapture).toEqual({ request: 'effective', response: 'effective' });
+    expect(har?.request?.url).toBe(`http://${HOST}:${upstream.port}/timed`);
+    expect(har?.response?.status).toBe(200);
+    expect(har?.response?.bodySize).toBe(Buffer.byteLength(res.body));
+    const timings = har?.timings;
+    expect(timings).toBeDefined();
+    // A fresh loopback socket: connect leg measured, no TLS leg.
+    expect(timings?.connect).toBeGreaterThanOrEqual(0);
+    expect(timings?.ssl).toBe(-1);
+    expect(timings?.wait).toBeGreaterThanOrEqual(0);
+    expect(timings?.receive).toBeGreaterThanOrEqual(0);
+    expect(har?.time).toBeGreaterThanOrEqual(0);
   });
 
   it('captures an upstream failure on a scoped host as a failed lifecycle', async () => {

@@ -1,8 +1,9 @@
 /**
- * Contracts for the L7 MITM capture core (Phase 2). Read-only capture:
- * the server observes and re-originates, it does not yet run the rule
- * engine (Phase 3). Every seam here is injectable so the server is
- * driven in tests without OS trust or a real CA install.
+ * Contracts for the L7 MITM capture core (Phase 2) and the Phase-3
+ * enforcement/timing extensions. The server re-originates, runs the
+ * injected rule enforcer, measures L4 instants on its own sockets, and
+ * reports wire-truth facts. Every seam here is injectable so the server
+ * is driven in tests without OS trust or a real CA install.
  */
 
 import type { ProxyCaRecord } from '@openheaders/core/types';
@@ -49,11 +50,42 @@ export interface ProxyResponseHead {
   readonly atMs: number;
 }
 
+/**
+ * L4 instants measured on the proxy's own upstream socket, wall-clock
+ * ms. Absent instants mean the leg did not occur on this exchange — a
+ * pooled (kept-alive) socket connects nowhere, an `http:` target has no
+ * TLS leg. `atStartMs` is the moment re-origination began (post rule
+ * delay); the request-start-to-here gap is queueing.
+ */
+export interface ProxyHopTiming {
+  readonly atStartMs: number;
+  /** Socket was reused from the agent pool — no connect/TLS legs. */
+  readonly reusedSocket: boolean;
+  readonly dnsResolvedAtMs?: number;
+  readonly connectedAtMs?: number;
+  readonly tlsEstablishedAtMs?: number;
+  /** Request fully flushed upstream. */
+  readonly requestSentAtMs?: number;
+  /** Upstream response head arrived — first byte. */
+  readonly responseAtMs?: number;
+}
+
 /** Terminal completion — response fully relayed. */
 export interface ProxyExchangeEnd {
   readonly completedAtMs: number;
-  /** Decoded response body bytes relayed downstream. */
+  /** Encoded response body bytes relayed downstream. */
   readonly responseBytes: number;
+  /** Encoded request body bytes forwarded upstream. */
+  readonly requestBytes?: number;
+  readonly timing?: ProxyHopTiming;
+}
+
+/** One rule-driven in-place URL rewrite on a captured exchange. */
+export interface ProxyInternalRedirect {
+  readonly ruleUid: string;
+  readonly sourceUrl: string;
+  readonly redirectUrl: string;
+  readonly atMs: number;
 }
 
 /** Terminal failure — upstream connect/transport error. */
@@ -71,6 +103,12 @@ export interface ProxyExchangeError {
  */
 export interface ProxyCaptureObserver {
   onRequestStart(start: ProxyRequestStart): void;
+  /**
+   * A rule rewrote the URL in place (redirect/query-param) — fired after
+   * `onRequestStart` (which carries the original URL), before any
+   * response callback, once per rewrite in application order.
+   */
+  onInternalRedirect(id: string, redirect: ProxyInternalRedirect): void;
   onResponseHeaders(id: string, head: ProxyResponseHead): void;
   onComplete(id: string, end: ProxyExchangeEnd): void;
   onError(id: string, error: ProxyExchangeError): void;

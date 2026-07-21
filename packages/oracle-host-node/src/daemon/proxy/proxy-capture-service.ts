@@ -20,9 +20,9 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { WS_PORT } from '@openheaders/core/protocol';
 import { isValidScopePattern } from '@openheaders/core/proxy';
 import { ProxyCaptureSettingsSchema } from '@openheaders/core/schemas';
-import { WS_PORT } from '@openheaders/core/protocol';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import type { ProxyCaptureSettings, ProxyCaptureStatus } from '@openheaders/core/types';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
@@ -30,6 +30,8 @@ import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-sto
 import { readProxyCa } from './ca-store';
 import type { ProxyMitmServer } from './mitm-server';
 import { createProxyCaptureEngine } from './proxy-capture-engine';
+import { createProxyRuleEnforcer } from './rule-enforcement';
+import { createProxyRuleSource, type DisposableProxyRuleSource } from './rule-provider';
 
 const SCOPE = 'proxy-capture';
 
@@ -84,6 +86,10 @@ export function createProxyCaptureService(): ProxyCaptureService {
 
   let server: ProxyMitmServer | null = null;
   let lastError: string | null = null;
+  // Effective+resolved rule set for the enforcement plane — memoized,
+  // invalidated by the entity-store change signals; created lazily on
+  // first start so an idle service subscribes to nothing.
+  let ruleSource: DisposableProxyRuleSource | null = null;
 
   async function status(): Promise<ProxyCaptureStatus> {
     const s = await settings();
@@ -111,9 +117,11 @@ export function createProxyCaptureService(): ProxyCaptureService {
       return { ok: false, error: 'proxy is running — stop it before changing the port' };
     }
     if (port !== undefined && port !== s.port) await persist({ ...s, port });
+    ruleSource ??= createProxyRuleSource();
     const engine = createProxyCaptureEngine({
       getScopePatterns: () => current.scopePatterns,
       sink: (update) => store.apply(update),
+      enforcer: createProxyRuleEnforcer(ruleSource),
     });
     try {
       const bound = await engine.server.listen(current.port);
@@ -147,6 +155,8 @@ export function createProxyCaptureService(): ProxyCaptureService {
 
   async function dispose(): Promise<void> {
     await stop();
+    ruleSource?.dispose();
+    ruleSource = null;
     hub.dispose();
   }
 

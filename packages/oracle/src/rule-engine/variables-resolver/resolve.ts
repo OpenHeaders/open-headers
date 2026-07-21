@@ -84,17 +84,14 @@ function buildRuleToCollectionContext(collections: readonly Collection[]) {
 
 // ── Public API ──────────────────────────────────────────────────────
 
-/**
- * Resolve every {{VAR}} template in a rule set using the current env /
- * vars / vault / collection scopes. Returns a new rule array — inputs
- * are never mutated. Safe to call every rebuild; cheap even for hundreds
- * of rules.
- */
-export function resolveRulesForCompile(rules: Rule[]): Rule[] {
+/** One subset resolution pass: resolved rules + the per-rule error map. */
+function resolveAgainstCurrentScopes(rules: readonly Rule[]): {
+  resolved: Rule[];
+  perRuleErrors: Map<string, ResolutionError[]>;
+} {
   const state = activeState();
   syncResolverFromStores(state);
-  const collections = getCollections();
-  const collectionOf = buildRuleToCollectionContext(collections);
+  const collectionOf = buildRuleToCollectionContext(getCollections());
 
   const perRuleErrors: Map<string, ResolutionError[]> = new Map();
   const resolved = rules.map((rule) => {
@@ -107,12 +104,40 @@ export function resolveRulesForCompile(rules: Rule[]): Rule[] {
     if (errors.length > 0) perRuleErrors.set(rule.uid, errors);
     return resolvedRule;
   });
+  return { resolved, perRuleErrors };
+}
+
+/**
+ * Resolve an arbitrary rule subset and report which uids failed
+ * resolution, WITHOUT touching the persisted full-compile snapshot.
+ * For consumers that enforce rules outside the DNR compile loop (the
+ * daemon's proxy plane) and must skip unresolved-`{{ref}}` rules the
+ * same way the compile loop does — a rule the extension would keep off
+ * the wire never fires on the proxy either.
+ */
+export function resolveRuleSubsetWithDiagnostics(rules: readonly Rule[]): {
+  resolved: Rule[];
+  unresolvableUids: ReadonlySet<string>;
+} {
+  const { resolved, perRuleErrors } = resolveAgainstCurrentScopes(rules);
+  return { resolved, unresolvableUids: new Set(perRuleErrors.keys()) };
+}
+
+/**
+ * Resolve every {{VAR}} template in a rule set using the current env /
+ * vars / vault / collection scopes. Returns a new rule array — inputs
+ * are never mutated. Safe to call every rebuild; cheap even for hundreds
+ * of rules.
+ */
+export function resolveRulesForCompile(rules: Rule[]): Rule[] {
+  const { resolved, perRuleErrors } = resolveAgainstCurrentScopes(rules);
 
   // Only persist the snapshot when compiling the FULL active-workspace
   // rule set — a subset compile would overwrite the snapshot with a
   // partial view. A length check against the live store count is a
   // cheap discriminator.
   if (rules.length >= getRules().length) {
+    const state = activeState();
     state.lastResolvedRules = resolved;
     state.lastResolutionErrors = perRuleErrors;
   }

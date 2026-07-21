@@ -34,7 +34,7 @@ export {
   getResolvedRules,
   getUnresolvableRuleUids,
 } from './reads';
-export { getResolver, resolveRulesForCompile, syncResolver } from './resolve';
+export { getResolver, resolveRuleSubsetWithDiagnostics, resolveRulesForCompile, syncResolver } from './resolve';
 export { disposeResolverStateForWorkspace } from './state';
 export { __setSyncWarmRunner, kickSyncWarmRefreshes, SYNC_WARM_TIMEOUT_MS, type SyncWarmRunner } from './sync-warm';
 export { __resetForTests } from './testing';

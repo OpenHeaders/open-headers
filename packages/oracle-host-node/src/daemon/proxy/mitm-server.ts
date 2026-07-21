@@ -1,5 +1,5 @@
 /**
- * L7 MITM capture core (`PROXY_PLAN.md` Phase 2). A forward HTTP(S)
+ * L7 MITM capture core (`PROXY_PLAN.md` Phases 2+3). A forward HTTP(S)
  * proxy bound to a daemon-local port:
  *
  *  - plain `http://` requests (absolute-form) are re-originated upstream
@@ -11,10 +11,17 @@
  *    opaque blind tunnel — bytes piped verbatim, nothing decrypted or
  *    captured (`PROXY_SECURITY.md` §2.4 scoped-decrypt-by-default).
  *
- * Read-only in this phase: the server observes and relays; it does not
- * yet run the rule engine (Phase 3). Every capture is surfaced through a
- * {@link ProxyCaptureObserver}; the lifecycle mapper owns turning those
- * into `RequestLifecycleUpdate`s.
+ * Phase 3: when an enforcer is injected, every captured request runs the
+ * rule engine before re-origination — block answers a synthesized 502
+ * (`oh:rule-blocked` on the lifecycle), redirect/query-param rewrite the
+ * target in place (recorded as internal hops), delay holds the exchange,
+ * header mods rewrite the wire sets both directions. Blind tunnels stay
+ * untouched — un-scoped traffic is never captured NOR enforced.
+ *
+ * L4 timings are measured on the proxy's own upstream sockets and
+ * reported with the terminal callback; the lifecycle mapper folds them
+ * into a synthesized HAR entry. Every capture is surfaced through a
+ * {@link ProxyCaptureObserver}.
  */
 
 import * as http from 'node:http';
@@ -24,11 +31,14 @@ import type { Duplex } from 'node:stream';
 import * as tls from 'node:tls';
 import { LeafContextCache } from './leaf-context';
 import type { ProxyCaProvider, ProxyCaptureObserver, ProxyHeader, ProxyScope } from './mitm-types';
+import type { ProxyRequestPlan, ProxyRuleEnforcer } from './rule-enforcement';
 
 export interface ProxyMitmServerOptions {
   readonly caProvider: ProxyCaProvider;
   readonly scope: ProxyScope;
   readonly observer: ProxyCaptureObserver;
+  /** Phase-3 rule enforcement; absent = read-only capture. */
+  readonly enforcer?: ProxyRuleEnforcer;
   readonly now?: () => number;
   /**
    * Upstream TLS trust for re-origination. Defaults to normal system
@@ -42,6 +52,14 @@ export interface ProxyMitmServerOptions {
 interface TunnelTarget {
   readonly host: string;
   readonly port: number;
+}
+
+interface ResolvedTarget {
+  readonly scheme: 'http' | 'https';
+  readonly host: string;
+  readonly port: number;
+  readonly path: string;
+  readonly url: string;
 }
 
 export interface ProxyMitmServer {
@@ -76,10 +94,61 @@ function rawHeaderPairs(rawHeaders: readonly string[]): ProxyHeader[] {
   return out;
 }
 
-/** Headers to forward upstream — drop the hop-by-hop proxy control header. */
-function outboundHeaders(headers: http.IncomingHttpHeaders): http.OutgoingHttpHeaders {
-  const out: http.OutgoingHttpHeaders = { ...headers };
-  delete out['proxy-connection'];
+/** Parse an absolute URL into the upstream connection target. */
+function resolveTarget(url: string): ResolvedTarget | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  const scheme = parsed.protocol === 'https:' ? 'https' : 'http';
+  const port = parsed.port !== '' ? Number(parsed.port) : scheme === 'https' ? 443 : 80;
+  return { scheme, host: parsed.hostname, port, path: `${parsed.pathname}${parsed.search}`, url: parsed.toString() };
+}
+
+/**
+ * Header pairs → the outgoing-request shape. Duplicate names collapse
+ * to array values (Node re-expands them on the wire). Drops the
+ * hop-by-hop proxy control header; when a rule rewrite changed the
+ * target authority, `Host` is re-pointed at it.
+ */
+function outboundHeaders(pairs: readonly ProxyHeader[], authority: string | null): http.OutgoingHttpHeaders {
+  const out: http.OutgoingHttpHeaders = {};
+  for (const { name, value } of pairs) {
+    const lower = name.toLowerCase();
+    if (lower === 'proxy-connection') continue;
+    if (lower === 'host' && authority !== null) {
+      out[name] = authority;
+      continue;
+    }
+    const existing = out[name] ?? out[lower];
+    const key = out[name] !== undefined ? name : out[lower] !== undefined ? lower : name;
+    if (existing === undefined) {
+      out[key] = value;
+    } else if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      out[key] = [String(existing), value];
+    }
+  }
+  return out;
+}
+
+/** Header pairs → the downstream `writeHead` shape (same collapsing). */
+function downstreamHeaders(pairs: readonly ProxyHeader[]): http.OutgoingHttpHeaders {
+  const out: http.OutgoingHttpHeaders = {};
+  for (const { name, value } of pairs) {
+    const existing = out[name];
+    if (existing === undefined) {
+      out[name] = value;
+    } else if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      out[name] = [String(existing), value];
+    }
+  }
   return out;
 }
 
@@ -87,6 +156,7 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
   private readonly caProvider: ProxyCaProvider;
   private readonly scope: ProxyScope;
   private readonly observer: ProxyCaptureObserver;
+  private readonly enforcer: ProxyRuleEnforcer | null;
   private readonly now: () => number;
   private readonly upstreamTls: ProxyMitmServerOptions['upstreamTls'];
 
@@ -105,6 +175,7 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
     this.caProvider = options.caProvider;
     this.scope = options.scope;
     this.observer = options.observer;
+    this.enforcer = options.enforcer ?? null;
     this.now = options.now ?? Date.now;
     this.upstreamTls = options.upstreamTls;
 
@@ -156,22 +227,12 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
 
   // ── Plain HTTP (absolute-form request URL) ─────────────────────────
   private handlePlainRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    let target: URL;
-    try {
-      target = new URL(req.url ?? '');
-    } catch {
+    const target = resolveTarget(req.url ?? '');
+    if (target === null) {
       res.writeHead(400).end();
       return;
     }
-    const scheme = target.protocol === 'https:' ? 'https' : 'http';
-    const port = target.port !== '' ? Number(target.port) : scheme === 'https' ? 443 : 80;
-    this.reoriginate(req, res, {
-      scheme,
-      host: target.hostname,
-      port,
-      path: `${target.pathname}${target.search}`,
-      url: target.toString(),
-    });
+    void this.reoriginate(req, res, target);
   }
 
   // ── Decrypted HTTP (origin-form, from a terminated tunnel) ──────────
@@ -182,7 +243,7 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
       return;
     }
     const path = req.url ?? '/';
-    this.reoriginate(req, res, {
+    void this.reoriginate(req, res, {
       scheme: 'https',
       host: tunnel.host,
       port: tunnel.port,
@@ -191,29 +252,89 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
     });
   }
 
-  private reoriginate(
+  private async reoriginate(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    target: { scheme: 'http' | 'https'; host: string; port: number; path: string; url: string },
-  ): void {
+    requested: ResolvedTarget,
+  ): Promise<void> {
     const id = this.nextId();
     const startedAtMs = this.now();
+    const inboundHeaders = rawHeaderPairs(req.rawHeaders);
+    const method = req.method ?? 'GET';
+
+    const plan: ProxyRequestPlan | null =
+      this.enforcer !== null
+        ? this.enforcer.planRequest({ url: requested.url, method, headers: inboundHeaders })
+        : null;
+    const wireHeaders = plan?.requestHeaders ?? inboundHeaders;
+
     this.observer.onRequestStart({
       id,
-      scheme: target.scheme,
-      method: req.method ?? 'GET',
-      url: target.url,
-      host: target.host,
-      headers: rawHeaderPairs(req.rawHeaders),
+      scheme: requested.scheme,
+      method,
+      url: requested.url,
+      host: requested.host,
+      headers: wireHeaders,
       startedAtMs,
     });
 
+    if (plan !== null && plan.blockedBy !== undefined) {
+      this.observer.onError(id, {
+        atMs: this.now(),
+        code: 'oh:rule-blocked',
+        reason: `blocked by rule ${plan.blockedBy}`,
+      });
+      res.writeHead(502, 'Blocked').end('Blocked by an Open Headers rule.');
+      req.resume();
+      return;
+    }
+
+    // A rule rewrite retargets the exchange; a rewritten URL that fails
+    // to parse (or leaves http/https) is refused rather than half-sent.
+    let target = requested;
+    let rewritten = false;
+    if (plan !== null && plan.url !== requested.url) {
+      const next = resolveTarget(plan.url);
+      if (next === null) {
+        this.observer.onError(id, {
+          atMs: this.now(),
+          code: 'oh:rule-rewrite-invalid',
+          reason: `rule rewrite produced an unusable URL: ${plan.url}`,
+        });
+        res.writeHead(502).end();
+        req.resume();
+        return;
+      }
+      for (const rewrite of plan.rewrites) {
+        this.observer.onInternalRedirect(id, { ...rewrite, atMs: this.now() });
+      }
+      target = next;
+      rewritten = true;
+    }
+
+    if (plan !== null && plan.delayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, plan.delayMs));
+    }
+
+    const atStartMs = this.now();
+    const timing: {
+      reusedSocket: boolean;
+      dnsResolvedAtMs?: number;
+      connectedAtMs?: number;
+      tlsEstablishedAtMs?: number;
+      requestSentAtMs?: number;
+      responseAtMs?: number;
+    } = { reusedSocket: false };
+
+    const authority = rewritten
+      ? `${target.host}${target.port === (target.scheme === 'https' ? 443 : 80) ? '' : `:${target.port}`}`
+      : null;
     const requestOptions: https.RequestOptions = {
       host: target.host,
       port: target.port,
-      method: req.method,
+      method,
       path: target.path,
-      headers: outboundHeaders(req.headers),
+      headers: outboundHeaders(wireHeaders, authority),
     };
     if (target.scheme === 'https' && this.upstreamTls !== undefined) {
       if (this.upstreamTls.ca !== undefined) requestOptions.ca = this.upstreamTls.ca as string | string[];
@@ -224,21 +345,51 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
 
     const transport = target.scheme === 'https' ? https : http;
     const upstream = transport.request(requestOptions, (upRes) => {
+      timing.responseAtMs = this.now();
+      const upstreamHeadPairs = rawHeaderPairs(upRes.rawHeaders);
+      const served =
+        plan !== null && this.enforcer !== null
+          ? this.enforcer.applyResponseHeaders(plan, upstreamHeadPairs).headers
+          : upstreamHeadPairs;
       this.observer.onResponseHeaders(id, {
         statusCode: upRes.statusCode ?? 0,
         statusText: upRes.statusMessage ?? '',
-        headers: rawHeaderPairs(upRes.rawHeaders),
+        headers: served,
         atMs: this.now(),
       });
-      res.writeHead(upRes.statusCode ?? 502, upRes.statusMessage, upRes.headers);
+      res.writeHead(upRes.statusCode ?? 502, upRes.statusMessage, downstreamHeaders(served));
       let bytes = 0;
       upRes.on('data', (chunk: Buffer) => {
         bytes += chunk.length;
       });
       upRes.on('end', () => {
-        this.observer.onComplete(id, { completedAtMs: this.now(), responseBytes: bytes });
+        this.observer.onComplete(id, {
+          completedAtMs: this.now(),
+          responseBytes: bytes,
+          requestBytes,
+          timing: { atStartMs, ...timing },
+        });
       });
       upRes.pipe(res);
+    });
+
+    upstream.on('socket', (socket) => {
+      if (!socket.connecting) {
+        timing.reusedSocket = true;
+        return;
+      }
+      socket.once('lookup', () => {
+        timing.dnsResolvedAtMs = this.now();
+      });
+      socket.once('connect', () => {
+        timing.connectedAtMs = this.now();
+      });
+      socket.once('secureConnect', () => {
+        timing.tlsEstablishedAtMs = this.now();
+      });
+    });
+    upstream.on('finish', () => {
+      timing.requestSentAtMs = this.now();
     });
 
     upstream.on('error', (err: NodeJS.ErrnoException) => {
@@ -251,6 +402,10 @@ class ProxyMitmServerImpl implements ProxyMitmServer {
       res.end();
     });
 
+    let requestBytes = 0;
+    req.on('data', (chunk: Buffer) => {
+      requestBytes += chunk.length;
+    });
     req.pipe(upstream);
   }
 
