@@ -11,7 +11,7 @@
 
 import { isChrome, isEdge, isFirefox, isSafari } from '../utils/browser-api';
 
-function browserName(): string {
+export function browserName(): string {
   if (isFirefox) return 'Firefox';
   if (isEdge) return 'Edge';
   if (isSafari) return 'Safari';
@@ -19,7 +19,7 @@ function browserName(): string {
   return 'Browser';
 }
 
-function platformName(): string | null {
+export function platformName(): string | null {
   const data = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
   if (data?.platform && data.platform.trim().length > 0) return data.platform.trim();
   const ua = navigator.userAgent;

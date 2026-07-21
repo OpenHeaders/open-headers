@@ -270,7 +270,10 @@ describe('createBrowserLiveRelay', () => {
     relay.peerPush.handle(
       {
         type: `${TELEMETRY_TABS_LIST_TYPE}:response`,
-        payload: { tabs: [{ tabId: 7, windowId: 1, title: 'Docs', url: 'https://openheaders.io/docs', active: true }] },
+        payload: {
+          tabs: [{ tabId: 7, windowId: 1, title: 'Docs', url: 'https://openheaders.io/docs', active: true }],
+          browser: { name: 'Chrome', platform: 'macOS' },
+        },
       },
       peerSummary('node-a'),
     );
@@ -280,6 +283,7 @@ describe('createBrowserLiveRelay', () => {
     expect(result.peers).toHaveLength(1);
     expect(result.peers[0].nodeId).toBe('node-a');
     expect(result.peers[0].tabs[0].url).toBe('https://openheaders.io/docs');
+    expect(result.peers[0].browser).toEqual({ name: 'Chrome', platform: 'macOS' });
     relay.dispose();
   });
 });

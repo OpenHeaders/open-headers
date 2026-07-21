@@ -69,7 +69,9 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({ info, onHide,
     setLoading(true);
     try {
       const resp = await hostBridge.call('oh.daemon.telemetry.tabs.list');
-      setPeers(resp.peers.map((peer) => ({ nodeId: peer.nodeId, agent: peer.agent, tabs: [...peer.tabs] })));
+      setPeers(
+        resp.peers.map((peer) => ({ nodeId: peer.nodeId, agent: peer.agent, browser: peer.browser, tabs: [...peer.tabs] })),
+      );
       // A picked tab that disappeared from the inventory (closed,
       // browser gone) stays selected — the lifeline keeps replaying the
       // engine's view until upstream clears it; the user re-picks.

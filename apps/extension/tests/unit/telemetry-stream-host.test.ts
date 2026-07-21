@@ -219,8 +219,11 @@ describe('startTelemetryStreamHost', () => {
     await vi.advanceTimersByTimeAsync(10);
     const reply = h.wireSent.find((f) => f.type === `${TELEMETRY_TABS_LIST_TYPE}:response`);
     expect(reply).toBeDefined();
-    const payload = reply?.payload as { tabs: Array<{ url: string }> };
+    const payload = reply?.payload as { tabs: Array<{ url: string }>; browser: { name: string } };
     expect(payload.tabs[0].url).toBe('https://openheaders.io/docs');
+    // The reply carries the answering browser's display identity for
+    // the workbench source rail.
+    expect(payload.browser.name.length).toBeGreaterThan(0);
     h.host.dispose();
   });
 });

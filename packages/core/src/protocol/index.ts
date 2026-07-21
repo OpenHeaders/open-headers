@@ -135,6 +135,7 @@ export type {
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
   BrowserTabWire,
+  TelemetryBrowserIdentity,
   TelemetryHostReadyMessage,
   TelemetryLifecycleBatchMessage,
   TelemetryLifecycleConsumerMessage,

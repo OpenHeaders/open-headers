@@ -88,11 +88,28 @@ export interface BrowserTabWire {
   title: string;
   url: string;
   active: boolean;
+  /**
+   * The tab's favicon as a small `data:` URI, resolved by the extension
+   * (the workbench renderer's CSP forbids remote images, and the desktop
+   * must never fetch from arbitrary sites itself). Absent while the
+   * extension's favicon cache is cold or the icon is unfetchable.
+   */
+  favIconUrl?: string;
+}
+
+/** The answering browser's display identity (build target + platform). */
+export interface TelemetryBrowserIdentity {
+  /** Browser family name, e.g. `Chrome` / `Firefox` / `Edge` / `Safari`. */
+  name: string;
+  /** Human platform label (`macOS`, `Windows`, …) or null when unknown. */
+  platform: string | null;
 }
 
 /** `payload` of the `oh.telemetry.tabs.list:response` reply frame. */
 export interface TelemetryTabsListResponsePayload {
   tabs: BrowserTabWire[];
+  /** Who is answering — drives the source rail's per-browser header. */
+  browser: TelemetryBrowserIdentity;
 }
 
 export type TelemetryStreamMessage =

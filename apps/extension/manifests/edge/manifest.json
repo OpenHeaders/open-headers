@@ -32,7 +32,8 @@
     "sidePanel",
     "identity",
     "offscreen",
-    "proxy"
+    "proxy",
+    "favicon"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -48,15 +49,23 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["js/content/fire-bridge/index.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "js/content/fire-bridge/index.js"
+      ],
       "run_at": "document_start",
       "all_frames": false,
       "world": "ISOLATED"
     },
     {
-      "matches": ["<all_urls>"],
-      "js": ["js/content/perf-observer/index.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "js/content/perf-observer/index.js"
+      ],
       "run_at": "document_start",
       "all_frames": false,
       "world": "ISOLATED"
@@ -64,8 +73,17 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["*.html", "*.js", "*.css", "js/*.js", "js/**/*.js", "images/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "*.html",
+        "*.js",
+        "*.css",
+        "js/*.js",
+        "js/**/*.js",
+        "images/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "icons": {
@@ -86,6 +104,8 @@
     "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; child-src 'self'; connect-src 'none'"
   },
   "sandbox": {
-    "pages": ["sandbox.html"]
+    "pages": [
+      "sandbox.html"
+    ]
   }
 }

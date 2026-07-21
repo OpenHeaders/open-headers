@@ -513,12 +513,41 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInactive':
     'Los navegadores enrutan los hosts del ámbito cuando el proxy está en marcha.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · no compatible',
+  'workbench.proxyCapture.scopeInfo.exampleCaption': 'Ejemplo de alcance',
+  'workbench.proxyCapture.scopeInfo.exampleDecrypted': 'descifrado',
+  'workbench.proxyCapture.scopeInfo.exampleOpaque': 'túnel opaco',
+  'workbench.proxyCapture.scopeInfo.summary':
+    'Solo los hosts listados se descifran (TLS) y se inspeccionan; cualquier otra conexión HTTPS pasa como un túnel ' +
+    'opaco, nunca interceptada.',
+  'workbench.proxyCapture.scopeInfo.description':
+    'Una lista vacía no descifra nada: la interceptación siempre es una elección explícita, host por host.',
+  'workbench.proxyCapture.scopeInfo.patternsHeading': 'Patrones',
+  'workbench.proxyCapture.scopeInfo.exactDesc': 'Nombre de host exacto: coincide solo con el ápex.',
+  'workbench.proxyCapture.scopeInfo.wildcardDesc': 'Cualquier subdominio, nunca el ápex en sí.',
+  'workbench.proxyCapture.scopeInfo.ipDesc': 'Un literal IP coincide exactamente.',
+  'workbench.proxyCapture.routingInfo.exampleCaption': 'Ejemplo de enrutamiento',
+  'workbench.proxyCapture.routingInfo.summary':
+    'Los navegadores conectados envían automáticamente los hosts del alcance a través del proxy de captura: sin ' +
+    'ajustes de proxy del sistema, sin configuración manual; todo lo demás va directo.',
+  'workbench.proxyCapture.routingInfo.description':
+    'El enrutamiento persiste hasta que lo desactives: un reinicio de la aplicación o un corte de conexión nunca ' +
+    'deja al navegador atascado tras un proxy muerto.',
+  'workbench.proxyCapture.routingInfo.behaviorHeading': 'Comportamiento',
+  'workbench.proxyCapture.routingInfo.appliedDesc':
+    'Los navegadores Chromium aplican un PAC generado; Firefox enruta petición a petición.',
+  'workbench.proxyCapture.routingInfo.failoverDesc':
+    'Si el puerto de captura no responde, el tráfico vuelve a la conexión directa: un hueco de captura, nunca una ' +
+    'navegación rota.',
+  'workbench.proxyCapture.routingInfo.h3Desc':
+    'Los hosts enrutados caen de HTTP/3 a HTTP/2 o 1.1; los endpoints con certificado fijado pueden fallar mientras ' +
+    'están enrutados.',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
   'workbench.trafficMonitor.browserConnected': 'Navegadores conectados: {count}',
   'workbench.trafficMonitor.noBrowser': 'Ningún navegador conectado',
   'workbench.trafficMonitor.refreshTabs': 'Actualizar la lista de pestañas',
   'workbench.trafficMonitor.untitledTab': 'Pestaña sin título',
+  'workbench.trafficMonitor.extensionVersion': 'Extensión v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
   'workbench.trafficMonitor.sources': 'Fuentes',

@@ -508,12 +508,41 @@ export const workbenchChrome = {
     'und Endpunkte mit Zertifikats-Pinning können fehlschlagen. Übriger Verkehr bleibt direkt.',
   'workbench.proxyCapture.routingInactive': 'Browser routen Hosts im Bereich, sobald der Proxy läuft.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · nicht unterstützt',
+  'workbench.proxyCapture.scopeInfo.exampleCaption': 'Beispiel-Geltungsbereich',
+  'workbench.proxyCapture.scopeInfo.exampleDecrypted': 'entschlüsselt',
+  'workbench.proxyCapture.scopeInfo.exampleOpaque': 'opaker Tunnel',
+  'workbench.proxyCapture.scopeInfo.summary':
+    'Nur gelistete Hosts werden TLS-entschlüsselt und inspiziert — jede andere HTTPS-Verbindung läuft als opaker ' +
+    'Tunnel durch, nie abgefangen.',
+  'workbench.proxyCapture.scopeInfo.description':
+    'Eine leere Liste entschlüsselt nichts: Abfangen ist immer eine explizite Entscheidung, Host für Host.',
+  'workbench.proxyCapture.scopeInfo.patternsHeading': 'Muster',
+  'workbench.proxyCapture.scopeInfo.exactDesc': 'Exakter Hostname — trifft nur den Apex.',
+  'workbench.proxyCapture.scopeInfo.wildcardDesc': 'Jede Subdomain — nie der Apex selbst.',
+  'workbench.proxyCapture.scopeInfo.ipDesc': 'Ein IP-Literal trifft exakt.',
+  'workbench.proxyCapture.routingInfo.exampleCaption': 'Beispiel-Routing',
+  'workbench.proxyCapture.routingInfo.summary':
+    'Verbundene Browser leiten Hosts im Geltungsbereich automatisch durch den Capture-Proxy — keine ' +
+    'OS-Proxy-Einstellungen, keine manuelle Einrichtung; alles andere bleibt direkt.',
+  'workbench.proxyCapture.routingInfo.description':
+    'Das Routing bleibt bestehen, bis du es ausschaltest — ein App-Neustart oder Verbindungsabriss lässt den ' +
+    'Browser nie hinter einem toten Proxy hängen.',
+  'workbench.proxyCapture.routingInfo.behaviorHeading': 'Verhalten',
+  'workbench.proxyCapture.routingInfo.appliedDesc':
+    'Chromium-Browser wenden ein generiertes PAC an; Firefox routet pro Anfrage.',
+  'workbench.proxyCapture.routingInfo.failoverDesc':
+    'Ist der Capture-Port unerreichbar, fällt der Verkehr auf eine Direktverbindung zurück — eine Capture-Lücke, ' +
+    'nie kaputtes Surfen.',
+  'workbench.proxyCapture.routingInfo.h3Desc':
+    'Geroutete Hosts fallen von HTTP/3 auf HTTP/2 oder 1.1 zurück; Endpunkte mit Certificate-Pinning können ' +
+    'während des Routings fehlschlagen.',
 
   // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
   'workbench.trafficMonitor.browserConnected': 'Verbundene Browser: {count}',
   'workbench.trafficMonitor.noBrowser': 'Kein Browser verbunden',
   'workbench.trafficMonitor.refreshTabs': 'Tab-Liste aktualisieren',
   'workbench.trafficMonitor.untitledTab': 'Unbenannter Tab',
+  'workbench.trafficMonitor.extensionVersion': 'Erweiterung v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
   'workbench.trafficMonitor.sources': 'Quellen',

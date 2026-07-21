@@ -19,7 +19,7 @@ import type {
   ProxyTrustStoreId,
   ProxyTrustStoreState,
 } from '../../types';
-import type { BrowserTabWire } from '../telemetry-stream';
+import type { BrowserTabWire, TelemetryBrowserIdentity } from '../telemetry-stream';
 
 export interface DaemonRpc {
   /**
@@ -617,13 +617,19 @@ export interface DaemonRpc {
   /**
    * Browser tabs per connected extension peer. `nodeId` is the peer's
    * HELLO identity — the qualifier the workbench passes back when it
-   * opens a tab's lifecycle lifeline; `agent` labels the browser build
-   * for the picker. Empty when no extension peer is connected.
+   * opens a tab's lifecycle lifeline; `agent` labels the extension
+   * build; `browser` is the browser's display identity for the source
+   * rail. Empty when no extension peer is connected.
    */
   'oh.daemon.telemetry.tabs.list': {
     req: Record<string, never>;
     res: {
-      peers: ReadonlyArray<{ nodeId: string; agent: string; tabs: ReadonlyArray<BrowserTabWire> }>;
+      peers: ReadonlyArray<{
+        nodeId: string;
+        agent: string;
+        browser: TelemetryBrowserIdentity;
+        tabs: ReadonlyArray<BrowserTabWire>;
+      }>;
     };
   };
 

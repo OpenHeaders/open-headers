@@ -20,6 +20,7 @@ import { Alert, App as AntApp, Button, InputNumber, Popover, Select, Space, Swit
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { RoutingInfoTrigger, ScopeInfoTrigger } from './ProxyCaptureStripInfo';
 
 export interface ProxyCaptureControls {
   status: ProxyCaptureStatus | null;
@@ -191,10 +192,12 @@ export const ProxyCaptureStrip: React.FC<ProxyCaptureStripProps> = ({ controls }
               : t('workbench.proxyCapture.scope')}
           </Button>
         </Popover>
+        <ScopeInfoTrigger />
         <Space size={6} align="center">
           <Switch size="small" checked={routing?.enabled === true} onChange={(checked) => void toggleRouting(checked)} />
           <span style={{ fontSize: 12 }}>{t('workbench.proxyCapture.routing')}</span>
         </Space>
+        <RoutingInfoTrigger port={status?.boundPort ?? status?.port ?? null} />
       </Space>
       {routing?.enabled === true && (
         <Alert

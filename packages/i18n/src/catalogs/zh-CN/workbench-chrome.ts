@@ -503,12 +503,33 @@ export const workbenchChrome = {
     '范围外的流量保持直连。',
   'workbench.proxyCapture.routingInactive': '代理运行后，浏览器才会路由范围内的主机。',
   'workbench.proxyCapture.routingUnsupported': '{agent} · 不支持',
+  'workbench.proxyCapture.scopeInfo.exampleCaption': '范围示例',
+  'workbench.proxyCapture.scopeInfo.exampleDecrypted': '已解密',
+  'workbench.proxyCapture.scopeInfo.exampleOpaque': '不透明隧道',
+  'workbench.proxyCapture.scopeInfo.summary':
+    '只有列出的主机会被 TLS 解密并检查——其他所有 HTTPS 连接都以不透明隧道通过，绝不拦截。',
+  'workbench.proxyCapture.scopeInfo.description': '空列表不解密任何内容：拦截始终是逐个主机的显式选择。',
+  'workbench.proxyCapture.scopeInfo.patternsHeading': '匹配模式',
+  'workbench.proxyCapture.scopeInfo.exactDesc': '精确主机名——只匹配根域本身。',
+  'workbench.proxyCapture.scopeInfo.wildcardDesc': '任意子域——绝不匹配根域本身。',
+  'workbench.proxyCapture.scopeInfo.ipDesc': 'IP 字面量精确匹配。',
+  'workbench.proxyCapture.routingInfo.exampleCaption': '路由示例',
+  'workbench.proxyCapture.routingInfo.summary':
+    '已连接的浏览器会自动把范围内的主机经由捕获代理发送——无需系统代理设置，无需手动配置；其余流量保持直连。',
+  'workbench.proxyCapture.routingInfo.description':
+    '路由会一直保持，直到你关闭它——应用重启或连接中断绝不会让浏览器卡在失效的代理后面。',
+  'workbench.proxyCapture.routingInfo.behaviorHeading': '行为',
+  'workbench.proxyCapture.routingInfo.appliedDesc': 'Chromium 浏览器应用生成的 PAC；Firefox 逐请求路由。',
+  'workbench.proxyCapture.routingInfo.failoverDesc': '若捕获端口不可达，流量回退为直连——只是捕获缺口，绝不破坏浏览。',
+  'workbench.proxyCapture.routingInfo.h3Desc':
+    '被路由的主机从 HTTP/3 回退到 HTTP/2 或 1.1；证书固定的端点在路由期间可能失败。',
 
   // ── 流量监视工具窗口（统一可观测性界面） ────────────────────────────
   'workbench.trafficMonitor.browserConnected': '已连接浏览器：{count}',
   'workbench.trafficMonitor.noBrowser': '未连接浏览器',
   'workbench.trafficMonitor.refreshTabs': '刷新标签页列表',
   'workbench.trafficMonitor.untitledTab': '无标题标签页',
+  'workbench.trafficMonitor.extensionVersion': '扩展 v{version}',
   'workbench.trafficMonitor.emptyWatching': '等待流量…',
   'workbench.trafficMonitor.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
   'workbench.trafficMonitor.sources': '来源',

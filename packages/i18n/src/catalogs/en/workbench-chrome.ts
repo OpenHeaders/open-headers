@@ -499,12 +499,39 @@ export const workbenchChrome = {
     'certificate-pinned endpoints may fail. Un-scoped traffic stays direct.',
   'workbench.proxyCapture.routingInactive': 'Browsers route scoped hosts once the proxy is running.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · not supported',
+  'workbench.proxyCapture.scopeInfo.exampleCaption': 'Example scope',
+  'workbench.proxyCapture.scopeInfo.exampleDecrypted': 'decrypted',
+  'workbench.proxyCapture.scopeInfo.exampleOpaque': 'opaque tunnel',
+  'workbench.proxyCapture.scopeInfo.summary':
+    'Only listed hosts are TLS-decrypted and inspected — every other HTTPS connection passes through as an opaque ' +
+    'tunnel, never intercepted.',
+  'workbench.proxyCapture.scopeInfo.description':
+    'An empty list decrypts nothing: interception is always an explicit choice, host by host.',
+  'workbench.proxyCapture.scopeInfo.patternsHeading': 'Patterns',
+  'workbench.proxyCapture.scopeInfo.exactDesc': 'Exact hostname — matches the apex only.',
+  'workbench.proxyCapture.scopeInfo.wildcardDesc': 'Any subdomain — never the apex itself.',
+  'workbench.proxyCapture.scopeInfo.ipDesc': 'An IP literal matches exactly.',
+  'workbench.proxyCapture.routingInfo.exampleCaption': 'Example routing',
+  'workbench.proxyCapture.routingInfo.summary':
+    'Connected browsers send scoped hosts through the capture proxy automatically — no OS proxy settings, no manual ' +
+    'setup; everything else stays direct.',
+  'workbench.proxyCapture.routingInfo.description':
+    'Routing persists until you switch it off — an app restart or connection drop never leaves the browser stuck ' +
+    'behind a dead proxy.',
+  'workbench.proxyCapture.routingInfo.behaviorHeading': 'Behavior',
+  'workbench.proxyCapture.routingInfo.appliedDesc':
+    'Chromium browsers apply a generated PAC; Firefox routes per request.',
+  'workbench.proxyCapture.routingInfo.failoverDesc':
+    'If the capture port is unreachable, traffic falls back to a direct connection — a capture gap, never broken browsing.',
+  'workbench.proxyCapture.routingInfo.h3Desc':
+    'Routed hosts fall back from HTTP/3 to HTTP/2 or 1.1; certificate-pinned endpoints may fail while routed.',
 
   // ── Traffic Monitor tool window (unified observability surface) ─────
   'workbench.trafficMonitor.browserConnected': 'Connected browsers: {count}',
   'workbench.trafficMonitor.noBrowser': 'No browser connected',
   'workbench.trafficMonitor.refreshTabs': 'Refresh tab list',
   'workbench.trafficMonitor.untitledTab': 'Untitled tab',
+  'workbench.trafficMonitor.extensionVersion': 'Extension v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Waiting for traffic…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Browse in the watched tab — its requests appear here live',
   'workbench.trafficMonitor.sources': 'Sources',

@@ -512,12 +512,41 @@ export const workbenchChrome = {
     'et les points de terminaison à certificat épinglé peuvent échouer. Le reste du trafic reste direct.',
   'workbench.proxyCapture.routingInactive': 'Les navigateurs routent les hôtes du périmètre dès que le proxy tourne.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · non pris en charge',
+  'workbench.proxyCapture.scopeInfo.exampleCaption': 'Exemple de périmètre',
+  'workbench.proxyCapture.scopeInfo.exampleDecrypted': 'déchiffré',
+  'workbench.proxyCapture.scopeInfo.exampleOpaque': 'tunnel opaque',
+  'workbench.proxyCapture.scopeInfo.summary':
+    'Seuls les hôtes listés sont déchiffrés (TLS) et inspectés — toute autre connexion HTTPS transite en tunnel ' +
+    'opaque, jamais interceptée.',
+  'workbench.proxyCapture.scopeInfo.description':
+    'Une liste vide ne déchiffre rien : l’interception est toujours un choix explicite, hôte par hôte.',
+  'workbench.proxyCapture.scopeInfo.patternsHeading': 'Motifs',
+  'workbench.proxyCapture.scopeInfo.exactDesc': 'Nom d’hôte exact — correspond à l’apex uniquement.',
+  'workbench.proxyCapture.scopeInfo.wildcardDesc': 'Tout sous-domaine — jamais l’apex lui-même.',
+  'workbench.proxyCapture.scopeInfo.ipDesc': 'Un littéral IP correspond exactement.',
+  'workbench.proxyCapture.routingInfo.exampleCaption': 'Exemple de routage',
+  'workbench.proxyCapture.routingInfo.summary':
+    'Les navigateurs connectés envoient automatiquement les hôtes du périmètre à travers le proxy de capture — ' +
+    'aucun réglage proxy de l’OS, aucune configuration manuelle ; tout le reste reste en direct.',
+  'workbench.proxyCapture.routingInfo.description':
+    'Le routage persiste jusqu’à ce que vous le désactiviez — un redémarrage de l’application ou une coupure de ' +
+    'connexion ne laisse jamais le navigateur bloqué derrière un proxy mort.',
+  'workbench.proxyCapture.routingInfo.behaviorHeading': 'Comportement',
+  'workbench.proxyCapture.routingInfo.appliedDesc':
+    'Les navigateurs Chromium appliquent un PAC généré ; Firefox route requête par requête.',
+  'workbench.proxyCapture.routingInfo.failoverDesc':
+    'Si le port de capture est injoignable, le trafic bascule en connexion directe — un trou de capture, jamais une ' +
+    'navigation cassée.',
+  'workbench.proxyCapture.routingInfo.h3Desc':
+    'Les hôtes routés retombent de HTTP/3 vers HTTP/2 ou 1.1 ; les points de terminaison à épinglage de certificat ' +
+    'peuvent échouer pendant le routage.',
 
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
   'workbench.trafficMonitor.browserConnected': 'Navigateurs connectés : {count}',
   'workbench.trafficMonitor.noBrowser': 'Aucun navigateur connecté',
   'workbench.trafficMonitor.refreshTabs': 'Actualiser la liste des onglets',
   'workbench.trafficMonitor.untitledTab': 'Onglet sans titre',
+  'workbench.trafficMonitor.extensionVersion': 'Extension v{version}',
   'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',
   'workbench.trafficMonitor.emptyWatchingHint':
     'Naviguez dans l’onglet surveillé — ses requêtes apparaissent ici en direct',
