@@ -128,8 +128,8 @@ export class WorkbenchPage {
     return this.page.locator(`[data-tool-window="${id}"]`).first();
   }
 
-  /** Click a request row, expanding its collection first if it's hidden. */
-  async openRequest(uid: string): Promise<void> {
+  /** Make a request row visible, expanding its collection if needed. */
+  private async revealRequestRow(uid: string): Promise<Locator> {
     const row = this.page.locator(`[data-item-id="request-${uid}"]`);
     if (!(await row.isVisible().catch(() => false))) {
       const cols = await this.rpc<{ collections?: Array<{ uid: string }> }>('getLocalRequestCollections');
@@ -144,6 +144,12 @@ export class WorkbenchPage {
     }
     await row.waitFor({ state: 'visible', timeout: 5000 });
     await row.scrollIntoViewIfNeeded();
+    return row;
+  }
+
+  /** Click a request row, expanding its collection first if it's hidden. */
+  async openRequest(uid: string): Promise<void> {
+    const row = await this.revealRequestRow(uid);
     await row.click();
   }
 
@@ -153,6 +159,61 @@ export class WorkbenchPage {
    *  tab's "About Send browser cookies" info trigger. */
   async send(): Promise<void> {
     await this.page.getByRole('button', { name: /Send$/ }).filter({ visible: true }).click();
+  }
+
+  /** Close any dropdown a previous gesture left open (or mid-closing
+   *  animation) — a stale `.ant-dropdown` otherwise double-matches the
+   *  menu lookups of the NEXT gesture (strict-mode violation / clicks
+   *  landing on a disappearing node). */
+  private async dismissOpenDropdowns(): Promise<void> {
+    if (await this.page.locator('.ant-dropdown:not(.ant-dropdown-hidden)').count()) {
+      await this.page.keyboard.press('Escape');
+    }
+    await this.page
+      .waitForFunction(() => document.querySelector('.ant-dropdown:not(.ant-dropdown-hidden)') === null, undefined, {
+        timeout: 3000,
+      })
+      .catch(() => {});
+  }
+
+  /** The most recently opened dropdown — antd keeps closed ones in the
+   *  DOM (`.ant-dropdown-hidden`), so scope to the last non-hidden. */
+  private openDropdown(): Locator {
+    return this.page.locator('.ant-dropdown:not(.ant-dropdown-hidden)').last();
+  }
+
+  /** Copy a sidebar request row as a snippet: hover the row, open its
+   *  `⋯` menu, hover the "Copy as" submenu, click the format entry. */
+  async copyAsFromSidebar(uid: string, format: 'cURL' | 'fetch'): Promise<void> {
+    await this.dismissOpenDropdowns();
+    const row = await this.revealRequestRow(uid);
+    await row.hover();
+    await row.locator('.rules-sidebar-item-menu').click();
+    // Unanchored: the submenu title's accessible name folds in the copy
+    // icon and the trailing expand arrow ("copy Copy as right").
+    const copyAsItem = this.openDropdown()
+      .getByRole('menuitem', { name: /Copy as/ })
+      .first();
+    await copyAsItem.hover();
+    const formatItem = this.page.getByRole('menuitem', { name: format, exact: true }).filter({ visible: true }).last();
+    try {
+      await formatItem.waitFor({ state: 'visible', timeout: 2000 });
+    } catch {
+      // Some antd builds open the submenu on click rather than hover.
+      await copyAsItem.click();
+      await formatItem.waitFor({ state: 'visible', timeout: 3000 });
+    }
+    await formatItem.click();
+  }
+
+  /** Copy the ACTIVE editor's draft as a snippet via the header's `⋯`
+   *  overflow menu ("Copy as cURL" / "Copy as fetch"). */
+  async copyAsFromEditor(format: 'cURL' | 'fetch'): Promise<void> {
+    await this.dismissOpenDropdowns();
+    await this.page.getByRole('button', { name: 'More actions' }).filter({ visible: true }).click();
+    const item = this.openDropdown().getByRole('menuitem', { name: new RegExp(`Copy as ${format}$`) });
+    await item.waitFor({ state: 'visible', timeout: 5000 });
+    await item.click();
   }
 
   /** Wait for the response status chip in the active editor; return its text. */

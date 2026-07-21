@@ -499,6 +499,13 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     '没有受信任的 CA，因此 HTTPS 连接以不透明隧道通过——不会解密任何内容。在设置 › 代理 下安装 CA，' +
     '然后把主机加入解密范围。',
+  'workbench.proxyCapture.routing': '路由浏览器',
+  'workbench.proxyCapture.routingFailed': '无法更新路由：{message}',
+  'workbench.proxyCapture.routingCaveat':
+    '已连接的浏览器将范围内的主机经本地代理路由：HTTP/3 会回退到 HTTP/2 或 1.1，固定证书的端点可能失败。' +
+    '范围外的流量保持直连。',
+  'workbench.proxyCapture.routingInactive': '代理运行后，浏览器才会路由范围内的主机。',
+  'workbench.proxyCapture.routingUnsupported': '{agent} · 不支持',
 
   // ── 实时网络工具窗口（可观测性第 1 阶段） ────────────────────────────
   'workbench.liveNetwork.browserConnected': '已连接浏览器：{count}',
@@ -636,4 +643,9 @@ export const workbenchChrome = {
   'workbench.docs.nav.keyboardShortcuts.summary': '工作区编辑器的每个快捷键，按界面分组——面板、标签页、导航、操作。',
   'workbench.docs.nav.limitations.title': '限制',
   'workbench.docs.nav.limitations.summary': '已知的意外集中在一处——DevTools 可见性、脚本触达、标头匹配、“合并”。',
+
+  // ── Copy-as-snippet toasts (sidebar row menu + request editor ⋯) ────
+  'workbench.copySnippet.copied': '已复制为 {format}',
+  'workbench.copySnippet.failed': '无法复制',
+  'workbench.copySnippet.failedDetail': '无法复制：{message}',
 } as const satisfies Catalog;

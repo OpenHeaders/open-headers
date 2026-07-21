@@ -27,14 +27,14 @@
  * persisting first.
  */
 
-import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { isRequestComplete } from '@openheaders/core/utils';
-import { App, Button, ConfigProvider, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, type MenuProps, Tabs, Tooltip, Typography, theme } from 'antd';
 import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,6 +53,7 @@ import { isMac } from '@openheaders/ui/shared/platform';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
+import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import EditorHeader from '../shell/EditorHeader';
 import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
@@ -154,6 +155,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const { message } = App.useApp();
   const t = useT();
   const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
+  const copySnippet = useCopyRequestSnippet();
 
   const isCreateMode = mode === 'request-create';
   const [activeTab, setActiveTab] = useState<TabKey>('params');
@@ -495,11 +497,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     }
   }, [summary, requestUid, editingScopeWorkspaceId, response, draft, message, onOpenResponseExample, t]);
 
-  const handleSend = useCallback(async () => {
-    if (sending) return;
-    setSending(true);
-    setResponse(null);
-
+  // The full-fidelity Request the executor channels consume, built from
+  // the LIVE draft — shared by Send (test-fire without persisting) and
+  // the ⋯ menu's Copy as cURL / fetch (snippet of the current edits,
+  // saved or not).
+  const buildDraftRequest = useCallback((): Request => {
     let path = summary?.path;
     if (!path) {
       const preferredCollection = preferredCollectionId
@@ -509,7 +511,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       path = `${parentPath}/draft`;
     }
 
-    const draftRequest: Request = {
+    return {
       schemaVersion: 5,
       uid: summary?.uid ?? 'draft',
       path,
@@ -545,6 +547,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       preRequestScript: draft.preRequestScript,
       postResponseScript: draft.postResponseScript,
     };
+  }, [summary, draftName, draft, preferredCollectionId, preferredFolderPath, requestCollections]);
+
+  const handleSend = useCallback(async () => {
+    if (sending) return;
+    setSending(true);
+    setResponse(null);
+
+    const draftRequest = buildDraftRequest();
     // Mint the send id and open the live-stream feed BEFORE the RPC
     // goes out — the head frame can arrive while the call is pending.
     // The resolving snapshot supersedes every frame.
@@ -562,19 +572,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     setSending(false);
     setResponse(snapshot);
     setSseSession(session === null ? null : { ...session, endedAt: Date.now() });
-  }, [
-    sending,
-    summary,
-    draftName,
-    draft,
-    execute,
-    beginStream,
-    endStream,
-    takeSseSession,
-    preferredCollectionId,
-    preferredFolderPath,
-    requestCollections,
-  ]);
+  }, [sending, buildDraftRequest, execute, beginStream, endStream, takeSseSession]);
 
   // Stop the in-flight send — the host aborts the exchange and the
   // pending `execute` above resolves with a snapshot materialized from
@@ -648,6 +646,23 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // serving daemon) set the expectation at the button: the egress
   // connection — the IP and locale the target sees — is that host's.
   const remoteDispatchHost = getCapability('remoteRequestDispatch')?.();
+
+  // ⋯ menu — snippet copies of the CURRENT draft (unsaved edits
+  // included), resolved host-side exactly as a Send would resolve them.
+  const overflowItems: MenuProps['items'] = [
+    {
+      key: 'copy-as-curl',
+      icon: <CopyOutlined />,
+      label: t('workbench.editors.request.menu.copyAsCurl'),
+      onClick: () => void copySnippet({ draft: buildDraftRequest() }, 'curl'),
+    },
+    {
+      key: 'copy-as-fetch',
+      icon: <CopyOutlined />,
+      label: t('workbench.editors.request.menu.copyAsFetch'),
+      onClick: () => void copySnippet({ draft: buildDraftRequest() }, 'fetch'),
+    },
+  ];
 
   const headerActions = (
     <Tooltip
@@ -740,7 +755,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           onBlurCapture={handleEditorBlurCapture}
           onKeyDownCapture={handleEditorKeyDown}
         >
-          <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+          <EditorHeader
+            title={headerTitle}
+            actions={headerActions}
+            overflowItems={overflowItems}
+            shell={shell.headerProps}
+          />
 
           <EntityConflictBanner
             count={allConflicts.size}

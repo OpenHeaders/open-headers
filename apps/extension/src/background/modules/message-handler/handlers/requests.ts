@@ -20,6 +20,7 @@ import {
   renameRequestFolder,
   updateRequest,
 } from '@openheaders/oracle/entity/request-store';
+import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { wsRequest } from '../../../ws-request';
 import { executeRequest, executeRequestDraft } from '../../request-executor';
 import { stopActiveSend } from '../../request-executor/send-stream';
@@ -177,6 +178,13 @@ export const requestHandlers: HandlerMap = {
           respond({ success: true, snapshot });
         }
       })
+      .catch((error: Error) => respond({ success: false, error: error.message }));
+    return true;
+  },
+
+  resolveRequestWire: ({ message, respond }) => {
+    handleResolveRequestWireRpc(message)
+      .then((result) => respond(result))
       .catch((error: Error) => respond({ success: false, error: error.message }));
     return true;
   },

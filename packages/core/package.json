@@ -67,6 +67,10 @@
       "import": "./src/import/index.ts",
       "default": "./dist/import/index.js"
     },
+    "./snippet": {
+      "import": "./src/snippet/index.ts",
+      "default": "./dist/snippet/index.js"
+    },
     "./files": {
       "import": "./src/files/index.ts",
       "default": "./dist/files/index.js"

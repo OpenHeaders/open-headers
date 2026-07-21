@@ -4,6 +4,7 @@
  * the active workspace.
  */
 
+import type { WireSnippetRequest } from '../../snippet';
 import type {
   Collection,
   CollectionTree,
@@ -279,6 +280,26 @@ export interface RequestRpc {
       sendId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
+  };
+  /**
+   * Resolve a persisted request or draft to its concrete wire shape —
+   * every `{{ref}}` substituted, auth folded into headers/query,
+   * structured params folded into the URL — WITHOUT dispatching it.
+   * Powers the workbench "Copy as cURL / fetch" actions; callers render
+   * the shape with the pure formatters in `@openheaders/core/snippet`.
+   * `requestUid` / `draft` / `workspaceId` / `environmentId` carry
+   * `executeRequest` semantics verbatim. The resolved shape contains
+   * live secret values (the point of a runnable copy) — surfaces treat
+   * it as clipboard-bound output and never persist it.
+   */
+  resolveRequestWire: {
+    req: {
+      requestUid?: string;
+      draft?: Request;
+      environmentId?: string | null;
+      workspaceId?: string;
+    };
+    res: { success: boolean; wire?: WireSnippetRequest; error?: string };
   };
   /**
    * Invoke a gRPC request — the GrpcRequest entity's executor plane,

@@ -22,6 +22,7 @@ import type {
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
 import { composeBadge, exampleTag, grpcTag, iconEl, methodTag, websocketTag } from './icons';
@@ -113,6 +114,7 @@ interface UseRequestTreeNodesParams {
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const t = useT();
+  const copySnippet = useCopyRequestSnippet();
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkRequestTree = useCallback(
@@ -451,6 +453,15 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteRequest(node.uid);
               }),
+            // The sidebar's own snapshot rides as a draft so the copy
+            // reflects exactly the entity this row shows — no dependence
+            // on the host's runtime-Active workspace store.
+            ...(fullRequest
+              ? {
+                  onCopyAsCurl: () => void copySnippet({ draft: fullRequest }, 'curl'),
+                  onCopyAsFetch: () => void copySnippet({ draft: fullRequest }, 'fetch'),
+                }
+              : {}),
             ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
             awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
@@ -532,6 +543,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onExportEntity,
       p.onOpenRequestFolderOverview,
       p.onCreateWorkflowFromContainer,
+      copySnippet,
       t,
     ],
   );

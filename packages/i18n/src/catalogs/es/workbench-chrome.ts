@@ -509,6 +509,13 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'No hay ninguna CA de confianza, así que las conexiones HTTPS pasan por un túnel opaco: no se descifra nada. ' +
     'Instala la CA en Configuración › Proxy y añade hosts al ámbito de descifrado.',
+  'workbench.proxyCapture.routing': 'Enrutar navegadores',
+  'workbench.proxyCapture.routingFailed': 'No se pudo actualizar el enrutamiento: {message}',
+  'workbench.proxyCapture.routingCaveat':
+    'Los navegadores conectados enrutan los hosts del ámbito por el proxy local: HTTP/3 cae a HTTP/2 o 1.1, y los ' +
+    'endpoints con certificado fijado pueden fallar. El resto del tráfico va directo.',
+  'workbench.proxyCapture.routingInactive': 'Los navegadores enrutan los hosts del ámbito cuando el proxy está en marcha.',
+  'workbench.proxyCapture.routingUnsupported': '{agent} · no compatible',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
   'workbench.liveNetwork.browserConnected': 'Navegadores conectados: {count}',
@@ -699,4 +706,9 @@ export const workbenchChrome = {
   'workbench.docs.nav.limitations.summary':
     'Las sorpresas conocidas en un solo lugar — visibilidad en DevTools, alcance de los scripts, coincidencia ' +
     'de encabezados, Fusionar.',
+
+  // ── Copy-as-snippet toasts (sidebar row menu + request editor ⋯) ────
+  'workbench.copySnippet.copied': 'Copiado como {format}',
+  'workbench.copySnippet.failed': 'No se pudo copiar',
+  'workbench.copySnippet.failedDetail': 'No se pudo copiar: {message}',
 } as const satisfies Catalog;

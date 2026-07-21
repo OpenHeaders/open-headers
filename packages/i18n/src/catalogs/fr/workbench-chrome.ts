@@ -509,6 +509,13 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'Aucune AC n’est approuvée, les connexions HTTPS transitent donc en tunnel opaque — rien n’est déchiffré. ' +
     'Installez l’AC dans Paramètres › Proxy, puis ajoutez des hôtes au périmètre de déchiffrement.',
+  'workbench.proxyCapture.routing': 'Router les navigateurs',
+  'workbench.proxyCapture.routingFailed': 'Impossible de mettre à jour le routage : {message}',
+  'workbench.proxyCapture.routingCaveat':
+    'Les navigateurs connectés routent les hôtes du périmètre par le proxy local : HTTP/3 retombe en HTTP/2 ou 1.1, ' +
+    'et les points de terminaison à certificat épinglé peuvent échouer. Le reste du trafic reste direct.',
+  'workbench.proxyCapture.routingInactive': 'Les navigateurs routent les hôtes du périmètre dès que le proxy tourne.',
+  'workbench.proxyCapture.routingUnsupported': '{agent} · non pris en charge',
 
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
   'workbench.liveNetwork.browserConnected': 'Navigateurs connectés : {count}',
@@ -698,4 +705,9 @@ export const workbenchChrome = {
   'workbench.docs.nav.limitations.summary':
     'Les surprises connues en un seul endroit — visibilité DevTools, portée des scripts, correspondance ' +
     "d'en-têtes, Fusionner.",
+
+  // ── Copy-as-snippet toasts (sidebar row menu + request editor ⋯) ────
+  'workbench.copySnippet.copied': 'Copié en {format}',
+  'workbench.copySnippet.failed': 'Copie impossible',
+  'workbench.copySnippet.failedDetail': 'Copie impossible : {message}',
 } as const satisfies Catalog;

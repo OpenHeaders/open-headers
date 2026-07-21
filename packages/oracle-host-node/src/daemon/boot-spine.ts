@@ -84,6 +84,8 @@ import {
   endActiveGrpcClientStream,
   sendActiveGrpcStreamMessage,
 } from '@openheaders/oracle/live/grpc-exec/stream-plane';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
+import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { closeActiveWsSession, sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
@@ -136,6 +138,7 @@ import { installAuditPruneScheduler } from './audit-prune-scheduler';
 import { createAwarenessPeerFanOut } from './awareness-fan-out';
 import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { createCliProvisionService } from './cli-provision';
+import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
@@ -161,6 +164,7 @@ import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
 import { installProxyCaptureLifeline } from './proxy/capture-lifeline';
 import { createProxyCaptureService } from './proxy/proxy-capture-service';
+import { createProxyRoutingControl } from './proxy/routing-push';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { createStaticWebHandler } from './static-web';
@@ -689,6 +693,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const proxyCaptureService = createProxyCaptureService();
   const uninstallProxyCaptureLifeline = installProxyCaptureLifeline(proxyCaptureService.hub);
 
+  // Scoped browser-routing controller (OBSERVABILITY_PLAN.md §5.1) —
+  // pushes the capture service's folded routing verdict to same-device
+  // browser peers and folds their acks into the status projection.
+  const proxyRoutingControl = createProxyRoutingControl(proxyCaptureService);
+
   // Browser live-telemetry relay (OBSERVABILITY_PLAN.md Phase 1) — the
   // workbench's qualified lifecycle lifelines bridge through here to
   // the extension peer that owns each browser tab. No second store or
@@ -719,6 +728,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // proxy's control surface + the daemon-side lifecycle hub the
     // workbench's Proxy source attaches to (lifeline acceptor below).
     proxyCapture: proxyCaptureService,
+    // Scoped browser routing (§5.1) — desire flip + live projection;
+    // state pushes ride the controller's own change subscription.
+    proxyRouting: proxyRoutingControl,
     // Browser telemetry plane (Phase 1) — the tab-inventory read the
     // Live Network picker renders; streams ride the lifeline, not RPC.
     telemetryTabs: () => browserLiveRelay.listTabs(),
@@ -864,6 +876,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // lives. Same channel contract the extension SW handles.
     if (type === 'executeRequest') {
       return await handleExecuteRequestRpc(message);
+    }
+    // Workbench "Copy as cURL / fetch" — resolve to the wire shape
+    // without dispatching; same handler the extension SW answers with,
+    // plus this host's OAuth refresh hook so the copied command carries
+    // a fresh token exactly like a Send would.
+    if (type === 'resolveRequestWire') {
+      return await handleResolveRequestWireRpc(message, (workspaceId) => buildRefreshOAuthHook(workspaceId));
     }
     // Workbench gRPC Invoke — the GrpcRequest entity's executor plane,
     // same in-process answer posture as executeRequest above.
@@ -1092,7 +1111,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
       peerRpc: composePeerRpc(createPeerAdminRpc({ channels: adminChannels }), createPeerRequestsRpc()),
-      peerPush: browserLiveRelay.peerPush,
+      peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush),
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>
           healthzHandler(req, res) ||
@@ -1108,6 +1127,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         wsServer = next;
         setMutationForwarderWsServer(next);
         browserLiveRelay.setWsServer(next);
+        proxyRoutingControl.setWsServer(next);
         if (next) syncStatusReporter.attachServer(next);
         else syncStatusReporter.detachServer();
       },
@@ -1136,6 +1156,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     uninstallProxyCaptureLifeline();
     uninstallBrowserLiveLifeline();
     browserLiveRelay.dispose();
+    proxyRoutingControl.dispose();
     await proxyCaptureService.dispose();
     stopActivityPruneScheduler();
     stopAuditPruneScheduler();

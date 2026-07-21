@@ -29,6 +29,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.remoteDispatchHint': 'Runs on {host} — the connected back-end',
   'workbench.editors.request.send.stop': 'Stop',
   'workbench.editors.request.send.stopTooltip': 'Stop the request and keep what has arrived',
+  'workbench.editors.request.menu.copyAsCurl': 'Copy as cURL',
+  'workbench.editors.request.menu.copyAsFetch': 'Copy as fetch',
   'workbench.editors.request.schemeHint':
     'Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in.',
 

@@ -61,6 +61,14 @@ export interface TreeNode {
   onDelete?: () => void;
   /** Duplicate this leaf — enables the leaf context menu's Duplicate item. */
   onDuplicate?: () => void;
+  /**
+   * Copy this leaf as a runnable snippet — enables the leaf context
+   * menu's "Copy as" submenu (cURL / fetch). Wired for HTTP request
+   * leaves only: session-shaped siblings (gRPC / WebSocket) have no
+   * one-command equivalent.
+   */
+  onCopyAsCurl?: () => void;
+  onCopyAsFetch?: () => void;
   onAddItem?: () => void;
   /**
    * Open the workspace-export modal for this leaf. Wired only for rule

@@ -49,6 +49,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.remoteDispatchHint': '在 {host} 上运行——已连接的后端',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': '停止请求并保留已到达的内容',
+  'workbench.editors.request.menu.copyAsCurl': '复制为 cURL',
+  'workbench.editors.request.menu.copyAsFetch': '复制为 fetch',
   'workbench.editors.request.schemeHint':
     '你的 URL 没有协议前缀。它将按 https:// 发送——点击 URL 栏并按 Tab 或 Enter 即可锁定。',
 

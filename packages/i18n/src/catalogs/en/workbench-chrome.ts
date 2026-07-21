@@ -495,6 +495,13 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'No CA is trusted, so HTTPS connections tunnel through opaque — nothing is decrypted. Install the CA under ' +
     'Settings › Proxy, then add hosts to the decrypt scope.',
+  'workbench.proxyCapture.routing': 'Route browsers',
+  'workbench.proxyCapture.routingFailed': 'Could not update routing: {message}',
+  'workbench.proxyCapture.routingCaveat':
+    'Connected browsers route scoped hosts through the local proxy: HTTP/3 falls back to HTTP/2 or 1.1, and ' +
+    'certificate-pinned endpoints may fail. Un-scoped traffic stays direct.',
+  'workbench.proxyCapture.routingInactive': 'Browsers route scoped hosts once the proxy is running.',
+  'workbench.proxyCapture.routingUnsupported': '{agent} · not supported',
 
   // ── Live Network tool window (Observability Phase 1) ────────────────
   'workbench.liveNetwork.browserConnected': 'Connected browsers: {count}',
@@ -647,4 +654,9 @@ export const workbenchChrome = {
   'workbench.docs.nav.limitations.title': 'Limitations',
   'workbench.docs.nav.limitations.summary':
     'Known surprises in one place — DevTools visibility, script reach, header matching, Merge.',
+
+  // ── Copy-as-snippet toasts (sidebar row menu + request editor ⋯) ────
+  'workbench.copySnippet.copied': 'Copied as {format}',
+  'workbench.copySnippet.failed': "Couldn't copy",
+  'workbench.copySnippet.failedDetail': "Couldn't copy: {message}",
 } as const satisfies Catalog;

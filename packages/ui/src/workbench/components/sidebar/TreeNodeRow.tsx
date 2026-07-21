@@ -307,6 +307,35 @@ export function TreeNodeRow({
                     disabled: !node.onDuplicate,
                     onClick: () => node.onDuplicate?.(),
                   },
+                  ...(node.onCopyAsCurl || node.onCopyAsFetch
+                    ? [
+                        {
+                          key: 'copy-as',
+                          icon: <CopyOutlined />,
+                          label: t('workbench.sidebar.menu.copyAs'),
+                          children: [
+                            ...(node.onCopyAsCurl
+                              ? [
+                                  {
+                                    key: 'copy-as-curl',
+                                    label: t('workbench.sidebar.menu.copyAsCurl'),
+                                    onClick: () => node.onCopyAsCurl?.(),
+                                  },
+                                ]
+                              : []),
+                            ...(node.onCopyAsFetch
+                              ? [
+                                  {
+                                    key: 'copy-as-fetch',
+                                    label: t('workbench.sidebar.menu.copyAsFetch'),
+                                    onClick: () => node.onCopyAsFetch?.(),
+                                  },
+                                ]
+                              : []),
+                          ],
+                        },
+                      ]
+                    : []),
                   ...(node.onExport
                     ? [
                         {

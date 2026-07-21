@@ -505,6 +505,13 @@ export const workbenchChrome = {
   'workbench.proxyCapture.noCa':
     'Keiner CA wird vertraut, HTTPS-Verbindungen laufen daher als opaker Tunnel durch — nichts wird entschlüsselt. ' +
     'Installiere die CA unter Einstellungen › Proxy und füge dann Hosts zum Entschlüsselungsbereich hinzu.',
+  'workbench.proxyCapture.routing': 'Browser routen',
+  'workbench.proxyCapture.routingFailed': 'Routing konnte nicht aktualisiert werden: {message}',
+  'workbench.proxyCapture.routingCaveat':
+    'Verbundene Browser leiten Hosts im Bereich über den lokalen Proxy: HTTP/3 fällt auf HTTP/2 oder 1.1 zurück, ' +
+    'und Endpunkte mit Zertifikats-Pinning können fehlschlagen. Übriger Verkehr bleibt direkt.',
+  'workbench.proxyCapture.routingInactive': 'Browser routen Hosts im Bereich, sobald der Proxy läuft.',
+  'workbench.proxyCapture.routingUnsupported': '{agent} · nicht unterstützt',
 
   // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
   'workbench.liveNetwork.browserConnected': 'Verbundene Browser: {count}',
@@ -692,4 +699,9 @@ export const workbenchChrome = {
   'workbench.docs.nav.limitations.summary':
     'Die bekannten Überraschungen an einem Ort — Sichtbarkeit in den DevTools, Reichweite der Skripte, ' +
     'Header-Abgleich, Zusammenführen.',
+
+  // ── Copy-as-snippet toasts (sidebar row menu + request editor ⋯) ────
+  'workbench.copySnippet.copied': 'Als {format} kopiert',
+  'workbench.copySnippet.failed': 'Kopieren fehlgeschlagen',
+  'workbench.copySnippet.failedDetail': 'Kopieren fehlgeschlagen: {message}',
 } as const satisfies Catalog;
