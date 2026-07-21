@@ -17,8 +17,8 @@
 import { LockOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
-import type { ProxyCaptureStatus } from '@openheaders/core/types';
-import { Alert, App as AntApp, Button, InputNumber, Popover, Select, Space, Tag, theme } from 'antd';
+import type { ProxyCaptureStatus, ProxyRoutingStatus } from '@openheaders/core/types';
+import { Alert, App as AntApp, Button, InputNumber, Popover, Select, Space, Switch, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -42,6 +42,7 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onO
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
 
   const [status, setStatus] = useState<ProxyCaptureStatus | null>(null);
+  const [routing, setRouting] = useState<ProxyRoutingStatus | null>(null);
   const [portDraft, setPortDraft] = useState<number | null>(null);
   const [scopeDraft, setScopeDraft] = useState<string[]>([]);
   const [scopeOpen, setScopeOpen] = useState(false);
@@ -51,6 +52,7 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onO
     try {
       const resp = await hostBridge.call('oh.daemon.proxy.status');
       setStatus(resp);
+      setRouting(await hostBridge.call('oh.daemon.proxy.routing.status'));
       // Seed the drafts once from the daemon; later local edits win until
       // the next action reloads.
       setPortDraft((prev) => prev ?? resp.port);
@@ -94,6 +96,16 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onO
     } finally {
       setBusy(false);
       void reload();
+    }
+  };
+
+  const toggleRouting = async (enabled: boolean): Promise<void> => {
+    try {
+      const resp = await hostBridge.call('oh.daemon.proxy.routing.set', { enabled });
+      if (resp.ok) setRouting(resp.routing);
+      else message.error(t('workbench.proxyCapture.routingFailed', { message: resp.error }));
+    } catch (err) {
+      message.error(t('workbench.proxyCapture.routingFailed', { message: (err as Error).message }));
     }
   };
 
@@ -183,7 +195,44 @@ const ProxyCapturePanel: React.FC<ProxyCapturePanelProps> = ({ info, onHide, onO
                   : t('workbench.proxyCapture.scope')}
               </Button>
             </Popover>
+            <Space size={6} align="center">
+              <Switch
+                size="small"
+                checked={routing?.enabled === true}
+                onChange={(checked) => void toggleRouting(checked)}
+              />
+              <span style={{ fontSize: 12 }}>{t('workbench.proxyCapture.routing')}</span>
+            </Space>
           </Space>
+          {routing?.enabled === true && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginTop: 8, padding: '4px 10px' }}
+              message={
+                <Space size={6} wrap>
+                  <span>
+                    {routing.active
+                      ? t('workbench.proxyCapture.routingCaveat')
+                      : t('workbench.proxyCapture.routingInactive')}
+                  </span>
+                  {routing.active &&
+                    routing.peers.map((peer) => (
+                      <Tooltip key={peer.nodeId} title={peer.error}>
+                        <Tag
+                          color={peer.applied ? 'green' : peer.mode === 'unsupported' ? undefined : 'red'}
+                          style={{ margin: 0 }}
+                        >
+                          {peer.mode === 'unsupported'
+                            ? t('workbench.proxyCapture.routingUnsupported', { agent: peer.agent })
+                            : peer.agent}
+                        </Tag>
+                      </Tooltip>
+                    ))}
+                </Space>
+              }
+            />
+          )}
           {running && status?.caPresent === false && (
             <Alert
               type="warning"

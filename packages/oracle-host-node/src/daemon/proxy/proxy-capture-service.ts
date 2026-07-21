@@ -41,6 +41,18 @@ export const DEFAULT_PROXY_CAPTURE_PORT = WS_PORT + 1;
 export type ProxyCaptureStartResult = { ok: true; port: number } | { ok: false; error: string };
 export type ProxyCaptureScopeResult = { ok: true; scopePatterns: string[] } | { ok: false; error: string };
 
+/**
+ * The folded scoped-routing verdict a browser peer receives
+ * (OBSERVABILITY_PLAN.md §5.1): `enabled` only while the persisted
+ * desire is on AND the proxy is actually bound — a browser is never
+ * told to route at a port nothing listens on.
+ */
+export interface ProxyRoutingWireState {
+  enabled: boolean;
+  port: number | null;
+  scopePatterns: string[];
+}
+
 /** The control surface the admin table fronts — no hub, no lifetime. */
 export interface ProxyCaptureControl {
   status(): Promise<ProxyCaptureStatus>;
@@ -54,6 +66,18 @@ export interface ProxyCaptureControl {
 export interface ProxyCaptureService extends ProxyCaptureControl {
   /** The hub the lifecycle-port acceptor attaches panel sinks to. */
   readonly hub: RequestLifecycleHub;
+  /** Persist the scoped browser-routing desire (§5.1). */
+  setRoutingEnabled(enabled: boolean): Promise<void>;
+  /** The persisted routing desire, before folding with run state. */
+  getRoutingEnabled(): Promise<boolean>;
+  /** The folded verdict a browser peer should apply right now. */
+  getRoutingWireState(): Promise<ProxyRoutingWireState>;
+  /**
+   * Fires after any change that can move the routing wire state —
+   * start/stop, a scope edit, or the desire flipping. Returns the
+   * unsubscribe.
+   */
+  subscribeRoutingChange(listener: () => void): () => void;
   dispose(): Promise<void>;
 }
 
@@ -86,6 +110,16 @@ export function createProxyCaptureService(): ProxyCaptureService {
 
   let server: ProxyMitmServer | null = null;
   let lastError: string | null = null;
+  const routingListeners = new Set<() => void>();
+  const notifyRoutingChange = (): void => {
+    for (const listener of [...routingListeners]) {
+      try {
+        listener();
+      } catch (err) {
+        logger.warn(SCOPE, 'routing-change listener failed', err);
+      }
+    }
+  };
   // Effective+resolved rule set for the enforcement plane — memoized,
   // invalidated by the entity-store change signals; created lazily on
   // first start so an idle service subscribes to nothing.
@@ -127,6 +161,7 @@ export function createProxyCaptureService(): ProxyCaptureService {
       const bound = await engine.server.listen(current.port);
       server = engine.server;
       lastError = null;
+      notifyRoutingChange();
       return { ok: true, port: bound };
     } catch (err) {
       lastError = (err as Error).message;
@@ -138,7 +173,10 @@ export function createProxyCaptureService(): ProxyCaptureService {
   async function stop(): Promise<{ ok: true }> {
     const closing = server;
     server = null;
-    if (closing !== null) await closing.close();
+    if (closing !== null) {
+      await closing.close();
+      notifyRoutingChange();
+    }
     return { ok: true };
   }
 
@@ -150,15 +188,58 @@ export function createProxyCaptureService(): ProxyCaptureService {
       return { ok: false, error: `invalid scope pattern${invalid.length === 1 ? '' : 's'}: ${invalid.join(', ')}` };
     }
     await persist({ ...s, scopePatterns: trimmed });
+    notifyRoutingChange();
     return { ok: true, scopePatterns: trimmed };
+  }
+
+  async function setRoutingEnabled(enabled: boolean): Promise<void> {
+    const s = await settings();
+    if ((s.routingEnabled === true) === enabled) return;
+    await persist({ ...s, routingEnabled: enabled });
+    notifyRoutingChange();
+  }
+
+  async function getRoutingEnabled(): Promise<boolean> {
+    const s = await settings();
+    return s.routingEnabled === true;
+  }
+
+  async function getRoutingWireState(): Promise<ProxyRoutingWireState> {
+    const s = await settings();
+    const boundPort = server?.port ?? null;
+    const enabled = s.routingEnabled === true && boundPort !== null;
+    return {
+      enabled,
+      port: enabled ? boundPort : null,
+      scopePatterns: enabled ? [...s.scopePatterns] : [],
+    };
+  }
+
+  function subscribeRoutingChange(listener: () => void): () => void {
+    routingListeners.add(listener);
+    return () => {
+      routingListeners.delete(listener);
+    };
   }
 
   async function dispose(): Promise<void> {
     await stop();
+    routingListeners.clear();
     ruleSource?.dispose();
     ruleSource = null;
     hub.dispose();
   }
 
-  return { status, start, stop, setScope, hub, dispose };
+  return {
+    status,
+    start,
+    stop,
+    setScope,
+    setRoutingEnabled,
+    getRoutingEnabled,
+    getRoutingWireState,
+    subscribeRoutingChange,
+    hub,
+    dispose,
+  };
 }

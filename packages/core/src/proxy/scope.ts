@@ -47,14 +47,14 @@ export function normalizeHost(host: string): string {
 }
 
 /** A single normalised pattern paired with whether it is a `*.` wildcard. */
-interface ScopePattern {
+export interface ScopePattern {
   readonly wildcard: boolean;
   /** For a wildcard, the apex after `*.`; otherwise the exact host. */
   readonly base: string;
 }
 
 /** Parse one raw pattern; returns `null` for an empty/invalid entry. */
-function parsePattern(raw: string): ScopePattern | null {
+export function parseScopePattern(raw: string): ScopePattern | null {
   const p = raw.trim().toLowerCase();
   if (p.length === 0) return null;
   if (p.startsWith('*.')) {
@@ -75,7 +75,7 @@ function parsePattern(raw: string): ScopePattern | null {
 export function isValidScopePattern(raw: string): boolean {
   const trimmed = raw.trim();
   if (trimmed === '*') return false;
-  return parsePattern(trimmed) !== null;
+  return parseScopePattern(trimmed) !== null;
 }
 
 /**
@@ -87,7 +87,7 @@ export function hostInScope(host: string, patterns: readonly string[]): boolean 
   const h = normalizeHost(host);
   if (h.length === 0) return false;
   for (const raw of patterns) {
-    const pattern = parsePattern(raw);
+    const pattern = parseScopePattern(raw);
     if (pattern === null) continue;
     if (pattern.wildcard) {
       // `*.example.com` matches `a.example.com` and `a.b.example.com`,

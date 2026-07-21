@@ -36,7 +36,8 @@
     "scripting",
     "cookies",
     "browsingData",
-    "identity"
+    "identity",
+    "proxy"
   ],
   "host_permissions": [
     "<all_urls>",

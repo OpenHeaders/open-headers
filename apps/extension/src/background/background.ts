@@ -107,6 +107,7 @@ import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orchestrator';
 import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace/workspace-tab-registry';
+import { startProxyRoutingHost } from './proxy-routing-host';
 import { selfHostLabel } from './self-host-label';
 
 // ── Eval-time wiring ──────────────────────────────────────────────
@@ -124,6 +125,11 @@ installGrpcStreamRelay();
 // driver sets the parity-hook flag (see the module docs).
 installParityRuleImport();
 installParityFireReadback();
+// Scoped browser routing (§5.1): eval-time on purpose — Firefox's
+// standing proxy.onRequest listener must register before the event
+// page could be woken for a proxy decision, and the inbound frame
+// handler must exist before any wire dials.
+startProxyRoutingHost();
 
 // Workspaces are bootstrapped first because every per-workspace store
 // keys its reads off the active workspace id.

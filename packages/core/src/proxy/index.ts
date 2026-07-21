@@ -8,4 +8,6 @@
  */
 
 export { PROXY_LIFECYCLE_TAB_ID } from './identity';
-export { hostInScope, isValidScopePattern, normalizeHost } from './scope';
+export { buildScopePac } from './pac';
+export type { ScopePattern } from './scope';
+export { hostInScope, isValidScopePattern, normalizeHost, parseScopePattern } from './scope';

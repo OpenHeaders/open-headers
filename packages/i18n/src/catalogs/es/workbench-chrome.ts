@@ -514,7 +514,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingCaveat':
     'Los navegadores conectados enrutan los hosts del ámbito por el proxy local: HTTP/3 cae a HTTP/2 o 1.1, y los ' +
     'endpoints con certificado fijado pueden fallar. El resto del tráfico va directo.',
-  'workbench.proxyCapture.routingInactive': 'Los navegadores enrutan los hosts del ámbito cuando el proxy está en marcha.',
+  'workbench.proxyCapture.routingInactive':
+    'Los navegadores enrutan los hosts del ámbito cuando el proxy está en marcha.',
   'workbench.proxyCapture.routingUnsupported': '{agent} · no compatible',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────

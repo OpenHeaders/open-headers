@@ -1,0 +1,651 @@
+/**
+ * Workbench chrome — the shell plane — Simplified Chinese. Mirrors
+ * `catalogs/en/workbench-chrome.ts` key for key; extends the zh-CN
+ * register contract (`zh-CN/shared.ts`). Reuses shipped mints: the
+ * layout-menu wording quoted verbatim from the `zh-CN/panel.ts` twin
+ * (显示工具窗口名称、紧凑（底部固定）、按比例（均分两半）), the
+ * shortcut action labels from `zh-CN/workbench-settings-defs-keyboard`
+ * (启停 toggles, 聚焦, 命令面板, 创建条目, 新建终端标签页), the
+ * -规则 kicker family from `zh-CN/workbench-editors-rule` (标头规则 /
+ * 拦截规则 / … — ruleTypeName reuses them, API 请求体规则 / API
+ * 响应规则 keep en's API token), 暂存 = Scratch + 集合 / 包库 / 规范 /
+ * 取代 (chrome-sidebar), 守护进程 + 守护进程管理 (daemon-admin),
+ * 工作区编辑器 = workbench + 设置项 (workbench-settings), 配置文件 =
+ * terminal profile + 不可达 (tui), “立即重试”/“重置电路” quoted from
+ * workbench-live, 固定 = pin, 活动流 = Activity Feed, 徽章 = badge
+ * (popup), 跟踪 = tracking (追踪 stays distributed tracing), 这台电脑,
+ * 新功能 = What's New (shared-notifications 查看新功能). MINTS: 分隔条
+ * = splitter (取消拆分 = unsplit); 对等方 = peer (noun; extends the
+ * adjectival 对等 of shared-awareness);
+ * 红绿灯指示 = the traffic-light status pill; 签发 = mint (a token);
+ * 外壳 carried = the UI chrome. Raw by design: `Docs` / `Params` tab
+ * names (gRPC precedent), auth scheme and body-mode enums (Basic,
+ * Bearer Token, Form data, raw, GraphQL), Chrome ResourceType values
+ * (Page, Frame, Fetch/XHR, Script), DNR / AND / DOM / TLS,
+ * lowercase vault / live / shell / pty / oh (token case
+ * follows en), the proxy scope placeholder wire value, footer key
+ * caps (↑↓ / ← / → / ↵ / esc) and the {chord} / {unit} / {units}
+ * holes.
+ */
+
+import type { Catalog } from '../../types';
+
+export const workbenchChrome = {
+  // ── Tab strip: context menu ─────────────────────────────────────────
+  'workbench.tabbar.menu.duplicateTab': '复制标签页',
+  'workbench.tabbar.menu.close': '关闭',
+  'workbench.tabbar.menu.closeOther': '关闭其他标签页',
+  'workbench.tabbar.menu.closeAll': '关闭所有标签页',
+  'workbench.tabbar.menu.closeUnmodified': '关闭未修改的标签页',
+  'workbench.tabbar.menu.closeLeft': '关闭左侧标签页',
+  'workbench.tabbar.menu.closeRight': '关闭右侧标签页',
+  'workbench.tabbar.menu.splitAndMove': '拆分并移动',
+  'workbench.tabbar.menu.right': '向右',
+  'workbench.tabbar.menu.left': '向左',
+  'workbench.tabbar.menu.down': '向下',
+  'workbench.tabbar.menu.up': '向上',
+  'workbench.tabbar.menu.moveOpposite': '移到对面的分组',
+  'workbench.tabbar.menu.changeSplitterOrientation': '更改分隔条方向',
+  'workbench.tabbar.menu.unsplit': '取消拆分',
+  'workbench.tabbar.menu.unsplitAll': '取消所有拆分',
+
+  // ── Tab strip: close guard confirms (useTabLifecycle) ───────────────
+  // The dialog bodies follow a bolded tab label in the JSX, so they key
+  // as the sentence remainder (OnboardingTour bold-prefix idiom).
+  'workbench.tabbar.closeGuard.unsavedTitle': '保存更改？',
+  'workbench.tabbar.closeGuard.unsavedBody': '有未保存的更改。保存这些更改以免丢失你的工作。',
+  'workbench.tabbar.closeGuard.dontSave': '不保存',
+  'workbench.tabbar.closeGuard.cancel': '取消',
+  'workbench.tabbar.closeGuard.save': '保存更改',
+  'workbench.tabbar.closeGuard.draftTitle': '丢弃草稿？',
+  'workbench.tabbar.closeGuard.draftBody': '尚未发布。丢弃会删除该草稿；保留则把它留在侧边栏中，供你稍后完成。',
+  'workbench.tabbar.closeGuard.discard': '丢弃',
+  'workbench.tabbar.closeGuard.keep': '保留为草稿',
+
+  // ── Tab strip: bar chrome + search overlay ──────────────────────────
+  'workbench.tabbar.createApiRequest': '创建 API 请求',
+  'workbench.tabbar.createItem': '创建条目',
+  'workbench.tabbar.searchTabs': '搜索标签页',
+  'workbench.tabbar.search.placeholder': '搜索标签页...',
+  'workbench.tabbar.search.noMatch': '没有已打开的标签页匹配你的搜索',
+  'workbench.tabbar.search.noOpenTabs': '没有已打开的标签页',
+  'workbench.tabbar.search.noClosedMatch': '没有已关闭的标签页匹配你的搜索',
+  'workbench.tabbar.search.recentlyClosed': '最近关闭（{count}）',
+  'workbench.tabbar.search.recentlyClosedFiltered': '最近关闭（{matched}/{total}）',
+  'workbench.tabbar.envPinnedAria': '环境已固定',
+  'workbench.tabbar.fromExample': '来自“{name}”',
+
+  // ── Scratch segment labels (tab tooltip + breadcrumb bar) ───────────
+  'workbench.scratch.request': '暂存请求',
+  'workbench.scratch.rule': '暂存规则',
+  'workbench.scratch.variable': '暂存变量',
+  'workbench.scratch.workflow': '暂存工作流',
+
+  // ── Shell: command palette ──────────────────────────────────────────
+  'workbench.shell.commandPalette.collectionsDivider': '集合',
+  'workbench.shell.commandPalette.searchInGroup': '在 {name} 中搜索...',
+  'workbench.shell.commandPalette.placeholder': '搜索规则、集合，或输入 > 运行命令...',
+  'workbench.shell.commandPalette.noResults': '未找到结果',
+  'workbench.shell.commandPalette.emptyHint': '输入以搜索，或输入 > 查看命令',
+  'workbench.shell.commandPalette.footer.navigate': '↑↓ 导航',
+  'workbench.shell.commandPalette.footer.back': '← 返回',
+  'workbench.shell.commandPalette.footer.open': '→ 打开',
+  'workbench.shell.commandPalette.footer.select': '↵ 选择',
+  'workbench.shell.commandPalette.footer.close': 'esc 关闭',
+  'workbench.shell.commandPalette.group.rules': '规则',
+  'workbench.shell.commandPalette.group.templates': '模板',
+  'workbench.shell.commandPalette.group.requests': '请求',
+  'workbench.shell.commandPalette.group.systemTemplates': '系统模板',
+  'workbench.shell.commandPalette.group.settings': '设置',
+  'workbench.shell.commandPalette.section.create': '创建',
+  'workbench.shell.commandPalette.section.commands': '命令',
+  'workbench.shell.commandPalette.section.variables': '变量',
+  'workbench.shell.commandPalette.cmd.createItem': '创建条目...',
+  'workbench.shell.commandPalette.cmd.newRuleType': '新建{type}',
+  'workbench.shell.commandPalette.cmd.toggleLeftSidebar': '启停左侧边栏',
+  'workbench.shell.commandPalette.cmd.toggleRightSidebar': '启停右侧边栏',
+  'workbench.shell.commandPalette.cmd.toggleBottomPanel': '启停底部面板',
+  'workbench.shell.commandPalette.cmd.toggleActivityFeed': '启停活动流',
+  'workbench.shell.commandPalette.cmd.keyboardShortcuts': '键盘快捷键',
+  'workbench.shell.commandPalette.cmd.openSettings': '打开设置',
+  'workbench.shell.commandPalette.cmd.openWorkspaceVariables': '打开工作区变量',
+  'workbench.shell.commandPalette.cmd.openVault': '打开 Vault',
+  'workbench.shell.commandPalette.cmd.openLiveVariables': '打开 Live 变量',
+  'workbench.shell.commandPalette.cmd.openPackageLibrary': '打开包库',
+  'workbench.shell.commandPalette.cmd.openEnvironment': '打开环境：{name}',
+
+  // ── Shell: top bar (search button, layout menu, panel toggles) ──────
+  'workbench.shell.topbar.search': '搜索或运行命令...',
+  'workbench.shell.topbar.layout.bottomAlignment': '底部面板对齐',
+  'workbench.shell.topbar.layout.alignCenter': '居中（嵌套）',
+  'workbench.shell.topbar.layout.alignLeft': '左',
+  'workbench.shell.topbar.layout.alignRight': '右',
+  'workbench.shell.topbar.layout.alignJustify': '两端（全宽）',
+  'workbench.shell.topbar.layout.showToolWindowNames': '显示工具窗口名称',
+  'workbench.shell.topbar.layout.activityBarLayout': '活动栏布局',
+  'workbench.shell.topbar.layout.sidebarProportional': '按比例（均分两半）',
+  'workbench.shell.topbar.layout.sidebarCompact': '紧凑（底部固定）',
+  'workbench.shell.topbar.layout.sidebarStacked': '堆叠（全部置顶）',
+  'workbench.shell.topbar.layout.sidebarDynamic': '动态（跟随面板高度）',
+  'workbench.shell.topbar.layout.defaultLayoutDonor': '默认布局{unit}',
+  'workbench.shell.topbar.layout.inheritsDefault': '继承默认布局',
+  'workbench.shell.topbar.layout.donorTooltip': '此{unit}是默认的——新{units}会继承此布局。',
+  'workbench.shell.topbar.layout.nonDonorTooltip': '另一个{unit}是默认的——新{units}从那里继承。',
+  'workbench.shell.topbar.layout.resetToDefaults': '将布局重置为默认',
+  'workbench.shell.topbar.layout.restoreHidden': '恢复隐藏的活动栏工具',
+  'workbench.shell.topbar.toggle.leftSidebar': '左侧边栏',
+  'workbench.shell.topbar.toggle.bottomPanel': '底部面板',
+  'workbench.shell.topbar.toggle.rightSidebar': '右侧边栏',
+  'workbench.shell.topbar.bottomAlign.center': '底部面板：居中（嵌套）',
+  'workbench.shell.topbar.bottomAlign.left': '底部面板：左对齐',
+  'workbench.shell.topbar.bottomAlign.right': '底部面板：右对齐',
+  'workbench.shell.topbar.bottomAlign.justify': '底部面板：全宽',
+  'workbench.shell.topbar.bottomAlign.chooseAria': '选择底部面板对齐方式',
+  'workbench.shell.topbar.layoutOptions': '布局选项',
+
+  // ── Shell: status bar ───────────────────────────────────────────────
+  'workbench.shell.statusbar.theme.light': '浅色',
+  'workbench.shell.statusbar.theme.dark': '深色',
+  'workbench.shell.statusbar.theme.auto': '自动',
+  'workbench.shell.statusbar.systemStatus': '系统状态',
+
+  // ── Shell: activity bar ─────────────────────────────────────────────
+  'workbench.shell.activityBar.hideLabels': '隐藏标签文字',
+  'workbench.shell.activityBar.showLabels': '显示标签文字',
+
+  // ── Shell: editor empty state ───────────────────────────────────────
+  'workbench.shell.empty.createRule': '创建规则',
+  'workbench.shell.empty.createRuleDesc': '标头、重定向、拦截等',
+  'workbench.shell.empty.createVariable': '创建变量',
+  'workbench.shell.empty.createVariableDesc': '环境、工作区、Live 等',
+  'workbench.shell.empty.createRequest': '创建 API 请求',
+  'workbench.shell.empty.createRequestDesc': '构建、发送并保存 HTTP 请求',
+  'workbench.shell.empty.createWorkflow': '创建工作流',
+  'workbench.shell.empty.createWorkflowDesc': '串联并调度 API 请求',
+  'workbench.shell.empty.import': '导入',
+  'workbench.shell.empty.importDesc': 'Curl、HAR、Postman 等',
+  'workbench.shell.empty.migrate': '从其他工具迁移',
+  'workbench.shell.empty.migrateDesc': '带上你的 Postman、Insomnia 或 Bruno 数据',
+  'workbench.shell.empty.browseTemplates': '浏览所有模板…',
+  'workbench.shell.empty.varEnvironment': '环境变量',
+  'workbench.shell.empty.varWorkspace': '工作区变量',
+  'workbench.shell.empty.varLive': 'Live 变量',
+  'workbench.shell.empty.varVault': 'Vault 机密',
+  'workbench.shell.empty.varCollection': '集合变量',
+  'workbench.shell.empty.varCollectionTooltip': '集合变量需在集合内部创建。',
+
+  // ── Shell: environment selector ─────────────────────────────────────
+  'workbench.shell.envSelector.noEnvironment': '无环境',
+  'workbench.shell.envSelector.defaultPill': '默认',
+  'workbench.shell.envSelector.defaultTooltip': '在此集合中工作时会自动选中默认环境。',
+  'workbench.shell.envSelector.openEnv': '打开 {name}',
+  'workbench.shell.envSelector.pinToTab': '固定到此标签页',
+  'workbench.shell.envSelector.unpinFromTab': '从此标签页取消固定',
+  'workbench.shell.envSelector.pinToTabDesc': '每当该标签页获得焦点时切换到此环境。',
+  'workbench.shell.envSelector.pinToCollection': '固定到集合',
+  'workbench.shell.envSelector.unpinFromCollection': '从集合取消固定',
+  'workbench.shell.envSelector.pinToCollectionDesc': '在集合的固定列表中显示此环境。',
+  'workbench.shell.envSelector.pinAria': '固定环境',
+  'workbench.shell.envSelector.setCollectionDefault': '设为集合默认',
+  'workbench.shell.envSelector.clearCollectionDefault': '清除集合默认',
+  'workbench.shell.envSelector.searchPlaceholder': '搜索环境…',
+  'workbench.shell.envSelector.modeLabel': '模式：{mode}',
+  'workbench.shell.envSelector.switchBehavior.title': '在集合之间切换时',
+  'workbench.shell.envSelector.switchBehavior.keep': '保持所选环境',
+  'workbench.shell.envSelector.switchBehavior.keepDesc': '你的选择在各个集合及其中的所有内容间保持不变。',
+  'workbench.shell.envSelector.switchBehavior.applyDefaults': '应用集合默认',
+  'workbench.shell.envSelector.switchBehavior.applyDefaultsDesc':
+    '进入集合后由其默认环境接管。你上一次的手动选择会在其他位置恢复。',
+  'workbench.shell.envSelector.switchBehavior.follow': '跟随每个集合',
+  'workbench.shell.envSelector.switchBehavior.followDesc':
+    '有默认环境的集合会切换到它（并记住你的选择）。其他集合不切换。',
+  'workbench.shell.envSelector.switchBehavior.aria': '环境切换行为',
+  'workbench.shell.envSelector.pinnedBanner': '已固定到当前标签页——选择环境会移动该固定。',
+  'workbench.shell.envSelector.unpin': '取消固定',
+  'workbench.shell.envSelector.createNew': '创建新环境',
+  'workbench.shell.envSelector.pinnedSection': '已固定到此集合',
+  'workbench.shell.envSelector.othersSection': '其他环境',
+  'workbench.shell.envSelector.noMatches': '没有匹配的环境',
+  'workbench.shell.envSelector.footer.vault': 'Vault',
+  'workbench.shell.envSelector.footer.collection': '集合',
+  'workbench.shell.envSelector.footer.workspace': '工作区',
+  'workbench.shell.envSelector.footer.live': 'Live',
+  'workbench.shell.envSelector.triggerAriaActive': '活动环境：{name}',
+  'workbench.shell.envSelector.triggerAriaActivePinned': '活动环境：{name}（由此标签页固定）',
+  'workbench.shell.envSelector.triggerAriaNone': '未选择环境',
+  'workbench.shell.envSelector.triggerAriaNonePinned': '未选择环境（由此标签页固定）',
+
+  // ── Shell: breadcrumb root nouns ────────────────────────────────────
+  'workbench.shell.breadcrumbs.settings': '设置',
+  'workbench.shell.breadcrumbs.whatsNew': '新功能',
+  'workbench.shell.breadcrumbs.workspaces': '工作区',
+  'workbench.shell.breadcrumbs.daemonAdmin': '守护进程管理',
+  'workbench.shell.breadcrumbs.environments': '环境',
+  'workbench.shell.breadcrumbs.specs': '规范',
+  'workbench.shell.breadcrumbs.workspaceVariables': '工作区变量',
+  'workbench.shell.breadcrumbs.vault': 'Vault',
+  'workbench.shell.breadcrumbs.packageLibrary': '包库',
+  'workbench.shell.breadcrumbs.rules': '规则',
+  'workbench.shell.breadcrumbs.requests': '请求',
+  'workbench.shell.breadcrumbs.templates': '模板',
+  'workbench.shell.breadcrumbs.variables': '变量',
+  'workbench.shell.breadcrumbs.apiRequests': 'API 请求',
+  'workbench.shell.breadcrumbs.workflows': '工作流',
+  'workbench.shell.breadcrumbs.liveVariables': 'Live 变量',
+
+  // ── Shell: fallback entity labels ───────────────────────────────────
+  'workbench.shell.fallback.workflow': '工作流',
+  'workbench.shell.fallback.template': '模板',
+  'workbench.shell.fallback.environment': '环境',
+
+  // ── Shell: tab-label compositions + draft seeds. Singleton tab
+  // labels resolve live through the breadcrumb root nouns; only copy
+  // with no breadcrumb twin lives here. Draft seeds persist as entity
+  // names BY DESIGN (V5 fresh start) — keyed at mint time. ────────────
+  'workbench.shell.tabLabel.collectionVariables': '{name} · 变量',
+  'workbench.shell.tabLabel.collectionScripts': '{name} · 脚本',
+  'workbench.shell.tabLabel.collectionAuth': '{name} · 授权',
+  'workbench.shell.tabLabel.newRequest': '新请求',
+  'workbench.shell.tabLabel.newGrpcRequest': '新 gRPC 请求',
+  'workbench.shell.tabLabel.newWebSocketRequest': '新 WebSocket 请求',
+  'workbench.shell.tabLabel.newSocketIoRequest': '新 Socket.IO 请求',
+  'workbench.shell.tabLabel.newWorkflow': '新工作流',
+  'workbench.shell.tabLabel.newLiveVariable': '新 Live 变量',
+
+  // ── Shell: App glue — workspace-switch toast, dirty-close confirm,
+  // create-flow toasts. `{unit}` interpolates the host-vocabulary
+  // instance noun (tab / window). ─────────────────────────────────────
+  'workbench.shell.appGlue.switchedTo': '已将此{unit}切换到',
+  'workbench.shell.appGlue.andMadeActive': '，并已设为活动',
+  'workbench.shell.appGlue.discardTitle': '丢弃未保存的草稿？',
+  'workbench.shell.appGlue.discardBody': '切换工作区会关闭带有未保存更改的编辑器标签页。',
+  'workbench.shell.appGlue.discardOk': '切换并丢弃',
+  'workbench.shell.appGlue.cancel': '取消',
+  'workbench.shell.toast.createEnvironmentFailed': '创建环境失败',
+  'workbench.shell.toast.noActiveWorkspace': '没有活动的工作区',
+  'workbench.shell.toast.createRuleFailed': '创建规则失败',
+
+  // ── Save: collection modal chrome ───────────────────────────────────
+  'workbench.save.title': '保存',
+  'workbench.save.newFolder': '新建文件夹',
+  'workbench.save.newFolderTooltip': '新建文件夹（{chord}）',
+  'workbench.save.newCollection': '新建集合',
+  'workbench.save.newCollectionTooltip': '新建集合（{chord}）',
+  'workbench.save.cancel': '取消',
+  'workbench.save.save': '保存',
+  'workbench.save.selectCollectionFirst': '请先选择一个集合',
+  'workbench.save.enterName': '请输入名称',
+  'workbench.save.saveWithChord': '保存（{chord}）',
+  'workbench.save.footer.navigate': '↑↓ 导航',
+  'workbench.save.footer.open': '→ 打开',
+  'workbench.save.footer.back': '← 返回',
+  'workbench.save.footer.new': '{chord} 新建',
+  'workbench.save.footer.save': '{chord} 保存',
+  'workbench.save.footer.close': 'esc 关闭',
+  'workbench.save.nameLabel': '名称',
+  'workbench.save.saveTo': '保存到 ',
+  'workbench.save.rootCrumb': '本地规则',
+  'workbench.save.searchFolders': '搜索文件夹',
+  'workbench.save.searchCollections': '搜索集合',
+  'workbench.save.nameYourCollection': '为你的集合命名',
+  'workbench.save.create': '创建',
+  'workbench.save.noCollections': '还没有集合。',
+  'workbench.save.noMatchingCollections': '没有匹配的集合。',
+  'workbench.save.createCollection': '创建集合',
+  'workbench.save.orPressPrefix': '或按',
+  'workbench.save.nameYourFolder': '为你的文件夹命名',
+  'workbench.save.folderEmpty': '此文件夹为空。',
+  'workbench.save.collectionEmpty': '此集合为空。',
+  'workbench.save.pressPrefix': '按',
+  'workbench.save.pressMiddle': '在此保存，或按',
+  'workbench.save.pressSuffix': '新建文件夹。',
+
+  // ── Save: as-template step ──────────────────────────────────────────
+  'workbench.save.template.title': '保存为用户模板',
+  'workbench.save.template.next': '下一步',
+  'workbench.save.template.intro': '将当前的{type}配置保存为可复用的模板。',
+  'workbench.save.template.iconLabel': '图标',
+  'workbench.save.template.nameLabel': '名称 *',
+  'workbench.save.template.namePlaceholder': '我的模板名称',
+  'workbench.save.template.descriptionLabel': '描述',
+  'workbench.save.template.descriptionPlaceholder': '这个模板是做什么的？（可选）',
+  'workbench.save.template.includeConditions': '包含条件',
+  'workbench.save.template.includeActions': '包含操作',
+  'workbench.save.template.ruleFallback': '规则',
+
+  // ── Save: per-surface rule-type vocabulary ──────────────────────────
+  'workbench.save.ruleType.header': '标头',
+  'workbench.save.ruleType.block': '拦截',
+  'workbench.save.ruleType.redirect': '重定向',
+  'workbench.save.ruleType.queryParam': '查询参数',
+  'workbench.save.ruleType.inject': '注入',
+  'workbench.save.ruleType.delay': '延迟',
+  'workbench.save.ruleType.requestBody': 'API 请求体',
+  'workbench.save.ruleType.response': 'API 响应',
+
+  // ── Shell: rule-type entity names ('New {name}' draft seeds, command
+  //    palette scope column + New-rule rows). Draft names persist as
+  //    entity names — keyed at mint time (V5 fresh start, no back-compat). ─
+  'workbench.shell.ruleTypeName.header': '标头规则',
+  'workbench.shell.ruleTypeName.block': '拦截规则',
+  'workbench.shell.ruleTypeName.redirect': '重定向规则',
+  'workbench.shell.ruleTypeName.queryParam': '查询参数规则',
+  'workbench.shell.ruleTypeName.inject': '注入规则',
+  'workbench.shell.ruleTypeName.delay': '延迟规则',
+  'workbench.shell.ruleTypeName.requestBody': 'API 请求体规则',
+  'workbench.shell.ruleTypeName.response': 'API 响应规则',
+  'workbench.shell.ruleTypeName.ws': 'WebSocket 规则',
+  'workbench.shell.ruleTypeName.sse': 'SSE 规则',
+  'workbench.shell.ruleTypeName.fallback': '规则',
+  'workbench.shell.ruleTypeName.draftName': '新{name}',
+
+  // ── Tool-window registry (activity bars, dock tab strips, restore
+  //    rows, drag previews) ───────────────────────────────────────────
+  'workbench.toolWindows.httpRules': 'HTTP 规则',
+  'workbench.toolWindows.apiRequests': 'API 请求',
+  'workbench.toolWindows.workflows': '工作流',
+  'workbench.toolWindows.notifications': '通知',
+  'workbench.toolWindows.docs': 'Docs',
+  'workbench.toolWindows.varScope': '变量作用域',
+  'workbench.toolWindows.variables': '变量',
+  'workbench.toolWindows.workflowStatus': '工作流状态',
+  'workbench.toolWindows.activity': '活动',
+  'workbench.toolWindows.activityTooltip': '活动流——来自对等方的入站更改',
+  'workbench.toolWindows.proxyCapture': '代理',
+  'workbench.toolWindows.liveNetwork': '实时网络',
+  'workbench.toolWindows.terminal': '终端',
+  'workbench.toolWindows.git': 'Git',
+
+  // ── Tool-window `(i)` info popovers. `{{live.*}}` / `{{name}}`
+  //    reference chips compose raw in JSX between the keyed prefix/
+  //    suffix fragments; the Notifications entry stays on the shared
+  //    NOTIFICATIONS_PANEL_INFO corpus (panel co-consumer, Phase D). ───
+  'workbench.toolWindows.info.httpRules.summary':
+    '创建用于改写传出请求和传入响应的规则。规则存放在集合中，并能注入来自变量、vault 和 live 工作流的值。',
+  'workbench.toolWindows.info.httpRules.ruleTypesHeading': '规则类型',
+  'workbench.toolWindows.info.workflows.summaryPrefix':
+    '一个按计划刷新的变量生产者：一条请求链加一条提取规则。其输出会作为',
+  'workbench.toolWindows.info.workflows.summarySuffix': '引用出现，可在任何接受变量的地方使用。',
+  'workbench.toolWindows.info.docs.summary':
+    '规则、变量、工作流以及工作区编辑器本身的应用内文档——无需离开应用即可浏览。',
+  'workbench.toolWindows.info.varScope.summaryPrefix': '活动标签页引用的变量，以及它们解析时对照的每个作用域。裸的',
+  'workbench.toolWindows.info.varScope.summaryMiddle': '会按下方的优先级顺序逐层回退；像',
+  'workbench.toolWindows.info.varScope.summarySuffix': '这样的命名空间引用则直接指向单个作用域。',
+  'workbench.toolWindows.info.varScope.priorityHeading': '优先级顺序',
+  'workbench.toolWindows.info.varScope.vaultLabel': 'Vault',
+  'workbench.toolWindows.info.varScope.vaultDesc': '按用户的机密，从不同步——优先级最高。',
+  'workbench.toolWindows.info.varScope.environmentLabel': '环境',
+  'workbench.toolWindows.info.varScope.environmentDesc': '活动环境，并回退到默认环境。',
+  'workbench.toolWindows.info.varScope.collectionLabel': '集合',
+  'workbench.toolWindows.info.varScope.collectionDesc': '活动实体所在的集合。',
+  'workbench.toolWindows.info.varScope.workspaceLabel': '工作区',
+  'workbench.toolWindows.info.varScope.workspaceDesc': '在整个工作区共享——优先级最低。',
+  'workbench.toolWindows.info.varScope.namespacedHeading': '命名空间',
+  'workbench.toolWindows.info.varScope.liveLabel': 'Live',
+  'workbench.toolWindows.info.varScope.liveDescPrefix': '由工作流支撑；只能通过',
+  'workbench.toolWindows.info.varScope.liveDescSuffix': '访问，从最近一次运行解析。',
+  'workbench.toolWindows.info.variables.summary':
+    '变量目录——在环境、集合、工作区和 vault 中定义的一切。用“作用域”查看对活动标签页而言真正在作用域内的内容。',
+  'workbench.toolWindows.info.variables.typesHeading': '变量类型',
+  'workbench.toolWindows.info.variables.vaultDesc': '按用户的机密——存储在本地，从不同步。',
+  'workbench.toolWindows.info.variables.environmentDesc': '按环境定义；由活动环境提供值。',
+  'workbench.toolWindows.info.variables.collectionDesc': '定义在集合上；作用于其中的实体。',
+  'workbench.toolWindows.info.variables.workspaceDesc': '在整个工作区共享。',
+  'workbench.toolWindows.info.variables.liveDescPrefix': '由工作流产生的值，引用方式为',
+  'workbench.toolWindows.info.variables.liveDescSuffix': '.',
+  'workbench.toolWindows.info.apiRequests.summary': '已保存的 API 请求及其运行所针对的环境，按集合和文件夹组织。',
+  'workbench.toolWindows.info.apiRequests.editorHeading': '请求编辑器',
+  'workbench.toolWindows.info.apiRequests.docsLabel': 'Docs',
+  'workbench.toolWindows.info.apiRequests.docsDesc': '请求的自由格式笔记——支持 Markdown。',
+  'workbench.toolWindows.info.apiRequests.paramsLabel': 'Params',
+  'workbench.toolWindows.info.apiRequests.paramsDesc': '追加到请求 URL 的查询参数。',
+  'workbench.toolWindows.info.apiRequests.authorizationLabel': '授权',
+  'workbench.toolWindows.info.apiRequests.authorizationDesc':
+    '从父级继承、Basic、Bearer Token、API Key 或 OAuth 2.0——在发送时应用。',
+  'workbench.toolWindows.info.apiRequests.headersLabel': '标头',
+  'workbench.toolWindows.info.apiRequests.headersDesc': '请求标头，变量引用在发送时解析。',
+  'workbench.toolWindows.info.apiRequests.bodyLabel': '正文',
+  'workbench.toolWindows.info.apiRequests.bodyDesc':
+    'Form data、URL-encoded、raw（Text、JavaScript、JSON、HTML、XML）或 GraphQL。',
+  'workbench.toolWindows.info.apiRequests.scriptsLabel': '脚本',
+  'workbench.toolWindows.info.apiRequests.scriptsDesc': '请求前与响应后的 JavaScript 钩子。',
+  'workbench.toolWindows.info.apiRequests.settingsLabel': '设置',
+  'workbench.toolWindows.info.apiRequests.settingsDesc': '按请求的行为——SSL 验证、重定向等。',
+  'workbench.toolWindows.info.workflowStatus.summary':
+    '按工作流的断路器仪表盘——状态、连续失败次数、断开次数和下次尝试倒计时，' +
+    '并提供手动的“立即重试”和“重置电路”操作。',
+  'workbench.toolWindows.info.activity.summary':
+    '工作区范围的对等方入站更改流，带有分类器高亮：敏感字段轮换、权限范围扩大和本地编辑被取代。',
+  'workbench.terminal.sessionEnded': '会话已结束',
+  'workbench.terminal.restart': '重启 shell',
+  'workbench.terminal.tabLocal': '本地',
+  'workbench.terminal.tabLocalN': '本地（{n}）',
+  'workbench.terminal.newTab': '新建终端标签页',
+  'workbench.terminal.newTabWithProfile': '从配置文件新建标签页',
+  'workbench.terminal.closeTab': '关闭标签页',
+  'workbench.terminal.openTui': '打开 TUI 模式',
+  'workbench.terminal.closeConfirm.title': '进程正在运行',
+  'workbench.terminal.closeConfirm.bodyPrefix': '仍有进程在 ',
+  'workbench.terminal.closeConfirm.bodySuffix': ' 中运行。要终止它吗？',
+  'workbench.terminal.closeConfirm.ok': '终止',
+  'workbench.terminal.closeConfirm.bodyMany': '要关闭的标签页中有 {count} 个仍有进程在运行。要终止它们吗？',
+  'workbench.terminal.menu.rename': '重命名',
+  'workbench.terminal.rename.title': '重命名标签页',
+  'workbench.terminal.settings': '设置',
+  'workbench.terminal.cliGate.title': '连接 OpenHeaders CLI',
+  'workbench.terminal.cliGate.body': 'TUI 模式由命令行工具 oh 驱动，它尚未连接到此应用。',
+  'workbench.terminal.cliGate.bodyInfo.title': 'CLI 连接',
+  'workbench.terminal.cliGate.bodyInfo.summary':
+    '连接会签发一个访问 token 并写入 {path}。oh CLI 读取该文件以向本地守护进程进行身份验证，' +
+    '因此连接后 oh 可在这台电脑上的任何终端中使用。取消则不会签发任何内容。',
+  'workbench.terminal.cliGate.enableMcp': '启用 MCP 服务器',
+  'workbench.terminal.cliGate.enableMcpInfo.title': 'MCP 服务器',
+  'workbench.terminal.cliGate.enableMcpInfo.summary':
+    'oh 通过守护进程的 /mcp 端点（基于可流式 HTTP 的 Model Context Protocol）访问此应用。' +
+    'mcp.enabled 设置项控制该端点——它关闭时端点返回 404，TUI 会把守护进程报告为不可达。' +
+    '取消勾选则只签发 token。',
+  'workbench.terminal.cliGate.ok': '连接并打开',
+  'workbench.terminal.cliGate.openSettings': '打开设置',
+  'workbench.toolWindows.info.proxyCapture.summary':
+    '捕获代理——本机任何指向本地代理端口的工具流量，以实时网络日志的形式捕获。解密有明确范围：' +
+    '只有你列出的主机才会终止 TLS，其余流量以不透明隧道方式通过。',
+  'workbench.toolWindows.info.liveNetwork.summary':
+    '浏览器实时视图——已连接的扩展会把受监视标签页的流量流式传输到桌面应用，并使用与 DevTools 面板相同的' +
+    '网络日志呈现。在你选择要监视的标签页之前，不会传输任何数据。',
+  'workbench.toolWindows.info.terminal.summary':
+    '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
+    '包括对本地应用使用 oh CLI。',
+  'workbench.toolWindows.info.git.summary':
+    '活动工作区 Git 绑定的提交历史——工作区时间线，带有每个提交的已更改文件、作者信息和每个文件的历史。',
+
+  // ── Git tool window (log view) ───────────────────────────────────
+  'workbench.gitLog.filterPlaceholder': '按提交信息、作者或哈希筛选',
+  'workbench.gitLog.refresh': '刷新',
+  'workbench.gitLog.empty': '还没有提交',
+  'workbench.gitLog.selectCommit': '选择一个提交以查看其更改',
+  'workbench.gitLog.notBound.title': '此工作区没有 Git 绑定',
+  'workbench.gitLog.notBound.body': '在设置 › Git 下将工作区绑定到一个文件夹，即可查看其历史。',
+  'workbench.gitLog.notBound.cta': '打开 Git 设置',
+  'workbench.gitLog.loadFailed': '无法加载历史：{detail}',
+  'workbench.gitLog.authorLine': '{author} <{email}> 于 {date}',
+  'workbench.gitLog.coAuthors': '共同作者：{authors}',
+  'workbench.gitLog.filesHeading': '已更改的文件',
+  'workbench.gitLog.diff.title': 'Diff——{path}',
+  'workbench.gitLog.diff.binary': '二进制文件——无文本预览。',
+  'workbench.gitLog.diff.tooLarge': '文件过大，无法预览（{size} KB）。',
+  'workbench.gitLog.refs.toggle': '显示分支和标签',
+  'workbench.gitLog.refs.local': '本地',
+  'workbench.gitLog.refs.remote': '远程',
+  'workbench.gitLog.refs.tags': '标签',
+  'workbench.gitLog.refs.empty': '还没有分支',
+
+  // ── Proxy capture tool window (control strip) ────────────────────
+  'workbench.proxyCapture.running': '运行中 · :{port}',
+  'workbench.proxyCapture.stopped': '已停止',
+  'workbench.proxyCapture.start': '启动',
+  'workbench.proxyCapture.stop': '停止',
+  'workbench.proxyCapture.port': '端口',
+  'workbench.proxyCapture.scope': '解密范围',
+  'workbench.proxyCapture.scopeCount': '解密范围 · {count}',
+  'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
+  'workbench.proxyCapture.scopeHint': '只有列出的主机会被解密；其他所有 HTTPS 流量都以不透明隧道通过。',
+  'workbench.proxyCapture.scopeSaved': '解密范围已更新',
+  'workbench.proxyCapture.scopeFailed': '无法更新范围：{message}',
+  'workbench.proxyCapture.startFailed': '无法启动代理：{message}',
+  'workbench.proxyCapture.emptyRunning': '等待代理流量…',
+  'workbench.proxyCapture.emptyRunningHint': '将客户端指向 http://127.0.0.1:{port} 即可捕获其请求',
+  'workbench.proxyCapture.emptyStopped': '代理已停止',
+  'workbench.proxyCapture.emptyStoppedHint': '启动代理以开始捕获流量',
+  'workbench.proxyCapture.noCa':
+    '没有受信任的 CA，因此 HTTPS 连接以不透明隧道通过——不会解密任何内容。在设置 › 代理 下安装 CA，' +
+    '然后把主机加入解密范围。',
+  'workbench.proxyCapture.routing': '路由浏览器',
+  'workbench.proxyCapture.routingFailed': '无法更新路由：{message}',
+  'workbench.proxyCapture.routingCaveat':
+    '已连接的浏览器将范围内的主机经本地代理路由：HTTP/3 会回退到 HTTP/2 或 1.1，固定证书的端点可能失败。' +
+    '范围外的流量保持直连。',
+  'workbench.proxyCapture.routingInactive': '代理运行后，浏览器才会路由范围内的主机。',
+  'workbench.proxyCapture.routingUnsupported': '{agent} · 不支持',
+
+  // ── 实时网络工具窗口（可观测性第 1 阶段） ────────────────────────────
+  'workbench.liveNetwork.browserConnected': '已连接浏览器：{count}',
+  'workbench.liveNetwork.noBrowser': '未连接浏览器',
+  'workbench.liveNetwork.pickTab': '监视某个浏览器标签页…',
+  'workbench.liveNetwork.refreshTabs': '刷新标签页列表',
+  'workbench.liveNetwork.untitledTab': '无标题标签页',
+  'workbench.liveNetwork.emptyWatching': '等待流量…',
+  'workbench.liveNetwork.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
+  'workbench.liveNetwork.emptyNoTab': '未选择标签页',
+  'workbench.liveNetwork.emptyNoTabHint': '在上方选择一个浏览器标签页，即可实时查看其流量',
+  'workbench.liveNetwork.emptyNoBrowser': '未连接浏览器',
+  'workbench.liveNetwork.emptyNoBrowserHint': '打开装有 OpenHeaders 扩展并已连接到本应用的浏览器',
+
+  // ── Shared markdown widgets (toolbar + highlighted code block) ──────
+  'workbench.markdown.heading': '标题',
+  'workbench.markdown.bold': '粗体',
+  'workbench.markdown.italic': '斜体',
+  'workbench.markdown.strikethrough': '删除线',
+  'workbench.markdown.codeBlock': '代码块',
+  'workbench.markdown.link': '链接',
+  'workbench.markdown.bulletedList': '无序列表',
+  'workbench.markdown.numberedList': '有序列表',
+  'workbench.markdown.table': '表格',
+  'workbench.markdown.copyCode': '复制代码',
+  'workbench.markdown.copied': '已复制',
+
+  // ── Two-tone icon picker ────────────────────────────────────────────
+  'workbench.iconPicker.searchPlaceholder': '搜索图标...',
+
+  // ── Template editor ─────────────────────────────────────────────────
+  'workbench.templateEditor.toast.saved': '模板已保存',
+  'workbench.templateEditor.toast.saveFailed': '保存模板失败',
+  'workbench.templateEditor.notFound': '未找到模板',
+  'workbench.templateEditor.namePlaceholder': '模板名称',
+  'workbench.templateEditor.descriptionPlaceholder': '描述（可选）',
+  'workbench.templateEditor.includeConditions': '包含条件',
+  'workbench.templateEditor.includeActions': '包含操作',
+  'workbench.templateEditor.conditionsTitle': '条件',
+
+  // ── What's New tab ──────────────────────────────────────────────────
+  'workbench.whatsNew.title': 'Open Headers {version} 新功能',
+  'workbench.whatsNew.noNotes': '此构建版本未附带版本说明。',
+
+  // ── Keyboard shortcuts: SHORTCUTS registry action names + the docs
+  // cheatsheet chrome around them. Chords, key caps (?, ⌘, Ctrl) and
+  // the regions diagram internals stay raw. ──────────────────────────
+  'workbench.shortcuts.action.toggleLeftSidebar': '启停左侧边栏',
+  'workbench.shortcuts.action.toggleRightSidebar': '启停右侧边栏',
+  'workbench.shortcuts.action.toggleBottomPanel': '启停底部面板',
+  'workbench.shortcuts.action.toggleActivityFeed': '启停活动流',
+  'workbench.shortcuts.action.terminalNewTab': '新建终端标签页',
+  'workbench.shortcuts.action.closeTab': '关闭标签页',
+  'workbench.shortcuts.action.newTab': '新建标签页',
+  'workbench.shortcuts.action.prevTab': '上一个标签页',
+  'workbench.shortcuts.action.nextTab': '下一个标签页',
+  'workbench.shortcuts.action.tabSearch': '搜索标签页',
+  'workbench.shortcuts.action.commandPalette': '命令面板',
+  'workbench.shortcuts.action.focusFilter': '聚焦当前区域的筛选框',
+  'workbench.shortcuts.action.focusLeftSidebar': '聚焦左侧边栏',
+  'workbench.shortcuts.action.focusEditor': '聚焦编辑器',
+  'workbench.shortcuts.action.focusRightSidebar': '聚焦右侧边栏',
+  'workbench.shortcuts.action.focusBottomPanel': '聚焦底部面板',
+  'workbench.shortcuts.action.save': '保存',
+  'workbench.shortcuts.action.newRule': '创建条目',
+  'workbench.shortcuts.action.import': '导入',
+  'workbench.shortcuts.action.showShortcuts': '键盘快捷键',
+  'workbench.shortcuts.action.openSettings': '打开设置',
+  'workbench.shortcuts.action.find': '在编辑器中查找',
+  'workbench.shortcuts.action.replace': '在编辑器中替换',
+  'workbench.shortcuts.action.formatCode': '格式化代码',
+  'workbench.shortcuts.category.panels': '面板',
+  'workbench.shortcuts.category.tabs': '标签页',
+  'workbench.shortcuts.category.navigation': '导航',
+  'workbench.shortcuts.category.actions': '操作',
+  'workbench.shortcuts.allSurfacesTitle': '所有界面',
+  'workbench.shortcuts.toggleDebugMode': '启停调试模式',
+  'workbench.shortcuts.goToTab': '前往标签页 1–9（9 = 最后一个）',
+  'workbench.shortcuts.introPrefix': '按',
+  'workbench.shortcuts.introMiddle': '可随时跳转到这里。快捷键使用',
+  'workbench.shortcuts.introSuffix': '作为修饰键。',
+  'workbench.shortcuts.regionsCaption': '四个组合键分别把焦点停放在外壳四个区域之一。',
+
+  // ── Docs navigator plane: group labels + section titles/summaries
+  // from the workbench DOC_GROUPS registry (raw-or-key DocSection
+  // idiom). Section body corpus + diagrams are their own station. ────
+  'workbench.docs.nav.group.openHeaders': 'Open Headers',
+  'workbench.docs.nav.group.concepts': '概念',
+  'workbench.docs.nav.group.modifyRequests': '修改请求',
+  'workbench.docs.nav.group.modifyResponses': '修改响应',
+  'workbench.docs.nav.group.runCode': '运行代码',
+  'workbench.docs.nav.group.reference': '参考',
+  'workbench.docs.nav.paradigm.title': '我们做什么（不同之处）',
+  'workbench.docs.nav.paradigm.summary': '一个浏览器扩展，做到了过去需要代理、桌面二进制程序或云账号才能做到的事。',
+  'workbench.docs.nav.comparison.title': '我们与同类的对比',
+  'workbench.docs.nav.comparison.summary': 'Open Headers 与云平台、桌面代理和仅标头扩展相比的表现。',
+  'workbench.docs.nav.roadmap.title': '每个界面，皆已交付',
+  'workbench.docs.nav.roadmap.summary':
+    '已交付的里程碑——Git 工作区、桌面端应用、MCP 服务器、守护进程、CLI、Web 应用、导入器。',
+  'workbench.docs.nav.conditions.title': '条件',
+  'workbench.docs.nav.conditions.summary': '以 AND 方式匹配、限定每条规则的筛选条件——域名、URL 模式、方法、标头。',
+  'workbench.docs.nav.actions.title': '操作',
+  'workbench.docs.nav.actions.summary': '规则中“做”的那一半——修改请求、修改响应或运行代码。与条件配对。',
+  'workbench.docs.nav.variables.title': '变量',
+  'workbench.docs.nav.variables.summary': '五个变量作用域——vault、环境、集合、工作区、live——以及引用如何解析。',
+  'workbench.docs.nav.requestTracking.title': '请求跟踪',
+  'workbench.docs.nav.requestTracking.summary': '匹配的请求如何被观察、记录，并在弹窗中以徽章呈现。',
+  'workbench.docs.nav.execution.title': '规则如何执行',
+  'workbench.docs.nav.execution.summary': '决定每条规则应用于何处的两套引擎（DNR 与基于脚本）。',
+  'workbench.docs.nav.multiTab.title': '多标签页行为',
+  'workbench.docs.nav.multiTab.summary': '哪些内容在工作区标签页之间同步（数据），哪些保持每标签页独立（布局、草稿）。',
+  'workbench.docs.nav.systemStatus.title': '系统状态',
+  'workbench.docs.nav.systemStatus.summary': '红绿灯指示——每个子系统报告什么，以及红/黄/绿分别意味着什么。',
+  'workbench.docs.nav.debugMode.title': '调试模式',
+  'workbench.docs.nav.debugMode.summary': '接入浏览器调试协议——对请求、注入和标签页环境有更深的触达。',
+  'workbench.docs.nav.headerActions.title': '标头操作',
+  'workbench.docs.nav.headerActions.summary': '添加、覆盖、追加、移除或合并请求与响应标头。',
+  'workbench.docs.nav.block.title': '拦截',
+  'workbench.docs.nav.block.summary': '在网络层取消匹配的请求。',
+  'workbench.docs.nav.redirect.title': '重定向',
+  'workbench.docs.nav.redirect.summary': '把匹配的请求发送到另一个 URL——静态或经正则替换。',
+  'workbench.docs.nav.queryParam.title': '查询参数',
+  'workbench.docs.nav.queryParam.summary': '在请求发出前添加、覆盖或移除 URL 查询参数。',
+  'workbench.docs.nav.requestBody.title': '请求体',
+  'workbench.docs.nav.requestBody.summary': '覆盖或转换传出的 fetch / XHR 正文——静态、动态或经 GraphQL 过滤。',
+  'workbench.docs.nav.response.title': '修改响应',
+  'workbench.docs.nav.response.summary': '模拟或修改 API 响应——合成或转换的正文、状态和标头。',
+  'workbench.docs.nav.inject.title': '注入 JS / CSS',
+  'workbench.docs.nav.inject.summary': '在页面上下文中运行 JavaScript 或 CSS——在页面脚本之前或 DOM 就绪之后。',
+  'workbench.docs.nav.delay.title': '延迟',
+  'workbench.docs.nav.delay.summary': '为导航和 JS 发起的 fetch / XHR 添加人为延迟。',
+  'workbench.docs.nav.resourceTypes.title': '资源类型',
+  'workbench.docs.nav.resourceTypes.summary': 'Chrome ResourceType 值的查询表——Page、Frame、Fetch/XHR、Script 等。',
+  'workbench.docs.nav.keyboardShortcuts.title': '键盘快捷键',
+  'workbench.docs.nav.keyboardShortcuts.summary': '工作区编辑器的每个快捷键，按界面分组——面板、标签页、导航、操作。',
+  'workbench.docs.nav.limitations.title': '限制',
+  'workbench.docs.nav.limitations.summary': '已知的意外集中在一处——DevTools 可见性、脚本触达、标头匹配、“合并”。',
+
+  // ── Copy-as-snippet toasts (sidebar row menu + request editor ⋯) ────
+  'workbench.copySnippet.copied': '已复制为 {format}',
+  'workbench.copySnippet.failed': '无法复制',
+  'workbench.copySnippet.failedDetail': '无法复制：{message}',
+} as const satisfies Catalog;

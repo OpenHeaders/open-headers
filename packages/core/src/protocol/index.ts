@@ -66,6 +66,17 @@ export {
   SyncMutationStreamMessageSchema,
 } from './mutation-stream';
 export type {
+  ProxyRoutingAckMessage,
+  ProxyRoutingHelloMessage,
+  ProxyRoutingStateMessage,
+  ProxyRoutingWireMessage,
+} from './proxy-routing';
+export {
+  PROXY_ROUTING_ACK_TYPE,
+  PROXY_ROUTING_HELLO_TYPE,
+  PROXY_ROUTING_STATE_TYPE,
+} from './proxy-routing';
+export type {
   HostLocalSnapshotKey,
   SameDeviceOnlySnapshotKey,
   SensitiveSnapshotKey,

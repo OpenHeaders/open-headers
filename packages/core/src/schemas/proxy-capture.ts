@@ -14,4 +14,7 @@ export const ProxyCaptureSettingsSchema = v.object({
   port: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65535)),
   /** Decrypt-scope patterns (`example.com`, `*.example.com`, IP literal). */
   scopePatterns: v.array(v.string()),
+  /** Scoped browser routing desire (§5.1) — absent = off. Folded with
+   *  the proxy's run state before it is ever pushed to a browser. */
+  routingEnabled: v.optional(v.boolean()),
 });

@@ -14,6 +14,7 @@ import type { LicenseSnapshot } from '../../licensing';
 import type {
   ProxyCaPublicInfo,
   ProxyCaptureStatus,
+  ProxyRoutingStatus,
   ProxyTrustChange,
   ProxyTrustStoreId,
   ProxyTrustStoreState,
@@ -578,6 +579,29 @@ export interface DaemonRpc {
   'oh.daemon.proxy.scope.set': {
     req: { patterns: ReadonlyArray<string> };
     res: { ok: true; scopePatterns: ReadonlyArray<string> } | { ok: false; error: string };
+  };
+
+  /**
+   * Flip the scoped browser-routing desire (OBSERVABILITY_PLAN.md
+   * §5.1) — persisted, and pushed to every same-device browser peer as
+   * the folded verdict (desire AND proxy bound). The response carries
+   * the post-edit routing projection so the surface renders without a
+   * second round trip.
+   */
+  'oh.daemon.proxy.routing.set': {
+    req: { enabled: boolean };
+    res: { ok: true; routing: ProxyRoutingStatus } | { ok: false; error: string };
+  };
+
+  /**
+   * Live scoped-routing projection: the persisted desire, the folded
+   * active verdict, and each connected browser peer's last ack (what
+   * actually applied — PAC / per-request / unsupported, or a
+   * proxy-settings conflict error).
+   */
+  'oh.daemon.proxy.routing.status': {
+    req: Record<string, never>;
+    res: ProxyRoutingStatus;
   };
 
   // ── Browser telemetry plane (OBSERVABILITY_PLAN.md Phase 1) ──────

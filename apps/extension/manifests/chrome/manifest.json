@@ -32,7 +32,8 @@
     "windows",
     "sidePanel",
     "identity",
-    "offscreen"
+    "offscreen",
+    "proxy"
   ],
   "host_permissions": [
     "<all_urls>",

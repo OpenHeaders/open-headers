@@ -42,6 +42,7 @@ import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
 import type { ProxyCaptureControl } from './proxy/proxy-capture-service';
 import type { ProxyTrustService } from './proxy/proxy-trust';
+import type { ProxyRoutingControl } from './proxy/routing-push';
 import type { BrowserTelemetryPeerTabs } from './telemetry/browser-live-relay';
 
 export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
@@ -74,6 +75,11 @@ export interface AdminChannelDeps {
   /** The `oh.daemon.proxy.{status,start,stop,scope.*}` backing — see
    *  `proxy/proxy-capture-service.ts`. */
   proxyCapture: ProxyCaptureControl;
+  /** The `oh.daemon.proxy.routing.*` backing — the §5.1 scoped
+   *  browser-routing controller. Optional so dispatch tables composed
+   *  without the WS push plane (test rigs) answer an inert projection
+   *  instead of failing construction. */
+  proxyRouting?: ProxyRoutingControl;
   /** The `oh.daemon.telemetry.tabs.list` backing — the browser live-
    *  telemetry relay's per-peer tab inventory. Optional so dispatch
    *  tables composed without the relay (test rigs) answer an empty
@@ -323,6 +329,24 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       return { ok: false, error: (err as Error).message };
     }
   });
+
+  // Scoped browser routing (§5.1) — the persisted desire flip and the
+  // live projection. Pushes to browser peers ride the routing
+  // controller's own change subscription, never this table.
+  handlers.set('oh.daemon.proxy.routing.set', async (message) => {
+    if (typeof message.enabled !== 'boolean') return { ok: false, error: 'missing enabled' };
+    if (!deps.proxyRouting) return { ok: false, error: 'routing control unavailable' };
+    try {
+      return await deps.proxyRouting.setEnabled(message.enabled);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  handlers.set(
+    'oh.daemon.proxy.routing.status',
+    async () => (await deps.proxyRouting?.status()) ?? { enabled: false, active: false, peers: [] },
+  );
 
   // Browser telemetry plane — the Live Network picker's tab inventory,
   // gathered live per call from every answering extension peer. The
