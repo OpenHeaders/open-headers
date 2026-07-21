@@ -443,6 +443,44 @@ test('the attached tab serves response bodies — CDP fidelity end to end', asyn
   });
 });
 
+// ── Inspect-tab CTAs hand off in-place on the desktop ───────────────
+
+test('inspect-tab CTAs hand off locally: rule draft + Create API request', async () => {
+  // The inspect tab from the previous leg is focused; its breadcrumb
+  // names the Traffic Monitor origin, not the Rules default.
+  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic Monitor' }).first()).toBeVisible();
+
+  // The Headers tab hosts the CTAs.
+  await workbench.getByRole('tab', { name: 'Headers', exact: true }).first().click();
+
+  // Rule-draft handoff: the quick-editor popover's workspace link
+  // stashes the draft (`createRuleDraft`) and routes the intent through
+  // the local loop — a pre-filled rule-create tab opens.
+  await workbench.getByRole('button', { name: 'Override query params' }).first().click();
+  await workbench.getByText('Open in workspace').first().click();
+  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Rules' }).first()).toBeVisible({
+    timeout: 10000,
+  });
+  // The draft seeded the captured URL into the rule form's URL-pattern
+  // editor. Keep-alive editor tabs hold the same URL text hidden, so
+  // match the VISIBLE occurrence only.
+  await expect(
+    workbench
+      .getByText('http://127.0.0.1:3000/api/echo?probe=debug-live-1')
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
+
+  // Back on the inspect tab: Create API request opens a scratch
+  // request tab seeded from the capture (`createRequestDraft`).
+  await workbench.getByRole('tab', { name: /ug-live-1/ }).first().click();
+  await workbench.getByRole('tab', { name: 'Headers', exact: true }).first().click();
+  await workbench.getByRole('button', { name: 'Create API request' }).first().click();
+  await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'API Requests' }).first()).toBeVisible({
+    timeout: 10000,
+  });
+});
+
 // ── Leg 5: unpin from the rail ──────────────────────────────────────
 
 test('un-pinning from the rail detaches and returns the row to the ghost state', async () => {

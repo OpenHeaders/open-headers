@@ -74,10 +74,13 @@ import {
   serializeWorkspaceExport,
 } from '@openheaders/core/workspace-export';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
+import { createRequestDraft, takeRequestDraft } from '@openheaders/oracle/entity/request-draft-store';
 import {
   clearPendingScriptsReview,
   getPendingScriptsReview,
 } from '@openheaders/oracle/entity/request-scripts-review-store';
+import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import {
@@ -1059,6 +1062,42 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       } catch {
         return { success: false };
       }
+    }
+    // Draft handoff + workspace intents — on this host the calling
+    // surface IS the workspace, so the stash rides the shared in-memory
+    // stores in this process and the intent broadcasts straight back to
+    // the local surfaces, where the workbench's intent router consumes
+    // it on its warm path (the SW-navigator round trip the extension
+    // needs collapses to a local loop here).
+    if (type === 'createRuleDraft') {
+      try {
+        return { success: true, nonce: createRuleDraft(message.draft) };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'takeRuleDraft') {
+      return { success: true, draft: takeRuleDraft(message.nonce as string) };
+    }
+    if (type === 'createRequestDraft') {
+      try {
+        return { success: true, nonce: createRequestDraft(message.seed) };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'takeRequestDraft') {
+      return { success: true, seed: takeRequestDraft(message.nonce as string) };
+    }
+    if (type === 'openWorkspaceIntent') {
+      broadcastLocal('workspace-intent', { intent: message.intent });
+      return { ok: true, tabId: -1, path: 'warm' };
+    }
+    // Rules-only read for the shared capture surfaces' rule chips —
+    // the entity store is hydrated in this process (the proxy rules
+    // engine reads the same one).
+    if (type === 'getLocalRules') {
+      return { rules: getRules() };
     }
     // Workspace-tree channels (GIT_PLAN.md §9 — the Git card's host
     // side): one shared verb table. The local caller here is the

@@ -263,6 +263,12 @@ export function computeBreadcrumbs(
     return [t('workbench.shell.breadcrumbs.rules'), displayLabel];
   }
 
+  if (tab.mode === 'proxy-request-inspect' || tab.mode === 'live-network-request-inspect') {
+    // Captured-traffic inspect tabs are minted from the Traffic Monitor
+    // — the trail names their origin, not the Rules default.
+    return [t('workbench.toolWindows.trafficMonitor'), displayLabel];
+  }
+
   if (tab.mode === 'edit' && tab.ruleUid) {
     const rule = rules.find((r) => r.uid === tab.ruleUid);
     if (rule) {

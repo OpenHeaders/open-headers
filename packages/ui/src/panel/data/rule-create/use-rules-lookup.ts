@@ -32,10 +32,11 @@ export function useRulesLookup(): RulesByUid {
   useEffect(() => {
     let cancelled = false;
 
-    // Initial fetch. `popupOpen` also returns `connected`, pause
-    // markers, etc. — we only want the rules.
+    // Initial fetch — the rules-only channel every host answers (the
+    // popup lifecycle RPC is extension-only; the desktop workbench
+    // serves the same store through `getLocalRules`).
     hostBridge
-      .call('popupOpen')
+      .call('getLocalRules')
       .then((resp) => {
         if (cancelled) return;
         setByUid(indexRules(resp.rules ?? []));
