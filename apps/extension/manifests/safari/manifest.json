@@ -73,6 +73,6 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src 'self' http: https: ws: wss: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:"
+    "extension_pages": "default-src 'self'; connect-src 'self' http: https: ws: wss: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self' blob:"
   }
 }
