@@ -22,8 +22,9 @@
  * Re-mint hygiene: a bootstrap carrying the extension install's stable
  * id revokes that install's prior `nmSession` mints (and evicts their
  * live sockets) so per-profile tokens rotate instead of accumulating.
- * The id scopes the rotation; it proves nothing — identity is the OS
- * chain above.
+ * The id scopes the rotation and stamps a short suffix into the token
+ * label so sibling profiles of one browser render as distinct ledger
+ * rows; it proves nothing — identity is the OS chain above.
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -98,6 +99,18 @@ function parseInstallId(raw: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Short display suffix from the install id — sibling profiles of one
+ * browser each carry their own extension install, so the id is the only
+ * per-profile fact available (the spawning browser process is shared
+ * across profiles). Display-only, exactly like the id's rotation role.
+ */
+function installIdSuffix(installId: string): string | null {
+  const core = installId.startsWith('ext-') ? installId.slice('ext-'.length) : installId;
+  const compact = core.replace(/[^0-9A-Za-z]/g, '');
+  return compact.length > 0 ? compact.slice(0, 4) : null;
+}
+
 /** Revoke the install's prior nmSession mints + evict their live sockets. */
 async function revokePredecessors(installId: string, closePeersByTokenId: (tokenId: string) => void): Promise<void> {
   const tokens = await listDaemonAuthTokens();
@@ -151,8 +164,9 @@ export function createNmBootstrapHttpHandler(options: NmBootstrapHttpOptions): N
         if (installId !== undefined) {
           await revokePredecessors(installId, options.closePeersByTokenId);
         }
+        const suffix = installId !== undefined ? installIdSuffix(installId) : null;
         const mint = await mintDaemonAuthToken({
-          label: `NM: ${verdict.browser.name}`,
+          label: suffix === null ? `NM: ${verdict.browser.name}` : `NM: ${verdict.browser.name} · ${suffix}`,
           kind: 'nmSession',
           expiresAt: now() + NM_SESSION_TTL_MS,
           ...(installId !== undefined ? { nmInstallId: installId } : {}),

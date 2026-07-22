@@ -437,8 +437,31 @@ describe('nm bootstrap HTTP handler', () => {
     expect(ledger.ok).toBe(true);
     if (ledger.ok) {
       expect(ledger.tokenId).toBe(body.tokenId);
-      expect(ledger.label).toBe('NM: Google Chrome');
+      // Per-profile suffix from the install id (first 4 alphanumerics).
+      expect(ledger.label).toBe('NM: Google Chrome · inst');
     }
+  });
+
+  it('derives the label suffix from the uuid behind the ext- prefix', async () => {
+    const response = await fetch(`${baseUrl}${NM_BOOTSTRAP_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ installId: 'ext-3f2a91c4-0000-4000-8000-000000000000' }),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { ok: boolean; secret: string };
+    const ledger = await peekDaemonAuthToken(body.secret);
+    expect(ledger.ok).toBe(true);
+    if (ledger.ok) expect(ledger.label).toBe('NM: Google Chrome · 3f2a');
+  });
+
+  it('mints a plain vendor label when no install id is supplied', async () => {
+    const response = await fetch(`${baseUrl}${NM_BOOTSTRAP_PATH}`, { method: 'POST', body: '{}' });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { ok: boolean; secret: string };
+    const ledger = await peekDaemonAuthToken(body.secret);
+    expect(ledger.ok).toBe(true);
+    if (ledger.ok) expect(ledger.label).toBe('NM: Google Chrome');
   });
 
   it('revokes the same install predecessor mint and evicts its live sockets', async () => {
