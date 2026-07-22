@@ -52,19 +52,6 @@ export const NM_HOST_NAME = 'io.openheaders.nm_bootstrap';
  */
 export const WINDOWS_HOST_BINARY_SIGNED = false;
 
-/** The published Chrome Web Store extension id. */
-export const CHROME_EXTENSION_ID = 'ablaikadpbfblkmhpmbbnbbfjoibeejb';
-
-/**
- * The published Edge Add-ons extension id. Every Chromium manifest
- * carries the union allowlist — Edge users may install from either
- * store, and a second origin in a browser that never sees it is inert.
- */
-export const EDGE_EXTENSION_ID = 'gnbibobkkddlflknjkgcmokdlpddegpo';
-
-/** The Firefox (Gecko) extension id from `browser_specific_settings.gecko.id`. */
-export const FIREFOX_EXTENSION_ID = 'contact@tirzuman.com';
-
 export interface NmHostBinaryFacts {
   /** `app.isPackaged` — extraResource vs monorepo sibling. */
   isPackaged: boolean;

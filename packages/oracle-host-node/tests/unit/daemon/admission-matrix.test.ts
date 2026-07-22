@@ -7,7 +7,7 @@
  * must be config-declared).
  */
 
-import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
+import { CHROME_EXTENSION_ID, EDGE_EXTENSION_ID, MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   type AdmissionRequestFacts,
@@ -118,16 +118,31 @@ describe('origin posture', () => {
     expect(evaluateAdmission(explicitPort, ['oh.openheaders.io']).ok).toBe(true);
   });
 
-  it('ws upgrade accepts extension origins and the own origin, rejects pages and the null origin', () => {
+  it('ws upgrade accepts our extension origins and the own origin, rejects pages and the null origin', () => {
     const base = { upgrade: true, path: '/' } as const;
-    expect(evaluateAdmission(facts({ ...base, origin: 'chrome-extension://abcdefgh' }), []).ok).toBe(true);
+    expect(evaluateAdmission(facts({ ...base, origin: `chrome-extension://${CHROME_EXTENSION_ID}` }), []).ok).toBe(
+      true,
+    );
+    expect(evaluateAdmission(facts({ ...base, origin: `chrome-extension://${EDGE_EXTENSION_ID}` }), []).ok).toBe(true);
     expect(evaluateAdmission(facts({ ...base, origin: 'moz-extension://uuid-here' }), []).ok).toBe(true);
+    expect(evaluateAdmission(facts({ ...base, origin: 'safari-web-extension://uuid-here' }), []).ok).toBe(true);
     expect(evaluateAdmission(facts({ ...base, origin: 'http://192.168.1.20:8137' }), []).ok).toBe(true);
     expect(evaluateAdmission(facts({ ...base, origin: 'https://evil.example.com' }), [])).toMatchObject({
       ok: false,
       reason: 'origin-forbidden',
     });
     expect(evaluateAdmission(facts({ ...base, origin: 'null' }), [])).toMatchObject({
+      ok: false,
+      reason: 'origin-forbidden',
+    });
+  });
+
+  it('ws upgrade pins Chromium origins to the published ids', () => {
+    const base = { upgrade: true, path: '/' } as const;
+    // A co-installed foreign extension carries its own id-derived origin.
+    expect(
+      evaluateAdmission(facts({ ...base, origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' }), []),
+    ).toMatchObject({
       ok: false,
       reason: 'origin-forbidden',
     });

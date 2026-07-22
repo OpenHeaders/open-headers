@@ -1,12 +1,15 @@
 /**
  * The host's one job (OBSERVABILITY_PLAN.md §4 + §8 Phase 7): take the
  * extension's bootstrap request, dial the desktop daemon's loopback
- * `/nm/bootstrap` route, and relay the answer. Identity verification
- * happens entirely on the daemon side — from OS truth about THIS
- * process (socket owner, executable path, spawning browser's
- * signature) — so nothing here is security-load-bearing except the
- * loopback pin: the host must never be talked into dialing a
- * non-loopback address, whatever the message claims.
+ * `/nm/bootstrap` route, and relay the answer. Caller-identity
+ * verification happens entirely on the daemon side — from OS truth
+ * about THIS process (socket owner, executable path, spawning
+ * browser's signature). The host carries two guards of its own: the
+ * loopback pin (it must never be talked into dialing a non-loopback
+ * address, whatever the message claims), and the listener
+ * verification seam — the mirror-image proof that the process
+ * answering the port is the real desktop app (`verify-daemon.ts`),
+ * wired in by the binary's composition root.
  */
 
 export interface BootstrapRequest {
@@ -56,6 +59,19 @@ export function daemonBootstrapEndpoint(backendUrl: string): string | null {
   return `http://${parsed.host}/nm/bootstrap`;
 }
 
+/** The loopback listen port the backend URL names (both schemes default to 80). */
+export function daemonListenPort(backendUrl: string): number | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(backendUrl);
+  } catch {
+    return null;
+  }
+  if (parsed.port.length === 0) return 80;
+  const port = Number.parseInt(parsed.port, 10);
+  return Number.isInteger(port) ? port : null;
+}
+
 interface DaemonBootstrapJson {
   ok?: unknown;
   secret?: unknown;
@@ -64,12 +80,28 @@ interface DaemonBootstrapJson {
   reason?: unknown;
 }
 
+export interface PerformBootstrapDeps {
+  readonly fetchImpl?: typeof fetch;
+  /**
+   * The listener-verification seam (`verify-daemon.ts`), wired in by
+   * the binary's composition root: answers false when the process on
+   * the port is not the desktop app this host shipped with, and the
+   * host refuses without relaying. Absent (unit seams) = not enforced.
+   */
+  readonly verifyListener?: (port: number) => Promise<boolean>;
+}
+
 export async function performBootstrap(
   request: BootstrapRequest,
-  fetchImpl: typeof fetch = fetch,
+  deps: PerformBootstrapDeps = {},
 ): Promise<BootstrapResponse> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
   const endpoint = daemonBootstrapEndpoint(request.url);
   if (!endpoint) return { ok: false, reason: 'bad-request' };
+  if (deps.verifyListener) {
+    const port = daemonListenPort(request.url);
+    if (port === null || !(await deps.verifyListener(port))) return { ok: false, reason: 'refused' };
+  }
   let response: Response;
   try {
     response = await fetchImpl(endpoint, {

@@ -6,7 +6,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { daemonBootstrapEndpoint, parseBootstrapRequest, performBootstrap } from '../../src/bootstrap';
+import {
+  daemonBootstrapEndpoint,
+  daemonListenPort,
+  parseBootstrapRequest,
+  performBootstrap,
+} from '../../src/bootstrap';
 
 describe('parseBootstrapRequest', () => {
   it('accepts the bootstrap shape with and without installId', () => {
@@ -48,6 +53,14 @@ describe('daemonBootstrapEndpoint', () => {
   });
 });
 
+describe('daemonListenPort', () => {
+  it('names the explicit port and the schemes’ default', () => {
+    expect(daemonListenPort('ws://127.0.0.1:59210')).toBe(59210);
+    expect(daemonListenPort('ws://127.0.0.1')).toBe(80);
+    expect(daemonListenPort('not a url')).toBeNull();
+  });
+});
+
 function fetchAnswering(status: number, body: unknown): typeof fetch {
   return async () => new Response(JSON.stringify(body), { status });
 }
@@ -56,29 +69,26 @@ describe('performBootstrap', () => {
   const request = { url: 'ws://127.0.0.1:59210', installId: 'abc' };
 
   it('relays a successful mint', async () => {
-    const result = await performBootstrap(
-      request,
-      fetchAnswering(200, { ok: true, secret: 'oh_secret', tokenId: 't1', browser: 'Google Chrome' }),
-    );
+    const result = await performBootstrap(request, {
+      fetchImpl: fetchAnswering(200, { ok: true, secret: 'oh_secret', tokenId: 't1', browser: 'Google Chrome' }),
+    });
     expect(result).toEqual({ ok: true, token: 'oh_secret', tokenId: 't1', browser: 'Google Chrome' });
   });
 
   it('maps a refused identity chain and the unsupported platform answer', async () => {
-    expect(await performBootstrap(request, fetchAnswering(403, { ok: false, reason: 'refused' }))).toEqual({
-      ok: false,
-      reason: 'refused',
-    });
-    expect(await performBootstrap(request, fetchAnswering(501, { ok: false, reason: 'unsupported' }))).toEqual({
-      ok: false,
-      reason: 'unsupported',
-    });
+    expect(
+      await performBootstrap(request, { fetchImpl: fetchAnswering(403, { ok: false, reason: 'refused' }) }),
+    ).toEqual({ ok: false, reason: 'refused' });
+    expect(
+      await performBootstrap(request, { fetchImpl: fetchAnswering(501, { ok: false, reason: 'unsupported' }) }),
+    ).toEqual({ ok: false, reason: 'unsupported' });
   });
 
   it('answers unreachable when the daemon does not respond', async () => {
     const failing: typeof fetch = async () => {
       throw new TypeError('fetch failed');
     };
-    expect(await performBootstrap(request, failing)).toEqual({ ok: false, reason: 'unreachable' });
+    expect(await performBootstrap(request, { fetchImpl: failing })).toEqual({ ok: false, reason: 'unreachable' });
   });
 
   it('refuses a non-loopback request without dialing', async () => {
@@ -87,10 +97,37 @@ describe('performBootstrap', () => {
       dialed = true;
       return new Response('{}');
     };
-    expect(await performBootstrap({ url: 'ws://192.168.1.20:59210' }, spy)).toEqual({
+    expect(await performBootstrap({ url: 'ws://192.168.1.20:59210' }, { fetchImpl: spy })).toEqual({
       ok: false,
       reason: 'bad-request',
     });
     expect(dialed).toBe(false);
+  });
+
+  it('refuses without dialing when the listener verification says no', async () => {
+    let dialed = false;
+    const spy: typeof fetch = async () => {
+      dialed = true;
+      return new Response('{}');
+    };
+    const ports: number[] = [];
+    const result = await performBootstrap(request, {
+      fetchImpl: spy,
+      verifyListener: async (port) => {
+        ports.push(port);
+        return false;
+      },
+    });
+    expect(result).toEqual({ ok: false, reason: 'refused' });
+    expect(ports).toEqual([59210]);
+    expect(dialed).toBe(false);
+  });
+
+  it('relays normally when the listener verification passes', async () => {
+    const result = await performBootstrap(request, {
+      fetchImpl: fetchAnswering(200, { ok: true, secret: 'oh_secret', tokenId: 't1', browser: 'Google Chrome' }),
+      verifyListener: async () => true,
+    });
+    expect(result).toEqual({ ok: true, token: 'oh_secret', tokenId: 't1', browser: 'Google Chrome' });
   });
 });

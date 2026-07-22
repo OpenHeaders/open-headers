@@ -10,13 +10,11 @@
  */
 
 import * as path from 'node:path';
+import { CHROME_EXTENSION_ID, EDGE_EXTENSION_ID, FIREFOX_EXTENSION_ID } from '@openheaders/core/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   buildGeckoNmManifest,
   buildNmManifest,
-  CHROME_EXTENSION_ID,
-  EDGE_EXTENSION_ID,
-  FIREFOX_EXTENSION_ID,
   linuxNmManifestTargets,
   macosNmManifestTargets,
   NM_HOST_NAME,

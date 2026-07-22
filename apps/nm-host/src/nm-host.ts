@@ -17,6 +17,7 @@
 import * as process from 'node:process';
 import { type BootstrapResponse, parseBootstrapRequest, performBootstrap } from './bootstrap';
 import { createNmMessageDecoder, encodeNmMessage } from './framing';
+import { verifyDaemonListener } from './verify-daemon';
 
 /** A stuck spawn (browser never writes, daemon hangs) must not leak hosts. */
 const IDLE_EXIT_MS = 30_000;
@@ -25,6 +26,14 @@ function respondAndExit(response: BootstrapResponse): void {
   process.stdout.write(encodeNmMessage(response), () => {
     process.exit(0);
   });
+}
+
+/** The listener must be the desktop app this binary shipped with —
+ *  refusal detail goes to stderr (the browser's extension log). */
+async function listenerVerified(port: number): Promise<boolean> {
+  const verification = await verifyDaemonListener({ port, ownExecutablePath: process.execPath });
+  if (!verification.ok) process.stderr.write(`listener verification refused: ${verification.detail}\n`);
+  return verification.ok;
 }
 
 function main(): void {
@@ -42,7 +51,7 @@ function main(): void {
         respondAndExit({ ok: false, reason: 'bad-request' });
         return;
       }
-      void performBootstrap(request).then(respondAndExit);
+      void performBootstrap(request, { verifyListener: listenerVerified }).then(respondAndExit);
     },
     onProtocolError: () => {
       clearTimeout(idleTimer);

@@ -11,7 +11,7 @@ import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createDaemonPairingService, type DaemonPairingService } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
-import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
+import { CHROME_EXTENSION_ID, MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -222,7 +222,9 @@ describe('wsHooks', () => {
 
   it('admits extension origins and refuses page origins on the upgrade', async () => {
     const probeUrl = await startWsProbe(createAdmissionControl());
-    const ext = await fetch(`${probeUrl}/verdict`, { headers: { origin: 'chrome-extension://abcdefgh' } });
+    const ext = await fetch(`${probeUrl}/verdict`, {
+      headers: { origin: `chrome-extension://${CHROME_EXTENSION_ID}` },
+    });
     expect(await ext.json()).toEqual({ ok: true });
     const page = await fetch(`${probeUrl}/verdict`, { headers: { origin: 'https://evil.example.com' } });
     expect(await page.json()).toEqual({ ok: false, reason: 'origin-forbidden' });

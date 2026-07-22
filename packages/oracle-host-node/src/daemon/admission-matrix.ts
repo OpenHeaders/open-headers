@@ -11,9 +11,11 @@
  *                      posture as `/mcp`.
  *   - WS upgrade     — non-browser clients (no Origin), browser-extension
  *                      origins (the extension SW dials with its own
- *                      `chrome-extension://` origin), and the daemon's
- *                      own served origin (the Phase 4 web app's tabs).
- *                      Any other browser origin is a drive-by page.
+ *                      `chrome-extension://` origin — pinned to our
+ *                      published Chromium ids; Gecko/Safari UUID origins
+ *                      pass on scheme), and the daemon's own served
+ *                      origin (the Phase 4 web app's tabs). Any other
+ *                      browser origin is a drive-by page.
  *   - `/pair/*`      — no Origin (top-level navigations, curl) or the
  *                      own served origin (the confirm form's same-origin
  *                      POST carries one). Cross-origin browser POSTs are
@@ -58,7 +60,7 @@
  */
 
 import { isIP } from 'node:net';
-import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
+import { CHROMIUM_EXTENSION_IDS, MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import { NM_BOOTSTRAP_PATH } from './nm/nm-bootstrap-http';
 
 /** The header facts admission is decided on, extracted from one request. */
@@ -182,8 +184,18 @@ export type AdmissionVerdict =
   | { readonly ok: true; readonly posture: RoutePosture }
   | { readonly ok: false; readonly posture: RoutePosture; readonly reason: AdmissionRejectReason };
 
-/** Origin schemes browsers mint for extension contexts — legitimate WS dialers. */
+/**
+ * Origin schemes browsers mint for extension contexts — legitimate WS
+ * dialers. Chromium derives the origin host verbatim from the stable
+ * extension id, so `chrome-extension:` origins are additionally pinned
+ * to our published ids (the chrome manifest's `key` keeps even unpacked
+ * dev builds on the store id). Gecko and Safari mint per-install random
+ * UUID origins that no id can be derived from, so those schemes stay
+ * scheme-only — the mandatory token gate is the barrier there.
+ */
 const EXTENSION_ORIGIN_SCHEMES: readonly string[] = ['chrome-extension:', 'moz-extension:', 'safari-web-extension:'];
+
+const PINNED_EXTENSION_SCHEME = 'chrome-extension:';
 
 /** Case-fold and elide the schemes' default ports so `https://h` matches `Host: h:443`. */
 function normalizeHostPort(raw: string): string {
@@ -219,7 +231,9 @@ function isExtensionOrigin(origin: string): boolean {
   } catch {
     return false;
   }
-  return EXTENSION_ORIGIN_SCHEMES.includes(parsed.protocol);
+  if (!EXTENSION_ORIGIN_SCHEMES.includes(parsed.protocol)) return false;
+  if (parsed.protocol === PINNED_EXTENSION_SCHEME) return CHROMIUM_EXTENSION_IDS.includes(parsed.hostname);
+  return true;
 }
 
 function originAccepted(posture: OriginPosture, facts: AdmissionRequestFacts): boolean {
