@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/cli",
-  "version": "2026.7.1",
+  "version": "2026.7.23",
   "private": true,
   "description": "Open Headers command line — a client of the daemon's /mcp surface",
   "type": "module",
