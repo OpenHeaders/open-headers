@@ -475,6 +475,17 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.snippet.cliTitle': 'Run once in a terminal — later oh runs need no flags',
   'workbench.settings.mcpPane.snippet.httpTitle': 'For clients that speak streamable HTTP directly',
 
+  // ── MCP consent (Add-ons popover dialog + TUI-gate checkbox info) ──
+  'workbench.settings.mcpConsent.title': 'Turn on the MCP server',
+  'workbench.settings.mcpConsent.body':
+    'Agent clients and the oh TUI talk to this app over the MCP server, which is currently off.',
+  'workbench.settings.mcpConsent.info.title': 'MCP server',
+  'workbench.settings.mcpConsent.info.summary':
+    'MCP clients reach this app through the daemon’s /mcp endpoint (Model Context Protocol over streamable ' +
+    'HTTP). The mcp.enabled setting gates that endpoint — while it’s off the endpoint returns 404. Clients ' +
+    'authenticate with the same access tokens as every other connection.',
+  'workbench.settings.mcpConsent.ok': 'Turn on',
+
   // ── License pane body ──────────────────────────────────────────────
   'workbench.settings.licensePane.invalid.malformed': 'The installed file is not a license key.',
   'workbench.settings.licensePane.invalid.schema-mismatch':

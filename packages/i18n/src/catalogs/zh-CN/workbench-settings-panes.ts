@@ -462,6 +462,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.snippet.cliTitle': '在终端中运行一次——之后的 oh 运行无需任何标志',
   'workbench.settings.mcpPane.snippet.httpTitle': '用于直接使用 streamable HTTP 的客户端',
 
+  // ── MCP consent (Add-ons popover dialog + TUI-gate checkbox info) ──
+  'workbench.settings.mcpConsent.title': '启用 MCP 服务器',
+  'workbench.settings.mcpConsent.body': '代理客户端和 oh TUI 通过 MCP 服务器与此应用通信，该服务器当前处于关闭状态。',
+  'workbench.settings.mcpConsent.info.title': 'MCP 服务器',
+  'workbench.settings.mcpConsent.info.summary':
+    'MCP 客户端通过守护进程的 /mcp 端点（基于可流式 HTTP 的 Model Context Protocol）访问此应用。' +
+    'mcp.enabled 设置项控制该端点——它关闭时端点返回 404。客户端使用与其他连接相同的访问 token 进行身份验证。',
+  'workbench.settings.mcpConsent.ok': '启用',
+
   // ── License pane body ──────────────────────────────────────────────
   'workbench.settings.licensePane.invalid.malformed': '安装的文件不是许可证密钥。',
   'workbench.settings.licensePane.invalid.schema-mismatch': '安装的许可证不匹配此版本支持的任何 schema。',

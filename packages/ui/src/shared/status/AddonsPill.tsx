@@ -26,11 +26,12 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { isLoopbackBackendUrl } from '@openheaders/core/backends';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
-import { Button, Popover, Tag, Typography, theme } from 'antd';
+import { App as AntApp, Button, Popover, Tag, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { confirmEnableMcp } from '@openheaders/ui/workbench/settings/mcp-consent';
 import { useBackends } from '../backend';
 import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
@@ -203,12 +204,14 @@ const CliRow: React.FC = () => {
  * MCP surface state, shown once a CLI config exists — the TUI and
  * agent clients need `/mcp` answering, and `mcp.enabled` defaults off,
  * so a provisioned CLI against a silent surface is the popover's
- * problem to name (and fix, one click) rather than the TUI retry
- * screen's.
+ * problem to name (and fix) rather than the TUI retry screen's. The
+ * remedy runs through the shared `mcp-consent` dialog — the same
+ * consent moment the TUI gate's checkbox carries — never a bare flip.
  */
 const McpRow: React.FC = () => {
   const t = useT();
-  const [enabled, setEnabled] = useSetting('mcp.enabled');
+  const { modal } = AntApp.useApp();
+  const enabled = useSettingValue('mcp.enabled');
   return (
     <AddonRow
       tagColor={enabled ? 'success' : 'default'}
@@ -220,7 +223,7 @@ const McpRow: React.FC = () => {
           <Button
             size="small"
             type="primary"
-            onClick={() => setEnabled(true)}
+            onClick={() => confirmEnableMcp(modal, t)}
             data-testid="addons-mcp-enable"
             style={{ fontSize: 11, height: 20, padding: '0 6px' }}
           >

@@ -18,7 +18,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { useSettingValue } from '../../../settings/hooks';
-import { set as setSettingValue } from '../../../settings/store';
+import { enableMcp, mcpEndpointInfo } from '../../../settings/mcp-consent';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getWorkbenchTerminalTabs, whenTerminalFontReady, type WorkbenchTerminal } from './terminal-instance';
@@ -337,12 +337,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
                   >
                     {t('workbench.terminal.cliGate.enableMcp')}
                   </Checkbox>
-                  <InfoTrigger
-                    content={{
-                      title: t('workbench.terminal.cliGate.enableMcpInfo.title'),
-                      summary: t('workbench.terminal.cliGate.enableMcpInfo.summary'),
-                    }}
-                  />
+                  <InfoTrigger content={mcpEndpointInfo(t, t('workbench.terminal.cliGate.enableMcpRider'))} />
                 </div>
               )}
             </>
@@ -356,7 +351,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
               message.error(t('workbench.settings.cliAccess.provisionFailed', { message: result.error }));
               return;
             }
-            if (mcpEnabled !== true && enableMcpRef.current) setSettingValue('mcp.enabled', true);
+            if (mcpEnabled !== true && enableMcpRef.current) enableMcp();
             open();
           },
         });

@@ -548,6 +548,19 @@ export const workbenchSettingsPanes = {
     'Ejecútalo una vez en un terminal — las siguientes ejecuciones de oh no necesitan opciones',
   'workbench.settings.mcpPane.snippet.httpTitle': 'Para clientes que hablan streamable HTTP directamente',
 
+  // ── MCP consent (Add-ons popover dialog + TUI-gate checkbox info) ──
+  'workbench.settings.mcpConsent.title': 'Activar el servidor MCP',
+  'workbench.settings.mcpConsent.body':
+    'Los clientes de agentes y la TUI de oh se comunican con esta aplicación a través del servidor MCP, que ' +
+    'ahora está desactivado.',
+  'workbench.settings.mcpConsent.info.title': 'Servidor MCP',
+  'workbench.settings.mcpConsent.info.summary':
+    'Los clientes MCP se conectan a esta aplicación a través del endpoint /mcp del daemon (Model Context ' +
+    'Protocol sobre HTTP en streaming). El ajuste mcp.enabled controla ese endpoint — mientras está ' +
+    'desactivado devuelve 404. Los clientes se autentican con los mismos tokens de acceso que cualquier otra ' +
+    'conexión.',
+  'workbench.settings.mcpConsent.ok': 'Activar',
+
   // ── License pane body ──────────────────────────────────────────────
   'workbench.settings.licensePane.invalid.malformed': 'El archivo instalado no es una clave de licencia.',
   'workbench.settings.licensePane.invalid.schema-mismatch':

@@ -435,11 +435,8 @@ export const workbenchChrome = {
     'against the local daemon, so after connecting oh works in any terminal on this machine. Cancel mints ' +
     'nothing.',
   'workbench.terminal.cliGate.enableMcp': 'Enable MCP Server',
-  'workbench.terminal.cliGate.enableMcpInfo.title': 'MCP server',
-  'workbench.terminal.cliGate.enableMcpInfo.summary':
-    'oh reaches this app through the daemon’s /mcp endpoint (Model Context Protocol over streamable HTTP). ' +
-    'The mcp.enabled setting gates that endpoint — while it’s off the endpoint returns 404 and the TUI ' +
-    'reports the daemon as unreachable. Uncheck to provision the token only.',
+  'workbench.terminal.cliGate.enableMcpRider':
+    'While the endpoint is off the TUI reports the daemon as unreachable. Uncheck to provision the token only.',
   'workbench.terminal.cliGate.ok': 'Connect and open',
   'workbench.terminal.cliGate.openSettings': 'Open Settings',
   'workbench.toolWindows.info.terminal.summary':

@@ -464,11 +464,9 @@ export const workbenchChrome = {
     'ante el daemon local — después de conectar, oh funciona en cualquier terminal de esta máquina. ' +
     'Cancelar no crea ningún token.',
   'workbench.terminal.cliGate.enableMcp': 'Activar el servidor MCP',
-  'workbench.terminal.cliGate.enableMcpInfo.title': 'Servidor MCP',
-  'workbench.terminal.cliGate.enableMcpInfo.summary':
-    'oh se conecta a esta aplicación a través del endpoint /mcp del daemon (Model Context Protocol sobre ' +
-    'HTTP en streaming). El ajuste mcp.enabled controla ese endpoint — mientras está desactivado devuelve ' +
-    '404 y la TUI informa de que el daemon es inalcanzable. Desmarca para crear solo el token.',
+  'workbench.terminal.cliGate.enableMcpRider':
+    'Mientras el endpoint está desactivado, la TUI informa de que el daemon es inalcanzable. Desmarca para ' +
+    'crear solo el token.',
   'workbench.terminal.cliGate.ok': 'Conectar y abrir',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.trafficMonitor.summary':

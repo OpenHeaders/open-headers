@@ -438,11 +438,7 @@ export const workbenchChrome = {
     '连接会签发一个访问 token 并写入 {path}。oh CLI 读取该文件以向本地守护进程进行身份验证，' +
     '因此连接后 oh 可在这台电脑上的任何终端中使用。取消则不会签发任何内容。',
   'workbench.terminal.cliGate.enableMcp': '启用 MCP 服务器',
-  'workbench.terminal.cliGate.enableMcpInfo.title': 'MCP 服务器',
-  'workbench.terminal.cliGate.enableMcpInfo.summary':
-    'oh 通过守护进程的 /mcp 端点（基于可流式 HTTP 的 Model Context Protocol）访问此应用。' +
-    'mcp.enabled 设置项控制该端点——它关闭时端点返回 404，TUI 会把守护进程报告为不可达。' +
-    '取消勾选则只签发 token。',
+  'workbench.terminal.cliGate.enableMcpRider': '端点关闭时，TUI 会把守护进程报告为不可达。取消勾选则只签发 token。',
   'workbench.terminal.cliGate.ok': '连接并打开',
   'workbench.terminal.cliGate.openSettings': '打开设置',
   'workbench.toolWindows.info.trafficMonitor.summary':

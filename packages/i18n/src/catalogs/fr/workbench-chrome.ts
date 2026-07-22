@@ -461,11 +461,9 @@ export const workbenchChrome = {
     "s'authentifier auprès du démon local — après la connexion, oh fonctionne dans n'importe quel terminal " +
     'de cette machine. Annuler ne crée aucun jeton.',
   'workbench.terminal.cliGate.enableMcp': 'Activer le serveur MCP',
-  'workbench.terminal.cliGate.enableMcpInfo.title': 'Serveur MCP',
-  'workbench.terminal.cliGate.enableMcpInfo.summary':
-    'oh joint cette application via le point de terminaison /mcp du démon (Model Context Protocol sur HTTP ' +
-    "en flux). Le réglage mcp.enabled contrôle ce point de terminaison — tant qu'il est désactivé, il " +
-    'renvoie 404 et la TUI signale le démon comme injoignable. Décochez pour ne créer que le jeton.',
+  'workbench.terminal.cliGate.enableMcpRider':
+    'Tant que le point de terminaison est désactivé, la TUI signale le démon comme injoignable. Décochez ' +
+    'pour ne créer que le jeton.',
   'workbench.terminal.cliGate.ok': 'Connecter et ouvrir',
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
   'workbench.toolWindows.info.trafficMonitor.summary':
@@ -586,7 +584,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOff': 'Vue désactivée',
   'workbench.trafficMonitor.watchConsentOffHint':
     "L'extension de ce navigateur n'autorise pas l'application de bureau à voir son trafic, son stockage ni sa " +
-    'console. Les règles et la synchronisation continuent de fonctionner. Activez « Laisser l\'application de ' +
+    "console. Les règles et la synchronisation continuent de fonctionner. Activez « Laisser l'application de " +
     "bureau voir ce navigateur » dans les paramètres de l'extension pour l'observer ici.",
   'workbench.trafficMonitor.watchConsentOffEmpty': 'La vue en direct est désactivée dans ce navigateur',
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
