@@ -215,6 +215,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unreachable':
     "Impossible de joindre le back-end sur {url}. S'exécute-t-il à cette adresse ?",
   'workbench.settings.backendPane.pair.fail.generic': "Échec de l'appairage. Réessayez.",
+  'workbench.settings.backendPane.pair.nmRequired':
+    "L'appairage manuel avec l'application de bureau est désactivé — ce navigateur ne se connecte que par appairage vérifié. Voir le réglage « Exiger un appairage vérifié ».",
 
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Nom',

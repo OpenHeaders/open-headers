@@ -213,6 +213,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unreachable':
     'No se pudo alcanzar el back-end en {url}. ¿Está ejecutándose en esa dirección?',
   'workbench.settings.backendPane.pair.fail.generic': 'El emparejamiento falló. Vuelve a intentarlo.',
+  'workbench.settings.backendPane.pair.nmRequired':
+    'El emparejamiento manual con la aplicación de escritorio está desactivado: este navegador solo se conecta mediante emparejamiento verificado. Consulta el ajuste «Exigir emparejamiento verificado».',
 
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Nombre',

@@ -172,6 +172,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unreachable':
     "Couldn't reach the back-end at {url}. Is it running on that address?",
   'workbench.settings.backendPane.pair.fail.generic': 'Pairing failed. Try again.',
+  'workbench.settings.backendPane.pair.nmRequired':
+    'Manual pairing with the desktop app is turned off — this browser connects only through verified pairing. See the "Require verified pairing" setting.',
 
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Name',

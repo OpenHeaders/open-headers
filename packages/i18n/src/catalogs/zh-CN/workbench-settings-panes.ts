@@ -174,6 +174,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.consumed': '该配对码已被使用。请在后端生成一个新的。',
   'workbench.settings.backendPane.pair.fail.unreachable': '无法在 {url} 访问到后端。它在那个地址上运行吗？',
   'workbench.settings.backendPane.pair.fail.generic': '配对失败。请重试。',
+  'workbench.settings.backendPane.pair.nmRequired':
+    '与桌面应用的手动配对已关闭——此浏览器仅通过经验证的配对进行连接。请参阅"要求经验证的配对"设置。',
 
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': '名称',

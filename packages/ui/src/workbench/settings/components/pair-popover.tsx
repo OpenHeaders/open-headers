@@ -21,11 +21,12 @@
  * secret once, to be pasted here directly — no exchange).
  */
 
-import { App as AntApp, Button, type ButtonProps, Input, Popover, Space, Typography } from 'antd';
+import { App as AntApp, Button, type ButtonProps, Input, Popover, Space, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { getCapability, type PairWithCodeResult } from '@openheaders/core/capabilities';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useNmIdentityRequired } from '../schema/backend';
 
 export function humanizePairFailure(
   result: Extract<PairWithCodeResult, { ok: false }>,
@@ -60,6 +61,10 @@ export const PairPopover: React.FC<{
   const [token, setToken] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('');
   const [pairing, setPairing] = useState(false);
+  // Require-NM posture: manual credential gestures for the desktop app
+  // are refused — the affordance stays visible but disabled, with the
+  // policy named, so the state reads as governed rather than broken.
+  const nmRequired = useNmIdentityRequired(url);
 
   const reset = useCallback(() => {
     setMode('code');
@@ -101,6 +106,16 @@ export const PairPopover: React.FC<{
     }
     message.error(humanizePairFailure(result, url, t));
   }, [code, deviceLabel, url, onPaired, message, reset, t]);
+
+  if (nmRequired) {
+    return (
+      <Tooltip title={t('workbench.settings.backendPane.pair.nmRequired')}>
+        <Button type={buttonType} disabled>
+          {buttonLabel ?? t('workbench.settings.backendPane.pair.pairWithCode')}
+        </Button>
+      </Tooltip>
+    );
+  }
 
   return (
     <Popover

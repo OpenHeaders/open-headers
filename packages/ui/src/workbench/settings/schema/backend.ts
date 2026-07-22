@@ -35,7 +35,9 @@ import type { BackendConnection } from '@openheaders/core/types';
 import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import { useSettingValue } from '../hooks';
 import { registerSetting } from '../registry';
+import { get as getSettingValue } from '../store';
 
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
 const BackendBindPortFieldEditor = lazy(() => import('../components/backend-bind-port-field'));
@@ -93,6 +95,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'backend.nmAutoJoin': boolean;
     'backend.nmAutoJoinProbe': boolean;
+    'backend.requireNmIdentity': boolean;
     'backend.allowDesktopWatch': boolean;
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
@@ -142,6 +145,44 @@ registerSetting({
   scope: 'user',
   when: () => getCurrentHost() === 'extension',
 });
+
+registerSetting({
+  // Fleet posture for the NM identity plane (OBSERVABILITY_PLAN.md §4,
+  // deferred from S17's degraded-mode fork): on, the manual credential
+  // gestures for the desktop app — pairing codes and pasted tokens on
+  // loopback records — are refused, so only the daemon's OS-verified
+  // native-messaging handoff can mint desktop credentials. Off (the
+  // default), the device-flow gesture remains the degraded-mode path.
+  // Remote self-hosted back-ends are untouched — they have no NM plane
+  // and carry their own auth. Extension hosts only.
+  key: 'backend.requireNmIdentity',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.backend.requireNmIdentity.label',
+  descriptionKey: 'workbench.settings.def.backend.requireNmIdentity.description',
+  category: 'backend',
+  tags: ['require', 'identity', 'native', 'pairing', 'code', 'token', 'policy', 'fleet', 'managed', 'desktop'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'extension',
+});
+
+/**
+ * The require-NM posture verdict for one back-end address: true when
+ * this host refuses manual credential gestures (pairing codes, pasted
+ * tokens) for the record because only the NM handoff may mint its
+ * credential. Loopback records on extension hosts only — remote
+ * back-ends have no NM plane to require.
+ */
+export function nmIdentityRequiredFor(url: string): boolean {
+  return getCurrentHost() === 'extension' && isLoopbackBackendUrl(url) && getSettingValue('backend.requireNmIdentity');
+}
+
+/** Reactive {@link nmIdentityRequiredFor} — re-renders when the setting moves (managed policy included). */
+export function useNmIdentityRequired(url: string): boolean {
+  const required = useSettingValue('backend.requireNmIdentity');
+  return getCurrentHost() === 'extension' && isLoopbackBackendUrl(url) && required;
+}
 
 registerSetting({
   // Telemetry consent gate (OBSERVABILITY_PLAN.md §8 Phase 7, ratified

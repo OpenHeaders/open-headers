@@ -41,7 +41,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'Sin una aplicación de escritorio conectada, comprueba cada par de minutos si se ha instalado una, para que ' +
     'una instalación nueva se conecte por sí sola. Desactívalo para comprobar solo al iniciar la extensión.',
-  'workbench.settings.def.backend.allowDesktopWatch.label': 'Permitir que la aplicación de escritorio vea este navegador',
+  'workbench.settings.def.backend.requireNmIdentity.label':
+    'Exigir emparejamiento verificado con la aplicación de escritorio',
+  'workbench.settings.def.backend.requireNmIdentity.description':
+    'Rechaza los códigos de emparejamiento y los tokens pegados para la aplicación de escritorio en este equipo: solo el intercambio verificado por el sistema operativo puede concederle acceso. Los back-ends remotos no se ven afectados. Normalmente lo establece una política de la organización.',
+  'workbench.settings.def.backend.allowDesktopWatch.label':
+    'Permitir que la aplicación de escritorio vea este navegador',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Permite que una aplicación de escritorio emparejada en este equipo observe el tráfico de red, el almacenamiento ' +
     'y la consola de este navegador en su Traffic Monitor. Al desactivarlo, las reglas y la sincronización siguen ' +

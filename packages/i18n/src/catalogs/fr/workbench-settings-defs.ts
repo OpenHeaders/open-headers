@@ -25,9 +25,12 @@ export const workbenchSettingsDefs = {
     "Désactivez pour n'appairer que par geste explicite.",
   'workbench.settings.def.backend.nmAutoJoinProbe.label': "Rechercher l'application de bureau en arrière-plan",
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
-    "Sans application de bureau connectée, vérifie environ toutes les deux minutes si elle a été installée, pour " +
+    'Sans application de bureau connectée, vérifie environ toutes les deux minutes si elle a été installée, pour ' +
     "qu'une nouvelle installation se connecte d'elle-même. Désactivez pour ne vérifier qu'au démarrage de " +
     "l'extension.",
+  'workbench.settings.def.backend.requireNmIdentity.label': "Exiger un appairage vérifié avec l'application de bureau",
+  'workbench.settings.def.backend.requireNmIdentity.description':
+    "Refuse les codes d'appairage et les jetons collés pour l'application de bureau sur cet ordinateur — seul l'échange vérifié par le système d'exploitation peut lui accorder l'accès. Les back-ends distants ne sont pas concernés. Généralement défini par une politique d'organisation.",
   'workbench.settings.def.backend.allowDesktopWatch.label': "Laisser l'application de bureau voir ce navigateur",
   'workbench.settings.def.backend.allowDesktopWatch.description':
     "Permet à une application de bureau appairée sur cet ordinateur d'observer le trafic réseau, le stockage et la " +

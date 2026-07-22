@@ -10,6 +10,10 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+// Register the settings schema so the require-NM gate resolves its
+// default (the nm-bootstrap idiom for suites touching consent gates).
+import '@openheaders/ui/workbench/settings/schema';
+import { set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { pairWithCode } from '@/host/pair-with-code';
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -87,5 +91,32 @@ describe('pairWithCode (extension)', () => {
     const result = await pairWithCode({ url: 'ws://127.0.0.1:8137', code: '424242' });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('error');
+  });
+
+  describe('require-NM posture (backend.requireNmIdentity)', () => {
+    afterEach(() => {
+      setSetting('backend.requireNmIdentity', false);
+    });
+
+    it('refuses a loopback pairing without dialing when the posture is on', async () => {
+      setSetting('backend.requireNmIdentity', true);
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const result = await pairWithCode({ url: 'ws://127.0.0.1:8137', code: '424242' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.reason).toBe('error');
+        expect(result.message).toContain('verified pairing');
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('leaves remote back-ends pairable under the posture', async () => {
+      setSetting('backend.requireNmIdentity', true);
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true, secret: 'oh_r', tokenId: 't-r' }));
+      vi.stubGlobal('fetch', fetchMock);
+      const result = await pairWithCode({ url: 'wss://daemon.openheaders.io:9000', code: '424242' });
+      expect(result).toEqual({ ok: true, token: 'oh_r', tokenId: 't-r' });
+    });
   });
 });

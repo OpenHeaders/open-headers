@@ -27,7 +27,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getCapability, hasCapability } from '@openheaders/core/capabilities';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
-import { deriveBackendMode } from '../schema/backend';
+import { deriveBackendMode, useNmIdentityRequired } from '../schema/backend';
 import FieldRow from '../fields/FieldRow';
 import { BackendIcon, backendModeIcon } from './backend-icons';
 import { useBackendRecord } from './backend-record-context';
@@ -51,6 +51,10 @@ const BackendAuthTokenField: React.FC = () => {
   const [authMode, setAuthMode] = useState<AuthMode>(hasToken ? 'token' : canPair ? 'code' : 'token');
   const [code, setCode] = useState('');
   const [pairing, setPairing] = useState(false);
+  // Require-NM posture: both manual gestures (code exchange, pasted
+  // token) are refused for this record — the field states the policy
+  // instead of rendering inputs that could never mint a credential.
+  const nmRequired = useNmIdentityRequired(url);
 
   useEffect(() => {
     setDraft(token);
@@ -118,7 +122,11 @@ const BackendAuthTokenField: React.FC = () => {
       block
     >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, width: '100%' }}>
-        {inCodeMode ? (
+        {nmRequired ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {t('workbench.settings.backendPane.pair.nmRequired')}
+          </Typography.Text>
+        ) : inCodeMode ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ flex: 'none', display: 'inline-flex' }} aria-hidden>
               <BackendIcon kind={icon} size={24} />
@@ -151,7 +159,7 @@ const BackendAuthTokenField: React.FC = () => {
             onPressEnter={commit}
           />
         )}
-        {locked && (
+        {locked && !nmRequired && (
           <span
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: themeToken.colorSuccess }}
           >
@@ -159,7 +167,7 @@ const BackendAuthTokenField: React.FC = () => {
             {t('workbench.settings.backendPane.field.auth.paired')}
           </span>
         )}
-        {canPair && (
+        {canPair && !nmRequired && (
           <Typography.Link
             disabled={locked}
             style={{ fontSize: 12 }}

@@ -215,6 +215,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unreachable':
     'Das Back-end unter {url} war nicht erreichbar. Läuft es auf dieser Adresse?',
   'workbench.settings.backendPane.pair.fail.generic': 'Kopplung fehlgeschlagen. Versuche es erneut.',
+  'workbench.settings.backendPane.pair.nmRequired':
+    'Manuelle Kopplung mit der Desktop-App ist deaktiviert — dieser Browser verbindet sich nur über verifizierte Kopplung. Siehe die Einstellung „Verifizierte Kopplung erzwingen".',
 
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Name',

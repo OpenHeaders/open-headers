@@ -9,6 +9,10 @@
       "type": "boolean",
       "description": "Locks the periodic background check for a newly installed desktop app."
     },
+    "backend.requireNmIdentity": {
+      "type": "boolean",
+      "description": "Locks the verified-pairing requirement. When true, pairing codes and pasted tokens are refused for the desktop app on this machine; only the operating-system-verified native-messaging handoff can mint desktop credentials."
+    },
     "backend.allowDesktopWatch": {
       "type": "boolean",
       "description": "Locks the telemetry consent gate. When set, users cannot change whether a paired desktop app may watch this browser's network traffic, storage, and console."

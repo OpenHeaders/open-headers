@@ -30,6 +30,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'Ohne verbundene Desktop-App wird etwa alle zwei Minuten geprüft, ob eine installiert wurde, damit sich eine ' +
     'frische Installation von selbst verbindet. Deaktiviere die Option, um nur beim Start der Erweiterung zu prüfen.',
+  'workbench.settings.def.backend.requireNmIdentity.label': 'Verifizierte Kopplung mit der Desktop-App erzwingen',
+  'workbench.settings.def.backend.requireNmIdentity.description':
+    'Lehnt Kopplungscodes und eingefügte Token für die Desktop-App auf diesem Computer ab — nur der vom Betriebssystem verifizierte Austausch kann ihr Zugriff gewähren. Entfernte Back-ends sind nicht betroffen. Wird üblicherweise durch eine Organisationsrichtlinie gesetzt.',
   'workbench.settings.def.backend.allowDesktopWatch.label': 'Desktop-App darf diesen Browser einsehen',
   'workbench.settings.def.backend.allowDesktopWatch.description':
     'Erlaubt einer gekoppelten Desktop-App auf diesem Computer, den Netzwerkverkehr, den Speicher und die Konsole ' +

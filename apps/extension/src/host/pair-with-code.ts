@@ -19,6 +19,7 @@
  */
 
 import type { PairWithCodeInput, PairWithCodeResult } from '@openheaders/core/capabilities';
+import { nmIdentityRequiredFor } from '@openheaders/ui/workbench/settings/schema/backend';
 
 /**
  * Derive the daemon's HTTP origin from its WebSocket URL. Returns null
@@ -48,6 +49,18 @@ function isConfirmReason(value: unknown): value is 'unknown' | 'expired' | 'cons
 }
 
 export async function pairWithCode(input: PairWithCodeInput): Promise<PairWithCodeResult> {
+  // Require-NM posture (backend.requireNmIdentity): manual credential
+  // gestures are refused for loopback records — only the OS-verified
+  // native-messaging handoff may mint desktop credentials. The gating
+  // UI never offers the gesture; this refusal backstops any other
+  // caller of the capability.
+  if (nmIdentityRequiredFor(input.url)) {
+    return {
+      ok: false,
+      reason: 'error',
+      message: 'Pairing codes are turned off for the desktop app — only verified pairing can grant it access.',
+    };
+  }
   const origin = wsUrlToHttpOrigin(input.url);
   if (!origin) {
     return { ok: false, reason: 'error', message: 'Backend URL must be a ws:// or wss:// address.' };
