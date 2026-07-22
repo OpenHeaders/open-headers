@@ -18,6 +18,11 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
+  'workbench.settings.def.backend.nmAutoJoin.label': "Appairer automatiquement avec l'application de bureau",
+  'workbench.settings.def.backend.nmAutoJoin.description':
+    "Lorsque l'application de bureau Open Headers s'exécute sur cet ordinateur, la connexion se fait sans code " +
+    "d'appairage — le bureau vérifie ce navigateur via le système d'exploitation avant d'accorder l'accès. " +
+    "Désactivez pour n'appairer que par geste explicite.",
   'workbench.settings.def.backend.bindAddress.label': 'Synchroniser avec les appareils de votre réseau',
   'workbench.settings.def.backend.bindAddress.description':
     'Permet aux autres ordinateurs et navigateurs du même réseau de se connecter à cette application et de ' +

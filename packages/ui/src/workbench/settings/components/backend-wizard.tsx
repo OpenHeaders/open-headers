@@ -18,10 +18,11 @@
  *   - "Soon" scenarios preview their tier diagrams but can't proceed.
  */
 
-import { removeBackend } from '@openheaders/core/backends';
+import { removeBackend, updateBackend } from '@openheaders/core/backends';
+import { getCapability } from '@openheaders/core/capabilities';
 import type { BackendConnection } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { App as AntApp, Button, Modal, Steps, theme } from 'antd';
+import { Alert, App as AntApp, Button, Modal, Steps, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -86,6 +87,10 @@ const WizardDialog: React.FC<{
   const [scenario, setScenario] = useState<BackendMode>(derivedMode);
   const [step, setStep] = useState(mode === 'add' ? 0 : 1);
   const [finishing, setFinishing] = useState(false);
+  const [autoPairing, setAutoPairing] = useState(false);
+  // The automatic attempt already failed once this wizard — the pair
+  // step explains itself and the scenario step won't re-spawn the host.
+  const [autoPairFellBack, setAutoPairFellBack] = useState(false);
 
   const label = backendDisplayLabel(record);
   const selected = scenarios.find((s) => s.mode === scenario) ?? null;
@@ -97,6 +102,32 @@ const WizardDialog: React.FC<{
     // only the probe-gated enable can turn them into a wire.
     if (mode === 'add') await removeBackend(record.id);
     onClose();
+  };
+
+  /**
+   * Leaving the scenario step: a fresh add of the desktop-app scenario
+   * on a host with the NM plane first tries the pair-without-a-code
+   * gesture (OBSERVABILITY_PLAN.md Phase 7) — the daemon verifies this
+   * browser from OS truth and answers with a token, and the wizard
+   * jumps straight to Turn on. Every failure falls through to the
+   * manual steps with the pair step explaining the fallback.
+   */
+  const advanceFromScenario = async (): Promise<void> => {
+    const autoPair = getCapability('nmAutoPair');
+    if (mode !== 'add' || scenario !== 'desktop-app' || !autoPair || autoPairFellBack) {
+      setStep(1);
+      return;
+    }
+    setAutoPairing(true);
+    const result = await autoPair({ url: record.url });
+    setAutoPairing(false);
+    if (result.ok) {
+      await updateBackend(record.id, { authToken: result.token });
+      setStep(3);
+      return;
+    }
+    setAutoPairFellBack(true);
+    setStep(1);
   };
 
   const finish = async (connect: boolean): Promise<void> => {
@@ -145,7 +176,12 @@ const WizardDialog: React.FC<{
               <Button onClick={() => setStep(step - 1)}>{t('workbench.settings.backendPane.wizard.back')}</Button>
             )}
             {step < STEPS.length - 1 ? (
-              <Button type="primary" disabled={nextDisabled} onClick={() => setStep(step + 1)}>
+              <Button
+                type="primary"
+                disabled={nextDisabled}
+                loading={autoPairing}
+                onClick={() => void (step === 0 ? advanceFromScenario() : setStep(step + 1))}
+              >
                 {step === 0 && selected?.soon
                   ? t('workbench.settings.backendPane.wizard.comingSoon')
                   : t('workbench.settings.backendPane.wizard.next')}
@@ -182,6 +218,14 @@ const WizardDialog: React.FC<{
       )}
       {step === 2 && (
         <BackendRecordProvider record={record}>
+          {autoPairFellBack && (
+            <Alert
+              type="info"
+              showIcon
+              message={t('workbench.settings.backendPane.wizard.autoPairFallback')}
+              style={{ marginBottom: 10 }}
+            />
+          )}
           <StepIntro text={t('workbench.settings.backendPane.wizard.pairIntro')} />
           <BackendAuthTokenField />
           <div style={{ padding: '8px 12px' }}>

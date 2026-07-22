@@ -20,6 +20,7 @@ import { registerCapability } from '@openheaders/core/capabilities';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
 import { getBrowserAPI } from '@/types/browser';
+import { nmAutoPair } from './nm-auto-pair';
 import { pairWithCode } from './pair-with-code';
 
 registerCapability('getActiveWorkspaceId', () =>
@@ -72,3 +73,10 @@ registerCapability('grpcCompanionInvoke', () => true);
 // none of the SW's privileged powers, and the caller writes the token to
 // `backend.authToken`, which the SW reacts to and connects.
 registerCapability('pairWithCode', pairWithCode);
+
+// NM auto-pairing (Phase 7): the wizard's pair-without-a-code gesture.
+// Gated on the MANIFEST permission like `originDataClearing` — absent
+// on Firefox/Safari, where the wizard honestly offers the code instead.
+if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
+  registerCapability('nmAutoPair', nmAutoPair);
+}

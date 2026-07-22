@@ -91,6 +91,7 @@ const bindAddressSchema = v.picklist(BACKEND_BIND_ADDRESSES);
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
+    'backend.nmAutoJoin': boolean;
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
     'backend.serveWebApp': boolean;
@@ -102,6 +103,26 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.showDiagrams': boolean;
   }
 }
+
+registerSetting({
+  // Consent gate for the NM identity plane (OBSERVABILITY_PLAN.md
+  // Phase 7): on (the default), the extension silently pairs with —
+  // and auto-joins — the desktop app on this machine once the daemon
+  // has OS-verified the browser; off, only the explicit gestures (the
+  // wizard's automatic pairing, device-flow codes) mint credentials.
+  // Extension hosts only — the desktop IS the daemon; a web surface
+  // has no native-messaging plane.
+  key: 'backend.nmAutoJoin',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.backend.nmAutoJoin.label',
+  descriptionKey: 'workbench.settings.def.backend.nmAutoJoin.description',
+  category: 'backend',
+  tags: ['pair', 'pairing', 'automatic', 'desktop', 'join', 'native', 'token', 'connect'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'extension',
+});
 
 registerSetting({
   key: 'backend.bindAddress',

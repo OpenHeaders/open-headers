@@ -10,13 +10,27 @@
  *   - one attempt per backend per stored-token value — repeated calls
  *     (boot + every socket close) never loop a failed bootstrap;
  *   - a missing native host (dev desktop, Firefox) degrades silently
- *     to the pairing gesture — an `error` outcome, no throw.
+ *     to the pairing gesture — an `error` outcome, no throw;
+ *   - silent auto-join: an empty registry (no loopback record at all)
+ *     probes the default loopback address once per SW life and a
+ *     verified mint CREATES the record, enabled; a disabled loopback
+ *     record suppresses the probe (the kill switch outranks
+ *     automation), and the `backend.nmAutoJoin` consent gate turns the
+ *     whole silent plane off.
  */
 
-import { __clearBackendsForTests, getBackend, refreshBackendsFromHostStorage } from '@openheaders/core/backends';
+import '@openheaders/ui/workbench/settings/schema';
+import {
+  __clearBackendsForTests,
+  getBackend,
+  getBackends,
+  refreshBackendsFromHostStorage,
+} from '@openheaders/core/backends';
 import { hostStorage, OH } from '@openheaders/core/storage';
+import { set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { NM_HOST_NAME, resetNmBootstrapForTests, runNmBootstrap } from '../../src/background/modules/nm-bootstrap';
+import { resetNmBootstrapForTests, runNmBootstrap } from '../../src/background/modules/nm-bootstrap';
+import { NM_HOST_NAME } from '../../src/shared/nm-handoff';
 import { installSyntheticIdentityForTests, makeTestBackend } from './sync/_identity-test-setup';
 
 const LOOPBACK_ID = '01900000-0000-7000-8000-00000000aaaa';
@@ -34,6 +48,7 @@ describe('runNmBootstrap', () => {
   beforeEach(async () => {
     teardown = await installSyntheticIdentityForTests();
     resetNmBootstrapForTests();
+    setSetting('backend.nmAutoJoin', true);
     sent = [];
   });
 
@@ -130,5 +145,63 @@ describe('runNmBootstrap', () => {
       sendNativeMessage: sendAnswering({ ok: false, reason: 'unreachable' }),
     });
     expect(results).toEqual([{ backendId: LOOPBACK_ID, outcome: 'unreachable' }]);
+  });
+
+  it('auto-joins on an empty registry: a verified mint creates the record, enabled', async () => {
+    await seedBackends([]);
+    const results = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_joined', tokenId: 't3', browser: 'Google Chrome' }),
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0].outcome).toBe('auto-joined');
+    expect(sent).toHaveLength(1);
+    expect(sent[0].message.url).toBe('ws://127.0.0.1:8137');
+    const record = getBackend(results[0].backendId);
+    expect(record?.enabled).toBe(true);
+    expect(record?.authToken).toBe('oh_joined');
+    expect(record?.url).toBe('ws://127.0.0.1:8137');
+  });
+
+  it('auto-joins beside a LAN-only registry — no loopback record means no desktop was configured', async () => {
+    await seedBackends([makeTestBackend({ id: LAN_ID, url: 'ws://192.168.1.20:8137', authToken: 'oh_lan' })]);
+    const results = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_joined', tokenId: 't4', browser: 'Google Chrome' }),
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0].outcome).toBe('auto-joined');
+    expect(getBackends()).toHaveLength(2);
+  });
+
+  it('a disabled loopback record suppresses auto-join — the kill switch outranks automation', async () => {
+    await seedBackends([makeTestBackend({ id: LOOPBACK_ID, url: 'ws://127.0.0.1:8137', enabled: false })]);
+    const results = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_never', tokenId: 't5', browser: 'Google Chrome' }),
+    });
+    expect(results).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(getBackends()).toHaveLength(1);
+  });
+
+  it('probes auto-join once per SW life — a refused join never loops', async () => {
+    await seedBackends([]);
+    const first = await runNmBootstrap({ sendNativeMessage: sendAnswering({ ok: false, reason: 'refused' }) });
+    expect(first).toEqual([]);
+    const second = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_late', tokenId: 't6', browser: 'Google Chrome' }),
+    });
+    expect(second).toEqual([]);
+    expect(sent).toHaveLength(1);
+    expect(getBackends()).toHaveLength(0);
+  });
+
+  it('the consent gate turns the whole silent plane off', async () => {
+    setSetting('backend.nmAutoJoin', false);
+    await seedBackends([makeTestBackend({ id: LOOPBACK_ID, url: 'ws://127.0.0.1:59210' })]);
+    const results = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_never', tokenId: 't7', browser: 'Google Chrome' }),
+    });
+    expect(results).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(getBackend(LOOPBACK_ID)?.authToken).toBe('');
   });
 });

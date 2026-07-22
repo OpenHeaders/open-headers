@@ -17,8 +17,10 @@ import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
+import { nmAutoPair } from '@/host/nm-auto-pair';
 import { pairWithCode } from '@/host/pair-with-code';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
+import { getBrowserAPI } from '@/types/browser';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
 
@@ -28,6 +30,14 @@ import '@openheaders/ui/workbench/styles/rules.less';
 // popup-only RPC capabilities (`announceSurfaceReady`,
 // `getActiveWorkspaceId`) — so register just the pairing one here.
 registerCapability('pairWithCode', pairWithCode);
+
+// NM auto-pairing (Phase 7): the wizard's pair-without-a-code gesture,
+// manifest-gated like the curated installs' other permission-shaped
+// capabilities — absent on Firefox/Safari, where the wizard honestly
+// offers the code instead.
+if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
+  registerCapability('nmAutoPair', nmAutoPair);
+}
 
 // gRPC invokes forward to a connected companion over the backend wire —
 // the seam exists on every extension surface, and the gRPC editor is a

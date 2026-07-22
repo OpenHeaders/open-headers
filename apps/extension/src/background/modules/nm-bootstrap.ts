@@ -1,50 +1,53 @@
 /**
  * NM identity bootstrap — the extension side of the Phase 7 token
- * handoff (OBSERVABILITY_PLAN.md §4 + §8).
+ * handoff (OBSERVABILITY_PLAN.md §4 + §8), POLICY layer: which backends
+ * get an attempt, when a record is minted, and the loop discipline. The
+ * wire mechanics live in `@/shared/nm-handoff`.
  *
- * When a loopback backend has no credential (fresh install) or the
- * backend is actively evicting this peer (revoked/rotated token), ask
- * the browser to spawn the desktop's NM host and exchange one message:
- * the host dials the daemon's `/nm/bootstrap` route, the daemon
- * verifies the calling browser from OS truth, and a short-lived
- * `nmSession` secret comes back. Writing it into the backend record is
- * the whole hand-off — the registry fingerprint changes, the
- * connection manager redials, HELLO carries the new token.
+ * Two paths, both silent:
+ *
+ *   - **Fill**: a loopback backend with no credential (fresh record) or
+ *     one actively evicting this peer (revoked/rotated token) gets the
+ *     handoff; the minted secret is written into the record — the
+ *     registry fingerprint changes, the connection manager redials,
+ *     HELLO carries the new token.
+ *   - **Auto-join**: no loopback record exists at all — the desktop-app
+ *     scenario was never configured. One handoff is attempted at the
+ *     default loopback address; a verified mint CREATES the record,
+ *     enabled, token in hand. The daemon's OS-truth verification IS the
+ *     probe the probe-gated-enable law demands, so the record earns its
+ *     wire in the same act that proves the peer. A loopback record that
+ *     already exists — even DISABLED — suppresses auto-join entirely:
+ *     the user's kill switch outranks automation, and a second silent
+ *     record is never minted beside a configured one.
+ *
+ * Both paths sit behind the `backend.nmAutoJoin` consent setting (the
+ * governing off-switch, default on): off means the NM plane never
+ * attempts on its own and the explicit gestures — the wizard's
+ * `nmAutoPair` capability, device-flow pairing — are the only paths.
  *
  * Degraded mode (ratified S17): every failure — no NM permission
  * (Firefox/Safari manifests), no registered host (dev desktop without
  * the packed binary), a refused identity chain — leaves the existing
  * device-flow pairing gesture as the path, surfaced by the existing
  * connection UX. Nothing here retries on its own: one attempt per
- * backend per stored-token value, so a bootstrap that failed (or a
- * minted token the daemon later revokes) never loops — the next
- * attempt needs the stored token to have changed (pairing writes it,
- * a prior successful mint changed it) or an SW restart.
+ * backend per stored-token value (and one auto-join probe per SW life),
+ * so a failed bootstrap never loops — the next attempt needs the stored
+ * token to have changed or an SW restart.
  */
 
-import { getBackends, isLoopbackBackendUrl, updateBackend } from '@openheaders/core/backends';
+import { createBackend, getBackends, isLoopbackBackendUrl, updateBackend } from '@openheaders/core/backends';
+import { WS_PORT } from '@openheaders/core/protocol';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
+import { nativeMessagingAvailable, performNmHandoff, type SendNativeMessage } from '../../shared/nm-handoff';
 import { peekSyncInstallId } from './sync-install-id';
 
 const SCOPE = 'NmBootstrap';
 
-/** Must match the desktop-registered manifest name. */
-export const NM_HOST_NAME = 'io.openheaders.nm_bootstrap';
-
-export type SendNativeMessage = (host: string, message: Record<string, unknown>) => Promise<unknown>;
-
-function nativeMessagingAvailable(): boolean {
-  return typeof chrome !== 'undefined' && typeof chrome.runtime?.sendNativeMessage === 'function';
-}
-
-const defaultSendNativeMessage: SendNativeMessage = (host, message) =>
-  new Promise((resolve, reject) => {
-    chrome.runtime.sendNativeMessage(host, message, (response) => {
-      const lastError = chrome.runtime.lastError;
-      if (lastError) reject(new Error(lastError.message ?? 'native messaging failed'));
-      else resolve(response);
-    });
-  });
+/** Where auto-join dials when no record names an address: the desktop
+ *  app's default loopback bind. */
+const AUTO_JOIN_URL = `ws://127.0.0.1:${WS_PORT}`;
 
 export interface NmBootstrapDeps {
   /** Test seam — defaults to `chrome.runtime.sendNativeMessage`. */
@@ -53,7 +56,7 @@ export interface NmBootstrapDeps {
   readonly isBackendEvicting?: (backendId: string) => boolean;
 }
 
-export type NmBootstrapBackendOutcome = 'token-written' | 'refused' | 'unreachable' | 'error';
+export type NmBootstrapBackendOutcome = 'token-written' | 'auto-joined' | 'refused' | 'unreachable' | 'error';
 
 export interface NmBootstrapResult {
   readonly backendId: string;
@@ -65,67 +68,72 @@ export interface NmBootstrapResult {
 // a legitimate re-attempt.
 const attemptedTokens = new Map<string, string>();
 
+// One auto-join probe per SW life — a missing desktop stays missing
+// until the next cold boot, not polled on every socket close.
+const AUTO_JOIN_GUARD_KEY = 'nm-auto-join';
+
 export function resetNmBootstrapForTests(): void {
   attemptedTokens.clear();
 }
 
-function parseHostResponse(raw: unknown): { token: string; browser: string } | { refusal: 'refused' | 'unreachable' } {
-  if (raw && typeof raw === 'object') {
-    const record = raw as { ok?: unknown; token?: unknown; browser?: unknown; reason?: unknown };
-    if (record.ok === true && typeof record.token === 'string') {
-      return { token: record.token, browser: typeof record.browser === 'string' ? record.browser : 'unknown' };
-    }
-    if (record.reason === 'unreachable') return { refusal: 'unreachable' };
-  }
-  return { refusal: 'refused' };
-}
-
 /**
  * Attempt the NM token handoff for every loopback backend that needs a
- * credential. Safe to call repeatedly (boot, socket close) — the
- * per-token attempt guard makes extra calls cheap no-ops.
+ * credential — and, when none is configured at all, the silent
+ * auto-join probe. Safe to call repeatedly (boot, socket close) — the
+ * attempt guards make extra calls cheap no-ops.
  */
 export async function runNmBootstrap(deps: NmBootstrapDeps = {}): Promise<NmBootstrapResult[]> {
   // The availability guard covers the real API only — browsers whose
   // manifest carries no `nativeMessaging` permission (Firefox/Safari in
   // this slice) simply have no candidates to attempt.
   if (deps.sendNativeMessage === undefined && !nativeMessagingAvailable()) return [];
-  const send = deps.sendNativeMessage ?? defaultSendNativeMessage;
+  // The consent gate governs the whole silent plane; explicit gestures
+  // (wizard capability, device-flow pairing) don't route through here.
+  if (!getSetting('backend.nmAutoJoin')) return [];
+  const send = deps.sendNativeMessage;
   const isEvicting = deps.isBackendEvicting ?? (() => false);
   const results: NmBootstrapResult[] = [];
+  let sawLoopbackRecord = false;
   for (const backend of getBackends()) {
-    if (!backend.enabled || !isLoopbackBackendUrl(backend.url)) continue;
+    if (!isLoopbackBackendUrl(backend.url)) continue;
+    sawLoopbackRecord = true;
+    if (!backend.enabled) continue;
     if (backend.authToken.length > 0 && !isEvicting(backend.id)) continue;
     if (attemptedTokens.get(backend.id) === backend.authToken) continue;
     attemptedTokens.set(backend.id, backend.authToken);
-    const installId = peekSyncInstallId();
-    let raw: unknown;
-    try {
-      raw = await send(NM_HOST_NAME, {
-        kind: 'bootstrap',
-        url: backend.url,
-        ...(installId !== null ? { installId } : {}),
-      });
-    } catch (err) {
-      // The common shape of "no host registered" / "access denied" —
-      // dev desktop, unmanaged machine. The pairing gesture remains.
-      logger.info(SCOPE, `native host unavailable for ${backend.url}: ${(err as Error).message}`);
-      results.push({ backendId: backend.id, outcome: 'error' });
+    const handoff = await performNmHandoff(backend.url, peekSyncInstallId(), send);
+    if (!handoff.ok) {
+      logger.info(SCOPE, `bootstrap ${handoff.reason} for ${backend.url}`);
+      results.push({ backendId: backend.id, outcome: handoff.reason === 'unavailable' ? 'error' : handoff.reason });
       continue;
     }
-    const parsed = parseHostResponse(raw);
-    if ('refusal' in parsed) {
-      logger.info(SCOPE, `bootstrap ${parsed.refusal} for ${backend.url}`);
-      results.push({ backendId: backend.id, outcome: parsed.refusal });
-      continue;
-    }
-    await updateBackend(backend.id, { authToken: parsed.token });
+    await updateBackend(backend.id, { authToken: handoff.token });
     // The freshly written token is this backend's settled credential —
     // guard against re-attempting on the next close event racing the
     // registry watch.
-    attemptedTokens.set(backend.id, parsed.token);
-    logger.info(SCOPE, `nmSession token installed for ${backend.url} (${parsed.browser})`);
+    attemptedTokens.set(backend.id, handoff.token);
+    logger.info(SCOPE, `nmSession token installed for ${backend.url} (${handoff.browser})`);
     results.push({ backendId: backend.id, outcome: 'token-written' });
+  }
+
+  // Auto-join: no loopback record anywhere (a disabled one counts as
+  // the user's answer) and this SW life hasn't probed yet.
+  if (!sawLoopbackRecord && !attemptedTokens.has(AUTO_JOIN_GUARD_KEY)) {
+    attemptedTokens.set(AUTO_JOIN_GUARD_KEY, '');
+    const handoff = await performNmHandoff(AUTO_JOIN_URL, peekSyncInstallId(), send);
+    if (handoff.ok) {
+      const record = await createBackend({ url: AUTO_JOIN_URL, authToken: handoff.token });
+      // The daemon's OS-truth verification is the probe — the record
+      // earns its wire in the same act that proved the peer.
+      await updateBackend(record.id, { enabled: true });
+      attemptedTokens.set(record.id, handoff.token);
+      logger.info(SCOPE, `auto-joined the desktop app at ${AUTO_JOIN_URL} (${handoff.browser})`);
+      results.push({ backendId: record.id, outcome: 'auto-joined' });
+    } else {
+      // Silent by design — no desktop, no verified browser, no consent
+      // on the daemon side. The pairing gesture remains.
+      logger.info(SCOPE, `auto-join ${handoff.reason} at ${AUTO_JOIN_URL}`);
+    }
   }
   return results;
 }

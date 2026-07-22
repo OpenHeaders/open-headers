@@ -17,6 +17,9 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
+  'workbench.settings.def.backend.nmAutoJoin.label': 'Pair with the desktop app automatically',
+  'workbench.settings.def.backend.nmAutoJoin.description':
+    'When the Open Headers desktop app runs on this computer, connect to it without a pairing code — the desktop verifies this browser through the operating system before granting access. Turn off to pair only by explicit gesture.',
   'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',
   'workbench.settings.def.backend.bindAddress.description':
     'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',

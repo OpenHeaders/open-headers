@@ -57,6 +57,8 @@ export const workbenchSettingsPanes = {
     'Where does this client dial the back-end? The connection stays off until the final step verifies it.',
   'workbench.settings.backendPane.wizard.pairIntro':
     'Prove this device to the back-end — pair with the code it displays, or paste a token. You can test the connection before turning it on.',
+  'workbench.settings.backendPane.wizard.autoPairFallback':
+    "Automatic pairing with the desktop app didn't go through — it may not be running, or this browser could not be verified. Pair with the code instead.",
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     'Ready: {label} at {url}, paired. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':

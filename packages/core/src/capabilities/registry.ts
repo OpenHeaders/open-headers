@@ -75,6 +75,18 @@ export type PairWithCodeResult =
     };
 
 /**
+ * Result of one {@link Capabilities.nmAutoPair} attempt. `refused` is
+ * the daemon's identity chain saying no (unsigned browser, unlisted
+ * signer); `unreachable` means the host ran but no daemon answered;
+ * `unavailable` means no native host is registered at all (desktop not
+ * installed, no NM permission). The token, when granted, is a minted
+ * `nmSession` secret ready to write into `backend.authToken`.
+ */
+export type NmAutoPairResult =
+  | { readonly ok: true; readonly token: string; readonly browser: string }
+  | { readonly ok: false; readonly reason: 'refused' | 'unreachable' | 'unavailable' };
+
+/**
  * A newer app build the host knows about. `version` is the display
  * string ("2026.7.2"); `url` is where the user gets it (release page
  * or direct installer download). Hosts with an in-app updater (the
@@ -239,6 +251,19 @@ export interface Capabilities {
    * the UI hides the in-app pairing affordance via `hasCapability`.
    */
   pairWithCode?: (input: PairWithCodeInput) => Promise<PairWithCodeResult>;
+
+  /**
+   * Exchange OS-verified process identity for a daemon token over the
+   * desktop's native-messaging host (OBSERVABILITY_PLAN.md Phase 7) —
+   * the pairing path with no code to type: the browser spawns the
+   * desktop-registered host, the daemon verifies WHO is asking from OS
+   * truth, and an `nmSession` secret comes back. Registered only by
+   * extension surfaces whose manifest carries the `nativeMessaging`
+   * permission (Chrome/Edge); the wizard keys the desktop-app
+   * scenario's automatic pairing off its presence and falls back to
+   * {@link Capabilities.pairWithCode} everywhere else.
+   */
+  nmAutoPair?: (input: { readonly url: string }) => Promise<NmAutoPairResult>;
 
   /**
    * Marker capability for the opt-in request-inspection path that attaches

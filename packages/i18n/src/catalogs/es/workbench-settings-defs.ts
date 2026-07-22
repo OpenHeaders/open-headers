@@ -32,6 +32,11 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
+  'workbench.settings.def.backend.nmAutoJoin.label': 'Emparejar automáticamente con la aplicación de escritorio',
+  'workbench.settings.def.backend.nmAutoJoin.description':
+    'Cuando la aplicación de escritorio de Open Headers se ejecuta en este equipo, la conexión se realiza sin ' +
+    'código de emparejamiento — el escritorio verifica este navegador a través del sistema operativo antes de ' +
+    'conceder acceso. Desactívalo para emparejar solo mediante un gesto explícito.',
   'workbench.settings.def.backend.bindAddress.label': 'Sincronizar con los dispositivos de tu red',
   'workbench.settings.def.backend.bindAddress.description':
     'Permite que otros ordenadores y navegadores de la misma red se conecten a esta aplicación y compartan ' +

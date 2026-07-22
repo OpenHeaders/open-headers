@@ -21,6 +21,11 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
+  'workbench.settings.def.backend.nmAutoJoin.label': 'Automatisch mit der Desktop-App koppeln',
+  'workbench.settings.def.backend.nmAutoJoin.description':
+    'Wenn die Open-Headers-Desktop-App auf diesem Computer läuft, wird ohne Kopplungscode verbunden — die ' +
+    'Desktop-App verifiziert diesen Browser über das Betriebssystem, bevor sie Zugriff gewährt. Deaktiviere ' +
+    'die Option, um nur per expliziter Geste zu koppeln.',
   'workbench.settings.def.backend.bindAddress.label': 'Mit Geräten in deinem Netzwerk synchronisieren',
   'workbench.settings.def.backend.bindAddress.description':
     'Erlaubt anderen Computern und Browsern im selben Netzwerk, sich mit dieser App zu verbinden und ihre ' +
