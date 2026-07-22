@@ -37,6 +37,10 @@ export const workbenchSettingsDefs = {
     'Cuando la aplicación de escritorio de Open Headers se ejecuta en este equipo, la conexión se realiza sin ' +
     'código de emparejamiento — el escritorio verifica este navegador a través del sistema operativo antes de ' +
     'conceder acceso. Desactívalo para emparejar solo mediante un gesto explícito.',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Buscar la aplicación de escritorio en segundo plano',
+  'workbench.settings.def.backend.nmAutoJoinProbe.description':
+    'Sin una aplicación de escritorio conectada, comprueba cada par de minutos si se ha instalado una, para que ' +
+    'una instalación nueva se conecte por sí sola. Desactívalo para comprobar solo al iniciar la extensión.',
   'workbench.settings.def.backend.bindAddress.label': 'Sincronizar con los dispositivos de tu red',
   'workbench.settings.def.backend.bindAddress.description':
     'Permite que otros ordenadores y navegadores de la misma red se conecten a esta aplicación y compartan ' +

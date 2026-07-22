@@ -17,6 +17,7 @@ import { useTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import {
+  AddonsPill,
   productStatusExtras,
   productStatusInlineActions,
   StatusPill,
@@ -372,6 +373,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={handleOpenDocs}
         />
+        <AddonsPill />
         {showThemeSwitcher && (
           <>
             <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />

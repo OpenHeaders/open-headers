@@ -7,8 +7,15 @@ import {
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { nativeMessagingAvailable } from '../../shared/nm-handoff';
 import { handleActivityPruneAlarm, isActivityPruneAlarm } from '../activity-prune-scheduler';
 import { handleLiveAlarm, isLiveRefreshAlarm } from '../modules/live-refresh-scheduler';
+import {
+  handleNmAutoJoinAlarm,
+  isNmAutoJoinAlarm,
+  NM_AUTO_JOIN_ALARM,
+  NM_AUTO_JOIN_ALARM_PERIOD_MINUTES,
+} from '../modules/nm-bootstrap';
 import { handleOAuthAlarm, isOAuthRefreshAlarm } from '../modules/oauth-refresh-scheduler';
 import { handleProductTelemetryAlarm, isProductTelemetryAlarm } from '../modules/product-telemetry';
 import { handleTotpAlarm, isTotpAlarm } from '../modules/totp-scheduler';
@@ -28,6 +35,12 @@ function applyWsReconnectAlarm(enabled: boolean): void {
 export function installAlarmDispatch(): void {
   applyWsReconnectAlarm(shouldAttemptBackendConnection());
   alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
+  // The slow NM auto-join re-probe — how "installed the desktop AFTER
+  // the extension" converges without an SW restart. Browsers without
+  // the NM plane never arm it.
+  if (nativeMessagingAvailable()) {
+    alarms!.create(NM_AUTO_JOIN_ALARM, { periodInMinutes: NM_AUTO_JOIN_ALARM_PERIOD_MINUTES });
+  }
 
   const syncWsReconnectAlarm = (): void => {
     applyWsReconnectAlarm(shouldAttemptBackendConnection());
@@ -68,7 +81,9 @@ export function installAlarmDispatch(): void {
     // await, an overdue alarm on cold SW wake reads empty stores and
     // permanently cancels itself.
     await backgroundReady;
-    if (isOAuthRefreshAlarm(alarm)) {
+    if (isNmAutoJoinAlarm(alarm)) {
+      await handleNmAutoJoinAlarm();
+    } else if (isOAuthRefreshAlarm(alarm)) {
       await handleOAuthAlarm(alarm);
     } else if (isLiveRefreshAlarm(alarm)) {
       await handleLiveAlarm(alarm);

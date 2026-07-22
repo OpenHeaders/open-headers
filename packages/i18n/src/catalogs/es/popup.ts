@@ -42,7 +42,7 @@ export const popup = {
   'popup.footer.networkDebug': 'Depuración de red.',
   'popup.footer.tagline': 'Como debe ser',
   'popup.footer.keyboardShortcuts': 'Atajos de teclado',
-  'popup.footer.systemStatus': 'Estado del sistema',
+  'popup.footer.systemStatus': 'Sistema',
 
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': 'Esta página',

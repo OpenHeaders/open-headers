@@ -339,7 +339,7 @@ export const panel = {
       other: '{count} avertissements',
     }),
   'panel.status.warningsTitle': 'Messages console au niveau avertissement',
-  'panel.status.systemStatus': 'État du système',
+  'panel.status.systemStatus': 'Système',
   'panel.status.theme.light': 'Clair',
   'panel.status.theme.dark': 'Sombre',
   'panel.status.theme.auto': 'Auto',

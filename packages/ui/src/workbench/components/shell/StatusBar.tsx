@@ -17,7 +17,7 @@ import { BackgroundTasksIndicator } from '@openheaders/ui/shared/background-task
 import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
 import { LanguageIcon } from '@openheaders/ui/shared/icons';
-import { productStatusExtras, productStatusInlineActions, StatusPill } from '@openheaders/ui/shared/status';
+import { AddonsPill, productStatusExtras, productStatusInlineActions, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { useSettingValue } from '../../settings/hooks';
 import { set as setSettingValue } from '../../settings/store';
@@ -148,6 +148,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
           renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={openDocs}
         />
+        <AddonsPill />
         {showThemeSwitcher && (
           <>
             <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />

@@ -364,9 +364,11 @@ const SubsystemRow: React.FC<{
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex',
-        alignItems: 'center',
+        // Top-aligned so a long message wrapping to further lines keeps
+        // the tag pinned to its first line instead of floating mid-row.
+        alignItems: 'flex-start',
         gap: 8,
-        padding: '2px 6px',
+        padding: '1px 6px',
         margin: '0 -6px',
         borderRadius: token.borderRadiusSM,
         background: hovered ? token.colorFillTertiary : 'transparent',
@@ -406,7 +408,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
   const orderedSubsystems: StatusSubsystem[] = [...greys, ...coloreds];
 
   return (
-    <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 3 }}>
       {orderedSubsystems.map((sub) => {
         const entry = snapshot[sub];
         const state: StatusLevel = entry?.state ?? 'green';
@@ -420,11 +422,24 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
           // pure state surface keeps each row single-line + the five-
           // row block visually tight.
           <SubsystemRow key={sub} token={token}>
-            <Tag color={color} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0 }}>
+            <Tag
+              color={color}
+              style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}
+            >
               {t(SUBSYSTEM_LABELS[sub])}
             </Tag>
             <Typography.Text
-              style={{ fontSize: 11, flex: 1, color: token.colorText }}
+              // `minWidth: 0` + anywhere-wrap: an extra-long value breaks
+              // onto further lines inside its own column — the fixed-width
+              // tag column keeps every row's message at the same x-offset.
+              style={{
+                fontSize: 11,
+                flex: 1,
+                minWidth: 0,
+                color: token.colorText,
+                overflowWrap: 'anywhere',
+                paddingTop: 2,
+              }}
               data-testid={`status-popover-message-${sub}`}
             >
               {entry?.message ?? t('shared.chrome.status.noEvents')}

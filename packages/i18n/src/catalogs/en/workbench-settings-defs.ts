@@ -20,6 +20,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoin.label': 'Pair with the desktop app automatically',
   'workbench.settings.def.backend.nmAutoJoin.description':
     'When the Open Headers desktop app runs on this computer, connect to it without a pairing code — the desktop verifies this browser through the operating system before granting access. Turn off to pair only by explicit gesture.',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Check for the desktop app in the background',
+  'workbench.settings.def.backend.nmAutoJoinProbe.description':
+    'With no desktop app connected, check every couple of minutes whether one has been installed, so a fresh install connects on its own. Turn off to check only when the extension starts.',
   'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',
   'workbench.settings.def.backend.bindAddress.description':
     'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',

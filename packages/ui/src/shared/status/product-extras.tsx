@@ -163,10 +163,15 @@ interface ExtrasRowProps {
 }
 
 const ExtrasRow: React.FC<ExtrasRowProps> = ({ tagColor, label, message }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-    <Tag color={tagColor} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0 }}>
+  // Same top-aligned fixed-tag-column layout as the built-in rows — a
+  // wrapped message keeps the tag on its first line and the column
+  // aligned (see the SubsystemRow rationale in StatusPill).
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+    <Tag color={tagColor} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}>
       {label}
     </Tag>
-    <Typography.Text style={{ fontSize: 11, flex: 1 }}>{message}</Typography.Text>
+    <Typography.Text style={{ fontSize: 11, flex: 1, minWidth: 0, overflowWrap: 'anywhere', paddingTop: 2 }}>
+      {message}
+    </Typography.Text>
   </div>
 );

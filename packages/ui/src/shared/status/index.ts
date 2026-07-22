@@ -1,3 +1,7 @@
+export type { AddonsPillProps } from './AddonsPill';
+export { AddonsPill } from './AddonsPill';
+export type { DesktopCompanionState } from './companion-rows';
+export { CompanionStatusRows, deriveDesktopCompanionState } from './companion-rows';
 export { productStatusExtras, productStatusInlineActions } from './product-extras';
 export type { StatusPillDensity, StatusPillProps } from './StatusPill';
 export { STATUS_DOCS_SECTION_ID, STATUS_TAG_WIDTH, StatusPill } from './StatusPill';

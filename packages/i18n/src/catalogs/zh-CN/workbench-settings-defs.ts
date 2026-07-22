@@ -27,6 +27,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoin.label': '自动与桌面应用配对',
   'workbench.settings.def.backend.nmAutoJoin.description':
     '当本机运行 Open Headers 桌面应用时，无需配对码即可连接——桌面应用会先通过操作系统验证此浏览器，再授予访问权限。关闭后仅通过显式操作配对。',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': '在后台检测桌面应用',
+  'workbench.settings.def.backend.nmAutoJoinProbe.description':
+    '未连接桌面应用时，每隔约两分钟检测一次是否已安装，以便新安装的应用自动连接。关闭后仅在扩展启动时检测。',
   'workbench.settings.def.backend.bindAddress.label': '与你网络中的设备同步',
   'workbench.settings.def.backend.bindAddress.description':
     '允许同一网络中的其他电脑和浏览器连接到此应用并共享其工作区。默认关闭——只有这台电脑能访问。',

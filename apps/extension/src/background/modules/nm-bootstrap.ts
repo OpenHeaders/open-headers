@@ -69,8 +69,38 @@ export interface NmBootstrapResult {
 const attemptedTokens = new Map<string, string>();
 
 // One auto-join probe per SW life — a missing desktop stays missing
-// until the next cold boot, not polled on every socket close.
+// until the next cold boot, not polled on every socket close. The
+// periodic alarm below is the deliberate exception: it re-arms this
+// guard on a slow cadence so "installed the desktop AFTER the
+// extension" converges without waiting for an SW restart.
 const AUTO_JOIN_GUARD_KEY = 'nm-auto-join';
+
+/** Alarm identity for the periodic auto-join re-probe. */
+export const NM_AUTO_JOIN_ALARM = 'nmAutoJoinProbe';
+
+/** Slow enough that a desktop-less machine pays one tiny host spawn
+ *  per tick at most; fast enough that a fresh desktop install
+ *  connects "on its own" within a couple of minutes. */
+export const NM_AUTO_JOIN_ALARM_PERIOD_MINUTES = 2;
+
+export function isNmAutoJoinAlarm(alarm: chrome.alarms.Alarm): boolean {
+  return alarm.name === NM_AUTO_JOIN_ALARM;
+}
+
+/**
+ * Periodic auto-join tick: only worth a spawn while NO loopback record
+ * exists — a joined registry (or a user-disabled record, the sacred
+ * kill switch) keeps this a free no-op; the consent gate inside
+ * `runNmBootstrap` still governs the attempt itself.
+ */
+export async function handleNmAutoJoinAlarm(): Promise<void> {
+  // Its own opt-out, separate from the consent gate: a user may keep
+  // boot-time auto-join while refusing periodic background checks.
+  if (!getSetting('backend.nmAutoJoinProbe')) return;
+  if (getBackends().some((b) => isLoopbackBackendUrl(b.url))) return;
+  attemptedTokens.delete(AUTO_JOIN_GUARD_KEY);
+  await runNmBootstrap();
+}
 
 export function resetNmBootstrapForTests(): void {
   attemptedTokens.clear();

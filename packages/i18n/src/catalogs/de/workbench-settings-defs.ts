@@ -26,6 +26,10 @@ export const workbenchSettingsDefs = {
     'Wenn die Open-Headers-Desktop-App auf diesem Computer läuft, wird ohne Kopplungscode verbunden — die ' +
     'Desktop-App verifiziert diesen Browser über das Betriebssystem, bevor sie Zugriff gewährt. Deaktiviere ' +
     'die Option, um nur per expliziter Geste zu koppeln.',
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Im Hintergrund nach der Desktop-App suchen',
+  'workbench.settings.def.backend.nmAutoJoinProbe.description':
+    'Ohne verbundene Desktop-App wird etwa alle zwei Minuten geprüft, ob eine installiert wurde, damit sich eine ' +
+    'frische Installation von selbst verbindet. Deaktiviere die Option, um nur beim Start der Erweiterung zu prüfen.',
   'workbench.settings.def.backend.bindAddress.label': 'Mit Geräten in deinem Netzwerk synchronisieren',
   'workbench.settings.def.backend.bindAddress.description':
     'Erlaubt anderen Computern und Browsern im selben Netzwerk, sich mit dieser App zu verbinden und ihre ' +

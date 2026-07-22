@@ -29,7 +29,11 @@ import {
 import { hostStorage, OH } from '@openheaders/core/storage';
 import { set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resetNmBootstrapForTests, runNmBootstrap } from '../../src/background/modules/nm-bootstrap';
+import {
+  handleNmAutoJoinAlarm,
+  resetNmBootstrapForTests,
+  runNmBootstrap,
+} from '../../src/background/modules/nm-bootstrap';
 import { NM_HOST_NAME } from '../../src/shared/nm-handoff';
 import { installSyntheticIdentityForTests, makeTestBackend } from './sync/_identity-test-setup';
 
@@ -49,6 +53,7 @@ describe('runNmBootstrap', () => {
     teardown = await installSyntheticIdentityForTests();
     resetNmBootstrapForTests();
     setSetting('backend.nmAutoJoin', true);
+    setSetting('backend.nmAutoJoinProbe', true);
     sent = [];
   });
 
@@ -190,6 +195,36 @@ describe('runNmBootstrap', () => {
       sendNativeMessage: sendAnswering({ ok: true, token: 'oh_late', tokenId: 't6', browser: 'Google Chrome' }),
     });
     expect(second).toEqual([]);
+    expect(sent).toHaveLength(1);
+    expect(getBackends()).toHaveLength(0);
+  });
+
+  it('the periodic alarm re-arms the auto-join probe after a failed round', async () => {
+    await seedBackends([]);
+    // A cold-boot probe against an absent desktop consumed the guard.
+    await runNmBootstrap({ sendNativeMessage: sendAnswering({ ok: false, reason: 'refused' }) });
+    expect(sent).toHaveLength(1);
+    // The alarm tick re-arms it — the desktop installed in between now
+    // joins with no SW restart. The handler rides the module's own
+    // wiring; the guard reset is what this pins, so probe again via the
+    // seam-carrying entry point.
+    await handleNmAutoJoinAlarm();
+    const results = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_late', tokenId: 't8', browser: 'Google Chrome' }),
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0].outcome).toBe('auto-joined');
+  });
+
+  it('the probe opt-out keeps the alarm tick from re-arming', async () => {
+    setSetting('backend.nmAutoJoinProbe', false);
+    await seedBackends([]);
+    await runNmBootstrap({ sendNativeMessage: sendAnswering({ ok: false, reason: 'refused' }) });
+    await handleNmAutoJoinAlarm();
+    const again = await runNmBootstrap({
+      sendNativeMessage: sendAnswering({ ok: true, token: 'oh_never', tokenId: 't9', browser: 'Google Chrome' }),
+    });
+    expect(again).toEqual([]);
     expect(sent).toHaveLength(1);
     expect(getBackends()).toHaveLength(0);
   });

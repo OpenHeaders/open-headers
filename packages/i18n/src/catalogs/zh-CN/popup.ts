@@ -43,7 +43,7 @@ export const popup = {
   'popup.footer.networkDebug': '网络调试。',
   'popup.footer.tagline': '本该如此',
   'popup.footer.keyboardShortcuts': '键盘快捷键',
-  'popup.footer.systemStatus': '系统状态',
+  'popup.footer.systemStatus': '系统',
 
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': '此页面',

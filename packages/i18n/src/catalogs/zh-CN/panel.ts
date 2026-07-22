@@ -298,7 +298,7 @@ export const panel = {
   'panel.status.errorsTitle': '错误级别的控制台消息',
   'panel.status.warnings': ({ count }, locale) => plural(locale, Number(count), { other: '{count} 个警告' }),
   'panel.status.warningsTitle': '警告级别的控制台消息',
-  'panel.status.systemStatus': '系统状态',
+  'panel.status.systemStatus': '系统',
   'panel.status.theme.light': '浅色',
   'panel.status.theme.dark': '深色',
   'panel.status.theme.auto': '自动',

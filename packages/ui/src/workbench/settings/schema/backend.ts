@@ -92,6 +92,7 @@ const bindAddressSchema = v.picklist(BACKEND_BIND_ADDRESSES);
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'backend.nmAutoJoin': boolean;
+    'backend.nmAutoJoinProbe': boolean;
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
     'backend.serveWebApp': boolean;
@@ -120,6 +121,23 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.backend.nmAutoJoin.description',
   category: 'backend',
   tags: ['pair', 'pairing', 'automatic', 'desktop', 'join', 'native', 'token', 'connect'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'extension',
+});
+
+registerSetting({
+  // The slow background re-probe behind [[backend.nmAutoJoin]]: with no
+  // desktop configured, the extension checks every couple of minutes
+  // whether one has appeared, so a fresh install connects on its own.
+  // Off = the check runs only when the extension starts.
+  key: 'backend.nmAutoJoinProbe',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.backend.nmAutoJoinProbe.label',
+  descriptionKey: 'workbench.settings.def.backend.nmAutoJoinProbe.description',
+  category: 'backend',
+  tags: ['pair', 'automatic', 'desktop', 'probe', 'periodic', 'check', 'background'],
   scope: 'user',
   when: () => getCurrentHost() === 'extension',
 });

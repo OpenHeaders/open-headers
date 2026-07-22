@@ -318,7 +318,7 @@ export const panel = {
   'panel.status.warnings': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} warning', other: '{count} warnings' }),
   'panel.status.warningsTitle': 'Console messages at the warning level',
-  'panel.status.systemStatus': 'System status',
+  'panel.status.systemStatus': 'System',
   'panel.status.theme.light': 'Light',
   'panel.status.theme.dark': 'Dark',
   'panel.status.theme.auto': 'Auto',

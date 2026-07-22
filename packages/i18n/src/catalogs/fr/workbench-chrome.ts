@@ -142,7 +142,7 @@ export const workbenchChrome = {
   'workbench.shell.statusbar.theme.light': 'Clair',
   'workbench.shell.statusbar.theme.dark': 'Sombre',
   'workbench.shell.statusbar.theme.auto': 'Auto',
-  'workbench.shell.statusbar.systemStatus': 'État du système',
+  'workbench.shell.statusbar.systemStatus': 'Système',
 
   // ── Shell: activity bar ─────────────────────────────────────────────
   'workbench.shell.activityBar.hideLabels': 'Masquer les libellés',

@@ -81,6 +81,12 @@ export interface DebugModePillProps {
   tabSource: DebugModeTabSource;
   /** Footer pill hit-target class; defaults to the shared statusbar item. */
   className?: string;
+  /**
+   * Render the trigger with the short label ("Debug") — for narrow
+   * footers (the side panel) where the full title wraps. The popover
+   * title always keeps the full name.
+   */
+  shortLabel?: boolean;
   /** Popover placement; footers open upward by default. */
   placement?: TooltipPlacement;
   /**
@@ -92,8 +98,15 @@ export interface DebugModePillProps {
   onOpenDocs?: (sectionId: string) => void;
 }
 
-export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, className, placement = 'top', onOpenDocs }) => {
+export const DebugModePill: React.FC<DebugModePillProps> = ({
+  tabSource,
+  className,
+  shortLabel,
+  placement = 'top',
+  onOpenDocs,
+}) => {
   const t = useT();
+  const triggerLabel = t(shortLabel ? 'shared.chrome.debug.titleShort' : 'shared.chrome.debug.title');
   const { token } = theme.useToken();
   const { snapshot } = useStatus();
   const [enabled, setEnabled] = useSetting('inspection.cdpEnabled');
@@ -119,7 +132,7 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span className="rules-dot" style={{ background: token.colorTextTertiary }} />
-            {t('shared.chrome.debug.title')}
+            {triggerLabel}
           </span>
           <Switch size="small" disabled checked={false} aria-label={t('shared.chrome.debug.toggleAria')} />
         </span>
@@ -171,7 +184,7 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
           style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           <span className="rules-dot" style={{ background: dotColor }} />
-          {t('shared.chrome.debug.title')}
+          {triggerLabel}
         </span>
       </Popover>
       {/* Mount the switch only after settings hydrate, else it animates from the

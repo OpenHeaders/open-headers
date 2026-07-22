@@ -5,7 +5,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
-import { productStatusExtras, productStatusInlineActions, StatusPill } from '@openheaders/ui/shared/status';
+import { AddonsPill, productStatusExtras, productStatusInlineActions, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { Button, Space, Tooltip, theme } from 'antd';
@@ -103,6 +103,7 @@ const Footer: React.FC = () => {
             tabSource="active"
             className="rules-statusbar-item footer-debug-mode"
             placement="top"
+            shortLabel={surface.mode === 'sidepanel'}
             onOpenDocs={handleOpenDocs}
           />
           <StatusPill
@@ -114,6 +115,7 @@ const Footer: React.FC = () => {
             renderSubsystemInlineAction={productStatusInlineActions}
             onOpenDocs={handleOpenDocs}
           />
+          <AddonsPill className="rules-statusbar-item footer-addons" />
           <LanguageMenuButton />
         </Space>
       </div>

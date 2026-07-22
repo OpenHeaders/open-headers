@@ -43,7 +43,7 @@ export const popup = {
   'popup.footer.networkDebug': 'Netzwerk-Debugging.',
   'popup.footer.tagline': 'Wie es sein sollte',
   'popup.footer.keyboardShortcuts': 'Tastenkürzel',
-  'popup.footer.systemStatus': 'Systemstatus',
+  'popup.footer.systemStatus': 'System',
 
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': 'Diese Seite',

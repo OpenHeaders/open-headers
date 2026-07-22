@@ -354,7 +354,7 @@ export const panel = {
       other: '{count} advertencias',
     }),
   'panel.status.warningsTitle': 'Mensajes de consola de nivel de advertencia',
-  'panel.status.systemStatus': 'Estado del sistema',
+  'panel.status.systemStatus': 'Sistema',
   'panel.status.theme.light': 'Claro',
   'panel.status.theme.dark': 'Oscuro',
   'panel.status.theme.auto': 'Auto',

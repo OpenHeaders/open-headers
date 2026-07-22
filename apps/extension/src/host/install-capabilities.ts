@@ -21,6 +21,7 @@ import './install-cdp-capability';
 import './install-csp-exempt-capability';
 import { getBrowserAPI } from '@/types/browser';
 import { nmAutoPair } from './nm-auto-pair';
+import { nmHostPresence } from './nm-presence';
 import { pairWithCode } from './pair-with-code';
 
 registerCapability('getActiveWorkspaceId', () =>
@@ -79,4 +80,5 @@ registerCapability('pairWithCode', pairWithCode);
 // on Firefox/Safari, where the wizard honestly offers the code instead.
 if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
   registerCapability('nmAutoPair', nmAutoPair);
+  registerCapability('nmHostPresence', () => nmHostPresence());
 }

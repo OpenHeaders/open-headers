@@ -18,6 +18,7 @@ import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { nmAutoPair } from '@/host/nm-auto-pair';
+import { nmHostPresence } from '@/host/nm-presence';
 import { pairWithCode } from '@/host/pair-with-code';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { getBrowserAPI } from '@/types/browser';
@@ -37,6 +38,7 @@ registerCapability('pairWithCode', pairWithCode);
 // offers the code instead.
 if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
   registerCapability('nmAutoPair', nmAutoPair);
+  registerCapability('nmHostPresence', () => nmHostPresence());
 }
 
 // gRPC invokes forward to a connected companion over the backend wire —

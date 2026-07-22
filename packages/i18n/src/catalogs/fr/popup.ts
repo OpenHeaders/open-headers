@@ -30,7 +30,7 @@ export const popup = {
   'popup.footer.networkDebug': 'Débogage réseau.',
   'popup.footer.tagline': 'Comme il se doit',
   'popup.footer.keyboardShortcuts': 'Raccourcis clavier',
-  'popup.footer.systemStatus': 'État du système',
+  'popup.footer.systemStatus': 'Système',
 
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': 'Cette page',

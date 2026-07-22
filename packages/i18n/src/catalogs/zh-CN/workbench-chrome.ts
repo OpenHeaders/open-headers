@@ -147,7 +147,7 @@ export const workbenchChrome = {
   'workbench.shell.statusbar.theme.light': '浅色',
   'workbench.shell.statusbar.theme.dark': '深色',
   'workbench.shell.statusbar.theme.auto': '自动',
-  'workbench.shell.statusbar.systemStatus': '系统状态',
+  'workbench.shell.statusbar.systemStatus': '系统',
 
   // ── Shell: activity bar ─────────────────────────────────────────────
   'workbench.shell.activityBar.hideLabels': '隐藏标签文字',

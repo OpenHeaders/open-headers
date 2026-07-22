@@ -266,6 +266,18 @@ export interface Capabilities {
   nmAutoPair?: (input: { readonly url: string }) => Promise<NmAutoPairResult>;
 
   /**
+   * Whether the desktop app's native-messaging host is registered for
+   * this browser — OS truth for "was the desktop app ever installed
+   * here": any framed answer from the spawned host proves the manifest
+   * + binary exist, a spawn error proves they don't. Says nothing
+   * about the daemon RUNNING (connection state answers that). Same
+   * registration surface as {@link Capabilities.nmAutoPair}; absent on
+   * hosts without the NM plane, where the status surface degrades to a
+   * neutral not-connected row.
+   */
+  nmHostPresence?: () => Promise<boolean>;
+
+  /**
    * Marker capability for the opt-in request-inspection path that attaches
    * the browser's debugging protocol to tabs with their developer tools
    * open. Present only on hosts whose runtime exposes that protocol; absent

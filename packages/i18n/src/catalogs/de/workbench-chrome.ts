@@ -148,7 +148,7 @@ export const workbenchChrome = {
   'workbench.shell.statusbar.theme.light': 'Hell',
   'workbench.shell.statusbar.theme.dark': 'Dunkel',
   'workbench.shell.statusbar.theme.auto': 'Auto',
-  'workbench.shell.statusbar.systemStatus': 'Systemstatus',
+  'workbench.shell.statusbar.systemStatus': 'System',
 
   // ── Shell: activity bar ─────────────────────────────────────────────
   'workbench.shell.activityBar.hideLabels': 'Beschriftungen ausblenden',

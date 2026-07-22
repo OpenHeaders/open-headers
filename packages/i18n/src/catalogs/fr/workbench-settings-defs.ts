@@ -23,6 +23,11 @@ export const workbenchSettingsDefs = {
     "Lorsque l'application de bureau Open Headers s'exécute sur cet ordinateur, la connexion se fait sans code " +
     "d'appairage — le bureau vérifie ce navigateur via le système d'exploitation avant d'accorder l'accès. " +
     "Désactivez pour n'appairer que par geste explicite.",
+  'workbench.settings.def.backend.nmAutoJoinProbe.label': "Rechercher l'application de bureau en arrière-plan",
+  'workbench.settings.def.backend.nmAutoJoinProbe.description':
+    "Sans application de bureau connectée, vérifie environ toutes les deux minutes si elle a été installée, pour " +
+    "qu'une nouvelle installation se connecte d'elle-même. Désactivez pour ne vérifier qu'au démarrage de " +
+    "l'extension.",
   'workbench.settings.def.backend.bindAddress.label': 'Synchroniser avec les appareils de votre réseau',
   'workbench.settings.def.backend.bindAddress.description':
     'Permet aux autres ordinateurs et navigateurs du même réseau de se connecter à cette application et de ' +
