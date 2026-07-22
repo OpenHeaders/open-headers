@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "backend.nmAutoJoin": {
+      "type": "boolean",
+      "description": "Locks the automatic desktop-app pairing consent. When set, users cannot change whether this browser silently pairs with the Open Headers desktop app on the same machine."
+    },
+    "backend.nmAutoJoinProbe": {
+      "type": "boolean",
+      "description": "Locks the periodic background check for a newly installed desktop app."
+    },
+    "backend.allowDesktopWatch": {
+      "type": "boolean",
+      "description": "Locks the telemetry consent gate. When set, users cannot change whether a paired desktop app may watch this browser's network traffic, storage, and console."
+    }
+  }
+}

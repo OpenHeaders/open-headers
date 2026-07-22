@@ -80,6 +80,7 @@ import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import {
   CHROME_EXTENSION_ID,
+  EDGE_EXTENSION_ID,
   macosNmManifestTargets,
   nmHostBinaryCandidate,
   registerNmManifests,
@@ -202,7 +203,7 @@ export async function installRpcHost(): Promise<void> {
     const registrations = registerNmManifests({
       hostBinaryPath: nmHostBinaryPath,
       targets: macosNmManifestTargets(os.homedir()),
-      allowedExtensionIds: [CHROME_EXTENSION_ID],
+      allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
     });
     for (const registration of registrations) {
       engineLogger.info(

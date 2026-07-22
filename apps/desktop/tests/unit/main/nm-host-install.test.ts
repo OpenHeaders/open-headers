@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNmManifest,
   CHROME_EXTENSION_ID,
+  EDGE_EXTENSION_ID,
   macosNmManifestTargets,
   NM_HOST_NAME,
   type NmManifestFs,
@@ -48,6 +49,45 @@ describe('buildNmManifest', () => {
     expect(manifest.path).toBe(HOST_PATH);
     expect(manifest.allowed_origins).toEqual([`chrome-extension://${CHROME_EXTENSION_ID}/`]);
   });
+
+  it('carries the union allowlist as one origin per id', () => {
+    const manifest = JSON.parse(buildNmManifest(HOST_PATH, [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID])) as Record<
+      string,
+      unknown
+    >;
+    expect(manifest.allowed_origins).toEqual([
+      `chrome-extension://${CHROME_EXTENSION_ID}/`,
+      `chrome-extension://${EDGE_EXTENSION_ID}/`,
+    ]);
+  });
+});
+
+describe('macosNmManifestTargets', () => {
+  it('lists the Chromium family with per-browser NativeMessagingHosts dirs', () => {
+    const appSupport = path.join('/Users/casey', 'Library', 'Application Support');
+    expect(macosNmManifestTargets('/Users/casey')).toEqual([
+      {
+        browser: 'Google Chrome',
+        browserRoot: path.join(appSupport, 'Google', 'Chrome'),
+        manifestDir: path.join(appSupport, 'Google', 'Chrome', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Google Chrome Beta',
+        browserRoot: path.join(appSupport, 'Google', 'Chrome Beta'),
+        manifestDir: path.join(appSupport, 'Google', 'Chrome Beta', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Microsoft Edge',
+        browserRoot: path.join(appSupport, 'Microsoft Edge'),
+        manifestDir: path.join(appSupport, 'Microsoft Edge', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Brave Browser',
+        browserRoot: path.join(appSupport, 'BraveSoftware', 'Brave-Browser'),
+        manifestDir: path.join(appSupport, 'BraveSoftware', 'Brave-Browser', 'NativeMessagingHosts'),
+      },
+    ]);
+  });
 });
 
 interface FakeFs extends NmManifestFs {
@@ -81,7 +121,8 @@ function fakeFs(seed: { files?: Record<string, string>; dirs?: string[] } = {}):
 }
 
 describe('registerNmManifests', () => {
-  const targets = macosNmManifestTargets('/Users/casey');
+  const allTargets = macosNmManifestTargets('/Users/casey');
+  const targets = [allTargets[0]];
   const chromeRoot = targets[0].browserRoot;
   const manifestPath = path.join(targets[0].manifestDir, `${NM_HOST_NAME}.json`);
   const expected = buildNmManifest(HOST_PATH, [CHROME_EXTENSION_ID]);
@@ -130,5 +171,29 @@ describe('registerNmManifests', () => {
       throw new Error('EACCES');
     };
     expect(register(fs)).toEqual([{ browser: 'Google Chrome', manifestPath, action: 'skipped' }]);
+  });
+
+  it('handles each Chromium target independently on a mixed-install machine', () => {
+    const edge = allTargets[2];
+    const brave = allTargets[3];
+    const unionContent = buildNmManifest(HOST_PATH, [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID]);
+    const braveManifestPath = path.join(brave.manifestDir, `${NM_HOST_NAME}.json`);
+    const fs = fakeFs({
+      dirs: [edge.browserRoot, brave.browserRoot, brave.manifestDir],
+      files: { [braveManifestPath]: unionContent },
+    });
+    const results = registerNmManifests({
+      hostBinaryPath: HOST_PATH,
+      targets: allTargets,
+      allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      fileSystem: fs,
+    });
+    expect(results.map((r) => `${r.browser}:${r.action}`)).toEqual([
+      'Google Chrome:skipped',
+      'Google Chrome Beta:skipped',
+      'Microsoft Edge:registered',
+      'Brave Browser:unchanged',
+    ]);
+    expect(fs.files.get(path.join(edge.manifestDir, `${NM_HOST_NAME}.json`))).toBe(unionContent);
   });
 });

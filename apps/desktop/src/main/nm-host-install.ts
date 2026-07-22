@@ -15,8 +15,11 @@
  * later Phase 7 slice.
  *
  * Pure path/shape derivation + injected fs seams, kept apart from the
- * Electron wiring so the whole surface is unit-testable. macOS + Chrome
- * in this slice; the target table is the extension point.
+ * Electron wiring so the whole surface is unit-testable. macOS +
+ * Chromium browsers (Chrome, Chrome Beta, Edge, Brave) in this slice;
+ * the target table is the extension point. Firefox needs a different
+ * manifest shape (`allowed_extensions`) and caller-chain work — its own
+ * slice.
  */
 
 import * as fs from 'node:fs';
@@ -27,6 +30,13 @@ export const NM_HOST_NAME = 'io.openheaders.nm_bootstrap';
 
 /** The published Chrome Web Store extension id. */
 export const CHROME_EXTENSION_ID = 'ablaikadpbfblkmhpmbbnbbfjoibeejb';
+
+/**
+ * The published Edge Add-ons extension id. Every Chromium manifest
+ * carries the union allowlist — Edge users may install from either
+ * store, and a second origin in a browser that never sees it is inert.
+ */
+export const EDGE_EXTENSION_ID = 'gnbibobkkddlflknjkgcmokdlpddegpo';
 
 export interface NmHostBinaryFacts {
   /** `app.isPackaged` — extraResource vs monorepo sibling. */
@@ -55,15 +65,19 @@ export interface NmManifestTarget {
   readonly manifestDir: string;
 }
 
-/** macOS per-user manifest locations. Chrome in this slice. */
+/** macOS per-user manifest locations, Chromium family. Each browser
+ *  reads its own NativeMessagingHosts dir under its profile root. */
 export function macosNmManifestTargets(homeDir: string): NmManifestTarget[] {
-  const chromeRoot = path.join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome');
+  const appSupport = path.join(homeDir, 'Library', 'Application Support');
+  const chromiumTarget = (browser: string, ...rootSegments: string[]): NmManifestTarget => {
+    const browserRoot = path.join(appSupport, ...rootSegments);
+    return { browser, browserRoot, manifestDir: path.join(browserRoot, 'NativeMessagingHosts') };
+  };
   return [
-    {
-      browser: 'Google Chrome',
-      browserRoot: chromeRoot,
-      manifestDir: path.join(chromeRoot, 'NativeMessagingHosts'),
-    },
+    chromiumTarget('Google Chrome', 'Google', 'Chrome'),
+    chromiumTarget('Google Chrome Beta', 'Google', 'Chrome Beta'),
+    chromiumTarget('Microsoft Edge', 'Microsoft Edge'),
+    chromiumTarget('Brave Browser', 'BraveSoftware', 'Brave-Browser'),
   ];
 }
 

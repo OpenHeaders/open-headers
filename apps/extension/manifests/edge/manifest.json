@@ -33,7 +33,8 @@
     "identity",
     "offscreen",
     "proxy",
-    "favicon"
+    "favicon",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -42,6 +43,9 @@
   "background": {
     "service_worker": "js/background/index.js",
     "type": "module"
+  },
+  "storage": {
+    "managed_schema": "managed_schema.json"
   },
   "devtools_page": "devtools.html",
   "side_panel": {
