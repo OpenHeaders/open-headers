@@ -1,0 +1,33 @@
+name: Feature request
+description: Something Open Headers should do
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which app
+      options:
+        - Desktop app
+        - Browser extension
+        - CLI (oh)
+        - Daemon (ohd)
+        - Web app
+        - Cross-cutting / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How would you like it to work?
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Anything you use today as a workaround?

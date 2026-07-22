@@ -1,0 +1,241 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 972 740" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="The paradigm shift — grouped contrasts between Open Headers and every other tool in the space.">
+<rect x="0" y="0" width="972" height="740" fill="#ffffff"/>
+<defs><linearGradient id="oh-shift" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#5890FF"/><stop offset="100%" stop-color="#4A7FE8"/>
+</linearGradient></defs>
+<text x="486" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#1f1f1f" letter-spacing="1">THE PARADIGM SHIFT</text>
+<rect x="10" y="38" width="224" height="30" rx="6" fill="#e6f4ff" stroke="#91caff" stroke-width="1.5"/>
+<g transform="translate(20, 44) scale(0.03515625)">
+    <rect width="512" height="512" rx="80" fill="url(#oh-shift)"/>
+    <g transform="translate(32 32) scale(0.875)">
+      <g fill="white" shape-rendering="crispEdges">
+        <rect x="80" y="112" width="128" height="32"/><rect x="48" y="144" width="64" height="160"/>
+        <rect x="176" y="144" width="64" height="160"/><rect x="80" y="304" width="128" height="32"/>
+        <rect x="272" y="112" width="64" height="224"/><rect x="400" y="112" width="64" height="224"/>
+        <rect x="272" y="208" width="192" height="32"/>
+      </g>
+      <rect x="112" y="144" width="64" height="160" fill="#FF4444" shape-rendering="crispEdges"/>
+      <path d="M 80 388 C 180 448, 332 448, 432 388" stroke="white" stroke-width="28" fill="none" stroke-linecap="round"/>
+    </g>
+  </g>
+<text x="44" y="57" font-size="12" font-weight="700" fill="#1f1f1f">Open Headers</text>
+<rect x="246" y="38" width="224" height="30" rx="6" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<text x="358" y="57" text-anchor="middle" font-size="12" font-weight="700" fill="#cf1322">Everyone else</text>
+<line x1="240" y1="74" x2="240" y2="702" stroke="#d9d9d9" stroke-dasharray="3 5"/>
+<rect x="10" y="80" width="460" height="22" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="1"/>
+<text x="240" y="95" text-anchor="middle" font-size="10" font-weight="800" fill="#595959" letter-spacing="1">ARCHITECTURE &amp; REACH</text>
+<rect x="10" y="110" width="224" height="72" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="135" r="10" fill="#52c41a"/>
+<path d="M 23 135 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="131" font-size="12" font-weight="700" fill="#1f1f1f">Everything inside the browser</text>
+<text x="48" y="147" font-size="10" fill="#595959" font-style="italic">back-end + front-end</text>
+<text x="48" y="161" font-size="10" font-weight="700" fill="#595959" font-style="italic">- in the extension</text>
+<g>
+      <rect x="176" y="158" width="52" height="20" rx="3" fill="#ffffff" stroke="#91caff" stroke-width="2"/>
+      <rect x="179" y="161" width="46" height="14" rx="2" fill="none" stroke="#91caff" stroke-width="0.8" stroke-dasharray="2 2"/>
+      <text x="202" y="171" text-anchor="middle" font-size="8" font-weight="900" fill="#1f1f1f" letter-spacing="0.8">UNIQUE</text>
+    </g>
+<rect x="246" y="110" width="224" height="72" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="135" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="130" x2="269" y2="140" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="130" x2="259" y2="140" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="131" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Back-end outside the browser</text>
+<text x="284" y="147" font-size="10" fill="#595959" font-style="italic">desktop app / cloud, internet required</text>
+<rect x="10" y="188" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="213" r="10" fill="#52c41a"/>
+<path d="M 23 213 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="209" font-size="12" font-weight="700" fill="#1f1f1f">Self-host the back-end</text>
+<text x="48" y="225" font-size="10" fill="#595959" font-style="italic">browser · desktop app · daemon · VM</text>
+<rect x="246" y="188" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="213" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="208" x2="269" y2="218" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="208" x2="259" y2="218" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="209" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Their cloud only</text>
+<text x="284" y="225" font-size="10" fill="#595959" font-style="italic">no choice in where your data lives</text>
+<rect x="10" y="244" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="269" r="10" fill="#52c41a"/>
+<path d="M 23 269 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="265" font-size="12" font-weight="700" fill="#1f1f1f">Front-end works native offline</text>
+<text x="48" y="281" font-size="10" fill="#595959" font-style="italic">extension · desktop · CLI · web</text>
+<rect x="246" y="244" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="269" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="264" x2="269" y2="274" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="264" x2="259" y2="274" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="265" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Cloud-only front-end (Online)</text>
+<text x="284" y="281" font-size="10" fill="#595959" font-style="italic">needs internet for back-end access</text>
+<rect x="10" y="306" width="460" height="22" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="1"/>
+<text x="240" y="321" text-anchor="middle" font-size="10" font-weight="800" fill="#595959" letter-spacing="1">PRIVACY &amp; OWNERSHIP</text>
+<rect x="10" y="336" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="361" r="10" fill="#52c41a"/>
+<path d="M 23 361 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="357" font-size="12" font-weight="700" fill="#1f1f1f">No account</text>
+<text x="48" y="373" font-size="10" fill="#595959" font-style="italic">no sign-in, no login wall</text>
+<rect x="246" y="336" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="361" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="356" x2="269" y2="366" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="356" x2="259" y2="366" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="357" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Sign in required</text>
+<text x="284" y="373" font-size="10" fill="#595959" font-style="italic">to use your own data</text>
+<rect x="10" y="392" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="417" r="10" fill="#52c41a"/>
+<path d="M 23 417 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="413" font-size="12" font-weight="700" fill="#1f1f1f">Local-only</text>
+<text x="48" y="429" font-size="10" fill="#595959" font-style="italic">no cloud relay</text>
+<rect x="246" y="392" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="417" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="412" x2="269" y2="422" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="412" x2="259" y2="422" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="413" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Cloud-relayed</text>
+<text x="284" y="429" font-size="10" fill="#595959" font-style="italic">your traffic goes through them</text>
+<rect x="10" y="448" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="473" r="10" fill="#52c41a"/>
+<path d="M 23 473 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="469" font-size="12" font-weight="700" fill="#1f1f1f">No tracking</text>
+<text x="48" y="485" font-size="10" fill="#595959" font-style="italic">anonymous counters · one-switch off</text>
+<rect x="246" y="448" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="473" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="468" x2="269" y2="478" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="468" x2="259" y2="478" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="469" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Tracks everything</text>
+<text x="284" y="485" font-size="10" fill="#595959" font-style="italic">usage data sent home</text>
+<rect x="10" y="510" width="460" height="22" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="1"/>
+<text x="240" y="525" text-anchor="middle" font-size="10" font-weight="800" fill="#595959" letter-spacing="1">SYNC &amp; RESILIENCE</text>
+<rect x="10" y="540" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="565" r="10" fill="#52c41a"/>
+<path d="M 23 565 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="561" font-size="12" font-weight="700" fill="#1f1f1f">Real-time Sync Engine</text>
+<text x="48" y="577" font-size="10" fill="#595959" font-style="italic">multi-device, browser, surface</text>
+<rect x="246" y="540" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="565" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="560" x2="269" y2="570" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="560" x2="259" y2="570" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="561" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Last-write-wins</text>
+<text x="284" y="577" font-size="10" fill="#595959" font-style="italic">or no sync at all</text>
+<rect x="10" y="596" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="621" r="10" fill="#52c41a"/>
+<path d="M 23 621 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="617" font-size="12" font-weight="700" fill="#1f1f1f">Conflict-free concurrent Save</text>
+<text x="48" y="633" font-size="10" fill="#595959" font-style="italic">field-level, all changes committed</text>
+<rect x="246" y="596" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="621" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="616" x2="269" y2="626" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="616" x2="259" y2="626" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="617" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Entity-level overwrite</text>
+<text x="284" y="633" font-size="10" fill="#595959" font-style="italic">saves can wipe each other</text>
+<rect x="10" y="652" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="28" cy="677" r="10" fill="#52c41a"/>
+<path d="M 23 677 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="48" y="673" font-size="12" font-weight="700" fill="#1f1f1f">Works offline, fully editable</text>
+<text x="48" y="689" font-size="10" fill="#595959" font-style="italic">syncs automatically when you're back</text>
+<rect x="246" y="652" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="264" cy="677" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="259" y1="672" x2="269" y2="682" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="269" y1="672" x2="259" y2="682" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="284" y="673" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Needs online connection</text>
+<text x="284" y="689" font-size="10" fill="#595959" font-style="italic">or no access at all</text>
+<rect x="502" y="38" width="224" height="30" rx="6" fill="#e6f4ff" stroke="#91caff" stroke-width="1.5"/>
+<g transform="translate(512, 44) scale(0.03515625)">
+    <rect width="512" height="512" rx="80" fill="url(#oh-shift)"/>
+    <g transform="translate(32 32) scale(0.875)">
+      <g fill="white" shape-rendering="crispEdges">
+        <rect x="80" y="112" width="128" height="32"/><rect x="48" y="144" width="64" height="160"/>
+        <rect x="176" y="144" width="64" height="160"/><rect x="80" y="304" width="128" height="32"/>
+        <rect x="272" y="112" width="64" height="224"/><rect x="400" y="112" width="64" height="224"/>
+        <rect x="272" y="208" width="192" height="32"/>
+      </g>
+      <rect x="112" y="144" width="64" height="160" fill="#FF4444" shape-rendering="crispEdges"/>
+      <path d="M 80 388 C 180 448, 332 448, 432 388" stroke="white" stroke-width="28" fill="none" stroke-linecap="round"/>
+    </g>
+  </g>
+<text x="536" y="57" font-size="12" font-weight="700" fill="#1f1f1f">Open Headers</text>
+<rect x="738" y="38" width="224" height="30" rx="6" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.5" stroke-dasharray="3 2"/>
+<text x="850" y="57" text-anchor="middle" font-size="12" font-weight="700" fill="#cf1322">Everyone else</text>
+<line x1="732" y1="74" x2="732" y2="542" stroke="#d9d9d9" stroke-dasharray="3 5"/>
+<rect x="502" y="80" width="460" height="22" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="1"/>
+<text x="732" y="95" text-anchor="middle" font-size="10" font-weight="800" fill="#595959" letter-spacing="1">CAPABILITY</text>
+<rect x="502" y="110" width="224" height="72" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="520" cy="135" r="10" fill="#52c41a"/>
+<path d="M 515 135 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="131" font-size="12" font-weight="700" fill="#1f1f1f">Rule Engine</text>
+<text x="540" y="147" font-size="10" fill="#595959" font-style="italic">intercept &amp; modify requests</text>
+<g>
+      <rect x="626" y="158" width="94" height="20" rx="3" fill="#ffffff" stroke="#91caff" stroke-width="2"/>
+      <rect x="629" y="161" width="88" height="14" rx="2" fill="none" stroke="#91caff" stroke-width="0.8" stroke-dasharray="2 2"/>
+      <text x="673" y="171" text-anchor="middle" font-size="8" font-weight="900" fill="#1f1f1f" letter-spacing="0.8">BEST-IN-CLASS</text>
+    </g>
+<rect x="738" y="110" width="224" height="72" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="756" cy="135" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="751" y1="130" x2="761" y2="140" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="761" y1="130" x2="751" y2="140" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="776" y="131" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">No in-browser engine</text>
+<text x="776" y="147" font-size="10" fill="#595959" font-style="italic">separate proxy or app required</text>
+<rect x="502" y="188" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="520" cy="213" r="10" fill="#52c41a"/>
+<path d="M 515 213 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="209" font-size="12" font-weight="700" fill="#1f1f1f">API Requests Catalog</text>
+<text x="540" y="225" font-size="10" fill="#595959" font-style="italic">HTTP, WS, GraphQL — all in-browser</text>
+<rect x="738" y="188" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="756" cy="213" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="751" y1="208" x2="761" y2="218" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="761" y1="208" x2="751" y2="218" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="776" y="209" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Sign in to a platform</text>
+<text x="776" y="225" font-size="10" fill="#595959" font-style="italic">and install their app</text>
+<rect x="502" y="244" width="224" height="72" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="520" cy="269" r="10" fill="#52c41a"/>
+<path d="M 515 269 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="265" font-size="12" font-weight="700" fill="#1f1f1f">Automate your workspace</text>
+<text x="540" y="281" font-size="10" fill="#595959" font-style="italic">your AI agent, local or remote</text>
+<text x="540" y="295" font-size="10" font-weight="700" fill="#595959" font-style="italic">- you decide</text>
+<g>
+      <rect x="614" y="292" width="106" height="20" rx="3" fill="#ffffff" stroke="#91caff" stroke-width="2"/>
+      <rect x="617" y="295" width="100" height="14" rx="2" fill="none" stroke="#91caff" stroke-width="0.8" stroke-dasharray="2 2"/>
+      <text x="667" y="305" text-anchor="middle" font-size="8" font-weight="900" fill="#1f1f1f" letter-spacing="0.8">USER-CONTROLLED</text>
+    </g>
+<rect x="738" y="244" width="224" height="72" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="756" cy="269" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="751" y1="264" x2="761" y2="274" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="761" y1="264" x2="751" y2="274" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="776" y="265" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Private or their cloud AI only</text>
+<text x="776" y="281" font-size="10" fill="#595959" font-style="italic">no open or programmatic access</text>
+<rect x="502" y="328" width="460" height="22" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="1"/>
+<text x="732" y="343" text-anchor="middle" font-size="10" font-weight="800" fill="#595959" letter-spacing="1">PRICING &amp; TRUST</text>
+<rect x="502" y="358" width="224" height="72" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="520" cy="383" r="10" fill="#52c41a"/>
+<path d="M 515 383 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="379" font-size="12" font-weight="700" fill="#1f1f1f">Everything today, on every tier</text>
+<text x="540" y="395" font-size="10" fill="#595959" font-style="italic">free ≤ 3 users · paid = team seats</text>
+<g>
+      <rect x="608" y="406" width="112" height="20" rx="3" fill="#ffffff" stroke="#91caff" stroke-width="2"/>
+      <rect x="611" y="409" width="106" height="14" rx="2" fill="none" stroke="#91caff" stroke-width="0.8" stroke-dasharray="2 2"/>
+      <text x="664" y="419" text-anchor="middle" font-size="8" font-weight="900" fill="#1f1f1f" letter-spacing="0.8">NO FEATURE GATES</text>
+    </g>
+<rect x="738" y="358" width="224" height="72" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="756" cy="383" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="751" y1="378" x2="761" y2="388" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="761" y1="378" x2="751" y2="388" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="776" y="379" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Feature-gated tiers</text>
+<text x="776" y="395" font-size="10" fill="#595959" font-style="italic">core capabilities behind upsells</text>
+<rect x="502" y="436" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="520" cy="461" r="10" fill="#52c41a"/>
+<path d="M 515 461 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="457" font-size="12" font-weight="700" fill="#1f1f1f">SSO &amp; security free</text>
+<text x="540" y="473" font-size="10" fill="#595959" font-style="italic">SSO/OIDC · RBAC · audit · SIEM</text>
+<rect x="738" y="436" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="756" cy="461" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="751" y1="456" x2="761" y2="466" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="761" y1="456" x2="751" y2="466" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="776" y="457" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">The SSO tax</text>
+<text x="776" y="473" font-size="10" fill="#595959" font-style="italic">security sold as enterprise add-on</text>
+<rect x="502" y="492" width="224" height="50" rx="5" fill="rgba(82, 196, 26, 0.12)" stroke="#52c41a" stroke-opacity="0.7"/>
+<circle cx="520" cy="517" r="10" fill="#52c41a"/>
+<path d="M 515 517 l 4 4 l 7 -7" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="513" font-size="12" font-weight="700" fill="#1f1f1f">A lapse never locks you out</text>
+<text x="540" y="529" font-size="10" fill="#595959" font-style="italic">grace, then free tier — data yours</text>
+<rect x="738" y="492" width="224" height="50" rx="5" fill="#fff1f0" stroke="#ffa39e" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+<circle cx="756" cy="517" r="10" fill="#fff1f0" stroke="#ffa39e" stroke-width="1.8"/>
+<line x1="751" y1="512" x2="761" y2="522" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<line x1="761" y1="512" x2="751" y2="522" stroke="#cf1322" stroke-width="2" stroke-linecap="round"/>
+<text x="776" y="513" font-size="12" font-weight="700" fill="#1f1f1f" font-style="italic">Stop paying, lose access</text>
+<text x="776" y="529" font-size="10" fill="#595959" font-style="italic">paywall over your own data</text>
+<text x="486" y="726" text-anchor="middle" font-size="12" font-weight="700" fill="#1f1f1f">Local-first. By design. Not as an afterthought.</text>
+</svg>

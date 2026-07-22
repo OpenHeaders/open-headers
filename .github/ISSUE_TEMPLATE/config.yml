@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/OpenHeaders/open-headers/blob/main/SECURITY.md
+    about: Please report security issues by email, not in the public tracker.
+  - name: Questions & ideas
+    url: https://github.com/OpenHeaders/open-headers/discussions
+    about: For questions and open-ended discussion, use Discussions.
