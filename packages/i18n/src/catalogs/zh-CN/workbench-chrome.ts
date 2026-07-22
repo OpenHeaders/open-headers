@@ -552,6 +552,12 @@ export const workbenchChrome = {
     '调试模式——将浏览器调试器附加到范围内及已固定的标签页，以获取响应体和精确标头。浏览器会在每个已附加的标签页上显示横幅。',
   'workbench.trafficMonitor.noBrowsersHint': '未连接任何浏览器。请打开已安装扩展的浏览器，或安装扩展：',
   'workbench.trafficMonitor.installExtension': '安装 {browser} 扩展',
+  'workbench.trafficMonitor.watchConsentOff': '查看已关闭',
+  'workbench.trafficMonitor.watchConsentOffHint':
+    '此浏览器的扩展不允许桌面应用查看其流量、存储或控制台。规则与同步照常工作。在扩展设置中开启“允许桌面应用查看此浏览器”后即可在此观察。',
+  'workbench.trafficMonitor.watchConsentOffEmpty': '此浏览器已关闭实时查看',
+  'workbench.trafficMonitor.watchConsentOffEmptyHint':
+    '在扩展设置中开启“允许桌面应用查看此浏览器”，即可在此观察该标签页的流量、存储和控制台',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': '标题',

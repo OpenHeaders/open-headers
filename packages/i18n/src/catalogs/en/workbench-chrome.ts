@@ -560,6 +560,13 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.noBrowsersHint':
     'No browsers connected. Open a browser with the extension installed, or install it:',
   'workbench.trafficMonitor.installExtension': 'Install {browser} extension',
+  'workbench.trafficMonitor.watchConsentOff': 'View off',
+  'workbench.trafficMonitor.watchConsentOffHint':
+    'This browser’s extension doesn’t allow the desktop app to view its traffic, storage, or console. Rules and sync ' +
+    'keep working. Turn on “Let the desktop app view this browser” in the extension’s settings to watch it here.',
+  'workbench.trafficMonitor.watchConsentOffEmpty': 'Live view is turned off in this browser',
+  'workbench.trafficMonitor.watchConsentOffEmptyHint':
+    'Enable “Let the desktop app view this browser” in the extension’s settings to watch this tab’s traffic, storage, and console here',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

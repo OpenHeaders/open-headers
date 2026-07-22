@@ -3,7 +3,12 @@
  *
  * Routes every scope read/write/subscription through the shared
  * `hostStorage` adapter so the settings layer doesn't touch
- * `chrome.storage.*` directly.
+ * `chrome.storage.*` directly. The one exception is the enterprise
+ * policy plane: `chrome.storage.managed` is a browser-owned, read-only
+ * area with no host-storage seam (nothing ever writes it from the app),
+ * so the managed pair below reads it in place — flat
+ * setting-key → policy-value entries, declared for Chromium in the
+ * manifest's `managed_schema`.
  *
  * Scope mapping:
  *   - user                  → `OH.settingsUser`                                (always global)
@@ -59,6 +64,28 @@ function workspaceKeyFor(scope: 'workspace-taste' | 'workspace-behavioral', id: 
   return scope === 'workspace-taste' ? wsKeys(id).settingsWorkspaceTaste : wsKeys(id).settingsWorkspaceBehavioral;
 }
 
+// This package carries no chrome ambient types (it builds for every
+// host); the minimal structural surface the managed reads need is
+// declared here and resolved off `globalThis` at call time.
+type ManagedChangeListener = (changes: Record<string, unknown>, areaName: string) => void;
+
+interface ManagedCapableChromeStorage {
+  managed?: { get(keys: null): Promise<Record<string, unknown>> };
+  onChanged?: {
+    addListener(fn: ManagedChangeListener): void;
+    removeListener(fn: ManagedChangeListener): void;
+  };
+}
+
+function chromeStorageGlobal(): ManagedCapableChromeStorage | null {
+  const g = globalThis as { chrome?: { storage?: ManagedCapableChromeStorage } };
+  try {
+    return g.chrome?.storage ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export class ChromeDictStorage implements DictStorage {
   async load(scope: SettingScope): Promise<ScopeDict> {
     const spec = await resolveKey(scope);
@@ -112,5 +139,31 @@ export class ChromeDictStorage implements DictStorage {
       activeIdUnsub();
       scopeUnsub?.();
     };
+  }
+
+  async loadManaged(): Promise<ScopeDict> {
+    const managed = chromeStorageGlobal()?.managed;
+    if (!managed) return {};
+    try {
+      // A browser with no policy configured resolves an empty object;
+      // some resolve an error instead — both read as "nothing managed".
+      return (await managed.get(null)) ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  subscribeManaged(fn: (values: ScopeDict) => void): StorageUnsubscribe {
+    const storage = chromeStorageGlobal();
+    if (!storage?.managed || !storage.onChanged) return () => {};
+    const events = storage.onChanged;
+    const listener: ManagedChangeListener = (_changes, areaName) => {
+      if (areaName !== 'managed') return;
+      // Policy deltas are rare; re-read the whole area so removals are
+      // observed as absence, not stale `newValue: undefined` holes.
+      void this.loadManaged().then(fn);
+    };
+    events.addListener(listener);
+    return () => events.removeListener(listener);
   }
 }

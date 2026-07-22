@@ -20,6 +20,7 @@ import {
   BugFilled,
   BugOutlined,
   CaretRightOutlined,
+  EyeInvisibleOutlined,
   FileOutlined,
   GlobalOutlined,
   LoadingOutlined,
@@ -83,6 +84,9 @@ export interface RailPeer {
   /** The peer's Debug-mode (CDP) posture — drives the tab-row affordance. */
   debug: TelemetryDebugState;
   tabs: RailPeerTab[];
+  /** The peer's telemetry consent gate — `false` greys the tab rows and
+   *  drops the Debug affordances (the browser refuses watches). */
+  watchConsent: boolean;
 }
 
 export type TrafficSourceKey = string;
@@ -353,7 +357,18 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                     </span>
                   </span>
                 </button>
-                {peer.debug.available && (
+                {!peer.watchConsent && (
+                  <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement="left">
+                    <Tag
+                      data-testid="traffic-monitor-peer-consent-off"
+                      icon={<EyeInvisibleOutlined />}
+                      style={{ margin: 0, flex: '0 0 auto' }}
+                    >
+                      {t('workbench.trafficMonitor.watchConsentOff')}
+                    </Tag>
+                  </Tooltip>
+                )}
+                {peer.debug.available && peer.watchConsent && (
                   <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="left">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                       <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
@@ -396,13 +411,18 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                                 alt=""
                                 width={14}
                                 height={14}
-                                style={{ flex: '0 0 auto', borderRadius: 2 }}
+                                style={{ flex: '0 0 auto', borderRadius: 2, opacity: peer.watchConsent ? 1 : 0.5 }}
                               />
                             ) : (
                               <FileOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
                             )}
-                            <span className="rules-sidebar-item-label">{title}</span>
-                            {peer.debug.available && (
+                            <span
+                              className="rules-sidebar-item-label"
+                              style={peer.watchConsent ? undefined : { color: token.colorTextTertiary }}
+                            >
+                              {title}
+                            </span>
+                            {peer.debug.available && peer.watchConsent && (
                               <TabDebugAffordance
                                 attached={peer.debug.attachedTabs.includes(tab.tabId)}
                                 pinned={peer.debug.pinnedTabs.includes(tab.tabId)}

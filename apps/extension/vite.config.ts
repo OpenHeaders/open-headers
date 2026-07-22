@@ -198,6 +198,11 @@ function chromeSafePlugin() {
 function copyAssetsPlugin() {
   const copies: Array<{ from: string; to: string }> = [
     { from: `manifests/${browser}/manifest.json`, to: 'manifest.json' },
+    // Enterprise policy schema for chrome.storage.managed (Chromium
+    // reads it via the manifest's `storage.managed_schema`). Copied
+    // only where the browser's manifest dir ships one — the existsSync
+    // guard below skips the rest.
+    { from: `manifests/${browser}/managed_schema.json`, to: 'managed_schema.json' },
     // PERMISSIONS.md — ships inside the packed extension so store
     // reviewers and security-conscious users can read the justification
     // for every permission the manifest requests. See the file header

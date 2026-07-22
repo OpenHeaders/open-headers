@@ -58,6 +58,9 @@ export const workbenchSettings = {
   'workbench.settings.row.aboutAria': '关于{label}',
   'workbench.settings.row.disabledCapabilityAria': '已禁用——在此浏览器上不可用',
   'workbench.settings.row.disabledConnectionAria': '已禁用——需要桌面端连接',
+  'workbench.settings.row.managed': '由你的组织管理',
+  'workbench.settings.row.managedBadge': '受管理',
+  'workbench.settings.row.disabledManagedAria': '已禁用——由你的组织管理',
   'workbench.settings.row.run': '运行',
 
   // ── Categories ─────────────────────────────────────────────────────

@@ -30,6 +30,10 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoinProbe.label': '在后台检测桌面应用',
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     '未连接桌面应用时，每隔约两分钟检测一次是否已安装，以便新安装的应用自动连接。关闭后仅在扩展启动时检测。',
+  'workbench.settings.def.backend.allowDesktopWatch.label': '允许桌面应用查看此浏览器',
+  'workbench.settings.def.backend.allowDesktopWatch.description':
+    '允许本机上已配对的桌面应用在其 Traffic Monitor 中观察此浏览器的网络流量、存储和控制台。关闭后规则与同步照常工作，' +
+    '桌面端的实时视图则会收到明确的拒绝。',
   'workbench.settings.def.backend.bindAddress.label': '与你网络中的设备同步',
   'workbench.settings.def.backend.bindAddress.description':
     '允许同一网络中的其他电脑和浏览器连接到此应用并共享其工作区。默认关闭——只有这台电脑能访问。',

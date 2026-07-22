@@ -36,9 +36,17 @@ export type StorageUnsubscribe = () => void;
 /**
  * Per-scope dict adapter. Reads and writes entire scopes at once; the
  * store handles splitting the dict into per-key updates.
+ *
+ * The optional managed pair surfaces the platform's enterprise policy
+ * plane (`chrome.storage.managed` on extension hosts): a flat dict of
+ * setting-key → policy value. Keys present there are LOCKED — the store
+ * serves the policy value and refuses writes. Backends without a policy
+ * plane (desktop IPC, tests) simply omit both members.
  */
 export interface DictStorage {
   load(scope: SettingScope): Promise<Record<string, unknown>>;
   save(scope: SettingScope, values: Record<string, unknown>): Promise<void>;
   subscribe(scope: SettingScope, fn: (values: Record<string, unknown>) => void): StorageUnsubscribe;
+  loadManaged?(): Promise<Record<string, unknown>>;
+  subscribeManaged?(fn: (values: Record<string, unknown>) => void): StorageUnsubscribe;
 }

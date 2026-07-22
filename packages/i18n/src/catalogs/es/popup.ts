@@ -44,6 +44,13 @@ export const popup = {
   'popup.footer.keyboardShortcuts': 'Atajos de teclado',
   'popup.footer.systemStatus': 'Sistema',
 
+  // ── Desktop watch privacy indicator ────────────────────────────────
+  'popup.desktopWatch.label': 'Escritorio observando',
+  'popup.desktopWatch.tooltip':
+    'La aplicación de escritorio de Open Headers está viendo este navegador en su Traffic Monitor. Haz clic para ' +
+    'abrir los ajustes — «Permitir que la aplicación de escritorio vea este navegador» es el interruptor.',
+  'popup.desktopWatch.aria': 'La aplicación de escritorio está viendo este navegador — abrir ajustes',
+
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': 'Esta página',
   'popup.tabs.allRules': 'Todas las reglas',

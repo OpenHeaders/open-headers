@@ -63,6 +63,9 @@ export const workbenchSettings = {
   'workbench.settings.row.aboutAria': 'À propos de {label}',
   'workbench.settings.row.disabledCapabilityAria': 'Désactivé — indisponible sur ce navigateur',
   'workbench.settings.row.disabledConnectionAria': 'Désactivé — nécessite la connexion au bureau',
+  'workbench.settings.row.managed': 'Géré par votre organisation',
+  'workbench.settings.row.managedBadge': 'Géré',
+  'workbench.settings.row.disabledManagedAria': 'Désactivé — géré par votre organisation',
   'workbench.settings.row.run': 'Exécuter',
 
   // ── Categories ─────────────────────────────────────────────────────

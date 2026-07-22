@@ -34,6 +34,12 @@ export const popup = {
   'popup.footer.keyboardShortcuts': 'Keyboard shortcuts',
   'popup.footer.systemStatus': 'System',
 
+  // ── Desktop watch privacy indicator ────────────────────────────────
+  'popup.desktopWatch.label': 'Desktop viewing',
+  'popup.desktopWatch.tooltip':
+    'The Open Headers desktop app is currently viewing this browser in its Traffic Monitor. Click to open Settings — “Let the desktop app view this browser” is the off switch.',
+  'popup.desktopWatch.aria': 'Desktop app is viewing this browser — open settings',
+
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': 'This Page',
   'popup.tabs.allRules': 'All Rules',

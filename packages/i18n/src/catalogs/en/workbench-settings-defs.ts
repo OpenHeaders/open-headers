@@ -23,6 +23,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Check for the desktop app in the background',
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'With no desktop app connected, check every couple of minutes whether one has been installed, so a fresh install connects on its own. Turn off to check only when the extension starts.',
+  'workbench.settings.def.backend.allowDesktopWatch.label': 'Let the desktop app view this browser',
+  'workbench.settings.def.backend.allowDesktopWatch.description':
+    'Allows a paired desktop app on this computer to watch this browser’s network traffic, storage, and console in its Traffic Monitor. Turn off to keep rules and sync working while the desktop’s live views are politely refused.',
   'workbench.settings.def.backend.bindAddress.label': 'Sync with devices on your network',
   'workbench.settings.def.backend.bindAddress.description':
     'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',

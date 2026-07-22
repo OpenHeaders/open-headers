@@ -32,6 +32,13 @@ export const popup = {
   'popup.footer.keyboardShortcuts': 'Raccourcis clavier',
   'popup.footer.systemStatus': 'Système',
 
+  // ── Desktop watch privacy indicator ────────────────────────────────
+  'popup.desktopWatch.label': 'Bureau en observation',
+  'popup.desktopWatch.tooltip':
+    "L'application de bureau Open Headers observe actuellement ce navigateur dans son Traffic Monitor. Cliquez pour " +
+    'ouvrir les paramètres — « Laisser l\'application de bureau voir ce navigateur » est l\'interrupteur.',
+  'popup.desktopWatch.aria': "L'application de bureau observe ce navigateur — ouvrir les paramètres",
+
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': 'Cette page',
   'popup.tabs.allRules': 'Toutes les règles',

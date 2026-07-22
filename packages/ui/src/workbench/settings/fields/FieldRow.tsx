@@ -11,13 +11,13 @@
 
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { Capabilities } from '@openheaders/core/capabilities';
-import { DisconnectOutlined, UndoOutlined } from '@ant-design/icons';
+import { DisconnectOutlined, LockOutlined, UndoOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverAction, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useSettingsConnection } from '../ConnectionContext';
-import { useIsModified, useResetSetting } from '../hooks';
+import { useIsManaged, useIsModified, useResetSetting } from '../hooks';
 import type { SettingKey } from '../types';
 
 interface FieldRowProps {
@@ -95,12 +95,15 @@ const FieldRow: React.FC<FieldRowProps> = ({
   const modified = modifiedOverride ?? storeModified;
   const reset = onReset ?? storeReset;
   const { isConnected } = useSettingsConnection();
+  const managed = useIsManaged(settingKey as SettingKey);
   const connectionGated = requiresConnection === true && !isConnected;
   const capabilityGated = requiresCapability !== undefined && !hasCapability(requiresCapability);
-  const gated = connectionGated || capabilityGated;
-  const disabledHint = capabilityGated
-    ? (capabilityUnavailableHint ?? t('workbench.settings.row.capabilityUnavailable'))
-    : t('workbench.settings.row.connectionRequired');
+  const gated = connectionGated || capabilityGated || managed;
+  const disabledHint = managed
+    ? t('workbench.settings.row.managed')
+    : capabilityGated
+      ? (capabilityUnavailableHint ?? t('workbench.settings.row.capabilityUnavailable'))
+      : t('workbench.settings.row.connectionRequired');
 
   const modifiedDot = modified && (
     <Tooltip title={t('workbench.settings.row.modified')}>
@@ -127,6 +130,28 @@ const FieldRow: React.FC<FieldRowProps> = ({
 
   const badges = (
     <>
+      {managed && (
+        <Tooltip title={t('workbench.settings.row.managed')}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              fontSize: 9,
+              padding: '0 5px',
+              borderRadius: 8,
+              background: token.colorFillSecondary,
+              color: token.colorTextSecondary,
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              flex: 'none',
+            }}
+          >
+            <LockOutlined style={{ fontSize: 9 }} />
+            {t('workbench.settings.row.managedBadge')}
+          </span>
+        </Tooltip>
+      )}
       {experimental && (
         <Tooltip title={t('workbench.settings.row.experimental')}>
           <span
@@ -170,7 +195,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
     </>
   );
 
-  const resetButton = resettable && modified && (
+  const resetButton = resettable && modified && !managed && (
     <Tooltip title={resetTooltip ?? t('workbench.settings.row.resetToDefault')}>
       <Button
         size="small"
@@ -210,9 +235,11 @@ const FieldRow: React.FC<FieldRowProps> = ({
           <div
             role="img"
             aria-label={
-              capabilityGated
-                ? t('workbench.settings.row.disabledCapabilityAria')
-                : t('workbench.settings.row.disabledConnectionAria')
+              managed
+                ? t('workbench.settings.row.disabledManagedAria')
+                : capabilityGated
+                  ? t('workbench.settings.row.disabledCapabilityAria')
+                  : t('workbench.settings.row.disabledConnectionAria')
             }
             style={{
               position: 'absolute',

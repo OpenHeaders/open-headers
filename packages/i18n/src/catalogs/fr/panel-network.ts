@@ -16,6 +16,13 @@ export const panelNetwork = {
   'panel.network.aboutTypeFilters': 'À propos des filtres par type de requête',
   'panel.network.aboutSorting': 'À propos du tri',
 
+  // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.watchRefused.title': 'La vue en direct est désactivée dans ce navigateur',
+  'panel.capture.watchRefused.body':
+    "L'extension Open Headers de ce navigateur n'autorise pas l'application de bureau à voir son trafic, son " +
+    'stockage ni sa console. Activez « Laisser l\'application de bureau voir ce navigateur » dans les paramètres de ' +
+    "l'extension pour l'observer ici.",
+
   // Traffic table cells
   'panel.network.cell.workerGearTitle': "Requête émise par le service worker de l'origine",
   'panel.network.cell.jumpToPreflight': 'Aller à la requête preflight',

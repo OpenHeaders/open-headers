@@ -583,6 +583,15 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.noBrowsersHint':
     "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
   'workbench.trafficMonitor.installExtension': "Installer l'extension {browser}",
+  'workbench.trafficMonitor.watchConsentOff': 'Vue désactivée',
+  'workbench.trafficMonitor.watchConsentOffHint':
+    "L'extension de ce navigateur n'autorise pas l'application de bureau à voir son trafic, son stockage ni sa " +
+    'console. Les règles et la synchronisation continuent de fonctionner. Activez « Laisser l\'application de ' +
+    "bureau voir ce navigateur » dans les paramètres de l'extension pour l'observer ici.",
+  'workbench.trafficMonitor.watchConsentOffEmpty': 'La vue en direct est désactivée dans ce navigateur',
+  'workbench.trafficMonitor.watchConsentOffEmptyHint':
+    "Activez « Laisser l'application de bureau voir ce navigateur » dans les paramètres de l'extension pour " +
+    'observer ici le trafic, le stockage et la console de cet onglet',
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

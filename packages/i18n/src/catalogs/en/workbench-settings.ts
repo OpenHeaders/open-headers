@@ -54,6 +54,9 @@ export const workbenchSettings = {
   'workbench.settings.row.aboutAria': 'About {label}',
   'workbench.settings.row.disabledCapabilityAria': 'Disabled — unavailable on this browser',
   'workbench.settings.row.disabledConnectionAria': 'Disabled — requires desktop connection',
+  'workbench.settings.row.managed': 'Managed by your organization',
+  'workbench.settings.row.managedBadge': 'Managed',
+  'workbench.settings.row.disabledManagedAria': 'Disabled — managed by your organization',
   'workbench.settings.row.run': 'Run',
 
   // ── Categories ─────────────────────────────────────────────────────

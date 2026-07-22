@@ -21,6 +21,12 @@
  * Privacy gate: console frames are honored from SAME-DEVICE (loopback)
  * wires only, exactly like the lifecycle channels.
  *
+ * Consent gate (`backend.allowDesktopWatch`, see `./consent`): a
+ * subscribe with consent off answers with the typed refusal instead of
+ * a session, and a mid-watch flip to off tears live sessions down the
+ * same way. The flip-on re-announce is the lifecycle host's job — one
+ * host-ready per wire re-joins every plane's watches.
+ *
  * Overflow degrades fidelity, never correctness: a session whose queue
  * outgrows the cap is cleared and re-attached, so the next flush is a
  * fresh `ready` + canonical replay instead of a stream with silent
@@ -41,7 +47,9 @@ import {
   subscribeOnWebSocketClose,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { logger } from '@utils/logger';
+import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
 import { TELEMETRY_FLUSH_INTERVAL_MS } from './index';
+import { watchActivityDrop, watchActivityRaise } from './watch-activity';
 
 const SCOPE = 'TelemetryConsoleHost';
 
@@ -143,7 +151,9 @@ export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions):
   function teardown(session: ConsoleSession): void {
     if (session.closed) return;
     session.closed = true;
-    sessions.delete(sessionKey(session.backendId, session.tabId, session.consumerId));
+    const key = sessionKey(session.backendId, session.tabId, session.consumerId);
+    sessions.delete(key);
+    watchActivityDrop(`co:${key}`);
     session.handle?.detach();
     session.handle = null;
     if (session.flushTimer !== null) {
@@ -161,6 +171,10 @@ export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions):
       if (wire.isLoopback()) {
         const { tabId, consumerId } = frame as TelemetryConsoleConsumerMessage;
         if (typeof tabId === 'number' && tabId >= 0 && typeof consumerId === 'string') {
+          if (!desktopWatchAllowed()) {
+            wire.send(watchRefusedFrame('console', tabId, consumerId));
+            return true;
+          }
           const key = sessionKey(wire.backendId, tabId, consumerId);
           let session = sessions.get(key);
           if (!session) {
@@ -174,6 +188,7 @@ export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions):
               closed: false,
             };
             sessions.set(key, session);
+            watchActivityRaise(`co:${key}`);
           }
           attach(session);
         }
@@ -201,10 +216,20 @@ export function startTelemetryConsoleHost(options: TelemetryConsoleHostOptions):
     }
   });
 
+  // Consent flip to off: refuse-and-teardown, exactly as at subscribe.
+  const unsubscribeConsent = subscribeDesktopWatchConsent((allowed) => {
+    if (allowed) return;
+    for (const session of [...sessions.values()]) {
+      send(session.backendId, watchRefusedFrame('console', session.tabId, session.consumerId));
+      teardown(session);
+    }
+  });
+
   return {
     dispose(): void {
       unregisterInbound();
       unsubscribeClose();
+      unsubscribeConsent();
       for (const session of [...sessions.values()]) teardown(session);
     },
   };

@@ -275,6 +275,12 @@ export interface PersistedLocalFolder {
   auth?: AuthConfig;
 }
 
+/** See {@link OH.desktopWatchActivity}. */
+export interface DesktopWatchActivity {
+  /** Open desktop watch sessions across every telemetry plane. */
+  sessions: number;
+}
+
 // ── Global keys ──────────────────────────────────────────────────────
 
 export const OH = {
@@ -302,6 +308,15 @@ export const OH = {
   viewMode: storageKey<ViewMode>('oh.viewMode', 'sync'),
   /** User-scope settings dict (global — never per-workspace). */
   settingsUser: storageKey<Record<string, unknown>>('oh.settings.user'),
+  /**
+   * Live count of desktop watch sessions on this browser (the telemetry
+   * stream hosts' lifecycle/storage/console watches). Written by the
+   * service worker as sessions open and close; the popup's privacy
+   * indicator reads it reactively. Ephemeral by nature — a stale
+   * non-zero count left by a killed SW is corrected the moment the
+   * hosts restart (they publish their empty state on install).
+   */
+  desktopWatchActivity: storageKey<DesktopWatchActivity>('oh.desktopWatchActivity'),
   /**
    * Product-telemetry install identity (TELEMETRY_PLAN.md §4, amended
    * 2026-07-16): a random resettable id + mint date. Deleted whenever

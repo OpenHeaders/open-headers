@@ -32,6 +32,11 @@ export const panelNetwork = {
   'panel.network.aboutTypeFilters': '关于请求类型筛选',
   'panel.network.aboutSorting': '关于排序',
 
+  // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.watchRefused.title': '此浏览器已关闭实时查看',
+  'panel.capture.watchRefused.body':
+    '此浏览器中的 Open Headers 扩展不允许桌面应用查看其流量、存储或控制台。在扩展设置中开启“允许桌面应用查看此浏览器”后即可在此观察。',
+
   // Traffic table cells — resolved once per locale into the CellMessages
   // bundle (the row render loop is hot and never calls t() itself).
   'panel.network.cell.workerGearTitle': '由该源的 Service Worker 发出的请求',

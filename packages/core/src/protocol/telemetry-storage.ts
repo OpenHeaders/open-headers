@@ -95,12 +95,17 @@ export interface TelemetryStorageCallMessage<K extends TelemetryStorageMethod = 
 
 /**
  * Extension → host: the call's reply on `oh.telemetry.storage.call:response`.
- * `payload` is the verb's own `DevToolsRpc` response shape.
+ * `payload` is the verb's own `DevToolsRpc` response shape. A call the
+ * consent gate blocks (`backend.allowDesktopWatch` off) answers with
+ * `refused: 'consent-off'` and a `null` payload — the relay settles the
+ * caller `ok: false`, the same honest unreadable state a vanished peer
+ * produces, instead of leaving the call to time out.
  */
 export interface TelemetryStorageCallResponseMessage<K extends TelemetryStorageMethod = TelemetryStorageMethod> {
   type: `${typeof TELEMETRY_STORAGE_CALL_TYPE}:response`;
   callId: string;
-  payload: DevToolsRpc[K]['res'];
+  payload: DevToolsRpc[K]['res'] | null;
+  refused?: 'consent-off';
 }
 
 /** Host → extension: one workbench consumer starts watching a tab's

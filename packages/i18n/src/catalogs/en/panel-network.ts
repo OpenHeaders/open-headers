@@ -27,6 +27,12 @@ export const panelNetwork = {
   'panel.network.aboutTypeFilters': 'About request type filters',
   'panel.network.aboutSorting': 'About sorting',
 
+  // ── Remote capture — consent refusal (Traffic Monitor over the
+  // browser relay; never shown on the in-browser panel) ────────────────
+  'panel.capture.watchRefused.title': 'Live view is turned off in this browser',
+  'panel.capture.watchRefused.body':
+    'The Open Headers extension in this browser doesn’t allow the desktop app to view its traffic, storage, or console. Turn on “Let the desktop app view this browser” in the extension’s settings to watch it here.',
+
   // Traffic table cells — resolved once per locale into the CellMessages
   // bundle (the row render loop is hot and never calls t() itself).
   'panel.network.cell.workerGearTitle': "Request issued by the origin's service worker",

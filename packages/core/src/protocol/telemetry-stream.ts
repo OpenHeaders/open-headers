@@ -39,6 +39,28 @@ export const TELEMETRY_LIFECYCLE_BATCH_TYPE = 'oh.telemetry.lifecycle.batch' as 
 export const TELEMETRY_TABS_LIST_TYPE = 'oh.telemetry.tabs.list' as const;
 export const TELEMETRY_HOST_READY_TYPE = 'oh.telemetry.host.ready' as const;
 export const TELEMETRY_DEBUG_CONTROL_TYPE = 'oh.telemetry.debug.control' as const;
+export const TELEMETRY_WATCH_REFUSED_TYPE = 'oh.telemetry.watch.refused' as const;
+
+/** Which telemetry plane a refusal addresses. */
+export type TelemetryWatchPlane = 'lifecycle' | 'storage' | 'console';
+
+/**
+ * Extension → host: a watch subscribe (or a mid-watch session) was
+ * refused by the browser-side consent gate (`backend.allowDesktopWatch`
+ * — identity decides WHO may attach, consent decides WHAT an attached
+ * peer may subscribe to). Coarse by design, like the NM bootstrap's
+ * refusals: one reason on the wire, detail stays in the extension's
+ * log. The peer's rules/sync planes are untouched — this frame is what
+ * lets the desktop render the refusal honestly instead of an empty
+ * stream.
+ */
+export interface TelemetryWatchRefusedMessage {
+  type: typeof TELEMETRY_WATCH_REFUSED_TYPE;
+  plane: TelemetryWatchPlane;
+  tabId: number;
+  consumerId: string;
+  reason: 'consent-off';
+}
 
 /**
  * Host → extension: one consumer message for one browser tab, on behalf
@@ -167,6 +189,13 @@ export interface TelemetryTabsListResponsePayload {
   browser: TelemetryBrowserIdentity;
   /** The browser's Debug-mode posture — drives the tab rows' attach affordance. */
   debug: TelemetryDebugState;
+  /**
+   * Whether this browser's consent gate currently admits watch
+   * subscriptions at all (`backend.allowDesktopWatch`). Absent means
+   * consenting — only a peer that actively refuses reports `false`, so
+   * older peers keep rendering as watchable.
+   */
+  watchConsent?: boolean;
 }
 
 export type TelemetryStreamMessage =
@@ -175,4 +204,5 @@ export type TelemetryStreamMessage =
   | TelemetryLifecycleBatchMessage
   | TelemetryTabsListMessage
   | TelemetryHostReadyMessage
-  | TelemetryDebugControlMessage;
+  | TelemetryDebugControlMessage
+  | TelemetryWatchRefusedMessage;

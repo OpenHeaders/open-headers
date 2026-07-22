@@ -238,6 +238,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           browser: peer.browser,
           debug: peer.debug,
           tabs: [...peer.tabs],
+          watchConsent: peer.watchConsent !== false,
         })),
       );
       // A picked tab that disappeared from the inventory (closed,
@@ -461,6 +462,15 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const [consoleCollapsed, setConsoleCollapsed] = useState(() => lastPanelState.consoleCollapsed);
   const selectedPeerDebug = useMemo(
     () => (tabSelection !== null ? (peers.find((p) => p.nodeId === tabSelection.nodeId)?.debug ?? DEBUG_NONE) : DEBUG_NONE),
+    [peers, tabSelection],
+  );
+  // The selected peer's telemetry consent gate — `false` renders the
+  // honest refusal hero instead of three planes the peer will refuse. A
+  // peer missing from the inventory keeps its planes (the lifeline
+  // still replays; the live stream's own refusal envelope covers a
+  // consent flip the inventory hasn't observed yet).
+  const selectedPeerConsent = useMemo(
+    () => (tabSelection !== null ? (peers.find((p) => p.nodeId === tabSelection.nodeId)?.watchConsent ?? true) : true),
     [peers, tabSelection],
   );
 
@@ -706,6 +716,11 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                   </div>
                 }
               />
+            ) : tabSelection && !selectedPeerConsent ? (
+              <div className="dt-empty-hero" style={{ height: '100%' }} data-testid="traffic-monitor-consent-hero">
+                <strong>{t('workbench.trafficMonitor.watchConsentOffEmpty')}</strong>
+                <span className="dt-empty-hero-sub">{t('workbench.trafficMonitor.watchConsentOffEmptyHint')}</span>
+              </div>
             ) : tabSelection && tabPortName ? (
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                 {networkCollapsed ? (

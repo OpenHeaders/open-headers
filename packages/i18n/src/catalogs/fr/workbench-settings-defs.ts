@@ -28,6 +28,11 @@ export const workbenchSettingsDefs = {
     "Sans application de bureau connectée, vérifie environ toutes les deux minutes si elle a été installée, pour " +
     "qu'une nouvelle installation se connecte d'elle-même. Désactivez pour ne vérifier qu'au démarrage de " +
     "l'extension.",
+  'workbench.settings.def.backend.allowDesktopWatch.label': "Laisser l'application de bureau voir ce navigateur",
+  'workbench.settings.def.backend.allowDesktopWatch.description':
+    "Permet à une application de bureau appairée sur cet ordinateur d'observer le trafic réseau, le stockage et la " +
+    'console de ce navigateur dans son Traffic Monitor. Désactivé, les règles et la synchronisation continuent de ' +
+    'fonctionner tandis que les vues en direct du bureau sont poliment refusées.',
   'workbench.settings.def.backend.bindAddress.label': 'Synchroniser avec les appareils de votre réseau',
   'workbench.settings.def.backend.bindAddress.description':
     'Permet aux autres ordinateurs et navigateurs du même réseau de se connecter à cette application et de ' +

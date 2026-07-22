@@ -62,6 +62,14 @@ export interface UseLifecycleClientResult {
    */
   readonly source: LifecycleSource;
   /**
+   * The remote engine's consent gate refused this watch
+   * (`backend.allowDesktopWatch` off on the browser side) — relay-fed
+   * surfaces render the refusal honestly instead of an empty list.
+   * Cleared by the next `ready` (consent restored, watch re-joined).
+   * Always `false` on local in-browser lifelines.
+   */
+  readonly watchRefused: boolean;
+  /**
    * Clear the panel's view: drop the local mirror AND advance the
    * engine-owned session floor so the reset survives a reconnect. Register
    * THIS (not `store`) as the panel's lifecycle resettable.
@@ -105,6 +113,7 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
   const store = storeRef.current;
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [source, setSource] = useState<LifecycleSource>('heuristic');
+  const [watchRefused, setWatchRefused] = useState(false);
   // Body fetches already issued this connection, keyed `${requestId}:${hop}`,
   // so a render-driven request fires at most once per hop. Cleared on
   // (re)connect: a fresh `ready` replays the rows with empty body slots, so
@@ -128,6 +137,8 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
           // Every `ready` precedes a fresh replay; drop accumulated state
           // so the replay is the canonical view.
           store.clear();
+          // A live stream supersedes any earlier consent refusal.
+          setWatchRefused(false);
           // Adopt the session token (absent until the engine has seen the
           // session message); a reconnect within the same session re-reports
           // the same value, so this is a no-op then.
@@ -145,6 +156,11 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
           // Per-tab provenance for the "CDP-enhanced" badge; carries no
           // request data, so the store is untouched.
           setSource(msg.source);
+          break;
+        case 'watch-refused':
+          // Remote consent gate — the rows already shown stay (history
+          // the user saw), the surface renders the refusal over them.
+          setWatchRefused(true);
           break;
         default: {
           const _exhaustive: never = msg;
@@ -176,7 +192,7 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
   // Identity-stable API object — consumers key render callbacks and effects
   // on it, so a fresh literal per render would cascade re-renders.
   return useMemo(
-    () => ({ snapshot, tabId, store, sessionToken, source, clearSession, requestResponseBody }),
-    [snapshot, tabId, store, sessionToken, source, clearSession, requestResponseBody],
+    () => ({ snapshot, tabId, store, sessionToken, source, watchRefused, clearSession, requestResponseBody }),
+    [snapshot, tabId, store, sessionToken, source, watchRefused, clearSession, requestResponseBody],
   );
 }

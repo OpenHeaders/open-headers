@@ -28,6 +28,7 @@ import {
   TELEMETRY_STORAGE_DETACH_TYPE,
   TELEMETRY_STORAGE_INVALIDATION_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
+  TELEMETRY_WATCH_REFUSED_TYPE,
 } from '@openheaders/core/protocol';
 import type { LifecycleConsumerMessage } from '@openheaders/core/request-lifecycle';
 import { logger as consoleLogger } from '@openheaders/core/utils';
@@ -175,6 +176,41 @@ describe('createBrowserLiveRelay', () => {
         consumerId: 'c1',
         messages: [{ kind: 'tab-cleared', tabId: 7 }],
       },
+      peerSummary('node-b'),
+    );
+    expect(port.posted).toHaveLength(1);
+
+    relay.dispose();
+  });
+
+  it('routes lifecycle watch refusals to the viewer port; other planes only log', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const port = fakePort('oh-lifecycle:7@node-a');
+    connect(port);
+    port.send({ kind: 'subscribe' });
+
+    relay.peerPush.handle(
+      { type: TELEMETRY_WATCH_REFUSED_TYPE, plane: 'lifecycle', tabId: 7, consumerId: 'c1', reason: 'consent-off' },
+      peerSummary('node-a'),
+    );
+    expect(port.posted).toEqual([{ kind: 'watch-refused', tabId: 7, reason: 'consent-off' }]);
+
+    // Console/storage refusals carry no port vocabulary of their own —
+    // the lifecycle envelope already marks the whole tab refused.
+    relay.peerPush.handle(
+      { type: TELEMETRY_WATCH_REFUSED_TYPE, plane: 'console', tabId: 7, consumerId: 'c1', reason: 'consent-off' },
+      peerSummary('node-a'),
+    );
+    expect(port.posted).toHaveLength(1);
+
+    // A refusal from a DIFFERENT peer never crosses partitions.
+    relay.peerPush.handle(
+      { type: TELEMETRY_WATCH_REFUSED_TYPE, plane: 'lifecycle', tabId: 7, consumerId: 'c1', reason: 'consent-off' },
       peerSummary('node-b'),
     );
     expect(port.posted).toHaveLength(1);
@@ -361,6 +397,54 @@ describe('createBrowserLiveRelay', () => {
     expect(result.peers[0].browser).toEqual({ name: 'Chrome', platform: 'macOS' });
     // The Debug-mode posture rides the same reply, per peer.
     expect(result.peers[0].debug).toEqual({ available: true, enabled: false, attachedTabs: [], pinnedTabs: [7] });
+    // No consent field on the wire means consenting (older peers).
+    expect(result.peers[0].watchConsent).toBe(true);
+    relay.dispose();
+  });
+
+  it('listTabs carries a peer-reported consent refusal through to the inventory', async () => {
+    vi.useFakeTimers();
+    const relay = createBrowserLiveRelay();
+    const { server } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+
+    const pending = relay.listTabs();
+    relay.peerPush.handle(
+      {
+        type: `${TELEMETRY_TABS_LIST_TYPE}:response`,
+        payload: {
+          tabs: [],
+          browser: { name: 'Chrome', platform: 'macOS' },
+          debug: { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] },
+          watchConsent: false,
+        },
+      },
+      peerSummary('node-a'),
+    );
+    await vi.advanceTimersByTimeAsync(TABS_LIST_TIMEOUT_MS + 10);
+    const result = await pending;
+    expect(result.peers[0].watchConsent).toBe(false);
+    relay.dispose();
+  });
+
+  it('storageCall settles ok:false on a consent-refused reply instead of timing out', async () => {
+    const relay = createBrowserLiveRelay();
+    const { server, frames } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+
+    const pending = relay.storageCall('node-a', 'getDomStorageEntries', { tabId: 7 });
+    const call = frames.find((f) => f.frame.type === TELEMETRY_STORAGE_CALL_TYPE);
+    expect(call).toBeDefined();
+    relay.peerPush.handle(
+      {
+        type: `${TELEMETRY_STORAGE_CALL_TYPE}:response`,
+        callId: call?.frame.callId as string,
+        payload: null,
+        refused: 'consent-off',
+      },
+      peerSummary('node-a'),
+    );
+    await expect(pending).resolves.toEqual({ ok: false, payload: null });
     relay.dispose();
   });
 

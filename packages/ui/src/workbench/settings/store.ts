@@ -48,6 +48,12 @@ interface StoreState {
   values: Map<SettingKey, unknown>;
   /** Keys whose current value differs from the registered default. */
   modified: Set<SettingKey>;
+  /**
+   * Policy-locked values from the platform's managed storage area
+   * (enterprise policy). A key present here wins every read and refuses
+   * every write — the fleet admin's value, not the user's.
+   */
+  managed: Map<SettingKey, unknown>;
   ready: boolean;
 }
 
@@ -56,6 +62,7 @@ interface StoreState {
 const state: StoreState = {
   values: new Map(),
   modified: new Set(),
+  managed: new Map(),
   ready: false,
 };
 
@@ -67,6 +74,8 @@ const storageSubscriptions: StorageUnsubscribe[] = [];
 
 let dictStorage: DictStorage = new ChromeDictStorage();
 let initPromise: Promise<void> | null = null;
+/** Last raw managed dict, re-applied when lazily-registered keys arrive. */
+let lastManagedRaw: Record<string, unknown> | null = null;
 
 // ── Notification ─────────────────────────────────────────────────────
 
@@ -116,6 +125,30 @@ function applyValue<K extends SettingKey>(def: SettingDef<K>, value: SettingsMap
   else state.modified.add(def.key);
 }
 
+/**
+ * Rebuild the managed (policy-locked) map from the platform's managed
+ * area. Values are schema-validated exactly like persisted ones — a
+ * malformed policy value is ignored rather than locking a key to
+ * garbage. Notifies every key that entered, left, or changed under
+ * management so `get()` readers flip immediately.
+ */
+function applyManagedDict(raw: Record<string, unknown>): void {
+  lastManagedRaw = raw;
+  const previous = state.managed;
+  const next = new Map<SettingKey, unknown>();
+  for (const def of allDefs()) {
+    if (!(def.key in raw)) continue;
+    const validated = validate(def, raw[def.key]);
+    if (validated !== undefined) next.set(def.key, validated);
+  }
+  state.managed = next;
+  const touched = new Set<SettingKey>([...previous.keys(), ...next.keys()]);
+  for (const key of touched) {
+    if (previous.has(key) && next.has(key) && previous.get(key) === next.get(key)) continue;
+    notifyKey(key);
+  }
+}
+
 // ── Initialization ───────────────────────────────────────────────────
 
 /**
@@ -140,6 +173,16 @@ export function initSettingsStore(): Promise<void> {
     const defaults = allDefaults();
     for (const [key, value] of Object.entries(defaults)) {
       state.values.set(key as SettingKey, value);
+    }
+
+    // Policy plane first: managed values must already be in place when
+    // the ready flag flips, so no reader ever sees a user value on a
+    // locked key. Backends without a policy plane skip both calls.
+    if (dictStorage.loadManaged) {
+      applyManagedDict(await dictStorage.loadManaged());
+    }
+    if (dictStorage.subscribeManaged) {
+      storageSubscriptions.push(dictStorage.subscribeManaged((values) => applyManagedDict(values)));
     }
 
     // Group defs by scope and merge persisted dict values into state.
@@ -219,6 +262,10 @@ subscribeRegistry(() => {
     }
   }
   if (!seededAny) return;
+  // A lazily-registered key may be policy-locked — re-apply the managed
+  // dict so the lock lands with the registration, not on the next
+  // policy change.
+  if (lastManagedRaw !== null) applyManagedDict(lastManagedRaw);
   // If init already ran, pull persisted values for any scope with a
   // freshly-registered key so the user's saved value overrides the
   // default as quickly as possible.
@@ -250,9 +297,22 @@ export function get<K extends SettingKey>(key: K): SettingsMap[K] {
   if (def?.requiresCapability && !hasCapability(def.requiresCapability)) {
     return effectiveDefault(def);
   }
+  // A policy-locked key serves the fleet admin's value over anything
+  // the user persisted — for every reader, UI rows and SW effectors
+  // alike, so a locked consent gate really governs the effector.
+  if (state.managed.has(key)) return state.managed.get(key) as SettingsMap[K];
   if (state.values.has(key)) return state.values.get(key) as SettingsMap[K];
   if (!def) throw new Error(`Settings: no definition registered for key "${key}"`);
   return effectiveDefault(def);
+}
+
+/**
+ * Whether `key` is locked by the platform's managed storage area
+ * (enterprise policy). Locked keys serve the policy value and refuse
+ * writes; rows render disabled with the managed hint.
+ */
+export function isManaged<K extends SettingKey>(key: K): boolean {
+  return state.managed.has(key);
 }
 
 export function isReady(): boolean {
@@ -265,6 +325,9 @@ export function isModified<K extends SettingKey>(key: K): boolean {
   // stale persisted value.
   const def = getDef(key);
   if (def?.requiresCapability && !hasCapability(def.requiresCapability)) return false;
+  // Managed keys never read as modified — the reset affordance would be
+  // a lie (the write is refused), and the dot marks USER divergence.
+  if (state.managed.has(key)) return false;
   return state.modified.has(key);
 }
 
@@ -274,6 +337,10 @@ export function set<K extends SettingKey>(key: K, value: SettingsMap[K]): void {
   const def = getDef(key);
   if (!def) {
     logger.info('Settings', `set() ignored — no definition for "${key}"`);
+    return;
+  }
+  if (state.managed.has(key)) {
+    logger.info('Settings', `set() refused — "${key}" is managed by policy`);
     return;
   }
   const validated = validate(def, value);
@@ -319,6 +386,7 @@ export function reset<K extends SettingKey>(key: K): void {
 export function resetAll(): number {
   let resetCount = 0;
   for (const def of allDefs()) {
+    if (state.managed.has(def.key)) continue;
     if (state.modified.has(def.key)) {
       set(def.key, effectiveDefault(def));
       resetCount++;
@@ -352,6 +420,8 @@ export function subscribeAll(fn: () => void): () => void {
 export function __resetStoreForTests(): void {
   state.values.clear();
   state.modified.clear();
+  state.managed.clear();
+  lastManagedRaw = null;
   state.ready = false;
   keyListeners.clear();
   globalListeners.clear();

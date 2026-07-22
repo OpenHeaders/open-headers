@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import DebugNetworkPanel from './DebugNetworkPanel';
+import DesktopWatchPill from './DesktopWatchPill';
 import LanguageMenuButton from './LanguageMenuButton';
 
 const Footer: React.FC = () => {
@@ -98,6 +99,7 @@ const Footer: React.FC = () => {
 
       <div>
         <Space size={8} align="center">
+          <DesktopWatchPill onOpenSettings={handleOpenSettings} />
           <DebugModeDormantNotice tabSource="active" hasRealizableRule={hasRealizableDebugRule} />
           <DebugModePill
             tabSource="active"

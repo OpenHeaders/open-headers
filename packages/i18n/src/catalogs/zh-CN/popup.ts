@@ -45,6 +45,12 @@ export const popup = {
   'popup.footer.keyboardShortcuts': '键盘快捷键',
   'popup.footer.systemStatus': '系统',
 
+  // ── Desktop watch privacy indicator ────────────────────────────────
+  'popup.desktopWatch.label': '桌面端查看中',
+  'popup.desktopWatch.tooltip':
+    'Open Headers 桌面应用正在其 Traffic Monitor 中查看此浏览器。点击打开设置——“允许桌面应用查看此浏览器”即为关闭开关。',
+  'popup.desktopWatch.aria': '桌面应用正在查看此浏览器——打开设置',
+
   // ── Tabs ───────────────────────────────────────────────────────────
   'popup.tabs.thisPage': '此页面',
   'popup.tabs.allRules': '全部规则',

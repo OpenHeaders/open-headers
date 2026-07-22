@@ -93,6 +93,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'backend.nmAutoJoin': boolean;
     'backend.nmAutoJoinProbe': boolean;
+    'backend.allowDesktopWatch': boolean;
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
     'backend.serveWebApp': boolean;
@@ -138,6 +139,25 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.backend.nmAutoJoinProbe.description',
   category: 'backend',
   tags: ['pair', 'automatic', 'desktop', 'probe', 'periodic', 'check', 'background'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'extension',
+});
+
+registerSetting({
+  // Telemetry consent gate (OBSERVABILITY_PLAN.md §8 Phase 7, ratified
+  // S16): identity decides WHO may attach; this decides WHAT an
+  // attached peer may subscribe to. Off, a paired desktop stays
+  // connected for rules/sync while traffic/storage/console watch
+  // subscriptions get a typed refusal the desktop renders honestly.
+  // Extension hosts only — the desktop IS the viewer, not the viewed.
+  key: 'backend.allowDesktopWatch',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.backend.allowDesktopWatch.label',
+  descriptionKey: 'workbench.settings.def.backend.allowDesktopWatch.description',
+  category: 'backend',
+  tags: ['watch', 'traffic', 'storage', 'console', 'desktop', 'privacy', 'share', 'consent', 'live'],
   scope: 'user',
   when: () => getCurrentHost() === 'extension',
 });

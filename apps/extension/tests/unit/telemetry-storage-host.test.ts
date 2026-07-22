@@ -10,18 +10,21 @@
  *     and a wire close tears down every watch it carried
  */
 
+import '@openheaders/ui/workbench/settings/schema';
 import type { StorageInvalidationKind } from '@openheaders/core/bridge';
 import {
   TELEMETRY_STORAGE_CALL_TYPE,
   TELEMETRY_STORAGE_CONSUMER_TYPE,
   TELEMETRY_STORAGE_DETACH_TYPE,
   TELEMETRY_STORAGE_INVALIDATION_TYPE,
+  TELEMETRY_WATCH_REFUSED_TYPE,
 } from '@openheaders/core/protocol';
 import type {
   BackendWireHandle,
   InboundFrameHandler,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
-import { describe, expect, it } from 'vitest';
+import { set as setSetting } from '@openheaders/ui/workbench/settings/store';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { HandlerMap } from '@/background/modules/message-handler/types';
 import { startTelemetryStorageHost, type TelemetryStorageHost } from '@/background/telemetry-stream-host/storage-host';
@@ -201,6 +204,56 @@ describe('startTelemetryStorageHost', () => {
     h.closeWire(h.wire);
     h.fireInvalidation(7, 'cachestorage');
     h.fireInvalidation(9, 'indexeddb');
+    expect(h.sent).toHaveLength(0);
+    h.host.dispose();
+  });
+});
+
+describe('consent gate (backend.allowDesktopWatch)', () => {
+  afterEach(() => {
+    setSetting('backend.allowDesktopWatch', true);
+  });
+
+  it('refuses relayed verbs with a typed marker instead of dispatching', async () => {
+    setSetting('backend.allowDesktopWatch', false);
+    const h = makeHarness();
+    await h.deliver(
+      { type: TELEMETRY_STORAGE_CALL_TYPE, callId: 'x1', method: 'getDomStorageEntries', params: { tabId: 7 } },
+      h.wire,
+    );
+    expect(h.dispatched).toHaveLength(0);
+    expect(h.wireSent).toContainEqual({
+      type: CALL_RESPONSE_TYPE,
+      callId: 'x1',
+      payload: null,
+      refused: 'consent-off',
+    });
+    h.host.dispose();
+  });
+
+  it('refuses a storage watch with the typed refusal and streams nothing', async () => {
+    setSetting('backend.allowDesktopWatch', false);
+    const h = makeHarness();
+    await h.deliver({ type: TELEMETRY_STORAGE_CONSUMER_TYPE, tabId: 7, consumerId: 'c1' }, h.wire);
+    expect(h.wireSent).toContainEqual({
+      type: TELEMETRY_WATCH_REFUSED_TYPE,
+      plane: 'storage',
+      tabId: 7,
+      consumerId: 'c1',
+      reason: 'consent-off',
+    });
+    h.fireInvalidation(7, 'cachestorage');
+    expect(h.sent).toHaveLength(0);
+    h.host.dispose();
+  });
+
+  it('mid-watch flip off refuses and drops live watches', async () => {
+    const h = makeHarness();
+    await h.deliver({ type: TELEMETRY_STORAGE_CONSUMER_TYPE, tabId: 7, consumerId: 'c1' }, h.wire);
+    setSetting('backend.allowDesktopWatch', false);
+    expect(h.sent.map((s) => s.frame.type)).toContain(TELEMETRY_WATCH_REFUSED_TYPE);
+    h.sent.length = 0;
+    h.fireInvalidation(7, 'cachestorage');
     expect(h.sent).toHaveLength(0);
     h.host.dispose();
   });

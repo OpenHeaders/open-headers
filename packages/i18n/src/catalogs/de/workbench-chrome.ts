@@ -576,6 +576,15 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.noBrowsersHint':
     'Keine Browser verbunden. Öffne einen Browser mit installierter Erweiterung oder installiere sie:',
   'workbench.trafficMonitor.installExtension': 'Erweiterung für {browser} installieren',
+  'workbench.trafficMonitor.watchConsentOff': 'Ansicht aus',
+  'workbench.trafficMonitor.watchConsentOffHint':
+    'Die Erweiterung dieses Browsers erlaubt der Desktop-App nicht, Verkehr, Speicher oder Konsole einzusehen. ' +
+    'Regeln und Synchronisierung laufen weiter. Aktiviere „Desktop-App darf diesen Browser einsehen“ in den ' +
+    'Einstellungen der Erweiterung, um ihn hier zu beobachten.',
+  'workbench.trafficMonitor.watchConsentOffEmpty': 'Live-Ansicht ist in diesem Browser deaktiviert',
+  'workbench.trafficMonitor.watchConsentOffEmptyHint':
+    'Aktiviere „Desktop-App darf diesen Browser einsehen“ in den Einstellungen der Erweiterung, um Verkehr, ' +
+    'Speicher und Konsole dieses Tabs hier zu beobachten',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',

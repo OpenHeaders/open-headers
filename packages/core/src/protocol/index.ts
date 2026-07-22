@@ -182,6 +182,8 @@ export type {
   TelemetryStreamMessage,
   TelemetryTabsListMessage,
   TelemetryTabsListResponsePayload,
+  TelemetryWatchPlane,
+  TelemetryWatchRefusedMessage,
 } from './telemetry-stream';
 export {
   TELEMETRY_DEBUG_CONTROL_TYPE,
@@ -190,6 +192,7 @@ export {
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
+  TELEMETRY_WATCH_REFUSED_TYPE,
 } from './telemetry-stream';
 export type { IncompatibleProtocolReason } from './version';
 export {

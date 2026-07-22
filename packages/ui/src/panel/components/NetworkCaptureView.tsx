@@ -20,6 +20,7 @@
  * `usePanelData` — pages markers and fire dots simply never appear.
  */
 
+import { Alert } from 'antd';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -142,7 +143,8 @@ export function NetworkCaptureView({
   wireJoin,
   onWireSeenJump,
 }: NetworkCaptureViewProps) {
-  const { data, wire } = useNetworkCaptureData(tabId, portName, wireJoin);
+  const t = useT();
+  const { lifecycleClient, data, wire } = useNetworkCaptureData(tabId, portName, wireJoin);
 
   // Local filter + view state — the proxy view owns its own, no shared
   // dock toolbar to sync with.
@@ -176,6 +178,16 @@ export function NetworkCaptureView({
 
   return (
     <div className="dt-capture-surface">
+      {lifecycleClient.watchRefused && (
+        <Alert
+          type="info"
+          showIcon
+          banner
+          message={t('panel.capture.watchRefused.title')}
+          description={t('panel.capture.watchRefused.body')}
+          data-testid="capture-watch-refused"
+        />
+      )}
       <TrafficList
         rows={data.rows}
       filteredRows={filteredRows}

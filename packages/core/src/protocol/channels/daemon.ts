@@ -636,6 +636,9 @@ export interface DaemonRpc {
         browser: TelemetryBrowserIdentity;
         debug: TelemetryDebugState;
         tabs: ReadonlyArray<BrowserTabWire>;
+        /** The peer's telemetry consent gate — `false` renders the
+         *  browser's rows honestly-unwatchable in the source rail. */
+        watchConsent: boolean;
       }>;
     };
   };

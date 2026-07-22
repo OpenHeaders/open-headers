@@ -21,6 +21,12 @@
  * Privacy gate: storage frames are honored from SAME-DEVICE (loopback)
  * wires only, exactly like the lifecycle channels — reading a user's
  * cookies/storage off-device is a posture no phase ratifies.
+ *
+ * Consent gate (`backend.allowDesktopWatch`, see `./consent`): consent
+ * off refuses the whole plane — watches answer with the typed refusal,
+ * and the relayed verbs (reads AND writes: a watch-only gate with
+ * readable cookie verbs would be a hole) answer `refused: 'consent-off'`
+ * with a null payload so the caller settles instead of timing out.
  */
 
 import type {
@@ -46,6 +52,8 @@ import { cookieJarHandlers } from '../modules/message-handler/handlers/cookie-ja
 import { storageInspectorHandlers } from '../modules/message-handler/handlers/storage-inspector';
 import type { HandlerMap, MessageHandler } from '../modules/message-handler/types';
 import { subscribeStorageInvalidations } from '../modules/storage-inspector';
+import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
+import { watchActivityDrop, watchActivityRaise } from './watch-activity';
 
 const SCOPE = 'TelemetryStorageHost';
 
@@ -108,6 +116,10 @@ export function startTelemetryStorageHost(options: TelemetryStorageHostOptions =
   function handleCall(frame: TelemetryStorageCallMessage, send: (payload: Record<string, unknown>) => void): void {
     const { callId, method, params } = frame;
     if (typeof callId !== 'string' || callId.length === 0 || !isTelemetryStorageMethod(method)) return;
+    if (!desktopWatchAllowed()) {
+      send({ type: STORAGE_CALL_RESPONSE_TYPE, callId, payload: null, refused: 'consent-off' });
+      return;
+    }
     const handler: MessageHandler | undefined = handlers[method];
     if (!handler) {
       send({ type: STORAGE_CALL_RESPONSE_TYPE, callId, payload: null });
@@ -151,8 +163,15 @@ export function startTelemetryStorageHost(options: TelemetryStorageHostOptions =
       if (wire.isLoopback()) {
         const { tabId, consumerId } = frame as TelemetryStorageConsumerMessage;
         if (typeof tabId === 'number' && tabId >= 0 && typeof consumerId === 'string') {
+          if (!desktopWatchAllowed()) {
+            wire.send(watchRefusedFrame('storage', tabId, consumerId));
+            return true;
+          }
           const key = watchKey(wire.backendId, tabId, consumerId);
-          if (!watches.has(key)) watches.set(key, { backendId: wire.backendId, tabId, consumerId });
+          if (!watches.has(key)) {
+            watches.set(key, { backendId: wire.backendId, tabId, consumerId });
+            watchActivityRaise(`st:${key}`);
+          }
         }
       }
       return true;
@@ -161,7 +180,8 @@ export function startTelemetryStorageHost(options: TelemetryStorageHostOptions =
       if (wire.isLoopback()) {
         const { tabId, consumerId } = frame as TelemetryStorageDetachMessage;
         if (typeof tabId === 'number' && typeof consumerId === 'string') {
-          watches.delete(watchKey(wire.backendId, tabId, consumerId));
+          const key = watchKey(wire.backendId, tabId, consumerId);
+          if (watches.delete(key)) watchActivityDrop(`st:${key}`);
         }
       }
       return true;
@@ -169,11 +189,24 @@ export function startTelemetryStorageHost(options: TelemetryStorageHostOptions =
     return false;
   });
 
+  function dropWatch(key: string): void {
+    if (watches.delete(key)) watchActivityDrop(`st:${key}`);
+  }
+
   // A closed wire ends every watch it carried — the daemon re-subscribes
   // live watches on its next connect, exactly like the lifecycle plane.
   const unsubscribeClose = subscribeClose((wire) => {
     for (const [key, watch] of watches) {
-      if (watch.backendId === wire.backendId) watches.delete(key);
+      if (watch.backendId === wire.backendId) dropWatch(key);
+    }
+  });
+
+  // Consent flip to off: refuse-and-drop, exactly as at subscribe.
+  const unsubscribeConsent = subscribeDesktopWatchConsent((allowed) => {
+    if (allowed) return;
+    for (const [key, watch] of watches) {
+      send(watch.backendId, watchRefusedFrame('storage', watch.tabId, watch.consumerId));
+      dropWatch(key);
     }
   });
 
@@ -181,8 +214,9 @@ export function startTelemetryStorageHost(options: TelemetryStorageHostOptions =
     dispose(): void {
       unregisterInbound();
       unsubscribeClose();
+      unsubscribeConsent();
       unsubscribeInvalidations();
-      watches.clear();
+      for (const key of [...watches.keys()]) dropWatch(key);
     },
   };
 }

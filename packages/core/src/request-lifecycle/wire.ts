@@ -66,7 +66,16 @@ export type LifecycleWireMessage =
    * no request data — it is the badge's provenance signal, derived from the
    * attach state, not sniffed from the rows.
    */
-  | { kind: 'source'; tabId: number; source: LifecycleSource };
+  | { kind: 'source'; tabId: number; source: LifecycleSource }
+  /**
+   * Relay-only envelope: the remote engine's consent gate refused this
+   * consumer's watch (`backend.allowDesktopWatch` off on the browser
+   * side), either at subscribe or by tearing down a live session on a
+   * mid-watch flip. Never produced by the local chrome-side port host —
+   * the in-browser panel is the user's own surface and is never gated.
+   * A later `ready` (consent restored, relay re-subscribed) clears it.
+   */
+  | { kind: 'watch-refused'; tabId: number; reason: 'consent-off' };
 
 /**
  * Consumer→engine. Sent once on connect to declare the consumer's watch

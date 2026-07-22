@@ -30,6 +30,13 @@ export const panelNetwork = {
   'panel.network.aboutTypeFilters': 'Über die Anfragetyp-Filter',
   'panel.network.aboutSorting': 'Über die Sortierung',
 
+  // ── Remote capture — consent refusal ────────────────────────────────
+  'panel.capture.watchRefused.title': 'Live-Ansicht ist in diesem Browser deaktiviert',
+  'panel.capture.watchRefused.body':
+    'Die Open-Headers-Erweiterung in diesem Browser erlaubt der Desktop-App nicht, ihren Verkehr, Speicher oder ihre ' +
+    'Konsole einzusehen. Aktiviere „Desktop-App darf diesen Browser einsehen“ in den Einstellungen der Erweiterung, ' +
+    'um ihn hier zu beobachten.',
+
   // Traffic table cells — resolved once per locale into the CellMessages
   // bundle (the row render loop is hot and never calls t() itself).
   'panel.network.cell.workerGearTitle': 'Anfrage vom Service Worker der Origin gestellt',

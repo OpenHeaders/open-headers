@@ -30,6 +30,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.nmAutoJoinProbe.description':
     'Ohne verbundene Desktop-App wird etwa alle zwei Minuten geprüft, ob eine installiert wurde, damit sich eine ' +
     'frische Installation von selbst verbindet. Deaktiviere die Option, um nur beim Start der Erweiterung zu prüfen.',
+  'workbench.settings.def.backend.allowDesktopWatch.label': 'Desktop-App darf diesen Browser einsehen',
+  'workbench.settings.def.backend.allowDesktopWatch.description':
+    'Erlaubt einer gekoppelten Desktop-App auf diesem Computer, den Netzwerkverkehr, den Speicher und die Konsole ' +
+    'dieses Browsers in ihrem Traffic Monitor zu beobachten. Deaktiviert bleiben Regeln und Synchronisierung aktiv, ' +
+    'während die Live-Ansichten des Desktops höflich abgelehnt werden.',
   'workbench.settings.def.backend.bindAddress.label': 'Mit Geräten in deinem Netzwerk synchronisieren',
   'workbench.settings.def.backend.bindAddress.description':
     'Erlaubt anderen Computern und Browsern im selben Netzwerk, sich mit dieser App zu verbinden und ihre ' +

@@ -16,6 +16,13 @@
  * is claimed and dropped — streaming a user's browsing off-device is a
  * posture no current phase ratifies.
  *
+ * Consent gate (`backend.allowDesktopWatch`, see `./consent`): with
+ * consent off a subscribe answers with a typed refusal instead of a
+ * session, the inventory reply reports `watchConsent: false`, and
+ * Debug-mode control commands are ignored. A mid-watch flip to off
+ * tears every live session down with the same refusal; a flip back on
+ * re-announces host-ready so the relay re-joins its live watches.
+ *
  * Overflow degrades fidelity, never correctness: a session whose queue
  * outgrows the cap is cleared and re-attached, so the next flush is a
  * fresh `ready` + canonical replay instead of a stream with silent
@@ -51,6 +58,8 @@ import { logger } from '@utils/logger';
 import type { LifecycleBodyFetcher, LifecycleProvenance } from '../lifecycle-port-host';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { browserName, platformName } from '../self-host-label';
+import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
+import { watchActivityDrop, watchActivityRaise, watchActivitySync } from './watch-activity';
 
 const SCOPE = 'TelemetryStreamHost';
 
@@ -328,6 +337,7 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     };
     session = created;
     sessions.set(key, created);
+    watchActivityRaise(`lc:${key}`);
     // The watch itself is what turns webRequest ingestion on for the
     // tab — the same ref-count plane the panel's port raises.
     startTracking(tabId, created.trackingReason);
@@ -341,7 +351,9 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
   function teardown(session: StreamSession): void {
     if (session.closed) return;
     session.closed = true;
-    sessions.delete(sessionKey(session.backendId, session.tabId, session.consumerId));
+    const key = sessionKey(session.backendId, session.tabId, session.consumerId);
+    sessions.delete(key);
+    watchActivityDrop(`lc:${key}`);
     session.handle?.detach();
     session.handle = null;
     if (session.flushTimer !== null) {
@@ -369,6 +381,12 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     if (typeof tabId !== 'number' || tabId < 0 || typeof consumerId !== 'string' || typeof message?.kind !== 'string')
       return;
     if (message.kind === 'subscribe') {
+      if (!desktopWatchAllowed()) {
+        // Typed refusal instead of a session — the desktop renders the
+        // gate honestly rather than waiting on an empty stream.
+        wire.send(watchRefusedFrame('lifecycle', tabId, consumerId));
+        return;
+      }
       const session = ensureSession(wire.backendId, tabId, consumerId);
       // Attach waits on the floors' hydration so a cold-SW re-subscribe
       // resolves the persisted session floor, exactly like the port host.
@@ -409,7 +427,12 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
         void queryTabs().then((tabs) => {
           wire.send({
             type: `${TELEMETRY_TABS_LIST_TYPE}:response`,
-            payload: { tabs, browser: browserIdentity(), debug: debug?.getState() ?? DEBUG_UNAVAILABLE },
+            payload: {
+              tabs,
+              browser: browserIdentity(),
+              debug: debug?.getState() ?? DEBUG_UNAVAILABLE,
+              watchConsent: desktopWatchAllowed(),
+            },
           });
         });
       }
@@ -418,7 +441,10 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     if (type === TELEMETRY_DEBUG_CONTROL_TYPE) {
       if (wire.isLoopback()) {
         const { command } = frame as TelemetryDebugControlMessage;
-        if (debug && command && typeof command === 'object') {
+        // Consent off ignores the command (arming CDP is watch-plane
+        // reach) but still answers with the current snapshot so the
+        // daemon's collection slot settles instead of timing out.
+        if (debug && command && typeof command === 'object' && desktopWatchAllowed()) {
           if (command.kind === 'pin' && typeof command.tabId === 'number') {
             debug.setPin(command.tabId, command.pinned === true);
           } else if (command.kind === 'enable') {
@@ -457,12 +483,34 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     if (wire.isLoopback()) wire.send({ type: TELEMETRY_HOST_READY_TYPE });
   }
 
+  // A fresh host publishes its (empty) activity count so a stale value
+  // from a killed SW never leaves the popup indicator lit.
+  watchActivitySync();
+
+  // Live consent flips: off tears every session down with the typed
+  // refusal (the desktop's view flips honest immediately); on
+  // re-announces host-ready so the relay re-subscribes the live
+  // watches it still holds viewer ports for.
+  const unsubscribeConsent = subscribeDesktopWatchConsent((allowed) => {
+    if (!allowed) {
+      for (const session of [...sessions.values()]) {
+        send(session.backendId, watchRefusedFrame('lifecycle', session.tabId, session.consumerId));
+        teardown(session);
+      }
+      return;
+    }
+    for (const wire of listWires()) {
+      if (wire.isLoopback()) wire.send({ type: TELEMETRY_HOST_READY_TYPE });
+    }
+  });
+
   return {
     dispose(): void {
       if (disposed) return;
       disposed = true;
       unregisterInbound();
       unsubscribeClose();
+      unsubscribeConsent();
       for (const session of [...sessions.values()]) teardown(session);
     },
   };

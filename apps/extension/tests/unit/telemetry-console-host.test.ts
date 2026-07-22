@@ -12,17 +12,20 @@
  *     daemon's reconnect re-join)
  */
 
+import '@openheaders/ui/workbench/settings/schema';
 import type { ConsoleEntry, ConsoleStreamWireMessage } from '@openheaders/core/console-stream';
 import {
   TELEMETRY_CONSOLE_BATCH_TYPE,
   TELEMETRY_CONSOLE_CONSUMER_TYPE,
   TELEMETRY_CONSOLE_DETACH_TYPE,
+  TELEMETRY_WATCH_REFUSED_TYPE,
 } from '@openheaders/core/protocol';
 import { ConsoleStreamHub } from '@openheaders/oracle/console-stream-hub';
 import type {
   BackendWireHandle,
   InboundFrameHandler,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startTelemetryConsoleHost, type TelemetryConsoleHost } from '@/background/telemetry-stream-host/console-host';
@@ -190,6 +193,57 @@ describe('startTelemetryConsoleHost', () => {
     const messages = messagesFor(h.sent, 'c1');
     expect(messages[0]).toEqual({ kind: 'ready', tabId: 7 });
     expect(messages).toHaveLength(2);
+    h.host.dispose();
+  });
+});
+
+describe('consent gate (backend.allowDesktopWatch)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setSetting('backend.allowDesktopWatch', true);
+  });
+
+  it('refuses a console watch with the typed refusal and streams nothing', async () => {
+    setSetting('backend.allowDesktopWatch', false);
+    const h = makeHarness();
+    const wireSent: Record<string, unknown>[] = [];
+    const collectingWire: BackendWireHandle = {
+      ...h.wire,
+      send: (data) => {
+        wireSent.push(data);
+        return true;
+      },
+    };
+    await h.deliver({ type: TELEMETRY_CONSOLE_CONSUMER_TYPE, tabId: 7, consumerId: 'c1' }, collectingWire);
+    expect(wireSent).toContainEqual({
+      type: TELEMETRY_WATCH_REFUSED_TYPE,
+      plane: 'console',
+      tabId: 7,
+      consumerId: 'c1',
+      reason: 'consent-off',
+    });
+    h.hub.recordEntry(7, makeEntry('hidden'));
+    await vi.advanceTimersByTimeAsync(50);
+    expect(h.sent).toHaveLength(0);
+    h.host.dispose();
+  });
+
+  it('mid-watch flip off tears live sessions down with a refusal', async () => {
+    const h = makeHarness();
+    await h.deliver({ type: TELEMETRY_CONSOLE_CONSUMER_TYPE, tabId: 7, consumerId: 'c1' }, h.wire);
+    await vi.advanceTimersByTimeAsync(50);
+    h.sent.length = 0;
+
+    setSetting('backend.allowDesktopWatch', false);
+    expect(h.sent.map((s) => s.frame.type)).toContain(TELEMETRY_WATCH_REFUSED_TYPE);
+    h.sent.length = 0;
+    h.hub.recordEntry(7, makeEntry('hidden'));
+    await vi.advanceTimersByTimeAsync(50);
+    expect(h.sent).toHaveLength(0);
     h.host.dispose();
   });
 });

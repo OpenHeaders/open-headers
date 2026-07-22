@@ -11,6 +11,7 @@
  *     drive pin/enable and answer with a fresh snapshot, loopback-only
  */
 
+import '@openheaders/ui/workbench/settings/schema';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
 import {
   TELEMETRY_DEBUG_CONTROL_TYPE,
@@ -19,6 +20,7 @@ import {
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
+  TELEMETRY_WATCH_REFUSED_TYPE,
 } from '@openheaders/core/protocol';
 import type { LifecycleWireMessage } from '@openheaders/core/request-lifecycle';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
@@ -27,6 +29,7 @@ import type {
   BackendWireHandle,
   InboundFrameHandler,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isTracked, __resetForTests as resetTabTelemetry } from '@/background/modules/tab-telemetry';
@@ -363,6 +366,78 @@ describe('startTelemetryStreamHost', () => {
     expect(claimed).toBe(true);
     expect(setPin).not.toHaveBeenCalled();
     expect(h.wireSent.some((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`)).toBe(false);
+    h.host.dispose();
+  });
+});
+
+describe('consent gate (backend.allowDesktopWatch)', () => {
+  afterEach(() => {
+    setSetting('backend.allowDesktopWatch', true);
+  });
+
+  it('subscribe with consent off answers a typed refusal and raises no tracking', async () => {
+    setSetting('backend.allowDesktopWatch', false);
+    const h = makeHarness();
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
+      h.wire,
+    );
+    expect(isTracked(TAB_ID)).toBe(false);
+    expect(h.wireSent).toContainEqual({
+      type: TELEMETRY_WATCH_REFUSED_TYPE,
+      plane: 'lifecycle',
+      tabId: TAB_ID,
+      consumerId: 'c1',
+      reason: 'consent-off',
+    });
+    expect(h.sent.filter((s) => s.frame.type === TELEMETRY_LIFECYCLE_BATCH_TYPE)).toHaveLength(0);
+    h.host.dispose();
+  });
+
+  it('tabs-list reply reports watchConsent false while the gate is off', async () => {
+    setSetting('backend.allowDesktopWatch', false);
+    const h = makeHarness();
+    await h.deliver({ type: TELEMETRY_TABS_LIST_TYPE }, h.wire);
+    await vi.advanceTimersByTimeAsync(10);
+    const reply = h.wireSent.find((f) => f.type === `${TELEMETRY_TABS_LIST_TYPE}:response`);
+    expect((reply?.payload as { watchConsent: boolean }).watchConsent).toBe(false);
+    h.host.dispose();
+  });
+
+  it('debug control commands are ignored (state still answered) while the gate is off', async () => {
+    setSetting('backend.allowDesktopWatch', false);
+    const setPin = vi.fn();
+    const h = makeHarness({
+      getState: () => ({ available: true, enabled: true, attachedTabs: [], pinnedTabs: [] }),
+      setPin,
+      setEnabled: vi.fn(),
+    });
+    await h.deliver(
+      { type: TELEMETRY_DEBUG_CONTROL_TYPE, command: { kind: 'pin', tabId: TAB_ID, pinned: true } },
+      h.wire,
+    );
+    expect(setPin).not.toHaveBeenCalled();
+    expect(h.wireSent.some((f) => f.type === `${TELEMETRY_DEBUG_CONTROL_TYPE}:response`)).toBe(true);
+    h.host.dispose();
+  });
+
+  it('mid-watch flip off tears the session down with a refusal; flip on re-announces host-ready', async () => {
+    const h = makeHarness();
+    await h.deliver(
+      { type: TELEMETRY_LIFECYCLE_CONSUMER_TYPE, tabId: TAB_ID, consumerId: 'c1', message: { kind: 'subscribe' } },
+      h.wire,
+    );
+    expect(isTracked(TAB_ID)).toBe(true);
+
+    setSetting('backend.allowDesktopWatch', false);
+    expect(isTracked(TAB_ID)).toBe(false);
+    expect(h.sent.some((s) => s.frame.type === TELEMETRY_WATCH_REFUSED_TYPE)).toBe(true);
+
+    const announcesBefore = h.wireSent.filter((f) => f.type === TELEMETRY_HOST_READY_TYPE).length;
+    setSetting('backend.allowDesktopWatch', true);
+    // The relay re-joins its live watches off this announce — the
+    // extension itself holds no watch state to resurrect.
+    expect(h.wireSent.filter((f) => f.type === TELEMETRY_HOST_READY_TYPE).length).toBe(announcesBefore + 1);
     h.host.dispose();
   });
 });
