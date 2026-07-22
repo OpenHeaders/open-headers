@@ -82,6 +82,7 @@ import {
   CHROME_EXTENSION_ID,
   EDGE_EXTENSION_ID,
   FIREFOX_EXTENSION_ID,
+  linuxNmManifestTargets,
   macosNmManifestTargets,
   nmHostBinaryCandidate,
   registerNmManifests,
@@ -203,7 +204,8 @@ export async function installRpcHost(): Promise<void> {
     appPath: app.getAppPath(),
     platform: process.platform,
   });
-  const nmPlatformSupported = process.platform === 'darwin' || process.platform === 'win32';
+  const nmPlatformSupported =
+    process.platform === 'darwin' || process.platform === 'win32' || process.platform === 'linux';
   const nmHostPresent = nmPlatformSupported && existsSync(nmHostBinaryPath);
   if (nmHostPresent && process.platform === 'win32') {
     const registrations = await registerWindowsNmManifests({
@@ -225,7 +227,8 @@ export async function installRpcHost(): Promise<void> {
   } else if (nmHostPresent) {
     const registrations = registerNmManifests({
       hostBinaryPath: nmHostBinaryPath,
-      targets: macosNmManifestTargets(os.homedir()),
+      targets:
+        process.platform === 'linux' ? linuxNmManifestTargets(os.homedir()) : macosNmManifestTargets(os.homedir()),
       allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
       allowedGeckoIds: [FIREFOX_EXTENSION_ID],
     });
@@ -355,11 +358,15 @@ export async function installRpcHost(): Promise<void> {
     // Composed only when the host binary is shipped — the identity
     // chain has no anchor without it. Signature enforcement follows the
     // build posture: packaged macOS builds are signed; Windows follows
-    // the channel constant (beta ships unsigned); dev artifacts aren't.
+    // the channel constant (beta ships unsigned); Linux has no signing
+    // chain at all (the path check is the whole posture there); dev
+    // artifacts aren't signed anywhere.
     nmBootstrap: nmHostPresent
       ? {
           hostBinaryPath: nmHostBinaryPath,
-          requireHostSignature: app.isPackaged && (process.platform !== 'win32' || WINDOWS_HOST_BINARY_SIGNED),
+          requireHostSignature:
+            app.isPackaged &&
+            (process.platform === 'darwin' || (process.platform === 'win32' && WINDOWS_HOST_BINARY_SIGNED)),
         }
       : undefined,
   });

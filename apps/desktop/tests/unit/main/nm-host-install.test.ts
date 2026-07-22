@@ -2,8 +2,9 @@
  * NM bootstrap host install — binary path derivation (packaged
  * extraResource vs monorepo sibling, platform-suffixed name), the
  * manifest document shape, and the auto-register/repair discipline on
- * both mechanisms over in-memory seams: macOS NativeMessagingHosts
- * dirs and Windows HKCU registry keys — register on first boot, repair
+ * both mechanisms over in-memory seams: macOS/Linux
+ * NativeMessagingHosts dirs and Windows HKCU registry keys — register
+ * on first boot, repair
  * drift, leave a settled target untouched, and skip browsers that
  * aren't installed.
  */
@@ -16,6 +17,7 @@ import {
   CHROME_EXTENSION_ID,
   EDGE_EXTENSION_ID,
   FIREFOX_EXTENSION_ID,
+  linuxNmManifestTargets,
   macosNmManifestTargets,
   NM_HOST_NAME,
   type NmManifestFs,
@@ -126,6 +128,50 @@ describe('macosNmManifestTargets', () => {
         family: 'gecko',
         browserRoot: path.join(appSupport, 'Firefox'),
         manifestDir: path.join(appSupport, 'Mozilla', 'NativeMessagingHosts'),
+      },
+    ]);
+  });
+});
+
+describe('linuxNmManifestTargets', () => {
+  it('lists the Chromium family under ~/.config (incl. distro Chromium) plus the shared Mozilla dir', () => {
+    const configDir = path.join('/home/casey', '.config');
+    expect(linuxNmManifestTargets('/home/casey')).toEqual([
+      {
+        browser: 'Google Chrome',
+        family: 'chromium',
+        browserRoot: path.join(configDir, 'google-chrome'),
+        manifestDir: path.join(configDir, 'google-chrome', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Google Chrome Beta',
+        family: 'chromium',
+        browserRoot: path.join(configDir, 'google-chrome-beta'),
+        manifestDir: path.join(configDir, 'google-chrome-beta', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Chromium',
+        family: 'chromium',
+        browserRoot: path.join(configDir, 'chromium'),
+        manifestDir: path.join(configDir, 'chromium', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Microsoft Edge',
+        family: 'chromium',
+        browserRoot: path.join(configDir, 'microsoft-edge'),
+        manifestDir: path.join(configDir, 'microsoft-edge', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Brave Browser',
+        family: 'chromium',
+        browserRoot: path.join(configDir, 'BraveSoftware', 'Brave-Browser'),
+        manifestDir: path.join(configDir, 'BraveSoftware', 'Brave-Browser', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Firefox',
+        family: 'gecko',
+        browserRoot: path.join('/home/casey', '.mozilla', 'firefox'),
+        manifestDir: path.join('/home/casey', '.mozilla', 'native-messaging-hosts'),
       },
     ]);
   });

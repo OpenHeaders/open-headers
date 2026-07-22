@@ -6,16 +6,19 @@
  * endpoint, the chain reads three facts from the operating system:
  *
  *   1. which local process OWNS that socket (`lsof` on macOS,
- *      `Get-NetTCPConnection` on Windows) — the request's true author,
- *      whatever its body claims;
+ *      `Get-NetTCPConnection` on Windows, `ss` on Linux) — the
+ *      request's true author, whatever its body claims;
  *   2. that process's executable must be the shipped NM host binary
  *      (realpath-compared, optionally signature-verified on packaged
  *      builds — the path sits in the app install dir, so writing it
  *      means the machine is already lost);
  *   3. its PARENT process — the browser that spawned the host per the
- *      NM manifest — must carry an allowlisted code-signing identity
- *      (`codesign` team id on macOS, Authenticode signer subject CN on
- *      Windows).
+ *      NM manifest — must carry an allowlisted vendor identity:
+ *      code-signing on the platforms that have it (`codesign` team id
+ *      on macOS, Authenticode signer subject CN on Windows), and on
+ *      Linux — which has no signing chain — the ratified best-effort
+ *      path heuristic: the kernel-reported `/proc/<pid>/exe` must
+ *      resolve under a root-owned vendor install root.
  *
  * Only then does the caller earn a token. Every refusal is typed and
  * coarse on the wire (the handler answers a bare reason) with the
@@ -32,7 +35,12 @@
 
 import { execFile } from 'node:child_process';
 import { realpathSync } from 'node:fs';
-import { findMacosBrowserSigner, findWindowsBrowserSigner, type VerifiedBrowser } from './browser-allowlist';
+import {
+  findLinuxBrowserByPath,
+  findMacosBrowserSigner,
+  findWindowsBrowserSigner,
+  type VerifiedBrowser,
+} from './browser-allowlist';
 
 /** Generous ceiling — Windows PowerShell pays a cold-start toll per probe. */
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -355,9 +363,69 @@ function windowsProbes(run: CommandRunner): PlatformProbes {
   };
 }
 
+// ── Linux probes: ss + /proc + install-root path heuristic ───────────
+
+/**
+ * Parse `ss -tnpH` rows for the pid owning the socket whose LOCAL side
+ * is the client's ephemeral port. The command already filters on
+ * `sport`, but the parser re-pins direction anyway (defense in depth,
+ * same as the lsof parser): the first address column is the local
+ * side; the daemon's mirror row carries the bound port there instead.
+ */
+export function parseSsOwnerPid(output: string, clientPort: number, selfPid: number | undefined): number | null {
+  const localSuffix = `:${clientPort}`;
+  for (const line of output.split('\n')) {
+    const localSide = line
+      .trim()
+      .split(/\s+/)
+      .find((column) => /:\d+$/.test(column));
+    if (localSide === undefined || !localSide.endsWith(localSuffix)) continue;
+    const pidMatch = line.match(/pid=(\d+)/);
+    if (!pidMatch) continue;
+    const pid = Number.parseInt(pidMatch[1], 10);
+    if (selfPid !== undefined && pid === selfPid) continue;
+    return pid;
+  }
+  return null;
+}
+
+function linuxProbes(run: CommandRunner): PlatformProbes {
+  return {
+    ownerPid: async (clientPort, selfPid) => {
+      // `sport` scopes the scan to the client's ephemeral port; `-H`
+      // drops the header so every row is a socket. Same-user process
+      // info is readable without root, which is the only case here —
+      // browser, NM host, and daemon all run as the logged-in user.
+      const ss = await run('ss', ['-tnpH', 'state', 'established', `( sport = :${clientPort} )`]);
+      if (ss.code !== 0) return null;
+      return parseSsOwnerPid(ss.stdout, clientPort, selfPid);
+    },
+    processInfo: async (pid) => {
+      // `/proc/<pid>/exe` is the kernel-reported executable — `ps -o
+      // comm=` truncates to 15 chars on Linux and argv is spoofable.
+      const ppidResult = await run('ps', ['-p', String(pid), '-o', 'ppid=']);
+      if (ppidResult.code !== 0) return null;
+      const ppid = Number.parseInt(ppidResult.stdout.trim(), 10);
+      if (!Number.isInteger(ppid)) return null;
+      const exe = await run('readlink', ['-f', `/proc/${pid}/exe`]);
+      if (exe.code !== 0) return null;
+      const executablePath = exe.stdout.trim();
+      if (executablePath.length === 0) return null;
+      return { ppid, executablePath };
+    },
+    // No signing chain exists on Linux — the caller never asks
+    // (requireHostSignature is wired false there); answering false
+    // keeps a misconfigured true honest instead of silently passing.
+    signatureValid: async () => false,
+    browserSigner: async (executablePath) => findLinuxBrowserByPath(safeRealpath(executablePath)) ?? null,
+    canonicalPath: safeRealpath,
+  };
+}
+
 function probesForPlatform(platform: NodeJS.Platform, run: CommandRunner): PlatformProbes | null {
   if (platform === 'darwin') return macosProbes(run);
   if (platform === 'win32') return windowsProbes(run);
+  if (platform === 'linux') return linuxProbes(run);
   return null;
 }
 

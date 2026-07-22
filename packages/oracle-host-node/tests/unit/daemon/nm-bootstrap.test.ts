@@ -1,13 +1,14 @@
 /**
  * Phase 7 — NM identity bootstrap. Three layers:
  *
- *   - OS-output parsers, both platforms (lsof/Get-NetTCPConnection
- *     owner-pid with direction pinning + self-pid skip,
- *     ps/Win32_Process executable + parent, codesign TeamIdentifier
- *     incl. the ad-hoc `not set` shape, Authenticode status + subject
- *     CN incl. quoted-comma DN values);
+ *   - OS-output parsers, all three platforms
+ *     (lsof/Get-NetTCPConnection/ss owner-pid with direction pinning +
+ *     self-pid skip, ps/Win32_Process executable + parent, codesign
+ *     TeamIdentifier incl. the ad-hoc `not set` shape, Authenticode
+ *     status + subject CN incl. quoted-comma DN values);
  *   - `verifyNmCaller` over an injected command runner — the full
- *     happy chain and every typed refusal link on macOS and Windows;
+ *     happy chain and every typed refusal link on macOS, Windows, and
+ *     Linux (whose browser leg is the install-root path heuristic);
  *   - the `/nm/bootstrap` HTTP handler over a real loopback server
  *     with an injected verifier — fall-through, POST-only, the
  *     nmSession mint against the real token ledger, predecessor
@@ -33,6 +34,7 @@ import {
   parseLsofOwnerPid,
   parseNetTcpOwnerPid,
   parsePsProcessInfo,
+  parseSsOwnerPid,
   parseWin32ProcessInfo,
   type VerifyNmCallerOptions,
   verifyNmCaller,
@@ -139,7 +141,7 @@ describe('verifyNmCaller', () => {
   });
 
   it('refuses platforms without a probe set as unsupported', async () => {
-    const verdict = await verifyNmCaller(callerOptions(fakeRunner(), { platform: 'linux' }));
+    const verdict = await verifyNmCaller(callerOptions(fakeRunner(), { platform: 'freebsd' }));
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.reason).toBe('platform-unsupported');
   });
@@ -366,6 +368,126 @@ describe('verifyNmCaller on win32', () => {
     const verdict = await verifyNmCaller(windowsOptions(windowsRunner({ browserSubject: 'CN=Some Other Corp, C=US' })));
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+});
+
+// ── Linux chain ──────────────────────────────────────────────────────
+
+const LINUX_HOST_PATH = '/opt/OpenHeaders/resources/nm-host/oh-nm-host';
+const LINUX_CHROME_PATH = '/opt/google/chrome/chrome';
+
+describe('parseSsOwnerPid', () => {
+  const rows = [
+    '0      0      127.0.0.1:53312      127.0.0.1:8137      users:(("oh-nm-host",pid=4242,fd=12))',
+    '0      0      127.0.0.1:8137       127.0.0.1:53312     users:(("openheaders",pid=777,fd=31))',
+  ].join('\n');
+
+  it('pins the pid whose LOCAL side is the client port, not the daemon mirror row', () => {
+    expect(parseSsOwnerPid(rows, 53312, undefined)).toBe(4242);
+  });
+
+  it('skips the daemon self pid even when its row would match', () => {
+    const selfOnly = '0  0  127.0.0.1:53312  127.0.0.1:8137  users:(("openheaders",pid=777,fd=31))';
+    expect(parseSsOwnerPid(selfOnly, 53312, 777)).toBeNull();
+  });
+
+  it('answers null on empty, unmatched, or process-less output', () => {
+    expect(parseSsOwnerPid('', 53312, undefined)).toBeNull();
+    expect(parseSsOwnerPid(rows, 60000, undefined)).toBeNull();
+    expect(parseSsOwnerPid('0  0  127.0.0.1:53312  127.0.0.1:8137', 53312, undefined)).toBeNull();
+  });
+});
+
+interface LinuxChainConfig {
+  ownerPid?: number;
+  hostPath?: string;
+  browserPath?: string;
+}
+
+function linuxRunner(config: LinuxChainConfig = {}): CommandRunner {
+  const ownerPid = config.ownerPid ?? 4242;
+  const hostPath = config.hostPath ?? LINUX_HOST_PATH;
+  const browserPath = config.browserPath ?? LINUX_CHROME_PATH;
+  return async (file, args): Promise<CommandResult> => {
+    if (file === 'ss') {
+      const row = `0  0  127.0.0.1:53312  127.0.0.1:8137  users:(("oh-nm-host",pid=${ownerPid},fd=12))`;
+      return { stdout: `${row}\n`, stderr: '', code: 0 };
+    }
+    if (file === 'ps') {
+      const pid = args[1];
+      if (pid === String(ownerPid)) return { stdout: '  555\n', stderr: '', code: 0 };
+      if (pid === '555') return { stdout: '    1\n', stderr: '', code: 0 };
+      return { stdout: '', stderr: '', code: 1 };
+    }
+    if (file === 'readlink') {
+      const target = args[1];
+      if (target === `/proc/${ownerPid}/exe`) return { stdout: `${hostPath}\n`, stderr: '', code: 0 };
+      if (target === '/proc/555/exe') return { stdout: `${browserPath}\n`, stderr: '', code: 0 };
+      return { stdout: '', stderr: '', code: 1 };
+    }
+    return { stdout: '', stderr: '', code: 127 };
+  };
+}
+
+function linuxOptions(run: CommandRunner, overrides: Partial<VerifyNmCallerOptions> = {}): VerifyNmCallerOptions {
+  return {
+    clientAddress: '::ffff:127.0.0.1',
+    clientPort: 53312,
+    expectedHostPath: LINUX_HOST_PATH,
+    requireHostSignature: false,
+    selfPid: 777,
+    platform: 'linux',
+    run,
+    ...overrides,
+  };
+}
+
+describe('verifyNmCaller on linux', () => {
+  it('walks the full chain: socket owner → host path → install-root path heuristic', async () => {
+    const verdict = await verifyNmCaller(linuxOptions(linuxRunner()));
+    expect(verdict.ok).toBe(true);
+    if (verdict.ok) {
+      expect(verdict.browser.name).toBe('Google Chrome');
+      expect(verdict.browserPath).toBe(LINUX_CHROME_PATH);
+    }
+  });
+
+  it('accepts distro Chromium — root-installed trust, no signature to prefer', async () => {
+    const verdict = await verifyNmCaller(linuxOptions(linuxRunner({ browserPath: '/usr/lib/chromium/chromium' })));
+    expect(verdict.ok).toBe(true);
+    if (verdict.ok) expect(verdict.browser.name).toBe('Chromium');
+  });
+
+  it('refuses when no socket owner matches the client port', async () => {
+    const verdict = await verifyNmCaller(linuxOptions(linuxRunner(), { clientPort: 60000 }));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('owner-not-found');
+  });
+
+  it('refuses a socket owner that is not the shipped NM host', async () => {
+    const verdict = await verifyNmCaller(linuxOptions(linuxRunner({ hostPath: '/home/casey/.local/bin/impostor' })));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('host-mismatch');
+  });
+
+  it('refuses a parent outside every vendor install root — user-writable paths never verify', async () => {
+    const verdict = await verifyNmCaller(linuxOptions(linuxRunner({ browserPath: '/home/casey/.local/fake/chrome' })));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+
+  it('refuses a snap-packaged browser — sandboxed NM delivery stays on the pairing gesture', async () => {
+    const verdict = await verifyNmCaller(
+      linuxOptions(linuxRunner({ browserPath: '/snap/firefox/4090/usr/lib/firefox/firefox' })),
+    );
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+
+  it('answers host-unsigned if a signature is ever required — no signing chain exists to satisfy it', async () => {
+    const verdict = await verifyNmCaller(linuxOptions(linuxRunner(), { requireHostSignature: true }));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('host-unsigned');
   });
 });
 

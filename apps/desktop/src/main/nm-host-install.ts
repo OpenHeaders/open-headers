@@ -16,8 +16,10 @@
  *
  * Two registration mechanisms, one discipline:
  *
- *   - macOS: the manifest JSON lands in each browser's per-user
- *     `NativeMessagingHosts` directory.
+ *   - macOS + Linux: the manifest JSON lands in each browser's
+ *     per-user `NativeMessagingHosts` directory (Linux: under
+ *     `~/.config/<vendor>`; Firefox reads the shared
+ *     `~/.mozilla/native-messaging-hosts`).
  *   - Windows: Chromium browsers discover hosts through an
  *     `HKCU\Software\<vendor>\<browser>\NativeMessagingHosts\<name>`
  *     key whose default value points at a manifest JSON on disk — one
@@ -117,6 +119,33 @@ export function macosNmManifestTargets(homeDir: string): NmManifestTarget[] {
       family: 'gecko',
       browserRoot: path.join(appSupport, 'Firefox'),
       manifestDir: path.join(appSupport, 'Mozilla', 'NativeMessagingHosts'),
+    },
+  ];
+}
+
+/** Linux per-user manifest locations — same shape as macOS with the
+ *  Chromium family under `~/.config` and Firefox reading the shared
+ *  `~/.mozilla/native-messaging-hosts` dir. Distro Chromium is a
+ *  target here (ratified S31 — root-installed, allowlisted by the
+ *  daemon's path heuristic); snap/flatpak browsers are deliberately
+ *  absent, their sandboxed NM delivery being unverified. */
+export function linuxNmManifestTargets(homeDir: string): NmManifestTarget[] {
+  const configDir = path.join(homeDir, '.config');
+  const chromiumTarget = (browser: string, ...rootSegments: string[]): NmManifestTarget => {
+    const browserRoot = path.join(configDir, ...rootSegments);
+    return { browser, family: 'chromium', browserRoot, manifestDir: path.join(browserRoot, 'NativeMessagingHosts') };
+  };
+  return [
+    chromiumTarget('Google Chrome', 'google-chrome'),
+    chromiumTarget('Google Chrome Beta', 'google-chrome-beta'),
+    chromiumTarget('Chromium', 'chromium'),
+    chromiumTarget('Microsoft Edge', 'microsoft-edge'),
+    chromiumTarget('Brave Browser', 'BraveSoftware', 'Brave-Browser'),
+    {
+      browser: 'Firefox',
+      family: 'gecko',
+      browserRoot: path.join(homeDir, '.mozilla', 'firefox'),
+      manifestDir: path.join(homeDir, '.mozilla', 'native-messaging-hosts'),
     },
   ];
 }
