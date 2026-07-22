@@ -21,9 +21,10 @@
  */
 
 import { updateBackend } from '@openheaders/core/backends';
+import { getHostBridge } from '@openheaders/core/bridge';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
-import type { BackendConnection } from '@openheaders/core/types';
+import type { BackendConnection, BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { App as AntApp } from 'antd';
 import type React from 'react';
@@ -37,6 +38,14 @@ import SwitchingOverlay from './SwitchingOverlay';
 
 /** Minimum dwell for the "Connecting to …" overlay so an instant commit doesn't flash. */
 const MIN_OVERLAY_MS = 1_000;
+
+/**
+ * Post-green grace before the synced race ends the dwell — covers the
+ * adopted workspace's mirror broadcast still crossing the bridge, so a
+ * join that DOES repoint the active workspace lets the adopt settle win
+ * instead of closing the overlay a frame early.
+ */
+const SYNCED_GRACE_MS = 300;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,6 +78,39 @@ function watchOrgConflictRefusal(backendId: string, sinceMs: number): { refused:
     check();
   });
   return { refused, cancel };
+}
+
+/**
+ * Resolves once `backendId`'s per-backend sync slot reports green — the
+ * join has settled. The adopt settle only fires when the active
+ * workspace CHANGES, so a join that promotes the workspace this surface
+ * is already on would otherwise sit out the full settle timeout; the
+ * handshake sequences the adopted workspace first in the fan-out, so by
+ * the first green the promotion decision has already executed. Never
+ * resolves when the wire stays un-green (or no bridge is installed) —
+ * always race it against the settle, and `cancel()` in a finally.
+ */
+function watchBackendSynced(backendId: string): { synced: Promise<void>; cancel: () => void } {
+  let cancel = (): void => {};
+  const synced = new Promise<void>((resolve) => {
+    const bridge = getHostBridge();
+    if (!bridge) return;
+    let unsubscribe: (() => void) | undefined;
+    const check = (snapshot: BackendSyncStatusSnapshot): void => {
+      if (snapshot[backendId]?.state !== 'green') return;
+      unsubscribe?.();
+      resolve();
+    };
+    unsubscribe = bridge.subscribe('backendSyncStatusUpdated', check);
+    cancel = () => unsubscribe?.();
+    void bridge
+      .call('getBackendSyncStatusSnapshot')
+      .catch(() => null)
+      .then((resp) => {
+        if (resp?.snapshot) check(resp.snapshot);
+      });
+  });
+  return { synced, cancel };
 }
 
 export interface BackendEnableSwitchHandle {
@@ -136,6 +178,7 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     // (Org-uniqueness conflict) never adopts — end the dwell the moment
     // the refusal row lands instead of sitting out the settle timeout.
     const refusal = watchOrgConflictRefusal(record.id, flippedAtMs);
+    const joinSettled = watchBackendSynced(record.id);
     let refusedEarly = false;
     try {
       const adopt =
@@ -144,6 +187,9 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
         sleep(MIN_OVERLAY_MS),
         Promise.race([
           adopt,
+          // A join that leaves the active workspace unchanged never fires
+          // the adopt settle — end the dwell on the wire's green instead.
+          joinSettled.synced.then(() => sleep(SYNCED_GRACE_MS)),
           refusal.refused.then(() => {
             refusedEarly = true;
           }),
@@ -151,6 +197,7 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
       ]);
     } finally {
       refusal.cancel();
+      joinSettled.cancel();
     }
     setOverlay(null);
     if (refusedEarly) {

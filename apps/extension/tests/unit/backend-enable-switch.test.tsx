@@ -16,7 +16,9 @@ import {
   refreshBackendsFromHostStorage,
   updateBackend,
 } from '@openheaders/core/backends';
+import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
 import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
+import type { BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SurfaceWorkspaceAdoptProvider } from '@openheaders/ui/workbench/hooks/SurfaceWorkspaceAdoptContext';
 import { act, renderHook } from '@testing-library/react';
@@ -78,6 +80,26 @@ function createHostStorageFake(): HostStorage {
 }
 
 const wrapper = ({ children }: { children: ReactNode }): ReactNode => <AntApp>{children}</AntApp>;
+
+function createSyncStatusBridgeFake(): { bridge: HostBridge; emitGreen: (backendId: string) => void } {
+  const listeners = new Set<(payload: BackendSyncStatusSnapshot) => void>();
+  const bridge: HostBridge = {
+    call: () => Promise.reject(new Error('not implemented')),
+    broadcast: () => {},
+    subscribe: (type, handler) => {
+      const fn = handler as (payload: BackendSyncStatusSnapshot) => void;
+      if (type === 'backendSyncStatusUpdated') listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    presence: () => () => {},
+  };
+  return {
+    bridge,
+    emitGreen: (backendId) => {
+      for (const fn of [...listeners]) fn({ [backendId]: { state: 'green', message: 'Synced' } });
+    },
+  };
+}
 
 beforeEach(async () => {
   mockProbe.mockReset();
@@ -176,6 +198,34 @@ describe('useBackendEnableSwitch.setEnabled', () => {
         boundBackendId: 'backend-original',
       });
       await vi.advanceTimersByTimeAsync(100);
+      await pending;
+    });
+
+    expect(getBackend(record.id)?.enabled).toBe(true);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('ends the overlay dwell on the wire going green when the active workspace never changes', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    mockProbe.mockResolvedValue({ ok: true, latencyMs: 5, protocolVersion: 1, role: 'extension', agent: 'x' });
+    const fake = createSyncStatusBridgeFake();
+    setHostBridge(fake.bridge);
+    // The join promotes the workspace this surface is already on — the
+    // adopt settle never fires; the green race must end the dwell.
+    const hangingAdopt = () => new Promise<void>(() => {});
+    const greenWrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <AntApp>
+        <SurfaceWorkspaceAdoptProvider adopt={hangingAdopt}>{children}</SurfaceWorkspaceAdoptProvider>
+      </AntApp>
+    );
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper: greenWrapper });
+
+    await act(async () => {
+      const pending = result.current.setEnabled(record, true);
+      await vi.advanceTimersByTimeAsync(1_000);
+      fake.emitGreen(record.id);
+      await vi.advanceTimersByTimeAsync(300);
       await pending;
     });
 
