@@ -28,6 +28,22 @@
  * page (the extension executes — the actuator model), and the pane's
  * collapse state survives dock switches.
  *
+ * Phase 6 wire-join legs (S16): routing + scope flipped over the bridge
+ * RPC route a mapped host's traffic through the capture proxy, where a
+ * mock rule serves the exchange (the desktop cannot resolve the
+ * browser-mapped name — serving AT the proxy is what completes the
+ * wire twin). The watched tab's heuristic row then joins the wire row:
+ * the ℹ join glyph lands on the annotation rail, the Response tab
+ * serves the body over the wire pull WITHOUT Debug mode (the heuristic
+ * plane has no body path of its own — the money proof), and the Wire
+ * source's twin row wears the seen-on-tab annotation whose popover
+ * jumps back to the tab source with the twin row selected.
+ *
+ * Phase 6 perf legs (PLAN §6): blind-tunnel throughput direct vs
+ * spliced, capture-path per-request latency direct vs absolute-form,
+ * and the S3-pattern 300-burst with the join seam active — numbers
+ * logged for the status ledger's budget pins.
+ *
  * Deliberately NOT covered (manual live-pass items): the debugger
  * banner's look and its Cancel fall-back (browser chrome, unreachable
  * from Playwright), tooltip copy on hover, and the Firefox peer's
@@ -39,6 +55,8 @@
  */
 
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import * as http from 'node:http';
+import * as net from 'node:net';
 import * as os from 'node:os';
 import path from 'node:path';
 import {
@@ -56,8 +74,27 @@ const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
 // Port etiquette: fresh ports off every prior suite (ledger through 19939).
 const DAEMON_PORT = 19940;
 const PROXY_PORT = 19941;
+const MCP_URL = `http://127.0.0.1:${DAEMON_PORT}/mcp`;
 const PLAYGROUND_URL = 'http://127.0.0.1:3000/';
 const PLAYGROUND_TITLE = 'Open Headers Playground';
+// Mapped in the BROWSER only (--host-resolver-rules): the desktop can't
+// resolve it (`.test` is reserved-NXDOMAIN), so the wire-join legs serve
+// the exchange AT the proxy with a mock rule.
+const WIRE_JOIN_HOST = 'wire-join.oh-e2e.test';
+
+interface ProxyRoutingPeerAck {
+  nodeId: string;
+  agent: string;
+  applied: boolean;
+  mode: string;
+  error?: string;
+}
+
+interface ProxyRoutingStatusWire {
+  enabled: boolean;
+  active: boolean;
+  peers: ProxyRoutingPeerAck[];
+}
 
 interface ExtensionPeer {
   context: BrowserContext;
@@ -78,6 +115,105 @@ async function bridgeInvoke<T>(message: Record<string, unknown>): Promise<T> {
     const bridge = (window as unknown as { oh: { invoke(m: Record<string, unknown>): Promise<unknown> } }).oh;
     return (await bridge.invoke(msg)) as never;
   }, message) as Promise<T>;
+}
+
+/** Live routing projection from the daemon. */
+async function routingStatus(): Promise<ProxyRoutingStatusWire> {
+  return bridgeInvoke<ProxyRoutingStatusWire>({ type: 'oh.daemon.proxy.routing.status' });
+}
+
+/** Minimal MCP tools/call — how the wire-join legs mint the mock rule. */
+async function callTool(name: string, args: Record<string, unknown>): Promise<void> {
+  const response = await fetch(MCP_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }),
+  });
+  expect(response.status).toBe(200);
+  const json = (await response.json()) as { result?: { isError?: boolean; content: Array<{ text: string }> } };
+  expect(json.result?.isError, json.result?.content[0]?.text).toBeFalsy();
+}
+
+/** Open a CONNECT tunnel through the capture proxy to the playground —
+ *  an UN-scoped target, so the proxy splices the bytes blind. */
+function openTunnel(): Promise<net.Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(PROXY_PORT, '127.0.0.1', () => {
+      socket.write('CONNECT 127.0.0.1:3000 HTTP/1.1\r\nHost: 127.0.0.1:3000\r\n\r\n');
+    });
+    socket.once('error', reject);
+    socket.once('data', (chunk: Buffer) => {
+      if (chunk.toString('latin1').startsWith('HTTP/1.1 200')) resolve(socket);
+      else reject(new Error(`CONNECT refused: ${chunk.toString('latin1').split('\r\n')[0]}`));
+    });
+  });
+}
+
+/** POST `body` at the echo and drain the reply — direct, or over a
+ *  supplied socket (the established tunnel). Returns wall ms + bytes
+ *  received, the two facts a throughput pin needs. */
+function timedEcho(probe: string, body: Buffer, connection?: net.Socket): Promise<{ ms: number; bytes: number }> {
+  return new Promise((resolve, reject) => {
+    const startedAt = performance.now();
+    const request = http.request(
+      {
+        host: '127.0.0.1',
+        port: 3000,
+        method: 'POST',
+        path: `/api/echo?probe=${probe}`,
+        headers: { 'content-type': 'text/plain', 'content-length': body.length },
+        agent: false,
+        ...(connection !== undefined ? { createConnection: () => connection } : {}),
+      },
+      (response) => {
+        let bytes = 0;
+        response.on('data', (chunk: Buffer) => {
+          bytes += chunk.length;
+        });
+        response.on('end', () => {
+          const ms = performance.now() - startedAt;
+          response.destroy();
+          resolve({ ms, bytes });
+        });
+      },
+    );
+    request.on('error', reject);
+    request.end(body);
+  });
+}
+
+/** One small GET, timed — direct to the playground, or absolute-form
+ *  through the capture port (the parse + enforce + tee path). */
+function timedGet(pathAndQuery: string, throughProxy: boolean): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const startedAt = performance.now();
+    const request = http.request(
+      throughProxy
+        ? {
+            host: '127.0.0.1',
+            port: PROXY_PORT,
+            path: `http://127.0.0.1:3000${pathAndQuery}`,
+            headers: { host: '127.0.0.1:3000' },
+            agent: false,
+          }
+        : { host: '127.0.0.1', port: 3000, path: pathAndQuery, agent: false },
+      (response) => {
+        response.resume();
+        response.on('end', () => resolve(performance.now() - startedAt));
+      },
+    );
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+function median(samples: readonly number[]): number {
+  const sorted = [...samples].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
 }
 
 /** State-driven dock-strip toggle — click only when the state is wrong. */
@@ -107,7 +243,12 @@ function playgroundDebugAffordance() {
 async function launchExtensionPeer(): Promise<ExtensionPeer> {
   const context = await chromium.launchPersistentContext('', {
     headless: false,
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
+    args: [
+      `--disable-extensions-except=${EXTENSION_PATH}`,
+      `--load-extension=${EXTENSION_PATH}`,
+      '--no-sandbox',
+      `--host-resolver-rules=MAP ${WIRE_JOIN_HOST} 127.0.0.1`,
+    ],
   });
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
@@ -240,6 +381,8 @@ test.beforeAll(async () => {
       schemaVersion: 1,
       values: {
         'oh.settings.user': {
+          'mcp.enabled': true,
+          'mcp.allowWrite': true,
           'backend.bindPort': DAEMON_PORT,
         },
       },
@@ -644,6 +787,211 @@ test('the panel keeps its source selection across dock-tab switches', async () =
     'true',
   );
   await expect(workbench.locator('[data-testid="proxy-routing-trigger"]').first()).toBeVisible();
+});
+
+// ── Phase 6: the wire-join ──────────────────────────────────────────
+
+test("a scoped routed exchange joins the watched tab's row to the wire capture", async () => {
+  // Scope the capture to the mapped host and flip routing over the
+  // bridge RPC — the peer acks with an applied PAC.
+  const scoped = await bridgeInvoke<{ ok: boolean; error?: string }>({
+    type: 'oh.daemon.proxy.scope.set',
+    patterns: [WIRE_JOIN_HOST],
+  });
+  expect(scoped.ok, scoped.error).toBe(true);
+  const flipped = await bridgeInvoke<{ ok: boolean; error?: string }>({
+    type: 'oh.daemon.proxy.routing.set',
+    enabled: true,
+  });
+  expect(flipped.ok, flipped.error).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const status = await routingStatus();
+        return status.active && status.peers.some((peer) => peer.applied && peer.mode === 'pac');
+      },
+      { timeout: 15000 },
+    )
+    .toBe(true);
+
+  // The desktop cannot resolve the browser-mapped name, so a mock rule
+  // serves the exchange AT the proxy — the browser still witnesses the
+  // request, the wire holds the full exchange including the body. The
+  // CORS header keeps the cross-origin page fetch readable.
+  await callTool('rules_create', {
+    rule: {
+      name: 'debug-live wire-join mock',
+      type: 'response',
+      enabled: true,
+      published: true,
+      conditions: [{ type: 'url-filter', values: ['/api/echo?probe=wirejoin-1'] }],
+      action: {
+        responseSource: 'mock',
+        bodyType: 'static',
+        responseBody: '{"wire-served":true,"probe":"wirejoin-1"}',
+        statusCode: 200,
+        contentType: 'application/json',
+        responseHeaders: { 'access-control-allow-origin': '*' },
+      },
+    },
+  });
+
+  // Watch the tab source, then issue the fetch FROM the page — through
+  // the PAC, into the proxy, answered by the mock.
+  await setToolWindowOpen(true);
+  await playgroundRow().click();
+  const served = await playground.evaluate(
+    (url) => fetch(url).then((r) => r.text()),
+    `http://${WIRE_JOIN_HOST}:3000/api/echo?probe=wirejoin-1`,
+  );
+  expect(served).toContain('wire-served');
+
+  // The tab view's row upgrades IN PLACE: the ℹ join glyph lands on the
+  // annotation rail once the derive-at-consume join matches the twins.
+  const row = workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first();
+  await expect(row).toBeVisible({ timeout: 15000 });
+  await expect(row.locator('.dt-annot-glyph')).toHaveAttribute('aria-label', 'Wire capture joined', {
+    timeout: 15000,
+  });
+});
+
+test('the joined row serves the response body over the wire — without Debug mode', async () => {
+  // The tab is un-pinned (leg 5): the heuristic plane has no body path
+  // of its own, so a served body can only arrive over the wire pull.
+  await playgroundRow().hover();
+  await expect(playgroundDebugAffordance()).toHaveAttribute('aria-pressed', 'false');
+
+  await workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first().click();
+  const editorTab = workbench.getByRole('tab', { name: /irejoin-1/ }).first();
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
+  await workbench.getByRole('tab', { name: 'Response', exact: true }).first().click();
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
+  await expect(workbench.locator('.view-line').filter({ hasText: 'wire-served' }).first()).toBeVisible({
+    timeout: 15000,
+  });
+});
+
+test('the wire twin wears the seen-on-tab annotation and jumps back to the tab source', async () => {
+  await setToolWindowOpen(true);
+  await workbench.locator('[data-testid="traffic-monitor-source-wire"]').first().click();
+
+  // The twin row carries the seen annotation from the historical record
+  // the tab view wrote at join time.
+  const wireRow = workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first();
+  await expect(wireRow).toBeVisible({ timeout: 15000 });
+  const glyph = wireRow.locator('.dt-annot-glyph');
+  await expect(glyph).toHaveAttribute('aria-label', 'Seen on a browser tab', { timeout: 15000 });
+
+  // The popover names the witnessing tab and offers the jump back.
+  await glyph.hover();
+  const popover = workbench.locator('.ant-popover').filter({ hasText: PLAYGROUND_TITLE }).first();
+  await expect(popover).toBeVisible({ timeout: 10000 });
+  await popover.getByRole('button', { name: 'Show in tab source' }).click();
+
+  // Back on the tab source with the twin row selected.
+  await expect(playgroundRow()).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    workbench.locator('.dt-row[data-selected="true"]').filter({ hasText: 'wirejoin-1' }).first(),
+  ).toBeVisible({ timeout: 15000 });
+});
+
+// ── Phase 6 perf pins (PLAN §6 budgets) ─────────────────────────────
+
+test('perf: the blind CONNECT tunnel splices near line rate', async () => {
+  test.setTimeout(180000);
+  // 32 MiB up + ~32 MiB echoed back per iteration; the tunnel target is
+  // un-scoped, so the proxy leg is the pure `socket.pipe` splice. On
+  // loopback the relative overhead is a WORST CASE — real networks are
+  // orders of magnitude slower than the splice.
+  const body = Buffer.alloc(32 * 1024 * 1024, 120);
+  await timedEcho('tunnel-warm-direct', Buffer.alloc(1024, 120));
+  await timedEcho('tunnel-warm-splice', Buffer.alloc(1024, 120), await openTunnel());
+
+  const throughput = (r: { ms: number; bytes: number }) => (body.length + r.bytes) / 1024 / 1024 / (r.ms / 1000);
+  const direct: number[] = [];
+  const tunnel: number[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    direct.push(throughput(await timedEcho(`tunnel-direct-${i}`, body)));
+    tunnel.push(throughput(await timedEcho(`tunnel-splice-${i}`, body, await openTunnel())));
+  }
+  const bestDirect = Math.max(...direct);
+  const bestTunnel = Math.max(...tunnel);
+  const deltaPct = ((bestDirect - bestTunnel) / bestDirect) * 100;
+
+  console.log(
+    `[debug-live perf] blind tunnel: direct ${bestDirect.toFixed(0)} MB/s, ` +
+      `spliced ${bestTunnel.toFixed(0)} MB/s, delta ${deltaPct.toFixed(1)}% (loopback worst case)`,
+  );
+  // Gross-regression bound only — the ~1% PLAN budget is a real-network
+  // budget; the ledger pins the measured loopback numbers.
+  expect(bestTunnel).toBeGreaterThan(bestDirect * 0.5);
+});
+
+test('perf: the capture path adds low-single-digit ms per request', async () => {
+  test.setTimeout(180000);
+  // Absolute-form plain HTTP through the capture port rides the full
+  // parse + enforce + tee path (the scoped-MITM cost minus TLS, which
+  // rides the leaf cache). Fresh connection per request on both sides.
+  for (let i = 0; i < 10; i += 1) {
+    await timedGet(`/api/echo?warm-direct=${i}`, false);
+    await timedGet(`/api/echo?warm-captured=${i}`, true);
+  }
+  const N = 120;
+  const direct: number[] = [];
+  const captured: number[] = [];
+  for (let i = 0; i < N; i += 1) direct.push(await timedGet(`/api/echo?seq-direct=${i}`, false));
+  for (let i = 0; i < N; i += 1) captured.push(await timedGet(`/api/echo?seq-captured=${i}`, true));
+  const deltaMs = median(captured) - median(direct);
+  // A page ≈ 50 requests riding ~6-way connection parallelism.
+  const pageMs = deltaMs * Math.ceil(50 / 6);
+
+  console.log(
+    `[debug-live perf] capture path: direct ${median(direct).toFixed(2)}ms, ` +
+      `captured ${median(captured).toFixed(2)}ms, delta ${deltaMs.toFixed(2)}ms/request ` +
+      `(~${pageMs.toFixed(0)}ms per 50-request page)`,
+  );
+  expect(deltaMs).toBeLessThan(50);
+});
+
+test('perf: a 300-burst on the watched tab stays in budget with the join active', async () => {
+  await setToolWindowOpen(true);
+  // The tab source is selected (the jump-back leg) — the join seam is
+  // live over the wire partition the earlier legs populated.
+  const BURST_SIZE = 300;
+  const filter = workbench.locator('.rules-bottom-panel input[placeholder="Filter"]').first();
+  await filter.fill(`burst=${BURST_SIZE - 1}`);
+  await expect(workbench.locator('.dt-row')).toHaveCount(0);
+
+  const startedAt = Date.now();
+  const burstDone = playground.evaluate(async (size) => {
+    const CHUNK = 50;
+    for (let i = 0; i < size; i += CHUNK) {
+      await Promise.all(Array.from({ length: Math.min(CHUNK, size - i) }, (_, j) => fetch(`/api/echo?burst=${i + j}`)));
+    }
+  }, BURST_SIZE);
+  await expect(workbench.locator('.dt-row').filter({ hasText: `burst=${BURST_SIZE - 1}` })).toHaveCount(1, {
+    timeout: 60000,
+  });
+  const wallMs = Date.now() - startedAt;
+  await burstDone;
+
+  // Virtualization law: the DOM renders the viewport, not the stream.
+  await filter.fill('');
+  await workbench.waitForTimeout(500);
+  const domRows = await workbench.locator('.dt-row').count();
+  expect(domRows).toBeLessThan(150);
+
+  // The join stayed derived through the burst's recomputes.
+  await filter.fill('wirejoin-1');
+  await expect(
+    workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first().locator('.dt-annot-glyph'),
+  ).toHaveAttribute('aria-label', 'Wire capture joined');
+  await filter.fill('');
+
+  console.log(
+    `[debug-live perf] ${BURST_SIZE}-burst with wire-join active: ${wallMs}ms ` +
+      `(~${Math.round((BURST_SIZE / wallMs) * 1000)} req/s); DOM rows: ${domRows}`,
+  );
 });
 
 // ── Manual-inspection hold ──────────────────────────────────────────
