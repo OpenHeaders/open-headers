@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { FIREFOX_BETA_EXTENSION_ID } from '@openheaders/core/protocol';
+import { FIREFOX_BETA_EXTENSION_ID } from '@openheaders/core/protocol/constants';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin, build as viteBuild } from 'vite';
 

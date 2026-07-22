@@ -19,6 +19,10 @@
       "import": "./src/protocol/index.ts",
       "default": "./dist/protocol/index.js"
     },
+    "./protocol/constants": {
+      "import": "./src/protocol/constants.ts",
+      "default": "./dist/protocol/constants.js"
+    },
     "./schemas": {
       "import": "./src/schemas/index.ts",
       "default": "./dist/schemas/index.js"
