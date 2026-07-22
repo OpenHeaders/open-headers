@@ -5,32 +5,37 @@
  * Nothing on the wire is trusted. Given the connecting socket's remote
  * endpoint, the chain reads three facts from the operating system:
  *
- *   1. which local process OWNS that socket (`lsof` on macOS) — the
- *      request's true author, whatever its body claims;
+ *   1. which local process OWNS that socket (`lsof` on macOS,
+ *      `Get-NetTCPConnection` on Windows) — the request's true author,
+ *      whatever its body claims;
  *   2. that process's executable must be the shipped NM host binary
  *      (realpath-compared, optionally signature-verified on packaged
- *      builds — the path sits in the app bundle, so writing it means
- *      the machine is already lost);
+ *      builds — the path sits in the app install dir, so writing it
+ *      means the machine is already lost);
  *   3. its PARENT process — the browser that spawned the host per the
  *      NM manifest — must carry an allowlisted code-signing identity
- *      (`codesign` team id on macOS).
+ *      (`codesign` team id on macOS, Authenticode signer subject CN on
+ *      Windows).
  *
  * Only then does the caller earn a token. Every refusal is typed and
  * coarse on the wire (the handler answers a bare reason) with the
  * specific detail kept to the daemon's own log — a probing local
  * process learns nothing about which link of the chain broke.
  *
- * macOS only in this slice; other platforms answer
+ * The chain walker is platform-neutral; each platform contributes a
+ * probe set (socket owner, process info, signature identity) built on
+ * the injected command runner, so every leg is unit-testable without
+ * real processes. Platforms without a probe set answer
  * `platform-unsupported` and the extension degrades to the device-flow
- * pairing gesture. The command runner is injected so the chain is
- * unit-testable without real processes.
+ * pairing gesture.
  */
 
 import { execFile } from 'node:child_process';
 import { realpathSync } from 'node:fs';
-import { type BrowserSignerEntry, findMacosBrowserSigner } from './browser-allowlist';
+import { findMacosBrowserSigner, findWindowsBrowserSigner, type VerifiedBrowser } from './browser-allowlist';
 
-const COMMAND_TIMEOUT_MS = 5_000;
+/** Generous ceiling — Windows PowerShell pays a cold-start toll per probe. */
+const COMMAND_TIMEOUT_MS = 10_000;
 const COMMAND_MAX_BUFFER = 1024 * 1024;
 
 export interface CommandResult {
@@ -61,7 +66,7 @@ export type NmCallerVerification =
   | {
       readonly ok: true;
       /** Vendor-family display name from the allowlist (token label). */
-      readonly browser: BrowserSignerEntry;
+      readonly browser: VerifiedBrowser;
       /** The spawning browser executable, for the daemon log. */
       readonly browserPath: string;
     }
@@ -81,8 +86,8 @@ export interface VerifyNmCallerOptions {
   readonly expectedHostPath: string;
   /**
    * Require a valid code signature on the NM host binary itself.
-   * Packaged builds pass true; dev builds run an unsigned local
-   * artifact and rely on the path check alone.
+   * Signed distributions pass true; unsigned artifacts (dev builds,
+   * unsigned beta channels) rely on the path check alone.
    */
   readonly requireHostSignature: boolean;
   /** This daemon process's own pid — its mirror socket rows are skipped. */
@@ -95,11 +100,43 @@ export interface VerifyNmCallerOptions {
 
 /**
  * Strip the IPv4-mapped-IPv6 prefix Node reports for v4 peers on a
- * dual-stack bind so the address matches lsof's numeric output.
+ * dual-stack bind so the address matches the OS tables' numeric output.
  */
 function normalizeAddress(address: string): string {
   return address.startsWith('::ffff:') ? address.slice('::ffff:'.length) : address;
 }
+
+export interface ProcessInfo {
+  readonly ppid: number;
+  readonly executablePath: string;
+}
+
+/**
+ * One platform's OS-truth probes. Every method answers null on any
+ * failure — the chain walker turns each null into its typed refusal.
+ */
+interface PlatformProbes {
+  /** Pid owning the socket whose LOCAL side is the client endpoint. */
+  readonly ownerPid: (clientPort: number, selfPid: number) => Promise<number | null>;
+  /** Executable path + parent pid for a live process. */
+  readonly processInfo: (pid: number) => Promise<ProcessInfo | null>;
+  /** True when the binary carries a valid signed identity. */
+  readonly signatureValid: (executablePath: string) => Promise<boolean>;
+  /** Allowlisted vendor identity of a signed binary, or null. */
+  readonly browserSigner: (executablePath: string) => Promise<VerifiedBrowser | null>;
+  /** Canonical form for executable-path equality on this platform. */
+  readonly canonicalPath: (candidate: string) => string;
+}
+
+function safeRealpath(candidate: string): string {
+  try {
+    return realpathSync(candidate);
+  } catch {
+    return candidate;
+  }
+}
+
+// ── macOS probes: lsof + ps + codesign ───────────────────────────────
 
 /**
  * Parse `lsof -Fpn` output for the pid whose socket's LOCAL side is the
@@ -127,11 +164,6 @@ export function parseLsofOwnerPid(output: string, clientPort: number, selfPid: n
   return null;
 }
 
-export interface ProcessInfo {
-  readonly ppid: number;
-  readonly executablePath: string;
-}
-
 /**
  * Parse `ps -p <pid> -o ppid=,comm=` — first field is the parent pid,
  * the remainder (which may contain spaces: `/Applications/Google
@@ -157,14 +189,8 @@ export function parseCodesignTeamId(codesignOutput: string): string | null {
   return teamId.length === 0 || teamId === 'not set' ? null : teamId;
 }
 
-async function readProcessInfo(pid: number, run: CommandRunner): Promise<ProcessInfo | null> {
-  const result = await run('ps', ['-p', String(pid), '-o', 'ppid=,comm=']);
-  if (result.code !== 0) return null;
-  return parsePsProcessInfo(result.stdout);
-}
-
 /** Valid signature + team id for one binary, or null when either is absent. */
-async function readSignatureTeamId(executablePath: string, run: CommandRunner): Promise<string | null> {
+async function readMacosSignatureTeamId(executablePath: string, run: CommandRunner): Promise<string | null> {
   const verify = await run('codesign', ['--verify', executablePath]);
   if (verify.code !== 0) return null;
   const detail = await run('codesign', ['-dv', '--verbose=2', executablePath]);
@@ -173,48 +199,198 @@ async function readSignatureTeamId(executablePath: string, run: CommandRunner): 
   return parseCodesignTeamId(`${detail.stderr}\n${detail.stdout}`);
 }
 
-function safeRealpath(candidate: string): string {
+function macosProbes(run: CommandRunner): PlatformProbes {
+  return {
+    ownerPid: async (clientPort, selfPid) => {
+      // Scoped to the client's ephemeral port so lsof scans one port's
+      // rows, not the whole TCP table.
+      const lsof = await run('lsof', ['-nP', `-iTCP:${clientPort}`, '-sTCP:ESTABLISHED', '-Fpn']);
+      if (lsof.code !== 0 && lsof.stdout.trim().length === 0) return null;
+      return parseLsofOwnerPid(lsof.stdout, clientPort, selfPid);
+    },
+    processInfo: async (pid) => {
+      const result = await run('ps', ['-p', String(pid), '-o', 'ppid=,comm=']);
+      if (result.code !== 0) return null;
+      return parsePsProcessInfo(result.stdout);
+    },
+    signatureValid: async (executablePath) => (await readMacosSignatureTeamId(executablePath, run)) !== null,
+    browserSigner: async (executablePath) => {
+      const teamId = await readMacosSignatureTeamId(executablePath, run);
+      if (teamId === null) return null;
+      return findMacosBrowserSigner(teamId) ?? null;
+    },
+    canonicalPath: safeRealpath,
+  };
+}
+
+// ── Windows probes: Get-NetTCPConnection + Win32_Process +
+//    Get-AuthenticodeSignature (Windows PowerShell, JSON output) ─────
+
+function runPowerShell(run: CommandRunner, script: string): Promise<CommandResult> {
+  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
+}
+
+/** Single-quote a value for embedding in a PowerShell command line. */
+function powerShellQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/** `ConvertTo-Json` emits a bare object for one row — normalize to a list. */
+function parseJsonRows(output: string): Record<string, unknown>[] | null {
+  const trimmed = output.trim();
+  if (trimmed.length === 0) return [];
   try {
-    return realpathSync(candidate);
+    const parsed: unknown = JSON.parse(trimmed);
+    const rows = Array.isArray(parsed) ? parsed : [parsed];
+    return rows.filter((row): row is Record<string, unknown> => row !== null && typeof row === 'object');
   } catch {
-    return candidate;
+    return null;
   }
+}
+
+/**
+ * Parse `Get-NetTCPConnection ... | ConvertTo-Json` rows for the pid
+ * owning the socket whose LOCAL side is the client's ephemeral port.
+ * The daemon's mirror row carries the bound port as its local side, so
+ * the port filter pins direction; `selfPid` is skipped as well.
+ */
+export function parseNetTcpOwnerPid(output: string, clientPort: number, selfPid: number | undefined): number | null {
+  const rows = parseJsonRows(output);
+  if (rows === null) return null;
+  for (const row of rows) {
+    if (row.LocalPort !== clientPort) continue;
+    const owner = row.OwningProcess;
+    if (typeof owner !== 'number' || !Number.isInteger(owner)) continue;
+    if (selfPid !== undefined && owner === selfPid) continue;
+    return owner;
+  }
+  return null;
+}
+
+/** Parse `Get-CimInstance Win32_Process ... | ConvertTo-Json` output. */
+export function parseWin32ProcessInfo(output: string): ProcessInfo | null {
+  const rows = parseJsonRows(output);
+  if (rows === null || rows.length === 0) return null;
+  const row = rows[0];
+  const ppid = row.ParentProcessId;
+  const executablePath = row.ExecutablePath;
+  if (typeof ppid !== 'number' || !Number.isInteger(ppid)) return null;
+  if (typeof executablePath !== 'string' || executablePath.length === 0) return null;
+  return { ppid, executablePath };
+}
+
+export interface AuthenticodeIdentity {
+  readonly valid: boolean;
+  readonly subjectCommonName: string | null;
+}
+
+/**
+ * Extract the CN attribute from an X.500 subject as Windows prints it
+ * (`CN="Brave Software, Inc.", O=..., C=US`) — a quoted value may
+ * contain commas and doubled-quote escapes.
+ */
+export function parseDnCommonName(subject: string): string | null {
+  const match = subject.match(/(?:^|,\s*)CN=("((?:[^"]|"")*)"|[^,]*)/);
+  if (!match) return null;
+  const value = match[2] !== undefined ? match[2].replace(/""/g, '"') : match[1];
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Parse the projected `Get-AuthenticodeSignature` JSON envelope. */
+export function parseAuthenticodeIdentity(output: string): AuthenticodeIdentity | null {
+  const rows = parseJsonRows(output);
+  if (rows === null || rows.length === 0) return null;
+  const row = rows[0];
+  const valid = row.Status === 'Valid';
+  const subject = typeof row.Subject === 'string' ? row.Subject : null;
+  return { valid, subjectCommonName: valid && subject !== null ? parseDnCommonName(subject) : null };
+}
+
+async function readAuthenticodeIdentity(
+  executablePath: string,
+  run: CommandRunner,
+): Promise<AuthenticodeIdentity | null> {
+  const script =
+    `$sig = Get-AuthenticodeSignature -LiteralPath ${powerShellQuote(executablePath)}; ` +
+    `@{ Status = $sig.Status.ToString(); Subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { $null } } ` +
+    '| ConvertTo-Json -Compress';
+  const result = await runPowerShell(run, script);
+  if (result.code !== 0) return null;
+  return parseAuthenticodeIdentity(result.stdout);
+}
+
+function windowsProbes(run: CommandRunner): PlatformProbes {
+  return {
+    ownerPid: async (clientPort, selfPid) => {
+      // Scoped to the client's ephemeral port; SilentlyContinue folds
+      // "no matching connection" into empty output instead of an error.
+      const script =
+        `Get-NetTCPConnection -State Established -LocalPort ${clientPort} -ErrorAction SilentlyContinue ` +
+        '| Select-Object -Property LocalPort,OwningProcess | ConvertTo-Json -Compress';
+      const result = await runPowerShell(run, script);
+      if (result.code !== 0) return null;
+      return parseNetTcpOwnerPid(result.stdout, clientPort, selfPid);
+    },
+    processInfo: async (pid) => {
+      const script =
+        `Get-CimInstance Win32_Process -Filter ${powerShellQuote(`ProcessId = ${pid}`)} ` +
+        '| Select-Object -Property ParentProcessId,ExecutablePath | ConvertTo-Json -Compress';
+      const result = await runPowerShell(run, script);
+      if (result.code !== 0) return null;
+      return parseWin32ProcessInfo(result.stdout);
+    },
+    signatureValid: async (executablePath) => {
+      const identity = await readAuthenticodeIdentity(executablePath, run);
+      return identity?.valid === true;
+    },
+    browserSigner: async (executablePath) => {
+      const identity = await readAuthenticodeIdentity(executablePath, run);
+      if (identity === null || !identity.valid || identity.subjectCommonName === null) return null;
+      return findWindowsBrowserSigner(identity.subjectCommonName) ?? null;
+    },
+    // Windows paths are case-insensitive; the OS tables also mix drive
+    // letter casing, so equality runs over a lowercased realpath.
+    canonicalPath: (candidate) => safeRealpath(candidate).toLowerCase(),
+  };
+}
+
+function probesForPlatform(platform: NodeJS.Platform, run: CommandRunner): PlatformProbes | null {
+  if (platform === 'darwin') return macosProbes(run);
+  if (platform === 'win32') return windowsProbes(run);
+  return null;
 }
 
 export async function verifyNmCaller(options: VerifyNmCallerOptions): Promise<NmCallerVerification> {
   const platform = options.platform ?? process.platform;
-  if (platform !== 'darwin') {
+  const run = options.run ?? defaultCommandRunner;
+  const probes = probesForPlatform(platform, run);
+  if (probes === null) {
     return { ok: false, reason: 'platform-unsupported', detail: `platform ${platform} has no verification chain yet` };
   }
-  const run = options.run ?? defaultCommandRunner;
   const address = normalizeAddress(options.clientAddress);
 
-  // 1. Socket → owning pid. Scoped to the client's ephemeral port so
-  //    lsof scans one port's rows, not the whole TCP table.
-  const lsof = await run('lsof', ['-nP', `-iTCP:${options.clientPort}`, '-sTCP:ESTABLISHED', '-Fpn']);
-  if (lsof.code !== 0 && lsof.stdout.trim().length === 0) {
-    return {
-      ok: false,
-      reason: 'owner-not-found',
-      detail: `lsof exited ${lsof.code} for ${address}:${options.clientPort}`,
-    };
-  }
-  const ownerPid = parseLsofOwnerPid(lsof.stdout, options.clientPort, options.selfPid ?? process.pid);
+  // 1. Socket → owning pid.
+  const ownerPid = await probes.ownerPid(options.clientPort, options.selfPid ?? process.pid);
   if (ownerPid === null) {
     return {
       ok: false,
       reason: 'owner-not-found',
-      detail: `no established socket with local side :${options.clientPort}`,
+      detail: `no established socket with local side ${address}:${options.clientPort}`,
     };
   }
 
   // 2. Owning process must BE the shipped NM host.
-  const hostInfo = await readProcessInfo(ownerPid, run);
+  const hostInfo = await probes.processInfo(ownerPid);
   if (!hostInfo) {
-    return { ok: false, reason: 'process-info-unavailable', detail: `ps failed for socket owner pid ${ownerPid}` };
+    return {
+      ok: false,
+      reason: 'process-info-unavailable',
+      detail: `process info unavailable for socket owner pid ${ownerPid}`,
+    };
   }
-  const actualHostPath = safeRealpath(hostInfo.executablePath);
-  const expectedHostPath = safeRealpath(options.expectedHostPath);
+  const actualHostPath = probes.canonicalPath(hostInfo.executablePath);
+  const expectedHostPath = probes.canonicalPath(options.expectedHostPath);
   if (actualHostPath !== expectedHostPath) {
     return {
       ok: false,
@@ -222,34 +398,31 @@ export async function verifyNmCaller(options: VerifyNmCallerOptions): Promise<Nm
       detail: `socket owner pid ${ownerPid} runs ${actualHostPath}, expected ${expectedHostPath}`,
     };
   }
-  if (options.requireHostSignature) {
-    const hostTeamId = await readSignatureTeamId(actualHostPath, run);
-    if (hostTeamId === null) {
-      return {
-        ok: false,
-        reason: 'host-unsigned',
-        detail: `NM host at ${actualHostPath} has no valid signed identity`,
-      };
-    }
+  if (options.requireHostSignature && !(await probes.signatureValid(hostInfo.executablePath))) {
+    return {
+      ok: false,
+      reason: 'host-unsigned',
+      detail: `NM host at ${actualHostPath} has no valid signed identity`,
+    };
   }
 
   // 3. Parent process — the spawning browser — must carry an
   //    allowlisted signer.
-  const browserInfo = await readProcessInfo(hostInfo.ppid, run);
+  const browserInfo = await probes.processInfo(hostInfo.ppid);
   if (!browserInfo) {
-    return { ok: false, reason: 'process-info-unavailable', detail: `ps failed for parent pid ${hostInfo.ppid}` };
+    return {
+      ok: false,
+      reason: 'process-info-unavailable',
+      detail: `process info unavailable for parent pid ${hostInfo.ppid}`,
+    };
   }
   const browserPath = safeRealpath(browserInfo.executablePath);
-  const teamId = await readSignatureTeamId(browserPath, run);
-  if (teamId === null) {
-    return { ok: false, reason: 'browser-unverified', detail: `parent ${browserPath} is unsigned or ad-hoc signed` };
-  }
-  const signer = findMacosBrowserSigner(teamId);
-  if (!signer) {
+  const signer = await probes.browserSigner(browserInfo.executablePath);
+  if (signer === null) {
     return {
       ok: false,
       reason: 'browser-unverified',
-      detail: `parent ${browserPath} signed by unlisted team ${teamId}`,
+      detail: `parent ${browserPath} is unsigned or signed by an unlisted vendor`,
     };
   }
   return { ok: true, browser: signer, browserPath };

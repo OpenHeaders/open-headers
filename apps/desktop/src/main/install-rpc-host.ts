@@ -84,6 +84,9 @@ import {
   macosNmManifestTargets,
   nmHostBinaryCandidate,
   registerNmManifests,
+  registerWindowsNmManifests,
+  WINDOWS_HOST_BINARY_SIGNED,
+  windowsNmManifestTargets,
 } from './nm-host-install';
 import { installProductTelemetry } from './product-telemetry';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
@@ -197,9 +200,24 @@ export async function installRpcHost(): Promise<void> {
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     appPath: app.getAppPath(),
+    platform: process.platform,
   });
-  const nmHostPresent = process.platform === 'darwin' && existsSync(nmHostBinaryPath);
-  if (nmHostPresent) {
+  const nmPlatformSupported = process.platform === 'darwin' || process.platform === 'win32';
+  const nmHostPresent = nmPlatformSupported && existsSync(nmHostBinaryPath);
+  if (nmHostPresent && process.platform === 'win32') {
+    const registrations = await registerWindowsNmManifests({
+      hostBinaryPath: nmHostBinaryPath,
+      manifestDir: path.join(app.getPath('userData'), 'nm-host'),
+      targets: windowsNmManifestTargets(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local')),
+      allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+    });
+    for (const registration of registrations) {
+      engineLogger.info(
+        SCOPE,
+        `NM manifest ${registration.action}: ${registration.browser} → ${registration.registryKey}`,
+      );
+    }
+  } else if (nmHostPresent) {
     const registrations = registerNmManifests({
       hostBinaryPath: nmHostBinaryPath,
       targets: macosNmManifestTargets(os.homedir()),
@@ -330,8 +348,14 @@ export async function installRpcHost(): Promise<void> {
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
     // Composed only when the host binary is shipped — the identity
     // chain has no anchor without it. Signature enforcement follows the
-    // build posture: packaged builds are signed, dev artifacts aren't.
-    nmBootstrap: nmHostPresent ? { hostBinaryPath: nmHostBinaryPath, requireHostSignature: app.isPackaged } : undefined,
+    // build posture: packaged macOS builds are signed; Windows follows
+    // the channel constant (beta ships unsigned); dev artifacts aren't.
+    nmBootstrap: nmHostPresent
+      ? {
+          hostBinaryPath: nmHostBinaryPath,
+          requireHostSignature: app.isPackaged && (process.platform !== 'win32' || WINDOWS_HOST_BINARY_SIGNED),
+        }
+      : undefined,
   });
 
   // `on-blur` commit cadence (GIT_PLAN.md §3.2): the trigger is focus

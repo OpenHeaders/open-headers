@@ -1,11 +1,13 @@
 /**
  * Phase 7 — NM identity bootstrap. Three layers:
  *
- *   - OS-output parsers (lsof owner-pid with direction pinning +
- *     self-pid skip, ps ppid/comm with spaces in the path, codesign
- *     TeamIdentifier incl. the ad-hoc `not set` shape);
+ *   - OS-output parsers, both platforms (lsof/Get-NetTCPConnection
+ *     owner-pid with direction pinning + self-pid skip,
+ *     ps/Win32_Process executable + parent, codesign TeamIdentifier
+ *     incl. the ad-hoc `not set` shape, Authenticode status + subject
+ *     CN incl. quoted-comma DN values);
  *   - `verifyNmCaller` over an injected command runner — the full
- *     happy chain and every typed refusal link;
+ *     happy chain and every typed refusal link on macOS and Windows;
  *   - the `/nm/bootstrap` HTTP handler over a real loopback server
  *     with an injected verifier — fall-through, POST-only, the
  *     nmSession mint against the real token ledger, predecessor
@@ -25,9 +27,13 @@ import {
   type CommandResult,
   type CommandRunner,
   type NmCallerVerification,
+  parseAuthenticodeIdentity,
   parseCodesignTeamId,
+  parseDnCommonName,
   parseLsofOwnerPid,
+  parseNetTcpOwnerPid,
   parsePsProcessInfo,
+  parseWin32ProcessInfo,
   type VerifyNmCallerOptions,
   verifyNmCaller,
 } from '../../../src/daemon/nm/process-identity';
@@ -132,8 +138,8 @@ describe('verifyNmCaller', () => {
     });
   });
 
-  it('refuses non-darwin platforms as unsupported', async () => {
-    const verdict = await verifyNmCaller(callerOptions(fakeRunner(), { platform: 'win32' }));
+  it('refuses platforms without a probe set as unsupported', async () => {
+    const verdict = await verifyNmCaller(callerOptions(fakeRunner(), { platform: 'linux' }));
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.reason).toBe('platform-unsupported');
   });
@@ -175,6 +181,194 @@ describe('verifyNmCaller', () => {
   });
 });
 
+// ── Windows chain ────────────────────────────────────────────────────
+
+const WIN_HOST_PATH = 'C:\\Program Files\\OpenHeaders\\resources\\nm-host\\oh-nm-host.exe';
+const WIN_EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+const WIN_EDGE_SUBJECT = 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US';
+
+describe('parseNetTcpOwnerPid', () => {
+  const rows = JSON.stringify([
+    { LocalPort: 8137, OwningProcess: 777 },
+    { LocalPort: 53312, OwningProcess: 4242 },
+  ]);
+
+  it('pins the pid whose LOCAL port is the client port, not the daemon mirror row', () => {
+    expect(parseNetTcpOwnerPid(rows, 53312, undefined)).toBe(4242);
+  });
+
+  it('handles the bare-object shape ConvertTo-Json emits for one row', () => {
+    expect(parseNetTcpOwnerPid(JSON.stringify({ LocalPort: 53312, OwningProcess: 4242 }), 53312, undefined)).toBe(4242);
+  });
+
+  it('skips the daemon self pid even when its row would match', () => {
+    expect(parseNetTcpOwnerPid(JSON.stringify({ LocalPort: 53312, OwningProcess: 777 }), 53312, 777)).toBeNull();
+  });
+
+  it('answers null on empty, unmatched, or malformed output', () => {
+    expect(parseNetTcpOwnerPid('', 53312, undefined)).toBeNull();
+    expect(parseNetTcpOwnerPid(rows, 60000, undefined)).toBeNull();
+    expect(parseNetTcpOwnerPid('not json', 53312, undefined)).toBeNull();
+  });
+});
+
+describe('parseWin32ProcessInfo', () => {
+  it('reads parent pid and executable path from the projected row', () => {
+    const row = JSON.stringify({ ParentProcessId: 555, ExecutablePath: WIN_EDGE_PATH });
+    expect(parseWin32ProcessInfo(row)).toEqual({ ppid: 555, executablePath: WIN_EDGE_PATH });
+  });
+
+  it('answers null when the path is absent (protected process) or output is empty', () => {
+    expect(parseWin32ProcessInfo(JSON.stringify({ ParentProcessId: 555, ExecutablePath: null }))).toBeNull();
+    expect(parseWin32ProcessInfo('')).toBeNull();
+  });
+});
+
+describe('parseDnCommonName', () => {
+  it('extracts a plain CN attribute', () => {
+    expect(parseDnCommonName(WIN_EDGE_SUBJECT)).toBe('Microsoft Corporation');
+  });
+
+  it('unwraps a quoted CN containing commas', () => {
+    expect(parseDnCommonName('CN="Brave Software, Inc.", O="Brave Software, Inc.", C=US')).toBe('Brave Software, Inc.');
+  });
+
+  it('finds CN when it is not the leading attribute', () => {
+    expect(parseDnCommonName('O=Google LLC, CN=Google LLC, C=US')).toBe('Google LLC');
+  });
+
+  it('answers null when no CN attribute exists', () => {
+    expect(parseDnCommonName('O=Somebody, C=US')).toBeNull();
+  });
+});
+
+describe('parseAuthenticodeIdentity', () => {
+  it('carries the subject CN only for a Valid verdict', () => {
+    const valid = JSON.stringify({ Status: 'Valid', Subject: WIN_EDGE_SUBJECT });
+    expect(parseAuthenticodeIdentity(valid)).toEqual({ valid: true, subjectCommonName: 'Microsoft Corporation' });
+    const notSigned = JSON.stringify({ Status: 'NotSigned', Subject: null });
+    expect(parseAuthenticodeIdentity(notSigned)).toEqual({ valid: false, subjectCommonName: null });
+    const hashMismatch = JSON.stringify({ Status: 'HashMismatch', Subject: WIN_EDGE_SUBJECT });
+    expect(parseAuthenticodeIdentity(hashMismatch)).toEqual({ valid: false, subjectCommonName: null });
+  });
+
+  it('answers null on empty or malformed output', () => {
+    expect(parseAuthenticodeIdentity('')).toBeNull();
+    expect(parseAuthenticodeIdentity('not json')).toBeNull();
+  });
+});
+
+interface WindowsChainConfig {
+  ownerPid?: number;
+  hostPath?: string;
+  hostStatus?: string;
+  browserPath?: string;
+  browserStatus?: string;
+  browserSubject?: string;
+}
+
+function windowsRunner(config: WindowsChainConfig = {}): CommandRunner {
+  const ownerPid = config.ownerPid ?? 4242;
+  const hostPath = config.hostPath ?? WIN_HOST_PATH;
+  const browserPath = config.browserPath ?? WIN_EDGE_PATH;
+  return async (file, args): Promise<CommandResult> => {
+    if (file !== 'powershell.exe') return { stdout: '', stderr: '', code: 127 };
+    const script = args[3];
+    if (script.startsWith('Get-NetTCPConnection')) {
+      const rows = [
+        { LocalPort: 8137, OwningProcess: 777 },
+        { LocalPort: 53312, OwningProcess: ownerPid },
+      ];
+      return { stdout: JSON.stringify(rows), stderr: '', code: 0 };
+    }
+    if (script.startsWith('Get-CimInstance')) {
+      if (script.includes(`ProcessId = ${ownerPid}`)) {
+        return { stdout: JSON.stringify({ ParentProcessId: 555, ExecutablePath: hostPath }), stderr: '', code: 0 };
+      }
+      if (script.includes('ProcessId = 555')) {
+        return { stdout: JSON.stringify({ ParentProcessId: 1, ExecutablePath: browserPath }), stderr: '', code: 0 };
+      }
+      return { stdout: '', stderr: '', code: 0 };
+    }
+    if (script.startsWith('$sig = Get-AuthenticodeSignature')) {
+      const isHost = script.includes(hostPath.replace(/'/g, "''"));
+      const status = isHost ? (config.hostStatus ?? 'Valid') : (config.browserStatus ?? 'Valid');
+      const subject = isHost ? 'CN=Open Headers, O=Open Headers, C=US' : (config.browserSubject ?? WIN_EDGE_SUBJECT);
+      return { stdout: JSON.stringify({ Status: status, Subject: subject }), stderr: '', code: 0 };
+    }
+    return { stdout: '', stderr: '', code: 1 };
+  };
+}
+
+function windowsOptions(run: CommandRunner, overrides: Partial<VerifyNmCallerOptions> = {}): VerifyNmCallerOptions {
+  return {
+    clientAddress: '::ffff:127.0.0.1',
+    clientPort: 53312,
+    expectedHostPath: WIN_HOST_PATH,
+    requireHostSignature: false,
+    selfPid: 777,
+    platform: 'win32',
+    run,
+    ...overrides,
+  };
+}
+
+describe('verifyNmCaller on win32', () => {
+  it('walks the full chain: socket owner → host path → browser Authenticode signer', async () => {
+    const verdict = await verifyNmCaller(windowsOptions(windowsRunner()));
+    expect(verdict).toEqual({
+      ok: true,
+      browser: { subjectCommonName: 'Microsoft Corporation', name: 'Microsoft Edge' },
+      browserPath: WIN_EDGE_PATH,
+    });
+  });
+
+  it('compares host paths case-insensitively', async () => {
+    const verdict = await verifyNmCaller(
+      windowsOptions(windowsRunner({ hostPath: WIN_HOST_PATH.toUpperCase() }), {
+        expectedHostPath: WIN_HOST_PATH.toLowerCase(),
+      }),
+    );
+    // The runner keys signature answers off the exact reported path, so
+    // only the path-equality leg is under test here.
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('refuses when no socket owner matches the client port', async () => {
+    const verdict = await verifyNmCaller(windowsOptions(windowsRunner(), { clientPort: 60000 }));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('owner-not-found');
+  });
+
+  it('refuses a socket owner that is not the shipped NM host', async () => {
+    const verdict = await verifyNmCaller(windowsOptions(windowsRunner({ hostPath: 'C:\\Temp\\impostor.exe' })));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('host-mismatch');
+  });
+
+  it('requires a Valid Authenticode host signature when the signed posture asks for it', async () => {
+    const run = windowsRunner({ hostStatus: 'NotSigned' });
+    const refused = await verifyNmCaller(windowsOptions(run, { requireHostSignature: true }));
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.reason).toBe('host-unsigned');
+    // The unsigned-channel posture skips only the host's own check.
+    const allowed = await verifyNmCaller(windowsOptions(run, { requireHostSignature: false }));
+    expect(allowed.ok).toBe(true);
+  });
+
+  it('refuses an unsigned or tampered parent browser', async () => {
+    const verdict = await verifyNmCaller(windowsOptions(windowsRunner({ browserStatus: 'HashMismatch' })));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+
+  it('refuses a parent signed by an unlisted vendor', async () => {
+    const verdict = await verifyNmCaller(windowsOptions(windowsRunner({ browserSubject: 'CN=Some Other Corp, C=US' })));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+});
+
 describe('nm bootstrap HTTP handler', () => {
   let server: Server;
   let baseUrl: string;
@@ -186,7 +380,7 @@ describe('nm bootstrap HTTP handler', () => {
     setHostLogger(consoleLogger);
     const { createHostStorageFake } = await import('../_host-storage-fake');
     setHostStorage(createHostStorageFake());
-    verdict = { ok: true, browser: { teamId: 'EQHXZ8M8AV', name: 'Google Chrome' }, browserPath: CHROME_PATH };
+    verdict = { ok: true, browser: { name: 'Google Chrome' }, browserPath: CHROME_PATH };
     seenOptions = null;
     closedTokenIds = [];
     const handler = createNmBootstrapHttpHandler({

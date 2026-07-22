@@ -14,19 +14,40 @@
  * fleets deploy the same manifests via policy templates instead — a
  * later Phase 7 slice.
  *
- * Pure path/shape derivation + injected fs seams, kept apart from the
- * Electron wiring so the whole surface is unit-testable. macOS +
- * Chromium browsers (Chrome, Chrome Beta, Edge, Brave) in this slice;
- * the target table is the extension point. Firefox needs a different
+ * Two registration mechanisms, one discipline:
+ *
+ *   - macOS: the manifest JSON lands in each browser's per-user
+ *     `NativeMessagingHosts` directory.
+ *   - Windows: Chromium browsers discover hosts through an
+ *     `HKCU\Software\<vendor>\<browser>\NativeMessagingHosts\<name>`
+ *     key whose default value points at a manifest JSON on disk — one
+ *     shared manifest file under the desktop's own data dir, one
+ *     registry key per installed vendor (Chrome's channels share the
+ *     stable key), written via `reg.exe`.
+ *
+ * Pure path/shape derivation + injected fs/command seams, kept apart
+ * from the Electron wiring so the whole surface is unit-testable.
+ * Chromium browsers (Chrome family, Edge, Brave) on both platforms;
+ * the target tables are the extension point. Firefox needs a different
  * manifest shape (`allowed_extensions`) and caller-chain work — its own
  * slice.
  */
 
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /** The name extensions call `chrome.runtime.sendNativeMessage` with. */
 export const NM_HOST_NAME = 'io.openheaders.nm_bootstrap';
+
+/**
+ * Whether packaged Windows builds carry an Authenticode signature on
+ * the shipped binaries. Beta-channel Windows builds ship unsigned by
+ * design; flips on (or becomes channel-derived) when production
+ * signing starts. The daemon's verification chain fully supports host
+ * signature checks on win32 — this constant is the only gate.
+ */
+export const WINDOWS_HOST_BINARY_SIGNED = false;
 
 /** The published Chrome Web Store extension id. */
 export const CHROME_EXTENSION_ID = 'ablaikadpbfblkmhpmbbnbbfjoibeejb';
@@ -45,12 +66,15 @@ export interface NmHostBinaryFacts {
   resourcesPath: string;
   /** `app.getAppPath()` — `apps/desktop` in dev. */
   appPath: string;
+  /** `process.platform` — picks the binary name (`.exe` on Windows). */
+  platform: NodeJS.Platform;
 }
 
 /** Where the shipped NM host binary is expected to live. */
 export function nmHostBinaryCandidate(facts: NmHostBinaryFacts): string {
-  if (facts.isPackaged) return path.join(facts.resourcesPath, 'nm-host', 'oh-nm-host');
-  return path.resolve(facts.appPath, '..', 'nm-host', 'dist-bun', 'oh-nm-host');
+  const binaryName = facts.platform === 'win32' ? 'oh-nm-host.exe' : 'oh-nm-host';
+  if (facts.isPackaged) return path.join(facts.resourcesPath, 'nm-host', binaryName);
+  return path.resolve(facts.appPath, '..', 'nm-host', 'dist-bun', binaryName);
 }
 
 export interface NmManifestTarget {
@@ -154,6 +178,169 @@ export function registerNmManifests(options: RegisterNmManifestsOptions): NmMani
       results.push({ browser: target.browser, manifestPath, action: 'registered' });
     } catch {
       results.push({ browser: target.browser, manifestPath, action: 'skipped' });
+    }
+  }
+  return results;
+}
+
+// ── Windows: registry-keyed manifests ────────────────────────────────
+
+export interface NmRegistryTarget {
+  /** Display name for the boot log. */
+  readonly browser: string;
+  /**
+   * Per-user profile roots that mark the browser as installed —
+   * registration is skipped when none exists. A vendor whose channels
+   * share one registry key lists every channel's root here.
+   */
+  readonly presenceRoots: readonly string[];
+  /** The HKCU NativeMessagingHosts key whose default value is the manifest path. */
+  readonly registryKey: string;
+}
+
+/**
+ * Windows per-user registry targets, Chromium family. Chrome's
+ * channels (stable/beta/dev/canary) all read the stable
+ * `Software\Google\Chrome` key, so the family is one target with
+ * every channel's profile root as a presence marker.
+ */
+export function windowsNmManifestTargets(localAppDataDir: string): NmRegistryTarget[] {
+  const hostKey = (...vendorSegments: string[]): string =>
+    ['HKCU\\Software', ...vendorSegments, 'NativeMessagingHosts', NM_HOST_NAME].join('\\');
+  return [
+    {
+      browser: 'Google Chrome',
+      presenceRoots: [
+        path.join(localAppDataDir, 'Google', 'Chrome', 'User Data'),
+        path.join(localAppDataDir, 'Google', 'Chrome Beta', 'User Data'),
+      ],
+      registryKey: hostKey('Google', 'Chrome'),
+    },
+    {
+      browser: 'Microsoft Edge',
+      presenceRoots: [path.join(localAppDataDir, 'Microsoft', 'Edge', 'User Data')],
+      registryKey: hostKey('Microsoft', 'Edge'),
+    },
+    {
+      browser: 'Brave Browser',
+      presenceRoots: [path.join(localAppDataDir, 'BraveSoftware', 'Brave-Browser', 'User Data')],
+      registryKey: hostKey('BraveSoftware', 'Brave-Browser'),
+    },
+  ];
+}
+
+export interface RegistryCommandResult {
+  readonly stdout: string;
+  readonly code: number;
+}
+
+/** `reg.exe` seam — query/add against the per-user hive. */
+export type RegistryRunner = (args: readonly string[]) => Promise<RegistryCommandResult>;
+
+const REG_COMMAND_TIMEOUT_MS = 10_000;
+
+const defaultRegistryRunner: RegistryRunner = (args) =>
+  new Promise((resolve) => {
+    execFile('reg.exe', [...args], { timeout: REG_COMMAND_TIMEOUT_MS }, (err, stdout) => {
+      resolve({ stdout: String(stdout), code: err === null ? 0 : typeof err.code === 'number' ? err.code : 1 });
+    });
+  });
+
+/** Extract the default value from `reg query <key> /ve` output. */
+export function parseRegQueryDefaultValue(output: string): string | null {
+  const match = output.match(/\(Default\)\s+REG_SZ\s+(.+)/);
+  if (!match) return null;
+  const value = match[1].trim();
+  return value.length > 0 ? value : null;
+}
+
+export interface RegisterWindowsNmManifestsOptions {
+  readonly hostBinaryPath: string;
+  /** Where the shared manifest JSON lands (the desktop's own data dir). */
+  readonly manifestDir: string;
+  readonly targets: readonly NmRegistryTarget[];
+  readonly allowedExtensionIds: readonly string[];
+  /** Test seam — defaults to the real filesystem. */
+  readonly fileSystem?: NmManifestFs;
+  /** Test seam — defaults to real `reg.exe`. */
+  readonly runRegistry?: RegistryRunner;
+}
+
+export interface NmRegistryRegistration {
+  readonly browser: string;
+  readonly registryKey: string;
+  readonly action: 'registered' | 'repaired' | 'unchanged' | 'skipped';
+}
+
+/**
+ * Write/repair the shared manifest file + per-vendor registry keys for
+ * every installed browser target. Same discipline as the macOS dirs:
+ * register on first boot, repair a drifted key or manifest, leave a
+ * settled pair untouched, skip absent browsers, and never throw — a
+ * broken vendor entry must not break boot.
+ */
+export async function registerWindowsNmManifests(
+  options: RegisterWindowsNmManifestsOptions,
+): Promise<NmRegistryRegistration[]> {
+  const fileSystem = options.fileSystem ?? realFs;
+  const runRegistry = options.runRegistry ?? defaultRegistryRunner;
+  const content = buildNmManifest(options.hostBinaryPath, options.allowedExtensionIds);
+  const manifestPath = path.join(options.manifestDir, `${NM_HOST_NAME}.json`);
+  const results: NmRegistryRegistration[] = [];
+  const installedTargets = options.targets.filter((target) =>
+    target.presenceRoots.some((root) => fileSystem.existsSync(root)),
+  );
+
+  // The manifest file is shared across vendors — settle it once, and
+  // only when at least one browser will point at it (no litter on a
+  // browserless machine). A repaired file marks every settled key
+  // repaired too: the registry value is unchanged but what the browser
+  // reads through it isn't.
+  let manifestChanged = false;
+  if (installedTargets.length > 0) {
+    try {
+      const current = fileSystem.existsSync(manifestPath) ? fileSystem.readFileSync(manifestPath) : null;
+      if (current !== content) {
+        fileSystem.mkdirSync(options.manifestDir);
+        fileSystem.writeFileSync(manifestPath, content);
+        manifestChanged = current !== null;
+      }
+    } catch {
+      // An unwritable data dir fails every target below via the
+      // registry value pointing at a stale/absent manifest; per-target
+      // reg failures already fold to 'skipped'.
+    }
+  }
+
+  for (const target of options.targets) {
+    if (!installedTargets.includes(target)) {
+      results.push({ browser: target.browser, registryKey: target.registryKey, action: 'skipped' });
+      continue;
+    }
+    try {
+      const query = await runRegistry(['query', target.registryKey, '/ve']);
+      const currentValue = query.code === 0 ? parseRegQueryDefaultValue(query.stdout) : null;
+      const settled = currentValue !== null && currentValue.toLowerCase() === manifestPath.toLowerCase();
+      if (settled) {
+        results.push({
+          browser: target.browser,
+          registryKey: target.registryKey,
+          action: manifestChanged ? 'repaired' : 'unchanged',
+        });
+        continue;
+      }
+      const add = await runRegistry(['add', target.registryKey, '/ve', '/t', 'REG_SZ', '/d', manifestPath, '/f']);
+      if (add.code !== 0) {
+        results.push({ browser: target.browser, registryKey: target.registryKey, action: 'skipped' });
+        continue;
+      }
+      results.push({
+        browser: target.browser,
+        registryKey: target.registryKey,
+        action: currentValue === null ? 'registered' : 'repaired',
+      });
+    } catch {
+      results.push({ browser: target.browser, registryKey: target.registryKey, action: 'skipped' });
     }
   }
   return results;

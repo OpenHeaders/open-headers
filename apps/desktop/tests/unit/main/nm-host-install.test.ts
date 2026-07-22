@@ -1,9 +1,11 @@
 /**
  * NM bootstrap host install — binary path derivation (packaged
- * extraResource vs monorepo sibling), the manifest document shape, and
- * the auto-register/repair discipline over an in-memory fs: register
- * on first boot, repair a drifted manifest, leave an identical one
- * untouched, and skip browsers that aren't installed.
+ * extraResource vs monorepo sibling, platform-suffixed name), the
+ * manifest document shape, and the auto-register/repair discipline on
+ * both mechanisms over in-memory seams: macOS NativeMessagingHosts
+ * dirs and Windows HKCU registry keys — register on first boot, repair
+ * drift, leave a settled target untouched, and skip browsers that
+ * aren't installed.
  */
 
 import * as path from 'node:path';
@@ -16,7 +18,11 @@ import {
   NM_HOST_NAME,
   type NmManifestFs,
   nmHostBinaryCandidate,
+  parseRegQueryDefaultValue,
+  type RegistryRunner,
   registerNmManifests,
+  registerWindowsNmManifests,
+  windowsNmManifestTargets,
 } from '../../../src/main/nm-host-install';
 
 const HOST_PATH = '/Applications/OpenHeaders.app/Contents/Resources/nm-host/oh-nm-host';
@@ -27,6 +33,7 @@ describe('nmHostBinaryCandidate', () => {
       isPackaged: true,
       resourcesPath: '/Applications/OpenHeaders.app/Contents/Resources',
       appPath: '/Applications/OpenHeaders.app/Contents/Resources/app.asar',
+      platform: 'darwin',
     });
     expect(candidate).toBe(path.join('/Applications/OpenHeaders.app/Contents/Resources', 'nm-host', 'oh-nm-host'));
   });
@@ -36,8 +43,19 @@ describe('nmHostBinaryCandidate', () => {
       isPackaged: false,
       resourcesPath: '/somewhere/electron/resources',
       appPath: '/repo/apps/desktop',
+      platform: 'darwin',
     });
     expect(candidate).toBe(path.resolve('/repo/apps/nm-host/dist-bun/oh-nm-host'));
+  });
+
+  it('appends the .exe suffix on win32', () => {
+    const candidate = nmHostBinaryCandidate({
+      isPackaged: true,
+      resourcesPath: 'C:\\Program Files\\OpenHeaders\\resources',
+      appPath: 'C:\\Program Files\\OpenHeaders\\resources\\app.asar',
+      platform: 'win32',
+    });
+    expect(candidate).toBe(path.join('C:\\Program Files\\OpenHeaders\\resources', 'nm-host', 'oh-nm-host.exe'));
   });
 });
 
@@ -195,5 +213,168 @@ describe('registerNmManifests', () => {
       'Brave Browser:unchanged',
     ]);
     expect(fs.files.get(path.join(edge.manifestDir, `${NM_HOST_NAME}.json`))).toBe(unionContent);
+  });
+});
+
+describe('windowsNmManifestTargets', () => {
+  it('lists per-vendor registry keys with channel-aware presence roots', () => {
+    const localAppData = path.join('C:', 'Users', 'casey', 'AppData', 'Local');
+    expect(windowsNmManifestTargets(localAppData)).toEqual([
+      {
+        browser: 'Google Chrome',
+        presenceRoots: [
+          path.join(localAppData, 'Google', 'Chrome', 'User Data'),
+          path.join(localAppData, 'Google', 'Chrome Beta', 'User Data'),
+        ],
+        registryKey: `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${NM_HOST_NAME}`,
+      },
+      {
+        browser: 'Microsoft Edge',
+        presenceRoots: [path.join(localAppData, 'Microsoft', 'Edge', 'User Data')],
+        registryKey: `HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\${NM_HOST_NAME}`,
+      },
+      {
+        browser: 'Brave Browser',
+        presenceRoots: [path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'User Data')],
+        registryKey: `HKCU\\Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts\\${NM_HOST_NAME}`,
+      },
+    ]);
+  });
+});
+
+describe('parseRegQueryDefaultValue', () => {
+  it('extracts the default REG_SZ value from reg query output', () => {
+    const output = [
+      '',
+      `HKEY_CURRENT_USER\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\${NM_HOST_NAME}`,
+      '    (Default)    REG_SZ    C:\\Users\\casey\\AppData\\Roaming\\OpenHeaders\\nm-host\\manifest.json',
+      '',
+    ].join('\r\n');
+    expect(parseRegQueryDefaultValue(output)).toBe(
+      'C:\\Users\\casey\\AppData\\Roaming\\OpenHeaders\\nm-host\\manifest.json',
+    );
+  });
+
+  it('answers null when no default value row exists', () => {
+    expect(parseRegQueryDefaultValue('')).toBeNull();
+    expect(parseRegQueryDefaultValue('ERROR: The system was unable to find the specified registry key.')).toBeNull();
+  });
+});
+
+interface FakeRegistry {
+  values: Map<string, string>;
+  adds: string[][];
+  run: RegistryRunner;
+}
+
+function fakeRegistry(seed: Record<string, string> = {}): FakeRegistry {
+  const values = new Map(Object.entries(seed));
+  const adds: string[][] = [];
+  const run: RegistryRunner = async (args) => {
+    if (args[0] === 'query') {
+      const value = values.get(args[1]);
+      if (value === undefined) return { stdout: '', code: 1 };
+      return { stdout: `\r\n${args[1]}\r\n    (Default)    REG_SZ    ${value}\r\n`, code: 0 };
+    }
+    if (args[0] === 'add') {
+      adds.push([...args]);
+      values.set(args[1], args[6]);
+      return { stdout: 'The operation completed successfully.', code: 0 };
+    }
+    return { stdout: '', code: 1 };
+  };
+  return { values, adds, run };
+}
+
+describe('registerWindowsNmManifests', () => {
+  const WIN_HOST = 'C:\\Program Files\\OpenHeaders\\resources\\nm-host\\oh-nm-host.exe';
+  const localAppData = path.join('C:', 'Users', 'casey', 'AppData', 'Local');
+  const manifestDir = path.join('C:', 'Users', 'casey', 'AppData', 'Roaming', 'OpenHeaders', 'nm-host');
+  const manifestPath = path.join(manifestDir, `${NM_HOST_NAME}.json`);
+  const targets = windowsNmManifestTargets(localAppData);
+  const edge = targets[1];
+  const expected = buildNmManifest(WIN_HOST, [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID]);
+
+  function register(fileSystem: NmManifestFs, runRegistry: RegistryRunner, only = [edge]) {
+    return registerWindowsNmManifests({
+      hostBinaryPath: WIN_HOST,
+      manifestDir,
+      targets: only,
+      allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      fileSystem,
+      runRegistry,
+    });
+  }
+
+  it('writes the shared manifest and registers a fresh key for an installed browser', async () => {
+    const fs = fakeFs({ dirs: [edge.presenceRoots[0]] });
+    const reg = fakeRegistry();
+    expect(await register(fs, reg.run)).toEqual([
+      { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'registered' },
+    ]);
+    expect(fs.files.get(manifestPath)).toBe(expected);
+    expect(reg.values.get(edge.registryKey)).toBe(manifestPath);
+    expect(reg.adds).toEqual([['add', edge.registryKey, '/ve', '/t', 'REG_SZ', '/d', manifestPath, '/f']]);
+  });
+
+  it('repairs a key pointing somewhere else', async () => {
+    const fs = fakeFs({ dirs: [edge.presenceRoots[0], manifestDir], files: { [manifestPath]: expected } });
+    const reg = fakeRegistry({ [edge.registryKey]: 'C:\\old\\manifest.json' });
+    expect(await register(fs, reg.run)).toEqual([
+      { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'repaired' },
+    ]);
+    expect(reg.values.get(edge.registryKey)).toBe(manifestPath);
+  });
+
+  it('marks a settled key repaired when the manifest content itself drifted', async () => {
+    const stale = buildNmManifest('C:\\old\\oh-nm-host.exe', [CHROME_EXTENSION_ID]);
+    const fs = fakeFs({ dirs: [edge.presenceRoots[0], manifestDir], files: { [manifestPath]: stale } });
+    const reg = fakeRegistry({ [edge.registryKey]: manifestPath });
+    expect(await register(fs, reg.run)).toEqual([
+      { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'repaired' },
+    ]);
+    expect(fs.files.get(manifestPath)).toBe(expected);
+    expect(reg.adds).toEqual([]);
+  });
+
+  it('leaves a settled key and manifest untouched, comparing paths case-insensitively', async () => {
+    const fs = fakeFs({ dirs: [edge.presenceRoots[0], manifestDir], files: { [manifestPath]: expected } });
+    const reg = fakeRegistry({ [edge.registryKey]: manifestPath.toUpperCase() });
+    expect(await register(fs, reg.run)).toEqual([
+      { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'unchanged' },
+    ]);
+    expect(fs.writes).toEqual([]);
+    expect(reg.adds).toEqual([]);
+  });
+
+  it('skips browsers that are not installed without touching disk or registry', async () => {
+    const fs = fakeFs();
+    const reg = fakeRegistry();
+    expect((await register(fs, reg.run, [...targets])).map((r) => `${r.browser}:${r.action}`)).toEqual([
+      'Google Chrome:skipped',
+      'Microsoft Edge:skipped',
+      'Brave Browser:skipped',
+    ]);
+    expect(fs.writes).toEqual([]);
+    expect(reg.adds).toEqual([]);
+  });
+
+  it('recognizes any channel profile root as vendor presence', async () => {
+    const chrome = targets[0];
+    const fs = fakeFs({ dirs: [chrome.presenceRoots[1]] });
+    const reg = fakeRegistry();
+    expect(await register(fs, reg.run, [chrome])).toEqual([
+      { browser: 'Google Chrome', registryKey: chrome.registryKey, action: 'registered' },
+    ]);
+  });
+
+  it('answers skipped instead of throwing when reg add fails', async () => {
+    const fs = fakeFs({ dirs: [edge.presenceRoots[0]] });
+    const reg = fakeRegistry();
+    const failingRun: RegistryRunner = async (args) =>
+      args[0] === 'add' ? { stdout: 'ERROR: Access is denied.', code: 1 } : reg.run(args);
+    expect(await register(fs, failingRun)).toEqual([
+      { browser: 'Microsoft Edge', registryKey: edge.registryKey, action: 'skipped' },
+    ]);
   });
 });
