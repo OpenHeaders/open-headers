@@ -34,7 +34,8 @@
     "identity",
     "offscreen",
     "proxy",
-    "favicon"
+    "favicon",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "<all_urls>",

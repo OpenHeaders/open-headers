@@ -31,6 +31,7 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).route).toBe('healthz');
     expect(routePostureFor(facts({ path: '/metrics' })).route).toBe('metrics');
     expect(routePostureFor(facts({ path: '/pair/123456' })).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: '/nm/bootstrap' })).route).toBe('nm');
     expect(routePostureFor(facts({ path: MCP_HTTP_PATH })).route).toBe('mcp');
     expect(routePostureFor(facts({ path: `${MCP_HTTP_PATH}/` })).route).toBe('mcp');
     expect(routePostureFor(facts({ path: '/anything-else' })).route).toBe('default');

@@ -89,6 +89,7 @@ import {
 import { resumeOrphanedMigrationPull } from './modules/migration-run/orphan-resume';
 import { rehydrateCacheBypassFromSessionRules } from './modules/net/cache-bypass';
 import { rehydrateNetworkConditionsFromSession } from './modules/net/network-conditions';
+import { runNmBootstrap } from './modules/nm-bootstrap';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { auditHostPermissions } from './modules/permissions-audit';
@@ -245,6 +246,18 @@ async function initializeExtension(): Promise<void> {
   // an exclusive cred against the still-live backend — it banners + re-pairs
   // instead. Sticky across the reconnect-backoff flap (see `isBackendEvicting`).
   setBackendEvictedProbe(() => syncWiring.isAnyBackendEvicting());
+  // NM identity bootstrap (OBSERVABILITY_PLAN.md Phase 7): a loopback
+  // backend with no credential — or one actively evicting this peer —
+  // asks the desktop's native-messaging host for an nmSession token.
+  // Fire-and-forget: a written token flips the registry fingerprint and
+  // the connection plane redials on its own; every failure leaves the
+  // device-flow pairing gesture as the path.
+  const attemptNmBootstrap = (): void => {
+    void runNmBootstrap({
+      isBackendEvicting: (backendId) => syncWiring.get(backendId)?.isBackendEvicting() ?? false,
+    }).catch((err: unknown) => logger.warn('Background', 'NM bootstrap attempt failed', err));
+  };
+  attemptNmBootstrap();
   // Offline fallback (WS-C C14): give the live scheduler a read of the
   // workspace's frozen priority list + this host's identity so an
   // *exclusive* workflow whose configured backend is offline runs on
@@ -284,6 +297,10 @@ async function initializeExtension(): Promise<void> {
     void reconcileLiveSchedules().catch((err: unknown) =>
       logger.warn('Background', 'Live reconcile after socket close failed', err),
     );
+    // A close caused by eviction (revoked/rotated token) is the NM
+    // re-bootstrap trigger; the module's per-token guard makes every
+    // other close a no-op.
+    attemptNmBootstrap();
   });
   __setSyncWarmRunner(refreshLiveWorkflowSynchronously);
 

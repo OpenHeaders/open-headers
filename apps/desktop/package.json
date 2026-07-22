@@ -96,6 +96,10 @@
       {
         "from": "../web/dist",
         "to": "web"
+      },
+      {
+        "from": "../nm-host/dist-bun",
+        "to": "nm-host"
       }
     ],
     "asarUnpack": [

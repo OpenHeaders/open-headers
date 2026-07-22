@@ -50,6 +50,11 @@ export interface MintDaemonAuthTokenInput {
    * `session`.
    */
   kind?: DaemonAuthTokenKind;
+  /**
+   * `nmSession` mints only: the calling extension install's stable id,
+   * persisted so a re-bootstrap can revoke exactly its predecessor.
+   */
+  nmInstallId?: string;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
 }
@@ -156,6 +161,7 @@ export async function mintDaemonAuthToken(input: MintDaemonAuthTokenInput = {}):
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
     kind: input.kind ?? 'apiToken',
     ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
+    ...(input.nmInstallId !== undefined ? { nmInstallId: input.nmInstallId } : {}),
     createdAt: now,
     lastUsedAt: null,
     revokedAt: null,

@@ -17,11 +17,14 @@ import * as v from 'valibot';
 
 /**
  * What the token IS: an operator-minted long-lived credential
- * (`apiToken` — generate/pair/rotate/CLI `show-token`) or an
- * SSO-minted login session (`session` — only `completeLogin` stamps
- * it). Admin surfaces group on this marker; nothing sniffs labels.
+ * (`apiToken` — generate/pair/rotate/CLI `show-token`), an SSO-minted
+ * login session (`session` — only `completeLogin` stamps it), or a
+ * native-messaging bootstrap mint (`nmSession` — the verified-browser
+ * handoff; short-lived, re-minted per bootstrap with prior
+ * same-identity mints revoked). Admin surfaces group on this marker;
+ * nothing sniffs labels.
  */
-export const DaemonAuthTokenKindSchema = v.picklist(['session', 'apiToken']);
+export const DaemonAuthTokenKindSchema = v.picklist(['session', 'apiToken', 'nmSession']);
 
 export const DaemonAuthTokenSchema = v.object({
   /** UUIDv7 identifier — the public handle for revoke / list operations. */
@@ -50,6 +53,13 @@ export const DaemonAuthTokenSchema = v.object({
    * lifetime without re-authenticating against the IdP.
    */
   expiresAt: v.optional(v.pipe(v.number(), v.integer())),
+  /**
+   * `nmSession` only: the calling extension install's stable id, so a
+   * re-bootstrap revokes exactly its predecessor mint (same browser
+   * profile) and never a sibling profile's live token. A scoping key,
+   * not an identity proof — identity is the OS-verified caller chain.
+   */
+  nmInstallId: v.optional(v.string()),
   /** ms-since-epoch of mint. */
   createdAt: v.pipe(v.number(), v.integer()),
   /** ms-since-epoch of the most recent successful HELLO validation; null until first use. */

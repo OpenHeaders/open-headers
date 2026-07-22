@@ -1,0 +1,18 @@
+{
+  "name": "@openheaders/nm-host",
+  "version": "2026.7.1",
+  "private": true,
+  "description": "Open Headers native-messaging bootstrap host — token handoff only, never bulk transport",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "pack:bun": "node scripts/pack-bun.mjs",
+    "clean": "rm -rf dist-bun"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

@@ -78,6 +78,12 @@ import { createElectronUpdaterPort, updaterSupported } from './electron-updater-
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import {
+  CHROME_EXTENSION_ID,
+  macosNmManifestTargets,
+  nmHostBinaryCandidate,
+  registerNmManifests,
+} from './nm-host-install';
 import { installProductTelemetry } from './product-telemetry';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { installScriptSandbox } from './script-sandbox';
@@ -180,6 +186,34 @@ export async function installRpcHost(): Promise<void> {
   if (!webRootPresent) {
     engineLogger.info(SCOPE, `web bundle not found at ${webRoot}; the serve-web-app setting stays inert`);
   }
+  // NM identity bootstrap (Phase 7): the shipped `oh-nm-host` binary is
+  // the anchor of the daemon's caller verification, and its per-browser
+  // manifests auto-register with idempotent repair on every boot. Both
+  // stand down when the binary isn't shipped (a dev tree without
+  // `pnpm --filter @openheaders/nm-host run pack:bun`) — the extension
+  // then degrades to the device-flow pairing gesture.
+  const nmHostBinaryPath = nmHostBinaryCandidate({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+  });
+  const nmHostPresent = process.platform === 'darwin' && existsSync(nmHostBinaryPath);
+  if (nmHostPresent) {
+    const registrations = registerNmManifests({
+      hostBinaryPath: nmHostBinaryPath,
+      targets: macosNmManifestTargets(os.homedir()),
+      allowedExtensionIds: [CHROME_EXTENSION_ID],
+    });
+    for (const registration of registrations) {
+      engineLogger.info(
+        SCOPE,
+        `NM manifest ${registration.action}: ${registration.browser} → ${registration.manifestPath}`,
+      );
+    }
+  } else {
+    engineLogger.info(SCOPE, `NM host binary not found at ${nmHostBinaryPath}; identity bootstrap stays inert`);
+  }
+
   // Native-surface locale (tray / menus / dialogs) follows the same
   // settings blob — bound here because the menus install before this
   // storage backend exists.
@@ -293,6 +327,10 @@ export async function installRpcHost(): Promise<void> {
     reportSyncStatus: (entry) =>
       reportBaselineSyncStatus({ state: entry.state, message: entry.message, context: entry.context }),
     staticWeb: webRootPresent ? { rootDir: webRoot, enabled: () => serveWebApp } : undefined,
+    // Composed only when the host binary is shipped — the identity
+    // chain has no anchor without it. Signature enforcement follows the
+    // build posture: packaged builds are signed, dev artifacts aren't.
+    nmBootstrap: nmHostPresent ? { hostBinaryPath: nmHostBinaryPath, requireHostSignature: app.isPackaged } : undefined,
   });
 
   // `on-blur` commit cadence (GIT_PLAN.md §3.2): the trigger is focus

@@ -18,6 +18,10 @@
  *                      own served origin (the confirm form's same-origin
  *                      POST carries one). Cross-origin browser POSTs are
  *                      forged confirms.
+ *   - `/nm/bootstrap` — native processes only (the shipped NM host);
+ *                      any Origin ⇒ reject, and the handler itself
+ *                      refuses non-loopback peers. A 403 (refused
+ *                      identity chain) counts as a brute-force failure.
  *   - `/mcp`         — native processes only; any Origin ⇒ reject
  *                      (pinned in the MCP epic, don't re-open).
  *   - `/auth/oidc/*` — active only when SSO is configured. Top-level
@@ -55,6 +59,7 @@
 
 import { isIP } from 'node:net';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
+import { NM_BOOTSTRAP_PATH } from './nm/nm-bootstrap-http';
 
 /** The header facts admission is decided on, extracted from one request. */
 export interface AdmissionRequestFacts {
@@ -73,6 +78,7 @@ export type AdmissionRoute =
   | 'metrics'
   | 'ws-upgrade'
   | 'pairing'
+  | 'nm'
   | 'mcp'
   | 'oidc'
   | 'password'
@@ -139,6 +145,10 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // 404 = a pairing-code guess. 410 (expired/consumed) is a legitimate
   // user racing the 5-minute window, not an attack signal.
   pairing: { route: 'pairing', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
+  // The NM host is a native process (no Origin, loopback by
+  // construction — the handler re-checks the peer address). A 403 is a
+  // refused identity chain: a local process probing for a token.
+  nm: { route: 'nm', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [403] },
   mcp: { route: 'mcp', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [401] },
   // 404 = a claim-code guess (the one-shot code the callback redirect
   // hands the SPA). Redirect-shaped failures (bad state, refused login)
@@ -159,6 +169,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.path === HEALTHZ_PATH) return ROUTE_POSTURES.healthz;
   if (facts.path === METRICS_PATH) return ROUTE_POSTURES.metrics;
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
+  if (facts.path === NM_BOOTSTRAP_PATH) return ROUTE_POSTURES.nm;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
   if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;
   if (options.passwordEnabled && facts.path.startsWith(PASSWORD_PATH_PREFIX)) return ROUTE_POSTURES.password;

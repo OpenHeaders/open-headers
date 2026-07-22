@@ -157,6 +157,7 @@ import { createMdnsAdvertiser } from './mdns/mdns-advertiser';
 import { createMetricsProvider } from './metrics';
 import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
+import { createNmBootstrapHttpHandler } from './nm/nm-bootstrap-http';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import type { DaemonOidcConfig } from './oidc/oidc-config';
 import { createOidcHttpHandler } from './oidc/oidc-http';
@@ -305,6 +306,23 @@ export interface DaemonSpineConfig {
    * admin, so redemption stays open there.
    */
   personalSeats?: boolean;
+  /**
+   * NM identity bootstrap (OBSERVABILITY_PLAN.md §8 Phase 7) — composed
+   * only when this host ships the NM host binary (the desktop app).
+   * `hostBinaryPath` anchors the caller verification chain; a headless
+   * daemon omits the whole block and the `/nm/bootstrap` route simply
+   * doesn't exist.
+   */
+  nmBootstrap?: {
+    /** Absolute path of the shipped NM host binary. */
+    hostBinaryPath: string;
+    /**
+     * Require a valid code signature on the host binary. Packaged
+     * builds pass true; dev builds run an unsigned local artifact and
+     * rely on the path check alone. Absent = required.
+     */
+    requireHostSignature?: boolean;
+  };
   staticWeb?: {
     rootDir: string;
     /**
@@ -660,6 +678,19 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {},
   );
   const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
+
+  // 4b'''. NM identity bootstrap (Phase 7) — `/nm/bootstrap`, composed
+  //        only when the host ships the NM host binary. Verification is
+  //        all OS truth (socket owner → host binary → spawning
+  //        browser's signature); a revoked predecessor's live sockets
+  //        are evicted through the same server slot tokens.revoke uses.
+  const nmBootstrapHttpHandler = config.nmBootstrap
+    ? createNmBootstrapHttpHandler({
+        hostBinaryPath: config.nmBootstrap.hostBinaryPath,
+        requireHostSignature: config.nmBootstrap.requireHostSignature ?? true,
+        closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
+      })
+    : null;
 
   // 4b''. Daemon-admin channel table (pairing/tokens/users/grants + the
   //       admin probe) — ONE implementation for both admission postures:
@@ -1165,6 +1196,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           healthzHandler(req, res) ||
           metricsHttpHandler(req, res) ||
           pairingHttpHandler(req, res) ||
+          (nmBootstrapHttpHandler !== null && nmBootstrapHttpHandler(req, res)) ||
           mcpInstall.handler(req, res) ||
           (oidcHttpHandler !== null && oidcHttpHandler(req, res)) ||
           (passwordHttpHandler !== null && passwordHttpHandler(req, res)) ||
