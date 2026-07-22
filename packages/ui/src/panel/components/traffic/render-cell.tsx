@@ -77,6 +77,9 @@ export interface CellContext {
   annotationMessages: RowAnnotationMessages;
   /** Open the row's inspector tab at the annotation's detail section. */
   onAnnotationJump: (requestId: string) => void;
+  /** Wire-join: jump from a wire row's `wire-seen` annotation to the
+   *  browser-tab source that also witnessed the exchange. */
+  onWireSeenJump?: (requestId: string) => void;
   /** Cell copy resolved once per locale — see {@link CellMessages}. */
   cellMessages: CellMessages;
 }

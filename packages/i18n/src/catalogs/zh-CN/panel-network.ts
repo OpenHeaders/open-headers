@@ -427,4 +427,12 @@ export const panelNetwork = {
   'panel.rowAnnotations.redirectRule.label': '重定向规则',
   'panel.rowAnnotations.redirectRule.detail':
     '此重定向是 Open Headers 在应用重定向规则，而不是服务器所为。它以内部重定向的方式执行，因此原始请求显示为独立的一跳，然后请求继续前往改写后的 URL。',
+  'panel.rowAnnotations.wireJoined.label': '已合并线路捕获',
+  'panel.rowAnnotations.wireJoined.detail':
+    '此交换也被本地代理在线路上捕获。该捕获提供的线路上实际标头、实测大小和套接字耗时会补全浏览器捕获自身未记录的部分。',
+  'panel.rowAnnotations.wireSeen.label': '曾在浏览器标签页中出现',
+  'panel.rowAnnotations.wireSeen.detail':
+    '此线路交换也在浏览器标签页 {tab} 中被观察到——两行是同一请求，从两侧分别见证。',
+  'panel.rowAnnotations.wireSeen.unknownTab': '受观察的标签页',
+  'panel.rowAnnotations.wireSeen.jump': '在标签页来源中显示',
 } as const satisfies Catalog;

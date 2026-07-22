@@ -73,6 +73,12 @@ interface InspectorDetailContentProps {
   source: LifecycleSource;
   /** Ask the engine to fetch this hop's response body (CDP rows, on demand). */
   requestResponseBody: (requestId: string, hopIndex: number) => void;
+  /** Wire-join (Phase 6): requestIds carrying a derived wire layer — feeds
+   *  the insight cards and admits the lazy body fetch for a joined row
+   *  whose own correlator can't serve one. */
+  wireJoinedIds?: ReadonlySet<string>;
+  /** Wire-join, Wire source detail: wireRequestId → witnessing tab title. */
+  wireSeenLabels?: ReadonlyMap<string, string | null>;
   /** Open (or switch to) the Matched Rules tool window. */
   onShowMatchedRules: () => void;
   /** Open a jar cookie as an editor-tab document (the Cookies tab's
@@ -197,6 +203,8 @@ export function InspectorDetailContent({
   onSectionChange,
   source,
   requestResponseBody,
+  wireJoinedIds,
+  wireSeenLabels,
   onShowMatchedRules,
   onOpenCookieDocument,
   searchHighlight,
@@ -251,8 +259,18 @@ export function InspectorDetailContent({
   // annotation rail glyph reads; the Headers tab renders them as insight
   // cards so glyph and explanation can never diverge.
   const rowAnnotations = useMemo<readonly RowAnnotation[]>(
-    () => classifyRowAnnotations(lc, { anchor: supersessionAnchorFromPages(pages), source }, row.redirectRewrite),
-    [lc, pages, source, row.redirectRewrite],
+    () =>
+      classifyRowAnnotations(
+        lc,
+        {
+          anchor: supersessionAnchorFromPages(pages),
+          source,
+          ...(wireJoinedIds !== undefined ? { wireJoinedIds } : {}),
+          ...(wireSeenLabels !== undefined ? { wireSeenLabels } : {}),
+        },
+        row.redirectRewrite,
+      ),
+    [lc, pages, source, row.redirectRewrite, wireJoinedIds, wireSeenLabels],
   );
   // Live Rules Mode system-attribution gate: yellow the cache-bypass
   // request headers when a user header rule fired and didn't itself
@@ -428,15 +446,17 @@ export function InspectorDetailContent({
   // attached session per-request round-trips, and the proxy partition
   // retains bodies out-of-row in the daemon's body store — so when the
   // user opens Response/Preview and the body slot is still empty, ask
-  // for it. The request is de-duped per hop in the client; the body
-  // lands as a `body-attached` update and the classifier's `loading`
-  // covers the gap.
+  // for it. A wire-joined row is admitted too: its own correlator has no
+  // body, but the composed pull routes the fetch to the wire twin. The
+  // request is de-duped per hop in the client; the body lands as a
+  // `body-attached` update and the classifier's `loading` covers the gap.
+  const wireJoined = wireJoinedIds?.has(lc.requestId) === true;
   useEffect(() => {
-    if (source !== 'cdp' && source !== 'proxy') return;
+    if (source !== 'cdp' && source !== 'proxy' && !wireJoined) return;
     if (section !== 'response' && section !== 'preview') return;
     if (currentResponseBody(lc) !== null) return;
     requestResponseBody(lc.requestId, lc.redirectHopCount);
-  }, [source, section, lc, requestResponseBody]);
+  }, [source, section, lc, requestResponseBody, wireJoined]);
 
   return (
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

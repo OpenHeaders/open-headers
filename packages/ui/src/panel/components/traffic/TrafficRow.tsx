@@ -76,6 +76,7 @@ function TrafficRowImpl({
         messages={ctx.annotationMessages}
         redirectRewrite={row.redirectRewrite}
         onJump={ctx.onAnnotationJump}
+        onWireSeenJump={ctx.onWireSeenJump}
       />
       {columns.map((col) => (
         <span key={col.key} className={col.align === 'right' ? 'dt-col-right' : undefined}>

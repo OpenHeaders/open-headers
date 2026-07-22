@@ -551,4 +551,15 @@ export const panelNetwork = {
     'Diese Umleitung ist Open Headers beim Anwenden einer Umleitungsregel, nicht der Server. Sie läuft als ' +
     'interne Umleitung, sodass die ursprüngliche Anfrage als eigener Sprung erscheint, bevor die Anfrage zur ' +
     'umgeschriebenen URL weitergeht.',
+  'panel.rowAnnotations.wireJoined.label': 'Leitungsmitschnitt verknüpft',
+  'panel.rowAnnotations.wireJoined.detail':
+    'Dieser Austausch wurde auch auf der Leitung vom lokalen Proxy mitgeschnitten. Exakte Header auf der ' +
+    'Leitung, gemessene Größen und Socket-Zeiten aus diesem Mitschnitt ergänzen, was die Browser-Erfassung ' +
+    'selbst nicht aufgezeichnet hat.',
+  'panel.rowAnnotations.wireSeen.label': 'In einem Browser-Tab gesehen',
+  'panel.rowAnnotations.wireSeen.detail':
+    'Dieser Austausch auf der Leitung wurde auch im Browser-Tab {tab} beobachtet — die beiden Zeilen sind ' +
+    'dieselbe Anfrage, von beiden Seiten bezeugt.',
+  'panel.rowAnnotations.wireSeen.unknownTab': 'ein beobachteter Tab',
+  'panel.rowAnnotations.wireSeen.jump': 'In der Tab-Quelle anzeigen',
 } as const satisfies Catalog;

@@ -91,6 +91,12 @@ export interface UseLifecycleClientOptions {
    * the local `oh-lifecycle:<tabId>` shape.
    */
   readonly portName?: (tabId: number) => string;
+  /**
+   * When `false`, no port is opened and the snapshot stays empty — the
+   * wire-join seam mounts its second (proxy-partition) client through
+   * this so hook order stays unconditional. Fixed per mount.
+   */
+  readonly enabled?: boolean;
 }
 
 export function useLifecycleClient(options: UseLifecycleClientOptions = {}): UseLifecycleClientResult {
@@ -111,6 +117,7 @@ export function useLifecycleClient(options: UseLifecycleClientOptions = {}): Use
   const { tabId, post } = useLifelineClient<LifecycleWireMessage>({
     portName: options.portName ?? lifecyclePortName,
     ...(options.tabId !== undefined ? { tabId: options.tabId } : {}),
+    ...(options.enabled !== undefined ? { enabled: options.enabled } : {}),
     onConnect: (send) => {
       requestedBodiesRef.current.clear();
       send({ kind: 'subscribe' } satisfies LifecycleSubscribeMessage);

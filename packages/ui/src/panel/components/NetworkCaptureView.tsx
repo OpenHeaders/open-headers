@@ -23,6 +23,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useWireJoin, type WireJoinMode, type WireJoinSourceRef } from '../data/use-wire-join';
 import { InspectorDetailContent } from './InspectorDetailContent';
 import { RulePopoverProvider } from './RulePopoverHost';
 import { TrafficList } from './TrafficList';
@@ -63,6 +64,25 @@ export interface NetworkCaptureViewProps {
    *  Monitor collapses the network plane to its strip row). Omitted, the
    *  minus is inert. */
   readonly onHide?: () => void;
+  /** Wire-join seam (Phase 6) — see {@link WireJoinSeam}. Omitted on
+   *  hosts without the wire capture (the in-browser panel). */
+  readonly wireJoin?: WireJoinSeam;
+  /** Jump from a wire row's `wire-seen` annotation to its tab source
+   *  (Wire source view only). */
+  readonly onWireSeenJump?: (wireRequestId: string) => void;
+}
+
+/**
+ * The host's wire-join binding for one capture surface. `'browser'`
+ * joins the watched tab's rows with the local wire partition (`nodeId`
+ * + `sourceLabel` feed the historical seen record); `'wire'` annotates
+ * the wire partition's rows from that record. Fixed per mount — the
+ * Traffic Monitor keys its views per source.
+ */
+export interface WireJoinSeam {
+  readonly mode: Exclude<WireJoinMode, 'off'>;
+  readonly nodeId?: string;
+  readonly sourceLabel?: string | null;
 }
 
 const NOOP = (): void => {};
@@ -73,18 +93,42 @@ const NOOP = (): void => {};
  * editor-tab detail mount their own instance — the engine replays the
  * partition snapshot on every subscribe, so each consumer is complete
  * and self-sufficient (the detail tab keeps working with the Proxy tool
- * window closed).
+ * window closed). The wire-join seam derives its merged rows between
+ * the client and the projection, so every consumer of `data` sees the
+ * upgraded rows through the one pipeline.
  */
-function useNetworkCaptureData(tabId: number, portName?: (tabId: number) => string) {
+function useNetworkCaptureData(tabId: number, portName?: (tabId: number) => string, wireJoin?: WireJoinSeam) {
   const lifecycleClient = useLifecycleClient({ tabId, ...(portName !== undefined ? { portName } : {}) });
+  const joinSource = useMemo<WireJoinSourceRef | undefined>(
+    () =>
+      wireJoin?.mode === 'browser' && wireJoin.nodeId !== undefined
+        ? { nodeId: wireJoin.nodeId, tabId, label: wireJoin.sourceLabel ?? null }
+        : undefined,
+    [wireJoin, tabId],
+  );
+  const wire = useWireJoin({
+    mode: wireJoin?.mode ?? 'off',
+    snapshot: lifecycleClient.snapshot,
+    ...(joinSource !== undefined ? { source: joinSource } : {}),
+  });
   const data = usePanelData({
-    lifecycle: lifecycleClient.snapshot,
+    lifecycle: wire.snapshot,
     page: EMPTY_PAGE_SNAPSHOT,
     fire: EMPTY_FIRE_SNAPSHOT,
     opts: useMemo(() => ({ consolidateRetries: false }), []),
     resourceTiming: EMPTY_RESOURCE_TIMING_SNAPSHOT,
   });
-  return { lifecycleClient, data };
+  // Composed body pull: a CDP-fed partition serves its own bodies; a
+  // joined hop on any other partition pulls from the wire twin (the
+  // body lands in the wire store and re-derives the merged row).
+  const requestResponseBody = useCallback(
+    (requestId: string, hopIndex: number) => {
+      if (lifecycleClient.source !== 'cdp' && wire.pullWireBody(requestId, hopIndex)) return;
+      lifecycleClient.requestResponseBody(requestId, hopIndex);
+    },
+    [lifecycleClient, wire],
+  );
+  return { lifecycleClient, data, wire, requestResponseBody };
 }
 
 /** The capture list — filter toolbar + columns, selection routes outward. */
@@ -95,8 +139,10 @@ export function NetworkCaptureView({
   emptyHero,
   highlightRequestId,
   onHide,
+  wireJoin,
+  onWireSeenJump,
 }: NetworkCaptureViewProps) {
-  const { data } = useNetworkCaptureData(tabId, portName);
+  const { data, wire } = useNetworkCaptureData(tabId, portName, wireJoin);
 
   // Local filter + view state — the proxy view owns its own, no shared
   // dock toolbar to sync with.
@@ -162,6 +208,9 @@ export function NetworkCaptureView({
       onFilterHintClear={NOOP}
       onFilterHintDismiss={NOOP}
       emptyHero={emptyHero}
+      {...(wire.joinedIds !== undefined ? { wireJoinedIds: wire.joinedIds } : {})}
+      {...(wire.seenLabels !== undefined ? { wireSeenLabels: wire.seenLabels } : {})}
+      {...(onWireSeenJump !== undefined ? { onWireSeenJump } : {})}
       />
     </div>
   );
@@ -174,12 +223,14 @@ export interface NetworkCaptureRequestDetailProps {
   readonly portName?: (tabId: number) => string;
   /** The captured lifecycle to inspect. */
   readonly requestId: string;
+  /** Wire-join seam — same binding as the list view's. */
+  readonly wireJoin?: WireJoinSeam;
 }
 
 /** Inner detail — assumes the popover host wraps it. */
-function NetworkCaptureRequestDetailBody({ tabId, portName, requestId }: NetworkCaptureRequestDetailProps) {
+function NetworkCaptureRequestDetailBody({ tabId, portName, requestId, wireJoin }: NetworkCaptureRequestDetailProps) {
   const t = useT();
-  const { lifecycleClient, data } = useNetworkCaptureData(tabId, portName);
+  const { lifecycleClient, data, wire, requestResponseBody } = useNetworkCaptureData(tabId, portName, wireJoin);
   const rulesByUid = useRulesLookup();
   const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
   const [activeSection, setActiveSection] = useState<DetailSection>('headers');
@@ -210,7 +261,9 @@ function NetworkCaptureRequestDetailBody({ tabId, portName, requestId }: Network
       activeSection={activeSection}
       onSectionChange={setActiveSection}
       source={lifecycleClient.source}
-      requestResponseBody={lifecycleClient.requestResponseBody}
+      requestResponseBody={requestResponseBody}
+      {...(wire.joinedIds !== undefined ? { wireJoinedIds: wire.joinedIds } : {})}
+      {...(wire.seenLabels !== undefined ? { wireSeenLabels: wire.seenLabels } : {})}
       onShowMatchedRules={NOOP}
     />
   );
@@ -222,11 +275,11 @@ function NetworkCaptureRequestDetailBody({ tabId, portName, requestId }: Network
  * workbench editor tab: it owns its own lifeline client and popover
  * host, so it renders with or without the Proxy tool window open.
  */
-export function NetworkCaptureRequestDetail({ tabId, portName, requestId }: NetworkCaptureRequestDetailProps) {
+export function NetworkCaptureRequestDetail({ tabId, portName, requestId, wireJoin }: NetworkCaptureRequestDetailProps) {
   return (
     <div className="dt-capture-surface">
       <RulePopoverProvider>
-        <NetworkCaptureRequestDetailBody tabId={tabId} portName={portName} requestId={requestId} />
+        <NetworkCaptureRequestDetailBody tabId={tabId} portName={portName} requestId={requestId} wireJoin={wireJoin} />
       </RulePopoverProvider>
     </div>
   );

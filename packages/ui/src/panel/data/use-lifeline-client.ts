@@ -43,6 +43,12 @@ export interface UseLifelineClientOptions<TWire> {
   /** Per-channel wire-message router. Called once per inbound frame. */
   readonly handler: (msg: TWire) => void;
   /**
+   * When `false`, the hook never opens the port — a safe no-op with a
+   * `null`-ish transport footprint. Fixed per mount (read once, like
+   * `tabId`): surfaces that toggle a lifeline remount with a fresh key.
+   */
+  readonly enabled?: boolean;
+  /**
    * Called after every (re)connect with a sender bound to the fresh
    * port. Channels that open with a handshake (lifecycle `subscribe`)
    * post it here so it is re-sent automatically after an SW-eviction
@@ -58,7 +64,9 @@ export interface UseLifelineClientResult {
 }
 
 export function useLifelineClient<TWire>(opts: UseLifelineClientOptions<TWire>): UseLifelineClientResult {
-  const tabIdRef = useRef<number | null>(opts.tabId ?? hostNavigation.inspectedTabId());
+  const tabIdRef = useRef<number | null>(
+    opts.enabled === false ? null : (opts.tabId ?? hostNavigation.inspectedTabId()),
+  );
 
   const handlerRef = useRef(opts.handler);
   handlerRef.current = opts.handler;

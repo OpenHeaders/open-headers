@@ -37,7 +37,8 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { ConsoleView, type RemoteConsoleCapture } from '../../../panel/components/ConsoleView';
-import { NetworkCaptureView } from '../../../panel/components/NetworkCaptureView';
+import { NetworkCaptureView, type WireJoinSeam } from '../../../panel/components/NetworkCaptureView';
+import { getWireSeen } from '../../../panel/data/wire-seen-store';
 import {
   StoragePanel,
   type OpenCacheEntryRequest,
@@ -203,6 +204,10 @@ function TrafficConsolePane({ nodeId, tabId, debug, onHide }: TrafficConsolePane
 // storage-document editor tab does the same).
 installTrafficStorageHost();
 
+// The Wire source view's join seam — annotation from the historical
+// seen record only, no extra lifeline. Static on purpose.
+const WIRE_VIEW_JOIN: WireJoinSeam = { mode: 'wire' };
+
 const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   info,
   onHide,
@@ -349,9 +354,15 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     [peers, debugControl],
   );
 
+  // Wire-join (Phase 6): a wire row's "seen on tab" annotation jumps to
+  // the browser-tab source that also witnessed it — switch the source
+  // and highlight the twin row once the tab view mounts.
+  const [pendingTabHighlight, setPendingTabHighlight] = useState<string | null>(null);
+
   const onSelect = useCallback(
     (key: string) => {
       setSelectedKey(key);
+      setPendingTabHighlight(null);
       if (key === WIRE_SOURCE_KEY) {
         setTabSelection(null);
         return;
@@ -367,6 +378,15 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     },
     [peers],
   );
+
+  const onWireSeenJump = useCallback((wireRequestId: string) => {
+    const record = getWireSeen(wireRequestId);
+    if (!record) return;
+    setSelectedKey(tabSourceKey(record.nodeId, record.tabId));
+    setTabSelection({ nodeId: record.nodeId, tabId: record.tabId });
+    setPendingTabHighlight(record.browserRequestId);
+    setNetworkCollapsed(false);
+  }, []);
 
   const inspectWireRequest = useCallback(
     (row: InspectorRowWithFires) => {
@@ -395,6 +415,16 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     [tabSelection],
   );
 
+  // Wire-join seam for the selected browser tab — join with the local
+  // wire partition when this host runs one; the tab's title labels the
+  // historical seen record the Wire view annotates from.
+  const tabWireJoin = useMemo<WireJoinSeam | undefined>(() => {
+    if (!showWire || tabSelection === null) return undefined;
+    const peer = peers.find((p) => p.nodeId === tabSelection.nodeId);
+    const title = peer?.tabs.find((tab) => tab.tabId === tabSelection.tabId)?.title ?? null;
+    return { mode: 'browser', nodeId: tabSelection.nodeId, sourceLabel: title };
+  }, [showWire, tabSelection, peers]);
+
   const wireSelected = selectedKey === WIRE_SOURCE_KEY;
 
   // Focused inspect tab → its row highlighted in the matching view
@@ -408,7 +438,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     activeTab.liveNetworkNodeId === tabSelection.nodeId &&
     activeTab.liveNetworkTabId === tabSelection.tabId
       ? (activeTab.liveNetworkRequestId ?? null)
-      : null;
+      : (pendingTabHighlight ?? null);
 
   // ── Storage pane (Phase 3) — stacked below the network view for
   // browser-tab sources only (the wire has no storage domain). ────────
@@ -657,6 +687,8 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 tabId={PROXY_LIFECYCLE_TAB_ID}
                 onInspectRequest={inspectWireRequest}
                 highlightRequestId={wireHighlight}
+                wireJoin={WIRE_VIEW_JOIN}
+                onWireSeenJump={onWireSeenJump}
                 emptyHero={
                   <div className="dt-empty-hero">
                     <strong>
@@ -693,6 +725,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                       portName={tabPortName}
                       onInspectRequest={inspectTabRequest}
                       highlightRequestId={tabHighlight}
+                      wireJoin={tabWireJoin}
                       onHide={() => setNetworkCollapsed(true)}
                       emptyHero={
                         <div className="dt-empty-hero">

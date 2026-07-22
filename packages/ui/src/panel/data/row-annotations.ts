@@ -47,7 +47,8 @@ export type RowAnnotationKind =
   | 'fidelity-gap'
   | 'synthetic'
   | 'debug-paused'
-  | 'rule-rewrite';
+  | 'rule-rewrite'
+  | 'wire-join';
 
 /** One copy variant per message — finer than `kind` where one kind has
  *  two wordings (the two synthesized-row provenances). */
@@ -59,7 +60,9 @@ export type RowAnnotationMessage =
   | 'synthetic-memory'
   | 'debug-paused'
   | 'query-param-rewrite'
-  | 'redirect-rule';
+  | 'redirect-rule'
+  | 'wire-joined'
+  | 'wire-seen';
 
 export type RowAnnotationSeverity = 'warn' | 'info';
 
@@ -70,6 +73,9 @@ export interface RowAnnotation {
   readonly message: RowAnnotationMessage;
   /** Measured debug-interception hold — part of the `debug-paused` copy. */
   readonly pausedMs?: number;
+  /** Witnessing tab's display title — part of the `wire-seen` copy;
+   *  `null` when the recording surface knew no title. */
+  readonly tabLabel?: string | null;
   /** Detail-pane section a rail click should land on. */
   readonly section: DetailSection;
 }
@@ -81,6 +87,12 @@ export interface RowAnnotationContext {
   /** Which correlator feeds the inspected tab (fidelity annotations are
    *  meta-UI and may read provenance; Chrome-parity cells never do). */
   readonly source: LifecycleSource;
+  /** Wire-join (Phase 6), browser-tab views: requestIds whose rows carry
+   *  a derived wire layer. Derived at consume, never on the lifecycle. */
+  readonly wireJoinedIds?: ReadonlySet<string>;
+  /** Wire-join, Wire source view: wireRequestId → witnessing tab's title
+   *  (`null` when unknown) from the historical seen record. */
+  readonly wireSeenLabels?: ReadonlyMap<string, string | null>;
 }
 
 const LABEL_KEY: Record<RowAnnotationMessage, MessageKey> = {
@@ -92,6 +104,8 @@ const LABEL_KEY: Record<RowAnnotationMessage, MessageKey> = {
   'debug-paused': 'panel.rowAnnotations.debugPaused.label',
   'query-param-rewrite': 'panel.rowAnnotations.queryParamRewrite.label',
   'redirect-rule': 'panel.rowAnnotations.redirectRule.label',
+  'wire-joined': 'panel.rowAnnotations.wireJoined.label',
+  'wire-seen': 'panel.rowAnnotations.wireSeen.label',
 };
 
 const DETAIL_KEY: Record<RowAnnotationMessage, MessageKey> = {
@@ -103,6 +117,8 @@ const DETAIL_KEY: Record<RowAnnotationMessage, MessageKey> = {
   'debug-paused': 'panel.rowAnnotations.debugPaused.detail',
   'query-param-rewrite': 'panel.rowAnnotations.queryParamRewrite.detail',
   'redirect-rule': 'panel.rowAnnotations.redirectRule.detail',
+  'wire-joined': 'panel.rowAnnotations.wireJoined.detail',
+  'wire-seen': 'panel.rowAnnotations.wireSeen.detail',
 };
 
 /** Resolved annotation copy for one locale. Labels and the static
@@ -115,20 +131,25 @@ export interface RowAnnotationMessages {
   readonly detail: (a: RowAnnotation) => string;
   readonly alsoOnThisRow: string;
   readonly openDetails: string;
+  readonly wireSeenJump: string;
 }
 
 export function buildRowAnnotationMessages(t: Translate): RowAnnotationMessages {
   const labels = Object.fromEntries(
     (Object.keys(LABEL_KEY) as RowAnnotationMessage[]).map((m) => [m, t(LABEL_KEY[m])]),
   ) as Record<RowAnnotationMessage, string>;
+  const unknownTab = t('panel.rowAnnotations.wireSeen.unknownTab');
   return {
     label: (a) => labels[a.message],
     detail: (a) =>
       a.message === 'debug-paused'
         ? t(DETAIL_KEY[a.message], { ms: Math.round(a.pausedMs ?? 0) })
-        : t(DETAIL_KEY[a.message]),
+        : a.message === 'wire-seen'
+          ? t(DETAIL_KEY[a.message], { tab: a.tabLabel ?? unknownTab })
+          : t(DETAIL_KEY[a.message]),
     alsoOnThisRow: t('panel.rowAnnotations.alsoOnThisRow'),
     openDetails: t('panel.rowAnnotations.openDetails'),
+    wireSeenJump: t('panel.rowAnnotations.wireSeen.jump'),
   };
 }
 
@@ -184,11 +205,23 @@ const REDIRECT_RULE_REWRITE: RowAnnotation = {
   section: 'headers',
 };
 
+const WIRE_JOINED: RowAnnotation = {
+  kind: 'wire-join',
+  severity: 'info',
+  message: 'wire-joined',
+  section: 'headers',
+};
+
 // Built per-row because the held duration is part of the copy. The hold is a
 // measured fact stamped on the lifecycle by the control plane (`pausedByDebugMs`);
 // the rail re-checks materiality as defence in depth against an immaterial value.
 function debugPausedAnnotation(pausedMs: number): RowAnnotation {
   return { kind: 'debug-paused', severity: 'info', message: 'debug-paused', pausedMs, section: 'timing' };
+}
+
+// Built per-row because the witnessing tab's title is part of the copy.
+function wireSeenAnnotation(tabLabel: string | null): RowAnnotation {
+  return { kind: 'wire-join', severity: 'info', message: 'wire-seen', tabLabel, section: 'headers' };
 }
 
 /**
@@ -258,6 +291,14 @@ export function classifyRowAnnotations(
 
   if (redirectRewrite === 'query-param') annotations.push(QUERY_PARAM_REWRITE);
   else if (redirectRewrite === 'redirect') annotations.push(REDIRECT_RULE_REWRITE);
+
+  // Wire-join provenance (Phase 6) — derived at consume from the join
+  // context, never from the lifecycle itself.
+  if (ctx.wireJoinedIds?.has(lifecycle.requestId) === true) annotations.push(WIRE_JOINED);
+  const seenLabels = ctx.wireSeenLabels;
+  if (seenLabels?.has(lifecycle.requestId) === true) {
+    annotations.push(wireSeenAnnotation(seenLabels.get(lifecycle.requestId) ?? null));
+  }
 
   return annotations;
 }

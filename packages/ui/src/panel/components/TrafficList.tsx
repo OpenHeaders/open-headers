@@ -95,6 +95,14 @@ interface TrafficListProps {
    *  browser tab ("reload the page") — surfaces watching a non-browser
    *  partition (the proxy capture view) supply their own. */
   emptyHero?: ReactNode;
+  /** Wire-join (browser-tab views): requestIds carrying a derived wire
+   *  layer — drives the rail's `wire-joined` provenance annotation. */
+  wireJoinedIds?: ReadonlySet<string>;
+  /** Wire-join (Wire source view): wireRequestId → witnessing tab title
+   *  (null when unknown) — drives the `wire-seen` annotation. */
+  wireSeenLabels?: ReadonlyMap<string, string | null>;
+  /** Jump from a wire row's `wire-seen` annotation to its tab source. */
+  onWireSeenJump?: (requestId: string) => void;
 }
 
 export function TrafficList({
@@ -129,6 +137,9 @@ export function TrafficList({
   onFilterHintClear,
   onFilterHintDismiss,
   emptyHero,
+  wireJoinedIds,
+  wireSeenLabels,
+  onWireSeenJump,
 }: TrafficListProps) {
   const {
     compact,
@@ -460,9 +471,15 @@ export function TrafficList({
       cdpEnhanced,
       connectionOpeners,
       resolvedInitiators,
-      annotationCtx: { anchor: superseded, source: cdpEnhanced ? 'cdp' : 'heuristic' },
+      annotationCtx: {
+        anchor: superseded,
+        source: cdpEnhanced ? 'cdp' : 'heuristic',
+        ...(wireJoinedIds !== undefined ? { wireJoinedIds } : {}),
+        ...(wireSeenLabels !== undefined ? { wireSeenLabels } : {}),
+      },
       annotationMessages,
       onAnnotationJump,
+      ...(onWireSeenJump !== undefined ? { onWireSeenJump } : {}),
       cellMessages,
     }),
     [
@@ -475,6 +492,9 @@ export function TrafficList({
       resolvedInitiators,
       annotationMessages,
       onAnnotationJump,
+      onWireSeenJump,
+      wireJoinedIds,
+      wireSeenLabels,
       cellMessages,
     ],
   );

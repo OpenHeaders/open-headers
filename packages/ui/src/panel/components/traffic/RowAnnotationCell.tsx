@@ -31,12 +31,16 @@ interface RowAnnotationCellProps {
   messages: RowAnnotationMessages;
   redirectRewrite?: RedirectRewriteKind;
   onJump: (requestId: string) => void;
+  /** Wire-join: jump from a wire row to the browser-tab source that also
+   *  witnessed it. Offered only on rows carrying a `wire-seen` annotation. */
+  onWireSeenJump?: (requestId: string) => void;
 }
 
 function annotationPopoverContent(
   annotations: readonly RowAnnotation[],
   messages: RowAnnotationMessages,
   onJump: () => void,
+  onWireSeenJump: (() => void) | null,
 ): InfoPopoverContent {
   const [top, ...rest] = annotations;
   return {
@@ -53,19 +57,33 @@ function annotationPopoverContent(
           ],
         }
       : {}),
-    actions: [{ label: messages.openDetails, onClick: onJump, primary: true }],
+    actions: [
+      { label: messages.openDetails, onClick: onJump, primary: true },
+      ...(onWireSeenJump !== null ? [{ label: messages.wireSeenJump, onClick: onWireSeenJump }] : []),
+    ],
   };
 }
 
-export function RowAnnotationCell({ lifecycle, ctx, messages, redirectRewrite, onJump }: RowAnnotationCellProps) {
+export function RowAnnotationCell({
+  lifecycle,
+  ctx,
+  messages,
+  redirectRewrite,
+  onJump,
+  onWireSeenJump,
+}: RowAnnotationCellProps) {
   const annotations = classifyRowAnnotations(lifecycle, ctx, redirectRewrite);
   if (annotations.length === 0) return <span className="dt-col-annot" />;
   const top = annotations[0];
   const jump = () => onJump(lifecycle.requestId);
+  const wireSeenJump =
+    onWireSeenJump !== undefined && annotations.some((a) => a.message === 'wire-seen')
+      ? () => onWireSeenJump(lifecycle.requestId)
+      : null;
   return (
     <span className="dt-col-annot">
       <InfoPopover
-        content={annotationPopoverContent(annotations, messages, jump)}
+        content={annotationPopoverContent(annotations, messages, jump, wireSeenJump)}
         trigger="hover"
         placement="bottomLeft"
       >
