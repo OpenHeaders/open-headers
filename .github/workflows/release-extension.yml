@@ -111,24 +111,36 @@ jobs:
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
 
           if [ "$IS_PRERELEASE" = "true" ]; then
-            echo '> **This is a beta build for early testing.** It may contain bugs.' > release_body.md
-            echo '' >> release_body.md
+            {
+              echo '> **This is a beta build for early testing.** It may contain bugs.'
+              echo ''
+              echo '## Installation'
+              echo ''
+              echo 'Beta builds carry their own extension ids and install through unlisted store listings — install links land here once those listings are published.'
+              echo ''
+            } > release_body.md
+          else
+            {
+              echo '## Installation'
+              echo ''
+              echo "Install from your browser's store:"
+              echo ''
+              echo '- [Chrome Web Store](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)'
+              echo '- [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/gnbibobkkddlflknjkgcmokdlpddegpo)'
+              echo '- Firefox (AMO): listing pending'
+              echo ''
+            } > release_body.md
           fi
 
           REPO_BASE="https://github.com/OpenHeaders/open-headers/releases/download/${EXT_REPO_TAG}"
           {
-            echo "## Browser Extension Downloads"
+            echo "## Build artifacts"
             echo ""
             echo "- [Chrome](${REPO_BASE}/open-headers-chrome-v${TAG}.zip)"
             echo "- [Firefox](${REPO_BASE}/open-headers-firefox-v${TAG}.zip)"
             echo "- [Edge](${REPO_BASE}/open-headers-edge-v${TAG}.zip)"
-            echo "- [Safari](${REPO_BASE}/open-headers-safari-v${TAG}.zip)"
             echo ""
-            echo "### Installation"
-            echo "1. Download the zip for your browser"
-            echo "2. Extract to a folder"
-            echo '3. Chrome/Edge: Go to `chrome://extensions`, enable Developer mode, click Load unpacked'
-            echo '4. Firefox: Go to `about:debugging#/runtime/this-firefox`, click Load Temporary Add-on'
+            echo "These zips are the raw, unsigned build artifacts, attached for source review and development — install the extension through the store listings."
           } >> release_body.md
 
       # Extension-only releases land on the same public flagship repo

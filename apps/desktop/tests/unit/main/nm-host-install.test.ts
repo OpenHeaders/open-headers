@@ -10,7 +10,13 @@
  */
 
 import * as path from 'node:path';
-import { CHROME_EXTENSION_ID, EDGE_EXTENSION_ID, FIREFOX_EXTENSION_ID } from '@openheaders/core/protocol';
+import {
+  CHROME_EXTENSION_ID,
+  EDGE_EXTENSION_ID,
+  FIREFOX_BETA_EXTENSION_ID,
+  FIREFOX_EXTENSION_ID,
+  GECKO_EXTENSION_IDS,
+} from '@openheaders/core/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   buildGeckoNmManifest,
@@ -90,6 +96,11 @@ describe('buildGeckoNmManifest', () => {
     expect(manifest.path).toBe(HOST_PATH);
     expect(manifest.allowed_extensions).toEqual([FIREFOX_EXTENSION_ID]);
     expect(manifest.allowed_origins).toBeUndefined();
+  });
+
+  it('carries every published Gecko id so stable and beta channels both NM-join', () => {
+    const manifest = JSON.parse(buildGeckoNmManifest(HOST_PATH, GECKO_EXTENSION_IDS)) as Record<string, unknown>;
+    expect(manifest.allowed_extensions).toEqual([FIREFOX_EXTENSION_ID, FIREFOX_BETA_EXTENSION_ID]);
   });
 });
 

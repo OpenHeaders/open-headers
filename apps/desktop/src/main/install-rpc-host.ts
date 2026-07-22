@@ -44,7 +44,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
-import { CHROMIUM_EXTENSION_IDS, FIREFOX_EXTENSION_ID } from '@openheaders/core/protocol';
+import { CHROMIUM_EXTENSION_IDS, GECKO_EXTENSION_IDS } from '@openheaders/core/protocol';
 import { OH } from '@openheaders/core/storage';
 import type { TelemetryEvent } from '@openheaders/core/telemetry';
 import {
@@ -214,7 +214,7 @@ export async function installRpcHost(): Promise<void> {
         process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'),
       ),
       allowedExtensionIds: CHROMIUM_EXTENSION_IDS,
-      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
+      allowedGeckoIds: GECKO_EXTENSION_IDS,
     });
     for (const registration of registrations) {
       engineLogger.info(
@@ -228,7 +228,7 @@ export async function installRpcHost(): Promise<void> {
       targets:
         process.platform === 'linux' ? linuxNmManifestTargets(os.homedir()) : macosNmManifestTargets(os.homedir()),
       allowedExtensionIds: CHROMIUM_EXTENSION_IDS,
-      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
+      allowedGeckoIds: GECKO_EXTENSION_IDS,
     });
     for (const registration of registrations) {
       engineLogger.info(

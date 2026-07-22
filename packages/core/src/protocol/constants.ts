@@ -24,7 +24,21 @@ export const CHROME_EXTENSION_ID = 'ablaikadpbfblkmhpmbbnbbfjoibeejb';
 export const EDGE_EXTENSION_ID = 'gnbibobkkddlflknjkgcmokdlpddegpo';
 
 /** The Firefox (Gecko) extension id from `browser_specific_settings.gecko.id`. */
-export const FIREFOX_EXTENSION_ID = 'contact@tirzuman.com';
+export const FIREFOX_EXTENSION_ID = '{2c14f276-673b-4078-a575-8acf9d0579fa}';
+
+/**
+ * The Firefox (Gecko) beta-channel extension id — beta builds swap it
+ * into `browser_specific_settings.gecko.id` so the beta add-on carries
+ * its own AMO identity beside the stable one.
+ */
+export const FIREFOX_BETA_EXTENSION_ID = '{e21fed2a-70f9-43a2-aadd-9504c1a5ca9e}';
+
+/**
+ * Every Gecko id our extension publishes under. Gecko NM manifests
+ * allowlist by id (`allowed_extensions`), so both channels belong
+ * there — Gecko WS origins stay unpinnable (per-install random UUIDs).
+ */
+export const GECKO_EXTENSION_IDS: readonly string[] = [FIREFOX_EXTENSION_ID, FIREFOX_BETA_EXTENSION_ID];
 
 /**
  * Every Chromium-family id our extension publishes under. A
