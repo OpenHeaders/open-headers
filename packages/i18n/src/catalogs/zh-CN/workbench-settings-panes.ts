@@ -73,7 +73,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.pairIntro':
     '向后端证明这台设备——用它显示的配对码配对，或粘贴一个 token。开启前可以先测试连接。',
   'workbench.settings.backendPane.wizard.autoPairFallback':
-    '未能自动与桌面应用配对——它可能未在运行，或无法验证此浏览器。请改用配对码配对。',
+    '未能自动与桌面应用配对——它可能未在运行，或无法验证此浏览器。请改用配对码或 token 配对。',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     '就绪：{label}，地址 {url}，已配对。开启时会先验证可达性和身份验证；成功后其工作区同步下来，并可离线使用。',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':

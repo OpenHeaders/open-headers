@@ -65,14 +65,11 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
   const VB_H = VB_H_TALL;
   const RECT_H = RECT_H_TALL;
 
-  const isToday = tier.badge === 'TODAY';
-  // Card border is always a neutral grey — the TODAY / ROADMAP signal
-  // lives in the header badge, not the frame, so all four cards read as
-  // siblings rather than the first two grabbing attention with a blue
-  // outline.
+  // Card border is always a neutral grey — the TODAY signal lives in the
+  // header badge (roadmap tiers carry no tag), not the frame, so all four
+  // cards read as siblings rather than the first two grabbing attention
+  // with a blue outline.
   const accent = 'var(--ant-color-border)';
-  const badgeStroke = isToday ? STROKE_BLUE : 'rgba(212, 145, 0, 1)';
-  const badgeBg = isToday ? FILL_BLUE : 'rgba(250, 173, 20, 0.18)';
 
   const headerCX = HEADER_X + HEADER_COL_W / 2;
   const iconCY = RECT_Y + 38;
@@ -133,31 +130,31 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
       <text x={headerCX} y={subY} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         {t(tier.subKey)}
       </text>
-      <rect
-        x={headerCX - 36}
-        y={badgeY}
-        width={72}
-        height={18}
-        rx={9}
-        fill={badgeBg}
-        stroke={badgeStroke}
-        strokeWidth={1.2}
-      />
-      <text
-        x={headerCX}
-        y={badgeY + 12}
-        textAnchor="middle"
-        fontSize={9}
-        fontWeight={800}
-        fill={isToday ? TEXT : badgeStroke}
-        letterSpacing={1}
-      >
-        {t(
-          isToday
-            ? 'workbench.settings.backendPane.tier.badge.today'
-            : 'workbench.settings.backendPane.tier.badge.roadmap',
-        ).toUpperCase()}
-      </text>
+      {tier.badge && (
+        <g>
+          <rect
+            x={headerCX - 36}
+            y={badgeY}
+            width={72}
+            height={18}
+            rx={9}
+            fill={FILL_BLUE}
+            stroke={STROKE_BLUE}
+            strokeWidth={1.2}
+          />
+          <text
+            x={headerCX}
+            y={badgeY + 12}
+            textAnchor="middle"
+            fontSize={9}
+            fontWeight={800}
+            fill={TEXT}
+            letterSpacing={1}
+          >
+            {t('workbench.settings.backendPane.tier.badge.today').toUpperCase()}
+          </text>
+        </g>
+      )}
 
       {!tier.inheritsFrom ? (
         (() => {

@@ -83,7 +83,7 @@ export const workbenchSettingsPanes = {
     'Du kannst die Verbindung testen, bevor du sie einschaltest.',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     'Die automatische Kopplung mit der Desktop-App ist nicht zustande gekommen — sie läuft möglicherweise ' +
-    'nicht, oder dieser Browser konnte nicht verifiziert werden. Kopple stattdessen mit dem Code.',
+    'nicht, oder dieser Browser konnte nicht verifiziert werden. Kopple stattdessen mit dem Code oder Token.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     'Bereit: {label} unter {url}, gekoppelt. Beim Einschalten werden zuerst Erreichbarkeit und ' +
     'Authentifizierung geprüft; bei Erfolg synchronisieren seine Arbeitsbereiche herunter und bleiben offline ' +

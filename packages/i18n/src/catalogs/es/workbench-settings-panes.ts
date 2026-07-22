@@ -78,7 +78,7 @@ export const workbenchSettingsPanes = {
     'Puedes probar la conexión antes de activarla.',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     'El emparejamiento automático con la aplicación de escritorio no se completó — puede que no esté en ' +
-    'ejecución, o que este navegador no se haya podido verificar. Empareja con el código en su lugar.',
+    'ejecución, o que este navegador no se haya podido verificar. Empareja con el código o el token en su lugar.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     'Listo: {label} en {url}, emparejado. Activarlo verifica primero la accesibilidad y la autenticación; si ' +
     'todo va bien, sus espacios de trabajo se sincronizan y quedan utilizables sin conexión.',

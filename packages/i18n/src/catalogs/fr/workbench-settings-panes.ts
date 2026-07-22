@@ -79,7 +79,7 @@ export const workbenchSettingsPanes = {
     "pouvez tester la connexion avant de l'activer.",
   'workbench.settings.backendPane.wizard.autoPairFallback':
     "L'appairage automatique avec l'application de bureau n'a pas abouti — elle n'est peut-être pas lancée, ou " +
-    "ce navigateur n'a pas pu être vérifié. Appairez plutôt avec le code.",
+    "ce navigateur n'a pas pu être vérifié. Appairez plutôt avec le code ou le jeton.",
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     "Prêt : {label} sur {url}, appairé. L'activation vérifie d'abord la joignabilité et l'authentification ; en " +
     'cas de succès, ses espaces de travail se synchronisent et restent utilisables hors ligne.',

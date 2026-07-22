@@ -157,6 +157,17 @@ const WizardDialog: React.FC<{
 
   const nextDisabled = (step === 0 && (!selected || selected.soon)) || (step === 1 && !urlLooksComplete(record.url));
 
+  // The silent attempt lands the user on the connect step, so the
+  // explanation shows there immediately and again on the pair step.
+  const fallbackAlert = autoPairFellBack ? (
+    <Alert
+      type="info"
+      showIcon
+      message={t('workbench.settings.backendPane.wizard.autoPairFallback')}
+      style={{ marginBottom: 10 }}
+    />
+  ) : null;
+
   return (
     <Modal
       title={
@@ -211,6 +222,7 @@ const WizardDialog: React.FC<{
       )}
       {step === 1 && (
         <BackendRecordProvider record={record}>
+          {fallbackAlert}
           <StepIntro text={t('workbench.settings.backendPane.wizard.connectIntro')} />
           <BackendLabelField />
           <BackendUrlField />
@@ -218,14 +230,7 @@ const WizardDialog: React.FC<{
       )}
       {step === 2 && (
         <BackendRecordProvider record={record}>
-          {autoPairFellBack && (
-            <Alert
-              type="info"
-              showIcon
-              message={t('workbench.settings.backendPane.wizard.autoPairFallback')}
-              style={{ marginBottom: 10 }}
-            />
-          )}
+          {fallbackAlert}
           <StepIntro text={t('workbench.settings.backendPane.wizard.pairIntro')} />
           <BackendAuthTokenField />
           <div style={{ padding: '8px 12px' }}>

@@ -30,7 +30,8 @@ export type FooterInfo = {
 export type TierDef = {
   titleKey: MessageKey;
   subKey: MessageKey;
-  badge: 'TODAY' | 'ROADMAP';
+  /** Shipping tiers carry the TODAY tag; roadmap tiers carry none. */
+  badge?: 'TODAY';
   icon: Icon;
   /** Tier this one builds on — resolved to its title in the card caption. */
   inheritsFrom?: BackendMode;
@@ -140,7 +141,6 @@ export const TIERS: Partial<Record<BackendMode, TierDef>> = {
   'local-self-hosted': {
     titleKey: 'workbench.settings.backendPane.tier.local-self-hosted.title',
     subKey: 'workbench.settings.backendPane.tier.local-self-hosted.sub',
-    badge: 'ROADMAP',
     icon: 'daemon',
     inheritsFrom: 'desktop-app',
     bullets: [
@@ -215,7 +215,6 @@ export const TIERS: Partial<Record<BackendMode, TierDef>> = {
   'remote-self-hosted': {
     titleKey: 'workbench.settings.backendPane.tier.remote-self-hosted.title',
     subKey: 'workbench.settings.backendPane.tier.remote-self-hosted.sub',
-    badge: 'ROADMAP',
     icon: 'vm',
     inheritsFrom: 'local-self-hosted',
     bullets: [
