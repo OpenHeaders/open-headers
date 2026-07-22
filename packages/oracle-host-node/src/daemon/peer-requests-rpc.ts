@@ -3,7 +3,8 @@
  * channels (`executeRequest` / `executeGrpcRequest` + the
  * `abortRequestSend` stop counterpart and the gRPC upstream riders
  * `sendGrpcStreamMessage` / `endGrpcClientStream`, the cookie-jar trio,
- * and the script-posture fact) for WS peers, with
+ * the script-posture fact, and the `getCliStatusSummary` probe) for WS
+ * peers, with
  * the per-frame gating law the peer admin plane established: the PEER's
  * identity snapshot resolves fresh on every call (a revocation bites
  * the next frame), the decision gates on a workspace CAPABILITY as the
@@ -44,6 +45,7 @@ import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-strea
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
+import type { CliProvisionStatus } from './cli-provision';
 import { type ExecuteGrpcRequestRpcResult, handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 import { hostDisplayLabel } from './host-os';
@@ -80,6 +82,13 @@ export interface PeerRequestsRpcOptions {
     message: Record<string, unknown>,
     emitStreamEvent: (event: GrpcStreamEventWire) => void,
   ) => Promise<ExecuteGrpcRequestRpcResult>;
+  /**
+   * The `getCliStatusSummary` backing — the spine's CLI provisioning
+   * service, derived live per call (same truth as the settings card).
+   * Absent (test rigs composed without it) the probe answers
+   * `{ state: null }` — unknown, never a fabricated state.
+   */
+  cliStatus?: () => Promise<CliProvisionStatus>;
 }
 
 async function peerExecuteAllowed(): Promise<boolean> {
@@ -131,6 +140,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
         type === 'abortRequestSend' ||
         type === 'sendGrpcStreamMessage' ||
         type === 'endGrpcClientStream' ||
+        type === 'getCliStatusSummary' ||
         type in CAPABILITY_BY_CHANNEL
       );
     },
@@ -157,6 +167,23 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
       }
       if (type === 'endGrpcClientStream') {
         return { success: typeof message.sendId === 'string' && endActiveGrpcClientStream(message.sendId) };
+      }
+
+      // CLI-status probe — the extension Add-ons row's honest state.
+      // Authenticated admission is the whole gate (the admin.status
+      // probe posture): a question the UI asks on every popover open,
+      // not an enforcement decision, so no identity resolution and no
+      // audit row. The payload is the coarse state alone — configPath,
+      // tokenId, label, daemonUrl, and parse-error text stay on this
+      // machine. A missing backing or a failed read answers `null`
+      // (unknown), never a fabricated state.
+      if (type === 'getCliStatusSummary') {
+        if (!options.cliStatus) return { state: null };
+        try {
+          return { state: (await options.cliStatus()).state };
+        } catch {
+          return { state: null };
+        }
       }
 
       // Opt-in tier first — like the MCP tier gate it refuses before

@@ -742,6 +742,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const browserLiveRelay = createBrowserLiveRelay();
   const uninstallBrowserLiveLifeline = browserLiveRelay.installLifeline();
 
+  // CLI provisioning writes this machine's `openheaders/cli.json`;
+  // rotate evicts the old token's live peers, same as tokens.revoke.
+  // Shared by the admin table and the peer-requests probe below.
+  const cliProvision = createCliProvisionService({
+    getBoundPort: () => boundPort,
+    closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
+  });
+
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
     getBoundPort: () => boundPort,
@@ -750,12 +758,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // writes — the store's one read path, projected over the wire.
     queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),
     license: licenseSlot,
-    // CLI provisioning writes this machine's `openheaders/cli.json`;
-    // rotate evicts the old token's live peers, same as tokens.revoke.
-    cliProvision: createCliProvisionService({
-      getBoundPort: () => boundPort,
-      closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
-    }),
+    cliProvision,
     // Proxy trust plane (PROXY_SECURITY.md §6) — CA lifecycle only.
     // Elevation rides the per-command OS prompt seam, requested only
     // for System-keychain operations.
@@ -1189,7 +1192,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
-      peerRpc: composePeerRpc(createPeerAdminRpc({ channels: adminChannels }), createPeerRequestsRpc()),
+      peerRpc: composePeerRpc(
+        createPeerAdminRpc({ channels: adminChannels }),
+        createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
+      ),
       peerPush: composePeerPush(browserLiveRelay.peerPush, proxyRoutingControl.peerPush),
       httpRequestHandler: admission.wrapHttpHandler(
         (req, res) =>

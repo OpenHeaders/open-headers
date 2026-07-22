@@ -1,5 +1,5 @@
 /**
- * Peer-facing request-execution plane — the gating laws over the nine
+ * Peer-facing request-execution plane — the gating laws over the ten
  * workbench channels: `executeRequest` / `executeGrpcRequest` refuse
  * (honestly, naming the setting) while `backend.allowPeerExecute` is
  * off, with no identity resolution and no audit row; past the opt-in,
@@ -8,7 +8,9 @@
  * delete, `workspace.read` for the summary and the script-posture
  * fact), audits the decision, and only then reaches the handler.
  * `abortRequestSend` and the gRPC upstream riders ride ahead of the
- * capability tier (the caller-minted sendId is the authorization); a
+ * capability tier (the caller-minted sendId is the authorization), as
+ * does the `getCliStatusSummary` probe (authenticated admission is the
+ * whole gate — coarse state only, null when unbacked or failed); a
  * forwarded send's live frames fan to the calling user's peers only.
  * The target workspace is the frame's, falling back to the host's
  * active one.
@@ -68,7 +70,7 @@ beforeEach(() => {
 });
 
 describe('createPeerRequestsRpc — ownership', () => {
-  it('owns exactly the nine request channels', () => {
+  it('owns exactly the ten request channels', () => {
     const rpc = createPeerRequestsRpc();
     expect(rpc.owns('executeRequest')).toBe(true);
     expect(rpc.owns('executeGrpcRequest')).toBe(true);
@@ -79,8 +81,41 @@ describe('createPeerRequestsRpc — ownership', () => {
     expect(rpc.owns('clearCookieJar')).toBe(true);
     expect(rpc.owns('deleteCookieJarEntry')).toBe(true);
     expect(rpc.owns('getScriptRuntimeInfo')).toBe(true);
+    expect(rpc.owns('getCliStatusSummary')).toBe(true);
     expect(rpc.owns('getStatusSnapshot')).toBe(false);
     expect(rpc.owns('oh.daemon.users.list')).toBe(false);
+  });
+});
+
+describe('createPeerRequestsRpc — getCliStatusSummary', () => {
+  it('answers the coarse state alone — no identity resolution, no audit, no opt-in, no detail fields', async () => {
+    h.settings = {};
+    const rpc = createPeerRequestsRpc({
+      cliStatus: async () => ({
+        configPath: '/home/user/.config/openheaders/cli.json',
+        state: 'configured',
+        tokenId: 'tok-1',
+        label: 'CLI — machine',
+        daemonUrl: 'http://127.0.0.1:8137',
+      }),
+    });
+    await expect(rpc.dispatch({ type: 'getCliStatusSummary' }, PEER)).resolves.toEqual({ state: 'configured' });
+    expect(h.resolveSnapshot).not.toHaveBeenCalled();
+    expect(h.audits).toHaveLength(0);
+  });
+
+  it('answers state: null when composed without the backing', async () => {
+    const rpc = createPeerRequestsRpc();
+    await expect(rpc.dispatch({ type: 'getCliStatusSummary' }, PEER)).resolves.toEqual({ state: null });
+  });
+
+  it('answers state: null when the backing throws — unknown, never fabricated', async () => {
+    const rpc = createPeerRequestsRpc({
+      cliStatus: async () => {
+        throw new Error('disk unavailable');
+      },
+    });
+    await expect(rpc.dispatch({ type: 'getCliStatusSummary' }, PEER)).resolves.toEqual({ state: null });
   });
 });
 

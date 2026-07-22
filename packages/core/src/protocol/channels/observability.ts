@@ -26,4 +26,17 @@ export interface ObservabilityRpc {
     req: Record<string, never>;
     res: { snapshot: BackendSyncStatusSnapshot };
   };
+
+  /**
+   * Coarse CLI-provisioning state of the connected desktop, relayed
+   * over the backend wire (`getCliStatusSummary` peer verb). State
+   * only — no paths, token ids, or labels cross the wire. `null` =
+   * unknown (no connected desktop, an older desktop without the verb,
+   * or no answer inside the call window); surfaces fall back to the
+   * pointer copy.
+   */
+  getCliWireStatus: {
+    req: Record<string, never>;
+    res: { state: 'unconfigured' | 'configured' | 'stale' | 'external' | 'malformed' | null };
+  };
 }

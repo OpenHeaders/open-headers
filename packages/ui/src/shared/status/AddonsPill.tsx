@@ -8,9 +8,11 @@
  *
  * Row availability is honest per host:
  *   - extension → Desktop app (OS-truth install detection + download
- *     CTA, see `companion-rows`), plus a Daemon row when a
- *     self-hosted (non-loopback) backend record exists — a browser
- *     can't detect an unconfigured daemon, so no record means no row.
+ *     CTA, see `companion-rows`), CLI (coarse state probed over the
+ *     wire from the connected desktop, pointer copy when nothing
+ *     answers), plus a Daemon row when a self-hosted (non-loopback)
+ *     backend record exists — a browser can't detect an unconfigured
+ *     daemon, so no record means no row.
  *   - desktop  → Extensions (connected peers / store links), CLI
  *     (`oh.daemon.cli.status` — the provisioning card's live truth,
  *     with the one-click provision remedy), MCP (surfaced once the
@@ -81,19 +83,26 @@ interface CliStatus {
  * file's token against the ledger at call time — same truth as the
  * provisioning card; one shot per popover mount (the popover is
  * transient, so no polling). On the extension — the main onboarding
- * surface — the row stays visible for DISCOVERABILITY: the admin verb
- * doesn't cross the wire, so it points at the desktop app instead of
- * faking a state ("set up from the desktop app" while connected,
- * "requires the desktop app" while not).
+ * surface — the row asks the connected desktop for its coarse CLI
+ * state over the wire (`getCliWireStatus` → the read-only
+ * `getCliStatusSummary` peer verb) and renders it with the same
+ * five-state map, read-only (provisioning stays a desktop gesture).
+ * With no wire answer — desktop not connected, an older desktop, a
+ * timeout — the row falls back to the pointer copy rather than fake a
+ * state ("set up from the desktop app" while connected, "requires the
+ * desktop app" while not).
  */
 const CliRow: React.FC = () => {
   const t = useT();
   const [status, setStatus] = React.useState<CliStatus | null>(null);
+  const [wireState, setWireState] = React.useState<CliStatus['state'] | null>(null);
   const [provisioning, setProvisioning] = React.useState(false);
   const host = getCurrentHost();
   const isDesktop = host === 'desktop';
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
+  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
+  const desktopConnected = loopback?.enabled === true && syncSlots[loopback.id]?.state === 'green';
   React.useEffect(() => {
     if (!isDesktop) return;
     let alive = true;
@@ -107,6 +116,19 @@ const CliRow: React.FC = () => {
       alive = false;
     };
   }, [isDesktop]);
+  React.useEffect(() => {
+    if (host !== 'extension' || !desktopConnected) return;
+    let alive = true;
+    void hostBridge
+      .call('getCliWireStatus')
+      .then((resp) => {
+        if (alive) setWireState(resp.state);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [host, desktopConnected]);
   // The provisioning card's one-click verb, inlined as the row's
   // remedy: mints the token host-side and writes cli.json; the fresh
   // status read flips the row to "set up".
@@ -120,19 +142,6 @@ const CliRow: React.FC = () => {
     }
     setProvisioning(false);
   };
-  if (host === 'extension') {
-    const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
-    const desktopConnected = loopback?.enabled === true && syncSlots[loopback.id]?.state === 'green';
-    return (
-      <AddonRow
-        tagColor="default"
-        label={t('shared.chrome.addons.cli')}
-        message={t(desktopConnected ? 'shared.chrome.addons.cliViaDesktop' : 'shared.chrome.addons.requiresDesktop')}
-        testId="addons-cli"
-      />
-    );
-  }
-  if (!isDesktop || !status) return null;
   const visual: Record<CliStatus['state'], { tagColor: string; message: string }> = {
     configured: { tagColor: 'success', message: t('shared.chrome.addons.cliSetUp') },
     unconfigured: { tagColor: 'default', message: t('shared.chrome.addons.cliNotSetUp') },
@@ -140,6 +149,25 @@ const CliRow: React.FC = () => {
     external: { tagColor: 'default', message: t('shared.chrome.addons.cliExternal') },
     malformed: { tagColor: 'error', message: t('shared.chrome.addons.cliMalformed') },
   };
+  if (host === 'extension') {
+    // Real state when the wire answered; pointer copy otherwise. A
+    // disconnect drops back to the pointer copy immediately — a stale
+    // answer must not outlive its wire. Read-only — the provision
+    // remedy stays a desktop gesture.
+    const wire = desktopConnected && wireState !== null ? visual[wireState] : null;
+    return (
+      <AddonRow
+        tagColor={wire?.tagColor ?? 'default'}
+        label={t('shared.chrome.addons.cli')}
+        message={
+          wire?.message ??
+          t(desktopConnected ? 'shared.chrome.addons.cliViaDesktop' : 'shared.chrome.addons.requiresDesktop')
+        }
+        testId="addons-cli"
+      />
+    );
+  }
+  if (!isDesktop || !status) return null;
   const { tagColor, message } = visual[status.state];
   // The two states the one-click verb can actually fix; `malformed`
   // needs a human (fix or delete the file) and `external` is a choice.
