@@ -27,7 +27,7 @@
  * `nmAutoPair` capability, device-flow pairing — are the only paths.
  *
  * Degraded mode (ratified S17): every failure — no NM permission
- * (Firefox/Safari manifests), no registered host (dev desktop without
+ * (the Safari manifest), no registered host (dev desktop without
  * the packed binary), a refused identity chain — leaves the existing
  * device-flow pairing gesture as the path, surfaced by the existing
  * connection UX. Nothing here retries on its own: one attempt per
@@ -114,8 +114,8 @@ export function resetNmBootstrapForTests(): void {
  */
 export async function runNmBootstrap(deps: NmBootstrapDeps = {}): Promise<NmBootstrapResult[]> {
   // The availability guard covers the real API only — browsers whose
-  // manifest carries no `nativeMessaging` permission (Firefox/Safari in
-  // this slice) simply have no candidates to attempt.
+  // manifest carries no `nativeMessaging` permission (Safari) simply
+  // have no candidates to attempt.
   if (deps.sendNativeMessage === undefined && !nativeMessagingAvailable()) return [];
   // The consent gate governs the whole silent plane; explicit gestures
   // (wizard capability, device-flow pairing) don't route through here.

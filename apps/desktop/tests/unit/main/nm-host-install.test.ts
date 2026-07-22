@@ -11,9 +11,11 @@
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  buildGeckoNmManifest,
   buildNmManifest,
   CHROME_EXTENSION_ID,
   EDGE_EXTENSION_ID,
+  FIREFOX_EXTENSION_ID,
   macosNmManifestTargets,
   NM_HOST_NAME,
   type NmManifestFs,
@@ -80,29 +82,50 @@ describe('buildNmManifest', () => {
   });
 });
 
+describe('buildGeckoNmManifest', () => {
+  it('emits the stdio manifest with bare extension ids, not origins', () => {
+    const manifest = JSON.parse(buildGeckoNmManifest(HOST_PATH, [FIREFOX_EXTENSION_ID])) as Record<string, unknown>;
+    expect(manifest.name).toBe(NM_HOST_NAME);
+    expect(manifest.type).toBe('stdio');
+    expect(manifest.path).toBe(HOST_PATH);
+    expect(manifest.allowed_extensions).toEqual([FIREFOX_EXTENSION_ID]);
+    expect(manifest.allowed_origins).toBeUndefined();
+  });
+});
+
 describe('macosNmManifestTargets', () => {
-  it('lists the Chromium family with per-browser NativeMessagingHosts dirs', () => {
+  it('lists the Chromium family with per-browser dirs plus the shared Mozilla dir for Firefox', () => {
     const appSupport = path.join('/Users/casey', 'Library', 'Application Support');
     expect(macosNmManifestTargets('/Users/casey')).toEqual([
       {
         browser: 'Google Chrome',
+        family: 'chromium',
         browserRoot: path.join(appSupport, 'Google', 'Chrome'),
         manifestDir: path.join(appSupport, 'Google', 'Chrome', 'NativeMessagingHosts'),
       },
       {
         browser: 'Google Chrome Beta',
+        family: 'chromium',
         browserRoot: path.join(appSupport, 'Google', 'Chrome Beta'),
         manifestDir: path.join(appSupport, 'Google', 'Chrome Beta', 'NativeMessagingHosts'),
       },
       {
         browser: 'Microsoft Edge',
+        family: 'chromium',
         browserRoot: path.join(appSupport, 'Microsoft Edge'),
         manifestDir: path.join(appSupport, 'Microsoft Edge', 'NativeMessagingHosts'),
       },
       {
         browser: 'Brave Browser',
+        family: 'chromium',
         browserRoot: path.join(appSupport, 'BraveSoftware', 'Brave-Browser'),
         manifestDir: path.join(appSupport, 'BraveSoftware', 'Brave-Browser', 'NativeMessagingHosts'),
+      },
+      {
+        browser: 'Firefox',
+        family: 'gecko',
+        browserRoot: path.join(appSupport, 'Firefox'),
+        manifestDir: path.join(appSupport, 'Mozilla', 'NativeMessagingHosts'),
       },
     ]);
   });
@@ -150,6 +173,7 @@ describe('registerNmManifests', () => {
       hostBinaryPath: HOST_PATH,
       targets,
       allowedExtensionIds: [CHROME_EXTENSION_ID],
+      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
       fileSystem,
     });
   }
@@ -191,19 +215,22 @@ describe('registerNmManifests', () => {
     expect(register(fs)).toEqual([{ browser: 'Google Chrome', manifestPath, action: 'skipped' }]);
   });
 
-  it('handles each Chromium target independently on a mixed-install machine', () => {
+  it('handles each target independently on a mixed-install machine, one document per family', () => {
     const edge = allTargets[2];
     const brave = allTargets[3];
+    const firefox = allTargets[4];
     const unionContent = buildNmManifest(HOST_PATH, [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID]);
+    const geckoContent = buildGeckoNmManifest(HOST_PATH, [FIREFOX_EXTENSION_ID]);
     const braveManifestPath = path.join(brave.manifestDir, `${NM_HOST_NAME}.json`);
     const fs = fakeFs({
-      dirs: [edge.browserRoot, brave.browserRoot, brave.manifestDir],
+      dirs: [edge.browserRoot, brave.browserRoot, brave.manifestDir, firefox.browserRoot],
       files: { [braveManifestPath]: unionContent },
     });
     const results = registerNmManifests({
       hostBinaryPath: HOST_PATH,
       targets: allTargets,
       allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
       fileSystem: fs,
     });
     expect(results.map((r) => `${r.browser}:${r.action}`)).toEqual([
@@ -211,17 +238,36 @@ describe('registerNmManifests', () => {
       'Google Chrome Beta:skipped',
       'Microsoft Edge:registered',
       'Brave Browser:unchanged',
+      'Firefox:registered',
     ]);
     expect(fs.files.get(path.join(edge.manifestDir, `${NM_HOST_NAME}.json`))).toBe(unionContent);
+    expect(fs.files.get(path.join(firefox.manifestDir, `${NM_HOST_NAME}.json`))).toBe(geckoContent);
+  });
+
+  it('registers the gecko manifest in the shared Mozilla dir when Firefox is installed', () => {
+    const firefox = allTargets[4];
+    const fs = fakeFs({ dirs: [firefox.browserRoot] });
+    const results = registerNmManifests({
+      hostBinaryPath: HOST_PATH,
+      targets: [firefox],
+      allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
+      fileSystem: fs,
+    });
+    const firefoxManifestPath = path.join(firefox.manifestDir, `${NM_HOST_NAME}.json`);
+    expect(results).toEqual([{ browser: 'Firefox', manifestPath: firefoxManifestPath, action: 'registered' }]);
+    expect(fs.files.get(firefoxManifestPath)).toBe(buildGeckoNmManifest(HOST_PATH, [FIREFOX_EXTENSION_ID]));
   });
 });
 
 describe('windowsNmManifestTargets', () => {
-  it('lists per-vendor registry keys with channel-aware presence roots', () => {
+  it('lists per-vendor registry keys with channel-aware presence roots, Firefox under Roaming', () => {
     const localAppData = path.join('C:', 'Users', 'casey', 'AppData', 'Local');
-    expect(windowsNmManifestTargets(localAppData)).toEqual([
+    const roamingAppData = path.join('C:', 'Users', 'casey', 'AppData', 'Roaming');
+    expect(windowsNmManifestTargets(localAppData, roamingAppData)).toEqual([
       {
         browser: 'Google Chrome',
+        family: 'chromium',
         presenceRoots: [
           path.join(localAppData, 'Google', 'Chrome', 'User Data'),
           path.join(localAppData, 'Google', 'Chrome Beta', 'User Data'),
@@ -230,13 +276,21 @@ describe('windowsNmManifestTargets', () => {
       },
       {
         browser: 'Microsoft Edge',
+        family: 'chromium',
         presenceRoots: [path.join(localAppData, 'Microsoft', 'Edge', 'User Data')],
         registryKey: `HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\${NM_HOST_NAME}`,
       },
       {
         browser: 'Brave Browser',
+        family: 'chromium',
         presenceRoots: [path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'User Data')],
         registryKey: `HKCU\\Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts\\${NM_HOST_NAME}`,
+      },
+      {
+        browser: 'Firefox',
+        family: 'gecko',
+        presenceRoots: [path.join(roamingAppData, 'Mozilla', 'Firefox')],
+        registryKey: `HKCU\\Software\\Mozilla\\NativeMessagingHosts\\${NM_HOST_NAME}`,
       },
     ]);
   });
@@ -289,11 +343,15 @@ function fakeRegistry(seed: Record<string, string> = {}): FakeRegistry {
 describe('registerWindowsNmManifests', () => {
   const WIN_HOST = 'C:\\Program Files\\OpenHeaders\\resources\\nm-host\\oh-nm-host.exe';
   const localAppData = path.join('C:', 'Users', 'casey', 'AppData', 'Local');
-  const manifestDir = path.join('C:', 'Users', 'casey', 'AppData', 'Roaming', 'OpenHeaders', 'nm-host');
+  const roamingAppData = path.join('C:', 'Users', 'casey', 'AppData', 'Roaming');
+  const manifestDir = path.join(roamingAppData, 'OpenHeaders', 'nm-host');
   const manifestPath = path.join(manifestDir, `${NM_HOST_NAME}.json`);
-  const targets = windowsNmManifestTargets(localAppData);
+  const geckoManifestPath = path.join(manifestDir, `${NM_HOST_NAME}.firefox.json`);
+  const targets = windowsNmManifestTargets(localAppData, roamingAppData);
   const edge = targets[1];
+  const firefox = targets[3];
   const expected = buildNmManifest(WIN_HOST, [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID]);
+  const expectedGecko = buildGeckoNmManifest(WIN_HOST, [FIREFOX_EXTENSION_ID]);
 
   function register(fileSystem: NmManifestFs, runRegistry: RegistryRunner, only = [edge]) {
     return registerWindowsNmManifests({
@@ -301,6 +359,7 @@ describe('registerWindowsNmManifests', () => {
       manifestDir,
       targets: only,
       allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
       fileSystem,
       runRegistry,
     });
@@ -354,6 +413,7 @@ describe('registerWindowsNmManifests', () => {
       'Google Chrome:skipped',
       'Microsoft Edge:skipped',
       'Brave Browser:skipped',
+      'Firefox:skipped',
     ]);
     expect(fs.writes).toEqual([]);
     expect(reg.adds).toEqual([]);
@@ -366,6 +426,32 @@ describe('registerWindowsNmManifests', () => {
     expect(await register(fs, reg.run, [chrome])).toEqual([
       { browser: 'Google Chrome', registryKey: chrome.registryKey, action: 'registered' },
     ]);
+  });
+
+  it('writes the gecko manifest file and registers the Mozilla key for Firefox', async () => {
+    const fs = fakeFs({ dirs: [firefox.presenceRoots[0]] });
+    const reg = fakeRegistry();
+    expect(await register(fs, reg.run, [firefox])).toEqual([
+      { browser: 'Firefox', registryKey: firefox.registryKey, action: 'registered' },
+    ]);
+    expect(fs.files.get(geckoManifestPath)).toBe(expectedGecko);
+    expect(fs.files.has(manifestPath)).toBe(false);
+    expect(reg.values.get(firefox.registryKey)).toBe(geckoManifestPath);
+  });
+
+  it('scopes manifest-content repair to its own family', async () => {
+    const staleChromium = buildNmManifest('C:\\old\\oh-nm-host.exe', [CHROME_EXTENSION_ID]);
+    const fs = fakeFs({
+      dirs: [edge.presenceRoots[0], firefox.presenceRoots[0], manifestDir],
+      files: { [manifestPath]: staleChromium, [geckoManifestPath]: expectedGecko },
+    });
+    const reg = fakeRegistry({ [edge.registryKey]: manifestPath, [firefox.registryKey]: geckoManifestPath });
+    expect((await register(fs, reg.run, [edge, firefox])).map((r) => `${r.browser}:${r.action}`)).toEqual([
+      'Microsoft Edge:repaired',
+      'Firefox:unchanged',
+    ]);
+    expect(fs.files.get(manifestPath)).toBe(expected);
+    expect(reg.adds).toEqual([]);
   });
 
   it('answers skipped instead of throwing when reg add fails', async () => {

@@ -81,6 +81,7 @@ import { installLifelineServer } from './install-lifeline-server';
 import {
   CHROME_EXTENSION_ID,
   EDGE_EXTENSION_ID,
+  FIREFOX_EXTENSION_ID,
   macosNmManifestTargets,
   nmHostBinaryCandidate,
   registerNmManifests,
@@ -208,8 +209,12 @@ export async function installRpcHost(): Promise<void> {
     const registrations = await registerWindowsNmManifests({
       hostBinaryPath: nmHostBinaryPath,
       manifestDir: path.join(app.getPath('userData'), 'nm-host'),
-      targets: windowsNmManifestTargets(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local')),
+      targets: windowsNmManifestTargets(
+        process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'),
+        process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'),
+      ),
       allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
     });
     for (const registration of registrations) {
       engineLogger.info(
@@ -222,6 +227,7 @@ export async function installRpcHost(): Promise<void> {
       hostBinaryPath: nmHostBinaryPath,
       targets: macosNmManifestTargets(os.homedir()),
       allowedExtensionIds: [CHROME_EXTENSION_ID, EDGE_EXTENSION_ID],
+      allowedGeckoIds: [FIREFOX_EXTENSION_ID],
     });
     for (const registration of registrations) {
       engineLogger.info(

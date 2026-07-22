@@ -37,7 +37,8 @@
     "cookies",
     "browsingData",
     "identity",
-    "proxy"
+    "proxy",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "<all_urls>",

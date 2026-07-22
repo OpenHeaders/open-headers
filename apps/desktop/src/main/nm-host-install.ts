@@ -27,10 +27,11 @@
  *
  * Pure path/shape derivation + injected fs/command seams, kept apart
  * from the Electron wiring so the whole surface is unit-testable.
- * Chromium browsers (Chrome family, Edge, Brave) on both platforms;
- * the target tables are the extension point. Firefox needs a different
- * manifest shape (`allowed_extensions`) and caller-chain work — its own
- * slice.
+ * Two manifest families ride the same discipline: Chromium browsers
+ * (Chrome family, Edge, Brave) with `allowed_origins`, and Gecko
+ * (Firefox) with `allowed_extensions` — Firefox reads one shared
+ * per-user Mozilla dir on macOS and its own `HKCU\Software\Mozilla`
+ * key on Windows (profile roots live under Roaming, not Local).
  */
 
 import { execFile } from 'node:child_process';
@@ -59,6 +60,9 @@ export const CHROME_EXTENSION_ID = 'ablaikadpbfblkmhpmbbnbbfjoibeejb';
  */
 export const EDGE_EXTENSION_ID = 'gnbibobkkddlflknjkgcmokdlpddegpo';
 
+/** The Firefox (Gecko) extension id from `browser_specific_settings.gecko.id`. */
+export const FIREFOX_EXTENSION_ID = 'contact@tirzuman.com';
+
 export interface NmHostBinaryFacts {
   /** `app.isPackaged` — extraResource vs monorepo sibling. */
   isPackaged: boolean;
@@ -77,9 +81,14 @@ export function nmHostBinaryCandidate(facts: NmHostBinaryFacts): string {
   return path.resolve(facts.appPath, '..', 'nm-host', 'dist-bun', binaryName);
 }
 
+/** Which manifest document a target reads — the allowlist vocabularies differ. */
+export type NmManifestFamily = 'chromium' | 'gecko';
+
 export interface NmManifestTarget {
   /** Display name for the boot log. */
   readonly browser: string;
+  /** Selects the manifest document (`allowed_origins` vs `allowed_extensions`). */
+  readonly family: NmManifestFamily;
   /**
    * The browser's per-user profile root — registration is skipped
    * entirely when this doesn't exist (browser not installed).
@@ -89,30 +98,51 @@ export interface NmManifestTarget {
   readonly manifestDir: string;
 }
 
-/** macOS per-user manifest locations, Chromium family. Each browser
- *  reads its own NativeMessagingHosts dir under its profile root. */
+/** macOS per-user manifest locations. Each Chromium browser reads its
+ *  own NativeMessagingHosts dir under its profile root; Firefox reads
+ *  the shared Mozilla dir, distinct from its profile root. */
 export function macosNmManifestTargets(homeDir: string): NmManifestTarget[] {
   const appSupport = path.join(homeDir, 'Library', 'Application Support');
   const chromiumTarget = (browser: string, ...rootSegments: string[]): NmManifestTarget => {
     const browserRoot = path.join(appSupport, ...rootSegments);
-    return { browser, browserRoot, manifestDir: path.join(browserRoot, 'NativeMessagingHosts') };
+    return { browser, family: 'chromium', browserRoot, manifestDir: path.join(browserRoot, 'NativeMessagingHosts') };
   };
   return [
     chromiumTarget('Google Chrome', 'Google', 'Chrome'),
     chromiumTarget('Google Chrome Beta', 'Google', 'Chrome Beta'),
     chromiumTarget('Microsoft Edge', 'Microsoft Edge'),
     chromiumTarget('Brave Browser', 'BraveSoftware', 'Brave-Browser'),
+    {
+      browser: 'Firefox',
+      family: 'gecko',
+      browserRoot: path.join(appSupport, 'Firefox'),
+      manifestDir: path.join(appSupport, 'Mozilla', 'NativeMessagingHosts'),
+    },
   ];
 }
 
-/** The manifest document a browser reads to spawn the host. */
+const NM_MANIFEST_DESCRIPTION = 'Open Headers native-messaging bootstrap (token handoff only)';
+
+/** The manifest document a Chromium browser reads to spawn the host. */
 export function buildNmManifest(hostBinaryPath: string, allowedExtensionIds: readonly string[]): string {
   const manifest = {
     name: NM_HOST_NAME,
-    description: 'Open Headers native-messaging bootstrap (token handoff only)',
+    description: NM_MANIFEST_DESCRIPTION,
     path: hostBinaryPath,
     type: 'stdio',
     allowed_origins: allowedExtensionIds.map((id) => `chrome-extension://${id}/`),
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
+/** The Gecko variant — Firefox allowlists bare extension ids, not origins. */
+export function buildGeckoNmManifest(hostBinaryPath: string, allowedGeckoIds: readonly string[]): string {
+  const manifest = {
+    name: NM_HOST_NAME,
+    description: NM_MANIFEST_DESCRIPTION,
+    path: hostBinaryPath,
+    type: 'stdio',
+    allowed_extensions: [...allowedGeckoIds],
   };
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
@@ -137,6 +167,8 @@ export interface RegisterNmManifestsOptions {
   readonly hostBinaryPath: string;
   readonly targets: readonly NmManifestTarget[];
   readonly allowedExtensionIds: readonly string[];
+  /** Gecko-family allowlist (Firefox extension ids). */
+  readonly allowedGeckoIds: readonly string[];
   /** Test seam — defaults to the real filesystem. */
   readonly fileSystem?: NmManifestFs;
 }
@@ -154,9 +186,13 @@ export interface NmManifestRegistration {
  */
 export function registerNmManifests(options: RegisterNmManifestsOptions): NmManifestRegistration[] {
   const fileSystem = options.fileSystem ?? realFs;
-  const content = buildNmManifest(options.hostBinaryPath, options.allowedExtensionIds);
+  const contentByFamily: Record<NmManifestFamily, string> = {
+    chromium: buildNmManifest(options.hostBinaryPath, options.allowedExtensionIds),
+    gecko: buildGeckoNmManifest(options.hostBinaryPath, options.allowedGeckoIds),
+  };
   const results: NmManifestRegistration[] = [];
   for (const target of options.targets) {
+    const content = contentByFamily[target.family];
     const manifestPath = path.join(target.manifestDir, `${NM_HOST_NAME}.json`);
     try {
       if (!fileSystem.existsSync(target.browserRoot)) {
@@ -188,6 +224,8 @@ export function registerNmManifests(options: RegisterNmManifestsOptions): NmMani
 export interface NmRegistryTarget {
   /** Display name for the boot log. */
   readonly browser: string;
+  /** Selects the manifest document (`allowed_origins` vs `allowed_extensions`). */
+  readonly family: NmManifestFamily;
   /**
    * Per-user profile roots that mark the browser as installed —
    * registration is skipped when none exists. A vendor whose channels
@@ -199,17 +237,21 @@ export interface NmRegistryTarget {
 }
 
 /**
- * Windows per-user registry targets, Chromium family. Chrome's
- * channels (stable/beta/dev/canary) all read the stable
- * `Software\Google\Chrome` key, so the family is one target with
- * every channel's profile root as a presence marker.
+ * Windows per-user registry targets. Chrome's channels
+ * (stable/beta/dev/canary) all read the stable `Software\Google\Chrome`
+ * key, so the family is one target with every channel's profile root as
+ * a presence marker. Firefox reads the vendor-shared
+ * `Software\Mozilla\NativeMessagingHosts` key, and its profile roots
+ * live under Roaming AppData while the Chromium family's live under
+ * Local — hence the two directory inputs.
  */
-export function windowsNmManifestTargets(localAppDataDir: string): NmRegistryTarget[] {
+export function windowsNmManifestTargets(localAppDataDir: string, roamingAppDataDir: string): NmRegistryTarget[] {
   const hostKey = (...vendorSegments: string[]): string =>
     ['HKCU\\Software', ...vendorSegments, 'NativeMessagingHosts', NM_HOST_NAME].join('\\');
   return [
     {
       browser: 'Google Chrome',
+      family: 'chromium',
       presenceRoots: [
         path.join(localAppDataDir, 'Google', 'Chrome', 'User Data'),
         path.join(localAppDataDir, 'Google', 'Chrome Beta', 'User Data'),
@@ -218,13 +260,21 @@ export function windowsNmManifestTargets(localAppDataDir: string): NmRegistryTar
     },
     {
       browser: 'Microsoft Edge',
+      family: 'chromium',
       presenceRoots: [path.join(localAppDataDir, 'Microsoft', 'Edge', 'User Data')],
       registryKey: hostKey('Microsoft', 'Edge'),
     },
     {
       browser: 'Brave Browser',
+      family: 'chromium',
       presenceRoots: [path.join(localAppDataDir, 'BraveSoftware', 'Brave-Browser', 'User Data')],
       registryKey: hostKey('BraveSoftware', 'Brave-Browser'),
+    },
+    {
+      browser: 'Firefox',
+      family: 'gecko',
+      presenceRoots: [path.join(roamingAppDataDir, 'Mozilla', 'Firefox')],
+      registryKey: hostKey('Mozilla'),
     },
   ];
 }
@@ -256,10 +306,12 @@ export function parseRegQueryDefaultValue(output: string): string | null {
 
 export interface RegisterWindowsNmManifestsOptions {
   readonly hostBinaryPath: string;
-  /** Where the shared manifest JSON lands (the desktop's own data dir). */
+  /** Where the shared manifest JSONs land (the desktop's own data dir). */
   readonly manifestDir: string;
   readonly targets: readonly NmRegistryTarget[];
   readonly allowedExtensionIds: readonly string[];
+  /** Gecko-family allowlist (Firefox extension ids). */
+  readonly allowedGeckoIds: readonly string[];
   /** Test seam — defaults to the real filesystem. */
   readonly fileSystem?: NmManifestFs;
   /** Test seam — defaults to real `reg.exe`. */
@@ -273,7 +325,7 @@ export interface NmRegistryRegistration {
 }
 
 /**
- * Write/repair the shared manifest file + per-vendor registry keys for
+ * Write/repair the shared manifest files + per-vendor registry keys for
  * every installed browser target. Same discipline as the macOS dirs:
  * register on first boot, repair a drifted key or manifest, leave a
  * settled pair untouched, skip absent browsers, and never throw — a
@@ -284,26 +336,39 @@ export async function registerWindowsNmManifests(
 ): Promise<NmRegistryRegistration[]> {
   const fileSystem = options.fileSystem ?? realFs;
   const runRegistry = options.runRegistry ?? defaultRegistryRunner;
-  const content = buildNmManifest(options.hostBinaryPath, options.allowedExtensionIds);
-  const manifestPath = path.join(options.manifestDir, `${NM_HOST_NAME}.json`);
+  // One manifest file per family under the desktop's data dir — the
+  // registry key name carries the host identity, so the Gecko file's
+  // suffix only keeps the two documents apart on disk.
+  const families: Record<NmManifestFamily, { content: string; manifestPath: string }> = {
+    chromium: {
+      content: buildNmManifest(options.hostBinaryPath, options.allowedExtensionIds),
+      manifestPath: path.join(options.manifestDir, `${NM_HOST_NAME}.json`),
+    },
+    gecko: {
+      content: buildGeckoNmManifest(options.hostBinaryPath, options.allowedGeckoIds),
+      manifestPath: path.join(options.manifestDir, `${NM_HOST_NAME}.firefox.json`),
+    },
+  };
   const results: NmRegistryRegistration[] = [];
   const installedTargets = options.targets.filter((target) =>
     target.presenceRoots.some((root) => fileSystem.existsSync(root)),
   );
 
-  // The manifest file is shared across vendors — settle it once, and
-  // only when at least one browser will point at it (no litter on a
-  // browserless machine). A repaired file marks every settled key
-  // repaired too: the registry value is unchanged but what the browser
-  // reads through it isn't.
-  let manifestChanged = false;
-  if (installedTargets.length > 0) {
+  // Each family's manifest file is shared across its vendors — settle
+  // it once, and only when at least one browser will point at it (no
+  // litter on a browserless machine). A repaired file marks every
+  // settled key of that family repaired too: the registry value is
+  // unchanged but what the browser reads through it isn't.
+  const manifestChanged: Record<NmManifestFamily, boolean> = { chromium: false, gecko: false };
+  for (const family of ['chromium', 'gecko'] as const) {
+    if (!installedTargets.some((target) => target.family === family)) continue;
+    const { content, manifestPath } = families[family];
     try {
       const current = fileSystem.existsSync(manifestPath) ? fileSystem.readFileSync(manifestPath) : null;
       if (current !== content) {
         fileSystem.mkdirSync(options.manifestDir);
         fileSystem.writeFileSync(manifestPath, content);
-        manifestChanged = current !== null;
+        manifestChanged[family] = current !== null;
       }
     } catch {
       // An unwritable data dir fails every target below via the
@@ -317,6 +382,7 @@ export async function registerWindowsNmManifests(
       results.push({ browser: target.browser, registryKey: target.registryKey, action: 'skipped' });
       continue;
     }
+    const { manifestPath } = families[target.family];
     try {
       const query = await runRegistry(['query', target.registryKey, '/ve']);
       const currentValue = query.code === 0 ? parseRegQueryDefaultValue(query.stdout) : null;
@@ -325,7 +391,7 @@ export async function registerWindowsNmManifests(
         results.push({
           browser: target.browser,
           registryKey: target.registryKey,
-          action: manifestChanged ? 'repaired' : 'unchanged',
+          action: manifestChanged[target.family] ? 'repaired' : 'unchanged',
         });
         continue;
       }

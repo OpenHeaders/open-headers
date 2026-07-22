@@ -77,7 +77,7 @@ registerCapability('pairWithCode', pairWithCode);
 
 // NM auto-pairing (Phase 7): the wizard's pair-without-a-code gesture.
 // Gated on the MANIFEST permission like `originDataClearing` — absent
-// on Firefox/Safari, where the wizard honestly offers the code instead.
+// on Safari, where the wizard honestly offers the code instead.
 if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
   registerCapability('nmAutoPair', nmAutoPair);
   registerCapability('nmHostPresence', () => nmHostPresence());
