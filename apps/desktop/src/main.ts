@@ -33,6 +33,7 @@
 import { join } from 'node:path';
 import { app } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
+import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
@@ -61,6 +62,7 @@ const APP_DISPLAY_NAME = 'Open Headers';
  * because the derived default is whatever the packaged `package.json`
  * `name` happens to be — and `app.setName` never re-points userData.
  * Must stay in step with the log dir's pinned name (bootstrap/logger).
+ * The layout under this root lives in `bootstrap/app-paths`.
  */
 const APP_DATA_DIR_NAME = 'OpenHeaders';
 
@@ -90,6 +92,13 @@ function bootstrapDesktopApp(): void {
   const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
   const dataDirName = app.isPackaged ? APP_DATA_DIR_NAME : `${APP_DATA_DIR_NAME}-Dev`;
   app.setPath('userData', userDataOverride || join(app.getPath('appData'), dataDirName));
+
+  // Chromium's profile noise (caches, GPU blobs, Local Storage, service
+  // workers) lands under `chromium/` instead of littering the userData
+  // root. Must follow the userData override and precede anything that
+  // touches the default session — Chromium resolves sessionData once at
+  // session construction.
+  app.setPath('sessionData', sessionDataDir());
 
   // Chromium command-line switches must precede `app` initialization —
   // they're consumed once at network-stack construction.

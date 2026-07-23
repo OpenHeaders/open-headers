@@ -381,6 +381,7 @@ test.beforeAll(async () => {
   appGitConfig = path.join(root, 'app-gitconfig');
   cloneGitConfig = path.join(root, 'clone-gitconfig');
   mkdirSync(userData);
+  mkdirSync(path.join(userData, 'data'));
   mkdirSync(wsDir);
   writeFileSync(
     appGitConfig,
@@ -392,7 +393,7 @@ test.beforeAll(async () => {
   );
 
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: { 'oh.settings.user': { 'backend.bindPort': DAEMON_PORT } },
@@ -419,7 +420,7 @@ test.beforeAll(async () => {
     },
   );
   expect(seeded.status, seeded.stderr).toBe(0);
-  const storagePath = path.join(userData, 'storage.json');
+  const storagePath = path.join(userData, 'data', 'settings.json');
   const envelope = JSON.parse(readFileSync(storagePath, 'utf-8')) as { values: Record<string, unknown> };
   Object.assign(envelope.values, JSON.parse(seeded.stdout) as Record<string, unknown>);
   writeFileSync(storagePath, JSON.stringify(envelope));

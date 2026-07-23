@@ -204,8 +204,9 @@ test.beforeAll(async () => {
   expect(existsSync(NM_HOST_BINARY), `run pack:bun first — no binary at ${NM_HOST_BINARY}`).toBe(true);
 
   const userData = await mkdtemp(path.join(os.tmpdir(), 'oh-nm-bootstrap-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: { 'oh.settings.user': { 'backend.bindPort': DAEMON_PORT } },

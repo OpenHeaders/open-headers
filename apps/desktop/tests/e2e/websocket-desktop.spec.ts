@@ -49,7 +49,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
@@ -180,8 +180,9 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   test.setTimeout(180_000);
   userData = await mkdtemp(path.join(tmpdir(), 'oh-websocket-desktop-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: { 'oh.settings.user': { 'backend.bindPort': DAEMON_PORT } },
@@ -213,7 +214,7 @@ test.beforeAll(async () => {
     },
   );
   expect(seeded.status, seeded.stderr).toBe(0);
-  const storagePath = path.join(userData, 'storage.json');
+  const storagePath = path.join(userData, 'data', 'settings.json');
   const envelope = JSON.parse(await readFile(storagePath, 'utf-8')) as { values: Record<string, unknown> };
   Object.assign(envelope.values, JSON.parse(seeded.stdout) as Record<string, unknown>);
   await writeFile(storagePath, JSON.stringify(envelope));

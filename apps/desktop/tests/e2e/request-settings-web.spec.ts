@@ -31,7 +31,7 @@
  * desktop serves the monorepo sibling `apps/web/dist`).
  */
 
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseWorkspaceExport, type WorkspaceExport } from '@openheaders/core/workspace-export';
@@ -227,8 +227,9 @@ test.beforeAll(async () => {
   httpRig = await startHttpRig();
 
   const userData = await mkdtemp(path.join(tmpdir(), 'oh-settings-web-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {

@@ -14,7 +14,7 @@
  * standalone daemon distribution runs. This module is the Electron
  * shell around it, owning exactly the desktop-specific edges:
  *
- *   - `HostStorage`: file-backed (`<userData>/storage.json`) with Electron
+ *   - `HostStorage`: file-backed (`<userData>/data/settings.json`) with Electron
  *     `safeStorage` encrypting slots flagged `sensitive: true`. Renderers
  *     reach it via the `oh:storage:*` IPC channels (`installHostStorage`).
  *   - `LifelineServer`: IPC adapter (`installLifelineServer`) — each
@@ -25,8 +25,9 @@
  *     `webContents.send`; the spine forwards to WS peers itself.
  *   - Status store: the shared `@openheaders/ui` store both hosts and
  *     renderers read; handed to the spine through its status seam.
- *   - Paths + lifecycle: `<userData>` as the data dir; the app
- *     lifecycle's quit teardown drives the spine's dispose.
+ *   - Paths + lifecycle: `<userData>/data` as the data dir (the
+ *     backup-worthy half of the layout in `bootstrap/app-paths`); the
+ *     app lifecycle's quit teardown drives the spine's dispose.
  *
  * Inbound wires:
  *
@@ -69,6 +70,7 @@ import {
 } from '@openheaders/oracle-host-node/migration';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog } from 'electron';
+import { dataDir } from './bootstrap/app-paths';
 import { registerTeardown } from './bootstrap/lifecycle';
 import { installLocaleSubscription } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
@@ -315,7 +317,7 @@ export async function installRpcHost(): Promise<void> {
   });
 
   const spine = await bootDaemonSpine({
-    dataDir: app.getPath('userData'),
+    dataDir: dataDir(),
     appVersion: app.getVersion(),
     logger: engineLogger,
     identity: {

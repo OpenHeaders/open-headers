@@ -17,7 +17,7 @@
  * Requires `pnpm turbo build --filter=@openheaders/desktop` first.
  */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseWorkspaceExport } from '@openheaders/core/workspace-export';
@@ -151,8 +151,9 @@ test.beforeAll(async () => {
   unixEcho = await startUnixEcho(path.join(tmpdir(), `oh-live-${process.pid}.sock`));
 
   const userData = await mkdtemp(path.join(tmpdir(), 'oh-settings-app-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: { 'oh.settings.user': { 'backend.bindPort': DAEMON_PORT } },

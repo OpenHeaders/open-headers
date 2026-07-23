@@ -1,7 +1,7 @@
 /**
  * Window position + size persistence across launches. State lives in
- * `<userData>/window-state.json` (outside the engine's HostStorage so
- * it's available before engine boot) and is re-read at window creation
+ * `<userData>/state/window-state.json` (outside the engine's HostStorage
+ * so it's available before engine boot) and is re-read at window creation
  * time. Writes are debounced because move / resize fire continuously
  * during a drag.
  *
@@ -15,7 +15,8 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, type BrowserWindow, type Rectangle, screen } from 'electron';
+import { type BrowserWindow, type Rectangle, screen } from 'electron';
+import { stateDir } from './app-paths';
 import { createLogger } from './logger';
 
 const logger = createLogger('window-state');
@@ -33,7 +34,7 @@ export type WindowState = {
 };
 
 function statePath(): string {
-  return join(app.getPath('userData'), STATE_FILENAME);
+  return join(stateDir(), STATE_FILENAME);
 }
 
 function rectanglesIntersect(a: Rectangle, b: Rectangle): boolean {

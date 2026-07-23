@@ -5,12 +5,13 @@
  *
  * In packaged builds the process has no stdout a user can see, so
  * `console.*` calls effectively disappear. Every line here lands in
- * electron-log's file transport, pinned to the space-free product
- * name (macOS: `~/Library/Logs/OpenHeaders/main.log`; elsewhere:
- * `<appData>/OpenHeaders/logs/main.log`) instead of the display name
- * `app.setName` installs, with a 5 MB rolling cap. When a user files
- * a bug we ask for that file — `getLogDirectory()` reports the live
- * path.
+ * electron-log's file transport at `<userData>/logs/main.log` — the
+ * log root follows the userData root, so the env override and the
+ * `-Dev` suffix isolate dev / e2e / installed logs from each other.
+ * One exception: packaged macOS keeps the platform-conventional
+ * `~/Library/Logs/OpenHeaders/main.log` (the path users are asked to
+ * pull for bug reports). 5 MB rolling cap; `getLogDirectory()` reports
+ * the live path.
  *
  * Capabilities beyond `electron-log/main`'s built-in `.scope()`:
  *   - `setGlobalLogLevel('debug' | 'info' | 'warn' | 'error')` — runtime
@@ -29,18 +30,23 @@ import log from 'electron-log/main';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /**
- * Directory name for the log file. Matches the space-free
- * `productName`, NOT the 'Open Headers' display name — electron-log
- * would otherwise derive `~/Library/Logs/Open Headers/` from
- * `app.setName`.
+ * Directory name for the packaged-macOS log fork. Matches the
+ * space-free `productName`, NOT the 'Open Headers' display name —
+ * electron-log would otherwise derive `~/Library/Logs/Open Headers/`
+ * from `app.setName`.
  */
 const LOG_DIR_APP_NAME = 'OpenHeaders';
 
-/** electron-log's per-platform default root, with the pinned name. */
+/**
+ * Log root: `<userData>/logs`, so dev, e2e, and installed builds never
+ * interleave one main.log. Packaged macOS is the one fork — it keeps
+ * `~/Library/Logs/OpenHeaders`, the conventional location users pull
+ * from for bug reports. Must run after main.ts's userData override.
+ */
 function logsRootDir(): string {
-  return process.platform === 'darwin'
+  return app.isPackaged && process.platform === 'darwin'
     ? path.join(app.getPath('home'), 'Library', 'Logs', LOG_DIR_APP_NAME)
-    : path.join(app.getPath('appData'), LOG_DIR_APP_NAME, 'logs');
+    : path.join(app.getPath('userData'), 'logs');
 }
 
 type LogLevelName = 'error' | 'warn' | 'info' | 'debug';

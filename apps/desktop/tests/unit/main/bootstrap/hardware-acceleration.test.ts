@@ -37,7 +37,7 @@ describe('hardware-acceleration', () => {
   it('toggle persists the disable flag and applies it on next boot', async () => {
     vi.spyOn(dialog, 'showMessageBox').mockResolvedValue({ response: 1, checkboxChecked: false });
     await toggleHardwareAcceleration();
-    expect(existsSync(join(userDataDir, FLAG_FILENAME))).toBe(true);
+    expect(existsSync(join(userDataDir, 'state', FLAG_FILENAME))).toBe(true);
     expect(isHardwareAccelerationDisabled()).toBe(true);
 
     const disable = vi.spyOn(app, 'disableHardwareAcceleration');
@@ -49,7 +49,7 @@ describe('hardware-acceleration', () => {
     vi.spyOn(dialog, 'showMessageBox').mockResolvedValue({ response: 1, checkboxChecked: false });
     await toggleHardwareAcceleration();
     await toggleHardwareAcceleration();
-    expect(existsSync(join(userDataDir, FLAG_FILENAME))).toBe(false);
+    expect(existsSync(join(userDataDir, 'state', FLAG_FILENAME))).toBe(false);
     expect(isHardwareAccelerationDisabled()).toBe(false);
   });
 

@@ -24,7 +24,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -100,8 +100,9 @@ test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
   const userData = await mkdtemp(path.join(tmpdir(), 'oh-mcp-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {

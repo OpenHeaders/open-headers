@@ -28,7 +28,7 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -220,8 +220,9 @@ test.beforeAll(async () => {
   await createRule(daemonRig, daemonWorkspaceId, SEEDED_ON_DAEMON);
 
   const userData = await mkdtemp(path.join(os.tmpdir(), 'oh-dac-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {

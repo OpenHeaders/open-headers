@@ -38,7 +38,7 @@
  * is started by the playwright `webServer` block.
  */
 
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import * as http from 'node:http';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -326,8 +326,9 @@ function setupStep(message: string): void {
 
 test.beforeAll(async () => {
   const userData = await mkdtemp(path.join(os.tmpdir(), 'oh-proxy-live-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {

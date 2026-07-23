@@ -15,7 +15,7 @@
  * Requires `pnpm turbo build --filter=@openheaders/desktop` first.
  */
 
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
@@ -79,10 +79,11 @@ test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
   userData = await mkdtemp(path.join(tmpdir(), 'oh-i18n-switch-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   // Pin the embedded backend off every other suite's port; language is
   // deliberately NOT seeded — the first leg proves the `auto` boot.
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {
@@ -137,7 +138,7 @@ test('the choice persists across an app restart', async () => {
   await expect
     .poll(async () => {
       try {
-        const raw = await readFile(path.join(userData, 'storage.json'), 'utf8');
+        const raw = await readFile(path.join(userData, 'data', 'settings.json'), 'utf8');
         const parsed = JSON.parse(raw) as { values?: Record<string, Record<string, unknown>> };
         return parsed.values?.['oh.settings.user']?.['general.language'] ?? null;
       } catch {

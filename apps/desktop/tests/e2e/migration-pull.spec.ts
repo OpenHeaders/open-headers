@@ -32,7 +32,7 @@
  * the extension `dist/chrome` (built separately).
  */
 
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -159,10 +159,11 @@ test.beforeAll(async () => {
   await startStub();
 
   const userData = await mkdtemp(path.join(tmpdir(), 'oh-migration-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   // The MCP surface doubles as the engine-ready gate and mints the
   // extension's pair token — same rig as mcp.spec.
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {

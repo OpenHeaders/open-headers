@@ -19,7 +19,7 @@
 
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app } from 'electron';
+import { stateDir } from './app-paths';
 import { createLogger } from './logger';
 
 const logger = createLogger('launch-flags');
@@ -28,7 +28,7 @@ const HIDDEN_ARGV_FLAG = '--hidden';
 const RESTART_HIDDEN_FILENAME = 'restart-hidden.flag';
 
 function restartHiddenPath(): string {
-  return join(app.getPath('userData'), RESTART_HIDDEN_FILENAME);
+  return join(stateDir(), RESTART_HIDDEN_FILENAME);
 }
 
 let cached: boolean | null = null;

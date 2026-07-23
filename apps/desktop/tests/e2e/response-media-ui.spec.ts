@@ -226,8 +226,9 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   await mkdir(SHOT_DIR, { recursive: true });
   const userData = await mkdtemp(path.join(tmpdir(), 'oh-media-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {

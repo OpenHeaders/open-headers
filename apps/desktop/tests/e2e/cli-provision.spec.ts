@@ -24,7 +24,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { hostname as osHostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
@@ -126,10 +126,11 @@ test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
   const userData = await mkdtemp(path.join(tmpdir(), 'oh-cli-provision-e2e-'));
+  await mkdir(path.join(userData, 'data'), { recursive: true });
   configHome = await mkdtemp(path.join(tmpdir(), 'oh-cli-provision-config-'));
   cliConfigPath = path.join(configHome, 'openheaders', 'cli.json');
   await writeFile(
-    path.join(userData, 'storage.json'),
+    path.join(userData, 'data', 'settings.json'),
     JSON.stringify({
       schemaVersion: 1,
       values: {
@@ -326,7 +327,9 @@ test('a foreign config reads external, never prompts, and Connect repoints it', 
   }).toPass();
 
   await openSettingsMcp();
-  await expect(workbench.getByText(`The CLI is currently connected to a different daemon (${foreignUrl}).`, { exact: false })).toBeVisible({ timeout: 10_000 });
+  await expect(
+    workbench.getByText(`The CLI is currently connected to a different daemon (${foreignUrl}).`, { exact: false }),
+  ).toBeVisible({ timeout: 10_000 });
   await workbench.getByRole('button', { name: 'Connect to this app' }).click();
 
   await expect

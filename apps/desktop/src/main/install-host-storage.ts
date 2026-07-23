@@ -39,7 +39,8 @@ import {
   type StorageUnsubscribeRequest,
 } from '@openheaders/oracle/host-storage';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
-import { app, ipcMain, webContents } from 'electron';
+import { ipcMain, webContents } from 'electron';
+import { dataDir } from './bootstrap/app-paths';
 import { safeStorageCipher } from './safe-storage-cipher';
 
 const SCOPE = 'HostStorageIpc';
@@ -56,7 +57,7 @@ const CHANNEL = {
 } as const;
 
 export interface InstallHostStorageOptions {
-  /** Override the default `<userData>/storage.json` path. */
+  /** Override the default `<userData>/data/settings.json` path. */
   filePath?: string;
   /** Override the default `safeStorage` cipher (tests use `noopSecretCipher`). */
   cipher?: SecretCipher;
@@ -70,7 +71,9 @@ export interface HostStorageHandle {
 }
 
 export function installHostStorage(options: InstallHostStorageOptions = {}): HostStorageHandle {
-  const filePath = options.filePath ?? path.join(app.getPath('userData'), 'storage.json');
+  // Settings + the NM token ledger — backup-worthy, so it lives in the
+  // `data/` half of the userData layout.
+  const filePath = options.filePath ?? path.join(dataDir(), 'settings.json');
   const cipher = options.cipher ?? safeStorageCipher;
 
   const backend = new FileBackedHostStorage({

@@ -8,7 +8,7 @@
  * that exactly once, before `app` is ready, so the choice must persist
  * across launches and apply at boot — not when the menu item is
  * clicked. Same marker-file idiom as `launch-flags`: flag file present
- * in `userData` ⇒ next boot disables acceleration.
+ * in `<userData>/state` ⇒ next boot disables acceleration.
  *
  * `toggleHardwareAcceleration` flips the marker and offers a restart.
  * Until the restart happens the menu label (derived from the marker,
@@ -19,6 +19,7 @@
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, dialog } from 'electron';
+import { stateDir } from './app-paths';
 import { mainTranslator } from './locale';
 import { createLogger } from './logger';
 import { relaunchApp } from './relaunch';
@@ -28,7 +29,7 @@ const logger = createLogger('hardware-acceleration');
 const DISABLE_FLAG_FILENAME = 'disable-hardware-acceleration.flag';
 
 function flagPath(): string {
-  return join(app.getPath('userData'), DISABLE_FLAG_FILENAME);
+  return join(stateDir(), DISABLE_FLAG_FILENAME);
 }
 
 /** Target state for the NEXT launch (marker presence), not the running state. */
