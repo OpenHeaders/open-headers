@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/daemon",
-  "version": "2026.7.23",
+  "version": "2026.7.24",
   "private": true,
   "description": "Standalone Open Headers daemon — the headless back-end distribution of the shared boot spine",
   "type": "module",
