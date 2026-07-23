@@ -71,6 +71,7 @@
     "compression": "normal",
     "afterSign": "./scripts/build/notarize.js",
     "afterPack": "./scripts/build/afterPackHook.js",
+    "afterAllArtifactBuild": "./scripts/build/notarize-pkg.js",
     "msiProjectCreated": "./scripts/build/msi-project-created.js",
     "extraResources": [
       {
