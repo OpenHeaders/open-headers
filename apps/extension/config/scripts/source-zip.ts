@@ -46,10 +46,11 @@ const INCLUDE = [
   'LICENSE.md',
 ];
 
-// Globs are matched against repo-root-relative paths. Excludes are limited
-// to dependency installs, machine-generated build output, VCS/IDE/cache
-// dirs, and release artifacts — everything a reviewer regenerates with
-// `pnpm install` + a build. No hand-written source is excluded.
+// Globs are matched against repo-root-relative paths. Excludes cover
+// dependency installs, machine-generated build output, VCS/IDE/cache
+// dirs, release artifacts, and content irrelevant to an AMO build
+// review: test suites and their configs, prototypes, and store-process
+// docs. Everything needed to `pnpm install` + build stays in.
 const EXCLUDE = [
   '**/node_modules/**',
   '**/dist/**',
@@ -68,6 +69,15 @@ const EXCLUDE = [
   '**/test-results/**',
   // Xcode project for the Safari wrapper — large and not part of the build.
   'apps/extension/manifests/safari/xcode_project/**',
+  // Test suites and configs — not part of the extension build.
+  '**/tests/**',
+  '**/vitest.config.ts',
+  'apps/extension/playwright.config.ts',
+  'apps/extension/tsconfig.test.json',
+  // Internal store-process docs and prototypes — not reviewer-relevant.
+  'apps/extension/STORE_SUBMISSION.md',
+  'apps/extension/docs/**',
+  'apps/extension/prototypes/**',
   '**/.DS_Store',
   '**/*.log',
   '**/*.zip',
@@ -97,7 +107,7 @@ console.log(`\n  Firefox Source Zip  v${VERSION}`);
 console.log(`  ${'─'.repeat(40)}`);
 console.log(`  Root: ${REPO_ROOT}`);
 console.log(`  Including: apps/extension + workspace dep packages + root manifests`);
-console.log(`  Excluding: node_modules, build output, VCS/IDE files, releases\n`);
+console.log(`  Excluding: node_modules, build output, tests, prototypes, store docs, VCS/IDE files, releases\n`);
 
 output.on('close', () => {
   console.log(`  Created  ${formatSize(archive.pointer()).padStart(10)}  ${path.basename(outputPath)}`);
