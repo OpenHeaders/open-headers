@@ -33,6 +33,8 @@
     "dist:win": "pnpm run predist && electron-builder --win --publish never",
     "dist:win:unsigned": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win --publish never",
     "dist:win:unsigned:beta": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win nsis --publish never",
+    "dist:win:unsigned:dir": "pnpm run predist && cross-env WIN_CSC_LINK='' electron-builder --win dir --publish never",
+    "dist:win:frompacked": "cross-env WIN_CSC_LINK='' electron-builder --win --prepackaged dist/win-unpacked --publish never",
     "dist:linux": "pnpm run predist && electron-builder --linux --x64 --arm64 --publish never",
     "dist:linux:rpm:x64": "pnpm run predist && electron-builder --linux --x64 --config.linux.target=rpm --publish never",
     "dist:linux:rpm:arm64": "pnpm run predist && electron-builder --linux --arm64 --config.linux.target=rpm --publish never",
@@ -71,7 +73,7 @@
     "compression": "normal",
     "afterSign": "./scripts/build/notarize.js",
     "afterPack": "./scripts/build/afterPackHook.js",
-    "afterAllArtifactBuild": "./scripts/build/notarize-pkg.js",
+    "afterAllArtifactBuild": "./scripts/build/notarize-artifacts.js",
     "msiProjectCreated": "./scripts/build/msi-project-created.js",
     "extraResources": [
       {

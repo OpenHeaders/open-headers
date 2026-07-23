@@ -5,8 +5,9 @@ on:
     tags:
       - 'v*'
   # Signing dry-run: manual dispatch builds ONLY the windows desktop
-  # leg with the full stable eSigner path (sign → re-hash → blockmap →
-  # signature check) and uploads the artifact — no binaries/extension
+  # leg with the full stable eSigner path (inner OpenHeaders.exe +
+  # oh-nm-host.exe → installers → sign → re-hash → blockmap →
+  # signature checks) and uploads the artifact — no binaries/extension
   # legs, no release job, nothing published.
   workflow_dispatch:
 
@@ -133,6 +134,19 @@ jobs:
       - name: Build core package
         run: pnpm --filter @openheaders/core build
 
+      # The NM host rides the app under resources/nm-host (extraResources)
+      # — without this step the packaged app ships hostless and the
+      # extension degrades to device-flow pairing. One binary per
+      # platform, so every desktop leg compiles its own.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Build NM host binary
+        run: pnpm --filter @openheaders/nm-host run pack:bun
+        shell: bash
+
       - name: Build desktop application
         run: pnpm --filter @openheaders/desktop build
         env:
@@ -203,22 +217,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Windows
-        if: matrix.os == 'windows-2022'
-        working-directory: apps/desktop
-        shell: bash
-        run: |
-          if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
-            pnpm dist:win:unsigned:beta
-          else
-            pnpm dist:win:unsigned
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       # Secrets are not readable in step `if:` expressions, so surface
       # their presence as an output; missing credentials mean the
-      # Setup.exe ships unsigned instead of failing the leg.
+      # Setup.exe ships unsigned instead of failing the leg. Checked
+      # before the build because the signed lane packages in two
+      # phases (unpacked → sign inner executables → installers).
       - name: Check Windows signing credentials
         if: matrix.os == 'windows-2022'
         id: win_sign
@@ -235,6 +238,90 @@ jobs:
           ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
           CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
+
+      - name: Build Windows
+        if: matrix.os == 'windows-2022' && (steps.detect_beta.outputs.is_beta == 'true' || steps.win_sign.outputs.enabled != 'true')
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
+            pnpm dist:win:unsigned:beta
+          else
+            pnpm dist:win:unsigned
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Signed stable lane: the installed binaries need Authenticode
+      # too — the NM chain's host verification anchors on the signed
+      # `oh-nm-host.exe`, and enterprise allow-listing wants a signed
+      # `OpenHeaders.exe`. Build unpacked first, sign the two inner
+      # executables, then package the installers from the signed tree.
+      - name: Build Windows unpacked (signed lane)
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        working-directory: apps/desktop
+        shell: bash
+        run: pnpm dist:win:unsigned:dir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign app executable
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/desktop/dist/win-unpacked/OpenHeaders.exe
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      - name: Sign NM host executable
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/desktop/dist/win-unpacked/resources/nm-host/oh-nm-host.exe
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      - name: Verify inner executable signatures
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        run: |
+          foreach ($f in @(
+            "apps/desktop/dist/win-unpacked/OpenHeaders.exe",
+            "apps/desktop/dist/win-unpacked/resources/nm-host/oh-nm-host.exe"
+          )) {
+            $sig = Get-AuthenticodeSignature $f
+            Write-Host "$f -> $($sig.Status)"
+            if ($sig.Status -ne 'Valid') {
+              Write-Error "Authenticode signature status for ${f}: $($sig.Status)"
+              exit 1
+            }
+          }
+        shell: pwsh
+
+      - name: Package installers from signed tree
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        working-directory: apps/desktop
+        shell: bash
+        run: pnpm dist:win:frompacked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Find Windows Executable
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
@@ -437,6 +524,89 @@ jobs:
         run: pnpm --filter @openheaders/cli run pack:bun
         shell: bash
 
+      # Same eSigner path as the desktop leg: the downloaded CLI exe
+      # trips SmartScreen unsigned, and `install-oh.ps1` fails under
+      # AllSigned execution policies. Deterministic pre-stage paths, so
+      # no find step; stable-only, missing secrets degrade to unsigned.
+      - name: Detect beta build
+        if: matrix.os == 'windows-2022'
+        id: detect_beta
+        run: |
+          if [[ "${{ github.ref_name }}" =~ -beta[.0-9]*$ ]]; then
+            echo "is_beta=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_beta=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Check Windows signing credentials
+        if: matrix.os == 'windows-2022'
+        id: win_sign
+        run: |
+          if [ -n "$ES_USERNAME" ] && [ -n "$ES_PASSWORD" ] && [ -n "$CREDENTIAL_ID" ] && [ -n "$ES_TOTP_SECRET" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::notice::Windows signing secrets not configured - publishing unsigned oh.exe"
+          fi
+        shell: bash
+        env:
+          ES_USERNAME: ${{ secrets.ES_USERNAME }}
+          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
+          CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
+
+      - name: Sign oh CLI executable
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/cli/dist-bun/oh.exe
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      - name: Sign Windows install script
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/cli/scripts/install.ps1
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      # The signed exe must still answer — a signature that breaks the
+      # binary is worse than no signature.
+      - name: Verify CLI signatures
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        run: |
+          foreach ($f in @("apps/cli/dist-bun/oh.exe", "apps/cli/scripts/install.ps1")) {
+            $sig = Get-AuthenticodeSignature $f
+            Write-Host "$f -> $($sig.Status)"
+            if ($sig.Status -ne 'Valid') {
+              Write-Error "Authenticode signature status for ${f}: $($sig.Status)"
+              exit 1
+            }
+          }
+          & "apps/cli/dist-bun/oh.exe" --version
+          if ($LASTEXITCODE -ne 0) { Write-Error "signed oh.exe no longer runs"; exit 1 }
+        shell: pwsh
+
       # The daemon binary embeds the built web app when present.
       - name: Build and verify ohd SEA binary
         if: matrix.os != 'windows-2022'
@@ -540,6 +710,9 @@ jobs:
           esac
           if [ "$RUNNER_OS" == "Windows" ]; then
             cp apps/cli/dist-bun/oh.exe "release-binaries/oh-${OH_VERSION}-${OS_ARCH}.exe"
+            # Travels via artifact so the release job stages the signed
+            # copy instead of the plain one from its own checkout.
+            cp apps/cli/scripts/install.ps1 release-binaries/install-oh.ps1
           else
             OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
             cp apps/cli/dist-bun/oh "release-binaries/oh-${OH_VERSION}-${OS_ARCH}"
@@ -669,14 +842,38 @@ jobs:
           if [ -n "$BINS" ]; then
             (cd processed_files && shasum -a 256 $BINS > SHA256SUMS.txt)
             # Installer scripts ride every release so the stable
-            # /releases/latest/download one-liners always resolve.
+            # /releases/latest/download one-liners always resolve. The
+            # ps1 prefers the windows-leg artifact copy — that one is
+            # Authenticode-signed on stable.
             cp apps/cli/scripts/install.sh processed_files/install-oh.sh
-            cp apps/cli/scripts/install.ps1 processed_files/install-oh.ps1
+            [ -f processed_files/install-oh.ps1 ] || cp apps/cli/scripts/install.ps1 processed_files/install-oh.ps1
           fi
 
           echo "Files prepared for release:"
           ls -la processed_files/
         shell: bash
+
+      # Detached GPG signature over the checksums manifest — a trust
+      # root beyond TLS for the standalone binaries. Missing key means
+      # the manifest ships unsigned instead of failing the release.
+      - name: Sign checksums manifest
+        run: |
+          if [ ! -f processed_files/SHA256SUMS.txt ]; then
+            exit 0
+          fi
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::notice::GPG_PRIVATE_KEY not configured - SHA256SUMS.txt ships unsigned"
+            exit 0
+          fi
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+            --armor --detach-sign \
+            --output processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
+          gpg --verify processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
+        shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       # versions.json — the static severity manifest (UPDATES_PLAN §4).
       # Clients fetch it anonymously via /releases/latest/download/,
@@ -720,6 +917,10 @@ jobs:
 
           DL="${{ steps.dl_base.outputs.url }}"
           ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
+          SUMS_LINE="Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
+          if [ -f processed_files/SHA256SUMS.txt.asc ]; then
+            SUMS_LINE="${SUMS_LINE} · [GPG signature](${DL}/SHA256SUMS.txt.asc)"
+          fi
 
           {
             echo "<p align=\"center\"><img src=\"${ICONS}/logo.svg\" width=\"88\" alt=\"Open Headers\"></p>"
@@ -823,7 +1024,7 @@ jobs:
               echo "| --- | --- |"
               for f in $OH_FILES; do bin_row "$f"; done
               echo ""
-              echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
+              echo "${SUMS_LINE}"
               echo ""
               echo "<details><summary><b>Install scripts & notes</b></summary>"
               echo ""
@@ -858,7 +1059,7 @@ jobs:
                 echo "| ${I_DOCKER} Docker | \`ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}\` |"
               fi
               echo ""
-              echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
+              echo "${SUMS_LINE}"
               echo ""
               echo "<details><summary><b>Install scripts & notes</b></summary>"
               echo ""
