@@ -14,10 +14,13 @@ const target = path.join(__dirname, '..', '..', 'build', 'license.txt');
 
 const markdown = fs.readFileSync(source, 'utf8');
 
+// Em dashes fold to plain hyphens: the NSIS license box decodes a
+// BOM-less file as ANSI, so any non-ASCII byte renders as mojibake.
 const text = markdown
   .replace(/^#+\s*/gm, '')
   .replace(/\*\*([^*]+)\*\*/g, '$1')
-  .replace(/^- /gm, '  - ');
+  .replace(/^- /gm, '  - ')
+  .replace(/—/g, '-');
 
 fs.writeFileSync(target, text);
 console.log(`Wrote ${target} from ${source}`);
