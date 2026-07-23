@@ -260,6 +260,9 @@ describe('parseAuthenticodeIdentity', () => {
   });
 });
 
+const WIN_CMD_PATH = 'C:\\Windows\\System32\\cmd.exe';
+const WIN_CMD_SUBJECT = 'CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US';
+
 interface WindowsChainConfig {
   ownerPid?: number;
   hostPath?: string;
@@ -267,6 +270,8 @@ interface WindowsChainConfig {
   browserPath?: string;
   browserStatus?: string;
   browserSubject?: string;
+  /** Interpose the system cmd.exe between host and browser — the shape Chromium's NM spawn produces. */
+  cmdTrampoline?: boolean;
 }
 
 function windowsRunner(config: WindowsChainConfig = {}): CommandRunner {
@@ -288,14 +293,25 @@ function windowsRunner(config: WindowsChainConfig = {}): CommandRunner {
         return { stdout: JSON.stringify({ ParentProcessId: 555, ExecutablePath: hostPath }), stderr: '', code: 0 };
       }
       if (script.includes('ProcessId = 555')) {
+        const row = config.cmdTrampoline
+          ? { ParentProcessId: 556, ExecutablePath: WIN_CMD_PATH }
+          : { ParentProcessId: 1, ExecutablePath: browserPath };
+        return { stdout: JSON.stringify(row), stderr: '', code: 0 };
+      }
+      if (script.includes('ProcessId = 556')) {
         return { stdout: JSON.stringify({ ParentProcessId: 1, ExecutablePath: browserPath }), stderr: '', code: 0 };
       }
       return { stdout: '', stderr: '', code: 0 };
     }
     if (script.startsWith('$sig = Get-AuthenticodeSignature')) {
       const isHost = script.includes(hostPath.replace(/'/g, "''"));
+      const isCmd = script.includes(WIN_CMD_PATH.replace(/'/g, "''"));
       const status = isHost ? (config.hostStatus ?? 'Valid') : (config.browserStatus ?? 'Valid');
-      const subject = isHost ? 'CN=Open Headers, O=Open Headers, C=US' : (config.browserSubject ?? WIN_EDGE_SUBJECT);
+      const subject = isHost
+        ? 'CN=Open Headers, O=Open Headers, C=US'
+        : isCmd
+          ? WIN_CMD_SUBJECT
+          : (config.browserSubject ?? WIN_EDGE_SUBJECT);
       return { stdout: JSON.stringify({ Status: status, Subject: subject }), stderr: '', code: 0 };
     }
     return { stdout: '', stderr: '', code: 1 };
@@ -366,6 +382,31 @@ describe('verifyNmCaller on win32', () => {
 
   it('refuses a parent signed by an unlisted vendor', async () => {
     const verdict = await verifyNmCaller(windowsOptions(windowsRunner({ browserSubject: 'CN=Some Other Corp, C=US' })));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+
+  it('hops the cmd.exe trampoline Chromium spawns NM hosts through and verifies the grandparent', async () => {
+    const verdict = await verifyNmCaller(windowsOptions(windowsRunner({ cmdTrampoline: true })));
+    expect(verdict).toEqual({
+      ok: true,
+      browser: { subjectCommonName: 'Microsoft Corporation', name: 'Microsoft Edge' },
+      browserPath: WIN_EDGE_PATH,
+    });
+  });
+
+  it('refuses a trampolined spawn whose grandparent is not an allowlisted browser', async () => {
+    const verdict = await verifyNmCaller(
+      windowsOptions(windowsRunner({ cmdTrampoline: true, browserSubject: 'CN=Some Other Corp, C=US' })),
+    );
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
+  });
+
+  it('never hops twice — a second cmd.exe behind the shim is verified (and refused) as the spawner', async () => {
+    const verdict = await verifyNmCaller(
+      windowsOptions(windowsRunner({ cmdTrampoline: true, browserPath: WIN_CMD_PATH })),
+    );
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.reason).toBe('browser-unverified');
   });

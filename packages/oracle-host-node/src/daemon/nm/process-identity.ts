@@ -134,6 +134,16 @@ interface PlatformProbes {
   readonly browserSigner: (executablePath: string) => Promise<VerifiedBrowser | null>;
   /** Canonical form for executable-path equality on this platform. */
   readonly canonicalPath: (candidate: string) => string;
+  /**
+   * True when the host's parent is the platform's OS-owned launcher
+   * shim rather than the spawner itself — the chain then verifies the
+   * grandparent instead, one hop only. Windows Chromium spawns every
+   * NM host through `cmd.exe /c` (so `.bat` hosts work), putting the
+   * system cmd.exe between host and browser. The shim must live under
+   * a root-owned system path, so it cannot be impersonated; whatever
+   * stands behind it still faces the full vendor verification.
+   */
+  readonly launcherTrampoline?: (canonicalExecutablePath: string) => boolean;
 }
 
 function safeRealpath(candidate: string): string {
@@ -329,7 +339,10 @@ async function readAuthenticodeIdentity(
 }
 
 function windowsProbes(run: CommandRunner): PlatformProbes {
+  const systemRoot = (process.env.SystemRoot ?? 'C:\\Windows').toLowerCase();
+  const launcherShims = new Set([`${systemRoot}\\system32\\cmd.exe`, `${systemRoot}\\syswow64\\cmd.exe`]);
   return {
+    launcherTrampoline: (canonicalExecutablePath) => launcherShims.has(canonicalExecutablePath),
     ownerPid: async (clientPort, selfPid) => {
       // Scoped to the client's ephemeral port; SilentlyContinue folds
       // "no matching connection" into empty output instead of an error.
@@ -475,14 +488,27 @@ export async function verifyNmCaller(options: VerifyNmCallerOptions): Promise<Nm
   }
 
   // 3. Parent process — the spawning browser — must carry an
-  //    allowlisted signer.
-  const browserInfo = await probes.processInfo(hostInfo.ppid);
+  //    allowlisted signer. Where the OS launcher shim sits between
+  //    them (Windows Chromium's `cmd.exe /c` spawn), the chain hops
+  //    to the grandparent — once — and verifies that instead.
+  let browserInfo = await probes.processInfo(hostInfo.ppid);
   if (!browserInfo) {
     return {
       ok: false,
       reason: 'process-info-unavailable',
       detail: `process info unavailable for parent pid ${hostInfo.ppid}`,
     };
+  }
+  if (probes.launcherTrampoline?.(probes.canonicalPath(browserInfo.executablePath)) === true) {
+    const grandparentPid = browserInfo.ppid;
+    browserInfo = await probes.processInfo(grandparentPid);
+    if (!browserInfo) {
+      return {
+        ok: false,
+        reason: 'process-info-unavailable',
+        detail: `process info unavailable for launcher-shim parent pid ${grandparentPid}`,
+      };
+    }
   }
   const browserPath = safeRealpath(browserInfo.executablePath);
   const signer = await probes.browserSigner(browserInfo.executablePath);
