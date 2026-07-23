@@ -870,6 +870,11 @@ jobs:
             --armor --detach-sign \
             --output processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
           gpg --verify processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
+          # The public key rides along so a release is verifiable on its
+          # own; the canonical fingerprint cross-check lives at
+          # https://openheaders.io/gpg and SECURITY.md.
+          gpg --batch --armor --export security@openheaders.io \
+            > processed_files/openheaders-release-key.asc
         shell: bash
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -919,7 +924,7 @@ jobs:
           ICONS="https://raw.githubusercontent.com/${REPO}/main/assets"
           SUMS_LINE="Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
           if [ -f processed_files/SHA256SUMS.txt.asc ]; then
-            SUMS_LINE="${SUMS_LINE} · [GPG signature](${DL}/SHA256SUMS.txt.asc)"
+            SUMS_LINE="${SUMS_LINE} · [GPG signature](${DL}/SHA256SUMS.txt.asc) · [signing key](https://openheaders.io/gpg)"
           fi
 
           {
@@ -1103,6 +1108,7 @@ jobs:
             NAME="$(basename "$file")"
             case "$NAME" in
               *.txt) TYPE="text/plain; charset=utf-8" ;;
+              *.asc) TYPE="text/plain; charset=utf-8" ;;
               *.sh) TYPE="text/x-shellscript; charset=utf-8" ;;
               *.ps1) TYPE="text/plain; charset=utf-8" ;;
               *.zip) TYPE="application/zip" ;;
