@@ -8,32 +8,53 @@
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 
-Browser development toolkit for recording workflows, modifying HTTP traffic, and team collaboration.
+Your existing Web DevToolkit inside a browser extension — modify live
+browser requests, manage API collections, collaborate with your team.
+
+Local-first: no account, no cloud, your data stays on your machine.
+
+**Website**: [openheaders.io](https://openheaders.io)
 
 ## What it does
 
-Open Headers is a privacy-focused desktop app that works with browser extensions to:
-- Record and replay browser workflows
-- Modify HTTP headers and requests in real-time
-- Share configurations with your team via Git
-- Inject dynamic values into HTTP headers from files, environment variables, and HTTP endpoints
+The browser extension is the product; three companion surfaces extend it
+beyond the browser:
 
-## Quick Start
+- **Browser extension** (Chrome, Firefox, Edge) — the full toolkit:
+  nine rule types over live browser traffic, a DevTools-grade network
+  panel, a full API client (HTTP, GraphQL, gRPC, WebSocket, OAuth 2.0,
+  scripts), workflows with chained & scheduled requests, an encrypted
+  vault for secrets, multi-workspace team collaboration, and an MCP
+  server for AI tooling — all working offline, no account.
+- **Desktop app** — background companion in the system tray: native
+  messaging + WebSocket bridge for the extension, git-backed workspace
+  sync, dynamic value sources, local proxy.
+- **`oh`** — standalone CLI & TUI.
+- **`ohd`** — team server daemon with SSO/OIDC, RBAC, and audit log
+  (also on Docker: `ghcr.io/openheaders/ohd`).
 
-1. Download the app for your platform from [openheaders.io](https://openheaders.io)
-2. Install the browser extension:
-   - [Chrome](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)
-   - [Edge](https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo)
-   - [Firefox](https://addons.mozilla.org/en-US/firefox/addon/open-headers/)
-3. Launch the app - it connects automatically
+## Quick start
 
-## Core Features
+1. Install the extension from your browser's store:
+   [Chrome](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb) ·
+   [Edge](https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo) ·
+   [Firefox](https://addons.mozilla.org/en-US/firefox/addon/open-headers/)
+2. Optional: grab the desktop app, `oh`, or `ohd` from the
+   [Releases](https://github.com/OpenHeaders/open-headers/releases) page,
+   or `curl -fsSL https://updates.openheaders.io/install.sh | sh`
 
-- **Workflow Recording**: Capture browser activity, network requests, console logs
-- **HTTP Modification**: Real-time header injection with dynamic values
-- **Team Workspaces**: Git-based configuration sharing
-- **Privacy First**: Runs offline, data stays local, no personal data — only anonymous feature counting, inspectable in-app and off with one switch
-- **Cross-platform**: macOS, Windows, Linux support
+## Monorepo layout
+
+| Path | What |
+| --- | --- |
+| `apps/extension` | Browser extension (Chrome / Firefox / Edge / Safari) |
+| `apps/desktop` | Electron desktop companion |
+| `apps/cli` | `oh` CLI & TUI |
+| `apps/daemon` | `ohd` team server daemon |
+| `apps/nm-host` | Native messaging host binary |
+| `apps/web` | Web app embedded by the daemon |
+| `packages/core` | Shared domain model, protocol, schemas |
+| `packages/*` | Rule engine, oracle, UI, i18n, host adapters |
 
 ## Documentation
 
@@ -44,6 +65,8 @@ Open Headers is a privacy-focused desktop app that works with browser extensions
 
 ## License
 
-Open Headers is proprietary software, free to use — every feature on every
-tier, including free. Paid subscriptions cover multi-user daemon seats only.
-See the [End User License Agreement](LICENSE.md).
+Open Headers is proprietary software that is free to use. Every feature
+is included in the free tier — the software is identical on every plan,
+and paid plans exist only to add team seats (free up to 3 active users
+per team server daemon). See the
+[End User License Agreement](LICENSE.md).
