@@ -29,6 +29,30 @@ encrypted channel in a first plain email and we will arrange one.
 
 We do not operate a paid bounty program at this time.
 
+## Verifying releases
+
+Releases that include the standalone `oh` (CLI) and `ohd` (daemon)
+binaries ship a `SHA256SUMS.txt` checksums manifest with a detached GPG
+signature (`SHA256SUMS.txt.asc`). The signing key is published at
+<https://openheaders.io/gpg> and attached to each signed release as
+`openheaders-release-key.asc`:
+
+- **User ID:** `OpenHeaders Release Signing <security@openheaders.io>`
+- **Fingerprint:** `867B 1FF4 CD09 AC02 6417 B00A C55F BF5E 1E1E E683`
+
+```sh
+gpg --import openheaders-release-key.asc
+gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
+shasum -a 256 --check --ignore-missing SHA256SUMS.txt
+```
+
+The fingerprint here and the one on <https://openheaders.io/gpg> must
+agree; if they ever disagree, trust neither and report it. Installers
+carry platform trust roots on top: Windows artifacts are
+Authenticode-signed, macOS artifacts are Developer ID-signed and
+notarized, and the browser extensions install only through the official
+stores.
+
 ## Safe harbor
 
 We will not pursue legal action for good-faith security research that
