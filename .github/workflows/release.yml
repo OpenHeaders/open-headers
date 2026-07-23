@@ -502,93 +502,16 @@ jobs:
           name: binaries-${{ matrix.os }}
           path: release-binaries/*
 
-  build-extension:
-    # STABLE releases only — the zips are raw build artifacts for
-    # source review, not an install channel (unpacked builds mint
-    # random ids that fail the NM allowlist and origin pin). Betas
-    # ship no extension zips: beta installs go through the unlisted
-    # store listings. These are the fully mangled OH_EXT_CHANNEL=release
-    # artifacts, deliberately DISTINCT from the review-permissive store
-    # submissions (built without the flag).
-    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-beta') }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Align extension manifests with package.json version
-        id: ext_version
-        working-directory: apps/extension
-        run: |
-          TAG="${GITHUB_REF_NAME/v/}"
-          EXT_VERSION=$(node -p "require('./package.json').version")
-
-          # If the tag has a beta suffix, apply it to the extension version too
-          if [[ "$TAG" =~ (-beta\.[0-9]+)$ ]]; then
-            BETA_SUFFIX="${BASH_REMATCH[1]}"
-            EXT_BASE=$(echo "$EXT_VERSION" | sed 's/-beta\.[0-9]*$//')
-            EXT_VERSION="${EXT_BASE}${BETA_SUFFIX}"
-            node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json'));p.version='$EXT_VERSION';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
-          fi
-
-          echo "version=$EXT_VERSION" >> $GITHUB_OUTPUT
-
-          # Compute numeric manifest version for store compatibility
-          if [[ "$EXT_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-beta\.([0-9]+)$ ]]; then
-            MANIFEST_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-          else
-            MANIFEST_VERSION="$EXT_VERSION"
-          fi
-
-          echo "Extension version: $EXT_VERSION (manifest: $MANIFEST_VERSION)"
-
-          for manifest in manifests/*/manifest.json; do
-            node -e "const fs=require('fs'),m=JSON.parse(fs.readFileSync('$manifest'));m.version='$MANIFEST_VERSION';fs.writeFileSync('$manifest',JSON.stringify(m,null,2)+'\n')"
-          done
-
-      - name: Build core package
-        run: pnpm --filter @openheaders/core build
-
-      # OH_EXT_CHANNEL=release ships fully mangled builds; store
-      # packages are built without it (review-permissive).
-      - name: Build and package extensions
-        working-directory: apps/extension
-        run: pnpm release
-        env:
-          OH_EXT_CHANNEL: release
-
-      - name: Write extension version file
-        run: |
-          mkdir -p apps/extension/releases
-          echo "${{ steps.ext_version.outputs.version }}" > apps/extension/releases/EXT_VERSION.txt
-
-      - name: Upload extension artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: extension-packages
-          path: |
-            apps/extension/releases/*.zip
-            apps/extension/releases/EXT_VERSION.txt
+  # No extension leg: extension distribution is store-listings only
+  # (stable AND beta) — releases carry no extension zips. The release
+  # body still links the stores; the extension version is read from
+  # apps/extension/package.json.
 
   release:
-    # Runs as long as the workflow wasn't cancelled — a failed OS leg or
-    # a skipped extension job still yields a release from the legs that
-    # produced artifacts.
+    # Runs as long as the workflow wasn't cancelled — a failed OS leg
+    # still yields a release from the legs that produced artifacts.
     if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
-    needs: [build-desktop, build-extension, build-binaries]
+    needs: [build-desktop, build-binaries]
     runs-on: ubuntu-latest
 
     steps:
@@ -611,11 +534,13 @@ jobs:
         with:
           path: dist
 
+      # Store listings serve the stable extension; betas come from the
+      # unlisted listings — the body's store table renders on stable only.
       - name: Read extension version
         id: ext_ver
-        if: needs.build-extension.result == 'success'
+        if: steps.release_type.outputs.is_prerelease == 'false'
         run: |
-          EXT_VERSION=$(cat dist/extension-packages/EXT_VERSION.txt)
+          EXT_VERSION=$(node -p "require('./apps/extension/package.json').version")
           echo "version=$EXT_VERSION" >> $GITHUB_OUTPUT
           echo "Extension version: $EXT_VERSION"
 
@@ -685,11 +610,6 @@ jobs:
             cp dist/desktop-ubuntu-latest/latest-linux-arm64.yml processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/beta-linux.yml processed_files/ 2>/dev/null || true
             cp dist/desktop-ubuntu-latest/beta-linux-arm64.yml processed_files/ 2>/dev/null || true
-          fi
-
-          # Extension artifacts (zips only, not the version file)
-          if [ -d "dist/extension-packages" ]; then
-            cp dist/extension-packages/*.zip processed_files/ 2>/dev/null || true
           fi
 
           # Standalone oh/ohd binaries + one checksums file over them
@@ -808,13 +728,11 @@ jobs:
               echo ""
               echo "## Browser Extension v${EXT_VERSION}"
               echo ""
-              echo "| Browser | Store | Raw zip (source review) |"
-              echo "| --- | --- | --- |"
-              echo "| ${I_CHROME} Chrome | [Chrome Web Store](${STORE_CHROME}) | [zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
-              echo "| ${I_FIREFOX} Firefox | [Firefox Add-ons](${STORE_FIREFOX}) | [zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
-              echo "| ${I_EDGE} Edge | [Edge Add-ons](${STORE_EDGE}) | [zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
-              echo ""
-              echo "The zips are the raw, unsigned build artifacts, attached for source review and development — install the extension through the store listings."
+              echo "| Browser | Store |"
+              echo "| --- | --- |"
+              echo "| ${I_CHROME} Chrome | [Chrome Web Store](${STORE_CHROME}) |"
+              echo "| ${I_FIREFOX} Firefox | [Firefox Add-ons](${STORE_FIREFOX}) |"
+              echo "| ${I_EDGE} Edge | [Edge Add-ons](${STORE_EDGE}) |"
             } >> release_body.md
           fi
 

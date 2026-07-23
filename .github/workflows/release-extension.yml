@@ -111,8 +111,6 @@ jobs:
           IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
 
           if [ "$IS_PRERELEASE" = "true" ]; then
-            # Beta releases publish NO extension zips — betas install
-            # through the unlisted store listings only.
             {
               echo '> **This is a beta build for early testing.** It may contain bugs.'
               echo ''
@@ -121,7 +119,6 @@ jobs:
               echo 'Beta builds carry their own extension ids and install through unlisted store listings — install links land here once those listings are published.'
             } > release_body.md
           else
-            REPO_BASE="https://github.com/OpenHeaders/open-headers/releases/download/${EXT_REPO_TAG}"
             {
               echo '## Installation'
               echo ''
@@ -130,43 +127,22 @@ jobs:
               echo '- [Chrome Web Store](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)'
               echo '- [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/gnbibobkkddlflknjkgcmokdlpddegpo)'
               echo '- Firefox (AMO): listing pending'
-              echo ''
-              echo "## Build artifacts"
-              echo ""
-              echo "- [Chrome](${REPO_BASE}/open-headers-chrome-v${TAG}.zip)"
-              echo "- [Firefox](${REPO_BASE}/open-headers-firefox-v${TAG}.zip)"
-              echo "- [Edge](${REPO_BASE}/open-headers-edge-v${TAG}.zip)"
-              echo ""
-              echo "These zips are the raw, unsigned build artifacts, attached for source review and development — install the extension through the store listings."
             } > release_body.md
           fi
 
       # Extension-only releases land on the same public flagship repo
       # as the full release train (DISTRIBUTION_PLAN §2) — the `v*-ext`
       # source tag maps to a plain `vX.Y.Z` extension tag there.
-      # Stable attaches the raw build zips; beta attaches nothing.
-      - name: Publish to flagship repo (stable)
-        if: steps.release_type.outputs.is_prerelease == 'false'
+      # No zips are attached on either channel — store listings are the
+      # only distribution; the build above is a verification gate.
+      - name: Publish to flagship repo
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.RELEASES_PAT }}
           repository: OpenHeaders/open-headers
           tag_name: ${{ steps.ext_repo.outputs.tag }}
           draft: false
-          prerelease: false
-          name: ${{ steps.ext_repo.outputs.tag }}
-          files: apps/extension/releases/*.zip
-          body_path: release_body.md
-
-      - name: Publish to flagship repo (beta)
-        if: steps.release_type.outputs.is_prerelease == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          token: ${{ secrets.RELEASES_PAT }}
-          repository: OpenHeaders/open-headers
-          tag_name: ${{ steps.ext_repo.outputs.tag }}
-          draft: false
-          prerelease: true
+          prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           name: ${{ steps.ext_repo.outputs.tag }}
           body_path: release_body.md
 
