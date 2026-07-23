@@ -497,7 +497,7 @@ jobs:
       # ghcr is a recoverable channel like GitHub Releases, so it rides
       # the pipeline; :latest stays off beta tags.
       - name: Build and push ohd Docker image
-        if: matrix.os == 'ubuntu-latest' && github.repository == 'OpenHeaders/open-headers-app'
+        if: matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders'
         run: |
           OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
           IMAGE=ghcr.io/openheaders/ohd
@@ -747,10 +747,10 @@ jobs:
 
           # Tables lead, prose collapses into <details> — the reader is
           # here for download links. Betas build no pkg/msi/mac-x64, so
-          # those rows/blocks only render on stable. The desktop version
-          # IS the release tag, so its title carries no version; the
-          # extension / oh / ohd sections keep theirs — those axes
-          # version independently of the tag.
+          # those rows/blocks only render on stable. No section title
+          # carries a version: the desktop version IS the release tag,
+          # and the independently-versioned surfaces (extension, oh,
+          # ohd) show theirs in asset filenames / store pages.
           {
             echo "## Desktop App"
             echo ""
@@ -786,7 +786,7 @@ jobs:
             STORE_EDGE="https://microsoftedge.microsoft.com/addons/detail/open-headers/gnbibobkkddlflknjkgcmokdlpddegpo"
             {
               echo ""
-              echo "## Browser Extension v${EXT_VERSION}"
+              echo "## Browser Extension"
               echo ""
               echo "| Browser | Store |"
               echo "| --- | --- |"
@@ -815,10 +815,9 @@ jobs:
           }
 
           if [ -n "$OH_FILES" ]; then
-            OH_BIN_VERSION=$(echo "$OH_FILES" | head -1 | sed -E 's/^oh-//; s/-(mac|linux|win)-(arm64|x64)(\.exe)?$//')
             {
               echo ""
-              echo "## Terminal - CLI & TUI v${OH_BIN_VERSION}"
+              echo "## Terminal - CLI & TUI"
               echo ""
               echo "| Platform | Download |"
               echo "| --- | --- |"
@@ -847,11 +846,10 @@ jobs:
           fi
 
           if [ -n "$OHD_FILES" ]; then
-            OHD_BIN_VERSION=$(echo "$OHD_FILES" | head -1 | sed -E 's/^ohd-//; s/-(mac|linux|win)-(arm64|x64)(\.exe)?$//')
             OHD_DOCKER_VERSION=$(echo "$OHD_FILES" | sed -n 's/^ohd-\([0-9][^ ]*\)-linux-x64$/\1/p' | head -1)
             {
               echo ""
-              echo "## Team - Server Daemon v${OHD_BIN_VERSION}"
+              echo "## Team - Server Daemon"
               echo ""
               echo "| Platform | Download |"
               echo "| --- | --- |"
