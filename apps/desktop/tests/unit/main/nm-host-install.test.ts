@@ -30,6 +30,7 @@ import {
   type RegistryRunner,
   registerNmManifests,
   registerWindowsNmManifests,
+  windowsHostBinarySigned,
   windowsNmManifestTargets,
 } from '../../../src/main/nm-host-install';
 
@@ -64,6 +65,20 @@ describe('nmHostBinaryCandidate', () => {
       platform: 'win32',
     });
     expect(candidate).toBe(path.join('C:\\Program Files\\OpenHeaders\\resources', 'nm-host', 'oh-nm-host.exe'));
+  });
+});
+
+describe('windowsHostBinarySigned', () => {
+  it('treats a stable version as signed', () => {
+    expect(windowsHostBinarySigned('2026.7.23')).toBe(true);
+  });
+
+  it('treats a beta version as unsigned', () => {
+    expect(windowsHostBinarySigned('2026.7.23-beta.1')).toBe(false);
+  });
+
+  it('orders multi-digit beta suffixes as unsigned too', () => {
+    expect(windowsHostBinarySigned('2026.8.0-beta.12')).toBe(false);
   });
 });
 
