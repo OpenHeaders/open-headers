@@ -2,12 +2,12 @@
  * Creates a source code zip for Firefox AMO submission.
  * Firefox requires reviewable source when the extension is built/bundled.
  *
- * The extension is part of a pnpm monorepo and imports several workspace
- * packages (@openheaders/core, @openheaders/ui, @openheaders/oracle,
- * @openheaders/oracle-host-browser, @openheaders/rule-engine), so the
- * archive must be the WHOLE repository — an apps/extension-only zip won't
- * `pnpm install && build` standalone. Build steps live in the repo README
- * and the AMO reviewer notes (see apps/extension/STORE_SUBMISSION.md).
+ * The archive is the MINIMAL buildable subset of the monorepo: the
+ * extension, the workspace packages in its dependency closure, and the
+ * root manifests pnpm needs. Other apps (desktop, cli, daemon, workers)
+ * are not part of the extension build and are not shipped to reviewers.
+ * Build steps live in the AMO reviewer notes
+ * (see apps/extension/STORE_SUBMISSION.md).
  *
  * Usage: npm run source-zip
  */
@@ -23,6 +23,29 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '../../../..'); // monorepo root
 const RELEASES = path.join(EXT_ROOT, 'releases');
 const VERSION: string = JSON.parse(fs.readFileSync(path.join(EXT_ROOT, 'package.json'), 'utf8')).version;
 
+// The buildable subset: the extension, its workspace dependency closure
+// (extension → core, i18n, oracle, oracle-host-browser, rule-engine, ui;
+// ui → core + i18n; oracle-host-browser → core + oracle), and the root
+// manifests pnpm/turbo need to install and build.
+const INCLUDE = [
+  'apps/extension/**',
+  'packages/core/**',
+  'packages/i18n/**',
+  'packages/oracle/**',
+  'packages/oracle-host-browser/**',
+  'packages/rule-engine/**',
+  'packages/ui/**',
+  'package.json',
+  'pnpm-workspace.yaml',
+  'pnpm-lock.yaml',
+  'turbo.json',
+  'tsconfig.base.json',
+  'biome.json',
+  '.npmrc',
+  'README.md',
+  'LICENSE.md',
+];
+
 // Globs are matched against repo-root-relative paths. Excludes are limited
 // to dependency installs, machine-generated build output, VCS/IDE/cache
 // dirs, and release artifacts — everything a reviewer regenerates with
@@ -30,13 +53,17 @@ const VERSION: string = JSON.parse(fs.readFileSync(path.join(EXT_ROOT, 'package.
 const EXCLUDE = [
   '**/node_modules/**',
   '**/dist/**',
+  '**/dist-*/**', // dist-sea, dist-bun, dist-webpack — compiled binaries and bundles
   '**/out/**', // electron-vite / build output
+  '**/*.bun-build', // bun compile temp artifacts
   '**/coverage/**',
   '**/releases/**',
   '**/.git/**',
   '**/.turbo/**',
   '**/.idea/**',
   '**/.vscode/**',
+  '**/.devtools-profile/**', // playground browser profile
+  '**/.wrangler/**',
   '**/playwright-report/**',
   '**/test-results/**',
   // Xcode project for the Safari wrapper — large and not part of the build.
@@ -69,7 +96,8 @@ const archive = archiver('zip', { zlib: { level: 9 } });
 console.log(`\n  Firefox Source Zip  v${VERSION}`);
 console.log(`  ${'─'.repeat(40)}`);
 console.log(`  Root: ${REPO_ROOT}`);
-console.log(`  Excluding: node_modules, dist/out, .git, IDE files, releases\n`);
+console.log(`  Including: apps/extension + workspace dep packages + root manifests`);
+console.log(`  Excluding: node_modules, build output, VCS/IDE files, releases\n`);
 
 output.on('close', () => {
   console.log(`  Created  ${formatSize(archive.pointer()).padStart(10)}  ${path.basename(outputPath)}`);
@@ -86,5 +114,7 @@ archive.on('warning', (err: Error & { code?: string }) => {
 });
 
 archive.pipe(output);
-archive.glob('**/*', { cwd: REPO_ROOT, ignore: EXCLUDE, dot: true });
+for (const pattern of INCLUDE) {
+  archive.glob(pattern, { cwd: REPO_ROOT, ignore: EXCLUDE, dot: true });
+}
 void archive.finalize();
