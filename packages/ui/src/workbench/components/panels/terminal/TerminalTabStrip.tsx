@@ -15,6 +15,7 @@
  */
 
 import { CloseOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { useUiTheme } from '@openheaders/ui/context';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { Button, Dropdown, Input, Modal, theme, Tooltip } from 'antd';
@@ -23,6 +24,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import { useSettingValue } from '../../../settings/hooks';
 import OverlayScrollThumb from '../../tabbar/OverlayScrollThumb';
+import { activePillRing } from '../../tabbar/tab-format';
 import { buildTerminalTabContextMenu } from './build-terminal-tab-context-menu';
 import TerminalTabSearchDropdown from './TerminalTabSearchDropdown';
 import type { TerminalClosedTab, TerminalTabInfo } from './terminal-instance';
@@ -87,6 +89,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
 }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const { isDarkMode } = useUiTheme();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [newHovered, setNewHovered] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -187,6 +190,10 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
                     : hovered
                       ? token.colorFillTertiary
                       : 'transparent',
+                  // Hairline ring on active pills (activePillRing) —
+                  // primary tint when this strip owns focus, neutral
+                  // otherwise.
+                  boxShadow: active ? activePillRing(token, isDarkMode, focused) : undefined,
                   color: active ? token.colorText : token.colorTextSecondary,
                 }}
               >

@@ -16,11 +16,12 @@ import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context';
 import { scratchLabelForMode } from '../../breadcrumbs';
 import { useDragIntent } from '../../drag-intent';
 import type { WorkbenchTab } from '../../types';
 import TabPillContent from './TabPillContent';
-import { type TabEntityLookups, emptyPlaceholderStyle, tabIcon } from './tab-format';
+import { type TabEntityLookups, activePillRing, emptyPlaceholderStyle, tabIcon } from './tab-format';
 
 interface SortableTabProps extends TabEntityLookups {
   leafId: string;
@@ -56,6 +57,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   onDoubleClick,
 }) => {
   const { token } = theme.useToken();
+  const { isDarkMode } = useUiTheme();
   const t = useT();
   const dragIntent = useDragIntent();
   const data: EditorTabDragData = { kind: 'editor-tab', leafId, tabId: tab.id };
@@ -94,12 +96,22 @@ const SortableTab: React.FC<SortableTabProps> = ({
   // group owns focus at a glance; unfocused active tabs use a neutral
   // fill so two splits don't fight for attention. Text stays the
   // default color on both — the background tint alone carries focus.
+  // Both active pills carry a hairline ring (activePillRing) —
+  // primary-tinted on the focused pill, neutral on the unfocused one.
   const visualStyle: React.CSSProperties = isDragging
     ? emptyPlaceholderStyle(token)
     : isActive && isFocusedLeaf
-      ? { color: token.colorText, background: token.colorPrimaryBg }
+      ? {
+          color: token.colorText,
+          background: token.colorPrimaryBg,
+          boxShadow: activePillRing(token, isDarkMode, true),
+        }
       : isActive
-        ? { color: token.colorText, background: token.colorFillSecondary }
+        ? {
+            color: token.colorText,
+            background: token.colorFillSecondary,
+            boxShadow: activePillRing(token, isDarkMode, false),
+          }
         : { color: token.colorTextSecondary };
 
   // Selecting a tab dismisses its path tooltip — once the user has

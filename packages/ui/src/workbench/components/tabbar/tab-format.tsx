@@ -282,3 +282,28 @@ export function emptyPlaceholderStyle(token: ReturnType<typeof theme.useToken>['
     outlineOffset: -2,
   };
 }
+
+// ── Active-pill ring ─────────────────────────────────────────────
+//
+// Hairline outline on active tab pills (editor strip + terminal strip),
+// rendered as an inset shadow so the pill's box never shifts against
+// inactive tabs. antd's dark border tokens sit within a shade of the
+// pill fills — the ring that reads crisply on light vanishes on dark —
+// so dark picks brighter stops: the muted border-hover blue for the
+// focused pill (full primary glows too hot against the navy fill),
+// quarter-white for the neutral one.
+
+export function activePillRing(
+  token: ReturnType<typeof theme.useToken>['token'],
+  isDarkMode: boolean,
+  focused: boolean,
+): string {
+  const color = focused
+    ? isDarkMode
+      ? token.colorPrimaryBorderHover
+      : token.colorPrimaryBorder
+    : isDarkMode
+      ? token.colorTextQuaternary
+      : token.colorBorder;
+  return `inset 0 0 0 1px ${color}`;
+}
