@@ -45,7 +45,7 @@ jobs:
         # which the node-gyp bundled with electron-builder cannot detect, so
         # the native-module rebuild fails. VS 2022 stays detectable here.
         # A signing dry-run (workflow_dispatch) builds the windows leg only.
-        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["windows-2022"]') || fromJSON('["macos-latest", "windows-2022", "ubuntu-latest"]') }}
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["macos-latest"]') || fromJSON('["macos-latest", "windows-2022", "ubuntu-latest"]') }}
 
     steps:
       - name: Checkout code
