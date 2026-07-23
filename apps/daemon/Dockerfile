@@ -5,6 +5,12 @@
 # matching LTS base is the floor, not debian-slim.
 FROM ubuntu:24.04
 
+# ghcr links the package to this repo (and shows its README) — the
+# public release home, not the repo the workflow ran in.
+LABEL org.opencontainers.image.source=https://github.com/OpenHeaders/open-headers
+LABEL org.opencontainers.image.description="OpenHeaders - Team Server Daemon (ohd)"
+LABEL org.opencontainers.image.licenses=LicenseRef-Proprietary
+
 # ca-certificates: the daemon fetches HTTP(S) sources at refresh time.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
