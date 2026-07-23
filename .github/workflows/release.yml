@@ -503,11 +503,14 @@ jobs:
           path: release-binaries/*
 
   build-extension:
-    # Every release ships the extension zips — stable AND beta (beta
-    # testers sideload the freshest build). These are the fully mangled
-    # OH_EXT_CHANNEL=release artifacts, deliberately DISTINCT from the
-    # review-permissive store submissions (built without the flag).
-    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') }}
+    # STABLE releases only — the zips are raw build artifacts for
+    # source review, not an install channel (unpacked builds mint
+    # random ids that fail the NM allowlist and origin pin). Betas
+    # ship no extension zips: beta installs go through the unlisted
+    # store listings. These are the fully mangled OH_EXT_CHANNEL=release
+    # artifacts, deliberately DISTINCT from the review-permissive store
+    # submissions (built without the flag).
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-beta') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -805,23 +808,13 @@ jobs:
               echo ""
               echo "## Browser Extension v${EXT_VERSION}"
               echo ""
-              echo "| Browser | Store | Sideload (this release) |"
+              echo "| Browser | Store | Raw zip (source review) |"
               echo "| --- | --- | --- |"
               echo "| ${I_CHROME} Chrome | [Chrome Web Store](${STORE_CHROME}) | [zip](${DL}/open-headers-chrome-v${EXT_VERSION}.zip) |"
               echo "| ${I_FIREFOX} Firefox | [Firefox Add-ons](${STORE_FIREFOX}) | [zip](${DL}/open-headers-firefox-v${EXT_VERSION}.zip) |"
               echo "| ${I_EDGE} Edge | [Edge Add-ons](${STORE_EDGE}) | [zip](${DL}/open-headers-edge-v${EXT_VERSION}.zip) |"
-              if [ "$IS_PRERELEASE" = "true" ]; then
-                echo ""
-                echo "Stores serve the current stable version; the zips above are this beta."
-              fi
               echo ""
-              echo "<details><summary><b>Sideload installation</b></summary>"
-              echo ""
-              echo "1. Download the zip for your browser and extract it to a folder"
-              echo '2. Chrome/Edge: go to `chrome://extensions`, enable Developer mode, click Load unpacked'
-              echo '3. Firefox: go to `about:debugging#/runtime/this-firefox`, click Load Temporary Add-on'
-              echo ""
-              echo "</details>"
+              echo "The zips are the raw, unsigned build artifacts, attached for source review and development — install the extension through the store listings."
             } >> release_body.md
           fi
 
