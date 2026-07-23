@@ -67,6 +67,15 @@ jobs:
         run: pip install setuptools
         shell: bash
 
+      # macos-latest ships Python 3.12+, which removed distutils; the
+      # node-gyp bundled with electron-builder still imports it when
+      # rebuilding native modules (node-pty). Put a 3.11 first in PATH.
+      - name: Setup Python 3.11 for node-gyp (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install RPM tools (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
