@@ -1203,6 +1203,34 @@ body {
   }
 }
 
+// ── Product-marked CTA ─────────────────────────────────────────────
+// Buttons carrying the OH logo as a ::before chip — grayscale at
+// rest so it reads as a quiet product mark, waking to full brand
+// color on hover as feedback (same affordance as the DevTools
+// panel's product CTAs). Currently worn by the terminal strip's
+// "Open TUI mode" button.
+
+// antd's flex Button already spaces its items with an 8px gap;
+// tighten it so the mark hugs the label like the panel CTAs do.
+.oh-cta-btn {
+  gap: 5px;
+}
+
+.oh-cta-btn::before {
+  content: '';
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  filter: grayscale(1);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%235890FF'/%3E%3Cstop offset='100%25' stop-color='%234A7FE8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' rx='80' fill='url(%23g)'/%3E%3Cg transform='translate(32 32) scale(0.875)'%3E%3Cg fill='white'%3E%3Crect x='80' y='112' width='128' height='32'/%3E%3Crect x='48' y='144' width='64' height='160'/%3E%3Crect x='176' y='144' width='64' height='160'/%3E%3Crect x='80' y='304' width='128' height='32'/%3E%3Crect x='272' y='112' width='64' height='224'/%3E%3Crect x='400' y='112' width='64' height='224'/%3E%3Crect x='272' y='208' width='192' height='32'/%3E%3C/g%3E%3Crect x='112' y='144' width='64' height='160' fill='%23FF4444'/%3E%3Cpath d='M80 388C180 448 332 448 432 388' stroke='white' stroke-width='28' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.oh-cta-btn:hover:not(:disabled)::before {
+  filter: none;
+}
+
 // ── Drag-to-reorder (dnd-kit) ──────────────────────────────────────
 // Editor tabs subscribe to the shell's shared DndContext via
 // SortableContext + useSortable. While dragging, the source tab keeps

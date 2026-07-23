@@ -326,6 +326,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
       <Button
         size="small"
         type="text"
+        className="oh-cta-btn"
         data-testid="terminal-open-tui"
         onClick={onOpenTui}
         style={{ marginLeft: 4, flexShrink: 0 }}
