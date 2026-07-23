@@ -41,6 +41,7 @@ function embedMacTrustHelper(context) {
         fs.rmSync(binaryPath, { force: true });
         return;
     }
+    signMacTrustHelper(binaryPath);
     const daemonsDir = path.join(contentsDir, 'Library', 'LaunchDaemons');
     fs.mkdirSync(daemonsDir, { recursive: true });
     fs.copyFileSync(
@@ -48,6 +49,29 @@ function embedMacTrustHelper(context) {
         path.join(daemonsDir, 'io.openheaders.trust-helper.plist')
     );
     console.log(`✓ Trust helper embedded (${archNames.join('+')})`);
+}
+
+// electron-builder's signing walk over Contents/MacOS is alphabetical and
+// 'OpenHeaders' sorts before 'oh-trust-helper', so the main-binary seal
+// sees an unsigned nested binary and codesign refuses. Pre-signing the
+// helper makes the walk order irrelevant; electron-builder's --force
+// re-sign later in the pass keeps the seal consistent. Unsigned lanes
+// (CSC_IDENTITY_AUTO_DISCOVERY=false) and keychains without a signing
+// identity skip this — those builds are never sealed anyway.
+function signMacTrustHelper(binaryPath) {
+    if (process.env.CSC_IDENTITY_AUTO_DISCOVERY === 'false') return;
+    let identity = '';
+    try {
+        const out = execFileSync('security', ['find-identity', '-v', '-p', 'codesigning'], { encoding: 'utf8' });
+        identity = (out.match(/\b([0-9A-F]{40})\b/) || [])[1] || '';
+    } catch {
+        return;
+    }
+    if (!identity) return;
+    execFileSync('codesign', ['--sign', identity, '--force', '--timestamp', '--options', 'runtime', binaryPath], {
+        stdio: 'pipe',
+    });
+    console.log('✓ Trust helper signed');
 }
 
 exports.default = async function(context) {
