@@ -20,4 +20,8 @@ VOLUME /data
 EXPOSE 8137
 
 ENTRYPOINT ["/usr/local/bin/ohd"]
-CMD ["run", "--data-dir", "/data", "--bind-address", "0.0.0.0", "--bind-port", "8137"]
+# In-container 0.0.0.0 is what makes -p mapping work; the operator's
+# published port decides the real exposure (the default recipe maps
+# 127.0.0.1:8137:8137 — loopback-only, ohd's native posture). TLS
+# stays the reverse-proxy's job, per the daemon's bind law.
+CMD ["run", "--data-dir", "/data", "--bind-address", "0.0.0.0", "--bind-port", "8137", "--allow-insecure-lan"]

@@ -1073,7 +1073,7 @@ jobs:
                 echo "Docker:"
                 echo ""
                 echo '```sh'
-                echo "docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}"
+                echo "docker run -d -p 127.0.0.1:8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}"
                 echo '```'
               fi
               echo ""
