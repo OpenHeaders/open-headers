@@ -442,7 +442,7 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': 'Neuer Terminal-Tab',
   'workbench.terminal.newTabWithProfile': 'Neuer Tab aus Profil',
   'workbench.terminal.closeTab': 'Tab schließen',
-  'workbench.terminal.openTui': 'TUI-Modus öffnen',
+  'workbench.terminal.openTui': 'TUI',
   'workbench.terminal.closeConfirm.title': 'Prozess läuft',
   'workbench.terminal.closeConfirm.bodyPrefix': 'In ',
   'workbench.terminal.closeConfirm.bodySuffix': ' läuft noch ein Prozess. Beenden?',

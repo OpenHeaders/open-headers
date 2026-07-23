@@ -55,7 +55,10 @@ const EDGE_THRESHOLD = 0.25;
 const TOP_EDGE_THRESHOLD = 0.125;
 
 /**
- * Hit test for a leaf under a drag.
+ * Hit test for a leaf under a drag. Exported for the terminal panel's
+ * group renderer, which runs the identical drop-zone model over its own
+ * leaves (`contentSelector` names its content region; the tab-bar
+ * exclusion matches on the shared `.rules-tabs-bar` class).
  *
  *   - Tab-bar strip → always null. The sortable (reorder / cross-leaf
  *     insert) owns that region completely.
@@ -66,7 +69,12 @@ const TOP_EDGE_THRESHOLD = 0.125;
  *     wins; otherwise → "center".
  *   - Elsewhere inside the leaf (breadcrumb, gaps) → "center".
  */
-function computeZoneForLeaf(leafEl: HTMLElement, clientX: number, clientY: number): LeafDropZone | null {
+export function computeZoneForLeaf(
+  leafEl: HTMLElement,
+  clientX: number,
+  clientY: number,
+  contentSelector = '.rules-editor-content',
+): LeafDropZone | null {
   const leafRect = leafEl.getBoundingClientRect();
   if (clientX < leafRect.left || clientX > leafRect.right || clientY < leafRect.top || clientY > leafRect.bottom) {
     return null;
@@ -78,7 +86,7 @@ function computeZoneForLeaf(leafEl: HTMLElement, clientX: number, clientY: numbe
     if (clientY >= r.top && clientY <= r.bottom) return null;
   }
 
-  const content = leafEl.querySelector<HTMLElement>('.rules-editor-content');
+  const content = leafEl.querySelector<HTMLElement>(contentSelector);
   if (content) {
     const c = content.getBoundingClientRect();
     if (clientX >= c.left && clientX <= c.right && clientY >= c.top && clientY <= c.bottom) {
@@ -178,7 +186,9 @@ interface LeafDropPreviewProps {
   zone: LeafDropZone;
 }
 
-const LeafDropPreview: React.FC<LeafDropPreviewProps> = ({ active, zone }) => {
+/** Half-panel (edge) / whole-panel (center) drop highlight — shared
+ *  with the terminal panel's group renderer. */
+export const LeafDropPreview: React.FC<LeafDropPreviewProps> = ({ active, zone }) => {
   const { token } = theme.useToken();
   if (!active) return null;
   return (
@@ -190,6 +200,9 @@ const LeafDropPreview: React.FC<LeafDropPreviewProps> = ({ active, zone }) => {
         zIndex: 40,
         background: `${token.colorPrimary}22`,
         border: `2px solid ${token.colorPrimary}`,
+        // Border inside the 50%/100% box — content-box math would push
+        // the far edge 4px past the pane and clip the border there.
+        boxSizing: 'border-box',
         borderRadius: 4,
         transition: 'all 0.08s ease',
         ...previewStyleFor(zone),

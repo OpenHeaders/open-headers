@@ -442,7 +442,7 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': 'Nouvel onglet de terminal',
   'workbench.terminal.newTabWithProfile': 'Nouvel onglet depuis un profil',
   'workbench.terminal.closeTab': 'Fermer l’onglet',
-  'workbench.terminal.openTui': 'Ouvrir le mode TUI',
+  'workbench.terminal.openTui': 'TUI',
   'workbench.terminal.closeConfirm.title': 'Processus en cours d’exécution',
   'workbench.terminal.closeConfirm.bodyPrefix': 'Un processus s’exécute encore dans ',
   'workbench.terminal.closeConfirm.bodySuffix': '. L’interrompre ?',

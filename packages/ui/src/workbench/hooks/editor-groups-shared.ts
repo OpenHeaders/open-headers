@@ -16,6 +16,7 @@ import {
   findParentSplit,
   insertTabIntoLeaf,
   makeLeaf,
+  type TabLike,
   unsplitLeaf,
 } from '../editor-groups';
 import type { ClosedTab, WorkbenchTab } from '../types';
@@ -49,7 +50,10 @@ export function locateTab(root: EditorNode, tabId: string): EditorLeaf | null {
  * the split away so we don't leave empty panes in the grid. Returns the
  * new root and the leaf id that should take focus after the fold.
  */
-export function maybeCollapseEmpty(root: EditorNode, leafId: string): { root: EditorNode; focusLeafId: string } {
+export function maybeCollapseEmpty<T extends TabLike>(
+  root: EditorNode<T>,
+  leafId: string,
+): { root: EditorNode<T>; focusLeafId: string } {
   const leaf = findLeaf(root, leafId);
   if (!leaf || leaf.tabs.length > 0) return { root, focusLeafId: leafId };
   // Root leaf stays even if empty.

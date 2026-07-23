@@ -70,6 +70,7 @@ import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/
 import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
 import { viewActivityEntity } from './components/panels/activity-view-router';
 import { getWorkbenchTerminalTabs } from './components/panels/terminal/terminal-instance';
+import { toggleTerminalTabSearch } from './components/panels/terminal/terminal-tab-search-toggle';
 import MigrationReportModal from './components/import/MigrationReportModal';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
@@ -1034,7 +1035,16 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
     onGoToTab: handleGoToTab,
-    onTabSearch: () => tabSearchToggleRef.current?.(),
+    onTabSearch: () => {
+      // Region-arbitrated `mod+shift+a` (the `mod+t` pattern): when the
+      // Terminal tool window is the focused dock's active panel, the
+      // shortcut opens the focused terminal pane's tab search; anywhere
+      // else — or with no terminal toggle live — the editor's.
+      const focusedDock = getFocusedDock();
+      const activePanel = focusedDock ? tl.state.docks[focusedDock]?.active : null;
+      if (activePanel === 'terminal' && toggleTerminalTabSearch()) return;
+      tabSearchToggleRef.current?.();
+    },
     onSave: handleSave,
     onNewRule: openCreateMenu,
     onFocusFilter: () => {

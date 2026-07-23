@@ -422,7 +422,7 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': '新建终端标签页',
   'workbench.terminal.newTabWithProfile': '从配置文件新建标签页',
   'workbench.terminal.closeTab': '关闭标签页',
-  'workbench.terminal.openTui': '打开 TUI 模式',
+  'workbench.terminal.openTui': 'TUI',
   'workbench.terminal.closeConfirm.title': '进程正在运行',
   'workbench.terminal.closeConfirm.bodyPrefix': '仍有进程在 ',
   'workbench.terminal.closeConfirm.bodySuffix': ' 中运行。要终止它吗？',

@@ -1,14 +1,17 @@
 /**
  * TerminalPanel — the workbench Terminal tool-window body. Presentation
- * shell only: the tab list, xterm instances, and pty sessions are owned
- * by `terminal-instance.ts` and survive unmounts; this component
- * renders the tab strip in the header, attaches the active tab's
- * terminal element while visible, keeps its size and theme synced, and
- * offers a relaunch affordance after a shell exits. Closing the last
- * tab hides the panel; reopening starts a fresh tab.
+ * shell only: tab identities, xterm instances, and pty sessions are
+ * owned by `terminal-instance.ts`; the split pane layout by
+ * `terminal-panes.ts` — both survive unmounts. This component renders
+ * the panel header (title + the panel-global + / chevron / Open TUI
+ * cluster) and the pane tree (TerminalGroupRenderer: per-leaf strips +
+ * viewports, drag-to-reorder/move/split), owns the confirm-aware close
+ * flows and the rename modal, and keeps the xterm theme synced. Closing
+ * the last tab hides the panel; reopening starts a fresh tab.
  */
 
-import { App as AntApp, Button, Checkbox, theme } from 'antd';
+import { MinusOutlined } from '@ant-design/icons';
+import { App as AntApp, Checkbox, Input, Modal, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
@@ -21,9 +24,11 @@ import { useSettingValue } from '../../../settings/hooks';
 import { enableMcp, mcpEndpointInfo } from '../../../settings/mcp-consent';
 import { useIsDockFocused } from '../../../stores/focus-region-store';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { getWorkbenchTerminalTabs, whenTerminalFontReady, type WorkbenchTerminal } from './terminal-instance';
-import TerminalTabStrip, { terminalTabLabel } from './TerminalTabStrip';
-import '@xterm/xterm/css/xterm.css';
+import { getWorkbenchTerminalTabs, type WorkbenchTerminal } from './terminal-instance';
+import { getWorkbenchTerminalPanes } from './terminal-panes';
+import TerminalGroupRenderer from './TerminalGroupRenderer';
+import TerminalHeaderCluster from './TerminalHeaderCluster';
+import { terminalTabLabel } from './TerminalTabStrip';
 
 type AntdToken = ReturnType<typeof theme.useToken>['token'];
 
@@ -63,10 +68,9 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   const { token } = theme.useToken();
   const { isDarkMode } = useUiTheme();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const tabsApi = getWorkbenchTerminalTabs();
+  const panesApi = getWorkbenchTerminalPanes();
   const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
-  const [exited, setExited] = useState(false);
 
   // Registry-initiated closes (close-on-exit) must hide the panel when
   // the last tab goes, exactly like a close from the strip.
@@ -78,6 +82,9 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       }),
     [tabsApi, onHide],
   );
+
+  // Layout/focus changes (splits, moves, pane focus) re-render too.
+  useEffect(() => panesApi?.subscribe(bumpVersion), [panesApi]);
 
   // First open (and reopen after a close-last-tab hide) starts a tab —
   // after the persisted-identity restore settles, so a restored session
@@ -92,58 +99,6 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       cancelled = true;
     };
   }, [tabsApi]);
-
-  const activeId = tabsApi?.activeId() ?? null;
-  const active = activeId && tabsApi ? tabsApi.getTab(activeId) : null;
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!active || !container) return;
-    let cancelled = false;
-    let detach: (() => void) | null = null;
-    const attach = () => {
-      if (active.term.element) {
-        container.appendChild(active.term.element);
-      } else {
-        active.term.open(container);
-      }
-      active.ensureRenderer();
-      void active.ensureSession();
-      setExited(active.isExited());
-      const unsubscribeExit = active.onExitChange(() => setExited(active.isExited()));
-      // Refit on the trailing edge of a resize burst: a sash drag fires
-      // per mouse move, and reflowing the grid live drags the text along
-      // with the divider. Holding the grid until the burst settles keeps
-      // the content still mid-drag with one clean refit at the end.
-      let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-      const observer = new ResizeObserver(() => {
-        if (resizeTimer !== null) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          resizeTimer = null;
-          active.syncSize();
-        }, 120);
-      });
-      observer.observe(container);
-      active.syncSize();
-      active.term.focus();
-      detach = () => {
-        if (resizeTimer !== null) clearTimeout(resizeTimer);
-        observer.disconnect();
-        unsubscribeExit();
-        active.term.element?.remove();
-      };
-    };
-    // The bundled font must arrive before the first open — xterm
-    // measures its cell grid then, and a fallback-font measurement
-    // misaligns the glyphs until the next refit.
-    void whenTerminalFontReady().then(() => {
-      if (!cancelled) attach();
-    });
-    return () => {
-      cancelled = true;
-      detach?.();
-    };
-  }, [active]);
 
   useEffect(() => {
     tabsApi?.setTheme(buildXtermTheme(token, isDarkMode));
@@ -243,6 +198,25 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
     },
     [tabsApi, confirmCloseRunning, modal, t, onHide],
   );
+
+  // Rename modal — panel-level so any pane's context menu opens the
+  // same instance; commit funnels to the registry.
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const openRename = useCallback(
+    (id: string) => {
+      if (!tabsApi) return;
+      const info = tabsApi.list().find((tab) => tab.id === id);
+      if (!info) return;
+      setRenameId(id);
+      setRenameValue(terminalTabLabel(t, info, defaultTabName));
+    },
+    [tabsApi, t, defaultTabName],
+  );
+  const commitRename = useCallback(() => {
+    if (renameId !== null) tabsApi?.renameTab(renameId, renameValue);
+    setRenameId(null);
+  }, [tabsApi, renameId, renameValue]);
 
   const dockFocused = useIsDockFocused(dockSlot);
   const openSettings = useOpenSettings();
@@ -359,76 +333,106 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
       .catch(open);
   }, [tabsApi, modal, message, mcpEnabled, t, openSettings]);
 
-  const strip = tabsApi ? (
-    <TerminalTabStrip
-      tabs={tabsApi.list()}
-      activeId={activeId}
-      focused={dockFocused}
-      onActivate={(id) => tabsApi.activateTab(id)}
-      onClose={requestClose}
-      onCloseOther={(id) =>
-        requestCloseMany(
-          tabsApi
-            .list()
-            .filter((tab) => tab.id !== id)
-            .map((tab) => tab.id),
-        )
-      }
-      onCloseAll={() => requestCloseMany(tabsApi.list().map((tab) => tab.id))}
-      onCloseToLeft={(id) => {
-        const list = tabsApi.list();
-        const index = list.findIndex((tab) => tab.id === id);
-        if (index > 0) requestCloseMany(list.slice(0, index).map((tab) => tab.id));
-      }}
-      onCloseToRight={(id) => {
-        const list = tabsApi.list();
-        const index = list.findIndex((tab) => tab.id === id);
-        if (index !== -1) requestCloseMany(list.slice(index + 1).map((tab) => tab.id));
-      }}
-      onRename={(id, title) => tabsApi.renameTab(id, title)}
-      onNew={() => tabsApi.createTab()}
-      profiles={profilesValue.profiles}
-      onNewWithProfile={newWithProfile}
-      onOpenTui={openTui}
-      recentlyClosed={tabsApi.recentlyClosed()}
-      onReopenClosed={(index) => tabsApi.reopenClosed(index)}
-      onOpenSettings={() => openSettings?.({ categoryId: 'terminal' })}
-    />
-  ) : (
-    <strong>{t('workbench.toolWindows.terminal')}</strong>
+  // Single-row header: the title and the FIRST pane's strip share the
+  // PanelHeader row (IDE terminal posture) — the renderer hands
+  // the strip back through renderHeader so it lives inside the panel's
+  // shared DndContext.
+  const renderHeader = useCallback(
+    (firstLeafStrip: React.ReactNode) => (
+      <PanelHeader
+        wiring={headerWiring}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, gap: 8 }}>
+            <strong style={{ flexShrink: 0 }}>{t('workbench.toolWindows.terminal')}</strong>
+            {/* (i) inline after the title — PanelHeader's own info slot
+                would land after the flex-grown strip, at the far right. */}
+            <InfoTrigger content={info} className="rules-panel-header-info" />
+            {firstLeafStrip}
+          </div>
+        }
+      />
+    ),
+    [headerWiring, info, t],
   );
 
   return (
     <div className="rules-bottom-panel">
-      <PanelHeader wiring={headerWiring} title={strip} info={info} />
-      <div className="rules-bottom-content is-fill" style={{ position: 'relative', background: token.colorBgContainer }}>
-        <div ref={containerRef} style={{ position: 'absolute', inset: '4px 0 0 8px' }} />
-        {exited && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              background: token.colorBgContainer,
-            }}
-          >
-            <span style={{ color: token.colorTextSecondary }}>{t('workbench.terminal.sessionEnded')}</span>
-            <Button
-              size="small"
-              onClick={() => {
-                setExited(false);
-                void active?.ensureSession();
-              }}
-            >
-              {t('workbench.terminal.restart')}
-            </Button>
-          </div>
-        )}
-      </div>
+      {tabsApi && panesApi ? (
+        <TerminalGroupRenderer
+          panes={panesApi}
+          registry={tabsApi}
+          dockFocused={dockFocused}
+          onRequestClose={requestClose}
+          onRequestCloseMany={requestCloseMany}
+          onRenameOpen={openRename}
+          onNew={() => tabsApi.createTab()}
+          profiles={profilesValue.profiles}
+          onNewWithProfile={newWithProfile}
+          renderHeader={renderHeader}
+          titleInfo={<InfoTrigger content={info} className="rules-panel-header-info" />}
+          renderTrailing={({ corner, tabs, activeId, onActivate, isFocusedPane }) => (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <TerminalHeaderCluster
+                tabs={tabs}
+                activeId={activeId}
+                onActivate={onActivate}
+                isFocusedPane={isFocusedPane}
+                onOpenTui={openTui}
+                recentlyClosed={tabsApi.recentlyClosed()}
+                onReopenClosed={(index) => tabsApi.reopenClosed(index)}
+                onOpenSettings={() => openSettings?.({ categoryId: 'terminal' })}
+              />
+              {/* PanelHeader isn't rendered while split — its hide
+                  affordance re-homes on the top-right pane's strip
+                  (the (i) follows the Terminal label instead), with
+                  the header action classes so the dock-hover reveal
+                  law still applies. */}
+              {corner && (
+                <div
+                  className="rules-panel-header-actions"
+                  data-focus-skip
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={t('shared.dock.hidePanel')}
+                    className="rules-panel-header-action"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={onHide}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') onHide();
+                    }}
+                  >
+                    <MinusOutlined />
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        />
+      ) : (
+        <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.terminal')}</strong>} info={info} />
+      )}
+
+      <Modal
+        title={<span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.rename.title')}</span>}
+        width={380}
+        open={renameId !== null}
+        okButtonProps={{ size: 'small' }}
+        cancelButtonProps={{ size: 'small' }}
+        onOk={commitRename}
+        onCancel={() => setRenameId(null)}
+        destroyOnHidden
+      >
+        <Input
+          size="small"
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onPressEnter={commitRename}
+        />
+      </Modal>
     </div>
   );
 };

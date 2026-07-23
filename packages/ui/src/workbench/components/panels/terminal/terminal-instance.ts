@@ -95,6 +95,11 @@ export interface WorkbenchTerminalTabs {
    *  numbered default stays reserved via `titleIndex`; a blank or
    *  unchanged name is a no-op. */
   renameTab(id: string, title: string): void;
+  /** Align the flat list to `ids` (the pane tree's leaf-concatenated
+   *  order after a reorder/move/split). The stored session mirrors
+   *  list order, so visual order persists across restarts. Ids not in
+   *  the list keep their relative position at the end. */
+  setOrder(ids: readonly string[]): void;
   /** Fires on create, close, and activation change. */
   onTabsChange(listener: () => void): () => void;
   /** Apply the antd-derived theme to every tab, current and future. */
@@ -695,6 +700,16 @@ export function getWorkbenchTerminalTabs(): WorkbenchTerminalTabs | null {
         const trimmed = title.trim();
         if (!tab || trimmed.length === 0 || trimmed === tab.title) return;
         tab.title = trimmed;
+        notifyTabsChange(state);
+      },
+      setOrder: (ids) => {
+        const rank = new Map(ids.map((id, index) => [id, index]));
+        const next = state.tabs
+          .map((tab, index) => ({ tab, index }))
+          .sort((a, b) => (rank.get(a.tab.id) ?? ids.length + a.index) - (rank.get(b.tab.id) ?? ids.length + b.index))
+          .map((entry) => entry.tab);
+        if (next.every((tab, index) => tab === state.tabs[index])) return;
+        state.tabs = next;
         notifyTabsChange(state);
       },
       onTabsChange: (listener) => {

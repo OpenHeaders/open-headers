@@ -36,13 +36,41 @@ interface BuildTerminalTabContextMenuOptions {
   onCloseAll: () => void;
   onCloseToLeft: (tabId: string) => void;
   onCloseToRight: (tabId: string) => void;
+  onSplitAndMove: (tabId: string, direction: 'left' | 'right' | 'top' | 'bottom') => void;
+  onMoveToOppositeGroup: (tabId: string) => void;
+  oppositeDirection: 'left' | 'right' | 'up' | 'down' | null;
+  parentOrientation: 'horizontal' | 'vertical' | null;
+  onChangeSplitterOrientation: () => void;
+  onUnsplit: () => void;
+  onUnsplitAll: () => void;
+  canUnsplit: boolean;
+  canUnsplitAll: boolean;
 }
 
 export function buildTerminalTabContextMenu(
-  { tabId, tabIndex, tabCount, onRename, onClose, onCloseOther, onCloseAll, onCloseToLeft, onCloseToRight }:
-    BuildTerminalTabContextMenuOptions,
+  {
+    tabId,
+    tabIndex,
+    tabCount,
+    onRename,
+    onClose,
+    onCloseOther,
+    onCloseAll,
+    onCloseToLeft,
+    onCloseToRight,
+    onSplitAndMove,
+    onMoveToOppositeGroup,
+    oppositeDirection,
+    parentOrientation,
+    onChangeSplitterOrientation,
+    onUnsplit,
+    onUnsplitAll,
+    canUnsplit,
+    canUnsplitAll,
+  }: BuildTerminalTabContextMenuOptions,
   t: Translate,
 ): { items: ItemType[] } {
+  const splitDisabled = tabCount < 2;
   return {
     items: [
       {
@@ -75,6 +103,96 @@ export function buildTerminalTabContextMenu(
         disabled: tabIndex === tabCount - 1,
         onClick: () => onCloseToRight(tabId),
       },
+      { type: 'divider' as const },
+      {
+        key: 'split-and-move',
+        label: t('workbench.tabbar.menu.splitAndMove'),
+        disabled: splitDisabled,
+        children: [
+          {
+            key: 'split-move-right',
+            label: t('workbench.tabbar.menu.right'),
+            icon: menuIconWrap(<LayoutMenuIcon kind="split-right" />),
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMove(tabId, 'right'),
+          },
+          {
+            key: 'split-move-left',
+            label: t('workbench.tabbar.menu.left'),
+            icon: menuIconWrap(<LayoutMenuIcon kind="split-left" />),
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMove(tabId, 'left'),
+          },
+          {
+            key: 'split-move-down',
+            label: t('workbench.tabbar.menu.down'),
+            icon: menuIconWrap(<LayoutMenuIcon kind="split-down" />),
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMove(tabId, 'bottom'),
+          },
+          {
+            key: 'split-move-up',
+            label: t('workbench.tabbar.menu.up'),
+            icon: menuIconWrap(<LayoutMenuIcon kind="split-up" />),
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMove(tabId, 'top'),
+          },
+        ],
+      },
+      ...(oppositeDirection
+        ? [
+            {
+              key: 'move-opposite',
+              label: t('workbench.tabbar.menu.moveOpposite'),
+              icon: menuIconWrap(
+                <LayoutMenuIcon
+                  kind={
+                    oppositeDirection === 'right'
+                      ? 'split-right'
+                      : oppositeDirection === 'left'
+                        ? 'split-left'
+                        : oppositeDirection === 'down'
+                          ? 'split-down'
+                          : 'split-up'
+                  }
+                />,
+              ),
+              onClick: () => onMoveToOppositeGroup(tabId),
+            } satisfies ItemType,
+          ]
+        : []),
+      {
+        key: 'flip-orientation',
+        label: t('workbench.tabbar.menu.changeSplitterOrientation'),
+        icon: parentOrientation
+          ? menuIconWrap(
+              <LayoutMenuIcon kind={parentOrientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'} />,
+            )
+          : undefined,
+        disabled: !canUnsplit,
+        onClick: () => onChangeSplitterOrientation(),
+      },
+      {
+        key: 'unsplit',
+        label: t('workbench.tabbar.menu.unsplit'),
+        icon: parentOrientation
+          ? menuIconWrap(
+              <LayoutMenuIcon kind={parentOrientation === 'horizontal' ? 'unsplit-horizontal' : 'unsplit-vertical'} />,
+            )
+          : undefined,
+        disabled: !canUnsplit,
+        onClick: () => onUnsplit(),
+      },
+      ...(canUnsplitAll
+        ? [
+            {
+              key: 'unsplit-all',
+              label: t('workbench.tabbar.menu.unsplitAll'),
+              icon: menuIconWrap(<LayoutMenuIcon kind="unsplit-all" />),
+              onClick: () => onUnsplitAll(),
+            } satisfies ItemType,
+          ]
+        : []),
     ],
   };
 }

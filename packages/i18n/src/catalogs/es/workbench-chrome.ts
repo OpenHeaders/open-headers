@@ -445,7 +445,7 @@ export const workbenchChrome = {
   'workbench.terminal.newTab': 'Nueva pestaña de terminal',
   'workbench.terminal.newTabWithProfile': 'Nueva pestaña desde un perfil',
   'workbench.terminal.closeTab': 'Cerrar pestaña',
-  'workbench.terminal.openTui': 'Abrir el modo TUI',
+  'workbench.terminal.openTui': 'TUI',
   'workbench.terminal.closeConfirm.title': 'Proceso en ejecución',
   'workbench.terminal.closeConfirm.bodyPrefix': 'Todavía se está ejecutando un proceso en ',
   'workbench.terminal.closeConfirm.bodySuffix': '. ¿Terminarlo?',

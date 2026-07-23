@@ -1,62 +1,85 @@
 /**
- * TerminalTabStrip — the tab row in the Terminal tool-window header.
- * Rides the shared PanelHeader's left slot. Pure presentation: the tab
- * list and activation live in the terminal-instance registry; this
- * strip only renders what the panel passes down.
+ * TerminalTabStrip — ONE pane's tab row, the terminal twin of the
+ * editor's TabBar with the identical bar anatomy: a content-sized
+ * scroll strip (`flex: 0 1 auto` via .rules-tabs-scroll), the `+` as a
+ * SIBLING outside the scroll container — right after the last tab when
+ * the tabs fit, sticky at the strip's right edge when they overflow —
+ * and an optional right-aligned trailing cluster pushed by
+ * `margin-left: auto` (the panel-global search chevron + Open TUI,
+ * present only on the strip that rides the panel header).
  *
- * Overflow follows the editor tab strip exactly (same CSS classes):
- * the tabs scroll in their own region — 3 px hover scrollbar, edge
- * fade, wheel translation, active-tab auto-scroll — while the + /
- * chevron / Open TUI cluster sits OUTSIDE the scroll container, so it
- * stays anchored at the right edge no matter how many tabs are open.
- * The close × stays visible on every tab and the label never changes
- * metrics between active and inactive states, so switching tabs cannot
- * move the row.
+ * Pure presentation: tab identities live in the terminal-instance
+ * registry, the split layout in the terminal-panes store. Tabs are
+ * dnd-kit sortables in the PANEL's shared DndContext (the renderer
+ * owns it) — same mechanism as the editor strip: sortable ids prefixed
+ * with the leaf id, drag data `{ kind: 'terminal-tab', leafId, tabId }`,
+ * source placeholder collapse + cross-leaf insertion marker driven by
+ * the shared terminal drag intent.
  */
 
 import { CloseOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useUiTheme } from '@openheaders/ui/context';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { Button, Dropdown, Input, Modal, theme, Tooltip } from 'antd';
+import { Dropdown, theme, Tooltip } from 'antd';
+import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import { useSettingValue } from '../../../settings/hooks';
 import OverlayScrollThumb from '../../tabbar/OverlayScrollThumb';
-import { activePillRing } from '../../tabbar/tab-format';
+import { activePillRing, emptyPlaceholderStyle } from '../../tabbar/tab-format';
 import { buildTerminalTabContextMenu } from './build-terminal-tab-context-menu';
-import TerminalTabSearchDropdown from './TerminalTabSearchDropdown';
-import type { TerminalClosedTab, TerminalTabInfo } from './terminal-instance';
+import { useTerminalDragIntent } from './terminal-drag-intent';
+import type { TerminalTabInfo } from './terminal-instance';
+import type { SplitDirection } from './terminal-panes';
+
+/** Drag payload every terminal tab publishes into the panel's shared
+ *  DndContext — the renderer's monitor routes on `kind`. */
+export interface TerminalTabDragData {
+  kind: 'terminal-tab';
+  leafId: string;
+  tabId: string;
+}
 
 export interface TerminalTabStripProps {
+  leafId: string;
   tabs: TerminalTabInfo[];
   activeId: string | null;
-  /** True while the terminal's dock owns focus — the active tab renders
-   *  with the primary tint (editor tab strip posture), neutral grey
-   *  otherwise. */
+  /** True while this leaf owns focus AND the terminal's dock owns
+   *  focus — the active tab renders with the primary tint (editor tab
+   *  strip posture), neutral grey otherwise. */
   focused: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
-  /** Context-menu bulk closes — confirm-aware, owned by the panel. */
+  /** Context-menu bulk closes — confirm-aware, owned by the panel,
+   *  scoped to this leaf's tabs. */
   onCloseOther: (id: string) => void;
   onCloseAll: () => void;
   onCloseToLeft: (id: string) => void;
   onCloseToRight: (id: string) => void;
-  /** Commit an explicit tab label (context menu → Rename). */
-  onRename: (id: string, title: string) => void;
+  /** Open the rename modal (panel owns the modal + commit). */
+  onRename: (id: string) => void;
+  /** New tab INTO this pane (the renderer focuses the leaf first). */
   onNew: () => void;
-  /** Terminal profiles for the + chevron — id + display name only; the
-   *  strip stays presentation, the panel owns resolution. Empty hides
-   *  the chevron entirely (the + alone is today's posture). */
+  /** Terminal profiles for the + chevron — empty hides the chevron. */
   profiles: readonly { id: string; name: string }[];
   onNewWithProfile: (profileId: string) => void;
-  /** Pinned "Open TUI mode" affordance — opens a tab running `oh tui`. */
-  onOpenTui: () => void;
-  recentlyClosed: readonly TerminalClosedTab[];
-  onReopenClosed: (index: number) => void;
-  /** Opens the settings surface at Settings → Terminal. */
-  onOpenSettings: () => void;
+  /** Right-aligned cluster (search chevron + Open TUI) — only the
+   *  header-riding strip carries it. */
+  trailing?: React.ReactNode;
+  // Split verbs (context menu) — editor tab strip parity.
+  onSplitAndMove: (id: string, direction: SplitDirection) => void;
+  onMoveToOppositeGroup: (id: string) => void;
+  oppositeDirection: 'left' | 'right' | 'up' | 'down' | null;
+  parentOrientation: 'horizontal' | 'vertical' | null;
+  onChangeSplitterOrientation: () => void;
+  onUnsplit: () => void;
+  onUnsplitAll: () => void;
+  canUnsplit: boolean;
+  canUnsplitAll: boolean;
 }
 
 export function terminalTabLabel(t: Translate, tab: TerminalTabInfo, defaultName = ''): string {
@@ -68,7 +91,176 @@ export function terminalTabLabel(t: Translate, tab: TerminalTabInfo, defaultName
     : t('workbench.terminal.tabLocalN', { n: tab.titleIndex });
 }
 
+interface SortableTerminalTabProps {
+  leafId: string;
+  tab: TerminalTabInfo;
+  label: string;
+  active: boolean;
+  /** Ring/tint posture — see TerminalTabStripProps.focused. */
+  focused: boolean;
+  contextMenu: { items: ItemType[] };
+  onActivate: (id: string) => void;
+  onClose: (id: string) => void;
+}
+
+/**
+ * One terminal tab pill — a dnd-kit sortable in the panel's shared
+ * DndContext, the editor SortableTab mechanism verbatim: neighbors
+ * shift via sortable transforms, the source keeps its slot as the
+ * shared dashed placeholder with its content hidden (collapsing when
+ * the drop intent moves to a drop zone or a foreign strip), and the
+ * moving pill is the renderer's DragOverlay preview.
+ */
+const SortableTerminalTab: React.FC<SortableTerminalTabProps> = ({
+  leafId,
+  tab,
+  label,
+  active,
+  focused,
+  contextMenu,
+  onActivate,
+  onClose,
+}) => {
+  const t = useT();
+  const { token } = theme.useToken();
+  const { isDarkMode } = useUiTheme();
+  const dragIntent = useTerminalDragIntent();
+  const [hovered, setHovered] = useState(false);
+  const data: TerminalTabDragData = { kind: 'terminal-tab', leafId, tabId: tab.id };
+  // Sortable ids must be unique across ALL SortableContexts that share
+  // the panel's DndContext — prefix with the leaf id (editor posture).
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `${leafId}::${tab.id}`,
+    data,
+  });
+
+  // Hide the dragged tab's source placeholder whenever the drop intent
+  // has moved somewhere OTHER than this strip (drop zone or a tab in a
+  // different leaf) — the destination already shows its own preview,
+  // and the tab must not appear in two places at once. visibility:
+  // hidden keeps the slot in layout so dnd-kit's rect tracking stays
+  // in sync.
+  const isOverForeignLeaf = dragIntent.insertion !== null && dragIntent.insertion.leafId !== leafId;
+  const hidePlaceholder =
+    isDragging && dragIntent.draggingTabId === tab.id && (dragIntent.overDropZone || isOverForeignLeaf);
+
+  const sortableStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(hidePlaceholder ? { visibility: 'hidden' as const } : null),
+  };
+
+  const visualStyle: React.CSSProperties = isDragging
+    ? emptyPlaceholderStyle(token)
+    : {
+        background: active
+          ? focused
+            ? token.colorPrimaryBg
+            : token.colorFillSecondary
+          : hovered
+            ? token.colorFillTertiary
+            : 'transparent',
+        // Hairline ring on active pills (activePillRing) — primary
+        // tint when this strip owns focus, neutral otherwise.
+        boxShadow: active ? activePillRing(token, isDarkMode, focused) : undefined,
+        color: active ? token.colorText : token.colorTextSecondary,
+      };
+
+  const content = (
+    <span
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      role="tab"
+      tabIndex={0}
+      aria-selected={active}
+      data-testid="terminal-tab"
+      data-tab-id={tab.id}
+      data-tab-active={active || undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onActivate(tab.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onActivate(tab.id);
+      }}
+      style={{
+        ...sortableStyle,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        // 2px vertical (editor pill metric): leaves the same breathing
+        // room above the pill and below it — where the 3px scrollbar
+        // gutter rides — so the pill never reads as clipped.
+        padding: '2px 8px 2px 10px',
+        borderRadius: token.borderRadiusSM,
+        cursor: isDragging ? 'grabbing' : 'pointer',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+        ...visualStyle,
+      }}
+    >
+      {/* Source-placeholder contract: while dragging, the slot stays in
+          layout but paints no content — the DragOverlay pill carries it. */}
+      <span style={isDragging ? { visibility: 'hidden' } : undefined}>{label}</span>
+      <span
+        role="button"
+        tabIndex={-1}
+        aria-label={t('workbench.terminal.closeTab')}
+        data-testid="terminal-tab-close"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose(tab.id);
+        }}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          fontSize: 9,
+          color: token.colorTextTertiary,
+          ...(isDragging ? { visibility: 'hidden' as const } : null),
+        }}
+      >
+        <CloseOutlined />
+      </span>
+    </span>
+  );
+
+  // While dragging, skip the Dropdown wrapper — it would steal pointer
+  // capture from dnd-kit (editor tab strip posture).
+  if (isDragging) return content;
+
+  return (
+    <Dropdown menu={contextMenu} trigger={['contextMenu']}>
+      {content}
+    </Dropdown>
+  );
+};
+
+/** Where the dragged tab would land in THIS strip — the editor's
+ *  cross-leaf insertion marker, label-sized: the dashed placeholder
+ *  pill with the dragged label reserving its width invisibly. */
+const TerminalInsertionMarker: React.FC<{ label: string }> = ({ label }) => {
+  const { token } = theme.useToken();
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '2px 8px 2px 10px',
+        borderRadius: token.borderRadiusSM,
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+        ...emptyPlaceholderStyle(token),
+      }}
+    >
+      <span style={{ visibility: 'hidden' }}>{label}</span>
+    </span>
+  );
+};
+
 const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
+  leafId,
   tabs,
   activeId,
   focused,
@@ -82,21 +274,21 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
   onNew,
   profiles,
   onNewWithProfile,
-  onOpenTui,
-  recentlyClosed,
-  onReopenClosed,
-  onOpenSettings,
+  trailing,
+  onSplitAndMove,
+  onMoveToOppositeGroup,
+  oppositeDirection,
+  parentOrientation,
+  onChangeSplitterOrientation,
+  onUnsplit,
+  onUnsplitAll,
+  canUnsplit,
+  canUnsplitAll,
 }) => {
   const t = useT();
   const { token } = theme.useToken();
-  const { isDarkMode } = useUiTheme();
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [newHovered, setNewHovered] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [renameId, setRenameId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
+  const dragIntent = useTerminalDragIntent();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const chevronRef = useRef<HTMLDivElement>(null);
   const newTabShortcut = useShortcutLabel('terminal-new-tab');
   const defaultTabName = useSettingValue('terminal.defaultTabName');
 
@@ -133,106 +325,73 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
     if (next !== hasOverflow) setHasOverflow(next);
   });
 
+  const insertionIndex = dragIntent.insertion?.leafId === leafId ? dragIntent.insertion.index : null;
+  const insertionLabel = insertionIndex !== null ? dragIntent.draggingLabel : null;
+
   return (
-    <div className="rules-tabs-bar" style={{ flex: 1, minWidth: 0, height: '100%' }}>
+    <div className="rules-tabs-bar" style={{ flex: 1, minWidth: 0 }}>
+      {/* Scrollable tabs — content-sized when tabs fit, shrinks when
+          they overflow. The `+` button lives OUTSIDE this element
+          (sibling below) so it sits right after the last tab in the
+          fit case and stays anchored at the strip's right edge in the
+          overflow case — same pattern as the editor tab strip. */}
       <div className={`rules-tabs-scroll${hasOverflow ? ' is-overflow' : ''}`} ref={scrollRef} onWheel={handleWheel}>
-        <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {tabs.map((tab, tabIndex) => {
-            const active = tab.id === activeId;
-            const hovered = tab.id === hoveredId;
-            return (
-              <Dropdown
-                key={tab.id}
-                trigger={['contextMenu']}
-                menu={buildTerminalTabContextMenu(
+        <SortableContext items={tabs.map((tab) => `${leafId}::${tab.id}`)} strategy={horizontalListSortingStrategy}>
+          {tabs.map((tab, tabIndex) => (
+            <Fragment key={tab.id}>
+              {insertionIndex === tabIndex && insertionLabel !== null && (
+                <TerminalInsertionMarker label={insertionLabel} />
+              )}
+              <SortableTerminalTab
+                leafId={leafId}
+                tab={tab}
+                label={terminalTabLabel(t, tab, defaultTabName)}
+                active={tab.id === activeId}
+                focused={focused}
+                contextMenu={buildTerminalTabContextMenu(
                   {
                     tabId: tab.id,
                     tabIndex,
                     tabCount: tabs.length,
-                    onRename: (id) => {
-                      setRenameId(id);
-                      setRenameValue(terminalTabLabel(t, tab, defaultTabName));
-                    },
+                    onRename,
                     onClose,
                     onCloseOther,
                     onCloseAll,
                     onCloseToLeft,
                     onCloseToRight,
+                    onSplitAndMove,
+                    onMoveToOppositeGroup,
+                    oppositeDirection,
+                    parentOrientation,
+                    onChangeSplitterOrientation,
+                    onUnsplit,
+                    onUnsplitAll,
+                    canUnsplit,
+                    canUnsplitAll,
                   },
                   t,
                 )}
-              >
-              <span
-                role="tab"
-                tabIndex={0}
-                aria-selected={active}
-                data-testid="terminal-tab"
-                data-tab-id={tab.id}
-                data-tab-active={active || undefined}
-                onMouseEnter={() => setHoveredId(tab.id)}
-                onMouseLeave={() => setHoveredId((id) => (id === tab.id ? null : id))}
-                onClick={() => onActivate(tab.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') onActivate(tab.id);
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '3px 8px 3px 10px',
-                  borderRadius: token.borderRadiusSM,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  background: active
-                    ? focused
-                      ? token.colorPrimaryBg
-                      : token.colorFillSecondary
-                    : hovered
-                      ? token.colorFillTertiary
-                      : 'transparent',
-                  // Hairline ring on active pills (activePillRing) —
-                  // primary tint when this strip owns focus, neutral
-                  // otherwise.
-                  boxShadow: active ? activePillRing(token, isDarkMode, focused) : undefined,
-                  color: active ? token.colorText : token.colorTextSecondary,
-                }}
-              >
-                {terminalTabLabel(t, tab, defaultTabName)}
-                <span
-                  role="button"
-                  tabIndex={-1}
-                  aria-label={t('workbench.terminal.closeTab')}
-                  data-testid="terminal-tab-close"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClose(tab.id);
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    fontSize: 9,
-                    color: token.colorTextTertiary,
-                  }}
-                >
-                  <CloseOutlined />
-                </span>
-              </span>
-              </Dropdown>
-            );
-          })}
-        </div>
+                onActivate={onActivate}
+                onClose={onClose}
+              />
+            </Fragment>
+          ))}
+          {insertionIndex === tabs.length && insertionLabel !== null && (
+            <TerminalInsertionMarker label={insertionLabel} />
+          )}
+        </SortableContext>
       </div>
 
       {/* Gecko stand-in for the 3px webkit hover scrollbar. */}
       <OverlayScrollThumb scrollRef={scrollRef} />
 
-      {/* Sticky right cluster — siblings of the scroll container, so
-          they never scroll away: + · chevron · Open TUI mode. */}
+      {/* + — sibling outside the scroll strip (editor `+` anatomy). */}
       <Tooltip
-        placement="bottomRight"
+        placement="bottom"
         title={<ShortcutHintTitle label={newTabShortcut}>{t('workbench.terminal.newTab')}</ShortcutHintTitle>}
       >
-        <span
+        <div
+          className="rules-tab-action rules-tab-action-create"
           role="button"
           tabIndex={0}
           aria-label={t('workbench.terminal.newTab')}
@@ -241,22 +400,10 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') onNew();
           }}
-          onMouseEnter={() => setNewHovered(true)}
-          onMouseLeave={() => setNewHovered(false)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '3px 5px',
-            marginLeft: 2,
-            borderRadius: token.borderRadiusSM,
-            cursor: 'pointer',
-            flexShrink: 0,
-            background: newHovered ? token.colorFillTertiary : 'transparent',
-            color: token.colorTextSecondary,
-          }}
+          style={{ color: token.colorTextSecondary }}
         >
-          <PlusOutlined />
-        </span>
+          <PlusOutlined style={{ fontSize: 12 }} />
+        </div>
       </Tooltip>
 
       {/* Profile half of the split +: only exists once the user has
@@ -271,7 +418,7 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
             onClick: ({ key }) => onNewWithProfile(key),
           }}
         >
-          <Tooltip placement="bottomRight" title={t('workbench.terminal.newTabWithProfile')}>
+          <Tooltip placement="bottom" title={t('workbench.terminal.newTabWithProfile')}>
             <span
               role="button"
               tabIndex={0}
@@ -293,71 +440,12 @@ const TerminalTabStrip: React.FC<TerminalTabStripProps> = ({
         </Dropdown>
       )}
 
-      <div ref={chevronRef} style={{ flexShrink: 0 }}>
-        <Tooltip placement="bottomRight" title={t('workbench.tabbar.searchTabs')} open={searchOpen ? false : undefined}>
-          <div
-            className="rules-tab-action"
-            data-testid="terminal-tab-search"
-            style={{ color: token.colorTextSecondary }}
-            onClick={() => setSearchOpen((v) => !v)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setSearchOpen((v) => !v);
-            }}
-          >
-            <DownOutlined style={{ fontSize: 10 }} />
-          </div>
-        </Tooltip>
-      </div>
-      <TerminalTabSearchDropdown
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        anchorRef={chevronRef}
-        tabs={tabs}
-        activeId={activeId}
-        tabLabel={(tab) => terminalTabLabel(t, tab, defaultTabName)}
-        onActivate={onActivate}
-        recentlyClosed={recentlyClosed}
-        onReopenClosed={onReopenClosed}
-        onOpenSettings={onOpenSettings}
-      />
-
-      <Button
-        size="small"
-        type="text"
-        className="oh-cta-btn"
-        data-testid="terminal-open-tui"
-        onClick={onOpenTui}
-        style={{ marginLeft: 4, flexShrink: 0 }}
-      >
-        {t('workbench.terminal.openTui')}
-      </Button>
-
-      <Modal
-        title={<span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.rename.title')}</span>}
-        width={380}
-        open={renameId !== null}
-        okButtonProps={{ size: 'small' }}
-        cancelButtonProps={{ size: 'small' }}
-        onOk={() => {
-          if (renameId !== null) onRename(renameId, renameValue);
-          setRenameId(null);
-        }}
-        onCancel={() => setRenameId(null)}
-        destroyOnHidden
-      >
-        <Input
-          size="small"
-          autoFocus
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onPressEnter={() => {
-            if (renameId !== null) onRename(renameId, renameValue);
-            setRenameId(null);
-          }}
-        />
-      </Modal>
+      {/* Right-aligned cluster — `margin-left: auto` pushes it to the
+          bar's edge in the fit case and collapses in the overflow case
+          (everything packed right), the editor chevron's spacing law. */}
+      {trailing !== undefined && (
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>{trailing}</div>
+      )}
     </div>
   );
 };
