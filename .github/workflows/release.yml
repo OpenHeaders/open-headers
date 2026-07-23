@@ -308,6 +308,48 @@ jobs:
           }
         shell: pwsh
 
+      # The enterprise MSI rides the same eSigner path as Setup.exe.
+      # It carries no feed pointer, so no blockmap/hash rework — sign
+      # and verify only.
+      - name: Find Windows MSI
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        id: find-msi
+        run: |
+          $msiFile = Get-ChildItem -Path "apps/desktop/dist" -Filter "*.msi" -File | Select-Object -First 1
+          if ($null -eq $msiFile) { Write-Error "No MSI found"; exit 1 }
+          Write-Host "Found: $($msiFile.Name)"
+          echo "MSI_FILENAME=$($msiFile.Name)" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Sign Windows MSI
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/desktop/dist/${{ steps.find-msi.outputs.MSI_FILENAME }}
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      - name: Verify MSI Authenticode signature
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        run: |
+          $sig = Get-AuthenticodeSignature "apps/desktop/dist/${{ steps.find-msi.outputs.MSI_FILENAME }}"
+          $sig | Format-List Status, StatusMessage
+          if ($sig.SignerCertificate) { $sig.SignerCertificate | Format-List Subject, Issuer, NotAfter }
+          if ($sig.Status -ne 'Valid') {
+            Write-Error "Authenticode signature status: $($sig.Status)"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
         working-directory: apps/desktop
@@ -701,12 +743,16 @@ jobs:
           I_CHROME=$(icon chrome)
           I_FIREFOX=$(icon firefox)
           I_EDGE=$(icon edge)
+          I_DOCKER=$(icon docker)
 
           # Tables lead, prose collapses into <details> — the reader is
           # here for download links. Betas build no pkg/msi/mac-x64, so
-          # those rows/blocks only render on stable.
+          # those rows/blocks only render on stable. The desktop version
+          # IS the release tag, so its title carries no version; the
+          # extension / oh / ohd sections keep theirs — those axes
+          # version independently of the tag.
           {
-            echo "## Desktop App v${VERSION}"
+            echo "## Desktop App"
             echo ""
             echo "| Platform | Downloads |"
             echo "| --- | --- |"
@@ -721,9 +767,14 @@ jobs:
             echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
             if [ "$IS_PRERELEASE" != "true" ]; then
               echo ""
-              echo "<details><summary><b>Managed deployment (MDM / GPO)</b></summary>"
+              echo "<details><summary><b>Enterprise - Managed deployment (MDM / GPO)</b></summary>"
               echo ""
-              echo "[PKG Apple Silicon](${DL}/OpenHeaders-${VERSION}-mac-arm64.pkg) · [PKG Intel](${DL}/OpenHeaders-${VERSION}-mac-x64.pkg) · [MSI](${DL}/OpenHeaders-${VERSION}.msi)"
+              echo "| Platform | Downloads |"
+              echo "| --- | --- |"
+              echo "| ${I_MAC} macOS | [PKG Apple Silicon](${DL}/OpenHeaders-${VERSION}-mac-arm64.pkg) · [PKG Intel](${DL}/OpenHeaders-${VERSION}-mac-x64.pkg) |"
+              echo "| ${I_WIN} Windows | [MSI](${DL}/OpenHeaders-${VERSION}.msi) |"
+              echo ""
+              echo "macOS PKGs are signed and notarized; the Windows MSI is Authenticode-signed."
               echo ""
               echo "</details>"
             fi
@@ -746,37 +797,38 @@ jobs:
           fi
 
           # oh/ohd binaries carry their own app versions — list what
-          # the legs actually staged.
+          # the legs actually staged, one section per product surface.
           BIN_FILES=$(cd processed_files && ls oh-* ohd-* 2>/dev/null || true)
-          if [ -n "$BIN_FILES" ]; then
+          OH_FILES=$(echo "$BIN_FILES" | tr ' ' '\n' | grep '^oh-' || true)
+          OHD_FILES=$(echo "$BIN_FILES" | tr ' ' '\n' | grep '^ohd-' || true)
+
+          bin_row() {
+            case "$1" in
+              *-mac-arm64) PLATFORM="${I_MAC} macOS (Apple Silicon)" ;;
+              *-mac-x64) PLATFORM="${I_MAC} macOS (Intel)" ;;
+              *-linux-x64) PLATFORM="${I_LINUX} Linux (x64)" ;;
+              *-linux-arm64) PLATFORM="${I_LINUX} Linux (ARM64)" ;;
+              *-win-x64.exe) PLATFORM="${I_WIN} Windows (x64)" ;;
+              *) PLATFORM="$1" ;;
+            esac
+            echo "| ${PLATFORM} | [$1](${DL}/$1) |"
+          }
+
+          if [ -n "$OH_FILES" ]; then
+            OH_BIN_VERSION=$(echo "$OH_FILES" | head -1 | sed -E 's/^oh-//; s/-(mac|linux|win)-(arm64|x64)(\.exe)?$//')
             {
               echo ""
-              OH_BIN_VERSION=$(echo "$BIN_FILES" | tr ' ' '\n' | grep '^oh-' | head -1 | sed -E 's/^oh-//; s/-(mac|linux|win)-(arm64|x64)(\.exe)?$//')
-              echo "## CLI & Daemon v${OH_BIN_VERSION}"
+              echo "## Terminal - CLI & TUI v${OH_BIN_VERSION}"
               echo ""
-              echo "| Binary | Platform | Download |"
-              echo "| --- | --- | --- |"
-              for f in $BIN_FILES; do
-                case "$f" in
-                  ohd-*) BIN_NAME='`ohd`' ;;
-                  *) BIN_NAME='`oh`' ;;
-                esac
-                case "$f" in
-                  *-mac-arm64) PLATFORM="${I_MAC} macOS (Apple Silicon)" ;;
-                  *-mac-x64) PLATFORM="${I_MAC} macOS (Intel)" ;;
-                  *-linux-x64) PLATFORM="${I_LINUX} Linux (x64)" ;;
-                  *-linux-arm64) PLATFORM="${I_LINUX} Linux (ARM64)" ;;
-                  *-win-x64.exe) PLATFORM="${I_WIN} Windows (x64)" ;;
-                  *) PLATFORM="${f}" ;;
-                esac
-                echo "| ${BIN_NAME} | ${PLATFORM} | [${f}](${DL}/${f}) |"
-              done
+              echo "| Platform | Download |"
+              echo "| --- | --- |"
+              for f in $OH_FILES; do bin_row "$f"; done
               echo ""
               echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
               echo ""
               echo "<details><summary><b>Install scripts & notes</b></summary>"
               echo ""
-              echo "Install script (verifies checksums, installs to \`~/.local/bin\`; add \`--with-daemon\` for \`ohd\`):"
+              echo "Install script (verifies checksums, installs \`oh\` to \`~/.local/bin\`):"
               echo ""
               echo '```sh'
               echo "curl -fsSL https://updates.openheaders.io/install.sh | sh"
@@ -794,16 +846,37 @@ jobs:
             } >> release_body.md
           fi
 
-          # Docker (daemon) — version comes from the staged ohd asset name.
-          OHD_DOCKER_VERSION=$(echo "$BIN_FILES" | tr ' ' '\n' | sed -n 's/^ohd-\([0-9][^ ]*\)-linux-x64$/\1/p' | head -1)
-          if [ -n "$OHD_DOCKER_VERSION" ]; then
+          if [ -n "$OHD_FILES" ]; then
+            OHD_BIN_VERSION=$(echo "$OHD_FILES" | head -1 | sed -E 's/^ohd-//; s/-(mac|linux|win)-(arm64|x64)(\.exe)?$//')
+            OHD_DOCKER_VERSION=$(echo "$OHD_FILES" | sed -n 's/^ohd-\([0-9][^ ]*\)-linux-x64$/\1/p' | head -1)
             {
               echo ""
-              echo "<details><summary><b>Docker (daemon)</b></summary>"
+              echo "## Team - Server Daemon v${OHD_BIN_VERSION}"
+              echo ""
+              echo "| Platform | Download |"
+              echo "| --- | --- |"
+              for f in $OHD_FILES; do bin_row "$f"; done
+              if [ -n "$OHD_DOCKER_VERSION" ]; then
+                echo "| ${I_DOCKER} Docker | \`ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}\` |"
+              fi
+              echo ""
+              echo "Checksums: [SHA256SUMS.txt](${DL}/SHA256SUMS.txt)"
+              echo ""
+              echo "<details><summary><b>Install scripts & notes</b></summary>"
+              echo ""
+              echo "Install script (verifies checksums, installs \`oh\` + \`ohd\` to \`~/.local/bin\`):"
               echo ""
               echo '```sh'
-              echo "docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}"
+              echo "curl -fsSL https://updates.openheaders.io/install.sh | sh -s -- --with-daemon"
               echo '```'
+              if [ -n "$OHD_DOCKER_VERSION" ]; then
+                echo ""
+                echo "Docker:"
+                echo ""
+                echo '```sh'
+                echo "docker run -d -p 8137:8137 -v oh-data:/data ghcr.io/openheaders/ohd:${OHD_DOCKER_VERSION}"
+                echo '```'
+              fi
               echo ""
               echo "</details>"
             } >> release_body.md
