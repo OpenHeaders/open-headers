@@ -11,13 +11,16 @@
  *
  * Compiled with `bun build --compile` (see `scripts/pack-bun.mjs`) so
  * one signable, self-contained binary ships inside the desktop app's
- * resources; the source stays runtime-neutral Node APIs.
+ * resources; the source stays runtime-neutral Node APIs except the
+ * win32 image-name probe, which needs an in-process syscall
+ * (`bun:ffi`) that only the compiled binary's runtime provides.
  */
 
 import * as process from 'node:process';
 import { type BootstrapResponse, parseBootstrapRequest, performBootstrap } from './bootstrap';
 import { createNmMessageDecoder, encodeNmMessage } from './framing';
 import { verifyDaemonListener } from './verify-daemon';
+import { win32ImageNamePath } from './win32-image-name';
 
 /** A stuck spawn (browser never writes, daemon hangs) must not leak hosts. */
 const IDLE_EXIT_MS = 30_000;
@@ -31,7 +34,11 @@ function respondAndExit(response: BootstrapResponse): void {
 /** The listener must be the desktop app this binary shipped with —
  *  refusal detail goes to stderr (the browser's extension log). */
 async function listenerVerified(port: number): Promise<boolean> {
-  const verification = await verifyDaemonListener({ port, ownExecutablePath: process.execPath });
+  const verification = await verifyDaemonListener({
+    port,
+    ownExecutablePath: process.execPath,
+    ...(process.platform === 'win32' ? { readImageName: win32ImageNamePath } : {}),
+  });
   if (!verification.ok) process.stderr.write(`listener verification refused: ${verification.detail}\n`);
   return verification.ok;
 }

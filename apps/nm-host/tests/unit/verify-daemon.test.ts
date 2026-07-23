@@ -175,4 +175,39 @@ describe('verifyDaemonListener', () => {
     });
     expect(verification.ok).toBe(true);
   });
+
+  it('prefers the direct image-name probe over the WMI leg on windows', async () => {
+    const run: CommandRunner = async (_file, args) => {
+      const script = args[args.length - 1];
+      if (script.includes('Get-NetTCPConnection')) return ok('{"LocalPort":8137,"OwningProcess":4242}');
+      throw new Error('WMI leg must not run when the direct probe answers');
+    };
+    const verification = await verifyDaemonListener({
+      port: 8137,
+      ownExecutablePath: 'C:\\Program Files\\OpenHeaders\\resources\\nm-host\\oh-nm-host.exe',
+      platform: 'win32',
+      run,
+      readImageName: async (pid) => {
+        expect(pid).toBe(4242);
+        return 'C:\\Program Files\\OpenHeaders\\OpenHeaders.exe';
+      },
+    });
+    expect(verification.ok).toBe(true);
+  });
+
+  it('falls back to the WMI leg when the direct probe answers null', async () => {
+    const run: CommandRunner = async (_file, args) => {
+      const script = args[args.length - 1];
+      if (script.includes('Get-NetTCPConnection')) return ok('{"LocalPort":8137,"OwningProcess":4242}');
+      return ok('{"ExecutablePath":"C:\\\\Program Files\\\\OpenHeaders\\\\OpenHeaders.exe"}');
+    };
+    const verification = await verifyDaemonListener({
+      port: 8137,
+      ownExecutablePath: 'C:\\Program Files\\OpenHeaders\\resources\\nm-host\\oh-nm-host.exe',
+      platform: 'win32',
+      run,
+      readImageName: async () => null,
+    });
+    expect(verification.ok).toBe(true);
+  });
 });

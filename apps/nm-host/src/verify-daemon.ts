@@ -70,6 +70,15 @@ export interface VerifyDaemonListenerOptions {
   readonly platform?: NodeJS.Platform;
   /** Command seam — defaults to real `execFile`. */
   readonly run?: CommandRunner;
+  /**
+   * Direct image-name probe, tried before the WMI leg on win32 (the
+   * compiled binary wires `QueryFullProcessImageNameW` over a
+   * QUERY_LIMITED handle here). Integrity-proof: a de-elevated host —
+   * Firefox spawns NM hosts at Medium — can still read an elevated
+   * listener's path this way, where the WMI/MainModule probes need
+   * QUERY_INFORMATION and answer nothing.
+   */
+  readonly readImageName?: (pid: number) => Promise<string | null>;
 }
 
 function safeRealpath(candidate: string): string {
@@ -189,7 +198,12 @@ async function listenerPid(port: number, platform: NodeJS.Platform, run: Command
   return parseSsListenerPid(ss.stdout);
 }
 
-async function executablePathOf(pid: number, platform: NodeJS.Platform, run: CommandRunner): Promise<string | null> {
+async function executablePathOf(
+  pid: number,
+  platform: NodeJS.Platform,
+  run: CommandRunner,
+  readImageName?: (pid: number) => Promise<string | null>,
+): Promise<string | null> {
   if (platform === 'darwin') {
     const result = await run('ps', ['-p', String(pid), '-o', 'comm=']);
     if (result.code !== 0) return null;
@@ -197,6 +211,10 @@ async function executablePathOf(pid: number, platform: NodeJS.Platform, run: Com
     return executable.length > 0 ? executable : null;
   }
   if (platform === 'win32') {
+    if (readImageName) {
+      const direct = await readImageName(pid);
+      if (direct !== null && direct.length > 0) return direct;
+    }
     const script =
       `Get-CimInstance Win32_Process -Filter ${powerShellQuote(`ProcessId = ${pid}`)} ` +
       '| Select-Object -Property ExecutablePath | ConvertTo-Json -Compress';
@@ -240,7 +258,7 @@ export async function verifyDaemonListener(options: VerifyDaemonListenerOptions)
   if (pid === null) {
     return { ok: false, detail: `no LISTEN owner found on loopback port ${options.port}` };
   }
-  const listenerExecutable = await executablePathOf(pid, platform, run);
+  const listenerExecutable = await executablePathOf(pid, platform, run, options.readImageName);
   if (listenerExecutable === null) {
     return { ok: false, detail: `process info unavailable for listener pid ${pid}` };
   }
