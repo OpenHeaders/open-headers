@@ -45,4 +45,8 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': '现在重新启动可立即应用更改。',
   'desktop.dialog.hardwareAcceleration.restartNow': '立即重新启动',
   'desktop.dialog.hardwareAcceleration.later': '稍后',
+  'desktop.firstRunLegal.message': '继续使用 Open Headers，即表示你同意我们的许可条款和隐私政策。',
+  'desktop.firstRunLegal.license': '许可条款',
+  'desktop.firstRunLegal.privacy': '隐私政策',
+  'desktop.firstRunLegal.acknowledge': '知道了',
 } as const satisfies Catalog;

@@ -40,6 +40,17 @@ declare global {
   interface Window {
     oh: {
       platform: 'darwin' | 'win32' | 'linux' | 'aix' | 'freebsd' | 'openbsd' | 'sunos' | 'cygwin' | 'netbsd';
+      /**
+       * Synchronous first-paint data (`preload/startup-data.ts`) —
+       * populated via `sendSync` before any HTML script runs.
+       */
+      startupData: {
+        platform: 'darwin' | 'win32' | 'linux' | 'aix' | 'freebsd' | 'openbsd' | 'sunos' | 'cygwin' | 'netbsd';
+        version: string;
+        isPackaged: boolean;
+        locale: string;
+        theme: 'light' | 'dark';
+      };
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;
       storage: {

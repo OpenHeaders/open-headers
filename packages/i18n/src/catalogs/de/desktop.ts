@@ -46,4 +46,9 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Starte jetzt neu, um die Änderung sofort anzuwenden.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Jetzt neu starten',
   'desktop.dialog.hardwareAcceleration.later': 'Später',
+  'desktop.firstRunLegal.message':
+    'Wenn du Open Headers weiter nutzt, stimmst du unseren Lizenzbedingungen und unserer Datenschutzerklärung zu.',
+  'desktop.firstRunLegal.license': 'Lizenzbedingungen',
+  'desktop.firstRunLegal.privacy': 'Datenschutzerklärung',
+  'desktop.firstRunLegal.acknowledge': 'Verstanden',
 } as const satisfies Catalog;

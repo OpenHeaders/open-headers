@@ -14,6 +14,7 @@ import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
+import { FirstRunLegalNotice } from './first-run-legal-notice';
 import { resolveWorkbenchIdentity } from './host/surface-identity-resolvers';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
@@ -51,6 +52,7 @@ root.render(
       <ThemeProvider>
         <AntApp>
           <Workbench resolveIdentity={resolveWorkbenchIdentity} />
+          <FirstRunLegalNotice />
         </AntApp>
       </ThemeProvider>
     </LocaleProvider>

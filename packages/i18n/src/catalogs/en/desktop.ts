@@ -47,4 +47,9 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Restart now to apply the change immediately.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Restart Now',
   'desktop.dialog.hardwareAcceleration.later': 'Later',
+  'desktop.firstRunLegal.message':
+    'By continuing to use Open Headers, you agree to our license terms and privacy policy.',
+  'desktop.firstRunLegal.license': 'License Terms',
+  'desktop.firstRunLegal.privacy': 'Privacy Policy',
+  'desktop.firstRunLegal.acknowledge': 'Got it',
 } as const satisfies Catalog;

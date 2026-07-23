@@ -13,6 +13,7 @@ import { Menu, nativeImage, Tray } from 'electron';
 import { openSettingsSurface } from './application-menu';
 import { requestQuit } from './lifecycle';
 import { mainTranslator } from './locale';
+import { createLogger } from './logger';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { buildAssetPath, showMainWindow } from './window-manager';
 
@@ -56,6 +57,7 @@ export function installTray(): Tray {
   });
 
   tray = t;
+  createLogger('startup').info(`tray installed (+${process.uptime().toFixed(2)}s)`);
   return t;
 }
 

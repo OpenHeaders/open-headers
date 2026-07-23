@@ -568,4 +568,6 @@ export async function installRpcHost(): Promise<void> {
     await spine.dispose();
     engineLogger.info(SCOPE, 'engine disposed');
   });
+
+  engineLogger.info(SCOPE, `engine boot complete (+${process.uptime().toFixed(2)}s)`);
 }

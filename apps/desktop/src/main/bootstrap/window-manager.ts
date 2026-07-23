@@ -5,14 +5,16 @@
  */
 
 import { join } from 'node:path';
-import { app, BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, nativeTheme, screen } from 'electron';
 import { shouldLaunchHidden } from './launch-flags';
 import { isQuitting } from './lifecycle';
+import { createLogger } from './logger';
 import { attachRendererDiagnostics } from './process-diagnostics';
 import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
 import { sendToRendererWindow } from './renderer-broadcast';
 import { attachWindowSecurity } from './security';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
+import { forceForegroundWindow } from './windows-foreground';
 
 // Per-dimension fraction of the work area for the first-run window.
 // Sizing intent is in SCREEN AREA: 0.95 × 0.95 ≈ 90% of the screen —
@@ -20,6 +22,18 @@ import { attachWindowStateTracking, loadWindowState } from './window-state';
 const DEFAULT_WINDOW_FRACTION = 0.95;
 const MIN_WIDTH = 880;
 const MIN_HEIGHT = 600;
+
+const logger = createLogger('startup');
+
+/**
+ * The frame paints this before the renderer's first frame lands, so it
+ * must match the boot shell's palette in `index.html` (same
+ * `nativeTheme` signal the startup-data bridge serves) — a mismatch
+ * reads as a background flash the moment the shell paints.
+ */
+function frameBackgroundColor(): string {
+  return nativeTheme.shouldUseDarkColors ? '#1f1f1f' : '#ffffff';
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -62,6 +76,7 @@ export function createMainWindow(): BrowserWindow {
     minHeight: MIN_HEIGHT,
     center: restored?.x === undefined,
     show: false,
+    backgroundColor: frameBackgroundColor(),
     ...platformChrome,
     webPreferences: {
       preload: join(__dirname, '..', 'preload', 'index.js'),
@@ -73,6 +88,7 @@ export function createMainWindow(): BrowserWindow {
       plugins: true,
     },
   });
+  logger.info(`main window created (+${process.uptime().toFixed(2)}s)`);
 
   if (restored?.maximized) win.maximize();
   if (restored?.fullscreen) win.setFullScreen(true);
@@ -88,6 +104,16 @@ export function createMainWindow(): BrowserWindow {
   win.webContents.on('did-finish-load', markRendererReadyAndDrain);
   win.webContents.on('destroyed', resetRendererReady);
 
+  // Startup milestones — the two renderer-side marks the log was blind
+  // to: first paintable frame and load completion. One-shot listeners;
+  // steady-state reloads don't spam the log.
+  win.once('ready-to-show', () => {
+    logger.info(`renderer first frame ready (+${process.uptime().toFixed(2)}s)`);
+  });
+  win.webContents.once('did-finish-load', () => {
+    logger.info(`renderer loaded (+${process.uptime().toFixed(2)}s)`);
+  });
+
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl) {
     void win.loadURL(devUrl);
@@ -97,13 +123,22 @@ export function createMainWindow(): BrowserWindow {
 
   // Hide-on-launch: skip the auto-show. Window stays invisible (but
   // mounted and hydrating in the background) until something — tray
-  // click, dock click, deep link — calls `showMainWindow()`. Never
-  // show once a quit has committed — teardown destroys windows and a
-  // late `ready-to-show` must not resurface one.
+  // click, dock click, deep link — calls `showMainWindow()`.
+  //
+  // Visible launches show NOW, not on `ready-to-show`: the frame
+  // paints `backgroundColor` immediately and the renderer fills it in,
+  // so launch feedback is instant instead of a multi-second silent gap
+  // on a cold first run. Showing immediately also matters for the
+  // post-install launch — the NSIS installer spawns this process, and
+  // by the time a `ready-to-show`-gated window appeared, Windows'
+  // foreground grant had lapsed and the window degraded to a taskbar
+  // attention flash the user had to click. The native foreground
+  // helper re-arms that grant (mocked keystroke +
+  // AllowSetForegroundWindow) so the window actually fronts; it no-ops
+  // off Windows.
   if (!shouldLaunchHidden()) {
-    win.once('ready-to-show', () => {
-      if (!isQuitting()) win.show();
-    });
+    win.show();
+    if (process.platform === 'win32') forceForegroundWindow(process.pid);
   }
 
   // Close intercept: hide instead of destroy. Real quit goes through
@@ -176,6 +211,7 @@ export function createChildWindow(): BrowserWindow {
     minHeight: MIN_HEIGHT,
     title: app.getName(),
     show: false,
+    backgroundColor: frameBackgroundColor(),
     ...platformChrome,
     webPreferences: {
       preload: join(__dirname, '..', 'preload', 'index.js'),

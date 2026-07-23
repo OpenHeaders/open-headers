@@ -33,3 +33,4 @@ import './data';
 import './about';
 import './updates';
 import './telemetry';
+import './legal';
