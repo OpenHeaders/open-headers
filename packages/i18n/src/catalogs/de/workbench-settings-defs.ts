@@ -23,7 +23,7 @@ export const workbenchSettingsDefs = {
   // ── Backend category defs ──────────────────────────────────────────
   'workbench.settings.def.backend.nmAutoJoin.label': 'Automatisch mit der Desktop-App koppeln',
   'workbench.settings.def.backend.nmAutoJoin.description':
-    'Wenn die Open-Headers-Desktop-App auf diesem Computer läuft, wird ohne Kopplungscode verbunden — die ' +
+    'Wenn die Desktop-App von Open Headers auf diesem Computer läuft, wird ohne Kopplungscode verbunden — die ' +
     'Desktop-App verifiziert diesen Browser über das Betriebssystem, bevor sie Zugriff gewährt. Deaktiviere ' +
     'die Option, um nur per expliziter Geste zu koppeln.',
   'workbench.settings.def.backend.nmAutoJoinProbe.label': 'Im Hintergrund nach der Desktop-App suchen',

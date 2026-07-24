@@ -110,6 +110,7 @@ import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './module
 import { setupWorkspaceTabRegistry } from './modules/workspace/workspace-tab-registry';
 import { startProxyRoutingHost } from './proxy-routing-host';
 import { selfHostLabel } from './self-host-label';
+import { startUpdateDeferral } from './update-deferral';
 
 // ── Eval-time wiring ──────────────────────────────────────────────
 
@@ -131,6 +132,10 @@ installParityFireReadback();
 // page could be woken for a proxy decision, and the inbound frame
 // handler must exist before any wire dials.
 startProxyRoutingHost();
+// Deferred updates: eval-time so `onUpdateAvailable` registers before
+// Chrome could apply a downloaded update mid-session and kill an open
+// DevTools panel.
+startUpdateDeferral();
 
 // Workspaces are bootstrapped first because every per-workspace store
 // keys its reads off the active workspace id.

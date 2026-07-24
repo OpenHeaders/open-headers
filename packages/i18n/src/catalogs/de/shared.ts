@@ -33,6 +33,10 @@ export const shared = {
   'shared.errorBoundary.subtitle': 'Beim Laden des Popups ist ein Fehler aufgetreten. Schließe es und öffne es erneut.',
   'shared.errorBoundary.reload': 'Neu laden',
 
+  // ── Invalidated-context notice (DevTools panel orphan watch) ────────
+  'shared.contextInvalidated.title': 'Open Headers wurde aktualisiert oder neu geladen',
+  'shared.contextInvalidated.body': 'Schließe DevTools und öffne es erneut, um fortzufahren.',
+
   // ── Connection-probe notices ─────────────────────────────────────────
   'shared.probe.connectionOk': 'Verbindung OK',
   'shared.probe.reachableDescription': '{label} ist erreichbar.',

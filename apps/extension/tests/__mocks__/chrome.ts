@@ -13,6 +13,12 @@ const storageMock = {
     remove: vi.fn((_keys, callback) => callback?.()),
     clear: vi.fn((callback) => callback?.()),
   },
+  session: {
+    get: vi.fn(async (_keys?: string | string[] | null) => ({})),
+    set: vi.fn(async (_items: Record<string, unknown>) => {}),
+    remove: vi.fn(async (_keys: string | string[]) => {}),
+    clear: vi.fn(async () => {}),
+  },
   onChanged: {
     addListener: vi.fn(),
     removeListener: vi.fn(),
@@ -20,6 +26,12 @@ const storageMock = {
 };
 
 const runtimeMock = {
+  id: 'test-id',
+  reload: vi.fn(),
+  onUpdateAvailable: {
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  },
   sendMessage: vi.fn((_message, callback) => callback?.({})),
   onMessage: {
     addListener: vi.fn(),

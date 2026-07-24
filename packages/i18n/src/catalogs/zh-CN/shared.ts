@@ -33,6 +33,10 @@ export const shared = {
   'shared.errorBoundary.subtitle': '加载弹窗时出错。请关闭后重新打开。',
   'shared.errorBoundary.reload': '重新加载',
 
+  // ── Invalidated-context notice (DevTools panel orphan watch) ────────
+  'shared.contextInvalidated.title': 'Open Headers 已更新或重新加载',
+  'shared.contextInvalidated.body': '请关闭并重新打开 DevTools 以继续。',
+
   // ── Connection-probe notices ─────────────────────────────────────────
   'shared.probe.connectionOk': '连接正常',
   'shared.probe.reachableDescription': '{label} 可访问。',

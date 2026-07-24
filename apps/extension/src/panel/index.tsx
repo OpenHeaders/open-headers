@@ -18,6 +18,7 @@ import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { resolveDevPanelIdentity } from '@/host/surface-identity-resolvers';
+import { startContextSentinel } from '@/panel/context-sentinel';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/panel/styles/panel.css';
 
@@ -25,6 +26,11 @@ import '@openheaders/ui/panel/styles/panel.css';
 // snapshot RPC before React mounts — see `eager-mirror-init.ts` for
 // the full architectural rationale.
 eagerInitRendererMirrors();
+
+// Orphan watch: if an extension reload/update invalidates this document's
+// context, swap in a static "reopen DevTools" notice instead of leaving a
+// dead frame — see `context-sentinel.ts`.
+startContextSentinel();
 
 const container = document.getElementById('root');
 const root = createRoot(container!);

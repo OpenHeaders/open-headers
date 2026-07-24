@@ -30,6 +30,10 @@ export const shared = {
   'shared.errorBoundary.subtitle': 'Hubo un error al cargar el popup. Ciérralo y vuelve a abrirlo.',
   'shared.errorBoundary.reload': 'Recargar',
 
+  // ── Invalidated-context notice (DevTools panel orphan watch) ────────
+  'shared.contextInvalidated.title': 'Open Headers se ha actualizado o recargado',
+  'shared.contextInvalidated.body': 'Cierra y vuelve a abrir DevTools para continuar.',
+
   // ── Connection-probe notices ─────────────────────────────────────────
   'shared.probe.connectionOk': 'Conexión OK',
   'shared.probe.reachableDescription': '{label} está accesible.',

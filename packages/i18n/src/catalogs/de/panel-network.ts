@@ -33,7 +33,7 @@ export const panelNetwork = {
   // ── Remote capture — consent refusal ────────────────────────────────
   'panel.capture.watchRefused.title': 'Live-Ansicht ist in diesem Browser deaktiviert',
   'panel.capture.watchRefused.body':
-    'Die Open-Headers-Erweiterung in diesem Browser erlaubt der Desktop-App nicht, ihren Verkehr, Speicher oder ihre ' +
+    'Die Erweiterung von Open Headers in diesem Browser erlaubt der Desktop-App nicht, ihren Verkehr, Speicher oder ihre ' +
     'Konsole einzusehen. Aktiviere „Desktop-App darf diesen Browser einsehen“ in den Einstellungen der Erweiterung, ' +
     'um ihn hier zu beobachten.',
 

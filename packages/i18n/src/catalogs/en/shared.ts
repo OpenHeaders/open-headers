@@ -23,6 +23,10 @@ export const shared = {
   'shared.errorBoundary.subtitle': 'There was an error loading the popup. Please try closing and reopening it.',
   'shared.errorBoundary.reload': 'Reload',
 
+  // ── Invalidated-context notice (DevTools panel orphan watch) ────────
+  'shared.contextInvalidated.title': 'Open Headers was updated or reloaded',
+  'shared.contextInvalidated.body': 'Close and reopen DevTools to continue.',
+
   // ── Connection-probe notices ─────────────────────────────────────────
   // Fired by every surface that verifies a back-end wire (Test
   // connection, the probe-gated enable switch).
