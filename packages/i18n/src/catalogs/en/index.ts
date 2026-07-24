@@ -60,7 +60,65 @@ import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboar
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchVariables } from './workbench-variables';
 
-export const en = {
+// Explicit intersection annotation: the merged literal's inferred type
+// outgrew tsc's declaration-emit ceiling (TS7056). Intersecting the
+// per-file types emits compact type references while `keyof` still
+// yields the full literal key union.
+type EnCatalog = typeof shared &
+  typeof sharedAwareness &
+  typeof sharedChrome &
+  typeof sharedComponents &
+  typeof sharedConflicts &
+  typeof sharedHeaderValidation &
+  typeof sharedInfoCookies &
+  typeof sharedInfoHeaders &
+  typeof sharedInfoStatus &
+  typeof sharedMergeEditor &
+  typeof sharedNotifications &
+  typeof sharedResolutionHints &
+  typeof sharedWorkspace &
+  typeof desktop &
+  typeof extension &
+  typeof panel &
+  typeof panelConsole &
+  typeof panelDocs &
+  typeof panelInspector &
+  typeof panelInspectorCookies &
+  typeof panelInspectorHeaders &
+  typeof panelInspectorStreams &
+  typeof panelNetwork &
+  typeof panelQuickEditor &
+  typeof panelStorage &
+  typeof popup &
+  typeof tui &
+  typeof web &
+  typeof workbench &
+  typeof workbenchChrome &
+  typeof workbenchChromeSidebar &
+  typeof workbenchChromeWorkspace &
+  typeof workbenchDaemonAdmin &
+  typeof workbenchDocs &
+  typeof workbenchDocsDebugMode &
+  typeof workbenchDocsDiagrams &
+  typeof workbenchDocsSystemStatus &
+  typeof workbenchDocsVariables &
+  typeof workbenchEditors &
+  typeof workbenchEditorsGrpc &
+  typeof workbenchEditorsRequest &
+  typeof workbenchEditorsRule &
+  typeof workbenchEditorsSpec &
+  typeof workbenchEditorsWebsocket &
+  typeof workbenchImportExport &
+  typeof workbenchLive &
+  typeof workbenchScriptPackages &
+  typeof workbenchSettings &
+  typeof workbenchSettingsDefs &
+  typeof workbenchSettingsDefsDevpanel &
+  typeof workbenchSettingsDefsKeyboard &
+  typeof workbenchSettingsPanes &
+  typeof workbenchVariables;
+
+export const en: EnCatalog = {
   ...shared,
   ...sharedAwareness,
   ...sharedChrome,
@@ -114,6 +172,6 @@ export const en = {
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
   ...workbenchVariables,
-} as const satisfies Catalog;
+} satisfies Catalog;
 
-export type MessageKey = keyof typeof en;
+export type MessageKey = keyof EnCatalog;

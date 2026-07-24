@@ -365,7 +365,10 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       </div>
       <div className="rules-statusbar-right">
         <DebugModeDormantNotice tabSource="inspected" hasRealizableRule={hasRealizableDebugRule} />
-        <DebugModePill tabSource="inspected" onOpenDocs={handleOpenDocs} />
+        {/* Classed wrapper: the onboarding tour's finale anchors here. */}
+        <span className="dt-footer-debug-cluster" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <DebugModePill tabSource="inspected" onOpenDocs={handleOpenDocs} />
+        </span>
         <StatusPill
           density="full"
           label={t('panel.status.systemStatus')}

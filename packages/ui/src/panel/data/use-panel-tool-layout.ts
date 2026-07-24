@@ -44,7 +44,9 @@ const PANEL_FRESH_DOCK_LAYOUT: ToolLayoutState<PanelToolWindowId> = normalizeDoc
   {
     docks: {
       'left-top': { windows: ['network'], active: 'network' },
-      'left-bottom': { windows: [], active: null },
+      // Storage opens with the panel so the second capture surface is
+      // visible without a rail click (mirrors Request Rules below).
+      'left-bottom': { windows: ['storage'], active: 'storage' },
       'right-top': { windows: [], active: null },
       'right-bottom': { windows: [], active: null },
       'bottom-left': { windows: [], active: null },

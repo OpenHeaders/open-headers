@@ -56,6 +56,7 @@ import { PANEL_DEFAULT_SECTION_ID, PANEL_DOC_GROUPS } from './components/docs/re
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
 import { MatchedRulesPanel } from './components/MatchedRulesPanel';
+import PanelOnboardingTour from './components/PanelOnboardingTour';
 import PanelStatusBar from './components/PanelStatusBar';
 import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
@@ -450,6 +451,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [setBarWidthLeft, setBarWidthRight],
   );
+
+  // ── Onboarding tour (null = self-gated; true = gear-menu replay) ──
+  const [tourOpen, setTourOpen] = useState<boolean | null>(null);
+  const handleTourClose = useCallback(() => setTourOpen(null), []);
+  const handleOpenTour = useCallback(() => setTourOpen(true), []);
 
   // ── Panel-level state ──────────────────────────────────────
   const [filter, setFilter] = useState<Set<string>>(new Set());
@@ -1122,6 +1128,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         environments={envApi.environments}
         activeEnvironmentId={envApi.activeEnvironmentId}
         onSwitchEnvironment={handlePanelSwitchEnv}
+        onOpenTour={handleOpenTour}
       />
 
       <ShellLayout<PanelToolWindowId>
@@ -1161,6 +1168,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         tl={tl}
         searchStatus={searchFooterStatus}
       />
+
+      <PanelOnboardingTour open={tourOpen} onClose={handleTourClose} />
     </div>
   );
 }

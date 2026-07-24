@@ -516,6 +516,10 @@ export const UI = {
   activePopupTab: storageKey<string>('activePopupTab'),
   /** Boolean flag set once the onboarding tour has been completed. */
   onboardingCompleted: storageKey<boolean>('onboardingCompleted'),
+  /** Boolean flag set once the DevTools panel tour has been completed.
+   *  Separate from the popup flag — existing installs that finished the
+   *  popup tour still see the panel tour once on first panel open. */
+  panelOnboardingCompleted: storageKey<boolean>('panelOnboardingCompleted'),
   /** Workbench terminal tab identities (machine-level, not workspace-
    *  scoped — the tabs are shells on this machine). */
   terminalTabs: storageKey<PersistedTerminalTabs>('terminalTabs'),

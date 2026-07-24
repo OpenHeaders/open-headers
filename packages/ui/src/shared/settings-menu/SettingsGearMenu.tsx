@@ -16,6 +16,7 @@
  */
 
 import {
+  CompassOutlined,
   DownloadOutlined,
   LogoutOutlined,
   ReloadOutlined,
@@ -73,9 +74,11 @@ interface SettingsGearMenuProps {
   onOpenSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
   /** Shortcut hint for the Settings item (from useShortcutLabel). */
   openSettingsLabel?: string | null;
+  /** Surfaces with an onboarding tour add a replay item; omit to hide. */
+  onOpenTour?: () => void;
 }
 
-const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, openSettingsLabel }) => {
+const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, openSettingsLabel, onOpenTour }) => {
   const t = useT();
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
@@ -216,6 +219,19 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
         },
       },
     ]);
+    if (onOpenTour) {
+      out.push([
+        {
+          key: 'tour',
+          label: t('shared.chrome.gearMenu.tourGuide'),
+          icon: <CompassOutlined />,
+          run: () => {
+            close();
+            onOpenTour();
+          },
+        },
+      ]);
+    }
     out.push([
       {
         key: 'about',
@@ -242,7 +258,7 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       ]);
     }
     return out;
-  }, [update, onOpenSettings, openSettingsLabel, t]);
+  }, [update, onOpenSettings, openSettingsLabel, onOpenTour, t]);
 
   const flat = useMemo(() => groups.flat(), [groups]);
   const trimmed = query.trim().toLowerCase();

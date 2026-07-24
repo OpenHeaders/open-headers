@@ -121,6 +121,7 @@ export const sharedChrome = {
   'shared.chrome.gearMenu.keyboardShortcuts': '键盘快捷键…',
   'shared.chrome.gearMenu.appearance': '外观…',
   'shared.chrome.gearMenu.about': '关于 Open Headers',
+  'shared.chrome.gearMenu.tourGuide': '导览',
   'shared.chrome.gearMenu.signOut': '退出登录',
   'shared.chrome.gearMenu.searchPlaceholder': '搜索',
   'shared.chrome.gearMenu.noMatches': '无匹配项',

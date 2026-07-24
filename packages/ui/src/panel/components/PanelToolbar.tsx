@@ -108,6 +108,8 @@ export interface PanelToolbarProps {
   environments: Environment[];
   activeEnvironmentId: string | null;
   onSwitchEnvironment: (uid: string | null) => void;
+  /** Replays the onboarding tour from the gear menu. */
+  onOpenTour: () => void;
 }
 
 export const PanelToolbar: React.FC<PanelToolbarProps> = ({
@@ -134,6 +136,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   environments,
   activeEnvironmentId,
   onSwitchEnvironment,
+  onOpenTour,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -422,7 +425,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             </>
           )}
           <div className="dt-toolbar-separator" />
-          <SettingsGearMenu onOpenSettings={openSettings} />
+          <SettingsGearMenu onOpenSettings={openSettings} onOpenTour={onOpenTour} />
           {settingsOpen && (
             <Suspense fallback={null}>
               <SettingsModalLazy
