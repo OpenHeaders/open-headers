@@ -1,9 +1,10 @@
 /**
  * `inspection.cdpEnabled` master-switch schema registration.
  *
- * Pins the locked shape: a global, user-scope boolean defaulting ON,
- * gated on the `cdpInspection` host capability so Firefox / Safari render
- * it disabled. Imports the real schema module (no inline re-declaration)
+ * Pins the locked shape: a global, user-scope boolean defaulting OFF
+ * (attaching the debugging protocol is an explicit user choice), gated on
+ * the `cdpInspection` host capability so Firefox / Safari render it
+ * disabled. Imports the real schema module (no inline re-declaration)
  * so a drift in the registration is caught here.
  */
 
@@ -22,24 +23,23 @@ describe('inspection.cdpEnabled schema', () => {
     const def = getDef('inspection.cdpEnabled');
     expect(def).toBeDefined();
     expect(def?.type).toBe('boolean');
-    expect(def?.default).toBe(true);
+    expect(def?.default).toBe(false);
     expect(def?.scope).toBe('user');
     expect(def?.category).toBe('inspection');
     expect(def?.requiresCapability).toBe('cdpInspection');
     expect(def?.capabilityUnavailableHintKey).toBeTruthy();
   });
 
-  it('defaults ON only where the debugging protocol exists', () => {
+  it('defaults OFF regardless of the debugging-protocol capability', () => {
     const def = getDef('inspection.cdpEnabled');
     if (!def) throw new Error('inspection.cdpEnabled not registered');
 
-    // Firefox / Safari: capability absent → OFF.
-    unregisterCapability('cdpInspection');
-    expect(def.getDefault?.()).toBe(false);
+    // No host-aware override: the attach is opt-in everywhere.
+    expect(def.getDefault).toBeUndefined();
 
-    // Chromium-family: capability present → ON.
+    // Capability present or absent, the registered default stays OFF.
     registerCapability('cdpInspection', () => true);
-    expect(def.getDefault?.()).toBe(true);
+    expect(def.default).toBe(false);
   });
 
   it('validates booleans through its valibot schema', () => {

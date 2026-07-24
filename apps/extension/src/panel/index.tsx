@@ -10,6 +10,7 @@ import '@/host/install-storage-inspector';
 import '@/host/install-assets-host';
 import '@/host/install-parity-bridge';
 import '@/host/install-capabilities';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import App from '@openheaders/ui/panel/App';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
@@ -29,15 +30,17 @@ const container = document.getElementById('root');
 const root = createRoot(container!);
 
 root.render(
-  <SurfaceProvider mode="devpanel">
-    <SettingsProvider>
-      <LocaleProvider>
-        <ThemeProvider>
-          <AntApp>
-            <App resolveIdentity={resolveDevPanelIdentity} />
-          </AntApp>
-        </ThemeProvider>
-      </LocaleProvider>
-    </SettingsProvider>
-  </SurfaceProvider>,
+  <ErrorBoundary>
+    <SurfaceProvider mode="devpanel">
+      <SettingsProvider>
+        <LocaleProvider>
+          <ThemeProvider>
+            <AntApp>
+              <App resolveIdentity={resolveDevPanelIdentity} />
+            </AntApp>
+          </ThemeProvider>
+        </LocaleProvider>
+      </SettingsProvider>
+    </SurfaceProvider>
+  </ErrorBoundary>,
 );

@@ -307,7 +307,7 @@ export const workbenchSettingsDefs = {
   // ── Debug mode (inspection) category defs ──────────────────────────
   'workbench.settings.def.inspection.cdpEnabled.label': '调试模式',
   'workbench.settings.def.inspection.cdpEnabled.description':
-    '以与浏览器内置开发者工具相同的深度检查和修改请求——页面加载、worker 和 iframe，而不只是页面级 fetch。开启期间浏览器会在每个已附加的标签页上显示调试横幅；它在 Chrome 和 Edge 中默认开启，你可以随时关闭。',
+    '以与浏览器内置开发者工具相同的深度检查和修改请求——页面加载、worker 和 iframe，而不只是页面级 fetch。开启期间浏览器会在每个已附加的标签页上显示调试横幅；它默认关闭，你可以随时开启。',
   'workbench.settings.def.inspection.cdpEnabled.capabilityUnavailableHint': '调试模式在 Chrome 和 Edge 中可用。',
   'workbench.settings.def.inspection.cdpScope.label': '附加到哪些标签页',
   'workbench.settings.def.inspection.cdpScope.description':

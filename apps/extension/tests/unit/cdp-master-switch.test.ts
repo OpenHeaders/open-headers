@@ -74,13 +74,13 @@ describe('installCdpMasterSwitch', () => {
     expect(setCdpEnabled).toHaveBeenCalledWith(true);
   });
 
-  it('seeds with the default ON when nothing is persisted', async () => {
+  it('seeds with the default OFF when nothing is persisted', async () => {
     await initSettingsStore();
 
     const setCdpEnabled = vi.fn();
     installCdpMasterSwitch(setCdpEnabled);
 
-    expect(setCdpEnabled).toHaveBeenCalledWith(true);
+    expect(setCdpEnabled).toHaveBeenCalledWith(false);
   });
 
   it('drives setCdpEnabled on every change', async () => {

@@ -324,7 +324,7 @@ export const workbenchSettingsDefs = {
   // ── Debug mode (inspection) category defs ──────────────────────────
   'workbench.settings.def.inspection.cdpEnabled.label': 'Debug mode',
   'workbench.settings.def.inspection.cdpEnabled.description':
-    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it’s on by default in Chrome and Edge, and you can turn it off any time.',
+    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it’s off by default, and you can turn it on any time.',
   'workbench.settings.def.inspection.cdpEnabled.capabilityUnavailableHint':
     'Debug mode is available in Chrome and Edge.',
   'workbench.settings.def.inspection.cdpScope.label': 'Attach to which tabs',

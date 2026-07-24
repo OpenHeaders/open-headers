@@ -9,7 +9,6 @@
  * and the worker reconciles the attached set from it.
  */
 
-import { hasCapability } from '@openheaders/core/capabilities';
 import type { CdpScopeMode } from '@openheaders/core/types';
 import { cdpScopeModeSchema } from '@openheaders/core/types';
 import * as v from 'valibot';
@@ -18,13 +17,12 @@ import { registerSetting } from '../registry';
 registerSetting({
   key: 'inspection.cdpEnabled',
   type: 'boolean',
-  default: true,
-  // Host-aware: on by default only where the debugging protocol exists
-  // (Chromium-family, signalled by the `cdpInspection` capability). On
-  // Firefox / Safari the capability is absent, so the master switch
-  // defaults — and reads — OFF rather than stranding tabs on a protocol
-  // the runtime can't speak.
-  getDefault: () => hasCapability('cdpInspection'),
+  // OFF by default everywhere: attaching the debugging protocol shows the
+  // browser's "started debugging this browser" banner on every inspected
+  // tab, so the attach must be an explicit user choice. Where the protocol
+  // doesn't exist at all (Firefox / Safari — no `cdpInspection` capability)
+  // the switch also reads OFF and is gated by `requiresCapability`.
+  default: false,
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.inspection.cdpEnabled.label',
   descriptionKey: 'workbench.settings.def.inspection.cdpEnabled.description',
