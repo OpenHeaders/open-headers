@@ -128,18 +128,22 @@ export function createElectronUpdaterPort(getChannel: () => UpdateChannel): Upda
       // window visible. Checked NOW — the lifecycle teardown destroys
       // windows before the finisher fires.
       const win = getMainWindow();
-      if (win && !win.isDestroyed() && !win.isVisible()) writeRestartHiddenFlag();
+      const hidden = !win || win.isDestroyed() || !win.isVisible();
+      if (hidden) writeRestartHiddenFlag();
       // The install rides the lifecycle machine: engine flush + pty
       // drain first, then the installer swap as the exit finisher.
-      // isSilent=true, isForceRunAfter=true — the Windows installer
-      // runs without its wizard window (macOS/AppImage swaps were
-      // always silent) and the app relaunches once the update is
-      // applied, so Update & Restart feels like one motion. If the
-      // swap ever stalls, the machine's exit-grace rail force-exits
-      // and the staged update applies on the next launch.
+      // On Windows the file swap takes 10s+ (uninstall + extract +
+      // Defender scans), so when the window was visible the installer
+      // shows its progress bar instead of leaving dead air; a
+      // tray-hidden install stays fully silent (macOS/AppImage swaps
+      // are silent either way). isForceRunAfter=true relaunches once
+      // the update is applied, so Update & Restart feels like one
+      // motion. If the swap ever stalls, the machine's exit-grace
+      // rail force-exits and the staged update applies on the next
+      // launch.
       requestQuit({
         reason: 'update-install',
-        finish: () => autoUpdater.quitAndInstall(true, true),
+        finish: () => autoUpdater.quitAndInstall(hidden, true),
       });
     },
 
