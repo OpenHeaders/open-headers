@@ -35,6 +35,7 @@ import { execFile } from 'node:child_process';
 import { statSync } from 'node:fs';
 import os from 'node:os';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { refreshedWindowsPath } from '@openheaders/oracle-host-node/host-runtime/windows-user-path';
 import { ipcMain, webContents as webContentsApi } from 'electron';
 import { type IPty, spawn as ptySpawn } from 'node-pty';
 import { registerTeardown } from './bootstrap/lifecycle';
@@ -168,7 +169,7 @@ export function installTerminalHost(): void {
     });
   }
 
-  ipcMain.handle(CHANNEL.spawn, (event, raw: unknown) => {
+  ipcMain.handle(CHANNEL.spawn, async (event, raw: unknown) => {
     const { cols, rows, profile, cwd } = (raw ?? {}) as {
       cols?: unknown;
       rows?: unknown;
@@ -178,6 +179,20 @@ export function installTerminalHost(): void {
     const shell = parseProfile(profile) ?? resolveShell();
     if (shell.cwd === undefined && typeof cwd === 'string' && cwd.trim().length > 0) shell.cwd = cwd;
     const id = `pty-${nextSessionSeq++}`;
+    const env: NodeJS.ProcessEnv = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' };
+    if (process.platform === 'win32') {
+      // Windows shells inherit this process's PATH snapshot — an
+      // installer that appended to the registry user PATH after launch
+      // is invisible without this merge (POSIX tabs re-source PATH via
+      // their login-mode profiles instead). Replace in place under the
+      // env's own key casing: adding a second PATH-cased key would hand
+      // ConPTY a duplicate.
+      const refreshed = await refreshedWindowsPath(process.env);
+      if (refreshed !== null) {
+        const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === 'PATH') ?? 'Path';
+        env[key] = refreshed;
+      }
+    }
     let pty: IPty;
     try {
       pty = ptySpawn(shell.file, shell.args, {
@@ -185,7 +200,7 @@ export function installTerminalHost(): void {
         cols: clampDimension(cols, 80),
         rows: clampDimension(rows, 24),
         cwd: resolveCwd(shell.cwd),
-        env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+        env,
       });
     } catch (err) {
       logger.warn(SCOPE, `spawn failed for ${shell.file}`, err);

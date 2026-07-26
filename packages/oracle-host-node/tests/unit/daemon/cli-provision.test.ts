@@ -40,9 +40,11 @@ beforeEach(async () => {
     closePeersByTokenId: (tokenId) => evicted.push(tokenId),
     env: { XDG_CONFIG_HOME: dir },
     hostname: 'testhost',
-    // Deterministic probe — the default spawns the machine's real login
-    // shell, which would answer for the dev box, not the test.
+    // Deterministic probes — the defaults ask the machine's real login
+    // shell and registry, which would answer for the dev box, not the
+    // test.
     probeLoginShell: async () => false,
+    windowsUserPath: async () => null,
   });
 });
 
@@ -181,7 +183,10 @@ describe('binary probe', () => {
   function serviceWith(
     env: Record<string, string | undefined>,
     platform: string,
-    probeLoginShell: (shell: string) => Promise<boolean> = async () => false,
+    probes: {
+      probeLoginShell?: (shell: string) => Promise<boolean>;
+      windowsUserPath?: () => Promise<string | null>;
+    } = {},
   ): CliProvisionService {
     return createCliProvisionService({
       getBoundPort: () => PORT,
@@ -189,15 +194,18 @@ describe('binary probe', () => {
       env: { XDG_CONFIG_HOME: dir, ...env },
       platform,
       hostname: 'testhost',
-      probeLoginShell,
+      probeLoginShell: probes.probeLoginShell ?? (async () => false),
+      windowsUserPath: probes.windowsUserPath ?? (async () => null),
     });
   }
 
   it('posix: a login shell that resolves oh reads binaryInstalled true, with the probed shell', async () => {
     const shells: string[] = [];
-    const probe = serviceWith({ SHELL: '/bin/zsh' }, 'darwin', async (shell) => {
-      shells.push(shell);
-      return true;
+    const probe = serviceWith({ SHELL: '/bin/zsh' }, 'darwin', {
+      probeLoginShell: async (shell) => {
+        shells.push(shell);
+        return true;
+      },
     });
     const status = await probe.status();
     expect(status.binaryInstalled).toBe(true);
@@ -229,5 +237,15 @@ describe('binary probe', () => {
     await writeFile(path.join(bin, 'oh'), '');
     const probe = serviceWith({ PATH: bin }, 'win32');
     expect((await probe.status()).binaryInstalled).toBe(false);
+  });
+
+  it('win32: a registry user-PATH entry counts when the process PATH is stale', async () => {
+    const bin = path.join(dir, 'bin');
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, 'oh.exe'), '');
+    const probe = serviceWith({ PATH: 'C:\\nowhere' }, 'win32', {
+      windowsUserPath: async () => bin,
+    });
+    expect((await probe.status()).binaryInstalled).toBe(true);
   });
 });

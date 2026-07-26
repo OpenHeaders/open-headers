@@ -39,6 +39,7 @@ import {
 } from '@openheaders/core/cli-config';
 import { mintDaemonAuthToken, peekDaemonAuthToken, revokeDaemonAuthToken } from '@openheaders/core/identity';
 import { hostStorage, OH } from '@openheaders/core/storage';
+import { readWindowsUserPath } from '../host-runtime/windows-user-path';
 
 export interface CliProvisionStatus {
   configPath: string;
@@ -77,6 +78,12 @@ export interface CliProvisionDeps {
    * actually spawning the shell.
    */
   probeLoginShell?: (shell: string) => Promise<boolean>;
+  /**
+   * Test seam — the Windows registry user-PATH read (a just-ran
+   * installer's entries land there before any process env has them).
+   * Defaults to the real `reg.exe` query.
+   */
+  windowsUserPath?: () => Promise<string | null>;
 }
 
 /** Ask a login shell whether it resolves `oh` — the same shell mode a
@@ -117,9 +124,10 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
   const configPath = (): string => path.join(...cliConfigPathSegments(env, homedir, platform));
 
   const probeLoginShell = deps.probeLoginShell ?? probeLoginShellReal;
+  const windowsUserPath = deps.windowsUserPath ?? (() => readWindowsUserPath(env));
 
-  /** Scan a PATH-shaped env value for an `oh` executable. */
-  function scanEnvPath(): boolean {
+  /** Scan a PATH-shaped value for an `oh` executable. */
+  function scanPath(pathValue: string): boolean {
     const delimiter = platform === 'win32' ? ';' : ':';
     const names =
       platform === 'win32'
@@ -128,7 +136,7 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
             .filter((ext) => ext !== '')
             .map((ext) => `oh${ext.toLowerCase()}`)
         : ['oh'];
-    for (const dir of (env.PATH ?? '').split(delimiter)) {
+    for (const dir of pathValue.split(delimiter)) {
       if (dir === '') continue;
       for (const name of names) {
         if (existsSync(path.join(dir, name))) return true;
@@ -141,16 +149,22 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
    * Can a terminal tab spawned by this host run `oh`? The token file
    * says nothing about the binary (the CLI installs separately via the
    * feed's install scripts), so this asks the same oracle the tab
-   * uses. On Windows the pty's cmd inherits this process's env — a
-   * PATH scan is exact. POSIX tabs run LOGIN shells whose profile
-   * rewrites PATH (the whole point when the app was GUI-launched with
-   * launchd's minimal PATH), so the shell itself is asked; a probe
-   * failure falls back to the env scan rather than blocking.
+   * uses. On Windows that's the process PATH plus the registry user
+   * PATH — the pty host merges the registry at spawn, so an installer
+   * that ran after this process started still counts. POSIX tabs run
+   * LOGIN shells whose profile rewrites PATH (the whole point when the
+   * app was GUI-launched with launchd's minimal PATH), so the shell
+   * itself is asked; a probe failure falls back to the env scan rather
+   * than blocking.
    */
   async function binaryOnPath(): Promise<boolean> {
-    if (platform === 'win32') return scanEnvPath();
+    if (platform === 'win32') {
+      if (scanPath(env.PATH ?? '')) return true;
+      const userPath = await windowsUserPath();
+      return userPath !== null && scanPath(userPath);
+    }
     const shell = env.SHELL ?? (platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
-    return (await probeLoginShell(shell)) || scanEnvPath();
+    return (await probeLoginShell(shell)) || scanPath(env.PATH ?? '');
   }
 
   /** ENOENT reads as an empty config; malformed content throws (refuse-and-report). */

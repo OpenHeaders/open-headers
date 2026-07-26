@@ -97,12 +97,12 @@ describe('installTerminalHost', () => {
   function spawnSession(sender: ReturnType<typeof makeSender>, raw: unknown = { cols: 100, rows: 30 }) {
     const handler = ipcHandlers.get('oh:terminal:spawn');
     if (!handler) throw new Error('spawn handler not registered');
-    return handler({ sender }, raw) as { ok: boolean; id?: string };
+    return handler({ sender }, raw) as Promise<{ ok: boolean; id?: string }>;
   }
 
-  it('spawns a pty and streams its output to the sender', () => {
+  it('spawns a pty and streams its output to the sender', async () => {
     const sender = makeSender(7);
-    const result = spawnSession(sender);
+    const result = await spawnSession(sender);
     expect(result.ok).toBe(true);
     expect(ptySpawn).toHaveBeenCalledTimes(1);
     const opts = ptySpawn.mock.calls[0][2] as { cols: number; rows: number };
@@ -116,23 +116,23 @@ describe('installTerminalHost', () => {
     });
   });
 
-  it('clamps absurd spawn dimensions to sane bounds', () => {
-    spawnSession(makeSender(7), { cols: -5, rows: 1e9 });
+  it('clamps absurd spawn dimensions to sane bounds', async () => {
+    await spawnSession(makeSender(7), { cols: -5, rows: 1e9 });
     const opts = ptySpawn.mock.calls[0][2] as { cols: number; rows: number };
     expect(opts.cols).toBe(2);
     expect(opts.rows).toBe(1000);
   });
 
-  it('starts in the request cwd when the profile names none', () => {
+  it('starts in the request cwd when the profile names none', async () => {
     const dir = process.cwd();
-    spawnSession(makeSender(7), { cols: 80, rows: 24, cwd: dir });
+    await spawnSession(makeSender(7), { cols: 80, rows: 24, cwd: dir });
     const opts = ptySpawn.mock.calls[0][2] as { cwd: string };
     expect(opts.cwd).toBe(dir);
   });
 
-  it('lets a profile cwd win over the request cwd', () => {
+  it('lets a profile cwd win over the request cwd', async () => {
     const profileDir = os.tmpdir();
-    spawnSession(makeSender(7), {
+    await spawnSession(makeSender(7), {
       cols: 80,
       rows: 24,
       profile: { shell: '/bin/zsh', args: [], cwd: profileDir },
@@ -142,15 +142,15 @@ describe('installTerminalHost', () => {
     expect(opts.cwd).toBe(profileDir);
   });
 
-  it('falls back to home when the request cwd is not a directory', () => {
-    spawnSession(makeSender(7), { cols: 80, rows: 24, cwd: '/openheaders-io-definitely-missing' });
+  it('falls back to home when the request cwd is not a directory', async () => {
+    await spawnSession(makeSender(7), { cols: 80, rows: 24, cwd: '/openheaders-io-definitely-missing' });
     const opts = ptySpawn.mock.calls[0][2] as { cwd: string };
     expect(opts.cwd).toBe(os.homedir());
   });
 
-  it('routes writes to the pty only from the owning sender', () => {
+  it('routes writes to the pty only from the owning sender', async () => {
     const sender = makeSender(7);
-    const { id } = spawnSession(sender);
+    const { id } = await spawnSession(sender);
     const write = ipcListeners.get('oh:terminal:write');
     if (!write) throw new Error('write listener not registered');
 
@@ -161,9 +161,9 @@ describe('installTerminalHost', () => {
     expect(spawnedPtys[0].write).toHaveBeenCalledTimes(1);
   });
 
-  it('notifies exit once and drops the session', () => {
+  it('notifies exit once and drops the session', async () => {
     const sender = makeSender(7);
-    const { id } = spawnSession(sender);
+    const { id } = await spawnSession(sender);
     spawnedPtys[0].emitExit(0);
     expect(sender.send).toHaveBeenCalledWith('oh:terminal:exit', { id, exitCode: 0 });
 
@@ -174,8 +174,8 @@ describe('installTerminalHost', () => {
 
   it('kill disposes the pty; the quit teardown sweeps the rest and drains exits', async () => {
     const sender = makeSender(7);
-    const first = spawnSession(sender);
-    const second = spawnSession(sender);
+    const first = await spawnSession(sender);
+    const second = await spawnSession(sender);
     expect(second.ok).toBe(true);
     const kill = ipcListeners.get('oh:terminal:kill');
     kill?.({ sender }, { id: first.id });
@@ -199,9 +199,9 @@ describe('installTerminalHost', () => {
     expect(drained).toHaveBeenCalledTimes(1);
   });
 
-  it('kills a renderer’s sessions when its webContents is destroyed', () => {
+  it('kills a renderer’s sessions when its webContents is destroyed', async () => {
     const sender = makeSender(7);
-    spawnSession(sender);
+    await spawnSession(sender);
     wcOnceListeners.get(7)?.get('destroyed')?.();
     expect(spawnedPtys[0].kill).toHaveBeenCalledTimes(1);
   });

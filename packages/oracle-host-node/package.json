@@ -26,6 +26,10 @@
       "import": "./src/host-runtime/pairing-http.ts",
       "default": "./dist/host-runtime/pairing-http.js"
     },
+    "./host-runtime/windows-user-path": {
+      "import": "./src/host-runtime/windows-user-path.ts",
+      "default": "./dist/host-runtime/windows-user-path.js"
+    },
     "./host-runtime/ws-server": {
       "import": "./src/host-runtime/ws-server/index.ts",
       "default": "./dist/host-runtime/ws-server/index.js"
