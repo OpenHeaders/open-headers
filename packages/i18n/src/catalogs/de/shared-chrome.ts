@@ -121,6 +121,7 @@ export const sharedChrome = {
   'shared.chrome.gearMenu.keyboardShortcuts': 'Tastenkürzel…',
   'shared.chrome.gearMenu.appearance': 'Erscheinungsbild…',
   'shared.chrome.gearMenu.about': 'Über Open Headers',
+  'shared.chrome.gearMenu.tourGuide': 'Rundgang',
   'shared.chrome.gearMenu.signOut': 'Abmelden',
   'shared.chrome.gearMenu.searchPlaceholder': 'Suchen',
   'shared.chrome.gearMenu.noMatches': 'Keine Treffer',
