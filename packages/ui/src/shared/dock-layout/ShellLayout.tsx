@@ -75,10 +75,13 @@ export interface ShellLayoutProps<T extends string> {
   /** Persist new bar widths after the user drags a rail's resize
       handle. Called with the next pixel width for both rails. */
   onActivityBarResize: (sizes: { left: number; right: number }) => void;
-  /** Responsive sizing. */
+  /** Responsive sizing. `resetTarget` is the width a side pane snaps to
+   *  on sash double-click (Allotment's native reset); it defaults to
+   *  `min` — the workbench's reset-to-narrow behavior — while the panel
+   *  passes its seed so reset restores the default split. */
   sizes: {
-    sidebar: { preferred: number; min: number; max: number };
-    inspector: { preferred: number; min: number; max: number };
+    sidebar: { preferred: number; min: number; max: number; resetTarget?: number };
+    inspector: { preferred: number; min: number; max: number; resetTarget?: number };
     bottom: { preferred: number; min: number; max: number };
     editorMin: number;
   };
@@ -86,6 +89,19 @@ export interface ShellLayoutProps<T extends string> {
   collisionDetection?: CollisionDetection;
   /** Focus store — drives the blue accent on active tool-window tabs. */
   focusStore: FocusStore;
+  /**
+   * Sizing model for the horizontal splits (sidebar | editor |
+   * inspector). Default (false) is pixel-stable: panes keep their px
+   * width on container resize and the editor absorbs the delta — right
+   * for a desktop window, where resizes are incremental. Hosts whose
+   * container flips between radically different geometries (the
+   * DevTools panel re-docking right ↔ bottom) pass true: panes keep
+   * their FRACTION instead, so a 50/50 split is 50/50 in every dock
+   * and user drags carry over as proportions. Vertical splits (bottom
+   * panel height) and the activity-bar rails stay pixel-stable either
+   * way — they're fixed-height/width affordances, not shares.
+   */
+  proportionalHorizontal?: boolean;
 }
 
 // ── ShellLayout ───────────────────────────────────────────────────────
@@ -107,6 +123,7 @@ function ShellLayoutInner<T extends string>({
   sizes,
   collisionDetection,
   focusStore,
+  proportionalHorizontal = false,
 }: ShellLayoutProps<T>) {
   const t = useT();
   const {
@@ -225,7 +242,7 @@ function ShellLayoutInner<T extends string>({
   // still are.
   const leftSidebarPane = (
     <Allotment.Pane
-      preferredSize={sizes.sidebar.min}
+      preferredSize={sizes.sidebar.resetTarget ?? sizes.sidebar.min}
       minSize={sizes.sidebar.min}
       maxSize={sizes.sidebar.max}
       visible={leftOpen}
@@ -245,7 +262,7 @@ function ShellLayoutInner<T extends string>({
 
   const rightSidebarPane = (
     <Allotment.Pane
-      preferredSize={sizes.inspector.min}
+      preferredSize={sizes.inspector.resetTarget ?? sizes.inspector.min}
       minSize={sizes.inspector.min}
       maxSize={sizes.inspector.max}
       visible={rightOpen}
@@ -342,7 +359,7 @@ function ShellLayoutInner<T extends string>({
   // differs per alignment (e.g. center stacks editor+bottom in middle).
   const threeColumnRow = (middle: React.ReactNode) => (
     <Allotment
-      proportionalLayout={false}
+      proportionalLayout={proportionalHorizontal}
       onChange={handleHorizontalChange}
       defaultSizes={innerHorizDefaults}
     >
@@ -387,7 +404,7 @@ function ShellLayoutInner<T extends string>({
     centerContent = (
       <div key="left" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
         <Allotment
-          proportionalLayout={false}
+          proportionalLayout={proportionalHorizontal}
           onChange={handleHorizontalChange}
           defaultSizes={leftAlignOuterDefaults}
         >
@@ -400,7 +417,7 @@ function ShellLayoutInner<T extends string>({
             >
               <Allotment.Pane>
                 <Allotment
-                  proportionalLayout={false}
+                  proportionalLayout={proportionalHorizontal}
                   defaultSizes={leftAlignInnerHorizDefaults}
                 >
                   {leftSidebarPane}
@@ -421,7 +438,7 @@ function ShellLayoutInner<T extends string>({
     centerContent = (
       <div key="right" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
         <Allotment
-          proportionalLayout={false}
+          proportionalLayout={proportionalHorizontal}
           onChange={handleHorizontalChange}
           defaultSizes={rightAlignOuterDefaults}
         >
@@ -435,7 +452,7 @@ function ShellLayoutInner<T extends string>({
             >
               <Allotment.Pane>
                 <Allotment
-                  proportionalLayout={false}
+                  proportionalLayout={proportionalHorizontal}
                   defaultSizes={rightAlignInnerHorizDefaults}
                 >
                   <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>

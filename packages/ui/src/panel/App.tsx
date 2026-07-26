@@ -156,8 +156,11 @@ const editorTabCollisionDetection = makeEditorTabCollisionDetection('.dt-editor-
 function getPanelSizes() {
   const half = Math.round(window.innerWidth * 0.5);
   return {
-    sidebar: { preferred: half, min: 180, max: Math.round(window.innerWidth * 0.65) },
-    inspector: { preferred: 400, min: 180, max: 500 },
+    // `resetTarget` = the seed, so a sash double-click restores the
+    // default split (50/50 sidebar, seed-width inspector) instead of
+    // the workbench's reset-to-min behavior.
+    sidebar: { preferred: half, min: 180, max: Math.round(window.innerWidth * 0.65), resetTarget: half },
+    inspector: { preferred: 400, min: 180, max: 500, resetTarget: 400 },
     bottom: { preferred: 160, min: 80, max: 400 },
     editorMin: 120,
   };
@@ -396,7 +399,33 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     if (tl.state.hidden.includes('matched-rules')) tl.restoreWindow('matched-rules');
     tl.activateWindow('matched-rules');
   }, [tl]);
-  const panelSizes = useMemo(getPanelSizes, []);
+  // DevTools re-docks (right ↔ bottom) resize this document in place —
+  // sizes derived from the mount-time innerWidth would keep clamping
+  // the sidebar to the old geometry's max. The memo stays; what changes
+  // is that its real input — the viewport width — becomes tracked
+  // state, updated only on the TRAILING edge of resize: the clamp just
+  // has to be right by the next sash grab, and a per-tick update would
+  // re-render the whole shell — every editor tab body — for every frame
+  // of a window drag. A settled same-width resize is a no-op (primitive
+  // state); Allotment applies min/max changes live.
+  const [settledWidth, setSettledWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onResize = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        setSettledWidth(window.innerWidth);
+      }, 150);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: settledWidth IS getPanelSizes's input (window.innerWidth), read at call time
+  const panelSizes = useMemo(getPanelSizes, [settledWidth]);
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
   // we don't want that to discard the user's query and results.
@@ -1148,6 +1177,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         sizes={panelSizes}
         collisionDetection={editorTabCollisionDetection}
         focusStore={focusStore}
+        // The panel's container flips geometry on every DevTools
+        // re-dock (right ↔ bottom ↔ undocked), so its horizontal
+        // splits are fraction-stable: a 50/50 split is 50/50 in every
+        // dock, and Allotment carries drags over as proportions during
+        // its own container-resize layout — no detection needed.
+        proportionalHorizontal
       />
 
       <PanelStatusBar
