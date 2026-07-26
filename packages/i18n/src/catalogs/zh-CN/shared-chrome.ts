@@ -81,7 +81,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionConnect': '连接',
   'shared.chrome.addons.title': '附加组件',
   'shared.chrome.addons.cli': 'CLI',
-  'shared.chrome.addons.daemon': '守护进程',
+  'shared.chrome.addons.daemon': 'Team Server',
   'shared.chrome.addons.cliSetUp': '已配置',
   'shared.chrome.addons.cliNotSetUp': '未配置',
   'shared.chrome.addons.cliStale': 'Token 已撤销——请重新配置',

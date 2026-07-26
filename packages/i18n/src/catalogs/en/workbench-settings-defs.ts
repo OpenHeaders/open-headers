@@ -37,12 +37,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'All interfaces (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     'Other devices on the local network can connect. Requires the auth token from U3.2.',
-  'workbench.settings.def.backend.bindPort.label': 'Daemon port',
+  'workbench.settings.def.backend.bindPort.label': 'Back-end port',
   'workbench.settings.def.backend.bindPort.description':
     'The port this app binds for browsers and other devices to connect to. Change it only if something else already uses the default. Clients must point at the same port.',
   'workbench.settings.def.backend.serveWebApp.label': 'Serve the web app',
   'workbench.settings.def.backend.serveWebApp.description':
-    'Serve the Workbench as a web page on the daemon port, so a browser tab can open it straight from this app — no extension needed. Anyone who can reach the port sees the login gate; a paired token is still required to access data.',
+    'Serve the Workbench as a web page on the back-end port, so a browser tab can open it straight from this app — no extension needed. Anyone who can reach the port sees the login gate; a paired token is still required to access data.',
   'workbench.settings.def.backend.allowPeerExecute.label': 'Allow connected devices to send requests',
   'workbench.settings.def.backend.allowPeerExecute.description':
     'Let paired browsers and devices send API requests through this app — their workbench Send runs on this machine, with its network access. Off by default; each send still requires the sender to have write access to the workspace.',
@@ -65,7 +65,7 @@ export const workbenchSettingsDefs = {
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Enable MCP server',
   'workbench.settings.def.mcp.enabled.description':
-    'Answer MCP clients on this app’s daemon port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
+    'Answer MCP clients on this app’s back-end port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
   'workbench.settings.def.mcp.allowWrite.label': 'Allow write tools',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents can create, edit, and delete rules, requests, environments, variables, and workflows. Every change lands in the Activity Feed and can be reverted.',

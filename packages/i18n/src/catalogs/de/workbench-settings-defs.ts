@@ -48,13 +48,13 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'Alle Schnittstellen (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     'Andere Geräte im lokalen Netzwerk können sich verbinden. Erfordert den Auth-Token aus U3.2.',
-  'workbench.settings.def.backend.bindPort.label': 'Daemon-Port',
+  'workbench.settings.def.backend.bindPort.label': 'Back-end-Port',
   'workbench.settings.def.backend.bindPort.description':
     'Der Port, den diese App bindet, damit sich Browser und andere Geräte verbinden können. Ändere ihn nur, ' +
     'wenn etwas anderes den Standard schon belegt. Clients müssen auf denselben Port zeigen.',
   'workbench.settings.def.backend.serveWebApp.label': 'Die Web-App ausliefern',
   'workbench.settings.def.backend.serveWebApp.description':
-    'Liefert den Arbeitsbereich-Editor als Webseite auf dem Daemon-Port aus, sodass ihn ein Browser-Tab ' +
+    'Liefert den Arbeitsbereich-Editor als Webseite auf dem Back-end-Port aus, sodass ihn ein Browser-Tab ' +
     'direkt aus dieser App öffnen kann — ohne Erweiterung. Wer den Port erreicht, sieht die Anmeldesperre; ' +
     'für den Datenzugriff bleibt ein gekoppelter Token erforderlich.',
   'workbench.settings.def.backend.allowPeerExecute.label': 'Verbundenen Geräten das Senden von Anfragen erlauben',
@@ -81,7 +81,7 @@ export const workbenchSettingsDefs = {
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'MCP-Server aktivieren',
   'workbench.settings.def.mcp.enabled.description':
-    'Beantwortet MCP-Clients auf dem Daemon-Port dieser App. Solange aus, existiert der Endpunkt nicht. An ' +
+    'Beantwortet MCP-Clients auf dem Back-end-Port dieser App. Solange aus, existiert der Endpunkt nicht. An ' +
     'können Agents mit einem Zugriffstoken deine Arbeitsbereiche lesen.',
   'workbench.settings.def.mcp.allowWrite.label': 'Schreib-Tools erlauben',
   'workbench.settings.def.mcp.allowWrite.description':

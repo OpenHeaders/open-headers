@@ -139,7 +139,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.description': 'Diagnostics, import/export, and destructive maintenance.',
   'workbench.settings.category.license.label': 'License',
   'workbench.settings.category.license.description':
-    'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 10 active users per daemon.',
+    'Everything in Open Headers today is included on every tier — paid plans cover team seats. The free tier admits up to 6 active users per Team Server.',
   'workbench.settings.category.updates.label': 'Updates',
   'workbench.settings.category.updates.description': 'Update checks, channel, and download behavior.',
   'workbench.settings.category.about.label': 'About',

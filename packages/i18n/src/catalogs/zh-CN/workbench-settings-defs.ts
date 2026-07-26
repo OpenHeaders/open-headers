@@ -45,12 +45,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': '所有网络接口（LAN）',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     '本地网络中的其他设备可以连接。需要 U3.2 的身份验证 token。',
-  'workbench.settings.def.backend.bindPort.label': '守护进程端口',
+  'workbench.settings.def.backend.bindPort.label': '后端端口',
   'workbench.settings.def.backend.bindPort.description':
     '此应用绑定的端口，供浏览器和其他设备连接。仅当默认端口已被占用时才更改。客户端必须指向同一端口。',
   'workbench.settings.def.backend.serveWebApp.label': '提供 Web 应用',
   'workbench.settings.def.backend.serveWebApp.description':
-    '在守护进程端口上把工作区编辑器作为网页提供，浏览器标签页可以直接从此应用打开它——无需扩展。任何能访问该端口的人都会看到登录门；访问数据仍需要已配对的 token。',
+    '在后端端口上把工作区编辑器作为网页提供，浏览器标签页可以直接从此应用打开它——无需扩展。任何能访问该端口的人都会看到登录门；访问数据仍需要已配对的 token。',
   'workbench.settings.def.backend.allowPeerExecute.label': '允许已连接设备发送请求',
   'workbench.settings.def.backend.allowPeerExecute.description':
     '让已配对的浏览器和设备通过此应用发送 API 请求——它们工作区编辑器中的“发送”在这台机器上运行，使用它的网络访问。默认关闭；每次发送仍要求发送者对该工作区有写权限。',
@@ -70,7 +70,7 @@ export const workbenchSettingsDefs = {
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': '启用 MCP 服务器',
   'workbench.settings.def.mcp.enabled.description':
-    '在此应用的守护进程端口上应答 MCP 客户端。关闭时端点不存在。开启后，持有访问 token 的智能体可以读取你的工作区。',
+    '在此应用的后端端口上应答 MCP 客户端。关闭时端点不存在。开启后，持有访问 token 的智能体可以读取你的工作区。',
   'workbench.settings.def.mcp.allowWrite.label': '允许写入工具',
   'workbench.settings.def.mcp.allowWrite.description':
     '智能体可以创建、编辑和删除规则、请求、环境、变量和工作流。每次更改都会进入活动流，并且可以回退。',

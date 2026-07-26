@@ -61,13 +61,13 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'Todas las interfaces (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     'Los demás dispositivos de la red local pueden conectarse. Requiere el token de autenticación de U3.2.',
-  'workbench.settings.def.backend.bindPort.label': 'Puerto del daemon',
+  'workbench.settings.def.backend.bindPort.label': 'Puerto del back-end',
   'workbench.settings.def.backend.bindPort.description':
     'El puerto que esta aplicación abre para que navegadores y otros dispositivos se conecten. Cámbialo solo ' +
     'si otra cosa ya usa el puerto por defecto. Los clientes deben apuntar al mismo puerto.',
   'workbench.settings.def.backend.serveWebApp.label': 'Servir la aplicación web',
   'workbench.settings.def.backend.serveWebApp.description':
-    'Sirve el Workbench como página web en el puerto del daemon, para que una pestaña del navegador pueda ' +
+    'Sirve el Workbench como página web en el puerto del back-end, para que una pestaña del navegador pueda ' +
     'abrirlo directamente desde esta aplicación — sin necesidad de extensión. Cualquiera que alcance el ' +
     'puerto ve la puerta de inicio de sesión; sigue haciendo falta un token emparejado para acceder a los ' +
     'datos.',
@@ -97,7 +97,7 @@ export const workbenchSettingsDefs = {
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Activar el servidor MCP',
   'workbench.settings.def.mcp.enabled.description':
-    'Responde a los clientes MCP en el puerto del daemon de esta aplicación. Mientras está desactivado, el ' +
+    'Responde a los clientes MCP en el puerto del back-end de esta aplicación. Mientras está desactivado, el ' +
     'punto de acceso no existe. Activado, los agentes con un token de acceso pueden leer tus espacios de ' +
     'trabajo.',
   'workbench.settings.def.mcp.allowWrite.label': 'Permitir las herramientas de escritura',

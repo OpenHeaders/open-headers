@@ -45,7 +45,7 @@ export const workbenchSettingsPanes = {
     "L'application qui a servi cette page est le back-end. Vos données vivent sur cet hôte. Toujours actif ; " +
     'aucune configuration.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Toujours actif',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Administration du daemon',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Administration du Team Server',
   'workbench.settings.backendPane.tierZero.adminDescription':
     "Gérez l'annuaire des utilisateurs et les accès accordés par espace de travail.",
   'workbench.settings.backendPane.tierZero.adminOpen': "Ouvrir la console d'administration",
@@ -257,10 +257,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'Autoriser les pairs LAN',
   'workbench.settings.backendPane.lan.confirmCancel': 'Garder le loopback uniquement',
   'workbench.settings.backendPane.lan.confirmBody':
-    'Le daemon de bureau se liera à chaque interface réseau locale pour que les autres appareils de votre ' +
+    'Le back-end de bureau se liera à chaque interface réseau locale pour que les autres appareils de votre ' +
     'réseau puissent se connecter. Chaque connexion — LAN ou loopback — doit présenter un jeton ' +
     "d'authentification appairé ; il n'existe aucun chemin sans jeton. Les appareils s'appairent avec le code " +
-    "que le daemon affiche (ou collez un jeton dans Paramètres → Backend → Jeton d'authentification du daemon).",
+    "que l'application affiche (ou collez un jeton dans Paramètres → Backend → Jeton d'authentification).",
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.title': 'Ordre de repli hors ligne',
@@ -364,7 +364,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'généralement 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'remplaçable dans Backend → Connexion',
   'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox':
-    'IPv4 — daemon sur votre propre machine (Docker, sidecar)',
+    'IPv4 — Team Server sur votre propre machine (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'en pratique fd00::/8 — allocation privée IPv6',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale, etc.',
@@ -383,7 +383,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': 'Back-end dans le navigateur',
   'workbench.settings.backendPane.detail.aria.desktop-app': "Back-end de l'application de bureau",
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Back-end daemon sur le LAN local',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Back-end Team Server sur le LAN local',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Back-end distant auto-hébergé',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -429,7 +429,7 @@ export const workbenchSettingsPanes = {
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
   'workbench.settings.daemonTokens.sectionTitle': 'Appareils appairés',
   'workbench.settings.daemonTokens.sectionBlurb':
-    "Chaque appareil qui se connecte à ce daemon s'authentifie avec un jeton d'accès. Les appareils connectés " +
+    "Chaque appareil qui se connecte à ce back-end s'authentifie avec un jeton d'accès. Les appareils connectés " +
     "sont mis en évidence ; renouvelez un jeton pour émettre un secret neuf et retirer l'ancien.",
   'workbench.settings.daemonTokens.labelPlaceholder': "Libellé (facultatif) — p. ex. « téléphone d'alice »",
   'workbench.settings.daemonTokens.bindUserPlaceholder': 'Lier à un utilisateur (facultatif)',
@@ -477,11 +477,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.daemonTokens.secretTitle': 'Copiez ce jeton maintenant',
   'workbench.settings.daemonTokens.secretTitleRotated': 'Copiez le jeton renouvelé maintenant',
   'workbench.settings.daemonTokens.secretBody':
-    "Le daemon ne stocke qu'un hachage de cette valeur. Une fois cette boîte de dialogue fermée, le secret ne " +
+    "Le back-end ne stocke qu'un hachage de cette valeur. Une fois cette boîte de dialogue fermée, le secret ne " +
     'peut pas être récupéré — si vous le perdez, révoquez le jeton et créez-en un nouveau.',
   'workbench.settings.daemonTokens.secretBodyRotated':
     "Le jeton précédent est maintenant révoqué — donnez ce nouveau secret à l'appareil pour qu'il puisse se " +
-    "reconnecter. Le daemon ne stocke qu'un hachage de cette valeur. Une fois cette boîte de dialogue fermée, " +
+    "reconnecter. Le back-end ne stocke qu'un hachage de cette valeur. Une fois cette boîte de dialogue fermée, " +
     'le secret ne peut pas être récupéré — si vous le perdez, révoquez le jeton et créez-en un nouveau.',
   'workbench.settings.daemonTokens.secretSaved': "Je l'ai enregistré",
 
@@ -522,7 +522,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.cliAccess.statusStale':
     "Le jeton CLI enregistré n'est plus valide — configurez de nouveau l'accès pour reconnecter.",
   'workbench.settings.cliAccess.statusExternal':
-    "La CLI est actuellement connectée à un autre démon ({url}). Configurer l'accès ici la pointe vers " +
+    "La CLI est actuellement connectée à un autre back-end ({url}). Configurer l'accès ici la pointe vers " +
     'cette application à la place.',
   'workbench.settings.cliAccess.statusMalformed': 'Le fichier de configuration de la CLI est illisible : {message}',
   'workbench.settings.cliAccess.pathNote': 'Enregistré dans {path}',
@@ -555,7 +555,7 @@ export const workbenchSettingsPanes = {
     'Les clients agents et la TUI oh communiquent avec cette application via le serveur MCP, actuellement désactivé.',
   'workbench.settings.mcpConsent.info.title': 'Serveur MCP',
   'workbench.settings.mcpConsent.info.summary':
-    'Les clients MCP joignent cette application via le point de terminaison /mcp du démon (Model Context ' +
+    'Les clients MCP joignent cette application via le point de terminaison /mcp du back-end (Model Context ' +
     "Protocol sur HTTP en flux). Le réglage mcp.enabled contrôle ce point de terminaison — tant qu'il est " +
     "désactivé, il renvoie 404. Les clients s'authentifient avec les mêmes jetons d'accès que toute autre " +
     'connexion.',
@@ -575,7 +575,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.freeTier.title': 'Palier gratuit',
   'workbench.settings.licensePane.freeTier.body':
     "Tout ce qu'Open Headers propose aujourd'hui est inclus — le palier gratuit admet jusqu'à {limit} " +
-    'utilisateurs actifs par daemon. Installez une clé de licence pour relever la limite de sièges.',
+    'utilisateurs actifs par Team Server. Installez une clé de licence pour relever la limite de sièges.',
   'workbench.settings.licensePane.invalidAlert.title': 'La licence installée est inutilisable',
   'workbench.settings.licensePane.invalidAlert.body':
     "L'application continue sur le palier gratuit (jusqu'à {limit} utilisateurs actifs). Collez une clé " +
@@ -724,7 +724,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.notPresent':
     'Absent de cette version — uniquement dans les versions macOS empaquetées.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Enregistrement',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Démon',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Enregistré',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'En attente d’approbation',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Non enregistré',

@@ -630,7 +630,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.localFirstWhere': 'where',
   'workbench.docs.body.paradigm.localFirst1Suffix':
     'the back-end lives. Four hosting options, all local-only, all under your control: the in-browser service ' +
-    "worker (today, zero setup), the desktop app's embedded back-end, a standalone local daemon serving every Open " +
+    "worker (today, zero setup), the desktop app's embedded back-end, a standalone local Team Server serving every Open " +
     'Headers surface on one machine, or a back-end you self-host on your own VM. Every option preserves the same ' +
     'guarantees; the trade-off is reach, not ownership.',
   'workbench.docs.body.paradigm.localFirst2':
@@ -650,7 +650,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.autoSync1Suffix':
     'flag and the workbench rewriting a header value in the same rule both land, in any order, with no stale-draft ' +
     'banner and no overwrite. The same approach scales from the four surfaces of one extension to a local ' +
-    'daemon backing extension + desktop + CLI, and to multi-user team workspaces through a Git remote — ' +
+    'Team Server backing extension + desktop + CLI, and to multi-user team workspaces through a Git remote — ' +
     'without ever needing a vendor server in the middle.',
   'workbench.docs.body.paradigm.fieldSyncCaption':
     'Two surfaces, one rule, different fields — both edits land, nothing overwritten.',
@@ -739,15 +739,15 @@ export const workbenchDocs = {
   'workbench.docs.body.roadmap.mcp2Suffix':
     'when you self-host. No vendor relay; your agent talks directly to your installation. Tool calls run with the ' +
     'same workspace permissions you have — secrets stay behind the vault, sensitive operations stay opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Local / LAN daemon for cross-device sync',
+  'workbench.docs.body.roadmap.daemonHeading': 'Local / LAN Team Server for cross-device sync',
   'workbench.docs.body.roadmap.daemon1':
-    'A sync daemon you can run on your machine, your LAN, or a tunneled host. Extension, desktop app, and CLI all ' +
-    'become clients of the same daemon — same workspaces, same rules, same vault, across every device you use. The ' +
-    'daemon stays on the local network; there is no opt-in cloud path layered on top.',
+    'A Team Server you can run on your machine, your LAN, or a tunneled host. Extension, desktop app, and CLI all ' +
+    'become clients of the same Team Server — same workspaces, same rules, same vault, across every device you use. The ' +
+    'Team Server stays on the local network; there is no opt-in cloud path layered on top.',
   'workbench.docs.body.roadmap.cliHeading': 'CLI',
   'workbench.docs.body.roadmap.cli1':
     'Headless scripting and CI integration. List rules, toggle environments, run a single saved request from the ' +
-    'shell, diff a workspace against another. The CLI talks to the same daemon as the extension and desktop app, so ' +
+    'shell, diff a workspace against another. The CLI talks to the same Team Server as the extension and desktop app, so ' +
     'automation stays in sync with what you see in the UI.',
   'workbench.docs.body.roadmap.webAppHeading': 'Self-hosted VM deployment + Web App',
   'workbench.docs.body.roadmap.webApp1':

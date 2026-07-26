@@ -719,7 +719,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.localFirst1Suffix':
     "vit le back-end. Quatre options d'hébergement, toutes locales uniquement, toutes sous votre " +
     "contrôle : le service worker dans le navigateur (aujourd'hui, zéro configuration), le back-end " +
-    "embarqué de l'application de bureau, un daemon local autonome servant chaque surface Open Headers " +
+    "embarqué de l'application de bureau, un Team Server local autonome servant chaque surface Open Headers " +
     'sur une machine, ou un back-end auto-hébergé sur votre propre VM. Chaque option préserve les mêmes ' +
     'garanties ; le compromis est la portée, pas la propriété.',
   'workbench.docs.body.paradigm.localFirst2':
@@ -741,7 +741,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.autoSync1Suffix':
     "d'une règle et le workbench qui réécrit une valeur d'en-tête dans la même règle atterrissent tous " +
     "les deux, dans n'importe quel ordre, sans bannière de brouillon périmé et sans écrasement. La même " +
-    "approche passe des quatre surfaces d'une extension à un daemon local derrière extension " +
+    "approche passe des quatre surfaces d'une extension à un Team Server local derrière extension " +
     "+ bureau + CLI, et aux espaces de travail d'équipe multi-utilisateurs via un dépôt Git " +
     "distant — sans jamais avoir besoin d'un serveur d'éditeur au milieu.",
   'workbench.docs.body.paradigm.fieldSyncCaption':
@@ -845,17 +845,17 @@ export const workbenchDocs = {
     "quand vous auto-hébergez. Aucun relais d'éditeur ; votre agent parle directement à votre " +
     "installation. Les appels d'outils s'exécutent avec les mêmes permissions d'espace de travail que " +
     'vous — les secrets restent derrière le vault, les opérations sensibles restent en opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Daemon local / LAN pour la synchronisation multi-appareils',
+  'workbench.docs.body.roadmap.daemonHeading': 'Team Server local / LAN pour la synchronisation multi-appareils',
   'workbench.docs.body.roadmap.daemon1':
-    'Un daemon de synchronisation à exécuter sur votre machine, votre LAN ou un hôte tunnelisé. ' +
-    'Extension, application de bureau et CLI deviennent tous clients du même daemon — mêmes espaces de ' +
-    'travail, mêmes règles, même vault, sur chaque appareil que vous utilisez. Le daemon reste sur le ' +
+    'Un Team Server à exécuter sur votre machine, votre LAN ou un hôte tunnelisé. ' +
+    'Extension, application de bureau et CLI deviennent tous clients du même Team Server — mêmes espaces de ' +
+    'travail, mêmes règles, même vault, sur chaque appareil que vous utilisez. Le Team Server reste sur le ' +
     "réseau local ; il n'y a pas de chemin cloud opt-in par-dessus.",
   'workbench.docs.body.roadmap.cliHeading': 'CLI',
   'workbench.docs.body.roadmap.cli1':
     'Scripting headless et intégration CI. Lister les règles, basculer les environnements, exécuter une ' +
     'seule requête enregistrée depuis le shell, comparer un espace de travail à un autre. La CLI parle au ' +
-    "même daemon que l'extension et l'application de bureau, donc l'automatisation reste en phase avec ce " +
+    "même Team Server que l'extension et l'application de bureau, donc l'automatisation reste en phase avec ce " +
     "que vous voyez dans l'interface.",
   'workbench.docs.body.roadmap.webAppHeading': 'Déploiement VM auto-hébergé + application web',
   'workbench.docs.body.roadmap.webApp1':

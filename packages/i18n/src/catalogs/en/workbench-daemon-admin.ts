@@ -16,10 +16,10 @@ import type { Catalog } from '../../types';
 
 export const workbenchDaemonAdmin = {
   // ── Console shell ──────────────────────────────────────────────────
-  'workbench.daemonAdmin.title': 'Daemon administration',
+  'workbench.daemonAdmin.title': 'Team Server administration',
   'workbench.daemonAdmin.intro':
     "Directory users sign in with a bound token or SSO and see exactly the workspaces granted here. Deactivation revokes the user's tokens and disconnects them immediately.",
-  'workbench.daemonAdmin.deniedDescription': 'Administering this daemon requires the daemon.admin capability.',
+  'workbench.daemonAdmin.deniedDescription': 'Administering this Team Server requires the daemon.admin capability.',
   'workbench.daemonAdmin.cancel': 'Cancel',
 
   // ── Users section ──────────────────────────────────────────────────
@@ -32,10 +32,10 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.users.seatKeyPlaceholder': 'Individual seat key (oh-license.…)',
   'workbench.daemonAdmin.users.addUser': 'Add user',
   'workbench.daemonAdmin.users.seatLimit':
-    "This daemon is at its seat limit. Add seats to your team license, or paste the joining user's own individual seat key above — it admits them without using a pool seat.",
+    "This Team Server is at its seat limit. Add seats to your team license, or paste the joining user's own individual seat key above — it admits them without using a pool seat.",
   'workbench.daemonAdmin.users.seatsSoldAt': 'Individual seats are sold at',
   'workbench.daemonAdmin.users.emptyDirectory':
-    'No directory users yet — the daemon runs in its solo tier. Add a user to open the team tier.',
+    'No directory users yet — the Team Server runs in its solo tier. Add a user to open the team tier.',
   'workbench.daemonAdmin.users.deactivatedOn': 'Deactivated {date}',
   'workbench.daemonAdmin.users.addedOn': 'added {date}',
   'workbench.daemonAdmin.users.loadFailed': 'Failed to load the user directory: {message}',
@@ -44,7 +44,7 @@ export const workbenchDaemonAdmin = {
   // ── Personal-seat admission tag ────────────────────────────────────
   'workbench.daemonAdmin.seat.tag': 'Individual seat',
   'workbench.daemonAdmin.seat.healthyTooltip':
-    "Admitted by their own individual seat ({id}) — not counted against this daemon's pool.",
+    "Admitted by their own individual seat ({id}) — not counted against this Team Server's pool.",
   'workbench.daemonAdmin.seat.lapsedTooltip':
     'Their individual seat ({id}) is {status}. They stay signed in — a lapse never evicts — but the seat no longer renews.',
   'workbench.daemonAdmin.seat.absorbTitle': 'Absorb this seat into the pool?',
@@ -80,7 +80,7 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.setTitle': 'Set password — {name}',
   'workbench.daemonAdmin.password.resetTitle': 'Reset password — {name}',
   'workbench.daemonAdmin.password.explainer':
-    "The user signs in with their email and this password at the daemon's web gate. Share it with them directly — it is hashed on the daemon and cannot be read back.",
+    "The user signs in with their email and this password at the Team Server's web gate. Share it with them directly — it is hashed on the Team Server and cannot be read back.",
   'workbench.daemonAdmin.password.placeholder': 'New password (min 8 characters)',
   'workbench.daemonAdmin.password.setCta': 'Set password',
   'workbench.daemonAdmin.password.resetCta': 'Reset password',
@@ -105,13 +105,13 @@ export const workbenchDaemonAdmin = {
   // ── Git section ────────────────────────────────────────────────────
   'workbench.daemonAdmin.git.sectionTitle': 'Git',
   'workbench.daemonAdmin.git.sectionHint':
-    "Bind a daemon workspace to a repository and drive commit, pull, push, and branches remotely. Paths are on the daemon's own filesystem.",
+    "Bind a Team Server workspace to a repository and drive commit, pull, push, and branches remotely. Paths are on the Team Server's own filesystem.",
   'workbench.daemonAdmin.git.workspaceLabel': 'Workspace',
 
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Reports',
   'workbench.daemonAdmin.audit.sectionHint':
-    'Every permission decision this daemon makes, and each device admission, as a filterable audit trail. Export honors the active filters.',
+    'Every permission decision this Team Server makes, and each device admission, as a filterable audit trail. Export honors the active filters.',
   'workbench.daemonAdmin.audit.capAdmission': 'Admission (connect)',
   'workbench.daemonAdmin.audit.capAdminPlane': 'Admin plane',
   'workbench.daemonAdmin.audit.capSsoGrant': 'SSO grant (mapping)',

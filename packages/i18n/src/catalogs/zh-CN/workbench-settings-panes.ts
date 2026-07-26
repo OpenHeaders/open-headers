@@ -46,7 +46,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tierZero.copy.web':
     '提供此页面的应用就是后端。你的数据留在那台主机上。始终开启；无需设置。',
   'workbench.settings.backendPane.tierZero.alwaysOn': '始终开启',
-  'workbench.settings.backendPane.tierZero.adminTitle': '守护进程管理',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Team Server 管理',
   'workbench.settings.backendPane.tierZero.adminDescription': '管理用户目录和按工作区的访问授权。',
   'workbench.settings.backendPane.tierZero.adminOpen': '打开管理控制台',
   'workbench.settings.backendPane.scenario.desktop-app.title': '桌面应用程序',
@@ -213,7 +213,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': '允许 LAN 对等方',
   'workbench.settings.backendPane.lan.confirmCancel': '仅保留环回',
   'workbench.settings.backendPane.lan.confirmBody':
-    '桌面守护进程将绑定每个本地网络接口，使你网络上的其他设备可以连接。每条连接——无论 LAN 还是环回——都必须出示已配对的身份验证 token；没有免 token 的通道。设备用守护进程显示的配对码配对（或把 token 粘贴到设置 → 后端 → 守护进程身份验证 token）。',
+    '桌面后端将绑定每个本地网络接口，使你网络上的其他设备可以连接。每条连接——无论 LAN 还是环回——都必须出示已配对的身份验证 token；没有免 token 的通道。设备用应用显示的配对码配对（或把 token 粘贴到设置 → 后端 → 身份验证 token）。',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.title': '离线回退顺序',
@@ -312,7 +312,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge——每个浏览器数据独立，不跨设备、不跨浏览器',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': '通常为 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': '在后端 → 连接中覆盖',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4——守护进程在你自己的机器上（Docker、sidecar）',
+  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4——Team Server 在你自己的机器上（Docker、sidecar）',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': '实际上是 fd00::/8——IPv6 私有分配',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale 等',
@@ -329,7 +329,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': '浏览器内后端',
   'workbench.settings.backendPane.detail.aria.desktop-app': '桌面端应用后端',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': '本地 LAN 守护进程后端',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': '本地 LAN Team Server 后端',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': '远程自托管后端',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -365,7 +365,7 @@ export const workbenchSettingsPanes = {
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
   'workbench.settings.daemonTokens.sectionTitle': '已配对的设备',
   'workbench.settings.daemonTokens.sectionBlurb':
-    '每台连接到此守护进程的设备都用一个访问 token 进行身份验证。已连接的设备会高亮显示；轮换 token 会签发新机密并让旧的退役。',
+    '每台连接到此后端的设备都用一个访问 token 进行身份验证。已连接的设备会高亮显示；轮换 token 会签发新机密并让旧的退役。',
   'workbench.settings.daemonTokens.labelPlaceholder': '标签（可选）——例如“alice 的手机”',
   'workbench.settings.daemonTokens.bindUserPlaceholder': '绑定到用户（可选）',
   'workbench.settings.daemonTokens.generate': '生成 token',
@@ -406,9 +406,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.daemonTokens.secretTitle': '现在复制此 token',
   'workbench.settings.daemonTokens.secretTitleRotated': '现在复制轮换后的 token',
   'workbench.settings.daemonTokens.secretBody':
-    '守护进程只存储此值的哈希。此对话框关闭后机密将无法恢复——如果丢失，请吊销该 token 并签发一个新的。',
+    '后端只存储此值的哈希。此对话框关闭后机密将无法恢复——如果丢失，请吊销该 token 并签发一个新的。',
   'workbench.settings.daemonTokens.secretBodyRotated':
-    '之前的 token 现已吊销——把这个新机密交给设备，它才能重新连接。守护进程只存储此值的哈希。此对话框关闭后机密将无法恢复——如果丢失，请吊销该 token 并签发一个新的。',
+    '之前的 token 现已吊销——把这个新机密交给设备，它才能重新连接。后端只存储此值的哈希。此对话框关闭后机密将无法恢复——如果丢失，请吊销该 token 并签发一个新的。',
   'workbench.settings.daemonTokens.secretSaved': '我已保存',
 
   // ── Daemon pairing modal ────────────────────────────────────────────
@@ -442,7 +442,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.cliAccess.statusConfigured': 'CLI 已连接，身份为 {label}。',
   'workbench.settings.cliAccess.statusStale': '已保存的 CLI token 不再有效——重新设置访问即可重新连接。',
   'workbench.settings.cliAccess.statusExternal':
-    'CLI 当前连接到另一个守护进程（{url}）。在这里设置访问会把它改为指向此应用。',
+    'CLI 当前连接到另一个后端（{url}）。在这里设置访问会把它改为指向此应用。',
   'workbench.settings.cliAccess.statusMalformed': 'CLI 配置文件无法读取：{message}',
   'workbench.settings.cliAccess.pathNote': '保存在 {path}',
   'workbench.settings.cliAccess.setUp': '设置 CLI 访问',
@@ -467,7 +467,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpConsent.body': '代理客户端和 oh TUI 通过 MCP 服务器与此应用通信，该服务器当前处于关闭状态。',
   'workbench.settings.mcpConsent.info.title': 'MCP 服务器',
   'workbench.settings.mcpConsent.info.summary':
-    'MCP 客户端通过守护进程的 /mcp 端点（基于可流式 HTTP 的 Model Context Protocol）访问此应用。' +
+    'MCP 客户端通过后端的 /mcp 端点（基于可流式 HTTP 的 Model Context Protocol）访问此应用。' +
     'mcp.enabled 设置项控制该端点——它关闭时端点返回 404。客户端使用与其他连接相同的访问 token 进行身份验证。',
   'workbench.settings.mcpConsent.ok': '启用',
 
@@ -481,7 +481,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.removeFailed': '移除许可证失败：{message}',
   'workbench.settings.licensePane.freeTier.title': '免费档',
   'workbench.settings.licensePane.freeTier.body':
-    'Open Headers 今天的一切功能都包含在内——免费档每个守护进程最多准入 {limit} 个活跃用户。安装许可证密钥可提高席位上限。',
+    'Open Headers 今天的一切功能都包含在内——免费档每个 Team Server 最多准入 {limit} 个活跃用户。安装许可证密钥可提高席位上限。',
   'workbench.settings.licensePane.invalidAlert.title': '已安装的许可证不可用',
   'workbench.settings.licensePane.invalidAlert.body':
     '应用继续以免费档运行（最多 {limit} 个活跃用户）。在下方粘贴新密钥或联系支持。',
@@ -593,7 +593,7 @@ export const workbenchSettingsPanes = {
     '系统钥匙串信任经由一个已签名的助手完成，它以后台项目的身份注册到 macOS。它只搬运证书字节 — 每一次信任决定仍要经过 macOS 管理员对话框。',
   'workbench.settings.proxyTrustPane.helper.notPresent': '此构建不包含 — 仅限打包的 macOS 构建。',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': '注册',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': '守护进程',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': '已注册',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '等待批准',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未注册',

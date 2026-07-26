@@ -167,7 +167,7 @@ export const workbenchSettings = {
   'workbench.settings.category.license.label': 'Licencia',
   'workbench.settings.category.license.description':
     'Todo lo que Open Headers ofrece hoy está incluido en todos los niveles — los planes de pago cubren las ' +
-    'plazas de equipo. El nivel gratuito admite hasta 10 usuarios activos por daemon.',
+    'plazas de equipo. El nivel gratuito admite hasta 6 usuarios activos por Team Server.',
   'workbench.settings.category.updates.label': 'Actualizaciones',
   'workbench.settings.category.updates.description': 'Búsqueda de actualizaciones, canal y comportamiento de descarga.',
   'workbench.settings.category.about.label': 'Acerca de',

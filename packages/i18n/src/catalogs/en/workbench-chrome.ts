@@ -201,7 +201,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Settings',
   'workbench.shell.breadcrumbs.whatsNew': "What's New",
   'workbench.shell.breadcrumbs.workspaces': 'Workspaces',
-  'workbench.shell.breadcrumbs.daemonAdmin': 'Daemon admin',
+  'workbench.shell.breadcrumbs.daemonAdmin': 'Team Server admin',
   'workbench.shell.breadcrumbs.environments': 'Environments',
   'workbench.shell.breadcrumbs.specs': 'Specs',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Workspace Variables',
@@ -651,7 +651,7 @@ export const workbenchChrome = {
     'How Open Headers lands against cloud platforms, desktop proxies, and header-only extensions.',
   'workbench.docs.nav.roadmap.title': 'Every surface, shipped',
   'workbench.docs.nav.roadmap.summary':
-    'The shipped milestones — Git workspaces, desktop app, MCP server, daemon, CLI, web app, importers.',
+    'The shipped milestones — Git workspaces, desktop app, MCP server, Team Server, CLI, web app, importers.',
   'workbench.docs.nav.conditions.title': 'Conditions',
   'workbench.docs.nav.conditions.summary':
     'AND-matching filters that gate every rule — domains, URL patterns, methods, headers.',

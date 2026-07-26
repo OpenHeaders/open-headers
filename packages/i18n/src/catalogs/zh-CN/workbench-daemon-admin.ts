@@ -17,10 +17,10 @@ import type { Catalog } from '../../types';
 
 export const workbenchDaemonAdmin = {
   // ── Console shell ──────────────────────────────────────────────────
-  'workbench.daemonAdmin.title': '守护进程管理',
+  'workbench.daemonAdmin.title': 'Team Server 管理',
   'workbench.daemonAdmin.intro':
     '目录用户用绑定的 token 或 SSO 登录，只能看到这里授予的工作区。停用会吊销该用户的 token 并立即断开其连接。',
-  'workbench.daemonAdmin.deniedDescription': '管理此守护进程需要 daemon.admin 能力。',
+  'workbench.daemonAdmin.deniedDescription': '管理此 Team Server 需要 daemon.admin 能力。',
   'workbench.daemonAdmin.cancel': '取消',
 
   // ── Users section ──────────────────────────────────────────────────
@@ -32,9 +32,10 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.users.seatKeyPlaceholder': '个人席位密钥（oh-license.…）',
   'workbench.daemonAdmin.users.addUser': '添加用户',
   'workbench.daemonAdmin.users.seatLimit':
-    '此守护进程已达席位上限。为你的团队许可证增加席位，或在上方粘贴加入用户自己的个人席位密钥——这样准入不占用池中席位。',
+    '此 Team Server 已达席位上限。为你的团队许可证增加席位，或在上方粘贴加入用户自己的个人席位密钥——这样准入不占用池中席位。',
   'workbench.daemonAdmin.users.seatsSoldAt': '个人席位的购买地址：',
-  'workbench.daemonAdmin.users.emptyDirectory': '还没有目录用户——守护进程运行在单人档。添加一个用户即可开启团队档。',
+  'workbench.daemonAdmin.users.emptyDirectory':
+    '还没有目录用户——Team Server 运行在单人档。添加一个用户即可开启团队档。',
   'workbench.daemonAdmin.users.deactivatedOn': '已于 {date} 停用',
   'workbench.daemonAdmin.users.addedOn': '添加于 {date}',
   'workbench.daemonAdmin.users.loadFailed': '加载用户目录失败：{message}',
@@ -42,7 +43,7 @@ export const workbenchDaemonAdmin = {
 
   // ── Personal-seat admission tag ────────────────────────────────────
   'workbench.daemonAdmin.seat.tag': '个人席位',
-  'workbench.daemonAdmin.seat.healthyTooltip': '由其本人的个人席位（{id}）准入——不计入此守护进程的池。',
+  'workbench.daemonAdmin.seat.healthyTooltip': '由其本人的个人席位（{id}）准入——不计入此 Team Server 的池。',
   'workbench.daemonAdmin.seat.lapsedTooltip':
     '其个人席位（{id}）为 {status}。他们保持登录状态——失效绝不驱逐——但该席位不再续期。',
   'workbench.daemonAdmin.seat.absorbTitle': '把此席位吸收进池？',
@@ -77,7 +78,7 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.setTitle': '设置密码——{name}',
   'workbench.daemonAdmin.password.resetTitle': '重置密码——{name}',
   'workbench.daemonAdmin.password.explainer':
-    '该用户在守护进程的 Web 入口用邮箱和此密码登录。请直接把它交给对方——密码在守护进程上以哈希存储，无法读回。',
+    '该用户在 Team Server 的 Web 入口用邮箱和此密码登录。请直接把它交给对方——密码在 Team Server 上以哈希存储，无法读回。',
   'workbench.daemonAdmin.password.placeholder': '新密码（至少 8 个字符）',
   'workbench.daemonAdmin.password.setCta': '设置密码',
   'workbench.daemonAdmin.password.resetCta': '重置密码',
@@ -103,13 +104,13 @@ export const workbenchDaemonAdmin = {
   // ── Git section ────────────────────────────────────────────────────
   'workbench.daemonAdmin.git.sectionTitle': 'Git',
   'workbench.daemonAdmin.git.sectionHint':
-    '把守护进程的工作区绑定到一个仓库，并远程驱动提交、拉取、推送和分支。路径位于守护进程自己的文件系统上。',
+    '把 Team Server 的工作区绑定到一个仓库，并远程驱动提交、拉取、推送和分支。路径位于 Team Server 自己的文件系统上。',
   'workbench.daemonAdmin.git.workspaceLabel': '工作区',
 
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': '报告',
   'workbench.daemonAdmin.audit.sectionHint':
-    '此守护进程做出的每个权限决定和每次设备准入，构成可筛选的审计记录。导出遵循当前生效的筛选条件。',
+    '此 Team Server 做出的每个权限决定和每次设备准入，构成可筛选的审计记录。导出遵循当前生效的筛选条件。',
   'workbench.daemonAdmin.audit.capAdmission': '准入（连接）',
   'workbench.daemonAdmin.audit.capAdminPlane': '管理平面',
   'workbench.daemonAdmin.audit.capSsoGrant': 'SSO 授予（映射）',

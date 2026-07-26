@@ -139,7 +139,7 @@ export const workbenchSettings = {
   'workbench.settings.category.data.description': '诊断、导入/导出，以及破坏性维护。',
   'workbench.settings.category.license.label': '许可证',
   'workbench.settings.category.license.description':
-    '今天 Open Headers 的一切在每个档位都包含——付费方案覆盖的是团队席位。免费档每个守护进程最多准入 10 位' +
+    '今天 Open Headers 的一切在每个档位都包含——付费方案覆盖的是团队席位。免费档每个 Team Server 最多准入 6 位' +
     '活跃用户。',
   'workbench.settings.category.updates.label': '更新',
   'workbench.settings.category.updates.description': '更新检查、通道与下载行为。',

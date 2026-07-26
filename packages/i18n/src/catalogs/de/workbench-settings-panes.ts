@@ -48,7 +48,7 @@ export const workbenchSettingsPanes = {
     'Die App, die diese Seite ausgeliefert hat, ist das Back-end. Deine Daten leben auf diesem Host. Immer ' +
     'an; keine Einrichtung.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Immer an',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Daemon-Verwaltung',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Team-Server-Verwaltung',
   'workbench.settings.backendPane.tierZero.adminDescription':
     'Das Benutzerverzeichnis und die Zugriffsrechte pro Arbeitsbereich verwalten.',
   'workbench.settings.backendPane.tierZero.adminOpen': 'Verwaltungskonsole öffnen',
@@ -257,10 +257,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'LAN-Peers erlauben',
   'workbench.settings.backendPane.lan.confirmCancel': 'Nur Loopback behalten',
   'workbench.settings.backendPane.lan.confirmBody':
-    'Der Desktop-Daemon bindet dann jede lokale Netzwerkschnittstelle, sodass sich andere Geräte in deinem ' +
+    'Das Desktop-Back-end bindet dann jede lokale Netzwerkschnittstelle, sodass sich andere Geräte in deinem ' +
     'Netzwerk verbinden können. Jede Verbindung — LAN oder Loopback — muss einen gekoppelten Auth-Token ' +
-    'vorlegen; es gibt keinen tokenfreien Weg. Geräte koppeln mit dem Code, den der Daemon zeigt (oder fügen ' +
-    'einen Token unter Einstellungen → Back-end → Daemon-Auth-Token ein).',
+    'vorlegen; es gibt keinen tokenfreien Weg. Geräte koppeln mit dem Code, den die App zeigt (oder fügen ' +
+    'einen Token unter Einstellungen → Back-end → Auth-Token ein).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.title': 'Offline-Ausweichreihenfolge',
@@ -364,7 +364,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typischerweise 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'überschreibbar unter Back-end → Verbindung',
   'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox':
-    'IPv4 — Daemon auf deiner eigenen Maschine (Docker, Sidecar)',
+    'IPv4 — Team Server auf deiner eigenen Maschine (Docker, Sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'praktisch fd00::/8 — private IPv6-Zuteilung',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale usw.',
@@ -383,7 +383,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': 'Back-end im Browser',
   'workbench.settings.backendPane.detail.aria.desktop-app': 'Back-end in der Desktop-App',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Lokales LAN-Daemon-Back-end',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Lokales LAN-Team-Server-Back-end',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Entferntes selbst gehostetes Back-end',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -428,7 +428,7 @@ export const workbenchSettingsPanes = {
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
   'workbench.settings.daemonTokens.sectionTitle': 'Gekoppelte Geräte',
   'workbench.settings.daemonTokens.sectionBlurb':
-    'Jedes Gerät, das sich mit diesem Daemon verbindet, authentifiziert sich mit einem Zugriffstoken. ' +
+    'Jedes Gerät, das sich mit diesem Back-end verbindet, authentifiziert sich mit einem Zugriffstoken. ' +
     'Verbundene Geräte sind hervorgehoben; rotiere einen Token, um ein frisches Secret auszustellen und das ' +
     'alte auszumustern.',
   'workbench.settings.daemonTokens.labelPlaceholder': 'Beschriftung (optional) — z. B. „Handy von Alice“',
@@ -477,11 +477,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.daemonTokens.secretTitle': 'Kopiere diesen Token jetzt',
   'workbench.settings.daemonTokens.secretTitleRotated': 'Kopiere den rotierten Token jetzt',
   'workbench.settings.daemonTokens.secretBody':
-    'Der Daemon speichert nur einen Hash dieses Wertes. Sobald dieser Dialog schließt, lässt sich das Secret ' +
+    'Das Back-end speichert nur einen Hash dieses Wertes. Sobald dieser Dialog schließt, lässt sich das Secret ' +
     'nicht wiederherstellen — wenn du es verlierst, widerrufe den Token und präge einen neuen.',
   'workbench.settings.daemonTokens.secretBodyRotated':
     'Der vorherige Token ist jetzt widerrufen — gib dieses neue Secret an das Gerät, damit es sich wieder ' +
-    'verbinden kann. Der Daemon speichert nur einen Hash dieses Wertes. Sobald dieser Dialog schließt, lässt ' +
+    'verbinden kann. Das Back-end speichert nur einen Hash dieses Wertes. Sobald dieser Dialog schließt, lässt ' +
     'sich das Secret nicht wiederherstellen — wenn du es verlierst, widerrufe den Token und präge einen neuen.',
   'workbench.settings.daemonTokens.secretSaved': 'Ich habe es gesichert',
 
@@ -522,7 +522,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.cliAccess.statusStale':
     'Der gespeicherte CLI-Token ist nicht mehr gültig — richte den Zugriff erneut ein, um wieder zu verbinden.',
   'workbench.settings.cliAccess.statusExternal':
-    'Die CLI ist derzeit mit einem anderen Daemon verbunden ({url}). Den Zugriff hier einzurichten richtet ' +
+    'Die CLI ist derzeit mit einem anderen Back-end verbunden ({url}). Den Zugriff hier einzurichten richtet ' +
     'sie stattdessen auf diese App.',
   'workbench.settings.cliAccess.statusMalformed': 'Die CLI-Konfigurationsdatei lässt sich nicht lesen: {message}',
   'workbench.settings.cliAccess.pathNote': 'Gespeichert in {path}',
@@ -554,7 +554,7 @@ export const workbenchSettingsPanes = {
     'Agent-Clients und die oh-TUI kommunizieren mit dieser App über den MCP-Server, der derzeit aus ist.',
   'workbench.settings.mcpConsent.info.title': 'MCP-Server',
   'workbench.settings.mcpConsent.info.summary':
-    'MCP-Clients erreichen diese App über den /mcp-Endpunkt des Daemons (Model Context Protocol über ' +
+    'MCP-Clients erreichen diese App über den /mcp-Endpunkt des Back-ends (Model Context Protocol über ' +
     'Streaming-HTTP). Die Einstellung mcp.enabled schaltet diesen Endpunkt — solange sie aus ist, liefert er ' +
     '404. Clients authentifizieren sich mit denselben Zugriffstokens wie jede andere Verbindung.',
   'workbench.settings.mcpConsent.ok': 'Aktivieren',
@@ -574,7 +574,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.freeTier.title': 'Kostenlose Stufe',
   'workbench.settings.licensePane.freeTier.body':
     'Alles, was Open Headers heute bietet, ist enthalten — die kostenlose Stufe erlaubt bis zu {limit} ' +
-    'aktive Nutzer pro Daemon. Installiere einen Lizenzschlüssel, um die Platzgrenze anzuheben.',
+    'aktive Nutzer pro Team Server. Installiere einen Lizenzschlüssel, um die Platzgrenze anzuheben.',
   'workbench.settings.licensePane.invalidAlert.title': 'Die installierte Lizenz ist nicht nutzbar',
   'workbench.settings.licensePane.invalidAlert.body':
     'Die App läuft auf der kostenlosen Stufe weiter (bis zu {limit} aktive Nutzer). Füge unten einen ' +
@@ -725,7 +725,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.notPresent':
     'In diesem Build nicht enthalten — nur paketierte macOS-Builds.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registrierung',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Daemon',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registriert',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Wartet auf Genehmigung',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Nicht registriert',

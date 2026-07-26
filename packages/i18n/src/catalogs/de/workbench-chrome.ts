@@ -225,7 +225,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Einstellungen',
   'workbench.shell.breadcrumbs.whatsNew': 'Neuigkeiten',
   'workbench.shell.breadcrumbs.workspaces': 'Arbeitsbereiche',
-  'workbench.shell.breadcrumbs.daemonAdmin': 'Daemon-Verwaltung',
+  'workbench.shell.breadcrumbs.daemonAdmin': 'Team-Server-Verwaltung',
   'workbench.shell.breadcrumbs.environments': 'Umgebungen',
   'workbench.shell.breadcrumbs.specs': 'Spezifikationen',
   'workbench.shell.breadcrumbs.workspaceVariables': 'Arbeitsbereich-Variablen',
@@ -694,7 +694,7 @@ export const workbenchChrome = {
     'Wie sich Open Headers gegenüber Cloud-Plattformen, Desktop-Proxys und Nur-Header-Erweiterungen schlägt.',
   'workbench.docs.nav.roadmap.title': 'Jede Oberfläche, ausgeliefert',
   'workbench.docs.nav.roadmap.summary':
-    'Die ausgelieferten Meilensteine — Git-Arbeitsbereiche, Desktop-App, MCP-Server, Daemon, CLI, Web-App, ' +
+    'Die ausgelieferten Meilensteine — Git-Arbeitsbereiche, Desktop-App, MCP-Server, Team Server, CLI, Web-App, ' +
     'Importer.',
   'workbench.docs.nav.conditions.title': 'Bedingungen',
   'workbench.docs.nav.conditions.summary':

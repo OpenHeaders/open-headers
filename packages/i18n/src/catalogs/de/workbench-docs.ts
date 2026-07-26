@@ -711,7 +711,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.localFirst1Suffix':
     'das Back-end lebt. Vier Hosting-Optionen, alle nur lokal, alle unter deiner Kontrolle: der Service ' +
     'Worker im Browser (heute, ohne Einrichtung), das eingebettete Back-end der Desktop-App, ein ' +
-    'eigenständiger lokaler Daemon, der jede Oberfläche von Open Headers auf einer Maschine bedient, ' +
+    'eigenständiger lokaler Team Server, der jede Oberfläche von Open Headers auf einer Maschine bedient, ' +
     'oder ein Back-end, das du auf deiner eigenen VM selbst hostest. Jede Option bewahrt dieselben ' +
     'Garantien; die Abwägung ist Reichweite, nicht Eigentum.',
   'workbench.docs.body.paradigm.localFirst2':
@@ -733,7 +733,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.autoSync1Suffix':
     'einer Regel um, der Arbeitsbereich-Editor schreibt in derselben Regel einen Header-Wert um — beide ' +
     'landen, in beliebiger Reihenfolge, ohne Banner über veraltete Entwürfe und ohne Überschreiben. ' +
-    'Derselbe Ansatz skaliert von den vier Oberflächen einer Erweiterung zu einem lokalen Daemon hinter ' +
+    'Derselbe Ansatz skaliert von den vier Oberflächen einer Erweiterung zu einem lokalen Team Server hinter ' +
     'Erweiterung + Desktop + CLI und zu Team-Arbeitsbereichen mit mehreren Nutzern über ein Git-Remote ' +
     '— ohne je einen Anbieterserver in der Mitte zu brauchen.',
   'workbench.docs.body.paradigm.fieldSyncCaption':
@@ -835,17 +835,17 @@ export const workbenchDocs = {
     'beim Selbst-Hosten. Kein Anbieter-Relay; dein Agent spricht direkt mit deiner Installation. ' +
     'Tool-Aufrufe laufen mit denselben Arbeitsbereich-Berechtigungen wie du — Secrets bleiben hinter ' +
     'dem vault, sensible Operationen bleiben Opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Lokaler / LAN-Daemon für geräteübergreifenden Sync',
+  'workbench.docs.body.roadmap.daemonHeading': 'Lokaler / LAN-Team-Server für geräteübergreifenden Sync',
   'workbench.docs.body.roadmap.daemon1':
-    'Ein Sync-Daemon, den du auf deiner Maschine, deinem LAN oder einem getunnelten Host betreiben ' +
-    'kannst. Erweiterung, Desktop-App und CLI werden alle Clients desselben Daemons — dieselben ' +
+    'Ein Team Server, den du auf deiner Maschine, deinem LAN oder einem getunnelten Host betreiben ' +
+    'kannst. Erweiterung, Desktop-App und CLI werden alle Clients desselben Team Servers — dieselben ' +
     'Arbeitsbereiche, dieselben Regeln, derselbe vault, über jedes Gerät hinweg, das du nutzt. Der ' +
-    'Daemon bleibt im lokalen Netz; es gibt keinen darübergelegten Opt-in-Cloud-Pfad.',
+    'Team Server bleibt im lokalen Netz; es gibt keinen darübergelegten Opt-in-Cloud-Pfad.',
   'workbench.docs.body.roadmap.cliHeading': 'CLI',
   'workbench.docs.body.roadmap.cli1':
     'Headless-Scripting und CI-Integration. Regeln auflisten, Umgebungen umschalten, eine einzelne ' +
     'gespeicherte Anfrage aus der Shell ausführen, einen Arbeitsbereich gegen einen anderen diffen. Die ' +
-    'CLI spricht mit demselben Daemon wie Erweiterung und Desktop-App — die Automatisierung bleibt ' +
+    'CLI spricht mit demselben Team Server wie Erweiterung und Desktop-App — die Automatisierung bleibt ' +
     'synchron mit dem, was du in der UI siehst.',
   'workbench.docs.body.roadmap.webAppHeading': 'Selbst gehostetes VM-Deployment + Web-App',
   'workbench.docs.body.roadmap.webApp1':

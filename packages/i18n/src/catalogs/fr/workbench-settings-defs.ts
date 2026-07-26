@@ -46,13 +46,13 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.label': 'Toutes les interfaces (LAN)',
   'workbench.settings.def.backend.bindAddress.option.all-interfaces.description':
     "Les autres appareils du réseau local peuvent se connecter. Nécessite le jeton d'authentification de U3.2.",
-  'workbench.settings.def.backend.bindPort.label': 'Port du daemon',
+  'workbench.settings.def.backend.bindPort.label': 'Port du back-end',
   'workbench.settings.def.backend.bindPort.description':
     'Le port sur lequel cette application écoute pour que navigateurs et autres appareils se connectent. Ne ' +
     'le changez que si autre chose utilise déjà le port par défaut. Les clients doivent viser le même port.',
   'workbench.settings.def.backend.serveWebApp.label': "Servir l'application web",
   'workbench.settings.def.backend.serveWebApp.description':
-    "Sert le Workbench comme page web sur le port du daemon, pour qu'un onglet de navigateur puisse l'ouvrir " +
+    "Sert le Workbench comme page web sur le port du back-end, pour qu'un onglet de navigateur puisse l'ouvrir " +
     'directement depuis cette application — aucune extension requise. Quiconque atteint le port voit la ' +
     'grille de connexion ; un jeton appairé reste requis pour accéder aux données.',
   'workbench.settings.def.backend.allowPeerExecute.label': 'Autoriser les appareils connectés à envoyer des requêtes',
@@ -79,7 +79,7 @@ export const workbenchSettingsDefs = {
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Activer le serveur MCP',
   'workbench.settings.def.mcp.enabled.description':
-    "Répond aux clients MCP sur le port du daemon de cette application. Tant que c'est désactivé, le point " +
+    "Répond aux clients MCP sur le port du back-end de cette application. Tant que c'est désactivé, le point " +
     "d'accès n'existe pas. Activé, les agents munis d'un jeton d'accès peuvent lire vos espaces de travail.",
   'workbench.settings.def.mcp.allowWrite.label': "Autoriser les outils d'écriture",
   'workbench.settings.def.mcp.allowWrite.description':

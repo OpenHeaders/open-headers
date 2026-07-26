@@ -10,14 +10,14 @@
 import type { Catalog } from '../../types';
 
 export const web = {
-  'web.gate.titleSignIn': 'Iniciar sesión en este daemon',
-  'web.gate.titlePair': 'Emparejar con este daemon',
+  'web.gate.titleSignIn': 'Iniciar sesión en este Team Server',
+  'web.gate.titlePair': 'Emparejar con este Team Server',
   'web.gate.introSso': 'Inicia sesión con {provider} o pega abajo un token de emparejamiento.',
   'web.gate.introPassword':
-    'Inicia sesión con el email y la contraseña que el admin del daemon definió para ti, o pega abajo un token ' +
+    'Inicia sesión con el email y la contraseña que el admin del Team Server definió para ti, o pega abajo un token ' +
     'de emparejamiento.',
   'web.gate.introTokenPrefix':
-    'Este daemon de OpenHeaders exige un token de emparejamiento. Genera uno en la máquina que lo ejecuta con',
+    'Este Team Server de OpenHeaders exige un token de emparejamiento. Genera uno en la máquina que lo ejecuta con',
   'web.gate.introTokenSuffix': 'y pégalo abajo.',
   'web.gate.ssoButton': 'Iniciar sesión con {provider}',
   'web.gate.or': 'o',
@@ -27,11 +27,11 @@ export const web = {
   'web.gate.tokenPlaceholder': 'Token de emparejamiento',
   'web.gate.connect': 'Conectar',
   'web.gate.workLocally': 'Omitir — trabajar en local',
-  'web.gate.errorTokenRejected': 'El daemon rechazó este token. Compruébalo y vuelve a intentarlo.',
-  'web.gate.errorTokenOffline': 'El daemon no respondió. Comprueba que está en marcha y vuelve a intentarlo.',
+  'web.gate.errorTokenRejected': 'El Team Server rechazó este token. Compruébalo y vuelve a intentarlo.',
+  'web.gate.errorTokenOffline': 'El Team Server no respondió. Comprueba que está en marcha y vuelve a intentarlo.',
   'web.gate.errorPasswordRefused':
     'No se pudo iniciar sesión. Comprueba el email y la contraseña y vuelve a intentarlo.',
-  'web.gate.errorSessionRefused': 'El daemon no aceptó la sesión. Vuelve a intentarlo.',
+  'web.gate.errorSessionRefused': 'El Team Server no aceptó la sesión. Vuelve a intentarlo.',
   'web.gate.seatIntroPrefix':
     '¿Tienes una plaza individual? Pega su clave para iniciar sesión sin esperar una plaza de equipo libre — ' +
     'admite el email con el que se compró. Consigue una en',
@@ -41,19 +41,19 @@ export const web = {
   'web.overlay.signingIn': 'Iniciando tu sesión…',
   'web.overlay.takingYouTo': 'Llevándote a {provider}…',
   'web.oidcError.unknownUser':
-    'Sesión iniciada, pero este daemon no tiene ningún usuario para tu email. Pide al admin del daemon que te ' +
+    'Sesión iniciada, pero este Team Server no tiene ningún usuario para tu email. Pide al admin del Team Server que te ' +
     'añada.',
   'web.oidcError.userDeactivated':
-    'Sesión iniciada, pero tu usuario en este daemon está desactivado. Habla con el admin del daemon.',
+    'Sesión iniciada, pero tu usuario en este Team Server está desactivado. Habla con el admin del Team Server.',
   'web.oidcError.emailUnverified':
     'Tu proveedor de identidad indica que el email no está verificado. Verifícalo y vuelve a intentarlo.',
   'web.oidcError.providerUnavailable':
     'No se pudo contactar con el proveedor de identidad. Vuelve a intentarlo en un momento.',
   'web.oidcError.seatLimitReached':
-    'Sesión iniciada, pero este daemon no tiene plazas libres para un usuario nuevo. Habla con el admin del ' +
-    'daemon — o entra ahora mismo con tu propia plaza individual.',
+    'Sesión iniciada, pero este Team Server no tiene plazas libres para un usuario nuevo. Habla con el admin del ' +
+    'Team Server — o entra ahora mismo con tu propia plaza individual.',
   'web.oidcError.personalSeatsDisabled':
-    'Las plazas individuales están desactivadas en este daemon. Pregunta al admin del daemon por una plaza.',
+    'Las plazas individuales están desactivadas en este Team Server. Pregunta al admin del Team Server por una plaza.',
   'web.oidcError.personalLicenseInvalid':
     'Esa clave de plaza individual no sirve — es inválida, ha caducado o no es una plaza individual. Comprueba ' +
     'la clave y vuelve a intentarlo.',
@@ -61,7 +61,7 @@ export const web = {
     'Esa plaza individual pertenece a otro email. Solo admite la dirección con la que se compró.',
   'web.oidcError.personalLicenseNoIdentity':
     'Tu inicio de sesión no llevaba ningún email que confrontar con la plaza individual. Habla con el admin ' +
-    'del daemon.',
+    'del Team Server.',
   'web.oidcError.failed':
     'El inicio de sesión único falló. Vuelve a intentarlo o conéctate con un token de emparejamiento.',
   'web.insecure.title': 'Esta página necesita una conexión segura',
@@ -70,9 +70,9 @@ export const web = {
     'criptografía del navegador, disponibles solo en orígenes seguros.',
   'web.insecure.waysIn': 'Ábrela de una de estas formas:',
   'web.insecure.httpsPrefix':
-    'Por HTTPS — pon el daemon detrás de un proxy inverso TLS (consulta «Behind a reverse proxy» en el README ' +
-    'del daemon) y abre',
+    'Por HTTPS — pon el Team Server detrás de un proxy inverso TLS (consulta «Behind a reverse proxy» en el README ' +
+    'del Team Server) y abre',
   'web.insecure.httpsSuffix': '.',
-  'web.insecure.loopbackPrefix': 'En la propia máquina del daemon en',
+  'web.insecure.loopbackPrefix': 'En la propia máquina del Team Server en',
   'web.insecure.loopbackSuffix': '.',
 } as const satisfies Catalog;

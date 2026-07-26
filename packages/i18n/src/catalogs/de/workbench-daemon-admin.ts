@@ -16,11 +16,12 @@ import type { Catalog } from '../../types';
 
 export const workbenchDaemonAdmin = {
   // ── Console shell ──────────────────────────────────────────────────
-  'workbench.daemonAdmin.title': 'Daemon-Verwaltung',
+  'workbench.daemonAdmin.title': 'Team-Server-Verwaltung',
   'workbench.daemonAdmin.intro':
     'Verzeichnisbenutzer melden sich mit einem gebundenen Token oder per SSO an und sehen genau die hier ' +
     'gewährten Arbeitsbereiche. Die Deaktivierung widerruft die Tokens des Benutzers und trennt ihn sofort.',
-  'workbench.daemonAdmin.deniedDescription': 'Die Verwaltung dieses Daemon erfordert die Capability daemon.admin.',
+  'workbench.daemonAdmin.deniedDescription':
+    'Die Verwaltung dieses Team Servers erfordert die Capability daemon.admin.',
   'workbench.daemonAdmin.cancel': 'Abbrechen',
 
   // ── Users section ──────────────────────────────────────────────────
@@ -34,12 +35,12 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.users.seatKeyPlaceholder': 'Einzelplatz-Schlüssel (oh-license.…)',
   'workbench.daemonAdmin.users.addUser': 'Benutzer hinzufügen',
   'workbench.daemonAdmin.users.seatLimit':
-    'Dieser Daemon ist an seinem Platzlimit. Erweitere deine Team-Lizenz um Plätze, oder füge oben den ' +
+    'Dieser Team Server ist an seinem Platzlimit. Erweitere deine Team-Lizenz um Plätze, oder füge oben den ' +
     'eigenen Einzelplatz-Schlüssel der neuen Person ein — er lässt sie zu, ohne einen Platz aus dem Pool zu ' +
     'verbrauchen.',
   'workbench.daemonAdmin.users.seatsSoldAt': 'Einzelplätze gibt es unter',
   'workbench.daemonAdmin.users.emptyDirectory':
-    'Noch keine Verzeichnisbenutzer — der Daemon läuft in seiner Solo-Stufe. Füge einen Benutzer hinzu, um ' +
+    'Noch keine Verzeichnisbenutzer — der Team Server läuft in seiner Solo-Stufe. Füge einen Benutzer hinzu, um ' +
     'die Team-Stufe zu öffnen.',
   'workbench.daemonAdmin.users.deactivatedOn': 'Deaktiviert am {date}',
   'workbench.daemonAdmin.users.addedOn': 'hinzugefügt am {date}',
@@ -49,7 +50,7 @@ export const workbenchDaemonAdmin = {
   // ── Personal-seat admission tag ────────────────────────────────────
   'workbench.daemonAdmin.seat.tag': 'Einzelplatz',
   'workbench.daemonAdmin.seat.healthyTooltip':
-    'Zugelassen über den eigenen Einzelplatz ({id}) — zählt nicht gegen den Pool dieses Daemon.',
+    'Zugelassen über den eigenen Einzelplatz ({id}) — zählt nicht gegen den Pool dieses Team Servers.',
   'workbench.daemonAdmin.seat.lapsedTooltip':
     'Der Einzelplatz ({id}) ist {status}. Die Person bleibt angemeldet — ein Ablauf wirft nie hinaus — aber ' +
     'der Platz verlängert sich nicht mehr.',
@@ -90,8 +91,8 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.setTitle': 'Passwort festlegen — {name}',
   'workbench.daemonAdmin.password.resetTitle': 'Passwort zurücksetzen — {name}',
   'workbench.daemonAdmin.password.explainer':
-    'Der Benutzer meldet sich mit seiner E-Mail und diesem Passwort am Web-Zugang des Daemon an. Teile es ' +
-    'der Person direkt mit — es wird auf dem Daemon gehasht und lässt sich nicht wieder auslesen.',
+    'Der Benutzer meldet sich mit seiner E-Mail und diesem Passwort am Web-Zugang des Team Servers an. Teile es ' +
+    'der Person direkt mit — es wird auf dem Team Server gehasht und lässt sich nicht wieder auslesen.',
   'workbench.daemonAdmin.password.placeholder': 'Neues Passwort (mindestens 8 Zeichen)',
   'workbench.daemonAdmin.password.setCta': 'Passwort festlegen',
   'workbench.daemonAdmin.password.resetCta': 'Passwort zurücksetzen',
@@ -117,14 +118,14 @@ export const workbenchDaemonAdmin = {
   // ── Git section ────────────────────────────────────────────────────
   'workbench.daemonAdmin.git.sectionTitle': 'Git',
   'workbench.daemonAdmin.git.sectionHint':
-    'Binde einen Daemon-Arbeitsbereich an ein Repository und steuere Commit, Pull, Push und Branches aus der ' +
-    'Ferne. Die Pfade liegen im Dateisystem des Daemon selbst.',
+    'Binde einen Arbeitsbereich des Team Servers an ein Repository und steuere Commit, Pull, Push und Branches aus der ' +
+    'Ferne. Die Pfade liegen im Dateisystem des Team Servers selbst.',
   'workbench.daemonAdmin.git.workspaceLabel': 'Arbeitsbereich',
 
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Berichte',
   'workbench.daemonAdmin.audit.sectionHint':
-    'Jede Berechtigungsentscheidung dieses Daemon und jede Gerätezulassung als filterbares Audit-Protokoll. ' +
+    'Jede Berechtigungsentscheidung dieses Team Servers und jede Gerätezulassung als filterbares Audit-Protokoll. ' +
     'Der Export beachtet die aktiven Filter.',
   'workbench.daemonAdmin.audit.capAdmission': 'Zulassung (Verbindung)',
   'workbench.daemonAdmin.audit.capAdminPlane': 'Verwaltungsebene',

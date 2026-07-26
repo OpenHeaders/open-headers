@@ -987,7 +987,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shared.supports': 'COMPATIBLE CON',
   'workbench.docs.diagrams.openHeaders.shared.inBrowser': 'En el navegador',
   'workbench.docs.diagrams.openHeaders.shared.desktopApp': 'App de escritorio',
-  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Daemon local',
+  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Team Server local',
   'workbench.docs.diagrams.openHeaders.shared.yourVm': 'Tu VM',
   'workbench.docs.diagrams.openHeaders.shared.workbench': 'Workbench',
   'workbench.docs.diagrams.openHeaders.shared.devtools': 'DevTools',
@@ -1015,7 +1015,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shift.themBrowserPrimary': 'Back-end fuera del navegador',
   'workbench.docs.diagrams.openHeaders.shift.themBrowserSub': 'app de escritorio / nube, requiere internet',
   'workbench.docs.diagrams.openHeaders.shift.usSelfHostPrimary': 'Back-end autoalojado',
-  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'navegador · app de escritorio · daemon · VM',
+  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'navegador · app de escritorio · Team Server · VM',
   'workbench.docs.diagrams.openHeaders.shift.themSelfHostPrimary': 'Solo su nube',
   'workbench.docs.diagrams.openHeaders.shift.themSelfHostSub': 'sin elegir dónde viven tus datos',
   'workbench.docs.diagrams.openHeaders.shift.usOfflinePrimary': 'Front-end nativo sin conexión',
@@ -1060,7 +1060,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shift.themOfflineEditPrimary': 'Necesita conexión',
   'workbench.docs.diagrams.openHeaders.shift.themOfflineEditSub': 'o ningún acceso',
   'workbench.docs.diagrams.openHeaders.shift.usTierPrimary': 'Todo hoy, en cada nivel',
-  'workbench.docs.diagrams.openHeaders.shift.usTierSub': 'gratis ≤ 3 usuarios · pago = asientos de equipo',
+  'workbench.docs.diagrams.openHeaders.shift.usTierSub': 'gratis ≤ 6 usuarios · pago = asientos de equipo',
   'workbench.docs.diagrams.openHeaders.shift.themTierPrimary': 'Niveles con funciones bloqueadas',
   'workbench.docs.diagrams.openHeaders.shift.themTierSub': 'capacidades clave tras upsells',
   'workbench.docs.diagrams.openHeaders.shift.usSsoPrimary': 'SSO y seguridad siempre gratis',
@@ -1385,22 +1385,22 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: roadmap CLI ───────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapCli.aria':
     'Hito de la hoja de ruta — CLI. Una ventana de terminal con comandos de ejemplo para listar reglas, cambiar ' +
-    'de entorno y enviar una solicitud guardada — todos hablando con el mismo daemon que la UI.',
+    'de entorno y enviar una solicitud guardada — todos hablando con el mismo Team Server que la UI.',
   'workbench.docs.diagrams.openHeaders.roadmapCli.title': 'CLI · scripting sin interfaz',
   'workbench.docs.diagrams.openHeaders.roadmapCli.subtitle':
-    'El mismo daemon que la UI — la automatización va en sincronía con lo que ves.',
+    'El mismo Team Server que la UI — la automatización va en sincronía con lo que ves.',
   'workbench.docs.diagrams.openHeaders.roadmapCli.termTitle': 'oh · terminal',
-  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# mismo daemon · mismo espacio de trabajo que la UI',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# mismo Team Server · mismo espacio de trabajo que la UI',
   'workbench.docs.diagrams.openHeaders.roadmapCli.verdict':
     'Listar · alternar · enviar · diff — directo desde la shell',
 
   // ── Open Headers: roadmap daemon ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
-    'Hito de la hoja de ruta — daemon local / LAN. Un daemon de sync en el centro; extensión, app de escritorio y ' +
+    'Hito de la hoja de ruta — Team Server local / LAN. Un Team Server en el centro; extensión, app de escritorio y ' +
     'CLI se conectan como clientes a través de tu LAN.',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Daemon local / LAN · un solo hub de sync',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Team Server local / LAN · un solo hub de sync',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
-    'Extensión · escritorio · CLI — todos clientes del mismo daemon, todos en tu red.',
+    'Extensión · escritorio · CLI — todos clientes del mismo Team Server, todos en tu red.',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': 'espacios de trabajo',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': 'reglas · vault',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': 'motor de sync',
@@ -1411,7 +1411,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · multiventana',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': 'cualquier equipo · $ oh rules · $ oh env',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': 'Un daemon · muchos clientes · se queda en tu red',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': 'Un Team Server · muchos clientes · se queda en tu red',
 
   // ── Open Headers: roadmap desktop app ───────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDesktop.aria':
@@ -1532,7 +1532,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: roadmap milestones ────────────────────────────────
   'workbench.docs.diagrams.openHeaders.milestones.aria':
     'Hitos — tarjetas ordenadas dentro de una ventana de navegador: espacios de trabajo Git, app de escritorio, ' +
-    'servidor MCP, daemon local, CLI, app web autoalojada, importadores — todos disponibles.',
+    'servidor MCP, Team Server local, CLI, app web autoalojada, importadores — todos disponibles.',
   'workbench.docs.diagrams.openHeaders.milestones.chromeTitle': 'Cada superficie, entregada',
   'workbench.docs.diagrams.openHeaders.milestones.addrSubtitle':
     'Entregados en secuencia — solo-local siguió siendo el producto en cada hito.',
@@ -1546,9 +1546,9 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'Servidor MCP (control por agente de IA)',
   'workbench.docs.diagrams.openHeaders.milestones.descMcp':
     'Open Headers sobre MCP — deja que un agente de IA controle tu espacio de trabajo.',
-  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Daemon local / LAN',
+  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Team Server local / LAN',
   'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
-    'Daemon de sync en tu máquina o LAN — extensión, escritorio y CLI como clientes.',
+    'Team Server en tu máquina o LAN — extensión, escritorio y CLI como clientes.',
   'workbench.docs.diagrams.openHeaders.milestones.descCli':
     'Scripting sin interfaz y CI — listar, alternar, enviar desde el shell.',
   'workbench.docs.diagrams.openHeaders.milestones.msVm': 'Despliegue en VM autoalojado + app web',

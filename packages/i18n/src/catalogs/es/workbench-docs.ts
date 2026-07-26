@@ -709,7 +709,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.localFirst1Suffix':
     'vive el back-end. Cuatro opciones de alojamiento, todas solo locales, todas bajo tu control: el ' +
     'service worker en el navegador (hoy, sin configuración alguna), el back-end embebido de la aplicación ' +
-    'de escritorio, un daemon local autónomo sirviendo cada superficie de Open Headers en una máquina, o ' +
+    'de escritorio, un Team Server local autónomo sirviendo cada superficie de Open Headers en una máquina, o ' +
     'un back-end autoalojado en tu propia VM. Cada opción preserva las mismas garantías; la contrapartida ' +
     'es el alcance, no la propiedad.',
   'workbench.docs.body.paradigm.localFirst2':
@@ -731,7 +731,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.autoSync1Suffix':
     'de una regla y el workbench que reescribe un valor de encabezado en la misma regla aterrizan los dos, ' +
     'en cualquier orden, sin banner de borrador obsoleto y sin sobrescritura. El mismo enfoque escala de ' +
-    'las cuatro superficies de una extensión a un daemon local respaldando extensión + escritorio + ' +
+    'las cuatro superficies de una extensión a un Team Server local respaldando extensión + escritorio + ' +
     'CLI, y a espacios de trabajo de equipo multiusuario a través de un remoto Git — sin necesitar ' +
     'nunca un servidor del proveedor en medio.',
   'workbench.docs.body.paradigm.fieldSyncCaption':
@@ -833,17 +833,17 @@ export const workbenchDocs = {
     'cuando autoalojas. Sin relé del proveedor; tu agente habla directamente con tu instalación. Las ' +
     'llamadas de herramientas se ejecutan con los mismos permisos de espacio de trabajo que tú — los ' +
     'secretos quedan detrás del vault, las operaciones sensibles quedan en opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Daemon local / LAN para sincronización entre dispositivos',
+  'workbench.docs.body.roadmap.daemonHeading': 'Team Server local / LAN para sincronización entre dispositivos',
   'workbench.docs.body.roadmap.daemon1':
-    'Un daemon de sincronización que puedes ejecutar en tu máquina, tu LAN o un host tunelizado. ' +
-    'Extensión, aplicación de escritorio y CLI se convierten todos en clientes del mismo daemon — mismos ' +
-    'espacios de trabajo, mismas reglas, mismo vault, en cada dispositivo que uses. El daemon se queda en ' +
+    'Un Team Server que puedes ejecutar en tu máquina, tu LAN o un host tunelizado. ' +
+    'Extensión, aplicación de escritorio y CLI se convierten todos en clientes del mismo Team Server — mismos ' +
+    'espacios de trabajo, mismas reglas, mismo vault, en cada dispositivo que uses. El Team Server se queda en ' +
     'la red local; no hay un camino de nube opt-in por encima.',
   'workbench.docs.body.roadmap.cliHeading': 'CLI',
   'workbench.docs.body.roadmap.cli1':
     'Scripting headless e integración con CI. Listar reglas, conmutar entornos, ejecutar una única ' +
     'solicitud guardada desde el shell, comparar un espacio de trabajo con otro. La CLI habla con el mismo ' +
-    'daemon que la extensión y la aplicación de escritorio, así que la automatización se mantiene en fase ' +
+    'Team Server que la extensión y la aplicación de escritorio, así que la automatización se mantiene en fase ' +
     'con lo que ves en la interfaz.',
   'workbench.docs.body.roadmap.webAppHeading': 'Despliegue en VM autoalojada + aplicación web',
   'workbench.docs.body.roadmap.webApp1':

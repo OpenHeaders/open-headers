@@ -14,11 +14,11 @@ import type { Catalog } from '../../types';
 
 export const workbenchDaemonAdmin = {
   // ── Console shell ──────────────────────────────────────────────────
-  'workbench.daemonAdmin.title': 'Administration du daemon',
+  'workbench.daemonAdmin.title': 'Administration du Team Server',
   'workbench.daemonAdmin.intro':
     "Les utilisateurs de l'annuaire se connectent avec un jeton lié ou via SSO et voient exactement les espaces " +
     "de travail accordés ici. La désactivation révoque les jetons de l'utilisateur et le déconnecte immédiatement.",
-  'workbench.daemonAdmin.deniedDescription': 'Administrer ce daemon requiert la capacité daemon.admin.',
+  'workbench.daemonAdmin.deniedDescription': 'Administrer ce Team Server requiert la capacité daemon.admin.',
   'workbench.daemonAdmin.cancel': 'Annuler',
 
   // ── Users section ──────────────────────────────────────────────────
@@ -32,11 +32,11 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.users.seatKeyPlaceholder': 'Clé de siège individuel (oh-license.…)',
   'workbench.daemonAdmin.users.addUser': 'Ajouter un utilisateur',
   'workbench.daemonAdmin.users.seatLimit':
-    "Ce daemon est à sa limite de sièges. Ajoutez des sièges à votre licence d'équipe, ou collez ci-dessus la clé " +
+    "Ce Team Server est à sa limite de sièges. Ajoutez des sièges à votre licence d'équipe, ou collez ci-dessus la clé " +
     "de siège individuel de l'utilisateur qui rejoint — elle l'admet sans consommer un siège de la réserve.",
   'workbench.daemonAdmin.users.seatsSoldAt': 'Les sièges individuels sont vendus sur',
   'workbench.daemonAdmin.users.emptyDirectory':
-    "Aucun utilisateur dans l'annuaire pour le moment — le daemon fonctionne en palier solo. Ajoutez un " +
+    "Aucun utilisateur dans l'annuaire pour le moment — le Team Server fonctionne en palier solo. Ajoutez un " +
     'utilisateur pour ouvrir le palier équipe.',
   'workbench.daemonAdmin.users.deactivatedOn': 'Désactivé le {date}',
   'workbench.daemonAdmin.users.addedOn': 'ajouté le {date}',
@@ -46,7 +46,7 @@ export const workbenchDaemonAdmin = {
   // ── Personal-seat admission tag ────────────────────────────────────
   'workbench.daemonAdmin.seat.tag': 'Siège individuel',
   'workbench.daemonAdmin.seat.healthyTooltip':
-    'Admis par son propre siège individuel ({id}) — non décompté de la réserve de ce daemon.',
+    'Admis par son propre siège individuel ({id}) — non décompté de la réserve de ce Team Server.',
   'workbench.daemonAdmin.seat.lapsedTooltip':
     "Son siège individuel ({id}) est {status}. Il reste connecté — une échéance n'évince jamais — mais le siège " +
     'ne se renouvelle plus.',
@@ -87,8 +87,8 @@ export const workbenchDaemonAdmin = {
   'workbench.daemonAdmin.password.setTitle': 'Définir le mot de passe — {name}',
   'workbench.daemonAdmin.password.resetTitle': 'Réinitialiser le mot de passe — {name}',
   'workbench.daemonAdmin.password.explainer':
-    "L'utilisateur se connecte avec son email et ce mot de passe au portail web du daemon. Transmettez-le-lui " +
-    'directement — il est haché sur le daemon et ne peut pas être relu.',
+    "L'utilisateur se connecte avec son email et ce mot de passe au portail web du Team Server. Transmettez-le-lui " +
+    'directement — il est haché sur le Team Server et ne peut pas être relu.',
   'workbench.daemonAdmin.password.placeholder': 'Nouveau mot de passe (8 caractères minimum)',
   'workbench.daemonAdmin.password.setCta': 'Définir le mot de passe',
   'workbench.daemonAdmin.password.resetCta': 'Réinitialiser le mot de passe',
@@ -114,14 +114,14 @@ export const workbenchDaemonAdmin = {
   // ── Git section ────────────────────────────────────────────────────
   'workbench.daemonAdmin.git.sectionTitle': 'Git',
   'workbench.daemonAdmin.git.sectionHint':
-    'Liez un espace de travail du daemon à un dépôt et pilotez commit, pull, push et branches à distance. ' +
-    'Les chemins sont sur le système de fichiers du daemon lui-même.',
+    'Liez un espace de travail du Team Server à un dépôt et pilotez commit, pull, push et branches à distance. ' +
+    'Les chemins sont sur le système de fichiers du Team Server lui-même.',
   'workbench.daemonAdmin.git.workspaceLabel': 'Espace de travail',
 
   // ── Audit reports ──────────────────────────────────────────────────
   'workbench.daemonAdmin.audit.sectionTitle': 'Rapports',
   'workbench.daemonAdmin.audit.sectionHint':
-    "Chaque décision de permission prise par ce daemon, et chaque admission d'appareil, sous forme de piste " +
+    "Chaque décision de permission prise par ce Team Server, et chaque admission d'appareil, sous forme de piste " +
     "d'audit filtrable. L'export respecte les filtres actifs.",
   'workbench.daemonAdmin.audit.capAdmission': 'Admission (connexion)',
   'workbench.daemonAdmin.audit.capAdminPlane': "Plan d'administration",

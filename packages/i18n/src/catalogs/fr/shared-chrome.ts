@@ -76,7 +76,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionConnect': 'Connecter',
   'shared.chrome.addons.title': 'Modules',
   'shared.chrome.addons.cli': 'CLI',
-  'shared.chrome.addons.daemon': 'Daemon',
+  'shared.chrome.addons.daemon': 'Team Server',
   'shared.chrome.addons.cliSetUp': 'Configurée',
   'shared.chrome.addons.cliNotSetUp': 'Non configurée',
   'shared.chrome.addons.cliStale': 'Jeton révoqué — reconfigurez',

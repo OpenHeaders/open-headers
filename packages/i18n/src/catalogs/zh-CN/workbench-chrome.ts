@@ -219,7 +219,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': '设置',
   'workbench.shell.breadcrumbs.whatsNew': '新功能',
   'workbench.shell.breadcrumbs.workspaces': '工作区',
-  'workbench.shell.breadcrumbs.daemonAdmin': '守护进程管理',
+  'workbench.shell.breadcrumbs.daemonAdmin': 'Team Server 管理',
   'workbench.shell.breadcrumbs.environments': '环境',
   'workbench.shell.breadcrumbs.specs': '规范',
   'workbench.shell.breadcrumbs.workspaceVariables': '工作区变量',
@@ -639,7 +639,7 @@ export const workbenchChrome = {
   'workbench.docs.nav.comparison.summary': 'Open Headers 与云平台、桌面代理和仅标头扩展相比的表现。',
   'workbench.docs.nav.roadmap.title': '每个界面，皆已交付',
   'workbench.docs.nav.roadmap.summary':
-    '已交付的里程碑——Git 工作区、桌面端应用、MCP 服务器、守护进程、CLI、Web 应用、导入器。',
+    '已交付的里程碑——Git 工作区、桌面端应用、MCP 服务器、Team Server、CLI、Web 应用、导入器。',
   'workbench.docs.nav.conditions.title': '条件',
   'workbench.docs.nav.conditions.summary': '以 AND 方式匹配、限定每条规则的筛选条件——域名、URL 模式、方法、标头。',
   'workbench.docs.nav.actions.title': '操作',

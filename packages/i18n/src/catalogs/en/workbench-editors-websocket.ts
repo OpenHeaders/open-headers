@@ -16,7 +16,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': 'Connect',
   'workbench.editors.websocket.connect.disconnect': 'Disconnect',
-  'workbench.editors.websocket.connect.browserHost': 'WebSocket sessions run on the desktop app or daemon.',
+  'workbench.editors.websocket.connect.browserHost': 'WebSocket sessions run on the desktop app or Team Server.',
   'workbench.editors.websocket.connect.needsUrl': 'Enter a ws:// or wss:// URL to connect.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Message',
@@ -37,9 +37,9 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.auth.tokenLabel': 'Token',
   'workbench.editors.websocket.auth.tokenPlaceholder': 'Token or {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
-    'Sent as an Authorization: Bearer header on the handshake — applies on the desktop app or daemon; browsers cannot set it on a WebSocket. An explicit Authorization header row takes precedence.',
+    'Sent as an Authorization: Bearer header on the handshake — applies on the desktop app or Team Server; browsers cannot set it on a WebSocket. An explicit Authorization header row takes precedence.',
   'workbench.editors.websocket.auth.helpSocketio':
-    'Sent as the CONNECT packet’s auth payload ({"token": …}) on every host, and as an Authorization: Bearer handshake header on the desktop app or daemon. An explicit Authorization header row takes precedence over the header.',
+    'Sent as the CONNECT packet’s auth payload ({"token": …}) on every host, and as an Authorization: Bearer handshake header on the desktop app or Team Server. An explicit Authorization header row takes precedence over the header.',
   'workbench.editors.websocket.events.hint':
     'Incoming events to show in the session timeline. With no rows, every event shows; the capture always records everything.',
   'workbench.editors.websocket.events.namePlaceholder': 'Event name',
@@ -56,7 +56,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.keyPlaceholder': 'Header name',
   'workbench.editors.websocket.headers.valuePlaceholder': 'Value',
   'workbench.editors.websocket.headers.nodeOnly':
-    'Custom handshake headers apply when the session runs on the desktop app or daemon — browsers cannot set them on a WebSocket.',
+    'Custom handshake headers apply when the session runs on the desktop app or Team Server — browsers cannot set them on a WebSocket.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Parameter name',
   'workbench.editors.websocket.params.valuePlaceholder': 'Value',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI spec',
@@ -74,7 +74,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.specFooter.none': 'No AsyncAPI spec linked',
   'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL certificate verification',
   'workbench.editors.websocket.settings.sslVerifyHelp':
-    'Verify the server certificate against the system roots for wss: sessions. Turn off for self-signed development servers. Applies on the desktop app or daemon.',
+    'Verify the server certificate against the system roots for wss: sessions. Turn off for self-signed development servers. Applies on the desktop app or Team Server.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotocols',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol offer list, in preference order — the server picks one during the handshake.',
