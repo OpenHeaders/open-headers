@@ -35,8 +35,8 @@ export const RoadmapMilestonesDiagram: React.FC = () => {
       description: t('workbench.docs.diagrams.openHeaders.milestones.descMcp'),
     },
     {
-      title: t('workbench.docs.diagrams.openHeaders.milestones.msDaemon'),
-      description: t('workbench.docs.diagrams.openHeaders.milestones.descDaemon'),
+      title: t('workbench.docs.diagrams.openHeaders.milestones.msServer'),
+      description: t('workbench.docs.diagrams.openHeaders.milestones.descServer'),
     },
     {
       title: 'CLI',

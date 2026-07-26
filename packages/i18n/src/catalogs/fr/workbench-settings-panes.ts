@@ -11,7 +11,7 @@
  * the `oh-license.…` key prefix (web.ts precedent) and the {chord} /
  * {token} / {url} holes. Settings paths quote the fr shell mints
  * (`Paramètres → Backend`); `Administration du daemon` copies the
- * fr/workbench-daemon-admin title; `palier` / `siège` / `annuaire`
+ * fr/workbench-server-admin title; `palier` / `siège` / `annuaire`
  * reuse the daemon-admin + settings-defs register; `Préréglage de
  * raccourcis` and `Capturer` reuse fr/workbench-settings-defs-keyboard
  * + fr/workbench-settings mints. Token rotation rides the
@@ -363,7 +363,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge — données séparées par navigateur, ni inter-appareils, ni inter-navigateurs',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'généralement 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'remplaçable dans Backend → Connexion',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox':
+  'workbench.settings.backendPane.tier.rangeNote.serverOwnBox':
     'IPv4 — serveur sur votre propre machine (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'en pratique fd00::/8 — allocation privée IPv6',
@@ -427,88 +427,88 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.presetRestoreTip': 'Réinitialiser chaque raccourci personnalisé au préréglage actif.',
 
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
-  'workbench.settings.daemonTokens.sectionTitle': 'Appareils appairés',
-  'workbench.settings.daemonTokens.sectionBlurb':
+  'workbench.settings.backendTokens.sectionTitle': 'Appareils appairés',
+  'workbench.settings.backendTokens.sectionBlurb':
     "Chaque appareil qui se connecte à ce back-end s'authentifie avec un jeton d'accès. Les appareils connectés " +
     "sont mis en évidence ; renouvelez un jeton pour émettre un secret neuf et retirer l'ancien.",
-  'workbench.settings.daemonTokens.labelPlaceholder': "Libellé (facultatif) — p. ex. « téléphone d'alice »",
-  'workbench.settings.daemonTokens.bindUserPlaceholder': 'Lier à un utilisateur (facultatif)',
-  'workbench.settings.daemonTokens.generate': 'Générer un jeton',
-  'workbench.settings.daemonTokens.pairDevice': 'Appairer un appareil',
-  'workbench.settings.daemonTokens.explainer.intro': 'Les deux ajoutent un jeton ci-dessous.',
-  'workbench.settings.daemonTokens.explainer.generateText':
+  'workbench.settings.backendTokens.labelPlaceholder': "Libellé (facultatif) — p. ex. « téléphone d'alice »",
+  'workbench.settings.backendTokens.bindUserPlaceholder': 'Lier à un utilisateur (facultatif)',
+  'workbench.settings.backendTokens.generate': 'Générer un jeton',
+  'workbench.settings.backendTokens.pairDevice': 'Appairer un appareil',
+  'workbench.settings.backendTokens.explainer.intro': 'Les deux ajoutent un jeton ci-dessous.',
+  'workbench.settings.backendTokens.explainer.generateText':
     "vous montre le secret à copier et coller vous-même dans l'appareil.",
-  'workbench.settings.daemonTokens.explainer.pairText':
+  'workbench.settings.backendTokens.explainer.pairText':
     "affiche un code court que l'appareil saisit sous Paramètres → Backend → Appairer avec un code (ou ouvre " +
     "un lien, en repli) — utilisez-le quand quelqu'un d'autre configure l'appareil.",
-  'workbench.settings.daemonTokens.empty':
+  'workbench.settings.backendTokens.empty':
     "Aucun appareil pour le moment. Générez un jeton et collez-le dans Paramètres → Backend de l'appareil, ou " +
     'appairez un appareil et faites-lui saisir le code là-bas.',
-  'workbench.settings.daemonTokens.mintFailed': 'Échec de la création du jeton : {message}',
-  'workbench.settings.daemonTokens.rotateFailed': 'Échec du renouvellement : {message}',
-  'workbench.settings.daemonTokens.revokeFailed': 'Échec de la révocation : {message}',
-  'workbench.settings.daemonTokens.revokedDevice': "Jeton révoqué. Tout appareil qui l'utilisait a été déconnecté.",
-  'workbench.settings.daemonTokens.revokedSession': "Session révoquée. L'utilisateur a été déconnecté.",
-  'workbench.settings.daemonTokens.rotate': 'Renouveler',
-  'workbench.settings.daemonTokens.revoke': 'Révoquer',
-  'workbench.settings.daemonTokens.rotateConfirmTitle': 'Renouveler ce jeton ?',
-  'workbench.settings.daemonTokens.rotateConfirmBody':
+  'workbench.settings.backendTokens.mintFailed': 'Échec de la création du jeton : {message}',
+  'workbench.settings.backendTokens.rotateFailed': 'Échec du renouvellement : {message}',
+  'workbench.settings.backendTokens.revokeFailed': 'Échec de la révocation : {message}',
+  'workbench.settings.backendTokens.revokedDevice': "Jeton révoqué. Tout appareil qui l'utilisait a été déconnecté.",
+  'workbench.settings.backendTokens.revokedSession': "Session révoquée. L'utilisateur a été déconnecté.",
+  'workbench.settings.backendTokens.rotate': 'Renouveler',
+  'workbench.settings.backendTokens.revoke': 'Révoquer',
+  'workbench.settings.backendTokens.rotateConfirmTitle': 'Renouveler ce jeton ?',
+  'workbench.settings.backendTokens.rotateConfirmBody':
     "Un secret neuf est créé et l'actuel est révoqué. L'appareil doit recevoir le nouveau jeton avant de " +
     'pouvoir se reconnecter.',
-  'workbench.settings.daemonTokens.revokeConfirmTitle': 'Révoquer ce jeton ?',
-  'workbench.settings.daemonTokens.revokeConfirmBody':
+  'workbench.settings.backendTokens.revokeConfirmTitle': 'Révoquer ce jeton ?',
+  'workbench.settings.backendTokens.revokeConfirmBody':
     "Tout appareil qui l'utilise actuellement est déconnecté immédiatement et ne peut plus se reconnecter.",
-  'workbench.settings.daemonTokens.revokeSessionConfirmTitle': 'Révoquer cette session ?',
-  'workbench.settings.daemonTokens.revokeSessionConfirmBody':
+  'workbench.settings.backendTokens.revokeSessionConfirmTitle': 'Révoquer cette session ?',
+  'workbench.settings.backendTokens.revokeSessionConfirmBody':
     "L'utilisateur est déconnecté immédiatement. Il devra se reconnecter via le fournisseur d'identité.",
-  'workbench.settings.daemonTokens.revokedTag': 'Révoqué {when}',
-  'workbench.settings.daemonTokens.connectedTag': 'Connecté',
-  'workbench.settings.daemonTokens.expiredTag': 'Expiré',
-  'workbench.settings.daemonTokens.unlabeled': '(sans libellé)',
-  'workbench.settings.daemonTokens.unbound': '(non lié)',
-  'workbench.settings.daemonTokens.meta.device': 'id {id} · créé {created} · dernière utilisation {lastUsed}',
-  'workbench.settings.daemonTokens.meta.boundUser': 'utilisateur {user}',
-  'workbench.settings.daemonTokens.meta.session':
+  'workbench.settings.backendTokens.revokedTag': 'Révoqué {when}',
+  'workbench.settings.backendTokens.connectedTag': 'Connecté',
+  'workbench.settings.backendTokens.expiredTag': 'Expiré',
+  'workbench.settings.backendTokens.unlabeled': '(sans libellé)',
+  'workbench.settings.backendTokens.unbound': '(non lié)',
+  'workbench.settings.backendTokens.meta.device': 'id {id} · créé {created} · dernière utilisation {lastUsed}',
+  'workbench.settings.backendTokens.meta.boundUser': 'utilisateur {user}',
+  'workbench.settings.backendTokens.meta.session':
     'connecté {signedIn} · expire {expires} · vu pour la dernière fois {lastSeen} · id {id}',
-  'workbench.settings.daemonTokens.ssoTitle': 'Sessions SSO',
-  'workbench.settings.daemonTokens.ssoBlurb':
+  'workbench.settings.backendTokens.ssoTitle': 'Sessions SSO',
+  'workbench.settings.backendTokens.ssoBlurb':
     "Chaque connexion SSO crée une session qui expire d'elle-même. Révoquez-en une pour déconnecter " +
     "l'utilisateur immédiatement — il devra se reconnecter via le fournisseur d'identité.",
-  'workbench.settings.daemonTokens.secretTitle': 'Copiez ce jeton maintenant',
-  'workbench.settings.daemonTokens.secretTitleRotated': 'Copiez le jeton renouvelé maintenant',
-  'workbench.settings.daemonTokens.secretBody':
+  'workbench.settings.backendTokens.secretTitle': 'Copiez ce jeton maintenant',
+  'workbench.settings.backendTokens.secretTitleRotated': 'Copiez le jeton renouvelé maintenant',
+  'workbench.settings.backendTokens.secretBody':
     "Le back-end ne stocke qu'un hachage de cette valeur. Une fois cette boîte de dialogue fermée, le secret ne " +
     'peut pas être récupéré — si vous le perdez, révoquez le jeton et créez-en un nouveau.',
-  'workbench.settings.daemonTokens.secretBodyRotated':
+  'workbench.settings.backendTokens.secretBodyRotated':
     "Le jeton précédent est maintenant révoqué — donnez ce nouveau secret à l'appareil pour qu'il puisse se " +
     "reconnecter. Le back-end ne stocke qu'un hachage de cette valeur. Une fois cette boîte de dialogue fermée, " +
     'le secret ne peut pas être récupéré — si vous le perdez, révoquez le jeton et créez-en un nouveau.',
-  'workbench.settings.daemonTokens.secretSaved': "Je l'ai enregistré",
+  'workbench.settings.backendTokens.secretSaved': "Je l'ai enregistré",
 
   // ── Daemon pairing modal ────────────────────────────────────────────
-  'workbench.settings.daemonTokens.pairModal.done': 'Terminé',
-  'workbench.settings.daemonTokens.pairModal.allocating': 'Allocation du code…',
-  'workbench.settings.daemonTokens.pairModal.startFailed': "Impossible de démarrer l'appairage",
-  'workbench.settings.daemonTokens.pairModal.expiredTitle': 'Appairage expiré',
-  'workbench.settings.daemonTokens.pairModal.expiredBody':
+  'workbench.settings.backendTokens.pairModal.done': 'Terminé',
+  'workbench.settings.backendTokens.pairModal.allocating': 'Allocation du code…',
+  'workbench.settings.backendTokens.pairModal.startFailed': "Impossible de démarrer l'appairage",
+  'workbench.settings.backendTokens.pairModal.expiredTitle': 'Appairage expiré',
+  'workbench.settings.backendTokens.pairModal.expiredBody':
     "La fenêtre de 5 minutes s'est écoulée sans confirmation. Fermez cette boîte de dialogue et cliquez à " +
     'nouveau sur Appairer un appareil pour recommencer.',
-  'workbench.settings.daemonTokens.pairModal.pairedTitle': 'Appairé',
-  'workbench.settings.daemonTokens.pairModal.pairedBody':
+  'workbench.settings.backendTokens.pairModal.pairedTitle': 'Appairé',
+  'workbench.settings.backendTokens.pairModal.pairedBody':
     "L'appareil a confirmé le code. Un jeton d'accès neuf a été émis et enregistré sur cet appareil ; il " +
     "apparaît dans la liste ci-dessous. Si l'appareil ne parvient pas à se connecter, révoquez l'entrée et " +
     'appairez à nouveau.',
-  'workbench.settings.daemonTokens.pairModal.intro.part1': "Sur l'autre appareil, ouvrez",
-  'workbench.settings.daemonTokens.pairModal.intro.settingsPath': 'Paramètres → Backend',
-  'workbench.settings.daemonTokens.pairModal.intro.part2': ', pointez son',
-  'workbench.settings.daemonTokens.pairModal.intro.address': 'Adresse du back-end',
-  'workbench.settings.daemonTokens.pairModal.intro.part3': 'vers cette application, puis cliquez sur',
-  'workbench.settings.daemonTokens.pairModal.intro.part4': 'et saisissez :',
-  'workbench.settings.daemonTokens.pairModal.codeLabel': "Code d'appairage",
-  'workbench.settings.daemonTokens.pairModal.expiresIn': 'expire dans {remaining}',
-  'workbench.settings.daemonTokens.pairModal.addressListLabel': 'Adresse du back-end pour cette application',
-  'workbench.settings.daemonTokens.pairModal.fallback.prefix': 'Aucune option',
-  'workbench.settings.daemonTokens.pairModal.fallback.suffix':
+  'workbench.settings.backendTokens.pairModal.intro.part1': "Sur l'autre appareil, ouvrez",
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Paramètres → Backend',
+  'workbench.settings.backendTokens.pairModal.intro.part2': ', pointez son',
+  'workbench.settings.backendTokens.pairModal.intro.address': 'Adresse du back-end',
+  'workbench.settings.backendTokens.pairModal.intro.part3': 'vers cette application, puis cliquez sur',
+  'workbench.settings.backendTokens.pairModal.intro.part4': 'et saisissez :',
+  'workbench.settings.backendTokens.pairModal.codeLabel': "Code d'appairage",
+  'workbench.settings.backendTokens.pairModal.expiresIn': 'expire dans {remaining}',
+  'workbench.settings.backendTokens.pairModal.addressListLabel': 'Adresse du back-end pour cette application',
+  'workbench.settings.backendTokens.pairModal.fallback.prefix': 'Aucune option',
+  'workbench.settings.backendTokens.pairModal.fallback.suffix':
     "sur cet appareil ? Ouvrez plutôt l'un de ces liens là-bas — il sert une page qui remet un jeton à coller " +
     'à la main.',
 
@@ -724,7 +724,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.notPresent':
     'Absent de cette version — uniquement dans les versions macOS empaquetées.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Enregistrement',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Serveur',
+  'workbench.settings.proxyTrustPane.helper.serverLabel': 'Serveur',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Enregistré',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'En attente d’approbation',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Non enregistré',

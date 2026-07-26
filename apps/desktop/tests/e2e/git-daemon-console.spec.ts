@@ -357,14 +357,14 @@ async function commitViaConsole(message: string): Promise<void> {
 
 /** The console directory row for a user, located by display name. */
 function userRow(name: string): Locator {
-  return adminPage.locator('[data-testid^="daemon-admin-user-"]').filter({ hasText: name });
+  return adminPage.locator('[data-testid^="server-admin-user-"]').filter({ hasText: name });
 }
 
 /** Create a directory user through the console form. */
 async function createUser(name: string, email: string): Promise<void> {
-  await adminPage.getByTestId('daemon-admin-add-name').fill(name);
+  await adminPage.getByTestId('server-admin-add-name').fill(name);
   await adminPage.locator('input[placeholder*="mail" i]').first().fill(email);
-  await adminPage.getByTestId('daemon-admin-add-user').click();
+  await adminPage.getByTestId('server-admin-add-user').click();
   await expect(userRow(name)).toBeVisible({ timeout: 15_000 });
 }
 
@@ -372,9 +372,9 @@ async function createUser(name: string, email: string): Promise<void> {
 async function setUserPassword(name: string, password: string): Promise<void> {
   await userRow(name).getByRole('button', { name: 'Set password' }).click();
   await settleModal(adminPage);
-  await adminPage.getByTestId('daemon-admin-password-input').fill(password);
-  await adminPage.getByTestId('daemon-admin-password-save').click();
-  await expect(adminPage.getByTestId('daemon-admin-password-input')).toBeHidden({ timeout: 15_000 });
+  await adminPage.getByTestId('server-admin-password-input').fill(password);
+  await adminPage.getByTestId('server-admin-password-save').click();
+  await expect(adminPage.getByTestId('server-admin-password-input')).toBeHidden({ timeout: 15_000 });
 }
 
 /**
@@ -523,15 +523,15 @@ test('D2 — an operator tab joins and the Backend pane opens the daemon-admin c
 
   await openBackendPane(adminPage);
   await adminPage.getByTestId('open-daemon-admin').click();
-  await expect(adminPage.getByTestId('daemon-admin-console')).toBeVisible({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('server-admin-console')).toBeVisible({ timeout: 15_000 });
 });
 
 // ── D3: bind + first commit over the dispatch wire ──────────────────
 
 test('D3 — the console Git card binds a daemon-side folder and lands the first commit', async () => {
   test.setTimeout(120_000);
-  await expect(adminPage.getByTestId('daemon-admin-git-workspace')).toBeVisible({ timeout: 15_000 });
-  await adminPage.getByTestId('daemon-admin-git-workspace').click();
+  await expect(adminPage.getByTestId('server-admin-git-workspace')).toBeVisible({ timeout: 15_000 });
+  await adminPage.getByTestId('server-admin-git-workspace').click();
   await pickDropdownOption(adminPage, workspaceName);
   await adminPage.getByTestId('git-pane-path-input').fill(wsDir);
   await adminPage.getByTestId('git-pane-bind-button').click();
@@ -595,9 +595,9 @@ test('D7 — a Git-email override set in the console wins attribution on the nex
   test.setTimeout(120_000);
   await userRow(DANA_NAME).getByRole('button', { name: 'Set Git email' }).click();
   await settleModal(adminPage);
-  await adminPage.getByTestId('daemon-admin-git-email-input').fill(DANA_GIT_EMAIL);
-  await adminPage.getByTestId('daemon-admin-git-email-save').click();
-  await expect(adminPage.getByTestId('daemon-admin-git-email-input')).toBeHidden({ timeout: 15_000 });
+  await adminPage.getByTestId('server-admin-git-email-input').fill(DANA_GIT_EMAIL);
+  await adminPage.getByTestId('server-admin-git-email-save').click();
+  await expect(adminPage.getByTestId('server-admin-git-email-input')).toBeHidden({ timeout: 15_000 });
 
   await createRuleViaEditor(danaPage, 'Dana override rule');
   await commitViaConsole('daemon console: dana gitEmail edit');

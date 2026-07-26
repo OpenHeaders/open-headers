@@ -14,14 +14,14 @@ import type { MessageKey } from '@openheaders/i18n';
 import { Button, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
-import { useOpenDaemonAdmin } from '../../hooks/OpenDaemonAdminContext';
+import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
+import { useOpenServerAdmin } from '../../hooks/OpenServerAdminContext';
 import type { Host } from '../../../shared/host-vocabulary';
 import { tierZeroMode } from '../schema/backend';
 import SettingRow from '../fields/SettingRow';
 import type { SettingDef } from '../types';
 import { BackendIcon, backendModeIcon } from './backend-icons';
-import DaemonTokensSection from './daemon-tokens-section';
+import BackendTokensSection from './backend-tokens-section';
 
 const HOST_TITLE: Record<Host, MessageKey> = {
   extension: 'workbench.settings.backendPane.tierZero.title.extension',
@@ -42,8 +42,8 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
   // administers the back-end (desktop = its own spine, web = the
   // serving daemon over the wire) AND the shell provides the opener.
   // Pure affordance honesty; the server gates every call regardless.
-  const adminStatus = useDaemonAdminStatus();
-  const openDaemonAdmin = useOpenDaemonAdmin();
+  const adminStatus = useServerAdminStatus();
+  const openServerAdmin = useOpenServerAdmin();
   // Daemon-side inbound config exists only where this process IS a
   // daemon. Strip each row's `when` — it gates on the derived mode for
   // search hits, but inside the tier-zero card the daemon context is
@@ -93,7 +93,7 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
         {daemonDefs.map((def) => (
           <SettingRow key={def.key} def={def} />
         ))}
-        {adminStatus === 'admin' && openDaemonAdmin && (
+        {adminStatus === 'admin' && openServerAdmin && (
           <div
             style={{
               display: 'flex',
@@ -114,7 +114,7 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
             <Button
               size="small"
               icon={<TeamOutlined />}
-              onClick={() => openDaemonAdmin()}
+              onClick={() => openServerAdmin()}
               data-testid="open-daemon-admin"
             >
               {t('workbench.settings.backendPane.tierZero.adminOpen')}
@@ -122,7 +122,7 @@ export const BackendTierZeroCard: React.FC<{ host: Host; defs: readonly SettingD
           </div>
         )}
       </div>
-      {host === 'desktop' && <DaemonTokensSection />}
+      {host === 'desktop' && <BackendTokensSection />}
     </section>
   );
 };

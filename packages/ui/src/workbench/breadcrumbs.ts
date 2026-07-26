@@ -56,7 +56,7 @@ export function computeBreadcrumbs(
   if (tab.mode === 'whats-new') return [t('workbench.shell.breadcrumbs.whatsNew')];
 
   if (tab.mode === 'workspace-manager') return [t('workbench.shell.breadcrumbs.workspaces')];
-  if (tab.mode === 'daemon-admin') return [t('workbench.shell.breadcrumbs.daemonAdmin')];
+  if (tab.mode === 'server-admin') return [t('workbench.shell.breadcrumbs.serverAdmin')];
   if (tab.mode === 'env-edit') return [t('workbench.shell.breadcrumbs.environments'), displayLabel];
   if (tab.mode === 'spec-edit') return [t('workbench.shell.breadcrumbs.specs'), displayLabel];
   if (tab.mode === 'workspace-vars') return [t('workbench.shell.breadcrumbs.workspaceVariables')];

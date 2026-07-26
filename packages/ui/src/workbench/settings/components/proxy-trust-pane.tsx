@@ -485,7 +485,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
                       : t('workbench.settings.proxyTrustPane.helper.state.unknown')}
                   </Tag>
                 </DetailRow>
-                <DetailRow label={t('workbench.settings.proxyTrustPane.helper.daemonLabel')}>
+                <DetailRow label={t('workbench.settings.proxyTrustPane.helper.serverLabel')}>
                   <Tag color={helperInfo.available ? 'green' : 'orange'} style={{ fontSize: 11 }}>
                     {helperInfo.available
                       ? t('workbench.settings.proxyTrustPane.helper.probe.ok')

@@ -13,8 +13,8 @@ export const sharedWorkspace = {
   // ── Org host-kind hints (second-person home-Org sub-labels) ────────
   'shared.org.hint.browser': 'Dieser Browser',
   'shared.org.hint.desktop': 'Dieses Gerät',
-  'shared.org.hint.daemonLocal': 'Lokaler Server',
-  'shared.org.hint.daemonRemote': 'Remote-Server',
+  'shared.org.hint.serverLocal': 'Lokaler Server',
+  'shared.org.hint.serverRemote': 'Remote-Server',
   'shared.org.fullLabel': '{hint}: {name}',
 
   // ── Org sync-provenance annotations ("via <backend>") ──────────────
@@ -34,14 +34,14 @@ export const sharedWorkspace = {
   'shared.org.scope.local.desktopLan': 'Bleibt auf deinen Geräten. Synchronisiert über das lokale Netzwerk (LAN).',
   'shared.org.scope.local.desktopLoopback':
     'Bleibt auf diesem Gerät — synchronisiert zwischen der Desktop-App und verbundenen Browsern.',
-  'shared.org.scope.local.daemonLan': 'Geteilt auf diesem Server. Synchronisiert über das lokale Netzwerk (LAN).',
-  'shared.org.scope.local.daemonWan': 'Geteilt auf diesem Server. Synchronisiert über das Internet (WAN).',
-  'shared.org.scope.local.daemonLoopback': 'Lebt auf diesem Server — nur diese Maschine kann sich verbinden.',
+  'shared.org.scope.local.serverLan': 'Geteilt auf diesem Server. Synchronisiert über das lokale Netzwerk (LAN).',
+  'shared.org.scope.local.serverWan': 'Geteilt auf diesem Server. Synchronisiert über das Internet (WAN).',
+  'shared.org.scope.local.serverLoopback': 'Lebt auf diesem Server — nur diese Maschine kann sich verbinden.',
   'shared.org.scope.local.generic': 'Bleibt auf diesem Gerät.',
   'shared.org.scope.personal.desktop':
     'Bleibt auf diesem Gerät — synchronisiert zwischen diesem Browser und der Desktop-App.',
-  'shared.org.scope.personal.daemonWan': 'Synchronisiert mit deinem Server über das Internet (WAN).',
-  'shared.org.scope.personal.daemonLan': 'Synchronisiert mit deinem Server über das lokale Netzwerk (LAN).',
+  'shared.org.scope.personal.serverWan': 'Synchronisiert mit deinem Server über das Internet (WAN).',
+  'shared.org.scope.personal.serverLan': 'Synchronisiert mit deinem Server über das lokale Netzwerk (LAN).',
   'shared.org.scope.personal.generic': 'Synchronisiert über deine Geräte hinweg.',
   'shared.org.scope.team.wan': 'Geteilt mit dem Team über das Internet (WAN).',
   'shared.org.scope.team.lan': 'Geteilt mit dem Team über das lokale Netzwerk (LAN).',

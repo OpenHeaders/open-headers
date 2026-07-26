@@ -559,8 +559,8 @@ export const workbenchDocs = {
   'workbench.docs.body.roadmap.mcpRemoteStrong': '面向远程的 HTTP/SSE',
   'workbench.docs.body.roadmap.mcp2Suffix':
     '。没有供应商中继；你的智能体直接对话你的安装。工具调用以你自己的工作区权限运行——机密留在 vault 之后，敏感操作保持可选启用。',
-  'workbench.docs.body.roadmap.daemonHeading': '用于跨设备同步的本地 / LAN 服务器',
-  'workbench.docs.body.roadmap.daemon1':
+  'workbench.docs.body.roadmap.serverHeading': '用于跨设备同步的本地 / LAN 服务器',
+  'workbench.docs.body.roadmap.server1':
     '一个可以跑在你的机器、你的 LAN 或一台隧道主机上的服务器。扩展、桌面端应用和 CLI 都成为同一个服务器的客户端——同样的工作区、同样的规则、同样的 vault，横跨你使用的每台设备。服务器留在本地网络上；没有叠加在上面的可选云通道。',
   'workbench.docs.body.roadmap.cliHeading': 'CLI',
   'workbench.docs.body.roadmap.cli1':

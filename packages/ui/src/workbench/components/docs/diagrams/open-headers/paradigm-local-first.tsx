@@ -23,7 +23,7 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
  */
 export const ParadigmLocalFirstDiagram: React.FC = () => {
   const t = useT();
-  type Icon = 'browser' | 'desktop' | 'daemon' | 'vm';
+  type Icon = 'browser' | 'desktop' | 'server' | 'vm';
   type Bullet = { text: string; status: 'carried' | 'new' };
   type PlatformItem = { label: string; note?: string };
   type PlatformGroup = { label?: string; items: PlatformItem[] };
@@ -41,7 +41,7 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
   const badgeToday = t('workbench.docs.diagrams.openHeaders.shared.badgeToday');
   const inBrowser = t('workbench.docs.diagrams.openHeaders.shared.inBrowser');
   const desktopApp = t('workbench.docs.diagrams.openHeaders.shared.desktopApp');
-  const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localDaemon');
+  const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localServer');
   const yourVm = t('workbench.docs.diagrams.openHeaders.shared.yourVm');
   const soon = t('workbench.docs.diagrams.openHeaders.shared.soon');
 
@@ -107,10 +107,10 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
     },
     {
       title: localDaemon,
-      sub: t('workbench.docs.diagrams.openHeaders.localFirst.subDaemon'),
+      sub: t('workbench.docs.diagrams.openHeaders.localFirst.subServer'),
       badge: badgeToday,
       today: true,
-      icon: 'daemon',
+      icon: 'server',
       inheritsFrom: desktopApp,
       bullets: [
         { text: bMinimalSetup, status: 'new' },
@@ -328,7 +328,7 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
             <rect x={cx - 10} y={cy + 14} width={20} height={2} rx={1} fill={stroke} />
           </g>
         );
-      case 'daemon':
+      case 'server':
         return (
           <g>
             {[0, 1, 2].map((i) => (

@@ -86,7 +86,7 @@ export interface UseTabOpenersApi {
   openWorkspaceManager: () => void;
   /** Open the daemon administration console (singleton tab; the CTA is
    *  probe-gated, the server gates every call regardless). */
-  openDaemonAdmin: () => void;
+  openServerAdmin: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
   /** Open a spec document's editor tab (Specs sidebar section). */
   openSpecEdit: (uid: string, name: string, autoRename?: boolean) => void;

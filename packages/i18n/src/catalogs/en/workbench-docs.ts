@@ -739,8 +739,8 @@ export const workbenchDocs = {
   'workbench.docs.body.roadmap.mcp2Suffix':
     'when you self-host. No vendor relay; your agent talks directly to your installation. Tool calls run with the ' +
     'same workspace permissions you have — secrets stay behind the vault, sensitive operations stay opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Local / LAN server for cross-device sync',
-  'workbench.docs.body.roadmap.daemon1':
+  'workbench.docs.body.roadmap.serverHeading': 'Local / LAN server for cross-device sync',
+  'workbench.docs.body.roadmap.server1':
     'A server you can run on your machine, your LAN, or a tunneled host. Extension, desktop app, and CLI all ' +
     'become clients of the same server — same workspaces, same rules, same vault, across every device you use. The ' +
     'server stays on the local network; there is no opt-in cloud path layered on top.',

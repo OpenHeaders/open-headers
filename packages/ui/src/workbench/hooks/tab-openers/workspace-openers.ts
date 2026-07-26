@@ -13,7 +13,7 @@ export type WorkspaceOpeners = Pick<
   | 'openSettingsTab'
   | 'openWhatsNew'
   | 'openWorkspaceManager'
-  | 'openDaemonAdmin'
+  | 'openServerAdmin'
   | 'openEnvironmentEdit'
   | 'openSpecEdit'
   | 'openWorkspaceVariables'
@@ -78,18 +78,18 @@ export function useWorkspaceOpeners({
     });
   }, [allTabs, addTab, switchTab, t]);
 
-  const openDaemonAdmin = useCallback(() => {
-    const id = 'daemon-admin';
+  const openServerAdmin = useCallback(() => {
+    const id = 'server-admin';
     if (allTabs.some((t) => t.id === id)) {
       switchTab(id);
       return;
     }
     addTab({
       id,
-      label: t('workbench.shell.breadcrumbs.daemonAdmin'),
+      label: t('workbench.shell.breadcrumbs.serverAdmin'),
       ruleType: '',
       dirty: false,
-      mode: 'daemon-admin',
+      mode: 'server-admin',
     });
   }, [allTabs, addTab, switchTab, t]);
 
@@ -184,7 +184,7 @@ export function useWorkspaceOpeners({
     openSettingsTab,
     openWhatsNew,
     openWorkspaceManager,
-    openDaemonAdmin,
+    openServerAdmin,
     openEnvironmentEdit,
     openSpecEdit,
     openWorkspaceVariables,

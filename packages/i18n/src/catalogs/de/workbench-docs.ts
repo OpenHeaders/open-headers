@@ -835,8 +835,8 @@ export const workbenchDocs = {
     'beim Selbst-Hosten. Kein Anbieter-Relay; dein Agent spricht direkt mit deiner Installation. ' +
     'Tool-Aufrufe laufen mit denselben Arbeitsbereich-Berechtigungen wie du — Secrets bleiben hinter ' +
     'dem vault, sensible Operationen bleiben Opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Lokaler / LAN-Server für geräteübergreifenden Sync',
-  'workbench.docs.body.roadmap.daemon1':
+  'workbench.docs.body.roadmap.serverHeading': 'Lokaler / LAN-Server für geräteübergreifenden Sync',
+  'workbench.docs.body.roadmap.server1':
     'Ein Server, den du auf deiner Maschine, deinem LAN oder einem getunnelten Host betreiben ' +
     'kannst. Erweiterung, Desktop-App und CLI werden alle Clients desselben Servers — dieselben ' +
     'Arbeitsbereiche, dieselben Regeln, derselbe vault, über jedes Gerät hinweg, das du nutzt. Der ' +

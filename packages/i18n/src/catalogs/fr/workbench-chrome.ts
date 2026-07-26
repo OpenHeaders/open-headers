@@ -219,7 +219,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Paramètres',
   'workbench.shell.breadcrumbs.whatsNew': 'Nouveautés',
   'workbench.shell.breadcrumbs.workspaces': 'Espaces de travail',
-  'workbench.shell.breadcrumbs.daemonAdmin': 'Admin du serveur',
+  'workbench.shell.breadcrumbs.serverAdmin': 'Admin du serveur',
   'workbench.shell.breadcrumbs.environments': 'Environnements',
   'workbench.shell.breadcrumbs.specs': 'Spécifications',
   'workbench.shell.breadcrumbs.workspaceVariables': "Variables d'espace de travail",

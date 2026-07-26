@@ -363,7 +363,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge — getrennte Daten pro Browser, kein geräte-, kein browserübergreifend',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typischerweise 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'überschreibbar unter Back-end → Verbindung',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox':
+  'workbench.settings.backendPane.tier.rangeNote.serverOwnBox':
     'IPv4 — Server auf deiner eigenen Maschine (Docker, Sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'praktisch fd00::/8 — private IPv6-Zuteilung',
@@ -426,89 +426,89 @@ export const workbenchSettingsPanes = {
     'Jedes angepasste Kürzel auf die aktive Voreinstellung zurücksetzen.',
 
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
-  'workbench.settings.daemonTokens.sectionTitle': 'Gekoppelte Geräte',
-  'workbench.settings.daemonTokens.sectionBlurb':
+  'workbench.settings.backendTokens.sectionTitle': 'Gekoppelte Geräte',
+  'workbench.settings.backendTokens.sectionBlurb':
     'Jedes Gerät, das sich mit diesem Back-end verbindet, authentifiziert sich mit einem Zugriffstoken. ' +
     'Verbundene Geräte sind hervorgehoben; rotiere einen Token, um ein frisches Secret auszustellen und das ' +
     'alte auszumustern.',
-  'workbench.settings.daemonTokens.labelPlaceholder': 'Beschriftung (optional) — z. B. „Handy von Alice“',
-  'workbench.settings.daemonTokens.bindUserPlaceholder': 'An Benutzer binden (optional)',
-  'workbench.settings.daemonTokens.generate': 'Token erzeugen',
-  'workbench.settings.daemonTokens.pairDevice': 'Gerät koppeln',
-  'workbench.settings.daemonTokens.explainer.intro': 'Beides fügt unten einen Token hinzu.',
-  'workbench.settings.daemonTokens.explainer.generateText':
+  'workbench.settings.backendTokens.labelPlaceholder': 'Beschriftung (optional) — z. B. „Handy von Alice“',
+  'workbench.settings.backendTokens.bindUserPlaceholder': 'An Benutzer binden (optional)',
+  'workbench.settings.backendTokens.generate': 'Token erzeugen',
+  'workbench.settings.backendTokens.pairDevice': 'Gerät koppeln',
+  'workbench.settings.backendTokens.explainer.intro': 'Beides fügt unten einen Token hinzu.',
+  'workbench.settings.backendTokens.explainer.generateText':
     'zeigt dir das Secret, damit du es selbst kopierst und auf dem Gerät einfügst.',
-  'workbench.settings.daemonTokens.explainer.pairText':
+  'workbench.settings.backendTokens.explainer.pairText':
     'zeigt einen kurzen Code, den das Gerät unter Einstellungen → Back-end → Mit einem Code koppeln eingibt ' +
     '(oder als Ausweg einen Link öffnet) — nutze das, wenn jemand anderes das Gerät einrichtet.',
-  'workbench.settings.daemonTokens.empty':
+  'workbench.settings.backendTokens.empty':
     'Noch keine Geräte. Erzeuge einen Token und füge ihn auf dem Gerät unter Einstellungen → Back-end ein, ' +
     'oder kopple ein Gerät und lass es dort den Code eingeben.',
-  'workbench.settings.daemonTokens.mintFailed': 'Token ließ sich nicht prägen: {message}',
-  'workbench.settings.daemonTokens.rotateFailed': 'Rotation fehlgeschlagen: {message}',
-  'workbench.settings.daemonTokens.revokeFailed': 'Widerruf fehlgeschlagen: {message}',
-  'workbench.settings.daemonTokens.revokedDevice': 'Token widerrufen. Jedes Gerät, das ihn nutzte, wurde getrennt.',
-  'workbench.settings.daemonTokens.revokedSession': 'Sitzung widerrufen. Der Benutzer wurde abgemeldet.',
-  'workbench.settings.daemonTokens.rotate': 'Rotieren',
-  'workbench.settings.daemonTokens.revoke': 'Widerrufen',
-  'workbench.settings.daemonTokens.rotateConfirmTitle': 'Diesen Token rotieren?',
-  'workbench.settings.daemonTokens.rotateConfirmBody':
+  'workbench.settings.backendTokens.mintFailed': 'Token ließ sich nicht prägen: {message}',
+  'workbench.settings.backendTokens.rotateFailed': 'Rotation fehlgeschlagen: {message}',
+  'workbench.settings.backendTokens.revokeFailed': 'Widerruf fehlgeschlagen: {message}',
+  'workbench.settings.backendTokens.revokedDevice': 'Token widerrufen. Jedes Gerät, das ihn nutzte, wurde getrennt.',
+  'workbench.settings.backendTokens.revokedSession': 'Sitzung widerrufen. Der Benutzer wurde abgemeldet.',
+  'workbench.settings.backendTokens.rotate': 'Rotieren',
+  'workbench.settings.backendTokens.revoke': 'Widerrufen',
+  'workbench.settings.backendTokens.rotateConfirmTitle': 'Diesen Token rotieren?',
+  'workbench.settings.backendTokens.rotateConfirmBody':
     'Ein frisches Secret wird geprägt und das aktuelle widerrufen. Das Gerät muss den neuen Token bekommen, ' +
     'bevor es sich wieder verbinden kann.',
-  'workbench.settings.daemonTokens.revokeConfirmTitle': 'Diesen Token widerrufen?',
-  'workbench.settings.daemonTokens.revokeConfirmBody':
+  'workbench.settings.backendTokens.revokeConfirmTitle': 'Diesen Token widerrufen?',
+  'workbench.settings.backendTokens.revokeConfirmBody':
     'Jedes Gerät, das ihn gerade nutzt, wird sofort getrennt und kann sich nicht wieder verbinden.',
-  'workbench.settings.daemonTokens.revokeSessionConfirmTitle': 'Diese Sitzung widerrufen?',
-  'workbench.settings.daemonTokens.revokeSessionConfirmBody':
+  'workbench.settings.backendTokens.revokeSessionConfirmTitle': 'Diese Sitzung widerrufen?',
+  'workbench.settings.backendTokens.revokeSessionConfirmBody':
     'Der Benutzer wird sofort abgemeldet und getrennt. Er muss sich erneut über den Identitätsanbieter ' + 'anmelden.',
-  'workbench.settings.daemonTokens.revokedTag': 'Widerrufen {when}',
-  'workbench.settings.daemonTokens.connectedTag': 'Verbunden',
-  'workbench.settings.daemonTokens.expiredTag': 'Abgelaufen',
-  'workbench.settings.daemonTokens.unlabeled': '(ohne Beschriftung)',
-  'workbench.settings.daemonTokens.unbound': '(ungebunden)',
-  'workbench.settings.daemonTokens.meta.device': 'Id {id} · erstellt {created} · zuletzt genutzt {lastUsed}',
-  'workbench.settings.daemonTokens.meta.boundUser': 'Benutzer {user}',
-  'workbench.settings.daemonTokens.meta.session':
+  'workbench.settings.backendTokens.revokedTag': 'Widerrufen {when}',
+  'workbench.settings.backendTokens.connectedTag': 'Verbunden',
+  'workbench.settings.backendTokens.expiredTag': 'Abgelaufen',
+  'workbench.settings.backendTokens.unlabeled': '(ohne Beschriftung)',
+  'workbench.settings.backendTokens.unbound': '(ungebunden)',
+  'workbench.settings.backendTokens.meta.device': 'Id {id} · erstellt {created} · zuletzt genutzt {lastUsed}',
+  'workbench.settings.backendTokens.meta.boundUser': 'Benutzer {user}',
+  'workbench.settings.backendTokens.meta.session':
     'angemeldet {signedIn} · läuft ab {expires} · zuletzt gesehen {lastSeen} · Id {id}',
-  'workbench.settings.daemonTokens.ssoTitle': 'SSO-Sitzungen',
-  'workbench.settings.daemonTokens.ssoBlurb':
+  'workbench.settings.backendTokens.ssoTitle': 'SSO-Sitzungen',
+  'workbench.settings.backendTokens.ssoBlurb':
     'Jede SSO-Anmeldung prägt eine Sitzung, die von selbst abläuft. Widerrufe eine, um den Benutzer sofort ' +
     'abzumelden — er muss sich erneut über den Identitätsanbieter anmelden.',
-  'workbench.settings.daemonTokens.secretTitle': 'Kopiere diesen Token jetzt',
-  'workbench.settings.daemonTokens.secretTitleRotated': 'Kopiere den rotierten Token jetzt',
-  'workbench.settings.daemonTokens.secretBody':
+  'workbench.settings.backendTokens.secretTitle': 'Kopiere diesen Token jetzt',
+  'workbench.settings.backendTokens.secretTitleRotated': 'Kopiere den rotierten Token jetzt',
+  'workbench.settings.backendTokens.secretBody':
     'Das Back-end speichert nur einen Hash dieses Wertes. Sobald dieser Dialog schließt, lässt sich das Secret ' +
     'nicht wiederherstellen — wenn du es verlierst, widerrufe den Token und präge einen neuen.',
-  'workbench.settings.daemonTokens.secretBodyRotated':
+  'workbench.settings.backendTokens.secretBodyRotated':
     'Der vorherige Token ist jetzt widerrufen — gib dieses neue Secret an das Gerät, damit es sich wieder ' +
     'verbinden kann. Das Back-end speichert nur einen Hash dieses Wertes. Sobald dieser Dialog schließt, lässt ' +
     'sich das Secret nicht wiederherstellen — wenn du es verlierst, widerrufe den Token und präge einen neuen.',
-  'workbench.settings.daemonTokens.secretSaved': 'Ich habe es gesichert',
+  'workbench.settings.backendTokens.secretSaved': 'Ich habe es gesichert',
 
   // ── Daemon pairing modal ────────────────────────────────────────────
-  'workbench.settings.daemonTokens.pairModal.done': 'Fertig',
-  'workbench.settings.daemonTokens.pairModal.allocating': 'Code wird zugeteilt…',
-  'workbench.settings.daemonTokens.pairModal.startFailed': 'Kopplung konnte nicht starten',
-  'workbench.settings.daemonTokens.pairModal.expiredTitle': 'Kopplung abgelaufen',
-  'workbench.settings.daemonTokens.pairModal.expiredBody':
+  'workbench.settings.backendTokens.pairModal.done': 'Fertig',
+  'workbench.settings.backendTokens.pairModal.allocating': 'Code wird zugeteilt…',
+  'workbench.settings.backendTokens.pairModal.startFailed': 'Kopplung konnte nicht starten',
+  'workbench.settings.backendTokens.pairModal.expiredTitle': 'Kopplung abgelaufen',
+  'workbench.settings.backendTokens.pairModal.expiredBody':
     'Das 5-Minuten-Fenster verstrich ohne Bestätigung. Schließe diesen Dialog und klicke erneut auf Gerät ' +
     'koppeln, um neu zu beginnen.',
-  'workbench.settings.daemonTokens.pairModal.pairedTitle': 'Gekoppelt',
-  'workbench.settings.daemonTokens.pairModal.pairedBody':
+  'workbench.settings.backendTokens.pairModal.pairedTitle': 'Gekoppelt',
+  'workbench.settings.backendTokens.pairModal.pairedBody':
     'Das Gerät hat den Code bestätigt. Ein frischer Zugriffstoken wurde ausgestellt und auf dem Gerät ' +
     'gespeichert; es erscheint in der Liste unten. Kann sich das Gerät nicht verbinden, widerrufe den ' +
     'Eintrag und kopple erneut.',
-  'workbench.settings.daemonTokens.pairModal.intro.part1': 'Öffne auf dem anderen Gerät',
-  'workbench.settings.daemonTokens.pairModal.intro.settingsPath': 'Einstellungen → Back-end',
-  'workbench.settings.daemonTokens.pairModal.intro.part2': ', richte seine',
-  'workbench.settings.daemonTokens.pairModal.intro.address': 'Back-end-Adresse',
-  'workbench.settings.daemonTokens.pairModal.intro.part3': 'auf diese App, klicke dann auf',
-  'workbench.settings.daemonTokens.pairModal.intro.part4': 'und gib ein:',
-  'workbench.settings.daemonTokens.pairModal.codeLabel': 'Kopplungscode',
-  'workbench.settings.daemonTokens.pairModal.expiresIn': 'läuft ab in {remaining}',
-  'workbench.settings.daemonTokens.pairModal.addressListLabel': 'Back-end-Adresse dieser App',
-  'workbench.settings.daemonTokens.pairModal.fallback.prefix': 'Keine Option',
-  'workbench.settings.daemonTokens.pairModal.fallback.suffix':
+  'workbench.settings.backendTokens.pairModal.intro.part1': 'Öffne auf dem anderen Gerät',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Einstellungen → Back-end',
+  'workbench.settings.backendTokens.pairModal.intro.part2': ', richte seine',
+  'workbench.settings.backendTokens.pairModal.intro.address': 'Back-end-Adresse',
+  'workbench.settings.backendTokens.pairModal.intro.part3': 'auf diese App, klicke dann auf',
+  'workbench.settings.backendTokens.pairModal.intro.part4': 'und gib ein:',
+  'workbench.settings.backendTokens.pairModal.codeLabel': 'Kopplungscode',
+  'workbench.settings.backendTokens.pairModal.expiresIn': 'läuft ab in {remaining}',
+  'workbench.settings.backendTokens.pairModal.addressListLabel': 'Back-end-Adresse dieser App',
+  'workbench.settings.backendTokens.pairModal.fallback.prefix': 'Keine Option',
+  'workbench.settings.backendTokens.pairModal.fallback.suffix':
     'auf dem Gerät? Öffne dort stattdessen einen dieser Links — er liefert eine Seite, die einen Token zum ' +
     'manuellen Einfügen übergibt.',
 
@@ -725,7 +725,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.notPresent':
     'In diesem Build nicht enthalten — nur paketierte macOS-Builds.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registrierung',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Server',
+  'workbench.settings.proxyTrustPane.helper.serverLabel': 'Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registriert',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Wartet auf Genehmigung',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Nicht registriert',

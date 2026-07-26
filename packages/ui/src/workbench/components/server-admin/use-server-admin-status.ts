@@ -13,10 +13,10 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { useEffect, useState } from 'react';
 
-export type DaemonAdminStatus = 'unknown' | 'admin' | 'denied';
+export type ServerAdminStatus = 'unknown' | 'admin' | 'denied';
 
-export function useDaemonAdminStatus(): DaemonAdminStatus {
-  const [status, setStatus] = useState<DaemonAdminStatus>('unknown');
+export function useServerAdminStatus(): ServerAdminStatus {
+  const [status, setStatus] = useState<ServerAdminStatus>('unknown');
 
   useEffect(() => {
     let cancelled = false;

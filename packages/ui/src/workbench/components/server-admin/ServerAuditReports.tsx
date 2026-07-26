@@ -62,20 +62,20 @@ interface AuditFilters {
 }
 
 const CAPABILITY_OPTIONS: ReadonlyArray<{ value: string; labelKey: MessageKey }> = [
-  { value: 'daemon.admission', labelKey: 'workbench.daemonAdmin.audit.capAdmission' },
-  { value: 'daemon.admin', labelKey: 'workbench.daemonAdmin.audit.capAdminPlane' },
-  { value: 'daemon.sso-grant', labelKey: 'workbench.daemonAdmin.audit.capSsoGrant' },
-  { value: 'daemon.sso-revoke', labelKey: 'workbench.daemonAdmin.audit.capSsoRevoke' },
-  { value: 'workspace.read', labelKey: 'workbench.daemonAdmin.audit.capWorkspaceRead' },
-  { value: 'workspace.write', labelKey: 'workbench.daemonAdmin.audit.capWorkspaceWrite' },
-  { value: 'workspace.list', labelKey: 'workbench.daemonAdmin.audit.capWorkspaceList' },
+  { value: 'daemon.admission', labelKey: 'workbench.serverAdmin.audit.capAdmission' },
+  { value: 'daemon.admin', labelKey: 'workbench.serverAdmin.audit.capAdminPlane' },
+  { value: 'daemon.sso-grant', labelKey: 'workbench.serverAdmin.audit.capSsoGrant' },
+  { value: 'daemon.sso-revoke', labelKey: 'workbench.serverAdmin.audit.capSsoRevoke' },
+  { value: 'workspace.read', labelKey: 'workbench.serverAdmin.audit.capWorkspaceRead' },
+  { value: 'workspace.write', labelKey: 'workbench.serverAdmin.audit.capWorkspaceWrite' },
+  { value: 'workspace.list', labelKey: 'workbench.serverAdmin.audit.capWorkspaceList' },
 ];
 
 const RANGE_OPTIONS: ReadonlyArray<{ value: number; labelKey: MessageKey }> = [
-  { value: 3_600_000, labelKey: 'workbench.daemonAdmin.audit.rangeLastHour' },
-  { value: 86_400_000, labelKey: 'workbench.daemonAdmin.audit.rangeLast24Hours' },
-  { value: 7 * 86_400_000, labelKey: 'workbench.daemonAdmin.audit.rangeLast7Days' },
-  { value: 30 * 86_400_000, labelKey: 'workbench.daemonAdmin.audit.rangeLast30Days' },
+  { value: 3_600_000, labelKey: 'workbench.serverAdmin.audit.rangeLastHour' },
+  { value: 86_400_000, labelKey: 'workbench.serverAdmin.audit.rangeLast24Hours' },
+  { value: 7 * 86_400_000, labelKey: 'workbench.serverAdmin.audit.rangeLast7Days' },
+  { value: 30 * 86_400_000, labelKey: 'workbench.serverAdmin.audit.rangeLast30Days' },
 ];
 
 /** Console page size; the server clamps to its own cap independently. */
@@ -102,7 +102,7 @@ function buildRequest(filters: AuditFilters, order: 'asc' | 'desc', limit: numbe
   return request;
 }
 
-const DaemonAuditReports: React.FC<{
+const ServerAuditReports: React.FC<{
   users: ReadonlyArray<{ userId: string; displayName: string }>;
   workspaceName: (id: string) => string;
   workspaceOptions: ReadonlyArray<{ value: string; label: string }>;
@@ -176,35 +176,35 @@ const DaemonAuditReports: React.FC<{
 
   const columns = [
     {
-      title: t('workbench.daemonAdmin.audit.colTime'),
+      title: t('workbench.serverAdmin.audit.colTime'),
       dataIndex: 'occurredAt',
       width: 170,
       render: (iso: string) => <span style={{ whiteSpace: 'nowrap' }}>{formatTime(locale, iso)}</span>,
     },
     {
-      title: t('workbench.daemonAdmin.audit.colEvent'),
+      title: t('workbench.serverAdmin.audit.colEvent'),
       key: 'event',
       width: 170,
       render: (_: unknown, row: AuditRow) => {
         if (row.capability === 'daemon.admission') {
           return row.decision.allow ? (
-            <Tag color="blue">{t('workbench.daemonAdmin.audit.eventAdmission')}</Tag>
+            <Tag color="blue">{t('workbench.serverAdmin.audit.eventAdmission')}</Tag>
           ) : (
             <Tooltip title={row.decision.reason}>
-              <Tag color="orange">{t('workbench.daemonAdmin.audit.eventAdmissionRefused')}</Tag>
+              <Tag color="orange">{t('workbench.serverAdmin.audit.eventAdmissionRefused')}</Tag>
             </Tooltip>
           );
         }
         if (row.capability === 'daemon.sso-grant')
-          return <Tag color="blue">{t('workbench.daemonAdmin.audit.eventSsoGrant')}</Tag>;
+          return <Tag color="blue">{t('workbench.serverAdmin.audit.eventSsoGrant')}</Tag>;
         if (row.capability === 'daemon.sso-revoke')
-          return <Tag color="purple">{t('workbench.daemonAdmin.audit.eventSsoRevoke')}</Tag>;
+          return <Tag color="purple">{t('workbench.serverAdmin.audit.eventSsoRevoke')}</Tag>;
         return row.decision.allow ? (
-          <Tag color="green">{t('workbench.daemonAdmin.audit.eventAllow')}</Tag>
+          <Tag color="green">{t('workbench.serverAdmin.audit.eventAllow')}</Tag>
         ) : (
           <Tooltip title={row.decision.reason}>
             <Tag color="red">
-              {t('workbench.daemonAdmin.audit.eventDeny')}
+              {t('workbench.serverAdmin.audit.eventDeny')}
               {row.decision.reason ? ` · ${row.decision.reason}` : ''}
             </Tag>
           </Tooltip>
@@ -212,18 +212,18 @@ const DaemonAuditReports: React.FC<{
       },
     },
     {
-      title: t('workbench.daemonAdmin.audit.colCapability'),
+      title: t('workbench.serverAdmin.audit.colCapability'),
       dataIndex: 'capability',
       width: 150,
       render: (capability: string) => <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{capability}</span>,
     },
     {
-      title: t('workbench.daemonAdmin.audit.colWorkspace'),
+      title: t('workbench.serverAdmin.audit.colWorkspace'),
       dataIndex: 'workspaceId',
       render: (workspaceId: string | undefined) => (workspaceId ? workspaceName(workspaceId) : '—'),
     },
     {
-      title: t('workbench.daemonAdmin.audit.colActor'),
+      title: t('workbench.serverAdmin.audit.colActor'),
       dataIndex: 'actorUserId',
       render: (actorUserId: string) => (
         <Tooltip title={actorUserId}>
@@ -246,10 +246,10 @@ const DaemonAuditReports: React.FC<{
             color: token.colorTextSecondary,
           }}
         >
-          {t('workbench.daemonAdmin.audit.sectionTitle')}
+          {t('workbench.serverAdmin.audit.sectionTitle')}
         </h3>
         <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-          {t('workbench.daemonAdmin.audit.sectionHint')}
+          {t('workbench.serverAdmin.audit.sectionHint')}
         </div>
       </header>
       <div
@@ -264,7 +264,7 @@ const DaemonAuditReports: React.FC<{
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           <Select
             size="small"
-            placeholder={t('workbench.daemonAdmin.audit.filterActor')}
+            placeholder={t('workbench.serverAdmin.audit.filterActor')}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -276,7 +276,7 @@ const DaemonAuditReports: React.FC<{
           />
           <Select
             size="small"
-            placeholder={t('workbench.daemonAdmin.audit.filterCapability')}
+            placeholder={t('workbench.serverAdmin.audit.filterCapability')}
             allowClear
             style={{ minWidth: 160 }}
             value={filters.capability}
@@ -286,20 +286,20 @@ const DaemonAuditReports: React.FC<{
           />
           <Select
             size="small"
-            placeholder={t('workbench.daemonAdmin.audit.filterDecision')}
+            placeholder={t('workbench.serverAdmin.audit.filterDecision')}
             allowClear
             style={{ width: 100 }}
             value={filters.decision}
             options={[
-              { value: 'allow', label: t('workbench.daemonAdmin.audit.decisionAllow') },
-              { value: 'deny', label: t('workbench.daemonAdmin.audit.decisionDeny') },
+              { value: 'allow', label: t('workbench.serverAdmin.audit.decisionAllow') },
+              { value: 'deny', label: t('workbench.serverAdmin.audit.decisionDeny') },
             ]}
             onChange={(v) => setFilters((f) => ({ ...f, decision: v }))}
             data-testid="daemon-audit-filter-decision"
           />
           <Select
             size="small"
-            placeholder={t('workbench.daemonAdmin.audit.filterWorkspace')}
+            placeholder={t('workbench.serverAdmin.audit.filterWorkspace')}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -310,7 +310,7 @@ const DaemonAuditReports: React.FC<{
           />
           <Select
             size="small"
-            placeholder={t('workbench.daemonAdmin.audit.filterAnyTime')}
+            placeholder={t('workbench.serverAdmin.audit.filterAnyTime')}
             allowClear
             style={{ width: 130 }}
             value={filters.sinceMs}
@@ -319,7 +319,7 @@ const DaemonAuditReports: React.FC<{
           />
           <div style={{ flex: 1 }} />
           <Button size="small" onClick={() => void load()} loading={loading} data-testid="daemon-audit-refresh">
-            {t('workbench.daemonAdmin.audit.refresh')}
+            {t('workbench.serverAdmin.audit.refresh')}
           </Button>
           <Button
             size="small"
@@ -328,7 +328,7 @@ const DaemonAuditReports: React.FC<{
             disabled={rows === null || rows.length === 0}
             data-testid="daemon-audit-export"
           >
-            {t('workbench.daemonAdmin.audit.exportJsonl')}
+            {t('workbench.serverAdmin.audit.exportJsonl')}
           </Button>
         </div>
         {error && (
@@ -343,12 +343,12 @@ const DaemonAuditReports: React.FC<{
           dataSource={rows ? [...rows] : []}
           loading={rows === null}
           pagination={false}
-          locale={{ emptyText: t('workbench.daemonAdmin.audit.emptyText') }}
+          locale={{ emptyText: t('workbench.serverAdmin.audit.emptyText') }}
         />
         {nextCursor && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
             <Button size="small" onClick={() => void load(nextCursor)} loading={loading} data-testid="daemon-audit-load-more">
-              {t('workbench.daemonAdmin.audit.loadMore')}
+              {t('workbench.serverAdmin.audit.loadMore')}
             </Button>
           </div>
         )}
@@ -357,4 +357,4 @@ const DaemonAuditReports: React.FC<{
   );
 };
 
-export default DaemonAuditReports;
+export default ServerAuditReports;

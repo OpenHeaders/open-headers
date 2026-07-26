@@ -1,5 +1,5 @@
 /**
- * OpenDaemonAdminContext — hands the shell's `openDaemonAdmin` action
+ * OpenServerAdminContext — hands the shell's `openServerAdmin` action
  * (open the daemon administration console tab) to deep workbench
  * components — the settings backend card's CTA — without threading a
  * prop through every layer. Same shape as {@link OpenSettingsContext}.
@@ -12,17 +12,17 @@
 import { createContext, useContext } from 'react';
 import type React from 'react';
 
-export type OpenDaemonAdmin = () => void;
+export type OpenServerAdmin = () => void;
 
-const OpenDaemonAdminContext = createContext<OpenDaemonAdmin | null>(null);
+const OpenServerAdminContext = createContext<OpenServerAdmin | null>(null);
 
-export const OpenDaemonAdminProvider: React.FC<{
-  openDaemonAdmin: OpenDaemonAdmin;
+export const OpenServerAdminProvider: React.FC<{
+  openServerAdmin: OpenServerAdmin;
   children: React.ReactNode;
-}> = ({ openDaemonAdmin, children }) => (
-  <OpenDaemonAdminContext.Provider value={openDaemonAdmin}>{children}</OpenDaemonAdminContext.Provider>
+}> = ({ openServerAdmin, children }) => (
+  <OpenServerAdminContext.Provider value={openServerAdmin}>{children}</OpenServerAdminContext.Provider>
 );
 
-export function useOpenDaemonAdmin(): OpenDaemonAdmin | null {
-  return useContext(OpenDaemonAdminContext);
+export function useOpenServerAdmin(): OpenServerAdmin | null {
+  return useContext(OpenServerAdminContext);
 }

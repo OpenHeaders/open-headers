@@ -160,8 +160,8 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
       return t('workbench.shell.breadcrumbs.whatsNew');
     case 'workspace-manager':
       return t('workbench.shell.breadcrumbs.workspaces');
-    case 'daemon-admin':
-      return t('workbench.shell.breadcrumbs.daemonAdmin');
+    case 'server-admin':
+      return t('workbench.shell.breadcrumbs.serverAdmin');
     case 'workspace-vars':
       return t('workbench.shell.breadcrumbs.workspaceVariables');
     case 'vault':

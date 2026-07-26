@@ -312,7 +312,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge——每个浏览器数据独立，不跨设备、不跨浏览器',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': '通常为 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': '在后端 → 连接中覆盖',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4——服务器在你自己的机器上（Docker、sidecar）',
+  'workbench.settings.backendPane.tier.rangeNote.serverOwnBox': 'IPv4——服务器在你自己的机器上（Docker、sidecar）',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': '实际上是 fd00::/8——IPv6 私有分配',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale 等',
@@ -363,75 +363,75 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.presetRestoreTip': '把每个自定义过的快捷键重置为当前预设。',
 
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
-  'workbench.settings.daemonTokens.sectionTitle': '已配对的设备',
-  'workbench.settings.daemonTokens.sectionBlurb':
+  'workbench.settings.backendTokens.sectionTitle': '已配对的设备',
+  'workbench.settings.backendTokens.sectionBlurb':
     '每台连接到此后端的设备都用一个访问 token 进行身份验证。已连接的设备会高亮显示；轮换 token 会签发新机密并让旧的退役。',
-  'workbench.settings.daemonTokens.labelPlaceholder': '标签（可选）——例如“alice 的手机”',
-  'workbench.settings.daemonTokens.bindUserPlaceholder': '绑定到用户（可选）',
-  'workbench.settings.daemonTokens.generate': '生成 token',
-  'workbench.settings.daemonTokens.pairDevice': '配对设备',
-  'workbench.settings.daemonTokens.explainer.intro': '两种方式都会在下方添加一个 token。',
-  'workbench.settings.daemonTokens.explainer.generateText': '会显示机密，由你自己复制并粘贴到设备中。',
-  'workbench.settings.daemonTokens.explainer.pairText':
+  'workbench.settings.backendTokens.labelPlaceholder': '标签（可选）——例如“alice 的手机”',
+  'workbench.settings.backendTokens.bindUserPlaceholder': '绑定到用户（可选）',
+  'workbench.settings.backendTokens.generate': '生成 token',
+  'workbench.settings.backendTokens.pairDevice': '配对设备',
+  'workbench.settings.backendTokens.explainer.intro': '两种方式都会在下方添加一个 token。',
+  'workbench.settings.backendTokens.explainer.generateText': '会显示机密，由你自己复制并粘贴到设备中。',
+  'workbench.settings.backendTokens.explainer.pairText':
     '会显示一个短配对码，设备在设置 → 后端 → 用配对码配对处输入（或作为回退打开一个链接）——由别人设置设备时用这种方式。',
-  'workbench.settings.daemonTokens.empty':
+  'workbench.settings.backendTokens.empty':
     '还没有设备。生成一个 token 并粘贴到设备的设置 → 后端中，或配对一台设备并让它在那里输入配对码。',
-  'workbench.settings.daemonTokens.mintFailed': '签发 token 失败：{message}',
-  'workbench.settings.daemonTokens.rotateFailed': '轮换失败：{message}',
-  'workbench.settings.daemonTokens.revokeFailed': '吊销失败：{message}',
-  'workbench.settings.daemonTokens.revokedDevice': 'token 已吊销。使用它的设备都已断开连接。',
-  'workbench.settings.daemonTokens.revokedSession': '会话已吊销。该用户已被登出。',
-  'workbench.settings.daemonTokens.rotate': '轮换',
-  'workbench.settings.daemonTokens.revoke': '吊销',
-  'workbench.settings.daemonTokens.rotateConfirmTitle': '轮换此 token？',
-  'workbench.settings.daemonTokens.rotateConfirmBody':
+  'workbench.settings.backendTokens.mintFailed': '签发 token 失败：{message}',
+  'workbench.settings.backendTokens.rotateFailed': '轮换失败：{message}',
+  'workbench.settings.backendTokens.revokeFailed': '吊销失败：{message}',
+  'workbench.settings.backendTokens.revokedDevice': 'token 已吊销。使用它的设备都已断开连接。',
+  'workbench.settings.backendTokens.revokedSession': '会话已吊销。该用户已被登出。',
+  'workbench.settings.backendTokens.rotate': '轮换',
+  'workbench.settings.backendTokens.revoke': '吊销',
+  'workbench.settings.backendTokens.rotateConfirmTitle': '轮换此 token？',
+  'workbench.settings.backendTokens.rotateConfirmBody':
     '会签发一个新机密并吊销当前的。设备必须拿到新 token 才能重新连接。',
-  'workbench.settings.daemonTokens.revokeConfirmTitle': '吊销此 token？',
-  'workbench.settings.daemonTokens.revokeConfirmBody': '当前使用它的设备会立即断开连接，且无法重新连接。',
-  'workbench.settings.daemonTokens.revokeSessionConfirmTitle': '吊销此会话？',
-  'workbench.settings.daemonTokens.revokeSessionConfirmBody':
+  'workbench.settings.backendTokens.revokeConfirmTitle': '吊销此 token？',
+  'workbench.settings.backendTokens.revokeConfirmBody': '当前使用它的设备会立即断开连接，且无法重新连接。',
+  'workbench.settings.backendTokens.revokeSessionConfirmTitle': '吊销此会话？',
+  'workbench.settings.backendTokens.revokeSessionConfirmBody':
     '该用户会被立即登出并断开连接。他们必须重新通过身份提供方登录。',
-  'workbench.settings.daemonTokens.revokedTag': '{when}已吊销',
-  'workbench.settings.daemonTokens.connectedTag': '已连接',
-  'workbench.settings.daemonTokens.expiredTag': '已过期',
-  'workbench.settings.daemonTokens.unlabeled': '（无标签）',
-  'workbench.settings.daemonTokens.unbound': '（未绑定）',
-  'workbench.settings.daemonTokens.meta.device': 'id {id} · 创建于 {created} · 最近使用 {lastUsed}',
-  'workbench.settings.daemonTokens.meta.boundUser': '用户 {user}',
-  'workbench.settings.daemonTokens.meta.session':
+  'workbench.settings.backendTokens.revokedTag': '{when}已吊销',
+  'workbench.settings.backendTokens.connectedTag': '已连接',
+  'workbench.settings.backendTokens.expiredTag': '已过期',
+  'workbench.settings.backendTokens.unlabeled': '（无标签）',
+  'workbench.settings.backendTokens.unbound': '（未绑定）',
+  'workbench.settings.backendTokens.meta.device': 'id {id} · 创建于 {created} · 最近使用 {lastUsed}',
+  'workbench.settings.backendTokens.meta.boundUser': '用户 {user}',
+  'workbench.settings.backendTokens.meta.session':
     '登录于 {signedIn} · 过期于 {expires} · 最近活动 {lastSeen} · id {id}',
-  'workbench.settings.daemonTokens.ssoTitle': 'SSO 会话',
-  'workbench.settings.daemonTokens.ssoBlurb':
+  'workbench.settings.backendTokens.ssoTitle': 'SSO 会话',
+  'workbench.settings.backendTokens.ssoBlurb':
     '每次 SSO 登录都会签发一个自行过期的会话。吊销即可立即登出该用户——他们必须重新通过身份提供方登录。',
-  'workbench.settings.daemonTokens.secretTitle': '现在复制此 token',
-  'workbench.settings.daemonTokens.secretTitleRotated': '现在复制轮换后的 token',
-  'workbench.settings.daemonTokens.secretBody':
+  'workbench.settings.backendTokens.secretTitle': '现在复制此 token',
+  'workbench.settings.backendTokens.secretTitleRotated': '现在复制轮换后的 token',
+  'workbench.settings.backendTokens.secretBody':
     '后端只存储此值的哈希。此对话框关闭后机密将无法恢复——如果丢失，请吊销该 token 并签发一个新的。',
-  'workbench.settings.daemonTokens.secretBodyRotated':
+  'workbench.settings.backendTokens.secretBodyRotated':
     '之前的 token 现已吊销——把这个新机密交给设备，它才能重新连接。后端只存储此值的哈希。此对话框关闭后机密将无法恢复——如果丢失，请吊销该 token 并签发一个新的。',
-  'workbench.settings.daemonTokens.secretSaved': '我已保存',
+  'workbench.settings.backendTokens.secretSaved': '我已保存',
 
   // ── Daemon pairing modal ────────────────────────────────────────────
-  'workbench.settings.daemonTokens.pairModal.done': '完成',
-  'workbench.settings.daemonTokens.pairModal.allocating': '正在分配配对码…',
-  'workbench.settings.daemonTokens.pairModal.startFailed': '无法开始配对',
-  'workbench.settings.daemonTokens.pairModal.expiredTitle': '配对已过期',
-  'workbench.settings.daemonTokens.pairModal.expiredBody':
+  'workbench.settings.backendTokens.pairModal.done': '完成',
+  'workbench.settings.backendTokens.pairModal.allocating': '正在分配配对码…',
+  'workbench.settings.backendTokens.pairModal.startFailed': '无法开始配对',
+  'workbench.settings.backendTokens.pairModal.expiredTitle': '配对已过期',
+  'workbench.settings.backendTokens.pairModal.expiredBody':
     '5 分钟窗口内没有收到确认。关闭此对话框，再次点击“配对设备”重新开始。',
-  'workbench.settings.daemonTokens.pairModal.pairedTitle': '已配对',
-  'workbench.settings.daemonTokens.pairModal.pairedBody':
+  'workbench.settings.backendTokens.pairModal.pairedTitle': '已配对',
+  'workbench.settings.backendTokens.pairModal.pairedBody':
     '设备确认了配对码。已签发一个新的访问 token 并保存在那台设备上；它出现在下方列表中。如果设备无法连接，请吊销该条目并重新配对。',
-  'workbench.settings.daemonTokens.pairModal.intro.part1': '在另一台设备上，打开',
-  'workbench.settings.daemonTokens.pairModal.intro.settingsPath': '设置 → 后端',
-  'workbench.settings.daemonTokens.pairModal.intro.part2': '，把它的',
-  'workbench.settings.daemonTokens.pairModal.intro.address': '后端地址',
-  'workbench.settings.daemonTokens.pairModal.intro.part3': '指向此应用，然后点击',
-  'workbench.settings.daemonTokens.pairModal.intro.part4': '并输入：',
-  'workbench.settings.daemonTokens.pairModal.codeLabel': '配对码',
-  'workbench.settings.daemonTokens.pairModal.expiresIn': '{remaining}后过期',
-  'workbench.settings.daemonTokens.pairModal.addressListLabel': '此应用的后端地址',
-  'workbench.settings.daemonTokens.pairModal.fallback.prefix': '那台设备上没有',
-  'workbench.settings.daemonTokens.pairModal.fallback.suffix':
+  'workbench.settings.backendTokens.pairModal.intro.part1': '在另一台设备上，打开',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': '设置 → 后端',
+  'workbench.settings.backendTokens.pairModal.intro.part2': '，把它的',
+  'workbench.settings.backendTokens.pairModal.intro.address': '后端地址',
+  'workbench.settings.backendTokens.pairModal.intro.part3': '指向此应用，然后点击',
+  'workbench.settings.backendTokens.pairModal.intro.part4': '并输入：',
+  'workbench.settings.backendTokens.pairModal.codeLabel': '配对码',
+  'workbench.settings.backendTokens.pairModal.expiresIn': '{remaining}后过期',
+  'workbench.settings.backendTokens.pairModal.addressListLabel': '此应用的后端地址',
+  'workbench.settings.backendTokens.pairModal.fallback.prefix': '那台设备上没有',
+  'workbench.settings.backendTokens.pairModal.fallback.suffix':
     '选项？改为在那里打开这些链接之一——它会提供一个页面，交出一个可手动粘贴的 token。',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
@@ -593,7 +593,7 @@ export const workbenchSettingsPanes = {
     '系统钥匙串信任经由一个已签名的助手完成，它以后台项目的身份注册到 macOS。它只搬运证书字节 — 每一次信任决定仍要经过 macOS 管理员对话框。',
   'workbench.settings.proxyTrustPane.helper.notPresent': '此构建不包含 — 仅限打包的 macOS 构建。',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': '注册',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': '服务器',
+  'workbench.settings.proxyTrustPane.helper.serverLabel': '服务器',
   'workbench.settings.proxyTrustPane.helper.state.enabled': '已注册',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '等待批准',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未注册',

@@ -33,13 +33,13 @@ import { type BridgeRpcRequest, type BridgeRpcResponse, hostBridge } from '@open
 import { getDateTimeFormat, type MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { useWorkspaces } from '../../../shared/hooks/readers/useWorkspaces';
-import DaemonTokensSection from '../../settings/components/daemon-tokens-section';
+import BackendTokensSection from '../../settings/components/backend-tokens-section';
 import GitWorkspacePane, {
   type WorkspaceTreeRpcType,
   type WorkspaceTreeTransport,
 } from '../../settings/components/git-workspace-pane';
-import DaemonAuditReports from './DaemonAuditReports';
-import { type DaemonAdminStatus, useDaemonAdminStatus } from './use-daemon-admin-status';
+import ServerAuditReports from './ServerAuditReports';
+import { type ServerAdminStatus, useServerAdminStatus } from './use-server-admin-status';
 
 type DirectoryRole = 'owner' | 'editor' | 'viewer';
 
@@ -72,9 +72,9 @@ const adminGitTransport: WorkspaceTreeTransport = async <K extends WorkspaceTree
   })) as BridgeRpcResponse<K>;
 
 const ROLE_LABELS: Record<DirectoryRole, MessageKey> = {
-  viewer: 'workbench.daemonAdmin.grants.roleViewer',
-  editor: 'workbench.daemonAdmin.grants.roleEditor',
-  owner: 'workbench.daemonAdmin.grants.roleOwner',
+  viewer: 'workbench.serverAdmin.grants.roleViewer',
+  editor: 'workbench.serverAdmin.grants.roleEditor',
+  owner: 'workbench.serverAdmin.grants.roleOwner',
 };
 
 const ROLE_VALUES: readonly DirectoryRole[] = ['viewer', 'editor', 'owner'];
@@ -87,12 +87,12 @@ const PersonalSeatTag: React.FC<{ admission: NonNullable<DirectoryUser['admissio
     <Tooltip
       title={
         healthy
-          ? t('workbench.daemonAdmin.seat.healthyTooltip', { id: admission.licenseId })
-          : t('workbench.daemonAdmin.seat.lapsedTooltip', { id: admission.licenseId, status: admission.status })
+          ? t('workbench.serverAdmin.seat.healthyTooltip', { id: admission.licenseId })
+          : t('workbench.serverAdmin.seat.lapsedTooltip', { id: admission.licenseId, status: admission.status })
       }
     >
       <Tag color={healthy ? 'purple' : 'orange'} style={{ marginInlineEnd: 0 }}>
-        {t('workbench.daemonAdmin.seat.tag')}
+        {t('workbench.serverAdmin.seat.tag')}
         {healthy ? '' : ` · ${admission.status}`}
       </Tag>
     </Tooltip>
@@ -162,13 +162,13 @@ const GrantsEditor: React.FC<{
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {user.grants.length === 0 && (
           <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-            {t('workbench.daemonAdmin.grants.none')}
+            {t('workbench.serverAdmin.grants.none')}
           </Typography.Text>
         )}
         {user.grants.map((g) => (
           <Tooltip
             key={g.workspaceId}
-            title={g.origin === 'idp' ? t('workbench.daemonAdmin.grants.idpTooltip') : undefined}
+            title={g.origin === 'idp' ? t('workbench.serverAdmin.grants.idpTooltip') : undefined}
           >
             <Tag
               closable={user.deactivatedAt === null}
@@ -189,7 +189,7 @@ const GrantsEditor: React.FC<{
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <Select
             size="small"
-            placeholder={t('workbench.daemonAdmin.grants.workspacePlaceholder')}
+            placeholder={t('workbench.serverAdmin.grants.workspacePlaceholder')}
             style={{ minWidth: 180 }}
             value={workspaceId}
             options={[...addable]}
@@ -206,11 +206,11 @@ const GrantsEditor: React.FC<{
             onChange={(v) => setRole(v)}
           />
           <Button size="small" onClick={() => void handleAdd()} disabled={!workspaceId} loading={busy}>
-            {t('workbench.daemonAdmin.grants.grantCta')}
+            {t('workbench.serverAdmin.grants.grantCta')}
           </Button>
           {addable.length === 0 && user.grants.length > 0 && (
             <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
-              {t('workbench.daemonAdmin.grants.everyWorkspace')}
+              {t('workbench.serverAdmin.grants.everyWorkspace')}
             </span>
           )}
         </div>
@@ -249,13 +249,13 @@ const PasswordModal: React.FC<{
       open
       title={
         user.hasPassword
-          ? t('workbench.daemonAdmin.password.resetTitle', { name: user.displayName })
-          : t('workbench.daemonAdmin.password.setTitle', { name: user.displayName })
+          ? t('workbench.serverAdmin.password.resetTitle', { name: user.displayName })
+          : t('workbench.serverAdmin.password.setTitle', { name: user.displayName })
       }
       onCancel={onClose}
       footer={[
         <Button key="cancel" onClick={onClose} disabled={busy}>
-          {t('workbench.daemonAdmin.cancel')}
+          {t('workbench.serverAdmin.cancel')}
         </Button>,
         <Button
           key="save"
@@ -263,30 +263,30 @@ const PasswordModal: React.FC<{
           disabled={password.length < 8}
           loading={busy}
           onClick={() => void apply(password)}
-          data-testid="daemon-admin-password-save"
+          data-testid="server-admin-password-save"
         >
-          {user.hasPassword ? t('workbench.daemonAdmin.password.resetCta') : t('workbench.daemonAdmin.password.setCta')}
+          {user.hasPassword ? t('workbench.serverAdmin.password.resetCta') : t('workbench.serverAdmin.password.setCta')}
         </Button>,
       ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('workbench.daemonAdmin.password.explainer')}
+          {t('workbench.serverAdmin.password.explainer')}
         </Typography.Text>
         <Input.Password
           autoFocus
-          placeholder={t('workbench.daemonAdmin.password.placeholder')}
+          placeholder={t('workbench.serverAdmin.password.placeholder')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onPressEnter={() => {
             if (password.length >= 8 && !busy) void apply(password);
           }}
           disabled={busy}
-          data-testid="daemon-admin-password-input"
+          data-testid="server-admin-password-input"
         />
         {user.hasPassword && (
           <Button danger size="small" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={() => void apply(null)}>
-            {t('workbench.daemonAdmin.password.removeCta')}
+            {t('workbench.serverAdmin.password.removeCta')}
           </Button>
         )}
       </div>
@@ -323,13 +323,13 @@ const GitEmailModal: React.FC<{
       open
       title={
         user.gitEmail !== null
-          ? t('workbench.daemonAdmin.gitEmail.changeTitle', { name: user.displayName })
-          : t('workbench.daemonAdmin.gitEmail.setTitle', { name: user.displayName })
+          ? t('workbench.serverAdmin.gitEmail.changeTitle', { name: user.displayName })
+          : t('workbench.serverAdmin.gitEmail.setTitle', { name: user.displayName })
       }
       onCancel={onClose}
       footer={[
         <Button key="cancel" onClick={onClose} disabled={busy}>
-          {t('workbench.daemonAdmin.cancel')}
+          {t('workbench.serverAdmin.cancel')}
         </Button>,
         <Button
           key="save"
@@ -337,26 +337,26 @@ const GitEmailModal: React.FC<{
           loading={busy}
           disabled={gitEmail.trim() === ''}
           onClick={() => void apply(gitEmail.trim())}
-          data-testid="daemon-admin-git-email-save"
+          data-testid="server-admin-git-email-save"
         >
           {user.gitEmail !== null
-            ? t('workbench.daemonAdmin.gitEmail.changeCta')
-            : t('workbench.daemonAdmin.gitEmail.setCta')}
+            ? t('workbench.serverAdmin.gitEmail.changeCta')
+            : t('workbench.serverAdmin.gitEmail.setCta')}
         </Button>,
       ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={{ fontSize: 12 }}>{t('workbench.daemonAdmin.gitEmail.explainer')}</span>
+        <span style={{ fontSize: 12 }}>{t('workbench.serverAdmin.gitEmail.explainer')}</span>
         <Input
           value={gitEmail}
           onChange={(e) => setGitEmail(e.target.value)}
-          placeholder={t('workbench.daemonAdmin.gitEmail.placeholder')}
+          placeholder={t('workbench.serverAdmin.gitEmail.placeholder')}
           maxLength={128}
-          data-testid="daemon-admin-git-email-input"
+          data-testid="server-admin-git-email-input"
         />
         {user.gitEmail !== null && (
           <Button danger size="small" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={() => void apply(null)}>
-            {t('workbench.daemonAdmin.gitEmail.removeCta')}
+            {t('workbench.serverAdmin.gitEmail.removeCta')}
           </Button>
         )}
       </div>
@@ -364,11 +364,11 @@ const GitEmailModal: React.FC<{
   );
 };
 
-const DaemonAdminConsole: React.FC = () => {
+const ServerAdminConsole: React.FC = () => {
   const { t, locale } = useLocale();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
-  const adminStatus: DaemonAdminStatus = useDaemonAdminStatus();
+  const adminStatus: ServerAdminStatus = useServerAdminStatus();
   const { workspaces } = useWorkspaces();
   const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
   const [addForm] = Form.useForm<{ displayName: string; email: string; personalLicense: string }>();
@@ -389,7 +389,7 @@ const DaemonAdminConsole: React.FC = () => {
       const resp = await hostBridge.call('oh.daemon.users.list');
       setUsers(resp.users);
     } catch (err) {
-      message.error(t('workbench.daemonAdmin.users.loadFailed', { message: (err as Error).message }));
+      message.error(t('workbench.serverAdmin.users.loadFailed', { message: (err as Error).message }));
       setUsers([]);
     }
   }, [message, t]);
@@ -420,7 +420,7 @@ const DaemonAdminConsole: React.FC = () => {
       // The seat wall is the conversion moment: reveal the redeem field
       // so the blocked admission can complete with the user's own seat.
       if ((err as Error).message.includes('seat limit reached')) setSeatBlocked(true);
-      message.error(t('workbench.daemonAdmin.users.addFailed', { message: (err as Error).message }));
+      message.error(t('workbench.serverAdmin.users.addFailed', { message: (err as Error).message }));
     } finally {
       setAdding(false);
     }
@@ -430,10 +430,10 @@ const DaemonAdminConsole: React.FC = () => {
     try {
       const resp = await hostBridge.call('oh.daemon.users.absorbSeat', { userId });
       if (!resp.ok) throw new Error(resp.error);
-      message.success(t('workbench.daemonAdmin.seat.absorbed'));
+      message.success(t('workbench.serverAdmin.seat.absorbed'));
       await refresh();
     } catch (err) {
-      message.error(t('workbench.daemonAdmin.seat.absorbFailed', { message: (err as Error).message }));
+      message.error(t('workbench.serverAdmin.seat.absorbFailed', { message: (err as Error).message }));
     }
   }
 
@@ -441,10 +441,10 @@ const DaemonAdminConsole: React.FC = () => {
     try {
       const resp = await hostBridge.call('oh.daemon.users.deactivate', { userId });
       if (!resp.ok) throw new Error(resp.error);
-      message.success(t('workbench.daemonAdmin.deactivate.done'));
+      message.success(t('workbench.serverAdmin.deactivate.done'));
       await refresh();
     } catch (err) {
-      message.error(t('workbench.daemonAdmin.deactivate.failed', { message: (err as Error).message }));
+      message.error(t('workbench.serverAdmin.deactivate.failed', { message: (err as Error).message }));
     }
   }
 
@@ -455,7 +455,7 @@ const DaemonAdminConsole: React.FC = () => {
         if (!resp.ok) throw new Error(resp.error);
         await refresh();
       } catch (err) {
-        message.error(t('workbench.daemonAdmin.grants.grantFailed', { message: (err as Error).message }));
+        message.error(t('workbench.serverAdmin.grants.grantFailed', { message: (err as Error).message }));
       }
     },
     [message, refresh, t],
@@ -467,11 +467,11 @@ const DaemonAdminConsole: React.FC = () => {
         const resp = await hostBridge.call('oh.daemon.users.setPassword', { userId, password });
         if (!resp.ok) throw new Error(resp.error);
         message.success(
-          password === null ? t('workbench.daemonAdmin.password.removedDone') : t('workbench.daemonAdmin.password.setDone'),
+          password === null ? t('workbench.serverAdmin.password.removedDone') : t('workbench.serverAdmin.password.setDone'),
         );
         await refresh();
       } catch (err) {
-        message.error(t('workbench.daemonAdmin.password.updateFailed', { message: (err as Error).message }));
+        message.error(t('workbench.serverAdmin.password.updateFailed', { message: (err as Error).message }));
       }
     },
     [message, refresh, t],
@@ -484,12 +484,12 @@ const DaemonAdminConsole: React.FC = () => {
         if (!resp.ok) throw new Error(resp.error);
         message.success(
           gitEmail === null
-            ? t('workbench.daemonAdmin.gitEmail.removedDone')
-            : t('workbench.daemonAdmin.gitEmail.setDone'),
+            ? t('workbench.serverAdmin.gitEmail.removedDone')
+            : t('workbench.serverAdmin.gitEmail.setDone'),
         );
         await refresh();
       } catch (err) {
-        message.error(t('workbench.daemonAdmin.gitEmail.updateFailed', { message: (err as Error).message }));
+        message.error(t('workbench.serverAdmin.gitEmail.updateFailed', { message: (err as Error).message }));
       }
     },
     [message, refresh, t],
@@ -502,7 +502,7 @@ const DaemonAdminConsole: React.FC = () => {
         if (!resp.ok) throw new Error(resp.error);
         await refresh();
       } catch (err) {
-        message.error(t('workbench.daemonAdmin.grants.revokeFailed', { message: (err as Error).message }));
+        message.error(t('workbench.serverAdmin.grants.revokeFailed', { message: (err as Error).message }));
       }
     },
     [message, refresh, t],
@@ -518,24 +518,24 @@ const DaemonAdminConsole: React.FC = () => {
   if (adminStatus === 'denied') {
     return (
       <div style={{ padding: 48 }}>
-        <Empty description={t('workbench.daemonAdmin.deniedDescription')} />
+        <Empty description={t('workbench.serverAdmin.deniedDescription')} />
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '16px 20px 32px' }} data-testid="daemon-admin-console">
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: '16px 20px 32px' }} data-testid="server-admin-console">
       <Typography.Title level={4} style={{ marginTop: 0, marginBottom: 2 }}>
-        {t('workbench.daemonAdmin.title')}
+        {t('workbench.serverAdmin.title')}
       </Typography.Title>
       <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 16 }}>
-        {t('workbench.daemonAdmin.intro')}
+        {t('workbench.serverAdmin.intro')}
       </div>
 
       <section style={{ marginBottom: 12 }}>
         <SectionHeader
-          title={t('workbench.daemonAdmin.users.sectionTitle')}
-          hint={t('workbench.daemonAdmin.users.sectionHint')}
+          title={t('workbench.serverAdmin.users.sectionTitle')}
+          hint={t('workbench.serverAdmin.users.sectionHint')}
         />
         <div
           className="settings-card"
@@ -555,35 +555,35 @@ const DaemonAdminConsole: React.FC = () => {
           >
             <Form.Item
               name="displayName"
-              rules={[{ required: true, message: t('workbench.daemonAdmin.users.nameRequired') }]}
+              rules={[{ required: true, message: t('workbench.serverAdmin.users.nameRequired') }]}
               style={{ flex: 1 }}
             >
               <Input
-                placeholder={t('workbench.daemonAdmin.users.displayNamePlaceholder')}
+                placeholder={t('workbench.serverAdmin.users.displayNamePlaceholder')}
                 maxLength={64}
-                data-testid="daemon-admin-add-name"
+                data-testid="server-admin-add-name"
               />
             </Form.Item>
             <Form.Item name="email" style={{ flex: 1 }}>
-              <Input placeholder={t('workbench.daemonAdmin.users.emailPlaceholder')} maxLength={128} />
+              <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
             </Form.Item>
             {seatBlocked && (
               <Form.Item name="personalLicense" style={{ flex: 1, minWidth: 220 }}>
                 <Input
-                  placeholder={t('workbench.daemonAdmin.users.seatKeyPlaceholder')}
-                  data-testid="daemon-admin-personal-license"
+                  placeholder={t('workbench.serverAdmin.users.seatKeyPlaceholder')}
+                  data-testid="server-admin-personal-license"
                 />
               </Form.Item>
             )}
             <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" htmlType="submit" loading={adding} data-testid="daemon-admin-add-user">
-                {t('workbench.daemonAdmin.users.addUser')}
+              <Button type="primary" htmlType="submit" loading={adding} data-testid="server-admin-add-user">
+                {t('workbench.serverAdmin.users.addUser')}
               </Button>
             </Form.Item>
           </Form>
           {seatBlocked && (
             <div style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 12 }}>
-              {t('workbench.daemonAdmin.users.seatLimit')} {t('workbench.daemonAdmin.users.seatsSoldAt')}{' '}
+              {t('workbench.serverAdmin.users.seatLimit')} {t('workbench.serverAdmin.users.seatsSoldAt')}{' '}
               <Typography.Link href="https://openheaders.io/pricing" target="_blank">
                 openheaders.io/pricing
               </Typography.Link>
@@ -596,7 +596,7 @@ const DaemonAdminConsole: React.FC = () => {
             </div>
           ) : users.length === 0 ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {t('workbench.daemonAdmin.users.emptyDirectory')}
+              {t('workbench.serverAdmin.users.emptyDirectory')}
             </Typography.Text>
           ) : (
             <List
@@ -606,12 +606,12 @@ const DaemonAdminConsole: React.FC = () => {
                 const deactivated = u.deactivatedAt !== null;
                 return (
                   <List.Item
-                    data-testid={`daemon-admin-user-${u.userId}`}
+                    data-testid={`server-admin-user-${u.userId}`}
                     actions={
                       deactivated
                         ? [
                             <Tag key="deactivated" color="default">
-                              {t('workbench.daemonAdmin.users.deactivatedOn', {
+                              {t('workbench.serverAdmin.users.deactivatedOn', {
                                 date: formatTimestamp(locale, u.deactivatedAt),
                               })}
                             </Tag>,
@@ -621,14 +621,14 @@ const DaemonAdminConsole: React.FC = () => {
                               ? [
                                   <Popconfirm
                                     key="absorb"
-                                    title={t('workbench.daemonAdmin.seat.absorbTitle')}
-                                    description={t('workbench.daemonAdmin.seat.absorbDescription')}
-                                    okText={t('workbench.daemonAdmin.seat.absorbOk')}
-                                    cancelText={t('workbench.daemonAdmin.cancel')}
+                                    title={t('workbench.serverAdmin.seat.absorbTitle')}
+                                    description={t('workbench.serverAdmin.seat.absorbDescription')}
+                                    okText={t('workbench.serverAdmin.seat.absorbOk')}
+                                    cancelText={t('workbench.serverAdmin.cancel')}
                                     onConfirm={() => void handleAbsorbSeat(u.userId)}
                                   >
                                     <Button type="link" size="small">
-                                      {t('workbench.daemonAdmin.seat.absorbCta')}
+                                      {t('workbench.serverAdmin.seat.absorbCta')}
                                     </Button>
                                   </Popconfirm>,
                                 ]
@@ -638,34 +638,34 @@ const DaemonAdminConsole: React.FC = () => {
                               type="link"
                               size="small"
                               onClick={() => setPasswordUser(u)}
-                              data-testid={`daemon-admin-password-${u.userId}`}
+                              data-testid={`server-admin-password-${u.userId}`}
                             >
                               {u.hasPassword
-                                ? t('workbench.daemonAdmin.password.resetCta')
-                                : t('workbench.daemonAdmin.password.setCta')}
+                                ? t('workbench.serverAdmin.password.resetCta')
+                                : t('workbench.serverAdmin.password.setCta')}
                             </Button>,
                             <Button
                               key="gitEmail"
                               type="link"
                               size="small"
                               onClick={() => setGitEmailUser(u)}
-                              data-testid={`daemon-admin-git-email-${u.userId}`}
+                              data-testid={`server-admin-git-email-${u.userId}`}
                             >
                               {u.gitEmail !== null
-                                ? t('workbench.daemonAdmin.gitEmail.changeCta')
-                                : t('workbench.daemonAdmin.gitEmail.setCta')}
+                                ? t('workbench.serverAdmin.gitEmail.changeCta')
+                                : t('workbench.serverAdmin.gitEmail.setCta')}
                             </Button>,
                             <Popconfirm
                               key="deactivate"
-                              title={t('workbench.daemonAdmin.deactivate.title')}
-                              description={t('workbench.daemonAdmin.deactivate.description')}
-                              okText={t('workbench.daemonAdmin.deactivate.cta')}
-                              cancelText={t('workbench.daemonAdmin.cancel')}
+                              title={t('workbench.serverAdmin.deactivate.title')}
+                              description={t('workbench.serverAdmin.deactivate.description')}
+                              okText={t('workbench.serverAdmin.deactivate.cta')}
+                              cancelText={t('workbench.serverAdmin.cancel')}
                               okButtonProps={{ danger: true }}
                               onConfirm={() => void handleDeactivate(u.userId)}
                             >
                               <Button type="link" size="small" danger>
-                                {t('workbench.daemonAdmin.deactivate.cta')}
+                                {t('workbench.serverAdmin.deactivate.cta')}
                               </Button>
                             </Popconfirm>,
                           ]
@@ -686,7 +686,7 @@ const DaemonAdminConsole: React.FC = () => {
                       description={
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
-                            {t('workbench.daemonAdmin.users.addedOn', { date: formatTimestamp(locale, u.createdAt) })}
+                            {t('workbench.serverAdmin.users.addedOn', { date: formatTimestamp(locale, u.createdAt) })}
                           </span>
                           <GrantsEditor
                             user={u}
@@ -718,12 +718,12 @@ const DaemonAdminConsole: React.FC = () => {
           No native picker here: binds go through the path input. */}
       <section style={{ marginBottom: 12 }}>
         <SectionHeader
-          title={t('workbench.daemonAdmin.git.sectionTitle')}
-          hint={t('workbench.daemonAdmin.git.sectionHint')}
+          title={t('workbench.serverAdmin.git.sectionTitle')}
+          hint={t('workbench.serverAdmin.git.sectionHint')}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '0 2px' }}>
           <span style={{ fontSize: 11.5, color: token.colorTextSecondary }}>
-            {t('workbench.daemonAdmin.git.workspaceLabel')}
+            {t('workbench.serverAdmin.git.workspaceLabel')}
           </span>
           <Select
             size="small"
@@ -731,7 +731,7 @@ const DaemonAdminConsole: React.FC = () => {
             onChange={(value) => setGitWorkspaceId(value)}
             style={{ minWidth: 220 }}
             options={workspaceOptions}
-            data-testid="daemon-admin-git-workspace"
+            data-testid="server-admin-git-workspace"
           />
         </div>
         {gitWorkspaceId !== null && (
@@ -742,11 +742,11 @@ const DaemonAdminConsole: React.FC = () => {
       {/* Tokens + pairing — the settings section rides the same
           oh.daemon.* channels, so it works here over the wire unchanged
           (its Pair-a-device modal included). */}
-      <DaemonTokensSection />
+      <BackendTokensSection />
 
       {/* Audit reports — actor names resolve through the directory
           loaded above, at view time (§9.3). */}
-      <DaemonAuditReports
+      <ServerAuditReports
         users={(users ?? []).map((u) => ({ userId: u.userId, displayName: u.displayName }))}
         workspaceName={workspaceName}
         workspaceOptions={workspaceOptions}
@@ -755,4 +755,4 @@ const DaemonAdminConsole: React.FC = () => {
   );
 };
 
-export default DaemonAdminConsole;
+export default ServerAdminConsole;

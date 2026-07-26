@@ -10,9 +10,9 @@ import { OH_GREEN } from './_shared';
  * client cards around it (extension on laptop, desktop on workstation,
  * CLI on third device). All connect through LAN — explicitly not cloud.
  */
-export const RoadmapDaemonDiagram: React.FC = () => {
+export const RoadmapServerDiagram: React.FC = () => {
   const t = useT();
-  const ID = 'rm-daemon';
+  const ID = 'rm-server';
   const W = 480;
   const TITLE_Y = 22;
   const SUBTITLE_Y = 40;
@@ -60,15 +60,15 @@ export const RoadmapDaemonDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapDaemon.aria')}
+      aria-label={t('workbench.docs.diagrams.openHeaders.roadmapServer.aria')}
     >
       <ArrowDefs id={ID} />
 
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
-        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.title')}
+        {t('workbench.docs.diagrams.openHeaders.roadmapServer.title')}
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle')}
+        {t('workbench.docs.diagrams.openHeaders.roadmapServer.subtitle')}
       </text>
 
       {/* Daemon block — multi-stack rectangles */}
@@ -91,7 +91,7 @@ export const RoadmapDaemonDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        {t('workbench.docs.diagrams.openHeaders.shared.localDaemon')}
+        {t('workbench.docs.diagrams.openHeaders.shared.localServer')}
       </text>
       {[0, 1, 2].map((i) => (
         <g key={i}>
@@ -109,9 +109,9 @@ export const RoadmapDaemonDiagram: React.FC = () => {
           <text x={DAEMON_X + 26} y={DAEMON_Y + 41 + i * 16} fontFamily="monospace" fontSize={8} fill={TEXT}>
             {
               [
-                t('workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces'),
-                t('workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules'),
-                t('workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync'),
+                t('workbench.docs.diagrams.openHeaders.roadmapServer.stackWorkspaces'),
+                t('workbench.docs.diagrams.openHeaders.roadmapServer.stackRules'),
+                t('workbench.docs.diagrams.openHeaders.roadmapServer.stackSync'),
               ][i]
             }
           </text>
@@ -125,30 +125,30 @@ export const RoadmapDaemonDiagram: React.FC = () => {
         fontStyle="italic"
         fill={TEXT_DIM}
       >
-        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.lanReachable')}
+        {t('workbench.docs.diagrams.openHeaders.roadmapServer.lanReachable')}
       </text>
 
       {/* Three clients */}
       {renderClient(
         14,
         ROW1_Y,
-        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.clientExtension'),
-        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.sideLaptop'),
-        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension'),
+        t('workbench.docs.diagrams.openHeaders.roadmapServer.clientExtension'),
+        t('workbench.docs.diagrams.openHeaders.roadmapServer.sideLaptop'),
+        t('workbench.docs.diagrams.openHeaders.roadmapServer.surfExtension'),
       )}
       {renderClient(
         W - CLIENT_W - 14,
         ROW1_Y,
         t('workbench.docs.diagrams.openHeaders.shared.desktopApp'),
-        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.sideWorkstation'),
-        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop'),
+        t('workbench.docs.diagrams.openHeaders.roadmapServer.sideWorkstation'),
+        t('workbench.docs.diagrams.openHeaders.roadmapServer.surfDesktop'),
       )}
       {renderClient(
         (W - CLIENT_W) / 2,
         ROW2_Y,
         'CLI',
         '',
-        t('workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli'),
+        t('workbench.docs.diagrams.openHeaders.roadmapServer.surfCli'),
       )}
 
       {/* Connection lines */}
@@ -181,7 +181,7 @@ export const RoadmapDaemonDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        {t('workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict')}
+        {t('workbench.docs.diagrams.openHeaders.roadmapServer.verdict')}
       </text>
     </svg>
   );

@@ -845,8 +845,8 @@ export const workbenchDocs = {
     "quand vous auto-hébergez. Aucun relais d'éditeur ; votre agent parle directement à votre " +
     "installation. Les appels d'outils s'exécutent avec les mêmes permissions d'espace de travail que " +
     'vous — les secrets restent derrière le vault, les opérations sensibles restent en opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Serveur local / LAN pour la synchronisation multi-appareils',
-  'workbench.docs.body.roadmap.daemon1':
+  'workbench.docs.body.roadmap.serverHeading': 'Serveur local / LAN pour la synchronisation multi-appareils',
+  'workbench.docs.body.roadmap.server1':
     'Un serveur à exécuter sur votre machine, votre LAN ou un hôte tunnelisé. ' +
     'Extension, application de bureau et CLI deviennent tous clients du même serveur — mêmes espaces de ' +
     'travail, mêmes règles, même vault, sur chaque appareil que vous utilisez. Le serveur reste sur le ' +

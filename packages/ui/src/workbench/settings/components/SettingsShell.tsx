@@ -13,7 +13,7 @@ import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
-import { useDaemonAdminStatus } from '../../components/daemon-admin/use-daemon-admin-status';
+import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
@@ -68,7 +68,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   // whose `when` denies this host but declares `teaserWhenUnavailable`
   // stays in the nav too: its pane renders the desktop teaser instead of
   // disappearing, so browser hosts keep discovering the desktop features.
-  const daemonAdmin = useDaemonAdminStatus();
+  const daemonAdmin = useServerAdminStatus();
   const orderedCategories = useMemo(() => {
     const teased = new Set<string>();
     const cats = allCategories().filter((c) => {

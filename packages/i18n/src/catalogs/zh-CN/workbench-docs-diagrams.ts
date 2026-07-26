@@ -864,7 +864,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shared.supports': '支持平台',
   'workbench.docs.diagrams.openHeaders.shared.inBrowser': '浏览器内',
   'workbench.docs.diagrams.openHeaders.shared.desktopApp': '桌面应用',
-  'workbench.docs.diagrams.openHeaders.shared.localDaemon': '本地服务器',
+  'workbench.docs.diagrams.openHeaders.shared.localServer': '本地服务器',
   'workbench.docs.diagrams.openHeaders.shared.yourVm': '你的 VM',
   'workbench.docs.diagrams.openHeaders.shared.workbench': 'Workbench',
   'workbench.docs.diagrams.openHeaders.shared.devtools': 'DevTools',
@@ -1087,7 +1087,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.localFirst.subtitle': '每一层继承上一层——绿框展示新增内容——右列标明运行环境。',
   'workbench.docs.diagrams.openHeaders.localFirst.subBrowser': '扩展的 service worker',
   'workbench.docs.diagrams.openHeaders.localFirst.subDesktop': '内置后端',
-  'workbench.docs.diagrams.openHeaders.localFirst.subDaemon': '独立进程',
+  'workbench.docs.diagrams.openHeaders.localFirst.subServer': '独立进程',
   'workbench.docs.diagrams.openHeaders.localFirst.subVm': '想托管在哪都行',
   'workbench.docs.diagrams.openHeaders.localFirst.bulletZeroSetup': '零配置',
   'workbench.docs.diagrams.openHeaders.localFirst.bulletSingleDevice': '单台设备',
@@ -1232,22 +1232,22 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.roadmapCli.verdict': '列出 · 开关 · 发送 · diff——直接在 shell 里完成',
 
   // ── Open Headers: roadmap daemon ────────────────────────────────────
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
+  'workbench.docs.diagrams.openHeaders.roadmapServer.aria':
     '路线图里程碑——本地 / 局域网服务器。服务器居中；扩展、桌面应用和 CLI 都作为客户端通过你的局域网接入。',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': '本地 / 局域网服务器 · 一个同步中枢',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
+  'workbench.docs.diagrams.openHeaders.roadmapServer.title': '本地 / 局域网服务器 · 一个同步中枢',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.subtitle':
     '扩展 · 桌面 · CLI——同一个服务器的客户端，都在你的网络里。',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': '工作空间',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': '规则 · vault',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': '同步引擎',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.lanReachable': '局域网可达',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.clientExtension': '浏览器扩展',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideLaptop': '笔记本',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideWorkstation': '工作站',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · 多窗口',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': '任意设备 · $ oh rules · $ oh env',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': '一个服务器 · 多个客户端 · 一直待在你的网络里',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.stackWorkspaces': '工作空间',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.stackRules': '规则 · vault',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.stackSync': '同步引擎',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.lanReachable': '局域网可达',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.clientExtension': '浏览器扩展',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.sideLaptop': '笔记本',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.sideWorkstation': '工作站',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.surfExtension': 'Popup · Workbench · DevTools',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.surfDesktop': 'Workbench · 多窗口',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.surfCli': '任意设备 · $ oh rules · $ oh env',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.verdict': '一个服务器 · 多个客户端 · 一直待在你的网络里',
 
   // ── Open Headers: roadmap desktop app ───────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDesktop.aria':
@@ -1366,8 +1366,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'MCP 服务器（AI 代理控制）',
   'workbench.docs.diagrams.openHeaders.milestones.descMcp':
     '通过 MCP 使用 Open Headers —— 让 AI 代理驱动你的工作空间。',
-  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': '本地 / LAN 服务器',
-  'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
+  'workbench.docs.diagrams.openHeaders.milestones.msServer': '本地 / LAN 服务器',
+  'workbench.docs.diagrams.openHeaders.milestones.descServer':
     '你机器或 LAN 上的服务器 —— 扩展、桌面、CLI 作为客户端。',
   'workbench.docs.diagrams.openHeaders.milestones.descCli': '无界面脚本与 CI —— 在 shell 里列出、切换、发送。',
   'workbench.docs.diagrams.openHeaders.milestones.msVm': '自托管 VM 部署 + Web 应用',

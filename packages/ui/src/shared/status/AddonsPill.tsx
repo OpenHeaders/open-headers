@@ -50,7 +50,7 @@ export const AddonsPill: React.FC<AddonsPillProps> = ({ className, placement = '
     <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <CompanionStatusRows />
       <CliRow />
-      <DaemonRow />
+      <ServerRow />
     </div>
   );
   const title = (
@@ -244,30 +244,30 @@ const McpRow: React.FC = () => {
  * "not configured" for discoverability. Web's serving daemon already
  * reads in the sync rows.
  */
-const DaemonRow: React.FC = () => {
+const ServerRow: React.FC = () => {
   const t = useT();
   const host = getCurrentHost();
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
   if (host !== 'extension' && host !== 'desktop') return null;
-  const daemonRecord = backends.find((b) => !isLoopbackBackendUrl(b.url));
-  if (!daemonRecord) {
+  const serverRecord = backends.find((b) => !isLoopbackBackendUrl(b.url));
+  if (!serverRecord) {
     return (
       <AddonRow
         tagColor="default"
-        label={t('shared.chrome.addons.daemon')}
+        label={t('shared.chrome.addons.server')}
         message={t('shared.chrome.addons.notConfigured')}
-        testId="addons-daemon"
+        testId="addons-server"
       />
     );
   }
-  const { tagColor, message } = daemonRecordVisual(daemonRecord, syncSlots[daemonRecord.id], t);
+  const { tagColor, message } = serverRecordVisual(serverRecord, syncSlots[serverRecord.id], t);
   return (
-    <AddonRow tagColor={tagColor} label={t('shared.chrome.addons.daemon')} message={message} testId="addons-daemon" />
+    <AddonRow tagColor={tagColor} label={t('shared.chrome.addons.server')} message={message} testId="addons-server" />
   );
 };
 
-function daemonRecordVisual(
+function serverRecordVisual(
   record: BackendConnection,
   slot: BackendSyncStatus | undefined,
   t: ReturnType<typeof useT>,

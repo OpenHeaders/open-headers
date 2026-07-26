@@ -833,8 +833,8 @@ export const workbenchDocs = {
     'cuando autoalojas. Sin relé del proveedor; tu agente habla directamente con tu instalación. Las ' +
     'llamadas de herramientas se ejecutan con los mismos permisos de espacio de trabajo que tú — los ' +
     'secretos quedan detrás del vault, las operaciones sensibles quedan en opt-in.',
-  'workbench.docs.body.roadmap.daemonHeading': 'Servidor local / LAN para sincronización entre dispositivos',
-  'workbench.docs.body.roadmap.daemon1':
+  'workbench.docs.body.roadmap.serverHeading': 'Servidor local / LAN para sincronización entre dispositivos',
+  'workbench.docs.body.roadmap.server1':
     'Un servidor que puedes ejecutar en tu máquina, tu LAN o un host tunelizado. ' +
     'Extensión, aplicación de escritorio y CLI se convierten todos en clientes del mismo servidor — mismos ' +
     'espacios de trabajo, mismas reglas, mismo vault, en cada dispositivo que uses. El servidor se queda en ' +

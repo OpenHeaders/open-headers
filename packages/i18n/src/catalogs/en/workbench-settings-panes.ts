@@ -314,7 +314,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typically 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'override in Backend → Connection',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4 — server on your own box (Docker, sidecar)',
+  'workbench.settings.backendPane.tier.rangeNote.serverOwnBox': 'IPv4 — server on your own box (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'practically fd00::/8 — IPv6 private allocation',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale, etc.',
@@ -373,77 +373,77 @@ export const workbenchSettingsPanes = {
   'workbench.settings.keymapPane.presetRestoreTip': 'Reset every customized shortcut to the active preset.',
 
   // ── Daemon token ledger (shared by Backend + MCP panes) ────────────
-  'workbench.settings.daemonTokens.sectionTitle': 'Paired devices',
-  'workbench.settings.daemonTokens.sectionBlurb':
+  'workbench.settings.backendTokens.sectionTitle': 'Paired devices',
+  'workbench.settings.backendTokens.sectionBlurb':
     'Each device that connects to this back-end authenticates with an access token. Connected devices are highlighted; rotate a token to issue a fresh secret and retire the old one.',
-  'workbench.settings.daemonTokens.labelPlaceholder': "Label (optional) — e.g. 'alice's phone'",
-  'workbench.settings.daemonTokens.bindUserPlaceholder': 'Bind to user (optional)',
-  'workbench.settings.daemonTokens.generate': 'Generate token',
-  'workbench.settings.daemonTokens.pairDevice': 'Pair a device',
-  'workbench.settings.daemonTokens.explainer.intro': 'Both add a token below.',
-  'workbench.settings.daemonTokens.explainer.generateText':
+  'workbench.settings.backendTokens.labelPlaceholder': "Label (optional) — e.g. 'alice's phone'",
+  'workbench.settings.backendTokens.bindUserPlaceholder': 'Bind to user (optional)',
+  'workbench.settings.backendTokens.generate': 'Generate token',
+  'workbench.settings.backendTokens.pairDevice': 'Pair a device',
+  'workbench.settings.backendTokens.explainer.intro': 'Both add a token below.',
+  'workbench.settings.backendTokens.explainer.generateText':
     'shows you the secret to copy and paste into the device yourself.',
-  'workbench.settings.daemonTokens.explainer.pairText':
+  'workbench.settings.backendTokens.explainer.pairText':
     'shows a short code the device enters under Settings → Backend → Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.',
-  'workbench.settings.daemonTokens.empty':
+  'workbench.settings.backendTokens.empty':
     "No devices yet. Generate a token and paste it into the device's Settings → Backend, or pair a device and have it enter the code there.",
-  'workbench.settings.daemonTokens.mintFailed': 'Failed to mint token: {message}',
-  'workbench.settings.daemonTokens.rotateFailed': 'Failed to rotate: {message}',
-  'workbench.settings.daemonTokens.revokeFailed': 'Failed to revoke: {message}',
-  'workbench.settings.daemonTokens.revokedDevice': 'Token revoked. Any device using it was disconnected.',
-  'workbench.settings.daemonTokens.revokedSession': 'Session revoked. The user was signed out.',
-  'workbench.settings.daemonTokens.rotate': 'Rotate',
-  'workbench.settings.daemonTokens.revoke': 'Revoke',
-  'workbench.settings.daemonTokens.rotateConfirmTitle': 'Rotate this token?',
-  'workbench.settings.daemonTokens.rotateConfirmBody':
+  'workbench.settings.backendTokens.mintFailed': 'Failed to mint token: {message}',
+  'workbench.settings.backendTokens.rotateFailed': 'Failed to rotate: {message}',
+  'workbench.settings.backendTokens.revokeFailed': 'Failed to revoke: {message}',
+  'workbench.settings.backendTokens.revokedDevice': 'Token revoked. Any device using it was disconnected.',
+  'workbench.settings.backendTokens.revokedSession': 'Session revoked. The user was signed out.',
+  'workbench.settings.backendTokens.rotate': 'Rotate',
+  'workbench.settings.backendTokens.revoke': 'Revoke',
+  'workbench.settings.backendTokens.rotateConfirmTitle': 'Rotate this token?',
+  'workbench.settings.backendTokens.rotateConfirmBody':
     'A fresh secret is minted and the current one is revoked. The device must be given the new token before it can reconnect.',
-  'workbench.settings.daemonTokens.revokeConfirmTitle': 'Revoke this token?',
-  'workbench.settings.daemonTokens.revokeConfirmBody':
+  'workbench.settings.backendTokens.revokeConfirmTitle': 'Revoke this token?',
+  'workbench.settings.backendTokens.revokeConfirmBody':
     "Any device currently using it is disconnected immediately and can't reconnect.",
-  'workbench.settings.daemonTokens.revokeSessionConfirmTitle': 'Revoke this session?',
-  'workbench.settings.daemonTokens.revokeSessionConfirmBody':
+  'workbench.settings.backendTokens.revokeSessionConfirmTitle': 'Revoke this session?',
+  'workbench.settings.backendTokens.revokeSessionConfirmBody':
     'The user is signed out and disconnected immediately. They must log in through the identity provider again.',
-  'workbench.settings.daemonTokens.revokedTag': 'Revoked {when}',
-  'workbench.settings.daemonTokens.connectedTag': 'Connected',
-  'workbench.settings.daemonTokens.expiredTag': 'Expired',
-  'workbench.settings.daemonTokens.unlabeled': '(unlabeled)',
-  'workbench.settings.daemonTokens.unbound': '(unbound)',
-  'workbench.settings.daemonTokens.meta.device': 'id {id} · created {created} · last used {lastUsed}',
-  'workbench.settings.daemonTokens.meta.boundUser': 'user {user}',
-  'workbench.settings.daemonTokens.meta.session':
+  'workbench.settings.backendTokens.revokedTag': 'Revoked {when}',
+  'workbench.settings.backendTokens.connectedTag': 'Connected',
+  'workbench.settings.backendTokens.expiredTag': 'Expired',
+  'workbench.settings.backendTokens.unlabeled': '(unlabeled)',
+  'workbench.settings.backendTokens.unbound': '(unbound)',
+  'workbench.settings.backendTokens.meta.device': 'id {id} · created {created} · last used {lastUsed}',
+  'workbench.settings.backendTokens.meta.boundUser': 'user {user}',
+  'workbench.settings.backendTokens.meta.session':
     'signed in {signedIn} · expires {expires} · last seen {lastSeen} · id {id}',
-  'workbench.settings.daemonTokens.ssoTitle': 'SSO sessions',
-  'workbench.settings.daemonTokens.ssoBlurb':
+  'workbench.settings.backendTokens.ssoTitle': 'SSO sessions',
+  'workbench.settings.backendTokens.ssoBlurb':
     'Each SSO login mints a session that expires on its own. Revoke one to sign the user out immediately — they must log in through the identity provider again.',
-  'workbench.settings.daemonTokens.secretTitle': 'Copy this token now',
-  'workbench.settings.daemonTokens.secretTitleRotated': 'Copy the rotated token now',
-  'workbench.settings.daemonTokens.secretBody':
+  'workbench.settings.backendTokens.secretTitle': 'Copy this token now',
+  'workbench.settings.backendTokens.secretTitleRotated': 'Copy the rotated token now',
+  'workbench.settings.backendTokens.secretBody':
     'The back-end stores only a hash of this value. Once this dialog closes the secret cannot be recovered — if you lose it, revoke the token and mint a new one.',
-  'workbench.settings.daemonTokens.secretBodyRotated':
+  'workbench.settings.backendTokens.secretBodyRotated':
     'The previous token is now revoked — give this new secret to the device so it can reconnect. The back-end stores only a hash of this value. Once this dialog closes the secret cannot be recovered — if you lose it, revoke the token and mint a new one.',
-  'workbench.settings.daemonTokens.secretSaved': "I've saved it",
+  'workbench.settings.backendTokens.secretSaved': "I've saved it",
 
   // ── Daemon pairing modal ────────────────────────────────────────────
-  'workbench.settings.daemonTokens.pairModal.done': 'Done',
-  'workbench.settings.daemonTokens.pairModal.allocating': 'Allocating code…',
-  'workbench.settings.daemonTokens.pairModal.startFailed': 'Could not start pairing',
-  'workbench.settings.daemonTokens.pairModal.expiredTitle': 'Pairing expired',
-  'workbench.settings.daemonTokens.pairModal.expiredBody':
+  'workbench.settings.backendTokens.pairModal.done': 'Done',
+  'workbench.settings.backendTokens.pairModal.allocating': 'Allocating code…',
+  'workbench.settings.backendTokens.pairModal.startFailed': 'Could not start pairing',
+  'workbench.settings.backendTokens.pairModal.expiredTitle': 'Pairing expired',
+  'workbench.settings.backendTokens.pairModal.expiredBody':
     'The 5-minute window elapsed without a confirmation. Close this dialog and click Pair a device again to start over.',
-  'workbench.settings.daemonTokens.pairModal.pairedTitle': 'Paired',
-  'workbench.settings.daemonTokens.pairModal.pairedBody':
+  'workbench.settings.backendTokens.pairModal.pairedTitle': 'Paired',
+  'workbench.settings.backendTokens.pairModal.pairedBody':
     "The device confirmed the code. A fresh access token was issued and saved on that device; it appears in the list below. If the device can't connect, revoke the entry and pair again.",
-  'workbench.settings.daemonTokens.pairModal.intro.part1': 'On the other device, open',
-  'workbench.settings.daemonTokens.pairModal.intro.settingsPath': 'Settings → Backend',
-  'workbench.settings.daemonTokens.pairModal.intro.part2': ', point its',
-  'workbench.settings.daemonTokens.pairModal.intro.address': 'Backend address',
-  'workbench.settings.daemonTokens.pairModal.intro.part3': 'at this app, then click',
-  'workbench.settings.daemonTokens.pairModal.intro.part4': 'and enter:',
-  'workbench.settings.daemonTokens.pairModal.codeLabel': 'Pairing code',
-  'workbench.settings.daemonTokens.pairModal.expiresIn': 'expires in {remaining}',
-  'workbench.settings.daemonTokens.pairModal.addressListLabel': 'Backend address for this app',
-  'workbench.settings.daemonTokens.pairModal.fallback.prefix': 'No',
-  'workbench.settings.daemonTokens.pairModal.fallback.suffix':
+  'workbench.settings.backendTokens.pairModal.intro.part1': 'On the other device, open',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Settings → Backend',
+  'workbench.settings.backendTokens.pairModal.intro.part2': ', point its',
+  'workbench.settings.backendTokens.pairModal.intro.address': 'Backend address',
+  'workbench.settings.backendTokens.pairModal.intro.part3': 'at this app, then click',
+  'workbench.settings.backendTokens.pairModal.intro.part4': 'and enter:',
+  'workbench.settings.backendTokens.pairModal.codeLabel': 'Pairing code',
+  'workbench.settings.backendTokens.pairModal.expiresIn': 'expires in {remaining}',
+  'workbench.settings.backendTokens.pairModal.addressListLabel': 'Backend address for this app',
+  'workbench.settings.backendTokens.pairModal.fallback.prefix': 'No',
+  'workbench.settings.backendTokens.pairModal.fallback.suffix':
     'option on that device? Open one of these links there instead — it serves a page that hands over a token to paste by hand.',
 
   // ── Command-line access card (MCP pane) ────────────────────────────
@@ -620,7 +620,7 @@ export const workbenchSettingsPanes = {
     'System-keychain trust rides a signed helper registered with macOS as a background item. It only moves certificate bytes — every trust decision still goes through the macOS admin dialog.',
   'workbench.settings.proxyTrustPane.helper.notPresent': 'Not included in this build — packaged macOS builds only.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registration',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Server',
+  'workbench.settings.proxyTrustPane.helper.serverLabel': 'Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registered',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Waiting for approval',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Not registered',

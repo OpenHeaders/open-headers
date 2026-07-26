@@ -87,7 +87,7 @@ function shortenId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
-const DaemonTokensSection: React.FC = () => {
+const BackendTokensSection: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
   const t = useT();
@@ -167,7 +167,7 @@ const DaemonTokensSection: React.FC = () => {
       setMintResult({ open: true, secret: result.secret, tokenId: result.tokenId, rotated: false });
       await refresh();
     } catch (err) {
-      message.error(t('workbench.settings.daemonTokens.mintFailed', { message: (err as Error).message }));
+      message.error(t('workbench.settings.backendTokens.mintFailed', { message: (err as Error).message }));
     } finally {
       setMinting(false);
     }
@@ -180,7 +180,7 @@ const DaemonTokensSection: React.FC = () => {
       await refresh();
       message.success(successNote);
     } catch (err) {
-      message.error(t('workbench.settings.daemonTokens.revokeFailed', { message: (err as Error).message }));
+      message.error(t('workbench.settings.backendTokens.revokeFailed', { message: (err as Error).message }));
     }
   }
 
@@ -199,7 +199,7 @@ const DaemonTokensSection: React.FC = () => {
       setMintResult({ open: true, secret: minted.secret, tokenId: minted.tokenId, rotated: true });
       await refresh();
     } catch (err) {
-      message.error(t('workbench.settings.daemonTokens.rotateFailed', { message: (err as Error).message }));
+      message.error(t('workbench.settings.backendTokens.rotateFailed', { message: (err as Error).message }));
     } finally {
       setRotatingId(null);
     }
@@ -237,10 +237,10 @@ const DaemonTokensSection: React.FC = () => {
             color: themeToken.colorTextSecondary,
           }}
         >
-          {t('workbench.settings.daemonTokens.sectionTitle')}
+          {t('workbench.settings.backendTokens.sectionTitle')}
         </h3>
         <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-          {t('workbench.settings.daemonTokens.sectionBlurb')}
+          {t('workbench.settings.backendTokens.sectionBlurb')}
         </div>
       </header>
       <div
@@ -261,15 +261,15 @@ const DaemonTokensSection: React.FC = () => {
         >
           <Form.Item name="label" style={{ flex: 1, marginRight: 8 }}>
             <Input
-              placeholder={t('workbench.settings.daemonTokens.labelPlaceholder')}
+              placeholder={t('workbench.settings.backendTokens.labelPlaceholder')}
               maxLength={64}
-              data-testid="daemon-tokens-mint-label"
+              data-testid="backend-tokens-mint-label"
             />
           </Form.Item>
           {bindableUsers.length > 0 && (
             <Form.Item name="userId" style={{ minWidth: 180, marginRight: 8 }}>
               <Select
-                placeholder={t('workbench.settings.daemonTokens.bindUserPlaceholder')}
+                placeholder={t('workbench.settings.backendTokens.bindUserPlaceholder')}
                 allowClear
                 showSearch
                 optionFilterProp="label"
@@ -281,26 +281,26 @@ const DaemonTokensSection: React.FC = () => {
             </Form.Item>
           )}
           <Form.Item style={{ marginBottom: 0 }}>
-            <Button type="primary" htmlType="submit" loading={minting} data-testid="daemon-tokens-mint">
-              {t('workbench.settings.daemonTokens.generate')}
+            <Button type="primary" htmlType="submit" loading={minting} data-testid="backend-tokens-mint">
+              {t('workbench.settings.backendTokens.generate')}
             </Button>
           </Form.Item>
           <Form.Item style={{ marginBottom: 0, marginLeft: 8 }}>
-            <Button onClick={() => setPairOpen(true)}>{t('workbench.settings.daemonTokens.pairDevice')}</Button>
+            <Button onClick={() => setPairOpen(true)}>{t('workbench.settings.backendTokens.pairDevice')}</Button>
           </Form.Item>
         </Form>
         <div
           style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginBottom: deviceTokens.length > 0 ? 12 : 0 }}
         >
-          {t('workbench.settings.daemonTokens.explainer.intro')}{' '}
-          <strong>{t('workbench.settings.daemonTokens.generate')}</strong>{' '}
-          {t('workbench.settings.daemonTokens.explainer.generateText')}{' '}
-          <strong>{t('workbench.settings.daemonTokens.pairDevice')}</strong>{' '}
-          {t('workbench.settings.daemonTokens.explainer.pairText')}
+          {t('workbench.settings.backendTokens.explainer.intro')}{' '}
+          <strong>{t('workbench.settings.backendTokens.generate')}</strong>{' '}
+          {t('workbench.settings.backendTokens.explainer.generateText')}{' '}
+          <strong>{t('workbench.settings.backendTokens.pairDevice')}</strong>{' '}
+          {t('workbench.settings.backendTokens.explainer.pairText')}
         </div>
         {deviceTokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {t('workbench.settings.daemonTokens.empty')}
+            {t('workbench.settings.backendTokens.empty')}
           </Typography.Text>
         ) : (
           <List
@@ -314,40 +314,40 @@ const DaemonTokensSection: React.FC = () => {
                 : null;
               return (
                 <List.Item
-                  data-testid={`daemon-token-row-${row.id}`}
+                  data-testid={`backend-token-row-${row.id}`}
                   actions={
                     isRevoked
                       ? [
                           <Tag key="revoked" color="default">
-                            {t('workbench.settings.daemonTokens.revokedTag', { when: formatTimestamp(row.revokedAt) })}
+                            {t('workbench.settings.backendTokens.revokedTag', { when: formatTimestamp(row.revokedAt) })}
                           </Tag>,
                         ]
                       : [
                           <Popconfirm
                             key="rotate"
-                            title={t('workbench.settings.daemonTokens.rotateConfirmTitle')}
-                            description={t('workbench.settings.daemonTokens.rotateConfirmBody')}
-                            okText={t('workbench.settings.daemonTokens.rotate')}
+                            title={t('workbench.settings.backendTokens.rotateConfirmTitle')}
+                            description={t('workbench.settings.backendTokens.rotateConfirmBody')}
+                            okText={t('workbench.settings.backendTokens.rotate')}
                             cancelText={t('shared.action.cancel')}
                             onConfirm={() => handleRotate(row)}
                           >
                             <Button type="link" size="small" loading={rotatingId === row.id}>
-                              {t('workbench.settings.daemonTokens.rotate')}
+                              {t('workbench.settings.backendTokens.rotate')}
                             </Button>
                           </Popconfirm>,
                           <Popconfirm
                             key="revoke"
-                            title={t('workbench.settings.daemonTokens.revokeConfirmTitle')}
-                            description={t('workbench.settings.daemonTokens.revokeConfirmBody')}
-                            okText={t('workbench.settings.daemonTokens.revoke')}
+                            title={t('workbench.settings.backendTokens.revokeConfirmTitle')}
+                            description={t('workbench.settings.backendTokens.revokeConfirmBody')}
+                            okText={t('workbench.settings.backendTokens.revoke')}
                             cancelText={t('shared.action.cancel')}
                             okButtonProps={{ danger: true }}
                             onConfirm={() =>
-                              handleRevoke(row.id, t('workbench.settings.daemonTokens.revokedDevice'))
+                              handleRevoke(row.id, t('workbench.settings.backendTokens.revokedDevice'))
                             }
                           >
-                            <Button type="link" size="small" danger data-testid={`daemon-token-revoke-${row.id}`}>
-                              {t('workbench.settings.daemonTokens.revoke')}
+                            <Button type="link" size="small" danger data-testid={`backend-token-revoke-${row.id}`}>
+                              {t('workbench.settings.backendTokens.revoke')}
                             </Button>
                           </Popconfirm>,
                         ]
@@ -359,25 +359,25 @@ const DaemonTokensSection: React.FC = () => {
                         <span style={{ fontSize: 13 }}>
                           {row.label || (
                             <Typography.Text type="secondary">
-                              {t('workbench.settings.daemonTokens.unlabeled')}
+                              {t('workbench.settings.backendTokens.unlabeled')}
                             </Typography.Text>
                           )}
                         </span>
                         {isConnected && (
                           <Tag color="green" style={{ marginInlineEnd: 0 }}>
-                            {t('workbench.settings.daemonTokens.connectedTag')}
+                            {t('workbench.settings.backendTokens.connectedTag')}
                           </Tag>
                         )}
                       </span>
                     }
                     description={
                       <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
-                        {t('workbench.settings.daemonTokens.meta.device', {
+                        {t('workbench.settings.backendTokens.meta.device', {
                           id: shortenId(row.id),
                           created: formatTimestamp(row.createdAt),
                           lastUsed: formatTimestamp(row.lastUsedAt),
                         })}
-                        {boundUser && <> · {t('workbench.settings.daemonTokens.meta.boundUser', { user: boundUser })}</>}
+                        {boundUser && <> · {t('workbench.settings.backendTokens.meta.boundUser', { user: boundUser })}</>}
                       </span>
                     }
                   />
@@ -401,10 +401,10 @@ const DaemonTokensSection: React.FC = () => {
                 color: themeToken.colorTextSecondary,
               }}
             >
-              {t('workbench.settings.daemonTokens.ssoTitle')}
+              {t('workbench.settings.backendTokens.ssoTitle')}
             </h3>
             <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-              {t('workbench.settings.daemonTokens.ssoBlurb')}
+              {t('workbench.settings.backendTokens.ssoBlurb')}
             </div>
           </header>
           <div
@@ -428,12 +428,12 @@ const DaemonTokensSection: React.FC = () => {
                   : null;
                 return (
                   <List.Item
-                    data-testid={`daemon-session-row-${s.id}`}
+                    data-testid={`backend-session-row-${s.id}`}
                     actions={
                       isRevoked
                         ? [
                             <Tag key="revoked" color="default">
-                              {t('workbench.settings.daemonTokens.revokedTag', {
+                              {t('workbench.settings.backendTokens.revokedTag', {
                                 when: formatTimestamp(s.revokedAt),
                               })}
                             </Tag>,
@@ -441,17 +441,17 @@ const DaemonTokensSection: React.FC = () => {
                         : [
                             <Popconfirm
                               key="revoke"
-                              title={t('workbench.settings.daemonTokens.revokeSessionConfirmTitle')}
-                              description={t('workbench.settings.daemonTokens.revokeSessionConfirmBody')}
-                              okText={t('workbench.settings.daemonTokens.revoke')}
+                              title={t('workbench.settings.backendTokens.revokeSessionConfirmTitle')}
+                              description={t('workbench.settings.backendTokens.revokeSessionConfirmBody')}
+                              okText={t('workbench.settings.backendTokens.revoke')}
                               cancelText={t('shared.action.cancel')}
                               okButtonProps={{ danger: true }}
                               onConfirm={() =>
-                                handleRevoke(s.id, t('workbench.settings.daemonTokens.revokedSession'))
+                                handleRevoke(s.id, t('workbench.settings.backendTokens.revokedSession'))
                               }
                             >
-                              <Button type="link" size="small" danger data-testid={`daemon-session-revoke-${s.id}`}>
-                                {t('workbench.settings.daemonTokens.revoke')}
+                              <Button type="link" size="small" danger data-testid={`backend-session-revoke-${s.id}`}>
+                                {t('workbench.settings.backendTokens.revoke')}
                               </Button>
                             </Popconfirm>,
                           ]
@@ -463,25 +463,25 @@ const DaemonTokensSection: React.FC = () => {
                           <span style={{ fontSize: 13 }}>
                             {sessionUser ?? s.label ?? (
                               <Typography.Text type="secondary">
-                                {t('workbench.settings.daemonTokens.unbound')}
+                                {t('workbench.settings.backendTokens.unbound')}
                               </Typography.Text>
                             )}
                           </span>
                           {isConnected && (
                             <Tag color="green" style={{ marginInlineEnd: 0 }}>
-                              {t('workbench.settings.daemonTokens.connectedTag')}
+                              {t('workbench.settings.backendTokens.connectedTag')}
                             </Tag>
                           )}
                           {isExpired && (
                             <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-                              {t('workbench.settings.daemonTokens.expiredTag')}
+                              {t('workbench.settings.backendTokens.expiredTag')}
                             </Tag>
                           )}
                         </span>
                       }
                       description={
                         <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
-                          {t('workbench.settings.daemonTokens.meta.session', {
+                          {t('workbench.settings.backendTokens.meta.session', {
                             signedIn: formatTimestamp(s.createdAt),
                             expires: formatTimestamp(s.expiresAt),
                             lastSeen: formatTimestamp(s.lastUsedAt),
@@ -502,8 +502,8 @@ const DaemonTokensSection: React.FC = () => {
         open={mintResult.open}
         title={
           mintResult.rotated
-            ? t('workbench.settings.daemonTokens.secretTitleRotated')
-            : t('workbench.settings.daemonTokens.secretTitle')
+            ? t('workbench.settings.backendTokens.secretTitleRotated')
+            : t('workbench.settings.backendTokens.secretTitle')
         }
         closable={false}
         maskClosable={false}
@@ -513,16 +513,16 @@ const DaemonTokensSection: React.FC = () => {
           <Button key="copy" type="default" onClick={copySecret}>
             {t('shared.action.copy')}
           </Button>,
-          <Button key="done" type="primary" onClick={dismissMintModal} data-testid="daemon-tokens-secret-saved">
-            {t('workbench.settings.daemonTokens.secretSaved')}
+          <Button key="done" type="primary" onClick={dismissMintModal} data-testid="backend-tokens-secret-saved">
+            {t('workbench.settings.backendTokens.secretSaved')}
           </Button>,
         ]}
         width={520}
       >
         <Typography.Paragraph>
           {mintResult.rotated
-            ? t('workbench.settings.daemonTokens.secretBodyRotated')
-            : t('workbench.settings.daemonTokens.secretBody')}
+            ? t('workbench.settings.backendTokens.secretBodyRotated')
+            : t('workbench.settings.backendTokens.secretBody')}
         </Typography.Paragraph>
         <Input.TextArea
           value={mintResult.secret}
@@ -530,7 +530,7 @@ const DaemonTokensSection: React.FC = () => {
           autoSize
           style={{ fontFamily: 'monospace', fontSize: 12 }}
           onFocus={(e) => e.currentTarget.select()}
-          data-testid="daemon-tokens-secret"
+          data-testid="backend-tokens-secret"
         />
       </Modal>
 
@@ -545,4 +545,4 @@ const DaemonTokensSection: React.FC = () => {
   );
 };
 
-export default DaemonTokensSection;
+export default BackendTokensSection;

@@ -20,7 +20,7 @@
  *   RoadmapMilestonesDiagram        — overview: six ordered cards in a browser frame.
  *   RoadmapGitWorkspacesDiagram     — workspaces as Git repos.
  *   RoadmapDesktopAppDiagram        — native window over the same store.
- *   RoadmapDaemonDiagram            — daemon as the LAN sync hub.
+ *   RoadmapServerDiagram            — daemon as the LAN sync hub.
  *   RoadmapCliDiagram               — headless terminal UI.
  *   RoadmapMcpArchitectureDiagram   — MCP Server wiring: AI client → MCP → OH → workbench.
  *   RoadmapMcpToolsDiagram          — MCP Server tools catalog (six domain cards).
@@ -40,11 +40,11 @@ export { ParadigmLocalFirstDiagram } from './paradigm-local-first';
 export { ParadigmRuleEngineDiagram } from './paradigm-rule-engine';
 export { ParadigmShiftDiagram } from './paradigm-shift';
 export { RoadmapCliDiagram } from './roadmap-cli';
-export { RoadmapDaemonDiagram } from './roadmap-daemon';
 export { RoadmapDesktopAppDiagram } from './roadmap-desktop-app';
 export { RoadmapGitWorkspacesDiagram } from './roadmap-git-workspaces';
 export { RoadmapImportersDiagram } from './roadmap-importers';
 export { RoadmapMcpArchitectureDiagram } from './roadmap-mcp-architecture';
 export { RoadmapMcpToolsDiagram } from './roadmap-mcp-tools';
 export { RoadmapMilestonesDiagram } from './roadmap-milestones';
+export { RoadmapServerDiagram } from './roadmap-server';
 export { RoadmapWebAppDiagram } from './roadmap-web-app';

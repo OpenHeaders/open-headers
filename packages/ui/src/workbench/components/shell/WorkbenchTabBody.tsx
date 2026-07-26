@@ -20,7 +20,7 @@ import { findFolderByUid } from '@openheaders/ui/shared/variables';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import CollectionOverview from '../overviews/CollectionOverview';
 import CollectionVariablesEditor from '../variables/CollectionVariablesEditor';
-import DaemonAdminConsole from '../daemon-admin/DaemonAdminConsole';
+import ServerAdminConsole from '../server-admin/ServerAdminConsole';
 import EnvironmentEditor from '../variables/EnvironmentEditor';
 import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
@@ -283,8 +283,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <WorkspaceManager api={workspacesApi} activeWorkspaceId={editingScopeWorkspaceId} onSwitch={handleSwitchWorkspace} />
     );
   }
-  if (tab.mode === 'daemon-admin') {
-    return <DaemonAdminConsole />;
+  if (tab.mode === 'server-admin') {
+    return <ServerAdminConsole />;
   }
   if (tab.mode === 'proxy-request-inspect' && tab.proxyRequestId) {
     return (

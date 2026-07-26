@@ -104,7 +104,7 @@ export function tabIcon(
     // Captured-traffic + storage inspect tabs — the Traffic Monitor's vocabulary.
     return <GlobalOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-manager') return <AppstoreOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
-  if (tab.mode === 'daemon-admin') return <TeamOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
+  if (tab.mode === 'server-admin') return <TeamOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'env-edit') return scopeBadge('environment');
   if (tab.mode === 'spec-edit') return <FileTextOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');

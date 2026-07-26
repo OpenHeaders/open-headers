@@ -23,7 +23,7 @@ import { useSettingValue } from '../hooks';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
 import CliAccessCard from './cli-access-card';
-import DaemonTokensSection from './daemon-tokens-section';
+import BackendTokensSection from './backend-tokens-section';
 import McpConfigSnippets from './mcp-config-snippets';
 
 const McpPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
@@ -60,7 +60,7 @@ const McpPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         </div>
       </section>
 
-      <DaemonTokensSection />
+      <BackendTokensSection />
 
       <CliAccessCard />
 

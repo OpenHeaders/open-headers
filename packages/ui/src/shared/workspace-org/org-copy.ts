@@ -15,8 +15,8 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 const HINT_KEYS: Record<OrgHostHintKind, MessageKey> = {
   browser: 'shared.org.hint.browser',
   desktop: 'shared.org.hint.desktop',
-  'daemon-local': 'shared.org.hint.daemonLocal',
-  'daemon-remote': 'shared.org.hint.daemonRemote',
+  'daemon-local': 'shared.org.hint.serverLocal',
+  'daemon-remote': 'shared.org.hint.serverRemote',
 };
 
 /** Second-person host-kind hint for the home Org — `null` for a joined Org. */

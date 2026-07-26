@@ -90,7 +90,7 @@ import {
   useWorkbenchEditingScopeWorkspaceId,
 } from './hooks/EditingScopeWorkspaceContext';
 import { ImportTextProvider } from './hooks/ImportTextContext';
-import { OpenDaemonAdminProvider } from './hooks/OpenDaemonAdminContext';
+import { OpenServerAdminProvider } from './hooks/OpenServerAdminContext';
 import { OpenSettingsProvider } from './hooks/OpenSettingsContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
@@ -519,7 +519,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openSettingsTab,
     openWhatsNew,
     openWorkspaceManager,
-    openDaemonAdmin,
+    openServerAdmin,
     openEnvironmentEdit,
     openSpecEdit,
     openWorkspaceVariables,
@@ -761,10 +761,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // The console opens as a workbench tab — dismiss the settings overlay
   // on the way out so the navigation lands on a visible surface instead
   // of underneath the modal.
-  const openDaemonAdminFromAnywhere = useCallback(() => {
+  const openServerAdminFromAnywhere = useCallback(() => {
     closeSettings();
-    openDaemonAdmin();
-  }, [closeSettings, openDaemonAdmin]);
+    openServerAdmin();
+  }, [closeSettings, openServerAdmin]);
 
   // ── Save-to-collection flow ────────────────────────────────────
   // Both rule-create and request-create scratch tabs hand their form
@@ -1401,7 +1401,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   return (
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <OpenSettingsProvider openSettings={openSettings}>
-      <OpenDaemonAdminProvider openDaemonAdmin={openDaemonAdminFromAnywhere}>
+      <OpenServerAdminProvider openServerAdmin={openServerAdminFromAnywhere}>
       <ImportTextProvider importText={importText}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
@@ -1661,7 +1661,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         </div>
       </VariablePopoverProvider>
       </ImportTextProvider>
-      </OpenDaemonAdminProvider>
+      </OpenServerAdminProvider>
       </OpenSettingsProvider>
     </EnvSwitcherProvider>
   );

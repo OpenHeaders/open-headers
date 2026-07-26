@@ -21,7 +21,7 @@ import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 
-/** Same cadence as the tokens ledger above — see daemon-tokens-section. */
+/** Same cadence as the tokens ledger above — see backend-tokens-section. */
 const POLL_INTERVAL_MS = 3_000;
 
 interface CliStatus {

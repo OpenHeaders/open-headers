@@ -38,7 +38,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
   const workbench = t('workbench.docs.diagrams.openHeaders.shared.workbench');
   const inBrowser = t('workbench.docs.diagrams.openHeaders.shared.inBrowser');
   const desktopApp = t('workbench.docs.diagrams.openHeaders.shared.desktopApp');
-  const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localDaemon');
+  const localDaemon = t('workbench.docs.diagrams.openHeaders.shared.localServer');
   const yourVm = t('workbench.docs.diagrams.openHeaders.shared.yourVm');
   const soon = t('workbench.docs.diagrams.openHeaders.shared.soon');
 

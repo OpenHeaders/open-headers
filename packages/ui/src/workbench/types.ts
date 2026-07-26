@@ -38,7 +38,7 @@ export type TabMode =
   | 'settings'
   | 'whats-new'
   | 'workspace-manager'
-  | 'daemon-admin'
+  | 'server-admin'
   | 'env-edit'
   | 'spec-edit'
   | 'workspace-vars'

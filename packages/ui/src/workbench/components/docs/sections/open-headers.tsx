@@ -13,7 +13,7 @@ import {
   ParadigmRuleEngineDiagram,
   ParadigmShiftDiagram,
   RoadmapCliDiagram,
-  RoadmapDaemonDiagram,
+  RoadmapServerDiagram,
   RoadmapDesktopAppDiagram,
   RoadmapGitWorkspacesDiagram,
   RoadmapImportersDiagram,
@@ -205,10 +205,10 @@ export const RoadmapSection: React.FC = () => {
         <RoadmapMcpToolsDiagram />
       </DiagramFrame>
 
-      <DocHeading level={3}>{t('workbench.docs.body.roadmap.daemonHeading')}</DocHeading>
-      <DocParagraph>{t('workbench.docs.body.roadmap.daemon1')}</DocParagraph>
+      <DocHeading level={3}>{t('workbench.docs.body.roadmap.serverHeading')}</DocHeading>
+      <DocParagraph>{t('workbench.docs.body.roadmap.server1')}</DocParagraph>
       <DiagramFrame>
-        <RoadmapDaemonDiagram />
+        <RoadmapServerDiagram />
       </DiagramFrame>
 
       <DocHeading level={3}>{t('workbench.docs.body.roadmap.cliHeading')}</DocHeading>

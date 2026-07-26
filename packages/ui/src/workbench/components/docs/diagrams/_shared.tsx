@@ -50,7 +50,7 @@ export function ArrowDefs({ id }: { id: string }) {
  * optional caption rendered below the window.
  *
  * Lifted from the inline `renderClient` pattern in
- * `roadmap-daemon.tsx` so back-end / front-end diagrams in both the
+ * `roadmap-server.tsx` so back-end / front-end diagrams in both the
  * docs and the settings pane share one definition of "what a browser
  * looks like in our diagrams." Pass children to render arbitrary
  * content inside the window content area.

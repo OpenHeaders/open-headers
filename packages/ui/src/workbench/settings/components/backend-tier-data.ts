@@ -182,7 +182,7 @@ export const TIERS: Partial<Record<BackendMode, TierDef>> = {
         {
           labelKey: 'workbench.settings.backendPane.tier.cat.localhostLoopback',
           items: [
-            { range: '127.0.0.0/8', noteKey: 'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox' },
+            { range: '127.0.0.0/8', noteKey: 'workbench.settings.backendPane.tier.rangeNote.serverOwnBox' },
             { range: '::1/128', noteKey: 'workbench.settings.backendPane.tier.rangeNote.ipv6' },
           ],
         },

@@ -17,7 +17,7 @@
  * Either way the secret NEVER reaches this modal — the daemon-side
  * ledger records only the hash (same path as the manual "Generate
  * token" flow); the admin sees the new token row appear in
- * `DaemonTokensSection` once polling reports `confirmed`/`consumed`.
+ * `BackendTokensSection` once polling reports `confirmed`/`consumed`.
  */
 
 import { App as AntApp, Alert, Button, Divider, Input, Modal, QRCode, Space, Tag, Typography, theme } from 'antd';
@@ -159,7 +159,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
-      title={t('workbench.settings.daemonTokens.pairDevice')}
+      title={t('workbench.settings.backendTokens.pairDevice')}
       onCancel={close}
       // A stray click on the backdrop (or an Esc) mid-pairing would
       // discard the live code and force a fresh allocation. Only the X
@@ -169,7 +169,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
       footer={[
         <Button key="done" type="primary" onClick={close}>
           {status === 'confirmed' || status === 'consumed'
-            ? t('workbench.settings.daemonTokens.pairModal.done')
+            ? t('workbench.settings.backendTokens.pairModal.done')
             : t('shared.action.close')}
         </Button>,
       ]}
@@ -177,14 +177,14 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
       destroyOnClose
     >
       {status === 'starting' && (
-        <Typography.Text>{t('workbench.settings.daemonTokens.pairModal.allocating')}</Typography.Text>
+        <Typography.Text>{t('workbench.settings.backendTokens.pairModal.allocating')}</Typography.Text>
       )}
 
       {status === 'error' && (
         <Alert
           type="error"
           showIcon
-          message={t('workbench.settings.daemonTokens.pairModal.startFailed')}
+          message={t('workbench.settings.backendTokens.pairModal.startFailed')}
           description={errorMessage}
         />
       )}
@@ -193,8 +193,8 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="warning"
           showIcon
-          message={t('workbench.settings.daemonTokens.pairModal.expiredTitle')}
-          description={t('workbench.settings.daemonTokens.pairModal.expiredBody')}
+          message={t('workbench.settings.backendTokens.pairModal.expiredTitle')}
+          description={t('workbench.settings.backendTokens.pairModal.expiredBody')}
         />
       )}
 
@@ -202,21 +202,21 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
         <Alert
           type="success"
           showIcon
-          message={t('workbench.settings.daemonTokens.pairModal.pairedTitle')}
-          description={t('workbench.settings.daemonTokens.pairModal.pairedBody')}
+          message={t('workbench.settings.backendTokens.pairModal.pairedTitle')}
+          description={t('workbench.settings.backendTokens.pairModal.pairedBody')}
         />
       )}
 
       {status === 'pending' && active && primary && (
         <div>
           <Typography.Paragraph style={{ marginBottom: 12 }}>
-            {t('workbench.settings.daemonTokens.pairModal.intro.part1')}{' '}
-            <strong>{t('workbench.settings.daemonTokens.pairModal.intro.settingsPath')}</strong>
-            {t('workbench.settings.daemonTokens.pairModal.intro.part2')}{' '}
-            <strong>{t('workbench.settings.daemonTokens.pairModal.intro.address')}</strong>{' '}
-            {t('workbench.settings.daemonTokens.pairModal.intro.part3')}{' '}
+            {t('workbench.settings.backendTokens.pairModal.intro.part1')}{' '}
+            <strong>{t('workbench.settings.backendTokens.pairModal.intro.settingsPath')}</strong>
+            {t('workbench.settings.backendTokens.pairModal.intro.part2')}{' '}
+            <strong>{t('workbench.settings.backendTokens.pairModal.intro.address')}</strong>{' '}
+            {t('workbench.settings.backendTokens.pairModal.intro.part3')}{' '}
             <strong>{t('workbench.settings.backendPane.pair.pairWithCode')}</strong>{' '}
-            {t('workbench.settings.daemonTokens.pairModal.intro.part4')}
+            {t('workbench.settings.backendTokens.pairModal.intro.part4')}
           </Typography.Paragraph>
 
           <div
@@ -229,7 +229,7 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
             }}
           >
             <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextTertiary }}>
-              {t('workbench.settings.daemonTokens.pairModal.codeLabel')}
+              {t('workbench.settings.backendTokens.pairModal.codeLabel')}
             </div>
             <div
               style={{
@@ -243,14 +243,14 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
               {active.code}
             </div>
             <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 4 }}>
-              {t('workbench.settings.daemonTokens.pairModal.expiresIn', {
+              {t('workbench.settings.backendTokens.pairModal.expiresIn', {
                 remaining: formatRemaining(active.expiresAt, tick),
               })}
             </div>
           </div>
 
           <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
-            {t('workbench.settings.daemonTokens.pairModal.addressListLabel')}
+            {t('workbench.settings.backendTokens.pairModal.addressListLabel')}
           </div>
           <Space direction="vertical" size={6} style={{ width: '100%' }}>
             {active.pairingUrls.map((u) => {
@@ -270,9 +270,9 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
           <Divider style={{ margin: '14px 0 12px' }} />
 
           <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-            {t('workbench.settings.daemonTokens.pairModal.fallback.prefix')}{' '}
+            {t('workbench.settings.backendTokens.pairModal.fallback.prefix')}{' '}
             <strong>{t('workbench.settings.backendPane.pair.pairWithCode')}</strong>{' '}
-            {t('workbench.settings.daemonTokens.pairModal.fallback.suffix')}
+            {t('workbench.settings.backendTokens.pairModal.fallback.suffix')}
           </Typography.Paragraph>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <Space direction="vertical" size={6} style={{ flex: 1, minWidth: 0 }}>

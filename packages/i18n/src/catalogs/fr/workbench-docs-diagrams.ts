@@ -995,7 +995,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shared.supports': 'PREND EN CHARGE',
   'workbench.docs.diagrams.openHeaders.shared.inBrowser': 'Dans le navigateur',
   'workbench.docs.diagrams.openHeaders.shared.desktopApp': 'App de bureau',
-  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Serveur local',
+  'workbench.docs.diagrams.openHeaders.shared.localServer': 'Serveur local',
   'workbench.docs.diagrams.openHeaders.shared.yourVm': 'Votre VM',
   'workbench.docs.diagrams.openHeaders.shared.workbench': 'Workbench',
   'workbench.docs.diagrams.openHeaders.shared.devtools': 'DevTools',
@@ -1244,7 +1244,7 @@ export const workbenchDocsDiagrams = {
     'tourne.',
   'workbench.docs.diagrams.openHeaders.localFirst.subBrowser': "service worker de l'extension",
   'workbench.docs.diagrams.openHeaders.localFirst.subDesktop': 'back-end intégré',
-  'workbench.docs.diagrams.openHeaders.localFirst.subDaemon': 'processus autonome',
+  'workbench.docs.diagrams.openHeaders.localFirst.subServer': 'processus autonome',
   'workbench.docs.diagrams.openHeaders.localFirst.subVm': "hébergez-le n'importe où",
   'workbench.docs.diagrams.openHeaders.localFirst.bulletZeroSetup': 'zéro configuration',
   'workbench.docs.diagrams.openHeaders.localFirst.bulletSingleDevice': 'un seul appareil',
@@ -1405,23 +1405,23 @@ export const workbenchDocsDiagrams = {
     'Lister · basculer · envoyer · diff — directement depuis le shell',
 
   // ── Open Headers: roadmap daemon ────────────────────────────────────
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
+  'workbench.docs.diagrams.openHeaders.roadmapServer.aria':
     'Jalon de la feuille de route — serveur local / LAN. Un serveur au centre ; extension, app de bureau et ' +
     'CLI se connectent tous comme clients à travers votre LAN.',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Serveur local / LAN · un seul hub de sync',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
+  'workbench.docs.diagrams.openHeaders.roadmapServer.title': 'Serveur local / LAN · un seul hub de sync',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.subtitle':
     'Extension · bureau · CLI — tous clients du même serveur, tous sur votre réseau.',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': 'espaces de travail',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': 'règles · vault',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': 'moteur de sync',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.lanReachable': 'joignable sur le LAN',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.clientExtension': 'Ext. navigateur',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideLaptop': 'portable',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.sideWorkstation': 'poste de travail',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · multifenêtre',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': 'toute machine · $ oh rules · $ oh env',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict':
+  'workbench.docs.diagrams.openHeaders.roadmapServer.stackWorkspaces': 'espaces de travail',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.stackRules': 'règles · vault',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.stackSync': 'moteur de sync',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.lanReachable': 'joignable sur le LAN',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.clientExtension': 'Ext. navigateur',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.sideLaptop': 'portable',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.sideWorkstation': 'poste de travail',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.surfExtension': 'Popup · Workbench · DevTools',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.surfDesktop': 'Workbench · multifenêtre',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.surfCli': 'toute machine · $ oh rules · $ oh env',
+  'workbench.docs.diagrams.openHeaders.roadmapServer.verdict':
     'Un serveur · plusieurs clients · reste sur votre réseau',
 
   // ── Open Headers: roadmap desktop app ───────────────────────────────
@@ -1556,8 +1556,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'Serveur MCP (contrôle par agent IA)',
   'workbench.docs.diagrams.openHeaders.milestones.descMcp':
     'Open Headers via MCP — laissez un agent IA piloter votre espace de travail.',
-  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Serveur local / LAN',
-  'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
+  'workbench.docs.diagrams.openHeaders.milestones.msServer': 'Serveur local / LAN',
+  'workbench.docs.diagrams.openHeaders.milestones.descServer':
     'Serveur sur votre machine ou LAN — extension, bureau, CLI comme clients.',
   'workbench.docs.diagrams.openHeaders.milestones.descCli':
     'Scripting sans interface et CI — lister, basculer, envoyer depuis le shell.',

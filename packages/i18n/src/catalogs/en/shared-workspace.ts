@@ -18,8 +18,8 @@ export const sharedWorkspace = {
   // ── Org host-kind hints (second-person home-Org sub-labels) ────────
   'shared.org.hint.browser': 'This browser',
   'shared.org.hint.desktop': 'This device',
-  'shared.org.hint.daemonLocal': 'Local server',
-  'shared.org.hint.daemonRemote': 'Remote server',
+  'shared.org.hint.serverLocal': 'Local server',
+  'shared.org.hint.serverRemote': 'Remote server',
   // Full single-line Org label — "This browser: Chrome", "This device: my-mac".
   'shared.org.fullLabel': '{hint}: {name}',
 
@@ -38,13 +38,13 @@ export const sharedWorkspace = {
   'shared.org.scope.local.desktopLan': 'Stays on your devices. Synced over local network (LAN).',
   'shared.org.scope.local.desktopLoopback':
     'Stays on this device — synced between the desktop app and connected browsers.',
-  'shared.org.scope.local.daemonLan': 'Shared on this server. Synced over local network (LAN).',
-  'shared.org.scope.local.daemonWan': 'Shared on this server. Synced over the internet (WAN).',
-  'shared.org.scope.local.daemonLoopback': 'Lives on this server — only this machine can connect.',
+  'shared.org.scope.local.serverLan': 'Shared on this server. Synced over local network (LAN).',
+  'shared.org.scope.local.serverWan': 'Shared on this server. Synced over the internet (WAN).',
+  'shared.org.scope.local.serverLoopback': 'Lives on this server — only this machine can connect.',
   'shared.org.scope.local.generic': 'Stays on this device.',
   'shared.org.scope.personal.desktop': 'Stays on this device — synced between this browser and the desktop app.',
-  'shared.org.scope.personal.daemonWan': 'Synced with your server over the internet (WAN).',
-  'shared.org.scope.personal.daemonLan': 'Synced with your server over the local network (LAN).',
+  'shared.org.scope.personal.serverWan': 'Synced with your server over the internet (WAN).',
+  'shared.org.scope.personal.serverLan': 'Synced with your server over the local network (LAN).',
   'shared.org.scope.personal.generic': 'Synced across your devices.',
   'shared.org.scope.team.wan': 'Shared with the team over the internet (WAN).',
   'shared.org.scope.team.lan': 'Shared with the team over the local network (LAN).',

@@ -85,13 +85,13 @@ export {
   ParadigmRuleEngineDiagram,
   ParadigmShiftDiagram,
   RoadmapCliDiagram,
-  RoadmapDaemonDiagram,
   RoadmapDesktopAppDiagram,
   RoadmapGitWorkspacesDiagram,
   RoadmapImportersDiagram,
   RoadmapMcpArchitectureDiagram,
   RoadmapMcpToolsDiagram,
   RoadmapMilestonesDiagram,
+  RoadmapServerDiagram,
   RoadmapWebAppDiagram,
 } from './open-headers';
 export {

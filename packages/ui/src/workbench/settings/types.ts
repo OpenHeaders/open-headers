@@ -279,7 +279,7 @@ export interface CategoryVisibilityContext {
   /**
    * Whether the calling subject may administer the reachable daemon —
    * the client-side read of the server's `daemon.admin` resolution
-   * (`useDaemonAdminStatus`). `unknown` while the probe is in flight.
+   * (`useServerAdminStatus`). `unknown` while the probe is in flight.
    */
   daemonAdmin: 'unknown' | 'admin' | 'denied';
 }

@@ -91,9 +91,9 @@ function describeLocalScope(t: Translate, descriptor: OrgDescriptor, ctx: OrgSco
     return t('shared.org.scope.local.desktopLoopback');
   }
   // daemon, isHome — admin view.
-  if (reach === 'lan') return t('shared.org.scope.local.daemonLan');
-  if (reach === 'wan') return t('shared.org.scope.local.daemonWan');
-  return t('shared.org.scope.local.daemonLoopback');
+  if (reach === 'lan') return t('shared.org.scope.local.serverLan');
+  if (reach === 'wan') return t('shared.org.scope.local.serverWan');
+  return t('shared.org.scope.local.serverLoopback');
 }
 
 /**
@@ -115,8 +115,8 @@ function describePersonalScope(t: Translate, descriptor: OrgDescriptor, ctx: Org
     return t('shared.org.scope.personal.desktop');
   }
   if (hostKind === 'daemon') {
-    if (mode === 'remote-self-hosted') return t('shared.org.scope.personal.daemonWan');
-    return t('shared.org.scope.personal.daemonLan');
+    if (mode === 'remote-self-hosted') return t('shared.org.scope.personal.serverWan');
+    return t('shared.org.scope.personal.serverLan');
   }
   // hostKind === 'browser' here = a connected browser Org (future). Generic
   // is fine — the home browser Org doesn't connect on its own today.

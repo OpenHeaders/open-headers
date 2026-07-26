@@ -219,7 +219,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': '设置',
   'workbench.shell.breadcrumbs.whatsNew': '新功能',
   'workbench.shell.breadcrumbs.workspaces': '工作区',
-  'workbench.shell.breadcrumbs.daemonAdmin': '服务器管理',
+  'workbench.shell.breadcrumbs.serverAdmin': '服务器管理',
   'workbench.shell.breadcrumbs.environments': '环境',
   'workbench.shell.breadcrumbs.specs': '规范',
   'workbench.shell.breadcrumbs.workspaceVariables': '工作区变量',
