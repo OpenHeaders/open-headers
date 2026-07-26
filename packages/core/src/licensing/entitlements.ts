@@ -21,4 +21,4 @@ export type ReservedEntitlement = (typeof RESERVED_ENTITLEMENTS)[number];
  * `license?.seats ?? FREE_SEAT_LIMIT`; degradation after grace reverts
  * to this limit for NEW user creation only.
  */
-export const FREE_SEAT_LIMIT = 3;
+export const FREE_SEAT_LIMIT = 6;
