@@ -23,10 +23,13 @@ export interface WsAdmissionHooks {
 }
 
 /** The authenticated subject a peer-plane RPC runs as — the HELLO
- *  claims' user + device (token) identity. */
+ *  claims' user + device (token) identity, plus the socket's loopback
+ *  classification for planes whose action is same-device-only (the
+ *  companion-reveal plane fronting this machine's window). */
 export interface WsPeerRpcContext {
   readonly userId: string;
   readonly deviceId?: string;
+  readonly isLoopback?: boolean;
 }
 
 /**

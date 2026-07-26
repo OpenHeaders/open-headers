@@ -19,6 +19,7 @@ import type {
 } from '../../types';
 import type { WorkspaceIntent } from '../../workspace-intent';
 import type { AwarenessState } from '../awareness-bridge';
+import type { CompanionRevealTarget } from '../messages';
 import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
@@ -205,6 +206,16 @@ export interface BridgeBroadcastContract {
    * real teardown clears renderer state anyway.
    */
   windowHiddenToTray: Record<string, never>;
+
+  /**
+   * Host-shell navigation request: reveal the named companion target in
+   * this window — activate the matching dock tool window (or Settings
+   * category), after the shell already fronted the window itself.
+   * Emitted by the desktop main process when a connected browser
+   * surface sends the `companionReveal` peer RPC; hosts without a
+   * shell around them never send it.
+   */
+  revealToolWindow: { target: CompanionRevealTarget };
 
   /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per

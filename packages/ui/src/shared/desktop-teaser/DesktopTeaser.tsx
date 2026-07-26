@@ -1,23 +1,31 @@
 /**
  * DesktopTeaser — the placeholder body for a desktop-only feature on a
  * host that can't run it (extension / web workbench). Centered
- * explainer + a download CTA, so gated tabs and settings categories
+ * explainer + a call to action, so gated tabs and settings categories
  * stay discoverable instead of silently disappearing.
  *
- * The CTA resolves the latest installer for this platform from the
- * update feed's versions manifest (see `update-feed.ts`) and opens it
- * outside the current surface via the `openExternalUrl` capability;
- * hosts without it (the web app) fall back to a plain new tab. When
- * the feed is unreachable, the CTA and the "other platforms" link
- * both route to the website's install section instead.
+ * The CTA is state-aware: with the companion desktop app CONNECTED on
+ * this machine (live loopback wire truth, same derivation as the
+ * status popover's Desktop-app row) and the `companionReveal`
+ * capability present, the primary action hands off — front the desktop
+ * app and reveal this feature there. Otherwise it resolves the latest
+ * installer for this platform from the update feed's versions manifest
+ * (see `update-feed.ts`) and opens it outside the current surface via
+ * the `openExternalUrl` capability; hosts without it (the web app)
+ * fall back to a plain new tab. When the feed is unreachable, the CTA
+ * and the "other platforms" link both route to the website's install
+ * section instead.
  */
 
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, SelectOutlined } from '@ant-design/icons';
+import { isLoopbackBackendUrl } from '@openheaders/core/backends';
+import { getCapability } from '@openheaders/core/capabilities';
 import { Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { getCapability } from '@openheaders/core/capabilities';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useBackends } from '../backend';
+import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { DESKTOP_TEASER_COPY, type DesktopFeature } from './features';
 import {
   DESKTOP_DOWNLOAD_URL,
@@ -43,7 +51,23 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
   const t = useT();
   const copy = DESKTOP_TEASER_COPY[feature];
   const [installer, setInstaller] = useState<DesktopInstaller | null>(null);
+  const [revealing, setRevealing] = useState(false);
+
+  // Live loopback wire truth — the enabled loopback record's sync slot
+  // going green IS "the desktop app is running and connected here".
+  // No presence probe: anything short of connected keeps download.
+  const backends = useBackends();
+  const { snapshot: syncSlots } = useBackendSyncStatus();
+  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
+  const companionReveal = getCapability('companionReveal');
+  const companionConnected =
+    companionReveal !== undefined &&
+    loopback !== undefined &&
+    loopback.enabled &&
+    syncSlots[loopback.id]?.state === 'green';
+
   useEffect(() => {
+    if (companionConnected) return;
     let alive = true;
     void fetchLatestDesktopInstaller().then((resolved) => {
       if (alive) setInstaller(resolved);
@@ -51,7 +75,18 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [companionConnected]);
+
+  const reveal = async (): Promise<void> => {
+    if (!companionReveal) return;
+    setRevealing(true);
+    // The verdict itself needs no handling here: success is visible
+    // (the desktop app fronts), and a dropped wire re-derives this
+    // teaser back to the download CTA on the next status emission.
+    await companionReveal(feature);
+    setRevealing(false);
+  };
+
   return (
     <div
       data-testid="desktop-teaser"
@@ -74,28 +109,43 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
         {t(copy.body)}
       </div>
       <div style={{ fontSize: 12, color: token.colorTextTertiary }}>{t('shared.desktopTeaser.availability')}</div>
-      <Button
-        type="primary"
-        icon={<DownloadOutlined />}
-        onClick={() => openExternal(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
-        data-testid="desktop-teaser-cta"
-        style={{ marginTop: 6 }}
-      >
-        {t('shared.desktopTeaser.cta')}
-      </Button>
-      {installer && (
-        <div style={{ fontSize: 11, color: token.colorTextTertiary }}>
-          {`v${installer.version} · ${DESKTOP_PLATFORM_LABELS[installer.platform]}`}
-        </div>
+      {companionConnected ? (
+        <Button
+          type="primary"
+          icon={<SelectOutlined />}
+          loading={revealing}
+          onClick={() => void reveal()}
+          data-testid="desktop-teaser-open-app"
+          style={{ marginTop: 6 }}
+        >
+          {t('shared.desktopTeaser.openApp')}
+        </Button>
+      ) : (
+        <>
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={() => openExternal(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
+            data-testid="desktop-teaser-cta"
+            style={{ marginTop: 6 }}
+          >
+            {t('shared.desktopTeaser.cta')}
+          </Button>
+          {installer && (
+            <div style={{ fontSize: 11, color: token.colorTextTertiary }}>
+              {`v${installer.version} · ${DESKTOP_PLATFORM_LABELS[installer.platform]}`}
+            </div>
+          )}
+          <Button
+            type="link"
+            size="small"
+            onClick={() => openExternal(DESKTOP_DOWNLOAD_URL)}
+            style={{ fontSize: 12, padding: 0, height: 'auto' }}
+          >
+            {t('shared.desktopTeaser.otherPlatforms')}
+          </Button>
+        </>
       )}
-      <Button
-        type="link"
-        size="small"
-        onClick={() => openExternal(DESKTOP_DOWNLOAD_URL)}
-        style={{ fontSize: 12, padding: 0, height: 'auto' }}
-      >
-        {t('shared.desktopTeaser.otherPlatforms')}
-      </Button>
     </div>
   );
 };

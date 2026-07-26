@@ -44,6 +44,7 @@
  * swap in fakes; production code installs once at boot.
  */
 
+import type { CompanionRevealTarget } from '../protocol/messages';
 import type { ScriptExecutionMode } from '../scripts';
 
 /**
@@ -276,6 +277,19 @@ export interface Capabilities {
    * neutral not-connected row.
    */
   nmHostPresence?: () => Promise<boolean>;
+
+  /**
+   * Ask the companion desktop app on this machine to front its window
+   * and reveal `target` (a desktop-only tool window, the MCP settings
+   * category, or just the workbench). Registered only by surfaces that
+   * relay to a companion over the backend wire (the extension surfaces,
+   * through the SW's `companionReveal` bridge RPC); the desktop shell
+   * IS the companion and never registers it. Callers gate the
+   * affordance on LIVE loopback connection state — the capability
+   * resolves `{ ok: false, reason }` rather than launching anything
+   * when no companion answers.
+   */
+  companionReveal?: (target: CompanionRevealTarget) => Promise<{ ok: boolean; reason?: string }>;
 
   /**
    * Marker capability for the opt-in request-inspection path that attaches

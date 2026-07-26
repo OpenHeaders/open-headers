@@ -313,7 +313,11 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         const frameType = (parsed as RpcMessage).type;
         if (peerRpc && peerClaims && peerRpc.owns(frameType)) {
           void peerRpc
-            .dispatch(parsed as Record<string, unknown>, { userId: peerClaims.userId, deviceId: peerClaims.deviceId })
+            .dispatch(parsed as Record<string, unknown>, {
+              userId: peerClaims.userId,
+              deviceId: peerClaims.deviceId,
+              isLoopback: summaryBySocket.get(socket)?.isLoopback ?? false,
+            })
             .then((resp) => send(socket, { type: responseChannel, payload: resp }))
             .catch((err) => {
               send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });

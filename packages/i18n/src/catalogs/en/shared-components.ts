@@ -442,6 +442,7 @@ export const sharedComponents = {
   //    explainer + the download CTA. ──────────────────────────────────
   'shared.desktopTeaser.availability': 'Available in the OpenHeaders desktop app.',
   'shared.desktopTeaser.cta': 'Download the desktop app',
+  'shared.desktopTeaser.openApp': 'Open in the desktop app',
   'shared.desktopTeaser.otherPlatforms': 'Other platforms and channels',
   'shared.desktopTeaser.terminal.title': 'Integrated terminal',
   'shared.desktopTeaser.terminal.body':

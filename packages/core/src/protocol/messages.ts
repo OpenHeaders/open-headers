@@ -2,27 +2,31 @@
  * Protocol message type definitions.
  *
  * Reserved for the desktop ↔ extension WebSocket protocol. Today the
- * only inhabitant is `AppNavigationIntent` — the payload passed with
- * deep-link / focus-app navigation. Other message shapes were retired
- * along with the recording subsystem.
+ * only inhabitant is the companion-reveal vocabulary — the payload of
+ * the `companionReveal` peer channel a browser surface uses to bring
+ * the desktop app forward on the same machine.
  */
-
-/** Navigation action applied to an item or settings toggle. */
-export type NavigationAction = 'edit' | 'delete' | 'toggle' | 'view' | 'create' | 'duplicate' | 'highlight';
-
-/** Settings tab identifier. */
-export type SettingsTabId = 'general' | 'appearance';
 
 /**
- * Navigation intent sent with focusApp to tell the desktop UI which view
- * to show and what action to perform.
+ * What the desktop app should bring into view after fronting its
+ * window. `workbench` is the bare focus gesture; the feature values
+ * mirror the desktop-only registry entries browser hosts render as
+ * teasers (dock tool windows + the MCP settings category) — one
+ * vocabulary on the wire, host registries map it to their own surface
+ * ids at the receiving end.
  */
-export interface AppNavigationIntent {
-  tab?: string;
-  subTab?: string;
-  action?: NavigationAction;
-  itemId?: string;
-  settingsTab?: SettingsTabId;
-  /** Value for toggle actions — boolean via WebSocket, string via protocol URL. */
-  value?: string | boolean;
+export type CompanionRevealTarget = 'workbench' | 'terminal' | 'git' | 'proxy' | 'liveNetwork' | 'mcp';
+
+/** Every legal reveal target — the wire validator's single source. */
+export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
+  'workbench',
+  'terminal',
+  'git',
+  'proxy',
+  'liveNetwork',
+  'mcp',
+];
+
+export function isCompanionRevealTarget(value: unknown): value is CompanionRevealTarget {
+  return typeof value === 'string' && (COMPANION_REVEAL_TARGETS as readonly string[]).includes(value);
 }

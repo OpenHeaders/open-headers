@@ -430,6 +430,7 @@ export const sharedComponents = {
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.availability': '此功能在 OpenHeaders 桌面应用中提供。',
   'shared.desktopTeaser.cta': '下载桌面应用',
+  'shared.desktopTeaser.openApp': '在桌面应用中打开',
   'shared.desktopTeaser.otherPlatforms': '其他平台与通道',
   'shared.desktopTeaser.terminal.title': '集成终端',
   'shared.desktopTeaser.terminal.body': '在工作区中打开真正的终端——你自己的 shell 在本地运行，就在规则和请求旁边。',

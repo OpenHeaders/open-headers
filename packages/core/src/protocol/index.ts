@@ -58,7 +58,8 @@ export {
   SyncSyncedMessageSchema,
   SyncWelcomeMessageSchema,
 } from './handshake';
-export type { AppNavigationIntent, NavigationAction, SettingsTabId } from './messages';
+export type { CompanionRevealTarget } from './messages';
+export { COMPANION_REVEAL_TARGETS, isCompanionRevealTarget } from './messages';
 export type {
   SyncMutationBatchMessage,
   SyncMutationMessage,

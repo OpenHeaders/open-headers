@@ -71,12 +71,14 @@ import {
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog } from 'electron';
 import { dataDir } from './bootstrap/app-paths';
+import { revealAppSurface } from './bootstrap/app-reveal';
 import { registerTeardown } from './bootstrap/lifecycle';
 import { installLocaleSubscription } from './bootstrap/locale';
 import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
+import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
@@ -429,6 +431,12 @@ export async function installRpcHost(): Promise<void> {
     ...(migrationApiOrigin !== undefined && migrationApiOrigin !== '' ? { apiOrigin: migrationApiOrigin } : {}),
   });
   registerPeerRpcPlane(createMigrationPeerRpc({ getState: () => migrationPullRunner.getState() }));
+
+  // Companion reveal — a same-device browser surface fronting this app
+  // (the extension teasers' "Open in the desktop app"). The plane
+  // loopback-gates and validates; the Electron leg fronts the window
+  // and routes the target to the renderer's dock/settings mapping.
+  registerPeerRpcPlane(createCompanionRevealPeerRpc({ reveal: revealAppSurface }));
 
   // Desktop-shell RPCs (`oh.updates.*`, `oh.migration.*`) answer ahead
   // of the engine dispatcher — they are host-shell concerns the spine

@@ -19,9 +19,9 @@
  *
  *   - `sendToBackend(backendId, …)` — the routing seam; the mutation
  *     forwarder resolves the target from the envelope's Org binding.
- *   - `sendViaWebSocket(…)` — the legacy device-local seam (focusApp,
- *     ws-request default): the connected loopback wire when there is
- *     one, else the first connected wire.
+ *   - `sendViaWebSocket(…)` — the legacy device-local seam (ws-request
+ *     default): the connected loopback wire when there is one, else
+ *     the first connected wire.
  *   - `isWebSocketConnected()` / `getReconnectAttempts()` — any-of /
  *     worst-of across wires, for the badge and popup indicators.
  */
@@ -461,10 +461,11 @@ export function isBackendConnected(backendId: string): boolean {
 }
 
 /**
- * The default target for device-local, non-Org-routed frames (focusApp,
- * ws-request): the connected loopback wire when there is one — those
- * affordances address the desktop app on this machine — else the first
- * connected wire. Null when nothing is connected.
+ * The default target for device-local, non-Org-routed frames (the
+ * ws-request channels — companionReveal, executeRequest, …): the
+ * connected loopback wire when there is one — those affordances
+ * address the desktop app on this machine — else the first connected
+ * wire. Null when nothing is connected.
  */
 function defaultWire(): ManagedWire | null {
   let firstConnected: ManagedWire | null = null;

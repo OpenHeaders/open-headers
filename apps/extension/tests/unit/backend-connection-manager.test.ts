@@ -257,8 +257,8 @@ describe('backend connection manager — N-socket reconcile', () => {
 
       // Device-local seam: the loopback wire wins over the LAN wire.
       expect(ws.getDefaultWireBackendId()).toBe('loop');
-      expect(ws.sendViaWebSocket({ type: 'focusApp' })).toBe(true);
-      expect(socketLoop.sentFrames).toEqual([JSON.stringify({ type: 'focusApp' })]);
+      expect(ws.sendViaWebSocket({ type: 'companionReveal' })).toBe(true);
+      expect(socketLoop.sentFrames).toEqual([JSON.stringify({ type: 'companionReveal' })]);
     });
   });
 

@@ -427,6 +427,7 @@ export const sharedComponents = {
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.availability': 'Disponible en la aplicación de escritorio de OpenHeaders.',
   'shared.desktopTeaser.cta': 'Descargar la aplicación de escritorio',
+  'shared.desktopTeaser.openApp': 'Abrir en la aplicación de escritorio',
   'shared.desktopTeaser.otherPlatforms': 'Otras plataformas y canales',
   'shared.desktopTeaser.terminal.title': 'Terminal integrado',
   'shared.desktopTeaser.terminal.body':

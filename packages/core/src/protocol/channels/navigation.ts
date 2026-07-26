@@ -6,7 +6,7 @@
 
 import type { ViewMode } from '../../types/view-mode';
 import type { IntentCallerContext, WorkspaceIntent } from '../../workspace-intent';
-import type { AppNavigationIntent } from '../messages';
+import type { CompanionRevealTarget } from '../messages';
 
 export interface NavigationRpc {
   // ── Tab / app launcher ─────────────────────────────────────────
@@ -14,9 +14,19 @@ export interface NavigationRpc {
     req: { url: string };
     res: { success: boolean; tabId?: number; error?: string };
   };
-  focusApp: {
-    req: { navigation?: AppNavigationIntent };
-    res: { success: boolean };
+
+  /**
+   * Ask the connected companion desktop app (same machine, over the
+   * backend wire) to front its window and reveal `target`. The SW
+   * relays the frame as a `companionReveal` peer RPC and the desktop's
+   * reveal plane answers; `ok: false` carries the honest reason
+   * (`not-connected`, a refusal, a timeout). The caller gates the
+   * affordance on LIVE loopback connection state — this RPC never
+   * launches an app that isn't running.
+   */
+  companionReveal: {
+    req: { target: CompanionRevealTarget };
+    res: { ok: boolean; reason?: string };
   };
 
   /**

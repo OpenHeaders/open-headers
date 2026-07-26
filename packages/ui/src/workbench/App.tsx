@@ -45,6 +45,7 @@ import {
 } from '@openheaders/core/sync';
 import { hostBridge } from '@openheaders/core/bridge';
 import type { PostmanImportSummary } from '@openheaders/core/import';
+import type { CompanionRevealTarget } from '@openheaders/core/protocol';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
@@ -139,6 +140,17 @@ import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
 import { getFocusedDock } from './stores/focus-region-store';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
+
+// Companion-reveal targets → this surface's dock tool windows. The
+// wire vocabulary names features; both observability features land on
+// the unified Traffic Monitor window. `workbench` (bare focus) and
+// `mcp` (a Settings category) are handled where the broadcast arrives.
+const REVEAL_WINDOW_BY_TARGET: Partial<Record<CompanionRevealTarget, ToolWindowId>> = {
+  terminal: 'terminal',
+  git: 'git',
+  proxy: 'traffic-monitor',
+  liveNetwork: 'traffic-monitor',
+};
 
 // ── Shell loader ────────────────────────────────────────────────────
 
@@ -756,6 +768,26 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         else if (command === 'closeTab') handleCloseActiveTab();
       }),
     [openCreateMenu, openCreateRequestTab, handleCloseActiveTab],
+  );
+
+  // Host-shell navigation: a connected browser surface asked this app
+  // to reveal a companion target (`companionReveal` peer RPC → the
+  // main process fronts the window, then broadcasts). The target maps
+  // onto this surface's own registries — dock tool windows for the
+  // pty / git / observability features, the Settings category for MCP.
+  useEffect(
+    () =>
+      hostBridge.subscribe('revealToolWindow', ({ target }) => {
+        if (target === 'mcp') {
+          openSettings({ categoryId: 'mcp' });
+          return;
+        }
+        const windowId = REVEAL_WINDOW_BY_TARGET[target];
+        if (!windowId) return;
+        if (tl.state.hidden.includes(windowId)) tl.restoreWindow(windowId);
+        tl.activateWindow(windowId);
+      }),
+    [tl, openSettings],
   );
 
   // The console opens as a workbench tab — dismiss the settings overlay

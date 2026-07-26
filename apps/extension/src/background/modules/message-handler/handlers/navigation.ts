@@ -4,6 +4,7 @@ import type { ViewMode } from '@openheaders/core/types';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { getViewModeController } from '@/background/view-mode/controller';
+import { wsRequest } from '../../../ws-request';
 import { openWorkspaceIntent } from '../../workspace/workspace-navigator';
 import type { HandlerMap } from '../types';
 
@@ -57,12 +58,14 @@ export const navigationHandlers: HandlerMap = {
     return true;
   },
 
-  focusApp: ({ message, respond, ctx }) => {
-    if (ctx.isWebSocketConnected()) {
-      const sent = ctx.sendViaWebSocket({ type: 'focusApp', navigation: message.navigation as string });
-      respond({ success: sent });
-    } else {
-      respond({ success: false });
-    }
+  companionReveal: ({ message, respond }) => {
+    // Relay to the companion desktop app as a peer RPC and hand its
+    // typed verdict back. The desktop's reveal plane validates the
+    // target and loopback-gates; here we only surface transport
+    // failures (`not-connected`, `timeout`) as honest reasons.
+    wsRequest<{ ok: boolean; reason?: string }>({ type: 'companionReveal', target: message.target })
+      .then((result) => respond(result))
+      .catch((err: Error) => respond({ ok: false, reason: err.message }));
+    return true;
   },
 };
