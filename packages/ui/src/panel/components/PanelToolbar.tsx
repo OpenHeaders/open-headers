@@ -31,6 +31,8 @@ import {
 import { IconClear } from './toolbar-icons';
 import { getMoreFiltersInfo, getViewInfo } from './toolbar-menu-info';
 import { ExportMenu, MoreFiltersMenu, ViewMenu } from './toolbar-menus';
+import { ToolbarOverflowMenu } from './ToolbarOverflowMenu';
+import { tierAtMost, usePanelResponsive } from '../responsive';
 
 // Lazy so the settings UI (Monaco via CodeField) stays out of the
 // panel's boot bundle; it loads on first gear-menu action.
@@ -140,6 +142,11 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  // Below the md tier the secondary control clusters fold into the "⋯"
+  // overflow menu — the cluster nodes are built once and rendered in
+  // whichever host the tier picks (pure relocation, same components).
+  const { tier } = usePanelResponsive();
+  const foldSecondary = tierAtMost(tier, 'md');
 
   // In-panel settings surface — the gear menu opens the shared modal
   // right here instead of bouncing the user out to the workbench tab.
@@ -185,6 +192,47 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
     if (info?.source === 'menu') return;
     setBottomAlignDropdownOpen(nextOpen);
   };
+
+  // Secondary clusters — inline (separator-joined) at lg+, stacked as
+  // rows inside the ⋯ overflow popover at md and below.
+  const preserveLogControl = (
+    <span className="dt-debug-control">
+      <label className="dt-checkbox" title={t('panel.toolbar.preserveLogTitle')}>
+        <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
+        {t('panel.toolbar.preserveLog')}
+      </label>
+      <InfoTrigger
+        content={getPreserveLogInfo(t)}
+        className="dt-header-info-trigger dt-debug-info-trigger"
+        ariaLabel={t('panel.toolbar.aboutPreserveLog')}
+      />
+    </span>
+  );
+  const debugCluster = (
+    <DebugControlsCluster cacheBypassEnabled={cacheBypassEnabled} onToggleCacheBypass={onToggleCacheBypass} />
+  );
+  const moreFiltersControl = (
+    <span className="dt-debug-control">
+      <MoreFiltersMenu filterConfig={filterConfig} onFilterConfigChange={onFilterConfigChange} />
+      <InfoTrigger
+        content={getMoreFiltersInfo(t)}
+        className="dt-header-info-trigger dt-debug-info-trigger"
+        ariaLabel={t('panel.toolbar.aboutMoreFilters')}
+      />
+    </span>
+  );
+  const viewControl = (
+    <span className="dt-debug-control">
+      <ViewMenu />
+      <InfoTrigger
+        content={getViewInfo(t)}
+        className="dt-header-info-trigger dt-debug-info-trigger"
+        ariaLabel={t('panel.toolbar.aboutFooterView')}
+      />
+    </span>
+  );
+  const exportControl = <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />;
+  const ruleExecutionsHint = <RuleExecutionsHint />;
 
   const layoutMenu = buildPanelLayoutMenu({
     t,
@@ -248,48 +296,43 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             <IconSearch />
           </button>
           <div className="dt-toolbar-separator" />
-          <span className="dt-debug-control">
-            <label className="dt-checkbox" title={t('panel.toolbar.preserveLogTitle')}>
-              <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
-              {t('panel.toolbar.preserveLog')}
-            </label>
-            <InfoTrigger
-              content={getPreserveLogInfo(t)}
-              className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel={t('panel.toolbar.aboutPreserveLog')}
-            />
-          </span>
-          <div className="dt-toolbar-separator" />
-          <DebugControlsCluster cacheBypassEnabled={cacheBypassEnabled} onToggleCacheBypass={onToggleCacheBypass} />
-          <div className="dt-toolbar-separator" />
-          <span className="dt-debug-control">
-            <MoreFiltersMenu filterConfig={filterConfig} onFilterConfigChange={onFilterConfigChange} />
-            <InfoTrigger
-              content={getMoreFiltersInfo(t)}
-              className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel={t('panel.toolbar.aboutMoreFilters')}
-            />
-          </span>
-          <div className="dt-toolbar-separator" />
-          <span className="dt-debug-control">
-            <ViewMenu />
-            <InfoTrigger
-              content={getViewInfo(t)}
-              className="dt-header-info-trigger dt-debug-info-trigger"
-              ariaLabel={t('panel.toolbar.aboutFooterView')}
-            />
-          </span>
-          <div className="dt-toolbar-separator" />
-          <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
-          {rulesVisible && (
+          {foldSecondary ? (
+            <ToolbarOverflowMenu title={t('panel.toolbar.moreTools')}>
+              <div className="dt-toolbar-overflow-row">{preserveLogControl}</div>
+              <div className="dt-toolbar-overflow-row">{debugCluster}</div>
+              <div className="dt-toolbar-overflow-row">
+                {moreFiltersControl}
+                {viewControl}
+                {exportControl}
+              </div>
+              {rulesVisible && <div className="dt-toolbar-overflow-row">{ruleExecutionsHint}</div>}
+            </ToolbarOverflowMenu>
+          ) : (
             <>
+              {preserveLogControl}
               <div className="dt-toolbar-separator" />
-              <RuleExecutionsHint />
+              {debugCluster}
+              <div className="dt-toolbar-separator" />
+              {moreFiltersControl}
+              <div className="dt-toolbar-separator" />
+              {viewControl}
+              <div className="dt-toolbar-separator" />
+              {exportControl}
+              {rulesVisible && (
+                <>
+                  <div className="dt-toolbar-separator" />
+                  {ruleExecutionsHint}
+                </>
+              )}
             </>
           )}
           </div>
           <div className="dt-toolbar-right">
           <PanelWorkspaceSelector />
+          {/* Clamp wrapper: at xs the env selector is the least
+              essential right-group control (the workbench remains the
+              editing surface) — it yields so workspace + gear stay. */}
+          <span className="dt-toolbar-env dt-resp-hide-xs">
           <EnvironmentSelector
             compact
             environments={environments}
@@ -325,10 +368,11 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
               void openWorkspace({ kind: 'open-live-variables' }, 'devpanel');
             }}
           />
+          </span>
           {showPanelToggles && (
             <>
-              <div className="dt-toolbar-separator" />
-              <div className="rules-panel-toggles">
+              <div className="dt-toolbar-separator dt-resp-hide-sm" />
+              <div className="rules-panel-toggles dt-resp-hide-sm">
                 <RegionToggle
                   title={t('panel.toolbar.leftSidebar')}
                   ariaTitle={t('panel.toolbar.leftSidebar')}
@@ -399,7 +443,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
           )}
           {showLayoutMenu && (
             <>
-              <div className="dt-toolbar-separator" />
+              <div className="dt-toolbar-separator dt-resp-hide-sm" />
               <Dropdown
                 menu={{
                   items: layoutMenu,
@@ -413,7 +457,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
                 onOpenChange={handleLayoutOpenChange}
               >
                 <div
-                  className="rules-statusbar-item rules-layout-toggle"
+                  className="rules-statusbar-item rules-layout-toggle dt-resp-hide-sm"
                   role="button"
                   tabIndex={0}
                   aria-label={t('panel.toolbar.layoutOptions')}

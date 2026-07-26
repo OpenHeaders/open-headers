@@ -36,6 +36,10 @@
 @import './panel-storage.css';
 @import './panel-menus.css';
 @import './panel-dnd.css';
+/* LAST on purpose: the width-tier collapse rules override same-
+   specificity base rules from every module above (e.g. the Storage
+   rail's 150px width), and they only win by source order. */
+@import './panel-responsive.css';
 /* Inter — bundled UI font available via the appearance.fontFamilyPreset
    "Inter" option. Three weights (regular / medium / bold), latin subset
    only — ~70 KB total. */

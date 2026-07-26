@@ -83,9 +83,12 @@ export const PanelWorkspaceSelector: React.FC = () => {
       >
         <Space size={4}>
           {renderWorkspacePrefix({ icon: activeWorkspace.icon, color: activeWorkspace.color }, token, { size: 12 })}
+          {/* Width cap lives in CSS (`.dt-workspace-name`) so the
+              responsive tiers can tighten it — 120px default, narrower
+              at md, icon-only at sm (panel-responsive.css). */}
           <Text
+            className="dt-workspace-name"
             style={{
-              maxWidth: 120,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',

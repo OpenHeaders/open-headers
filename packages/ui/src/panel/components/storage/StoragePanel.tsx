@@ -760,9 +760,13 @@ export function StoragePanel({
               }`}
               data-active={section === s.value}
               onClick={() => setSection(s.value)}
+              title={t(s.labelKey)}
             >
               <span className="dt-storage-nav-icon">{s.icon}</span>
-              {t(s.labelKey)}
+              {/* Classed so the pane-width container query can collapse
+                  the rail to icons-only (panel-responsive.css); the
+                  button title above keeps the name discoverable there. */}
+              <span className="dt-storage-nav-label">{t(s.labelKey)}</span>
               {navMatchCounts[s.value] !== undefined && navMatchCounts[s.value] !== 0 && (
                 <span
                   className="dt-storage-nav-badge"

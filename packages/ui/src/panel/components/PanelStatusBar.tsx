@@ -149,7 +149,10 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
   return (
     <>
       {/* Cumulative traffic across whatever the log holds — or `subset / total`
-          while a filter hides rows (browser summary-bar parity). */}
+          while a filter hides rows (browser summary-bar parity). The
+          `dt-resp-hide-*` classes shed lower-value figures as the panel
+          narrows (panel-responsive.css); the request count survives every
+          tier. */}
       <span className="rules-statusbar-item">
         {subset
           ? t('panel.status.requestsSubset', { subset: subset.requestCount, total: requestCount })
@@ -157,7 +160,7 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
       </span>
       {showModified && (
         <span
-          className="rules-statusbar-item"
+          className="rules-statusbar-item dt-resp-hide-sm"
           style={{ color: modifiedCount > 0 ? token.colorPrimary : token.colorTextTertiary }}
           title={t('panel.status.modifiedTitle')}
         >
@@ -166,7 +169,7 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
       )}
       {showFailed && (
         <span
-          className="rules-statusbar-item"
+          className="rules-statusbar-item dt-resp-hide-sm"
           style={{ color: failedCount > 0 ? token.colorError : token.colorTextTertiary }}
           title={t('panel.status.failedTitle')}
         >
@@ -174,21 +177,25 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
         </span>
       )}
       {showCached && (
-        <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title={t('panel.status.cachedTitle')}>
+        <span
+          className="rules-statusbar-item dt-resp-hide-md"
+          style={{ color: token.colorTextTertiary }}
+          title={t('panel.status.cachedTitle')}
+        >
           {t('panel.status.cached', { count: cachedCount })}
         </span>
       )}
       {subset ? (
         <>
-          <span className="rules-statusbar-item">
+          <span className="rules-statusbar-item dt-resp-hide-sm">
             {t('panel.status.transferredSubset', { subset: subset.transferredSize, total: subset.totalTransferredSize })}
           </span>
-          <span className="rules-statusbar-item">
+          <span className="rules-statusbar-item dt-resp-hide-sm">
             {t('panel.status.resourcesSubset', { subset: subset.resourceSize, total: subset.totalResourceSize })}
           </span>
         </>
       ) : (
-        <span className="rules-statusbar-item">
+        <span className="rules-statusbar-item dt-resp-hide-sm">
           {resourceSize && resourceSize !== transferredSize
             ? t('panel.status.transferredAndResources', { transferred: transferredSize, resources: resourceSize })
             : t('panel.status.transferredOnly', { size: transferredSize })}
@@ -198,19 +205,29 @@ const NetworkFooterCluster: React.FC<NetworkFooterClusterProps> = ({
       {/* This-navigation milestones. The per-item dividers (panel-shell.css)
           already separate Finish from the cumulative counts. DOMContentLoaded
           and Load figures keep the raw event names (English boundary). */}
-      {finishTime && <span className="rules-statusbar-item">{t('panel.status.finish', { time: finishTime })}</span>}
+      {finishTime && (
+        <span className="rules-statusbar-item dt-resp-hide-md">{t('panel.status.finish', { time: finishTime })}</span>
+      )}
       {dclText && (
-        <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
+        <span className="rules-statusbar-item dt-resp-hide-md" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
           DOMContentLoaded: {dclText}
         </span>
       )}
       {loadText && (
-        <span className="rules-statusbar-item" style={{ color: '#d93025' }} title={t('panel.status.loadEventTitle')}>
+        <span
+          className="rules-statusbar-item dt-resp-hide-md"
+          style={{ color: '#d93025' }}
+          title={t('panel.status.loadEventTitle')}
+        >
           Load: {loadText}
         </span>
       )}
       {hasTiming && showPageLabel && (
-        <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title={pageOrigin ?? undefined}>
+        <span
+          className="rules-statusbar-item dt-resp-hide-md"
+          style={{ color: token.colorTextTertiary }}
+          title={pageOrigin ?? undefined}
+        >
           {pageHost}
         </span>
       )}
@@ -361,7 +378,9 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           />
         )}
 
-        {tabCount > 0 && <span className="rules-statusbar-item">{t('panel.status.tabs', { count: tabCount })}</span>}
+        {tabCount > 0 && (
+          <span className="rules-statusbar-item dt-resp-hide-sm">{t('panel.status.tabs', { count: tabCount })}</span>
+        )}
       </div>
       <div className="rules-statusbar-right">
         <DebugModeDormantNotice tabSource="inspected" hasRealizableRule={hasRealizableDebugRule} />
@@ -376,10 +395,12 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           renderSubsystemInlineAction={productStatusInlineActions}
           onOpenDocs={handleOpenDocs}
         />
-        <AddonsPill />
+        <span className="dt-resp-hide-sm" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <AddonsPill />
+        </span>
         {showThemeSwitcher && (
           <>
-            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            <div className="rules-statusbar-divider dt-resp-hide-md" style={{ background: token.colorBorderSecondary }} />
             <Dropdown
               menu={{
                 items: (['light', 'dark', 'auto'] as ThemeMode[]).map((mode) => ({
@@ -398,7 +419,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
               trigger={['hover']}
             >
               <div
-                className="rules-statusbar-item"
+                className="rules-statusbar-item dt-resp-hide-md"
                 role="button"
                 tabIndex={0}
                 style={{
@@ -419,8 +440,8 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
         )}
         {showVersion && (
           <>
-            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-            <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
+            <div className="rules-statusbar-divider dt-resp-hide-lg" style={{ background: token.colorBorderSecondary }} />
+            <span className="rules-statusbar-item dt-resp-hide-lg" style={{ fontSize: 10, color: token.colorTextTertiary }}>
               v{__APP_VERSION__}
             </span>
           </>

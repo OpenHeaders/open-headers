@@ -31,6 +31,7 @@ export const panel = {
   'panel.toolbar.aboutPreserveLog': '关于保留日志',
   'panel.toolbar.aboutMoreFilters': '关于更多筛选',
   'panel.toolbar.aboutFooterView': '关于底栏视图',
+  'panel.toolbar.moreTools': '更多工具',
   'panel.toolbar.activeWorkspaceAria': '活动工作区：{name}',
 
   // ── Toolbar layout cluster ──────────────────────────────────────────

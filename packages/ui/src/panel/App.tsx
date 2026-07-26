@@ -131,6 +131,7 @@ import { usePageClient } from './data/stores/use-page-client';
 import { usePanelData } from './data/use-panel-data';
 import { useResourceTimingClient } from './data/stores/use-resource-timing-client';
 import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
+import { PanelResponsiveProvider, usePanelResponsive, useNarrowLayout } from './responsive';
 import { usePanelUiState } from './data/use-panel-ui-state';
 import { useCacheBypass } from './data/use-cache-bypass';
 import { useFooterSummary } from './data/use-footer-summary';
@@ -205,6 +206,12 @@ export default function App({ resolveIdentity }: AppProps) {
                                     <DocsNavProvider>
                                       <InfoPopoverContainerProvider
                                         resolver={(trigger) =>
+                                          // A trigger inside the toolbar's narrow-width "⋯"
+                                          // overflow body portals into THAT body — keeping the
+                                          // nested menu's DOM inside the overflow popover's
+                                          // subtree, so interacting with it doesn't read as an
+                                          // outside click and cascade-close the overflow menu.
+                                          trigger.closest<HTMLElement>('.dt-toolbar-overflow-body') ??
                                           // A trigger inside the hover-anchored waterfall popover
                                           // portals into that popover's overlay — hovering the
                                           // nested info popover then still counts as hovering the
@@ -261,7 +268,11 @@ function PanelContent() {
   if (!perTab.ready) {
     return <div className="rules-shell rules-shell-loading" />;
   }
-  return <PanelContentReady perTab={perTab} />;
+  return (
+    <PanelResponsiveProvider>
+      <PanelContentReady perTab={perTab} />
+    </PanelResponsiveProvider>
+  );
 }
 
 function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelViewState> }) {
@@ -367,7 +378,16 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   const groups = useInspectorEditorGroups({ perTab, liveSessionToken: lifecycleClient.sessionToken });
-  const tl = usePanelToolLayout(perTab);
+  const rawTl = usePanelToolLayout(perTab);
+  // Responsive width state (settled, provider-owned) + the narrow
+  // single-surface controller. `tl` below is the DECORATED layout API —
+  // pass-through when wide; while narrow it also tracks which surface
+  // the user's activations pull forward. Everything downstream
+  // (toolbar, shell, status bar, reveal helpers) uses the decorated
+  // one so no other call site needs width-awareness.
+  const responsive = usePanelResponsive();
+  const narrowApi = useNarrowLayout({ tl: rawTl, narrow: responsive.singleSurface, tabCount: groups.allTabs.length });
+  const tl = narrowApi.tl;
   // Product telemetry: an active tool window is the panel feature in
   // use — network on first paint (the panel IS the traffic view),
   // console/storage when their tab activates. `noteFeatureUsed` guards
@@ -401,31 +421,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   }, [tl]);
   // DevTools re-docks (right ↔ bottom) resize this document in place —
   // sizes derived from the mount-time innerWidth would keep clamping
-  // the sidebar to the old geometry's max. The memo stays; what changes
-  // is that its real input — the viewport width — becomes tracked
-  // state, updated only on the TRAILING edge of resize: the clamp just
-  // has to be right by the next sash grab, and a per-tick update would
-  // re-render the whole shell — every editor tab body — for every frame
-  // of a window drag. A settled same-width resize is a no-op (primitive
-  // state); Allotment applies min/max changes live.
-  const [settledWidth, setSettledWidth] = useState(() => window.innerWidth);
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const onResize = () => {
-      if (timer !== null) clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        setSettledWidth(window.innerWidth);
-      }, 150);
-    };
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      if (timer !== null) clearTimeout(timer);
-    };
-  }, []);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: settledWidth IS getPanelSizes's input (window.innerWidth), read at call time
-  const panelSizes = useMemo(getPanelSizes, [settledWidth]);
+  // the sidebar to the old geometry's max. The memo's real input — the
+  // settled viewport width — now lives in PanelResponsiveProvider
+  // (trailing-edge updates, so a window drag never re-renders the
+  // whole shell per frame); Allotment applies min/max changes live.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: responsive.width IS getPanelSizes's input (window.innerWidth), read at call time
+  const panelSizes = useMemo(getPanelSizes, [responsive.width]);
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
   // we don't want that to discard the user's query and results.
@@ -559,6 +560,18 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     searchLineNumber,
     searchMatchIndex,
   } = useInspectorTabJumps({ lookupByRequestId: data.lookupByRequestId, groups, tl });
+
+  // Row selection while narrow must surface the editor even when the
+  // request's tab is ALREADY open (no tab-count change for the narrow
+  // controller to observe) — the explicit gesture says "show me the
+  // document". No-op while wide.
+  const handleSelectRow = useCallback(
+    (requestId: string) => {
+      handleSelect(requestId);
+      narrowApi.showEditor();
+    },
+    [handleSelect, narrowApi.showEditor],
+  );
 
   // ── Storage-document editor tabs (open + reveal-back) ───────
   // Save actions the editor bodies register — the close guard's
@@ -949,7 +962,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               pages={data.pages}
               cdpEnhanced={lifecycleClient.source === 'cdp'}
               selectedId={selectedId}
-              onSelect={handleSelect}
+              onSelect={handleSelectRow}
               filter={filter}
               onFilterChange={setFilter}
               filterConfig={filterConfig}
@@ -1059,7 +1072,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       xhrLogEntries,
       lifecycleClient.source,
       selectedId,
-      handleSelect,
+      handleSelectRow,
       filter,
       filteredRows,
       filterConfig,
@@ -1183,6 +1196,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         // dock, and Allotment carries drags over as proportions during
         // its own container-resize layout — no detection needed.
         proportionalHorizontal
+        singleSurface={narrowApi.surface}
       />
 
       <PanelStatusBar

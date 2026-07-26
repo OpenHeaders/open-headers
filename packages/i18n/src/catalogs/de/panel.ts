@@ -34,6 +34,7 @@ export const panel = {
   'panel.toolbar.aboutPreserveLog': 'Über „Protokoll beibehalten“',
   'panel.toolbar.aboutMoreFilters': 'Über „Weitere Filter“',
   'panel.toolbar.aboutFooterView': 'Über „Fußzeilen-Ansicht“',
+  'panel.toolbar.moreTools': 'Weitere Werkzeuge',
   'panel.toolbar.activeWorkspaceAria': 'Aktiver Arbeitsbereich: {name}',
 
   // ── Toolbar layout cluster ──────────────────────────────────────────

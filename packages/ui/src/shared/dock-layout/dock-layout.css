@@ -1299,3 +1299,25 @@
   border-radius: 3px;
   background: var(--ant-color-fill-tertiary);
 }
+
+/* ── Narrow single-surface mode (ShellLayout `singleSurface`) ───────
+ * One surface (editor or a tool region) fills the center; the others
+ * stay mounted but display:none (inline, set by ShellLayout) so their
+ * state survives switching. The activity bars remain the switcher. */
+.rules-single-surface {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.rules-single-surface-item {
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rules-single-surface-item > .rules-region {
+  height: 100%;
+  width: 100%;
+}

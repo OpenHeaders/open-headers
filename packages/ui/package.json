@@ -64,6 +64,10 @@
       "import": "./src/panel/host-storage-inspector.ts",
       "default": "./dist/panel/host-storage-inspector.js"
     },
+    "./panel/responsive": {
+      "import": "./src/panel/responsive/index.ts",
+      "default": "./dist/panel/responsive/index.js"
+    },
     "./panel/*": {
       "import": "./src/panel/*",
       "default": "./dist/panel/*.js"

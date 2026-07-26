@@ -32,6 +32,7 @@ export const panel = {
   'panel.toolbar.aboutPreserveLog': 'About Preserve log',
   'panel.toolbar.aboutMoreFilters': 'About More filters',
   'panel.toolbar.aboutFooterView': 'About Footer View',
+  'panel.toolbar.moreTools': 'More tools',
   'panel.toolbar.activeWorkspaceAria': 'Active workspace: {name}',
 
   // ── Toolbar layout cluster ──────────────────────────────────────────

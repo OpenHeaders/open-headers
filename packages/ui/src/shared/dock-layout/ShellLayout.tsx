@@ -38,6 +38,7 @@ import type {
   BottomPanelAlignment,
   DockSlot,
   DropZoneRect,
+  ShellSurface,
   SidebarLayoutVariant,
   ToolWindowDef,
 } from './types';
@@ -102,6 +103,17 @@ export interface ShellLayoutProps<T extends string> {
    * way — they're fixed-height/width affordances, not shares.
    */
   proportionalHorizontal?: boolean;
+  /**
+   * Narrow single-surface mode. When set, the center area shows ONLY
+   * this surface (the editor or one tool region) instead of the
+   * multi-column Allotment trees — for hosts whose container can get
+   * too narrow for side-by-side panes (the DevTools panel docked
+   * left/right). All surfaces stay mounted (display-toggled) so
+   * editor tab bodies and region state survive switching. The
+   * activity bars remain visible as the switcher. Null/omitted →
+   * normal layout.
+   */
+  singleSurface?: ShellSurface | null;
 }
 
 // ── ShellLayout ───────────────────────────────────────────────────────
@@ -124,6 +136,7 @@ function ShellLayoutInner<T extends string>({
   collisionDetection,
   focusStore,
   proportionalHorizontal = false,
+  singleSurface = null,
 }: ShellLayoutProps<T>) {
   const t = useT();
   const {
@@ -465,6 +478,51 @@ function ShellLayoutInner<T extends string>({
             </Allotment>
           </Allotment.Pane>
         </Allotment>
+      </div>
+    );
+  }
+
+  // Narrow single-surface mode replaces the alignment trees entirely:
+  // one surface fills the center, the rest stay mounted but hidden so
+  // their state (editor tab bodies, region sash drags) survives
+  // switching. No Allotment, no sashes, no pixel minimums — the whole
+  // point is that nothing can be crushed below usability.
+  if (singleSurface !== null) {
+    const surfaceItem = (surface: ShellSurface, content: React.ReactNode) => (
+      <div
+        className="rules-single-surface-item"
+        data-surface={surface}
+        style={{ display: singleSurface === surface ? 'block' : 'none' }}
+      >
+        {content}
+      </div>
+    );
+    centerContent = (
+      <div className="rules-single-surface">
+        {surfaceItem('editor', editorPane)}
+        {surfaceItem(
+          'left',
+          <SideRegion<T>
+            region="left"
+            tl={tl}
+            renderToolWindow={renderToolWindow}
+            topSize={topBottomHalves.left.top}
+            bottomSize={topBottomHalves.left.bottom}
+            focusStore={focusStore}
+          />,
+        )}
+        {surfaceItem(
+          'right',
+          <SideRegion<T>
+            region="right"
+            tl={tl}
+            renderToolWindow={renderToolWindow}
+            topSize={topBottomHalves.right.top}
+            bottomSize={topBottomHalves.right.bottom}
+            focusStore={focusStore}
+          />,
+        )}
+        {surfaceItem('bottom', <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} />)}
       </div>
     );
   }

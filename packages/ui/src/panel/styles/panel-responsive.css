@@ -1,0 +1,203 @@
+/*
+ * panel-responsive.css — the panel's width-tier collapse system.
+ *
+ * Container-query driven, mirroring the popup/sidepanel `oh-shell`
+ * system (popup.less). Two measurement scopes, matching tiers.ts:
+ *
+ *   dt-panel — `.dt-panel-root`, the whole panel. Global chrome
+ *              (toolbar, status bar) collapses against this.
+ *   dt-pane  — every `.dt-panel` tool-window wrapper. Per-tool content
+ *              (the Storage rail, the network filter row) collapses
+ *              against its OWN pane, so a narrow dock inside a wide
+ *              panel compacts too.
+ *
+ * Tier thresholds are the tiers.ts constants — keep them in sync:
+ *   lg < 900   md < 700   sm < 440   xs < 340
+ *
+ * Semantic hooks (JSX adds the class, these rules decide when it
+ * vanishes): `.dt-resp-hide-<tier>` = hidden at that tier and below.
+ * `!important` is deliberate — several tagged elements carry inline
+ * display styles. Collapses that must MOVE DOM (the toolbar's ⋯
+ * overflow fold, the single-surface shell) live in JS via
+ * `usePanelResponsive` instead; CSS can only hide.
+ */
+
+.dt-panel-root {
+  container: dt-panel / inline-size;
+}
+
+.dt-panel {
+  container: dt-pane / inline-size;
+}
+
+/* ── Panel-scope tier utilities ─────────────────────────── */
+
+@container dt-panel (max-width: 900px) {
+  .dt-resp-hide-lg {
+    display: none !important;
+  }
+}
+
+@container dt-panel (max-width: 700px) {
+  .dt-resp-hide-md {
+    display: none !important;
+  }
+}
+
+@container dt-panel (max-width: 440px) {
+  .dt-resp-hide-sm {
+    display: none !important;
+  }
+}
+
+@container dt-panel (max-width: 340px) {
+  .dt-resp-hide-xs {
+    display: none !important;
+  }
+}
+
+/* ── Toolbar chrome ─────────────────────────────────────── */
+
+/* Brand column: wordmark yields at md — the 60px it frees is a whole
+ * toolbar control at these widths. (This may briefly out-compact a
+ * labeled activity bar below it; icon-only is the expected bar mode
+ * at such widths.) */
+@container dt-panel (max-width: 700px) {
+  .dt-brand {
+    width: 36px;
+    min-width: 36px;
+    gap: 0;
+    padding: 4px;
+  }
+
+  .dt-brand .dt-brand-title {
+    display: none;
+  }
+
+  .dt-brand .dt-brand-logo {
+    width: 16px;
+    height: 16px;
+  }
+
+  .dt-brand-spacer {
+    width: 36px;
+    min-width: 36px;
+  }
+}
+
+/* Workspace pill label: 120px cap normally (moved here from the old
+ * inline style), tighter at md, icon-only at sm — the pill stays
+ * clickable at every tier. */
+.dt-workspace-name {
+  max-width: 120px;
+}
+
+@container dt-panel (max-width: 700px) {
+  .dt-workspace-name {
+    max-width: 72px;
+  }
+}
+
+@container dt-panel (max-width: 440px) {
+  .dt-workspace-name {
+    display: none;
+  }
+}
+
+/* Env selector clamp wrapper — lets the trigger shrink instead of
+ * pushing the right group off-edge. Hidden at xs via dt-resp-hide-xs. */
+.dt-toolbar-env {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Toolbar ⋯ overflow popover ─────────────────────────── */
+
+.dt-toolbar-overflow-popover .ant-popover-inner {
+  padding: 6px 0;
+  max-width: none;
+  width: max-content;
+}
+
+/* Positioning context for the nested menus that portal INTO this body
+ * (see ToolbarOverflowMenu). Overflow stays visible: the body is a
+ * handful of rows and nested popovers must not be clipped. */
+.dt-toolbar-overflow-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+}
+
+.dt-toolbar-overflow-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 12px;
+}
+
+/* The debug cluster keeps its internal layout but may wrap in the
+ * narrow popover; its separators are toolbar furniture, not menu
+ * furniture. */
+.dt-toolbar-overflow-row .dt-debug-controls {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.dt-toolbar-overflow-row .dt-toolbar-separator {
+  display: none;
+}
+
+/* ── Pane-scope: Storage tool window ────────────────────── */
+
+/* The section rail collapses to icons-only; the button `title` keeps
+ * names discoverable. Match badges vanish with the labels — a narrow
+ * rail has no room to render counts legibly. */
+@container dt-pane (max-width: 460px) {
+  .dt-storage-nav {
+    width: 34px;
+  }
+
+  .dt-storage-nav-item {
+    justify-content: center;
+    padding: 4px 0;
+  }
+
+  .dt-storage-nav-label,
+  .dt-storage-nav-badge {
+    display: none;
+  }
+}
+
+/* Scope bar: the origin select takes the full row; the prose note is
+ * the first casualty. */
+@container dt-pane (max-width: 460px) {
+  .dt-storage-scope-bar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .dt-storage-scope-select {
+    max-width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .dt-storage-scope-note {
+    display: none;
+  }
+}
+
+/* ── Pane-scope: network filter row ─────────────────────── */
+/* The filter row's own title-slot container (panel-toolbar.css) already
+ * drops the panel name below 440px. Below 360px the hover-info triggers
+ * and fine separators go too — the input + type pills + Sort/View
+ * triggers are the working set. */
+@container (max-width: 360px) {
+  .dt-header-filter-row .dt-debug-info-trigger,
+  .dt-header-filter-row .dt-filter-separator {
+    display: none;
+  }
+}

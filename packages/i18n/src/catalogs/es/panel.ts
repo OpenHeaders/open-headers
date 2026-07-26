@@ -31,6 +31,7 @@ export const panel = {
   'panel.toolbar.aboutPreserveLog': 'Acerca de Conservar el registro',
   'panel.toolbar.aboutMoreFilters': 'Acerca de los filtros adicionales',
   'panel.toolbar.aboutFooterView': 'Acerca de la vista del pie de página',
+  'panel.toolbar.moreTools': 'Más herramientas',
   'panel.toolbar.activeWorkspaceAria': 'Espacio de trabajo activo: {name}',
 
   // ── Toolbar layout cluster ──────────────────────────────────────────

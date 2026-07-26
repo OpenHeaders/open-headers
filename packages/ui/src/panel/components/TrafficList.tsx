@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { NETWORK_AUTO_COMPACT_MAX_PX } from '../responsive';
 import type { FilterConfig } from '../data/filter-engine';
 import { currentHarEntry, type InspectorRowWithFires } from '../data/inspector-row-projection';
 import { buildRowAnnotationMessages } from '../data/row-annotations';
@@ -142,7 +143,7 @@ export function TrafficList({
   onWireSeenJump,
 }: TrafficListProps) {
   const {
-    compact,
+    compact: compactSetting,
     showFireDots,
     waterfallValues,
     waterfallValueFormat,
@@ -191,6 +192,13 @@ export function TrafficList({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Auto-compact: below the pane-width threshold the table renders the
+  // compact layout regardless of the View-menu setting — derived here,
+  // never written back, so widening restores the user's choice. Uses
+  // the already-measured pane width above (a re-dock fires a resize,
+  // so this re-evaluates without dock-aware plumbing).
+  const compact = compactSetting || (panelPx > 0 && panelPx < NETWORK_AUTO_COMPACT_MAX_PX);
 
   // ── Row flash (cross-row jumps: preflight ⇄ parent) ─────────
   const [flashId, setFlashId] = useState<string | null>(null);

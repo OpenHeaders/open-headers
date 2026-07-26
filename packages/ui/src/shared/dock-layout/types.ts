@@ -17,6 +17,10 @@ export type DockSlot = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom'
 /** Visual region that backs a dock — three high-level regions feed into layout math. */
 export type ToolRegion = 'left' | 'right' | 'bottom';
 
+/** A shell surface the narrow single-surface layout can show
+ *  exclusively: one tool region, or the central editor. */
+export type ShellSurface = ToolRegion | 'editor';
+
 /**
  * Which screen region the user is currently interacting with. Drives the
  * focus accent on activity-bar icons and panels. Null means no region

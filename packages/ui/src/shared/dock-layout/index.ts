@@ -34,6 +34,7 @@ export type {
   DockState,
   DropZoneRect,
   FocusRegion,
+  ShellSurface,
   SidebarLayoutVariant,
   ToolLayoutState,
   ToolRegion,
