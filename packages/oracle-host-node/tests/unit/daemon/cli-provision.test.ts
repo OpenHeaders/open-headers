@@ -40,6 +40,9 @@ beforeEach(async () => {
     closePeersByTokenId: (tokenId) => evicted.push(tokenId),
     env: { XDG_CONFIG_HOME: dir },
     hostname: 'testhost',
+    // Deterministic probe — the default spawns the machine's real login
+    // shell, which would answer for the dev box, not the test.
+    probeLoginShell: async () => false,
   });
 });
 
@@ -175,17 +178,34 @@ describe('status', () => {
 });
 
 describe('binary probe', () => {
-  function serviceWith(env: Record<string, string | undefined>, platform: string): CliProvisionService {
+  function serviceWith(
+    env: Record<string, string | undefined>,
+    platform: string,
+    probeLoginShell: (shell: string) => Promise<boolean> = async () => false,
+  ): CliProvisionService {
     return createCliProvisionService({
       getBoundPort: () => PORT,
       closePeersByTokenId: () => {},
       env: { XDG_CONFIG_HOME: dir, ...env },
       platform,
       hostname: 'testhost',
+      probeLoginShell,
     });
   }
 
-  it('an oh executable on PATH reads binaryInstalled true', async () => {
+  it('posix: a login shell that resolves oh reads binaryInstalled true, with the probed shell', async () => {
+    const shells: string[] = [];
+    const probe = serviceWith({ SHELL: '/bin/zsh' }, 'darwin', async (shell) => {
+      shells.push(shell);
+      return true;
+    });
+    const status = await probe.status();
+    expect(status.binaryInstalled).toBe(true);
+    expect(status.hostPlatform).toBe('darwin');
+    expect(shells).toEqual(['/bin/zsh']);
+  });
+
+  it('posix: a blind login shell falls back to the env PATH scan', async () => {
     const bin = path.join(dir, 'bin');
     await mkdir(bin, { recursive: true });
     await writeFile(path.join(bin, 'oh'), '');

@@ -23,6 +23,7 @@
  * setup.
  */
 
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
@@ -70,6 +71,20 @@ export interface CliProvisionDeps {
   platform?: string;
   hostname?: string;
   now?: () => number;
+  /**
+   * Test seam — the POSIX login-shell `command -v oh` probe. Resolves
+   * true when the shell can see an `oh` executable; defaults to
+   * actually spawning the shell.
+   */
+  probeLoginShell?: (shell: string) => Promise<boolean>;
+}
+
+/** Ask a login shell whether it resolves `oh` — the same shell mode a
+ *  terminal-tab pty spawns, so profile-sourced PATH entries count. */
+function probeLoginShellReal(shell: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile(shell, ['-lc', 'command -v oh'], { timeout: 3000 }, (error) => resolve(error === null));
+  });
 }
 
 /** The loopback URL this daemon would write — and recognizes as "us". */
@@ -101,14 +116,10 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
   const now = deps.now ?? Date.now;
   const configPath = (): string => path.join(...cliConfigPathSegments(env, homedir, platform));
 
-  /**
-   * Does an `oh` executable resolve on this process's PATH? The pty a
-   * terminal tab spawns inherits exactly this PATH, so the answer
-   * predicts whether typing `oh` in that tab can work at all — the
-   * token file says nothing about the binary (the CLI installs
-   * separately via the feed's install scripts).
-   */
-  function binaryOnPath(): boolean {
+  const probeLoginShell = deps.probeLoginShell ?? probeLoginShellReal;
+
+  /** Scan a PATH-shaped env value for an `oh` executable. */
+  function scanEnvPath(): boolean {
     const delimiter = platform === 'win32' ? ';' : ':';
     const names =
       platform === 'win32'
@@ -126,6 +137,22 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
     return false;
   }
 
+  /**
+   * Can a terminal tab spawned by this host run `oh`? The token file
+   * says nothing about the binary (the CLI installs separately via the
+   * feed's install scripts), so this asks the same oracle the tab
+   * uses. On Windows the pty's cmd inherits this process's env — a
+   * PATH scan is exact. POSIX tabs run LOGIN shells whose profile
+   * rewrites PATH (the whole point when the app was GUI-launched with
+   * launchd's minimal PATH), so the shell itself is asked; a probe
+   * failure falls back to the env scan rather than blocking.
+   */
+  async function binaryOnPath(): Promise<boolean> {
+    if (platform === 'win32') return scanEnvPath();
+    const shell = env.SHELL ?? (platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
+    return (await probeLoginShell(shell)) || scanEnvPath();
+  }
+
   /** ENOENT reads as an empty config; malformed content throws (refuse-and-report). */
   async function readConfig(filePath: string): Promise<CliConfig> {
     let raw: string;
@@ -140,7 +167,7 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
 
   async function status(): Promise<CliProvisionStatus> {
     const filePath = configPath();
-    const binary = { binaryInstalled: binaryOnPath(), hostPlatform: platform };
+    const binary = { binaryInstalled: await binaryOnPath(), hostPlatform: platform };
     let config: CliConfig;
     try {
       config = await readConfig(filePath);

@@ -256,10 +256,14 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
   const enableMcpRef = useRef(true);
   const openTui = useCallback(() => {
     if (!tabsApi) return;
-    const open = () => tabsApi.createTab({ runCommand: 'oh tui', title: 'oh tui' });
+    // `oh.exe` on Windows: PowerShell's built-in `oh` alias (Out-Host)
+    // shadows the binary, while cmd resolves either form — the explicit
+    // extension works in both, whatever the default profile's shell.
+    const open = (command: string) => tabsApi.createTab({ runCommand: command, title: 'oh tui' });
     void hostBridge
       .call('oh.daemon.cli.status')
       .then((status) => {
+        const tuiCommand = status.hostPlatform === 'win32' ? 'oh.exe tui' : 'oh tui';
         // Binary before token: provisioning is token-only, so a missing
         // `oh` executable fails every state the same way — a tab typing
         // a command the shell can't resolve. The install command targets
@@ -291,7 +295,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
           return;
         }
         if (status.state === 'configured' || status.state === 'external') {
-          open();
+          open(tuiCommand);
           return;
         }
         if (status.state === 'malformed') {
@@ -356,11 +360,14 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
               return;
             }
             if (mcpEnabled !== true && enableMcpRef.current) enableMcp();
-            open();
+            open(tuiCommand);
           },
         });
       })
-      .catch(open);
+      // Probe failure: open anyway — the gate must never be the thing
+      // that blocks the terminal. No status means no hostPlatform; the
+      // plain form matches the pre-gate behavior.
+      .catch(() => open('oh tui'));
   }, [tabsApi, modal, message, mcpEnabled, t, openSettings]);
 
   // Single-row header: the title and the FIRST pane's strip share the
