@@ -468,6 +468,11 @@ export const workbenchChrome = {
     'Mientras el endpoint está desactivado, la TUI informa de que el daemon es inalcanzable. Desmarca para ' +
     'crear solo el token.',
   'workbench.terminal.cliGate.ok': 'Conectar y abrir',
+  'workbench.terminal.cliGate.installTitle': 'Instalar la CLI de OpenHeaders',
+  'workbench.terminal.cliGate.installBody':
+    'El modo TUI funciona con la herramienta de línea de comandos oh, que aún no está instalada en esta ' +
+    'máquina. Ejecuta esto en cualquier terminal para instalarla y vuelve a abrir el modo TUI:',
+  'workbench.terminal.cliGate.installOk': 'Abrir un terminal',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'La vista unificada del tráfico en vivo: elige una fuente a la derecha, una pestaña de navegador conectada ' +

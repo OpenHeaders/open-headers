@@ -116,7 +116,12 @@ describe('provision', () => {
 
 describe('status', () => {
   it('missing file reads unconfigured', async () => {
-    expect(await service.status()).toEqual({ configPath: configFile(), state: 'unconfigured' });
+    expect(await service.status()).toEqual({
+      configPath: configFile(),
+      state: 'unconfigured',
+      binaryInstalled: false,
+      hostPlatform: process.platform,
+    });
   });
 
   it('after provision reads configured with the ledger row, without bumping lastUsedAt', async () => {
@@ -166,5 +171,43 @@ describe('status', () => {
     await mkdir(path.dirname(configFile()), { recursive: true });
     await writeFile(configFile(), JSON.stringify({ telemetry: false }));
     expect((await service.status()).state).toBe('unconfigured');
+  });
+});
+
+describe('binary probe', () => {
+  function serviceWith(env: Record<string, string | undefined>, platform: string): CliProvisionService {
+    return createCliProvisionService({
+      getBoundPort: () => PORT,
+      closePeersByTokenId: () => {},
+      env: { XDG_CONFIG_HOME: dir, ...env },
+      platform,
+      hostname: 'testhost',
+    });
+  }
+
+  it('an oh executable on PATH reads binaryInstalled true', async () => {
+    const bin = path.join(dir, 'bin');
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, 'oh'), '');
+    const probe = serviceWith({ PATH: `/nowhere:${bin}` }, 'linux');
+    const status = await probe.status();
+    expect(status.binaryInstalled).toBe(true);
+    expect(status.hostPlatform).toBe('linux');
+  });
+
+  it('win32 resolves PATHEXT-derived names over a ;-delimited PATH', async () => {
+    const bin = path.join(dir, 'bin');
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, 'oh.exe'), '');
+    const probe = serviceWith({ PATH: `C:\\nowhere;${bin}`, PATHEXT: '.COM;.EXE;.BAT;.CMD' }, 'win32');
+    expect((await probe.status()).binaryInstalled).toBe(true);
+  });
+
+  it('a bare oh file does not satisfy win32 — an executable needs a PATHEXT name', async () => {
+    const bin = path.join(dir, 'bin');
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, 'oh'), '');
+    const probe = serviceWith({ PATH: bin }, 'win32');
+    expect((await probe.status()).binaryInstalled).toBe(false);
   });
 });

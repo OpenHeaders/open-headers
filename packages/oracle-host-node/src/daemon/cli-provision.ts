@@ -23,6 +23,7 @@
  * setup.
  */
 
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -41,6 +42,10 @@ import { hostStorage, OH } from '@openheaders/core/storage';
 export interface CliProvisionStatus {
   configPath: string;
   state: 'unconfigured' | 'configured' | 'stale' | 'external' | 'malformed';
+  /** An `oh` executable resolves on this process's PATH right now. */
+  binaryInstalled: boolean;
+  /** This host's `process.platform` — picks the install command shown remotely. */
+  hostPlatform: string;
   tokenId?: string;
   label?: string;
   daemonUrl?: string;
@@ -96,6 +101,31 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
   const now = deps.now ?? Date.now;
   const configPath = (): string => path.join(...cliConfigPathSegments(env, homedir, platform));
 
+  /**
+   * Does an `oh` executable resolve on this process's PATH? The pty a
+   * terminal tab spawns inherits exactly this PATH, so the answer
+   * predicts whether typing `oh` in that tab can work at all — the
+   * token file says nothing about the binary (the CLI installs
+   * separately via the feed's install scripts).
+   */
+  function binaryOnPath(): boolean {
+    const delimiter = platform === 'win32' ? ';' : ':';
+    const names =
+      platform === 'win32'
+        ? (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+            .split(';')
+            .filter((ext) => ext !== '')
+            .map((ext) => `oh${ext.toLowerCase()}`)
+        : ['oh'];
+    for (const dir of (env.PATH ?? '').split(delimiter)) {
+      if (dir === '') continue;
+      for (const name of names) {
+        if (existsSync(path.join(dir, name))) return true;
+      }
+    }
+    return false;
+  }
+
   /** ENOENT reads as an empty config; malformed content throws (refuse-and-report). */
   async function readConfig(filePath: string): Promise<CliConfig> {
     let raw: string;
@@ -110,21 +140,23 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
 
   async function status(): Promise<CliProvisionStatus> {
     const filePath = configPath();
+    const binary = { binaryInstalled: binaryOnPath(), hostPlatform: platform };
     let config: CliConfig;
     try {
       config = await readConfig(filePath);
     } catch (err) {
-      return { configPath: filePath, state: 'malformed', error: (err as Error).message };
+      return { configPath: filePath, state: 'malformed', ...binary, error: (err as Error).message };
     }
     const daemonUrl = config.daemonUrl !== undefined ? { daemonUrl: config.daemonUrl } : {};
     if (config.token === undefined || config.token === '') {
-      return { configPath: filePath, state: 'unconfigured', ...daemonUrl };
+      return { configPath: filePath, state: 'unconfigured', ...binary, ...daemonUrl };
     }
     const peeked = await peekDaemonAuthToken(config.token, now);
     if (peeked.ok) {
       return {
         configPath: filePath,
         state: 'configured',
+        ...binary,
         tokenId: peeked.tokenId,
         ...(peeked.label !== undefined ? { label: peeked.label } : {}),
         ...daemonUrl,
@@ -138,7 +170,7 @@ export function createCliProvisionService(deps: CliProvisionDeps): CliProvisionS
       peeked.reason === 'unknown' &&
       config.daemonUrl !== undefined &&
       !pointsAtThisDaemon(config.daemonUrl, deps.getBoundPort());
-    return { configPath: filePath, state: external ? 'external' : 'stale', ...daemonUrl };
+    return { configPath: filePath, state: external ? 'external' : 'stale', ...binary, ...daemonUrl };
   }
 
   async function provision(): Promise<CliProvisionResult> {

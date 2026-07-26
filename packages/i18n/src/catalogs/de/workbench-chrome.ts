@@ -464,6 +464,12 @@ export const workbenchChrome = {
     'Solange der Endpunkt aus ist, meldet die TUI den Daemon als nicht erreichbar. Abwählen erstellt nur ' +
     'das Token.',
   'workbench.terminal.cliGate.ok': 'Verbinden und öffnen',
+  'workbench.terminal.cliGate.installTitle': 'Die CLI von OpenHeaders installieren',
+  'workbench.terminal.cliGate.installBody':
+    'Der TUI-Modus wird vom Kommandozeilen-Tool oh angetrieben, das auf diesem Rechner noch nicht ' +
+    'installiert ist. Zum Installieren in einem beliebigen Terminal ausführen, danach den TUI-Modus ' +
+    'erneut öffnen:',
+  'workbench.terminal.cliGate.installOk': 'Ein Terminal öffnen',
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'Die vereinte Live-Verkehrsansicht — wähle rechts eine Quelle: einen verbundenen Browser-Tab (die Erweiterung ' +

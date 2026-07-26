@@ -440,6 +440,10 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.enableMcp': '启用 MCP 服务器',
   'workbench.terminal.cliGate.enableMcpRider': '端点关闭时，TUI 会把守护进程报告为不可达。取消勾选则只签发 token。',
   'workbench.terminal.cliGate.ok': '连接并打开',
+  'workbench.terminal.cliGate.installTitle': '安装 OpenHeaders CLI',
+  'workbench.terminal.cliGate.installBody':
+    'TUI 模式由命令行工具 oh 驱动，它尚未安装在这台电脑上。在任意终端中运行以下命令进行安装，然后重新打开 TUI 模式：',
+  'workbench.terminal.cliGate.installOk': '打开终端',
   'workbench.terminal.cliGate.openSettings': '打开设置',
   'workbench.toolWindows.info.trafficMonitor.summary':
     '统一的实时流量视图——在右侧选择来源：已连接的浏览器标签页（扩展实时流式传输其流量），或线路捕获' +

@@ -11,7 +11,7 @@
  */
 
 import { MinusOutlined } from '@ant-design/icons';
-import { App as AntApp, Checkbox, Input, Modal, theme } from 'antd';
+import { App as AntApp, Checkbox, Input, Modal, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ITheme } from '@xterm/xterm';
@@ -260,6 +260,36 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ info, dockSlot, onHide })
     void hostBridge
       .call('oh.daemon.cli.status')
       .then((status) => {
+        // Binary before token: provisioning is token-only, so a missing
+        // `oh` executable fails every state the same way — a tab typing
+        // a command the shell can't resolve. The install command targets
+        // the HOST (where the pty spawns), so it keys off hostPlatform,
+        // not this realm's navigator.
+        if (!status.binaryInstalled) {
+          const command =
+            status.hostPlatform === 'win32'
+              ? 'powershell -c "irm https://updates.openheaders.io/install.ps1 | iex"'
+              : 'curl -fsSL https://updates.openheaders.io/install.sh | sh';
+          modal.info({
+            okCancel: true,
+            title: <span style={{ fontSize: 13, fontWeight: 600 }}>{t('workbench.terminal.cliGate.installTitle')}</span>,
+            width: 420,
+            centered: true,
+            content: (
+              <>
+                <p style={{ fontSize: 12, margin: '4px 0 8px' }}>{t('workbench.terminal.cliGate.installBody')}</p>
+                <Typography.Text code copyable style={{ fontSize: 11, wordBreak: 'break-all' }}>
+                  {command}
+                </Typography.Text>
+              </>
+            ),
+            okText: t('workbench.terminal.cliGate.installOk'),
+            okButtonProps: { size: 'small' },
+            cancelButtonProps: { size: 'small' },
+            onOk: () => tabsApi.createTab(),
+          });
+          return;
+        }
         if (status.state === 'configured' || status.state === 'external') {
           open();
           return;

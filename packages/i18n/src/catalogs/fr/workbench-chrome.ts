@@ -465,6 +465,11 @@ export const workbenchChrome = {
     'Tant que le point de terminaison est désactivé, la TUI signale le démon comme injoignable. Décochez ' +
     'pour ne créer que le jeton.',
   'workbench.terminal.cliGate.ok': 'Connecter et ouvrir',
+  'workbench.terminal.cliGate.installTitle': 'Installer la CLI OpenHeaders',
+  'workbench.terminal.cliGate.installBody':
+    "Le mode TUI s'appuie sur l'outil en ligne de commande oh, qui n'est pas encore installé sur cette " +
+    "machine. Exécutez ceci dans n'importe quel terminal pour l'installer, puis rouvrez le mode TUI :",
+  'workbench.terminal.cliGate.installOk': 'Ouvrir un terminal',
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'La vue unifiée du trafic en direct — choisissez une source à droite : un onglet de navigateur connecté ' +

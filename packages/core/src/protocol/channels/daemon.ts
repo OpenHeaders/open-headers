@@ -192,12 +192,26 @@ export interface DaemonRpc {
    * ran `oh connect` against another daemon — provisioning over it must
    * be an explicit, informed click); `malformed` = the file exists but
    * doesn't parse (`error` says why; provisioning refuses to touch it).
+   *
+   * `binaryInstalled` reports whether an `oh` executable resolves on
+   * the HOST process's PATH — the same PATH a terminal tab spawned by
+   * the host inherits, so it predicts exactly whether `oh` will run in
+   * that tab. Provisioning is token-only (the CLI installs separately
+   * via the feed's install scripts), so a token can be `configured`
+   * while the binary is absent. `hostPlatform` is the host's
+   * `process.platform`, so callers can surface the right install
+   * command even when the UI realm runs on a different OS than the
+   * daemon (remote web UI).
    */
   'oh.daemon.cli.status': {
     req: Record<string, never>;
     res: {
       configPath: string;
       state: 'unconfigured' | 'configured' | 'stale' | 'external' | 'malformed';
+      /** An `oh` executable resolves on the host's PATH right now. */
+      binaryInstalled: boolean;
+      /** The host's `process.platform` (`win32`, `darwin`, `linux`, …). */
+      hostPlatform: string;
       /** The active ledger row backing the stored token (`configured` only). */
       tokenId?: string;
       label?: string;

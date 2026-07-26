@@ -174,7 +174,12 @@ describe('users.setPassword admin channel', () => {
         dispose: () => undefined,
       },
       cliProvision: {
-        status: async () => ({ configPath: '/dev/null', state: 'unconfigured' as const }),
+        status: async () => ({
+          configPath: '/dev/null',
+          state: 'unconfigured' as const,
+          binaryInstalled: false,
+          hostPlatform: 'linux',
+        }),
         provision: async () => ({ ok: false as const, error: 'not under test' }),
       },
       proxyTrust: {

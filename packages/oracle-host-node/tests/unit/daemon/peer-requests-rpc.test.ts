@@ -94,6 +94,8 @@ describe('createPeerRequestsRpc — getCliStatusSummary', () => {
       cliStatus: async () => ({
         configPath: '/home/user/.config/openheaders/cli.json',
         state: 'configured',
+        binaryInstalled: true,
+        hostPlatform: 'linux',
         tokenId: 'tok-1',
         label: 'CLI — machine',
         daemonUrl: 'http://127.0.0.1:8137',

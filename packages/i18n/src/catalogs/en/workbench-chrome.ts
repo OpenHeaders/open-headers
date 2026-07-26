@@ -439,6 +439,11 @@ export const workbenchChrome = {
     'While the endpoint is off the TUI reports the daemon as unreachable. Uncheck to provision the token only.',
   'workbench.terminal.cliGate.ok': 'Connect and open',
   'workbench.terminal.cliGate.openSettings': 'Open Settings',
+  'workbench.terminal.cliGate.installTitle': 'Install the OpenHeaders CLI',
+  'workbench.terminal.cliGate.installBody':
+    'TUI mode is powered by the oh command-line tool, which isn’t installed on this machine yet. ' +
+    'Run this in any terminal to install it, then open TUI mode again:',
+  'workbench.terminal.cliGate.installOk': 'Open a terminal',
   'workbench.toolWindows.info.terminal.summary':
     'An integrated terminal running your shell in a real pty — anything you can run in a stand-alone ' +
     'terminal runs here, including the oh CLI against the local app.',
