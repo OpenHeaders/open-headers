@@ -8,28 +8,33 @@
   start straight with sections.
 -->
 
-## New ways to install
+## Hand off from your browser
 
-- **Standalone CLI and daemon binaries** — `oh` and `ohd` now ship as
-  single-file executables for macOS, Linux, and Windows. No Node.js
-  required.
-- **One-line install scripts** — `install-oh.sh` (macOS/Linux) and
-  `install-oh.ps1` (Windows) download the right binary, verify its
-  checksum, and put it on your PATH.
-- **Docker image for the daemon** — `docker run ghcr.io/openheaders/ohd`
-  starts a ready-to-pair daemon with a persistent `/data` volume.
-- **Managed deployment packages** — MSI (Windows) and PKG (macOS)
-  installers for MDM / GPO rollouts join the existing installers.
+- **Open in the desktop app** — desktop-only features in the browser
+  extension (terminal, git history, traffic monitor, MCP) now offer a
+  one-click handoff when the desktop app is connected: the app comes
+  forward with that feature already open. Only a browser on the same
+  machine, paired with this app, can do this.
 
-## Updates, on your terms
+## Terminal
 
-- The desktop app now checks for updates once a day and shows a quiet
-  notification when one is available. Nothing downloads or installs
-  without your explicit click — ever.
-- Releases carry a published severity: when a security fix applies to
-  the version you are running, the app says so clearly instead of
-  quietly.
-- A new **"Security fixes only"** update tier keeps notifications
-  silent unless a release fixes a security issue that affects you.
-- This What's New tab — release highlights bundled with the app, shown
-  once per feature release. Turn it off in Settings → About.
+- **Split panes** — split the integrated terminal side-by-side or
+  stacked, the same way you split editor tabs.
+- **Fresh CLI installs work immediately** — the TUI tab and the CLI
+  probe now find a just-installed `oh` binary without restarting the
+  app, on Windows, macOS, and Linux. When the CLI is missing, a dialog
+  shows the exact install command instead of failing quietly.
+
+## Updates
+
+- **Visible install progress on Windows** — clicking Update & Restart
+  with the window open now shows the installer's progress instead of a
+  silent wait; tray-hidden updates stay silent as before.
+
+## Teams
+
+- **Six free seats** — the free tier now includes 6 seats on a shared
+  server, up from 3.
+- **Clearer naming** — the machine that hosts shared workspaces is now
+  called the server (OpenHeaders Server) everywhere; Team and
+  Enterprise are the names of plans, not software.
