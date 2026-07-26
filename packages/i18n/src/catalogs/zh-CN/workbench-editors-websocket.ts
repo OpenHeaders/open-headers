@@ -28,7 +28,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': '连接',
   'workbench.editors.websocket.connect.disconnect': '断开连接',
-  'workbench.editors.websocket.connect.browserHost': 'WebSocket 会话在桌面端应用或 Team Server 上运行。',
+  'workbench.editors.websocket.connect.browserHost': 'WebSocket 会话在桌面端应用或服务器上运行。',
   'workbench.editors.websocket.connect.needsUrl': '输入 ws:// 或 wss:// URL 以连接。',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': '消息',
@@ -49,10 +49,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.auth.tokenLabel': 'Token',
   'workbench.editors.websocket.auth.tokenPlaceholder': 'Token 或 {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
-    '在握手时作为 Authorization: Bearer 标头发送——适用于桌面端应用或 Team Server；浏览器无法在 WebSocket 上设置它。' +
+    '在握手时作为 Authorization: Bearer 标头发送——适用于桌面端应用或服务器；浏览器无法在 WebSocket 上设置它。' +
     '显式的 Authorization 标头行优先。',
   'workbench.editors.websocket.auth.helpSocketio':
-    '在每种主机上作为 CONNECT 包的 auth 负载（{"token": …}）发送，并在桌面端应用或 Team Server 上作为 ' +
+    '在每种主机上作为 CONNECT 包的 auth 负载（{"token": …}）发送，并在桌面端应用或服务器上作为 ' +
     'Authorization: Bearer 握手标头发送。显式的 Authorization 标头行优先于该标头。',
   'workbench.editors.websocket.events.hint':
     '要在会话时间线中显示的传入事件。没有任何行时，显示每个事件；捕获始终记录一切。',
@@ -69,7 +69,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.keyPlaceholder': '标头名称',
   'workbench.editors.websocket.headers.valuePlaceholder': '值',
   'workbench.editors.websocket.headers.nodeOnly':
-    '自定义握手标头在会话运行于桌面端应用或 Team Server 时适用——浏览器无法在 WebSocket 上设置它们。',
+    '自定义握手标头在会话运行于桌面端应用或服务器时适用——浏览器无法在 WebSocket 上设置它们。',
   'workbench.editors.websocket.params.keyPlaceholder': '参数名称',
   'workbench.editors.websocket.params.valuePlaceholder': '值',
   'workbench.editors.websocket.spec.selectLabel': 'AsyncAPI 规范',
@@ -87,7 +87,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.specFooter.none': '未关联 AsyncAPI 规范',
   'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL 证书验证',
   'workbench.editors.websocket.settings.sslVerifyHelp':
-    '对 wss: 会话按系统根证书验证服务器证书。对自签名的开发服务器可关闭。适用于桌面端应用或 Team Server。',
+    '对 wss: 会话按系统根证书验证服务器证书。对自签名的开发服务器可关闭。适用于桌面端应用或服务器。',
   'workbench.editors.websocket.settings.subprotocolsLabel': '子协议',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol 提议列表，按偏好排序——服务器在握手期间从中选定一个。',

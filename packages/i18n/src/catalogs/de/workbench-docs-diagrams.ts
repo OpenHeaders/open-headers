@@ -987,7 +987,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shared.supports': 'UNTERSTÜTZT',
   'workbench.docs.diagrams.openHeaders.shared.inBrowser': 'Im Browser',
   'workbench.docs.diagrams.openHeaders.shared.desktopApp': 'Desktop-App',
-  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Lokaler Team Server',
+  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Lokaler Server',
   'workbench.docs.diagrams.openHeaders.shared.yourVm': 'Deine VM',
   'workbench.docs.diagrams.openHeaders.shared.workbench': 'Workbench',
   'workbench.docs.diagrams.openHeaders.shared.devtools': 'DevTools',
@@ -1015,7 +1015,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shift.themBrowserPrimary': 'Back-End außerhalb des Browsers',
   'workbench.docs.diagrams.openHeaders.shift.themBrowserSub': 'Desktop-App / Cloud, Internet nötig',
   'workbench.docs.diagrams.openHeaders.shift.usSelfHostPrimary': 'Back-End selbst hosten',
-  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'Browser · Desktop-App · Team Server · VM',
+  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'Browser · Desktop-App · Server · VM',
   'workbench.docs.diagrams.openHeaders.shift.themSelfHostPrimary': 'Nur deren Cloud',
   'workbench.docs.diagrams.openHeaders.shift.themSelfHostSub': 'keine Wahl, wo deine Daten liegen',
   'workbench.docs.diagrams.openHeaders.shift.usOfflinePrimary': 'Front-End nativ offline',
@@ -1384,22 +1384,22 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: roadmap CLI ───────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapCli.aria':
     'Roadmap-Meilenstein — CLI. Ein Terminalfenster mit Beispielkommandos zum Auflisten von Regeln, Wechseln der ' +
-    'Umgebung und Senden einer gespeicherten Anfrage — alle sprechen mit demselben Team Server wie die UI.',
+    'Umgebung und Senden einer gespeicherten Anfrage — alle sprechen mit demselben Server wie die UI.',
   'workbench.docs.diagrams.openHeaders.roadmapCli.title': 'CLI · Headless-Scripting',
   'workbench.docs.diagrams.openHeaders.roadmapCli.subtitle':
-    'Derselbe Team Server wie die UI — die Automatisierung bleibt synchron mit dem, was du siehst.',
+    'Derselbe Server wie die UI — die Automatisierung bleibt synchron mit dem, was du siehst.',
   'workbench.docs.diagrams.openHeaders.roadmapCli.termTitle': 'oh · Terminal',
-  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# derselbe Team Server · derselbe Workspace wie die UI',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# derselbe Server · derselbe Workspace wie die UI',
   'workbench.docs.diagrams.openHeaders.roadmapCli.verdict':
     'Auflisten · Umschalten · Senden · Diff — direkt aus der Shell',
 
   // ── Open Headers: roadmap daemon ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
-    'Roadmap-Meilenstein — lokaler / LAN-Team-Server. Ein Team Server in der Mitte; Erweiterung, Desktop-App und CLI ' +
+    'Roadmap-Meilenstein — lokaler / LAN-Server. Ein Server in der Mitte; Erweiterung, Desktop-App und CLI ' +
     'verbinden sich alle als Clients über dein LAN.',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Lokaler / LAN-Team-Server · ein Sync-Hub',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Lokaler / LAN-Server · ein Sync-Hub',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
-    'Erweiterung · Desktop · CLI — alle Clients desselben Team Servers, alle in deinem Netz.',
+    'Erweiterung · Desktop · CLI — alle Clients desselben Servers, alle in deinem Netz.',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': 'Workspaces',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': 'Regeln · vault',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': 'Sync-Engine',
@@ -1410,8 +1410,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · Mehrfenster',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': 'jede Maschine · $ oh rules · $ oh env',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict':
-    'Ein Team Server · viele Clients · bleibt in deinem Netz',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': 'Ein Server · viele Clients · bleibt in deinem Netz',
 
   // ── Open Headers: roadmap desktop app ───────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDesktop.aria':
@@ -1532,7 +1531,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: roadmap milestones ────────────────────────────────
   'workbench.docs.diagrams.openHeaders.milestones.aria':
     'Meilensteine — geordnete Karten in einem Browserfenster: Git-Workspaces, Desktop-App, MCP-Server, lokaler ' +
-    'Team Server, CLI, selbst gehostete Web-App, Importer — alle live.',
+    'Server, CLI, selbst gehostete Web-App, Importer — alle live.',
   'workbench.docs.diagrams.openHeaders.milestones.chromeTitle': 'Jede Oberfläche, ausgeliefert',
   'workbench.docs.diagrams.openHeaders.milestones.addrSubtitle':
     'In Reihenfolge ausgeliefert — nur-lokal blieb bei jedem Meilenstein das Produkt.',
@@ -1546,9 +1545,9 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'MCP-Server (KI-Steuerung)',
   'workbench.docs.diagrams.openHeaders.milestones.descMcp':
     'Open Headers über MCP — lass einen KI-Agenten deinen Workspace steuern.',
-  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Lokaler / LAN-Team-Server',
+  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Lokaler / LAN-Server',
   'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
-    'Team Server auf deinem Rechner oder im LAN — Erweiterung, Desktop, CLI als Clients.',
+    'Server auf deinem Rechner oder im LAN — Erweiterung, Desktop, CLI als Clients.',
   'workbench.docs.diagrams.openHeaders.milestones.descCli':
     'Headless-Scripting und CI — listen, umschalten, senden aus der Shell.',
   'workbench.docs.diagrams.openHeaders.milestones.msVm': 'Selbst gehostetes VM-Deployment + Web-App',

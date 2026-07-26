@@ -936,7 +936,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shared.supports': 'SUPPORTS',
   'workbench.docs.diagrams.openHeaders.shared.inBrowser': 'In-browser',
   'workbench.docs.diagrams.openHeaders.shared.desktopApp': 'Desktop app',
-  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Local Team Server',
+  'workbench.docs.diagrams.openHeaders.shared.localDaemon': 'Local server',
   'workbench.docs.diagrams.openHeaders.shared.yourVm': 'Your VM',
   'workbench.docs.diagrams.openHeaders.shared.workbench': 'Workbench',
   'workbench.docs.diagrams.openHeaders.shared.devtools': 'DevTools',
@@ -964,7 +964,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shift.themBrowserPrimary': 'Back-end outside the browser',
   'workbench.docs.diagrams.openHeaders.shift.themBrowserSub': 'desktop app / cloud, internet required',
   'workbench.docs.diagrams.openHeaders.shift.usSelfHostPrimary': 'Self-host the back-end',
-  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'browser · desktop app · Team Server · VM',
+  'workbench.docs.diagrams.openHeaders.shift.usSelfHostSub': 'browser · desktop app · server · VM',
   'workbench.docs.diagrams.openHeaders.shift.themSelfHostPrimary': 'Their cloud only',
   'workbench.docs.diagrams.openHeaders.shift.themSelfHostSub': 'no choice in where your data lives',
   'workbench.docs.diagrams.openHeaders.shift.usOfflinePrimary': 'Front-end works native offline',
@@ -1328,21 +1328,21 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: roadmap CLI ───────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapCli.aria':
     'Roadmap milestone — CLI. A terminal window showing example commands for listing rules, switching ' +
-    'environments, and sending a saved request — all talking to the same Team Server as the UI.',
+    'environments, and sending a saved request — all talking to the same server as the UI.',
   'workbench.docs.diagrams.openHeaders.roadmapCli.title': 'CLI · headless scripting',
   'workbench.docs.diagrams.openHeaders.roadmapCli.subtitle':
-    'Same Team Server as the UI — automation stays in sync with what you see.',
+    'Same server as the UI — automation stays in sync with what you see.',
   'workbench.docs.diagrams.openHeaders.roadmapCli.termTitle': 'oh · terminal',
-  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# same Team Server · same workspace as the UI',
+  'workbench.docs.diagrams.openHeaders.roadmapCli.comment': '# same server · same workspace as the UI',
   'workbench.docs.diagrams.openHeaders.roadmapCli.verdict': 'List · toggle · send · diff — straight from the shell',
 
   // ── Open Headers: roadmap daemon ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.aria':
-    'Roadmap milestone — Local / LAN Team Server. A Team Server in the center; extension, desktop app, and CLI all ' +
+    'Roadmap milestone — Local / LAN server. A server in the center; extension, desktop app, and CLI all ' +
     'connect as clients across your LAN.',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Local / LAN Team Server · one sync hub',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.title': 'Local / LAN server · one sync hub',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.subtitle':
-    'Extension · desktop · CLI — all clients of the same Team Server, all on your network.',
+    'Extension · desktop · CLI — all clients of the same server, all on your network.',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackWorkspaces': 'workspaces',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackRules': 'rules · vault',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.stackSync': 'sync engine',
@@ -1353,7 +1353,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfExtension': 'Popup · Workbench · DevTools',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfDesktop': 'Workbench · multi-window',
   'workbench.docs.diagrams.openHeaders.roadmapDaemon.surfCli': 'any machine · $ oh rules · $ oh env',
-  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': 'One Team Server · many clients · stays on your network',
+  'workbench.docs.diagrams.openHeaders.roadmapDaemon.verdict': 'One server · many clients · stays on your network',
 
   // ── Open Headers: roadmap desktop app ───────────────────────────────
   'workbench.docs.diagrams.openHeaders.roadmapDesktop.aria':
@@ -1470,7 +1470,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: roadmap milestones ────────────────────────────────
   'workbench.docs.diagrams.openHeaders.milestones.aria':
     'Milestones — ordered cards inside a browser-window frame: Git workspaces, desktop app, MCP server, local ' +
-    'Team Server, CLI, self-hosted web app, importers — all live.',
+    'server, CLI, self-hosted web app, importers — all live.',
   'workbench.docs.diagrams.openHeaders.milestones.chromeTitle': 'Every surface, shipped',
   'workbench.docs.diagrams.openHeaders.milestones.addrSubtitle':
     'Shipped in sequence — local-only stayed the product through every milestone.',
@@ -1484,9 +1484,9 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.milestones.msMcp': 'MCP Server (AI agent control)',
   'workbench.docs.diagrams.openHeaders.milestones.descMcp':
     'Open Headers over MCP — let an AI agent drive your workspace.',
-  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Local / LAN Team Server',
+  'workbench.docs.diagrams.openHeaders.milestones.msDaemon': 'Local / LAN server',
   'workbench.docs.diagrams.openHeaders.milestones.descDaemon':
-    'Team Server on your machine or LAN — extension, desktop, CLI as clients.',
+    'Server on your machine or LAN — extension, desktop, CLI as clients.',
   'workbench.docs.diagrams.openHeaders.milestones.descCli':
     'Headless scripting and CI — list, toggle, send from the shell.',
   'workbench.docs.diagrams.openHeaders.milestones.msVm': 'Self-hosted VM deployment + Web App',

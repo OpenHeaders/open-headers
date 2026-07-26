@@ -158,7 +158,7 @@ export const workbenchSettings = {
   'workbench.settings.category.license.label': 'Licence',
   'workbench.settings.category.license.description':
     "Tout ce qu'Open Headers propose aujourd'hui est inclus dans chaque palier — les offres payantes couvrent " +
-    "les sièges d'équipe. Le palier gratuit admet jusqu'à 6 utilisateurs actifs par Team Server.",
+    "les sièges d'équipe. Le palier gratuit admet jusqu'à 6 utilisateurs actifs par serveur.",
   'workbench.settings.category.updates.label': 'Mises à jour',
   'workbench.settings.category.updates.description':
     'Recherche de mises à jour, canal et comportement de téléchargement.',

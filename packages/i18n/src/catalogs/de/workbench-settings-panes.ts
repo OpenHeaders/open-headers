@@ -48,7 +48,7 @@ export const workbenchSettingsPanes = {
     'Die App, die diese Seite ausgeliefert hat, ist das Back-end. Deine Daten leben auf diesem Host. Immer ' +
     'an; keine Einrichtung.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Immer an',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Team-Server-Verwaltung',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Server-Verwaltung',
   'workbench.settings.backendPane.tierZero.adminDescription':
     'Das Benutzerverzeichnis und die Zugriffsrechte pro Arbeitsbereich verwalten.',
   'workbench.settings.backendPane.tierZero.adminOpen': 'Verwaltungskonsole öffnen',
@@ -364,7 +364,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typischerweise 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'überschreibbar unter Back-end → Verbindung',
   'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox':
-    'IPv4 — Team Server auf deiner eigenen Maschine (Docker, Sidecar)',
+    'IPv4 — Server auf deiner eigenen Maschine (Docker, Sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'praktisch fd00::/8 — private IPv6-Zuteilung',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale usw.',
@@ -383,7 +383,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': 'Back-end im Browser',
   'workbench.settings.backendPane.detail.aria.desktop-app': 'Back-end in der Desktop-App',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Lokales LAN-Team-Server-Back-end',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Lokales LAN-Server-Back-end',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Entferntes selbst gehostetes Back-end',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -574,7 +574,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.freeTier.title': 'Kostenlose Stufe',
   'workbench.settings.licensePane.freeTier.body':
     'Alles, was Open Headers heute bietet, ist enthalten — die kostenlose Stufe erlaubt bis zu {limit} ' +
-    'aktive Nutzer pro Team Server. Installiere einen Lizenzschlüssel, um die Platzgrenze anzuheben.',
+    'aktive Nutzer pro Server. Installiere einen Lizenzschlüssel, um die Platzgrenze anzuheben.',
   'workbench.settings.licensePane.invalidAlert.title': 'Die installierte Lizenz ist nicht nutzbar',
   'workbench.settings.licensePane.invalidAlert.body':
     'Die App läuft auf der kostenlosen Stufe weiter (bis zu {limit} aktive Nutzer). Füge unten einen ' +
@@ -725,7 +725,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.notPresent':
     'In diesem Build nicht enthalten — nur paketierte macOS-Builds.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registrierung',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registriert',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Wartet auf Genehmigung',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Nicht registriert',

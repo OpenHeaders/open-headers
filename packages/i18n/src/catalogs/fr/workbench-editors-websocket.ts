@@ -21,7 +21,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': 'Se connecter',
   'workbench.editors.websocket.connect.disconnect': 'Se déconnecter',
   'workbench.editors.websocket.connect.browserHost':
-    "Les sessions WebSocket s'exécutent sur l'application de bureau ou le Team Server.",
+    "Les sessions WebSocket s'exécutent sur l'application de bureau ou le serveur.",
   'workbench.editors.websocket.connect.needsUrl': 'Saisissez une URL ws:// ou wss:// pour vous connecter.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Message',
@@ -43,11 +43,11 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.auth.tokenPlaceholder': 'Token ou {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
     "Envoyé comme en-tête Authorization: Bearer sur le handshake — s'applique sur l'application de bureau ou " +
-    "le Team Server ; les navigateurs ne peuvent pas le définir sur un WebSocket. Une ligne d'en-tête " +
+    "le serveur ; les navigateurs ne peuvent pas le définir sur un WebSocket. Une ligne d'en-tête " +
     'Authorization explicite est prioritaire.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Envoyé comme charge utile auth du paquet CONNECT ({"token": …}) sur chaque hôte, et comme en-tête de ' +
-    "handshake Authorization: Bearer sur l'application de bureau ou le Team Server. Une ligne d'en-tête " +
+    "handshake Authorization: Bearer sur l'application de bureau ou le serveur. Une ligne d'en-tête " +
     "Authorization explicite est prioritaire sur l'en-tête.",
   'workbench.editors.websocket.events.hint':
     'Les événements entrants à afficher dans la chronologie de la session. Sans lignes, chaque événement ' +
@@ -68,7 +68,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.valuePlaceholder': 'Valeur',
   'workbench.editors.websocket.headers.nodeOnly':
     "Les en-têtes de handshake personnalisés s'appliquent quand la session s'exécute sur l'application de " +
-    'bureau ou le Team Server — les navigateurs ne peuvent pas les définir sur un WebSocket.',
+    'bureau ou le serveur — les navigateurs ne peuvent pas les définir sur un WebSocket.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nom du paramètre',
   'workbench.editors.websocket.params.valuePlaceholder': 'Valeur',
   'workbench.editors.websocket.spec.selectLabel': 'Spécification AsyncAPI',
@@ -87,7 +87,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.sslVerifyLabel': 'Vérification du certificat SSL',
   'workbench.editors.websocket.settings.sslVerifyHelp':
     'Vérifie le certificat du serveur contre les racines du système pour les sessions wss:. Désactivez pour ' +
-    "les serveurs de développement auto-signés. S'applique sur l'application de bureau ou le Team Server.",
+    "les serveurs de développement auto-signés. S'applique sur l'application de bureau ou le serveur.",
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Sous-protocoles',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     "Liste d'offres Sec-WebSocket-Protocol, par ordre de préférence — le serveur en choisit un pendant le handshake.",

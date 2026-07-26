@@ -29,8 +29,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.flavor.socketio': 'Socket.IO',
   'workbench.editors.websocket.connect.label': 'Verbinden',
   'workbench.editors.websocket.connect.disconnect': 'Trennen',
-  'workbench.editors.websocket.connect.browserHost':
-    'WebSocket-Sitzungen laufen in der Desktop-App oder im Team Server.',
+  'workbench.editors.websocket.connect.browserHost': 'WebSocket-Sitzungen laufen in der Desktop-App oder im Server.',
   'workbench.editors.websocket.connect.needsUrl': 'Gib eine ws://- oder wss://-URL ein, um dich zu verbinden.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Nachricht',
@@ -51,11 +50,11 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.auth.tokenLabel': 'Token',
   'workbench.editors.websocket.auth.tokenPlaceholder': 'Token oder {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
-    'Wird beim Handshake als Header Authorization: Bearer gesendet — gilt in der Desktop-App oder im Team Server; ' +
+    'Wird beim Handshake als Header Authorization: Bearer gesendet — gilt in der Desktop-App oder im Server; ' +
     'Browser können ihn auf einem WebSocket nicht setzen. Eine explizite Authorization-Header-Zeile hat Vorrang.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Wird auf jedem Host als auth-Payload des CONNECT-Pakets ({"token": …}) gesendet und in der Desktop-App ' +
-    'oder im Team Server als Handshake-Header Authorization: Bearer. Eine explizite Authorization-Header-Zeile hat ' +
+    'oder im Server als Handshake-Header Authorization: Bearer. Eine explizite Authorization-Header-Zeile hat ' +
     'Vorrang vor dem Header.',
   'workbench.editors.websocket.events.hint':
     'Eingehende Events, die im Zeitverlauf der Sitzung angezeigt werden. Ohne Zeilen wird jedes Event ' +
@@ -76,7 +75,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.keyPlaceholder': 'Header-Name',
   'workbench.editors.websocket.headers.valuePlaceholder': 'Wert',
   'workbench.editors.websocket.headers.nodeOnly':
-    'Benutzerdefinierte Handshake-Header gelten, wenn die Sitzung in der Desktop-App oder im Team Server läuft — ' +
+    'Benutzerdefinierte Handshake-Header gelten, wenn die Sitzung in der Desktop-App oder im Server läuft — ' +
     'Browser können sie auf einem WebSocket nicht setzen.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Parametername',
   'workbench.editors.websocket.params.valuePlaceholder': 'Wert',
@@ -96,7 +95,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.sslVerifyLabel': 'SSL-Zertifikatsprüfung',
   'workbench.editors.websocket.settings.sslVerifyHelp':
     'Prüft das Serverzertifikat für wss:-Sitzungen gegen die Systemwurzeln. Schalte es für selbstsignierte ' +
-    'Entwicklungsserver aus. Gilt in der Desktop-App oder im Team Server.',
+    'Entwicklungsserver aus. Gilt in der Desktop-App oder im Server.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotokolle',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Die Sec-WebSocket-Protocol-Angebotsliste, in bevorzugter Reihenfolge — der Server wählt eines während ' +

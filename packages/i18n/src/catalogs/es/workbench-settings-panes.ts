@@ -46,7 +46,7 @@ export const workbenchSettingsPanes = {
     'La aplicación que sirvió esta página es el back-end. Tus datos viven en ese host. Siempre activo; sin ' +
     'configuración.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Siempre activo',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Administración del Team Server',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Administración del servidor',
   'workbench.settings.backendPane.tierZero.adminDescription':
     'Gestiona el directorio de usuarios y los accesos concedidos por espacio de trabajo.',
   'workbench.settings.backendPane.tierZero.adminOpen': 'Abrir la consola de administración',
@@ -363,7 +363,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'normalmente 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'modificable en Backend → Conexión',
   'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox':
-    'IPv4 — Team Server en tu propia máquina (Docker, sidecar)',
+    'IPv4 — servidor en tu propia máquina (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'en la práctica fd00::/8 — asignación privada IPv6',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale, etc.',
@@ -382,7 +382,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': 'Back-end en el navegador',
   'workbench.settings.backendPane.detail.aria.desktop-app': 'Back-end de la aplicación de escritorio',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Back-end Team Server en la LAN local',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Back-end de servidor en la LAN local',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Back-end remoto autoalojado',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -576,7 +576,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.freeTier.title': 'Nivel gratuito',
   'workbench.settings.licensePane.freeTier.body':
     'Todo lo que Open Headers ofrece hoy está incluido — el nivel gratuito admite hasta {limit} usuarios ' +
-    'activos por Team Server. Instala una clave de licencia para elevar el límite de plazas.',
+    'activos por servidor. Instala una clave de licencia para elevar el límite de plazas.',
   'workbench.settings.licensePane.invalidAlert.title': 'La licencia instalada no es utilizable',
   'workbench.settings.licensePane.invalidAlert.body':
     'La aplicación sigue funcionando en el nivel gratuito (hasta {limit} usuarios activos). Pega una clave ' +
@@ -721,7 +721,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.notPresent':
     'No incluido en esta compilación — solo compilaciones macOS empaquetadas.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registro',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Servidor',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registrado',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Esperando aprobación',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'No registrado',

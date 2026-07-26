@@ -80,7 +80,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionConnect': 'Verbinden',
   'shared.chrome.addons.title': 'Add-ons',
   'shared.chrome.addons.cli': 'CLI',
-  'shared.chrome.addons.daemon': 'Team Server',
+  'shared.chrome.addons.daemon': 'Server',
   'shared.chrome.addons.cliSetUp': 'Eingerichtet',
   'shared.chrome.addons.cliNotSetUp': 'Nicht eingerichtet',
   'shared.chrome.addons.cliStale': 'Token widerrufen — neu einrichten',

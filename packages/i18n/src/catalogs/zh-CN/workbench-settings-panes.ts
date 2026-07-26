@@ -46,7 +46,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tierZero.copy.web':
     '提供此页面的应用就是后端。你的数据留在那台主机上。始终开启；无需设置。',
   'workbench.settings.backendPane.tierZero.alwaysOn': '始终开启',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Team Server 管理',
+  'workbench.settings.backendPane.tierZero.adminTitle': '服务器管理',
   'workbench.settings.backendPane.tierZero.adminDescription': '管理用户目录和按工作区的访问授权。',
   'workbench.settings.backendPane.tierZero.adminOpen': '打开管理控制台',
   'workbench.settings.backendPane.scenario.desktop-app.title': '桌面应用程序',
@@ -312,7 +312,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge——每个浏览器数据独立，不跨设备、不跨浏览器',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': '通常为 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': '在后端 → 连接中覆盖',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4——Team Server 在你自己的机器上（Docker、sidecar）',
+  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4——服务器在你自己的机器上（Docker、sidecar）',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': '实际上是 fd00::/8——IPv6 私有分配',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale 等',
@@ -329,7 +329,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': '浏览器内后端',
   'workbench.settings.backendPane.detail.aria.desktop-app': '桌面端应用后端',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': '本地 LAN Team Server 后端',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': '本地 LAN 服务器后端',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': '远程自托管后端',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -481,7 +481,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.removeFailed': '移除许可证失败：{message}',
   'workbench.settings.licensePane.freeTier.title': '免费档',
   'workbench.settings.licensePane.freeTier.body':
-    'Open Headers 今天的一切功能都包含在内——免费档每个 Team Server 最多准入 {limit} 个活跃用户。安装许可证密钥可提高席位上限。',
+    'Open Headers 今天的一切功能都包含在内——免费档每个服务器最多准入 {limit} 个活跃用户。安装许可证密钥可提高席位上限。',
   'workbench.settings.licensePane.invalidAlert.title': '已安装的许可证不可用',
   'workbench.settings.licensePane.invalidAlert.body':
     '应用继续以免费档运行（最多 {limit} 个活跃用户）。在下方粘贴新密钥或联系支持。',
@@ -593,7 +593,7 @@ export const workbenchSettingsPanes = {
     '系统钥匙串信任经由一个已签名的助手完成，它以后台项目的身份注册到 macOS。它只搬运证书字节 — 每一次信任决定仍要经过 macOS 管理员对话框。',
   'workbench.settings.proxyTrustPane.helper.notPresent': '此构建不包含 — 仅限打包的 macOS 构建。',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': '注册',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': '服务器',
   'workbench.settings.proxyTrustPane.helper.state.enabled': '已注册',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '等待批准',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未注册',

@@ -219,7 +219,7 @@ export const workbenchChrome = {
   'workbench.shell.breadcrumbs.settings': 'Paramètres',
   'workbench.shell.breadcrumbs.whatsNew': 'Nouveautés',
   'workbench.shell.breadcrumbs.workspaces': 'Espaces de travail',
-  'workbench.shell.breadcrumbs.daemonAdmin': 'Admin du Team Server',
+  'workbench.shell.breadcrumbs.daemonAdmin': 'Admin du serveur',
   'workbench.shell.breadcrumbs.environments': 'Environnements',
   'workbench.shell.breadcrumbs.specs': 'Spécifications',
   'workbench.shell.breadcrumbs.workspaceVariables': "Variables d'espace de travail",
@@ -699,7 +699,7 @@ export const workbenchChrome = {
     'aux en-têtes.',
   'workbench.docs.nav.roadmap.title': 'Chaque surface, livrée',
   'workbench.docs.nav.roadmap.summary':
-    'Les jalons livrés — espaces de travail Git, application de bureau, serveur MCP, Team Server, CLI, ' +
+    'Les jalons livrés — espaces de travail Git, application de bureau, serveur MCP, serveur auto-hébergé, CLI, ' +
     'application web, importateurs.',
   'workbench.docs.nav.conditions.title': 'Conditions',
   'workbench.docs.nav.conditions.summary':

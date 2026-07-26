@@ -483,7 +483,7 @@ export const workbenchDocs = {
     '“本地优先”是一种姿态，不是一个功能。扩展没有账号系统、没有云中继、没有跟踪——唯一的使用数据是匿名的功能计数，可逐字节查验，一个开关即可关闭——而且你在后端',
   'workbench.docs.body.paradigm.localFirstWhere': '住在哪里',
   'workbench.docs.body.paradigm.localFirst1Suffix':
-    '这件事上有真正的选择。四种托管方式，全部仅限本地、全部在你掌控之下：浏览器内 Service Worker（今天即可，零设置）、桌面端应用的内嵌后端、在一台机器上服务所有 Open Headers 界面的独立本地 Team Server，或你在自己 VM 上自托管的后端。每种方式都保有同样的保证；取舍在于触达范围，而不是所有权。',
+    '这件事上有真正的选择。四种托管方式，全部仅限本地、全部在你掌控之下：浏览器内 Service Worker（今天即可，零设置）、桌面端应用的内嵌后端、在一台机器上服务所有 Open Headers 界面的独立本地服务器，或你在自己 VM 上自托管的后端。每种方式都保有同样的保证；取舍在于触达范围，而不是所有权。',
   'workbench.docs.body.paradigm.localFirst2': '团队协作经由用户掌控的存储后端（Git）交付——而不是经由供应商的服务器。',
   'workbench.docs.body.paradigm.frontEnds1Prefix': '同样的原则也适用于你',
   'workbench.docs.body.paradigm.frontEndsHow': '如何',
@@ -495,7 +495,7 @@ export const workbenchDocs = {
   'workbench.docs.body.paradigm.perFieldStrong': '按字段',
   'workbench.docs.body.paradigm.autoSync1Middle': '的层面解决它：弹窗切换某条规则的',
   'workbench.docs.body.paradigm.autoSync1Suffix':
-    '标志，工作区编辑器改写同一条规则里的标头值——两者以任意顺序都能落地，没有过期草稿横幅，没有覆盖。同一套方案从一个扩展的四个界面，扩展到一个本地 Team Server 支撑扩展 + 桌面 + CLI，再到经由 Git 远程的多用户团队工作区——中间始终不需要供应商的服务器。',
+    '标志，工作区编辑器改写同一条规则里的标头值——两者以任意顺序都能落地，没有过期草稿横幅，没有覆盖。同一套方案从一个扩展的四个界面，扩展到一个本地服务器支撑扩展 + 桌面 + CLI，再到经由 Git 远程的多用户团队工作区——中间始终不需要供应商的服务器。',
   'workbench.docs.body.paradigm.fieldSyncCaption': '两个界面、一条规则、不同字段——两次编辑都落地，什么也没被覆盖。',
   'workbench.docs.body.paradigm.noteCalloutPrefix': '想看看这与你可能试过的其他工具相比如何？',
   'workbench.docs.body.paradigm.comparisonLink': '我们与同类的对比',
@@ -559,12 +559,12 @@ export const workbenchDocs = {
   'workbench.docs.body.roadmap.mcpRemoteStrong': '面向远程的 HTTP/SSE',
   'workbench.docs.body.roadmap.mcp2Suffix':
     '。没有供应商中继；你的智能体直接对话你的安装。工具调用以你自己的工作区权限运行——机密留在 vault 之后，敏感操作保持可选启用。',
-  'workbench.docs.body.roadmap.daemonHeading': '用于跨设备同步的本地 / LAN Team Server',
+  'workbench.docs.body.roadmap.daemonHeading': '用于跨设备同步的本地 / LAN 服务器',
   'workbench.docs.body.roadmap.daemon1':
-    '一个可以跑在你的机器、你的 LAN 或一台隧道主机上的 Team Server。扩展、桌面端应用和 CLI 都成为同一个 Team Server 的客户端——同样的工作区、同样的规则、同样的 vault，横跨你使用的每台设备。Team Server 留在本地网络上；没有叠加在上面的可选云通道。',
+    '一个可以跑在你的机器、你的 LAN 或一台隧道主机上的服务器。扩展、桌面端应用和 CLI 都成为同一个服务器的客户端——同样的工作区、同样的规则、同样的 vault，横跨你使用的每台设备。服务器留在本地网络上；没有叠加在上面的可选云通道。',
   'workbench.docs.body.roadmap.cliHeading': 'CLI',
   'workbench.docs.body.roadmap.cli1':
-    '无界面脚本与 CI 集成。列出规则、切换环境、从 shell 运行单个已保存的请求、把一个工作区与另一个做对比。CLI 与扩展和桌面端应用对话同一个 Team Server，因此自动化与你在 UI 中看到的保持同步。',
+    '无界面脚本与 CI 集成。列出规则、切换环境、从 shell 运行单个已保存的请求、把一个工作区与另一个做对比。CLI 与扩展和桌面端应用对话同一个服务器，因此自动化与你在 UI 中看到的保持同步。',
   'workbench.docs.body.roadmap.webAppHeading': '自托管 VM 部署 + Web 应用',
   'workbench.docs.body.roadmap.webApp1':
     '同一套 UI 以 Web 包的形式交付，可从你自己的源站提供。适合锁死的企业浏览器、kiosk 设备，或任何装不了扩展的环境——也适合想在自己域名下部署品牌化 Open Headers 的用户。',

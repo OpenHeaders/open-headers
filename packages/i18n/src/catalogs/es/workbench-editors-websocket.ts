@@ -26,7 +26,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': 'Conectar',
   'workbench.editors.websocket.connect.disconnect': 'Desconectar',
   'workbench.editors.websocket.connect.browserHost':
-    'Las sesiones WebSocket se ejecutan en la aplicación de escritorio o el Team Server.',
+    'Las sesiones WebSocket se ejecutan en la aplicación de escritorio o el servidor.',
   'workbench.editors.websocket.connect.needsUrl': 'Introduce una URL ws:// o wss:// para conectarte.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Mensaje',
@@ -48,11 +48,11 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.auth.tokenPlaceholder': 'Token o {{variable}}',
   'workbench.editors.websocket.auth.helpRaw':
     'Se envía como encabezado Authorization: Bearer en el handshake — se aplica en la aplicación de ' +
-    'escritorio o el Team Server; los navegadores no pueden definirlo en un WebSocket. Una fila de encabezado ' +
+    'escritorio o el servidor; los navegadores no pueden definirlo en un WebSocket. Una fila de encabezado ' +
     'Authorization explícita tiene prioridad.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Se envía como carga auth del paquete CONNECT ({"token": …}) en cada host, y como encabezado de ' +
-    'handshake Authorization: Bearer en la aplicación de escritorio o el Team Server. Una fila de encabezado ' +
+    'handshake Authorization: Bearer en la aplicación de escritorio o el servidor. Una fila de encabezado ' +
     'Authorization explícita tiene prioridad sobre el encabezado.',
   'workbench.editors.websocket.events.hint':
     'Los eventos entrantes que mostrar en la cronología de la sesión. Sin filas, se muestra cada evento; ' +
@@ -73,7 +73,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.headers.valuePlaceholder': 'Valor',
   'workbench.editors.websocket.headers.nodeOnly':
     'Los encabezados de handshake personalizados se aplican cuando la sesión se ejecuta en la aplicación de ' +
-    'escritorio o el Team Server — los navegadores no pueden definirlos en un WebSocket.',
+    'escritorio o el servidor — los navegadores no pueden definirlos en un WebSocket.',
   'workbench.editors.websocket.params.keyPlaceholder': 'Nombre del parámetro',
   'workbench.editors.websocket.params.valuePlaceholder': 'Valor',
   'workbench.editors.websocket.spec.selectLabel': 'Especificación AsyncAPI',
@@ -93,7 +93,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.sslVerifyHelp':
     'Verifica el certificado del servidor contra las raíces del sistema para las sesiones wss:. Desactívala ' +
     'para servidores de desarrollo con certificados autofirmados. Se aplica en la aplicación de escritorio ' +
-    'o el Team Server.',
+    'o el servidor.',
   'workbench.editors.websocket.settings.subprotocolsLabel': 'Subprotocolos',
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Lista de ofertas Sec-WebSocket-Protocol, en orden de preferencia — el servidor elige uno durante el ' +

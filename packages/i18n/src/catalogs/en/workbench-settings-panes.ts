@@ -28,7 +28,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tierZero.copy.web':
     'The app that served this page is the back-end. Your data lives on that host. Always on; no setup.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Always on',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Team Server administration',
+  'workbench.settings.backendPane.tierZero.adminTitle': 'Server administration',
   'workbench.settings.backendPane.tierZero.adminDescription':
     'Manage the user directory and per-workspace access grants.',
   'workbench.settings.backendPane.tierZero.adminOpen': 'Open admin console',
@@ -314,7 +314,7 @@ export const workbenchSettingsPanes = {
     'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typically 127.0.0.1',
   'workbench.settings.backendPane.tier.rangeNote.portOverride': 'override in Backend → Connection',
-  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4 — Team Server on your own box (Docker, sidecar)',
+  'workbench.settings.backendPane.tier.rangeNote.daemonOwnBox': 'IPv4 — server on your own box (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'practically fd00::/8 — IPv6 private allocation',
   'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale, etc.',
@@ -331,7 +331,7 @@ export const workbenchSettingsPanes = {
   // plane, S3 glyph precedent); only their accessible names localize.
   'workbench.settings.backendPane.detail.aria.in-browser': 'In-browser back-end',
   'workbench.settings.backendPane.detail.aria.desktop-app': 'Desktop app back-end',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Local LAN Team Server back-end',
+  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Local LAN server back-end',
   'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Remote self-hosted back-end',
 
   // ── Keymap pane body ───────────────────────────────────────────────
@@ -499,7 +499,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.removeFailed': 'Failed to remove license: {message}',
   'workbench.settings.licensePane.freeTier.title': 'Free tier',
   'workbench.settings.licensePane.freeTier.body':
-    'Everything in Open Headers today is included — the free tier admits up to {limit} active users per Team Server. Install a license key to raise the seat limit.',
+    'Everything in Open Headers today is included — the free tier admits up to {limit} active users per server. Install a license key to raise the seat limit.',
   'workbench.settings.licensePane.invalidAlert.title': 'Installed license is not usable',
   'workbench.settings.licensePane.invalidAlert.body':
     'The app keeps running on the free tier (up to {limit} active users). Paste a fresh key below or contact support.',
@@ -620,7 +620,7 @@ export const workbenchSettingsPanes = {
     'System-keychain trust rides a signed helper registered with macOS as a background item. It only moves certificate bytes — every trust decision still goes through the macOS admin dialog.',
   'workbench.settings.proxyTrustPane.helper.notPresent': 'Not included in this build — packaged macOS builds only.',
   'workbench.settings.proxyTrustPane.helper.registrationLabel': 'Registration',
-  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Team Server',
+  'workbench.settings.proxyTrustPane.helper.daemonLabel': 'Server',
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registered',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Waiting for approval',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Not registered',
