@@ -475,6 +475,70 @@ describe('executeOverTransport', () => {
     expect(unmarked.phaseTimings).toBeUndefined();
   });
 
+  it('surfaces the transport-reported network facts verbatim, omitted when the host has none', async () => {
+    const facts = {
+      httpVersion: 'h2',
+      localAddress: '192.168.1.20',
+      localPort: 52344,
+      remoteAddress: '203.0.113.7',
+      remotePort: 443,
+    };
+    const withFacts = captureTransport({ network: facts });
+    const marked = await executeOverTransport(makeResolved(), withFacts.transport);
+    expect(marked.network).toEqual(facts);
+
+    const quiet = captureTransport();
+    const unmarked = await executeOverTransport(makeResolved(), quiet.transport);
+    expect(unmarked.network).toBeUndefined();
+  });
+
+  it('opts interactive sends into the transport network capture; buffered sends stay pooled', async () => {
+    const interactive = captureTransport();
+    await executeOverTransport(makeResolved(), interactive.transport, {
+      stream: { sendId: 'send-cap', emitFrame: () => undefined },
+    });
+    expect(interactive.sent().captureNetwork).toBe(true);
+
+    const buffered = captureTransport();
+    await executeOverTransport(makeResolved(), buffered.transport);
+    expect(buffered.sent().captureNetwork).toBeUndefined();
+  });
+
+  it('stamps the wire bytes this executor serialized for the request', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        method: 'POST',
+        headers: [{ key: 'X-A', value: '1' }],
+        body: { type: 'json', content: '{"q":"books"}' } as RequestBody,
+      }),
+      transport,
+    );
+    // Raw bodies auto-stamp a Content-Type header alongside the user
+    // rows — count what actually went on the seam.
+    const sentHeaders = snap.requestSize;
+    expect(sentHeaders).toBeDefined();
+    expect(sentHeaders?.bodyBytes).toBe('{"q":"books"}'.length);
+    expect(sentHeaders?.headersBytes).toBeGreaterThanOrEqual('X-A: 1\r\n'.length);
+    expect(sentHeaders?.bodyApproximate).toBeUndefined();
+  });
+
+  it('flags a multipart request body size as approximate (boundary unobservable)', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        method: 'POST',
+        body: {
+          type: 'multipart',
+          multipartParts: [{ kind: 'text', name: 'note', value: 'hello', enabled: true }],
+        } as RequestBody,
+      }),
+      transport,
+    );
+    expect(snap.requestSize?.bodyApproximate).toBe(true);
+    expect(snap.requestSize?.bodyBytes).toBe('hello'.length);
+  });
+
   it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
     // Capping moved into the transport (only it can stream + abort the
     // read); execute passes the already-capped result straight through.

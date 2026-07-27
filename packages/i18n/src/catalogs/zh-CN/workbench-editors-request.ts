@@ -550,9 +550,11 @@ export const workbenchEditorsRequest = {
     '请求体大小是近似值——multipart boundary 由浏览器生成。',
   'workbench.editors.request.response.meta.noteWireHidden':
     '线路大小（压缩后、已传输）被隐藏：服务器未发送 Timing-Allow-Origin。',
+  'workbench.editors.request.response.meta.noteWireHiddenNode': '应用的网络运行时不报告线路大小（压缩后、已传输）。',
   'workbench.editors.request.response.meta.networkTitle': '网络',
   'workbench.editors.request.response.meta.networkSummary': '此次交换的连接层事实。',
   'workbench.editors.request.response.meta.httpVersion': 'HTTP 版本',
+  'workbench.editors.request.response.meta.localAddress': '本地地址',
   'workbench.editors.request.response.meta.remoteAddress': '远程地址',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
     'HTTP 版本被隐藏：应用的网络运行时不报告协商出的协议。',

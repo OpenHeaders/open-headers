@@ -70,6 +70,49 @@ export interface ExecuteOverTransportOptions {
   stream?: ExecuteStreamOptions;
 }
 
+/**
+ * Wire bytes the executor itself serialized for the request — the
+ * lower-bound contract the size popover presents (the host network
+ * stack adds its own headers the seam never sees). Multipart bodies
+ * count their parts' bytes; the runtime-generated boundary is
+ * unobservable ahead of send, so the figure is flagged approximate.
+ */
+function requestSizeOf(
+  headers: ReadonlyArray<TransportHeader>,
+  body: TransportBody,
+): NonNullable<ExecutedRequestSnapshot['requestSize']> {
+  const encoder = new TextEncoder();
+  let headersBytes = 0;
+  for (const h of headers) headersBytes += encoder.encode(`${h.key}: ${h.value}\r\n`).byteLength;
+  let bodyBytes = 0;
+  let approximate = false;
+  switch (body.kind) {
+    case 'none':
+      break;
+    case 'raw':
+      bodyBytes = encoder.encode(body.content).byteLength;
+      break;
+    case 'urlencoded': {
+      const params = new URLSearchParams();
+      for (const f of body.fields) params.append(f.name, f.value);
+      bodyBytes = encoder.encode(params.toString()).byteLength;
+      break;
+    }
+    case 'multipart': {
+      approximate = true;
+      for (const part of body.parts) {
+        bodyBytes += part.kind === 'text' ? encoder.encode(part.value).byteLength : part.bytes.byteLength;
+      }
+      break;
+    }
+    default: {
+      const _exhaustive: never = body;
+      void _exhaustive;
+    }
+  }
+  return { headersBytes, bodyBytes, ...(approximate ? { bodyApproximate: true } : {}) };
+}
+
 export async function executeOverTransport(
   resolved: ResolvedRequest,
   transport: RequestTransport,
@@ -160,6 +203,11 @@ export async function executeOverTransport(
     followOriginalHttpMethod: resolved.followOriginalHttpMethod,
     followAuthorizationHeader: resolved.followAuthorizationHeader,
     ...(resolved.digest ? { digestAuth: resolved.digest } : {}),
+    // Interactive sends (the response panel's surface) opt into the
+    // transport's instrumented dial — socket phases + endpoints for
+    // the meta popovers. Chains, MCP sends, and workflow steps keep
+    // pooled connections; nothing reads the facts there.
+    ...(options.stream !== undefined ? { captureNetwork: true } : {}),
   };
 
   // A verification-off send is stamped on the snapshot (success or
@@ -232,6 +280,13 @@ export async function executeOverTransport(
       // And for the phase marks — the node transport's manual-marks
       // twin of the browser's resource-timing entry.
       ...(response.phaseTimings !== undefined ? { phaseTimings: { ...response.phaseTimings } } : {}),
+      // Socket-level facts an instrumented dial observed (interactive
+      // sends on node transports) — negotiated protocol + endpoints.
+      ...(response.network !== undefined ? { network: { ...response.network } } : {}),
+      // Wire bytes this executor serialized for the request — a lower
+      // bound (the network stack adds headers the seam never sees),
+      // presented as such by the size popover.
+      requestSize: requestSizeOf(headers, body),
       body: response.body,
       ...(response.bodyEncoding ? { bodyEncoding: response.bodyEncoding } : {}),
       bodyTruncated: response.bodyTruncated,

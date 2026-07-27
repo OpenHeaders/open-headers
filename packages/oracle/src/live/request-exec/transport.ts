@@ -252,6 +252,19 @@ export interface TransportRequest {
    * the actionable signal.
    */
   digestAuth?: { username: string; password: string };
+  /**
+   * Ask the transport to observe connection-level facts for THIS send
+   * — socket phase timings (DNS / TCP / TLS), the negotiated ALPN
+   * protocol, and the socket's local/remote addresses — reported via
+   * {@link TransportResponse.network} and the socket legs of
+   * {@link TransportResponse.phaseTimings}. The honoring transport
+   * dials an instrumented, send-local connection instead of a pooled
+   * one (observation needs the dial), so the executor sets this only
+   * for interactive sends where the facts feed the response surface —
+   * cadence/background sends keep shared pooling. Transports whose
+   * network stack exposes no socket seat (the browser SW) ignore it.
+   */
+  captureNetwork?: boolean;
 }
 
 /**
@@ -281,6 +294,19 @@ export interface TransportRedirectHop {
    *  `followAuthorizationHeader` opt-in). Absent when no Authorization
    *  was in play or the hop stayed same-origin. */
   authorization?: 'stripped' | 'forwarded';
+}
+
+/** Socket-level facts an instrumented dial observed — see
+ *  {@link TransportResponse.network}. */
+export interface TransportNetworkFacts {
+  /** Negotiated ALPN protocol id (`'h2'` / `'http/1.1'`). Plain-http
+   *  dials report `'http/1.1'` (the only protocol undici fetch speaks
+   *  in cleartext). */
+  httpVersion?: string;
+  localAddress?: string;
+  localPort?: number;
+  remoteAddress?: string;
+  remotePort?: number;
 }
 
 export interface TransportResponse {
@@ -313,17 +339,33 @@ export interface TransportResponse {
    * `redirectMs` = time spent chasing redirect hops before the final
    * hop's dispatch (present only when the chain had hops); `waitingMs`
    * = final hop dispatch → response head (TTFB — includes any digest
-   * second leg, and the DNS/connect/TLS legs the transport cannot
-   * observe separately); `downloadMs` = head → end of the capped body
-   * read. Present only on hosts that own the exchange end to end (the
-   * browser SW rides its platform's resource timing instead). Pure
-   * attribution for the executed-run snapshot.
+   * second leg); `downloadMs` = head → end of the capped body read.
+   * The socket legs — `dnsMs` / `connectMs` (TCP) / `tlsMs` — appear
+   * only when the send ran with {@link TransportRequest.captureNetwork}
+   * on an instrumented dial AND the chain had no redirect hops (a
+   * chained send's dial belongs to its first hop, inside `redirectMs`);
+   * when present, `waitingMs` starts at the socket's readiness, not
+   * the dispatch instant. Present only on hosts that own the exchange
+   * end to end (the browser SW rides its platform's resource timing
+   * instead). Pure attribution for the executed-run snapshot.
    */
   phaseTimings?: {
     redirectMs?: number;
+    dnsMs?: number;
+    connectMs?: number;
+    tlsMs?: number;
     waitingMs: number;
     downloadMs: number;
   };
+  /**
+   * Connection-level facts observed on the socket that served the
+   * FINAL hop — present only when the send ran with
+   * {@link TransportRequest.captureNetwork} and the transport could
+   * dial an instrumented connection (proxied sends tunnel through the
+   * proxy's connector and report nothing; the browser SW has no socket
+   * seat at all). Pure attribution for the executed-run snapshot.
+   */
+  network?: TransportNetworkFacts;
   /**
    * Response body as text, already capped at {@link TransportRequest.maxBodyBytes}
    * by the transport (it streams + aborts past the cap to bound memory).

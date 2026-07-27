@@ -99,6 +99,20 @@ export interface ExecutedRedirectHop {
   authorization?: 'stripped' | 'forwarded';
 }
 
+/**
+ * Socket-level connection facts for an executed send — see
+ * {@link ExecutedRequestSnapshot.network}. `httpVersion` carries the
+ * negotiated ALPN protocol id (`'h2'` / `'http/1.1'`); the UI maps it
+ * to a friendly label at consume time.
+ */
+export interface ExecutedNetworkFacts {
+  httpVersion?: string;
+  localAddress?: string;
+  localPort?: number;
+  remoteAddress?: string;
+  remotePort?: number;
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */
@@ -207,17 +221,33 @@ export interface ExecutedRequestSnapshot {
    * browser's `timing` entry (its network stack exposes no resource
    * timing). `redirectMs` = time chasing redirect hops before the
    * final hop's dispatch (present only when the chain had hops);
-   * `waitingMs` = final hop dispatch → response head (TTFB; the
-   * DNS/connect/TLS legs the runtime cannot observe separately are
-   * inside it); `downloadMs` = head → end of the body read. Absent on
-   * hosts that record a real `timing` entry instead, and on error
-   * snapshots. Attribution only — recorded from what the send did.
+   * `waitingMs` = final hop dispatch → response head (TTFB);
+   * `downloadMs` = head → end of the body read. The socket legs —
+   * `dnsMs` / `connectMs` (TCP) / `tlsMs` — appear only when the send
+   * dialed an instrumented connection (interactive sends on node
+   * runtimes) and followed no redirects; when present, `waitingMs`
+   * starts at socket readiness and the DNS/connect/TLS time sits in
+   * its own legs instead. Absent on hosts that record a real `timing`
+   * entry instead, and on error snapshots. Attribution only —
+   * recorded from what the send did.
    */
   phaseTimings?: {
     redirectMs?: number;
+    dnsMs?: number;
+    connectMs?: number;
+    tlsMs?: number;
     waitingMs: number;
     downloadMs: number;
   };
+  /**
+   * Connection-level facts observed on the socket that served the
+   * final hop — negotiated protocol, local/remote endpoints. Present
+   * only when the executing host dialed an instrumented connection
+   * for this send (interactive sends on node runtimes; the browser
+   * runtime has no socket seat and reads its `timing` entry / wire
+   * capture instead). Attribution only, recorded at dial time.
+   */
+  network?: ExecutedNetworkFacts;
   /**
    * The redirect hops this send followed before the final response,
    * in wire order — each one the request sent and the 3xx it answered

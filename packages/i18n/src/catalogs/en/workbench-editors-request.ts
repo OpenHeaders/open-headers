@@ -551,9 +551,12 @@ export const workbenchEditorsRequest = {
     'Request body size is approximate — the multipart boundary is browser-generated.',
   'workbench.editors.request.response.meta.noteWireHidden':
     'Wire sizes (compressed, transferred) hidden: the server sent no Timing-Allow-Origin.',
+  'workbench.editors.request.response.meta.noteWireHiddenNode':
+    'Wire sizes (compressed, transferred) are not reported by the app’s network runtime.',
   'workbench.editors.request.response.meta.networkTitle': 'Network',
   'workbench.editors.request.response.meta.networkSummary': 'Connection-level facts for this exchange.',
   'workbench.editors.request.response.meta.httpVersion': 'HTTP Version',
+  'workbench.editors.request.response.meta.localAddress': 'Local Address',
   'workbench.editors.request.response.meta.remoteAddress': 'Remote Address',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
     'HTTP version hidden: the app’s network runtime does not report the negotiated protocol.',

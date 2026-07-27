@@ -179,6 +179,23 @@ describe('mapPhaseTimingsToView', () => {
     }
     expect(view.totalMs).toBe(5);
   });
+
+  it('splices the instrumented socket legs between redirect and waiting', () => {
+    const view = mapPhaseTimingsToView({ dnsMs: 4, connectMs: 6, tlsMs: 20, waitingMs: 60, downloadMs: 10 });
+    expect(view.kind).toBe('detailed');
+    if (view.kind !== 'detailed') return;
+    expect(view.totalMs).toBe(100);
+    expect(view.phases.map((p) => p.key)).toEqual(['dns', 'connect', 'tls', 'waiting', 'download']);
+    expect(view.phases[1]).toMatchObject({ key: 'connect', startMs: 4, durationMs: 6 });
+    expect(view.phases[3]).toMatchObject({ key: 'waiting', startMs: 30, durationMs: 60 });
+  });
+
+  it('keeps a cleartext dial TLS-free and an IP-literal dial DNS-free', () => {
+    const view = mapPhaseTimingsToView({ connectMs: 3, waitingMs: 10, downloadMs: 1 });
+    expect(view.kind).toBe('detailed');
+    if (view.kind !== 'detailed') return;
+    expect(view.phases.map((p) => p.key)).toEqual(['connect', 'waiting', 'download']);
+  });
 });
 
 describe('httpVersionLabel', () => {

@@ -105,41 +105,37 @@ export function mapEntryToTimingView(entry: ResourceTimingEntry): ResponseTiming
  * Map the node runtime's manual phase marks (`snapshot.phaseTimings`)
  * onto the same ladder shape the resource-timing entry feeds — one
  * popover view for both runtimes. The marks are sequential by
- * construction (redirect hops → final-hop wait → download), so the
- * ladder positions are running offsets; the total is the marks' own
- * span, which is the network time (the snapshot's `durationMs` also
- * counts materialization overhead). DNS/connect/TLS are not observable
- * from the node stack — they sit inside Waiting, and the popover
- * carries an honesty note saying so.
+ * construction (redirect hops → socket legs → final-hop wait →
+ * download), so the ladder positions are running offsets; the total is
+ * the marks' own span, which is the network time (the snapshot's
+ * `durationMs` also counts materialization overhead). The DNS /
+ * connect / TLS legs appear only when the send dialed an instrumented
+ * connection; a send without them keeps its honesty note (they sit
+ * inside Waiting there).
  */
 export function mapPhaseTimingsToView(
   timings: NonNullable<ExecutedRequestSnapshot['phaseTimings']>,
 ): ResponseTimingView {
   const phases: ResponsePhase[] = [];
   let cursor = 0;
-  if (timings.redirectMs !== undefined) {
-    phases.push({
-      key: 'redirect',
-      labelKey: 'workbench.editors.request.response.meta.phase.redirect',
-      startMs: 0,
-      durationMs: clamp(timings.redirectMs),
-    });
-    cursor += clamp(timings.redirectMs);
-  }
-  phases.push({
-    key: 'waiting',
-    labelKey: 'workbench.editors.request.response.meta.phase.waiting',
-    startMs: cursor,
-    durationMs: clamp(timings.waitingMs),
-  });
-  cursor += clamp(timings.waitingMs);
-  phases.push({
-    key: 'download',
-    labelKey: 'workbench.editors.request.response.meta.phase.download',
-    startMs: cursor,
-    durationMs: clamp(timings.downloadMs),
-  });
-  return { kind: 'detailed', totalMs: cursor + clamp(timings.downloadMs), phases };
+  const push = (key: ResponsePhaseKey, labelKey: MessageKey, durationMs: number | undefined) => {
+    if (durationMs === undefined) return;
+    phases.push({ key, labelKey, startMs: cursor, durationMs: clamp(durationMs) });
+    cursor += clamp(durationMs);
+  };
+  push('redirect', 'workbench.editors.request.response.meta.phase.redirect', timings.redirectMs);
+  push('dns', 'workbench.editors.request.response.meta.phase.dns', timings.dnsMs);
+  push('connect', 'workbench.editors.request.response.meta.phase.connect', timings.connectMs);
+  push('tls', 'workbench.editors.request.response.meta.phase.tls', timings.tlsMs);
+  push('waiting', 'workbench.editors.request.response.meta.phase.waiting', timings.waitingMs);
+  push('download', 'workbench.editors.request.response.meta.phase.download', timings.downloadMs);
+  return { kind: 'detailed', totalMs: cursor, phases };
+}
+
+/** Whether the node marks carry the instrumented socket legs — drives
+ *  the ladder's honesty note (absent legs sit inside Waiting). */
+export function phaseTimingsHaveSocketLegs(timings: NonNullable<ExecutedRequestSnapshot['phaseTimings']>): boolean {
+  return timings.connectMs !== undefined;
 }
 
 /** Friendly label for a negotiated ALPN protocol id; `null` when the

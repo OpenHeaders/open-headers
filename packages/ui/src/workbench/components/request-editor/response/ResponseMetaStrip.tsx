@@ -26,6 +26,7 @@ import {
   httpVersionLabel,
   mapEntryToTimingView,
   mapPhaseTimingsToView,
+  phaseTimingsHaveSocketLegs,
   type ResponsePhase,
   type ResponsePhaseKey,
   serializedHeaderListBytes,
@@ -107,8 +108,9 @@ function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: n
 }
 
 /** The node runtime's ladder: the same TimingLadder over the manual
- *  phase marks, plus the honesty note about the legs the node network
- *  stack cannot observe per send (they sit inside Waiting). */
+ *  phase marks. Sends that dialed an instrumented connection carry the
+ *  DNS / TCP / TLS legs as their own rows; sends that didn't keep the
+ *  honesty note (the legs sit inside Waiting there). */
 function NodePhaseLadder({ timings }: { timings: NonNullable<ExecutedRequestSnapshot['phaseTimings']> }) {
   const { token } = theme.useToken();
   const t = useT();
@@ -117,9 +119,11 @@ function NodePhaseLadder({ timings }: { timings: NonNullable<ExecutedRequestSnap
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <TimingLadder phases={view.phases} totalMs={view.totalMs} />
-      <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
-        {t('workbench.editors.request.response.meta.noteNodePhaseLegs')}
-      </span>
+      {!phaseTimingsHaveSocketLegs(timings) && (
+        <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
+          {t('workbench.editors.request.response.meta.noteNodePhaseLegs')}
+        </span>
+      )}
     </div>
   );
 }
@@ -269,7 +273,13 @@ function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
     notes.push(t('workbench.editors.request.response.meta.noteBodyApproximate'));
   }
   if (!wireSizesExposed) {
-    notes.push(t('workbench.editors.request.response.meta.noteWireHidden'));
+    // Absence reads differently per runtime: the browser's wire sizes
+    // are TAO-gated; the node stack never reports them at all.
+    notes.push(
+      (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
+        ? t('workbench.editors.request.response.meta.noteWireHiddenNode')
+        : t('workbench.editors.request.response.meta.noteWireHidden'),
+    );
   }
 
   return (
@@ -328,30 +338,42 @@ function sizeContent(response: ExecutedRequestSnapshot, t: Translate): InfoPopov
 }
 
 /** The globe popover's body: connection-level facts we can honestly
- *  hold, with per-fact absence explained in footnotes. */
+ *  hold, with per-fact absence explained in footnotes. An instrumented
+ *  node send carries its own socket facts (`snapshot.network`); the
+ *  browser runtime reads its timing entry + wire capture instead. */
 function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   const { token } = theme.useToken();
   const t = useT();
-  const versionLabel = response.timing ? httpVersionLabel(response.timing.nextHopProtocol) : null;
-  const ip = response.wire?.ip;
+  const network = response.network;
+  const versionLabel =
+    network?.httpVersion !== undefined
+      ? httpVersionLabel(network.httpVersion)
+      : response.timing
+        ? httpVersionLabel(response.timing.nextHopProtocol)
+        : null;
+  const endpoint = (address: string | undefined, port: number | undefined): string | undefined =>
+    address !== undefined ? (port !== undefined ? `${address}:${port}` : address) : undefined;
+  const remote = endpoint(network?.remoteAddress, network?.remotePort) ?? response.wire?.ip;
+  const local = endpoint(network?.localAddress, network?.localPort);
 
   const rows: Array<{ label: string; value: string }> = [
     { label: t('workbench.editors.request.response.meta.httpVersion'), value: versionLabel ?? '—' },
-    { label: t('workbench.editors.request.response.meta.remoteAddress'), value: ip ?? '—' },
+    ...(local !== undefined ? [{ label: t('workbench.editors.request.response.meta.localAddress'), value: local }] : []),
+    { label: t('workbench.editors.request.response.meta.remoteAddress'), value: remote ?? '—' },
   ];
   const notes: string[] = [];
   if (!versionLabel) {
     // Absence reads differently per runtime: the browser withheld a
-    // timing entry; the node stack never reports the negotiated
-    // protocol at all (its fetch exposes no such fact).
+    // timing entry; the node stack reports socket facts only for
+    // instrumented (interactive) dials.
     notes.push(
       (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
         ? t('workbench.editors.request.response.meta.noteVersionHiddenNode')
         : t('workbench.editors.request.response.meta.noteVersionHiddenBrowser'),
     );
   }
-  if (ip === undefined) notes.push(t('workbench.editors.request.response.meta.noteNoIp'));
-  notes.push(t('workbench.editors.request.response.meta.noteNoTls'));
+  if (remote === undefined) notes.push(t('workbench.editors.request.response.meta.noteNoIp'));
+  if (network === undefined) notes.push(t('workbench.editors.request.response.meta.noteNoTls'));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>

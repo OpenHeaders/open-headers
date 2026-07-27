@@ -2156,3 +2156,110 @@ describe('createNodeRequestTransport — streaming interactive read (sendStreami
     }
   });
 });
+
+describe('createNodeRequestTransport — instrumented network capture', () => {
+  it('reports socket phases + connection facts for a captureNetwork send (real dial)', async () => {
+    const server = createServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({ url: `http://127.0.0.1:${port}/net`, captureNetwork: true }),
+      );
+      expect(res.network).toBeDefined();
+      expect(res.network?.httpVersion).toBe('http/1.1');
+      expect(res.network?.remoteAddress).toBe('127.0.0.1');
+      expect(res.network?.remotePort).toBe(port);
+      expect(res.network?.localAddress).toBeDefined();
+      expect(res.network?.localPort).toBeDefined();
+      expect(res.phaseTimings?.connectMs).toBeDefined();
+      // Cleartext dial — no TLS leg; IP-literal dial — no DNS leg.
+      expect(res.phaseTimings?.tlsMs).toBeUndefined();
+      expect(res.phaseTimings?.dnsMs).toBeUndefined();
+      expect(res.phaseTimings?.waitingMs).toBeDefined();
+    } finally {
+      server.close();
+    }
+  });
+
+  it('resolves a hostname dial with a DNS leg', async () => {
+    const server = createServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({ url: `http://localhost:${port}/net`, captureNetwork: true }),
+      );
+      expect(res.network).toBeDefined();
+      expect(res.phaseTimings?.dnsMs).toBeDefined();
+      expect(res.phaseTimings?.connectMs).toBeDefined();
+    } finally {
+      server.close();
+    }
+  });
+
+  it('omits the socket legs on a chained send but still attributes the final hop connection', async () => {
+    const server = createServer((req, res) => {
+      if (req.url === '/hop') {
+        res.writeHead(302, { location: '/final' });
+        res.end();
+        return;
+      }
+      res.end('landed');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({ url: `http://127.0.0.1:${port}/hop`, captureNetwork: true }),
+      );
+      expect(res.body).toBe('landed');
+      expect(res.redirectChain).toHaveLength(1);
+      // The dial belongs to the first hop, inside the redirect phase —
+      // no socket legs; the connection facts still attribute.
+      expect(res.phaseTimings?.connectMs).toBeUndefined();
+      expect(res.phaseTimings?.redirectMs).toBeDefined();
+      expect(res.network?.remoteAddress).toBe('127.0.0.1');
+    } finally {
+      server.close();
+    }
+  });
+
+  it('reports nothing without the opt-in (pooled dispatch untouched)', async () => {
+    const server = createServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(makeRequest({ url: `http://127.0.0.1:${port}/net` }));
+      expect(res.network).toBeUndefined();
+      expect(res.phaseTimings?.connectMs).toBeUndefined();
+    } finally {
+      server.close();
+    }
+  });
+
+  it('routes a captureNetwork send through a send-local Agent, never the shared cache', async () => {
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+    await transport().send(makeRequest({ captureNetwork: true }));
+    await transport().send(makeRequest({ captureNetwork: true }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBeInstanceOf(Agent);
+    // Send-local: each send minted its own agent.
+    expect(callInit(0).dispatcher).not.toBe(callInit(1).dispatcher);
+  });
+
+  it('proxied sends skip instrumentation — the tunnel owns the dial', async () => {
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+    const res = await transport().send(
+      makeRequest({ captureNetwork: true, proxyUrl: 'http://proxy.openheaders.io:8080' }),
+    );
+    expect(callInit().dispatcher).toBeInstanceOf(ProxyAgent);
+    expect(res.network).toBeUndefined();
+  });
+});

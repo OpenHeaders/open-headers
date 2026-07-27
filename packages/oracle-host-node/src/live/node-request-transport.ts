@@ -104,6 +104,7 @@ import {
   TransportError,
   type TransportHeader,
   type TransportMultipartPart,
+  type TransportNetworkFacts,
   type TransportRedirectHop,
   type TransportRequest,
   type TransportResponse,
@@ -120,6 +121,7 @@ import {
   request as undiciRequest,
 } from 'undici';
 import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar';
+import { type ConnectionRecord, createInstrumentedDial } from './instrumented-connector';
 
 /** The fetch pipeline behind the transport — undici's fetch in
  *  production; injectable so tests observe the exact init (including
@@ -717,8 +719,16 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     const deadline = startDeadline(request.timeoutMs, streaming?.signal);
     // ONE dispatcher per send — the connection options can't change
     // across hops, and the cache lookup here keeps `fetchHop` the
-    // single place a dispatcher is applied.
-    const dispatcher = dispatcherFor(request);
+    // single place a dispatcher is applied. A `captureNetwork` send
+    // trades the shared pool for a send-local instrumented dial (the
+    // only correlation-safe way to observe socket phases + endpoints);
+    // proxied sends stay on `ProxyAgent` — the tunnel's connector owns
+    // the dial and there is nothing honest to observe.
+    const instrumented =
+      request.captureNetwork === true && request.proxyUrl === undefined
+        ? createInstrumentedDial(connectOptionsFor(request), request.allowHttp2 === true)
+        : null;
+    const dispatcher = instrumented?.agent ?? dispatcherFor(request);
     // ONE jar per send, looked up by the request's key — absent key
     // means no cookies attached, Set-Cookie discarded.
     const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
@@ -772,11 +782,26 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           undefined,
           { sentAt, finalHopSentAt },
           streaming,
+          instrumented?.connections,
         );
       }
-      return await followRedirectChain(fetchFn, requestFn, request, deadline, dispatcher, jar, sentAt, streaming);
+      return await followRedirectChain(
+        fetchFn,
+        requestFn,
+        request,
+        deadline,
+        dispatcher,
+        jar,
+        sentAt,
+        streaming,
+        instrumented?.connections,
+      );
     } finally {
       deadline?.clear();
+      // The send-local instrumented agent has nothing to pool for —
+      // close releases its sockets (graceful: the settled response's
+      // body is already read).
+      if (instrumented !== null) void instrumented.agent.close();
     }
   };
   return {
@@ -811,6 +836,7 @@ async function followRedirectChain(
   jar: CookieJar | undefined,
   sentAt: number,
   streaming: StreamingLeg | null,
+  capture: ReadonlyArray<ConnectionRecord> | undefined,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
@@ -870,6 +896,7 @@ async function followRedirectChain(
         redirectChain,
         { sentAt, finalHopSentAt: hopSentAt },
         streaming,
+        capture,
       );
     await response.body?.cancel();
     if (redirects >= maxRedirects) {
@@ -1093,6 +1120,68 @@ function phaseMs(ms: number): number {
   return Math.max(0, Math.round(ms * 10) / 10);
 }
 
+/**
+ * Socket phase legs from the send's FIRST instrumented dial — the one
+ * connection a redirect-free send rides end to end. A chained send's
+ * dial belongs to its first hop, inside the redirect phase, so the
+ * legs are omitted rather than mis-attributed. `readyAt` hands the
+ * caller the waiting phase's true near edge.
+ */
+function socketLegsOf(
+  capture: ReadonlyArray<ConnectionRecord> | undefined,
+  hadRedirects: boolean,
+): { dnsMs?: number; connectMs: number; tlsMs?: number; readyAt: number } | undefined {
+  if (hadRedirects || capture === undefined) return undefined;
+  const first = capture[0];
+  if (first === undefined || first.readyAt === undefined || first.tcpEndAt === undefined) return undefined;
+  return {
+    ...(first.dnsEndAt !== undefined ? { dnsMs: phaseMs(first.dnsEndAt - first.startAt) } : {}),
+    connectMs: phaseMs(first.tcpEndAt - (first.dnsEndAt ?? first.startAt)),
+    ...(first.tlsUsed ? { tlsMs: phaseMs(first.readyAt - first.tcpEndAt) } : {}),
+    readyAt: first.readyAt,
+  };
+}
+
+/**
+ * Connection facts for the socket that served the FINAL hop: the last
+ * completed dial whose `hostname:port` matches the final URL (a
+ * redirect chain dials once per origin; the final response rides the
+ * last match). Falls back to the last completed dial when the origin
+ * can't be matched (socket-path dials record the path).
+ */
+function networkFactsOf(
+  capture: ReadonlyArray<ConnectionRecord> | undefined,
+  finalUrl: string,
+): TransportNetworkFacts | undefined {
+  if (capture === undefined) return undefined;
+  const completed = capture.filter((c) => c.readyAt !== undefined);
+  if (completed.length === 0) return undefined;
+  let origin: string | undefined;
+  try {
+    const url = new URL(finalUrl);
+    const port = url.port !== '' ? url.port : url.protocol === 'https:' ? '443' : '80';
+    origin = `${url.hostname}:${port}`;
+  } catch {
+    origin = undefined;
+  }
+  let record: ConnectionRecord | undefined;
+  for (let i = completed.length - 1; i >= 0; i--) {
+    if (completed[i]?.origin === origin) {
+      record = completed[i];
+      break;
+    }
+  }
+  record ??= completed[completed.length - 1];
+  if (record === undefined) return undefined;
+  return {
+    ...(record.alpnProtocol !== undefined ? { httpVersion: record.alpnProtocol } : {}),
+    ...(record.localAddress !== undefined ? { localAddress: record.localAddress } : {}),
+    ...(record.localPort !== undefined ? { localPort: record.localPort } : {}),
+    ...(record.remoteAddress !== undefined ? { remoteAddress: record.remoteAddress } : {}),
+    ...(record.remotePort !== undefined ? { remotePort: record.remotePort } : {}),
+  };
+}
+
 async function finalizeResponse(
   response: HopResponse,
   request: TransportRequest,
@@ -1103,6 +1192,7 @@ async function finalizeResponse(
   redirectChain: ReadonlyArray<TransportRedirectHop> | undefined,
   marks: PhaseMarks,
   streaming: StreamingLeg | null,
+  capture?: ReadonlyArray<ConnectionRecord>,
 ): Promise<TransportResponse> {
   const headAt = performance.now();
   const headers: TransportHeader[] = [];
@@ -1135,20 +1225,31 @@ async function finalizeResponse(
   // exposes no trailers); a truncated read may have canceled the
   // stream before they arrived, in which case the object is empty.
   const trailers = response.trailers?.() ?? [];
+  const hadRedirects = redirectChain !== undefined && redirectChain.length > 0;
+  // Instrumented sends split the socket legs out of Waiting; the
+  // waiting phase then starts at socket readiness instead of dispatch.
+  const legs = socketLegsOf(capture, hadRedirects);
+  const network = networkFactsOf(capture, response.url || finalUrl);
   return {
     status: response.status,
     statusText: response.statusText,
     url: response.url || finalUrl,
     headers,
     ...(trailers.length > 0 ? { trailers } : {}),
-    ...(redirectChain !== undefined && redirectChain.length > 0 ? { redirectChain } : {}),
+    ...(hadRedirects ? { redirectChain } : {}),
     phaseTimings: {
-      ...(redirectChain !== undefined && redirectChain.length > 0
-        ? { redirectMs: phaseMs(marks.finalHopSentAt - marks.sentAt) }
+      ...(hadRedirects ? { redirectMs: phaseMs(marks.finalHopSentAt - marks.sentAt) } : {}),
+      ...(legs !== undefined
+        ? {
+            ...(legs.dnsMs !== undefined ? { dnsMs: legs.dnsMs } : {}),
+            connectMs: legs.connectMs,
+            ...(legs.tlsMs !== undefined ? { tlsMs: legs.tlsMs } : {}),
+          }
         : {}),
-      waitingMs: phaseMs(headAt - marks.finalHopSentAt),
+      waitingMs: phaseMs(headAt - (legs?.readyAt ?? marks.finalHopSentAt)),
       downloadMs: phaseMs(readEndedAt - headAt),
     },
+    ...(network !== undefined ? { network } : {}),
     body: read.body,
     ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,
