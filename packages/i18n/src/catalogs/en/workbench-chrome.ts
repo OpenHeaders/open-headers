@@ -159,7 +159,7 @@ export const workbenchChrome = {
   'workbench.shell.envSelector.defaultPill': 'DEFAULT',
   'workbench.shell.envSelector.defaultTooltip':
     'Default environment is auto-selected while working with the collection.',
-  'workbench.shell.envSelector.openEnv': 'Open {name}',
+  'workbench.shell.envSelector.openEnv': 'Edit variables',
   'workbench.shell.envSelector.pinToTab': 'Pin to this tab',
   'workbench.shell.envSelector.unpinFromTab': 'Unpin from this tab',
   'workbench.shell.envSelector.pinToTabDesc': 'Switches to this environment whenever the tab is focused.',

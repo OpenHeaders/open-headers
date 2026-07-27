@@ -178,11 +178,11 @@ const EnvRow: React.FC<EnvRowProps> = ({
         </Tooltip>
       )}
       <div className="oh-env-row-actions">
-        <Tooltip title={t('workbench.shell.envSelector.openEnv', { name: env.name })} placement="top" mouseEnterDelay={0.5}>
+        <Tooltip title={t('workbench.shell.envSelector.openEnv')} placement="top" mouseEnterDelay={0.5}>
           <span
             role="button"
             tabIndex={-1}
-            aria-label={t('workbench.shell.envSelector.openEnv', { name: env.name })}
+            aria-label={t('workbench.shell.envSelector.openEnv')}
             className="oh-env-row-action"
             onClick={(e) => {
               e.stopPropagation();

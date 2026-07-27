@@ -178,7 +178,7 @@ export const workbenchChrome = {
   'workbench.shell.envSelector.noEnvironment': '无环境',
   'workbench.shell.envSelector.defaultPill': '默认',
   'workbench.shell.envSelector.defaultTooltip': '在此集合中工作时会自动选中默认环境。',
-  'workbench.shell.envSelector.openEnv': '打开 {name}',
+  'workbench.shell.envSelector.openEnv': '编辑变量',
   'workbench.shell.envSelector.pinToTab': '固定到此标签页',
   'workbench.shell.envSelector.unpinFromTab': '从此标签页取消固定',
   'workbench.shell.envSelector.pinToTabDesc': '每当该标签页获得焦点时切换到此环境。',
