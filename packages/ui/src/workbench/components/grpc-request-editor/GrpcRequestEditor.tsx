@@ -117,6 +117,7 @@ import {
   parseGrpcSelectValue,
   synthesizeExampleText,
 } from './method-selector';
+import './grpc-method-select.css';
 
 const { Text } = Typography;
 
@@ -271,9 +272,12 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
               </span>
             ),
             // The closed field names the call Postman-style: short
-            // service name / rpc, glyph first.
+            // service name / rpc, glyph first. The class lets the
+            // search-state CSS hide the node while filtering (antd
+            // only blanks its text color; the glyph's inline accent
+            // would keep painting under the typed characters).
             selectedLabel: (
-              <span>
+              <span className="grpc-method-selected-label">
                 {glyph(option.streaming)}
                 {option.service.split('.').pop()} / {option.rpc}
               </span>

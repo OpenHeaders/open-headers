@@ -1,0 +1,9 @@
+/* While the method select holds search text, antd (v6 select-input)
+ * hides the in-field label with `color: transparent` on
+ * `-content-has-search-value` — inherited by plain text, but the
+ * streaming-direction glyph carries an explicit accent color inline,
+ * so it kept painting under the typed characters. Hide the label node
+ * outright, keyed on antd's own search-state class. */
+.ant-select-content-has-search-value .grpc-method-selected-label {
+  visibility: hidden;
+}
