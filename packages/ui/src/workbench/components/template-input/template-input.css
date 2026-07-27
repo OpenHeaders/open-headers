@@ -234,6 +234,14 @@
   text-security: none;
 }
 
+/* The empty-state placeholder is advisory text, not a credential —
+ * without this the ::before pseudo-element inherits the disc mask and
+ * "bearer token" renders as a row of dots. */
+.oh-template-input-editable.oh-template-input-secret:empty::before {
+  -webkit-text-security: none;
+  text-security: none;
+}
+
 /* ── Suggestion popover ───────────────────────────────────────────
  *
  * Rendered through a React portal to `document.body` so it floats

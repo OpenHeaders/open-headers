@@ -232,15 +232,22 @@ const HeadersTab: React.FC<HeadersTabProps> = ({
         : undefined,
     };
     if (auth.type === 'bearer') {
-      row.value = `Bearer ${auth.token}`;
+      // The field holds the bare token; the `Bearer` scheme renders as
+      // a static prefix outside the editable text, so a caret placed
+      // inside it can't fold the prefix into the credential. A pasted
+      // full header value (`Bearer <token>`) still sheds its scheme.
+      row.value = auth.token;
       row.editableValue = {
         secret: true,
+        prefix: 'Bearer',
+        placeholder: t('workbench.editors.request.auth.tokenPlaceholder'),
         onChange: (next) => onAuthChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') }),
       };
     } else if (auth.type === 'api-key' && auth.in === 'header') {
       row.value = auth.value;
       row.editableValue = {
         secret: true,
+        placeholder: h.value,
         onChange: (next) => onAuthChange({ ...auth, value: next }),
       };
     }

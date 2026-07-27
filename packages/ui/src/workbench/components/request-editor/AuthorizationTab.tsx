@@ -262,7 +262,11 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
             <LabeledRow label={t('workbench.editors.request.auth.token')}>
               <SecretField
                 value={auth.token}
-                onChange={(next) => onChange({ ...auth, token: next })}
+                // The executor prepends the scheme — a pasted
+                // `Bearer <token>` sheds its prefix here so the wire
+                // header never reads `Bearer Bearer …` (same rule as
+                // the Headers tab's inline auth row).
+                onChange={(next) => onChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') })}
                 placeholder={t('workbench.editors.request.auth.tokenPlaceholder')}
               />
             </LabeledRow>

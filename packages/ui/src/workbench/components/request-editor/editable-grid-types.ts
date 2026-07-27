@@ -29,6 +29,13 @@ export interface SuggestionRow {
   editableValue?: {
     onChange: (next: string) => void;
     secret?: boolean;
+    /** Empty-state hint for the field. */
+    placeholder?: string;
+    /** Static, non-editable scheme prefix rendered before the field
+     *  (e.g. `Bearer`). Keeping it outside the editable text means a
+     *  caret inside the prefix can't corrupt it — the field holds the
+     *  bare credential only. */
+    prefix?: string;
   };
   /** Hover-revealed jump link at the row's right edge — e.g. "Go to
    *  body" on the calculated Content-Type row, "Go to authorization"

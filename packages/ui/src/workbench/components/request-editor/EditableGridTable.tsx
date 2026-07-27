@@ -462,14 +462,17 @@ export function EditableGridTable<Row>({
                 style={{
                   display: 'grid',
                   gridTemplateColumns: gridTemplate,
-                  alignItems: 'center',
+                  // Cells stretch to the full row height so the column
+                  // dividers (borderLeft) stay continuous when the value
+                  // field auto-grows; each cell centers its own content.
+                  alignItems: 'stretch',
                   borderBottom: `1px solid ${token.colorBorderSecondary}`,
                   background: token.colorFillAlter,
                 }}
               >
                 <span />
                 {!hideEnabled && (
-                  <span style={{ textAlign: 'center' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
                       checked={s.enabled}
@@ -528,10 +531,28 @@ export function EditableGridTable<Row>({
                       ...(showDescriptionColumn ? null : { gridColumn: 'span 2' }),
                     }}
                   >
+                    {s.editableValue?.prefix && (
+                      <span
+                        style={{
+                          ...cellFont,
+                          flexShrink: 0,
+                          // Pin to the field's first line — matching top
+                          // padding — so the prefix doesn't float to
+                          // mid-height when the field expands.
+                          alignSelf: 'flex-start',
+                          padding: '6px 0 6px 10px',
+                          color: valueColor,
+                          ...struck,
+                        }}
+                      >
+                        {s.editableValue.prefix}
+                      </span>
+                    )}
                     {s.editableValue ? (
                       <GridValueField
                         value={s.value}
                         onChange={s.editableValue.onChange}
+                        placeholder={s.editableValue.placeholder}
                         maxRows={7}
                         secret={Boolean(s.editableValue.secret) && !revealedSuggestionKeys.has(s.key)}
                         onSecretToggle={s.editableValue.secret ? () => toggleSuggestionRevealed(s.key) : undefined}
@@ -541,7 +562,7 @@ export function EditableGridTable<Row>({
                           ...cellFont,
                           flex: 1,
                           minWidth: 0,
-                          padding: '6px 10px',
+                          padding: s.editableValue.prefix ? '6px 10px 6px 2px' : '6px 10px',
                           color: valueColor,
                           ...struck,
                         }}

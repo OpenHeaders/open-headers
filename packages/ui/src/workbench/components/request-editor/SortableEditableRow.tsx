@@ -220,6 +220,11 @@ export function SortableEditableRow<Row>({
             padding: '0 4px',
             display: 'flex',
             alignItems: 'center',
+            // Full row height so the column divider stays continuous
+            // when a sibling cell auto-grows (row uses `align-items:
+            // start`, which would otherwise leave this cell — and its
+            // border — content-height).
+            alignSelf: 'stretch',
             minWidth: 0,
             gap: 4,
           }}
@@ -261,6 +266,7 @@ export function SortableEditableRow<Row>({
             borderLeft: `1px solid ${token.colorBorderSecondary}`,
             display: 'flex',
             alignItems: 'center',
+            alignSelf: 'stretch',
             minWidth: 0,
             gap: 4,
           }}

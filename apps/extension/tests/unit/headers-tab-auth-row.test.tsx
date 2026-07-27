@@ -36,6 +36,8 @@ afterEach(() => {
 const NO_BODY: RequestBody = { type: 'none' };
 const BASIC: AuthConfig = { type: 'basic', username: 'u', password: 'p' };
 const NO_AUTH: AuthConfig = { type: 'none' };
+const BEARER_EMPTY: AuthConfig = { type: 'bearer', token: '' };
+const BEARER: AuthConfig = { type: 'bearer', token: 'abc123' };
 
 describe('HeadersTab — auth-derived Authorization row', () => {
   it('shows the Authorization row without expanding the hidden section', () => {
@@ -63,5 +65,33 @@ describe('HeadersTab — auth-derived Authorization row', () => {
     // Body is `none` → 6 browser auto-headers; the auth row is NOT among
     // them, so the toggle still reads "6 hidden".
     expect(container.textContent ?? '').toContain('6 hidden');
+  });
+
+  it('keeps the Bearer scheme outside the editable field — empty token shows prefix + placeholder', () => {
+    const { container } = render(
+      <HeadersTab
+        rows={[] as KeyValueRow[]}
+        onChange={vi.fn()}
+        body={NO_BODY}
+        auth={BEARER_EMPTY}
+        onAuthChange={vi.fn()}
+      />,
+    );
+    // The static prefix renders, while the editable field itself is
+    // empty (placeholder pseudo-element shows) — no `Bearer ` literal
+    // inside the editable text a caret could corrupt.
+    expect(container.textContent ?? '').toContain('Bearer');
+    const editable = container.querySelector('[data-placeholder="bearer token"]');
+    expect(editable).not.toBeNull();
+    expect(editable?.textContent).toBe('');
+  });
+
+  it('renders a filled bearer token as prefix + bare token', () => {
+    const { container } = render(
+      <HeadersTab rows={[] as KeyValueRow[]} onChange={vi.fn()} body={NO_BODY} auth={BEARER} onAuthChange={vi.fn()} />,
+    );
+    const editable = container.querySelector('[data-placeholder="bearer token"]');
+    expect(editable?.textContent).toBe('abc123');
+    expect(container.textContent ?? '').toContain('Bearer');
   });
 });
