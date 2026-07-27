@@ -123,7 +123,8 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
       ) : (
         <>
           <Button
-            type="primary"
+            color="orange"
+            variant="solid"
             icon={<DownloadOutlined />}
             onClick={() => openExternal(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
             data-testid="desktop-teaser-cta"
