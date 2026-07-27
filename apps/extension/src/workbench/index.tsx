@@ -17,6 +17,7 @@ import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
+import { companionReveal } from '@/host/companion-reveal';
 import { nmAutoPair } from '@/host/nm-auto-pair';
 import { nmHostPresence } from '@/host/nm-presence';
 import { pairWithCode } from '@/host/pair-with-code';
@@ -40,6 +41,12 @@ if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging
   registerCapability('nmAutoPair', nmAutoPair);
   registerCapability('nmHostPresence', () => nmHostPresence());
 }
+
+// Companion reveal: the desktop teasers' "Open in the desktop app"
+// renders IN the workbench (dock tool windows + settings categories),
+// so the curated entry must carry the relay the standard install
+// registers — without it the teaser honestly falls back to download.
+registerCapability('companionReveal', companionReveal);
 
 // gRPC invokes forward to a connected companion over the backend wire —
 // the seam exists on every extension surface, and the gRPC editor is a

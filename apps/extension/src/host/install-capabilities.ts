@@ -20,6 +20,7 @@ import { registerCapability } from '@openheaders/core/capabilities';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
 import { getBrowserAPI } from '@/types/browser';
+import { companionReveal } from './companion-reveal';
 import { nmAutoPair } from './nm-auto-pair';
 import { nmHostPresence } from './nm-presence';
 import { pairWithCode } from './pair-with-code';
@@ -63,17 +64,9 @@ if (getBrowserAPI().runtime.getManifest().permissions?.includes('browsingData'))
   registerCapability('originDataClearing', () => true);
 }
 
-// Companion reveal: relay through the SW's `companionReveal` bridge
-// RPC, which forwards the frame to the connected desktop app as a peer
-// RPC on the loopback wire. Shared UI gates the affordance on LIVE
-// connection state; a dropped wire mid-click resolves an honest
-// `{ ok: false }` instead of throwing.
-registerCapability('companionReveal', (target) =>
-  hostBridge
-    .call('companionReveal', { target })
-    .then((resp) => ({ ok: resp.ok, ...(resp.reason !== undefined ? { reason: resp.reason } : {}) }))
-    .catch((err: Error) => ({ ok: false, reason: err.message })),
-);
+// Companion reveal: relay to the connected desktop app through the SW
+// (shared impl — the workbench's curated entry registers it too).
+registerCapability('companionReveal', companionReveal);
 
 // gRPC invokes forward to a connected companion over the backend wire
 // (the SW's grpc handlers) — the seam exists on every extension
