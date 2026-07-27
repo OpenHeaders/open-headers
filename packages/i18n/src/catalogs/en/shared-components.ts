@@ -447,6 +447,15 @@ export const sharedComponents = {
   // Compose-editor toolbar wrap toggle — shared by every request
   // editor's Monaco compose surface.
   'shared.codeEditor.wrap': 'Wrap',
+  // The compose toolbars' "Editor" dropdown — live display knobs,
+  // grouped by scope (the pane-local Wrap vs the global editor.*
+  // settings the Settings page also edits).
+  'shared.editorMenu.label': 'Editor',
+  'shared.editorMenu.thisEditor': 'This editor',
+  'shared.editorMenu.allEditors': 'All editors',
+  'shared.editorMenu.lineNumbers': 'Line numbers',
+  'shared.editorMenu.whitespace': 'Whitespace',
+  'shared.editorMenu.lineEnds': 'Line endings',
   'shared.timelineGroup.showNewestOnly': 'Show only the newest {count}',
   // Peer-execute refusal notice — the host-aware reading of the wire's
   // two-tier opt-in refusal (the quoted phrases are the settings rows'

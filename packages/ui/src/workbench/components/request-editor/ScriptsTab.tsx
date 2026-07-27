@@ -29,7 +29,7 @@ import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
-import { WrapLinesIcon } from './response/ViewPickerIcons';
+import EditorViewMenu from '../shared/EditorViewMenu';
 import DismissLayer from '../template-input/DismissLayer';
 import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
 import SetAsVariablePopover from '../template-input/SetAsVariablePopover';
@@ -229,25 +229,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             replaceText={t('workbench.editors.scriptEditor.replace')}
             formatText={t('workbench.editors.scriptEditor.beautify')}
           />
-          <Tooltip
-            title={
-              wrapScript
-                ? t('workbench.editors.request.response.body.unwrapLines')
-                : t('workbench.editors.request.response.body.wrapLines')
-            }
-            placement="bottom"
-          >
-            <Button
-              size="small"
-              type="text"
-              icon={<WrapLinesIcon />}
-              onClick={() => setWrapScript((prev) => !prev)}
-              style={wrapScript ? { background: token.colorBgTextActive } : undefined}
-              data-testid="oh-script-wrap"
-            >
-              {t('shared.codeEditor.wrap')}
-            </Button>
-          </Tooltip>
+          <EditorViewMenu wrap={wrapScript} onWrapChange={setWrapScript} data-testid="oh-script-editor-menu" />
         </div>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           {/* Absolute inset host: the fill editor must not contribute

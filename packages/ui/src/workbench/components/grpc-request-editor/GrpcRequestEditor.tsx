@@ -91,7 +91,7 @@ import { subscribeGrpcPrefill } from './grpc-prefill-bus';
 import { useSetting } from '../../settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
-import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
+import EditorViewMenu from '../shared/EditorViewMenu';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
@@ -888,25 +888,11 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                             replaceText={t('workbench.editors.scriptEditor.replace')}
                             formatText={t('workbench.editors.scriptEditor.beautify')}
                           />
-                          <Tooltip
-                            title={
-                              wrapMessage
-                                ? t('workbench.editors.request.response.body.unwrapLines')
-                                : t('workbench.editors.request.response.body.wrapLines')
-                            }
-                            placement="bottom"
-                          >
-                            <Button
-                              size="small"
-                              type="text"
-                              icon={<WrapLinesIcon />}
-                              onClick={() => setWrapMessage((prev) => !prev)}
-                              style={wrapMessage ? { background: token.colorBgTextActive } : undefined}
-                              data-testid="grpc-message-wrap"
-                            >
-                              {t('shared.codeEditor.wrap')}
-                            </Button>
-                          </Tooltip>
+                          <EditorViewMenu
+                            wrap={wrapMessage}
+                            onWrapChange={setWrapMessage}
+                            data-testid="grpc-editor-menu"
+                          />
                         </div>
                         {/* Absolute inset host — a fill editor must not size
                           its own flex parent (the BodyTab discipline). */}

@@ -29,16 +29,17 @@
  */
 
 import type { RequestBody } from '@openheaders/core/types';
-import { Button, Radio, Select, Tooltip, Typography, theme } from 'antd';
+import { Radio, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import EditorViewMenu from '../shared/EditorViewMenu';
 import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
-import { ViewPickerIcon, WrapLinesIcon } from './response/ViewPickerIcons';
+import { ViewPickerIcon } from './response/ViewPickerIcons';
 
 const { Text } = Typography;
 
@@ -204,32 +205,20 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           />
         )}
         {radio === 'raw' && (
-          <>
-            <CodeEditorActions
-              target={rawActionsRef}
-              language={rawLangForEditor}
-              formatText={t('workbench.editors.request.body.beautify')}
-              style={{ marginLeft: 'auto' }}
-            />
-            <Tooltip
-              title={
-                wrapBody
-                  ? t('workbench.editors.request.response.body.unwrapLines')
-                  : t('workbench.editors.request.response.body.wrapLines')
-              }
-              placement="bottom"
-            >
-              <Button
-                size="small"
-                type="text"
-                icon={<WrapLinesIcon />}
-                aria-label={t('shared.codeEditor.wrap')}
-                onClick={() => setWrapBody((prev) => !prev)}
-                style={wrapBody ? { background: token.colorBgTextActive } : undefined}
-                data-testid="oh-body-wrap"
-              />
-            </Tooltip>
-          </>
+          <CodeEditorActions
+            target={rawActionsRef}
+            language={rawLangForEditor}
+            formatText={t('workbench.editors.request.body.beautify')}
+            style={{ marginLeft: 'auto' }}
+          />
+        )}
+        {(radio === 'raw' || radio === 'graphql') && (
+          <EditorViewMenu
+            wrap={wrapBody}
+            onWrapChange={setWrapBody}
+            style={radio === 'graphql' ? { marginLeft: 'auto' } : undefined}
+            data-testid="oh-body-editor-menu"
+          />
         )}
       </div>
 
@@ -309,24 +298,6 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                 }}
               />
               <CodeEditorActions target={graphqlQueryActionsRef} language="graphql" style={{ marginLeft: 'auto' }} />
-              <Tooltip
-              title={
-                wrapBody
-                  ? t('workbench.editors.request.response.body.unwrapLines')
-                  : t('workbench.editors.request.response.body.wrapLines')
-              }
-              placement="bottom"
-            >
-              <Button
-                size="small"
-                type="text"
-                icon={<WrapLinesIcon />}
-                aria-label={t('shared.codeEditor.wrap')}
-                onClick={() => setWrapBody((prev) => !prev)}
-                style={wrapBody ? { background: token.colorBgTextActive } : undefined}
-                data-testid="oh-graphql-query-wrap"
-              />
-            </Tooltip>
             </div>
             <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
@@ -368,24 +339,6 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                 }}
               />
               <CodeEditorActions target={graphqlVariablesActionsRef} language="json" style={{ marginLeft: 'auto' }} />
-              <Tooltip
-              title={
-                wrapBody
-                  ? t('workbench.editors.request.response.body.unwrapLines')
-                  : t('workbench.editors.request.response.body.wrapLines')
-              }
-              placement="bottom"
-            >
-              <Button
-                size="small"
-                type="text"
-                icon={<WrapLinesIcon />}
-                aria-label={t('shared.codeEditor.wrap')}
-                onClick={() => setWrapBody((prev) => !prev)}
-                style={wrapBody ? { background: token.colorBgTextActive } : undefined}
-                data-testid="oh-graphql-variables-wrap"
-              />
-            </Tooltip>
             </div>
             <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
