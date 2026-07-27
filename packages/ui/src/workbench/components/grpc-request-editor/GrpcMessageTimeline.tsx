@@ -149,6 +149,10 @@ interface GrpcMessageTimelineProps {
 type ListEntry =
   | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; name: string; count: number; collapsed: boolean }
+  /** Per-group window toggle at the group's older edge — `hidden > 0`
+   *  offers "show all"; `hidden === 0` (an un-windowed group) offers
+   *  re-windowing to the newest N. */
+  | { key: string; kind: 'groupMore'; name: string; hidden: number }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -287,6 +291,10 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // rows (the window slides as messages arrive); 0 = no limit.
   const [groupRowLimit, setGroupRowLimit] = useSetting('requests.grpcMessagesGroupRowLimit');
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // Per-group escape hatch from the row-limit window — display-local
+  // (like collapse), so lifting one group's window never touches the
+  // global setting or the other groups.
+  const [unwindowedGroups, setUnwindowedGroups] = useState<ReadonlySet<string>>(new Set<string>());
   // The group whose rows span the viewport top — its header pins as an
   // overlay (a CSS-sticky header would virtualize out of the DOM), so
   // the group identity + total stay visible and collapsible mid-scroll.
@@ -336,6 +344,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     setClearedCount(0);
     setExpanded(new Set<number>());
     setCollapsedGroups(new Set<string>());
+    setUnwindowedGroups(new Set<string>());
     setHasNewMessages(false);
     awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
@@ -453,14 +462,26 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         if (!collapsed) {
           // displayRows order puts a group's newest member first in
           // newest-first and last in oldest-first — the limit window
-          // slices the newest end either way.
-          const shown =
-            groupRowLimit > 0
-              ? newestFirst
-                ? indexes.slice(0, groupRowLimit)
-                : indexes.slice(-groupRowLimit)
-              : indexes;
+          // slices the newest end either way. A group the user
+          // un-windowed shows everything, with a re-window toggle in
+          // the same slot the "show older" affordance occupies.
+          const windowed = groupRowLimit > 0 && !unwindowedGroups.has(name) && indexes.length > groupRowLimit;
+          const shown = windowed
+            ? newestFirst
+              ? indexes.slice(0, groupRowLimit)
+              : indexes.slice(-groupRowLimit)
+            : indexes;
+          const more: ListEntry | null = windowed
+            ? { key: `m${name}`, kind: 'groupMore', name, hidden: indexes.length - shown.length }
+            : groupRowLimit > 0 && unwindowedGroups.has(name) && indexes.length > groupRowLimit
+              ? { key: `m${name}`, kind: 'groupMore', name, hidden: 0 }
+              : null;
+          // The toggle sits at the group's OLDER edge — where the
+          // hidden rows would continue: below the shown tail in
+          // newest-first, right under the header in oldest-first.
+          if (!newestFirst && more) out.push(more);
           for (const index of shown) pushRow(index);
+          if (newestFirst && more) out.push(more);
         }
         ranges.push({ name, startEntry, endEntry: out.length });
       }
@@ -509,6 +530,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     expanded,
     collapsedGroups,
     groupRowLimit,
+    unwindowedGroups,
   ]);
 
   const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
@@ -567,6 +589,15 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
 
   const toggleGroup = (name: string) => {
     setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleGroupWindow = (name: string) => {
+    setUnwindowedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -717,6 +748,27 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         );
       case 'header':
         return renderGroupHeaderRow(entry.name, entry.count, entry.collapsed, 'grpc-timeline-group-header', entry.key);
+      case 'groupMore':
+        return (
+          <div
+            key={entry.key}
+            role="button"
+            tabIndex={0}
+            data-testid="grpc-timeline-group-more"
+            onClick={() => toggleGroupWindow(entry.name)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleGroupWindow(entry.name);
+              }
+            }}
+            style={{ ...singleRowStyle, cursor: 'pointer', fontSize: 12, color: token.colorPrimary }}
+          >
+            {entry.hidden > 0
+              ? t('shared.timelineGroup.showOlder', { count: entry.hidden })
+              : t('shared.timelineGroup.showNewestOnly', { count: groupRowLimit })}
+          </div>
+        );
       case 'row': {
         const item = items[entry.index];
         const up = item.direction === 'up';

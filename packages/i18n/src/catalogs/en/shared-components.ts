@@ -15,6 +15,7 @@
  * dynamic-generator descriptions (core registry corpus — deferred).
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -440,6 +441,12 @@ export const sharedComponents = {
   // ── Desktop teaser (shared/desktop-teaser) — placeholder body for
   //    capability-gated features on browser hosts: per-feature
   //    explainer + the download CTA. ──────────────────────────────────
+  // Grouped-timeline row window — the per-group escape hatch when the
+  // rows-per-group limit hides a group's older messages (gRPC + WS
+  // message timelines share these).
+  'shared.timelineGroup.showOlder': ({ count }, locale) =>
+    plural(locale, Number(count), { one: 'Show {count} older message', other: 'Show {count} older messages' }),
+  'shared.timelineGroup.showNewestOnly': 'Show only the newest {count}',
   // Peer-execute refusal notice — the host-aware reading of the wire's
   // two-tier opt-in refusal (the quoted phrases are the settings rows'
   // own labels, verbatim).
