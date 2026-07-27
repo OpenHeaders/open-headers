@@ -291,10 +291,11 @@ registerSetting({
   subcategory: 'lan-peers',
   tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress'],
   scope: 'user',
-  // Same (host, mode) gate as the other daemon-side rows — the opt-in
-  // governs THIS process answering peers, so it surfaces only where
-  // this process is the daemon.
-  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
+  // Host gate only, NOT the mode gate the other daemon-side rows use:
+  // the desktop app runs its embedded server in every mode, so its
+  // opt-in must stay reachable even while this app is itself a client
+  // of another back-end — the refusing wire message points here.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerSetting({

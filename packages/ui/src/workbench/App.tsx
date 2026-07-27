@@ -782,6 +782,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           openSettings({ categoryId: 'mcp' });
           return;
         }
+        // The peer-execute refusal hand-off: land on the exact opt-in
+        // row the refusing wire message names.
+        if (target === 'peerExecuteSetting') {
+          openSettings({ settingKey: 'backend.allowPeerExecute' });
+          return;
+        }
         const windowId = REVEAL_WINDOW_BY_TARGET[target];
         if (!windowId) return;
         if (tl.state.hidden.includes(windowId)) tl.restoreWindow(windowId);

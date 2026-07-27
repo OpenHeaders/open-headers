@@ -129,6 +129,40 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
     if (paneRef.current) paneRef.current.scrollTop = 0;
   }, [activeId, isSearching]);
 
+  // Deep-link landing: when the shell opened targeted at one setting,
+  // scroll its row into view and flash-highlight it once the pane
+  // content carries it (panes lazy-load, so the row can arrive a few
+  // frames after mount — poll briefly instead of racing Suspense).
+  useEffect(() => {
+    if (!initialSettingKey) return;
+    let cancelled = false;
+    let tries = 0;
+    const locate = () => {
+      if (cancelled) return;
+      const row = paneRef.current?.querySelector<HTMLElement>(`[data-setting-key="${initialSettingKey}"]`);
+      if (row) {
+        row.scrollIntoView({ block: 'center' });
+        if (typeof row.animate === 'function') {
+          row.animate(
+            [
+              { backgroundColor: token.colorWarningBg },
+              { backgroundColor: token.colorWarningBg, offset: 0.6 },
+              { backgroundColor: 'transparent' },
+            ],
+            { duration: 2400, easing: 'ease-out' },
+          );
+        }
+        return;
+      }
+      tries += 1;
+      if (tries < 20) setTimeout(locate, 150);
+    };
+    locate();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialSettingKey, token.colorWarningBg]);
+
   // Deep-link on mount: scroll the matching setting into view and flash it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only deep link
   useEffect(() => {

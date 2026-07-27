@@ -13,10 +13,12 @@
  */
 
 import { DisconnectOutlined } from '@ant-design/icons';
+import { PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import PeerExecuteDisabledNotice from '../../shared/PeerExecuteDisabledNotice';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import CertTrustSteps from './CertTrustSteps';
 
@@ -62,7 +64,11 @@ const ResponseErrorState: React.FC<{
           </Text>
         )}
       </div>
-      {hint?.certificate ? (
+      {error === PEER_EXECUTE_DISABLED_MESSAGE ? (
+        // The peer-plane opt-in refusal (a forwarded send) renders the
+        // host-aware notice instead of the raw wire text.
+        <PeerExecuteDisabledNotice />
+      ) : hint?.certificate ? (
         // Certificate rejection (wire-confirmed or heuristic): the
         // prose collapses to one actionable line — the steps below
         // carry the walkthrough, the code (when recovered) rides

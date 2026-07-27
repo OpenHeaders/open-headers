@@ -14,9 +14,11 @@
 
 import { DisconnectOutlined, WarningOutlined } from '@ant-design/icons';
 import { GRPC_STATUS_NAMES, grpcStatusLabel } from '@openheaders/core/proto';
+import { PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import PeerExecuteDisabledNotice from '../shared/PeerExecuteDisabledNotice';
 
 const { Text } = Typography;
 
@@ -62,12 +64,19 @@ const GrpcResponseErrorState: React.FC<{
       <Text strong style={{ fontSize: 12 }}>
         {status !== null ? humanizeGrpcStatus(status) : t('workbench.editors.grpc.response.error.title')}
       </Text>
-      <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }}>
-        {status !== null
-          ? t('workbench.editors.grpc.response.error.statusGuidance')
-          : t('workbench.editors.grpc.response.error.localGuidance')}
-      </Text>
-      {detail !== undefined && detail !== '' && (
+      {/* The peer-plane opt-in refusal swaps the generic transport
+          guidance + raw wire chip for the host-aware notice (named
+          companion + the reveal hand-off). */}
+      {status === null && detail === PEER_EXECUTE_DISABLED_MESSAGE ? (
+        <PeerExecuteDisabledNotice />
+      ) : (
+        <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }}>
+          {status !== null
+            ? t('workbench.editors.grpc.response.error.statusGuidance')
+            : t('workbench.editors.grpc.response.error.localGuidance')}
+        </Text>
+      )}
+      {detail !== undefined && detail !== '' && detail !== PEER_EXECUTE_DISABLED_MESSAGE && (
         <div
           style={{
             maxWidth: 520,

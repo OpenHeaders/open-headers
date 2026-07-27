@@ -59,7 +59,7 @@ export {
   SyncWelcomeMessageSchema,
 } from './handshake';
 export type { CompanionRevealTarget } from './messages';
-export { COMPANION_REVEAL_TARGETS, isCompanionRevealTarget } from './messages';
+export { COMPANION_REVEAL_TARGETS, isCompanionRevealTarget, PEER_EXECUTE_DISABLED_MESSAGE } from './messages';
 export type {
   SyncMutationBatchMessage,
   SyncMutationMessage,

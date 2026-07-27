@@ -36,6 +36,7 @@ import {
   hasCapability,
   resolveDaemonPeerIdentitySnapshot,
 } from '@openheaders/core/identity';
+import { PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   endActiveGrpcClientStream,
@@ -52,9 +53,10 @@ import { hostDisplayLabel } from './host-os';
 import { getHostScriptCapability } from './script-capability';
 import { getWsPeerServer } from './ws-peer-slot';
 
-/** Honest opt-in refusal — the web seam renders it on the Send surface. */
-export const PEER_EXECUTE_DISABLED_MESSAGE =
-  'Sending requests from connected devices is disabled on this host. Enable it in Settings → Backend.';
+/** Honest opt-in refusal — canonical string lives in the protocol
+ *  vocabulary (browser surfaces match it to render host-aware
+ *  guidance); re-exported here for this plane's callers and tests. */
+export { PEER_EXECUTE_DISABLED_MESSAGE };
 
 const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
   executeRequest: 'workspace.write',

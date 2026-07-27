@@ -36,7 +36,15 @@ describe('companion-reveal peer plane', () => {
 
   it('accepts every vocabulary target', async () => {
     const { plane, revealed, clock } = makeRig();
-    const targets: CompanionRevealTarget[] = ['workbench', 'terminal', 'git', 'proxy', 'liveNetwork', 'mcp'];
+    const targets: CompanionRevealTarget[] = [
+      'workbench',
+      'terminal',
+      'git',
+      'proxy',
+      'liveNetwork',
+      'mcp',
+      'peerExecuteSetting',
+    ];
     for (const target of targets) {
       await plane.dispatch({ type: 'companionReveal', target }, LOOPBACK_PEER);
       clock.at += 1_000;
