@@ -1242,6 +1242,13 @@
   background: rgba(128, 128, 128, 0.08);
 }
 
+/* Stream-list rows (SSE / WS / gRPC timelines) — hover affordance on
+ * the clickable message/event and show-older rows; the env-row's
+ * translucent gray, so it reads on both themes without a token. */
+.oh-stream-row:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+
 /* Scope-color tokens — drive the colored letter badges produced by
  * `scopeBadge()` in @/workbench/components/shared/scope-colors.ts.
  * Workspace already declares these in rules.less; redeclaring here

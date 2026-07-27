@@ -971,6 +971,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             key={entry.key}
             role="button"
             tabIndex={0}
+            className="oh-stream-row"
             data-testid="ws-timeline-group-more"
             onClick={() => toggleGroupWindow(entry.group.key)}
             onKeyDown={(event) => {
@@ -1053,6 +1054,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             role="button"
             tabIndex={0}
             aria-expanded={isExpanded}
+            className="oh-stream-row"
             data-testid="ws-timeline-message-row"
             onClick={() => toggleRow(entry.index)}
             onKeyDown={(event) => {

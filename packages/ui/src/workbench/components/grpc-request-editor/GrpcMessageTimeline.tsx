@@ -853,6 +853,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             key={entry.key}
             role="button"
             tabIndex={0}
+            className="oh-stream-row"
             data-testid="grpc-timeline-group-more"
             onClick={() => toggleGroupWindow(entry.group.key)}
             onKeyDown={(event) => {
@@ -879,6 +880,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             role="button"
             tabIndex={0}
             aria-expanded={isExpanded}
+            className="oh-stream-row"
             data-testid="grpc-timeline-message-row"
             onClick={() => toggleRow(entry.index)}
             onKeyDown={(event) => {

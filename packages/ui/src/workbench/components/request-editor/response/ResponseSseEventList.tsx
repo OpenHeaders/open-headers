@@ -732,6 +732,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             key={entry.key}
             role="button"
             tabIndex={0}
+            className="oh-stream-row"
             data-testid="oh-sse-group-more"
             onClick={() => toggleGroupWindow(entry.name)}
             onKeyDown={(event) => {
@@ -756,6 +757,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             role="button"
             tabIndex={0}
             aria-expanded={isExpanded}
+            className="oh-stream-row"
             data-testid="oh-sse-event-row"
             onClick={() => toggleRow(entry.index)}
             onKeyDown={(event) => {
