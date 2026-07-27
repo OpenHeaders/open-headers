@@ -51,9 +51,6 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.serveWebApp.label': '提供 Web 应用',
   'workbench.settings.def.backend.serveWebApp.description':
     '在后端端口上把工作区编辑器作为网页提供，浏览器标签页可以直接从此应用打开它——无需扩展。任何能访问该端口的人都会看到登录门；访问数据仍需要已配对的 token。',
-  'workbench.settings.def.backend.allowPeerExecute.label': '允许已连接设备发送请求',
-  'workbench.settings.def.backend.allowPeerExecute.description':
-    '让已配对的浏览器和设备通过此应用发送 API 请求——它们工作区编辑器中的“发送”在这台机器上运行，使用它的网络访问。默认关闭；每次发送仍要求发送者对该工作区有写权限。',
   'workbench.settings.def.backend.reconnectDelayMs.label': '初始重连延迟',
   'workbench.settings.def.backend.reconnectDelayMs.description': '断开后到第一次重连尝试之前等待的时间（ms）。',
   'workbench.settings.def.backend.maxReconnectDelayMs.label': '最大重连延迟',

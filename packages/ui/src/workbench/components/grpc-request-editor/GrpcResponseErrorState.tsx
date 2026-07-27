@@ -14,11 +14,10 @@
 
 import { DisconnectOutlined, WarningOutlined } from '@ant-design/icons';
 import { GRPC_STATUS_NAMES, grpcStatusLabel } from '@openheaders/core/proto';
-import { PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import PeerExecuteDisabledNotice from '../shared/PeerExecuteDisabledNotice';
+import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 
 const { Text } = Typography;
 
@@ -39,6 +38,7 @@ const GrpcResponseErrorState: React.FC<{
 }> = ({ status, detail }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const refusalKind = status === null ? peerExecuteRefusalKind(detail) : null;
   return (
     <div
       className="rules-thin-scrollbar"
@@ -66,9 +66,9 @@ const GrpcResponseErrorState: React.FC<{
       </Text>
       {/* The peer-plane opt-in refusal swaps the generic transport
           guidance + raw wire chip for the host-aware notice (named
-          companion + the reveal hand-off). */}
-      {status === null && detail === PEER_EXECUTE_DISABLED_MESSAGE ? (
-        <PeerExecuteDisabledNotice />
+          tier + the reveal hand-off on the local one). */}
+      {refusalKind !== null ? (
+        <PeerExecuteDisabledNotice kind={refusalKind} />
       ) : (
         <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }}>
           {status !== null
@@ -76,7 +76,7 @@ const GrpcResponseErrorState: React.FC<{
             : t('workbench.editors.grpc.response.error.localGuidance')}
         </Text>
       )}
-      {detail !== undefined && detail !== '' && detail !== PEER_EXECUTE_DISABLED_MESSAGE && (
+      {detail !== undefined && detail !== '' && refusalKind === null && (
         <div
           style={{
             maxWidth: 520,

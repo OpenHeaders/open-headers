@@ -1,8 +1,11 @@
 /**
  * Peer-facing request-execution plane — the gating laws over the ten
  * workbench channels: `executeRequest` / `executeGrpcRequest` refuse
- * (honestly, naming the setting) while `backend.allowPeerExecute` is
- * off, with no identity resolution and no audit row; past the opt-in,
+ * (honestly, naming the tier) while the peer's opt-in is off — the
+ * loopback fact picks it: `backend.allowLocalPeerExecute` (default ON)
+ * for same-device peers, `backend.allowRemotePeerExecute` (default
+ * OFF) for the rest — with no identity resolution and no audit row;
+ * past the opt-in,
  * every channel resolves the peer's snapshot fresh, gates on the
  * workspace capability (`workspace.write` for send + clear + per-entry
  * delete, `workspace.read` for the summary and the script-posture
@@ -53,16 +56,21 @@ import { registerActiveGrpcStream } from '@openheaders/oracle/live/grpc-exec/str
 import { registerActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import type { ExecuteGrpcRequestRpcResult } from '../../../src/daemon/execute-grpc-request-rpc';
 import type { ExecuteRequestRpcResult } from '../../../src/daemon/execute-request-rpc';
-import { createPeerRequestsRpc, PEER_EXECUTE_DISABLED_MESSAGE } from '../../../src/daemon/peer-requests-rpc';
+import {
+  createPeerRequestsRpc,
+  LOCAL_PEER_EXECUTE_DISABLED_MESSAGE,
+  REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
+} from '../../../src/daemon/peer-requests-rpc';
 import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
 import { setWsPeerServer } from '../../../src/daemon/ws-peer-slot';
 import type { OracleWsServer, PeerSummary } from '../../../src/host-runtime/ws-server';
 
 const PEER = { userId: 'user-1' };
+const LOOPBACK_PEER = { userId: 'user-1', isLoopback: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.settings = { 'backend.allowPeerExecute': true };
+  h.settings = { 'backend.allowRemotePeerExecute': true };
   h.decision = { allow: true };
   h.audits = [];
   h.jars = new Map();
@@ -173,15 +181,44 @@ describe('createPeerRequestsRpc — script posture', () => {
 });
 
 describe('createPeerRequestsRpc — executeRequest', () => {
-  it('refuses while the opt-in is off — no identity resolution, no audit, no handler call', async () => {
+  it('refuses a non-loopback peer while the remote opt-in is off — no identity resolution, no audit, no handler call', async () => {
     h.settings = {};
     const execute = vi.fn(async () => ({ success: true }));
     const rpc = createPeerRequestsRpc({ executeRequest: execute });
     await expect(rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER)).rejects.toThrow(
-      PEER_EXECUTE_DISABLED_MESSAGE,
+      REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
     );
     expect(h.resolveSnapshot).not.toHaveBeenCalled();
     expect(h.audits).toHaveLength(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('allows a loopback peer by default — pairing is the consent for this device', async () => {
+    h.settings = {};
+    const executed: ExecuteRequestRpcResult = { success: true };
+    const execute = vi.fn(async () => executed);
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await expect(rpc.dispatch({ type: 'executeRequest', draft: {} }, LOOPBACK_PEER)).resolves.toBe(executed);
+    expect(execute).toHaveBeenCalled();
+  });
+
+  it('refuses a loopback peer with the LOCAL message when its opt-in is turned off', async () => {
+    h.settings = { 'backend.allowLocalPeerExecute': false };
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await expect(rpc.dispatch({ type: 'executeRequest', draft: {} }, LOOPBACK_PEER)).rejects.toThrow(
+      LOCAL_PEER_EXECUTE_DISABLED_MESSAGE,
+    );
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('keeps the remote opt-in from unlocking non-loopback peers via the local default', async () => {
+    h.settings = { 'backend.allowLocalPeerExecute': true };
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await expect(rpc.dispatch({ type: 'executeRequest', draft: {} }, PEER)).rejects.toThrow(
+      REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -284,7 +321,7 @@ describe('createPeerRequestsRpc — executeGrpcRequest', () => {
     const execute = vi.fn(async () => ({ success: true }));
     const rpc = createPeerRequestsRpc({ executeGrpcRequest: execute });
     await expect(rpc.dispatch({ type: 'executeGrpcRequest', draft: {} }, PEER)).rejects.toThrow(
-      PEER_EXECUTE_DISABLED_MESSAGE,
+      REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
     );
     expect(h.resolveSnapshot).not.toHaveBeenCalled();
     expect(h.audits).toHaveLength(0);

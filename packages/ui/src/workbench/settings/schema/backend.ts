@@ -100,7 +100,8 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
     'backend.serveWebApp': boolean;
-    'backend.allowPeerExecute': boolean;
+    'backend.allowLocalPeerExecute': boolean;
+    'backend.allowRemotePeerExecute': boolean;
     'backend.reconnectDelayMs': number;
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
@@ -280,21 +281,41 @@ registerSetting({
   when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
 });
 
+// Two-tier egress opt-in — same-device browsers vs other devices are
+// different trust decisions, so each gets its own toggle. Local
+// defaults ON (the user paired this browser to use this app as its
+// request engine — pairing is the consent); remote defaults OFF
+// (egress from this machine on another device's behalf is an operator
+// decision, never implied by pairing).
+// Host gate only, NOT the mode gate the other daemon-side rows use:
+// the desktop app runs its embedded server in every mode, so these
+// opt-ins must stay reachable even while this app is itself a client
+// of another back-end — the refusing wire messages point here.
 registerSetting({
-  key: 'backend.allowPeerExecute',
+  key: 'backend.allowLocalPeerExecute',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.backend.allowLocalPeerExecute.label',
+  descriptionKey: 'workbench.settings.def.backend.allowLocalPeerExecute.description',
+  category: 'backend',
+  subcategory: 'lan-peers',
+  tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress', 'local', 'loopback'],
+  scope: 'user',
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerSetting({
+  key: 'backend.allowRemotePeerExecute',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  labelKey: 'workbench.settings.def.backend.allowPeerExecute.label',
-  descriptionKey: 'workbench.settings.def.backend.allowPeerExecute.description',
+  labelKey: 'workbench.settings.def.backend.allowRemotePeerExecute.label',
+  descriptionKey: 'workbench.settings.def.backend.allowRemotePeerExecute.description',
   category: 'backend',
   subcategory: 'lan-peers',
-  tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress'],
+  tags: ['send', 'execute', 'requests', 'peers', 'devices', 'daemon', 'egress', 'remote', 'lan'],
   scope: 'user',
-  // Host gate only, NOT the mode gate the other daemon-side rows use:
-  // the desktop app runs its embedded server in every mode, so its
-  // opt-in must stay reachable even while this app is itself a client
-  // of another back-end — the refusing wire message points here.
   when: () => getCurrentHost() === 'desktop',
 });
 

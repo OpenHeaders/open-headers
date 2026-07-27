@@ -277,7 +277,7 @@ test.beforeAll(async () => {
     JSON.stringify({
       schemaVersion: 1,
       values: {
-        'oh.settings.user': { 'mcp.enabled': true, 'mcp.allowWrite': true, 'backend.allowPeerExecute': true },
+        'oh.settings.user': { 'mcp.enabled': true, 'mcp.allowWrite': true, 'backend.allowLocalPeerExecute': true },
         'oh.daemonAuthTokens': [
           {
             id: 'grpc-wb-e2e-token',

@@ -103,7 +103,7 @@ describe('wire-requests-rpc', () => {
     await Promise.resolve();
     handleWireRpcResponseFrame({
       type: 'executeRequest:response',
-      __error: 'Sending requests from connected devices is disabled on this host. Enable it in Settings → Backend.',
+      __error: "Sending requests from this device's browsers is disabled on this host. Enable it in Settings → Backend.",
     });
     const result = (await call) as { success: boolean; snapshot?: { error: string | null } };
     expect(result.success).toBe(true);
@@ -137,7 +137,7 @@ describe('wire-requests-rpc', () => {
     await Promise.resolve();
     handleWireRpcResponseFrame({
       type: 'executeGrpcRequest:response',
-      __error: 'Sending requests from connected devices is disabled on this host. Enable it in Settings → Backend.',
+      __error: "Sending requests from this device's browsers is disabled on this host. Enable it in Settings → Backend.",
     });
     const result = (await call) as { success: boolean; snapshot?: { error: string | null } };
     expect(result.success).toBe(true);

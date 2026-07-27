@@ -783,9 +783,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           return;
         }
         // The peer-execute refusal hand-off: land on the exact opt-in
-        // row the refusing wire message names.
+        // row the refusing wire message names. Only a loopback peer can
+        // reveal, so the local tier's row is always the right target.
         if (target === 'peerExecuteSetting') {
-          openSettings({ settingKey: 'backend.allowPeerExecute' });
+          openSettings({ settingKey: 'backend.allowLocalPeerExecute' });
           return;
         }
         const windowId = REVEAL_WINDOW_BY_TARGET[target];

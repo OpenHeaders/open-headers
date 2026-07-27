@@ -441,12 +441,12 @@ export const sharedComponents = {
   //    capability-gated features on browser hosts: per-feature
   //    explainer + the download CTA. ──────────────────────────────────
   // Peer-execute refusal notice — the host-aware reading of the wire's
-  // opt-in refusal ("Allow connected devices to send requests" raw: it
-  // is the settings row's own label).
-  'shared.peerExecute.disabledDesktop':
-    'Sending requests from connected devices is turned off in the desktop app. Enable "Allow connected devices to send requests" under Settings → Backend.',
-  'shared.peerExecute.disabledServer':
-    'Sending requests from connected devices is turned off on the connected server. Enable "Allow connected devices to send requests" in its Settings → Backend on that machine.',
+  // two-tier opt-in refusal (the quoted phrases are the settings rows'
+  // own labels, verbatim).
+  'shared.peerExecute.localDisabled':
+    'Sending from this device’s browsers is turned off in the desktop app. Enable "Allow this device’s browsers to send requests" under Settings → Backend.',
+  'shared.peerExecute.remoteDisabled':
+    'Sending from other devices is turned off on the connected host. Enable "Allow other connected devices to send requests" in its Settings → Backend on that machine.',
   'shared.peerExecute.enableCta': 'Enable in the desktop app',
   'shared.desktopTeaser.cta': 'Download the desktop app',
   'shared.desktopTeaser.openApp': 'Open in the desktop app',

@@ -157,7 +157,7 @@ async function setPeerExecute(enabled: boolean): Promise<void> {
   const storagePath = path.join(dataDir, 'storage.json');
   const envelope = JSON.parse(await readFile(storagePath, 'utf-8')) as { values: Record<string, unknown> };
   const settings = (envelope.values['oh.settings.user'] as Record<string, unknown>) ?? {};
-  settings['backend.allowPeerExecute'] = enabled;
+  settings['backend.allowLocalPeerExecute'] = enabled;
   envelope.values['oh.settings.user'] = settings;
   await writeFile(storagePath, JSON.stringify(envelope));
 }
@@ -225,10 +225,11 @@ test.beforeAll(async () => {
     JSON.stringify({
       schemaVersion: 1,
       values: {
-        // backend.allowPeerExecute deliberately ABSENT — default OFF,
-        // the E2 refusal leg. Flipped ON between legs via storage edit
-        // + daemon restart (the setting is re-read per frame).
-        'oh.settings.user': { 'mcp.enabled': true, 'mcp.allowWrite': true },
+        // The loopback tier's opt-in seeded OFF (its default is ON —
+        // pairing is the consent), the E2 refusal leg. Flipped ON
+        // between legs via storage edit + daemon restart (the setting
+        // is re-read per frame).
+        'oh.settings.user': { 'mcp.enabled': true, 'mcp.allowWrite': true, 'backend.allowLocalPeerExecute': false },
         'oh.daemonAuthTokens': [
           {
             id: 'grpc-e2e-token',
@@ -472,18 +473,18 @@ test('the workbench opens on the joined workspace', async () => {
 
 // ── E2: opt-in refusal ──────────────────────────────────────────────
 
-test('opt-in OFF: the forwarded Invoke renders the refusal naming the setting', async () => {
+test('opt-in OFF: the forwarded Invoke renders the host-aware refusal notice', async () => {
   await openGrpcRequest('e2egrpc1');
   await waitInvokeEnabled(true);
   await invokeButton().click();
-  const errorState = page.getByTestId('grpc-response-error-state').filter({ visible: true }).first();
-  await errorState.waitFor({ state: 'visible', timeout: 15000 });
-  await expect(errorState).toContainText(/disabled on this host/);
+  const notice = page.getByTestId('peer-execute-disabled-notice').filter({ visible: true }).first();
+  await notice.waitFor({ state: 'visible', timeout: 15000 });
+  await expect(notice).toContainText(/turned off/);
 });
 
 // ── E3: forwarded unary OK ──────────────────────────────────────────
 
-test('flipping backend.allowPeerExecute on lets the same Invoke round-trip 0 OK', async () => {
+test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 0 OK', async () => {
   test.setTimeout(150000);
   await stopDaemon();
   await setPeerExecute(true);

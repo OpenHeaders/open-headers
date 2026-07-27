@@ -57,11 +57,6 @@ export const workbenchSettingsDefs = {
     'Liefert den Arbeitsbereich-Editor als Webseite auf dem Back-end-Port aus, sodass ihn ein Browser-Tab ' +
     'direkt aus dieser App öffnen kann — ohne Erweiterung. Wer den Port erreicht, sieht die Anmeldesperre; ' +
     'für den Datenzugriff bleibt ein gekoppelter Token erforderlich.',
-  'workbench.settings.def.backend.allowPeerExecute.label': 'Verbundenen Geräten das Senden von Anfragen erlauben',
-  'workbench.settings.def.backend.allowPeerExecute.description':
-    'Lässt gekoppelte Browser und Geräte API-Anfragen über diese App senden — ihr Senden im ' +
-    'Arbeitsbereich-Editor läuft auf dieser Maschine, mit deren Netzwerkzugriff. Standardmäßig aus; jedes ' +
-    'Senden setzt weiterhin Schreibzugriff des Absenders auf den Arbeitsbereich voraus.',
   'workbench.settings.def.backend.reconnectDelayMs.label': 'Anfängliche Wiederverbindungs-Verzögerung',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Wie lange (ms) nach einer Trennung bis zum ersten Wiederverbindungsversuch gewartet wird.',

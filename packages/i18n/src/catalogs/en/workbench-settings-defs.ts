@@ -43,9 +43,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.serveWebApp.label': 'Serve the web app',
   'workbench.settings.def.backend.serveWebApp.description':
     'Serve the Workbench as a web page on the back-end port, so a browser tab can open it straight from this app — no extension needed. Anyone who can reach the port sees the login gate; a paired token is still required to access data.',
-  'workbench.settings.def.backend.allowPeerExecute.label': 'Allow connected devices to send requests',
-  'workbench.settings.def.backend.allowPeerExecute.description':
-    'Let paired browsers and devices send API requests through this app — their workbench Send runs on this machine, with its network access. Off by default; each send still requires the sender to have write access to the workspace.',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': "Allow this device's browsers to send requests",
+  'workbench.settings.def.backend.allowLocalPeerExecute.description':
+    'Let paired browsers on THIS machine send API requests through this app — the extension uses it as its request engine, so their workbench Send runs here. On by default: pairing is the consent. Each send still requires write access to the workspace.',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': 'Allow other connected devices to send requests',
+  'workbench.settings.def.backend.allowRemotePeerExecute.description':
+    'Let paired devices on OTHER machines send API requests through this app — their workbench Send runs on this machine, with its network access and address. Off by default: an operator decision, never implied by pairing. Each send still requires write access to the workspace.',
   'workbench.settings.def.backend.reconnectDelayMs.label': 'Initial reconnect delay',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'How long to wait (ms) before the first reconnect attempt after a disconnect.',

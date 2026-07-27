@@ -71,12 +71,6 @@ export const workbenchSettingsDefs = {
     'abrirlo directamente desde esta aplicación — sin necesidad de extensión. Cualquiera que alcance el ' +
     'puerto ve la puerta de inicio de sesión; sigue haciendo falta un token emparejado para acceder a los ' +
     'datos.',
-  'workbench.settings.def.backend.allowPeerExecute.label':
-    'Permitir que los dispositivos conectados envíen solicitudes',
-  'workbench.settings.def.backend.allowPeerExecute.description':
-    'Deja que los navegadores y dispositivos emparejados envíen solicitudes API a través de esta aplicación ' +
-    '— su Enviar del workbench se ejecuta en esta máquina, con su acceso a la red. Desactivado por defecto; ' +
-    'cada envío sigue exigiendo que el remitente tenga acceso de escritura al espacio de trabajo.',
   'workbench.settings.def.backend.reconnectDelayMs.label': 'Retraso inicial de reconexión',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Cuánto esperar (ms) antes del primer intento de reconexión tras una desconexión.',

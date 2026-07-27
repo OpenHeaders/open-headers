@@ -55,12 +55,6 @@ export const workbenchSettingsDefs = {
     "Sert le Workbench comme page web sur le port du back-end, pour qu'un onglet de navigateur puisse l'ouvrir " +
     'directement depuis cette application — aucune extension requise. Quiconque atteint le port voit la ' +
     'grille de connexion ; un jeton appairé reste requis pour accéder aux données.',
-  'workbench.settings.def.backend.allowPeerExecute.label': 'Autoriser les appareils connectés à envoyer des requêtes',
-  'workbench.settings.def.backend.allowPeerExecute.description':
-    'Laisse les navigateurs et appareils appairés envoyer des requêtes API via cette application — leur ' +
-    "Envoyer du workbench s'exécute sur cette machine, avec son accès réseau. Désactivé par défaut ; chaque " +
-    "envoi exige toujours que l'expéditeur ait l'accès en écriture à l'espace de travail.",
-  'workbench.settings.def.backend.reconnectDelayMs.label': 'Délai de reconnexion initial',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Combien de temps attendre (ms) avant la première tentative de reconnexion après une déconnexion.',
   'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Délai de reconnexion maximum',

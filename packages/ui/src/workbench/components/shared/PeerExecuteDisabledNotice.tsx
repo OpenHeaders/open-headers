@@ -1,20 +1,26 @@
 /**
  * PeerExecuteDisabledNotice — host-aware rendering of the peer plane's
- * opt-in refusal (`PEER_EXECUTE_DISABLED_MESSAGE`). The wire text says
- * "Settings → Backend" without naming WHOSE settings; this notice does:
- * the copy branches on what the enabled companion IS (the loopback
- * desktop app vs a LAN/remote server), and with the desktop app
- * CONNECTED on this machine the primary action hands off — the
- * `companionReveal` capability fronts the app and lands Settings on the
- * exact opt-in row (`peerExecuteSetting` target). The desktop's reveal
- * plane enforces the same-device law wire-side: only a loopback peer
- * may front the window, so a LAN server posture never grows a button
- * (the DesktopTeaser gating recipe, applied to a refusal surface).
+ * two-tier opt-in refusal. The wire text says "Settings → Backend"
+ * without naming WHOSE settings; this notice does: the refusal string
+ * itself names the tier (same-device browsers vs other devices — the
+ * `peerExecuteRefusalKind` matcher below is how parents detect it),
+ * and on the LOCAL tier with the desktop app CONNECTED on this machine
+ * the primary action hands off — the `companionReveal` capability
+ * fronts the app and lands Settings on the exact opt-in row
+ * (`peerExecuteSetting` target). The desktop's reveal plane enforces
+ * the same-device law wire-side: only a loopback peer may front the
+ * window, so the remote tier never grows a button — that refusal is
+ * answered by a host on another machine (the DesktopTeaser gating
+ * recipe, applied to a refusal surface).
  */
 
 import { SelectOutlined } from '@ant-design/icons';
 import { isLoopbackBackendUrl } from '@openheaders/core/backends';
 import { getCapability } from '@openheaders/core/capabilities';
+import {
+  LOCAL_PEER_EXECUTE_DISABLED_MESSAGE,
+  REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
+} from '@openheaders/core/protocol';
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -24,7 +30,17 @@ import { useBackendSyncStatus } from '@openheaders/ui/shared/hooks/useBackendSyn
 
 const { Text } = Typography;
 
-const PeerExecuteDisabledNotice: React.FC = () => {
+export type PeerExecuteRefusalKind = 'local' | 'remote';
+
+/** Which opt-in tier a failed send's error text names; null for every
+ *  other failure — the parents' render gate. */
+export function peerExecuteRefusalKind(detail: string | undefined): PeerExecuteRefusalKind | null {
+  if (detail === LOCAL_PEER_EXECUTE_DISABLED_MESSAGE) return 'local';
+  if (detail === REMOTE_PEER_EXECUTE_DISABLED_MESSAGE) return 'remote';
+  return null;
+}
+
+const PeerExecuteDisabledNotice: React.FC<{ kind: PeerExecuteRefusalKind }> = ({ kind }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [revealing, setRevealing] = useState(false);
@@ -36,9 +52,8 @@ const PeerExecuteDisabledNotice: React.FC = () => {
   const { snapshot: syncSlots } = useBackendSyncStatus();
   const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
   const companionReveal = getCapability('companionReveal');
-  const desktopCompanion = loopback?.enabled === true;
   const companionConnected =
-    companionReveal !== undefined && desktopCompanion && syncSlots[loopback.id]?.state === 'green';
+    companionReveal !== undefined && loopback?.enabled === true && syncSlots[loopback.id]?.state === 'green';
 
   const reveal = async (): Promise<void> => {
     if (!companionReveal) return;
@@ -64,10 +79,10 @@ const PeerExecuteDisabledNotice: React.FC = () => {
         }}
       >
         <Text style={{ fontSize: 12, color: token.colorErrorText }}>
-          {desktopCompanion ? t('shared.peerExecute.disabledDesktop') : t('shared.peerExecute.disabledServer')}
+          {kind === 'local' ? t('shared.peerExecute.localDisabled') : t('shared.peerExecute.remoteDisabled')}
         </Text>
       </div>
-      {companionConnected && (
+      {kind === 'local' && companionConnected && (
         <Button
           type="primary"
           size="small"

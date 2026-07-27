@@ -10,11 +10,13 @@
  * `peer-requests-rpc` (opt-in gate → capability → audit) →
  * `runStepRequest` → undici against the S14 HTTP rig.
  *
- * Both gate outcomes are asserted live:
- *   • `backend.allowPeerExecute` OFF (the default — the seed omits it):
- *     the daemon's honest refusal rides back as an error SNAPSHOT
- *     (`success: true` + `snapshot.error`) and renders on the response
- *     panel's error state, never a silent null.
+ * Both gate outcomes are asserted live. The Playwright tab dials
+ * loopback, so it rides the LOCAL tier (`backend.allowLocalPeerExecute`,
+ * default ON — pairing is the consent):
+ *   • Seeded OFF: the daemon's honest refusal rides back as an error
+ *     SNAPSHOT (`success: true` + `snapshot.error`) and renders as the
+ *     host-aware peer-execute notice on the response panel, never a
+ *     silent null.
  *   • Flipped ON through the desktop storage bridge (no restart — the
  *     gate reads the settings record fresh per frame): a real snapshot
  *     returns, and the jar loop works over the wire — capture on a
@@ -191,13 +193,6 @@ async function send(): Promise<void> {
   await page.getByRole('button', { name: /Send$/ }).filter({ visible: true }).click();
 }
 
-/** Wait for the failed-send error state; return its classified message. */
-async function responseErrorText(): Promise<string> {
-  const msg = page.getByTestId('oh-response-error').filter({ visible: true });
-  await msg.waitFor({ state: 'visible', timeout: 30_000 });
-  return (await msg.textContent())?.trim() ?? '';
-}
-
 /** Wait for the response status chip; return its text. */
 async function responseStatusText(): Promise<string> {
   const tag = page.getByTestId('oh-response-status').filter({ visible: true });
@@ -238,8 +233,10 @@ test.beforeAll(async () => {
           'mcp.allowWrite': true,
           'backend.bindPort': DAEMON_PORT,
           'backend.serveWebApp': true,
-          // backend.allowPeerExecute deliberately ABSENT — default OFF
-          // is the first gate outcome under test.
+          // The loopback tier's opt-in seeded OFF — the default is ON
+          // (pairing is the consent), so the refusal outcome under
+          // test needs the explicit flip.
+          'backend.allowLocalPeerExecute': false,
         },
       },
       secrets: {},
@@ -340,18 +337,20 @@ test('the seeded requests sync down into the served workbench', async () => {
 
 // ── Gate outcome 1: opt-in OFF ⇒ honest refusal on the response panel ─
 
-test('opt-in OFF: the forwarded Send renders the refusal naming the setting', async () => {
+test('opt-in OFF: the forwarded Send renders the host-aware refusal notice', async () => {
   await openRequest(echoUid);
   await send();
-  const message = await responseErrorText();
-  expect(message).toContain('Sending requests from connected devices is disabled on this host');
-  expect(message).toContain('Settings → Backend');
+  const notice = page.getByTestId('peer-execute-disabled-notice').filter({ visible: true });
+  await notice.waitFor({ state: 'visible', timeout: 15_000 });
+  const message = (await notice.textContent()) ?? '';
+  expect(message).toContain('Sending from this device\u2019s browsers is turned off in the desktop app');
+  expect(message).toContain('Settings \u2192 Backend');
 });
 
 // ── Gate outcome 2: flipped ON per frame, no restart ─────────────────
 
-test('flipping backend.allowPeerExecute on lets the same Send return a real snapshot', async () => {
-  await setUserSetting('backend.allowPeerExecute', true);
+test('flipping backend.allowLocalPeerExecute on lets the same Send return a real snapshot', async () => {
+  await setUserSetting('backend.allowLocalPeerExecute', true);
   await openRequest(echoUid);
   await send();
   const status = await responseStatusText();

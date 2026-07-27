@@ -12,12 +12,16 @@
  *
  * Tiering mirrors the MCP execute precedent, in order:
  *
- *   1. `executeRequest` / `executeGrpcRequest`: the daemon-side opt-in
- *      (`backend.allowPeerExecute`, default OFF, read fresh from the
- *      settings record per frame) — network egress on a peer's behalf
- *      is an operator decision, never implied by pairing. The refusal
- *      is honest (it names the setting), not the admin plane's uniform
- *      deny: this channel's existence is public contract.
+ *   1. `executeRequest` / `executeGrpcRequest`: the daemon-side opt-in,
+ *      two-tiered by the peer's loopback fact and read fresh from the
+ *      settings record per frame — same-device browsers ride
+ *      `backend.allowLocalPeerExecute` (default ON: the user paired
+ *      this browser to use this app as its engine, so pairing is the
+ *      consent), other devices ride `backend.allowRemotePeerExecute`
+ *      (default OFF: egress from this machine on another device's
+ *      behalf is an operator decision, never implied by pairing). The
+ *      refusal is honest (it names the tier), not the admin plane's
+ *      uniform deny: this channel's existence is public contract.
  *   2. Capability as the peer's user on the TARGET workspace —
  *      `workspace.write` for a send (the MCP execute mapping) and for
  *      the destructive jar clear and per-entry delete;
@@ -36,7 +40,7 @@ import {
   hasCapability,
   resolveDaemonPeerIdentitySnapshot,
 } from '@openheaders/core/identity';
-import { PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
+import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   endActiveGrpcClientStream,
@@ -53,10 +57,10 @@ import { hostDisplayLabel } from './host-os';
 import { getHostScriptCapability } from './script-capability';
 import { getWsPeerServer } from './ws-peer-slot';
 
-/** Honest opt-in refusal — canonical string lives in the protocol
- *  vocabulary (browser surfaces match it to render host-aware
+/** Honest opt-in refusals — canonical strings live in the protocol
+ *  vocabulary (browser surfaces match them to render host-aware
  *  guidance); re-exported here for this plane's callers and tests. */
-export { PEER_EXECUTE_DISABLED_MESSAGE };
+export { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE };
 
 const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
   executeRequest: 'workspace.write',
@@ -93,9 +97,14 @@ export interface PeerRequestsRpcOptions {
   cliStatus?: () => Promise<CliProvisionStatus>;
 }
 
-async function peerExecuteAllowed(): Promise<boolean> {
-  const values = (await hostStorage.get(OH.settingsUser)) ?? {};
-  return (values as Record<string, unknown>)['backend.allowPeerExecute'] === true;
+/** Two-tier egress opt-in, read fresh per frame. Same-device browsers
+ *  (`allowLocalPeerExecute`) default ON — pairing is the consent;
+ *  other devices (`allowRemotePeerExecute`) default OFF — egress from
+ *  this machine on another device's behalf is an operator decision. */
+async function peerExecuteAllowed(isLoopback: boolean): Promise<boolean> {
+  const values = ((await hostStorage.get(OH.settingsUser)) ?? {}) as Record<string, unknown>;
+  if (isLoopback) return values['backend.allowLocalPeerExecute'] !== false;
+  return values['backend.allowRemotePeerExecute'] === true;
 }
 
 /**
@@ -190,9 +199,14 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
 
       // Opt-in tier first — like the MCP tier gate it refuses before
       // any identity resolution and emits no audit row (no capability
-      // decision was made).
-      if ((type === 'executeRequest' || type === 'executeGrpcRequest') && !(await peerExecuteAllowed())) {
-        throw new Error(PEER_EXECUTE_DISABLED_MESSAGE);
+      // decision was made). The tier is per trust boundary: the peer's
+      // loopback fact picks which opt-in governs and which refusal
+      // names it.
+      if (type === 'executeRequest' || type === 'executeGrpcRequest') {
+        const loopback = peer.isLoopback === true;
+        if (!(await peerExecuteAllowed(loopback))) {
+          throw new Error(loopback ? LOCAL_PEER_EXECUTE_DISABLED_MESSAGE : REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
+        }
       }
 
       // Capability tier — the target workspace is the one the frame

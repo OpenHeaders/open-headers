@@ -13,12 +13,11 @@
  */
 
 import { DisconnectOutlined } from '@ant-design/icons';
-import { PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import PeerExecuteDisabledNotice from '../../shared/PeerExecuteDisabledNotice';
+import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../../shared/PeerExecuteDisabledNotice';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import CertTrustSteps from './CertTrustSteps';
 
@@ -31,6 +30,7 @@ const ResponseErrorState: React.FC<{
 }> = ({ error, hint, layout }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const refusalKind = peerExecuteRefusalKind(error);
   return (
     <div
       className="rules-thin-scrollbar"
@@ -64,10 +64,10 @@ const ResponseErrorState: React.FC<{
           </Text>
         )}
       </div>
-      {error === PEER_EXECUTE_DISABLED_MESSAGE ? (
+      {refusalKind !== null ? (
         // The peer-plane opt-in refusal (a forwarded send) renders the
         // host-aware notice instead of the raw wire text.
-        <PeerExecuteDisabledNotice />
+        <PeerExecuteDisabledNotice kind={refusalKind} />
       ) : hint?.certificate ? (
         // Certificate rejection (wire-confirmed or heuristic): the
         // prose collapses to one actionable line — the steps below

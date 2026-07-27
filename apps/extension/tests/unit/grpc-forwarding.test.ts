@@ -112,7 +112,7 @@ describe('executeGrpcRequest forwarding', () => {
   });
 
   it("degrades the companion's refusal verbatim onto the snapshot", async () => {
-    mockWsRequest.mockRejectedValue(new Error('Sending requests from connected devices is disabled on this host.'));
+    mockWsRequest.mockRejectedValue(new Error("Sending requests from this device's browsers is disabled on this host."));
     const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {} });
     const result = (await settled(respond)) as { snapshot?: { error: string | null } };
     expect(result.snapshot?.error).toMatch(/disabled on this host/);
