@@ -21,6 +21,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.grpcMessagesGroupRowLimit': number;
     'requests.wsMessagesNewestFirst': boolean;
     'requests.wsMessagesGroupByDirection': boolean;
+    'requests.wsMessagesGroupByEvent': boolean;
     'requests.wsMessagesGroupRowLimit': number;
   }
 }
@@ -196,6 +197,23 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.requests.wsMessagesGroupByDirection.description',
   category: 'requests',
   tags: ['websocket', 'ws', 'session', 'messages', 'timeline', 'group', 'cluster', 'direction'],
+  scope: 'user',
+});
+
+// The second WS grouping axis — the decoded Socket.IO event name.
+// Only the socketio flavor decodes names, so the toggle surfaces (and
+// the axis applies) there alone; both axes on = compound (event,
+// direction) group identity, one header level.
+registerSetting({
+  key: 'requests.wsMessagesGroupByEvent',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.wsMessagesGroupByEvent.label',
+  descriptionKey: 'workbench.settings.def.requests.wsMessagesGroupByEvent.description',
+  category: 'requests',
+  subcategory: 'websocket',
+  tags: ['websocket', 'ws', 'socketio', 'session', 'messages', 'timeline', 'group', 'cluster', 'event', 'name'],
   scope: 'user',
 });
 

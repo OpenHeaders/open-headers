@@ -428,6 +428,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'WebSocket Messages: Group by Direction',
   'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
     'Cluster the WebSocket message timeline under collapsible sent / received headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'WebSocket Messages: Group by Event',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
+    'Cluster Socket.IO session timelines under collapsible decoded event-name headers (control frames bucket by their wire kind). Combined with grouping by direction, each (event, direction) pair gets its own group. Applies only to Socket.IO sessions — raw WebSocket frames carry no event names. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'WebSocket Messages: Rows per Group',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     'When grouping by direction, show only this many of each group’s newest messages — the window slides as new messages arrive, so both groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
