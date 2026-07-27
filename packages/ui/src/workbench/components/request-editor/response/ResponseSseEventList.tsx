@@ -831,7 +831,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
                 key: 'group-limit',
                 label: t('workbench.editors.request.response.sse.rowsPerGroup'),
                 disabled: !groupByName,
-                children: [0, 5, 10, 25, 50].map((n) => ({
+                children: [0, 1, 3, 5, 10].map((n) => ({
                   key: `group-limit-${n}`,
                   label: (
                     <span

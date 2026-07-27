@@ -419,6 +419,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket Messages: Newest First',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Order of the WebSocket message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'WebSocket Messages: Group by Direction',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
+    'Cluster the WebSocket message timeline under collapsible sent / received headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'WebSocket Messages: Rows per Group',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
+    'When grouping by direction, show only this many of each group’s newest messages — the window slides as new messages arrive, so both groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: Send Invalid Messages',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'When the gRPC message is not valid JSON, invoke anyway with an empty message and let the server answer — usually INVALID_ARGUMENT. Off by default: the invoke fails before the wire with the exact parse error.',

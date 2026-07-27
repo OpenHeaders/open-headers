@@ -912,7 +912,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 key: 'group-limit',
                 label: t('workbench.editors.grpc.timeline.rowsPerGroup'),
                 disabled: !groupByType,
-                children: [0, 5, 10, 25, 50].map((n) => ({
+                children: [0, 1, 3, 5, 10].map((n) => ({
                   key: `group-limit-${n}`,
                   label: menuOptionLabel(
                     n === 0 ? t('workbench.editors.grpc.timeline.noLimit') : String(n),

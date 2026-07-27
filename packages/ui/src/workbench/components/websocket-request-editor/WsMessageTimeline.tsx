@@ -17,18 +17,28 @@
  * · right-aligned session time; binary frames render an honest byte
  * label and their base64 in the expanded viewer (payloads verbatim —
  * decode is display-side). WS payloads carry no declared types, so
- * the gRPC list's type chips and group-by-type have no sibling here.
+ * the gRPC list's type chips have no sibling here.
  *
- * Sort rides the `requests.wsMessagesNewestFirst` SETTING (global,
- * toolbar-written — the choice survives Connect/Disconnect remounts),
- * newest-first by default. Search, direction filter and Clear are
- * display-only — the capture is never touched. Timestamps are
- * session-only (the ratified law): absent rows simply render no time.
+ * Sort and grouping ride the `requests.wsMessages*` SETTINGS (global,
+ * toolbar-written — the choices survive Connect/Disconnect remounts),
+ * newest-first by default. "Group by direction" is the gRPC list's
+ * group-by-type on the one classifier every WS frame has: rows
+ * partition under collapsible sent / received headers (arrival order
+ * intact within each group, group order ANCHORED to first appearance),
+ * an optional per-group row limit keeps each group's N newest rows
+ * watchable (headers keep real totals), and the group spanning the
+ * viewport top pins its header as a clickable sticky overlay. Grouped
+ * mode is not a timeline, so the Connected row joins "Connecting" at
+ * the chronological edge instead of sitting before the first message.
+ * Search, direction filter and Clear are display-only — the capture is
+ * never touched. Timestamps are session-only (the ratified law):
+ * absent rows simply render no time.
  */
 
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
+  CaretRightOutlined,
   CheckCircleOutlined,
   CheckOutlined,
   ClearOutlined,
@@ -125,6 +135,7 @@ interface WsMessageTimelineProps {
  *  function of `kind`, so windowing never measures. */
 type ListEntry =
   | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
+  | { key: string; kind: 'header'; direction: 'up' | 'down'; count: number; collapsed: boolean }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -377,10 +388,19 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [wrapLines, setWrapLines] = useState(true);
-  // Sort direction is a SETTING — global, user-owned, written by this
-  // toolbar and the Settings page alike; a Connect/Disconnect remount
-  // never resets it.
+  // Sort direction and grouping are SETTINGS — global, user-owned,
+  // written by this toolbar and the Settings page alike; a Connect/
+  // Disconnect remount never resets them.
   const [newestFirst, setNewestFirst] = useSetting('requests.wsMessagesNewestFirst');
+  const [groupByDirection, setGroupByDirection] = useSetting('requests.wsMessagesGroupByDirection');
+  // Watch-both-groups-at-once: each group shows only its N newest
+  // rows (the window slides as messages arrive); 0 = no limit.
+  const [groupRowLimit, setGroupRowLimit] = useSetting('requests.wsMessagesGroupRowLimit');
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // The group whose rows span the viewport top — its header pins as an
+  // overlay (a CSS-sticky header would virtualize out of the DOM), so
+  // the group identity + total stay visible and collapsible mid-scroll.
+  const [stickyGroup, setStickyGroup] = useState<'up' | 'down' | null>(null);
 
   const derive = useMemo(() => makeWsFrameDerivations(flavor === 'socketio'), [flavor]);
 
@@ -407,6 +427,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     setDirectionFilter('all');
     setClearedCount(0);
     setExpanded(new Set<number>());
+    setCollapsedGroups(new Set<string>());
     setHasNewMessages(false);
     awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
@@ -452,16 +473,50 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     return rows;
   }, [items, count, clearedCount, search, directionFilter, listenedSet, derive]);
 
+  const displayRows = useMemo(
+    () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
+    [visibleRows, newestFirst],
+  );
+
+  // Partition the display rows under direction headers. Group order
+  // ANCHORS to each direction's first appearance in the log — a group
+  // never trades places once minted (new messages only change its
+  // contents). The sort direction flips the reading of that fixed
+  // order, and rows within a group keep the direction's arrival order.
+  const groups = useMemo(() => {
+    if (!groupByDirection) return null;
+    const firstSeen = new Map<'up' | 'down', number>();
+    for (let i = clearedCount; i < count; i++) {
+      const direction = items[i].direction;
+      if (!firstSeen.has(direction)) firstSeen.set(direction, i);
+    }
+    const byDirection = new Map<'up' | 'down', number[]>();
+    for (const index of displayRows) {
+      const direction = items[index].direction;
+      const bucket = byDirection.get(direction);
+      if (bucket) bucket.push(index);
+      else byDirection.set(direction, [index]);
+    }
+    const anchored = [...byDirection.entries()].sort(
+      (a, b) => (firstSeen.get(a[0]) ?? 0) - (firstSeen.get(b[0]) ?? 0),
+    );
+    return newestFirst ? anchored.reverse() : anchored;
+  }, [displayRows, groupByDirection, items, count, clearedCount, newestFirst]);
+
   const filtering = search.trim() !== '' || directionFilter !== 'all';
   const live = lifecycle.endedBy === undefined;
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected before the
   // first message (no interleave arithmetic — the client cannot write
-  // pre-handshake), the ended row at the other edge. Waiting/no-match
-  // notices sit at the edge new rows land on.
-  const entries = useMemo(() => {
+  // pre-handshake), the ended row at the other edge. Grouped mode is
+  // clustering, not a timeline, so the Connected row joins Connecting
+  // at the chronological edge instead. Waiting/no-match notices sit at
+  // the edge new rows land on; each group's entry-index range feeds
+  // the sticky header.
+  const { entries, groupRanges } = useMemo(() => {
     const out: ListEntry[] = [];
+    const ranges: Array<{ direction: 'up' | 'down'; startEntry: number; endEntry: number }> = [];
     const pushRow = (index: number) => {
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
@@ -473,29 +528,68 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           ? { key: 'none', kind: 'noMatches' }
           : null;
 
-    const tokens: Array<number | 'connected'> = [];
-    if (lifecycle.connected) tokens.push('connected');
-    for (const index of visibleRows) tokens.push(index);
-    if (newestFirst) tokens.reverse();
+    // Top chronological edge.
+    if (newestFirst) {
+      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (notice) out.push(notice);
+    } else {
+      out.push({ key: 'sent', kind: 'sent' });
+      if (groups !== null && lifecycle.connected) out.push({ key: 'connected', kind: 'connected' });
+    }
 
-    if (newestFirst) {
-      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
-      if (notice) out.push(notice);
+    if (groups !== null) {
+      for (const [direction, indexes] of groups) {
+        const startEntry = out.length;
+        const collapsed = collapsedGroups.has(direction);
+        out.push({ key: `h${direction}`, kind: 'header', direction, count: indexes.length, collapsed });
+        if (!collapsed) {
+          // displayRows order puts a group's newest member first in
+          // newest-first and last in oldest-first — the limit window
+          // slices the newest end either way.
+          const shown =
+            groupRowLimit > 0
+              ? newestFirst
+                ? indexes.slice(0, groupRowLimit)
+                : indexes.slice(-groupRowLimit)
+              : indexes;
+          for (const index of shown) pushRow(index);
+        }
+        ranges.push({ direction, startEntry, endEntry: out.length });
+      }
     } else {
-      out.push({ key: 'sent', kind: 'sent' });
+      const tokens: Array<number | 'connected'> = [];
+      if (lifecycle.connected) tokens.push('connected');
+      for (const index of visibleRows) tokens.push(index);
+      if (newestFirst) tokens.reverse();
+      for (const token of tokens) {
+        if (token === 'connected') out.push({ key: 'connected', kind: 'connected' });
+        else pushRow(token);
+      }
     }
-    for (const token of tokens) {
-      if (token === 'connected') out.push({ key: 'connected', kind: 'connected' });
-      else pushRow(token);
-    }
+
+    // Bottom chronological edge.
     if (newestFirst) {
+      if (groups !== null && lifecycle.connected) out.push({ key: 'connected', kind: 'connected' });
       out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
     }
-    return out;
-  }, [newestFirst, lifecycle.connected, lifecycle.endedBy, live, count, clearedCount, filtering, visibleRows, expanded]);
+    return { entries: out, groupRanges: ranges };
+  }, [
+    newestFirst,
+    lifecycle.connected,
+    lifecycle.endedBy,
+    live,
+    count,
+    clearedCount,
+    filtering,
+    visibleRows,
+    groups,
+    expanded,
+    collapsedGroups,
+    groupRowLimit,
+  ]);
 
   const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
 
@@ -530,6 +624,34 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     }
   }, [entries, prefix, newestFirst, onWindowScroll]);
 
+  // Which group's rows span the viewport top — its header pins as the
+  // sticky overlay. Recomputed on scroll and after list mutations;
+  // meaningless (null) on an unlaid-out viewport.
+  const updateStickyGroup = (el: HTMLElement) => {
+    if (el.clientHeight === 0 || groupRanges.length === 0) {
+      setStickyGroup(null);
+      return;
+    }
+    const idx = entryIndexAt(prefix, el.scrollTop);
+    const range = groupRanges.find((r) => idx >= r.startEntry && idx < r.endEntry);
+    setStickyGroup(range ? range.direction : null);
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: updateStickyGroup derives from entries/prefix, which ARE the deps.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (el) updateStickyGroup(el);
+  }, [entries, prefix]);
+
+  const toggleGroup = (direction: 'up' | 'down') => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(direction)) next.delete(direction);
+      else next.add(direction);
+      return next;
+    });
+  };
+
   const toggleRow = (index: number) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -562,6 +684,77 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         {formatMessageTime(ts)}
       </span>
     ) : null;
+
+  // Boxed direction badge — ↑ amber, ↓ blue on their tinted
+  // backgrounds (the gRPC list's anatomy), shared by message rows and
+  // group headers so the two directions read apart at a glance.
+  const directionBadge = (up: boolean): React.ReactNode => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        flexShrink: 0,
+        background: up ? token.colorWarningBgHover : token.colorPrimaryBg,
+      }}
+    >
+      {up ? (
+        <ArrowUpOutlined
+          aria-label={t('workbench.editors.websocket.timeline.sentAria')}
+          style={{ fontSize: 11, color: token.colorTextSecondary }}
+        />
+      ) : (
+        <ArrowDownOutlined
+          aria-label={t('workbench.editors.websocket.timeline.receivedAria')}
+          style={{ fontSize: 11, color: token.colorTextSecondary }}
+        />
+      )}
+    </span>
+  );
+
+  /** One group-header row — shared by the in-list entry and the sticky
+   *  overlay (same anatomy, same collapse action, distinct testid). */
+  const renderGroupHeaderRow = (
+    direction: 'up' | 'down',
+    memberCount: number,
+    collapsed: boolean,
+    testid: string,
+    key?: string,
+  ): React.ReactNode => (
+    <div
+      key={key}
+      role="button"
+      tabIndex={0}
+      aria-expanded={!collapsed}
+      data-testid={testid}
+      onClick={() => toggleGroup(direction)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleGroup(direction);
+        }
+      }}
+      style={{ ...singleRowStyle, background: token.colorFillQuaternary, cursor: 'pointer' }}
+    >
+      <CaretRightOutlined
+        aria-hidden
+        rotate={collapsed ? 0 : 90}
+        style={{ fontSize: 10, color: token.colorTextTertiary }}
+      />
+      {directionBadge(direction === 'up')}
+      <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+        {direction === 'up'
+          ? t('workbench.editors.websocket.timeline.filterSent')
+          : t('workbench.editors.websocket.timeline.filterReceived')}
+      </Text>
+      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+        {t('workbench.editors.websocket.timeline.messageCount', { count: memberCount })}
+      </Text>
+    </div>
+  );
 
   const renderEntry = (entry: ListEntry): React.ReactNode => {
     switch (entry.kind) {
@@ -615,6 +808,14 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           <div key={entry.key} style={lifecycleRowStyle}>
             <span>{t('workbench.editors.websocket.timeline.noMatches')}</span>
           </div>
+        );
+      case 'header':
+        return renderGroupHeaderRow(
+          entry.direction,
+          entry.count,
+          entry.collapsed,
+          'ws-timeline-group-header',
+          entry.key,
         );
       case 'row': {
         const item = items[entry.index];
@@ -695,32 +896,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
             style={{ ...singleRowStyle, cursor: 'pointer' }}
           >
-            {/* Boxed direction badge — ↑ amber, ↓ blue on their tinted
-                backgrounds (the gRPC list's anatomy). */}
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 18,
-                height: 18,
-                borderRadius: 4,
-                flexShrink: 0,
-                background: up ? token.colorWarningBgHover : token.colorPrimaryBg,
-              }}
-            >
-              {up ? (
-                <ArrowUpOutlined
-                  aria-label={t('workbench.editors.websocket.timeline.sentAria')}
-                  style={{ fontSize: 11, color: token.colorTextSecondary }}
-                />
-              ) : (
-                <ArrowDownOutlined
-                  aria-label={t('workbench.editors.websocket.timeline.receivedAria')}
-                  style={{ fontSize: 11, color: token.colorTextSecondary }}
-                />
-              )}
-            </span>
+            {directionBadge(up)}
             {sioCell ?? (
               <span
                 style={{
@@ -851,6 +1027,25 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 label: menuOptionLabel(t('workbench.editors.websocket.timeline.oldestFirst'), !newestFirst),
                 onClick: () => setNewestFirst(false),
               },
+              { type: 'divider' },
+              {
+                key: 'group',
+                label: menuOptionLabel(t('workbench.editors.websocket.timeline.groupByDirection'), groupByDirection),
+                onClick: () => setGroupByDirection(!groupByDirection),
+              },
+              {
+                key: 'group-limit',
+                label: t('workbench.editors.websocket.timeline.rowsPerGroup'),
+                disabled: !groupByDirection,
+                children: [0, 1, 3, 5, 10].map((n) => ({
+                  key: `group-limit-${n}`,
+                  label: menuOptionLabel(
+                    n === 0 ? t('workbench.editors.websocket.timeline.noLimit') : String(n),
+                    groupRowLimit === n,
+                  ),
+                  onClick: () => setGroupRowLimit(n),
+                })),
+              },
             ],
           }}
         >
@@ -897,6 +1092,28 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         </Tooltip>
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        {stickyGroup !== null && groups !== null && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 1,
+              right: 1,
+              zIndex: 1,
+              background: token.colorBgContainer,
+              borderTopLeftRadius: 4,
+              borderTopRightRadius: 4,
+              overflow: 'hidden',
+            }}
+          >
+            {renderGroupHeaderRow(
+              stickyGroup,
+              groups.find(([direction]) => direction === stickyGroup)?.[1].length ?? 0,
+              collapsedGroups.has(stickyGroup),
+              'ws-timeline-sticky-header',
+            )}
+          </div>
+        )}
         {hasNewMessages && (
           <Button
             size="small"
@@ -932,6 +1149,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               anchorRef.current = null;
               setHasNewMessages(false);
             }
+            updateStickyGroup(el);
             onWindowScroll();
           }}
           className="rules-thin-scrollbar"

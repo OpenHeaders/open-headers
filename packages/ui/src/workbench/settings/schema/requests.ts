@@ -19,11 +19,14 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.grpcMessagesGroupByType': boolean;
     'requests.grpcMessagesGroupRowLimit': number;
     'requests.wsMessagesNewestFirst': boolean;
+    'requests.wsMessagesGroupByDirection': boolean;
+    'requests.wsMessagesGroupRowLimit': number;
   }
 }
 
 registerSetting({
   key: 'requests.responseBodyCapMB',
+  subcategory: 'http',
   type: 'number',
   default: 2,
   // Validation admits the desktop ceiling everywhere so a synced value
@@ -46,6 +49,7 @@ registerSetting({
 // (typically INVALID_ARGUMENT) — the Postman posture.
 registerSetting({
   key: 'requests.grpcSendInvalidMessage',
+  subcategory: 'grpc',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -61,6 +65,7 @@ registerSetting({
 // choice survives Send/Stop remounts and reads the same everywhere.
 registerSetting({
   key: 'requests.sseEventsNewestFirst',
+  subcategory: 'sse',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -73,6 +78,7 @@ registerSetting({
 
 registerSetting({
   key: 'requests.sseEventsGroupByName',
+  subcategory: 'sse',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -88,6 +94,7 @@ registerSetting({
 // by the timeline's own toolbar too.
 registerSetting({
   key: 'requests.grpcMessagesNewestFirst',
+  subcategory: 'grpc',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -104,6 +111,7 @@ registerSetting({
 // tag, where it names the cluster.
 registerSetting({
   key: 'requests.grpcMessagesShowTypes',
+  subcategory: 'grpc',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -116,6 +124,7 @@ registerSetting({
 
 registerSetting({
   key: 'requests.grpcMessagesGroupByType',
+  subcategory: 'grpc',
   type: 'boolean',
   default: false,
   schema: v.boolean(),
@@ -128,6 +137,7 @@ registerSetting({
 
 registerSetting({
   key: 'requests.grpcMessagesGroupRowLimit',
+  subcategory: 'grpc',
   type: 'number',
   default: 0,
   schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
@@ -145,6 +155,7 @@ registerSetting({
 // the show-types / group-by-type knobs have no WS twin.
 registerSetting({
   key: 'requests.wsMessagesNewestFirst',
+  subcategory: 'websocket',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
@@ -155,10 +166,40 @@ registerSetting({
   scope: 'user',
 });
 
+// WS payloads carry no declared types, so grouping clusters by the one
+// classifier every frame has: direction (sent / received).
+registerSetting({
+  key: 'requests.wsMessagesGroupByDirection',
+  subcategory: 'websocket',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.wsMessagesGroupByDirection.label',
+  descriptionKey: 'workbench.settings.def.requests.wsMessagesGroupByDirection.description',
+  category: 'requests',
+  tags: ['websocket', 'ws', 'session', 'messages', 'timeline', 'group', 'cluster', 'direction'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'requests.wsMessagesGroupRowLimit',
+  subcategory: 'websocket',
+  type: 'number',
+  default: 0,
+  schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
+  labelKey: 'workbench.settings.def.requests.wsMessagesGroupRowLimit.label',
+  descriptionKey: 'workbench.settings.def.requests.wsMessagesGroupRowLimit.description',
+  category: 'requests',
+  tags: ['websocket', 'ws', 'session', 'messages', 'timeline', 'group', 'limit', 'rows', 'watch'],
+  scope: 'user',
+  numberRange: { min: 0, max: 100, step: 1 },
+});
+
 // Watch-several-groups-at-once mode: each group shows only its N
 // newest rows (the window slides as events arrive); 0 = no limit.
 registerSetting({
   key: 'requests.sseEventsGroupRowLimit',
+  subcategory: 'sse',
   type: 'number',
   default: 0,
   schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
