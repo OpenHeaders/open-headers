@@ -543,6 +543,8 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
   await liveBadge().filter({ hasText: 'CONNECTED' }).waitFor({ state: 'visible', timeout: 20_000 });
   await disconnectAndAwaitClose();
 
+  // Save Response lives in the session pane's ⋯ actions menu (first item).
+  await page.getByTestId('ws-session-actions').filter({ visible: true }).first().click();
   await page.getByTestId('ws-save-response').filter({ visible: true }).first().click();
 
   // The minted example opens in its viewer tab: the captured close

@@ -42,8 +42,9 @@ interface GrpcStreamPaneProps {
   onClear: () => void;
   /**
    * "Save Response" — snapshot the SETTLED stream capture as an example
-   * under the gRPC request. Rendered only once the snapshot is in
-   * (never mid-flight); undefined hides the button.
+   * under the gRPC request, first item of the ⋯ actions menu. Rendered
+   * only once the snapshot is in (never mid-flight); undefined hides
+   * the item.
    */
   onSaveResponse?: () => void;
 }
@@ -135,16 +136,27 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             durationMs={snapshot.durationMs}
             stopped={snapshot.stopped === true}
           />
-          {onSaveResponse && (
-            <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} data-testid="grpc-save-response">
-              {t('workbench.editors.grpc.response.saveResponse')}
-            </Button>
-          )}
           <Dropdown
             trigger={['click']}
             overlayStyle={{ minWidth: 180 }}
             menu={{
               items: [
+                // Save Response leads — the HTTP ResponsePanel's menu order.
+                ...(onSaveResponse
+                  ? [
+                      {
+                        key: 'save-response',
+                        icon: <ExampleChip />,
+                        label: (
+                          <span data-testid="grpc-save-response">
+                            {t('workbench.editors.grpc.response.saveResponse')}
+                          </span>
+                        ),
+                        onClick: onSaveResponse,
+                      },
+                      { type: 'divider' as const },
+                    ]
+                  : []),
                 {
                   key: 'clear',
                   icon: <ClearOutlined />,
@@ -159,6 +171,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
               type="text"
               icon={<EllipsisOutlined />}
               aria-label={t('workbench.editors.request.response.moreActionsAria')}
+              data-testid="grpc-response-actions"
             />
           </Dropdown>
         </>

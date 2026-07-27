@@ -643,6 +643,8 @@ test('Generate Collection on the two-service spec folders per service full name'
 test('Save Response freezes a unary result; the viewer opens and lands a sidebar leaf', async () => {
   await openGrpcRequest('e2egrpc1');
   await invokeAndAwaitOk();
+  // Save Response lives in the pane's ⋯ actions menu (first item).
+  await page.getByTestId('grpc-response-actions').filter({ visible: true }).first().click();
   await page.getByTestId('grpc-save-response').filter({ visible: true }).first().click();
   await page
     .locator('.ant-message')
@@ -691,7 +693,9 @@ test('a settled stream capture renders the recorded interleave without timestamp
   await expect.poll(async () => timelineMessageRows().count(), { timeout: 20000 }).toBe(4);
   await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 15000 });
 
-  // The e.g. chip appears only once the snapshot settles.
+  // The Save Response item appears only once the snapshot settles —
+  // first item of the pane's ⋯ actions menu.
+  await page.getByTestId('grpc-response-actions').filter({ visible: true }).first().click();
   await page.getByTestId('grpc-save-response').filter({ visible: true }).first().click();
   await page
     .locator('.ant-message')

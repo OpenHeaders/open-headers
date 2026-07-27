@@ -380,6 +380,8 @@ test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, O
   await connectAndAwaitOpen();
   await disconnectAndAwaitClose('Closed 1000');
 
+  // Save Response lives in the session pane's ⋯ actions menu (first item).
+  await workbench.getByTestId('ws-session-actions').filter({ visible: true }).first().click();
   await workbench.getByTestId('ws-save-response').filter({ visible: true }).first().click();
 
   // The minted example opens in its viewer tab: the captured close

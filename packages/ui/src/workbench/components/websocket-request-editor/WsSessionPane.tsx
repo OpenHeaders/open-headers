@@ -46,7 +46,8 @@ interface WsSessionPaneProps {
   listenedEvents?: readonly string[];
   onClear: () => void;
   /** "Save Response" — present only when the settled session can be
-   *  captured as an example (connected, non-error). */
+   *  captured as an example (connected, non-error). First item of the
+   *  ⋯ actions menu. */
   onSaveResponse?: () => void;
 }
 
@@ -190,16 +191,27 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           <Text type="secondary" style={{ fontSize: 11 }} data-testid="ws-session-duration">
             {t('workbench.editors.websocket.session.duration', { ms: snapshot.durationMs })}
           </Text>
-          {onSaveResponse && (
-            <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} data-testid="ws-save-response">
-              {t('workbench.editors.websocket.session.saveResponse')}
-            </Button>
-          )}
           <Dropdown
             trigger={['click']}
             overlayStyle={{ minWidth: 180 }}
             menu={{
               items: [
+                // Save Response leads — the HTTP ResponsePanel's menu order.
+                ...(onSaveResponse
+                  ? [
+                      {
+                        key: 'save-response',
+                        icon: <ExampleChip />,
+                        label: (
+                          <span data-testid="ws-save-response">
+                            {t('workbench.editors.websocket.session.saveResponse')}
+                          </span>
+                        ),
+                        onClick: onSaveResponse,
+                      },
+                      { type: 'divider' as const },
+                    ]
+                  : []),
                 {
                   key: 'clear',
                   icon: <ClearOutlined />,
@@ -214,6 +226,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
               type="text"
               icon={<EllipsisOutlined />}
               aria-label={t('workbench.editors.request.response.moreActionsAria')}
+              data-testid="ws-session-actions"
             />
           </Dropdown>
         </>
