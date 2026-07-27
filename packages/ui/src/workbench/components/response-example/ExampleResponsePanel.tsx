@@ -17,6 +17,7 @@ import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { listStatusCodes } from '@openheaders/ui/shared/info-popover/data/http-status';
+import { statusDisplayLabel, useStatusPillStyle } from '../request-editor/response/response-status';
 import { useSplitLayoutMenuItems } from '@openheaders/ui/shared/split-layout';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../languages/registry';
 import KeyValueTable from '../request-editor/KeyValueTable';
@@ -41,19 +42,10 @@ const StatusCodePicker: React.FC<{
   statusText: string;
   onCommit: (next: { status: number; statusText: string }) => void;
 }> = ({ status, statusText, onCommit }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
-
-  const statusColor =
-    status >= 500
-      ? token.colorError
-      : status >= 400
-        ? token.colorWarning
-        : status >= 200 && status < 300
-          ? token.colorSuccess
-          : token.colorTextSecondary;
+  const statusPill = useStatusPillStyle(status);
 
   const options = useMemo(() => listStatusCodes().map(({ code, phrase }) => ({ value: `${code} ${phrase}` })), []);
 
@@ -70,7 +62,7 @@ const StatusCodePicker: React.FC<{
           color="default"
           role="button"
           tabIndex={0}
-          style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0, cursor: 'pointer' }}
+          style={{ ...statusPill, cursor: 'pointer' }}
           onClick={() => {
             setText('');
             setEditing(true);
@@ -82,7 +74,7 @@ const StatusCodePicker: React.FC<{
             }
           }}
         >
-          {status} {statusText}
+          {statusDisplayLabel(status, statusText)}
         </Tag>
       </Tooltip>
     );

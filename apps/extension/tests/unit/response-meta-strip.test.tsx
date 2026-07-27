@@ -61,8 +61,25 @@ function makeSnapshot(overrides: Partial<ExecutedRequestSnapshot> = {}): Execute
 }
 
 function renderStrip(overrides: Partial<ExecutedRequestSnapshot> = {}) {
-  return render(<ResponseMetaStrip response={makeSnapshot(overrides)} statusColor="#37be5f" />);
+  return render(<ResponseMetaStrip response={makeSnapshot(overrides)} />);
 }
+
+describe('ResponseMetaStrip status chip', () => {
+  it('keeps the server-sent reason phrase', () => {
+    renderStrip();
+    expect(screen.getByTestId('oh-response-status').textContent).toBe('200 OK');
+  });
+
+  it('falls back to the canonical phrase when the wire carried none (HTTP/2)', () => {
+    renderStrip({ status: 404, statusText: '' });
+    expect(screen.getByTestId('oh-response-status').textContent).toBe('404 Not Found');
+  });
+
+  it('shows the bare code for a code with no curated phrase', () => {
+    renderStrip({ status: 599, statusText: '' });
+    expect(screen.getByTestId('oh-response-status').textContent).toBe('599');
+  });
+});
 
 describe('ResponseMetaStrip cookie-jar attribution', () => {
   it('shows no cookie-jar tag on a run without jar activity', () => {

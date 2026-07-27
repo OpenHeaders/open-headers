@@ -13,6 +13,7 @@ import type { LiveSendStream } from '../useLiveSendStream';
 import { MetaDot } from './ResponseMetaStrip';
 import { formatBytes } from './response-format';
 import { formatDurationRolled } from './response-meta';
+import { statusDisplayLabel, useStatusPillStyle } from './response-status';
 
 const { Text } = Typography;
 
@@ -27,16 +28,7 @@ const ResponseLiveMetaStrip: React.FC<{ live: LiveSendStream }> = ({ live }) => 
     return () => window.clearInterval(timer);
   }, []);
 
-  const statusColor =
-    live.head === null
-      ? token.colorTextSecondary
-      : live.head.status >= 500
-        ? token.colorError
-        : live.head.status >= 400
-          ? token.colorWarning
-          : live.head.status >= 200 && live.head.status < 300
-            ? token.colorSuccess
-            : token.colorTextSecondary;
+  const statusPill = useStatusPillStyle(live.head?.status ?? null);
 
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
 
@@ -55,9 +47,9 @@ const ResponseLiveMetaStrip: React.FC<{ live: LiveSendStream }> = ({ live }) => 
           <Tag
             color="default"
             data-testid="oh-response-live-status"
-            style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0 }}
+            style={statusPill}
           >
-            {live.head.status} {live.head.statusText}
+            {statusDisplayLabel(live.head.status, live.head.statusText)}
           </Tag>
           <MetaDot />
         </>

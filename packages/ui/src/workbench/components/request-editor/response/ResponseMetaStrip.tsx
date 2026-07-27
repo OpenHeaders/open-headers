@@ -19,6 +19,7 @@ import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { formatBytes } from './response-format';
+import { statusDisplayLabel, useStatusPillStyle } from './response-status';
 import {
   formatDurationRolled,
   formatPhaseMs,
@@ -437,8 +438,7 @@ function RedirectChainFacts({ response }: { response: ExecutedRequestSnapshot })
             {hop.method} {hop.url}
           </span>
           <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-            → {hop.status}
-            {hop.statusText ? ` ${hop.statusText}` : ''}
+            → {statusDisplayLabel(hop.status, hop.statusText)}
             {' · '}Location: {hop.location}
           </span>
           {hop.methodChangedTo !== undefined && (
@@ -467,8 +467,7 @@ function RedirectChainFacts({ response }: { response: ExecutedRequestSnapshot })
       >
         <span style={requestLine}>{response.url}</span>
         <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-          → {response.status}
-          {response.statusText ? ` ${response.statusText}` : ''} ·{' '}
+          → {statusDisplayLabel(response.status, response.statusText)} ·{' '}
           {t('workbench.editors.request.response.meta.redirectFinal')}
         </span>
       </div>
@@ -602,8 +601,6 @@ function networkContent(response: ExecutedRequestSnapshot, t: Translate): InfoPo
 
 interface ResponseMetaStripProps {
   response: ExecutedRequestSnapshot;
-  /** Status-range tint computed by the panel (theme tokens live there). */
-  statusColor: string;
 }
 
 /** Tiny round separator between the strip's facts — shared with the
@@ -618,9 +615,10 @@ export const MetaDot: React.FC = () => {
   );
 };
 
-const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusColor }) => {
+const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const statusPill = useStatusPillStyle(response.status);
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   // The strip leads with the on-wire size when the server exposes it
   // (matches devtools' Size column); decoded bytes otherwise. The
@@ -639,9 +637,9 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
           // Styled status chip with no semantic role/name — the one
           // response-panel element e2e can't target via getByRole/text.
           data-testid="oh-response-status"
-          style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0, cursor: 'help' }}
+          style={{ ...statusPill, cursor: 'help' }}
         >
-          {response.status} {response.statusText}
+          {statusDisplayLabel(response.status, response.statusText)}
         </Tag>
       </InfoPopover>
       <MetaDot />

@@ -213,16 +213,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     downloadBodyAsFile(response, detectBodyLanguage(response.headers));
   };
 
-  const statusColor =
-    !response
-      ? token.colorTextSecondary
-      : response.status >= 500
-        ? token.colorError
-        : response.status >= 400
-          ? token.colorWarning
-          : response.status >= 200 && response.status < 300
-            ? token.colorSuccess
-            : token.colorTextSecondary;
 
   return (
     <div
@@ -332,7 +322,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           tabBarExtraContent={{
             right: (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-                <ResponseMetaStrip response={response} statusColor={statusColor} />
+                <ResponseMetaStrip response={response} />
                 {onSaveResponse && (
                   <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} disabled={sending}>
                     {t('workbench.editors.request.response.saveResponse')}
