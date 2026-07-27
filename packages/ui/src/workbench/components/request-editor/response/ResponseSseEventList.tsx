@@ -129,6 +129,9 @@ interface ResponseSseEventListProps {
 type ListEntry =
   | { key: string; kind: 'ended' | 'connected' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; name: string; count: number; collapsed: boolean }
+  /** "Show N older events" at a windowed group's older edge; the
+   *  un-windowed state's re-window action lives on the group header. */
+  | { key: string; kind: 'groupMore'; name: string; hidden: number }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
 
@@ -312,10 +315,17 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   // rows (the window slides as events arrive); 0 = no limit.
   const [groupRowLimit, setGroupRowLimit] = useSetting('requests.sseEventsGroupRowLimit');
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // Per-group escape hatch from the row-limit window — display-local
+  // (like collapse), so lifting one group's window never touches the
+  // global setting or the other groups.
+  const [unwindowedGroups, setUnwindowedGroups] = useState<ReadonlySet<string>>(new Set<string>());
   // The group whose rows span the viewport top — its header pins as an
   // overlay (a CSS-sticky header would virtualize out of the DOM), so
   // the group identity + total stay visible and collapsible mid-scroll.
   const [stickyGroup, setStickyGroup] = useState<string | null>(null);
+  // Right inset for the sticky overlay — measured scrollbar width (+
+  // the scroller's border), so the overlay never covers the thumb.
+  const [stickyRightInset, setStickyRightInset] = useState(1);
 
   // When the user has scrolled away from the edge where new rows land
   // and more events commit, a jump pill floats over the list instead
@@ -345,6 +355,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     setClearedCount(0);
     setExpanded(new Set<number>());
     setCollapsedGroups(new Set<string>());
+    setUnwindowedGroups(new Set<string>());
     setHasNewEvents(false);
     awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
@@ -437,14 +448,24 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         if (!collapsed) {
           // displayRows order puts a group's newest member first in
           // newest-first and last in oldest-first — the limit window
-          // slices the newest end either way.
-          const shown =
-            groupRowLimit > 0
-              ? newestFirst
-                ? indexes.slice(0, groupRowLimit)
-                : indexes.slice(-groupRowLimit)
-              : indexes;
+          // slices the newest end either way. A group the user
+          // un-windowed shows everything; the re-window action rides
+          // its header.
+          const windowed = groupRowLimit > 0 && !unwindowedGroups.has(name) && indexes.length > groupRowLimit;
+          const shown = windowed
+            ? newestFirst
+              ? indexes.slice(0, groupRowLimit)
+              : indexes.slice(-groupRowLimit)
+            : indexes;
+          const more: ListEntry | null = windowed
+            ? { key: `m${name}`, kind: 'groupMore', name, hidden: indexes.length - shown.length }
+            : null;
+          // The toggle sits at the group's OLDER edge — where the
+          // hidden rows would continue: below the shown tail in
+          // newest-first, right under the header in oldest-first.
+          if (!newestFirst && more) out.push(more);
           for (const index of shown) pushRow(index);
+          if (newestFirst && more) out.push(more);
         }
         ranges.push({ name, startEntry, endEntry: out.length });
       }
@@ -469,6 +490,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     expanded,
     collapsedGroups,
     groupRowLimit,
+    unwindowedGroups,
   ]);
 
   const heights = useMemo(() => entries.map((e) => (e.kind === 'viewer' ? VIEWER_PX : SINGLE_ROW_PX)), [entries]);
@@ -513,6 +535,9 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
       setStickyGroup(null);
       return;
     }
+    // offsetWidth − clientWidth = both borders + the vertical
+    // scrollbar; the overlay already sits 1px in for the left border.
+    setStickyRightInset(Math.max(1, el.offsetWidth - el.clientWidth - 1));
     const idx = entryIndexAt(prefix, el.scrollTop);
     const range = groupRanges.find((r) => idx >= r.startEntry && idx < r.endEntry);
     setStickyGroup(range ? range.name : null);
@@ -523,6 +548,15 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     const el = scrollerRef.current;
     if (el) updateStickyGroup(el);
   }, [entries, prefix]);
+
+  const toggleGroupWindow = (name: string) => {
+    setUnwindowedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const toggleGroup = (name: string) => {
     setCollapsedGroups((prev) => {
@@ -613,6 +647,34 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {t('workbench.editors.request.response.sse.eventCount', { count: memberCount })}
         </Text>
+        {/* Re-window action for an un-windowed group — a group-level
+            mode switch, so it rides the header (beside the total, past
+            a divider) rather than a positional row. Clicks stay off
+            the header's collapse action. */}
+        {!collapsed && groupRowLimit > 0 && unwindowedGroups.has(name) && memberCount > groupRowLimit && (
+          <>
+            <span aria-hidden style={{ width: 1, height: 14, background: token.colorBorderSecondary }} />
+            <span
+              role="button"
+              tabIndex={0}
+              data-testid="oh-sse-group-rewindow"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleGroupWindow(name);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  toggleGroupWindow(name);
+                }
+              }}
+              style={{ fontSize: 11, color: token.colorPrimary, whiteSpace: 'nowrap', cursor: 'pointer' }}
+            >
+              {t('shared.timelineGroup.showNewestOnly', { count: groupRowLimit })}
+            </span>
+          </>
+        )}
       </div>
     );
   };
@@ -664,6 +726,25 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         );
       case 'header':
         return renderGroupHeaderRow(entry.name, entry.count, entry.collapsed, 'oh-sse-group-header', entry.key);
+      case 'groupMore':
+        return (
+          <div
+            key={entry.key}
+            role="button"
+            tabIndex={0}
+            data-testid="oh-sse-group-more"
+            onClick={() => toggleGroupWindow(entry.name)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleGroupWindow(entry.name);
+              }
+            }}
+            style={{ ...singleRowStyle, cursor: 'pointer', fontSize: 12, color: token.colorPrimary }}
+          >
+            {t('shared.timelineGroup.showOlder', { count: entry.hidden })}
+          </div>
+        );
       case 'row': {
         const item = items[entry.index];
         const badge = badgeOf(item.record);
@@ -896,11 +977,10 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
               position: 'absolute',
               top: 0,
               left: 1,
-              right: 1,
+              right: stickyRightInset,
               zIndex: 1,
               background: token.colorBgContainer,
               borderTopLeftRadius: 4,
-              borderTopRightRadius: 4,
               overflow: 'hidden',
             }}
           >
