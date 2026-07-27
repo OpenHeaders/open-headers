@@ -19,7 +19,7 @@ import Editor, { type Monaco } from '@monaco-editor/react';
 import { Alert, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type LanguageId, toMonacoLanguage } from '../../languages/registry';
 import { resolveFontFamily } from '../../settings/schema/editor';
 import { useSettingValue } from '../../settings/hooks';
@@ -102,6 +102,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const { token } = theme.useToken();
   const { monacoTheme } = useUiTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // Mounted-instance signal for effects that must attach editor
+  // listeners — the ref alone can't re-run an effect at mount time.
+  const [mountedEditor, setMountedEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // Runtime monaco namespace, captured at mount — the module import is
+  // type-only (the loader owns the runtime), but the EOL decorations
+  // need its enums.
+  const monacoApiRef = useRef<Monaco | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
 
@@ -143,7 +150,64 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const wordWrap = useSettingValue('editor.wordWrap');
   const lineNumbers = useSettingValue('editor.lineNumbers');
   const renderWhitespace = useSettingValue('editor.renderWhitespace');
+  const renderLineEnds = useSettingValue('editor.renderLineEnds');
   const bracketPairColorization = useSettingValue('editor.bracketPairColorization');
+
+  // EOL glyphs — a paint-only ¬ after each real line ending (Vim's
+  // `listchars eol` convention; Monaco has no native equivalent). The
+  // glyph rides an injected-text decoration: never part of the model,
+  // never selectable, never copied. Only the VISIBLE ranges are
+  // decorated, re-derived on scroll / edit / layout, so megabyte
+  // read-only bodies never carry per-line decorations. The buffer's
+  // final line ends without a newline, so it gets no glyph.
+  useEffect(() => {
+    const editor = mountedEditor;
+    if (!editor || !renderLineEnds) return;
+    const collection = editor.createDecorationsCollection();
+    const cursorStops = monacoApiRef.current?.editor.InjectedTextCursorStops.None;
+    const paint = () => {
+      const model = editor.getModel();
+      if (!model) {
+        collection.clear();
+        return;
+      }
+      const lastEol = model.getLineCount() - 1;
+      const decorations: monaco.editor.IModelDeltaDecoration[] = [];
+      for (const range of editor.getVisibleRanges()) {
+        const last = Math.min(range.endLineNumber, lastEol);
+        for (let line = range.startLineNumber; line <= last; line++) {
+          const column = model.getLineMaxColumn(line);
+          decorations.push({
+            range: { startLineNumber: line, startColumn: column, endLineNumber: line, endColumn: column },
+            // The range is collapsed (a caret position, not a span) —
+            // without `showIfCollapsed` Monaco culls the decoration
+            // and the injected glyph never paints. `cursorStops: None`
+            // keeps the caret from treating the paint as a stop, so
+            // arrowing across the line end feels glyph-free.
+            options: {
+              showIfCollapsed: true,
+              after: {
+                content: '¬',
+                inlineClassName: 'oh-eol-glyph',
+                ...(cursorStops !== undefined ? { cursorStops } : {}),
+              },
+            },
+          });
+        }
+      }
+      collection.set(decorations);
+    };
+    paint();
+    const subscriptions = [
+      editor.onDidScrollChange(paint),
+      editor.onDidChangeModelContent(paint),
+      editor.onDidLayoutChange(paint),
+    ];
+    return () => {
+      for (const subscription of subscriptions) subscription.dispose();
+      collection.clear();
+    };
+  }, [mountedEditor, renderLineEnds]);
 
   // Whether a `DocumentFormattingEditProvider` is registered for the
   // language — single source of truth for "is this buffer
@@ -284,6 +348,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         value={value}
         onMount={(ed, monacoApi) => {
           editorRef.current = ed;
+          monacoApiRef.current = monacoApi;
+          setMountedEditor(ed);
           // Bind the configured find / replace / format chords from
           // the `keyboard.*` settings as page-global Monaco keybinding
           // rules (and keep them synced on rebind) — so Settings →

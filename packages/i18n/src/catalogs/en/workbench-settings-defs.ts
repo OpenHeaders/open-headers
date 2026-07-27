@@ -387,6 +387,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.renderWhitespace.option.none.label': 'None',
   'workbench.settings.def.editor.renderWhitespace.option.boundary.label': 'Boundary only',
   'workbench.settings.def.editor.renderWhitespace.option.all.label': 'All',
+  'workbench.settings.def.editor.renderLineEnds.label': 'Render Line Endings',
+  'workbench.settings.def.editor.renderLineEnds.description':
+    'Paint a faint ¬ after the last character of every real line, so soft-wrapped rows (blank gutter number, hanging indent, no mark) can never be mistaken for line breaks. Display-only: the mark is never selectable, copied, or sent.',
   'workbench.settings.def.editor.formatOnSave.label': 'Format on Save',
   'workbench.settings.def.editor.formatOnSave.description':
     'Automatically format editor contents when you save a rule or template.',

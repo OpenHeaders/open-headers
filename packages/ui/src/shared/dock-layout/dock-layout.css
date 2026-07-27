@@ -1249,6 +1249,15 @@
   background: rgba(128, 128, 128, 0.08);
 }
 
+/* EOL glyph (`editor.renderLineEnds`) — the injected ¬ after each real
+ * line ending in Monaco buffers. Faint translucent gray reads on both
+ * themes; pointer-events off so it never intercepts clicks near the
+ * line end. */
+.oh-eol-glyph {
+  color: rgba(128, 128, 128, 0.45) !important;
+  pointer-events: none;
+}
+
 /* Scope-color tokens — drive the colored letter badges produced by
  * `scopeBadge()` in @/workbench/components/shared/scope-colors.ts.
  * Workspace already declares these in rules.less; redeclaring here

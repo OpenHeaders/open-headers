@@ -97,6 +97,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'editor.wordWrapColumn': number;
     'editor.lineNumbers': boolean;
     'editor.renderWhitespace': RenderWhitespace;
+    'editor.renderLineEnds': boolean;
     'editor.formatOnSave': boolean;
     'editor.bracketPairColorization': boolean;
   }
@@ -241,6 +242,22 @@ registerSetting({
     { value: 'boundary', labelKey: 'workbench.settings.def.editor.renderWhitespace.option.boundary.label' },
     { value: 'all', labelKey: 'workbench.settings.def.editor.renderWhitespace.option.all.label' },
   ],
+});
+
+// The whitespace family's newline sibling — a paint-only ¬ after each
+// real line ending, so soft-wrapped rows (blank gutter, hanging
+// indent, no glyph) can never be mistaken for line breaks. Injected
+// decoration text: never selectable, never copied, never sent.
+registerSetting({
+  key: 'editor.renderLineEnds',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.editor.renderLineEnds.label',
+  descriptionKey: 'workbench.settings.def.editor.renderLineEnds.description',
+  category: 'editor',
+  tags: ['whitespace', 'invisible', 'newline', 'eol', 'line', 'ending', 'wrap'],
+  scope: 'user',
 });
 
 registerSetting({
