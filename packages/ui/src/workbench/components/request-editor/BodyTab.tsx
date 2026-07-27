@@ -29,16 +29,16 @@
  */
 
 import type { RequestBody } from '@openheaders/core/types';
-import { Radio, Select, Typography, theme } from 'antd';
+import { Button, Radio, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
-import { ViewPickerIcon } from './response/ViewPickerIcons';
+import { ViewPickerIcon, WrapLinesIcon } from './response/ViewPickerIcons';
 
 const { Text } = Typography;
 
@@ -138,6 +138,11 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   // Beautify clusters live in the rows ABOVE the editors (`actions=
   // "external"`), so they never cover long first lines of the buffer.
   const rawActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+  // Compose-editor wrap — one per-tab override of the global
+  // `editor.wordWrap` setting shared by the raw and GraphQL editors,
+  // ON by default (a body is prose-like; horizontal scrolling hides
+  // the tail).
+  const [wrapBody, setWrapBody] = useState(true);
   const graphqlQueryActionsRef = useRef<CodeEditorActionsTarget | null>(null);
   const graphqlVariablesActionsRef = useRef<CodeEditorActionsTarget | null>(null);
   // Mirror the live body into the cache on every render so the active
@@ -199,12 +204,32 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           />
         )}
         {radio === 'raw' && (
-          <CodeEditorActions
-            target={rawActionsRef}
-            language={rawLangForEditor}
-            formatText={t('workbench.editors.request.body.beautify')}
-            style={{ marginLeft: 'auto' }}
-          />
+          <>
+            <CodeEditorActions
+              target={rawActionsRef}
+              language={rawLangForEditor}
+              formatText={t('workbench.editors.request.body.beautify')}
+              style={{ marginLeft: 'auto' }}
+            />
+            <Tooltip
+              title={
+                wrapBody
+                  ? t('workbench.editors.request.response.body.unwrapLines')
+                  : t('workbench.editors.request.response.body.wrapLines')
+              }
+              placement="bottom"
+            >
+              <Button
+                size="small"
+                type="text"
+                icon={<WrapLinesIcon />}
+                aria-label={t('shared.codeEditor.wrap')}
+                onClick={() => setWrapBody((prev) => !prev)}
+                style={wrapBody ? { background: token.colorBgTextActive } : undefined}
+                data-testid="oh-body-wrap"
+              />
+            </Tooltip>
+          </>
         )}
       </div>
 
@@ -248,6 +273,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               valueDetection
               actions="external"
               actionsRef={rawActionsRef}
+              wordWrapOverride={wrapBody ? 'on' : 'off'}
             />
           </div>
         </div>
@@ -283,6 +309,24 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                 }}
               />
               <CodeEditorActions target={graphqlQueryActionsRef} language="graphql" style={{ marginLeft: 'auto' }} />
+              <Tooltip
+              title={
+                wrapBody
+                  ? t('workbench.editors.request.response.body.unwrapLines')
+                  : t('workbench.editors.request.response.body.wrapLines')
+              }
+              placement="bottom"
+            >
+              <Button
+                size="small"
+                type="text"
+                icon={<WrapLinesIcon />}
+                aria-label={t('shared.codeEditor.wrap')}
+                onClick={() => setWrapBody((prev) => !prev)}
+                style={wrapBody ? { background: token.colorBgTextActive } : undefined}
+                data-testid="oh-graphql-query-wrap"
+              />
+            </Tooltip>
             </div>
             <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
@@ -299,6 +343,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   fill
                   actions="external"
                   actionsRef={graphqlQueryActionsRef}
+                  wordWrapOverride={wrapBody ? 'on' : 'off'}
                 />
               </div>
             </div>
@@ -323,6 +368,24 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                 }}
               />
               <CodeEditorActions target={graphqlVariablesActionsRef} language="json" style={{ marginLeft: 'auto' }} />
+              <Tooltip
+              title={
+                wrapBody
+                  ? t('workbench.editors.request.response.body.unwrapLines')
+                  : t('workbench.editors.request.response.body.wrapLines')
+              }
+              placement="bottom"
+            >
+              <Button
+                size="small"
+                type="text"
+                icon={<WrapLinesIcon />}
+                aria-label={t('shared.codeEditor.wrap')}
+                onClick={() => setWrapBody((prev) => !prev)}
+                style={wrapBody ? { background: token.colorBgTextActive } : undefined}
+                data-testid="oh-graphql-variables-wrap"
+              />
+            </Tooltip>
             </div>
             <div style={{ flex: 1, minHeight: 100, position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
@@ -335,6 +398,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
                   fill
                   actions="external"
                   actionsRef={graphqlVariablesActionsRef}
+                  wordWrapOverride={wrapBody ? 'on' : 'off'}
                 />
               </div>
             </div>

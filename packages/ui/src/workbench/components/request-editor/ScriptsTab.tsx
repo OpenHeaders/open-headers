@@ -17,7 +17,7 @@
 
 import type { ScriptKind } from '@openheaders/core/scripts';
 import type { MessageKey } from '@openheaders/i18n';
-import { Divider, theme } from 'antd';
+import { Button, Divider, Tooltip, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -29,6 +29,7 @@ import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import { WrapLinesIcon } from './response/ViewPickerIcons';
 import DismissLayer from '../template-input/DismissLayer';
 import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
 import SetAsVariablePopover from '../template-input/SetAsVariablePopover';
@@ -97,6 +98,10 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [active, setActive] = useState<ScriptKind>('pre-request');
+  // Script-editor wrap — a per-pane override of the global
+  // `editor.wordWrap` setting; OFF by default (scripts are code, and
+  // the code idiom keeps long lines on one line).
+  const [wrapScript, setWrapScript] = useState(false);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   // Imperative surface of the mounted editor — drives the labelled
   // Find / Replace / Beautify cluster in the toolbar row above it.
@@ -215,7 +220,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         {/* Toolbar row ABOVE the editor (labelled variant of the shared
             cluster) — keeps the buttons out of the buffer so they never
             cover long first lines. */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
           <CodeEditorActions
             target={editorActionsRef}
             language="javascript"
@@ -224,6 +229,25 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             replaceText={t('workbench.editors.scriptEditor.replace')}
             formatText={t('workbench.editors.scriptEditor.beautify')}
           />
+          <Tooltip
+            title={
+              wrapScript
+                ? t('workbench.editors.request.response.body.unwrapLines')
+                : t('workbench.editors.request.response.body.wrapLines')
+            }
+            placement="bottom"
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<WrapLinesIcon />}
+              onClick={() => setWrapScript((prev) => !prev)}
+              style={wrapScript ? { background: token.colorBgTextActive } : undefined}
+              data-testid="oh-script-wrap"
+            >
+              {t('shared.codeEditor.wrap')}
+            </Button>
+          </Tooltip>
         </div>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           {/* Absolute inset host: the fill editor must not contribute
@@ -241,6 +265,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
               fill
               actions="external"
               actionsRef={editorActionsRef}
+              wordWrapOverride={wrapScript ? 'on' : 'off'}
               placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
               onEditorMount={(editor) => {
                 editorRef.current = editor;

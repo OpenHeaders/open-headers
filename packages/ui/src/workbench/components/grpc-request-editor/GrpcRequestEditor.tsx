@@ -91,6 +91,7 @@ import { subscribeGrpcPrefill } from './grpc-prefill-bus';
 import { useSetting } from '../../settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
@@ -188,6 +189,10 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   const [draft, setDraft] = useState<GrpcDraft>(() => (entity ? draftFromGrpcRequest(entity) : emptyGrpcDraft()));
   const [activeTab, setActiveTab] = useState('message');
+  // Compose-editor wrap — a per-pane override of the global
+  // `editor.wordWrap` setting, ON by default (a request message is
+  // prose-like JSON; horizontal scrolling hides the tail).
+  const [wrapMessage, setWrapMessage] = useState(true);
 
   const formFingerprint = useMemo(() => stableStringify(buildGrpcRequestUpdates(draft)), [draft]);
 
@@ -883,6 +888,25 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                             replaceText={t('workbench.editors.scriptEditor.replace')}
                             formatText={t('workbench.editors.scriptEditor.beautify')}
                           />
+                          <Tooltip
+                            title={
+                              wrapMessage
+                                ? t('workbench.editors.request.response.body.unwrapLines')
+                                : t('workbench.editors.request.response.body.wrapLines')
+                            }
+                            placement="bottom"
+                          >
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<WrapLinesIcon />}
+                              onClick={() => setWrapMessage((prev) => !prev)}
+                              style={wrapMessage ? { background: token.colorBgTextActive } : undefined}
+                              data-testid="grpc-message-wrap"
+                            >
+                              {t('shared.codeEditor.wrap')}
+                            </Button>
+                          </Tooltip>
                         </div>
                         {/* Absolute inset host — a fill editor must not size
                           its own flex parent (the BodyTab discipline). */}
@@ -895,6 +919,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                               fill
                               actions="external"
                               actionsRef={messageActionsRef}
+                              wordWrapOverride={wrapMessage ? 'on' : 'off'}
                               placeholder={t('workbench.editors.grpc.messagePlaceholder')}
                             />
                           </div>

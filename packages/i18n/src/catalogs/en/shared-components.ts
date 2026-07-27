@@ -444,6 +444,9 @@ export const sharedComponents = {
   // rows-per-group limit hides a group's older messages (gRPC + WS
   // message timelines share these).
   'shared.timelineGroup.showOlder': 'Show {count} older',
+  // Compose-editor toolbar wrap toggle — shared by every request
+  // editor's Monaco compose surface.
+  'shared.codeEditor.wrap': 'Wrap',
   'shared.timelineGroup.showNewestOnly': 'Show only the newest {count}',
   // Peer-execute refusal notice — the host-aware reading of the wire's
   // two-tier opt-in refusal (the quoted phrases are the settings rows'

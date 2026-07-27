@@ -102,6 +102,7 @@ import {
 import type { LanguageId } from '@openheaders/ui/workbench/languages/registry';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import DocsTab from '../request-editor/DocsTab';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
@@ -418,6 +419,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // whole-array editor instead of guessing.
   const [argTexts, setArgTexts] = useState<string[] | null>(null);
   const [activeArg, setActiveArg] = useState(0);
+  // Compose-editor wrap — a per-pane override of the global
+  // `editor.wordWrap` setting, ON by default (a message payload is
+  // prose-like; horizontal scrolling hides the tail).
+  const [wrapMessage, setWrapMessage] = useState(true);
   const composedArgsRef = useRef<string | null>(null);
   useEffect(() => {
     if (entity?.flavor !== 'socketio') return;
@@ -936,6 +941,25 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         formatText={t('workbench.editors.scriptEditor.beautify')}
                       />
                     )}
+                    <Tooltip
+                      title={
+                        wrapMessage
+                          ? t('workbench.editors.request.response.body.unwrapLines')
+                          : t('workbench.editors.request.response.body.wrapLines')
+                      }
+                      placement="bottom"
+                    >
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={<WrapLinesIcon />}
+                        onClick={() => setWrapMessage((prev) => !prev)}
+                        style={wrapMessage ? { background: token.colorBgTextActive } : undefined}
+                        data-testid="ws-message-wrap"
+                      >
+                        {t('shared.codeEditor.wrap')}
+                      </Button>
+                    </Tooltip>
                   </div>
                   {/* Absolute inset host — a fill editor must not size
                     its own flex parent (the BodyTab discipline). */}
@@ -1016,6 +1040,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                             fill
                             actions="external"
                             actionsRef={messageActionsRef}
+                            wordWrapOverride={wrapMessage ? 'on' : 'off'}
                             placeholder={t('workbench.editors.websocket.event.argPlaceholder')}
                           />
                         ) : (
@@ -1026,6 +1051,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                             fill
                             actions="external"
                             actionsRef={messageActionsRef}
+                            wordWrapOverride={wrapMessage ? 'on' : 'off'}
                             placeholder={
                               socketioFlavor
                                 ? t('workbench.editors.websocket.event.argsPlaceholder')

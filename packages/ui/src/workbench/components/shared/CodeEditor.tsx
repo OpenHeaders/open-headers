@@ -215,6 +215,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     tabSize,
     insertSpaces,
     wordWrap: wordWrapOverride ?? (wordWrap === 'off' ? 'off' : wordWrap === 'bounded' ? 'bounded' : 'on'),
+    // Soft-wrap legibility (the VS Code convention): a continuation
+    // row indents one level PAST its logical line, so together with
+    // its blank gutter number it reads as a wrap, never a new line.
+    wrappingIndent: 'indent',
     automaticLayout: true,
     readOnly,
     scrollBeyondLastLine: false,
