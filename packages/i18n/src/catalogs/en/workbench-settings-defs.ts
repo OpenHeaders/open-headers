@@ -416,6 +416,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'gRPC Messages: Group by Message Type',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     'Cluster the gRPC message timeline under collapsible message-type headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'gRPC Messages: Group by Direction',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
+    'Cluster the gRPC message timeline under collapsible sent / received headers. Combined with grouping by message type, each (type, direction) pair gets its own group — useful on bidi calls whose request and response share one message type. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC Messages: Rows per Group',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'When grouping by message type, show only this many of each group’s newest messages — the window slides as new messages arrive, so several groups stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',

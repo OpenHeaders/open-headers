@@ -17,6 +17,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.grpcMessagesNewestFirst': boolean;
     'requests.grpcMessagesShowTypes': boolean;
     'requests.grpcMessagesGroupByType': boolean;
+    'requests.grpcMessagesGroupByDirection': boolean;
     'requests.grpcMessagesGroupRowLimit': number;
     'requests.wsMessagesNewestFirst': boolean;
     'requests.wsMessagesGroupByDirection': boolean;
@@ -132,6 +133,23 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.requests.grpcMessagesGroupByType.description',
   category: 'requests',
   tags: ['grpc', 'stream', 'messages', 'timeline', 'group', 'cluster', 'type'],
+  scope: 'user',
+});
+
+// The second grouping axis — an rpc's types are FIXED per direction,
+// so the two axes usually partition identically; direction earns its
+// keep on bidi calls whose request and response share one type (both
+// on: compound (type, direction) group identity, one header level).
+registerSetting({
+  key: 'requests.grpcMessagesGroupByDirection',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.grpcMessagesGroupByDirection.label',
+  descriptionKey: 'workbench.settings.def.requests.grpcMessagesGroupByDirection.description',
+  category: 'requests',
+  subcategory: 'grpc',
+  tags: ['grpc', 'stream', 'messages', 'timeline', 'group', 'cluster', 'direction'],
   scope: 'user',
 });
 
