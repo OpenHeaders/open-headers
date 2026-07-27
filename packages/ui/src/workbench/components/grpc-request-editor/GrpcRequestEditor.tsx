@@ -4,9 +4,11 @@
  * Editor shell: host URL + TLS lock, method selector grouped by
  * service with call-shape glyphs (derived live from the linked
  * Protobuf spec via `deriveGrpcMethods` — ids-only specLink, nothing
- * cached; while no spec is linked the same selector is the entry
- * point, offering workspace protobuf specs to link inline and an
- * import-a-.proto action that mints a spec and links it),
+ * cached; the same selector is also the spec entry point in EVERY
+ * state, offering workspace protobuf specs to link inline and an
+ * import-a-.proto action that mints a spec and links it — linked, the
+ * other specs read as a switch; the Service definition tab's spec
+ * select carries the same import action),
  * Message / Metadata / Service definition / Settings tabs,
  * and "Use Example Message" wiring `synthesizeExampleMessage` into the
  * Message tab. Invoke fires the CURRENT compose state (saved or not)
@@ -275,29 +277,30 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           })),
         });
       }
-    } else {
-      // No spec linked — the selector IS the entry point: link a
-      // workspace protobuf spec inline, or import a .proto file as one.
-      if (protobufSpecs.length > 0) {
-        groups.push({
-          label: t('workbench.editors.grpc.method.linkGroup'),
-          options: protobufSpecs.map((s) => ({
-            value: `${GRPC_SPEC_LINK_VALUE_PREFIX}${s.uid}`,
-            label: s.name,
-            selectedLabel: s.name,
-            title: s.name,
-          })),
-        });
-      }
-      if (workspaceId) {
-        const importLabel = t('workbench.editors.grpc.method.importProto');
-        groups.push({
-          value: GRPC_IMPORT_PROTO_VALUE,
-          label: importLabel,
-          selectedLabel: importLabel,
-          title: importLabel,
-        });
-      }
+    }
+    // The selector is the spec entry point in every state: link a
+    // workspace protobuf spec inline (linked, the OTHER specs read as
+    // a switch), or import a .proto file as one.
+    const linkableSpecs = protobufSpecs.filter((s) => s.uid !== linkedSpec?.uid);
+    if (linkableSpecs.length > 0) {
+      groups.push({
+        label: t('workbench.editors.grpc.method.linkGroup'),
+        options: linkableSpecs.map((s) => ({
+          value: `${GRPC_SPEC_LINK_VALUE_PREFIX}${s.uid}`,
+          label: s.name,
+          selectedLabel: s.name,
+          title: s.name,
+        })),
+      });
+    }
+    if (workspaceId) {
+      const importLabel = t('workbench.editors.grpc.method.importProto');
+      groups.push({
+        value: GRPC_IMPORT_PROTO_VALUE,
+        label: importLabel,
+        selectedLabel: importLabel,
+        title: importLabel,
+      });
     }
     // A persisted method the spec no longer declares stays visible as
     // an unresolved entry instead of silently blanking the select.
@@ -1058,9 +1061,28 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                           <Select
                             style={{ width: '100%' }}
                             placeholder={t('workbench.editors.grpc.spec.selectPlaceholder')}
-                            value={linkedSpec?.uid}
-                            options={protobufSpecs.map((s) => ({ value: s.uid, label: s.name }))}
-                            onChange={(specUid: string) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                            // null, not undefined — an undefined value flips
+                            // the antd Select to uncontrolled, so a clicked
+                            // import action would linger as the label.
+                            value={linkedSpec?.uid ?? null}
+                            options={[
+                              ...protobufSpecs.map((s) => ({ value: s.uid, label: s.name })),
+                              ...(workspaceId
+                                ? [
+                                    {
+                                      value: GRPC_IMPORT_PROTO_VALUE,
+                                      label: t('workbench.editors.grpc.method.importProto'),
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                            onChange={(specUid: string) => {
+                              if (specUid === GRPC_IMPORT_PROTO_VALUE) {
+                                protoFileInputRef.current?.click();
+                                return;
+                              }
+                              setDraft((d) => ({ ...d, specLink: { specUid } }));
+                            }}
                             data-testid="grpc-spec-select"
                           />
                         </div>

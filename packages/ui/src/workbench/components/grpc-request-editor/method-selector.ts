@@ -104,9 +104,9 @@ export function findMethodOption(
 }
 
 /**
- * The header selector doubles as the spec entry point while no spec is
- * linked: alongside method keys (`service/rpc`) it offers workspace
- * protobuf specs (`spec:<uid>`) and the import-a-.proto action. One
+ * The header selector doubles as the spec entry point in every state:
+ * alongside method keys (`service/rpc`) it offers workspace protobuf
+ * specs (`spec:<uid>`) and the import-a-.proto action. One
  * value vocabulary, routed here — service full names are proto
  * identifiers (dots, no colons), so the prefixes can't collide.
  */
