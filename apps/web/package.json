@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/web",
-  "version": "2026.7.26",
+  "version": "2026.7.27",
   "private": true,
   "description": "OpenHeaders web app \u2014 the Workbench in a browser tab, served by a daemon",
   "type": "module",

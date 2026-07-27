@@ -8,33 +8,51 @@
   start straight with sections.
 -->
 
-## Hand off from your browser
+## Streams
 
-- **Open in the desktop app** — desktop-only features in the browser
-  extension (terminal, git history, traffic monitor, MCP) now offer a
-  one-click handoff when the desktop app is connected: the app comes
-  forward with that feature already open. Only a browser on the same
-  machine, paired with this app, can do this.
+- **Grouped timelines** — WebSocket messages can group by event and
+  direction (Socket.IO events get their own axis), and gRPC streams
+  group by message type and direction. Collapsed groups show the
+  newest rows with a **Show older** toggle at the top edge, and you
+  can pick how many rows each group keeps in Settings → Requests.
+- **Easier scanning** — sticky group headers now clear the scrollbar,
+  and stream rows highlight on hover.
 
-## Terminal
+## Compose
 
-- **Split panes** — split the integrated terminal side-by-side or
-  stacked, the same way you split editor tabs.
-- **Fresh CLI installs work immediately** — the TUI tab and the CLI
-  probe now find a just-installed `oh` binary without restarting the
-  app, on Windows, macOS, and Linux. When the CLI is missing, a dialog
-  shows the exact install command instead of failing quietly.
+- **Wrap toggle** — every editor pane gets its own Wrap control next
+  to Beautify, with an indent cue on continuation lines. The new
+  Editor dropdown in the toolbar also exposes the global display
+  settings, applied live.
+- **Line endings** — a new editor setting paints an end-of-line glyph
+  on real newlines, so trailing characters and missing final newlines
+  are visible at a glance.
+- **Bearer auth** — the scheme prefix is now a fixed label instead of
+  editable text, and masked token fields can be revealed while editing.
 
-## Updates
+## Response
 
-- **Visible install progress on Windows** — clicking Update & Restart
-  with the window open now shows the installer's progress instead of a
-  silent wait; tray-hidden updates stay silent as before.
+- **Status at a glance** — the status chip is now a filled pill tinted
+  by status class, and shows the canonical reason phrase when the
+  server omits one.
+- **Tidier toolbar** — Save Response moved into the overflow menu in
+  the response panel and the gRPC/WebSocket result panes.
 
-## Teams
+## gRPC
 
-- **Six free seats** — the free tier now includes 6 seats on a shared
-  server, up from 3.
-- **Clearer naming** — the machine that hosts shared workspaces is now
-  called the server (OpenHeaders Server) everywhere; Team and
-  Enterprise are the names of plans, not software.
+- **Spec switching** — change the API spec straight from the method
+  picker or the Service definition tab, and import definitions from
+  either place.
+
+## Devices
+
+- **Safer peer execute** — running requests on another device is now a
+  two-tier opt-in: browsers on this machine are allowed by default,
+  other devices start off. A refusal now says which host declined and
+  jumps you to the matching opt-in row.
+
+## Traffic
+
+- **Connection detail** — captured desktop requests now record the
+  dial: socket phases, negotiated protocol, local and remote
+  endpoints, and request size.
