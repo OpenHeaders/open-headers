@@ -186,13 +186,20 @@ const DesktopDownloadAction: React.FC = () => {
   return (
     <Button
       size="small"
-      color="orange"
-      variant="solid"
+      type="primary"
       icon={<DownloadOutlined style={{ fontSize: 10 }} />}
       loading={resolving}
       onClick={() => void download()}
       data-testid="status-companion-download"
-      style={{ fontSize: 11, height: 20, padding: '0 6px' }}
+      // Same Save-button orange + eased-off label as the teaser CTA.
+      style={{
+        fontSize: 11,
+        height: 20,
+        padding: '0 6px',
+        background: '#f5722d',
+        borderColor: '#f5722d',
+        color: 'rgba(255,255,255,0.85)',
+      }}
     >
       {t('shared.chrome.status.companionDownload')}
     </Button>

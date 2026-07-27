@@ -117,12 +117,14 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
       ) : (
         <>
           <Button
-            color="orange"
-            variant="solid"
+            type="primary"
             icon={<DownloadOutlined />}
             onClick={() => openExternal(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
             data-testid="desktop-teaser-cta"
-            style={{ marginTop: 6 }}
+            // The Save button's orange (EditorHeader), with the label
+            // eased off pure white — full-brightness text on this fill
+            // glares on dark themes.
+            style={{ marginTop: 6, background: '#f5722d', borderColor: '#f5722d', color: 'rgba(255,255,255,0.85)' }}
           >
             {t('shared.desktopTeaser.cta')}
           </Button>
