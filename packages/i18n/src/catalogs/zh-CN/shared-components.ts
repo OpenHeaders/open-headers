@@ -428,7 +428,6 @@ export const sharedComponents = {
   'shared.splitLayout.vertical': '垂直布局——堆叠',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
-  'shared.desktopTeaser.availability': '此功能在 OpenHeaders 桌面应用中提供。',
   'shared.desktopTeaser.cta': '下载桌面应用',
   'shared.desktopTeaser.openApp': '在桌面应用中打开',
   'shared.desktopTeaser.otherPlatforms': '其他平台与通道',

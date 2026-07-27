@@ -440,7 +440,6 @@ export const sharedComponents = {
   // ── Desktop teaser (shared/desktop-teaser) — placeholder body for
   //    capability-gated features on browser hosts: per-feature
   //    explainer + the download CTA. ──────────────────────────────────
-  'shared.desktopTeaser.availability': 'Available in the OpenHeaders desktop app.',
   'shared.desktopTeaser.cta': 'Download the desktop app',
   'shared.desktopTeaser.openApp': 'Open in the desktop app',
   'shared.desktopTeaser.otherPlatforms': 'Other platforms and channels',

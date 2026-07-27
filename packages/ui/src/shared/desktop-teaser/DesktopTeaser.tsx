@@ -27,12 +27,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../backend';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { DESKTOP_TEASER_COPY, type DesktopFeature } from './features';
-import {
-  DESKTOP_DOWNLOAD_URL,
-  DESKTOP_PLATFORM_LABELS,
-  type DesktopInstaller,
-  fetchLatestDesktopInstaller,
-} from './update-feed';
+import { DESKTOP_DOWNLOAD_URL, type DesktopInstaller, fetchLatestDesktopInstaller } from './update-feed';
 
 export interface DesktopTeaserProps {
   feature: DesktopFeature;
@@ -108,7 +103,6 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
       <div style={{ maxWidth: 400, fontSize: 13, lineHeight: 1.6, color: token.colorTextSecondary }}>
         {t(copy.body)}
       </div>
-      <div style={{ fontSize: 12, color: token.colorTextTertiary }}>{t('shared.desktopTeaser.availability')}</div>
       {companionConnected ? (
         <Button
           type="primary"
@@ -132,11 +126,6 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
           >
             {t('shared.desktopTeaser.cta')}
           </Button>
-          {installer && (
-            <div style={{ fontSize: 11, color: token.colorTextTertiary }}>
-              {`v${installer.version} · ${DESKTOP_PLATFORM_LABELS[installer.platform]}`}
-            </div>
-          )}
           <Button
             type="link"
             size="small"

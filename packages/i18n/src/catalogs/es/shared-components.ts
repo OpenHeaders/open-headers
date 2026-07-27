@@ -425,7 +425,6 @@ export const sharedComponents = {
   'shared.splitLayout.vertical': 'Disposición vertical — apilada',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
-  'shared.desktopTeaser.availability': 'Disponible en la aplicación de escritorio de OpenHeaders.',
   'shared.desktopTeaser.cta': 'Descargar la aplicación de escritorio',
   'shared.desktopTeaser.openApp': 'Abrir en la aplicación de escritorio',
   'shared.desktopTeaser.otherPlatforms': 'Otras plataformas y canales',
