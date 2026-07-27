@@ -495,7 +495,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.createWorkflow': 'Create workflow',
   'workbench.editors.request.response.createWorkflowNew': 'Create new workflow',
   'workbench.editors.request.response.createWorkflowAttach': 'Attach to existing workflow',
-  'workbench.editors.request.response.createWorkflowNeedsSave': 'Save the request and use it in a workflow',
+  'workbench.editors.request.response.createWorkflowNeedsSave':
+    'This request is unsaved — save it first to use it in a workflow',
   'workbench.editors.request.response.copyBody': 'Copy body',
   'workbench.editors.request.response.saveBodyToFile': 'Save body to file',
   'workbench.editors.request.response.saveBodyToFileTruncated': 'Save body to file (truncated — saves what was kept)',

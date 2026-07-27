@@ -496,7 +496,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.createWorkflow': '创建工作流',
   'workbench.editors.request.response.createWorkflowNew': '创建新工作流',
   'workbench.editors.request.response.createWorkflowAttach': '附加到现有工作流',
-  'workbench.editors.request.response.createWorkflowNeedsSave': '保存请求后即可在工作流中使用它',
+  'workbench.editors.request.response.createWorkflowNeedsSave': '该请求尚未保存 — 请先保存，才能在工作流中使用',
   'workbench.editors.request.response.copyBody': '复制正文',
   'workbench.editors.request.response.saveBodyToFile': '将正文保存到文件',
   'workbench.editors.request.response.saveBodyToFileTruncated': '将正文保存到文件（已截断——保存已保留的部分）',
