@@ -67,7 +67,7 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.sub.reliability': 'Reliability',
   'workbench.settings.category.backend.sub.notifications': 'Notifications',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN peers',
-  'workbench.settings.category.mcp.label': 'MCP',
+  'workbench.settings.category.mcp.label': 'AI · MCP Server',
   'workbench.settings.category.mcp.description':
     'Let AI agents and other MCP clients read and control this app. Access is tiered — reading, writing, executing, and secret reveal are separate switches, all off by default.',
   'workbench.settings.category.general.label': 'General',

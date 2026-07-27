@@ -437,7 +437,7 @@ export const sharedComponents = {
   'shared.desktopTeaser.git.body': '浏览工作区的提交时间线，查看每个提交的详情和文件差异。',
   'shared.desktopTeaser.proxy.title': '捕获代理',
   'shared.desktopTeaser.proxy.body': '使用内置代理实时捕获 HTTP(S) 流量，在请求发生的同时进行检查。',
-  'shared.desktopTeaser.mcp.title': 'MCP 服务器',
+  'shared.desktopTeaser.mcp.title': 'AI · MCP 服务器',
   'shared.desktopTeaser.mcp.body': '通过内置的 MCP 服务器，把 AI 助手连接到你的工作区。',
   'shared.desktopTeaser.liveNetwork.title': '实时网络',
   'shared.desktopTeaser.liveNetwork.body': '在桌面应用中实时查看浏览器标签页的流量，由扩展流式传输——无需 DevTools。',

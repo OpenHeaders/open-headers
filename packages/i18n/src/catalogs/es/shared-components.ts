@@ -437,7 +437,7 @@ export const sharedComponents = {
   'shared.desktopTeaser.proxy.title': 'Proxy de captura',
   'shared.desktopTeaser.proxy.body':
     'Captura el tráfico HTTP(S) en vivo con el proxy integrado e inspecciona cada solicitud en el momento en que ocurre.',
-  'shared.desktopTeaser.mcp.title': 'Servidor MCP',
+  'shared.desktopTeaser.mcp.title': 'IA · Servidor MCP',
   'shared.desktopTeaser.mcp.body':
     'Conecta asistentes de IA a tus espacios de trabajo a través del servidor MCP integrado.',
   'shared.desktopTeaser.liveNetwork.title': 'Red en vivo',

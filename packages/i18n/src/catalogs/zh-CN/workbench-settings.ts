@@ -71,7 +71,7 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.sub.reliability': '可靠性',
   'workbench.settings.category.backend.sub.notifications': '通知',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN 对等端',
-  'workbench.settings.category.mcp.label': 'MCP',
+  'workbench.settings.category.mcp.label': 'AI · MCP 服务器',
   'workbench.settings.category.mcp.description':
     '让 AI 代理和其他 MCP 客户端读取并控制此应用。访问分级——读取、写入、执行和机密显示是各自独立的开关，' +
     '默认全部关闭。',

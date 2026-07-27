@@ -77,7 +77,7 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.sub.reliability': 'Fiabilité',
   'workbench.settings.category.backend.sub.notifications': 'Notifications',
   'workbench.settings.category.backend.sub.lan-peers': 'Pairs LAN',
-  'workbench.settings.category.mcp.label': 'MCP',
+  'workbench.settings.category.mcp.label': 'IA · Serveur MCP',
   'workbench.settings.category.mcp.description':
     "Laissez les agents IA et les autres clients MCP lire et contrôler cette application. L'accès est étagé — " +
     'lecture, écriture, exécution et révélation de secrets sont des interrupteurs séparés, tous désactivés par ' +

@@ -82,7 +82,7 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.sub.reliability': 'Fiabilidad',
   'workbench.settings.category.backend.sub.notifications': 'Notificaciones',
   'workbench.settings.category.backend.sub.lan-peers': 'Pares LAN',
-  'workbench.settings.category.mcp.label': 'MCP',
+  'workbench.settings.category.mcp.label': 'IA · Servidor MCP',
   'workbench.settings.category.mcp.description':
     'Permite que los agentes de IA y otros clientes MCP lean y controlen esta aplicación. El acceso está ' +
     'escalonado — lectura, escritura, ejecución y revelación de secretos son interruptores separados, todos ' +

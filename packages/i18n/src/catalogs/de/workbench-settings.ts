@@ -81,7 +81,7 @@ export const workbenchSettings = {
   'workbench.settings.category.backend.sub.reliability': 'Zuverlässigkeit',
   'workbench.settings.category.backend.sub.notifications': 'Benachrichtigungen',
   'workbench.settings.category.backend.sub.lan-peers': 'LAN-Peers',
-  'workbench.settings.category.mcp.label': 'MCP',
+  'workbench.settings.category.mcp.label': 'KI · MCP-Server',
   'workbench.settings.category.mcp.description':
     'Lass KI-Agenten und andere MCP-Clients diese App lesen und steuern. Der Zugriff ist gestuft — Lesen, ' +
     'Schreiben, Ausführen und das Aufdecken von Secrets sind getrennte Schalter, alle standardmäßig aus.',
