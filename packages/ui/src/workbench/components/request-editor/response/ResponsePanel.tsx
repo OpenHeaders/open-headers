@@ -323,11 +323,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             right: (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
                 <ResponseMetaStrip response={response} />
-                {onSaveResponse && (
-                  <Button size="small" icon={<ExampleChip />} onClick={onSaveResponse} disabled={sending}>
-                    {t('workbench.editors.request.response.saveResponse')}
-                  </Button>
-                )}
                 {onExtractToWorkflow ? (
                   <CreateWorkflowDropdown onExtractToWorkflow={onExtractToWorkflow} liveWorkflows={liveWorkflows} />
                 ) : extractRequiresSave ? (
@@ -338,6 +333,21 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                   overlayStyle={{ minWidth: 220 }}
                   menu={{
                     items: [
+                      // Save Response leads — the one action that mints a
+                      // durable artifact (a frozen example) rather than a
+                      // body utility.
+                      ...(onSaveResponse
+                        ? [
+                            {
+                              key: 'save-response',
+                              icon: <ExampleChip />,
+                              label: t('workbench.editors.request.response.saveResponse'),
+                              disabled: sending,
+                              onClick: onSaveResponse,
+                            },
+                            { type: 'divider' as const },
+                          ]
+                        : []),
                       {
                         key: 'copy',
                         icon: <CopyOutlined />,

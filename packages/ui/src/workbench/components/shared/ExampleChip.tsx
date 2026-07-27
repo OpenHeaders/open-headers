@@ -7,8 +7,15 @@
 
 import type React from 'react';
 
-export const ExampleChip: React.FC<{ color?: string }> = ({ color = 'var(--ant-color-text-tertiary, #999)' }) => (
+// `className` must forward: hosts that treat the chip as an icon slot
+// (antd menus, buttons) clone their spacing class onto it — swallowing
+// it renders the chip flush against the label.
+export const ExampleChip: React.FC<{ color?: string; className?: string }> = ({
+  color = 'var(--ant-color-text-tertiary, #999)',
+  className,
+}) => (
   <span
+    className={className}
     style={{
       display: 'inline-flex',
       alignItems: 'center',
