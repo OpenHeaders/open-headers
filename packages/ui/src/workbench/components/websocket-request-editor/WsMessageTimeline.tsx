@@ -136,9 +136,8 @@ interface WsMessageTimelineProps {
 type ListEntry =
   | { key: string; kind: 'sent' | 'connected' | 'ended' | 'waiting' | 'noMatches' }
   | { key: string; kind: 'header'; direction: 'up' | 'down'; count: number; collapsed: boolean }
-  /** Per-group window toggle at the group's older edge — `hidden > 0`
-   *  offers "show all"; `hidden === 0` (an un-windowed group) offers
-   *  re-windowing to the newest N. */
+  /** "Show N older messages" at a windowed group's older edge; the
+   *  un-windowed state's re-window action lives on the group header. */
   | { key: string; kind: 'groupMore'; direction: 'up' | 'down'; hidden: number }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number };
@@ -409,6 +408,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // overlay (a CSS-sticky header would virtualize out of the DOM), so
   // the group identity + total stay visible and collapsible mid-scroll.
   const [stickyGroup, setStickyGroup] = useState<'up' | 'down' | null>(null);
+  // Right inset for the sticky overlay — measured scrollbar width (+
+  // the scroller's border), so the overlay never covers the thumb.
+  const [stickyRightInset, setStickyRightInset] = useState(1);
 
   const derive = useMemo(() => makeWsFrameDerivations(flavor === 'socketio'), [flavor]);
 
@@ -565,9 +567,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             : indexes;
           const more: ListEntry | null = windowed
             ? { key: `m${direction}`, kind: 'groupMore', direction, hidden: indexes.length - shown.length }
-            : groupRowLimit > 0 && unwindowedGroups.has(direction) && indexes.length > groupRowLimit
-              ? { key: `m${direction}`, kind: 'groupMore', direction, hidden: 0 }
-              : null;
+            : null;
           // The toggle sits at the group's OLDER edge — where the
           // hidden rows would continue: below the shown tail in
           // newest-first, right under the header in oldest-first.
@@ -654,6 +654,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       setStickyGroup(null);
       return;
     }
+    // offsetWidth − clientWidth = both borders + the vertical
+    // scrollbar; the overlay already sits 1px in for the left border.
+    setStickyRightInset(Math.max(1, el.offsetWidth - el.clientWidth - 1));
     const idx = entryIndexAt(prefix, el.scrollTop);
     const range = groupRanges.find((r) => idx >= r.startEntry && idx < r.endEntry);
     setStickyGroup(range ? range.direction : null);
@@ -784,6 +787,34 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
         {t('workbench.editors.websocket.timeline.messageCount', { count: memberCount })}
       </Text>
+      {/* Re-window action for an un-windowed group — a group-level
+          mode switch, so it rides the header (beside the total, past a
+          divider) rather than a positional row. Clicks stay off the
+          header's collapse action. */}
+      {!collapsed && groupRowLimit > 0 && unwindowedGroups.has(direction) && memberCount > groupRowLimit && (
+        <>
+          <span aria-hidden style={{ width: 1, height: 14, background: token.colorBorderSecondary }} />
+          <span
+            role="button"
+            tabIndex={0}
+            data-testid="ws-timeline-group-rewindow"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleGroupWindow(direction);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleGroupWindow(direction);
+              }
+            }}
+            style={{ fontSize: 11, color: token.colorPrimary, whiteSpace: 'nowrap', cursor: 'pointer' }}
+          >
+            {t('shared.timelineGroup.showNewestOnly', { count: groupRowLimit })}
+          </span>
+        </>
+      )}
     </div>
   );
 
@@ -864,9 +895,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
             style={{ ...singleRowStyle, cursor: 'pointer', fontSize: 12, color: token.colorPrimary }}
           >
-            {entry.hidden > 0
-              ? t('shared.timelineGroup.showOlder', { count: entry.hidden })
-              : t('shared.timelineGroup.showNewestOnly', { count: groupRowLimit })}
+            {t('shared.timelineGroup.showOlder', { count: entry.hidden })}
           </div>
         );
       case 'row': {
@@ -1150,11 +1179,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               position: 'absolute',
               top: 0,
               left: 1,
-              right: 1,
+              right: stickyRightInset,
               zIndex: 1,
               background: token.colorBgContainer,
               borderTopLeftRadius: 4,
-              borderTopRightRadius: 4,
               overflow: 'hidden',
             }}
           >

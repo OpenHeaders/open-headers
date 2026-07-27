@@ -95,6 +95,13 @@ describe('executeGrpcRequest forwarding', () => {
     );
   });
 
+  it('forwards a draft without a timeout knob deadline-free — a streaming call may idle indefinitely', async () => {
+    mockWsRequest.mockResolvedValue({ success: true });
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, sendId: 'send-2' });
+    await settled(respond);
+    expect(mockWsRequest.mock.calls[0][1]).toEqual({ timeoutMs: 0 });
+  });
+
   it("stamps the explicit null environment — the caller's No-environment state rides verbatim", async () => {
     mockWsRequest.mockResolvedValue({ success: true });
     const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, environmentId: null });
@@ -112,7 +119,9 @@ describe('executeGrpcRequest forwarding', () => {
   });
 
   it("degrades the companion's refusal verbatim onto the snapshot", async () => {
-    mockWsRequest.mockRejectedValue(new Error("Sending requests from this device's browsers is disabled on this host."));
+    mockWsRequest.mockRejectedValue(
+      new Error("Sending requests from this device's browsers is disabled on this host."),
+    );
     const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {} });
     const result = (await settled(respond)) as { snapshot?: { error: string | null } };
     expect(result.snapshot?.error).toMatch(/disabled on this host/);

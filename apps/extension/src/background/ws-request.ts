@@ -19,6 +19,12 @@
  *   - WS not connected when send is attempted    ⇒ Error('not-connected')
  *   - server echoes `__error` on the response    ⇒ Error(serverMessage)
  *   - no response inside `timeoutMs`              ⇒ Error('timeout')
+ *   - the connection drops while pending          ⇒ Error('not-connected')
+ *
+ * The close flush is what makes `timeoutMs: 0` (no deadline — wait for
+ * the response or the wire's death) safe: without it an unbounded slot
+ * would linger across a reconnect and FIFO-mismatch the next request
+ * of its type.
  *
  * Used by the M2c.2 peer-data-presence relay; future cross-host RPCs
  * (handshake-time auth, M3 Coexist namespacing) can reuse this helper
@@ -30,12 +36,14 @@ import {
   getDefaultWireBackendId,
   registerInboundFrameHandler,
   sendToBackend,
+  subscribeOnWebSocketClose,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
 
 interface PendingSlot {
   resolve: (value: unknown) => void;
   reject: (err: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
+  /** Null for deadline-free requests (`timeoutMs: 0`). */
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 // Keyed `${backendId}\u0000${type}` — a response only ever settles a
@@ -50,6 +58,19 @@ function queueKey(backendId: string, type: string): string {
 function ensureFrameHandler(): void {
   if (handlerInstalled) return;
   handlerInstalled = true;
+  // A dropped wire rejects everything pending on it — the response can
+  // no longer arrive, and a lingering slot would FIFO-mismatch the
+  // next same-type request after the reconnect.
+  subscribeOnWebSocketClose((wire) => {
+    const prefix = `${wire.backendId}\u0000`;
+    for (const [key, queue] of pendingByType) {
+      if (!key.startsWith(prefix)) continue;
+      for (const slot of queue.splice(0)) {
+        if (slot.timer !== null) clearTimeout(slot.timer);
+        slot.reject(new Error('not-connected'));
+      }
+    }
+  });
   registerInboundFrameHandler((frame: unknown, wire) => {
     if (!frame || typeof frame !== 'object') return false;
     const type = (frame as { type?: unknown }).type;
@@ -61,7 +82,7 @@ function ensureFrameHandler(): void {
     if (!queue || queue.length === 0) return false;
     const slot = queue.shift();
     if (!slot) return false;
-    clearTimeout(slot.timer);
+    if (slot.timer !== null) clearTimeout(slot.timer);
     const error = (frame as { __error?: unknown }).__error;
     if (typeof error === 'string' && error.length > 0) {
       slot.reject(new Error(error));
@@ -73,7 +94,13 @@ function ensureFrameHandler(): void {
 }
 
 export interface WsRequestOptions {
-  /** Reject the Promise after this many ms with `Error('timeout')`. Defaults to 5000. */
+  /**
+   * Reject the Promise after this many ms with `Error('timeout')`.
+   * Defaults to 5000. `0` means NO deadline — wait until the response
+   * arrives or the wire drops (the close flush rejects then); for
+   * open-ended calls like a streaming gRPC invoke, completion is the
+   * settled response, not a clock.
+   */
   timeoutMs?: number;
   /**
    * Target backend for the request. Defaults to the device-local
@@ -107,11 +134,15 @@ export function wsRequest<T>(
       queue = [];
       pendingByType.set(key, queue);
     }
-    const timer = setTimeout(() => {
-      const idx = queue?.indexOf(slot) ?? -1;
-      if (idx >= 0) queue?.splice(idx, 1);
-      reject(new Error('timeout'));
-    }, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    const waitMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timer =
+      waitMs > 0
+        ? setTimeout(() => {
+            const idx = queue?.indexOf(slot) ?? -1;
+            if (idx >= 0) queue?.splice(idx, 1);
+            reject(new Error('timeout'));
+          }, waitMs)
+        : null;
     const slot: PendingSlot = {
       resolve: (value) => resolve(value as T),
       reject,
@@ -125,7 +156,7 @@ export function wsRequest<T>(
       // that no peer received the request for, until the timeout fires.
       const idx = queue.indexOf(slot);
       if (idx >= 0) queue.splice(idx, 1);
-      clearTimeout(timer);
+      if (timer !== null) clearTimeout(timer);
       reject(new Error('not-connected'));
     }
   });
@@ -135,7 +166,7 @@ export function wsRequest<T>(
 export function __resetWsRequestForTests(): void {
   for (const queue of pendingByType.values()) {
     for (const slot of queue) {
-      clearTimeout(slot.timer);
+      if (slot.timer !== null) clearTimeout(slot.timer);
       slot.reject(new Error('reset'));
     }
   }

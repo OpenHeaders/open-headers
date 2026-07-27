@@ -5,6 +5,8 @@
  *   - rejects with `not-connected` when the send reports failure
  *   - rejects with the server-supplied `__error`
  *   - rejects with `timeout` when no response arrives in `timeoutMs`
+ *   - `timeoutMs: 0` = deadline-free; the connection-close flush is the
+ *     failure signal (per-backend, other wires untouched)
  *   - pairs requests of the same type in FIFO order
  *   - ignores frames whose `:response` type has no pending request
  */
@@ -20,6 +22,8 @@ const DEFAULT_BACKEND_ID = 'backend-default';
 const sendMock = vi.fn<(backendId: string, data: Record<string, unknown>) => boolean>(() => true);
 type Handler = (frame: unknown, wire: FakeWire) => boolean | Promise<boolean>;
 const registeredHandlers: Handler[] = [];
+type CloseHandler = (wire: FakeWire) => void;
+const closeHandlers: CloseHandler[] = [];
 
 vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
   sendToBackend: (backendId: string, data: Record<string, unknown>) => sendMock(backendId, data),
@@ -29,6 +33,13 @@ vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
     return () => {
       const idx = registeredHandlers.indexOf(handler);
       if (idx >= 0) registeredHandlers.splice(idx, 1);
+    };
+  },
+  subscribeOnWebSocketClose: (handler: CloseHandler) => {
+    closeHandlers.push(handler);
+    return () => {
+      const idx = closeHandlers.indexOf(handler);
+      if (idx >= 0) closeHandlers.splice(idx, 1);
     };
   },
 }));
@@ -48,10 +59,15 @@ async function deliver(frame: unknown, backendId = DEFAULT_BACKEND_ID): Promise<
   return false;
 }
 
+function closeWire(backendId = DEFAULT_BACKEND_ID): void {
+  for (const handler of [...closeHandlers]) handler({ backendId });
+}
+
 beforeEach(() => {
   sendMock.mockReset();
   sendMock.mockImplementation(() => true);
   registeredHandlers.length = 0;
+  closeHandlers.length = 0;
   __resetWsRequestForTests();
 });
 
@@ -84,6 +100,27 @@ describe('wsRequest', () => {
     const promise = wsRequest({ type: 'oh.demo.q' }, { timeoutMs: 50 });
     vi.advanceTimersByTime(60);
     await expect(promise).rejects.toThrow('timeout');
+  });
+
+  it('never times out a deadline-free request — it settles on the response whenever it lands', async () => {
+    vi.useFakeTimers();
+    const promise = wsRequest<{ tag: string }>({ type: 'oh.demo.q' }, { timeoutMs: 0 });
+    vi.advanceTimersByTime(10 * 60_000);
+    await deliver({ type: 'oh.demo.q:response', payload: { tag: 'late' } });
+    expect(await promise).toEqual({ tag: 'late' });
+  });
+
+  it('rejects a deadline-free request when its connection closes', async () => {
+    const promise = wsRequest({ type: 'oh.demo.q' }, { timeoutMs: 0 });
+    closeWire();
+    await expect(promise).rejects.toThrow('not-connected');
+  });
+
+  it("leaves another backend's pending requests alone when a wire closes", async () => {
+    const other = wsRequest<{ tag: string }>({ type: 'oh.demo.q' }, { timeoutMs: 0, backendId: 'backend-b' });
+    closeWire();
+    await deliver({ type: 'oh.demo.q:response', payload: { tag: 'b' } }, 'backend-b');
+    expect(await other).toEqual({ tag: 'b' });
   });
 
   it('pairs in FIFO order when multiple requests of the same type are in flight', async () => {

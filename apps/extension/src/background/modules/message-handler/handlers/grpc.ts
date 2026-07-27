@@ -29,8 +29,6 @@ import { wsRequest } from '../../../ws-request';
 import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
 
-/** Wire wait for a forwarded Invoke when the draft carries no timeout knob. */
-const EXECUTE_DEFAULT_TIMEOUT_MS = 120_000;
 /** Slack past the call's own deadline for companion-side resolve + transit. */
 const EXECUTE_TIMEOUT_MARGIN_MS = 15_000;
 
@@ -56,8 +54,12 @@ export const grpcHandlers: HandlerMap = {
       frame.workspaceId = workspaceId;
       frame.environmentId = message.environmentId !== undefined ? message.environmentId : getActiveEnvironmentId();
     }
-    const timeoutMs =
-      (typeof draft?.timeoutMs === 'number' ? draft.timeoutMs : EXECUTE_DEFAULT_TIMEOUT_MS) + EXECUTE_TIMEOUT_MARGIN_MS;
+    // A draft WITH a timeout knob bounds the wire wait by it (+ transit
+    // slack). Without one the wait is deadline-free (`0`): a streaming
+    // call idles as long as the user keeps it open, and completion is
+    // the settled snapshot — the wsRequest close flush covers a dead
+    // wire, Stop covers the user's own exit.
+    const timeoutMs = typeof draft?.timeoutMs === 'number' ? draft.timeoutMs + EXECUTE_TIMEOUT_MARGIN_MS : 0;
     wsRequest<{ success: boolean; snapshot?: unknown; error?: string }>(frame, { timeoutMs })
       .then((result) => respond(result))
       .catch((err: Error) => {
