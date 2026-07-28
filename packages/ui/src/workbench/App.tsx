@@ -131,6 +131,7 @@ import {
   useAppUpdateNotification,
   useSecretsStorageNotice,
   useSeedNotifications,
+  useUpdatedNotification,
 } from '@openheaders/ui/shared/notifications';
 import { UpdateDialog } from '@openheaders/ui/shared/updates';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
@@ -568,6 +569,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // First workbench open after a feature release auto-opens the
   // bundled What's New tab (docs/UPDATES_PLAN.md; no-op off desktop).
   useWhatsNewAutoOpen(openWhatsNew);
+
+  // Store-updated hosts (no in-app updater): the post-update timeline
+  // entry, with "See what's new" landing on the What's New tab.
+  useUpdatedNotification(openWhatsNew);
 
   // Opening a request in the inspector clears any post-import "scripts
   // review pending" reminder for that request — the user has now seen

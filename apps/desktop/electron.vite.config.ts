@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import copy from 'rollup-plugin-copy';
@@ -106,9 +106,13 @@ function stripTestIdPropsPlugin(): Plugin {
  * affordances stay hidden.
  */
 function whatsNewEntryPlugin(): Plugin {
-  const entryDir = resolve(__dirname, '../../changelog/desktop', pkgVersion.split('.')[0]);
-  const entryPath = resolve(entryDir, `${pkgVersion}.md`);
-  const assetsDir = resolve(entryDir, 'assets', pkgVersion);
+  // Betas amend the base version's living entry file — release builds
+  // carry the full tag (`X.Y.Z-beta.N`) in package.json, but the entry
+  // and its assets live under the base version.
+  const entryVersion = pkgVersion.replace(/-beta\.\d+$/, '');
+  const entryDir = resolve(__dirname, '../../changelog/desktop', entryVersion.split('.')[0]);
+  const entryPath = resolve(entryDir, `${entryVersion}.md`);
+  const assetsDir = resolve(entryDir, 'assets', entryVersion);
   const virtualId = 'virtual:whats-new';
   const resolvedVirtualId = `\0${virtualId}`;
   let isBuild = false;
@@ -126,7 +130,7 @@ function whatsNewEntryPlugin(): Plugin {
       if (existsSync(entryPath)) {
         body = readFileSync(entryPath, 'utf8')
           .replace(/^---\n[\s\S]*?\n---\n/, '')
-          .replaceAll(`./assets/${pkgVersion}/`, 'whats-new-assets/')
+          .replaceAll(`./assets/${entryVersion}/`, 'whats-new-assets/')
           .trim();
       }
       if (isBuild && existsSync(assetsDir)) {

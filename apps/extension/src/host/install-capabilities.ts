@@ -19,6 +19,7 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
+import './install-whats-new-capability';
 import { getBrowserAPI } from '@/types/browser';
 import { companionReveal } from './companion-reveal';
 import { nmAutoPair } from './nm-auto-pair';

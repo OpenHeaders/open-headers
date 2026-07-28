@@ -39,6 +39,7 @@ import {
   NotificationsPanel,
   useAppUpdateNotification,
   useSeedNotifications,
+  useUpdatedNotification,
 } from '@openheaders/ui/shared/notifications';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
@@ -48,6 +49,7 @@ import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-doc
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
+import WhatsNewModal from '@openheaders/ui/workbench/components/whats-new/WhatsNewModal';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -299,6 +301,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // (no-op on hosts without the getAppUpdate capability).
   useAppUpdateNotification();
   useSeedNotifications();
+  // Store-updated hosts: the post-update timeline entry. "See what's
+  // new" opens the bundled notes in a modal right here — the panel
+  // never bounces the user out of DevTools (SettingsModal precedent).
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const openWhatsNew = useCallback(() => setWhatsNewOpen(true), []);
+  useUpdatedNotification(openWhatsNew);
   const ui = usePanelUiState({
     resettables: useMemo(
       // Lifecycle clears via `clearSession` (local mirror + engine session
@@ -1219,6 +1227,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       />
 
       <PanelOnboardingTour open={tourOpen} onClose={handleTourClose} />
+      <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
     </div>
   );
 }

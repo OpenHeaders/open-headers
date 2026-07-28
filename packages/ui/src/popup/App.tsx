@@ -18,9 +18,14 @@ import {
 } from '@openheaders/ui/context';
 import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
-import { useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
+import {
+  useAppUpdateNotification,
+  useSeedNotifications,
+  useUpdatedNotification,
+} from '@openheaders/ui/shared/notifications';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
+import WhatsNewModal from '@openheaders/ui/workbench/components/whats-new/WhatsNewModal';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
 import { Layout } from 'antd';
 import type React from 'react';
@@ -51,6 +56,11 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
   // cross-surface acknowledge rides the shared localStorage ack keys.
   useAppUpdateNotification();
   useSeedNotifications();
+  // Store-updated hosts: the post-update timeline entry. "See what's
+  // new" opens the bundled notes in a modal, in-surface.
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const openWhatsNew = useCallback(() => setWhatsNewOpen(true), []);
+  useUpdatedNotification(openWhatsNew);
 
   return (
     <div
@@ -74,6 +84,7 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
         onClose={() => setIsShortcutsOverlayVisible(false)}
       />
       <OnboardingTour open={tourOpen} onClose={onTourClose} />
+      <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
     </div>
   );
 };

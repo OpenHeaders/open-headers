@@ -194,6 +194,57 @@ function chromeSafePlugin() {
 }
 
 /**
+ * Bundles the running version's canonical changelog entry
+ * (`changelog/extension/<year>/<version>.md`, CHANGELOG_PLAN.md §4.3) as
+ * the `virtual:whats-new` module: frontmatter stripped, relative asset
+ * refs rewritten to `whats-new-assets/…` with the files emitted at the
+ * dist root — never fetched at runtime. Betas amend the base version's
+ * living entry file, so the `-beta.N` suffix is stripped before
+ * resolving. A version without an entry resolves to the empty string
+ * (entry-existence law: bumps from shared-internals rebuilds ship no
+ * notes) and the What's New affordances stay hidden.
+ */
+function whatsNewEntryPlugin(): Plugin {
+  const entryVersion = pkgVersion.replace(/-beta\.\d+$/, '');
+  const entryDir = path.resolve(__dirname, '../../changelog/extension', entryVersion.split('.')[0]);
+  const entryPath = path.resolve(entryDir, `${entryVersion}.md`);
+  const assetsDir = path.resolve(entryDir, 'assets', entryVersion);
+  const virtualId = 'virtual:whats-new';
+  const resolvedVirtualId = `\0${virtualId}`;
+  let isBuild = false;
+  return {
+    name: 'whats-new-entry',
+    configResolved(config) {
+      isBuild = config.command === 'build';
+    },
+    resolveId(id) {
+      return id === virtualId ? resolvedVirtualId : undefined;
+    },
+    load(id) {
+      if (id !== resolvedVirtualId) return undefined;
+      let body = '';
+      if (fs.existsSync(entryPath)) {
+        body = fs
+          .readFileSync(entryPath, 'utf8')
+          .replace(/^---\n[\s\S]*?\n---\n/, '')
+          .replaceAll(`./assets/${entryVersion}/`, 'whats-new-assets/')
+          .trim();
+      }
+      if (isBuild && fs.existsSync(assetsDir)) {
+        for (const file of fs.readdirSync(assetsDir)) {
+          this.emitFile({
+            type: 'asset',
+            fileName: `whats-new-assets/${file}`,
+            source: fs.readFileSync(path.resolve(assetsDir, file)),
+          });
+        }
+      }
+      return `export default ${JSON.stringify(body)};`;
+    },
+  };
+}
+
+/**
  * Simple plugin to copy static assets to the dist folder with flat paths.
  */
 function copyAssetsPlugin() {
@@ -365,6 +416,7 @@ export default defineConfig({
     domFreeEntityDecodePlugin(),
     ...(isReleaseChannel ? [stripTestIdPropsPlugin()] : []),
     react(),
+    whatsNewEntryPlugin(),
     chromeSafePlugin(),
     copyAssetsPlugin(),
     buildFireBridgePlugin(),

@@ -11,6 +11,7 @@ import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-cdp-capability';
 import '@/host/install-csp-exempt-capability';
+import '@/host/install-whats-new-capability';
 import { registerCapability } from '@openheaders/core/capabilities';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import Workbench from '@openheaders/ui/workbench/App';
