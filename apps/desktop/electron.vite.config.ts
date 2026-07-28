@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import copy from 'rollup-plugin-copy';
@@ -95,6 +95,54 @@ function stripTestIdPropsPlugin(): Plugin {
     },
   };
 }
+/**
+ * Bundles the running version's canonical changelog entry
+ * (`changelog/desktop/<year>/<version>.md`, CHANGELOG_PLAN.md §4.3) as
+ * the `virtual:whats-new` module: frontmatter stripped, relative asset
+ * refs rewritten to `whats-new-assets/…` with the files emitted beside
+ * the renderer bundle — never fetched at runtime. A version without an
+ * entry resolves to the empty string (entry-existence law: bumps from
+ * shared-internals rebuilds ship no notes) and the What's New tab
+ * affordances stay hidden.
+ */
+function whatsNewEntryPlugin(): Plugin {
+  const entryDir = resolve(__dirname, '../../changelog/desktop', pkgVersion.split('.')[0]);
+  const entryPath = resolve(entryDir, `${pkgVersion}.md`);
+  const assetsDir = resolve(entryDir, 'assets', pkgVersion);
+  const virtualId = 'virtual:whats-new';
+  const resolvedVirtualId = `\0${virtualId}`;
+  let isBuild = false;
+  return {
+    name: 'whats-new-entry',
+    configResolved(config) {
+      isBuild = config.command === 'build';
+    },
+    resolveId(id) {
+      return id === virtualId ? resolvedVirtualId : undefined;
+    },
+    load(id) {
+      if (id !== resolvedVirtualId) return undefined;
+      let body = '';
+      if (existsSync(entryPath)) {
+        body = readFileSync(entryPath, 'utf8')
+          .replace(/^---\n[\s\S]*?\n---\n/, '')
+          .replaceAll(`./assets/${pkgVersion}/`, 'whats-new-assets/')
+          .trim();
+      }
+      if (isBuild && existsSync(assetsDir)) {
+        for (const file of readdirSync(assetsDir)) {
+          this.emitFile({
+            type: 'asset',
+            fileName: `whats-new-assets/${file}`,
+            source: readFileSync(resolve(assetsDir, file)),
+          });
+        }
+      }
+      return `export default ${JSON.stringify(body)};`;
+    },
+  };
+}
+
 /**
  * License-enforcement modules are emitted as their own main-process
  * chunk (`license-core.js`) in every build, so the graph shape never
@@ -275,6 +323,7 @@ export default defineConfig({
       sourcemap: process.env.NODE_ENV !== 'production',
     },
     plugins: [
+      whatsNewEntryPlugin(),
       ...(isReleaseChannel ? [stripTestIdPropsPlugin()] : []),
       copy({
         targets: [

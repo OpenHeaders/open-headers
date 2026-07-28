@@ -12,7 +12,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability, type TerminalSession, type TerminalSpawnOptions } from '@openheaders/core/capabilities';
-import whatsNewNotes from '../../../whats-new.md?raw';
+import whatsNewNotes from 'virtual:whats-new';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -48,14 +48,12 @@ registerCapability('getAppUpdate', async () => {
   return pending && state.availableVersion !== null ? { version: state.availableVersion } : null;
 });
 
-// Release notes bundled at build time from `apps/desktop/whats-new.md`
-// (raw import — never fetched at runtime). Backs the workbench's
-// What's New tab; a build with an empty notes file reports null and
-// the tab affordances stay hidden.
-registerCapability('getWhatsNew', () => {
-  const trimmed = whatsNewNotes.replace(/<!--[\s\S]*?-->/, '').trim();
-  return trimmed.length > 0 ? trimmed : null;
-});
+// Release notes bundled at build time from the running version's
+// canonical changelog entry (`changelog/desktop/<year>/<version>.md`,
+// frontmatter stripped by the config's whats-new-entry plugin — never
+// fetched at runtime). Backs the workbench's What's New tab; a version
+// without an entry reports null and the tab affordances stay hidden.
+registerCapability('getWhatsNew', () => (whatsNewNotes.length > 0 ? whatsNewNotes : null));
 
 // Real pty sessions for the workbench Terminal tool window — the
 // desktop is a pty host (node-pty in the main process); browser
