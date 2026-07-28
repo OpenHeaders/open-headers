@@ -131,6 +131,10 @@ export const workbenchSettings = {
     'Schrift, Einrückung und Ansichtsoptionen für Code-Bearbeitungsflächen.',
   'workbench.settings.category.requests.label': 'API-Anfragen',
   'workbench.settings.category.requests.description': 'Senden von HTTP-Anfragen und Verarbeitung der Antworten.',
+  'workbench.settings.category.requests.sub.http': 'HTTP',
+  'workbench.settings.category.requests.sub.sse': 'SSE',
+  'workbench.settings.category.requests.sub.grpc': 'gRPC',
+  'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.rulesEngine.label': 'Regel-Engine',
   'workbench.settings.category.rulesEngine.description':
     'Wie Regeln ausgewertet, kompiliert und gegeneinander abgewogen werden.',

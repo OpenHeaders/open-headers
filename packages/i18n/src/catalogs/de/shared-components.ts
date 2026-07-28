@@ -444,6 +444,30 @@ export const sharedComponents = {
   'shared.splitLayout.horizontal': 'Horizontales Layout — nebeneinander',
   'shared.splitLayout.vertical': 'Vertikales Layout — gestapelt',
 
+  // Grouped-timeline row window — the per-group escape hatch when the
+  // rows-per-group limit hides a group's older messages (gRPC + WS
+  // message timelines share these).
+  'shared.timelineGroup.showOlder': '{count} ältere anzeigen',
+  'shared.timelineGroup.showNewestOnly': 'Nur die neuesten {count} anzeigen',
+  // Compose-editor toolbar wrap toggle + the "Editor" dropdown.
+  'shared.codeEditor.wrap': 'Zeilenumbruch',
+  'shared.editorMenu.label': 'Editor',
+  'shared.editorMenu.thisEditor': 'Dieser Editor',
+  'shared.editorMenu.allEditors': 'Alle Editoren',
+  'shared.editorMenu.lineNumbers': 'Zeilennummern',
+  'shared.editorMenu.whitespace': 'Leerzeichen',
+  'shared.editorMenu.lineEnds': 'Zeilenenden',
+  // Peer-execute refusal notice (the quoted phrases are the settings
+  // rows' own labels, verbatim).
+  'shared.peerExecute.localDisabled':
+    'Das Senden über die Browser dieses Geräts ist in der Desktop-App ausgeschaltet. Aktiviere „Browsern ' +
+    'dieses Geräts das Senden von Anfragen erlauben“ unter Einstellungen → Backend.',
+  'shared.peerExecute.remoteDisabled':
+    'Das Senden von anderen Geräten ist auf dem verbundenen Host ausgeschaltet. Aktiviere „Anderen ' +
+    'verbundenen Geräten das Senden von Anfragen erlauben“ in dessen Einstellungen → Backend auf jener ' +
+    'Maschine.',
+  'shared.peerExecute.enableCta': 'In der Desktop-App aktivieren',
+
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.cta': 'Desktop-App herunterladen',
   'shared.desktopTeaser.openApp': 'In der Desktop-App öffnen',

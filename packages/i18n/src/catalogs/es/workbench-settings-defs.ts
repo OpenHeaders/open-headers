@@ -71,6 +71,20 @@ export const workbenchSettingsDefs = {
     'abrirlo directamente desde esta aplicación — sin necesidad de extensión. Cualquiera que alcance el ' +
     'puerto ve la puerta de inicio de sesión; sigue haciendo falta un token emparejado para acceder a los ' +
     'datos.',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label':
+    'Permitir que los navegadores de este dispositivo envíen solicitudes',
+  'workbench.settings.def.backend.allowLocalPeerExecute.description':
+    'Deja que los navegadores emparejados en ESTA máquina envíen solicitudes API a través de esta ' +
+    'aplicación — la extensión la usa como su motor de solicitudes, así que el Enviar de su workbench se ' +
+    'ejecuta aquí. Activado por defecto: el emparejamiento es el consentimiento. Cada envío sigue ' +
+    'requiriendo acceso de escritura al espacio de trabajo.',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label':
+    'Permitir que otros dispositivos conectados envíen solicitudes',
+  'workbench.settings.def.backend.allowRemotePeerExecute.description':
+    'Deja que los dispositivos emparejados en OTRAS máquinas envíen solicitudes API a través de esta ' +
+    'aplicación — el Enviar de su workbench se ejecuta en esta máquina, con su acceso de red y su ' +
+    'dirección. Desactivado por defecto: una decisión del operador, nunca implícita en el emparejamiento. ' +
+    'Cada envío sigue requiriendo acceso de escritura al espacio de trabajo.',
   'workbench.settings.def.backend.reconnectDelayMs.label': 'Retraso inicial de reconexión',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Cuánto esperar (ms) antes del primer intento de reconexión tras una desconexión.',
@@ -490,6 +504,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.renderWhitespace.option.none.label': 'Ninguno',
   'workbench.settings.def.editor.renderWhitespace.option.boundary.label': 'Solo en los límites',
   'workbench.settings.def.editor.renderWhitespace.option.all.label': 'Todos',
+  'workbench.settings.def.editor.renderLineEnds.label': 'Mostrar los finales de línea',
+  'workbench.settings.def.editor.renderLineEnds.description':
+    'Pinta un ¬ tenue tras el último carácter de cada línea real, para que las filas con ajuste de línea ' +
+    '(número de margen vacío, sangría colgante, sin marca) nunca puedan confundirse con saltos de línea. ' +
+    'Solo visual: la marca nunca se selecciona, copia ni envía.',
   'workbench.settings.def.editor.formatOnSave.label': 'Formatear al guardar',
   'workbench.settings.def.editor.formatOnSave.description':
     'Formatea automáticamente el contenido del editor cuando guardas una regla o plantilla.',
@@ -530,6 +549,12 @@ export const workbenchSettingsDefs = {
     'Agrupa la cronología de mensajes gRPC bajo cabeceras plegables por tipo de mensaje, conservando el ' +
     'orden de llegada dentro de cada grupo. La barra de herramientas de la cronología cambia este mismo ' +
     'ajuste.',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Mensajes gRPC: agrupar por dirección',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
+    'Agrupa la cronología de mensajes gRPC bajo cabeceras plegables de enviados / recibidos. Combinado con ' +
+    'la agrupación por tipo de mensaje, cada par (tipo, dirección) obtiene su propio grupo — útil en ' +
+    'llamadas bidireccionales cuya solicitud y respuesta comparten un mismo tipo de mensaje. La barra de ' +
+    'herramientas de la cronología cambia este mismo ajuste.',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Mensajes gRPC: filas por grupo',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'Al agrupar por tipo de mensaje, muestra solo este número de los mensajes más recientes de cada grupo — ' +
@@ -540,6 +565,24 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Orden de la cronología de mensajes WebSocket — los mensajes más recientes arriba. Desactívalo para leer ' +
     'del más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Mensajes WebSocket: agrupar por dirección',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
+    'Agrupa la cronología de mensajes WebSocket bajo cabeceras plegables de enviados / recibidos, ' +
+    'conservando el orden de llegada dentro de cada grupo. La barra de herramientas de la cronología cambia ' +
+    'este mismo ajuste.',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Mensajes WebSocket: agrupar por evento',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
+    'Agrupa las cronologías de sesiones Socket.IO bajo cabeceras plegables por nombre de evento ' +
+    'decodificado (las tramas de control se clasifican por su tipo en el cable). Combinado con la ' +
+    'agrupación por dirección, cada par (evento, dirección) obtiene su propio grupo. Solo se aplica a ' +
+    'sesiones Socket.IO — las tramas WebSocket sin procesar no llevan nombres de evento. La barra de ' +
+    'herramientas de la cronología cambia este mismo ajuste.',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Mensajes WebSocket: filas por grupo',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
+    'Al agrupar por dirección, muestra solo este número de los mensajes más recientes de cada grupo — la ' +
+    'ventana se desliza a medida que llegan mensajes nuevos, así que ambos grupos permanecen observables a ' +
+    'la vez. 0 muestra todos los mensajes. La barra de herramientas de la cronología cambia este mismo ' +
+    'ajuste.',
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: enviar los mensajes no válidos',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'Cuando el mensaje gRPC no es JSON válido, invoca de todos modos con un mensaje vacío y deja responder ' +

@@ -201,6 +201,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.oldestFirst': 'Älteste zuerst',
   'workbench.editors.grpc.timeline.showTypes': 'Nachrichtentypen anzeigen',
   'workbench.editors.grpc.timeline.groupByType': 'Nach Nachrichtentyp gruppieren',
+  'workbench.editors.grpc.timeline.groupByDirection': 'Nach Richtung gruppieren',
   'workbench.editors.grpc.timeline.rowsPerGroup': 'Zeilen pro Gruppe',
   'workbench.editors.grpc.timeline.noLimit': 'Kein Limit',
   'workbench.editors.grpc.timeline.clearMessages': 'Nachrichten leeren (nur Anzeige)',

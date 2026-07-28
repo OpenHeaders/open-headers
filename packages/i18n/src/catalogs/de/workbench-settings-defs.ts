@@ -57,6 +57,19 @@ export const workbenchSettingsDefs = {
     'Liefert den Arbeitsbereich-Editor als Webseite auf dem Back-end-Port aus, sodass ihn ein Browser-Tab ' +
     'direkt aus dieser App öffnen kann — ohne Erweiterung. Wer den Port erreicht, sieht die Anmeldesperre; ' +
     'für den Datenzugriff bleibt ein gekoppelter Token erforderlich.',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label':
+    'Browsern dieses Geräts das Senden von Anfragen erlauben',
+  'workbench.settings.def.backend.allowLocalPeerExecute.description':
+    'Lässt gekoppelte Browser auf DIESER Maschine API-Anfragen über diese App senden — die Erweiterung ' +
+    'nutzt sie als Anfrage-Engine, ihr Workbench-Senden läuft also hier. Standardmäßig an: Die Kopplung ist ' +
+    'die Zustimmung. Jedes Senden erfordert weiterhin Schreibzugriff auf den Arbeitsbereich.',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label':
+    'Anderen verbundenen Geräten das Senden von Anfragen erlauben',
+  'workbench.settings.def.backend.allowRemotePeerExecute.description':
+    'Lässt gekoppelte Geräte auf ANDEREN Maschinen API-Anfragen über diese App senden — ihr ' +
+    'Workbench-Senden läuft auf dieser Maschine, mit deren Netzwerkzugang und Adresse. Standardmäßig aus: ' +
+    'eine Betreiber-Entscheidung, niemals durch die Kopplung impliziert. Jedes Senden erfordert weiterhin ' +
+    'Schreibzugriff auf den Arbeitsbereich.',
   'workbench.settings.def.backend.reconnectDelayMs.label': 'Anfängliche Wiederverbindungs-Verzögerung',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Wie lange (ms) nach einer Trennung bis zum ersten Wiederverbindungsversuch gewartet wird.',
@@ -458,6 +471,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.renderWhitespace.option.none.label': 'Keine',
   'workbench.settings.def.editor.renderWhitespace.option.boundary.label': 'Nur an Grenzen',
   'workbench.settings.def.editor.renderWhitespace.option.all.label': 'Alle',
+  'workbench.settings.def.editor.renderLineEnds.label': 'Zeilenenden anzeigen',
+  'workbench.settings.def.editor.renderLineEnds.description':
+    'Zeichnet ein dezentes ¬ hinter das letzte Zeichen jeder echten Zeile, damit weich umbrochene Zeilen ' +
+    '(leere Zeilennummer, hängender Einzug, keine Marke) nie mit Zeilenumbrüchen verwechselt werden können. ' +
+    'Nur Anzeige: Die Marke wird nie ausgewählt, kopiert oder gesendet.',
   'workbench.settings.def.editor.formatOnSave.label': 'Beim Speichern formatieren',
   'workbench.settings.def.editor.formatOnSave.description':
     'Formatiert Editor-Inhalte automatisch, wenn du eine Regel oder Vorlage speicherst.',
@@ -497,6 +515,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     'Bündelt den gRPC-Nachrichten-Zeitverlauf unter einklappbaren Nachrichtentyp-Überschriften, ' +
     'Ankunftsreihenfolge innerhalb jeder Gruppe. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'gRPC-Nachrichten: Nach Richtung gruppieren',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
+    'Bündelt den gRPC-Nachrichten-Zeitverlauf unter einklappbaren Gesendet-/Empfangen-Überschriften. ' +
+    'Kombiniert mit der Gruppierung nach Nachrichtentyp erhält jedes Paar (Typ, Richtung) eine eigene ' +
+    'Gruppe — nützlich bei bidirektionalen Aufrufen, deren Anfrage und Antwort denselben Nachrichtentyp ' +
+    'teilen. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC-Nachrichten: Zeilen pro Gruppe',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     'Zeigt beim Gruppieren nach Nachrichtentyp nur so viele der neuesten Nachrichten jeder Gruppe — das ' +
@@ -506,6 +530,22 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Reihenfolge des WebSocket-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ' +
     'ältesten zuerst zu lesen. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'WebSocket-Nachrichten: Nach Richtung gruppieren',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
+    'Bündelt den WebSocket-Nachrichten-Zeitverlauf unter einklappbaren Gesendet-/Empfangen-Überschriften, ' +
+    'Ankunftsreihenfolge innerhalb jeder Gruppe. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'WebSocket-Nachrichten: Nach Ereignis gruppieren',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
+    'Bündelt Socket.IO-Sitzungs-Zeitverläufe unter einklappbaren Überschriften mit dekodiertem ' +
+    'Ereignisnamen (Steuerframes ordnen sich nach ihrer Leitungsart ein). Kombiniert mit der Gruppierung ' +
+    'nach Richtung erhält jedes Paar (Ereignis, Richtung) eine eigene Gruppe. Gilt nur für ' +
+    'Socket.IO-Sitzungen — rohe WebSocket-Frames tragen keine Ereignisnamen. Die Zeitverlaufs-Toolbar ' +
+    'ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'WebSocket-Nachrichten: Zeilen pro Gruppe',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
+    'Zeigt beim Gruppieren nach Richtung nur so viele der neuesten Nachrichten jeder Gruppe — das Fenster ' +
+    'wandert mit neuen Nachrichten mit, sodass beide Gruppen zugleich beobachtbar bleiben. 0 zeigt jede ' +
+    'Nachricht. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC: Ungültige Nachrichten senden',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'Wenn die gRPC-Nachricht kein gültiges JSON ist, trotzdem mit leerer Nachricht aufrufen und den Server ' +

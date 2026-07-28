@@ -697,9 +697,12 @@ export const workbenchEditorsRequest = {
     'El tamaño del cuerpo de la solicitud es aproximado — el boundary multipart lo genera el navegador.',
   'workbench.editors.request.response.meta.noteWireHidden':
     'Tamaños en el cable (comprimido, transferido) ocultos: el servidor no envió Timing-Allow-Origin.',
+  'workbench.editors.request.response.meta.noteWireHiddenNode':
+    'Tamaños en el cable (comprimido, transferido) no informados por el runtime de red de la aplicación.',
   'workbench.editors.request.response.meta.networkTitle': 'Red',
   'workbench.editors.request.response.meta.networkSummary': 'Datos a nivel de conexión de este intercambio.',
   'workbench.editors.request.response.meta.httpVersion': 'Versión de HTTP',
+  'workbench.editors.request.response.meta.localAddress': 'Dirección local',
   'workbench.editors.request.response.meta.remoteAddress': 'Dirección remota',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
     'Versión de HTTP oculta: el runtime de red de la aplicación no informa del protocolo negociado.',

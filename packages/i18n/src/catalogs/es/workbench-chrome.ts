@@ -181,7 +181,7 @@ export const workbenchChrome = {
   'workbench.shell.envSelector.defaultPill': 'POR DEFECTO',
   'workbench.shell.envSelector.defaultTooltip':
     'El entorno por defecto se selecciona automáticamente mientras trabajas con la colección.',
-  'workbench.shell.envSelector.openEnv': 'Abrir {name}',
+  'workbench.shell.envSelector.openEnv': 'Editar variables',
   'workbench.shell.envSelector.pinToTab': 'Fijar a esta pestaña',
   'workbench.shell.envSelector.unpinFromTab': 'Desfijar de esta pestaña',
   'workbench.shell.envSelector.pinToTabDesc': 'Cambia a este entorno cada vez que la pestaña recibe el foco.',
