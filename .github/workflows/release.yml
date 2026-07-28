@@ -753,6 +753,12 @@ jobs:
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
 
+      # Canonical-form gate for every changelog projection below —
+      # asset-budget overruns warn, form violations fail the release
+      # before anything is published.
+      - name: Lint changelog tree
+        run: node scripts/lint-changelog.mjs
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -1086,6 +1092,21 @@ jobs:
             } >> release_body.md
           fi
 
+      # The canonical entry's body rides the release page too
+      # (CHANGELOG_PLAN §4.2) — appended after the download tables so
+      # the Releases tab reads as a full changelog with no extra
+      # authoring. Stubs and missing entries append nothing.
+      - name: Append changelog entry to release body
+        run: |
+          VERSION_BASE=$(echo "${GITHUB_REF_NAME/v/}" | sed 's/-beta\.[0-9]*$//')
+          node scripts/changelog-entry-body.mjs desktop "$VERSION_BASE" > entry_body.md
+          if [ -s entry_body.md ]; then
+            { echo ""; echo "---"; echo ""; echo "## What's New"; echo ""; cat entry_body.md; } >> release_body.md
+            echo "Appended desktop ${VERSION_BASE} entry to the release body"
+          else
+            echo "No prose entry for desktop ${VERSION_BASE} — release body unchanged"
+          fi
+
       # Release bytes live on the feed bucket under an immutable
       # per-tag path — Cloudflare's edge caches them (a zone Cache Rule
       # keys /dl/* without query strings), R2 egress is free, and
@@ -1151,6 +1172,21 @@ jobs:
           node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
             "${{ steps.dl_base.outputs.url }}" \
             processed_files feed
+
+      # Changelog feed objects (CHANGELOG_PLAN §4.1) stage into the
+      # same tree the pointer upload walks. The previously published
+      # index is merged in fail-open — it may carry rows for entry-less
+      # releases the canonical tree never records.
+      - name: Stage changelog feed objects
+        run: |
+          curl -fsS --max-time 30 "https://updates.openheaders.io/changelog/index.json" -o prior_index.json \
+            || rm -f prior_index.json
+          if [ -f prior_index.json ]; then
+            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed prior_index.json
+          else
+            echo "No live changelog index — generating from the tree alone"
+            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed
+          fi
           find feed -type f | sort
 
       - name: Upload update feed to R2
@@ -1170,16 +1206,64 @@ jobs:
             case "$file" in
               *.yml)  TYPE="text/yaml" ;;
               *.json) TYPE="application/json" ;;
+              *.md)   TYPE="text/markdown; charset=utf-8" ;;
               *.ps1)  TYPE="text/plain; charset=utf-8" ;;
               *.sh)   TYPE="text/x-shellscript; charset=utf-8" ;;
+              *.webp) TYPE="image/webp" ;;
+              *.png)  TYPE="image/png" ;;
               *)      TYPE="application/octet-stream" ;;
             esac
             # Short cache so a fresh release is visible within minutes
             # of the pointer upload — clients check at most daily.
+            # Changelog assets and per-beta snapshots never change once
+            # shipped (plan §3) — those cache as immutable.
+            case "$KEY" in
+              changelog/assets/*|changelog/*-beta.*.json)
+                CACHE="public, max-age=31536000, immutable" ;;
+              *)
+                CACHE="public, max-age=300, must-revalidate" ;;
+            esac
             aws s3 cp "$file" "s3://${R2_BUCKET}/${KEY}" \
               --endpoint-url "$ENDPOINT" --region auto \
               --content-type "$TYPE" \
-              --cache-control "public, max-age=300, must-revalidate" \
+              --cache-control "$CACHE" \
               --no-progress
           done
+
+      # Flagship projection (CHANGELOG_PLAN §4.2): the canonical tree
+      # + a regenerated interleaved CHANGELOG.md, committed to the
+      # public repo's main. Entries keep their relative asset refs —
+      # the tree layout travels whole, so links render on GitHub.
+      # Betas project too: the amendment commits are the desired
+      # activity signal. Until the OH_CHANGELOG_FLAGSHIP repo variable
+      # is set to 1 this is a dry run — the commit is built and shown
+      # but never pushed (the Phase 3 rehearsal gate).
+      - name: Project changelog to flagship repo
+        env:
+          RELEASES_PAT: ${{ secrets.RELEASES_PAT }}
+          OH_CHANGELOG_FLAGSHIP: ${{ vars.OH_CHANGELOG_FLAGSHIP }}
+        run: |
+          if [ -z "$RELEASES_PAT" ]; then
+            echo "::warning::RELEASES_PAT not configured — changelog not projected to ${RELEASE_REPO}"
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:${RELEASES_PAT}@github.com/${RELEASE_REPO}.git" flagship
+          rm -rf flagship/changelog
+          cp -R changelog flagship/changelog
+          node scripts/generate-flagship-changelog.mjs > flagship/CHANGELOG.md
+          cd flagship
+          git config user.name "OpenHeaders Release"
+          git config user.email "releases@openheaders.io"
+          git add changelog CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changelog changes to project"
+            exit 0
+          fi
+          git commit -m "changelog: desktop ${GITHUB_REF_NAME}"
+          git show --stat HEAD
+          if [ "$OH_CHANGELOG_FLAGSHIP" = "1" ]; then
+            git push origin HEAD:main
+          else
+            echo "::notice::OH_CHANGELOG_FLAGSHIP is not 1 — dry run only, nothing pushed to ${RELEASE_REPO}"
+          fi
 

@@ -12,6 +12,8 @@
  *   - `highlights`, when present, is a non-empty list of strings
  *   - `apps`, when present, appears only in the desktop stream
  *   - asset refs in the body are relative (`./assets/<version>/…`)
+ *   - assets: GIFs are banned (plan §3); the ~150 KB/image and
+ *     ~5 images/release soft budgets warn without failing
  *
  * Frontmatter-only stubs (no body) are legitimate — backfill law
  * (§6): indexes stay machine-complete even where prose is not.
@@ -22,74 +24,38 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { STREAMS as STREAM_LIST, parseFrontmatter } from './lib/changelog.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const changelogDir = path.join(repoRoot, 'changelog');
 
-const STREAMS = new Set(['desktop', 'extension', 'cli', 'daemon', 'web']);
+const STREAMS = new Set(STREAM_LIST);
 const CHANNELS = new Set(['stable', 'beta']);
 const SEVERITIES = new Set(['normal', 'security']);
 const REQUIRED_FIELDS = ['version', 'date', 'channel', 'severity'];
 const VERSION_RE = /^\d{4}\.\d{1,2}\.\d+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ASSET_IMAGE_BUDGET = 150 * 1024;
+const ASSET_COUNT_BUDGET = 5;
 
 const problems = [];
+const warnings = [];
 
 function problem(file, message) {
   problems.push(`${path.relative(repoRoot, file)}: ${message}`);
 }
 
-/**
- * Minimal parser for the frontmatter subset the plan prescribes:
- * scalar `key: value`, one-level string lists, and inline maps
- * (`apps: { server: 2026.7.27 }`). Anything fancier is a lint error —
- * the machine layer stays this simple on purpose.
- */
-function parseFrontmatter(file, text) {
-  if (!text.startsWith('---\n')) {
-    problem(file, 'missing frontmatter opening ---');
-    return null;
-  }
-  const end = text.indexOf('\n---', 4);
-  if (end < 0) {
-    problem(file, 'missing frontmatter closing ---');
-    return null;
-  }
-  const fields = {};
-  let listKey = null;
-  for (const line of text.slice(4, end).split('\n')) {
-    if (line.trim() === '') continue;
-    const listItem = line.match(/^\s+- (.*)$/);
-    if (listItem) {
-      if (!listKey) {
-        problem(file, `list item outside a list: ${line.trim()}`);
-        return null;
-      }
-      fields[listKey].push(listItem[1].trim());
-      continue;
-    }
-    const pair = line.match(/^([A-Za-z][A-Za-z0-9_]*):\s*(.*)$/);
-    if (!pair) {
-      problem(file, `unparseable frontmatter line: ${line.trim()}`);
-      return null;
-    }
-    const [, key, value] = pair;
-    if (value === '') {
-      listKey = key;
-      fields[key] = [];
-    } else {
-      listKey = null;
-      fields[key] = value;
-    }
-  }
-  return { fields, body: text.slice(end + 4).replace(/^-*\n?/, '') };
+function warn(file, message) {
+  warnings.push(`${path.relative(repoRoot, file)}: ${message}`);
 }
 
 function lintEntry(stream, year, file) {
   const name = path.basename(file, '.md');
-  const parsed = parseFrontmatter(file, readFileSync(file, 'utf8'));
-  if (!parsed) return;
-  const { fields, body } = parsed;
+  const { fields, body, errors } = parseFrontmatter(readFileSync(file, 'utf8'));
+  if (errors.length > 0) {
+    for (const error of errors) problem(file, error);
+    return;
+  }
 
   for (const field of REQUIRED_FIELDS) {
     if (fields[field] === undefined) problem(file, `missing required field: ${field}`);
@@ -125,6 +91,35 @@ function lintEntry(stream, year, file) {
   }
 }
 
+/**
+ * Asset guardrails (plan §3): GIFs are a hard error (repo-killer);
+ * the size/count budgets are soft — a warning, never a failed gate.
+ */
+function lintAssets(assetsDir) {
+  for (const version of readdirSync(assetsDir)) {
+    const versionDir = path.join(assetsDir, version);
+    if (!statSync(versionDir).isDirectory()) {
+      problem(versionDir, 'expected a per-version assets directory');
+      continue;
+    }
+    const files = readdirSync(versionDir);
+    if (files.length > ASSET_COUNT_BUDGET) {
+      warn(versionDir, `${files.length} assets exceed the ~${ASSET_COUNT_BUDGET}/release budget`);
+    }
+    for (const file of files) {
+      const assetPath = path.join(versionDir, file);
+      if (/\.gif$/i.test(file)) {
+        problem(assetPath, 'GIFs are banned (plan §3) — use WebP, or link a ≤2 MB R2-hosted WebM');
+        continue;
+      }
+      const size = statSync(assetPath).size;
+      if (size > ASSET_IMAGE_BUDGET) {
+        warn(assetPath, `${Math.round(size / 1024)} KB exceeds the ~${ASSET_IMAGE_BUDGET / 1024} KB/image budget`);
+      }
+    }
+  }
+}
+
 const streamFilter = process.argv.slice(2);
 let entries = 0;
 for (const stream of readdirSync(changelogDir)) {
@@ -143,7 +138,10 @@ for (const stream of readdirSync(changelogDir)) {
       continue;
     }
     for (const file of readdirSync(yearDir)) {
-      if (file === 'assets') continue;
+      if (file === 'assets') {
+        lintAssets(path.join(yearDir, file));
+        continue;
+      }
       if (!file.endsWith('.md')) {
         problem(path.join(yearDir, file), 'unexpected non-entry file');
         continue;
@@ -154,8 +152,9 @@ for (const stream of readdirSync(changelogDir)) {
   }
 }
 
+for (const line of warnings) console.error(`lint-changelog: warning: ${line}`);
 if (problems.length > 0) {
   for (const line of problems) console.error(`lint-changelog: ${line}`);
   process.exit(2);
 }
-console.log(`lint-changelog: ${entries} entries OK`);
+console.log(`lint-changelog: ${entries} entries OK${warnings.length > 0 ? ` (${warnings.length} warnings)` : ''}`);
