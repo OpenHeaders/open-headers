@@ -710,9 +710,12 @@ export const workbenchEditorsRequest = {
     'La taille du corps de requête est approximative — le boundary multipart est généré par le navigateur.',
   'workbench.editors.request.response.meta.noteWireHidden':
     "Tailles sur le réseau (compressé, transféré) masquées : le serveur n'a envoyé aucun Timing-Allow-Origin.",
+  'workbench.editors.request.response.meta.noteWireHiddenNode':
+    "Tailles sur le réseau (compressé, transféré) non rapportées par le runtime réseau de l'application.",
   'workbench.editors.request.response.meta.networkTitle': 'Réseau',
   'workbench.editors.request.response.meta.networkSummary': 'Les faits au niveau connexion pour cet échange.',
   'workbench.editors.request.response.meta.httpVersion': 'Version HTTP',
+  'workbench.editors.request.response.meta.localAddress': 'Adresse locale',
   'workbench.editors.request.response.meta.remoteAddress': 'Adresse distante',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
     "Version HTTP masquée : le runtime réseau de l'application ne rapporte pas le protocole négocié.",

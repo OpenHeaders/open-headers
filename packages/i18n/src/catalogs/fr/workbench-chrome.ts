@@ -175,7 +175,7 @@ export const workbenchChrome = {
   'workbench.shell.envSelector.defaultPill': 'DÉFAUT',
   'workbench.shell.envSelector.defaultTooltip':
     "L'environnement par défaut est sélectionné automatiquement pendant le travail avec la collection.",
-  'workbench.shell.envSelector.openEnv': 'Ouvrir {name}',
+  'workbench.shell.envSelector.openEnv': 'Modifier les variables',
   'workbench.shell.envSelector.pinToTab': 'Épingler à cet onglet',
   'workbench.shell.envSelector.unpinFromTab': 'Désépingler de cet onglet',
   'workbench.shell.envSelector.pinToTabDesc': "Bascule vers cet environnement chaque fois que l'onglet a le focus.",

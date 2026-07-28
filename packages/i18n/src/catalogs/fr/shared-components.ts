@@ -421,6 +421,29 @@ export const sharedComponents = {
   'shared.splitLayout.horizontal': 'Disposition horizontale — côte à côte',
   'shared.splitLayout.vertical': 'Disposition verticale — empilée',
 
+  // Grouped-timeline row window — the per-group escape hatch when the
+  // rows-per-group limit hides a group's older messages (gRPC + WS
+  // message timelines share these).
+  'shared.timelineGroup.showOlder': 'Afficher les {count} plus anciens',
+  'shared.timelineGroup.showNewestOnly': 'Afficher seulement les {count} plus récents',
+  // Compose-editor toolbar wrap toggle + the "Editor" dropdown.
+  'shared.codeEditor.wrap': 'Retour à la ligne',
+  'shared.editorMenu.label': 'Éditeur',
+  'shared.editorMenu.thisEditor': 'Cet éditeur',
+  'shared.editorMenu.allEditors': 'Tous les éditeurs',
+  'shared.editorMenu.lineNumbers': 'Numéros de ligne',
+  'shared.editorMenu.whitespace': 'Espaces',
+  'shared.editorMenu.lineEnds': 'Fins de ligne',
+  // Peer-execute refusal notice (the quoted phrases are the settings
+  // rows' own labels, verbatim).
+  'shared.peerExecute.localDisabled':
+    "L'envoi depuis les navigateurs de cet appareil est désactivé dans l'application de bureau. Activez " +
+    '« Autoriser les navigateurs de cet appareil à envoyer des requêtes » sous Paramètres → Backend.',
+  'shared.peerExecute.remoteDisabled':
+    "L'envoi depuis d'autres appareils est désactivé sur l'hôte connecté. Activez « Autoriser les autres " +
+    'appareils connectés à envoyer des requêtes » dans ses Paramètres → Backend sur cette machine.',
+  'shared.peerExecute.enableCta': "Activer dans l'application de bureau",
+
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.cta': "Télécharger l'application de bureau",
   'shared.desktopTeaser.openApp': "Ouvrir dans l'application de bureau",

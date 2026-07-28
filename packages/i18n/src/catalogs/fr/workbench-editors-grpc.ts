@@ -189,6 +189,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.oldestFirst': "Les plus anciens d'abord",
   'workbench.editors.grpc.timeline.showTypes': 'Afficher les types de message',
   'workbench.editors.grpc.timeline.groupByType': 'Grouper par type de message',
+  'workbench.editors.grpc.timeline.groupByDirection': 'Grouper par direction',
   'workbench.editors.grpc.timeline.rowsPerGroup': 'Lignes par groupe',
   'workbench.editors.grpc.timeline.noLimit': 'Sans limite',
   'workbench.editors.grpc.timeline.clearMessages': 'Effacer les messages (affichage uniquement)',

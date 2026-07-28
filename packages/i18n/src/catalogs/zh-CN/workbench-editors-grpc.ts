@@ -161,6 +161,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.oldestFirst': '最早在前',
   'workbench.editors.grpc.timeline.showTypes': '显示消息类型',
   'workbench.editors.grpc.timeline.groupByType': '按消息类型分组',
+  'workbench.editors.grpc.timeline.groupByDirection': '按方向分组',
   'workbench.editors.grpc.timeline.rowsPerGroup': '每组行数',
   'workbench.editors.grpc.timeline.noLimit': '无限制',
   'workbench.editors.grpc.timeline.clearMessages': '清除消息（仅显示层）',

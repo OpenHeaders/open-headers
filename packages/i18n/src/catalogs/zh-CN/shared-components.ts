@@ -427,6 +427,27 @@ export const sharedComponents = {
   'shared.splitLayout.horizontal': '水平布局——并排',
   'shared.splitLayout.vertical': '垂直布局——堆叠',
 
+  // Grouped-timeline row window — the per-group escape hatch when the
+  // rows-per-group limit hides a group's older messages (gRPC + WS
+  // message timelines share these).
+  'shared.timelineGroup.showOlder': '显示 {count} 条更早的',
+  'shared.timelineGroup.showNewestOnly': '仅显示最新 {count} 条',
+  // Compose-editor toolbar wrap toggle + the "Editor" dropdown.
+  'shared.codeEditor.wrap': '自动换行',
+  'shared.editorMenu.label': '编辑器',
+  'shared.editorMenu.thisEditor': '此编辑器',
+  'shared.editorMenu.allEditors': '所有编辑器',
+  'shared.editorMenu.lineNumbers': '行号',
+  'shared.editorMenu.whitespace': '空白字符',
+  'shared.editorMenu.lineEnds': '行尾符',
+  // Peer-execute refusal notice (the quoted phrases are the settings
+  // rows' own labels, verbatim).
+  'shared.peerExecute.localDisabled':
+    '从此设备的浏览器发送请求已在桌面应用中关闭。请在 设置 → 后端 中启用“允许此设备的浏览器发送请求”。',
+  'shared.peerExecute.remoteDisabled':
+    '从其他设备发送请求已在所连接的主机上关闭。请在那台机器的 设置 → 后端 中启用“允许其他已连接设备发送请求”。',
+  'shared.peerExecute.enableCta': '在桌面应用中启用',
+
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.cta': '下载桌面应用',
   'shared.desktopTeaser.openApp': '在桌面应用中打开',

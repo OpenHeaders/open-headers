@@ -51,6 +51,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.serveWebApp.label': '提供 Web 应用',
   'workbench.settings.def.backend.serveWebApp.description':
     '在后端端口上把工作区编辑器作为网页提供，浏览器标签页可以直接从此应用打开它——无需扩展。任何能访问该端口的人都会看到登录门；访问数据仍需要已配对的 token。',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label': '允许此设备的浏览器发送请求',
+  'workbench.settings.def.backend.allowLocalPeerExecute.description':
+    '让本机上已配对的浏览器通过此应用发送 API 请求——扩展把它用作请求引擎，其工作台的发送就在这里执行。默认开启：配对即同意。每次发送仍需要工作区的写入权限。',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label': '允许其他已连接设备发送请求',
+  'workbench.settings.def.backend.allowRemotePeerExecute.description':
+    '让其他机器上已配对的设备通过此应用发送 API 请求——其工作台的发送在本机执行，使用本机的网络访问与地址。默认关闭：这是运维者的决定，配对本身绝不隐含此授权。每次发送仍需要工作区的写入权限。',
   'workbench.settings.def.backend.reconnectDelayMs.label': '初始重连延迟',
   'workbench.settings.def.backend.reconnectDelayMs.description': '断开后到第一次重连尝试之前等待的时间（ms）。',
   'workbench.settings.def.backend.maxReconnectDelayMs.label': '最大重连延迟',
@@ -360,6 +366,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.renderWhitespace.option.none.label': '无',
   'workbench.settings.def.editor.renderWhitespace.option.boundary.label': '仅边界',
   'workbench.settings.def.editor.renderWhitespace.option.all.label': '全部',
+  'workbench.settings.def.editor.renderLineEnds.label': '显示行尾符',
+  'workbench.settings.def.editor.renderLineEnds.description':
+    '在每个真实行的最后一个字符后绘制一个淡淡的 ¬，这样软换行的行（行号槽空白、悬挂缩进、无标记）绝不会被误认成换行。仅用于显示：该标记不可选中，也不会被复制或发送。',
   'workbench.settings.def.editor.formatOnSave.label': '保存时格式化',
   'workbench.settings.def.editor.formatOnSave.description': '保存规则或模板时自动格式化编辑器内容。',
   'workbench.settings.def.editor.bracketPairColorization.label': '括号对着色',
@@ -387,12 +396,24 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesGroupByType.label': 'gRPC 消息：按消息类型分组',
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     '把 gRPC 消息时间线聚在可折叠的消息类型标题下，每组内保持到达顺序。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'gRPC 消息：按方向分组',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
+    '把 gRPC 消息时间线聚在可折叠的已发送 / 已接收标题下。与按消息类型分组组合时，每个（类型，方向）对得到自己的分组——对请求与响应共用同一消息类型的双向调用很有用。时间线工具栏更改的是同一设置。',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'gRPC 消息：每组行数',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     '按消息类型分组时，每组只显示这么多条最新消息——窗口随新消息滑动，多个组可同时观察。0 显示所有消息。时间线工具栏更改的是同一设置。',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'WebSocket 消息：最新在前',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'WebSocket 消息时间线的顺序——最新消息在顶部。关闭则从最旧开始读。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'WebSocket 消息：按方向分组',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
+    '把 WebSocket 消息时间线聚在可折叠的已发送 / 已接收标题下，每组内保持到达顺序。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'WebSocket 消息：按事件分组',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
+    '把 Socket.IO 会话时间线聚在可折叠的已解码事件名标题下（控制帧按其线上类型归类）。与按方向分组组合时，每个（事件，方向）对得到自己的分组。仅适用于 Socket.IO 会话——原始 WebSocket 帧不携带事件名。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'WebSocket 消息：每组行数',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
+    '按方向分组时，每组只显示这么多条最新消息——窗口随新消息到来滑动，两个分组因此可以同时观察。0 表示显示全部消息。时间线工具栏更改的是同一设置。',
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC：发送无效消息',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     'gRPC 消息不是有效 JSON 时，仍以空消息发起调用并让服务器应答——通常是 INVALID_ARGUMENT。默认关闭：调用在上线路之前失败，并给出确切的解析错误。',

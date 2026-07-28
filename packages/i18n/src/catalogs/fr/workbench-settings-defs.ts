@@ -55,6 +55,21 @@ export const workbenchSettingsDefs = {
     "Sert le Workbench comme page web sur le port du back-end, pour qu'un onglet de navigateur puisse l'ouvrir " +
     'directement depuis cette application — aucune extension requise. Quiconque atteint le port voit la ' +
     'grille de connexion ; un jeton appairé reste requis pour accéder aux données.',
+  'workbench.settings.def.backend.allowLocalPeerExecute.label':
+    'Autoriser les navigateurs de cet appareil à envoyer des requêtes',
+  'workbench.settings.def.backend.allowLocalPeerExecute.description':
+    'Laisse les navigateurs appairés sur CETTE machine envoyer des requêtes API via cette application — ' +
+    "l'extension s'en sert comme moteur de requêtes, leur Send du workbench s'exécute donc ici. Activé par " +
+    "défaut : l'appairage vaut consentement. Chaque envoi requiert toujours un accès en écriture à l'espace " +
+    'de travail.',
+  'workbench.settings.def.backend.allowRemotePeerExecute.label':
+    'Autoriser les autres appareils connectés à envoyer des requêtes',
+  'workbench.settings.def.backend.allowRemotePeerExecute.description':
+    "Laisse les appareils appairés sur d'AUTRES machines envoyer des requêtes API via cette application — " +
+    "leur Send du workbench s'exécute sur cette machine, avec son accès réseau et son adresse. Désactivé " +
+    "par défaut : une décision d'opérateur, jamais implicite dans l'appairage. Chaque envoi requiert " +
+    "toujours un accès en écriture à l'espace de travail.",
+  'workbench.settings.def.backend.reconnectDelayMs.label': 'Délai de reconnexion initial',
   'workbench.settings.def.backend.reconnectDelayMs.description':
     'Combien de temps attendre (ms) avant la première tentative de reconnexion après une déconnexion.',
   'workbench.settings.def.backend.maxReconnectDelayMs.label': 'Délai de reconnexion maximum',
@@ -466,6 +481,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.renderWhitespace.option.none.label': 'Aucun',
   'workbench.settings.def.editor.renderWhitespace.option.boundary.label': 'Limites uniquement',
   'workbench.settings.def.editor.renderWhitespace.option.all.label': 'Tous',
+  'workbench.settings.def.editor.renderLineEnds.label': 'Afficher les fins de ligne',
+  'workbench.settings.def.editor.renderLineEnds.description':
+    'Peint un ¬ discret après le dernier caractère de chaque ligne réelle, pour que les lignes repliées ' +
+    '(numéro de gouttière vide, indentation suspendue, aucune marque) ne puissent jamais être prises pour ' +
+    "des sauts de ligne. Affichage uniquement : la marque n'est jamais sélectionnable, copiée ni envoyée.",
   'workbench.settings.def.editor.formatOnSave.label': "Formater à l'enregistrement",
   'workbench.settings.def.editor.formatOnSave.description':
     "Formate automatiquement le contenu de l'éditeur quand vous enregistrez une règle ou un modèle.",
@@ -506,6 +526,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.grpcMessagesGroupByType.description':
     "Regroupe la chronologie des messages gRPC sous des en-têtes repliables par type de message, l'ordre " +
     "d'arrivée conservé dans chaque groupe. La barre d'outils de la chronologie change ce même réglage.",
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.label': 'Messages gRPC : grouper par direction',
+  'workbench.settings.def.requests.grpcMessagesGroupByDirection.description':
+    'Regroupe la chronologie des messages gRPC sous des en-têtes repliables envoyés / reçus. Combiné au ' +
+    'regroupement par type de message, chaque paire (type, direction) obtient son propre groupe — utile sur ' +
+    'les appels bidirectionnels dont la requête et la réponse partagent un même type de message. La barre ' +
+    "d'outils de la chronologie change ce même réglage.",
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.label': 'Messages gRPC : lignes par groupe',
   'workbench.settings.def.requests.grpcMessagesGroupRowLimit.description':
     "En groupant par type de message, n'affiche que ce nombre des messages les plus récents de chaque groupe " +
@@ -516,6 +542,24 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Ordre de la chronologie des messages WebSocket — les messages les plus récents en haut. Désactivez pour ' +
     "lire du plus ancien au plus récent. La barre d'outils de la chronologie change ce même réglage.",
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.label': 'Messages WebSocket : grouper par direction',
+  'workbench.settings.def.requests.wsMessagesGroupByDirection.description':
+    'Regroupe la chronologie des messages WebSocket sous des en-têtes repliables envoyés / reçus, ' +
+    "l'ordre d'arrivée conservé dans chaque groupe. La barre d'outils de la chronologie change ce même " +
+    'réglage.',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.label': 'Messages WebSocket : grouper par événement',
+  'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
+    "Regroupe les chronologies des sessions Socket.IO sous des en-têtes repliables par nom d'événement " +
+    'décodé (les trames de contrôle se rangent par leur type sur le fil). Combiné au regroupement par ' +
+    'direction, chaque paire (événement, direction) obtient son propre groupe. Ne concerne que les sessions ' +
+    "Socket.IO — les trames WebSocket brutes ne portent pas de noms d'événements. La barre d'outils de la " +
+    'chronologie change ce même réglage.',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Messages WebSocket : lignes par groupe',
+  'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
+    "En groupant par direction, n'affiche que ce nombre des messages les plus récents de chaque groupe — la " +
+    'fenêtre glisse à mesure que de nouveaux messages arrivent, si bien que les deux groupes restent ' +
+    "observables à la fois. 0 affiche tous les messages. La barre d'outils de la chronologie change ce même " +
+    'réglage.',
   'workbench.settings.def.requests.grpcSendInvalidMessage.label': 'gRPC : envoyer les messages invalides',
   'workbench.settings.def.requests.grpcSendInvalidMessage.description':
     "Quand le message gRPC n'est pas du JSON valide, invoquer quand même avec un message vide et laisser le " +
