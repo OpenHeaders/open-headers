@@ -33,6 +33,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const changelogDir = path.join(repoRoot, 'changelog');
 const FEED_BASE = 'https://updates.openheaders.io/changelog';
 
+// Public history starts at the first public release — earlier versions
+// never appear on the feed, whether from the tree or a prior index.
+const FIRST_PUBLIC_VERSION = '2026.7.23';
+
 // The streams a suite tag cuts (the extension rides its own store
 // lane; its rows come from authored tree entries and its manifest
 // version, like versions.json's extension entry).
@@ -80,6 +84,7 @@ for (const stream of readdirSync(changelogDir)) {
       const raw = readFileSync(entryPath, 'utf8');
       const { fields, body, errors } = parseFrontmatter(raw);
       if (errors.length > 0) fail(`${path.relative(repoRoot, entryPath)}: ${errors[0]} (run scripts/lint-changelog.mjs)`);
+      if (compareCalVer(fields.version, FIRST_PUBLIC_VERSION) < 0) continue;
       entries.push({ stream, fields, body: body.trim(), raw });
     }
   }
@@ -167,6 +172,7 @@ if (priorIndexPath && existsSync(priorIndexPath)) {
     if (!Array.isArray(prior)) throw new Error('not an array');
     for (const row of prior) {
       if (!row?.app || !row?.version) continue;
+      if (compareCalVer(row.version, FIRST_PUBLIC_VERSION) < 0) continue;
       const key = `${row.app}@${row.version}`;
       if (!rows.has(key)) rows.set(key, row);
     }
