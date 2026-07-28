@@ -59,10 +59,14 @@ interface StoreState {
 
 // ── Module state ─────────────────────────────────────────────────────
 
+// Explicit type arguments: in a program that loads no `SettingsMap`
+// augmentations (e.g. a test slice typechecking this file standalone),
+// `SettingKey` is `never` and a bare `new Map()`'s `any` would not
+// narrow to it.
 const state: StoreState = {
-  values: new Map(),
-  modified: new Set(),
-  managed: new Map(),
+  values: new Map<SettingKey, unknown>(),
+  modified: new Set<SettingKey>(),
+  managed: new Map<SettingKey, unknown>(),
   ready: false,
 };
 
