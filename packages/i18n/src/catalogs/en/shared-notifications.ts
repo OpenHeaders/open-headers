@@ -40,8 +40,8 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.tooltip': 'Open github and clear notification',
 
   // ── App-update timeline entries ────────────────────────────────────
-  'shared.notifications.appUpdate.title': 'Open Headers {version} available',
-  'shared.notifications.appUpdate.securityTitle': 'Open Headers {version} security update available',
+  'shared.notifications.appUpdate.title': '{version} available',
+  'shared.notifications.appUpdate.securityTitle': '{version} security update available',
   'shared.notifications.appUpdate.securityDescription':
     'This release fixes a security issue affecting the version you are running. Update as soon as possible.',
   'shared.notifications.appUpdate.download': 'Download…',
@@ -53,20 +53,19 @@ export const sharedNotifications = {
   'shared.notifications.toast.optionsAria': 'Update notification options',
   'shared.notifications.toast.close': 'Close',
   'shared.notifications.toast.upToDateTitle': "You're up to date",
-  'shared.notifications.toast.upToDateDescription': 'Open Headers {version} is the latest version.',
+  'shared.notifications.toast.upToDateDescription': '{version} is the latest version.',
   'shared.notifications.toast.checkFailed': 'Update check failed',
   'shared.notifications.toast.downloadFailed': 'Update download failed',
-  'shared.notifications.toast.available': 'Open Headers {version} available',
+  'shared.notifications.toast.available': '{version} available',
   'shared.notifications.toast.update': 'Update…',
-  'shared.notifications.toast.downloading': 'Downloading Open Headers {version}…',
-  'shared.notifications.toast.readyToInstall': 'Open Headers {version} ready to install',
+  'shared.notifications.toast.readyToInstall': '{version} ready to install',
   'shared.notifications.toast.restartToInstall': 'Restart to install',
-  'shared.notifications.toast.updatedTo': 'Updated to Open Headers {version}',
+  'shared.notifications.toast.updatedTo': 'Updated to {version}',
   'shared.notifications.toast.seeWhatsNew': "See what's new",
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':
-    'Open Headers {availableVersion} fixes a security issue affecting the version you are running ({currentVersion}). Update as soon as possible.',
+    '{availableVersion} fixes a security issue affecting the version you are running ({currentVersion}). Update as soon as possible.',
   'shared.notifications.securityBanner.messageNoVersion':
     'A security fix is published for the version you are running ({currentVersion}). Update as soon as possible.',
   'shared.notifications.securityBanner.update': 'Update…',

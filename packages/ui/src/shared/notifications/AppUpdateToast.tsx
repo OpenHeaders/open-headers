@@ -3,17 +3,17 @@
  *
  * Live mirror, not a one-shot announcement: on hosts with an in-app
  * updater (bridge `oh.updates.*`) the balloon follows the phase —
- * "available" with an Update… link, download progress, then "ready to
- * install" with a Restart action — so it can never contradict what the
- * native menus / Settings row show. Hosts that only report a download
- * URL (no updater) get the plain "available" balloon.
+ * "available" with an Update… link, then "ready to install" with a
+ * Restart action — so it can never contradict what the native menus /
+ * Settings row show. Hosts that only report a download URL (no
+ * updater) get the plain "available" balloon.
  *
  * Appearance rules:
  *   - "available" shows once per offered version (localStorage ack), so
  *     re-mounts and later sessions stay quiet.
- *   - progress only UPDATES an already-open balloon — a window opened
- *     mid-download doesn't get an uninvited toast (the gear dot and
- *     Settings row carry that state).
+ *   - the download phase shows NO toast — the footer's background-task
+ *     bar owns that progress; an open balloon closes when the download
+ *     starts.
  *   - "ready to install" opens once per session — it's the one phase
  *     with a pending action.
  *   - dismissing (hover-revealed ✕) silences the current phase; a phase
@@ -23,7 +23,7 @@
 import { CloseOutlined, MoreOutlined } from '@ant-design/icons';
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import { App, Button, Dropdown, Progress, Tooltip } from 'antd';
+import { App, Button, Dropdown, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -247,14 +247,10 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
           );
           break;
         case 'downloading':
-          // Only keep an open balloon in sync — never conjure one.
-          if (!isOpen) return;
-          show(
-            marker,
-            t('shared.notifications.toast.downloading', { version }),
-            <Progress percent={state.progressPercent ?? 0} size="small" style={{ marginTop: 2 }} />,
-            version,
-          );
+          // The footer's background-task bar owns download progress —
+          // an open "available" balloon closes when the download
+          // starts instead of morphing into a duplicate progress toast.
+          if (isOpen) close();
           break;
         case 'downloaded':
           // The one phase with a pending action — once per session.
@@ -356,8 +352,8 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
         const { url } = info;
         show(
           `${info.version}:available`,
-          `Open Headers ${info.version} available`,
-          updateLink('Update…', () => {
+          t('shared.notifications.toast.available', { version: info.version }),
+          updateLink(t('shared.notifications.toast.update'), () => {
             if (!url) return;
             const openUrl = getCapability('openExternalUrl');
             if (openUrl) void openUrl(url);

@@ -41,8 +41,8 @@ export const sharedNotifications = {
   'shared.notifications.seed.star.tooltip': '打开 GitHub 并清除通知',
 
   // ── App-update timeline entries ────────────────────────────────────
-  'shared.notifications.appUpdate.title': 'Open Headers {version} 可用',
-  'shared.notifications.appUpdate.securityTitle': 'Open Headers {version} 安全更新可用',
+  'shared.notifications.appUpdate.title': '{version} 可用',
+  'shared.notifications.appUpdate.securityTitle': '{version} 安全更新可用',
   'shared.notifications.appUpdate.securityDescription': '此版本修复了一个影响你当前所用版本的安全问题。请尽快更新。',
   'shared.notifications.appUpdate.download': '下载…',
 
@@ -53,20 +53,19 @@ export const sharedNotifications = {
   'shared.notifications.toast.optionsAria': '更新通知选项',
   'shared.notifications.toast.close': '关闭',
   'shared.notifications.toast.upToDateTitle': '已是最新版本',
-  'shared.notifications.toast.upToDateDescription': 'Open Headers {version} 已是最新版本。',
+  'shared.notifications.toast.upToDateDescription': '{version} 已是最新版本。',
   'shared.notifications.toast.checkFailed': '更新检查失败',
   'shared.notifications.toast.downloadFailed': '更新下载失败',
-  'shared.notifications.toast.available': 'Open Headers {version} 可用',
+  'shared.notifications.toast.available': '{version} 可用',
   'shared.notifications.toast.update': '更新…',
-  'shared.notifications.toast.downloading': '正在下载 Open Headers {version}…',
-  'shared.notifications.toast.readyToInstall': 'Open Headers {version} 已就绪，可以安装',
+  'shared.notifications.toast.readyToInstall': '{version} 已就绪，可以安装',
   'shared.notifications.toast.restartToInstall': '重启以安装',
-  'shared.notifications.toast.updatedTo': '已更新到 Open Headers {version}',
+  'shared.notifications.toast.updatedTo': '已更新到 {version}',
   'shared.notifications.toast.seeWhatsNew': '查看新功能',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':
-    'Open Headers {availableVersion} 修复了一个影响你当前所用版本（{currentVersion}）的安全问题。请尽快更新。',
+    '{availableVersion} 修复了一个影响你当前所用版本（{currentVersion}）的安全问题。请尽快更新。',
   'shared.notifications.securityBanner.messageNoVersion':
     '已发布针对你当前所用版本（{currentVersion}）的安全修复。请尽快更新。',
   'shared.notifications.securityBanner.update': '更新…',

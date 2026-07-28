@@ -597,7 +597,7 @@ export const workbenchChrome = {
   'workbench.templateEditor.conditionsTitle': 'Conditions',
 
   // ── What's New tab ──────────────────────────────────────────────────
-  'workbench.whatsNew.title': "What's New in Open Headers {version}",
+  'workbench.whatsNew.title': "What's New in {version}",
   'workbench.whatsNew.noNotes': 'This build ships without release notes.',
 
   // ── Keyboard shortcuts: SHORTCUTS registry action names + the docs

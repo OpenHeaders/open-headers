@@ -61,7 +61,6 @@ export const sharedNotifications = {
   'shared.notifications.toast.downloadFailed': 'Échec du téléchargement de la mise à jour',
   'shared.notifications.toast.available': 'Open Headers {version} disponible',
   'shared.notifications.toast.update': 'Mettre à jour…',
-  'shared.notifications.toast.downloading': "Téléchargement d'Open Headers {version}…",
   'shared.notifications.toast.readyToInstall': 'Open Headers {version} prêt à installer',
   'shared.notifications.toast.restartToInstall': 'Redémarrer pour installer',
   'shared.notifications.toast.updatedTo': 'Mise à jour vers Open Headers {version} effectuée',

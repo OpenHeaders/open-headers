@@ -26,7 +26,7 @@ export function useAppUpdateTask(): void {
         case 'downloading':
           upsertBackgroundTask({
             id: TASK_ID,
-            title: `Downloading Open Headers ${state.availableVersion ?? ''}`.trimEnd(),
+            title: `Downloading ${state.availableVersion ?? 'update'}`,
             detail: 'Installs when you restart',
             percent: state.progressPercent ?? 0,
           });

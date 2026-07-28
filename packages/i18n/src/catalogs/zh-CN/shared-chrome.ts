@@ -100,7 +100,7 @@ export const sharedChrome = {
     '连续三次冷唤醒超出基线 ≥20%。最近的 boot.interactive 样本（ms）：{samples}。',
 
   // ── Update dialog ──────────────────────────────────────────────────
-  'shared.chrome.updates.title': 'Open Headers 更新',
+  'shared.chrome.updates.title': '更新',
   'shared.chrome.updates.downloading': '下载中…',
   'shared.chrome.updates.downloadingPercent': '下载中… {percent}%',
   'shared.chrome.updates.updateAndRestart': '更新并重启',

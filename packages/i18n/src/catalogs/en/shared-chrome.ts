@@ -101,7 +101,7 @@ export const sharedChrome = {
     'Three consecutive cold wakes exceeded baseline by ≥20%. Recent boot.interactive samples (ms): {samples}.',
 
   // ── Update dialog ──────────────────────────────────────────────────
-  'shared.chrome.updates.title': 'Open Headers Update',
+  'shared.chrome.updates.title': 'Update',
   'shared.chrome.updates.downloading': 'Downloading…',
   'shared.chrome.updates.downloadingPercent': 'Downloading… {percent}%',
   'shared.chrome.updates.updateAndRestart': 'Update & Restart',

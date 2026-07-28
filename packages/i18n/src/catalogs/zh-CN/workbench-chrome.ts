@@ -586,7 +586,7 @@ export const workbenchChrome = {
   'workbench.templateEditor.conditionsTitle': '条件',
 
   // ── What's New tab ──────────────────────────────────────────────────
-  'workbench.whatsNew.title': 'Open Headers {version} 新功能',
+  'workbench.whatsNew.title': '{version} 新功能',
   'workbench.whatsNew.noNotes': '此构建版本未附带版本说明。',
 
   // ── Keyboard shortcuts: SHORTCUTS registry action names + the docs

@@ -35,10 +35,10 @@ export const desktop = {
   'desktop.menu.licenseAgreement': 'License Agreement',
   'desktop.update.check': 'Check for Updates…',
   'desktop.update.checking': 'Checking for Updates…',
-  'desktop.update.updateAndRestart': 'Update to Open Headers {version} & Restart',
+  'desktop.update.updateAndRestart': 'Update to {version} & Restart',
   'desktop.update.downloading': 'Downloading Update… {percent}%',
   'desktop.update.downloadingNoProgress': 'Downloading Update…',
-  'desktop.update.restartToInstall': 'Restart to Install Open Headers {version}',
+  'desktop.update.restartToInstall': 'Restart to Install {version}',
   'desktop.dialog.hardwareAcceleration.title': 'Hardware Acceleration',
   'desktop.dialog.hardwareAcceleration.willBeDisabled':
     'Hardware acceleration will be disabled the next time {name} starts.',
