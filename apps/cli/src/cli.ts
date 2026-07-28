@@ -10,6 +10,7 @@
  */
 
 import { maybeSpawnAutoUpgrade } from './auto-upgrade';
+import { commandChangelog } from './changelog';
 import type { CommandSpec } from './command-spec';
 import {
   commandAutoUpdate,
@@ -57,6 +58,7 @@ Commands:
   channel [stable|beta]         Show or set the release line version checks follow
   upgrade [--channel <line>]    Download and install the newest release of this binary
   autoupdate [on|off]           Show or set background self-update (binary installs only; default on)
+  changelog                     Show this release's notes (embedded at build; works offline)
   completion bash|zsh           Print a shell completion script (source it from your profile)
   tui                           Open the terminal dashboard (early preview)
 ${readLines.join('\n')}
@@ -144,6 +146,8 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
     lines = await commandChannel(argv.slice(1));
   } else if (first === 'autoupdate') {
     lines = await commandAutoUpdate(argv.slice(1));
+  } else if (first === 'changelog') {
+    lines = commandChangelog(argv.slice(1));
   } else if (first === 'upgrade') {
     lines = await commandUpgrade(argv.slice(1));
   } else {

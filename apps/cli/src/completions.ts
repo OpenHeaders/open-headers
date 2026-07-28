@@ -36,6 +36,7 @@ function buildTree(): CommandTree {
   verbs.set('autoupdate', ['on', 'off']);
   flags.set('autoupdate', ['--json']);
   flags.set('upgrade', ['--channel', '--json']);
+  flags.set('changelog', ['--json']);
 
   for (const spec of READ_COMMANDS) {
     const key = spec.verb === '' ? spec.group : `${spec.group} ${spec.verb}`;
@@ -51,7 +52,7 @@ function buildTree(): CommandTree {
   }
 
   const groups = [...new Set([...verbs.keys(), ...READ_COMMANDS.filter((s) => s.verb === '').map((s) => s.group)])];
-  return { top: ['status', 'connect', 'upgrade', 'completion', 'tui', 'help', ...groups], verbs, flags };
+  return { top: ['status', 'connect', 'upgrade', 'changelog', 'completion', 'tui', 'help', ...groups], verbs, flags };
 }
 
 /** case arms for the second word: verbs per group, or flags for verb-less commands. */

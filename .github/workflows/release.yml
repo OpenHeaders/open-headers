@@ -1208,6 +1208,7 @@ jobs:
               *.json) TYPE="application/json" ;;
               *.md)   TYPE="text/markdown; charset=utf-8" ;;
               *.ps1)  TYPE="text/plain; charset=utf-8" ;;
+              *.txt)  TYPE="text/plain; charset=utf-8" ;;
               *.sh)   TYPE="text/x-shellscript; charset=utf-8" ;;
               *.webp) TYPE="image/webp" ;;
               *.png)  TYPE="image/png" ;;

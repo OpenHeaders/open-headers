@@ -7,12 +7,14 @@
 
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+import { resolveChangelogEntry } from './src/bundling/changelog-entry';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
 export default defineConfig({
   define: {
     __CLI_VERSION__: JSON.stringify(pkg.version),
+    __CLI_CHANGELOG__: JSON.stringify(resolveChangelogEntry(pkg.version)),
   },
   build: {
     target: 'node22',

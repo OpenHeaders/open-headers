@@ -12,6 +12,7 @@
  *   changelog/<stream>/<version>.md          — raw markdown, curl-able
  *   changelog/<stream>/<version>-beta.N.json — immutable per-beta snapshot
  *   changelog/assets/<stream>/<version>/…    — entry assets
+ *   llms.txt (feed root)                     — llms.txt pointer for AI agents
  *
  * Asset refs are relative in the canonical tree and rewritten to
  * absolute feed URLs here (relative-at-source, resolve-at-projection).
@@ -194,9 +195,46 @@ mkdirSync(outRoot, { recursive: true });
 writeView('index.json', index);
 writeView('stable.json', index.filter((row) => row.channel === 'stable'));
 writeView('beta.json', index.filter((row) => row.channel === 'beta'));
-for (const stream of STREAMS) {
-  const view = index.filter((row) => row.app === stream);
-  if (view.length > 0) writeView(`${stream}.json`, view);
+const streamViews = STREAMS.filter((stream) => index.some((row) => row.app === stream));
+for (const stream of streamViews) {
+  writeView(`${stream}.json`, index.filter((row) => row.app === stream));
 }
+
+// ── llms.txt (feed root) ─────────────────────────────────────────────
+// Pointer file for AI agents (llmstxt.org): what this host serves and
+// where the machine-readable release history lives. Regenerated with
+// the feed on every tag, so the per-release links always reflect the
+// published index. The daemon stream's public label is "Server".
+const STREAM_LABELS = { desktop: 'Desktop', extension: 'Extension', cli: 'CLI', daemon: 'Server', web: 'Web' };
+const noteLinks = index
+  .filter((row) => row.md)
+  .map((row) => `- [${STREAM_LABELS[row.app] ?? row.app} ${row.version}](${row.md}): JSON twin at ${row.json}`);
+const llmsTxt = `# Open Headers
+
+> Open Headers is a web development toolkit — a browser extension, desktop app, CLI, and server for modifying live browser requests, managing API collections, and collaborating with your team. This host (updates.openheaders.io) is its static update feed: version manifests and the release changelog as JSON and raw markdown. Streams are products: desktop, extension, cli, daemon (labeled "Server"), web.
+
+## Changelog
+
+- [All releases](${FEED_BASE}/index.json): every release across all streams, newest first; rows with prose notes carry \`md\` and \`json\` links
+- [Stable releases](${FEED_BASE}/stable.json): channel view of the same index
+- [Beta releases](${FEED_BASE}/beta.json): channel view of the same index
+${streamViews.map((stream) => `- [${STREAM_LABELS[stream] ?? stream} releases](${FEED_BASE}/${stream}.json): per-product view`).join('\n')}
+
+## Release notes
+
+${noteLinks.join('\n')}
+
+## Versions
+
+- [Stable manifest](https://updates.openheaders.io/versions/stable.json): latest version, severity, and download URLs per product
+- [Beta manifest](https://updates.openheaders.io/versions/beta.json): same shape for the beta channel
+
+## Optional
+
+- [Website](https://openheaders.io)
+- [Changelog page](https://openheaders.io/changelog)
+- [Public repository](https://github.com/OpenHeaders/open-headers)
+`;
+writeFileSync(path.join(outputDir, 'llms.txt'), llmsTxt);
 
 console.error(`generate-changelog-feed: staged ${index.length} index rows for ${tag} in ${outputDir}`);
