@@ -11,6 +11,7 @@ export type {
   TerminalSession,
   TerminalSpawnOptions,
   TerminalSpawnProfile,
+  WhatsNewHistoryApi,
 } from './registry';
 export {
   getCapability,

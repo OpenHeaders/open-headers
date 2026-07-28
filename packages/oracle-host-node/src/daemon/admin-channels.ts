@@ -60,6 +60,15 @@ export interface AdminChannelDeps {
   pairing: DaemonPairingService;
   /** The port the WS server is actually bound on right now. */
   getBoundPort(): number;
+  /**
+   * This build's own release notes (`oh.daemon.changelog.get`): the
+   * running server version and the `changelog/daemon` entry body the
+   * daemon host embedded at build (CHANGELOG_PLAN.md §4.3) — null
+   * notes = entry-less build, the admin card hides. Optional so
+   * dispatch tables composed without it (the desktop host, test rigs)
+   * answer an honest nothing instead of failing construction.
+   */
+  changelog?: { version: string; notes: string | null };
   /** Live server slot — null until the supervisor's first bind resolves. */
   getWsServer(): OracleWsServer | null;
   /**
@@ -147,6 +156,14 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   // capability resolution before reaching the table. So `true` here is
   // a fact, not a bypass.
   handlers.set(ADMIN_STATUS_CHANNEL, () => ({ admin: true }));
+
+  // This build's own release notes — served rather than fetched (the
+  // browser never dials the feed, CHANGELOG_PLAN.md §4.3). Null notes
+  // (entry-less build, or a host that embeds none) hide the card.
+  handlers.set('oh.daemon.changelog.get', () => ({
+    version: deps.changelog?.version ?? null,
+    notes: deps.changelog?.notes ?? null,
+  }));
 
   handlers.set('oh.daemon.pairing.start', (message) => {
     try {

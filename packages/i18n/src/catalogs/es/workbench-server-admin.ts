@@ -23,6 +23,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.deniedDescription': 'Administrar este servidor requiere la capacidad daemon.admin.',
   'workbench.serverAdmin.cancel': 'Cancelar',
 
+  // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.notes.sectionTitle': 'Notas de la versión',
+  'workbench.serverAdmin.notes.sectionHint': 'Lo que incluye el build del servidor que administra esta consola.',
+  'workbench.serverAdmin.notes.versionLine': 'Servidor {version}',
+
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Usuarios',
   'workbench.serverAdmin.users.sectionHint':

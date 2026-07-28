@@ -588,6 +588,12 @@ export const workbenchChrome = {
   // ── What's New tab ──────────────────────────────────────────────────
   'workbench.whatsNew.title': '{version} 新功能',
   'workbench.whatsNew.noNotes': '此构建版本未附带版本说明。',
+  'workbench.whatsNew.historyTitle': '历史版本',
+  'workbench.whatsNew.historyShowNotes': '显示说明',
+  'workbench.whatsNew.historyHideNotes': '隐藏说明',
+  'workbench.whatsNew.historyNotesUnavailable': '无法加载版本说明。',
+  'workbench.whatsNew.historyBetaTag': 'Beta',
+  'workbench.whatsNew.historySecurityTag': '安全',
 
   // ── Keyboard shortcuts: SHORTCUTS registry action names + the docs
   // cheatsheet chrome around them. Chords, key caps (?, ⌘, Ctrl) and

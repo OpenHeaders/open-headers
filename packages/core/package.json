@@ -127,6 +127,10 @@
       "import": "./src/capabilities/index.ts",
       "default": "./dist/capabilities/index.js"
     },
+    "./changelog-feed": {
+      "import": "./src/changelog-feed/index.ts",
+      "default": "./dist/changelog-feed/index.js"
+    },
     "./logger": {
       "import": "./src/logger/index.ts",
       "default": "./dist/logger/index.js"

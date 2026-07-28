@@ -599,6 +599,12 @@ export const workbenchChrome = {
   // ── What's New tab ──────────────────────────────────────────────────
   'workbench.whatsNew.title': "What's New in {version}",
   'workbench.whatsNew.noNotes': 'This build ships without release notes.',
+  'workbench.whatsNew.historyTitle': 'Previous releases',
+  'workbench.whatsNew.historyShowNotes': 'Show notes',
+  'workbench.whatsNew.historyHideNotes': 'Hide notes',
+  'workbench.whatsNew.historyNotesUnavailable': 'Release notes could not be loaded.',
+  'workbench.whatsNew.historyBetaTag': 'Beta',
+  'workbench.whatsNew.historySecurityTag': 'Security',
 
   // ── Keyboard shortcuts: SHORTCUTS registry action names + the docs
   // cheatsheet chrome around them. Chords, key caps (?, ⌘, Ctrl) and

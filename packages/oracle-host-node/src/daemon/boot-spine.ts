@@ -190,6 +190,16 @@ export interface DaemonSpineConfig {
   dataDir: string;
   /** Host app version — MCP `initialize` result + observability stamps. */
   appVersion: string;
+  /**
+   * This build's own release-notes body (the canonical
+   * `changelog/daemon` entry embedded at build, CHANGELOG_PLAN.md
+   * §4.3), served to admin surfaces via `oh.daemon.changelog.get` so
+   * the served browser tab never dials the feed. Absent or null =
+   * entry-less build; the admin card hides (entry-existence law). The
+   * desktop host passes nothing — its notes ride the What's New
+   * surface instead.
+   */
+  changelogNotes?: string | null;
   /** Synthetic-identity seed for first boot (U1.6/U1.7). Idempotent across boots. */
   identity: {
     hostKind: HostKind;
@@ -754,6 +764,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     pairing: pairingService,
     getBoundPort: () => boundPort,
     getWsServer: () => wsServer,
+    // This build's own release notes (`oh.daemon.changelog.get`) —
+    // embedded at build by the daemon host, absent on the desktop.
+    changelog: { version: config.appVersion, notes: config.changelogNotes ?? null },
     // The audit RPC reads the same `oracle.db` handle the sink above
     // writes — the store's one read path, projected over the wire.
     queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),

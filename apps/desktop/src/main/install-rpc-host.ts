@@ -98,6 +98,7 @@ import { installScriptSandbox } from './script-sandbox';
 import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
 import { readServeWebApp, webAppRootCandidate } from './web-app-root';
+import { fetchWhatsNewEntryBody, fetchWhatsNewHistory } from './whats-new-history';
 
 const SCOPE = 'install-rpc-host';
 
@@ -556,6 +557,16 @@ export async function installRpcHost(): Promise<void> {
       } catch {
         return { report: null };
       }
+    }
+    // What's New online history (CHANGELOG_PLAN.md §4.3) — the
+    // renderer's CSP can't dial the feed, so these two enhancement-only
+    // static GETs run here. Null answers hide the section, never error.
+    if (type === 'oh.whatsNew.history') {
+      return { rows: await fetchWhatsNewHistory() };
+    }
+    if (type === 'oh.whatsNew.historyEntry') {
+      const version = typeof message.version === 'string' ? message.version : '';
+      return { body: await fetchWhatsNewEntryBody(version) };
     }
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);

@@ -13,6 +13,7 @@
  */
 
 import { defineConfig } from 'vite';
+import { resolveChangelogEntry } from './src/bundling/changelog-entry';
 import { readBuildInfo } from './vite.build-info';
 
 // Build metadata captured once at config-load time.
@@ -21,6 +22,7 @@ const buildInfo = readBuildInfo(__dirname);
 export default defineConfig({
   define: {
     __BUILD_INFO__: JSON.stringify(buildInfo),
+    __DAEMON_CHANGELOG__: JSON.stringify(resolveChangelogEntry(buildInfo.version)),
   },
   build: {
     target: 'node22',

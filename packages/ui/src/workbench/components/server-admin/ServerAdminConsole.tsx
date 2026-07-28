@@ -39,6 +39,7 @@ import GitWorkspacePane, {
   type WorkspaceTreeTransport,
 } from '../../settings/components/git-workspace-pane';
 import ServerAuditReports from './ServerAuditReports';
+import ServerReleaseNotesCard from './ServerReleaseNotesCard';
 import { type ServerAdminStatus, useServerAdminStatus } from './use-server-admin-status';
 
 type DirectoryRole = 'owner' | 'editor' | 'viewer';
@@ -751,6 +752,11 @@ const ServerAdminConsole: React.FC = () => {
         workspaceName={workspaceName}
         workspaceOptions={workspaceOptions}
       />
+
+      {/* The server build's own release notes — served by the daemon
+          from its build-embedded entry; hidden on entry-less builds and
+          hosts that embed none (the desktop). */}
+      <ServerReleaseNotesCard />
     </div>
   );
 };

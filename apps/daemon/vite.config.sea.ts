@@ -13,6 +13,7 @@
 
 import * as path from 'node:path';
 import { defineConfig } from 'vite';
+import { resolveChangelogEntry } from './src/bundling/changelog-entry';
 import { readBuildInfo } from './vite.build-info';
 
 const buildInfo = readBuildInfo(__dirname);
@@ -20,6 +21,7 @@ const buildInfo = readBuildInfo(__dirname);
 export default defineConfig({
   define: {
     __BUILD_INFO__: JSON.stringify(buildInfo),
+    __DAEMON_CHANGELOG__: JSON.stringify(resolveChangelogEntry(buildInfo.version)),
   },
   resolve: {
     alias: {

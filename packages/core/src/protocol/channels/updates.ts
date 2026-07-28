@@ -9,6 +9,8 @@
  * then restart to install) behind every "Update & Restart" affordance.
  */
 
+import type { ChangelogIndexRow } from '../../changelog-feed';
+
 /** Where the updater currently is. One phase at a time, no overlap. */
 export type AppUpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
 
@@ -74,4 +76,16 @@ export interface UpdatesRpc {
    * running download completes.
    */
   'oh.updates.updateAndRestart': { req: Record<string, never>; res: AppUpdateState };
+
+  // ── What's New online history (CHANGELOG_PLAN.md §4.3) ────────────
+  //
+  // The renderer's CSP forbids dialing the changelog feed directly, so
+  // the main process performs the enhancement-only static GETs and the
+  // renderer's `whatsNewHistory` capability rides these. Failure is
+  // in-band null — the history section hides, never errors.
+
+  /** The desktop stream's index rows (`changelog/desktop.json`); null = unreachable. */
+  'oh.whatsNew.history': { req: Record<string, never>; res: { rows: ReadonlyArray<ChangelogIndexRow> | null } };
+  /** One release's prose body, asset URLs absolute; null = absent/unreachable. */
+  'oh.whatsNew.historyEntry': { req: { version: string }; res: { body: string | null } };
 }

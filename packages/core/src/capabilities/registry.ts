@@ -44,8 +44,23 @@
  * swap in fakes; production code installs once at boot.
  */
 
+import type { ChangelogIndexRow } from '../changelog-feed';
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { ScriptExecutionMode } from '../scripts';
+
+/**
+ * The online release-history reader behind
+ * {@link Capabilities.whatsNewHistory}. Both verbs are enhancement-only
+ * reads of the static changelog feed and answer null on ANY failure
+ * (offline, non-200, unparseable) — callers hide the history section,
+ * never surface an error; the bundled current entry is the floor.
+ */
+export interface WhatsNewHistoryApi {
+  /** This host's stream view rows, newest first; null = feed unreachable. */
+  list(): Promise<readonly ChangelogIndexRow[] | null>;
+  /** One release's prose body (asset URLs absolute); null = absent/unreachable. */
+  entryBody(version: string): Promise<string | null>;
+}
 
 /**
  * Input to {@link Capabilities.pairWithCode}. `url` is the back-end's
@@ -444,6 +459,19 @@ export interface Capabilities {
    * the What's New affordances in shared UI.
    */
   getWhatsNew?: () => string | null;
+
+  /**
+   * Online release history for this host's changelog stream — the
+   * What's New tab's "Previous releases" section (enhancement-only:
+   * the feed adds history, never the current entry, which
+   * {@link Capabilities.getWhatsNew} bundles). Registered by hosts
+   * with a transport that can reach the static feed: the desktop
+   * renderer bridges to a main-process fetch (its CSP blocks direct
+   * connects), the extension fetches directly under its host
+   * permissions. Hosts without one (the served web tab — the browser
+   * never dials the feed) leave it absent and the section hides.
+   */
+  whatsNewHistory?: () => WhatsNewHistoryApi;
 
   /**
    * Access to real pty sessions for the workbench Terminal tool

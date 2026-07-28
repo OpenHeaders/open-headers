@@ -642,6 +642,12 @@ export const workbenchChrome = {
   // ── What's New tab ──────────────────────────────────────────────────
   'workbench.whatsNew.title': 'Neuigkeiten in Open Headers {version}',
   'workbench.whatsNew.noNotes': 'Dieser Build wird ohne Versionshinweise ausgeliefert.',
+  'workbench.whatsNew.historyTitle': 'Frühere Versionen',
+  'workbench.whatsNew.historyShowNotes': 'Hinweise anzeigen',
+  'workbench.whatsNew.historyHideNotes': 'Hinweise ausblenden',
+  'workbench.whatsNew.historyNotesUnavailable': 'Die Versionshinweise konnten nicht geladen werden.',
+  'workbench.whatsNew.historyBetaTag': 'Beta',
+  'workbench.whatsNew.historySecurityTag': 'Sicherheit',
 
   // ── Keyboard shortcuts: SHORTCUTS registry action names + the docs
   // cheatsheet chrome around them. Chords, key caps (?, ⌘, Ctrl) and

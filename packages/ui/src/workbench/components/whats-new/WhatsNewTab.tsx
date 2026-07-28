@@ -2,11 +2,14 @@
  * WhatsNewTab — the bundled release-notes page (`docs/UPDATES_PLAN.md`).
  *
  * Content comes from the host's `getWhatsNew` capability: notes are
- * baked into the build (the desktop bundles `whats-new.md` at build
- * time) and never fetched, so opening this tab causes no outbound
- * request. The running version headlines the page from the build-info
- * seam. Auto-opening is `useWhatsNewAutoOpen`'s job; this component
- * only renders.
+ * baked into the build from the canonical changelog entry and never
+ * fetched — the current version's page works fully offline. Below it,
+ * `WhatsNewHistory` adds earlier releases from the changelog feed when
+ * the host registers the `whatsNewHistory` capability (enhancement
+ * only; without it, or offline, the section simply isn't there). The
+ * running version headlines the page from the build-info seam.
+ * Auto-opening is `useWhatsNewAutoOpen`'s job; this component only
+ * renders.
  */
 
 import { getCapability } from '@openheaders/core/capabilities';
@@ -15,6 +18,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getBuildInfo } from '../../../shared/build-info';
 import { MarkdownView } from '../../../shared/markdown/MarkdownView';
+import WhatsNewHistory from './WhatsNewHistory';
 
 const { Title, Text } = Typography;
 
@@ -35,6 +39,7 @@ const WhatsNewTab: React.FC = () => {
         ) : (
           <Text type="secondary">{t('workbench.whatsNew.noNotes')}</Text>
         )}
+        <WhatsNewHistory />
       </div>
     </div>
   );

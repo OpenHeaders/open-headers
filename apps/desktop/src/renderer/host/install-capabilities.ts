@@ -10,9 +10,9 @@
  * `hasCapability`.
  */
 
+import whatsNewNotes from 'virtual:whats-new';
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability, type TerminalSession, type TerminalSpawnOptions } from '@openheaders/core/capabilities';
-import whatsNewNotes from 'virtual:whats-new';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -54,6 +54,27 @@ registerCapability('getAppUpdate', async () => {
 // fetched at runtime). Backs the workbench's What's New tab; a version
 // without an entry reports null and the tab affordances stay hidden.
 registerCapability('getWhatsNew', () => (whatsNewNotes.length > 0 ? whatsNewNotes : null));
+
+// Online release history for the What's New tab's "Previous releases"
+// section — enhancement-only reads of the changelog feed's desktop
+// stream, bridged to the main process because this document's CSP
+// forbids dialing the feed. Null answers hide the section.
+registerCapability('whatsNewHistory', () => ({
+  list: async () => {
+    try {
+      return (await hostBridge.call('oh.whatsNew.history')).rows;
+    } catch {
+      return null;
+    }
+  },
+  entryBody: async (version) => {
+    try {
+      return (await hostBridge.call('oh.whatsNew.historyEntry', { version })).body;
+    } catch {
+      return null;
+    }
+  },
+}));
 
 // Real pty sessions for the workbench Terminal tool window — the
 // desktop is a pty host (node-pty in the main process); browser

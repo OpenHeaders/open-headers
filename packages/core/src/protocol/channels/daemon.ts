@@ -41,6 +41,19 @@ export interface DaemonRpc {
     res: { admin: boolean };
   };
 
+  /**
+   * This build's own release notes — the running server version and
+   * the `changelog/daemon` entry body the daemon host embedded at
+   * build (CHANGELOG_PLAN.md §4.3), served here so the admin console
+   * renders them without the browser ever dialing the feed. `notes`
+   * null = entry-less build (entry-existence law) or a host that
+   * embeds none (the desktop); the card hides either way.
+   */
+  'oh.daemon.changelog.get': {
+    req: Record<string, never>;
+    res: { version: string | null; notes: string | null };
+  };
+
   // ── Daemon device-flow pairing (U3.3) ──────────────────────────
   //
   // Admin-only surface for issuing a short-lived pairing code that a

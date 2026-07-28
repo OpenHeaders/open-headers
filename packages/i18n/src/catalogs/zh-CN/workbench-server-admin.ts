@@ -23,6 +23,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.deniedDescription': '管理此服务器需要 daemon.admin 能力。',
   'workbench.serverAdmin.cancel': '取消',
 
+  // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.notes.sectionTitle': '版本说明',
+  'workbench.serverAdmin.notes.sectionHint': '此控制台所管理服务器构建版本的更新内容。',
+  'workbench.serverAdmin.notes.versionLine': '服务器 {version}',
+
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': '用户',
   'workbench.serverAdmin.users.sectionHint': '先准入用户，再在下方按工作区授予角色。邮箱把 SSO 登录关联到该记录。',

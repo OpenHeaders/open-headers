@@ -34,6 +34,7 @@ import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { installDaemonAutoUpdate } from './auto-update';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
+import { DAEMON_CHANGELOG } from './changelog';
 import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
 import { createDaemonLogger } from './logger';
 import { installScriptRuntime } from './script-sandbox/install';
@@ -156,6 +157,9 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const spine = await bootDaemonSpine({
       dataDir: config.dataDir,
       appVersion,
+      // Build-embedded release notes for the admin console's card —
+      // empty = entry-less build (the card hides).
+      changelogNotes: DAEMON_CHANGELOG === '' ? null : DAEMON_CHANGELOG,
       identity: {
         hostKind: 'daemon',
         displayName: safeOsUsername(),
