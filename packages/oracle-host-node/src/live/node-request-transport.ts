@@ -7,9 +7,9 @@
  * mode's single shot) and the public surface; the layers live in
  * `request-transport/`: policy ABOVE the wire-hop seam
  * (`redirect-follower`, `digest-leg`, `jar-leg`, `capped-read`,
- * `finalize`, `classify-error`, `dispatcher`) and the three wire
+ * `finalize`, `classify-error`, `dispatcher`) and the four wire
  * pipelines BELOW it (`wire-hops`: undici fetch hop, undici
- * `request()` hop, prior-knowledge h2 hop).
+ * `request()` hop, prior-knowledge h2 hop, HTTP/3 helper hop).
  *
  * Differences from the browser SW transport:
  *   - **No offline pre-flight.** The always-on desktop has no
@@ -40,10 +40,16 @@
  *     `node:http2` session pipeline (see `wire-hops.ts`), TLS and
  *     cleartext alike (the sanctioned cleartext-h2 route), with the
  *     same connection policy, redirect/digest/jar layer, and native
- *     trailers; `'3'` fails honestly as not-yet-supported here, as do
- *     `'2'` and `'2-prior-knowledge'` through a proxy (the tunnel's
- *     connector owns the ALPN offer, and the tunnel leg for raw-h2
- *     framing isn't wired yet);
+ *     trailers; `'3'` rides the HTTP/3 helper pipeline (a framed stdio
+ *     exchange with the bundled Rust helper — see
+ *     `docs/REQUEST_ENGINE_H3_PROTOCOL.md` and `h3-helper/`), one QUIC
+ *     connection per hop with the TLS trust legs carried onto the
+ *     helper's own TLS stack, failing honestly PRE-wire on every knob
+ *     the pipeline can't honor (plain http://, proxy, Unix socket, a
+ *     sub-1.3 TLS ceiling, OpenSSL cipher lists, no helper binary on
+ *     this install); `'2'` and `'2-prior-knowledge'` through a proxy
+ *     fail honestly too (the tunnel's connector owns the ALPN offer,
+ *     and the tunnel leg for raw-h2 framing isn't wired yet);
  *     `resolveToAddress` maps to a pinned `connect.lookup` (see
  *     `dispatcher.ts`) that answers every hostname with the one
  *     address while SNI / Host / cert verification keep the URL's
@@ -122,6 +128,9 @@ import {
 } from '@openheaders/oracle/live/request-exec/transport';
 import { fetch as undiciFetch, request as undiciRequest } from 'undici';
 import { cookieJarFor } from './cookie-jar';
+import { decryptedClientKeyPem } from './h3-helper/client-key';
+import { resolveH3HelperBinary } from './h3-helper/helper-binary';
+import { type H3HelperClient, sharedH3HelperClient } from './h3-helper/helper-process';
 import { createInstrumentedDial } from './instrumented-connector';
 import { digestRetryHop } from './request-transport/digest-leg';
 import { connectOptionsFor, dispatcherFor, httpVersionPolicy } from './request-transport/dispatcher';
@@ -129,12 +138,12 @@ import { finalizeResponse } from './request-transport/finalize';
 import { captureJarCookies, type JarActivity, withJarCookie } from './request-transport/jar-leg';
 import { followRedirectChain } from './request-transport/redirect-follower';
 import {
-  type H2Leg,
   type HopState,
   type NodeFetchFn,
   type NodeRequestFn,
   type StreamingLeg,
   startDeadline,
+  type WireLeg,
 } from './request-transport/seam';
 import { wireHop } from './request-transport/wire-hops';
 
@@ -144,6 +153,11 @@ export type { ConnectOptions, NodeFetchFn, NodeRequestFn, NodeRequestResponse } 
 export interface NodeRequestTransportOptions {
   fetchFn?: NodeFetchFn;
   requestFn?: NodeRequestFn;
+  /** The HTTP/3 helper client — injectable like the wire fns so tests
+   *  drive `'3'` sends through a protocol-faithful fake; production
+   *  falls back to the shared host-process client over the resolved
+   *  helper binary. */
+  h3Client?: H3HelperClient;
 }
 
 export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
@@ -180,11 +194,63 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         );
       }
     }
-    // The not-yet-supported version pin fails BEFORE the wire — Phase
-    // E (HTTP/3 over QUIC) honors it; until then a send that pins it
-    // must fail honestly, never quietly ride another protocol.
+    // A pinned HTTP/3 send rides the helper pipeline — every knob the
+    // pipeline cannot honor fails BEFORE the wire, never quietly rides
+    // another protocol (see docs/REQUEST_ENGINE_H3_PROTOCOL.md for the
+    // TLS subset mapping).
+    let h3Client: H3HelperClient | undefined;
+    let h3ClientCert: { certPem: string; keyPem: string } | undefined;
     if (request.httpVersion === '3') {
-      throw new TransportError('This runtime cannot send HTTP/3 yet. Pick another HTTP version.');
+      if (new URL(request.url).protocol !== 'https:') {
+        throw new TransportError(
+          'The request pins HTTP/3, but the URL is plain http:// — QUIC has TLS 1.3 built in, so HTTP/3 exists only for https:// targets. Set the HTTP version to Auto, or use https://.',
+        );
+      }
+      if (request.proxyUrl !== undefined) {
+        throw new TransportError(
+          "The request pins HTTP/3 and routes through a proxy, but an HTTP proxy tunnel can't carry QUIC (UDP). Set the HTTP version to Auto, or clear the proxy.",
+        );
+      }
+      if (request.unixSocketPath !== undefined) {
+        throw new TransportError(
+          'The request pins HTTP/3 and targets a Unix socket, but QUIC runs over UDP — there is no socket-path dial. Set the HTTP version to Auto, or clear the Unix-socket setting.',
+        );
+      }
+      if (request.tlsMaxVersion !== undefined && request.tlsMaxVersion !== '1.3') {
+        throw new TransportError(
+          `The request pins HTTP/3 with a TLS ceiling of ${request.tlsMaxVersion}, but QUIC is TLS 1.3-only — the ceiling can't hold. Raise the "TLS max version" setting to 1.3 (or clear it), or pick another HTTP version.`,
+        );
+      }
+      if (request.tlsCipherSuites !== undefined) {
+        throw new TransportError(
+          'The request pins HTTP/3 and sets TLS cipher suites, but the HTTP/3 pipeline\'s TLS stack doesn\'t accept an OpenSSL-format cipher list. Clear the "TLS cipher suites" setting, or pick another HTTP version.',
+        );
+      }
+      // A passphrase-protected client key crosses the helper protocol
+      // decrypted (rustls can't decrypt encrypted PEM) — bad material
+      // fails HERE with the real problem, not as an opaque handshake.
+      if (request.clientCertificatePem !== undefined && request.clientCertificateKeyPem !== undefined) {
+        try {
+          h3ClientCert = {
+            certPem: request.clientCertificatePem,
+            keyPem: decryptedClientKeyPem(request.clientCertificateKeyPem, request.clientCertificatePassphrase),
+          };
+        } catch (err) {
+          throw new TransportError(
+            `The client certificate from vault entry "${request.clientCertificateRef ?? ''}" could not be loaded for the HTTP/3 send: ${err instanceof Error ? err.message : String(err)}. Check that the entry's key is valid PEM and the passphrase is right.`,
+          );
+        }
+      }
+      h3Client = options.h3Client;
+      if (h3Client === undefined) {
+        const binary = resolveH3HelperBinary();
+        if (binary === null) {
+          throw new TransportError(
+            "This install can't send HTTP/3 — the helper that speaks it isn't available on this platform yet. Pick another HTTP version.",
+          );
+        }
+        h3Client = sharedH3HelperClient(binary);
+      }
     }
     if (request.proxyUrl !== undefined) {
       // A pinned HTTP/2 send cannot be honored through a proxy — the
@@ -236,31 +302,43 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // only correlation-safe way to observe socket phases + endpoints);
     // proxied sends stay on `ProxyAgent` — the tunnel's connector owns
     // the dial and there is nothing honest to observe.
-    // A prior-knowledge send never touches undici's wire — every hop
-    // rides the hand-rolled h2 session pipeline, so no dispatcher (and
-    // no instrumented dial: socket facts for this pipeline are a
-    // residual) — its per-send leg carries the same connection-option
-    // bag plus the sink its spoken-protocol facts report into.
+    // A pinned-pipeline send (`'2-prior-knowledge'`, `'3'`) never
+    // touches undici's wire — every hop rides its hand-rolled pipeline,
+    // so no dispatcher (and no instrumented dial: socket facts for
+    // these pipelines are a residual) — the per-send leg carries the
+    // pipeline's connection/trust inputs plus the sink its
+    // spoken-protocol facts report into.
     const priorKnowledge = request.httpVersion === '2-prior-knowledge';
     const instrumented =
-      request.captureNetwork === true && request.proxyUrl === undefined && !priorKnowledge
+      request.captureNetwork === true && request.proxyUrl === undefined && !priorKnowledge && h3Client === undefined
         ? createInstrumentedDial(connectOptionsFor(request), httpVersionPolicy(request.httpVersion))
         : null;
-    const entry = instrumented === null && !priorKnowledge ? dispatcherFor(request) : undefined;
+    const entry =
+      instrumented === null && !priorKnowledge && h3Client === undefined ? dispatcherFor(request) : undefined;
     const dispatcher = instrumented?.agent ?? entry?.dispatcher;
-    const h2Spoken = priorKnowledge ? new Map<string, string>() : undefined;
-    const h2: H2Leg | null =
-      h2Spoken !== undefined
-        ? {
-            connect: connectOptionsFor(request),
-            onProtocol: (origin, alpnProtocol) => h2Spoken.set(origin, alpnProtocol),
-          }
-        : null;
+    const spoken = priorKnowledge || h3Client !== undefined ? new Map<string, string>() : undefined;
+    let leg: WireLeg | null = null;
+    if (spoken !== undefined) {
+      const onProtocol = (origin: string, alpnProtocol: string): void => {
+        spoken.set(origin, alpnProtocol);
+      };
+      leg =
+        h3Client !== undefined
+          ? {
+              kind: '3',
+              client: h3Client,
+              ...(request.sslVerification === false ? { insecure: true } : {}),
+              ...(h3ClientCert !== undefined ? { clientCert: h3ClientCert } : {}),
+              ...(request.resolveToAddress !== undefined ? { connectAddress: request.resolveToAddress } : {}),
+              onProtocol,
+            }
+          : { kind: '2-prior-knowledge', connect: connectOptionsFor(request), onProtocol };
+    }
     // The always-on negotiated-protocol source for this send: the
     // instrumented dial reports through its connection records; a
-    // prior-knowledge send reads its own leg's spoken-protocol log;
+    // pinned-pipeline send reads its own leg's spoken-protocol log;
     // every other direct send reads its dispatcher's per-origin log.
-    const negotiated = entry?.negotiatedByOrigin ?? h2Spoken;
+    const negotiated = entry?.negotiatedByOrigin ?? spoken;
     // ONE jar per send, looked up by the request's key — absent key
     // means no cookies attached, Set-Cookie discarded.
     const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
@@ -287,13 +365,13 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           };
         }
         const finalHopSentAt = performance.now();
-        let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher, h2);
+        let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher, leg);
         if (jar !== undefined && jarActivity !== undefined) {
           jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
         }
         // Digest second leg — manual mode owns REDIRECT policy, not
         // auth, so the challenge dance runs here too.
-        const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, h2);
+        const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, leg);
         if (retry !== null) {
           response = retry.response;
           if (jarActivity !== undefined) {
@@ -329,7 +407,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         streaming,
         instrumented?.connections,
         negotiated,
-        h2,
+        leg,
       );
     } finally {
       deadline?.clear();

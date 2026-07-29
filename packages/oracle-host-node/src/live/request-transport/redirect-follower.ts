@@ -20,7 +20,7 @@ import type { ConnectionRecord } from '../instrumented-connector';
 import { digestRetryHop } from './digest-leg';
 import { finalizeResponse } from './finalize';
 import { captureJarCookies, type JarActivity, withJarCookie } from './jar-leg';
-import type { Deadline, H2Leg, HopState, NodeFetchFn, NodeRequestFn, StreamingLeg } from './seam';
+import type { Deadline, HopState, NodeFetchFn, NodeRequestFn, StreamingLeg, WireLeg } from './seam';
 import { wireHop } from './wire-hops';
 
 /** Redirect-hop ceiling when the request carries no `maxRedirects`. */
@@ -51,7 +51,7 @@ export async function followRedirectChain(
   streaming: StreamingLeg | null,
   capture: ReadonlyArray<ConnectionRecord> | undefined,
   negotiated: ReadonlyMap<string, string> | undefined,
-  h2: H2Leg | null,
+  leg: WireLeg | null,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
@@ -79,7 +79,7 @@ export async function followRedirectChain(
     // dispatch instant — the boundary between the redirect and waiting
     // phases (a digest second leg stays inside this hop's wait).
     const hopSentAt = performance.now();
-    let response = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher, h2);
+    let response = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher, leg);
     if (jar !== undefined && jarActivity !== undefined) {
       jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
     }
@@ -88,7 +88,7 @@ export async function followRedirectChain(
     // replaces the current one, and a 401 on the resend flows on as a
     // normal (final) response — at most one auth retry per hop by
     // construction.
-    const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, h2);
+    const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, leg);
     if (retry !== null) {
       response = retry.response;
       hop = retry.hop;

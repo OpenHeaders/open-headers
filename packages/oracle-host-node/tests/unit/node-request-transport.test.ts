@@ -10,6 +10,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 import {
   TransportError,
   type TransportRequest,
@@ -18,7 +19,8 @@ import {
   type TransportStreamObserver,
 } from '@openheaders/oracle/live/request-exec/transport';
 import { FormData, Headers, Response } from 'undici';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createH3HelperClient, type H3HelperClient } from '../../src/live/h3-helper/helper-process';
 import { createNodeRequestTransport } from '../../src/live/node-request-transport';
 import { fetchError, makeRequest, makeRig, redirectResponse } from './request-transport/helpers';
 
@@ -475,5 +477,80 @@ describe('createNodeRequestTransport — streaming interactive read (sendStreami
     } finally {
       server.close();
     }
+  });
+});
+
+describe("createNodeRequestTransport — pinned '3' sends over the helper pipeline", () => {
+  const FAKE_HELPER = fileURLToPath(new URL('./h3-helper/fixtures/fake-helper.mjs', import.meta.url));
+  let h3Client: H3HelperClient | null = null;
+
+  function h3Transport() {
+    h3Client = createH3HelperClient({ binaryPath: process.execPath, args: [FAKE_HELPER], helloTimeoutMs: 2000 });
+    return createNodeRequestTransport({ h3Client });
+  }
+
+  afterEach(() => {
+    h3Client?.dispose();
+    h3Client = null;
+  });
+
+  it('maps a full helper exchange onto the TransportResponse, protocol reported from the wire', async () => {
+    const res = await h3Transport().send(
+      makeRequest({
+        httpVersion: '3',
+        url: 'https://api.openheaders.io/ok',
+        headers: [{ key: 'Accept', value: 'application/json' }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    // Wire truth: 'h3' comes from the exchange's RESPONSE_HEAD, never
+    // the knob — the always-on report's pinned-pipeline source.
+    expect(res.httpVersion).toBe('h3');
+    expect(res.trailers).toContainEqual({ key: 'x-fake-trailer', value: 'end' });
+    const body = JSON.parse(res.body);
+    expect(body.path).toBe('/ok');
+    expect(body.headers).toContainEqual(['accept', 'application/json']);
+  });
+
+  it('the redirect follower rides the pipeline hop by hop, policy above the seam untouched', async () => {
+    const res = await h3Transport().send(makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/redirect' }));
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.body).path).toBe('/ok');
+    expect(res.url).toBe('https://api.openheaders.io/ok');
+    expect(res.redirectChain).toEqual([
+      expect.objectContaining({ url: 'https://api.openheaders.io/redirect', status: 302, location: '/ok' }),
+    ]);
+  });
+
+  it('carries the trust legs onto the framed head: insecure, decrypted client key, connect address', async () => {
+    const res = await h3Transport().send(
+      makeRequest({
+        httpVersion: '3',
+        url: 'https://api.openheaders.io/ok',
+        sslVerification: false,
+        resolveToAddress: '127.0.0.1',
+        clientCertificateRef: 'dev-cert',
+        clientCertificatePem: 'CERT',
+        // No passphrase — the key crosses the protocol verbatim.
+        clientCertificateKeyPem: 'KEY-PKCS8',
+      }),
+    );
+    const headers = Object.fromEntries(res.headers.map((h) => [h.key, h.value]));
+    expect(headers['x-echo-insecure']).toBe('1');
+    expect(headers['x-echo-connect-address']).toBe('127.0.0.1');
+    expect(headers['x-echo-client-cert-key']).toBeDefined();
+  });
+
+  it('classifies a pre-head helper failure naming the HTTP version setting', async () => {
+    const attempt = h3Transport().send(makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-pre' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/did not answer the QUIC handshake.*"HTTP version" setting/);
+  });
+
+  it('classifies a certificate-verification failure pointing at the SSL-verification setting', async () => {
+    const attempt = h3Transport().send(
+      makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-verify' }),
+    );
+    await expect(attempt).rejects.toThrow(/certificate verification failed.*SSL-verification setting/i);
   });
 });

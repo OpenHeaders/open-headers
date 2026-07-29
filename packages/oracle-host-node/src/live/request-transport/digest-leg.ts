@@ -23,7 +23,7 @@ import {
 import type { Dispatcher } from 'undici';
 import type { CookieJar } from '../cookie-jar';
 import { captureJarCookies, withJarCookie } from './jar-leg';
-import type { Deadline, H2Leg, HopResponse, HopState, NodeFetchFn, NodeRequestFn } from './seam';
+import type { Deadline, HopResponse, HopState, NodeFetchFn, NodeRequestFn, WireLeg } from './seam';
 import { wireHop } from './wire-hops';
 
 /** MD5 availability, probed once — `node:crypto` refuses the algorithm
@@ -137,7 +137,7 @@ export async function digestRetryHop(
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
   jar: CookieJar | undefined,
-  h2: H2Leg | null,
+  leg: WireLeg | null,
 ): Promise<{ hop: HopState; response: HopResponse; jarAttached?: string; jarCaptured: string[] } | null> {
   if (request.digestAuth === undefined || response.status !== 401) return null;
   const authorization = await digestAuthorizationFor(request.digestAuth, hop, response);
@@ -151,7 +151,7 @@ export async function digestRetryHop(
     sendHop = { ...authorizedHop, headers };
     jarAttached = attached;
   }
-  const retryResponse = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher, h2);
+  const retryResponse = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher, leg);
   const jarCaptured = jar !== undefined ? captureJarCookies(jar, authorizedHop.url, retryResponse.headers) : [];
   return {
     hop: authorizedHop,

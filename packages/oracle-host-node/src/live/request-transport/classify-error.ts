@@ -1,10 +1,13 @@
 /**
  * Wire-failure classification — the thrown error's `cause` chain turned
  * into a user-actionable message naming the setting that most likely
- * caused it. Shared by all three wire pipelines.
+ * caused it. Shared by all four wire pipelines; the HTTP/3 helper's
+ * closed-set error codes get their own mapping before the cause-chain
+ * classification.
  */
 
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
+import { H3HelperFailure } from '../h3-helper/helper-process';
 import { H2_NOT_NEGOTIATED_CODE } from '../instrumented-connector';
 
 /** Whether this request carries any TLS version / cipher tuning — the
@@ -74,6 +77,51 @@ function proxyHostOf(proxyUrl: string): string {
  * mid-handshake closes name the client-certificate setting when one
  * is configured.
  */
+/**
+ * Turn an HTTP/3 helper failure (a protocol ERROR frame's closed-set
+ * code, or a client-minted `helper-*` code) into a user-actionable
+ * message. QUIC failure shapes differ from TCP's: there is no
+ * RST-style refusal — a dial nobody answers times out, which on a
+ * pinned `'3'` send almost always means the target speaks no HTTP/3
+ * (or UDP is blocked), so the message names the setting.
+ */
+function classifyH3Failure(host: string, err: H3HelperFailure, request: TransportRequest): string {
+  const certRef = request.clientCertificateRef;
+  const pinned = request.resolveToAddress;
+  switch (err.code) {
+    case 'dns':
+      return `Could not resolve host ${host} (DNS lookup failed). Check the URL and your network.`;
+    case 'connect-timeout':
+      return pinned !== undefined
+        ? `${pinned} did not answer the QUIC handshake — the request's resolve-to-address setting points ${host} there, and its "HTTP version" setting pins this send to HTTP/3. The target may not speak HTTP/3 on that address, or UDP may be blocked; set the HTTP version to Auto to negotiate over TCP instead.`
+        : `${host} did not answer the QUIC handshake — it may not speak HTTP/3 on this port, or UDP may be blocked on the path. The request's "HTTP version" setting pins this send to HTTP/3; set it to Auto to negotiate over TCP instead.`;
+    case 'connect-refused':
+      return `No route to ${host} for the QUIC dial. The request's "HTTP version" setting pins this send to HTTP/3.`;
+    case 'tls-verify':
+      return `TLS certificate verification failed reaching ${host} over HTTP/3: ${err.message}. The HTTP/3 pipeline verifies against the bundled Mozilla roots — for a self-signed or private-CA target, turn off the request's SSL-verification setting.`;
+    case 'tls-handshake':
+      return certRef !== undefined
+        ? `TLS handshake with ${host} failed over HTTP/3: ${err.message}. The request presents the client certificate from vault entry "${certRef}" — the server may not accept it.`
+        : `TLS handshake with ${host} failed over HTTP/3: ${err.message}`;
+    case 'reset':
+      return `${host} reset the HTTP/3 exchange: ${err.message}`;
+    case 'idle-timeout':
+      return `The HTTP/3 connection to ${host} went idle past its ceiling: ${err.message}`;
+    case 'quic-transport':
+    case 'h3-protocol':
+      return `HTTP/3 exchange with ${host} failed: ${err.message}. The request's "HTTP version" setting pins this send to HTTP/3; set it to Auto to negotiate the version instead.`;
+    case 'helper-crashed':
+    case 'helper-no-hello':
+    case 'helper-spawn-failed':
+    case 'helper-corrupt-stream':
+    case 'helper-protocol-mismatch':
+    case 'helper-disposed':
+      return `The HTTP/3 helper failed before ${host} answered: ${err.message}`;
+    default:
+      return `HTTP/3 exchange with ${host} failed (${err.code}): ${err.message}`;
+  }
+}
+
 export function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): string {
   const tuned = tlsTuned(request);
   const pinned = request.resolveToAddress;
@@ -85,6 +133,7 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
   } catch {
     // Fall through with an empty host — the raw message still helps.
   }
+  if (err instanceof H3HelperFailure) return classifyH3Failure(host, err, request);
   const chain = causeChain(err);
   const code = chain.find((link) => link.code !== undefined && link.code !== '')?.code;
   const cause = err && typeof err === 'object' && 'cause' in err ? (err as { cause: unknown }).cause : undefined;

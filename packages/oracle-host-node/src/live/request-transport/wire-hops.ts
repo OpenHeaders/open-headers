@@ -2,8 +2,9 @@
  * The wire pipelines below the seam — one round-trip for one hop, on
  * whichever pipeline can carry it faithfully: undici fetch for
  * ordinary hops, undici `request()` for GET/HEAD-with-body and gRPC
- * hops, and the hand-rolled prior-knowledge h2 session for every hop
- * of a `'2-prior-knowledge'` send. All three share the deadline, the
+ * hops, the hand-rolled prior-knowledge h2 session for every hop of a
+ * `'2-prior-knowledge'` send, and the helper-backed HTTP/3 exchange
+ * for every hop of a `'3'` send. All four share the deadline, the
  * error classification, and the `HopResponse` surface the policy layer
  * above consumes.
  */
@@ -18,11 +19,13 @@ import {
 import type { Dispatcher } from 'undici';
 import { Headers } from 'undici';
 import { h2PriorKnowledgeHop } from '../h2-prior-knowledge';
+import { h3Hop as h3HelperHop } from '../h3-helper/h3-hop';
 import { classifyFetchFailure } from './classify-error';
 import { buildBody, buildH2Body, buildHeaders, buildRequestBody } from './hop-body';
 import {
   type Deadline,
   type H2Leg,
+  type H3Leg,
   type HopResponse,
   type HopState,
   type NodeFetchFn,
@@ -30,6 +33,7 @@ import {
   type NodeRequestInit,
   type NodeRequestResponse,
   timeoutError,
+  type WireLeg,
 } from './seam';
 
 /** True when the hop's method forbids a fetch() body — the WHATWG rule
@@ -54,12 +58,12 @@ function grpcHop(hop: HopState): boolean {
 }
 
 /** One wire round-trip for a hop, on whichever pipeline can carry it:
- *  the prior-knowledge h2 session for EVERY hop of a
- *  `'2-prior-knowledge'` send (it carries GET/HEAD bodies and native
- *  trailers itself); otherwise fetch for every ordinary hop,
- *  `request()` for a GET/HEAD hop with a body (fetch refuses to
- *  construct those) and for gRPC hops (fetch exposes no trailers —
- *  see {@link grpcHop}). */
+ *  the pinned leg's pipeline for EVERY hop of a `'2-prior-knowledge'`
+ *  or `'3'` send (both carry GET/HEAD bodies and native trailers
+ *  themselves); otherwise fetch for every ordinary hop, `request()`
+ *  for a GET/HEAD hop with a body (fetch refuses to construct those)
+ *  and for gRPC hops (fetch exposes no trailers — see
+ *  {@link grpcHop}). */
 export async function wireHop(
   fetchFn: NodeFetchFn,
   requestFn: NodeRequestFn,
@@ -67,9 +71,9 @@ export async function wireHop(
   hop: HopState,
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
-  h2: H2Leg | null,
+  leg: WireLeg | null,
 ): Promise<HopResponse> {
-  if (h2 !== null) return h2Hop(request, hop, deadline, h2);
+  if (leg !== null) return leg.kind === '3' ? h3Hop(request, hop, deadline, leg) : h2Hop(request, hop, deadline, leg);
   if (bodylessMethodWithBody(hop) || grpcHop(hop)) return requestHop(requestFn, request, hop, deadline, dispatcher);
   return fetchHop(fetchFn, request, hop, deadline, dispatcher);
 }
@@ -97,6 +101,40 @@ async function h2Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
       connect: h2.connect,
       ...(deadline ? { signal: deadline.signal } : {}),
       onProtocol: h2.onProtocol,
+    });
+    return adaptRequestResponse(hop.url, response);
+  } catch (err) {
+    if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+  }
+}
+
+/**
+ * One wire round-trip over the HTTP/3 helper pipeline — a fresh QUIC
+ * connection per hop through the framed helper exchange (see
+ * `h3-helper/h3-hop.ts`). Rides the same deadline and error
+ * classification as the other wire paths and adapts onto the same hop
+ * surface via {@link adaptRequestResponse} — body and trailers carry
+ * the `request()` contract exactly like the h2 pipeline.
+ */
+async function h3Hop(request: TransportRequest, hop: HopState, deadline: Deadline, leg: H3Leg): Promise<HopResponse> {
+  const { payload, contentType } = await buildH2Body(hop.body);
+  const headers =
+    contentType !== undefined && !hop.headers.some((h) => h.key.toLowerCase() === 'content-type')
+      ? [...hop.headers, { key: 'content-type', value: contentType }]
+      : hop.headers;
+  try {
+    const response = await h3HelperHop({
+      url: hop.url,
+      method: hop.method.toUpperCase(),
+      headers,
+      ...(payload !== undefined ? { payload } : {}),
+      ...(leg.insecure === true ? { insecure: true } : {}),
+      ...(leg.clientCert !== undefined ? { clientCert: leg.clientCert } : {}),
+      ...(leg.connectAddress !== undefined ? { connectAddress: leg.connectAddress } : {}),
+      client: leg.client,
+      ...(deadline ? { signal: deadline.signal } : {}),
+      onProtocol: leg.onProtocol,
     });
     return adaptRequestResponse(hop.url, response);
   } catch (err) {

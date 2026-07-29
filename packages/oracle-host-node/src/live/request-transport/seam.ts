@@ -16,6 +16,8 @@ import {
   type TransportStreamObserver,
 } from '@openheaders/oracle/live/request-exec/transport';
 import type { Dispatcher, FormData, Headers, fetch as undiciFetch } from 'undici';
+import type { H3HelperClient } from '../h3-helper/helper-process';
+import type { H3ClientCert } from '../h3-helper/protocol';
 
 /** The fetch pipeline behind the transport — undici's fetch in
  *  production; injectable so tests observe the exact init (including
@@ -117,9 +119,31 @@ export interface StreamingLeg {
  * for sends that never touch a dispatcher.
  */
 export interface H2Leg {
+  kind: '2-prior-knowledge';
   connect: ConnectOptions;
   onProtocol(origin: string, alpnProtocol: string): void;
 }
+
+/**
+ * Per-send HTTP/3 pipeline leg — present exactly when the request pins
+ * `'3'`. Carries the helper client every hop rides, the TLS trust legs
+ * the framed protocol maps onto rustls (which inherits nothing from
+ * Node/OpenSSL — see `docs/REQUEST_ENGINE_H3_PROTOCOL.md`), and the
+ * spoken-protocol sink, like {@link H2Leg}. The client-certificate key
+ * is already decrypted — a passphrase never crosses the protocol.
+ */
+export interface H3Leg {
+  kind: '3';
+  client: H3HelperClient;
+  insecure?: boolean;
+  clientCert?: H3ClientCert;
+  connectAddress?: string;
+  onProtocol(origin: string, alpnProtocol: string): void;
+}
+
+/** The per-send pinned-pipeline leg — `null` on sends that ride the
+ *  undici pipelines (`auto` / `'1.1'` / `'2'`). */
+export type WireLeg = H2Leg | H3Leg;
 
 /**
  * Arm an abort deadline for the round-trip; `null` when neither trigger

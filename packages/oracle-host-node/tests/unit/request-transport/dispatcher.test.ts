@@ -215,10 +215,53 @@ describe('createNodeRequestTransport — per-request HTTP version', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("fails honestly BEFORE the wire on '3' (Phase E honors it)", async () => {
-    const attempt = transport().send(makeRequest({ httpVersion: '3' }));
+  it("fails honestly BEFORE the wire on '3' when no helper binary is available", async () => {
+    // No injected client and no OPENHEADERS_H3_HELPER override — the
+    // pin must fail naming HTTP/3, never quietly ride another protocol.
+    const previous = process.env.OPENHEADERS_H3_HELPER;
+    delete process.env.OPENHEADERS_H3_HELPER;
+    try {
+      const attempt = transport().send(makeRequest({ httpVersion: '3' }));
+      await expect(attempt).rejects.toBeInstanceOf(TransportError);
+      await expect(attempt).rejects.toThrow(/HTTP\/3/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      if (previous !== undefined) process.env.OPENHEADERS_H3_HELPER = previous;
+    }
+  });
+
+  it("fails honestly BEFORE the wire when '3' targets plain http:// (QUIC has TLS built in)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3', url: 'http://api.openheaders.io/v1/ping' }));
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
-    await expect(attempt).rejects.toThrow(/HTTP\/3/);
+    await expect(attempt).rejects.toThrow(/https:\/\//);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '3' routes through a proxy (no CONNECT seat for UDP)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3', proxyUrl: 'http://proxy.openheaders.io:3128' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/can't carry QUIC/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '3' targets a Unix socket (QUIC is UDP)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3', unixSocketPath: '/tmp/openheaders.sock' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/Unix socket/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '3' carries a sub-1.3 TLS ceiling (QUIC is TLS 1.3-only)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3', tlsMaxVersion: '1.2' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/TLS 1\.3-only/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '3' sets an OpenSSL cipher list (no rustls mapping)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3', tlsCipherSuites: 'ECDHE-RSA-AES128-GCM-SHA256' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/cipher/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
