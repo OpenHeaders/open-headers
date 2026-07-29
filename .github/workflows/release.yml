@@ -77,8 +77,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      # rpm is a stable-only target — betas build AppImage/deb only.
       - name: Install RPM tools (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && !contains(github.ref_name, '-beta')
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm librpm-dev
@@ -437,20 +438,107 @@ jobs:
           }
         shell: pwsh
 
+      # Betas ship x64 AppImage + deb only, store-compressed — beta
+      # arm64/rpm users ride their previous pointer until stable. The
+      # full six-target build runs on stable tags only.
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
         working-directory: apps/desktop
         run: |
-          pnpm dist:linux
+          if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
+            pnpm dist:linux:beta
+          else
+            pnpm dist:linux
 
-          if [ $(find dist -name "*.rpm" -type f | wc -l) -eq 0 ]; then
-            echo "::warning::RPM packages not found, trying explicit build..."
-            pnpm dist:linux:rpm:x64
-            pnpm dist:linux:rpm:arm64
+            if [ $(find dist -name "*.rpm" -type f | wc -l) -eq 0 ]; then
+              echo "::warning::RPM packages not found, trying explicit build..."
+              pnpm dist:linux:rpm:x64
+              pnpm dist:linux:rpm:arm64
+            fi
           fi
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # oh/ohd rider (macOS): the standalone binaries had their own
+      # macos job — merged into this leg because macOS minutes bill at
+      # 10× and the second runner repeated checkout, install, and cert
+      # import. Bun, the signing keychain, and the full-history
+      # checkout are all already set up above. The artifact keeps the
+      # binaries-macos-latest name the release job stages from.
+      - name: Run CLI unit suite under bun (macOS)
+        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
+        working-directory: apps/cli
+        run: bun --bun vitest run
+        shell: bash
+
+      - name: Build and verify oh bun binary (macOS)
+        if: matrix.os == 'macos-latest'
+        run: pnpm --filter @openheaders/cli run pack:bun
+        shell: bash
+
+      # The daemon binary embeds the built web app when present.
+      - name: Build and verify ohd SEA binary (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          pnpm turbo build --filter=@openheaders/daemon --filter=@openheaders/web
+          pnpm --filter @openheaders/daemon run pack:sea
+        shell: bash
+
+      # The pack scripts leave ad-hoc/unsigned binaries; re-sign with
+      # Developer ID (hardened runtime + timestamp, required for
+      # notarization), then notarize both binaries in one submission.
+      # Flat binaries can't be stapled — Gatekeeper resolves the ticket
+      # from Apple's servers on first quarantined run.
+      - name: Sign and notarize binaries (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application identity in the keychain"
+            exit 1
+          fi
+          mkdir -p notarize-stage
+          # Hardened runtime without the JIT entitlements SIGTRAPs the
+          # JS engine on user machines — V8 for the Node SEA `ohd`, JSC
+          # for the bun-compiled `oh` (the runner's own probe does not
+          # enforce them).
+          for BINARY in apps/cli/dist-bun/oh apps/daemon/dist-sea/ohd; do
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp \
+              --entitlements .github/sea-entitlements.plist "$BINARY"
+            codesign --verify --strict "$BINARY"
+            codesign -d --entitlements - "$BINARY" 2>&1 | grep -q allow-jit
+            # The signed binary must still answer
+            "$BINARY" --version
+            cp "$BINARY" notarize-stage/
+          done
+          ditto -c -k notarize-stage notarize.zip
+          xcrun notarytool submit notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Stage binary assets (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p release-binaries
+          OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
+          OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
+          cp apps/cli/dist-bun/oh "release-binaries/oh-${OH_VERSION}-mac-arm64"
+          cp apps/daemon/dist-sea/ohd "release-binaries/ohd-${OHD_VERSION}-mac-arm64"
+        shell: bash
+
+      - name: Upload binary artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-macos-latest
+          path: release-binaries/*
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
@@ -469,11 +557,13 @@ jobs:
             apps/desktop/dist/*.yml
             apps/desktop/dist/install-open-headers.sh
 
-  # Standalone `oh` (all three OSes) and `ohd` (macOS/Linux — win32 is
-  # not a daemon target) are seconds of build next to the desktop legs,
-  # so every release ships them. Versions come from each app's own
-  # package.json (the extension precedent) — the tag stays the
-  # desktop's version axis. Runtime split (DISTRIBUTION_PLAN §6):
+  # Standalone `oh` and `ohd` (win32 is not a daemon target) are
+  # seconds of build next to the desktop legs, so every release ships
+  # them. The macOS pair rides the desktop macos leg instead of a
+  # matrix row here — a second 10×-billed runner just to repeat setup
+  # was the pipeline's most expensive overhead. Versions come from each
+  # app's own package.json (the extension precedent) — the tag stays
+  # the desktop's version axis. Runtime split (DISTRIBUTION_PLAN §6):
   # `oh` is bun-compiled, `ohd` stays Node SEA — two toolchains, one
   # leg, no cross-contamination.
   build-binaries:
@@ -482,7 +572,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-2022, ubuntu-latest]
+        os: [windows-2022, ubuntu-latest]
 
     steps:
       - name: Checkout code
@@ -511,8 +601,10 @@ jobs:
 
       # Insurance law (DISTRIBUTION_PLAN §6): the CLI source stays
       # runtime-neutral, proven by running its unit suite under bun on
-      # every release; the regular CI lane runs it under Node.
+      # every stable release; the regular CI lane runs it under Node.
+      # Betas skip it — the proof re-runs when the stable tag cuts.
       - name: Run CLI unit suite under bun
+        if: ${{ !contains(github.ref_name, '-beta') }}
         working-directory: apps/cli
         run: bun --bun vitest run
         shell: bash
@@ -615,59 +707,15 @@ jobs:
           pnpm --filter @openheaders/daemon run pack:sea
         shell: bash
 
-      - name: Setup macOS code signing
-        if: matrix.os == 'macos-latest'
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
-          p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
-
-      # The pack scripts leave ad-hoc/unsigned binaries; re-sign with
-      # Developer ID (hardened runtime + timestamp, required for
-      # notarization), then notarize both binaries in one submission.
-      # Flat binaries can't be stapled — Gatekeeper resolves the ticket
-      # from Apple's servers on first quarantined run.
-      - name: Sign and notarize binaries (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
-          if [ -z "$IDENTITY" ]; then
-            echo "::error::No Developer ID Application identity in the keychain"
-            exit 1
-          fi
-          mkdir -p notarize-stage
-          # Hardened runtime without the JIT entitlements SIGTRAPs the
-          # JS engine on user machines — V8 for the Node SEA `ohd`, JSC
-          # for the bun-compiled `oh` (the runner's own probe does not
-          # enforce them).
-          for BINARY in apps/cli/dist-bun/oh apps/daemon/dist-sea/ohd; do
-            codesign --force --sign "$IDENTITY" --options runtime --timestamp \
-              --entitlements .github/sea-entitlements.plist "$BINARY"
-            codesign --verify --strict "$BINARY"
-            codesign -d --entitlements - "$BINARY" 2>&1 | grep -q allow-jit
-            # The signed binary must still answer
-            "$BINARY" --version
-            cp "$BINARY" notarize-stage/
-          done
-          ditto -c -k notarize-stage notarize.zip
-          xcrun notarytool submit notarize.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
       # The container is the same verified SEA binary in an LTS base;
       # the probe re-runs boot + /healthz inside it before anything is
       # pushed (glibc drift between runner and base would surface here).
       # ghcr is a recoverable channel like GitHub Releases, so it rides
-      # the pipeline; :latest stays off beta tags.
+      # the pipeline. Stable tags only — betas ship no image, and the
+      # package.json version carries no -beta suffix, so a beta push
+      # would overwrite the version tag stable later claims.
       - name: Build and push ohd Docker image
-        if: matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders'
+        if: matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders' && !contains(github.ref_name, '-beta')
         run: |
           OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
           IMAGE=ghcr.io/openheaders/ohd
@@ -693,10 +741,8 @@ jobs:
 
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker push "$IMAGE:$OHD_VERSION"
-          if [[ ! "$GITHUB_REF_NAME" =~ -beta ]]; then
-            docker tag "$IMAGE:$OHD_VERSION" "$IMAGE:latest"
-            docker push "$IMAGE:latest"
-          fi
+          docker tag "$IMAGE:$OHD_VERSION" "$IMAGE:latest"
+          docker push "$IMAGE:latest"
         shell: bash
 
       - name: Stage binary assets
@@ -704,7 +750,6 @@ jobs:
           mkdir -p release-binaries
           OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
           case "${{ matrix.os }}" in
-            macos-latest) OS_ARCH=mac-arm64 ;;
             ubuntu-latest) OS_ARCH=linux-x64 ;;
             windows-2022) OS_ARCH=win-x64 ;;
           esac
@@ -968,15 +1013,21 @@ jobs:
             echo ""
             echo "| Platform | Downloads |"
             echo "| --- | --- |"
+            # Betas build a trimmed target set (mac arm64 dmg/zip; Linux
+            # x64 AppImage/deb; no rpm) — the table only links what the
+            # legs actually shipped.
             if [ "$IS_PRERELEASE" = "true" ]; then
               echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) |"
+              echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
+              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
+              echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) |"
             else
               echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) · [Intel (DMG)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg) |"
+              echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
+              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
+              echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) · [ARM64 (deb)](${DL}/open-headers_${VERSION}_arm64.deb) |"
+              echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
             fi
-            echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
-            echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) · [install script](${DL}/install-open-headers.sh) |"
-            echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) · [ARM64 (deb)](${DL}/open-headers_${VERSION}_arm64.deb) |"
-            echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
             if [ "$IS_PRERELEASE" != "true" ]; then
               echo ""
               echo "<details><summary><b>Enterprise - Managed deployment (MDM / GPO)</b></summary>"
