@@ -460,12 +460,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # oh/ohd rider (macOS): the standalone binaries had their own
-      # macos job — merged into this leg because macOS minutes bill at
-      # 10× and the second runner repeated checkout, install, and cert
-      # import. Bun, the signing keychain, and the full-history
-      # checkout are all already set up above. The artifact keeps the
-      # binaries-macos-latest name the release job stages from.
+      # oh/ohd rider (macOS, stable tags only — betas ship no
+      # standalone binaries): the pair had its own macos job — merged
+      # into this leg because macOS minutes bill at 10× and the second
+      # runner repeated checkout, install, and cert import. Bun, the
+      # signing keychain, and the full-history checkout are all already
+      # set up above. The artifact keeps the binaries-macos-latest name
+      # the release job stages from.
       - name: Run CLI unit suite under bun (macOS)
         if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
         working-directory: apps/cli
@@ -473,13 +474,13 @@ jobs:
         shell: bash
 
       - name: Build and verify oh bun binary (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
         run: pnpm --filter @openheaders/cli run pack:bun
         shell: bash
 
       # The daemon binary embeds the built web app when present.
       - name: Build and verify ohd SEA binary (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
         run: |
           pnpm turbo build --filter=@openheaders/daemon --filter=@openheaders/web
           pnpm --filter @openheaders/daemon run pack:sea
@@ -491,7 +492,7 @@ jobs:
       # Flat binaries can't be stapled — Gatekeeper resolves the ticket
       # from Apple's servers on first quarantined run.
       - name: Sign and notarize binaries (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
         run: |
           IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
           if [ -z "$IDENTITY" ]; then
@@ -524,7 +525,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Stage binary assets (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
         run: |
           mkdir -p release-binaries
           OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
@@ -534,7 +535,7 @@ jobs:
         shell: bash
 
       - name: Upload binary artifacts (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.detect_beta.outputs.is_beta != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: binaries-macos-latest
@@ -557,17 +558,19 @@ jobs:
             apps/desktop/dist/*.yml
             apps/desktop/dist/install-open-headers.sh
 
-  # Standalone `oh` and `ohd` (win32 is not a daemon target) are
-  # seconds of build next to the desktop legs, so every release ships
-  # them. The macOS pair rides the desktop macos leg instead of a
-  # matrix row here — a second 10×-billed runner just to repeat setup
-  # was the pipeline's most expensive overhead. Versions come from each
-  # app's own package.json (the extension precedent) — the tag stays
-  # the desktop's version axis. Runtime split (DISTRIBUTION_PLAN §6):
-  # `oh` is bun-compiled, `ohd` stays Node SEA — two toolchains, one
-  # leg, no cross-contamination.
+  # Standalone `oh` and `ohd` (win32 is not a daemon target) ship on
+  # STABLE tags only — betas carry no standalone binaries: the daemon
+  # beta testers exercise is the desktop-embedded one, and the beta
+  # versions manifest carries cli/daemon forward from the last stable
+  # (release job). The macOS pair rides the desktop macos leg instead
+  # of a matrix row here — a second 10×-billed runner just to repeat
+  # setup was the pipeline's most expensive overhead. Versions come
+  # from each app's own package.json (the extension precedent) — the
+  # tag stays the desktop's version axis. Runtime split
+  # (DISTRIBUTION_PLAN §6): `oh` is bun-compiled, `ohd` stays Node SEA
+  # — two toolchains, one leg, no cross-contamination.
   build-binaries:
-    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') }}
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-beta') }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -602,9 +605,7 @@ jobs:
       # Insurance law (DISTRIBUTION_PLAN §6): the CLI source stays
       # runtime-neutral, proven by running its unit suite under bun on
       # every stable release; the regular CI lane runs it under Node.
-      # Betas skip it — the proof re-runs when the stable tag cuts.
       - name: Run CLI unit suite under bun
-        if: ${{ !contains(github.ref_name, '-beta') }}
         working-directory: apps/cli
         run: bun --bun vitest run
         shell: bash
@@ -619,18 +620,8 @@ jobs:
       # Same eSigner path as the desktop leg: the downloaded CLI exe
       # trips SmartScreen unsigned, and `install-oh.ps1` fails under
       # AllSigned execution policies. Deterministic pre-stage paths, so
-      # no find step; stable-only, missing secrets degrade to unsigned.
-      - name: Detect beta build
-        if: matrix.os == 'windows-2022'
-        id: detect_beta
-        run: |
-          if [[ "${{ github.ref_name }}" =~ -beta[.0-9]*$ ]]; then
-            echo "is_beta=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_beta=false" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
-
+      # no find step; missing secrets degrade to unsigned (the job
+      # itself is stable-only).
       - name: Check Windows signing credentials
         if: matrix.os == 'windows-2022'
         id: win_sign
@@ -649,7 +640,7 @@ jobs:
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
 
       - name: Sign oh CLI executable
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: sslcom/esigner-codesign@v1.3.1
         with:
           command: sign
@@ -666,7 +657,7 @@ jobs:
           signing_method: v1
 
       - name: Sign Windows install script
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: sslcom/esigner-codesign@v1.3.1
         with:
           command: sign
@@ -685,7 +676,7 @@ jobs:
       # The signed exe must still answer — a signature that breaks the
       # binary is worse than no signature.
       - name: Verify CLI signatures
-        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         run: |
           foreach ($f in @("apps/cli/dist-bun/oh.exe", "apps/cli/scripts/install.ps1")) {
             $sig = Get-AuthenticodeSignature $f
@@ -711,11 +702,10 @@ jobs:
       # the probe re-runs boot + /healthz inside it before anything is
       # pushed (glibc drift between runner and base would surface here).
       # ghcr is a recoverable channel like GitHub Releases, so it rides
-      # the pipeline. Stable tags only — betas ship no image, and the
-      # package.json version carries no -beta suffix, so a beta push
-      # would overwrite the version tag stable later claims.
+      # the pipeline (the job itself is stable-only, so the image and
+      # :latest always move together).
       - name: Build and push ohd Docker image
-        if: matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders' && !contains(github.ref_name, '-beta')
+        if: matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders'
         run: |
           OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
           IMAGE=ghcr.io/openheaders/ohd
@@ -945,7 +935,11 @@ jobs:
       # live on the channel manifest; the generator builds fresh and would
       # drop it until the next cron run. Carry the live object forward —
       # fail-open: no live manifest or no stores means nothing to carry.
-      - name: Carry extension.stores forward from live manifest
+      # Betas additionally carry cli/daemon whole: beta tags stage no
+      # standalone binaries, so those entries must keep naming the last
+      # tag whose release page actually hosts them — the CLI's update
+      # check builds download URLs from `tag`.
+      - name: Carry forward live manifest entries
         run: |
           CHANNEL=stable
           if [ "${{ steps.release_type.outputs.is_prerelease }}" = "true" ]; then CHANNEL=beta; fi
@@ -956,10 +950,23 @@ jobs:
                 "{\"stores\":${STORES}}" > versions_with_stores.json
               mv versions_with_stores.json processed_files/versions.json
               echo "Carried extension.stores: ${STORES}"
-              cat processed_files/versions.json
             else
               echo "Live ${CHANNEL} manifest has no extension.stores — nothing to carry"
             fi
+            if [ "$CHANNEL" = "beta" ]; then
+              for APP in cli daemon; do
+                ENTRY=$(jq -c ".${APP} // empty" live_versions.json)
+                if [ -n "$ENTRY" ]; then
+                  node scripts/patch-versions-entry.mjs processed_files/versions.json "$APP" \
+                    "$ENTRY" > versions_patched.json
+                  mv versions_patched.json processed_files/versions.json
+                  echo "Carried ${APP} entry: ${ENTRY}"
+                else
+                  echo "Live beta manifest has no ${APP} entry — nothing to carry"
+                fi
+              done
+            fi
+            cat processed_files/versions.json
           else
             echo "No live ${CHANNEL} manifest — nothing to carry"
           fi
