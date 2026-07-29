@@ -147,10 +147,12 @@ describe('requests_send', () => {
     const result = await call('requests_send', { uid });
 
     expect(result.sent).toBe(true);
-    const response = result.response as { status: number; body: string; bodyTruncated: boolean };
+    const response = result.response as { status: number; body: string; bodyTruncated: boolean; httpVersion?: string };
     expect(response.status).toBe(200);
     expect(JSON.parse(response.body)).toEqual({ ok: true });
     expect(response.bodyTruncated).toBe(false);
+    // The always-on negotiated-protocol report rides the tool payload.
+    expect(response.httpVersion).toBe('http/1.1');
     expect(captured?.method).toBe('POST');
     expect(captured?.headers['x-region']).toBe('eu-west');
     expect(captured?.headers['content-type']).toBe('application/json');

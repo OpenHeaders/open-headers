@@ -66,6 +66,8 @@ export interface SuiteRunItem {
   status: 'passed' | 'failed' | 'skipped';
   /** Present when the send produced a response head. */
   httpStatus?: number;
+  /** Wire-truth negotiated protocol (the always-on report), when known. */
+  httpVersion?: string;
   durationMs?: number;
   assertions: SuiteRunAssertion[];
   error?: string;
@@ -117,6 +119,7 @@ export async function runRequestSuite(args: SuiteRunArgs): Promise<SuiteRunResul
     items.push({
       ...itemBase(request, failed ? 'failed' : 'passed', assertions),
       ...(headReceived ? { httpStatus: snapshot.status, durationMs: snapshot.durationMs } : {}),
+      ...(snapshot.httpVersion !== undefined ? { httpVersion: snapshot.httpVersion } : {}),
       ...(error !== undefined ? { error } : {}),
     });
     if (failed && args.bail) bailed = true;

@@ -135,6 +135,7 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
             status: snapshot.status,
             statusText: snapshot.statusText,
             url: snapshot.url,
+            ...(snapshot.httpVersion !== undefined ? { httpVersion: snapshot.httpVersion } : {}),
             headers: snapshot.headers,
             body: overCap ? snapshot.body.slice(0, MCP_BODY_CAP_CHARS) : snapshot.body,
             bodyTruncated: snapshot.bodyTruncated || overCap,

@@ -14,6 +14,7 @@ export interface RunReportItem {
   method?: string;
   status: 'passed' | 'failed' | 'skipped';
   httpStatus?: number;
+  httpVersion?: string;
   durationMs?: number;
   assertions?: { name: string; passed: boolean; message?: string }[];
   error?: string;

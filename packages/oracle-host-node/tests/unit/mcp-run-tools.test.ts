@@ -96,6 +96,7 @@ interface ReportShape {
     name: string;
     status: string;
     httpStatus?: number;
+    httpVersion?: string;
     error?: string;
     assertions?: Array<{ name: string; passed: boolean }>;
   }>;
@@ -203,6 +204,8 @@ describe('runs_execute collection', () => {
     expect(report.items[0].name).toBe('Login');
     expect(report.items.map((item) => item.name).sort()).toEqual(['Login', 'Root A', 'Root B']);
     expect(report.totals).toEqual({ items: 3, passed: 3, failed: 0, skipped: 0 });
+    // The always-on negotiated-protocol report rides every item.
+    expect(report.items.map((item) => item.httpVersion)).toEqual(['http/1.1', 'http/1.1', 'http/1.1']);
     expect(hits[0]).toBe('/ok?login');
     expect(report.target.kind).toBe('collection');
   });
