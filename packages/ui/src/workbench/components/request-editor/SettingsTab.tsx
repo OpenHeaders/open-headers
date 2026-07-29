@@ -142,11 +142,17 @@
  * fact sheets differ because the runtimes genuinely do: e.g. Node
  * speaks HTTP/1.1 only and sends no ambient Referer, while the browser
  * negotiates h1/h2/h3 and applies referrer policy.
+ *
+ * Presentation: the knobs are grouped under left-labeled dividers
+ * (Connection · TLS & trust · Redirects · Cookies · Execution &
+ * limits), and placeholder text renders at full text contrast — an
+ * empty knob states its effective default as live behavior, and must
+ * never read as a disabled control.
  */
 
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Input, InputNumber, Select, Switch, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Divider, Input, Select, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
@@ -170,6 +176,16 @@ import {
 import type { HttpVersion, TlsVersion } from '@openheaders/core/types';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  byteSizeInterpreter,
+  ComboKnob,
+  type ComboKnobOption,
+  countInterpreter,
+  durationMsInterpreter,
+  formatByteSize,
+  formatDurationMs,
+  numericPresets,
+} from '@openheaders/ui/shared/combo-knob';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CookieJarRow from './CookieJarRow';
 import { useScriptExecutionMode } from './use-script-execution-mode';
@@ -244,11 +260,27 @@ interface SettingsTabProps {
   workspaceId?: string | null;
 }
 
+type SettingsGroupKey = 'connection' | 'tls' | 'redirects' | 'cookies' | 'execution';
+
+/** Section order + labels shared by the live groups and the revealed
+ *  fact sheet, so both read in the same topical order. */
+const GROUP_ORDER: SettingsGroupKey[] = ['connection', 'tls', 'redirects', 'cookies', 'execution'];
+const GROUP_LABEL_KEY: Record<SettingsGroupKey, MessageKey> = {
+  connection: 'workbench.editors.request.settings.group.connection',
+  tls: 'workbench.editors.request.settings.group.tls',
+  redirects: 'workbench.editors.request.settings.group.redirects',
+  cookies: 'workbench.editors.request.settings.group.cookies',
+  execution: 'workbench.editors.request.settings.group.execution',
+};
+
 interface RuntimeManagedDef {
   labelKey: MessageKey;
   /** Effective behavior shown in the muted value column. */
   valueKey: MessageKey;
   descriptionKey: MessageKey;
+  /** Topic sub-header the fact renders under inside the revealed
+   *  sheet — same vocabulary as the live knob groups. */
+  group: SettingsGroupKey;
   /** Row anchor for e2e assertions on posture facts. */
   testId?: string;
 }
@@ -258,51 +290,61 @@ const BROWSER_MANAGED: RuntimeManagedDef[] = [
     labelKey: 'workbench.editors.request.settings.managed.httpVersion',
     valueKey: 'workbench.editors.request.settings.managed.auto',
     descriptionKey: 'workbench.editors.request.settings.managed.httpVersionDesc',
+    group: 'connection',
   },
   {
     labelKey: 'workbench.editors.request.settings.sslVerification',
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.sslVerificationDesc',
+    group: 'tls',
   },
   {
     labelKey: 'workbench.editors.request.settings.followOriginalMethod',
     valueKey: 'workbench.editors.request.settings.managed.off',
     descriptionKey: 'workbench.editors.request.settings.managed.followOriginalMethodDesc',
+    group: 'redirects',
   },
   {
     labelKey: 'workbench.editors.request.settings.followAuthHeader',
     valueKey: 'workbench.editors.request.settings.managed.off',
     descriptionKey: 'workbench.editors.request.settings.managed.followAuthHeaderDesc',
+    group: 'redirects',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.refererRedirect',
     valueKey: 'workbench.editors.request.settings.managed.policy',
     descriptionKey: 'workbench.editors.request.settings.managed.refererRedirectDesc',
+    group: 'redirects',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.strictParser',
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.strictParserBrowserDesc',
+    group: 'connection',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.encodeUrl',
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
+    group: 'connection',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.cipherOrder',
     valueKey: 'workbench.editors.request.settings.managed.browser',
     descriptionKey: 'workbench.editors.request.settings.managed.cipherOrderDesc',
+    group: 'tls',
   },
   {
     labelKey: 'workbench.editors.request.settings.maxRedirects',
     valueKey: 'workbench.editors.request.settings.managed.about20',
     descriptionKey: 'workbench.editors.request.settings.managed.maxRedirectsDesc',
+    group: 'redirects',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.tlsVersions',
     valueKey: 'workbench.editors.request.settings.managed.browser',
     descriptionKey: 'workbench.editors.request.settings.managed.tlsVersionsDesc',
+    group: 'tls',
   },
 ];
 
@@ -311,16 +353,19 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
     labelKey: 'workbench.editors.request.settings.managed.referer',
     valueKey: 'workbench.editors.request.settings.managed.notSent',
     descriptionKey: 'workbench.editors.request.settings.managed.refererDesc',
+    group: 'connection',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.strictParser',
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.strictParserNodeDesc',
+    group: 'connection',
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.encodeUrl',
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
+    group: 'connection',
   },
 ];
 
@@ -339,6 +384,7 @@ const SCRIPTS_NOT_RUN_ROW: RuntimeManagedDef = {
   labelKey: 'workbench.editors.request.settings.managed.scripts',
   valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
   descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
+    group: 'execution',
   testId: 'oh-managed-scripts-row',
 };
 
@@ -346,6 +392,7 @@ const SCRIPTS_SAFE_FORWARDED_ROW: RuntimeManagedDef = {
   labelKey: 'workbench.editors.request.settings.managed.scripts',
   valueKey: 'workbench.editors.request.settings.managed.scriptsSafeForwarded',
   descriptionKey: 'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc',
+    group: 'execution',
   testId: 'oh-managed-scripts-row',
 };
 
@@ -390,12 +437,14 @@ const KnobRow: React.FC<{
   info: string;
   warning?: string;
   warningWhenChecked?: boolean;
-}> = ({ label, checked, onChange, info, warning, warningWhenChecked }) => {
+  modified?: boolean;
+}> = ({ label, checked, onChange, info, warning, warningWhenChecked, modified }) => {
   const t = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
         <Text style={{ fontSize: 13 }}>{label}</Text>
+        {modified === true && <ModifiedDot />}
         <InfoTrigger content={{ title: label, summary: info }} />
         <span style={{ flex: 1 }} />
         <Switch
@@ -416,37 +465,48 @@ const KnobRow: React.FC<{
   );
 };
 
+/** Bounded interpreters + preset lists for the numeric combo knobs —
+ *  free text becomes concrete candidates ("10" → "10 s" / "10 min"),
+ *  bounds prune readings the schema would reject. */
+const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
+const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000, 300_000], formatDurationMs);
+const interpretResponseSize = byteSizeInterpreter({ min: MIN_RESPONSE_BYTES, max: MAX_RESPONSE_BYTES });
+const SIZE_PRESETS = numericPresets(
+  [256, 512, 1024, 2048, 5120, 10240].map((kb) => kb * 1024),
+  formatByteSize,
+);
+const interpretRedirectCap = countInterpreter({ min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS });
+const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
+
 /** Compact numeric-knob row: same `label · (i) · control` geometry as
- *  {@link KnobRow}, with an InputNumber (unit suffix, bounded) instead
- *  of a switch. An empty field means "no explicit value" — the
- *  placeholder states the effective behavior ("No limit", the default
- *  cap) so the empty state is never ambiguous. */
-const NumericKnobRow: React.FC<{
+ *  {@link KnobRow}, with a {@link ComboKnob} (curated presets +
+ *  interpreted free entry) instead of a switch. An empty field means
+ *  "no explicit value" — the placeholder states the effective behavior
+ *  ("No limit", the default cap) so the empty state is never
+ *  ambiguous. */
+const ComboKnobRow: React.FC<{
   label: string;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
   info: string;
-  /** Unit suffix inside the field; omit for unitless counts. */
-  unit?: string;
-  min: number;
-  max: number;
+  presets: ReadonlyArray<ComboKnobOption<number>>;
+  interpret: (input: string) => ComboKnobOption<number>[];
+  format: (value: number) => string;
   placeholder: string;
-}> = ({ label, value, onChange, info, unit, min, max, placeholder }) => (
+}> = ({ label, value, onChange, info, presets, interpret, format, placeholder }) => (
   <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
     <Text style={{ fontSize: 13 }}>{label}</Text>
+    {value !== undefined && <ModifiedDot />}
     <InfoTrigger content={{ title: label, summary: info }} />
     <span style={{ flex: 1 }} />
-    <InputNumber
-      size="small"
-      aria-label={label}
-      value={value ?? null}
-      onChange={(v) => onChange(typeof v === 'number' ? Math.round(v) : undefined)}
-      min={min}
-      max={max}
-      precision={0}
-      controls={false}
+    <ComboKnob
+      value={value}
+      onChange={onChange}
+      presets={presets}
+      interpret={interpret}
+      format={format}
       placeholder={placeholder}
-      suffix={unit}
+      ariaLabel={label}
       style={{ width: 148 }}
     />
   </div>
@@ -468,10 +528,13 @@ const SelectKnobRow: React.FC<{
   /** Off for always-set knobs (a cleared field would be meaningless). */
   allowClear?: boolean;
   testId?: string;
-}> = ({ label, value, onChange, info, options, placeholder, warning, allowClear = true, testId }) => (
+  modified?: boolean;
+  width?: number;
+}> = ({ label, value, onChange, info, options, placeholder, warning, allowClear = true, testId, modified, width }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
+      {(modified ?? value !== undefined) && <ModifiedDot />}
       <InfoTrigger content={{ title: label, summary: info }} />
       <span style={{ flex: 1 }} />
       <Select
@@ -483,7 +546,8 @@ const SelectKnobRow: React.FC<{
         options={options}
         allowClear={allowClear}
         placeholder={placeholder}
-        style={{ width: 148 }}
+        popupMatchSelectWidth={false}
+        style={{ width: width ?? 148 }}
       />
     </div>
     {warning !== undefined && (
@@ -513,6 +577,7 @@ const TextKnobRow: React.FC<{
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
+      {value !== undefined && <ModifiedDot />}
       <InfoTrigger content={{ title: label, summary: info }} />
       <span style={{ flex: 1 }} />
       <Input
@@ -562,6 +627,91 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   );
 };
 
+/** Accent dot after a row label whose knob differs from its default —
+ *  the same affordance as the panel view-menu dots and the Settings
+ *  tab's own label dot, so "what did I change here" reads at a
+ *  glance. */
+const ModifiedDot: React.FC = () => {
+  const { token } = theme.useToken();
+  return (
+    <span
+      data-testid="oh-setting-modified-dot"
+      style={{
+        display: 'inline-block',
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: token.colorPrimary,
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+
+/** Collapsible section between the logical knob groups (connection ·
+ *  TLS & trust · redirects · cookies · execution) — the sidebar
+ *  section idiom: rotating caret + uppercase title + rail, rows as
+ *  children. A collapsed header carries the accent dot while any of
+ *  its hidden knobs is off its default, so customizations never
+ *  disappear behind a fold. */
+const GroupSection: React.FC<{
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+  modified?: boolean;
+  children: React.ReactNode;
+}> = ({ label, expanded, onToggle, modified, children }) => {
+  const { token } = theme.useToken();
+  return (
+    <>
+      <div
+        role="button"
+        tabIndex={-1}
+        aria-expanded={expanded}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onToggle();
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          margin: '6px 0 2px',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            fontSize: 10,
+            color: token.colorTextTertiary,
+            transition: 'transform 0.2s ease',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          }}
+        >
+          &#9654;
+        </span>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: token.colorTextTertiary,
+            textTransform: 'uppercase',
+            letterSpacing: '.06em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {label}
+        </Text>
+        {modified === true && !expanded && <ModifiedDot />}
+        <div style={{ flex: 1, height: 1, background: token.colorSplit }} />
+      </div>
+      {expanded && children}
+    </>
+  );
+};
+
 /** Position of a version token in the ordered {@link TLS_VERSIONS}
  *  list — the min/max selects disable options outside the window the
  *  OTHER select already pinned, so min ≤ max holds by construction. */
@@ -597,284 +747,432 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
   const proxyCredentialRefDangling =
     value.proxyCredentialRef !== undefined &&
     !proxyCredentialOptions.some((o) => o.value === value.proxyCredentialRef);
+  // Redirect-cap candidates carry a localized "hops" unit, so the
+  // labels are minted here where `t` lives rather than at module scope.
+  const formatHops = (count: number): string => t('workbench.editors.request.settings.maxRedirectsHops', { count });
+  const redirectPresets = REDIRECT_PRESET_VALUES.map((v) => ({ value: v, label: formatHops(v) }));
+  const interpretHops = (input: string): ComboKnobOption<number>[] =>
+    interpretRedirectCap(input).map((c) => ({ value: c.value, label: formatHops(c.value) }));
+  // Mirrors the tab-dot predicate: only knobs with a visible row on
+  // this runtime arm the reset action.
+  const anyModified =
+    value.followRedirects === false ||
+    value.timeoutMs !== undefined ||
+    (runtime === 'browser'
+      ? value.credentialsMode === 'include'
+      : value.sslVerification === false ||
+        value.tlsMinVersion !== undefined ||
+        value.tlsMaxVersion !== undefined ||
+        value.tlsCipherSuites !== undefined ||
+        value.clientCertificateRef !== undefined ||
+        (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
+        value.resolveToAddress !== undefined ||
+        value.proxyUrl !== undefined ||
+        value.unixSocketPath !== undefined ||
+        value.cookieJar === true ||
+        value.maxResponseBytes !== undefined ||
+        value.maxRedirects !== undefined ||
+        value.followOriginalHttpMethod === true ||
+        value.followAuthorizationHeader === true);
+  // Collapsible group state — all expanded by default; a collapsed
+  // group's header keeps the accent dot while it hides a modified knob.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string): void => setCollapsed((c) => ({ ...c, [key]: !(c[key] ?? false) }));
+  const connModified =
+    (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
+    value.resolveToAddress !== undefined ||
+    value.proxyUrl !== undefined ||
+    value.proxyCredentialRef !== undefined ||
+    value.unixSocketPath !== undefined;
+  const tlsModified =
+    value.sslVerification === false ||
+    value.tlsMinVersion !== undefined ||
+    value.tlsMaxVersion !== undefined ||
+    value.tlsCipherSuites !== undefined ||
+    value.clientCertificateRef !== undefined;
+  // Short-circuit: past the first clause redirects are being followed,
+  // so the trio rows are visible and may contribute.
+  const redirectsModified =
+    value.followRedirects === false ||
+    value.maxRedirects !== undefined ||
+    value.followOriginalHttpMethod === true ||
+    value.followAuthorizationHeader === true;
+  const cookiesModified = runtime === 'browser' ? value.credentialsMode === 'include' : value.cookieJar === true;
+  const executionModified =
+    value.timeoutMs !== undefined || value.maxResponseBytes !== undefined || scriptMode.mode === 'developer';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
-      <KnobRow
-        label={t('workbench.editors.request.settings.followRedirects')}
-        checked={value.followRedirects ?? true}
-        onChange={(checked) => onChange({ ...value, followRedirects: checked })}
-        info={t('workbench.editors.request.settings.followRedirectsInfo')}
-      />
-      {runtime === 'node' && value.followRedirects !== false && (
-        <>
-          <NumericKnobRow
-            label={t('workbench.editors.request.settings.maxRedirects')}
-            value={value.maxRedirects}
-            onChange={(maxRedirects) => onChange({ ...value, maxRedirects })}
-            info={t('workbench.editors.request.settings.maxRedirectsInfo')}
-            min={MIN_MAX_REDIRECTS}
-            max={MAX_MAX_REDIRECTS}
-            placeholder="20"
-          />
-          <KnobRow
-            label={t('workbench.editors.request.settings.followOriginalMethod')}
-            checked={value.followOriginalHttpMethod === true}
-            onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
-            info={t('workbench.editors.request.settings.followOriginalMethodInfo')}
-          />
-          <KnobRow
-            label={t('workbench.editors.request.settings.followAuthHeader')}
-            checked={value.followAuthorizationHeader === true}
-            onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
-            info={t('workbench.editors.request.settings.followAuthHeaderInfo')}
-            warning={t('workbench.editors.request.settings.followAuthHeaderWarning')}
-            warningWhenChecked
-          />
-        </>
-      )}
-      {runtime === 'browser' && (
-        <KnobRow
-          label={t('workbench.editors.request.settings.sendBrowserCookies')}
-          checked={value.credentialsMode === 'include'}
-          onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
-          info={t('workbench.editors.request.settings.sendBrowserCookiesInfo')}
-        />
-      )}
-      {runtime === 'node' && (
-        <>
-          <KnobRow
-            label={t('workbench.editors.request.settings.sslVerification')}
-            checked={value.sslVerification !== false}
-            onChange={(checked) => onChange({ ...value, sslVerification: checked })}
-            info={t('workbench.editors.request.settings.sslVerificationInfo')}
-            warning={t('workbench.editors.request.settings.sslVerificationWarning')}
-          />
-          <SelectKnobRow
-            label={t('workbench.editors.request.settings.tlsMin')}
-            value={value.tlsMinVersion}
-            onChange={(v) => onChange({ ...value, tlsMinVersion: v as TlsVersion | undefined })}
-            info={t('workbench.editors.request.settings.tlsMinInfo')}
-            options={TLS_VERSIONS.map((v) => ({
-              value: v,
-              label: v,
-              disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
-            }))}
-            placeholder={t('workbench.editors.request.settings.tlsMinPlaceholder')}
-            warning={
-              value.tlsMinVersion === '1.0' || value.tlsMinVersion === '1.1'
-                ? t('workbench.editors.request.settings.tlsMinWarning')
-                : undefined
-            }
-          />
-          <SelectKnobRow
-            label={t('workbench.editors.request.settings.tlsMax')}
-            value={value.tlsMaxVersion}
-            onChange={(v) => onChange({ ...value, tlsMaxVersion: v as TlsVersion | undefined })}
-            info={t('workbench.editors.request.settings.tlsMaxInfo')}
-            options={TLS_VERSIONS.map((v) => ({
-              value: v,
-              label: v,
-              disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
-            }))}
-            placeholder={t('workbench.editors.request.settings.tlsMaxPlaceholder')}
-          />
-          <TextKnobRow
-            label={t('workbench.editors.request.settings.tlsCipherSuites')}
-            value={value.tlsCipherSuites}
-            onChange={(tlsCipherSuites) => onChange({ ...value, tlsCipherSuites })}
-            info={t('workbench.editors.request.settings.tlsCipherSuitesInfo')}
-            placeholder={t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder')}
-            maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
-            error={
-              value.tlsCipherSuites !== undefined && !TLS_CIPHER_SUITES_PATTERN.test(value.tlsCipherSuites)
-                ? t('workbench.editors.request.settings.tlsCipherSuitesError')
-                : undefined
-            }
-          />
-          <SelectKnobRow
-            label={t('workbench.editors.request.settings.httpVersion')}
-            value={value.httpVersion === 'auto' ? undefined : value.httpVersion}
-            onChange={(v) => onChange({ ...value, httpVersion: v as HttpVersion | undefined })}
-            info={t('workbench.editors.request.settings.httpVersionInfo')}
-            options={[
-              { value: '1.1', label: 'HTTP/1.1' },
-              { value: '2', label: 'HTTP/2' },
-              { value: '2-prior-knowledge', label: t('workbench.editors.request.settings.httpVersionPriorKnowledge') },
-              { value: '3', label: 'HTTP/3' },
-            ]}
-            placeholder={t('workbench.editors.request.settings.httpVersionPlaceholder')}
-          />
-          <TextKnobRow
-            label={t('workbench.editors.request.settings.resolveToAddress')}
-            value={value.resolveToAddress}
-            onChange={(resolveToAddress) => onChange({ ...value, resolveToAddress })}
-            info={t('workbench.editors.request.settings.resolveToAddressInfo')}
-            placeholder={t('workbench.editors.request.settings.resolveToAddressPlaceholder')}
-            maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
-            error={
-              value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
-                ? t('workbench.editors.request.settings.resolveToAddressError')
-                : undefined
-            }
-          />
-          <SelectKnobRow
-            label={t('workbench.editors.request.settings.clientCertificate')}
-            value={value.clientCertificateRef}
-            onChange={(clientCertificateRef) => onChange({ ...value, clientCertificateRef })}
-            info={t('workbench.editors.request.settings.clientCertificateInfo')}
-            options={clientCertificateOptions}
-            placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
-            warning={
-              clientCertificateRefDangling
-                ? t('workbench.editors.request.settings.clientCertificateDangling', {
-                    name: value.clientCertificateRef ?? '',
-                  })
-                : undefined
-            }
-          />
-          <TextKnobRow
-            label={t('workbench.editors.request.settings.proxy')}
-            value={value.proxyUrl}
-            onChange={(proxyUrl) =>
-              onChange(
-                // Clearing the proxy URL also clears its credentials —
-                // they have nothing to authenticate against, and a
-                // hidden row must not keep a stale ref alive.
-                proxyUrl === undefined ? { ...value, proxyUrl, proxyCredentialRef: undefined } : { ...value, proxyUrl },
-              )
-            }
-            info={t('workbench.editors.request.settings.proxyInfo')}
-            placeholder={t('workbench.editors.request.settings.proxyPlaceholder')}
-            maxLength={MAX_PROXY_URL_LENGTH}
-            error={
-              value.proxyUrl !== undefined && !isValidProxyUrl(value.proxyUrl)
-                ? t('workbench.editors.request.settings.proxyError')
-                : undefined
-            }
-            warning={
-              value.proxyUrl !== undefined && value.resolveToAddress !== undefined
-                ? t('workbench.editors.request.settings.proxyResolveConflict')
-                : undefined
-            }
-          />
-          {value.proxyUrl !== undefined && (
+    <ConfigProvider
+      theme={{
+        components: {
+          // An empty knob means "the default in effect" — its stated
+          // default must read as live behavior, not a disabled control,
+          // so placeholders render at full text contrast, exactly like
+          // a set value; the tab dot and Clear affordance carry the
+          // customized-vs-default distinction.
+          Select: { colorTextPlaceholder: token.colorText },
+          Input: { colorTextPlaceholder: token.colorText },
+          InputNumber: { colorTextPlaceholder: token.colorText },
+        },
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
+        {runtime === 'node' && (
+          <>
+            <GroupSection
+              label={t('workbench.editors.request.settings.group.connection')}
+              expanded={collapsed.connection !== true}
+              onToggle={() => toggleGroup('connection')}
+              modified={connModified}
+            >
             <SelectKnobRow
-              label={t('workbench.editors.request.settings.proxyCredentials')}
-              value={value.proxyCredentialRef}
-              onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
-              info={t('workbench.editors.request.settings.proxyCredentialsInfo')}
-              options={proxyCredentialOptions}
-              placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
+              label={t('workbench.editors.request.settings.httpVersion')}
+              value={value.httpVersion === 'auto' ? undefined : value.httpVersion}
+              onChange={(v) => onChange({ ...value, httpVersion: v === 'auto' ? undefined : (v as HttpVersion | undefined) })}
+              info={t('workbench.editors.request.settings.httpVersionInfo')}
+              options={[
+                { value: 'auto', label: t('workbench.editors.request.settings.httpVersionPlaceholder') },
+                { value: '1.1', label: 'HTTP/1.1' },
+                { value: '2', label: 'HTTP/2' },
+                { value: '2-prior-knowledge', label: t('workbench.editors.request.settings.httpVersionPriorKnowledge') },
+                { value: '3', label: 'HTTP/3' },
+              ]}
+              placeholder={t('workbench.editors.request.settings.httpVersionPlaceholder')}
+              width={220}
+            />
+            <TextKnobRow
+              label={t('workbench.editors.request.settings.resolveToAddress')}
+              value={value.resolveToAddress}
+              onChange={(resolveToAddress) => onChange({ ...value, resolveToAddress })}
+              info={t('workbench.editors.request.settings.resolveToAddressInfo')}
+              placeholder={t('workbench.editors.request.settings.resolveToAddressPlaceholder')}
+              maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
+              error={
+                value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
+                  ? t('workbench.editors.request.settings.resolveToAddressError')
+                  : undefined
+              }
+            />
+            <TextKnobRow
+              label={t('workbench.editors.request.settings.proxy')}
+              value={value.proxyUrl}
+              onChange={(proxyUrl) =>
+                onChange(
+                  // Clearing the proxy URL also clears its credentials —
+                  // they have nothing to authenticate against, and a
+                  // hidden row must not keep a stale ref alive.
+                  proxyUrl === undefined ? { ...value, proxyUrl, proxyCredentialRef: undefined } : { ...value, proxyUrl },
+                )
+              }
+              info={t('workbench.editors.request.settings.proxyInfo')}
+              placeholder={t('workbench.editors.request.settings.proxyPlaceholder')}
+              maxLength={MAX_PROXY_URL_LENGTH}
+              error={
+                value.proxyUrl !== undefined && !isValidProxyUrl(value.proxyUrl)
+                  ? t('workbench.editors.request.settings.proxyError')
+                  : undefined
+              }
               warning={
-                proxyCredentialRefDangling
-                  ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
-                      name: value.proxyCredentialRef ?? '',
+                value.proxyUrl !== undefined && value.resolveToAddress !== undefined
+                  ? t('workbench.editors.request.settings.proxyResolveConflict')
+                  : undefined
+              }
+            />
+            {value.proxyUrl !== undefined && (
+              <SelectKnobRow
+                label={t('workbench.editors.request.settings.proxyCredentials')}
+                value={value.proxyCredentialRef}
+                onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
+                info={t('workbench.editors.request.settings.proxyCredentialsInfo')}
+                options={proxyCredentialOptions}
+                placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
+                width={220}
+                warning={
+                  proxyCredentialRefDangling
+                    ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
+                        name: value.proxyCredentialRef ?? '',
+                      })
+                    : undefined
+                }
+              />
+            )}
+            <TextKnobRow
+              label={t('workbench.editors.request.settings.unixSocket')}
+              value={value.unixSocketPath}
+              onChange={(unixSocketPath) => onChange({ ...value, unixSocketPath })}
+              info={t('workbench.editors.request.settings.unixSocketInfo')}
+              placeholder={t('workbench.editors.request.settings.unixSocketPlaceholder')}
+              maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
+              error={
+                value.unixSocketPath !== undefined && !isValidUnixSocketPath(value.unixSocketPath)
+                  ? t('workbench.editors.request.settings.unixSocketError')
+                  : undefined
+              }
+              warning={
+                value.unixSocketPath !== undefined && value.proxyUrl !== undefined
+                  ? t('workbench.editors.request.settings.unixSocketProxyConflict')
+                  : value.unixSocketPath !== undefined && value.resolveToAddress !== undefined
+                    ? t('workbench.editors.request.settings.unixSocketResolveConflict')
+                    : undefined
+              }
+            />
+            </GroupSection>
+            <GroupSection
+              label={t('workbench.editors.request.settings.group.tls')}
+              expanded={collapsed.tls !== true}
+              onToggle={() => toggleGroup('tls')}
+              modified={tlsModified}
+            >
+            <KnobRow
+              label={t('workbench.editors.request.settings.sslVerification')}
+              checked={value.sslVerification !== false}
+              modified={value.sslVerification === false}
+              onChange={(checked) => onChange({ ...value, sslVerification: checked })}
+              info={t('workbench.editors.request.settings.sslVerificationInfo')}
+              warning={t('workbench.editors.request.settings.sslVerificationWarning')}
+            />
+            <SelectKnobRow
+              label={t('workbench.editors.request.settings.tlsMin')}
+              value={value.tlsMinVersion}
+              onChange={(v) => onChange({ ...value, tlsMinVersion: v as TlsVersion | undefined })}
+              info={t('workbench.editors.request.settings.tlsMinInfo')}
+              options={TLS_VERSIONS.map((v) => ({
+                value: v,
+                label: v,
+                disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
+              }))}
+              placeholder={t('workbench.editors.request.settings.tlsMinPlaceholder')}
+              warning={
+                value.tlsMinVersion === '1.0' || value.tlsMinVersion === '1.1'
+                  ? t('workbench.editors.request.settings.tlsMinWarning')
+                  : undefined
+              }
+            />
+            <SelectKnobRow
+              label={t('workbench.editors.request.settings.tlsMax')}
+              value={value.tlsMaxVersion}
+              onChange={(v) => onChange({ ...value, tlsMaxVersion: v as TlsVersion | undefined })}
+              info={t('workbench.editors.request.settings.tlsMaxInfo')}
+              options={TLS_VERSIONS.map((v) => ({
+                value: v,
+                label: v,
+                disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
+              }))}
+              placeholder={t('workbench.editors.request.settings.tlsMaxPlaceholder')}
+            />
+            <TextKnobRow
+              label={t('workbench.editors.request.settings.tlsCipherSuites')}
+              value={value.tlsCipherSuites}
+              onChange={(tlsCipherSuites) => onChange({ ...value, tlsCipherSuites })}
+              info={t('workbench.editors.request.settings.tlsCipherSuitesInfo')}
+              placeholder={t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder')}
+              maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
+              error={
+                value.tlsCipherSuites !== undefined && !TLS_CIPHER_SUITES_PATTERN.test(value.tlsCipherSuites)
+                  ? t('workbench.editors.request.settings.tlsCipherSuitesError')
+                  : undefined
+              }
+            />
+            <SelectKnobRow
+              label={t('workbench.editors.request.settings.clientCertificate')}
+              value={value.clientCertificateRef}
+              onChange={(clientCertificateRef) => onChange({ ...value, clientCertificateRef })}
+              info={t('workbench.editors.request.settings.clientCertificateInfo')}
+              options={clientCertificateOptions}
+              placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
+              width={220}
+              warning={
+                clientCertificateRefDangling
+                  ? t('workbench.editors.request.settings.clientCertificateDangling', {
+                      name: value.clientCertificateRef ?? '',
                     })
                   : undefined
               }
             />
-          )}
-          <TextKnobRow
-            label={t('workbench.editors.request.settings.unixSocket')}
-            value={value.unixSocketPath}
-            onChange={(unixSocketPath) => onChange({ ...value, unixSocketPath })}
-            info={t('workbench.editors.request.settings.unixSocketInfo')}
-            placeholder={t('workbench.editors.request.settings.unixSocketPlaceholder')}
-            maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
-            error={
-              value.unixSocketPath !== undefined && !isValidUnixSocketPath(value.unixSocketPath)
-                ? t('workbench.editors.request.settings.unixSocketError')
-                : undefined
-            }
-            warning={
-              value.unixSocketPath !== undefined && value.proxyUrl !== undefined
-                ? t('workbench.editors.request.settings.unixSocketProxyConflict')
-                : value.unixSocketPath !== undefined && value.resolveToAddress !== undefined
-                  ? t('workbench.editors.request.settings.unixSocketResolveConflict')
-                  : undefined
-            }
-          />
-          <KnobRow
-            label={t('workbench.editors.request.settings.cookieJar')}
-            checked={value.cookieJar === true}
-            onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
-            info={t('workbench.editors.request.settings.cookieJarInfo')}
-          />
-          <CookieJarRow />
-          {scriptMode.available && (
-            <SelectKnobRow
-              label={t('workbench.editors.request.settings.scriptMode')}
-              value={scriptMode.mode}
-              onChange={(v) => scriptMode.setMode(v === 'developer' ? 'developer' : 'safe')}
-              info={t('workbench.editors.request.settings.scriptModeInfo')}
-              options={[
-                { value: 'safe', label: t('workbench.editors.request.settings.scriptModeSafe') },
-                { value: 'developer', label: t('workbench.editors.request.settings.scriptModeDeveloper') },
-              ]}
-              allowClear={false}
-              testId="oh-script-mode-select"
-              warning={
-                scriptMode.mode === 'developer'
-                  ? t('workbench.editors.request.settings.scriptModeWarning')
-                  : undefined
-              }
-            />
-          )}
-        </>
-      )}
-      <NumericKnobRow
-        label={t('workbench.editors.request.settings.timeout')}
-        value={value.timeoutMs}
-        onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
-        info={t('workbench.editors.request.settings.timeoutInfo')}
-        unit="ms"
-        min={MIN_REQUEST_TIMEOUT_MS}
-        max={MAX_REQUEST_TIMEOUT_MS}
-        placeholder={t('workbench.editors.request.settings.timeoutPlaceholder')}
-      />
-      {runtime === 'node' && (
-        <NumericKnobRow
-          label={t('workbench.editors.request.settings.responseSizeLimit')}
-          value={value.maxResponseBytes !== undefined ? Math.round(value.maxResponseBytes / 1024) : undefined}
-          onChange={(kb) => onChange({ ...value, maxResponseBytes: kb !== undefined ? kb * 1024 : undefined })}
-          info={t('workbench.editors.request.settings.responseSizeLimitInfo')}
-          unit="KB"
-          min={MIN_RESPONSE_BYTES / 1024}
-          max={MAX_RESPONSE_BYTES / 1024}
-          placeholder="2048"
+            </GroupSection>
+          </>
+        )}
+        <GroupSection
+              label={t('workbench.editors.request.settings.group.redirects')}
+              expanded={collapsed.redirects !== true}
+              onToggle={() => toggleGroup('redirects')}
+              modified={redirectsModified}
+            >
+        <KnobRow
+          label={t('workbench.editors.request.settings.followRedirects')}
+          checked={value.followRedirects ?? true}
+          modified={value.followRedirects === false}
+          onChange={(checked) => onChange({ ...value, followRedirects: checked })}
+          info={t('workbench.editors.request.settings.followRedirectsInfo')}
         />
-      )}
+        {runtime === 'node' && value.followRedirects !== false && (
+          <>
+            <ComboKnobRow
+              label={t('workbench.editors.request.settings.maxRedirects')}
+              value={value.maxRedirects}
+              onChange={(maxRedirects) => onChange({ ...value, maxRedirects })}
+              info={t('workbench.editors.request.settings.maxRedirectsInfo')}
+              presets={redirectPresets}
+              interpret={interpretHops}
+              format={formatHops}
+              placeholder={t('workbench.editors.request.settings.maxRedirectsPlaceholder')}
+            />
+            <KnobRow
+              label={t('workbench.editors.request.settings.followOriginalMethod')}
+              checked={value.followOriginalHttpMethod === true}
+              modified={value.followOriginalHttpMethod === true}
+              onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
+              info={t('workbench.editors.request.settings.followOriginalMethodInfo')}
+            />
+            <KnobRow
+              label={t('workbench.editors.request.settings.followAuthHeader')}
+              checked={value.followAuthorizationHeader === true}
+              modified={value.followAuthorizationHeader === true}
+              onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
+              info={t('workbench.editors.request.settings.followAuthHeaderInfo')}
+              warning={t('workbench.editors.request.settings.followAuthHeaderWarning')}
+              warningWhenChecked
+            />
+          </>
+        )}
+        </GroupSection>
+        <GroupSection
+              label={t('workbench.editors.request.settings.group.cookies')}
+              expanded={collapsed.cookies !== true}
+              onToggle={() => toggleGroup('cookies')}
+              modified={cookiesModified}
+            >
+        {runtime === 'browser' && (
+          <KnobRow
+            label={t('workbench.editors.request.settings.sendBrowserCookies')}
+            checked={value.credentialsMode === 'include'}
+            modified={value.credentialsMode === 'include'}
+            onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
+            info={t('workbench.editors.request.settings.sendBrowserCookiesInfo')}
+          />
+        )}
+        {runtime === 'node' && (
+          <>
+            <KnobRow
+              label={t('workbench.editors.request.settings.cookieJar')}
+              checked={value.cookieJar === true}
+              modified={value.cookieJar === true}
+              onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
+              info={t('workbench.editors.request.settings.cookieJarInfo')}
+            />
+            <CookieJarRow />
+          </>
+        )}
+        </GroupSection>
+        <GroupSection
+              label={t('workbench.editors.request.settings.group.execution')}
+              expanded={collapsed.execution !== true}
+              onToggle={() => toggleGroup('execution')}
+              modified={executionModified}
+            >
+        {runtime === 'node' && scriptMode.available && (
+          <SelectKnobRow
+            label={t('workbench.editors.request.settings.scriptMode')}
+            value={scriptMode.mode}
+            modified={scriptMode.mode === 'developer'}
+            onChange={(v) => scriptMode.setMode(v === 'developer' ? 'developer' : 'safe')}
+            info={t('workbench.editors.request.settings.scriptModeInfo')}
+            options={[
+              { value: 'safe', label: t('workbench.editors.request.settings.scriptModeSafe') },
+              { value: 'developer', label: t('workbench.editors.request.settings.scriptModeDeveloper') },
+            ]}
+            allowClear={false}
+            testId="oh-script-mode-select"
+            warning={
+              scriptMode.mode === 'developer' ? t('workbench.editors.request.settings.scriptModeWarning') : undefined
+            }
+          />
+        )}
+        <ComboKnobRow
+          label={t('workbench.editors.request.settings.timeout')}
+          value={value.timeoutMs}
+          onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
+          info={t('workbench.editors.request.settings.timeoutInfo')}
+          presets={TIMEOUT_PRESETS}
+          interpret={interpretTimeout}
+          format={formatDurationMs}
+          placeholder={t('workbench.editors.request.settings.timeoutPlaceholder')}
+        />
+        {runtime === 'node' && (
+          <ComboKnobRow
+            label={t('workbench.editors.request.settings.responseSizeLimit')}
+            value={value.maxResponseBytes}
+            onChange={(maxResponseBytes) => onChange({ ...value, maxResponseBytes })}
+            info={t('workbench.editors.request.settings.responseSizeLimitInfo')}
+            presets={SIZE_PRESETS}
+            interpret={interpretResponseSize}
+            format={formatByteSize}
+            placeholder={t('workbench.editors.request.settings.responseSizeLimitPlaceholder')}
+          />
+        )}
 
-      <div style={{ marginTop: 8 }}>
-        <Button
-          size="small"
-          type="text"
-          icon={showRuntimeManaged ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-          onClick={() => setShowRuntimeManaged((s) => !s)}
-          style={{ color: token.colorTextSecondary, fontSize: 12 }}
-        >
-          {showRuntimeManaged ? t(sheet.hideKey) : t(sheet.countKey, { count: sheetRows.length })}
-        </Button>
-      </div>
-      {showRuntimeManaged && (
+        </GroupSection>
+        <div style={{ marginTop: 8 }}>
+          <Button
+            size="small"
+            type="text"
+            icon={showRuntimeManaged ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+            onClick={() => setShowRuntimeManaged((s) => !s)}
+            style={{ color: token.colorTextSecondary, fontSize: 12 }}
+          >
+            {showRuntimeManaged ? t(sheet.hideKey) : t(sheet.countKey, { count: sheetRows.length })}
+          </Button>
+        </div>
+        {showRuntimeManaged && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              padding: '6px 10px',
+              borderRadius: 6,
+              background: token.colorFillQuaternary,
+            }}
+          >
+            <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 2 }}>{t(sheet.introKey)}</Text>
+            {GROUP_ORDER.filter((group) => sheetRows.some((r) => r.group === group)).map((group) => (
+              <GroupSection
+                key={group}
+                label={t(GROUP_LABEL_KEY[group])}
+                expanded={collapsed[`sheet-${group}`] !== true}
+                onToggle={() => toggleGroup(`sheet-${group}`)}
+              >
+                {sheetRows
+                  .filter((r) => r.group === group)
+                  .map((def) => (
+                    <RuntimeManagedRow key={def.labelKey} {...def} kicker={t(sheet.kickerKey)} />
+                  ))}
+              </GroupSection>
+            ))}
+          </div>
+        )}
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            padding: '6px 10px',
-            borderRadius: 6,
-            background: token.colorFillQuaternary,
+            position: 'sticky',
+            bottom: 0,
+            marginTop: 4,
+            paddingBottom: 4,
+            background: token.colorBgContainer,
           }}
         >
-          <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginBottom: 2 }}>{t(sheet.introKey)}</Text>
-          {sheetRows.map((def) => (
-            <RuntimeManagedRow key={def.labelKey} {...def} kicker={t(sheet.kickerKey)} />
-          ))}
+          <Divider style={{ margin: '0 0 4px' }} />
+          <Button
+            size="small"
+            type="text"
+            disabled={!anyModified}
+            onClick={() => onChange({})}
+            style={{ fontSize: 12, ...(anyModified ? { color: token.colorTextSecondary } : {}) }}
+          >
+            {t('workbench.editors.request.settings.resetToDefault')}
+          </Button>
         </div>
-      )}
-    </div>
+      </div>
+    </ConfigProvider>
   );
 };
 

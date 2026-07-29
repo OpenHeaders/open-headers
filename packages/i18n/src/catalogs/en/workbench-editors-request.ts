@@ -342,6 +342,16 @@ export const workbenchEditorsRequest = {
     "Cipher suites offered during the TLS handshake, as a colon-separated OpenSSL-format list — TLS 1.3 suite names and older suite names both go in the one list. Leave empty to offer the runtime's default suites. The server picks the suite from what is offered, in its own preference order.",
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Runtime default suites',
   'workbench.editors.request.settings.tlsCipherSuitesError': 'Colon-separated OpenSSL suite names only — no spaces.',
+  'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 hops (default)',
+  'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} hop', other: '{count} hops' }),
+  'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (default)',
+  'workbench.editors.request.settings.resetToDefault': 'Reset to default',
+  'workbench.editors.request.settings.group.redirects': 'Redirects',
+  'workbench.editors.request.settings.group.tls': 'TLS & trust',
+  'workbench.editors.request.settings.group.connection': 'Connection',
+  'workbench.editors.request.settings.group.cookies': 'Cookies',
+  'workbench.editors.request.settings.group.execution': 'Execution & limits',
   'workbench.editors.request.settings.httpVersion': 'HTTP version',
   'workbench.editors.request.settings.httpVersionInfo':
     'How the send speaks HTTP. Auto (the default) offers HTTP/2 alongside HTTP/1.1 during the TLS handshake and the server picks — plain http:// stays HTTP/1.1. HTTP/1.1 pins classic semantics. HTTP/2 pins the protocol via the handshake offer. HTTP/2 (prior knowledge) skips negotiation and speaks HTTP/2 immediately — the route for cleartext HTTP/2 servers. HTTP/3 dials the server directly over QUIC, with no fallback to TCP. A pinned version the server can’t speak fails with a clear error, never a silent fallback. The Network popover on the response always shows the protocol that was actually negotiated on the wire.',

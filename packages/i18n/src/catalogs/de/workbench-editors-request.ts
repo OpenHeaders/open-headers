@@ -430,6 +430,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Standard-Suites der Laufzeitumgebung',
   'workbench.editors.request.settings.tlsCipherSuitesError':
     'Nur durch Doppelpunkte getrennte OpenSSL-Suite-Namen — keine Leerzeichen.',
+  'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 Hops (Standard)',
+  'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} Hop', other: '{count} Hops' }),
+  'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (Standard)',
+  'workbench.editors.request.settings.resetToDefault': 'Auf Standard zurücksetzen',
+  'workbench.editors.request.settings.group.redirects': 'Umleitungen',
+  'workbench.editors.request.settings.group.tls': 'TLS & Vertrauen',
+  'workbench.editors.request.settings.group.connection': 'Verbindung',
+  'workbench.editors.request.settings.group.cookies': 'Cookies',
+  'workbench.editors.request.settings.group.execution': 'Ausführung & Limits',
   'workbench.editors.request.settings.httpVersion': 'HTTP-Version',
   'workbench.editors.request.settings.httpVersionInfo':
     'Wie das Senden HTTP spricht. Auto (Standard) bietet beim TLS-Handshake HTTP/2 neben HTTP/1.1 an und ' +

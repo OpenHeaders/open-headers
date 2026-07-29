@@ -349,6 +349,16 @@ export const workbenchEditorsRequest = {
     'TLS 握手期间提供的密码套件，为冒号分隔的 OpenSSL 格式列表——TLS 1.3 套件名和旧式套件名都放进同一个列表。留空则提供运行时的默认套件。服务器按自己的偏好顺序从所提供的套件中选择。',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': '运行时默认套件',
   'workbench.editors.request.settings.tlsCipherSuitesError': '仅限冒号分隔的 OpenSSL 套件名——不能有空格。',
+  'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 跳（默认）',
+  'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 跳' }),
+  'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB（默认）',
+  'workbench.editors.request.settings.resetToDefault': '重置为默认值',
+  'workbench.editors.request.settings.group.redirects': '重定向',
+  'workbench.editors.request.settings.group.tls': 'TLS 与信任',
+  'workbench.editors.request.settings.group.connection': '连接',
+  'workbench.editors.request.settings.group.cookies': 'Cookie',
+  'workbench.editors.request.settings.group.execution': '执行与限制',
   'workbench.editors.request.settings.httpVersion': 'HTTP 版本',
   'workbench.editors.request.settings.httpVersionInfo':
     '发送使用的 HTTP 协议方式。Auto（默认）在 TLS 握手中同时提供 HTTP/2 与 HTTP/1.1，由服务器选择——普通 http:// 保持 HTTP/1.1。HTTP/1.1 固定使用经典语义。HTTP/2 通过握手提供项固定协议。HTTP/2（prior knowledge）跳过协商直接以 HTTP/2 通信——这是明文 HTTP/2 服务器的通路。HTTP/3 直接以 QUIC 连接服务器，不回退到 TCP。固定的版本若服务器无法使用，会以明确错误失败，绝不静默回退。响应的“网络”弹层始终显示线上实际协商出的协议。',

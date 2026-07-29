@@ -420,6 +420,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Suites par défaut du runtime',
   'workbench.editors.request.settings.tlsCipherSuitesError':
     "Noms de suites OpenSSL séparés par des deux-points uniquement — pas d'espaces.",
+  'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 sauts (défaut)',
+  'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} saut', many: '{count} sauts', other: '{count} sauts' }),
+  'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (défaut)',
+  'workbench.editors.request.settings.resetToDefault': 'Rétablir les valeurs par défaut',
+  'workbench.editors.request.settings.group.redirects': 'Redirections',
+  'workbench.editors.request.settings.group.tls': 'TLS et confiance',
+  'workbench.editors.request.settings.group.connection': 'Connexion',
+  'workbench.editors.request.settings.group.cookies': 'Cookies',
+  'workbench.editors.request.settings.group.execution': 'Exécution et limites',
   'workbench.editors.request.settings.httpVersion': 'Version HTTP',
   'workbench.editors.request.settings.httpVersionInfo':
     "Comment l'envoi parle HTTP. Auto (par défaut) propose HTTP/2 aux côtés de HTTP/1.1 pendant la " +

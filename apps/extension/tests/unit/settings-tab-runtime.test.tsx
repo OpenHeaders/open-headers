@@ -122,8 +122,8 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
 
   it('shows the timeout knob but no per-request size-cap knob', () => {
     renderTab();
-    expect(screen.getByRole('spinbutton', { name: 'Request timeout' })).toBeTruthy();
-    expect(screen.queryByRole('spinbutton', { name: 'Response size limit' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Request timeout' })).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'Response size limit' })).toBeNull();
   });
 
   it('dots the tab for a set timeout, never for a synced size cap', () => {
@@ -131,19 +131,40 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(settingsDotCount({ maxResponseBytes: 4096 })).toBe(0);
   });
 
-  it('reports the timeout in ms and clears to undefined when emptied', () => {
+  it('shows a set timeout as a human label and clears to undefined when emptied', () => {
     const onChange = vi.fn();
     render(<SettingsTab value={{ timeoutMs: 15000 }} onChange={onChange} />);
-    const knob = screen.getByRole('spinbutton', { name: 'Request timeout' }) as HTMLInputElement;
-    expect(knob.value).toBe('15000');
+    const knob = screen.getByRole('combobox', { name: 'Request timeout' }) as HTMLInputElement;
+    expect(knob.value).toBe('15 s');
     fireEvent.change(knob, { target: { value: '' } });
     fireEvent.blur(knob);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
   });
 
+  it('interprets free timeout text into a committed ms value on blur', () => {
+    const onChange = vi.fn();
+    render(<SettingsTab value={{}} onChange={onChange} />);
+    const knob = screen.getByRole('combobox', { name: 'Request timeout' }) as HTMLInputElement;
+    fireEvent.change(knob, { target: { value: '5s' } });
+    fireEvent.blur(knob);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 5000 }));
+  });
+
+  it('reverts ambiguous timeout text instead of guessing', () => {
+    const onChange = vi.fn();
+    render(<SettingsTab value={{}} onChange={onChange} />);
+    const knob = screen.getByRole('combobox', { name: 'Request timeout' }) as HTMLInputElement;
+    // "5" reads as 5 s or 5 min (5 ms is below the schema floor) —
+    // two candidates, so blur must not commit either.
+    fireEvent.change(knob, { target: { value: '5' } });
+    fireEvent.blur(knob);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(knob.value).toBe('');
+  });
+
   it('keeps the redirect trio as browser-managed facts, not knobs', () => {
     renderTab();
-    expect(screen.queryByRole('spinbutton', { name: 'Maximum redirects' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Maximum redirects' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Follow original HTTP method' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Follow Authorization header' })).toBeNull();
     fireEvent.click(screen.getByText('10 browser-managed'));
@@ -239,10 +260,11 @@ describe('SettingsTab on a node runtime', () => {
     fireEvent.click(screen.getByText('4 runtime-managed'));
     expect(screen.getByText(/Fixed by the app’s network runtime for every request/)).toBeTruthy();
     // The 'Cookies · Not sent' fact row graduated into the cookie-jar
-    // knob — only the Referer fact still reads 'Not sent'. Without a
-    // script runtime on either side (this surface's browser host), the
-    // sheet's fourth row is the honest scripts posture.
-    expect(screen.queryByText('Cookies')).toBeNull();
+    // knob — only the Referer fact still reads 'Not sent', and the one
+    // 'Cookies' text on the tab is the settings-group divider label.
+    // Without a script runtime on either side (this surface's browser
+    // host), the sheet's fourth row is the honest scripts posture.
+    expect(screen.getAllByText('Cookies')).toHaveLength(1);
     expect(screen.getByText('Referer header')).toBeTruthy();
     expect(screen.getAllByText('Not sent')).toHaveLength(1);
     expect(screen.getByText('Don’t run here')).toBeTruthy();
@@ -313,14 +335,14 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount()).toBe(0);
   });
 
-  it('shows both numeric knobs, displaying the size cap in KB', () => {
+  it('shows both numeric knobs, displaying the size cap as a unit label', () => {
     registerCapability('requestRuntime', () => 'node');
     const onChange = vi.fn();
     render(<SettingsTab value={{ maxResponseBytes: 4096 }} onChange={onChange} />);
-    expect(screen.getByRole('spinbutton', { name: 'Request timeout' })).toBeTruthy();
-    const cap = screen.getByRole('spinbutton', { name: 'Response size limit' }) as HTMLInputElement;
-    expect(cap.value).toBe('4');
-    fireEvent.change(cap, { target: { value: '8' } });
+    expect(screen.getByRole('combobox', { name: 'Request timeout' })).toBeTruthy();
+    const cap = screen.getByRole('combobox', { name: 'Response size limit' }) as HTMLInputElement;
+    expect(cap.value).toBe('4 KB');
+    fireEvent.change(cap, { target: { value: '8 KB' } });
     fireEvent.blur(cap);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxResponseBytes: 8192 }));
   });
@@ -335,9 +357,11 @@ describe('SettingsTab on a node runtime', () => {
   it('graduates the redirect trio to live knobs, defaulting to runtime behavior', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
-    const cap = screen.getByRole('spinbutton', { name: 'Maximum redirects' }) as HTMLInputElement;
+    const cap = screen.getByRole('combobox', { name: 'Maximum redirects' }) as HTMLInputElement;
     expect(cap.value).toBe('');
-    expect(cap.placeholder).toBe('20');
+    // rc-select renders the placeholder as a sibling span, not an
+    // input attribute.
+    expect(screen.getByText('20 hops (default)')).toBeTruthy();
     const method = screen.getByRole('switch', { name: 'Follow original HTTP method' });
     const auth = screen.getByRole('switch', { name: 'Follow Authorization header' });
     expect(method.getAttribute('aria-checked')).toBe('false');
@@ -352,7 +376,7 @@ describe('SettingsTab on a node runtime', () => {
   it('hides the trio while automatic redirect following is off', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab({ followRedirects: false });
-    expect(screen.queryByRole('spinbutton', { name: 'Maximum redirects' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Maximum redirects' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Follow original HTTP method' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Follow Authorization header' })).toBeNull();
   });
@@ -371,11 +395,30 @@ describe('SettingsTab on a node runtime', () => {
     registerCapability('requestRuntime', () => 'node');
     const onChange = vi.fn();
     render(<SettingsTab value={{ maxRedirects: 5 }} onChange={onChange} />);
-    const cap = screen.getByRole('spinbutton', { name: 'Maximum redirects' }) as HTMLInputElement;
-    expect(cap.value).toBe('5');
+    const cap = screen.getByRole('combobox', { name: 'Maximum redirects' }) as HTMLInputElement;
+    expect(cap.value).toBe('5 hops');
     fireEvent.change(cap, { target: { value: '' } });
     fireEvent.blur(cap);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxRedirects: undefined }));
+  });
+
+  it('dots modified rows and arms Reset to default', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ timeoutMs: 15000 }} onChange={onChange} />);
+    expect(screen.getAllByTestId('oh-setting-modified-dot')).toHaveLength(1);
+    const reset = screen.getByRole('button', { name: 'Reset to default' }) as HTMLButtonElement;
+    expect(reset.disabled).toBe(false);
+    fireEvent.click(reset);
+    expect(onChange).toHaveBeenCalledWith({});
+  });
+
+  it('disables Reset to default while every knob is at its default', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.queryAllByTestId('oh-setting-modified-dot')).toHaveLength(0);
+    const reset = screen.getByRole('button', { name: 'Reset to default' }) as HTMLButtonElement;
+    expect(reset.disabled).toBe(true);
   });
 
   it('dots the tab for each trio knob only while redirects are followed', () => {
