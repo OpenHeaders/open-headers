@@ -46,7 +46,7 @@ import * as net from 'node:net';
 import { isIP } from 'node:net';
 import * as tls from 'node:tls';
 import { Agent, buildConnector, errors } from 'undici';
-import type { ConnectOptions } from './node-request-transport';
+import type { ConnectOptions } from './request-transport/seam';
 
 /** Marks + facts for one dialed connection, `performance.now()` clock
  *  (the transport's phase-mark clock). */

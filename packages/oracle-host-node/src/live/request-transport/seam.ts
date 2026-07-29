@@ -1,0 +1,159 @@
+/**
+ * The wire-hop seam's shared types — what the policy layer above
+ * (redirect chain, digest leg, jar, deadline, capped read, finalize)
+ * and the wire pipelines below (undici fetch hop, undici `request()`
+ * hop, prior-knowledge h2 hop) exchange per hop. One home so the seam
+ * is readable in one place, not re-assembled from re-exports.
+ */
+
+import type { LookupFunction } from 'node:net';
+import type { Readable } from 'node:stream';
+import type { SecureVersion } from 'node:tls';
+import {
+  type TransportBody,
+  TransportError,
+  type TransportHeader,
+  type TransportStreamObserver,
+} from '@openheaders/oracle/live/request-exec/transport';
+import type { Dispatcher, FormData, Headers, fetch as undiciFetch } from 'undici';
+
+/** The fetch pipeline behind the transport — undici's fetch in
+ *  production; injectable so tests observe the exact init (including
+ *  the dispatcher) without stubbing globals. */
+export type NodeFetchFn = typeof undiciFetch;
+
+/** The slice of an undici `request()` result the transport consumes —
+ *  the seam is typed to it so tests can hand back plain readables.
+ *  `trailers` is undici's live view of the response's HTTP trailer
+ *  fields — empty until the body has been consumed, populated after. */
+export interface NodeRequestResponse {
+  statusCode: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: Readable;
+  trailers?: Record<string, string | string[] | undefined>;
+}
+
+/** The spec-free pipeline behind GET/HEAD-with-body and gRPC hops —
+ *  undici's `request()` in production; injectable like
+ *  {@link NodeFetchFn} and typed to exactly what the transport sends
+ *  and reads. */
+export type NodeRequestFn = (
+  url: string,
+  options: {
+    method: string;
+    headers: Headers;
+    body?: string | FormData;
+    dispatcher?: Dispatcher;
+    signal?: AbortSignal;
+  },
+) => Promise<NodeRequestResponse>;
+
+/** undici's RequestInit — carries the `dispatcher` slot the DOM-shaped
+ *  init type doesn't know about. */
+export type NodeRequestInit = NonNullable<Parameters<NodeFetchFn>[1]>;
+
+/** The TLS/connection option bag shared by the direct path (`Agent`'s
+ *  `connect`) and the proxied path (`ProxyAgent`'s `requestTls` — the
+ *  TARGET leg of the tunnel; `ProxyAgent` ignores a plain `connect`). */
+export interface ConnectOptions {
+  rejectUnauthorized?: boolean;
+  minVersion?: SecureVersion;
+  maxVersion?: SecureVersion;
+  ciphers?: string;
+  lookup?: LookupFunction;
+  cert?: string;
+  key?: string;
+  passphrase?: string;
+  allowH2?: boolean;
+  socketPath?: string;
+}
+
+/** Mutable per-hop send state — what actually changes across a redirect
+ *  chain. The body stays the data-only `TransportBody`; `buildBody`
+ *  re-materializes a fresh `BodyInit` per hop (a consumed FormData /
+ *  URLSearchParams is never reused). */
+export interface HopState {
+  url: string;
+  method: string;
+  headers: ReadonlyArray<TransportHeader>;
+  body: TransportBody;
+}
+
+/** What one wire round-trip yields to the redirect loop and the capped
+ *  body read — the slice of the fetch `Response` surface they actually
+ *  touch. A fetch hop returns its `Response` as-is; a `request()` hop
+ *  (GET/HEAD with a body) adapts onto the same shape. */
+type FetchResponse = Awaited<ReturnType<NodeFetchFn>>;
+export interface HopResponse {
+  status: number;
+  statusText: string;
+  url: string;
+  headers: FetchResponse['headers'];
+  body: FetchResponse['body'];
+  /** HTTP trailer fields, read AFTER the body is consumed — a thunk
+   *  because undici populates its trailers object only once the body
+   *  stream ends. Absent on the fetch path: WHATWG fetch dropped
+   *  trailers from its surface entirely, so only `request()` hops can
+   *  report them. */
+  trailers?: () => TransportHeader[];
+}
+
+/** Abort deadline over a whole send — see {@link startDeadline}. */
+export type Deadline = ReturnType<typeof startDeadline>;
+
+/** The streaming leg of one send — the observer live frames feed plus
+ *  the caller's abort signal (Stop). `null` = buffered `send`. */
+export interface StreamingLeg {
+  observer: TransportStreamObserver;
+  signal?: AbortSignal;
+}
+
+/**
+ * Per-send prior-knowledge pipeline leg — present exactly when the
+ * request pins `'2-prior-knowledge'`. Carries the connection-option
+ * bag every hop's h2 session dials with (computed once, the
+ * one-dispatcher-per-send discipline) and the sink the pipeline's
+ * spoken-protocol facts report into — the always-on report's source
+ * for sends that never touch a dispatcher.
+ */
+export interface H2Leg {
+  connect: ConnectOptions;
+  onProtocol(origin: string, alpnProtocol: string): void;
+}
+
+/**
+ * Arm an abort deadline for the round-trip; `null` when neither trigger
+ * exists. A streaming leg's external signal (the executor's Stop hook)
+ * merges onto the same controller so one signal spans connection and
+ * body read for both triggers — `expired()` still names only the
+ * timeout, which is how callers tell the two apart.
+ */
+export function startDeadline(timeoutMs: number | undefined, externalSignal?: AbortSignal) {
+  if (timeoutMs === undefined && externalSignal === undefined) return null;
+  const controller = new AbortController();
+  let expired = false;
+  const timer =
+    timeoutMs === undefined
+      ? null
+      : setTimeout(() => {
+          expired = true;
+          controller.abort();
+        }, timeoutMs);
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal !== undefined) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', onExternalAbort);
+  }
+  return {
+    signal: controller.signal,
+    expired: () => expired,
+    clear: () => {
+      if (timer !== null) clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
+    },
+  };
+}
+
+export function timeoutError(timeoutMs: number | undefined): TransportError {
+  return new TransportError(`Request timed out after ${timeoutMs} ms.`);
+}

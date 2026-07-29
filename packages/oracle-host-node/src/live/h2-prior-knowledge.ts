@@ -37,7 +37,7 @@
 import { connect } from 'node:http2';
 import type { TransportHeader } from '@openheaders/oracle/live/request-exec/transport';
 import { servernameFor } from './instrumented-connector';
-import type { ConnectOptions, NodeRequestResponse } from './node-request-transport';
+import type { ConnectOptions, NodeRequestResponse } from './request-transport/seam';
 
 /** One prior-knowledge hop as the transport dispatches it — the hop's
  *  wire fields plus the per-send connection policy and the always-on
