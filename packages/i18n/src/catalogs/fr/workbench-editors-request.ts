@@ -422,8 +422,14 @@ export const workbenchEditorsRequest = {
     "Noms de suites OpenSSL séparés par des deux-points uniquement — pas d'espaces.",
   'workbench.editors.request.settings.httpVersion': 'Version HTTP',
   'workbench.editors.request.settings.httpVersionInfo':
-    "How the send speaks HTTP. Auto (the default) offers HTTP/2 alongside HTTP/1.1 during the TLS handshake and the server picks — plain http:// stays HTTP/1.1. HTTP/1.1 pins classic semantics. HTTP/2 pins the protocol via the handshake offer: the send fails with a clear error when the server doesn't negotiate it, never a silent fallback. HTTP/2 (prior knowledge) skips negotiation and speaks HTTP/2 immediately — the route for cleartext HTTP/2 servers — and HTTP/3 dials QUIC; both fail honestly until this runtime supports them. The Network popover on the response always shows the protocol that was actually negotiated on the wire.",
-  'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto — server picks',
+    "Comment l'envoi parle HTTP. Auto (par défaut) propose HTTP/2 aux côtés de HTTP/1.1 pendant la " +
+    'négociation TLS et le serveur choisit — le http:// simple reste en HTTP/1.1. HTTP/1.1 fige la ' +
+    "sémantique classique. HTTP/2 fige le protocole via l'offre de la négociation. HTTP/2 (prior " +
+    'knowledge) saute la négociation et parle HTTP/2 immédiatement — la voie pour les serveurs HTTP/2 en ' +
+    'clair. HTTP/3 contacte le serveur directement en QUIC, sans repli vers TCP. Une version figée que le ' +
+    'serveur ne parle pas échoue avec une erreur claire, jamais par un repli silencieux. Le popover ' +
+    '« Réseau » de la réponse affiche toujours le protocole réellement négocié sur le fil.',
+  'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto — le serveur choisit',
   'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2 (prior knowledge)',
   'workbench.editors.request.settings.resolveToAddress': "Résoudre vers l'adresse",
   'workbench.editors.request.settings.resolveToAddressInfo':
@@ -718,7 +724,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.localAddress': 'Adresse locale',
   'workbench.editors.request.response.meta.remoteAddress': 'Adresse distante',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
-    "Version HTTP masquée : le runtime réseau de l'application ne rapporte pas le protocole négocié.",
+    "Version HTTP masquée : le protocole négocié n'était pas observable pour cet envoi (les envois via " +
+    'proxy négocient dans le tunnel).',
   'workbench.editors.request.response.meta.noteVersionHiddenBrowser':
     "Version HTTP masquée : la plateforme n'a enregistré aucune entrée de temps pour cette requête.",
   'workbench.editors.request.response.meta.noteNoIp':

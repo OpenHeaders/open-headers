@@ -351,7 +351,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesError': '仅限冒号分隔的 OpenSSL 套件名——不能有空格。',
   'workbench.editors.request.settings.httpVersion': 'HTTP 版本',
   'workbench.editors.request.settings.httpVersionInfo':
-    '发送使用的 HTTP 协议方式。Auto（默认）在 TLS 握手中同时提供 HTTP/2 与 HTTP/1.1，由服务器选择——普通 http:// 保持 HTTP/1.1。HTTP/1.1 固定使用经典语义。HTTP/2 通过握手提供项固定协议：服务器未协商出 HTTP/2 时发送会以明确错误失败，绝不静默回退。HTTP/2（prior knowledge）跳过协商直接以 HTTP/2 通信——这是明文 HTTP/2 服务器的通路；HTTP/3 走 QUIC；两者在本运行时支持之前都会如实失败。响应的“网络”弹层始终显示线上实际协商出的协议。',
+    '发送使用的 HTTP 协议方式。Auto（默认）在 TLS 握手中同时提供 HTTP/2 与 HTTP/1.1，由服务器选择——普通 http:// 保持 HTTP/1.1。HTTP/1.1 固定使用经典语义。HTTP/2 通过握手提供项固定协议。HTTP/2（prior knowledge）跳过协商直接以 HTTP/2 通信——这是明文 HTTP/2 服务器的通路。HTTP/3 直接以 QUIC 连接服务器，不回退到 TCP。固定的版本若服务器无法使用，会以明确错误失败，绝不静默回退。响应的“网络”弹层始终显示线上实际协商出的协议。',
   'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto——由服务器选择',
   'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2（prior knowledge）',
   'workbench.editors.request.settings.resolveToAddress': '解析到地址',
