@@ -104,7 +104,7 @@ function h2NotNegotiatedError(message: string): Error {
 
 /** SNI servername for a dial — the URL's hostname unless it's an IP
  *  literal (RFC 6066 forbids IPs in SNI; Node warns and ignores). */
-function servernameFor(hostname: string): string | undefined {
+export function servernameFor(hostname: string): string | undefined {
   return isIP(hostname) === 0 ? hostname : undefined;
 }
 

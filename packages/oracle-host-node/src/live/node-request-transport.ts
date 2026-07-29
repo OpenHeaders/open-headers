@@ -26,9 +26,15 @@
  *     only; `'2'` offers h2 ONLY on a hand-rolled connector and fails
  *     honestly when the server negotiates anything else — never a
  *     silent downgrade (plain http:// can't ALPN at all, so a pinned
- *     cleartext hop fails too); `'2-prior-knowledge'` and `'3'` fail
- *     honestly as not-yet-supported here, as does `'2'` through a
- *     proxy (the tunnel's connector owns the ALPN offer);
+ *     cleartext hop fails too); `'2-prior-knowledge'` skips
+ *     negotiation entirely — every hop rides the hand-rolled
+ *     `node:http2` session pipeline (see {@link h2Hop}), TLS and
+ *     cleartext alike (the sanctioned cleartext-h2 route), with the
+ *     same connection policy, redirect/digest/jar layer, and native
+ *     trailers; `'3'` fails honestly as not-yet-supported here, as do
+ *     `'2'` and `'2-prior-knowledge'` through a proxy (the tunnel's
+ *     connector owns the ALPN offer, and the tunnel leg for raw-h2
+ *     framing isn't wired yet);
  *     `resolveToAddress` maps to a pinned `connect.lookup` (see
  *     {@link pinnedLookup}) that answers every hostname with the one
  *     address while SNI / Host / cert verification keep the URL's
@@ -131,10 +137,12 @@ import {
   getSetCookies,
   Headers,
   ProxyAgent,
+  Response,
   fetch as undiciFetch,
   request as undiciRequest,
 } from 'undici';
 import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar';
+import { h2PriorKnowledgeHop } from './h2-prior-knowledge';
 import {
   type AlpnPolicy,
   type ConnectionRecord,
@@ -720,6 +728,7 @@ async function digestRetryHop(
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
   jar: CookieJar | undefined,
+  h2: H2Leg | null,
 ): Promise<{ hop: HopState; response: HopResponse; jarAttached?: string; jarCaptured: string[] } | null> {
   if (request.digestAuth === undefined || response.status !== 401) return null;
   const authorization = await digestAuthorizationFor(request.digestAuth, hop, response);
@@ -733,7 +742,7 @@ async function digestRetryHop(
     sendHop = { ...authorizedHop, headers };
     jarAttached = attached;
   }
-  const retryResponse = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher);
+  const retryResponse = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher, h2);
   const jarCaptured = jar !== undefined ? captureJarCookies(jar, authorizedHop.url, retryResponse.headers) : [];
   return {
     hop: authorizedHop,
@@ -784,15 +793,9 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         );
       }
     }
-    // The not-yet-supported version pins fail BEFORE the wire — Phases
-    // C (prior-knowledge h2, the sanctioned cleartext-h2 route) and E
-    // (HTTP/3 over QUIC) honor them; until then a send that pins one
+    // The not-yet-supported version pin fails BEFORE the wire — Phase
+    // E (HTTP/3 over QUIC) honors it; until then a send that pins it
     // must fail honestly, never quietly ride another protocol.
-    if (request.httpVersion === '2-prior-knowledge') {
-      throw new TransportError(
-        'This runtime cannot send HTTP/2 with prior knowledge yet. Pick "HTTP/2" for TLS targets that negotiate it, or Auto.',
-      );
-    }
     if (request.httpVersion === '3') {
       throw new TransportError('This runtime cannot send HTTP/3 yet. Pick another HTTP version.');
     }
@@ -803,6 +806,15 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       if (request.httpVersion === '2') {
         throw new TransportError(
           "The request pins HTTP/2 and routes through a proxy, but the proxy tunnel owns protocol negotiation — the pin can't be enforced. Set the HTTP version to Auto, or clear the proxy.",
+        );
+      }
+      // A CONNECT tunnel CAN carry raw h2 framing in principle, but
+      // this runtime's prior-knowledge pipeline doesn't dial through
+      // one yet — fail loudly rather than quietly negotiate via the
+      // tunnel's own connector.
+      if (request.httpVersion === '2-prior-knowledge') {
+        throw new TransportError(
+          "The request sends HTTP/2 with prior knowledge and routes through a proxy, but this runtime doesn't carry prior-knowledge HTTP/2 through a tunnel yet. Set the HTTP version to Auto, or clear the proxy.",
         );
       }
       // A resolve-to-address pin cannot be honored through a proxy —
@@ -837,16 +849,31 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // only correlation-safe way to observe socket phases + endpoints);
     // proxied sends stay on `ProxyAgent` — the tunnel's connector owns
     // the dial and there is nothing honest to observe.
+    // A prior-knowledge send never touches undici's wire — every hop
+    // rides the hand-rolled h2 session pipeline, so no dispatcher (and
+    // no instrumented dial: socket facts for this pipeline are a
+    // residual) — its per-send leg carries the same connection-option
+    // bag plus the sink its spoken-protocol facts report into.
+    const priorKnowledge = request.httpVersion === '2-prior-knowledge';
     const instrumented =
-      request.captureNetwork === true && request.proxyUrl === undefined
+      request.captureNetwork === true && request.proxyUrl === undefined && !priorKnowledge
         ? createInstrumentedDial(connectOptionsFor(request), httpVersionPolicy(request.httpVersion))
         : null;
-    const entry = instrumented === null ? dispatcherFor(request) : undefined;
+    const entry = instrumented === null && !priorKnowledge ? dispatcherFor(request) : undefined;
     const dispatcher = instrumented?.agent ?? entry?.dispatcher;
+    const h2Spoken = priorKnowledge ? new Map<string, string>() : undefined;
+    const h2: H2Leg | null =
+      h2Spoken !== undefined
+        ? {
+            connect: connectOptionsFor(request),
+            onProtocol: (origin, alpnProtocol) => h2Spoken.set(origin, alpnProtocol),
+          }
+        : null;
     // The always-on negotiated-protocol source for this send: the
-    // instrumented dial reports through its connection records; every
-    // other direct send reads its dispatcher's per-origin log.
-    const negotiated = entry?.negotiatedByOrigin;
+    // instrumented dial reports through its connection records; a
+    // prior-knowledge send reads its own leg's spoken-protocol log;
+    // every other direct send reads its dispatcher's per-origin log.
+    const negotiated = entry?.negotiatedByOrigin ?? h2Spoken;
     // ONE jar per send, looked up by the request's key — absent key
     // means no cookies attached, Set-Cookie discarded.
     const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
@@ -873,13 +900,13 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           };
         }
         const finalHopSentAt = performance.now();
-        let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher);
+        let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher, h2);
         if (jar !== undefined && jarActivity !== undefined) {
           jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
         }
         // Digest second leg — manual mode owns REDIRECT policy, not
         // auth, so the challenge dance runs here too.
-        const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar);
+        const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, h2);
         if (retry !== null) {
           response = retry.response;
           if (jarActivity !== undefined) {
@@ -915,6 +942,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         streaming,
         instrumented?.connections,
         negotiated,
+        h2,
       );
     } finally {
       deadline?.clear();
@@ -958,6 +986,7 @@ async function followRedirectChain(
   streaming: StreamingLeg | null,
   capture: ReadonlyArray<ConnectionRecord> | undefined,
   negotiated: ReadonlyMap<string, string> | undefined,
+  h2: H2Leg | null,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
@@ -985,7 +1014,7 @@ async function followRedirectChain(
     // dispatch instant — the boundary between the redirect and waiting
     // phases (a digest second leg stays inside this hop's wait).
     const hopSentAt = performance.now();
-    let response = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher);
+    let response = await wireHop(fetchFn, requestFn, request, sendHop, deadline, dispatcher, h2);
     if (jar !== undefined && jarActivity !== undefined) {
       jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
     }
@@ -994,7 +1023,7 @@ async function followRedirectChain(
     // replaces the current one, and a 401 on the resend flows on as a
     // normal (final) response — at most one auth retry per hop by
     // construction.
-    const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar);
+    const retry = await digestRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, h2);
     if (retry !== null) {
       response = retry.response;
       hop = retry.hop;
@@ -1091,10 +1120,26 @@ function nextHop(
   };
 }
 
+/**
+ * Per-send prior-knowledge pipeline leg — present exactly when the
+ * request pins `'2-prior-knowledge'`. Carries the connection-option
+ * bag every hop's h2 session dials with (computed once, the
+ * one-dispatcher-per-send discipline) and the sink the pipeline's
+ * spoken-protocol facts report into — the always-on report's source
+ * for sends that never touch a dispatcher.
+ */
+interface H2Leg {
+  connect: ConnectOptions;
+  onProtocol(origin: string, alpnProtocol: string): void;
+}
+
 /** One wire round-trip for a hop, on whichever pipeline can carry it:
- *  fetch for every ordinary hop, `request()` for a GET/HEAD hop with a
- *  body (fetch refuses to construct those) and for gRPC hops (fetch
- *  exposes no trailers — see {@link grpcHop}). */
+ *  the prior-knowledge h2 session for EVERY hop of a
+ *  `'2-prior-knowledge'` send (it carries GET/HEAD bodies and native
+ *  trailers itself); otherwise fetch for every ordinary hop,
+ *  `request()` for a GET/HEAD hop with a body (fetch refuses to
+ *  construct those) and for gRPC hops (fetch exposes no trailers —
+ *  see {@link grpcHop}). */
 async function wireHop(
   fetchFn: NodeFetchFn,
   requestFn: NodeRequestFn,
@@ -1102,9 +1147,42 @@ async function wireHop(
   hop: HopState,
   deadline: Deadline,
   dispatcher: Dispatcher | undefined,
+  h2: H2Leg | null,
 ): Promise<HopResponse> {
+  if (h2 !== null) return h2Hop(request, hop, deadline, h2);
   if (bodylessMethodWithBody(hop) || grpcHop(hop)) return requestHop(requestFn, request, hop, deadline, dispatcher);
   return fetchHop(fetchFn, request, hop, deadline, dispatcher);
+}
+
+/**
+ * One wire round-trip over the prior-knowledge h2 pipeline — a fresh
+ * `node:http2` session speaking the h2 preface from its first byte,
+ * TLS and cleartext alike (see `h2-prior-knowledge.ts`). Rides the
+ * same deadline and error classification as the other wire paths and
+ * adapts onto the same hop surface via {@link adaptRequestResponse}
+ * (the stream is the body; trailers fill after the capped read).
+ */
+async function h2Hop(request: TransportRequest, hop: HopState, deadline: Deadline, h2: H2Leg): Promise<HopResponse> {
+  const { payload, contentType } = await buildH2Body(hop.body);
+  const headers =
+    contentType !== undefined && !hop.headers.some((h) => h.key.toLowerCase() === 'content-type')
+      ? [...hop.headers, { key: 'content-type', value: contentType }]
+      : hop.headers;
+  try {
+    const response = await h2PriorKnowledgeHop({
+      url: hop.url,
+      method: hop.method.toUpperCase(),
+      headers,
+      ...(payload !== undefined ? { payload } : {}),
+      connect: h2.connect,
+      ...(deadline ? { signal: deadline.signal } : {}),
+      onProtocol: h2.onProtocol,
+    });
+    return adaptRequestResponse(hop.url, response);
+  } catch (err) {
+    if (deadline?.expired()) throw timeoutError(request.timeoutMs);
+    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+  }
 }
 
 /** One wire round-trip over fetch. Always `redirect: 'manual'` — the
@@ -1642,6 +1720,41 @@ function buildRequestBody(body: TransportBody): { body?: string | FormData; cont
   }
 }
 
+/**
+ * Materialize the data-only body for the prior-knowledge h2 pipeline,
+ * which writes payload bytes straight onto its stream: text for raw /
+ * urlencoded, and multipart serialized through undici's own encoder —
+ * a `Response` over the built FormData yields the exact
+ * boundary-framed bytes plus the Content-Type (boundary included)
+ * fetch would have sent.
+ */
+async function buildH2Body(body: TransportBody): Promise<{ payload?: string | Uint8Array; contentType?: string }> {
+  switch (body.kind) {
+    case 'none':
+      return {};
+    case 'raw':
+      return { payload: body.content };
+    case 'urlencoded': {
+      const params = new URLSearchParams();
+      for (const f of body.fields) params.append(f.name, f.value);
+      return { payload: params.toString(), contentType: 'application/x-www-form-urlencoded;charset=UTF-8' };
+    }
+    case 'multipart': {
+      const serialized = new Response(buildFormData(body.parts));
+      const contentType = serialized.headers.get('content-type');
+      return {
+        payload: new Uint8Array(await serialized.arrayBuffer()),
+        ...(contentType !== null ? { contentType } : {}),
+      };
+    }
+    default: {
+      const _exhaustive: never = body;
+      void _exhaustive;
+      return {};
+    }
+  }
+}
+
 /** One link of a thrown error's `cause` chain — see {@link causeChain}. */
 interface CauseLink {
   code?: string;
@@ -1788,7 +1901,12 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
         ? `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`
         : `Connection to ${host} timed out.`;
     case 'ECONNRESET':
-      return `Connection to ${host} was reset.`;
+      // A prior-knowledge send opens with the h2 preface — servers
+      // that don't speak HTTP/2 directly often just drop the
+      // connection, so the reset points at the setting.
+      return request.httpVersion === '2-prior-knowledge'
+        ? `Connection to ${host} was reset. The request's "HTTP version" setting sends HTTP/2 with prior knowledge — servers that don't speak HTTP/2 directly often drop the connection. Set it to Auto to negotiate the version instead.`
+        : `Connection to ${host} was reset.`;
     // ── Client-certificate handshake alerts (verified live on Node
     // 22.18 / undici 7.24.6 against a certificate-demanding server).
     // TLS 1.3 gateways send certificate_required; TLS 1.2 stacks send
@@ -1819,9 +1937,16 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
       return `${detail ?? `${host} did not negotiate HTTP/2.`} The request's "HTTP version" setting pins this send to HTTP/2 — set it to Auto to let the server choose.`;
     }
     case 'ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL':
-      return request.httpVersion === '2'
-        ? `${host} rejected the HTTP/2-only offer (${code}) — the server doesn't speak HTTP/2. The request's "HTTP version" setting pins this send to HTTP/2; set it to Auto to let the server choose.`
-        : `${host} rejected the offered application protocols (${code}).`;
+      if (request.httpVersion === '2') {
+        return `${host} rejected the HTTP/2-only offer (${code}) — the server doesn't speak HTTP/2. The request's "HTTP version" setting pins this send to HTTP/2; set it to Auto to let the server choose.`;
+      }
+      // The prior-knowledge TLS dial still offers h2 via ALPN (Node's
+      // http2 client always does) — a server alerting here doesn't
+      // speak HTTP/2 at all.
+      if (request.httpVersion === '2-prior-knowledge') {
+        return `${host} rejected the HTTP/2 offer (${code}) — the server doesn't speak HTTP/2. The request's "HTTP version" setting sends HTTP/2 with prior knowledge; set it to Auto to let the server choose.`;
+      }
+      return `${host} rejected the offered application protocols (${code}).`;
     default: {
       // A mutual-TLS server that dislikes the presented client
       // certificate may simply sever the connection instead of sending
@@ -1838,6 +1963,13 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
       // key passphrase is an ERR_OSSL_* decrypt error too).
       if (certRef !== undefined && code?.startsWith('ERR_OSSL_')) {
         return `The client certificate from vault entry "${certRef}" could not be loaded (${code}). Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.`;
+      }
+      // A prior-knowledge send speaks h2 framing from its first byte —
+      // a server that answers the preface with anything else surfaces
+      // as an HTTP/2 protocol error. Name the setting: the fix is
+      // negotiating the version instead of assuming it.
+      if (request.httpVersion === '2-prior-knowledge' && code?.startsWith('ERR_HTTP2_')) {
+        return `${host} did not answer the HTTP/2 preface (${code}) — it doesn't appear to speak HTTP/2 directly. The request's "HTTP version" setting sends HTTP/2 with prior knowledge; set it to Auto to negotiate the version instead.`;
       }
       // Handshake-level failures (protocol version alerts, unsupported
       // protocol) surface as ERR_SSL_* / EPROTO. A TLS 1.2 server

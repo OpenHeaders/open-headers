@@ -116,8 +116,13 @@ export interface TransportRequest {
    * auto). `'1.1'` → offer http/1.1 only. `'2'` → offer h2 ONLY,
    * pinned: the honoring transport fails the send honestly when the
    * server negotiates anything else — never a silent downgrade.
-   * `'2-prior-knowledge'` and `'3'` fail honestly on transports that
-   * don't speak them yet. The negotiated protocol reported back on
+   * `'2-prior-knowledge'` → no negotiation at all: the honoring
+   * transport speaks h2 framing from the first byte, over TLS and
+   * cleartext alike (the sanctioned cleartext-h2 route), failing
+   * honestly when the server answers the preface with anything else.
+   * Unhonored values (`'3'` everywhere for now; `'2-prior-knowledge'`
+   * on transports that don't speak it) fail honestly, never quietly
+   * ride another protocol. The negotiated protocol reported back on
    * {@link TransportResponse.httpVersion} always comes from the wire,
    * never from this knob. Transports whose network stack owns protocol
    * negotiation (the browser SW) ignore it.

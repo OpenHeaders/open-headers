@@ -476,10 +476,15 @@ describe('createNodeRequestTransport — per-request HTTP version', () => {
     expect(callInit(1).dispatcher).toBe(first);
   });
 
-  it("fails honestly BEFORE the wire on '2-prior-knowledge' (Phase C honors it)", async () => {
-    const attempt = transport().send(makeRequest({ httpVersion: '2-prior-knowledge' }));
+  it("fails honestly BEFORE the wire when '2-prior-knowledge' routes through a proxy", async () => {
+    // The tunnel CAN carry raw h2 framing in principle — this runtime
+    // just doesn't dial the pipeline through one yet, and quietly
+    // negotiating via the tunnel's connector would betray the pin.
+    const attempt = transport().send(
+      makeRequest({ httpVersion: '2-prior-knowledge', proxyUrl: 'http://proxy.openheaders.io:3128' }),
+    );
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
-    await expect(attempt).rejects.toThrow(/prior knowledge/);
+    await expect(attempt).rejects.toThrow(/prior-knowledge HTTP\/2 through a tunnel/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
