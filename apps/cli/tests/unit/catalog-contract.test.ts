@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXEC_COMMANDS } from '../../src/exec-commands';
 import { READ_COMMANDS } from '../../src/read-commands';
+import { RUN_COMMANDS } from '../../src/run-commands';
 import { WRITE_COMMANDS } from '../../src/write-commands';
 
 const CATALOG = [
@@ -38,10 +39,11 @@ const CATALOG = [
   'environments_switch',
   'requests_send',
   'workflows_run',
+  'runs_execute',
   'variables_reveal_secret',
 ];
 
-const ALL_SPECS = [...READ_COMMANDS, ...WRITE_COMMANDS, ...EXEC_COMMANDS];
+const ALL_SPECS = [...READ_COMMANDS, ...WRITE_COMMANDS, ...EXEC_COMMANDS, ...RUN_COMMANDS];
 
 describe('catalog contract', () => {
   it('every command maps onto a catalog tool — the CLI invents no verbs', () => {

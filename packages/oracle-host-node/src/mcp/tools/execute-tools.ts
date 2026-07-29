@@ -45,7 +45,7 @@ import {
  */
 const MCP_BODY_CAP_CHARS = 100_000;
 
-const ENVIRONMENT_ID_PROPERTY = {
+export const ENVIRONMENT_ID_PROPERTY = {
   environmentId: {
     type: 'string',
     description:

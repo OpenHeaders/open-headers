@@ -26,6 +26,7 @@ import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
 import { EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
 import { bootCliProductTelemetry } from './product-telemetry';
 import { findReadCommand, READ_COMMANDS } from './read-commands';
+import { RUN_COMMANDS, runRunCommand } from './run-commands';
 import { runTui } from './tui/run';
 import { bootUpdateNotify } from './update-check';
 import { commandUpgrade } from './upgrade';
@@ -42,12 +43,13 @@ function usage(): string {
     const name = `${spec.group}${spec.verb ? ` ${spec.verb}` : ''}${positional}`;
     return `  ${name.padEnd(30)}${spec.summary}`;
   });
-  const specLine = (spec: CommandSpec) => {
+  const specLine = (spec: Pick<CommandSpec, 'group' | 'verb' | 'argsHelp' | 'summary'>) => {
     const name = `${spec.group} ${spec.verb} ${spec.argsHelp}`;
     return `  ${name.padEnd(30)}${spec.summary}`;
   };
   const writeLines = WRITE_COMMANDS.map(specLine);
   const execLines = EXEC_COMMANDS.map(specLine);
+  const runLines = RUN_COMMANDS.map(specLine);
   return `oh v${CLI_VERSION} — Open Headers command line
 
 Usage: oh <command> [options]
@@ -64,6 +66,7 @@ Commands:
 ${readLines.join('\n')}
 ${writeLines.join('\n')}
 ${execLines.join('\n')}
+${runLines.join('\n')}
 
 Options:
   --daemon <url>            Daemon URL (default ${DEFAULT_DAEMON_URL}; env ${DAEMON_URL_ENV})
@@ -74,7 +77,10 @@ Options:
   --none                    env switch only: select "No environment"
   --collection <uid>        vars set only: target that collection's variable scope
   --secret                  vars set only: store the value as a masked secret
-  --env <name-or-uid>       request send / workflow run: environment to resolve variables under
+  --env <name-or-uid>       request send / workflow run / run: environment to resolve variables under
+  --reporter <format>       run only: human (default), json, or junit
+  --output <file>           run only: write the report to a file (summary stays on stderr)
+  --bail                    run only: stop at the first failure; the rest report skipped
   --channel <stable|beta>   upgrade only: release line to install from (persists like oh channel)
   --no-color                tui only: disable color output (NO_COLOR is honored too)
   --ascii                   tui only: ASCII borders and markers instead of unicode
@@ -126,6 +132,11 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
 
   if (first === 'completion') {
     console.log(completionScript(argv[1]));
+    return;
+  }
+
+  if (first === 'run') {
+    await runRunCommand(argv);
     return;
   }
 

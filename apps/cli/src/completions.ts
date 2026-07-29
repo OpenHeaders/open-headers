@@ -8,6 +8,7 @@
 import { EXEC_COMMANDS } from './exec-commands';
 import { UsageError } from './exit-codes';
 import { READ_COMMANDS } from './read-commands';
+import { RUN_COMMANDS } from './run-commands';
 import { WRITE_COMMANDS } from './write-commands';
 
 export type CompletionShell = 'bash' | 'zsh';
@@ -43,7 +44,7 @@ function buildTree(): CommandTree {
     flags.set(key, [...CONNECTION_FLAGS, ...(spec.limitOption === true ? ['--limit'] : [])]);
     if (spec.verb !== '') verbs.set(spec.group, [...(verbs.get(spec.group) ?? []), spec.verb]);
   }
-  for (const spec of [...WRITE_COMMANDS, ...EXEC_COMMANDS]) {
+  for (const spec of [...WRITE_COMMANDS, ...EXEC_COMMANDS, ...RUN_COMMANDS]) {
     flags.set(`${spec.group} ${spec.verb}`, [
       ...CONNECTION_FLAGS,
       ...Object.keys(spec.extraOptions ?? {}).map((name) => `--${name}`),

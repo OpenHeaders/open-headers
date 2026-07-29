@@ -27,6 +27,7 @@ import {
   createMcpHttpHandler,
   createMcpToolRegistry,
   createReadToolDefinitions,
+  createRunToolDefinitions,
   createRuntimeToolDefinitions,
   createSecretToolDefinitions,
   createWriteToolDefinitions,
@@ -35,6 +36,7 @@ import {
   type McpToolTier,
 } from '../mcp';
 import { runWorkflowRefresh } from './live/chain-runner';
+import { runRequestSuite } from './live/suite-runner';
 
 export interface McpServerInstall {
   readonly handler: McpHttpHandler;
@@ -74,6 +76,10 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
       ...createSecretToolDefinitions(),
       ...createExecuteToolDefinitions({
         transport: createNodeRequestTransport(),
+        runWorkflow: runWorkflowRefresh,
+      }),
+      ...createRunToolDefinitions({
+        runSuite: runRequestSuite,
         runWorkflow: runWorkflowRefresh,
       }),
     ]),

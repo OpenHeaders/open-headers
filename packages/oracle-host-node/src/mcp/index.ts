@@ -28,6 +28,13 @@ export {
 } from './tools/execute-tools';
 export { createImportToolDefinitions } from './tools/import-tools';
 export { createReadToolDefinitions } from './tools/read-tools';
+export {
+  createRunToolDefinitions,
+  type McpRunItem,
+  type McpRunToolDeps,
+  type McpSuiteRunArgs,
+  type McpSuiteRunResult,
+} from './tools/run-tools';
 export { createRuntimeToolDefinitions } from './tools/runtime-tools';
 export { createSecretToolDefinitions } from './tools/secret-tools';
 export { createWriteToolDefinitions } from './tools/write-tools';
