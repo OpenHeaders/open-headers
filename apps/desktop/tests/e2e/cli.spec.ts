@@ -295,9 +295,15 @@ test('a failed send exits 1 and still emits the --json payload first', async () 
 // ── Onboarding: the Settings → MCP page carries the CLI snippet ─────
 
 test('the Settings → MCP page shows the oh connect one-liner with the live port', async () => {
+  // Collapse the first-run Docs panel — its tour overlay can swallow
+  // synthetic clicks (the git-desktop.spec idiom).
+  const docsTab = workbench.locator('[data-tool-window="docs"]').first();
+  if ((await docsTab.getAttribute('aria-selected').catch(() => null)) === 'true') {
+    await docsTab.click();
+  }
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
-  await workbench.getByText('Settings…', { exact: true }).click();
-  await workbench.getByRole('button', { name: 'MCP', exact: true }).click();
+  await workbench.getByRole('button', { name: 'Settings…' }).click();
+  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).click();
 
   await workbench.getByRole('tab', { name: 'CLI', exact: true }).click();
   await expect(workbench.getByText('npm install -g @openheaders/cli')).toBeVisible();

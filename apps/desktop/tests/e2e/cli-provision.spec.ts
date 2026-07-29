@@ -99,8 +99,8 @@ async function readCliConfig(): Promise<Record<string, unknown> | null> {
 
 async function openSettingsMcp(): Promise<void> {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
-  await workbench.getByText('Settings…', { exact: true }).click();
-  await workbench.getByRole('button', { name: 'MCP', exact: true }).click();
+  await workbench.getByRole('button', { name: 'Settings…' }).click();
+  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).click();
   await expect(workbench.getByText('Command-line access')).toBeVisible();
 }
 

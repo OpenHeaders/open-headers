@@ -259,12 +259,42 @@ test('creates a published rule through the canonical write path', async () => {
   expect(rows.map((r) => r.name)).toContain('Agent header rule');
 });
 
+/** Collapse the first-run Docs panel — its tour overlay can swallow
+ *  synthetic clicks (the git-desktop.spec idiom). State-driven: only
+ *  clicks when the tab is actually selected. */
+async function collapseDocsPanel(): Promise<void> {
+  const docsTab = workbench.locator('[data-tool-window="docs"]').first();
+  if ((await docsTab.getAttribute('aria-selected').catch(() => null)) === 'true') {
+    await docsTab.click();
+  }
+}
+
 test('the created rule appears live in the open Workbench window', async () => {
-  await workbench.getByLabel('HTTP Rules').click();
-  // Sidebar sections start collapsed on a fresh profile ("▶ RULES" /
-  // "▶ TEMPLATES" section-header buttons).
-  await workbench.getByRole('button', { name: /\bRULES\b/ }).click();
-  await workbench.getByText('My Rules', { exact: true }).click();
+  await collapseDocsPanel();
+  // State-driven, never toggle-and-hope (the git-desktop.spec idiom):
+  // clicking an already-active dock tab COLLAPSES its pane.
+  const rulesTab = workbench.locator('[data-tool-window="http-rules"]').first();
+  if ((await rulesTab.getAttribute('aria-selected')) !== 'true') {
+    await rulesTab.click();
+  }
+  const sectionHeader = workbench
+    .getByRole('button', { name: /\bRULES\b/ })
+    .filter({ visible: true })
+    .first();
+  await sectionHeader.waitFor({ state: 'visible', timeout: 15_000 });
+  if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
+    await sectionHeader.click();
+  }
+  const myRules = workbench.getByText('My Rules', { exact: true });
+  if (
+    !(await workbench
+      .getByText('Agent header rule')
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
+    await myRules.click();
+  }
   await expect(workbench.getByText('Agent header rule').first()).toBeVisible();
 });
 
@@ -719,8 +749,8 @@ test('the stdio bridge fails fast when the app is not running', async () => {
 
 test('the Settings → MCP page surfaces tiers, tokens, and client snippets', async () => {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
-  await workbench.getByText('Settings…', { exact: true }).click();
-  await workbench.getByRole('button', { name: 'MCP', exact: true }).click();
+  await workbench.getByRole('button', { name: 'Settings…' }).click();
+  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).click();
 
   await expect(workbench.getByText('Enable MCP server')).toBeVisible();
   await expect(workbench.getByText('Allow write tools')).toBeVisible();
@@ -748,27 +778,53 @@ test('the MCP-created rule syncs into a connected browser extension', async () =
 
   // Keep a client page attached so the MV3 service worker never idles
   // out mid-test (and the context window shows real UI, not about:blank).
+  // All seeding and polling run in THIS page — a service-worker handle
+  // dies with every SW restart ("execution context destroyed"), the
+  // popup page shares the extension origin's storage and survives.
   const popup = await extensionContext.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-  const serviceWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
 
   // Point the extension at the e2e app's daemon socket with the minted
   // token (the daemon requires a token even on loopback). The connection
   // identity lives on the `oh.backends` registry (a sensitive slot), so
-  // the seed encrypts the record with the SW's own at-rest key — same
-  // blob format as `browser-secret-cipher` — and the registry mirror's
-  // storage subscription makes the connection manager dial it live.
-  await serviceWorker.evaluate(
+  // the seed encrypts the record under the host's at-rest key. The key
+  // is minted LAZILY by the host (first encrypt), so the seed mirrors
+  // `loadOrCreateAtRestKey` — get-or-create in the shared origin IDB,
+  // non-extractable AES-GCM 256 + provision marker — and the SW then
+  // loads the same key.
+  await popup.evaluate(
     async ({ backendUrl, authToken }) => {
-      const key = await new Promise<CryptoKey>((resolve, reject) => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const open = indexedDB.open('oh-secret-cipher', 1);
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const db = open.result;
-          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () => resolve(request.result as CryptoKey);
+        open.onupgradeneeded = () => {
+          open.result.createObjectStore('keys');
         };
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => resolve(open.result);
+      });
+      const key = await new Promise<CryptoKey>((resolve, reject) => {
+        const store = db.transaction('keys', 'readwrite').objectStore('keys');
+        const getRequest = store.get('at-rest-aes-gcm-v1');
+        getRequest.onerror = () => reject(getRequest.error);
+        getRequest.onsuccess = async () => {
+          const existing = getRequest.result as CryptoKey | undefined;
+          if (existing) {
+            resolve(existing);
+            return;
+          }
+          const minted = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
+            'encrypt',
+            'decrypt',
+          ]);
+          const tx = db.transaction('keys', 'readwrite').objectStore('keys');
+          const putRequest = tx.put(minted, 'at-rest-aes-gcm-v1');
+          putRequest.onerror = () => reject(putRequest.error);
+          putRequest.onsuccess = () => resolve(minted);
+        };
+      });
+      db.close();
+      await new Promise<void>((resolve) => {
+        chrome.storage.local.set({ 'oh.host.atRestKeyProvisioned': true }, () => resolve());
       });
       const record = {
         id: 'e2e-desktop-backend',
@@ -798,12 +854,16 @@ test('the MCP-created rule syncs into a connected browser extension', async () =
     { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token },
   );
 
+  // The popup mounted before `onboardingCompleted` landed, so the tour
+  // overlay is already up — dismiss it (its own Esc affordance).
+  await popup.keyboard.press('Escape');
+
   // The desktop workspace (and the rule inside it) replicates into
   // chrome.storage under the same oh.ws.<id>.rules key family.
   await expect
     .poll(
       async () =>
-        serviceWorker.evaluate(
+        popup.evaluate(
           async () =>
             new Promise<boolean>((resolve) => {
               chrome.storage.local.get(null, (items) => {
