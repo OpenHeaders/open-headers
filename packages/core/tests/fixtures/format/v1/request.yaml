@@ -25,7 +25,7 @@ sslVerification: false
 tlsMinVersion: "1.1"
 tlsMaxVersion: "1.2"
 tlsCipherSuites: TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256
-allowHttp2: true
+httpVersion: "2"
 resolveToAddress: 10.0.0.7
 clientCertificateRef: gateway-mtls
 proxyUrl: http://proxy.openheaders.io:3128

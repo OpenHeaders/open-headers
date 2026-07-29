@@ -186,7 +186,7 @@ export async function executeOverTransport(
     tlsMinVersion: resolved.tlsMinVersion,
     tlsMaxVersion: resolved.tlsMaxVersion,
     tlsCipherSuites: resolved.tlsCipherSuites,
-    allowHttp2: resolved.allowHttp2,
+    httpVersion: resolved.httpVersion,
     resolveToAddress: resolved.resolveToAddress,
     clientCertificateRef: resolved.clientCertificateRef,
     clientCertificatePem: resolved.clientCertificatePem,
@@ -283,6 +283,9 @@ export async function executeOverTransport(
       // Socket-level facts an instrumented dial observed (interactive
       // sends on node transports) — negotiated protocol + endpoints.
       ...(response.network !== undefined ? { network: { ...response.network } } : {}),
+      // The always-on negotiated protocol — reported from the wire on
+      // every send whose transport owns its dial, never from the knob.
+      ...(response.httpVersion !== undefined ? { httpVersion: response.httpVersion } : {}),
       // Wire bytes this executor serialized for the request — a lower
       // bound (the network stack adds headers the seam never sees),
       // presented as such by the size popover.

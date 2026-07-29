@@ -342,9 +342,11 @@ export const workbenchEditorsRequest = {
     "Cipher suites offered during the TLS handshake, as a colon-separated OpenSSL-format list — TLS 1.3 suite names and older suite names both go in the one list. Leave empty to offer the runtime's default suites. The server picks the suite from what is offered, in its own preference order.",
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Runtime default suites',
   'workbench.editors.request.settings.tlsCipherSuitesError': 'Colon-separated OpenSSL suite names only — no spaces.',
-  'workbench.editors.request.settings.allowHttp2': 'Allow HTTP/2',
-  'workbench.editors.request.settings.allowHttp2Info':
-    'Offer HTTP/2 alongside HTTP/1.1 when connecting over https — the server picks the protocol from the offer, so a server without HTTP/2 support still answers over HTTP/1.1. Plain http:// requests always use HTTP/1.1. Off, requests are sent over HTTP/1.1 only.',
+  'workbench.editors.request.settings.httpVersion': 'HTTP version',
+  'workbench.editors.request.settings.httpVersionInfo':
+    "How the send speaks HTTP. Auto (the default) offers HTTP/2 alongside HTTP/1.1 during the TLS handshake and the server picks — plain http:// stays HTTP/1.1. HTTP/1.1 pins classic semantics. HTTP/2 pins the protocol via the handshake offer: the send fails with a clear error when the server doesn't negotiate it, never a silent fallback. HTTP/2 (prior knowledge) skips negotiation and speaks HTTP/2 immediately — the route for cleartext HTTP/2 servers — and HTTP/3 dials QUIC; both fail honestly until this runtime supports them. The Network popover on the response always shows the protocol that was actually negotiated on the wire.",
+  'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto — server picks',
+  'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2 (prior knowledge)',
   'workbench.editors.request.settings.resolveToAddress': 'Resolve to address',
   'workbench.editors.request.settings.resolveToAddressInfo':
     "Send this request to a specific server address instead of whatever DNS answers — the URL's hostname is still used for TLS and the Host header, so with verification on the certificate must still match it. Useful to test one specific backend behind a load balancer. The URL keeps its own port, and a redirect to another host also lands on this address. Leave empty to resolve through DNS as usual.",
@@ -560,7 +562,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.localAddress': 'Local Address',
   'workbench.editors.request.response.meta.remoteAddress': 'Remote Address',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
-    'HTTP version hidden: the app’s network runtime does not report the negotiated protocol.',
+    'HTTP version hidden: the negotiated protocol was not observable for this send (proxied sends negotiate inside the tunnel).',
   'workbench.editors.request.response.meta.noteVersionHiddenBrowser':
     'HTTP version hidden: the platform recorded no timing entry for this request.',
   'workbench.editors.request.response.meta.noteNoIp':

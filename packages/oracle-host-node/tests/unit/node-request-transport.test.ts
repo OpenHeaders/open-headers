@@ -25,6 +25,7 @@ import { resetCookieJars } from '../../src/live/cookie-jar';
 import {
   connectOptionsFor,
   createNodeRequestTransport,
+  httpVersionPolicy,
   type NodeFetchFn,
   type NodeRequestFn,
   type NodeRequestResponse,
@@ -292,12 +293,17 @@ describe('createNodeRequestTransport — per-attempt timeout', () => {
 });
 
 describe('createNodeRequestTransport — per-request TLS policy', () => {
-  it('rides the default dispatcher when no TLS-affecting option is set', async () => {
+  it('rides the ONE shared default agent when no TLS-affecting option is set', async () => {
+    // Every direct send carries a dispatcher now — the always-on
+    // negotiated-protocol report needs a connector seat undici's
+    // global default dispatcher doesn't offer. Default-tuple sends
+    // still share a single agent across sends and transports.
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest());
     await transport().send(makeRequest({ sslVerification: true }));
-    expect(callInit(0).dispatcher).toBeUndefined();
-    expect(callInit(1).dispatcher).toBeUndefined();
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
   });
 
   it('routes a verification-off send through a dedicated agent', async () => {
@@ -428,42 +434,87 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
   });
 });
 
-describe('createNodeRequestTransport — per-request HTTP/2 offer', () => {
-  it('an allowHttp2-only tuple mints a dedicated agent, reused per tuple', async () => {
+describe('createNodeRequestTransport — per-request HTTP version', () => {
+  it('a pinned-h2 tuple mints a dedicated agent, reused per tuple', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    await transport().send(makeRequest({ allowHttp2: true }));
-    await transport().send(makeRequest({ allowHttp2: true }));
+    await transport().send(makeRequest({ httpVersion: '2' }));
+    await transport().send(makeRequest({ httpVersion: '2' }));
     const first = callInit(0).dispatcher;
     expect(first).toBeInstanceOf(Agent);
     expect(callInit(1).dispatcher).toBe(first);
   });
 
-  it('allowHttp2 false or absent keeps the default dispatcher', async () => {
+  it("'auto' and absent share the default tuple; '1.1' mints its own", async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest());
-    await transport().send(makeRequest({ allowHttp2: false }));
-    expect(callInit(0).dispatcher).toBeUndefined();
-    expect(callInit(1).dispatcher).toBeUndefined();
+    await transport().send(makeRequest({ httpVersion: 'auto' }));
+    await transport().send(makeRequest({ httpVersion: '1.1' }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(first);
+    expect(callInit(2).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(2).dispatcher).not.toBe(first);
   });
 
-  it('allowHttp2 combines with TLS options into its own distinct tuples', async () => {
+  it('httpVersion combines with TLS options into its own distinct tuples', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
-    await transport().send(makeRequest({ allowHttp2: true }));
-    await transport().send(makeRequest({ allowHttp2: true, tlsMinVersion: '1.2' }));
+    await transport().send(makeRequest({ httpVersion: '2' }));
+    await transport().send(makeRequest({ httpVersion: '2', tlsMinVersion: '1.2' }));
     await transport().send(makeRequest({ tlsMinVersion: '1.2' }));
     const agents = [callInit(0).dispatcher, callInit(1).dispatcher, callInit(2).dispatcher];
     for (const a of agents) expect(a).toBeInstanceOf(Agent);
     expect(new Set(agents).size).toBe(3);
   });
 
-  it('the redirect loop is protocol-blind: the h2-offering dispatcher rides every hop', async () => {
+  it('the redirect loop is protocol-blind: the pinned dispatcher rides every hop', async () => {
     fetchMock
       .mockResolvedValueOnce(redirectResponse(302, 'https://sso.openheaders.io/callback'))
       .mockResolvedValueOnce(new Response('ok'));
-    await transport().send(makeRequest({ allowHttp2: true }));
+    await transport().send(makeRequest({ httpVersion: '2' }));
     const first = callInit(0).dispatcher;
     expect(first).toBeInstanceOf(Agent);
     expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it("fails honestly BEFORE the wire on '2-prior-knowledge' (Phase C honors it)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '2-prior-knowledge' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/prior knowledge/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire on '3' (Phase E honors it)", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/HTTP\/3/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '2' is pinned through a proxy", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '2', proxyUrl: 'http://proxy.openheaders.io:3128' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/proxy tunnel owns protocol negotiation/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('classifies the pinned dial guard failure naming the HTTP version setting', async () => {
+    fetchMock.mockRejectedValue(
+      Object.assign(new TypeError('fetch failed'), {
+        cause: Object.assign(new Error('api.openheaders.io:443 negotiated http/1.1 instead of the pinned HTTP/2.'), {
+          code: 'OH_ERR_H2_NOT_NEGOTIATED',
+        }),
+      }),
+    );
+    await expect(transport().send(makeRequest({ httpVersion: '2' }))).rejects.toThrow(
+      /negotiated http\/1\.1 instead of the pinned HTTP\/2.*"HTTP version" setting/,
+    );
+  });
+
+  it('classifies a no-application-protocol alert as the server refusing the h2-only offer', async () => {
+    fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL'));
+    await expect(transport().send(makeRequest({ httpVersion: '2' }))).rejects.toThrow(
+      /rejected the HTTP\/2-only offer.*doesn't speak HTTP\/2/,
+    );
   });
 });
 
@@ -477,10 +528,12 @@ describe('createNodeRequestTransport — per-request resolve-to-address pin', ()
     expect(callInit(1).dispatcher).toBe(first);
   });
 
-  it('an absent pin keeps the default dispatcher', async () => {
+  it('an absent pin rides the shared default agent, not a pin tuple', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest());
-    expect(callInit(0).dispatcher).toBeUndefined();
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).not.toBe(callInit(0).dispatcher);
   });
 
   it('distinct pinned addresses get distinct agents', async () => {
@@ -496,7 +549,7 @@ describe('createNodeRequestTransport — per-request resolve-to-address pin', ()
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest({ resolveToAddress: '10.0.0.7' }));
     await transport().send(makeRequest({ resolveToAddress: '10.0.0.7', tlsMinVersion: '1.2' }));
-    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7', allowHttp2: true }));
+    await transport().send(makeRequest({ resolveToAddress: '10.0.0.7', httpVersion: '1.1' }));
     await transport().send(makeRequest({ tlsMinVersion: '1.2' }));
     const agents = [callInit(0).dispatcher, callInit(1).dispatcher, callInit(2).dispatcher, callInit(3).dispatcher];
     for (const a of agents) expect(a).toBeInstanceOf(Agent);
@@ -560,10 +613,12 @@ describe('createNodeRequestTransport — per-request client certificate', () => 
     expect(callInit(1).dispatcher).toBe(first);
   });
 
-  it('an absent ref keeps the default dispatcher', async () => {
+  it('an absent ref rides the shared default agent, not a certificate tuple', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest());
-    expect(callInit(0).dispatcher).toBeUndefined();
+    await transport().send(makeRequest({ ...CERT_FIELDS }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).not.toBe(callInit(0).dispatcher);
   });
 
   it('distinct refs get distinct agents', async () => {
@@ -734,7 +789,7 @@ describe('createNodeRequestTransport — per-request proxy', () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest({ proxyUrl: PROXY_URL }));
     await transport().send(makeRequest({ proxyUrl: PROXY_URL, sslVerification: false }));
-    await transport().send(makeRequest({ proxyUrl: PROXY_URL, allowHttp2: true }));
+    await transport().send(makeRequest({ proxyUrl: PROXY_URL, httpVersion: '1.1' }));
     await transport().send(makeRequest({ proxyUrl: PROXY_URL, ...CERT_FIELDS }));
     await transport().send(makeRequest({ sslVerification: false }));
     const dispatchers = [
@@ -750,11 +805,13 @@ describe('createNodeRequestTransport — per-request proxy', () => {
     expect(new Set(dispatchers).size).toBe(5);
   });
 
-  it('a credential ref WITHOUT a proxy URL contributes nothing — default dispatcher, no failure', async () => {
+  it('a credential ref WITHOUT a proxy URL contributes nothing — default agent, no failure', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest());
     const res = await transport().send(makeRequest({ proxyCredentialRef: 'corp-proxy' }));
     expect(res.status).toBe(200);
-    expect(callInit(0).dispatcher).toBeUndefined();
+    expect(callInit(1).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).toBe(callInit(0).dispatcher);
   });
 
   it('the proxied dispatcher rides EVERY hop of a redirect chain, cross-host hops included', async () => {
@@ -850,10 +907,12 @@ describe('createNodeRequestTransport — per-request Unix socket target', () => 
     expect(callInit(1).dispatcher).toBe(first);
   });
 
-  it('an absent socket path keeps the default dispatcher', async () => {
+  it('an absent socket path rides the shared default agent, not a socket tuple', async () => {
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest());
-    expect(callInit(0).dispatcher).toBeUndefined();
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Agent);
+    expect(callInit(1).dispatcher).not.toBe(callInit(0).dispatcher);
   });
 
   it('distinct socket paths get distinct agents', async () => {
@@ -869,7 +928,7 @@ describe('createNodeRequestTransport — per-request Unix socket target', () => 
     fetchMock.mockResolvedValue(new Response('ok'));
     await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH }));
     await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, sslVerification: false }));
-    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, allowHttp2: true }));
+    await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, httpVersion: '1.1' }));
     await transport().send(makeRequest({ unixSocketPath: SOCKET_PATH, ...CERT_FIELDS }));
     await transport().send(makeRequest({ sslVerification: false }));
     const agents = [
@@ -2261,5 +2320,65 @@ describe('createNodeRequestTransport — instrumented network capture', () => {
     );
     expect(callInit().dispatcher).toBeInstanceOf(ProxyAgent);
     expect(res.network).toBeUndefined();
+  });
+});
+
+describe('createNodeRequestTransport — always-on negotiated-protocol report', () => {
+  it("maps the knob to the dial's ALPN offer (pure policy)", () => {
+    expect(httpVersionPolicy(undefined)).toEqual({ alpnProtocols: ['http/1.1', 'h2'], pinH2: false });
+    expect(httpVersionPolicy('auto')).toEqual({ alpnProtocols: ['http/1.1', 'h2'], pinH2: false });
+    expect(httpVersionPolicy('1.1')).toEqual({ alpnProtocols: ['http/1.1'], pinH2: false });
+    expect(httpVersionPolicy('2')).toEqual({ alpnProtocols: ['h2'], pinH2: true });
+  });
+
+  it('reports the wire protocol WITHOUT the captureNetwork opt-in (real dial)', async () => {
+    const server = createServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(makeRequest({ url: `http://127.0.0.1:${port}/net` }));
+      // Cleartext — the only protocol undici fetch speaks without TLS.
+      expect(res.httpVersion).toBe('http/1.1');
+      // Still no instrumented facts: the always-on report is not the opt-in.
+      expect(res.network).toBeUndefined();
+    } finally {
+      server.close();
+    }
+  });
+
+  it('an instrumented send reports the same protocol on the always-on field', async () => {
+    const server = createServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({ url: `http://127.0.0.1:${port}/net`, captureNetwork: true }),
+      );
+      expect(res.httpVersion).toBe('http/1.1');
+      expect(res.network?.httpVersion).toBe('http/1.1');
+    } finally {
+      server.close();
+    }
+  });
+
+  it("a pinned '2' send against a cleartext target fails honestly, naming the prior-knowledge route", async () => {
+    const server = createServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const attempt = createNodeRequestTransport().send(
+        makeRequest({ url: `http://127.0.0.1:${port}/net`, httpVersion: '2' }),
+      );
+      await expect(attempt).rejects.toBeInstanceOf(TransportError);
+      await expect(attempt).rejects.toThrow(/cannot negotiate HTTP\/2.*prior knowledge/s);
+    } finally {
+      server.close();
+    }
   });
 });

@@ -55,7 +55,7 @@ interface KnobValues {
   tlsMinVersion?: '1.0' | '1.1' | '1.2' | '1.3';
   tlsMaxVersion?: '1.0' | '1.1' | '1.2' | '1.3';
   tlsCipherSuites?: string;
-  allowHttp2?: boolean;
+  httpVersion?: 'auto' | '1.1' | '2' | '2-prior-knowledge' | '3';
   resolveToAddress?: string;
   clientCertificateRef?: string;
   proxyUrl?: string;
@@ -174,12 +174,12 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
     expect(settingsDotCount({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' })).toBe(0);
   });
 
-  it('keeps HTTP version a browser-managed fact and never dots a synced allowHttp2', () => {
+  it('keeps HTTP version a browser-managed fact and never dots a synced httpVersion', () => {
     renderTab();
-    expect(screen.queryByRole('switch', { name: 'Allow HTTP/2' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'HTTP version' })).toBeNull();
     fireEvent.click(screen.getByText('10 browser-managed'));
     expect(screen.getByText('HTTP version')).toBeTruthy();
-    expect(settingsDotCount({ allowHttp2: true })).toBe(0);
+    expect(settingsDotCount({ httpVersion: '2' })).toBe(0);
   });
 
   it('shows no resolve-to-address control or fact row and never dots a synced value', () => {
@@ -454,34 +454,51 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount()).toBe(0);
   });
 
-  it('graduates Allow HTTP/2 to a live knob, defaulting to Disabled', () => {
+  it('graduates HTTP version to a live select knob, defaulting to Auto (empty)', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
-    const knob = screen.getByRole('switch', { name: 'Allow HTTP/2' });
-    expect(knob.getAttribute('aria-checked')).toBe('false');
-    // Graduated out of the fact sheet — no HTTP version fact row remains.
+    const knob = screen.getByRole('combobox', { name: 'HTTP version' });
+    expect(knob).toBeTruthy();
+    expect(screen.getByText('Auto — server picks')).toBeTruthy();
+    // Graduated out of the fact sheet — no HTTP version fact row
+    // remains (the knob's own label is the one occurrence).
     fireEvent.click(screen.getByText('4 runtime-managed'));
-    expect(screen.queryByText('HTTP version')).toBeNull();
+    expect(screen.getAllByText('HTTP version')).toHaveLength(1);
   });
 
-  it('reports allowHttp2 true when switched on and clears to undefined when switched off', () => {
+  it('reports the picked version and clears back to undefined (Auto)', () => {
     registerCapability('requestRuntime', () => 'node');
     const onChange = vi.fn();
     render(<SettingsTab value={{}} onChange={onChange} />);
-    fireEvent.click(screen.getByRole('switch', { name: 'Allow HTTP/2' }));
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ allowHttp2: true }));
+    openCombobox(screen.getByRole('combobox', { name: 'HTTP version' }));
+    fireEvent.click(dropdownOption('HTTP/2'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ httpVersion: '2' }));
 
     cleanup();
     const onChangeOff = vi.fn();
-    render(<SettingsTab value={{ allowHttp2: true }} onChange={onChangeOff} />);
-    fireEvent.click(screen.getByRole('switch', { name: 'Allow HTTP/2' }));
-    expect(onChangeOff).toHaveBeenCalledWith(expect.objectContaining({ allowHttp2: undefined }));
+    const { container } = render(<SettingsTab value={{ httpVersion: '2' }} onChange={onChangeOff} />);
+    const clear = container.querySelector('.ant-select-clear');
+    if (!clear) throw new Error('no clear affordance on the HTTP version select');
+    fireEvent.mouseDown(clear);
+    fireEvent.click(clear);
+    expect(onChangeOff).toHaveBeenCalledWith(expect.objectContaining({ httpVersion: undefined }));
   });
 
-  it('dots the tab only while Allow HTTP/2 is on', () => {
+  it('offers the not-yet-honored versions too — the schema carries them forward', () => {
     registerCapability('requestRuntime', () => 'node');
-    expect(settingsDotCount({ allowHttp2: true })).toBe(1);
-    expect(settingsDotCount({ allowHttp2: false })).toBe(0);
+    renderTab();
+    openCombobox(screen.getByRole('combobox', { name: 'HTTP version' }));
+    expect(dropdownOption('HTTP/1.1')).toBeTruthy();
+    expect(dropdownOption('HTTP/2')).toBeTruthy();
+    expect(dropdownOption('HTTP/2 (prior knowledge)')).toBeTruthy();
+    expect(dropdownOption('HTTP/3')).toBeTruthy();
+  });
+
+  it('dots the tab only while a non-Auto version is picked', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsDotCount({ httpVersion: '2' })).toBe(1);
+    expect(settingsDotCount({ httpVersion: '1.1' })).toBe(1);
+    expect(settingsDotCount({ httpVersion: 'auto' })).toBe(0);
     expect(settingsDotCount()).toBe(0);
   });
 

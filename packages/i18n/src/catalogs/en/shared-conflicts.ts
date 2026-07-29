@@ -205,7 +205,7 @@ export const sharedConflicts = {
   'shared.conflicts.label.request.scalar.tlsMinVersion': 'TLS version minimum',
   'shared.conflicts.label.request.scalar.tlsMaxVersion': 'TLS version maximum',
   'shared.conflicts.label.request.scalar.tlsCipherSuites': 'TLS cipher suites',
-  'shared.conflicts.label.request.scalar.allowHttp2': 'Allow HTTP/2',
+  'shared.conflicts.label.request.scalar.httpVersion': 'HTTP version',
   'shared.conflicts.label.request.scalar.resolveToAddress': 'Resolve to address',
   'shared.conflicts.label.request.scalar.clientCertificateRef': 'Client certificate',
   'shared.conflicts.label.request.scalar.proxyUrl': 'Proxy URL',

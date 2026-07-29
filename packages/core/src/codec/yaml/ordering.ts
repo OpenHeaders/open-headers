@@ -92,7 +92,7 @@ export const REQUEST_FIELD_ORDER = [
   'tlsMinVersion',
   'tlsMaxVersion',
   'tlsCipherSuites',
-  'allowHttp2',
+  'httpVersion',
   'resolveToAddress',
   'clientCertificateRef',
   'proxyUrl',

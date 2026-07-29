@@ -349,9 +349,11 @@ export const workbenchEditorsRequest = {
     'TLS 握手期间提供的密码套件，为冒号分隔的 OpenSSL 格式列表——TLS 1.3 套件名和旧式套件名都放进同一个列表。留空则提供运行时的默认套件。服务器按自己的偏好顺序从所提供的套件中选择。',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': '运行时默认套件',
   'workbench.editors.request.settings.tlsCipherSuitesError': '仅限冒号分隔的 OpenSSL 套件名——不能有空格。',
-  'workbench.editors.request.settings.allowHttp2': '允许 HTTP/2',
-  'workbench.editors.request.settings.allowHttp2Info':
-    '通过 https 连接时在 HTTP/1.1 之外同时提供 HTTP/2——服务器从提供项中选择协议，因此不支持 HTTP/2 的服务器仍以 HTTP/1.1 应答。普通 http:// 请求始终使用 HTTP/1.1。关闭后，请求只以 HTTP/1.1 发送。',
+  'workbench.editors.request.settings.httpVersion': 'HTTP 版本',
+  'workbench.editors.request.settings.httpVersionInfo':
+    '发送使用的 HTTP 协议方式。Auto（默认）在 TLS 握手中同时提供 HTTP/2 与 HTTP/1.1，由服务器选择——普通 http:// 保持 HTTP/1.1。HTTP/1.1 固定使用经典语义。HTTP/2 通过握手提供项固定协议：服务器未协商出 HTTP/2 时发送会以明确错误失败，绝不静默回退。HTTP/2（prior knowledge）跳过协商直接以 HTTP/2 通信——这是明文 HTTP/2 服务器的通路；HTTP/3 走 QUIC；两者在本运行时支持之前都会如实失败。响应的“网络”弹层始终显示线上实际协商出的协议。',
+  'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto——由服务器选择',
+  'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2（prior knowledge）',
   'workbench.editors.request.settings.resolveToAddress': '解析到地址',
   'workbench.editors.request.settings.resolveToAddressInfo':
     '把此请求发送到指定的服务器地址，而不是 DNS 的应答——URL 的主机名仍用于 TLS 和 Host 标头，因此开启验证时证书仍须与之匹配。适合测试负载均衡器背后的某个特定后端。URL 保留自己的端口，重定向到其他主机时也落在此地址上。留空则照常通过 DNS 解析。',
@@ -557,7 +559,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.localAddress': '本地地址',
   'workbench.editors.request.response.meta.remoteAddress': '远程地址',
   'workbench.editors.request.response.meta.noteVersionHiddenNode':
-    'HTTP 版本被隐藏：应用的网络运行时不报告协商出的协议。',
+    'HTTP 版本被隐藏：本次发送的协商协议不可观测（经代理的发送在隧道内协商）。',
   'workbench.editors.request.response.meta.noteVersionHiddenBrowser':
     'HTTP 版本被隐藏：平台没有为此请求记录 timing 条目。',
   'workbench.editors.request.response.meta.noteNoIp': '远程地址不可用：线路捕获没有看到此次 fetch 的任何内容。',

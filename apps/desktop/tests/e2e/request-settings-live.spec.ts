@@ -344,20 +344,47 @@ test('tlsMinVersion 1.1 negotiates the legacy server and marks the lowered floor
   expect(snapshot.tlsFloorLowered).toBe(true);
 });
 
-// ── S6: Allow HTTP/2 ─────────────────────────────────────────────────
+// ── S6: HTTP version ─────────────────────────────────────────────────
 
-test('stays HTTP/1.1 against an h2 server without the knob', async () => {
+test('the auto default negotiates h2 when the server offers it, reported always-on', async () => {
   const snapshot = await exec(draft({ url: `https://localhost:${h2Echo.port}/`, sslVerification: false }));
   expect(snapshot.status).toBe(200);
-  expect(snapshot.body).toBe('http/1.1');
+  expect(snapshot.body).toBe('h2');
+  // The always-on negotiated-protocol fact — from the wire, no
+  // captureNetwork opt-in in play here.
+  expect(snapshot.httpVersion).toBe('h2');
 });
 
-test('allowHttp2 negotiates h2 when the server offers it', async () => {
+test("httpVersion '1.1' pins classic semantics against an h2-capable server", async () => {
   const snapshot = await exec(
-    draft({ url: `https://localhost:${h2Echo.port}/`, sslVerification: false, allowHttp2: true }),
+    draft({ url: `https://localhost:${h2Echo.port}/`, sslVerification: false, httpVersion: '1.1' }),
+  );
+  expect(snapshot.status).toBe(200);
+  expect(snapshot.body).toBe('http/1.1');
+  expect(snapshot.httpVersion).toBe('http/1.1');
+});
+
+test("httpVersion '2' pins h2 and succeeds against the h2 server", async () => {
+  const snapshot = await exec(
+    draft({ url: `https://localhost:${h2Echo.port}/`, sslVerification: false, httpVersion: '2' }),
   );
   expect(snapshot.status).toBe(200);
   expect(snapshot.body).toBe('h2');
+  expect(snapshot.httpVersion).toBe('h2');
+});
+
+test("httpVersion '2' against an h1-only server fails honestly, never downgrades", async () => {
+  const snapshot = await exec(
+    draft({ url: `https://localhost:${httpsEcho.port}/`, sslVerification: false, httpVersion: '2' }),
+  );
+  expect(snapshot.error ?? '').toMatch(/HTTP\/2/);
+});
+
+test("httpVersion '3' fails honestly as not yet supported", async () => {
+  const snapshot = await exec(
+    draft({ url: `https://localhost:${h2Echo.port}/`, sslVerification: false, httpVersion: '3' }),
+  );
+  expect(snapshot.error ?? '').toMatch(/HTTP\/3/);
 });
 
 // ── S7: resolve-to-address ───────────────────────────────────────────

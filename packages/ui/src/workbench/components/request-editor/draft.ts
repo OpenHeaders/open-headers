@@ -15,6 +15,7 @@ import type {
   AuthConfig,
   CredentialsMode,
   HttpMethod,
+  HttpVersion,
   QueryParam,
   Request,
   RequestBody,
@@ -38,7 +39,7 @@ export interface Draft {
   tlsMinVersion?: TlsVersion;
   tlsMaxVersion?: TlsVersion;
   tlsCipherSuites?: string;
-  allowHttp2?: boolean;
+  httpVersion?: HttpVersion;
   resolveToAddress?: string;
   clientCertificateRef?: string;
   proxyUrl?: string;
@@ -71,7 +72,7 @@ export interface RequestUpdates {
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
-  allowHttp2: boolean | undefined;
+  httpVersion: HttpVersion | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
   proxyUrl: string | undefined;
@@ -213,7 +214,7 @@ export function draftFromRequest(req: Request): Draft {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
-    allowHttp2: req.allowHttp2,
+    httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
     proxyUrl: req.proxyUrl,
@@ -257,7 +258,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     tlsMinVersion: draft.tlsMinVersion,
     tlsMaxVersion: draft.tlsMaxVersion,
     tlsCipherSuites: draft.tlsCipherSuites,
-    allowHttp2: draft.allowHttp2,
+    httpVersion: draft.httpVersion,
     resolveToAddress: draft.resolveToAddress,
     clientCertificateRef: draft.clientCertificateRef,
     proxyUrl: draft.proxyUrl,

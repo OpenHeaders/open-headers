@@ -42,13 +42,20 @@
  *     raising it or listing suites is not. Cipher-suite ORDER stays a
  *     fact everywhere: the server picks the suite, so preference order
  *     is not a client-side knob.
- *   • `allowHttp2` — node-runtime only: the node transport's dispatcher
- *     offers h2 alongside http/1.1 in the ALPN list on secure
- *     connections; the SERVER picks the protocol, and plain http://
- *     stays HTTP/1.1 (no h2c). An honest boolean — there is no
- *     force-h2 mode — and pure configuration: not trust-relaxing, no
- *     response marker. The browser negotiates protocol on its own, so
- *     there 'HTTP version' stays a browser-managed fact row.
+ *   • `httpVersion` — node-runtime only: `'auto'` (the default,
+ *     rendered as the cleared select) offers h2 + http/1.1 via ALPN
+ *     and the SERVER picks; `'1.1'` pins classic semantics; `'2'`
+ *     pins HTTP/2 via an h2-only ALPN offer that FAILS HONESTLY when
+ *     the server negotiates anything else — never a silent downgrade
+ *     (and plain http:// can't ALPN at all, so a pinned cleartext
+ *     send fails too). `'2-prior-knowledge'` (the sanctioned
+ *     cleartext-h2 route) and `'3'` are selectable and sync, but the
+ *     runtime fails them honestly as not-yet-supported until their
+ *     engine phases land. The reported protocol on the response meta
+ *     strip always comes from the wire, never from this knob. Pure
+ *     configuration: not trust-relaxing, no response marker. The
+ *     browser negotiates protocol on its own, so there 'HTTP version'
+ *     stays a browser-managed fact row.
  *   • `resolveToAddress` — node-runtime only: the node transport's
  *     dispatcher pins its resolver to the one address, while SNI, the
  *     Host header, and certificate verification all keep the URL's
@@ -160,7 +167,7 @@ import {
   TLS_CIPHER_SUITES_PATTERN,
   TLS_VERSIONS,
 } from '@openheaders/core/schemas';
-import type { TlsVersion } from '@openheaders/core/types';
+import type { HttpVersion, TlsVersion } from '@openheaders/core/types';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
@@ -186,9 +193,11 @@ export interface RequestSettingsDraft {
   /** OpenSSL-format colon-joined cipher list offered in the handshake.
    *  Undefined = the runtime's default suites. Node runtimes only. */
   tlsCipherSuites?: string;
-  /** Offer HTTP/2 on secure connections (the server picks the
-   *  protocol). Defaults to false = HTTP/1.1 only. Node runtimes only. */
-  allowHttp2?: boolean;
+  /** HTTP version policy. Undefined = `'auto'` (ALPN offer of h2 +
+   *  http/1.1, the server picks); explicit tokens pin the protocol
+   *  and fail honestly when the server won't speak it. Node runtimes
+   *  only. */
+  httpVersion?: HttpVersion;
   /** IPv4/IPv6 address the URL's hostname resolves to at connect time;
    *  SNI / Host / cert verification keep the original hostname.
    *  Undefined = system DNS. Node runtimes only. */
@@ -683,11 +692,18 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                 : undefined
             }
           />
-          <KnobRow
-            label={t('workbench.editors.request.settings.allowHttp2')}
-            checked={value.allowHttp2 === true}
-            onChange={(checked) => onChange({ ...value, allowHttp2: checked || undefined })}
-            info={t('workbench.editors.request.settings.allowHttp2Info')}
+          <SelectKnobRow
+            label={t('workbench.editors.request.settings.httpVersion')}
+            value={value.httpVersion === 'auto' ? undefined : value.httpVersion}
+            onChange={(v) => onChange({ ...value, httpVersion: v as HttpVersion | undefined })}
+            info={t('workbench.editors.request.settings.httpVersionInfo')}
+            options={[
+              { value: '1.1', label: 'HTTP/1.1' },
+              { value: '2', label: 'HTTP/2' },
+              { value: '2-prior-knowledge', label: t('workbench.editors.request.settings.httpVersionPriorKnowledge') },
+              { value: '3', label: 'HTTP/3' },
+            ]}
+            placeholder={t('workbench.editors.request.settings.httpVersionPlaceholder')}
           />
           <TextKnobRow
             label={t('workbench.editors.request.settings.resolveToAddress')}

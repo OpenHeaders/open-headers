@@ -110,14 +110,19 @@ export interface TransportRequest {
    */
   tlsCipherSuites?: string;
   /**
-   * Offer HTTP/2 alongside HTTP/1.1 on secure connections. The server
-   * picks the protocol from the ALPN offer; plain `http://` targets
-   * stay HTTP/1.1 regardless. Absent / `false` → HTTP/1.1 only (the
-   * runtime default). Pure configuration — the negotiated protocol is
-   * not reported back. Transports whose network stack owns protocol
+   * HTTP version policy for the send. Absent / `'auto'` → offer h2
+   * alongside http/1.1 via ALPN on secure connections and let the
+   * server pick (plain `http://` targets stay HTTP/1.1 — no h2c under
+   * auto). `'1.1'` → offer http/1.1 only. `'2'` → offer h2 ONLY,
+   * pinned: the honoring transport fails the send honestly when the
+   * server negotiates anything else — never a silent downgrade.
+   * `'2-prior-knowledge'` and `'3'` fail honestly on transports that
+   * don't speak them yet. The negotiated protocol reported back on
+   * {@link TransportResponse.httpVersion} always comes from the wire,
+   * never from this knob. Transports whose network stack owns protocol
    * negotiation (the browser SW) ignore it.
    */
-  allowHttp2?: boolean;
+  httpVersion?: 'auto' | '1.1' | '2' | '2-prior-knowledge' | '3';
   /**
    * IPv4/IPv6 address the URL's hostname resolves to at connect time
    * instead of asking DNS — while SNI, the Host header, and certificate
@@ -366,6 +371,17 @@ export interface TransportResponse {
    * seat at all). Pure attribution for the executed-run snapshot.
    */
   network?: TransportNetworkFacts;
+  /**
+   * Negotiated protocol id of the connection that served the FINAL
+   * hop (`'h2'` / `'http/1.1'`), reported from the WIRE — the
+   * always-on twin of {@link TransportNetworkFacts.httpVersion},
+   * present on every send whose transport owns its dial (no
+   * `captureNetwork` opt-in required). Absent on proxied sends (the
+   * tunnel's connector owns the dial) and on transports without a
+   * socket seat (the browser SW). Never derived from
+   * {@link TransportRequest.httpVersion}.
+   */
+  httpVersion?: string;
   /**
    * Response body as text, already capped at {@link TransportRequest.maxBodyBytes}
    * by the transport (it streams + aborts past the cap to bound memory).

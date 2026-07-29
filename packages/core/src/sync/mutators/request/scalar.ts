@@ -43,7 +43,7 @@ export type RequestScalarPath =
   | 'tlsMinVersion'
   | 'tlsMaxVersion'
   | 'tlsCipherSuites'
-  | 'allowHttp2'
+  | 'httpVersion'
   | 'resolveToAddress'
   | 'clientCertificateRef'
   | 'proxyUrl'

@@ -148,6 +148,17 @@ export interface ExecutedRequestSnapshot {
   bodyBytes: number;
   durationMs: number;
   /**
+   * Negotiated protocol id of the connection that served the final
+   * response (`'h2'` / `'http/1.1'`), reported from the WIRE — never
+   * derived from the request's `httpVersion` knob. Always-on where the
+   * executing host owns its dial (the node runtime observes ALPN on
+   * every connection it opens); absent on proxied sends (the tunnel's
+   * connector owns the dial) and on browser runtimes, whose `timing`
+   * entry carries `nextHopProtocol` instead. The UI maps the id to a
+   * friendly label at consume time.
+   */
+  httpVersion?: string;
+  /**
    * Resource-timing entry the executor's own performance timeline
    * recorded for this fetch. Absent when the platform recorded none
    * (unsupported context, entry never matched). Connection legs and

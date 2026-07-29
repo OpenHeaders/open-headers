@@ -28,6 +28,7 @@ import type {
   FileRefSchema,
   FormFieldSchema,
   HttpMethodSchema,
+  HttpVersionSchema,
   MultipartPartSchema,
   OAuth1AuthSchema,
   OAuth2AuthSchema,
@@ -118,6 +119,15 @@ export type CredentialsMode = v.InferOutput<typeof CredentialsModeSchema>;
  * transports translate to their runtime's own tokens.
  */
 export type TlsVersion = v.InferOutput<typeof TlsVersionSchema>;
+
+/**
+ * HTTP version policy for the per-request `httpVersion` knob. Absent /
+ * `'auto'` = ALPN offer of h2 + http/1.1, server picks; explicit
+ * tokens pin the protocol and fail honestly when the server won't
+ * speak it. The reported protocol always comes from the wire, never
+ * from this knob.
+ */
+export type HttpVersion = v.InferOutput<typeof HttpVersionSchema>;
 
 export type Request = v.InferOutput<typeof RequestSchema>;
 

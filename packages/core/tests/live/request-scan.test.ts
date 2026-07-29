@@ -56,7 +56,7 @@ describe('requestExecutableFingerprint', () => {
     expect(requestExecutableFingerprint(makeRequest({ tlsMinVersion: '1.0' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ tlsMaxVersion: '1.2' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ tlsCipherSuites: 'TLS_AES_128_GCM_SHA256' }))).not.toBe(base);
-    expect(requestExecutableFingerprint(makeRequest({ allowHttp2: true }))).not.toBe(base);
+    expect(requestExecutableFingerprint(makeRequest({ httpVersion: '2' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ resolveToAddress: '10.0.0.7' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ clientCertificateRef: 'gateway-mtls' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ proxyUrl: 'http://proxy.openheaders.io:3128' }))).not.toBe(base);

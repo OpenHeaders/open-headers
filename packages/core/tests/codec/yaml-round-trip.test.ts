@@ -338,7 +338,7 @@ describe('yaml codec — round-trip parity', () => {
     expect(parsed.value.tlsMinVersion).toBe('1.1');
     expect(parsed.value.tlsMaxVersion).toBe('1.2');
     expect(parsed.value.tlsCipherSuites).toBe('TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256');
-    expect(parsed.value.allowHttp2).toBe(true);
+    expect(parsed.value.httpVersion).toBe('2');
     expect(parsed.value.resolveToAddress).toBe('10.0.0.7');
     expect(parsed.value.clientCertificateRef).toBe('gateway-mtls');
     expect(parsed.value.proxyUrl).toBe('http://proxy.openheaders.io:3128');

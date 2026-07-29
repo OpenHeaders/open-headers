@@ -31,7 +31,7 @@ export interface RequestPathBundle {
   tlsMinVersion: string;
   tlsMaxVersion: string;
   tlsCipherSuites: string;
-  allowHttp2: string;
+  httpVersion: string;
   resolveToAddress: string;
   clientCertificateRef: string;
   proxyUrl: string;
@@ -66,7 +66,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   tlsMinVersion: 'tlsMinVersion',
   tlsMaxVersion: 'tlsMaxVersion',
   tlsCipherSuites: 'tlsCipherSuites',
-  allowHttp2: 'allowHttp2',
+  httpVersion: 'httpVersion',
   resolveToAddress: 'resolveToAddress',
   clientCertificateRef: 'clientCertificateRef',
   proxyUrl: 'proxyUrl',

@@ -1,6 +1,8 @@
 /**
- * Instrumented dial for one send — the node transport's answer to
- * `captureNetwork`.
+ * Connection dialing for the node transport — the hand-rolled connector
+ * behind `captureNetwork` instrumentation and the pinned-HTTP/2 ALPN
+ * offer, plus a light recording wrap of undici's own connector for the
+ * always-on negotiated-protocol report.
  *
  * undici exposes no per-request socket timings on either result
  * surface, and its `diagnostics_channel` events carry no per-send
@@ -13,6 +15,13 @@
  * cache (a send-local agent never re-dials the same origin) and the
  * `httpSocket` upgrade seat (proxied sends never take this path).
  *
+ * The same connector also carries the `'2'`-pinned dial: undici's
+ * `buildConnector` hard-codes its ALPN list from `allowH2`, so an
+ * h2-ONLY offer needs this hand-rolled dial. A pinned dial that
+ * negotiates anything but h2 is destroyed and fails the send — the
+ * seam's contract is honest failure, never a silent downgrade — and a
+ * cleartext dial under the pin fails outright (no ALPN without TLS).
+ *
  * What the instrumentation observes per connection, straight off the
  * socket's own lifecycle events:
  *   - `'lookup'`        → DNS resolution done (absent for IP literals
@@ -24,15 +33,19 @@
  * TCP itself when not handed an existing socket, so all three events
  * fire on the one object.
  *
- * The agent trades pooling for observability — the executor opts in
- * per interactive send only, and the transport closes the agent when
- * the send settles.
+ * The instrumented agent trades pooling for observability — the
+ * executor opts in per interactive send only, and the transport closes
+ * the agent when the send settles. Shared agents keep pooling: pinned
+ * ones ride {@link createDialConnector} with an `onConnection` sink,
+ * unpinned ones ride {@link createRecordingConnector}, which keeps
+ * undici's connector (TLS session cache included) and only reads the
+ * ready socket's negotiated protocol.
  */
 
 import * as net from 'node:net';
 import { isIP } from 'node:net';
 import * as tls from 'node:tls';
-import { Agent, type buildConnector, errors } from 'undici';
+import { Agent, buildConnector, errors } from 'undici';
 import type { ConnectOptions } from './node-request-transport';
 
 /** Marks + facts for one dialed connection, `performance.now()` clock
@@ -58,6 +71,17 @@ export interface ConnectionRecord {
   remotePort?: number;
 }
 
+/**
+ * How a dial offers and enforces the HTTP version — derived from the
+ * seam's `httpVersion` knob by the transport (`httpVersionPolicy`).
+ * `alpnProtocols` is the TLS offer; `pinH2` marks the `'2'` pin, under
+ * which a non-h2 negotiation (or a cleartext dial) fails the dial.
+ */
+export interface AlpnPolicy {
+  alpnProtocols: string[];
+  pinH2: boolean;
+}
+
 export interface InstrumentedDial {
   agent: Agent;
   /** Every connection the agent dialed, in dial order. */
@@ -67,7 +91,16 @@ export interface InstrumentedDial {
 /** undici's connect-timeout default, mirrored. */
 const CONNECT_TIMEOUT_MS = 10_000;
 
-type ConnectorCallback = Parameters<ReturnType<typeof buildConnector>>[1];
+type Connector = ReturnType<typeof buildConnector>;
+type ConnectorCallback = Parameters<Connector>[1];
+
+/** Code carried by a pinned dial's honest failure — the transport's
+ *  error classifier names the HTTP version setting when it sees it. */
+export const H2_NOT_NEGOTIATED_CODE = 'OH_ERR_H2_NOT_NEGOTIATED';
+
+function h2NotNegotiatedError(message: string): Error {
+  return Object.assign(new Error(message), { code: H2_NOT_NEGOTIATED_CODE });
+}
 
 /** SNI servername for a dial — the URL's hostname unless it's an IP
  *  literal (RFC 6066 forbids IPs in SNI; Node warns and ignores). */
@@ -76,17 +109,24 @@ function servernameFor(hostname: string): string | undefined {
 }
 
 /**
- * Mint the send-local instrumented agent. `connect` is the same option
- * bag the shared dispatcher path builds (`connectOptionsFor`), so every
- * per-request connection knob — TLS window, ciphers, pinned lookup,
- * client certificate, socket path — rides the instrumented dial
- * unchanged.
+ * The hand-rolled dial. `connect` is the same option bag the shared
+ * dispatcher path builds (`connectOptionsFor`), so every per-request
+ * connection knob — TLS window, ciphers, pinned lookup, client
+ * certificate, socket path — rides the dial unchanged. Every
+ * connection's lifecycle lands in a {@link ConnectionRecord} handed to
+ * `onConnection` AT DIAL START (marks fill in as the socket
+ * progresses), and a `pinH2` dial that can't negotiate h2 fails with
+ * {@link H2_NOT_NEGOTIATED_CODE} instead of proceeding.
  */
-export function createInstrumentedDial(connect: ConnectOptions, allowH2: boolean): InstrumentedDial {
-  const connections: ConnectionRecord[] = [];
+export function createDialConnector(
+  connect: ConnectOptions,
+  alpn: AlpnPolicy,
+  onConnection: (record: ConnectionRecord) => void,
+  onReady?: (record: ConnectionRecord) => void,
+): Connector {
   const { socketPath, lookup, ...tlsOpts } = connect;
 
-  const connector = ((opts, callback: ConnectorCallback) => {
+  return ((opts, callback: ConnectorCallback) => {
     const { hostname, protocol, port } = opts;
     const secure = protocol === 'https:';
     const record: ConnectionRecord = {
@@ -94,7 +134,21 @@ export function createInstrumentedDial(connect: ConnectOptions, allowH2: boolean
       tlsUsed: secure,
       startAt: performance.now(),
     };
-    connections.push(record);
+    onConnection(record);
+
+    if (!secure && alpn.pinH2) {
+      // No TLS, no ALPN — a cleartext hop can never NEGOTIATE the
+      // pinned h2 (ALPN is a TLS extension), so fail the dial instead
+      // of speaking http/1.1. Cleartext h2 exists only as
+      // prior-knowledge framing, which is its own knob value.
+      callback(
+        h2NotNegotiatedError(
+          `Plain http:// target ${record.origin} cannot negotiate HTTP/2 — ALPN needs a TLS connection. For cleartext HTTP/2, pick "HTTP/2 (prior knowledge)".`,
+        ),
+        null,
+      );
+      return;
+    }
 
     let socket: net.Socket | tls.TLSSocket;
     if (secure) {
@@ -103,7 +157,7 @@ export function createInstrumentedDial(connect: ConnectOptions, allowH2: boolean
         ...(lookup !== undefined ? { lookup } : {}),
         ...(socketPath !== undefined ? { path: socketPath } : {}),
         servername: servernameFor(hostname),
-        ALPNProtocols: allowH2 ? ['http/1.1', 'h2'] : ['http/1.1'],
+        ALPNProtocols: alpn.alpnProtocols,
         port: port !== undefined && port !== '' ? Number(port) : 443,
         host: hostname,
       });
@@ -133,15 +187,31 @@ export function createInstrumentedDial(connect: ConnectOptions, allowH2: boolean
     let settled = false;
     socket.once(secure ? 'secureConnect' : 'connect', () => {
       clearTimeout(timeout);
-      record.readyAt = performance.now();
-      const alpn = secure ? (socket as tls.TLSSocket).alpnProtocol : null;
+      const alpnRaw = secure ? (socket as tls.TLSSocket).alpnProtocol : null;
       // A TLS server that negotiated no ALPN speaks HTTP/1.1 — the
       // same assumption undici's h1 client makes.
-      record.alpnProtocol = typeof alpn === 'string' && alpn !== '' ? alpn : 'http/1.1';
+      const negotiated = typeof alpnRaw === 'string' && alpnRaw !== '' ? alpnRaw : 'http/1.1';
+      if (secure && alpn.pinH2 && negotiated !== 'h2') {
+        // The pinned offer was h2-only; a server that ignored ALPN and
+        // carried on speaks http/1.1 here — honoring that would be the
+        // silent downgrade the pin forbids.
+        socket.destroy();
+        if (!settled) {
+          settled = true;
+          callback(
+            h2NotNegotiatedError(`${record.origin} negotiated ${negotiated} instead of the pinned HTTP/2.`),
+            null,
+          );
+        }
+        return;
+      }
+      record.readyAt = performance.now();
+      record.alpnProtocol = negotiated;
       if (socket.localAddress !== undefined) record.localAddress = socket.localAddress;
       if (socket.localPort !== undefined) record.localPort = socket.localPort;
       if (socket.remoteAddress !== undefined) record.remoteAddress = socket.remoteAddress;
       if (socket.remotePort !== undefined) record.remotePort = socket.remotePort;
+      onReady?.(record);
       if (!settled) {
         settled = true;
         callback(null, socket);
@@ -154,7 +224,48 @@ export function createInstrumentedDial(connect: ConnectOptions, allowH2: boolean
         callback(err, null);
       }
     });
-  }) as ReturnType<typeof buildConnector>;
+  }) as Connector;
+}
 
+/**
+ * Wrap undici's own `buildConnector` so every READY socket reports its
+ * negotiated protocol into `onAlpn`, keyed by the dialed origin — the
+ * always-on protocol report for shared, unpinned agents. undici's
+ * connector keeps its TLS session cache and full option handling; the
+ * wrap only observes the callback. Cleartext sockets report
+ * `'http/1.1'` (the only protocol undici fetch speaks without TLS),
+ * matching the instrumented dial's convention.
+ */
+export function createRecordingConnector(
+  connect: ConnectOptions & { allowH2?: boolean },
+  onAlpn: (origin: string, alpnProtocol: string) => void,
+): Connector {
+  const inner = buildConnector(connect);
+  return ((opts, callback: ConnectorCallback) => {
+    const { hostname, protocol, port } = opts;
+    const secure = protocol === 'https:';
+    const origin = connect.socketPath ?? `${hostname}:${port || (secure ? 443 : 80)}`;
+    inner(opts, (err: Error | null, socket: net.Socket | tls.TLSSocket | null) => {
+      if (err !== null || socket === null) {
+        callback(err ?? new Error('Connector yielded neither a socket nor an error.'), null);
+        return;
+      }
+      const alpnRaw = socket instanceof tls.TLSSocket ? socket.alpnProtocol : null;
+      onAlpn(origin, typeof alpnRaw === 'string' && alpnRaw !== '' ? alpnRaw : 'http/1.1');
+      callback(null, socket);
+    });
+  }) as Connector;
+}
+
+/**
+ * Mint the send-local instrumented agent for `captureNetwork` sends —
+ * {@link createDialConnector} with the records collected per send. The
+ * agent's h2 seat follows the offer: it speaks h2 whenever the dial
+ * may negotiate it.
+ */
+export function createInstrumentedDial(connect: ConnectOptions, alpn: AlpnPolicy): InstrumentedDial {
+  const connections: ConnectionRecord[] = [];
+  const connector = createDialConnector(connect, alpn, (record) => connections.push(record));
+  const allowH2 = alpn.alpnProtocols.includes('h2');
   return { agent: new Agent({ connect: connector, ...(allowH2 ? { allowH2: true } : {}) }), connections };
 }

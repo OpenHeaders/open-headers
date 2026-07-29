@@ -214,10 +214,10 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(snap.tlsFloorLowered).toBe(true);
   });
 
-  it('carries allowHttp2 through resolve to the transport', async () => {
+  it('carries httpVersion through resolve to the transport', async () => {
     const { transport, sent } = captureTransport();
-    await runStepRequest(makeRequest({ allowHttp2: true }), opts(transport));
-    expect(sent().allowHttp2).toBe(true);
+    await runStepRequest(makeRequest({ httpVersion: '2' }), opts(transport));
+    expect(sent().httpVersion).toBe('2');
   });
 
   it('carries resolveToAddress through resolve to the transport', async () => {

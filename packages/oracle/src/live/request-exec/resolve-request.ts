@@ -18,6 +18,7 @@ import type {
   AuthConfig,
   FormField,
   HttpMethod,
+  HttpVersion,
   MultipartPart,
   Request,
   RequestBody,
@@ -53,9 +54,10 @@ export interface ResolvedRequest {
   tlsMaxVersion?: TlsVersion;
   /** OpenSSL-format cipher list; absent → the runtime's default suites. */
   tlsCipherSuites?: string;
-  /** Offer HTTP/2 on secure connections (the server picks); absent /
-   *  `false` → HTTP/1.1 only. */
-  allowHttp2?: boolean;
+  /** HTTP version policy; absent / `'auto'` → ALPN offer of h2 +
+   *  http/1.1 (the server picks). Explicit tokens pin the protocol —
+   *  the transport fails honestly when it can't honor the pin. */
+  httpVersion?: HttpVersion;
   /** Address the hostname resolves to at connect time; SNI / Host /
    *  cert verification keep the original hostname. Absent → DNS. */
   resolveToAddress?: string;
@@ -326,7 +328,7 @@ export async function resolveRequest(
       tlsMinVersion: request.tlsMinVersion,
       tlsMaxVersion: request.tlsMaxVersion,
       tlsCipherSuites: request.tlsCipherSuites,
-      allowHttp2: request.allowHttp2,
+      httpVersion: request.httpVersion,
       resolveToAddress: request.resolveToAddress,
       ...clientCertificate,
       proxyUrl: request.proxyUrl,

@@ -83,6 +83,20 @@ export const TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3'] as const;
 export const TlsVersionSchema = v.picklist(TLS_VERSIONS);
 
 /**
+ * HTTP versions selectable for the per-request `httpVersion` knob.
+ * `'auto'` (the default when the field is absent) lets the server pick
+ * via ALPN (h2 + http/1.1); the explicit tokens PIN the send to one
+ * protocol — a pinned send fails honestly when the server won't speak
+ * it, never silently downgrades. `'2-prior-knowledge'` skips ALPN and
+ * speaks h2 directly (h2c-capable targets); `'3'` is QUIC. Exported as
+ * a list so the Settings tab builds its select from the same source
+ * the schema validates.
+ */
+export const HTTP_VERSIONS = ['auto', '1.1', '2', '2-prior-knowledge', '3'] as const;
+
+export const HttpVersionSchema = v.picklist(HTTP_VERSIONS);
+
+/**
  * OpenSSL-format cipher suite list: colon-joined suite names (TLS ≤1.2
  * and TLS 1.3 suites both ride the one string). The token alphabet is
  * OpenSSL's — suite names plus the list operators (`:`, `!`, `+`, `-`,
@@ -767,15 +781,20 @@ export const RequestSchema = v.object({
    */
   tlsCipherSuites: v.optional(TlsCipherSuitesSchema),
   /**
-   * Offer HTTP/2 alongside HTTP/1.1 on secure connections. The server
-   * picks the protocol from the offer; plain `http://` targets stay
-   * HTTP/1.1 regardless. Absent / `false` = HTTP/1.1 only (the runtime
-   * default). Not trust-relaxing — no snapshot marker. Honored by node
+   * HTTP version policy for the send. Absent / `'auto'` = offer h2
+   * alongside http/1.1 via ALPN and let the server pick (plain
+   * `http://` targets stay HTTP/1.1 — no h2c under auto). The explicit
+   * tokens PIN the protocol: `'1.1'` offers http/1.1 only; `'2'`
+   * offers h2 only and fails honestly when the server negotiates
+   * anything else; `'2-prior-knowledge'` and `'3'` are carried for
+   * runtimes that honor them. The negotiated protocol reported on the
+   * executed-run snapshot always comes from the wire, never from this
+   * knob. Not trust-relaxing — no snapshot marker. Honored by node
    * runtimes; browser runtimes negotiate their own protocol and ignore
    * it (the request still syncs it — one schema, all runtimes carry
    * the value).
    */
-  allowHttp2: v.optional(v.boolean()),
+  httpVersion: v.optional(HttpVersionSchema),
   /**
    * Resolve the URL's hostname to this IPv4/IPv6 address at connect
    * time instead of asking DNS — while SNI, the Host header, and

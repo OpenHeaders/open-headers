@@ -14,6 +14,7 @@ import type {
   CredentialsMode,
   ExecutedRequestSnapshot,
   HttpMethod,
+  HttpVersion,
   QueryParam,
   Request,
   RequestBody,
@@ -63,7 +64,7 @@ export interface DraftData {
   tlsMinVersion?: TlsVersion;
   tlsMaxVersion?: TlsVersion;
   tlsCipherSuites?: string;
-  allowHttp2?: boolean;
+  httpVersion?: HttpVersion;
   resolveToAddress?: string;
   clientCertificateRef?: string;
   proxyUrl?: string;
@@ -134,7 +135,7 @@ export function useSaveRequestFlow({
             tlsMinVersion: draftData.tlsMinVersion,
             tlsMaxVersion: draftData.tlsMaxVersion,
             tlsCipherSuites: draftData.tlsCipherSuites,
-            allowHttp2: draftData.allowHttp2,
+            httpVersion: draftData.httpVersion,
             resolveToAddress: draftData.resolveToAddress,
             clientCertificateRef: draftData.clientCertificateRef,
             proxyUrl: draftData.proxyUrl,
@@ -187,7 +188,7 @@ export function useSaveRequestFlow({
           tlsMinVersion: saveModalDraftData.tlsMinVersion,
           tlsMaxVersion: saveModalDraftData.tlsMaxVersion,
           tlsCipherSuites: saveModalDraftData.tlsCipherSuites,
-          allowHttp2: saveModalDraftData.allowHttp2,
+          httpVersion: saveModalDraftData.httpVersion,
           resolveToAddress: saveModalDraftData.resolveToAddress,
           clientCertificateRef: saveModalDraftData.clientCertificateRef,
           proxyUrl: saveModalDraftData.proxyUrl,

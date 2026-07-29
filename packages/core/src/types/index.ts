@@ -179,6 +179,7 @@ export type {
   FileRef,
   FormField,
   HttpMethod,
+  HttpVersion,
   MultipartPart,
   OAuth2Auth,
   OAuth2Flow,

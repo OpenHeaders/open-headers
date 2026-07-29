@@ -139,16 +139,24 @@ describe('executeOverTransport', () => {
     expect(bare.sent().tlsCipherSuites).toBeUndefined();
   });
 
-  it('passes allowHttp2 through to the transport without marking the snapshot', async () => {
+  it('passes httpVersion through to the transport without marking the snapshot', async () => {
     const { transport, sent } = captureTransport();
-    const snap = await executeOverTransport(makeResolved({ allowHttp2: true }), transport);
-    expect(sent().allowHttp2).toBe(true);
-    // Offering h2 is not trust-relaxing — no snapshot marker of any kind.
-    expect('allowHttp2' in snap).toBe(false);
+    const snap = await executeOverTransport(makeResolved({ httpVersion: '2' }), transport);
+    expect(sent().httpVersion).toBe('2');
+    // The version policy is not trust-relaxing — no snapshot marker;
+    // the snapshot's httpVersion field carries only the WIRE's answer,
+    // which this transport stub never reports.
+    expect('httpVersion' in snap).toBe(false);
 
     const bare = captureTransport();
     await executeOverTransport(makeResolved(), bare.transport);
-    expect(bare.sent().allowHttp2).toBeUndefined();
+    expect(bare.sent().httpVersion).toBeUndefined();
+  });
+
+  it('surfaces the transport-reported negotiated protocol on the snapshot', async () => {
+    const { transport } = captureTransport({ httpVersion: 'h2' });
+    const snap = await executeOverTransport(makeResolved(), transport);
+    expect(snap.httpVersion).toBe('h2');
   });
 
   it('passes resolveToAddress through to the transport without marking the snapshot', async () => {

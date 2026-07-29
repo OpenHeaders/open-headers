@@ -92,7 +92,7 @@ export function buildRequestTabItems(
     (!browserRuntime && draft.sslVerification === false) ||
     (!browserRuntime &&
       (draft.tlsMinVersion !== undefined || draft.tlsMaxVersion !== undefined || draft.tlsCipherSuites !== undefined)) ||
-    (!browserRuntime && draft.allowHttp2 === true) ||
+    (!browserRuntime && draft.httpVersion !== undefined && draft.httpVersion !== 'auto') ||
     (!browserRuntime && draft.resolveToAddress !== undefined) ||
     (!browserRuntime && draft.clientCertificateRef !== undefined) ||
     // The proxy-credentials row hides while no proxy URL is set, so a

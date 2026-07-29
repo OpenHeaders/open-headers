@@ -18,6 +18,7 @@ import type {
   AuthConfig,
   CredentialsMode,
   HttpMethod,
+  HttpVersion,
   QueryParam,
   Request,
   RequestBody,
@@ -40,7 +41,7 @@ export interface RequestSaveBatch {
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
-  allowHttp2: boolean | undefined;
+  httpVersion: HttpVersion | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
   proxyUrl: string | undefined;
@@ -71,7 +72,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
     tlsCipherSuites: req.tlsCipherSuites,
-    allowHttp2: req.allowHttp2,
+    httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
     proxyUrl: req.proxyUrl,
@@ -124,7 +125,7 @@ export function mergeRequestForSave(
     tlsMinVersion: form.tlsMinVersion,
     tlsMaxVersion: form.tlsMaxVersion,
     tlsCipherSuites: form.tlsCipherSuites,
-    allowHttp2: form.allowHttp2,
+    httpVersion: form.httpVersion,
     resolveToAddress: form.resolveToAddress,
     clientCertificateRef: form.clientCertificateRef,
     proxyUrl: form.proxyUrl,
@@ -150,7 +151,7 @@ export function mergeRequestForSave(
     tlsMinVersion: baseProj.tlsMinVersion,
     tlsMaxVersion: baseProj.tlsMaxVersion,
     tlsCipherSuites: baseProj.tlsCipherSuites,
-    allowHttp2: baseProj.allowHttp2,
+    httpVersion: baseProj.httpVersion,
     resolveToAddress: baseProj.resolveToAddress,
     clientCertificateRef: baseProj.clientCertificateRef,
     proxyUrl: baseProj.proxyUrl,
@@ -176,7 +177,7 @@ export function mergeRequestForSave(
     tlsMinVersion: liveProj.tlsMinVersion,
     tlsMaxVersion: liveProj.tlsMaxVersion,
     tlsCipherSuites: liveProj.tlsCipherSuites,
-    allowHttp2: liveProj.allowHttp2,
+    httpVersion: liveProj.httpVersion,
     resolveToAddress: liveProj.resolveToAddress,
     clientCertificateRef: liveProj.clientCertificateRef,
     proxyUrl: liveProj.proxyUrl,
@@ -212,7 +213,7 @@ export function mergeRequestForSave(
     tlsMinVersion: merged.tlsMinVersion as TlsVersion | undefined,
     tlsMaxVersion: merged.tlsMaxVersion as TlsVersion | undefined,
     tlsCipherSuites: merged.tlsCipherSuites as string | undefined,
-    allowHttp2: merged.allowHttp2 as boolean | undefined,
+    httpVersion: merged.httpVersion as HttpVersion | undefined,
     resolveToAddress: merged.resolveToAddress as string | undefined,
     clientCertificateRef: merged.clientCertificateRef as string | undefined,
     proxyUrl: merged.proxyUrl as string | undefined,

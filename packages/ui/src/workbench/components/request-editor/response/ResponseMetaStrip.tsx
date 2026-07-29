@@ -345,12 +345,17 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   const { token } = theme.useToken();
   const t = useT();
   const network = response.network;
+  // The always-on snapshot fact leads (the node runtime reports the
+  // negotiated protocol on every direct send); instrumented socket
+  // facts and the browser's timing entry are the fallbacks.
   const versionLabel =
-    network?.httpVersion !== undefined
-      ? httpVersionLabel(network.httpVersion)
-      : response.timing
-        ? httpVersionLabel(response.timing.nextHopProtocol)
-        : null;
+    response.httpVersion !== undefined
+      ? httpVersionLabel(response.httpVersion)
+      : network?.httpVersion !== undefined
+        ? httpVersionLabel(network.httpVersion)
+        : response.timing
+          ? httpVersionLabel(response.timing.nextHopProtocol)
+          : null;
   const endpoint = (address: string | undefined, port: number | undefined): string | undefined =>
     address !== undefined ? (port !== undefined ? `${address}:${port}` : address) : undefined;
   const remote = endpoint(network?.remoteAddress, network?.remotePort) ?? response.wire?.ip;

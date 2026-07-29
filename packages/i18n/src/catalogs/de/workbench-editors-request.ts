@@ -430,12 +430,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Standard-Suites der Laufzeitumgebung',
   'workbench.editors.request.settings.tlsCipherSuitesError':
     'Nur durch Doppelpunkte getrennte OpenSSL-Suite-Namen — keine Leerzeichen.',
-  'workbench.editors.request.settings.allowHttp2': 'HTTP/2 erlauben',
-  'workbench.editors.request.settings.allowHttp2Info':
-    'Bietet beim Verbinden über https HTTP/2 neben HTTP/1.1 an — der Server wählt das Protokoll aus dem ' +
-    'Angebot, ein Server ohne HTTP/2-Unterstützung antwortet also weiterhin über HTTP/1.1. Reine ' +
-    'http://-Anfragen verwenden immer HTTP/1.1. Ist die Option aus, werden Anfragen nur über HTTP/1.1 ' +
-    'gesendet.',
+  'workbench.editors.request.settings.httpVersion': 'HTTP-Version',
+  'workbench.editors.request.settings.httpVersionInfo':
+    "How the send speaks HTTP. Auto (the default) offers HTTP/2 alongside HTTP/1.1 during the TLS handshake and the server picks — plain http:// stays HTTP/1.1. HTTP/1.1 pins classic semantics. HTTP/2 pins the protocol via the handshake offer: the send fails with a clear error when the server doesn't negotiate it, never a silent fallback. HTTP/2 (prior knowledge) skips negotiation and speaks HTTP/2 immediately — the route for cleartext HTTP/2 servers — and HTTP/3 dials QUIC; both fail honestly until this runtime supports them. The Network popover on the response always shows the protocol that was actually negotiated on the wire.",
+  'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto — server picks',
+  'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2 (prior knowledge)',
   'workbench.editors.request.settings.resolveToAddress': 'Zu Adresse auflösen',
   'workbench.editors.request.settings.resolveToAddressInfo':
     'Sendet diese Anfrage an eine bestimmte Serveradresse statt an das, was das DNS antwortet — der ' +

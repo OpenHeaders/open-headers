@@ -16,13 +16,19 @@
  *     (`ECONNREFUSED` / `ENOTFOUND` / …), so the message is precise.
  *   - **Per-request connection policy.** `sslVerification: false`,
  *     `tlsMinVersion` / `tlsMaxVersion`, `tlsCipherSuites`,
- *     `allowHttp2`, `resolveToAddress`, and the client-certificate
+ *     `httpVersion`, `resolveToAddress`, and the client-certificate
  *     fields route the send through a dispatcher carrying exactly
  *     those options — knobs browser fetch can never honor. The TLS
  *     options ride the agent's TLS connector;
- *     `allowHttp2` maps to the agent's `allowH2`, which adds h2 to the
- *     ALPN offer on TLS connects (the server picks the protocol; plain
- *     http:// stays HTTP/1.1 — undici fetch has no h2c);
+ *     `httpVersion` maps to the ALPN offer (see
+ *     {@link httpVersionPolicy}): `'auto'` (the default) offers
+ *     h2 + http/1.1 and the server picks; `'1.1'` offers http/1.1
+ *     only; `'2'` offers h2 ONLY on a hand-rolled connector and fails
+ *     honestly when the server negotiates anything else — never a
+ *     silent downgrade (plain http:// can't ALPN at all, so a pinned
+ *     cleartext hop fails too); `'2-prior-knowledge'` and `'3'` fail
+ *     honestly as not-yet-supported here, as does `'2'` through a
+ *     proxy (the tunnel's connector owns the ALPN offer);
  *     `resolveToAddress` maps to a pinned `connect.lookup` (see
  *     {@link pinnedLookup}) that answers every hostname with the one
  *     address while SNI / Host / cert verification keep the URL's
@@ -44,6 +50,14 @@
  *     minted per send. `fetch` + `Agent` come from the same undici
  *     package so the dispatcher and the fetch pipeline are one stack,
  *     one version.
+ *   - **Always-on negotiated-protocol report.** Every direct send's
+ *     dispatcher dials through a connector that observes the ready
+ *     socket's ALPN result per origin (undici's own connector wrapped
+ *     — session cache intact — or the hand-rolled pinned dial), so
+ *     {@link TransportResponse.httpVersion} reports the wire's
+ *     protocol on every send, not only under `captureNetwork`.
+ *     Proxied sends report nothing (the tunnel's connector owns the
+ *     dial) — the usual capability honesty.
  *   - **Opt-in cookie jar.** The main process has no ambient cookie
  *     jar; `cookieJarKey` opts a send into the transport-owned
  *     in-memory jar for that key (the workspace id — see
@@ -121,7 +135,14 @@ import {
   request as undiciRequest,
 } from 'undici';
 import { type CookieJar, cookieJarFor, type SetCookieInput } from './cookie-jar';
-import { type ConnectionRecord, createInstrumentedDial } from './instrumented-connector';
+import {
+  type AlpnPolicy,
+  type ConnectionRecord,
+  createDialConnector,
+  createInstrumentedDial,
+  createRecordingConnector,
+  H2_NOT_NEGOTIATED_CODE,
+} from './instrumented-connector';
 
 /** The fetch pipeline behind the transport — undici's fetch in
  *  production; injectable so tests observe the exact init (including
@@ -181,16 +202,47 @@ const TLS_VERSION_TOKEN: Record<string, SecureVersion> = {
 const MAX_AGENTS = 32;
 
 /**
- * Shared dispatchers keyed by the canonical connection-option tuple.
- * Default sends (no dispatcher-affecting option set) ride undici's
- * global default dispatcher (no override); every send carrying the
- * SAME option tuple shares ONE dispatcher, built on first use —
- * minting one per send would leak a connection pool each time. The
- * value is a plain `Agent` for direct sends and a `ProxyAgent` (a
- * different dispatcher CLASS, not an `Agent` option) for proxied
- * ones — both close gracefully on eviction.
+ * A cached dispatcher plus the per-origin negotiated-protocol log its
+ * connector reports into — the always-on twin of the instrumented
+ * dial's facts. `negotiatedByOrigin` is absent for proxied
+ * dispatchers: the tunnel's connector owns the dial and there is
+ * nothing honest to observe.
  */
-const agentCache = new Map<string, Dispatcher>();
+interface DispatcherEntry {
+  dispatcher: Dispatcher;
+  negotiatedByOrigin?: Map<string, string>;
+}
+
+/**
+ * Ceiling on origins retained per dispatcher's negotiated-protocol
+ * log. One dispatcher serves one option tuple, so this only bites a
+ * tuple that fans out across hundreds of hosts (a cadence sweep) —
+ * oldest-origin eviction keeps the map bounded; an evicted origin
+ * merely loses its protocol fact until the next fresh dial.
+ */
+const MAX_NEGOTIATED_ORIGINS = 256;
+
+function recordNegotiated(map: Map<string, string>, origin: string, alpnProtocol: string): void {
+  if (!map.has(origin) && map.size >= MAX_NEGOTIATED_ORIGINS) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  map.set(origin, alpnProtocol);
+}
+
+/**
+ * Shared dispatchers keyed by the canonical connection-option tuple.
+ * EVERY direct send rides one — the fully-default tuple included
+ * (keyed `''`), because the always-on negotiated-protocol report
+ * needs a connector seat undici's global default dispatcher doesn't
+ * offer. Every send carrying the SAME option tuple shares ONE
+ * dispatcher, built on first use — minting one per send would leak a
+ * connection pool each time. The value wraps a plain `Agent` for
+ * direct sends and a `ProxyAgent` (a different dispatcher CLASS, not
+ * an `Agent` option) for proxied ones — both close gracefully on
+ * eviction.
+ */
+const agentCache = new Map<string, DispatcherEntry>();
 
 /**
  * Resolver pinned to one address: answers EVERY hostname it is asked
@@ -262,30 +314,42 @@ export interface ConnectOptions {
   socketPath?: string;
 }
 
-function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
-  const insecure = request.sslVerification === false;
-  const allowH2 = request.allowHttp2 === true;
-  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, clientCertificateRef, proxyUrl } = request;
-  const { unixSocketPath } = request;
-  if (
-    !insecure &&
-    !allowH2 &&
-    tlsMinVersion === undefined &&
-    tlsMaxVersion === undefined &&
-    tlsCipherSuites === undefined &&
-    resolveToAddress === undefined &&
-    clientCertificateRef === undefined &&
-    proxyUrl === undefined &&
-    unixSocketPath === undefined
-  ) {
-    return undefined;
+/**
+ * The seam's `httpVersion` knob mapped to how a dial offers and
+ * enforces the protocol. `'auto'` (and absent) offers h2 + http/1.1 —
+ * the server picks; `'1.1'` offers http/1.1 only; `'2'` offers h2
+ * only, pinned (the dial fails honestly on any other outcome). The
+ * not-yet-supported tokens never reach this mapping — `dispatchSend`
+ * rejects them before the wire.
+ */
+export function httpVersionPolicy(httpVersion: TransportRequest['httpVersion']): AlpnPolicy {
+  switch (httpVersion) {
+    case '1.1':
+      return { alpnProtocols: ['http/1.1'], pinH2: false };
+    case '2':
+      return { alpnProtocols: ['h2'], pinH2: true };
+    default:
+      return { alpnProtocols: ['http/1.1', 'h2'], pinH2: false };
   }
+}
+
+/** Whether the policy's offer includes h2 — the undici `allowH2` seat
+ *  (the CLIENT side: speak h2 whenever the dial may negotiate it). */
+function offersH2(policy: AlpnPolicy): boolean {
+  return policy.alpnProtocols.includes('h2');
+}
+
+function dispatcherFor(request: TransportRequest): DispatcherEntry {
+  const insecure = request.sslVerification === false;
+  const policy = httpVersionPolicy(request.httpVersion);
+  const { tlsMinVersion, tlsMaxVersion, tlsCipherSuites, resolveToAddress, proxyUrl } = request;
+  const { unixSocketPath } = request;
   const key = [
     insecure ? 'insecure' : '',
     tlsMinVersion ?? '',
     tlsMaxVersion ?? '',
     tlsCipherSuites ?? '',
-    allowH2 ? 'h2' : '',
+    request.httpVersion === undefined || request.httpVersion === 'auto' ? '' : request.httpVersion,
     resolveToAddress ?? '',
     clientCertKeySegment(request),
     proxyUrl ?? '',
@@ -295,17 +359,19 @@ function dispatcherFor(request: TransportRequest): Dispatcher | undefined {
   const cached = agentCache.get(key);
   if (cached) return cached;
   const connect = connectOptionsFor(request);
-  const dispatcher =
-    proxyUrl !== undefined ? buildProxyAgent(proxyUrl, request, connect, allowH2) : buildAgent(connect, allowH2);
+  const entry: DispatcherEntry =
+    proxyUrl !== undefined
+      ? { dispatcher: buildProxyAgent(proxyUrl, request, connect, offersH2(policy)) }
+      : buildAgentEntry(connect, policy);
   if (agentCache.size >= MAX_AGENTS) {
     const oldest = agentCache.entries().next().value;
     if (oldest) {
       agentCache.delete(oldest[0]);
-      void oldest[1].close();
+      void oldest[1].dispatcher.close();
     }
   }
-  agentCache.set(key, dispatcher);
-  return dispatcher;
+  agentCache.set(key, entry);
+  return entry;
 }
 
 /**
@@ -364,10 +430,37 @@ export function connectOptionsFor(request: TransportRequest): ConnectOptions {
   return connect;
 }
 
-function buildAgent(connect: ConnectOptions, allowH2: boolean): Agent {
-  // `allowH2` is an Agent option, NOT a `connect` option — it sits
-  // beside the connector and switches the ALPN offer to h2+http/1.1.
-  return new Agent({ connect, ...(allowH2 ? { allowH2: true } : {}) });
+/**
+ * Direct-send agent + its negotiated-protocol log. Unpinned tuples
+ * wrap undici's own connector ({@link createRecordingConnector} —
+ * session cache intact) so every ready socket reports its ALPN result
+ * per origin; the `'2'` pin rides the hand-rolled dial
+ * ({@link createDialConnector}), the only connector that can offer
+ * h2-only and refuse a non-h2 negotiation. `allowH2` is an Agent
+ * option, NOT a `connect` option — it sits beside the connector and
+ * lets the client speak h2 when the dial negotiated it.
+ */
+function buildAgentEntry(connect: ConnectOptions, policy: AlpnPolicy): DispatcherEntry {
+  const negotiatedByOrigin = new Map<string, string>();
+  const allowH2 = offersH2(policy);
+  const connector = policy.pinH2
+    ? createDialConnector(
+        connect,
+        policy,
+        () => {},
+        (record) => {
+          if (record.alpnProtocol !== undefined) {
+            recordNegotiated(negotiatedByOrigin, record.origin, record.alpnProtocol);
+          }
+        },
+      )
+    : createRecordingConnector({ ...connect, ...(allowH2 ? { allowH2: true } : {}) }, (origin, alpnProtocol) =>
+        recordNegotiated(negotiatedByOrigin, origin, alpnProtocol),
+      );
+  return {
+    dispatcher: new Agent({ connect: connector, ...(allowH2 ? { allowH2: true } : {}) }),
+    negotiatedByOrigin,
+  };
 }
 
 /**
@@ -691,7 +784,27 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         );
       }
     }
+    // The not-yet-supported version pins fail BEFORE the wire — Phases
+    // C (prior-knowledge h2, the sanctioned cleartext-h2 route) and E
+    // (HTTP/3 over QUIC) honor them; until then a send that pins one
+    // must fail honestly, never quietly ride another protocol.
+    if (request.httpVersion === '2-prior-knowledge') {
+      throw new TransportError(
+        'This runtime cannot send HTTP/2 with prior knowledge yet. Pick "HTTP/2" for TLS targets that negotiate it, or Auto.',
+      );
+    }
+    if (request.httpVersion === '3') {
+      throw new TransportError('This runtime cannot send HTTP/3 yet. Pick another HTTP version.');
+    }
     if (request.proxyUrl !== undefined) {
+      // A pinned HTTP/2 send cannot be honored through a proxy — the
+      // tunnel's connector owns the ALPN offer, so the pin would
+      // silently degrade to an unenforced preference.
+      if (request.httpVersion === '2') {
+        throw new TransportError(
+          "The request pins HTTP/2 and routes through a proxy, but the proxy tunnel owns protocol negotiation — the pin can't be enforced. Set the HTTP version to Auto, or clear the proxy.",
+        );
+      }
       // A resolve-to-address pin cannot be honored through a proxy —
       // the proxy resolves the hostname itself, and the target leg
       // rides the tunnel socket, never a local lookup. Silently
@@ -726,9 +839,14 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // the dial and there is nothing honest to observe.
     const instrumented =
       request.captureNetwork === true && request.proxyUrl === undefined
-        ? createInstrumentedDial(connectOptionsFor(request), request.allowHttp2 === true)
+        ? createInstrumentedDial(connectOptionsFor(request), httpVersionPolicy(request.httpVersion))
         : null;
-    const dispatcher = instrumented?.agent ?? dispatcherFor(request);
+    const entry = instrumented === null ? dispatcherFor(request) : undefined;
+    const dispatcher = instrumented?.agent ?? entry?.dispatcher;
+    // The always-on negotiated-protocol source for this send: the
+    // instrumented dial reports through its connection records; every
+    // other direct send reads its dispatcher's per-origin log.
+    const negotiated = entry?.negotiatedByOrigin;
     // ONE jar per send, looked up by the request's key — absent key
     // means no cookies attached, Set-Cookie discarded.
     const jar = request.cookieJarKey !== undefined ? cookieJarFor(request.cookieJarKey) : undefined;
@@ -783,6 +901,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           { sentAt, finalHopSentAt },
           streaming,
           instrumented?.connections,
+          negotiated,
         );
       }
       return await followRedirectChain(
@@ -795,6 +914,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         sentAt,
         streaming,
         instrumented?.connections,
+        negotiated,
       );
     } finally {
       deadline?.clear();
@@ -837,6 +957,7 @@ async function followRedirectChain(
   sentAt: number,
   streaming: StreamingLeg | null,
   capture: ReadonlyArray<ConnectionRecord> | undefined,
+  negotiated: ReadonlyMap<string, string> | undefined,
 ): Promise<TransportResponse> {
   const maxRedirects = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let hop: HopState = { url: request.url, method: request.method, headers: request.headers, body: request.body };
@@ -897,6 +1018,7 @@ async function followRedirectChain(
         { sentAt, finalHopSentAt: hopSentAt },
         streaming,
         capture,
+        negotiated,
       );
     await response.body?.cancel();
     if (redirects >= maxRedirects) {
@@ -1149,6 +1271,35 @@ function socketLegsOf(
  * last match). Falls back to the last completed dial when the origin
  * can't be matched (socket-path dials record the path).
  */
+/** `hostname:port` a URL's final hop dialed — the key connectors
+ *  record their facts under (socket-path dials key by the path). */
+function originOfUrl(finalUrl: string): string | undefined {
+  try {
+    const url = new URL(finalUrl);
+    const port = url.port !== '' ? url.port : url.protocol === 'https:' ? '443' : '80';
+    return `${url.hostname}:${port}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The always-on negotiated protocol for a non-instrumented send: the
+ * dispatcher's per-origin log entry for the connection that served
+ * the final hop. Absent when the send had no log (proxied) or the
+ * origin never completed a dial this dispatcher remembers.
+ */
+function negotiatedProtocolFor(
+  negotiated: ReadonlyMap<string, string> | undefined,
+  request: TransportRequest,
+  finalUrl: string,
+): string | undefined {
+  if (negotiated === undefined) return undefined;
+  if (request.unixSocketPath !== undefined) return negotiated.get(request.unixSocketPath);
+  const origin = originOfUrl(finalUrl);
+  return origin !== undefined ? negotiated.get(origin) : undefined;
+}
+
 function networkFactsOf(
   capture: ReadonlyArray<ConnectionRecord> | undefined,
   finalUrl: string,
@@ -1156,14 +1307,7 @@ function networkFactsOf(
   if (capture === undefined) return undefined;
   const completed = capture.filter((c) => c.readyAt !== undefined);
   if (completed.length === 0) return undefined;
-  let origin: string | undefined;
-  try {
-    const url = new URL(finalUrl);
-    const port = url.port !== '' ? url.port : url.protocol === 'https:' ? '443' : '80';
-    origin = `${url.hostname}:${port}`;
-  } catch {
-    origin = undefined;
-  }
+  const origin = originOfUrl(finalUrl);
   let record: ConnectionRecord | undefined;
   for (let i = completed.length - 1; i >= 0; i--) {
     if (completed[i]?.origin === origin) {
@@ -1193,6 +1337,7 @@ async function finalizeResponse(
   marks: PhaseMarks,
   streaming: StreamingLeg | null,
   capture?: ReadonlyArray<ConnectionRecord>,
+  negotiated?: ReadonlyMap<string, string>,
 ): Promise<TransportResponse> {
   const headAt = performance.now();
   const headers: TransportHeader[] = [];
@@ -1230,6 +1375,10 @@ async function finalizeResponse(
   // waiting phase then starts at socket readiness instead of dispatch.
   const legs = socketLegsOf(capture, hadRedirects);
   const network = networkFactsOf(capture, response.url || finalUrl);
+  // The always-on protocol fact — from the instrumented dial's record
+  // when the send had one, from the dispatcher's per-origin log
+  // otherwise. Always the wire's answer, never the knob's.
+  const wireVersion = network?.httpVersion ?? negotiatedProtocolFor(negotiated, request, response.url || finalUrl);
   return {
     status: response.status,
     statusText: response.statusText,
@@ -1250,6 +1399,7 @@ async function finalizeResponse(
       downloadMs: phaseMs(readEndedAt - headAt),
     },
     ...(network !== undefined ? { network } : {}),
+    ...(wireVersion !== undefined ? { httpVersion: wireVersion } : {}),
     body: read.body,
     ...(read.bodyEncoding ? { bodyEncoding: read.bodyEncoding } : {}),
     bodyBytes: read.bodyBytes,
@@ -1659,6 +1809,19 @@ function classifyFetchFailure(url: string, err: unknown, request: TransportReque
       return `TLS certificate error reaching ${host} (${code}).`;
     case 'ERR_SSL_NO_CIPHER_MATCH':
       return `No usable cipher suite for ${host} (${code}). Check the request's "TLS cipher suites" setting — none of the listed suites could be used for this connection.`;
+    // ── Pinned-HTTP/2 honest failures. The dial's own guard fails a
+    // hop that negotiated something else (or a cleartext hop, which
+    // has no ALPN seat at all); a server that refuses the h2-only
+    // offer outright severs the handshake with a no-application-
+    // protocol alert instead.
+    case H2_NOT_NEGOTIATED_CODE: {
+      const detail = chain.find((link) => link.code === H2_NOT_NEGOTIATED_CODE)?.message;
+      return `${detail ?? `${host} did not negotiate HTTP/2.`} The request's "HTTP version" setting pins this send to HTTP/2 — set it to Auto to let the server choose.`;
+    }
+    case 'ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL':
+      return request.httpVersion === '2'
+        ? `${host} rejected the HTTP/2-only offer (${code}) — the server doesn't speak HTTP/2. The request's "HTTP version" setting pins this send to HTTP/2; set it to Auto to let the server choose.`
+        : `${host} rejected the offered application protocols (${code}).`;
     default: {
       // A mutual-TLS server that dislikes the presented client
       // certificate may simply sever the connection instead of sending
