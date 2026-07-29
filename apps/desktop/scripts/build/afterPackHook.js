@@ -74,8 +74,41 @@ function signMacTrustHelper(binaryPath) {
     console.log('✓ Trust helper signed');
 }
 
+// Copies the per-arch HTTP/3 helper staged by scripts/build-h3-helper.mjs
+// into resources/h3-helper — the packaged path the runtime resolver
+// reads. Runs before signing, so macOS builds seal it with the app.
+// A missing stage ships the app helperless and the '3' HTTP-version
+// pin fails honestly.
+function embedH3Helper(context) {
+    const { appOutDir, electronPlatformName } = context;
+    const osName = electronPlatformName === 'darwin' ? 'mac' : electronPlatformName === 'win32' ? 'win' : 'linux';
+    // electron-builder Arch enum: 1 = x64, 3 = arm64 (helper targets are per-arch; no universal build)
+    const archName = context.arch === 1 ? 'x64' : context.arch === 3 ? 'arm64' : null;
+    if (archName === null) {
+        console.warn(`⚠ HTTP/3 helper has no ${osName} build for arch enum ${context.arch} — shipping without it`);
+        return;
+    }
+    const binaryName = osName === 'win' ? 'oh-h3-helper.exe' : 'oh-h3-helper';
+    const source = path.join(__dirname, '..', '..', '..', '..', 'native', 'h3-helper', 'dist', `${osName}-${archName}`, binaryName);
+    if (!fs.existsSync(source)) {
+        console.warn(`⚠ HTTP/3 helper not staged at ${source} — shipping without it (the '3' HTTP-version pin stays inert)`);
+        return;
+    }
+    const resourcesDir = electronPlatformName === 'darwin'
+        ? path.join(appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources')
+        : path.join(appOutDir, 'resources');
+    const destDir = path.join(resourcesDir, 'h3-helper');
+    fs.mkdirSync(destDir, { recursive: true });
+    const dest = path.join(destDir, binaryName);
+    fs.copyFileSync(source, dest);
+    fs.chmodSync(dest, 0o755);
+    console.log(`✓ HTTP/3 helper embedded (${osName}-${archName})`);
+}
+
 exports.default = async function(context) {
     const { appOutDir, electronPlatformName } = context;
+
+    embedH3Helper(context);
 
     if (electronPlatformName === 'darwin') {
         embedMacTrustHelper(context);

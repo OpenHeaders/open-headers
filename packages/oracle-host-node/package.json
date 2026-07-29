@@ -50,6 +50,10 @@
       "import": "./src/live/node-request-transport.ts",
       "default": "./dist/live/node-request-transport.js"
     },
+    "./live/h3-helper/helper-binary": {
+      "import": "./src/live/h3-helper/helper-binary.ts",
+      "default": "./dist/live/h3-helper/helper-binary.js"
+    },
     "./mcp": {
       "import": "./src/mcp/index.ts",
       "default": "./dist/mcp/index.js"

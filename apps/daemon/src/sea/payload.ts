@@ -1,9 +1,11 @@
 /**
- * SEA payload unpacking — the single-binary build embeds two file
- * trees as SEA assets: `native` (the better-sqlite3 package compiled
- * for the binary's Node ABI — a native addon cannot load from inside
- * the blob, only from disk) and `web` (the built Workbench the daemon
- * serves at `/`). This module unpacks them on first use.
+ * SEA payload unpacking — the single-binary build embeds file trees as
+ * SEA assets: `native` (the better-sqlite3 package compiled for the
+ * binary's Node ABI — a native addon cannot load from inside the blob,
+ * only from disk), `web` (the built Workbench the daemon serves at
+ * `/`), and `helper` (the platform's `oh-h3-helper` — spawned as a
+ * child process, so it too must live on disk). This module unpacks
+ * them on first use.
  *
  * Layout inside the blob: an `oh-payload.json` manifest (per-kind file
  * lists with sha-256 checksums) plus one asset per file under
@@ -32,7 +34,7 @@ import * as path from 'node:path';
 import { getAsset, isSea } from 'node:sea';
 import { defaultDataDir } from '../config';
 
-export type PayloadKind = 'native' | 'web';
+export type PayloadKind = 'native' | 'web' | 'helper';
 
 export interface PayloadFileEntry {
   /** Relative path inside the kind's tree, `/`-separated. */

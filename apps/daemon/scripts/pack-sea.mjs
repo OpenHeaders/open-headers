@@ -6,7 +6,7 @@
  * stages better-sqlite3 for the system Node's ABI (own `npm install`,
  * exactly like `pack.mjs` — the monorepo copy is Electron-ABI) and
  * embeds the pruned package tree as SEA assets, together with the
- * built web app when present. The binary unpacks them on first use
+ * built web app and the platform's HTTP/3 helper when present. The binary unpacks them on first use
  * (`src/sea/payload.ts`). The result is verified end-to-end before
  * the script reports success: the binary boots headless, /healthz
  * answers (which proves the unpacked addon loaded — the spine opens
@@ -118,6 +118,18 @@ if (!webStaged) console.log('pack-sea: apps/web/dist not built — packing witho
 const webFiles = webStaged ? walk(webDist).map((rel) => ({ rel, abs: path.join(webDist, ...rel.split('/')) })) : [];
 const nativeFiles = nativePayloadFiles();
 
+// HTTP/3 helper — one binary for THIS platform/arch (SEA builds run on
+// the machine they target), embedded as its own payload kind and
+// unpacked lazily on the first `'3'` send. No staged build = packing
+// without it; the runtime keeps its honest not-bundled failure.
+const helperTarget = `${process.platform === 'darwin' ? 'mac' : 'linux'}-${process.arch}`;
+const helperBinary = path.join(repoRoot, 'native', 'h3-helper', 'dist', helperTarget, 'oh-h3-helper');
+const helperStaged = existsSync(helperBinary);
+if (!helperStaged) {
+  console.log(`pack-sea: native/h3-helper/dist/${helperTarget} not built — packing without the HTTP/3 helper`);
+}
+const helperFiles = helperStaged ? [{ rel: 'oh-h3-helper', abs: helperBinary }] : [];
+
 // ── Manifest + SEA config ─────────────────────────────────────────────
 
 function gitShortCommit() {
@@ -135,6 +147,7 @@ const payloadManifest = {
   kinds: {
     native: nativeFiles.map(fileEntry),
     ...(webStaged ? { web: webFiles.map(fileEntry) } : {}),
+    ...(helperStaged ? { helper: helperFiles.map(fileEntry) } : {}),
   },
 };
 writeFileSync(path.join(outDir, 'oh-payload.json'), `${JSON.stringify(payloadManifest)}\n`);
@@ -142,6 +155,7 @@ writeFileSync(path.join(outDir, 'oh-payload.json'), `${JSON.stringify(payloadMan
 const assets = { 'oh-payload.json': path.join(outDir, 'oh-payload.json') };
 for (const file of nativeFiles) assets[`payload/native/${file.rel}`] = file.abs;
 for (const file of webFiles) assets[`payload/web/${file.rel}`] = file.abs;
+for (const file of helperFiles) assets[`payload/helper/${file.rel}`] = file.abs;
 
 writeFileSync(
   path.join(outDir, 'sea-config.json'),

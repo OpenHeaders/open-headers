@@ -148,6 +148,31 @@ jobs:
         run: pnpm --filter @openheaders/nm-host run pack:bun
         shell: bash
 
+      # The HTTP/3 helper rides the app under resources/h3-helper (the
+      # afterPack per-arch copy) and the ohd SEA payload — without this
+      # step the packaged app ships helperless and a '3' send fails
+      # honestly. --platform-all builds every matrix target this OS
+      # covers: mac arm64+x64 (runner is arm64; the script adds the x64
+      # rust target), win x64, linux x64+arm64 (cross-linked below).
+      - name: Cache cargo (HTTP/3 helper)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/h3-helper/target
+          key: ${{ runner.os }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-h3-helper-
+
+      - name: Install linux arm64 cross linker (HTTP/3 helper)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build HTTP/3 helper matrix
+        run: node scripts/build-h3-helper.mjs --platform-all
+        shell: bash
+
       - name: Build desktop application
         run: pnpm --filter @openheaders/desktop build
         env:
@@ -300,12 +325,33 @@ jobs:
           jvm_max_memory: 1024M
           signing_method: v1
 
+      # The HTTP/3 helper is a shipped executable too — SmartScreen and
+      # enterprise allow-listing want it Authenticode-signed like the
+      # other inner binaries.
+      - name: Sign HTTP/3 helper executable
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/desktop/dist/win-unpacked/resources/h3-helper/oh-h3-helper.exe
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
       - name: Verify inner executable signatures
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
         run: |
           foreach ($f in @(
             "apps/desktop/dist/win-unpacked/OpenHeaders.exe",
-            "apps/desktop/dist/win-unpacked/resources/nm-host/oh-nm-host.exe"
+            "apps/desktop/dist/win-unpacked/resources/nm-host/oh-nm-host.exe",
+            "apps/desktop/dist/win-unpacked/resources/h3-helper/oh-h3-helper.exe"
           )) {
             $sig = Get-AuthenticodeSignature $f
             Write-Host "$f -> $($sig.Status)"
@@ -689,6 +735,25 @@ jobs:
           & "apps/cli/dist-bun/oh.exe" --version
           if ($LASTEXITCODE -ne 0) { Write-Error "signed oh.exe no longer runs"; exit 1 }
         shell: pwsh
+
+      # The ohd SEA payload embeds the platform's HTTP/3 helper — this
+      # leg has its own checkout, so it builds its own (host target).
+      - name: Cache cargo (HTTP/3 helper)
+        if: matrix.os != 'windows-2022'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/h3-helper/target
+          key: ${{ runner.os }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-h3-helper-
+
+      - name: Build HTTP/3 helper
+        if: matrix.os != 'windows-2022'
+        run: node scripts/build-h3-helper.mjs
+        shell: bash
 
       # The daemon binary embeds the built web app when present.
       - name: Build and verify ohd SEA binary

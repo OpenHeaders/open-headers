@@ -14,7 +14,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -47,6 +47,26 @@ const webDist = path.join(repoRoot, 'apps', 'web', 'dist');
 const webStaged = existsSync(path.join(webDist, 'index.html'));
 if (webStaged) cpSync(webDist, path.join(stageDir, 'dist', 'web'), { recursive: true });
 else console.log('pack: apps/web/dist not built — staging without the web ui');
+// HTTP/3 helper — stage every per-target build present under the
+// crate's dist (`scripts/build-h3-helper.mjs` output); the daemon
+// resolves the running platform's dir at the first `'3'` send, and a
+// platform whose dir wasn't staged keeps the honest not-bundled
+// failure. Loose coupling like the web bundle: no builds, no helper.
+const helperDist = path.join(repoRoot, 'native', 'h3-helper', 'dist');
+const helperTargets = existsSync(helperDist)
+  ? readdirSync(helperDist, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+  : [];
+if (helperTargets.length > 0) {
+  for (const target of helperTargets) {
+    cpSync(path.join(helperDist, target), path.join(stageDir, 'dist', 'h3-helper', target), { recursive: true });
+  }
+  console.log(`pack: staged HTTP/3 helper targets ${helperTargets.join(' ')}`);
+} else {
+  console.log('pack: native/h3-helper/dist not built — staging without the HTTP/3 helper');
+}
 cpSync(path.join(packageRoot, 'README.md'), path.join(stageDir, 'README.md'));
 cpSync(path.join(repoRoot, 'LICENSE.md'), path.join(stageDir, 'LICENSE.md'));
 writeFileSync(

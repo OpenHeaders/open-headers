@@ -36,6 +36,7 @@ import { installDaemonAutoUpdate } from './auto-update';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { DAEMON_CHANGELOG } from './changelog';
 import { AUDIT_RETENTION_DEFAULT_DAYS, resolveDaemonConfig } from './config';
+import { installH3HelperLocator } from './h3-helper-path';
 import { createDaemonLogger } from './logger';
 import { installScriptRuntime } from './script-sandbox/install';
 import { ensureSeaPayload } from './sea/payload';
@@ -130,6 +131,11 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     });
 
     const staticWeb = resolveStaticWebRoot(config.webRoot);
+
+    // HTTP/3 helper: register where this distribution keeps the
+    // bundled `oh-h3-helper` (SEA payload / beside the bundle) so a
+    // `'3'` send can spawn it — lazy, so nothing unpacks until then.
+    installH3HelperLocator();
 
     const proxyNote = config.trustedProxy ? ', behind trusted proxy' : '';
     const hostsNote = config.allowedHosts.length > 0 ? `, allowed hosts ${config.allowedHosts.join(' ')}` : '';

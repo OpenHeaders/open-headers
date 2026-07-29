@@ -11,7 +11,8 @@ Build (not part of the pnpm/turbo pipeline — cargo is invoked
 explicitly):
 
 ```bash
-cargo build --release
+cargo build --release                    # plain host build
+node ../../scripts/build-h3-helper.mjs   # build + stage dist/<target>/ (what the packaging pipeline reads)
 ```
 
 The h3 / h3-quinn crates are pre-1.0 — if cargo reports a version
@@ -25,5 +26,11 @@ Point the node host at the binary for dev / live passes:
 export OPENHEADERS_H3_HELPER="$PWD/target/release/oh-h3-helper"
 ```
 
-Packaged distribution (per-OS/per-arch matrix, bundled per platform —
-never downloaded at runtime) is a later Phase E slice.
+Packaged distribution (never downloaded at runtime): the release
+pipeline builds the five-target matrix (`mac-arm64`, `mac-x64`,
+`win-x64`, `linux-x64`, `linux-arm64`) via `scripts/build-h3-helper.mjs`
+and ships the binary inside the desktop installers
+(`resources/h3-helper/`), the ohd SEA binary (`helper` payload kind),
+and the daemon npm tarball (`dist/h3-helper/<target>/`). The
+path-gated `H3 Helper` workflow keeps the two protocol twins proven
+against each other on every change.

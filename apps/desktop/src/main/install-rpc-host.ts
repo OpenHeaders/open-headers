@@ -58,6 +58,7 @@ import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/aware
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine, registerPeerRpcPlane } from '@openheaders/oracle-host-node/daemon';
+import { registerH3HelperLocator } from '@openheaders/oracle-host-node/live/h3-helper/helper-binary';
 import {
   broadcastMigrationPullToPeers,
   createMigrationPeerRpc,
@@ -80,6 +81,7 @@ import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
+import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
@@ -243,6 +245,25 @@ export async function installRpcHost(): Promise<void> {
     }
   } else {
     engineLogger.info(SCOPE, `NM host binary not found at ${nmHostBinaryPath}; identity bootstrap stays inert`);
+  }
+
+  // HTTP/3 helper (docs/REQUEST_ENGINE_H3_PROTOCOL.md): register where
+  // this install keeps the bundled `oh-h3-helper` so a `'3'` send can
+  // spawn it. The resolver owns the env override and the honest
+  // not-bundled failure; absence only costs this boot log line.
+  const h3HelperCandidates = h3HelperBinaryCandidates({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+    platform: process.platform,
+    arch: process.arch,
+  });
+  registerH3HelperLocator(() => h3HelperCandidates.find((candidate) => existsSync(candidate)) ?? null);
+  if (!h3HelperCandidates.some((candidate) => existsSync(candidate))) {
+    engineLogger.info(
+      SCOPE,
+      `HTTP/3 helper not found at ${h3HelperCandidates[0]}; the '3' HTTP-version pin stays inert`,
+    );
   }
 
   // Native-surface locale (tray / menus / dialogs) follows the same

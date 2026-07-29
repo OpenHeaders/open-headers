@@ -1,0 +1,70 @@
+name: H3 Helper
+
+# Path-gated twin check: whenever the Rust helper or its node-side
+# protocol twin moves, build the crate for real and run the h3-helper
+# suite against the actual binary (`real-helper.test.ts` un-skips when
+# `OPENHEADERS_H3_HELPER` is set) — the framed protocol's two
+# implementations stay proven against each other between releases.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native/h3-helper/**'
+      - 'packages/oracle-host-node/src/live/h3-helper/**'
+      - 'packages/oracle-host-node/tests/unit/h3-helper/**'
+      - 'scripts/build-h3-helper.mjs'
+      - '.github/workflows/h3-helper.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'native/h3-helper/**'
+      - 'packages/oracle-host-node/src/live/h3-helper/**'
+      - 'packages/oracle-host-node/tests/unit/h3-helper/**'
+      - 'scripts/build-h3-helper.mjs'
+      - '.github/workflows/h3-helper.yml'
+  workflow_dispatch:
+
+jobs:
+  twins:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Cache cargo (HTTP/3 helper)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/h3-helper/target
+          key: ${{ runner.os }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-h3-helper-
+
+      - name: Build HTTP/3 helper
+        run: node scripts/build-h3-helper.mjs
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build core package
+        run: pnpm --filter @openheaders/core build
+
+      - name: Run h3-helper suite against the real binary
+        run: pnpm --filter @openheaders/oracle-host-node exec vitest run tests/unit/h3-helper
+        env:
+          OPENHEADERS_H3_HELPER: ${{ github.workspace }}/native/h3-helper/dist/linux-x64/oh-h3-helper
