@@ -935,10 +935,13 @@ jobs:
       # live on the channel manifest; the generator builds fresh and would
       # drop it until the next cron run. Carry the live object forward —
       # fail-open: no live manifest or no stores means nothing to carry.
-      # Betas additionally carry cli/daemon whole: beta tags stage no
-      # standalone binaries, so those entries must keep naming the last
-      # tag whose release page actually hosts them — the CLI's update
-      # check builds download URLs from `tag`.
+      # Betas additionally carry cli/daemon whole, from the live STABLE
+      # manifest: beta tags stage no standalone binaries, so those
+      # entries must name the newest tag whose release page actually
+      # hosts them — always a stable one. The CLI's update check and
+      # the website's install one-liners build download URLs from
+      # `tag`, and carrying from the beta manifest would freeze them at
+      # the last binary-bearing beta forever.
       - name: Carry forward live manifest entries
         run: |
           CHANNEL=stable
@@ -953,23 +956,27 @@ jobs:
             else
               echo "Live ${CHANNEL} manifest has no extension.stores — nothing to carry"
             fi
-            if [ "$CHANNEL" = "beta" ]; then
+          else
+            echo "No live ${CHANNEL} manifest — nothing to carry"
+          fi
+          if [ "$CHANNEL" = "beta" ]; then
+            if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/stable.json" -o live_stable.json; then
               for APP in cli daemon; do
-                ENTRY=$(jq -c ".${APP} // empty" live_versions.json)
+                ENTRY=$(jq -c ".${APP} // empty" live_stable.json)
                 if [ -n "$ENTRY" ]; then
                   node scripts/patch-versions-entry.mjs processed_files/versions.json "$APP" \
                     "$ENTRY" > versions_patched.json
                   mv versions_patched.json processed_files/versions.json
-                  echo "Carried ${APP} entry: ${ENTRY}"
+                  echo "Carried ${APP} entry from stable: ${ENTRY}"
                 else
-                  echo "Live beta manifest has no ${APP} entry — nothing to carry"
+                  echo "Live stable manifest has no ${APP} entry — nothing to carry"
                 fi
               done
+            else
+              echo "No live stable manifest — cli/daemon entries not carried"
             fi
-            cat processed_files/versions.json
-          else
-            echo "No live ${CHANNEL} manifest — nothing to carry"
           fi
+          cat processed_files/versions.json
 
       - name: Generate Release Body
         run: |
