@@ -17,7 +17,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-use framing::{encode_frame, read_frame, Frame};
+use framing::{encode_frame, read_frame};
 use protocol::{frame_type, ErrorFrame, Hello, RequestHead, PROTOCOL_VERSION};
 
 /// A request head whose announced body is still streaming in.
