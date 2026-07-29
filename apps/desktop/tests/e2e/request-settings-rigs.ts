@@ -5,13 +5,15 @@
  * leaves the machine: a self-signed HTTPS echo, a TLS 1.1-max server,
  * an h2 server that reports the negotiated protocol, a multi-purpose
  * HTTP rig (slow / big-body / redirect hops / auth+cookie echo), a
- * CONNECT proxy that records its tunnel targets, and a Unix-socket
- * echo. Certificates are minted per run via the system openssl into a
- * temp dir (the `playground/daemon-rig/cert.mjs` posture).
+ * CONNECT proxy that records its tunnel targets, a Unix-socket echo, a
+ * cleartext-h2 echo for the prior-knowledge legs, and a Caddy-fronted
+ * QUIC rig for the HTTP/3 legs. Certificates are minted per run via
+ * the system openssl into a temp dir (the
+ * `playground/daemon-rig/cert.mjs` posture).
  */
 
-import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import http2 from 'node:http2';
 import https from 'node:https';
@@ -56,7 +58,9 @@ export async function mintLocalhostCert(dir: string): Promise<TlsMaterial> {
   return { key: readFileSync(keyPath), cert: readFileSync(certPath) };
 }
 
-function listen(server: http.Server | https.Server | http2.Http2SecureServer | tls.Server): Promise<number> {
+function listen(
+  server: http.Server | https.Server | http2.Http2Server | http2.Http2SecureServer | tls.Server,
+): Promise<number> {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', () => {
@@ -206,6 +210,84 @@ export async function startH2Echo(material: TlsMaterial): Promise<Rig> {
   });
   const port = await listen(server);
   return { port, close: closer(server) };
+}
+
+/** A CLEARTEXT h2 server (`http2.createServer` — no TLS, no `Upgrade`
+ *  dance) answering the spoken protocol. Only a prior-knowledge client
+ *  can talk to it: there is no ALPN seat and no h1 fallback. */
+export async function startH2cEcho(): Promise<Rig> {
+  const server = http2.createServer((req, res) => {
+    res.end(req.httpVersion === '2.0' ? 'h2' : 'http/1.1');
+  });
+  const port = await listen(server);
+  return { port, close: closer(server) };
+}
+
+/**
+ * The HTTP/3 rig — an external Caddy serving h1 + h2 + h3 on one port
+ * (TCP for h1/h2, UDP for QUIC) with the minted localhost pair,
+ * answering `h3-rig-ok` (the playground `h3-rig.ts` posture: Node
+ * cannot serve QUIC natively, and Caddy stays a dev-machine install).
+ * Returns null when no caddy binary is on PATH so the suite can skip
+ * the QUIC legs on machines without it rather than fail.
+ */
+export async function startH3Rig(dir: string): Promise<Rig | null> {
+  const probe = await new Promise<boolean>((resolve) => {
+    execFile('caddy', ['version'], (error) => resolve(error === null));
+  });
+  if (!probe) return null;
+
+  const port = await freePort();
+  const caddyfilePath = path.join(dir, 'Caddyfile');
+  writeFileSync(
+    caddyfilePath,
+    [
+      '{',
+      '\tauto_https off',
+      '\tadmin off',
+      '\tservers {',
+      '\t\tprotocols h1 h2 h3',
+      '\t}',
+      '}',
+      '',
+      `https://localhost:${port}, https://127.0.0.1:${port} {`,
+      `\ttls ${path.join(dir, 'cert.pem')} ${path.join(dir, 'key.pem')}`,
+      '\trespond "h3-rig-ok" 200',
+      '}',
+      '',
+    ].join('\n'),
+  );
+  const caddy: ChildProcess = spawn('caddy', ['run', '--config', caddyfilePath, '--adapter', 'caddyfile'], {
+    stdio: 'ignore',
+  });
+
+  // Readiness: poll the TCP side until the listener answers; the UDP
+  // listener comes up with it.
+  const deadline = Date.now() + 15_000;
+  for (;;) {
+    const up = await new Promise<boolean>((resolve) => {
+      const socket = net.connect(port, '127.0.0.1', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.on('error', () => resolve(false));
+    });
+    if (up) break;
+    if (Date.now() > deadline) {
+      caddy.kill();
+      throw new Error('h3 rig: caddy did not start listening within 15 s');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  return {
+    port,
+    close: () =>
+      new Promise((resolve) => {
+        caddy.once('exit', () => resolve());
+        caddy.kill();
+      }),
+  };
 }
 
 export interface ProxyRig extends Rig {

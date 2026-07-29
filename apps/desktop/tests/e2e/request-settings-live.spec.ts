@@ -1,6 +1,7 @@
 /**
- * Request-settings live E2E — the automated S2–S12 live passes over the
- * REAL stack: the built desktop app (isolated userData, off-default
+ * Request-settings live E2E — the automated S2–S12 live passes plus
+ * the request-engine HTTP-version legs (prior-knowledge h2, QUIC via
+ * the staged helper against a Caddy rig) over the REAL stack: the built desktop app (isolated userData, off-default
  * daemon port), a workbench `executeRequest` draft send through the
  * renderer bridge → `oh:rpc` → the daemon spine's route → the node
  * transport on a real wire, against local rig servers
@@ -31,7 +32,9 @@ import {
   type Rig,
   type SocketRig,
   startConnectProxy,
+  startH2cEcho,
   startH2Echo,
+  startH3Rig,
   startHttpRig,
   startHttpsEcho,
   startMtlsEcho,
@@ -52,6 +55,8 @@ let httpRig: Rig;
 let httpsEcho: Rig;
 let tls11Echo: Rig;
 let h2Echo: Rig;
+let h2cEcho: Rig;
+let h3Rig: Rig | null;
 let mtlsEcho: Rig;
 let proxy: ProxyRig;
 let authProxy: ProxyRig;
@@ -64,6 +69,7 @@ interface ExecSnapshot {
   status: number;
   body: string;
   url: string;
+  httpVersion?: string;
   error?: string | null;
   bodyTruncated?: boolean;
   bodyCapBytes?: number;
@@ -137,11 +143,13 @@ test.beforeAll(async () => {
   scratchDir = await mkdtemp(path.join(tmpdir(), 'oh-settings-e2e-'));
   const material = await mintLocalhostCert(scratchDir);
   const clientMaterial = await mintClientCert(scratchDir);
-  [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy, tokenRig] = await Promise.all([
+  [httpRig, httpsEcho, tls11Echo, h2Echo, h2cEcho, h3Rig, mtlsEcho, proxy, authProxy, tokenRig] = await Promise.all([
     startHttpRig(),
     startHttpsEcho(material),
     startTls11Echo(material),
     startH2Echo(material),
+    startH2cEcho(),
+    startH3Rig(scratchDir),
     startMtlsEcho(material, clientMaterial.cert),
     startConnectProxy(),
     startConnectProxy(PROXY_AUTH_PAIR),
@@ -208,6 +216,7 @@ test.beforeAll(async () => {
         workspaceVars: { schemaVersion: 5, variables: [] },
         liveWorkflows: [],
         liveVariables: [],
+        specs: [],
         vault: {
           schemaVersion: 5,
           secrets: [
@@ -233,6 +242,7 @@ test.beforeAll(async () => {
           liveVariables: 0,
           templates: 0,
           secrets: 3,
+          specs: 0,
         },
       },
     },
@@ -245,11 +255,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await electronApp?.close();
-  await Promise.all(
-    [httpRig, httpsEcho, tls11Echo, h2Echo, mtlsEcho, proxy, authProxy, unixEcho, tokenRig]
-      .filter(Boolean)
-      .map((rig) => rig.close()),
-  );
+  const rigs = [httpRig, httpsEcho, tls11Echo, h2Echo, h2cEcho, h3Rig, mtlsEcho, proxy, authProxy, unixEcho, tokenRig];
+  await Promise.all(rigs.flatMap((rig) => (rig ? [rig.close()] : [])));
   await rm(scratchDir, { recursive: true, force: true });
 });
 
@@ -380,11 +387,28 @@ test("httpVersion '2' against an h1-only server fails honestly, never downgrades
   expect(snapshot.error ?? '').toMatch(/HTTP\/2/);
 });
 
-test("httpVersion '3' fails honestly as not yet supported", async () => {
+test("httpVersion '2-prior-knowledge' speaks h2 to a cleartext server — no ALPN, no Upgrade dance", async () => {
+  const snapshot = await exec(draft({ url: `http://127.0.0.1:${h2cEcho.port}/`, httpVersion: '2-prior-knowledge' }));
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect(snapshot.body).toBe('h2');
+  expect(snapshot.httpVersion).toBe('h2');
+});
+
+test("httpVersion '2' against a cleartext target fails honestly, naming the prior-knowledge route", async () => {
+  const snapshot = await exec(draft({ url: `http://127.0.0.1:${h2cEcho.port}/`, httpVersion: '2' }));
+  expect(snapshot.error ?? '').toMatch(/cannot negotiate HTTP\/2.*prior knowledge/s);
+});
+
+test("httpVersion '3' rides the bundled helper over real QUIC, protocol reported from the wire", async () => {
+  test.skip(h3Rig === null, 'caddy not on PATH — no local QUIC target');
   const snapshot = await exec(
-    draft({ url: `https://localhost:${h2Echo.port}/`, sslVerification: false, httpVersion: '3' }),
+    draft({ url: `https://127.0.0.1:${h3Rig?.port}/`, sslVerification: false, httpVersion: '3' }),
   );
-  expect(snapshot.error ?? '').toMatch(/HTTP\/3/);
+  expect(snapshot.error ?? null).toBeNull();
+  expect(snapshot.status).toBe(200);
+  expect(snapshot.body).toBe('h3-rig-ok');
+  expect(snapshot.httpVersion).toBe('h3');
 });
 
 // ── S7: resolve-to-address ───────────────────────────────────────────
@@ -777,10 +801,20 @@ const OAUTH_WS_EXPORT = {
     workspaceVars: { schemaVersion: 5, variables: [] },
     liveWorkflows: [],
     liveVariables: [],
+    specs: [],
   },
   meta: {
     redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
-    counts: { rules: 0, requests: 0, environments: 0, liveWorkflows: 0, liveVariables: 0, templates: 0, secrets: 0 },
+    counts: {
+      rules: 0,
+      requests: 0,
+      environments: 0,
+      liveWorkflows: 0,
+      liveVariables: 0,
+      templates: 0,
+      secrets: 0,
+      specs: 0,
+    },
   },
 };
 
