@@ -9,11 +9,18 @@
  * post-open Stop-abort settling immediately with no error.
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type {
+  WsTransportClose,
+  WsTransportError,
+  WsTransportMessage,
+} from '@openheaders/oracle/live/ws-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
 import { createNodeWsTransport } from '../../src/live/node-ws-transport';
-import type { WsTransportClose, WsTransportError, WsTransportMessage } from '@openheaders/oracle/live/ws-exec/transport';
 
 const servers: Server[] = [];
 
@@ -22,7 +29,7 @@ interface ProbeServer {
   seenHeaders: () => IncomingMessage['headers'];
 }
 
-async function startWsServer(options: { neverUpgrade?: boolean } = {}): Promise<ProbeServer> {
+async function startWsServer(options: { neverUpgrade?: boolean; socketPath?: string } = {}): Promise<ProbeServer> {
   const httpServer = createServer((_req, res) => {
     res.statusCode = 426;
     res.end();
@@ -58,6 +65,13 @@ async function startWsServer(options: { neverUpgrade?: boolean } = {}): Promise<
       });
     });
   }
+  if (options.socketPath !== undefined) {
+    // Socket rig: the URL's host is COSMETIC — the socket decides the
+    // dial (the transport's socket-path contract).
+    const socketPath = options.socketPath;
+    await new Promise<void>((resolve) => httpServer.listen(socketPath, resolve));
+    return { url: 'ws://ws.openheaders.io/session', seenHeaders: () => headers };
+  }
   await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
   const address = httpServer.address();
   if (address === null || typeof address === 'string') throw new Error('no listen address');
@@ -87,7 +101,12 @@ interface SessionRun {
  *  on end with everything observed. */
 function runSession(
   url: string,
-  options: { headers?: Array<{ key: string; value: string }>; subprotocols?: string[]; timeoutMs?: number },
+  options: {
+    headers?: Array<{ key: string; value: string }>;
+    subprotocols?: string[];
+    timeoutMs?: number;
+    unixSocketPath?: string;
+  },
   steps: (writer: { send(text: string): void; close(code: number, reason: string): void }, seen: SessionRun) => void,
   signal?: AbortSignal,
 ): Promise<SessionRun> {
@@ -100,6 +119,7 @@ function runSession(
         headers: options.headers ?? [],
         subprotocols: options.subprotocols ?? [],
         ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+        ...(options.unixSocketPath !== undefined ? { unixSocketPath: options.unixSocketPath } : {}),
       },
       {
         onOpen: (protocol) => {
@@ -269,5 +289,46 @@ describe('createNodeWsTransport — abort discipline', () => {
     // No Close frame arrived before the teardown — the platform's
     // accounting stays honest (nothing synthesized).
     expect(seen.close).toBeNull();
+  });
+});
+
+const posixOnly = it.runIf(process.platform !== 'win32');
+
+const socketDirs: string[] = [];
+
+/** Short socket path under the OS tmpdir — the OS caps sun_path at
+ *  ~104 bytes on macOS, so the rig never rides a long test-run dir. */
+function mintSocketPath(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'oh-ws-'));
+  socketDirs.push(dir);
+  return join(dir, 'w.sock');
+}
+
+afterEach(() => {
+  for (const dir of socketDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+describe('createNodeWsTransport — Unix socket target', () => {
+  posixOnly('echoes over the socket with the URL host cosmetic', async () => {
+    const socketPath = mintSocketPath();
+    const server = await startWsServer({ socketPath });
+    const seen = await runSession(server.url, { unixSocketPath: socketPath }, (writer, s) => {
+      writer.send('hello');
+      setTimeout(() => {
+        if (s.messages.length > 0) writer.close(1000, 'done');
+      }, 50);
+    });
+    expect(seen.error).toBeUndefined();
+    expect(seen.messages).toEqual([{ text: 'echo:hello', binary: false, byteLength: 10 }]);
+    expect(seen.close).toEqual({ code: 1000, reason: 'done', wasClean: true });
+    // The URL's host never decided the dial — but it IS the handshake
+    // Host the server saw (the cosmetic-host contract).
+    expect(server.seenHeaders().host).toBe('ws.openheaders.io');
+  });
+
+  posixOnly('classifies a missing socket file naming the setting and the path', async () => {
+    const socketPath = join(tmpdir(), 'oh-ws-missing.sock');
+    const seen = await runSession('ws://ws.openheaders.io/session', { unixSocketPath: socketPath }, () => {});
+    expect(seen.error?.message).toMatch(/No socket at .*oh-ws-missing\.sock — the request's Unix-socket setting/);
   });
 });

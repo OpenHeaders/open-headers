@@ -646,6 +646,10 @@ export const ENTITY_CASES: readonly EntityCase[] = [
           maybe(rng, 0.4, () => rng.pick(['text', 'json'] as const)),
         ),
         ...opt(
+          'unixSocketPath',
+          maybe(rng, 0.2, () => `/var/run/openheaders/${word(rng)}.sock`),
+        ),
+        ...opt(
           'timeoutMs',
           maybe(rng, 0.3, () => 1_000 + rng.int(30_000)),
         ),
@@ -682,6 +686,10 @@ export const ENTITY_CASES: readonly EntityCase[] = [
       ...opt(
         'specLink',
         maybe(rng, 0.3, () => ({ specUid: uid(rng) })),
+      ),
+      ...opt(
+        'unixSocketPath',
+        maybe(rng, 0.2, () => `/var/run/openheaders/${word(rng)}.sock`),
       ),
       ...opt(
         'timeoutMs',

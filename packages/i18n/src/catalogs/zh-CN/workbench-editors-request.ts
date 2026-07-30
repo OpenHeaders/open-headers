@@ -65,6 +65,8 @@ export const workbenchEditorsRequest = {
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': '输入 URL 或粘贴文本',
+  'workbench.editors.request.url.socketCta': '套接字风格 URL——发送将通过 Unix 套接字设置拨号 {path}。',
+  'workbench.editors.request.url.socketCtaApply': '应用',
   'workbench.editors.request.method.customGroup': '自定义',
   'workbench.editors.request.method.usePrefix': '使用',
   'workbench.editors.request.method.forbiddenSuffix': '无法从浏览器发送。',

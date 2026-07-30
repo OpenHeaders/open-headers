@@ -45,6 +45,8 @@ export const workbenchEditorsRequest = {
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'Enter URL or paste text',
+  'workbench.editors.request.url.socketCta': 'Socket-style URL — sends dial {path} via the Unix-socket setting.',
+  'workbench.editors.request.url.socketCtaApply': 'Apply',
   'workbench.editors.request.method.customGroup': 'Custom',
   'workbench.editors.request.method.usePrefix': 'Use',
   'workbench.editors.request.method.forbiddenSuffix': "can't be sent from a browser.",

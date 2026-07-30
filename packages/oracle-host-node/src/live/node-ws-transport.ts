@@ -16,6 +16,11 @@
  *     settle).
  *   - The connect deadline: `timeoutMs` spans dial + upgrade with a
  *     local timer — an OPEN session has no ceiling (the seam law).
+ *   - Socket-path dial: `unixSocketPath` rides the per-connect agent's
+ *     connector as undici's `socketPath` — the dial-winning `path`
+ *     into net/tls.connect, so the URL's host stays cosmetic for
+ *     dialing while the handshake `Host`, SNI, and certificate
+ *     verification keep it.
  *   - Frame types honest: `binaryType = 'arraybuffer'`; a text frame
  *     crosses the seam as its UTF-8 bytes with `binary: false`.
  *   - The Close event verbatim (`code`, `reason`, `wasClean`) — the
@@ -55,9 +60,35 @@ function wsFailureCode(err: unknown): string | undefined {
 }
 
 /** Classify a pre-open failure into a user-actionable message. */
-function classifyWsFailure(url: string, err: unknown): string {
+function classifyWsFailure(url: string, err: unknown, socketPath?: string): string {
   const host = hostLabelOf(url);
   const code = wsFailureCode(err);
+  // A socket-pinned session never dials TCP, so every dial-level
+  // failure is about the socket itself — name the setting and the path
+  // (the HTTP classifier's socket prose). Codes outside this set (TLS
+  // handshake, upgrade refusal) fall through to the shared
+  // classification below.
+  if (socketPath !== undefined) {
+    switch (code) {
+      case 'ENOENT': {
+        // An overlong path fails as ENOENT too — the OS truncates or
+        // rejects anything past its sun_path limit.
+        const lengthHint =
+          socketPath.length > 100
+            ? ' Paths longer than the OS limit on socket paths (~104 characters) also fail this way.'
+            : '';
+        return `No socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service running and the path right?${lengthHint}`;
+      }
+      case 'ENOTSOCK':
+        return `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`;
+      case 'EACCES':
+        return `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`;
+      case 'ECONNREFUSED':
+        return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
+      case 'ETIMEDOUT':
+        return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
+    }
+  }
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -136,7 +167,7 @@ export function createNodeWsTransport(): WsTransport {
           callbacks.onEnd(new WsTransportError('Session stopped before it connected.'));
           return;
         }
-        callbacks.onEnd(new WsTransportError(classifyWsFailure(request.url, err)));
+        callbacks.onEnd(new WsTransportError(classifyWsFailure(request.url, err, request.unixSocketPath)));
       };
       const endComplete = (): void => {
         if (ended) return;
@@ -167,8 +198,15 @@ export function createNodeWsTransport(): WsTransport {
         // WebSocket layer swallows dial failures into a bare event
         // (probed live — no `code`, no `cause`), so the connector is
         // the only place the real ECONNREFUSED/DNS/TLS error exists.
-        // Captured here, classified on settle.
-        const connector = buildConnector(request.sslVerification === false ? { rejectUnauthorized: false } : {});
+        // Captured here, classified on settle. `socketPath` pins the
+        // dial to the local socket / named pipe — undici passes it as
+        // the dial-winning `path` into net/tls.connect, so the URL's
+        // host stays cosmetic for dialing while the handshake `Host`,
+        // SNI, and certificate verification keep it.
+        const connector = buildConnector({
+          ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+          ...(request.unixSocketPath !== undefined ? { socketPath: request.unixSocketPath } : {}),
+        });
         dispatcher = new Agent({
           connect: (opts, cb) => {
             connector(opts, (err, sock) => {

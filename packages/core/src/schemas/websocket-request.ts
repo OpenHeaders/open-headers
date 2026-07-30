@@ -14,7 +14,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { RequestTimeoutMsSchema } from './request';
+import { RequestTimeoutMsSchema, UnixSocketPathSchema } from './request';
 
 /**
  * Session target: full `ws://` / `wss://` URL. Kept a plain bounded
@@ -176,6 +176,19 @@ export const WebSocketRequestSchema = v.object({
   /** Raw-flavor compose display mode. Absent = `text`. */
   messageFormat: v.optional(WebSocketMessageFormatSchema),
   specLink: v.optional(WebSocketSpecLinkSchema),
+  /**
+   * Dial this local socket — an absolute Unix domain socket path or a
+   * Windows named pipe (`\\.\pipe\…`) — instead of opening a TCP
+   * connection, the HTTP request's knob on the session dial. The URL
+   * keeps its scheme and host: the host becomes COSMETIC for dialing,
+   * while the handshake `Host`, SNI, and certificate verification
+   * still use it — a `wss:` session over the socket verifies against
+   * the URL's hostname. Honored by node runtimes; browser runtimes
+   * cannot dial local sockets and ignore it (the request still syncs
+   * it — one schema, all runtimes carry the value). Validated — see
+   * {@link UnixSocketPathSchema}.
+   */
+  unixSocketPath: v.optional(UnixSocketPathSchema),
   /**
    * Wall-clock ceiling (ms) on the connection handshake — the
    * transport's open deadline. An OPEN session has no ceiling. Same

@@ -6,8 +6,8 @@
  *   - `metadata` — metadata pair rows (`{ key, value, description?, enabled? }`)
  *
  * Every other field — `name`, `description`, `url`, `tls`, `method`,
- * `message`, `auth`, `specLink`, `timeoutMs`, `sslVerification` —
- * flows through `setField` scalars. `method`, `auth`, and `specLink`
+ * `message`, `auth`, `specLink`, `unixSocketPath`, `timeoutMs`,
+ * `sslVerification` — flows through `setField` scalars. `method`, `auth`, and `specLink`
  * are small objects; they route through the per-leaf flatten-diff at
  * the write site (the same treatment `auth` / `body` get on the HTTP
  * request) so edits share create's leaf representation.

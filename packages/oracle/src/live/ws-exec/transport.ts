@@ -42,6 +42,14 @@ export interface WsTransportRequest {
    *  Meaningful only for `wss:`. */
   sslVerification?: boolean;
   /**
+   * Dial this local socket — an absolute Unix domain socket path or a
+   * Windows named pipe — instead of opening a TCP connection. The
+   * URL's host stays COSMETIC for dialing while the handshake `Host`,
+   * SNI, and certificate verification keep it (the HTTP seam's
+   * contract).
+   */
+  unixSocketPath?: string;
+  /**
    * Handshake deadline (ms): connect + upgrade must complete inside
    * it or the attempt aborts with a classified error. An OPEN session
    * has no ceiling — it lives until a close, Stop, or Disconnect.

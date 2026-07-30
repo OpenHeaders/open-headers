@@ -50,6 +50,9 @@ export interface WebSocketDraft {
   /** Concrete in the form — absent on the entity reads as `text`. */
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
+  /** Local socket / named pipe the session dials instead of TCP —
+   *  `undefined` = a normal TCP connection. */
+  unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   /** Concrete in the form — absent on the entity reads as verify-on
    *  (the safe default the transport applies). */
@@ -70,6 +73,7 @@ export interface WebSocketRequestUpdates {
   ackEnabled: boolean;
   messageFormat: WebSocketMessageFormat;
   specLink: WebSocketSpecLink | undefined;
+  unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   sslVerification: boolean;
 }
@@ -153,6 +157,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     ackEnabled: req.ackEnabled ?? false,
     messageFormat: req.messageFormat ?? 'text',
     specLink: req.specLink,
+    unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
   };
@@ -173,6 +178,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     ackEnabled: draft.ackEnabled,
     messageFormat: draft.messageFormat,
     specLink: draft.specLink,
+    unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
   };

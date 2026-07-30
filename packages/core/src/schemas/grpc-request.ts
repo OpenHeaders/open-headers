@@ -11,7 +11,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { RequestTimeoutMsSchema } from './request';
+import { RequestTimeoutMsSchema, UnixSocketPathSchema } from './request';
 
 /**
  * gRPC target: authority (`host` or `host:port`) without a scheme —
@@ -103,6 +103,19 @@ export const GrpcRequestSchema = v.object({
   /** Call credential injected into metadata at invoke. Absent = none. */
   auth: v.optional(GrpcAuthSchema),
   specLink: v.optional(GrpcSpecLinkSchema),
+  /**
+   * Dial this local socket — an absolute Unix domain socket path or a
+   * Windows named pipe (`\\.\pipe\…`) — instead of opening a TCP
+   * connection, the HTTP request's knob on the gRPC channel. The
+   * target keeps its authority: the host becomes COSMETIC for dialing,
+   * while `:authority`, SNI, and certificate verification still use it
+   * — a TLS channel over the socket verifies against the target's
+   * hostname. Honored by node runtimes; browser runtimes cannot dial
+   * local sockets and ignore it (the request still syncs it — one
+   * schema, all runtimes carry the value). Validated — see
+   * {@link UnixSocketPathSchema}.
+   */
+  unixSocketPath: v.optional(UnixSocketPathSchema),
   /**
    * Wall-clock ceiling (ms) on the whole call — becomes the gRPC
    * deadline once the transport lands (Phase D). Same bounds as the

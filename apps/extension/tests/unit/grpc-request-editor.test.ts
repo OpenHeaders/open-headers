@@ -22,6 +22,7 @@ import {
   metadataToRows,
   rowsToMetadata,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/draft';
+import { humanizeGrpcStatus } from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcResponseErrorState';
 import {
   deriveGrpcMethods,
   findMethodOption,
@@ -31,7 +32,6 @@ import {
   parseGrpcSelectValue,
   synthesizeExampleText,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/method-selector';
-import { humanizeGrpcStatus } from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcResponseErrorState';
 import { createImportedProtoSpecSeed } from '@openheaders/ui/workbench/components/specs/spec-scaffold';
 import { describe, expect, it } from 'vitest';
 
@@ -255,6 +255,15 @@ describe('grpc draft projections', () => {
     const updates = buildGrpcRequestUpdates(draftFromGrpcRequest(documented));
     expect(updates).toEqual(canonicalGrpcRequestProjection(documented));
     expect(updates.description).toBe('# Create Book\nCreates one book.');
+  });
+
+  it('round-trips the Unix-socket knob; absent stays undefined so the save patch skips it', () => {
+    expect(draftFromGrpcRequest(entity).unixSocketPath).toBeUndefined();
+    expect(buildGrpcRequestUpdates(draftFromGrpcRequest(entity)).unixSocketPath).toBeUndefined();
+    const socketed: GrpcRequest = { ...entity, unixSocketPath: '/var/run/openheaders/grpc.sock' };
+    const updates = buildGrpcRequestUpdates(draftFromGrpcRequest(socketed));
+    expect(updates).toEqual(canonicalGrpcRequestProjection(socketed));
+    expect(updates.unixSocketPath).toBe('/var/run/openheaders/grpc.sock');
   });
 
   it('round-trips a bearer credential and a verify-off knob through the projections', () => {

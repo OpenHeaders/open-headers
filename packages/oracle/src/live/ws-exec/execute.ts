@@ -240,6 +240,7 @@ export async function executeWsSession(
         headers,
         subprotocols: request.subprotocols,
         ...(request.sslVerification !== undefined ? { sslVerification: request.sslVerification } : {}),
+        ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
         ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
       },
       {

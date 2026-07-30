@@ -62,6 +62,14 @@ describe('websocket draft projections', () => {
     ).toBe(false);
   });
 
+  it('round-trips the Unix-socket knob; absent stays undefined so the save patch skips it', () => {
+    expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest())).unixSocketPath).toBeUndefined();
+    const socketed = websocketRequest({ unixSocketPath: '/var/run/openheaders/ws.sock' });
+    const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(socketed));
+    expect(updates).toEqual(canonicalWebSocketRequestProjection(socketed));
+    expect(updates.unixSocketPath).toBe('/var/run/openheaders/ws.sock');
+  });
+
   it('never carries the flavor — creation fixes it, the editor cannot flip it', () => {
     const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ flavor: 'socketio' })));
     expect('flavor' in updates).toBe(false);

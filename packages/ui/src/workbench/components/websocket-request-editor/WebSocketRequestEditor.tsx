@@ -52,7 +52,12 @@ import {
 } from '@openheaders/core/asyncapi';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
+import {
+  isValidUnixSocketPath,
+  MAX_REQUEST_TIMEOUT_MS,
+  MAX_UNIX_SOCKET_PATH_LENGTH,
+  MIN_REQUEST_TIMEOUT_MS,
+} from '@openheaders/core/schemas';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type {
   ExecutedWsSnapshot,
@@ -149,6 +154,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   ackEnabled: false,
   messageFormat: 'text',
   specLink: undefined,
+  unixSocketPath: undefined,
   timeoutMs: undefined,
   sslVerification: true,
 });
@@ -1288,6 +1294,28 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         suffixIcon={null}
                         tokenSeparators={[',', ' ']}
                         data-testid="websocket-subprotocols"
+                      />
+                    }
+                  />
+                  <SettingRow
+                    label={t('workbench.editors.websocket.settings.unixSocketLabel')}
+                    description={t('workbench.editors.websocket.settings.unixSocketHelp')}
+                    control={
+                      <Input
+                        value={draft.unixSocketPath ?? ''}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setDraft((d) => ({ ...d, unixSocketPath: next.trim() === '' ? undefined : next }));
+                        }}
+                        placeholder={t('workbench.editors.websocket.settings.unixSocketPlaceholder')}
+                        maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
+                        status={
+                          draft.unixSocketPath !== undefined && !isValidUnixSocketPath(draft.unixSocketPath)
+                            ? 'error'
+                            : undefined
+                        }
+                        style={{ width: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                        data-testid="websocket-unix-socket"
                       />
                     }
                   />

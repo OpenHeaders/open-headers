@@ -79,6 +79,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol offer list, in preference order — the server picks one during the handshake.',
   'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Add a subprotocol…',
+  'workbench.editors.websocket.settings.unixSocketLabel': 'Unix socket',
+  'workbench.editors.websocket.settings.unixSocketHelp':
+    'Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection. The URL keeps deciding the handshake Host, TLS server name, and certificate verification; only where the connection goes changes. Leave empty for a normal TCP connection.',
+  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'No socket — TCP connection',
   'workbench.editors.websocket.settings.timeoutLabel': 'Connect timeout (ms)',
   'workbench.editors.websocket.settings.timeoutHelp':
     'Wall-clock ceiling on the connection handshake. Empty uses the app default.',

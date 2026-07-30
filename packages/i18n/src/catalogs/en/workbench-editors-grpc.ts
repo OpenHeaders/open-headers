@@ -115,6 +115,10 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.specFooter.none': 'No spec linked',
   'workbench.editors.grpc.specFooter.issues': '{count} unresolved',
   'workbench.editors.grpc.specFooter.refresh': 'Rebuild from the spec’s current files',
+  'workbench.editors.grpc.settings.unixSocketLabel': 'Unix socket',
+  'workbench.editors.grpc.settings.unixSocketHelp':
+    'Dial this local socket — an absolute Unix socket path, or a Windows named pipe like \\\\.\\pipe\\name — instead of opening a TCP connection. The target keeps deciding the :authority header, TLS server name, and certificate verification; only where the connection goes changes. Leave empty for a normal TCP connection.',
+  'workbench.editors.grpc.settings.unixSocketPlaceholder': 'No socket — TCP connection',
   'workbench.editors.grpc.settings.timeoutLabel': 'Call timeout (ms)',
   'workbench.editors.grpc.settings.timeoutPlaceholder': 'No limit',
   'workbench.editors.grpc.settings.timeoutHelp':

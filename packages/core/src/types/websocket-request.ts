@@ -8,7 +8,7 @@
  * containing:
  *   websocket.yaml — schemaVersion, uid, name, url, flavor,
  *                    subprotocols, headers, params, messageFormat,
- *                    specLink, timeoutMs
+ *                    specLink, unixSocketPath, timeoutMs
  *   message.json / message.txt — compose draft (format-matched sibling)
  *
  * The 8-char uid is embedded in `websocket.yaml` and mirrored in the

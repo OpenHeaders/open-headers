@@ -42,6 +42,13 @@ export interface GrpcTransportRequest {
   sslVerification?: boolean;
   /** Request path: `/{service full name}/{rpc}`. */
   path: string;
+  /**
+   * Dial this local socket — an absolute Unix domain socket path or a
+   * Windows named pipe — instead of opening a TCP connection. The
+   * authority stays COSMETIC for dialing while `:authority`, SNI, and
+   * certificate verification keep it (the HTTP seam's contract).
+   */
+  unixSocketPath?: string;
   /** Custom metadata, already resolved and filtered of the fields the
    *  transport owns (pseudo-headers, content-type, te). */
   metadata: ReadonlyArray<GrpcTransportHeader>;
@@ -110,6 +117,8 @@ export interface GrpcTransportStreamRequest {
   /** See {@link GrpcTransportRequest.sslVerification}. */
   sslVerification?: boolean;
   path: string;
+  /** See {@link GrpcTransportRequest.unixSocketPath}. */
+  unixSocketPath?: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
   timeoutMs?: number;
 }

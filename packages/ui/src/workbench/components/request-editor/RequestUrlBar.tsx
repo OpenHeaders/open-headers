@@ -4,15 +4,18 @@
  * editing the URL re-parses its query into the params table (preserving
  * row metadata via `mergeParamsFromUrl`), and the displayed value folds
  * the structured params back in via `buildUrlDisplay`. On blur it
- * normalizes a scheme-less URL to `https://`.
+ * normalizes a scheme-less URL to `https://`. A socket-style URL
+ * (`unix://`, `http+unix://`, `npipe://`) grows a one-line scaffold
+ * under the input that rewrites it into a plain URL + the Unix-socket
+ * setting, pre-filled from the recognized path.
  */
 
 import { DeleteOutlined } from '@ant-design/icons';
 import { EntityField, REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
 import { detectImportSource } from '@openheaders/core/import';
 import type { HttpMethod } from '@openheaders/core/types';
-import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
-import { Select } from 'antd';
+import { buildUrlDisplay, parseUrlQuery, recognizeSocketUrl } from '@openheaders/core/utils';
+import { Button, Select, Typography } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -79,6 +82,20 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
   const [customMethods, setCustomMethods] = useState<string[]>(readCustomMethods);
   const [methodSearch, setMethodSearch] = useState('');
   const importText = useImportText();
+
+  // Socket-style URL (unix://, http+unix://, npipe://) — no HTTP stack
+  // dials these as-is; the app's contract is a plain URL plus the
+  // Unix-socket setting. The scaffold names that split and applies it
+  // in one click, pre-filled from the recognized path (the CTA law).
+  const socketUrl = useMemo(() => recognizeSocketUrl(draft.url), [draft.url]);
+  const applySocketUrl = (): void => {
+    if (socketUrl === null) return;
+    setDraft((d) => ({
+      ...d,
+      url: `http://localhost${socketUrl.requestPath}`,
+      unixSocketPath: socketUrl.socketPath,
+    }));
+  };
 
   const removeCustomMethod = (method: string): void => {
     setCustomMethods((prev) => {
@@ -198,6 +215,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
         />
       </EntityField>
       <EntityField path={REQUEST_PATHS.url}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <TemplateInput
           value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
           onChange={(next) => {
@@ -219,7 +237,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
           // min-height). Single-line semantics stay — Enter still sends.
           expandOnFocus
           style={{
-            flex: 1,
+            width: '100%',
             minWidth: 0,
             fontFamily: "'SF Mono', monospace",
             fontSize: 12,
@@ -249,6 +267,23 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
             }
           }}
         />
+        {socketUrl !== null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }} data-testid="socket-url-cta">
+            <Typography.Text type="secondary" style={{ fontSize: 11, minWidth: 0 }} ellipsis>
+              {t('workbench.editors.request.url.socketCta', { path: socketUrl.socketPath })}
+            </Typography.Text>
+            <Button
+              type="link"
+              size="small"
+              style={{ fontSize: 11, padding: 0, height: 'auto', flexShrink: 0 }}
+              onClick={applySocketUrl}
+              data-testid="socket-url-cta-apply"
+            >
+              {t('workbench.editors.request.url.socketCtaApply')}
+            </Button>
+          </div>
+        )}
+        </div>
       </EntityField>
     </div>
   );

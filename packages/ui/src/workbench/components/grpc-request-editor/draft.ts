@@ -26,6 +26,9 @@ export interface GrpcDraft {
    *  round-trips (an update skips only `undefined` values). */
   auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
+  /** Local socket / named pipe the call dials instead of TCP —
+   *  `undefined` = a normal TCP connection. */
+  unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   /** Concrete like `auth` — absent on the entity reads as `true`. */
   sslVerification: boolean;
@@ -40,6 +43,7 @@ export interface GrpcRequestUpdates {
   metadata: GrpcMetadataPair[];
   auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
+  unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   sslVerification: boolean;
 }
@@ -78,6 +82,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     metadata: metadataToRows(req.metadata),
     auth: req.auth ?? { type: 'none' },
     specLink: req.specLink,
+    unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     sslVerification: req.sslVerification ?? true,
   };
@@ -93,6 +98,7 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     metadata: rowsToMetadata(draft.metadata),
     auth: draft.auth,
     specLink: draft.specLink,
+    unixSocketPath: draft.unixSocketPath,
     timeoutMs: draft.timeoutMs,
     sslVerification: draft.sslVerification,
   };

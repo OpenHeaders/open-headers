@@ -120,6 +120,10 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.specFooter.none': '未关联规范',
   'workbench.editors.grpc.specFooter.issues': '{count} 个未解析',
   'workbench.editors.grpc.specFooter.refresh': '按规范当前的文件重建',
+  'workbench.editors.grpc.settings.unixSocketLabel': 'Unix 套接字',
+  'workbench.editors.grpc.settings.unixSocketHelp':
+    '拨号这个本地套接字——绝对 Unix 套接字路径，或形如 \\\\.\\pipe\\name 的 Windows 命名管道——而不是打开 TCP 连接。目标仍决定 :authority 标头、TLS 服务器名和证书验证；只有连接的去向改变。留空则使用普通 TCP 连接。',
+  'workbench.editors.grpc.settings.unixSocketPlaceholder': '无套接字——TCP 连接',
   'workbench.editors.grpc.settings.timeoutLabel': '调用超时（ms）',
   'workbench.editors.grpc.settings.timeoutPlaceholder': '无限制',
   'workbench.editors.grpc.settings.timeoutHelp': '整个调用的墙钟时间上限——作为 gRPC 截止时间发送，并在本地强制执行。',

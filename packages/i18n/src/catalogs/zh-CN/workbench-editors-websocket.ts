@@ -92,6 +92,10 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.subprotocolsHelp':
     'Sec-WebSocket-Protocol 提议列表，按偏好排序——服务器在握手期间从中选定一个。',
   'workbench.editors.websocket.settings.subprotocolsPlaceholder': '添加子协议…',
+  'workbench.editors.websocket.settings.unixSocketLabel': 'Unix 套接字',
+  'workbench.editors.websocket.settings.unixSocketHelp':
+    '拨号这个本地套接字——绝对 Unix 套接字路径，或形如 \\\\.\\pipe\\name 的 Windows 命名管道——而不是打开 TCP 连接。URL 仍决定握手 Host、TLS 服务器名和证书验证；只有连接的去向改变。留空则使用普通 TCP 连接。',
+  'workbench.editors.websocket.settings.unixSocketPlaceholder': '无套接字——TCP 连接',
   'workbench.editors.websocket.settings.timeoutLabel': '连接超时（ms）',
   'workbench.editors.websocket.settings.timeoutHelp': '连接握手的墙钟时间上限。留空使用应用默认值。',
   'workbench.editors.websocket.settings.timeoutPlaceholder': '默认',

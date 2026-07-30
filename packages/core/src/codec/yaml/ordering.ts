@@ -124,6 +124,7 @@ export const GRPC_REQUEST_FIELD_ORDER = [
   'metadata',
   'auth',
   'specLink',
+  'unixSocketPath',
   'timeoutMs',
   'sslVerification',
 ] as const;
@@ -151,6 +152,7 @@ export const WEBSOCKET_REQUEST_FIELD_ORDER = [
   'ackEnabled',
   'messageFormat',
   'specLink',
+  'unixSocketPath',
   'timeoutMs',
   'sslVerification',
 ] as const;

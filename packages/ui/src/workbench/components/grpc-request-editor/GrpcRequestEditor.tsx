@@ -49,7 +49,12 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef, GrpcRequest as GrpcRequestEntity } from '@openheaders/core/types';
-import { MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
+import {
+  isValidUnixSocketPath,
+  MAX_REQUEST_TIMEOUT_MS,
+  MAX_UNIX_SOCKET_PATH_LENGTH,
+  MIN_REQUEST_TIMEOUT_MS,
+} from '@openheaders/core/schemas';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
@@ -139,6 +144,7 @@ const emptyGrpcDraft = (): GrpcDraft => ({
   metadata: [],
   auth: { type: 'none' },
   specLink: undefined,
+  unixSocketPath: undefined,
   timeoutMs: undefined,
   sslVerification: true,
 });
@@ -1130,6 +1136,28 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                     )}
                     {activeTab === 'settings' && (
                       <div style={{ maxWidth: 720 }}>
+                        <SettingRow
+                          label={t('workbench.editors.grpc.settings.unixSocketLabel')}
+                          description={t('workbench.editors.grpc.settings.unixSocketHelp')}
+                          control={
+                            <Input
+                              value={draft.unixSocketPath ?? ''}
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                setDraft((d) => ({ ...d, unixSocketPath: next.trim() === '' ? undefined : next }));
+                              }}
+                              placeholder={t('workbench.editors.grpc.settings.unixSocketPlaceholder')}
+                              maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
+                              status={
+                                draft.unixSocketPath !== undefined && !isValidUnixSocketPath(draft.unixSocketPath)
+                                  ? 'error'
+                                  : undefined
+                              }
+                              style={{ width: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                              data-testid="grpc-unix-socket"
+                            />
+                          }
+                        />
                         <SettingRow
                           label={t('workbench.editors.grpc.settings.sslVerifyLabel')}
                           description={t('workbench.editors.grpc.settings.sslVerifyHelp')}

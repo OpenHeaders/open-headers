@@ -6,8 +6,8 @@
  * a discriminant on the HTTP request). On disk, each gRPC request is a
  * folder containing:
  *   grpc.yaml      — schemaVersion, uid, name, url, tls, method,
- *                    metadata, auth, specLink, timeoutMs,
- *                    sslVerification
+ *                    metadata, auth, specLink, unixSocketPath,
+ *                    timeoutMs, sslVerification
  *   message.json   — request message as canonical protobuf JSON
  *
  * The 8-char uid is embedded in `grpc.yaml` and mirrored in the folder

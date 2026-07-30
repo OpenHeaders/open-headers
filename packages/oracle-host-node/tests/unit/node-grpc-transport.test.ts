@@ -12,6 +12,7 @@
  * paths through onEnd, and the post-head abort settling clean.
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
 import {
   createServer as createHttp2Server,
   createSecureServer as createSecureHttp2Server,
@@ -19,10 +20,12 @@ import {
   type IncomingHttpHeaders,
   type ServerHttp2Stream,
 } from 'node:http2';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { readGrpcFrames, writeGrpcFrame } from '@openheaders/core/proto';
 import { GrpcTransportError } from '@openheaders/oracle/live/grpc-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createNodeGrpcTransport } from '../../src/live/node-grpc-transport';
+import { createNodeGrpcTransport, sessionOptionsFor } from '../../src/live/node-grpc-transport';
 
 interface SeenCall {
   headers: IncomingHttpHeaders;
@@ -216,7 +219,7 @@ interface StreamRun {
 
 function openStreamRun(
   authority: string,
-  overrides: { timeoutMs?: number; tls?: boolean; sslVerification?: boolean } = {},
+  overrides: { timeoutMs?: number; tls?: boolean; sslVerification?: boolean; unixSocketPath?: string } = {},
   signal?: AbortSignal,
 ): { run: StreamRun; writer: ReturnType<NonNullable<typeof transport.openStream>> } {
   const openStream = transport.openStream;
@@ -413,5 +416,86 @@ describe('createNodeGrpcTransport — TLS verification knob', () => {
     const error = await run.ended;
     expect(error).toBeUndefined();
     expect(run.heads).toHaveLength(1);
+  });
+});
+
+const posixOnly = it.runIf(process.platform !== 'win32');
+
+const socketDirs: string[] = [];
+
+/** Short socket path under the OS tmpdir — the OS caps sun_path at
+ *  ~104 bytes on macOS, so the rig never rides a long test-run dir. */
+function mintSocketPath(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'oh-grpc-'));
+  socketDirs.push(dir);
+  return join(dir, 'g.sock');
+}
+
+afterEach(() => {
+  for (const dir of socketDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+/** The unary echo rig listening on a Unix socket instead of a port. */
+async function startSocketServer(socketPath: string): Promise<{ calls: SeenCall[] }> {
+  const calls: SeenCall[] = [];
+  const server = createHttp2Server();
+  server.on('stream', (stream, headers) => {
+    const parts: Buffer[] = [];
+    stream.on('data', (chunk: Buffer) => parts.push(chunk));
+    stream.on('end', () => {
+      calls.push({ headers, body: Buffer.concat(parts) });
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc+proto' }, { waitForTrailers: true });
+      stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+      stream.end(Buffer.from(writeGrpcFrame(new Uint8Array([0x12, 0x02, 0x6f, 0x6b]))));
+    });
+  });
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(socketPath, () => resolve()));
+  return { calls };
+}
+
+describe('createNodeGrpcTransport — Unix socket target', () => {
+  posixOnly('runs the unary exchange over the socket with the authority cosmetic', async () => {
+    const socketPath = mintSocketPath();
+    const { calls } = await startSocketServer(socketPath);
+    const response = await transport.invoke(request('grpc.openheaders.io:50051', { unixSocketPath: socketPath }));
+    expect(response.httpStatus).toBe(200);
+    const { frames } = readGrpcFrames(response.body);
+    expect(frames).toHaveLength(1);
+    // The authority never decided the dial — but it IS the :authority
+    // the server saw (the cosmetic-host contract).
+    expect(calls[0]?.headers[':authority']).toBe('grpc.openheaders.io:50051');
+  });
+
+  posixOnly('opens a streaming call over the socket through the openStream twin', async () => {
+    const socketPath = mintSocketPath();
+    await startSocketServer(socketPath);
+    const { run, writer } = openStreamRun('grpc.openheaders.io:50051', { unixSocketPath: socketPath });
+    writer.halfClose();
+    const error = await run.ended;
+    expect(error).toBeUndefined();
+    expect(run.heads).toHaveLength(1);
+  });
+
+  posixOnly('classifies a missing socket file naming the setting and the path', async () => {
+    const socketPath = join(tmpdir(), 'oh-grpc-missing.sock');
+    const attempt = transport.invoke(request('grpc.openheaders.io:50051', { unixSocketPath: socketPath }));
+    await expect(attempt).rejects.toThrow(GrpcTransportError);
+    await expect(attempt).rejects.toThrow(/No socket at .*oh-grpc-missing\.sock — the request's Unix-socket setting/);
+  });
+
+  it('a socket-pinned tuple owns its dial; a TCP tuple hands the dial to the session', () => {
+    // Options-level (the dispatcher.test.ts idiom) — the named-pipe
+    // spelling rides the same seat, so the Windows shape is covered
+    // without a live pipe rig.
+    const target = new URL('https://grpc.openheaders.io:50051');
+    expect(sessionOptionsFor({ tls: true, unixSocketPath: '/var/run/openheaders/grpc.sock' }, target)).toHaveProperty(
+      'createConnection',
+    );
+    expect(sessionOptionsFor({ tls: false, unixSocketPath: '\\\\.\\pipe\\openheaders-grpc' }, target)).toHaveProperty(
+      'createConnection',
+    );
+    expect(sessionOptionsFor({ tls: true }, target)).toBeUndefined();
+    expect(sessionOptionsFor({ tls: true, sslVerification: false }, target)).toEqual({ rejectUnauthorized: false });
   });
 });

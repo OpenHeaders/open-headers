@@ -129,6 +129,8 @@ export {
   isFetchRealizableNow,
 } from './rule-tier';
 export { isRuleComplete, isRuleDraft, isRuleEffective, isRuleResolvable } from './rule-validation';
+export type { RecognizedSocketUrl } from './socket-url';
+export { recognizeSocketUrl } from './socket-url';
 export {
   buildBreadcrumbTrail,
   findNodeChildren,

@@ -20,6 +20,11 @@
  *     opts out — the self-signed dev-server knob) or cleartext h2c.
  *     Prior-knowledge h2c — gRPC servers speak HTTP/2 directly, no
  *     upgrade dance.
+ *   - Socket-path dial: `unixSocketPath` pins the session's own
+ *     `createConnection` to the local socket / named pipe (the
+ *     prior-knowledge hop's hoisted-dial idiom) — the authority stays
+ *     cosmetic for dialing while `:authority`, SNI, and certificate
+ *     verification keep it.
  *   - Deadline: `grpc-timeout` header (so the SERVER can enforce it)
  *     plus a local abort spanning connect, response head, and body
  *     read — the HTTP transport's one-deadline discipline.
@@ -39,6 +44,8 @@
  */
 
 import { type ClientHttp2Session, type ClientHttp2Stream, connect, constants } from 'node:http2';
+import * as net from 'node:net';
+import * as tls from 'node:tls';
 import { encodeGrpcTimeout, writeGrpcFrame } from '@openheaders/core/proto';
 import {
   type GrpcStreamCallbacks,
@@ -50,6 +57,7 @@ import {
   type GrpcTransportResponse,
   type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
+import { servernameFor } from './instrumented-connector';
 
 /**
  * TLS connect options for one session: verify against the system roots
@@ -61,6 +69,38 @@ function sessionOptions(request: {
   sslVerification?: boolean;
 }): { rejectUnauthorized: false } | undefined {
   return request.tls && request.sslVerification === false ? { rejectUnauthorized: false } : undefined;
+}
+
+/**
+ * Session options for one call's dial shape. A TCP call hands the dial
+ * to `http2.connect` with the TLS policy above; a socket-pinned call
+ * owns its `createConnection` instead (the prior-knowledge hop's
+ * hoisted-dial idiom): `path` wins over host+port inside
+ * `net.connect` / `tls.connect`, so the authority stays COSMETIC for
+ * dialing while `:authority`, SNI, and certificate verification keep
+ * it — a TLS channel over the socket verifies against the target's
+ * hostname. TLS-only options ride only a TLS dial. Exported pure so
+ * the mapping is testable without inspecting a live session (the HTTP
+ * transport's `connectOptionsFor` discipline).
+ */
+export function sessionOptionsFor(
+  request: { tls: boolean; sslVerification?: boolean; unixSocketPath?: string },
+  target: URL,
+): Parameters<typeof connect>[1] {
+  const socketPath = request.unixSocketPath;
+  if (socketPath === undefined) return sessionOptions(request);
+  const servername = servernameFor(target.hostname);
+  return {
+    createConnection: (): net.Socket =>
+      request.tls
+        ? tls.connect({
+            path: socketPath,
+            ...(servername !== undefined ? { servername } : {}),
+            ALPNProtocols: ['h2'],
+            ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+          })
+        : net.connect({ path: socketPath }),
+  };
 }
 
 /** Node's incoming header shape flattened to seam headers — repeated
@@ -130,8 +170,34 @@ function grpcFailureCode(err: unknown): string | undefined {
  * Node's own (no undici layers here); the codes below are the ones a
  * dial, handshake, or protocol mismatch actually surfaces.
  */
-function classifyGrpcFailure(authority: string, tls: boolean, err: unknown): string {
+function classifyGrpcFailure(authority: string, tls: boolean, err: unknown, socketPath?: string): string {
   const code = grpcFailureCode(err);
+  // A socket-pinned call never dials TCP, so every dial-level failure
+  // is about the socket itself — name the setting and the path (the
+  // HTTP classifier's socket prose). Codes outside this set (TLS
+  // handshake, protocol mismatch) fall through to the shared
+  // classification below.
+  if (socketPath !== undefined) {
+    switch (code) {
+      case 'ENOENT': {
+        // An overlong path fails as ENOENT too — the OS truncates or
+        // rejects anything past its sun_path limit.
+        const lengthHint =
+          socketPath.length > 100
+            ? ' Paths longer than the OS limit on socket paths (~104 characters) also fail this way.'
+            : '';
+        return `No socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service running and the path right?${lengthHint}`;
+      }
+      case 'ENOTSOCK':
+        return `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`;
+      case 'EACCES':
+        return `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`;
+      case 'ECONNREFUSED':
+        return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
+      case 'ETIMEDOUT':
+        return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
+    }
+  }
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -193,7 +259,7 @@ export function createNodeGrpcTransport(): GrpcTransport {
         let timer: ReturnType<typeof setTimeout> | null = null;
         let stream: ClientHttp2Stream | null = null;
 
-        const session: ClientHttp2Session = connect(target.origin, sessionOptions(request));
+        const session: ClientHttp2Session = connect(target.origin, sessionOptionsFor(request, target));
 
         const cleanup = (): void => {
           if (timer !== null) clearTimeout(timer);
@@ -214,7 +280,9 @@ export function createNodeGrpcTransport(): GrpcTransport {
             reject(new GrpcTransportError('Call aborted before a response arrived.'));
             return;
           }
-          reject(new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err)));
+          reject(
+            new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath)),
+          );
         };
         const settleResponse = (): void => {
           if (settled) return;
@@ -318,7 +386,7 @@ export function createNodeGrpcTransport(): GrpcTransport {
       let timer: ReturnType<typeof setTimeout> | null = null;
       let stream: ClientHttp2Stream | null = null;
 
-      const session: ClientHttp2Session = connect(target.origin, sessionOptions(request));
+      const session: ClientHttp2Session = connect(target.origin, sessionOptionsFor(request, target));
 
       const cleanup = (): void => {
         if (timer !== null) clearTimeout(timer);
@@ -339,7 +407,9 @@ export function createNodeGrpcTransport(): GrpcTransport {
           callbacks.onEnd(new GrpcTransportError('Call aborted before a response arrived.'));
           return;
         }
-        callbacks.onEnd(new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err)));
+        callbacks.onEnd(
+          new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath)),
+        );
       };
       const endComplete = (): void => {
         if (ended) return;
