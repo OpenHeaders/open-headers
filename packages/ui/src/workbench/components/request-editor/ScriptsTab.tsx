@@ -25,6 +25,7 @@ import { createPortal } from 'react-dom';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
+import { settingsExampleCard } from './SettingsRowInfo';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import CodeEditor from '../shared/CodeEditor';
@@ -47,10 +48,16 @@ interface ScriptsTabProps {
 }
 
 // `oh.*` API labels are code — only the descriptions localize.
+// Both popovers lead with the Settings tab's shared example card: the
+// scripts bracket that same send, so the pre script lights the request
+// line it may rewrite and the post script lights the outcome it tests —
+// both alongside the scripts slot they execute in.
 const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
   kind === 'pre-request'
     ? {
         title: t('workbench.editors.request.scripts.preInfoTitle'),
+        kicker: t('workbench.editors.request.tab.scripts'),
+        diagram: settingsExampleCard(['url', 'scripts']),
         summary: t('workbench.editors.request.scripts.preInfoSummary'),
         sections: [
           {
@@ -70,6 +77,8 @@ const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
       }
     : {
         title: t('workbench.editors.request.scripts.postInfoTitle'),
+        kicker: t('workbench.editors.request.tab.scripts'),
+        diagram: settingsExampleCard(['chain', 'scripts']),
         summary: t('workbench.editors.request.scripts.postInfoSummary'),
         sections: [
           {
@@ -85,6 +94,62 @@ const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
 const SCRIPT_PLACEHOLDER_KEY: Record<ScriptKind, MessageKey> = {
   'pre-request': 'workbench.editors.request.scripts.prePlaceholder',
   'post-response': 'workbench.editors.request.scripts.postPlaceholder',
+};
+
+// Row is a `role="button"` div (not a real <button>) so the
+// InfoTrigger — itself a <button> — can sit inline right after the
+// label without nesting interactive elements. Module-scope on purpose:
+// defined inside ScriptsTab its component type would change identity
+// every render, remounting both rows — and closing an open (i)
+// popover on any re-render of the tab.
+const Rail: React.FC<{
+  kind: ScriptKind;
+  label: string;
+  selected: boolean;
+  hasScript: boolean;
+  onSelect: (kind: ScriptKind) => void;
+}> = ({ kind, label, selected, hasScript, onSelect }) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(kind)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(kind);
+        }
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '8px 10px',
+        background: selected ? token.colorFillTertiary : 'transparent',
+        borderRadius: 4,
+        cursor: 'pointer',
+        color: token.colorText,
+        fontSize: 13,
+      }}
+    >
+      <span>{label}</span>
+      <InfoTrigger content={scriptInfo(kind, t)} />
+      <span style={{ flex: 1 }} />
+      {hasScript && (
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: token.colorPrimary,
+            flexShrink: 0,
+          }}
+        />
+      )}
+    </div>
+  );
 };
 
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
@@ -153,53 +218,6 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
     editor.revealPositionInCenterIfOutsideViewport({ lineNumber: endLine, column: 1 });
   };
 
-  // Row is a `role="button"` div (not a real <button>) so the
-  // InfoTrigger — itself a <button> — can sit inline right after the
-  // label without nesting interactive elements.
-  const Rail: React.FC<{ kind: ScriptKind; label: string }> = ({ kind, label }) => {
-    const selected = active === kind;
-    const hasScript = kind === 'pre-request' ? preRequestScript.trim() : postResponseScript.trim();
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setActive(kind)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setActive(kind);
-          }
-        }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '8px 10px',
-          background: selected ? token.colorFillTertiary : 'transparent',
-          borderRadius: 4,
-          cursor: 'pointer',
-          color: token.colorText,
-          fontSize: 13,
-        }}
-      >
-        <span>{label}</span>
-        <InfoTrigger content={scriptInfo(kind, t)} />
-        <span style={{ flex: 1 }} />
-        {hasScript && (
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: token.colorPrimary,
-              flexShrink: 0,
-            }}
-          />
-        )}
-      </div>
-    );
-  };
-
   return (
     <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 120 }}>
       <div
@@ -213,8 +231,20 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           alignSelf: 'start',
         }}
       >
-        <Rail kind="pre-request" label={t('workbench.editors.request.scripts.preRequest')} />
-        <Rail kind="post-response" label={t('workbench.editors.request.scripts.postResponse')} />
+        <Rail
+          kind="pre-request"
+          label={t('workbench.editors.request.scripts.preRequest')}
+          selected={active === 'pre-request'}
+          hasScript={preRequestScript.trim() !== ''}
+          onSelect={setActive}
+        />
+        <Rail
+          kind="post-response"
+          label={t('workbench.editors.request.scripts.postResponse')}
+          selected={active === 'post-response'}
+          hasScript={postResponseScript.trim() !== ''}
+          onSelect={setActive}
+        />
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, minHeight: 0 }}>
         {/* Toolbar row ABOVE the editor (labelled variant of the shared
