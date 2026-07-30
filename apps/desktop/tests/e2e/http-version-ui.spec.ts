@@ -366,3 +366,49 @@ test.describe('HTTP version — knob to wire through the workbench UI', () => {
     await sendAndExpectVersion('HTTP/3');
   });
 });
+
+// ── Remote playground tier (env-gated) ───────────────────────────────
+// A PRIVATE deployment of the playground behind a real wildcard
+// certificate — real DNS, real Let's Encrypt trust, real QUIC over the
+// public internet. The hostname is deliberately secret: these legs read
+// it from OH_REMOTE_PLAYGROUND and skip cleanly when unset. The local
+// rigs above remain the hermetic CI law; this tier is extra coverage
+// the loopback rigs cannot give — certificate verification left ON and
+// the helper's default webpki trust path exercised against a publicly
+// trusted chain.
+
+const REMOTE_HOST = process.env.OH_REMOTE_PLAYGROUND ?? '';
+const REMOTE_SKIP = 'OH_REMOTE_PLAYGROUND not set — no remote playground tier';
+
+let remoteUid = '';
+
+test.describe('HTTP version — remote playground over real trust', () => {
+  test('auto negotiates h2 against the remote front with verification ON — no self-signed escape hatch', async () => {
+    test.skip(REMOTE_HOST === '', REMOTE_SKIP);
+    remoteUid = await seedRequest({
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+      name: 'GET remote playground',
+      method: 'GET',
+      url: `https://${REMOTE_HOST}/echo/remote`,
+    });
+    await openRequest(remoteUid);
+    await sendAndExpectVersion('HTTP/2');
+  });
+
+  test("the '3' pin rides QUIC across the real internet on the helper's default webpki trust", async () => {
+    test.skip(REMOTE_HOST === '', REMOTE_SKIP);
+    await openRequest(remoteUid);
+    await setHttpVersion('HTTP/3');
+    await sendAndExpectVersion('HTTP/3');
+  });
+
+  test("pinning '1.1' downshifts the same request to HTTP/1.1 on the wire", async () => {
+    test.skip(REMOTE_HOST === '', REMOTE_SKIP);
+    await openRequest(remoteUid);
+    await setHttpVersion('HTTP/1.1');
+    await sendAndExpectVersion('HTTP/1.1');
+  });
+});
