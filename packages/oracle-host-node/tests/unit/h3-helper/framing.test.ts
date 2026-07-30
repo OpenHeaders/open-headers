@@ -73,6 +73,23 @@ describe('H3FrameDecoder', () => {
     expect(rest[0]?.payload.toString('utf8')).toBe('two');
   });
 
+  it('reassembles a frame far larger than any single chunk', () => {
+    // The decoder accumulates chunks uncopied until the frame
+    // completes — this leg pins the multi-chunk path (one compact per
+    // frame), the shape a large RESPONSE_HEAD arriving in pipe-sized
+    // pieces produces.
+    const decoder = new H3FrameDecoder();
+    const payload = Buffer.alloc(200 * 1024, 5);
+    const encoded = encodeH3Frame(H3_FRAME.RESPONSE_BODY, 3, payload);
+    const frames = [];
+    for (let offset = 0; offset < encoded.length; offset += 8 * 1024) {
+      frames.push(...decoder.push(encoded.subarray(offset, offset + 8 * 1024)));
+    }
+    expect(frames).toHaveLength(1);
+    expect(frames[0]?.id).toBe(3);
+    expect(frames[0]?.payload.equals(payload)).toBe(true);
+  });
+
   it('throws on a payload past the ceiling — a corrupt stream', () => {
     const decoder = new H3FrameDecoder();
     const header = Buffer.alloc(H3_FRAME_HEADER_BYTES);

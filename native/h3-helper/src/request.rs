@@ -23,6 +23,12 @@ use crate::tls;
 
 const DEFAULT_IDLE_TIMEOUT_MS: u64 = 30_000;
 const BODY_CHUNK_BYTES: usize = 64 * 1024;
+/// How many resolved addresses one dial will try before giving up —
+/// bounds the worst case (every address a 30 s handshake blackhole)
+/// well inside the node-side deadline while still covering the real
+/// failure this exists for: a dual-stack host whose first answer is an
+/// unroutable leg, which fails fast and lets the next family through.
+const MAX_DIAL_ADDRESSES: usize = 4;
 
 pub async fn run(id: u32, head: RequestHead, body: Vec<u8>, out: mpsc::Sender<Vec<u8>>, pool: Arc<Pool>) {
     if let Err(e) = run_inner(id, &head, body, &out, &pool).await {
@@ -34,6 +40,24 @@ pub async fn run(id: u32, head: RequestHead, body: Vec<u8>, out: mpsc::Sender<Ve
 
 /// What a fresh dial observed — present only when the head asked.
 type DialFacts = Option<(SocketFacts, DialTimings)>;
+
+/// A failed exchange, split at the replay boundary's finer grain:
+/// `sent` turns true once the request head crossed to the server
+/// (`send_request` succeeded) — past that point a retry could execute
+/// a non-idempotent request twice server-side.
+struct ExchangeFailure {
+    sent: bool,
+    error: HelperError,
+}
+
+/// RFC 9110 §9.2.2 idempotent methods — the ones safe to replay after
+/// a reused connection died with the request already on the wire.
+fn idempotent(method: &str) -> bool {
+    matches!(
+        method.to_ascii_uppercase().as_str(),
+        "GET" | "HEAD" | "PUT" | "DELETE" | "OPTIONS" | "TRACE"
+    )
+}
 
 async fn run_inner(
     id: u32,
@@ -69,12 +93,22 @@ async fn run_inner(
                 Ok((response, stream)) => {
                     return stream_response(id, response, stream, out, None).await;
                 }
-                Err(_stale) => {
+                Err(stale) => {
                     // Retry-once-on-stale: the reused connection failed
                     // before any response bytes came back — discard it
                     // and fall through to ONE fresh dial. The fresh
                     // dial's outcome is the hop's honest answer.
                     pool.discard(&key, pooled.generation);
+                    if stale.sent && !idempotent(&head.method) {
+                        // The head (and possibly the body) already
+                        // crossed on the reused connection — replaying
+                        // a non-idempotent request could execute it
+                        // twice server-side. Honest failure instead;
+                        // the common stale shape (a dead connection
+                        // failing at stream-open, nothing sent) still
+                        // retries for every method.
+                        return Err(stale.error);
+                    }
                 }
             }
         }
@@ -92,7 +126,9 @@ async fn run_inner(
     };
     let result = match exchange(&mut send_request, request, body).await {
         Ok((response, stream)) => stream_response(id, response, stream, out, facts).await,
-        Err(e) => Err(e),
+        // A FRESH connection's exchange failure is the hop's honest
+        // one-shot answer — the replay boundary applies to reuse only.
+        Err(failure) => Err(failure.error),
     };
     match stored {
         StoreOutcome::Stored(generation) => {
@@ -133,22 +169,25 @@ fn build_request(head: &RequestHead, uri: &Uri) -> Result<http::Request<()>, Hel
 /// h3 driver, and observe the dial when the head asked for it.
 async fn dial(head: &RequestHead, host: &str, port: u16) -> Result<(FreshConnection, DialFacts), HelperError> {
     let mut dns_ms: Option<f64> = None;
-    let remote: SocketAddr = match &head.connect_address {
+    let remotes: Vec<SocketAddr> = match &head.connect_address {
         // The resolveToAddress pin: dial this address; SNI and
         // certificate verification below keep the URL's host.
         Some(address) => {
             let ip = address
                 .parse()
                 .map_err(|e| HelperError::new("bad-request", format!("connectAddress: {e}")))?;
-            SocketAddr::new(ip, port)
+            vec![SocketAddr::new(ip, port)]
         }
         None => {
             let dns_start = Instant::now();
-            let resolved = tokio::net::lookup_host((host, port))
+            let resolved: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
                 .await
                 .map_err(|e| HelperError::new("dns", format!("resolving {host}: {e}")))?
-                .next()
-                .ok_or_else(|| HelperError::new("dns", format!("resolving {host}: no addresses")))?;
+                .take(MAX_DIAL_ADDRESSES)
+                .collect();
+            if resolved.is_empty() {
+                return Err(HelperError::new("dns", format!("resolving {host}: no addresses")));
+            }
             if head.capture_network {
                 dns_ms = Some(dns_start.elapsed().as_secs_f64() * 1000.0);
             }
@@ -168,62 +207,99 @@ async fn dial(head: &RequestHead, host: &str, port: u16) -> Result<(FreshConnect
     ));
     client_config.transport_config(Arc::new(transport));
 
-    let bind: SocketAddr = if remote.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };
-    let mut endpoint = quinn::Endpoint::client(bind).map_err(|e| HelperError::new("internal", format!("UDP bind: {e}")))?;
-    endpoint.set_default_client_config(client_config);
+    // Try each resolved address in answer order — the resolver's
+    // preference. An unroutable first answer (a dual-stack host's dead
+    // IPv6 leg) fails fast and the next address gets its chance; only
+    // when every address failed does the LAST failure name the hop's.
+    let mut last_err: Option<HelperError> = None;
+    for remote in remotes {
+        let bind: SocketAddr = if remote.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };
+        let mut endpoint = match quinn::Endpoint::client(bind) {
+            Ok(endpoint) => endpoint,
+            Err(e) => {
+                last_err = Some(HelperError::new("internal", format!("UDP bind: {e}")));
+                continue;
+            }
+        };
+        endpoint.set_default_client_config(client_config.clone());
 
-    let handshake_start = Instant::now();
-    let connecting = endpoint
-        .connect(remote, host)
-        .map_err(|e| HelperError::new("bad-request", format!("dial: {e}")))?;
-    let connection = connecting.await.map_err(|e| wire_error("connect", e))?;
-    let handshake_ms = handshake_start.elapsed().as_secs_f64() * 1000.0;
+        let handshake_start = Instant::now();
+        let connecting = match endpoint.connect(remote, host) {
+            Ok(connecting) => connecting,
+            Err(e) => {
+                last_err = Some(HelperError::new("bad-request", format!("dial: {e}")));
+                continue;
+            }
+        };
+        let connection = match connecting.await {
+            Ok(connection) => connection,
+            Err(e) => {
+                last_err = Some(wire_error("connect", e));
+                continue;
+            }
+        };
+        let handshake_ms = handshake_start.elapsed().as_secs_f64() * 1000.0;
 
-    let facts: DialFacts = if head.capture_network {
-        let local = endpoint
-            .local_addr()
-            .map_err(|e| HelperError::new("internal", format!("local address: {e}")))?;
-        let remote_addr = connection.remote_address();
-        Some((
-            SocketFacts {
-                local_address: local.ip().to_string(),
-                local_port: local.port(),
-                remote_address: remote_addr.ip().to_string(),
-                remote_port: remote_addr.port(),
-            },
-            DialTimings { dns_ms, handshake_ms },
-        ))
-    } else {
-        None
-    };
+        let facts: DialFacts = if head.capture_network {
+            let local = endpoint
+                .local_addr()
+                .map_err(|e| HelperError::new("internal", format!("local address: {e}")))?;
+            let remote_addr = connection.remote_address();
+            Some((
+                SocketFacts {
+                    local_address: local.ip().to_string(),
+                    local_port: local.port(),
+                    remote_address: remote_addr.ip().to_string(),
+                    remote_port: remote_addr.port(),
+                },
+                DialTimings { dns_ms, handshake_ms },
+            ))
+        } else {
+            None
+        };
 
-    let quinn_conn = h3_quinn::Connection::new(connection);
-    let (mut driver, send_request) = h3::client::new(quinn_conn).await.map_err(|e| wire_error("h3", e))?;
-    // The driver polls connection-level H3 state until it winds down;
-    // its outcome type varies across pre-1.0 h3 releases, so only the
-    // completion matters here — per-request failures surface on the
-    // request stream below.
-    let drive = tokio::spawn(async move {
-        let _ = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
-    });
+        // The connection is up — an h3 setup failure past this point is
+        // not an address problem, so it ends the hop rather than trying
+        // the next address.
+        let quinn_conn = h3_quinn::Connection::new(connection);
+        let (mut driver, send_request) = h3::client::new(quinn_conn).await.map_err(|e| wire_error("h3", e))?;
+        // The driver polls connection-level H3 state until it winds
+        // down; its outcome type varies across pre-1.0 h3 releases, so
+        // only the completion matters here — per-request failures
+        // surface on the request stream below.
+        let drive = tokio::spawn(async move {
+            let _ = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
+        });
 
-    Ok((FreshConnection { endpoint, send_request, drive }, facts))
+        return Ok((FreshConnection { endpoint, send_request, drive }, facts));
+    }
+    Err(last_err.unwrap_or_else(|| HelperError::new("internal", "dial: no addresses attempted")))
 }
 
 /// Open the request stream, send head + body, and wait for the response
 /// head. Everything here happens BEFORE any response bytes — the
-/// retry-once-on-stale boundary.
+/// retry-once-on-stale boundary. A failure records whether the request
+/// head already crossed (`sent`), the caller's idempotency gate.
 async fn exchange(
     send_request: &mut SendRequest<OpenStreams, Bytes>,
     request: http::Request<()>,
     body: Bytes,
-) -> Result<(http::Response<()>, RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>), HelperError> {
-    let mut stream = send_request.send_request(request).await.map_err(|e| wire_error("h3", e))?;
+) -> Result<(http::Response<()>, RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>), ExchangeFailure> {
+    let mut stream = send_request
+        .send_request(request)
+        .await
+        .map_err(|e| ExchangeFailure { sent: false, error: wire_error("h3", e) })?;
     if !body.is_empty() {
-        stream.send_data(body).await.map_err(|e| wire_error("h3", e))?;
+        stream
+            .send_data(body)
+            .await
+            .map_err(|e| ExchangeFailure { sent: true, error: wire_error("h3", e) })?;
     }
-    stream.finish().await.map_err(|e| wire_error("h3", e))?;
-    let response = stream.recv_response().await.map_err(|e| wire_error("h3", e))?;
+    stream.finish().await.map_err(|e| ExchangeFailure { sent: true, error: wire_error("h3", e) })?;
+    let response = stream
+        .recv_response()
+        .await
+        .map_err(|e| ExchangeFailure { sent: true, error: wire_error("h3", e) })?;
     Ok((response, stream))
 }
 
@@ -245,7 +321,7 @@ async fn stream_response(
         headers: response
             .headers()
             .iter()
-            .map(|(k, v)| (k.as_str().to_string(), String::from_utf8_lossy(v.as_bytes()).into_owned()))
+            .map(|(k, v)| (k.as_str().to_string(), latin1(v.as_bytes())))
             .collect(),
         socket,
         timings,
@@ -263,7 +339,7 @@ async fn stream_response(
     if let Some(trailers) = stream.recv_trailers().await.map_err(|e| wire_error("h3", e))? {
         let pairs: Vec<(String, String)> = trailers
             .iter()
-            .map(|(k, v)| (k.as_str().to_string(), String::from_utf8_lossy(v.as_bytes()).into_owned()))
+            .map(|(k, v)| (k.as_str().to_string(), latin1(v.as_bytes())))
             .collect();
         let payload = serde_json::to_vec(&pairs)
             .map_err(|e| HelperError::new("internal", format!("trailers encode: {e}")))?;
@@ -271,6 +347,13 @@ async fn stream_response(
     }
     send(out, encode_frame(frame_type::RESPONSE_END, id, &[])).await?;
     Ok(())
+}
+
+/// Header-value bytes as the string whose code points ARE the bytes
+/// (latin1) — the reading Node's own HTTP stack gives non-UTF-8 header
+/// values, instead of `from_utf8_lossy`'s replacement characters.
+fn latin1(bytes: &[u8]) -> String {
+    bytes.iter().map(|&b| char::from(b)).collect()
 }
 
 async fn send(out: &mpsc::Sender<Vec<u8>>, frame: Vec<u8>) -> Result<(), HelperError> {

@@ -5,6 +5,9 @@
  * rejection + respawn, and the protocol-mismatch teardown.
  */
 
+import { rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -161,11 +164,52 @@ describe('createH3HelperClient', () => {
     expect(healed.head?.status).toBe(200);
   });
 
-  it('a clean exit code with a send still in flight is a crash — the pending send fails classified', async () => {
+  it('replays a clean-exit-raced send exactly once — a second clean exit fails it classified', async () => {
+    // The fake exits 0 without answering on EVERY life, so the send
+    // rides one replay (fresh helper, same fate) and then fails — the
+    // replay-once cap, never a spawn loop.
     const rig = recordingHandlers();
     makeClient().request(makeHead({ url: 'https://api.openheaders.io/exit-clean-pending' }), undefined, rig.handlers);
     const exchange = await rig.done;
     expect(exchange.error?.code).toBe('helper-crashed');
+  });
+
+  it('replays a send that raced a clean idle-exit on a fresh helper — body frames included', async () => {
+    const marker = join(tmpdir(), `oh-h3-exit-once-${process.pid}-${Date.now()}`);
+    process.env.FAKE_H3_EXIT_ONCE_FILE = marker;
+    try {
+      const rig = recordingHandlers();
+      const payload = Buffer.alloc(100 * 1024, 9);
+      makeClient().request(
+        makeHead({ url: 'https://api.openheaders.io/exit-once', method: 'POST' }),
+        payload,
+        rig.handlers,
+      );
+      const exchange = await rig.done;
+      expect(exchange.error).toBeUndefined();
+      expect(exchange.head?.status).toBe(200);
+      const body = JSON.parse(Buffer.concat(exchange.body).toString('utf8'));
+      expect(body.receivedBytes).toBe(payload.length);
+    } finally {
+      delete process.env.FAKE_H3_EXIT_ONCE_FILE;
+      rmSync(marker, { force: true });
+    }
+  });
+
+  it('a clean exit after the response head fails the send — past the replay boundary', async () => {
+    const rig = recordingHandlers();
+    makeClient().request(makeHead({ url: 'https://api.openheaders.io/exit-clean-midbody' }), undefined, rig.handlers);
+    const exchange = await rig.done;
+    expect(exchange.head?.status).toBe(200);
+    expect(exchange.error?.code).toBe('helper-crashed');
+  });
+
+  it('tears the session down as a corrupt stream when a frame payload is not the JSON it must be', async () => {
+    const rig = recordingHandlers();
+    makeClient().request(makeHead({ url: 'https://api.openheaders.io/corrupt-head' }), undefined, rig.handlers);
+    const exchange = await rig.done;
+    expect(exchange.error?.code).toBe('helper-corrupt-stream');
+    expect(exchange.head).toBeUndefined();
   });
 
   it('cancel forgets the id — no callbacks fire, later requests keep working', async () => {

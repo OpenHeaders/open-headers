@@ -225,6 +225,11 @@ export function h3Hop(request: H3HopRequest): Promise<NodeRequestResponse> {
         });
       },
       onBody: (chunk) => {
+        // push()'s backpressure answer is deliberately unread: the
+        // consumer is the capped read, which drains eagerly and
+        // destroys the stream at the cap — the mandatory
+        // `maxBodyBytes` cap, not stream watermarks, is the memory
+        // bound on this bridge.
         body?.push(chunk);
       },
       onTrailers: (incoming) => {

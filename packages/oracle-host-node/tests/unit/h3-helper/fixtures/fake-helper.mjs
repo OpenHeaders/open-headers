@@ -6,6 +6,7 @@
 // ride env vars (FAKE_H3_PROTOCOL overrides the HELLO protocol int,
 // FAKE_H3_SILENT=1 suppresses HELLO entirely).
 
+import { existsSync, writeFileSync } from 'node:fs';
 import process from 'node:process';
 
 const HEADER_BYTES = 9;
@@ -114,6 +115,32 @@ function respond(id, head, body) {
     process.stdout.write(frame(FRAME.RESPONSE_END, id));
     process.stdout.once('drain', () => process.exit(0));
     if (process.stdout.writableLength === 0) process.exit(0);
+    return;
+  }
+  if (path === '/exit-once') {
+    // The idle-exit RACE shape: the first helper life exits 0 without
+    // answering (as if the frames were never read); the marker file
+    // makes the replay's fresh life answer normally — falling through
+    // to the echo response below.
+    const marker = process.env.FAKE_H3_EXIT_ONCE_FILE;
+    if (marker !== undefined && marker !== '' && !existsSync(marker)) {
+      writeFileSync(marker, '1');
+      process.exit(0);
+    }
+  }
+  if (path === '/exit-clean-midbody') {
+    // Clean exit AFTER the response head — past the replay boundary;
+    // the client must fail this send, never replay it.
+    process.stdout.write(json(FRAME.RESPONSE_HEAD, id, { status: 200, headers: [['content-type', 'text/plain']] }));
+    process.stdout.write(frame(FRAME.RESPONSE_BODY, id, Buffer.from('mid')));
+    process.stdout.once('drain', () => process.exit(0));
+    if (process.stdout.writableLength === 0) process.exit(0);
+    return;
+  }
+  if (path === '/corrupt-head') {
+    // A RESPONSE_HEAD whose payload is not JSON — the client must tear
+    // the session down as a corrupt stream, never crash the host.
+    process.stdout.write(frame(FRAME.RESPONSE_HEAD, id, Buffer.from('not-json')));
     return;
   }
   if (path === '/exit-clean-pending') {

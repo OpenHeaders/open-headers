@@ -92,6 +92,7 @@ async fn main() {
             // Re-armed every loop turn, so it fires only after a full
             // idle window since the last frame (or the last check).
             _ = tokio::time::sleep(Duration::from_secs(IDLE_EXIT_SECS)) => {
+                pool.sweep();
                 running.retain(|_, handle| !handle.is_finished());
                 if running.is_empty() && pending.is_empty() {
                     return;
@@ -117,6 +118,22 @@ async fn main() {
             frame_type::REQUEST_BODY => {
                 if let Some(entry) = pending.get_mut(&frame.id) {
                     entry.body.extend_from_slice(&frame.payload);
+                    // Defense in depth against a client whose frames
+                    // outrun the announced length: reject at the first
+                    // overflowing frame instead of accumulating without
+                    // bound until a REQUEST_END that may never come.
+                    if entry.body.len() as u64 > entry.head.body_bytes {
+                        let announced = entry.head.body_bytes;
+                        let received = entry.body.len();
+                        pending.remove(&frame.id);
+                        send_error(
+                            &out_tx,
+                            frame.id,
+                            "body-mismatch",
+                            format!("announced {announced} body bytes, received {received} before REQUEST_END"),
+                        )
+                        .await;
+                    }
                 }
             }
             frame_type::REQUEST_END => {

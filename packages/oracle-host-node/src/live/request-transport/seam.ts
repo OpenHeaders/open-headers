@@ -13,6 +13,7 @@ import {
   type TransportBody,
   TransportError,
   type TransportHeader,
+  type TransportRequest,
   type TransportStreamObserver,
 } from '@openheaders/oracle/live/request-exec/transport';
 import type { Dispatcher, FormData, Headers, fetch as undiciFetch } from 'undici';
@@ -203,4 +204,24 @@ export function startDeadline(timeoutMs: number | undefined, externalSignal?: Ab
 
 export function timeoutError(timeoutMs: number | undefined): TransportError {
   return new TransportError(`Request timed out after ${timeoutMs} ms.`);
+}
+
+/**
+ * Backstop deadline for the hand-rolled pinned pipelines when the
+ * request carries no timeout of its own. The undici pipelines are
+ * backstopped by undici's built-in 300 s headers/body timers, but the
+ * prior-knowledge h2 session and the HTTP/3 helper exchange have no
+ * library watchdog — without this, a server that keeps the connection
+ * alive (pings) while never answering would hang the send forever.
+ * Same 300 s figure, so the two worlds fail alike.
+ */
+export const PINNED_PIPELINE_TIMEOUT_MS = 300_000;
+
+/** Apply {@link PINNED_PIPELINE_TIMEOUT_MS} to a timeout-less
+ *  `'2-prior-knowledge'` / `'3'` send; every other request passes
+ *  through untouched (a user-set timeout always wins). */
+export function withPinnedPipelineTimeout(request: TransportRequest): TransportRequest {
+  if (request.timeoutMs !== undefined) return request;
+  if (request.httpVersion !== '3' && request.httpVersion !== '2-prior-knowledge') return request;
+  return { ...request, timeoutMs: PINNED_PIPELINE_TIMEOUT_MS };
 }

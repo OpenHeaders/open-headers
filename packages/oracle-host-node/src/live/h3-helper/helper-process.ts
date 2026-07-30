@@ -6,10 +6,14 @@
  * Sends queue until the helper's HELLO arrives (protocol-int mismatch
  * kills it and fails them all); a crash / EOF rejects every in-flight
  * send and the NEXT send respawns; the helper's own idle-exit (a clean
- * exit code with nothing in flight) resets quietly. Frames for an id
- * the client no
- * longer tracks (canceled, already failed) are dropped — the protocol's
- * cancel race contract.
+ * exit code with nothing in flight) resets quietly. A send racing the
+ * idle-exit window — clean exit code, its frames never read, no
+ * RESPONSE_HEAD back — is replayed ONCE on a fresh helper (the helper
+ * provably never dialed for it: had it started the request, its idle
+ * check would not have fired); a send already past its response head
+ * cannot be replayed and fails as a crash. Frames for an id the client
+ * no longer tracks (canceled, already failed) are dropped — the
+ * protocol's cancel race contract.
  */
 
 import { type ChildProcessByStdio, spawn } from 'node:child_process';
@@ -68,6 +72,20 @@ const BODY_CHUNK_BYTES = 64 * 1024;
 
 type HelperProcess = ChildProcessByStdio<Writable, Readable, null>;
 
+/** One in-flight send's client-side state. The wire inputs stay held
+ *  until the response head arrives so an idle-exit race can replay the
+ *  send on a fresh helper; the body reference releases at the head
+ *  (past the replay boundary there is nothing to replay). */
+interface PendingEntry {
+  handlers: H3ResponseHandlers;
+  /** RESPONSE_HEAD crossed — the exchange is past the replay boundary. */
+  headSeen: boolean;
+  /** Replayed once after an idle-exit race — never a second time. */
+  replayed: boolean;
+  head: H3RequestHead & { bodyBytes: number };
+  body: Buffer | null;
+}
+
 export function createH3HelperClient(options: H3HelperClientOptions): H3HelperClient {
   const helloTimeoutMs = options.helloTimeoutMs ?? DEFAULT_HELLO_TIMEOUT_MS;
   let proc: HelperProcess | null = null;
@@ -75,16 +93,16 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
   let helloTimer: NodeJS.Timeout | null = null;
   let decoder = new H3FrameDecoder();
   let nextId = 1;
-  const pending = new Map<number, H3ResponseHandlers>();
+  const pending = new Map<number, PendingEntry>();
   // Frames buffered between spawn and HELLO — the helper only speaks
   // after its HELLO, so nothing is lost by holding ours too.
   let preHello: Buffer[] = [];
 
   const failAll = (err: H3HelperFailure): void => {
-    const handlers = [...pending.values()];
+    const entries = [...pending.values()];
     pending.clear();
     preHello = [];
-    for (const h of handlers) h.onError(err);
+    for (const entry of entries) entry.handlers.onError(err);
   };
 
   const teardown = (err: H3HelperFailure): void => {
@@ -105,7 +123,26 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
       preHello.push(frame);
       return;
     }
+    // write()'s backpressure answer is deliberately unread: request
+    // bodies are already whole in memory (every pipeline buffers
+    // them), so the stream buffer transiently holds at most one
+    // body's bytes while the pipe drains.
     proc.stdin.write(frame);
+  };
+
+  /** Write one send's frames — the head, then the body chunked with a
+   *  closing REQUEST_END when one is announced. Also the replay path:
+   *  re-encoding from the entry's held inputs keeps replay identical
+   *  to the first dispatch. */
+  const sendFrames = (id: number, entry: PendingEntry): void => {
+    write(encodeH3Frame(H3_FRAME.REQUEST, id, Buffer.from(JSON.stringify(entry.head), 'utf8')));
+    const body = entry.body;
+    if (body !== null && body.length > 0) {
+      for (let offset = 0; offset < body.length; offset += BODY_CHUNK_BYTES) {
+        write(encodeH3Frame(H3_FRAME.REQUEST_BODY, id, body.subarray(offset, offset + BODY_CHUNK_BYTES)));
+      }
+      write(encodeH3Frame(H3_FRAME.REQUEST_END, id));
+    }
   };
 
   const onFrame = (frame: { type: number; id: number; payload: Buffer }): void => {
@@ -135,28 +172,32 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
       teardown(new H3HelperFailure(error.code, error.message));
       return;
     }
-    const handlers = pending.get(frame.id);
-    if (handlers === undefined) return;
+    const entry = pending.get(frame.id);
+    if (entry === undefined) return;
     switch (frame.type) {
       case H3_FRAME.RESPONSE_HEAD:
-        handlers.onHead(JSON.parse(frame.payload.toString('utf8')));
+        // Past the replay boundary — release the held body bytes; the
+        // head object itself is small and the entry dies at END/ERROR.
+        entry.headSeen = true;
+        entry.body = null;
+        entry.handlers.onHead(JSON.parse(frame.payload.toString('utf8')));
         return;
       case H3_FRAME.RESPONSE_BODY:
         // The decoder's payload views its shared buffer — copy so the
         // chunk survives the next push's reassembly.
-        handlers.onBody(Buffer.from(frame.payload));
+        entry.handlers.onBody(Buffer.from(frame.payload));
         return;
       case H3_FRAME.RESPONSE_TRAILERS:
-        handlers.onTrailers(JSON.parse(frame.payload.toString('utf8')));
+        entry.handlers.onTrailers(JSON.parse(frame.payload.toString('utf8')));
         return;
       case H3_FRAME.RESPONSE_END:
         pending.delete(frame.id);
-        handlers.onEnd();
+        entry.handlers.onEnd();
         return;
       case H3_FRAME.ERROR: {
         pending.delete(frame.id);
         const error: H3ErrorFrame = JSON.parse(frame.payload.toString('utf8'));
-        handlers.onError(new H3HelperFailure(error.code, error.message));
+        entry.handlers.onError(new H3HelperFailure(error.code, error.message));
         return;
       }
       default:
@@ -185,16 +226,43 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
     });
     spawned.on('exit', (exitCode) => {
       if (proc !== spawned) return;
-      if (exitCode === 0 && pending.size === 0) {
-        // The helper's idle-exit: a clean exit with nothing in flight
-        // is the lifecycle working, not a crash — quiet reset, the
-        // next send respawns.
+      if (exitCode === 0) {
+        // The helper's idle-exit: a clean exit is the lifecycle
+        // working, not a crash — quiet reset, the next send respawns.
         proc = null;
         helloSeen = false;
         preHello = [];
         if (helloTimer !== null) {
           clearTimeout(helloTimer);
           helloTimer = null;
+        }
+        // A send past its response head cannot be replayed (the wire
+        // answered once already), nor can one that already rode a
+        // replay: those fail as a crash. A send whose frames the
+        // exiting helper never read (no head back, never replayed) is
+        // replayed ONCE on a fresh helper — safe, because a helper
+        // with a request underway never idle-exits, so no dial ever
+        // happened for it.
+        const crashed = new H3HelperFailure(
+          'helper-crashed',
+          'The HTTP/3 helper exited mid-send — the send failed; the next send restarts it.',
+        );
+        for (const [id, entry] of [...pending]) {
+          if (entry.headSeen || entry.replayed) {
+            pending.delete(id);
+            entry.handlers.onError(crashed);
+          }
+        }
+        if (pending.size === 0) return;
+        try {
+          ensureProcess();
+        } catch (err) {
+          failAll(err instanceof H3HelperFailure ? err : new H3HelperFailure('helper-spawn-failed', String(err)));
+          return;
+        }
+        for (const [id, entry] of pending) {
+          entry.replayed = true;
+          sendFrames(id, entry);
         }
         return;
       }
@@ -207,14 +275,16 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
     });
     spawned.stdout.on('data', (chunk: Buffer) => {
       if (proc !== spawned) return;
-      let frames: ReturnType<H3FrameDecoder['push']>;
+      // The guard covers frame REASSEMBLY and frame CONSUMPTION alike:
+      // a payload that should be JSON but isn't (a corrupt or
+      // mismatched binary) must tear the session down as a corrupt
+      // stream, never escape a 'data' listener as an uncaught
+      // exception that kills the host process.
       try {
-        frames = decoder.push(chunk);
+        for (const frame of decoder.push(chunk)) onFrame(frame);
       } catch (err) {
         teardown(new H3HelperFailure('helper-corrupt-stream', err instanceof Error ? err.message : String(err)));
-        return;
       }
-      for (const frame of frames) onFrame(frame);
     });
     spawned.stdin.on('error', () => {
       // A write racing the helper's death (EPIPE) — the exit handler
@@ -244,16 +314,16 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
         );
         return { cancel: () => {} };
       }
-      pending.set(id, handlers);
       const bodyBytes = body?.length ?? 0;
-      write(encodeH3Frame(H3_FRAME.REQUEST, id, Buffer.from(JSON.stringify({ ...head, bodyBytes }), 'utf8')));
-      if (body !== undefined && bodyBytes > 0) {
-        const buffer = Buffer.from(body.buffer, body.byteOffset, body.byteLength);
-        for (let offset = 0; offset < buffer.length; offset += BODY_CHUNK_BYTES) {
-          write(encodeH3Frame(H3_FRAME.REQUEST_BODY, id, buffer.subarray(offset, offset + BODY_CHUNK_BYTES)));
-        }
-        write(encodeH3Frame(H3_FRAME.REQUEST_END, id));
-      }
+      const entry: PendingEntry = {
+        handlers,
+        headSeen: false,
+        replayed: false,
+        head: { ...head, bodyBytes },
+        body: body !== undefined && bodyBytes > 0 ? Buffer.from(body.buffer, body.byteOffset, body.byteLength) : null,
+      };
+      pending.set(id, entry);
+      sendFrames(id, entry);
       return {
         cancel: () => {
           if (!pending.delete(id)) return;

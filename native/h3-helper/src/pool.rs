@@ -113,6 +113,16 @@ impl Pool {
         }
     }
 
+    /// Drop entries whose h3 driver already wound down — the QUIC
+    /// connection is closed (idle timeout, server close), so the next
+    /// checkout could only ever find them stale. Called from the main
+    /// loop's idle tick; without it a dead connection for a key nobody
+    /// asks about again would sit in the map until process exit.
+    pub fn sweep(&self) {
+        let mut entries = self.entries.lock().expect("pool lock");
+        entries.retain(|_, entry| !entry.connection.drive.is_finished());
+    }
+
     /// Offer a fresh connection for reuse. Never replaces a live entry
     /// — dropping one would close an endpoint a concurrent hop may be
     /// streaming on — so a raced offer hands the connection back.

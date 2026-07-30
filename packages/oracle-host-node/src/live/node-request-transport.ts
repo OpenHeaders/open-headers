@@ -151,6 +151,7 @@ import {
   type StreamingLeg,
   startDeadline,
   type WireLeg,
+  withPinnedPipelineTimeout,
 } from './request-transport/seam';
 import { wireHop } from './request-transport/wire-hops';
 
@@ -171,9 +172,13 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
   const fetchFn = options.fetchFn ?? undiciFetch;
   const requestFn = options.requestFn ?? undiciRequest;
   const dispatchSend = async (
-    request: TransportRequest,
+    incoming: TransportRequest,
     streaming: StreamingLeg | null,
   ): Promise<TransportResponse> => {
+    // A timeout-less pinned-pipeline send gets the seam's backstop
+    // deadline — the hand-rolled pipelines have no library watchdog
+    // behind them the way undici's own timers back the fetch paths.
+    const request = withPinnedPipelineTimeout(incoming);
     // A configured client certificate whose vault entry didn't
     // resolve on this device fails BEFORE the wire — silently
     // dialing a mutual-TLS gateway without the certificate would
