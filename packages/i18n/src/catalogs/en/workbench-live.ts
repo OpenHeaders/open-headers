@@ -120,7 +120,6 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Fixed interval',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Expires in N seconds (relative)',
   'workbench.editors.live.refreshPolicy.expiresAt': 'Expires at epoch ms (absolute)',
-  'workbench.editors.live.refreshPolicy.secondsUnit': 'seconds',
   'workbench.editors.live.refreshPolicy.leadUnit': 'lead s',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Select capture',
   'workbench.editors.live.refreshPolicy.noCaptures': 'No captures defined yet.',

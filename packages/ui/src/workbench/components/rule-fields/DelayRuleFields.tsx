@@ -2,13 +2,14 @@
  * DelayRuleFields — delay rule configuration.
  */
 
-import { Alert, Form, InputNumber, Typography } from 'antd';
+import { Alert, Form, Typography } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { getDocId } from '../docs/doc-ids';
 import SectionInfo from '../shared/SectionInfo';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
+import DelayMsKnob from './DelayMsKnob';
 
 const { Text } = Typography;
 
@@ -43,10 +44,7 @@ const DelayRuleFields: React.FC = () => {
         </Text>
         <EntityField path={paths.delayMs}>
           <Form.Item name="delayMs" style={{ marginBottom: 0 }}>
-            {/* min={1}: a 0ms delay makes the rule a no-op (the compiler skips
-                `delayMs === 0`), so the rule would save but never fire. Forcing
-                >=1 keeps "saved" and "effective" aligned. */}
-            <InputNumber min={1} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
+            <DelayMsKnob ariaLabel={t('workbench.editors.rule.fields.delay.label')} />
           </Form.Item>
         </EntityField>
         <ScalarConflictChip formName="delayMs" schemaPath={paths.delayMs} />

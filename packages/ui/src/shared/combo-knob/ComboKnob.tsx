@@ -35,6 +35,7 @@ export interface ComboKnobProps<T> {
   format: (value: T) => string;
   /** Effective default, shown while no explicit value is set. */
   placeholder?: string;
+  disabled?: boolean;
   ariaLabel?: string;
   size?: 'small' | 'middle' | 'large';
   style?: React.CSSProperties;
@@ -48,6 +49,7 @@ function ComboKnob<T>({
   interpret,
   format,
   placeholder,
+  disabled,
   ariaLabel,
   size = 'small',
   style,
@@ -96,6 +98,7 @@ function ComboKnob<T>({
         setText(undefined);
       }}
       allowClear
+      disabled={disabled}
       placeholder={placeholder}
       aria-label={ariaLabel}
       data-testid={testId}

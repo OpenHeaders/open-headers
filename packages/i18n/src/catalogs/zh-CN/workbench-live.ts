@@ -119,7 +119,6 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': '固定间隔',
   'workbench.editors.live.refreshPolicy.expiresIn': '在 N 秒后过期（相对）',
   'workbench.editors.live.refreshPolicy.expiresAt': '在 epoch ms 时过期（绝对）',
-  'workbench.editors.live.refreshPolicy.secondsUnit': '秒',
   'workbench.editors.live.refreshPolicy.leadUnit': '提前 s',
   'workbench.editors.live.refreshPolicy.selectCapture': '选择捕获',
   'workbench.editors.live.refreshPolicy.noCaptures': '还没有定义捕获。',

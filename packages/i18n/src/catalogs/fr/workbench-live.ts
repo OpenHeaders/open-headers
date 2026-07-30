@@ -125,7 +125,6 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Intervalle fixe',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Expire dans N secondes (relatif)',
   'workbench.editors.live.refreshPolicy.expiresAt': "Expire à l'epoch ms (absolu)",
-  'workbench.editors.live.refreshPolicy.secondsUnit': 'secondes',
   'workbench.editors.live.refreshPolicy.leadUnit': 'avance s',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Sélectionner la capture',
   'workbench.editors.live.refreshPolicy.noCaptures': 'Aucune capture définie pour le moment.',

@@ -6,13 +6,31 @@
  * picks a real source rather than typing stepId/captureName strings.
  */
 
+import { MIN_REFRESH_INTERVAL_SECONDS } from '@openheaders/core/schemas';
 import type { RefreshPolicy } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { ComboKnob, durationMsInterpreter, formatDurationMs, numericPresets } from '@openheaders/ui/shared/combo-knob';
 import { InputNumber, Select, Space, Typography } from 'antd';
 import type React from 'react';
 
 const { Text } = Typography;
+
+/** Interval knob domain — the ComboKnob speaks milliseconds (shared
+ *  duration labels: "30 s" / "5 min" / "1 h"), the policy stores whole
+ *  seconds. Bounds mirror the schema floor (30 s alarm clamp) and the
+ *  editor's long-standing 24 h cap; clearing returns to the 5-minute
+ *  default `defaultPolicyFor` mints. */
+const MAX_REFRESH_INTERVAL_SECONDS = 86_400;
+const DEFAULT_REFRESH_INTERVAL_SECONDS = 300;
+const interpretInterval = durationMsInterpreter({
+  min: MIN_REFRESH_INTERVAL_SECONDS * 1_000,
+  max: MAX_REFRESH_INTERVAL_SECONDS * 1_000,
+});
+const INTERVAL_PRESETS = numericPresets(
+  [30_000, 60_000, 300_000, 900_000, 3_600_000, 86_400_000],
+  formatDurationMs,
+);
 
 /**
  * User-facing refresh-policy kinds. `expires-in` and `expires-at` look
@@ -79,20 +97,23 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
           onChange={(kind) => onChange(defaultPolicyFor(kind as RefreshPolicy['kind'], availableCaptures))}
         />
         {value.kind === 'interval' && (
-          <InputNumber
-            size="small"
+          <ComboKnob
             disabled={disabled}
-            min={30}
-            max={86400}
-            step={30}
-            addonAfter={t('workbench.editors.live.refreshPolicy.secondsUnit')}
-            value={value.seconds}
-            onChange={(seconds) =>
+            value={value.seconds * 1_000}
+            onChange={(ms) =>
               onChange({
                 kind: 'interval',
-                seconds: typeof seconds === 'number' ? Math.max(30, seconds) : 30,
+                seconds:
+                  ms === undefined
+                    ? DEFAULT_REFRESH_INTERVAL_SECONDS
+                    : Math.max(MIN_REFRESH_INTERVAL_SECONDS, Math.round(ms / 1_000)),
               })
             }
+            presets={INTERVAL_PRESETS}
+            interpret={interpretInterval}
+            format={formatDurationMs}
+            placeholder={formatDurationMs(DEFAULT_REFRESH_INTERVAL_SECONDS * 1_000)}
+            ariaLabel={t('workbench.editors.live.refreshPolicy.interval')}
             style={{ width: 180 }}
           />
         )}

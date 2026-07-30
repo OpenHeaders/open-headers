@@ -12,8 +12,9 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import DelayMsKnob from '@openheaders/ui/workbench/components/rule-fields/DelayMsKnob';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import { App, InputNumber, Typography, theme } from 'antd';
+import { App, Typography, theme } from 'antd';
 import { useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
@@ -114,16 +115,10 @@ export function DelayQuickCreate({
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           {t('workbench.editors.rule.fields.delay.label')}
         </Text>
-        <InputNumber
-          size="small"
-          min={1}
-          max={30000}
-          step={100}
-          addonAfter="ms"
-          style={{ width: 160 }}
-          placeholder="1000"
-          value={quick.delayMs}
-          onChange={(v) => setQuick({ delayMs: v })}
+        <DelayMsKnob
+          value={quick.delayMs ?? undefined}
+          onChange={(v) => setQuick({ delayMs: v ?? null })}
+          ariaLabel={t('workbench.editors.rule.fields.delay.label')}
         />
         <Text type="secondary" style={{ fontSize: 11 }}>
           {t('workbench.editors.rule.fields.delay.maxNote')}

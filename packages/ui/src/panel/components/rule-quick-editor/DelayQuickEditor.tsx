@@ -13,7 +13,8 @@ import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/sh
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { App, InputNumber, Typography, theme } from 'antd';
+import DelayMsKnob from '@openheaders/ui/workbench/components/rule-fields/DelayMsKnob';
+import { App, Typography, theme } from 'antd';
 import { useMemo } from 'react';
 import { buildDelayRuleUpdate, type DelayQuickEditDraft } from '../../data/rule-create/quick-rule-edit';
 import { QuickConditionsRow } from './QuickConditionsRow';
@@ -111,16 +112,10 @@ export function DelayQuickEditor({
               {t('workbench.editors.rule.fields.delay.label')}
             </Text>
             <EntityField path={RULE_FIELD.delayMs}>
-              <InputNumber
-                size="small"
-                min={1}
-                max={30000}
-                step={100}
-                addonAfter="ms"
-                style={{ width: 160 }}
-                placeholder="1000"
-                value={draft.delayMs}
-                onChange={(v) => updateDraft({ delayMs: v })}
+              <DelayMsKnob
+                value={draft.delayMs ?? undefined}
+                onChange={(v) => updateDraft({ delayMs: v ?? null })}
+                ariaLabel={t('workbench.editors.rule.fields.delay.label')}
               />
             </EntityField>
             <Text type="secondary" style={{ fontSize: 11 }}>

@@ -130,7 +130,6 @@ export const workbenchLive = {
   'workbench.editors.live.refreshPolicy.interval': 'Festes Intervall',
   'workbench.editors.live.refreshPolicy.expiresIn': 'Läuft in N Sekunden ab (relativ)',
   'workbench.editors.live.refreshPolicy.expiresAt': 'Läuft bei Epoch ms ab (absolut)',
-  'workbench.editors.live.refreshPolicy.secondsUnit': 'Sekunden',
   'workbench.editors.live.refreshPolicy.leadUnit': 'Vorlauf s',
   'workbench.editors.live.refreshPolicy.selectCapture': 'Erfassung wählen',
   'workbench.editors.live.refreshPolicy.noCaptures': 'Noch keine Erfassungen definiert.',
