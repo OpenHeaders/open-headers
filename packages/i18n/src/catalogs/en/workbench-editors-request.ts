@@ -618,6 +618,8 @@ export const workbenchEditorsRequest = {
     'Header bytes as visible — HTTP/2+ compresses them on the wire.',
   'workbench.editors.request.response.meta.noteRequestHeaders':
     'Request headers count only what this send set; the browser adds its own (Host, User-Agent, …).',
+  'workbench.editors.request.response.meta.noteRequestHeadersNode':
+    'Request headers count only what this send set; the runtime adds its own (Host, Accept-Encoding, …).',
   'workbench.editors.request.response.meta.noteTruncatedAtCap':
     'Body truncated at the {cap} response size limit; the full size is counted.',
   'workbench.editors.request.response.meta.noteTruncated': 'Body view truncated; the full size is counted.',
@@ -625,8 +627,6 @@ export const workbenchEditorsRequest = {
     'Request body size is approximate — the multipart boundary is browser-generated.',
   'workbench.editors.request.response.meta.noteWireHidden':
     'Wire sizes (compressed, transferred) hidden: the server sent no Timing-Allow-Origin.',
-  'workbench.editors.request.response.meta.noteWireHiddenNode':
-    'Wire sizes (compressed, transferred) are not reported by the app’s network runtime.',
   'workbench.editors.request.response.meta.networkTitle': 'Network',
   'workbench.editors.request.response.meta.networkSummary': 'Connection-level facts for this exchange.',
   'workbench.editors.request.response.meta.httpVersion': 'HTTP Version',

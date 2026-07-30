@@ -771,8 +771,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteWireHidden':
     'Größen auf der Leitung (komprimiert, übertragen) verborgen: Der Server hat kein Timing-Allow-Origin ' +
     'gesendet.',
-  'workbench.editors.request.response.meta.noteWireHiddenNode':
-    'Größen auf der Leitung (komprimiert, übertragen) werden vom Netzwerk-Runtime der App nicht gemeldet.',
   'workbench.editors.request.response.meta.networkTitle': 'Netzwerk',
   'workbench.editors.request.response.meta.networkSummary': 'Fakten auf Verbindungsebene zu diesem Austausch.',
   'workbench.editors.request.response.meta.httpVersion': 'HTTP-Version',

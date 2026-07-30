@@ -133,9 +133,13 @@ export function mapPhaseTimingsToView(
 }
 
 /** Whether the node marks carry the instrumented socket legs — drives
- *  the ladder's honesty note (absent legs sit inside Waiting). */
+ *  the ladder's honesty note (absent legs sit inside Waiting). Any leg
+ *  counts: a QUIC send has no TCP-connect leg at all (the whole
+ *  handshake lands in the TLS seat), and a resolve-to-address pin
+ *  resolves nothing — `connectMs` alone would misread both as
+ *  uninstrumented. */
 export function phaseTimingsHaveSocketLegs(timings: NonNullable<ExecutedRequestSnapshot['phaseTimings']>): boolean {
-  return timings.connectMs !== undefined;
+  return timings.dnsMs !== undefined || timings.connectMs !== undefined || timings.tlsMs !== undefined;
 }
 
 /** Friendly label for a negotiated ALPN protocol id; `null` when the

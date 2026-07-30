@@ -610,13 +610,14 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteHeaderBytes': '标头字节按可见内容计——HTTP/2+ 会在线路上压缩它们。',
   'workbench.editors.request.response.meta.noteRequestHeaders':
     '请求标头只计入此次发送设置的内容；浏览器会添加自己的（Host、User-Agent 等）。',
+  'workbench.editors.request.response.meta.noteRequestHeadersNode':
+    '请求标头只计入此次发送设置的内容；运行时会添加自己的（Host、Accept-Encoding 等）。',
   'workbench.editors.request.response.meta.noteTruncatedAtCap': '正文在 {cap} 响应大小限制处被截断；大小按完整值计。',
   'workbench.editors.request.response.meta.noteTruncated': '正文视图已截断；大小按完整值计。',
   'workbench.editors.request.response.meta.noteBodyApproximate':
     '请求体大小是近似值——multipart boundary 由浏览器生成。',
   'workbench.editors.request.response.meta.noteWireHidden':
     '线路大小（压缩后、已传输）被隐藏：服务器未发送 Timing-Allow-Origin。',
-  'workbench.editors.request.response.meta.noteWireHiddenNode': '应用的网络运行时不报告线路大小（压缩后、已传输）。',
   'workbench.editors.request.response.meta.networkTitle': '网络',
   'workbench.editors.request.response.meta.networkSummary': '此次交换的连接层事实。',
   'workbench.editors.request.response.meta.httpVersion': 'HTTP 版本',

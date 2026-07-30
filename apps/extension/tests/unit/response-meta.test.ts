@@ -17,6 +17,7 @@ import {
   httpVersionLabel,
   mapEntryToTimingView,
   mapPhaseTimingsToView,
+  phaseTimingsHaveSocketLegs,
   serializedHeaderListBytes,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-meta';
 import { describe, expect, it } from 'vitest';
@@ -195,6 +196,26 @@ describe('mapPhaseTimingsToView', () => {
     expect(view.kind).toBe('detailed');
     if (view.kind !== 'detailed') return;
     expect(view.phases.map((p) => p.key)).toEqual(['connect', 'waiting', 'download']);
+  });
+});
+
+describe('phaseTimingsHaveSocketLegs', () => {
+  it('reads an uninstrumented send as leg-less — the folded-into-Waiting note applies', () => {
+    expect(phaseTimingsHaveSocketLegs({ waitingMs: 100, downloadMs: 5 })).toBe(false);
+  });
+
+  it('reads a full TCP dial (dns + connect + tls) as instrumented', () => {
+    expect(phaseTimingsHaveSocketLegs({ dnsMs: 10, connectMs: 20, tlsMs: 30, waitingMs: 100, downloadMs: 5 })).toBe(
+      true,
+    );
+  });
+
+  it('reads a QUIC dial as instrumented — no TCP leg exists, the handshake sits in the TLS seat', () => {
+    expect(phaseTimingsHaveSocketLegs({ dnsMs: 56, tlsMs: 239, waitingMs: 125, downloadMs: 1 })).toBe(true);
+  });
+
+  it('reads an address-pinned QUIC dial (nothing resolved) as instrumented on the TLS leg alone', () => {
+    expect(phaseTimingsHaveSocketLegs({ tlsMs: 200, waitingMs: 100, downloadMs: 1 })).toBe(true);
   });
 });
 

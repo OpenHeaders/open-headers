@@ -254,9 +254,17 @@ function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
     });
   }
 
+  const nodeRuntime = (getCapability('requestRuntime')?.() ?? 'browser') === 'node';
   const notes: string[] = [t('workbench.editors.request.response.meta.noteHeaderBytes')];
   if (response.requestSize) {
-    notes.push(t('workbench.editors.request.response.meta.noteRequestHeaders'));
+    // Both runtimes add wire headers beyond what the send set — the
+    // note names the right actor: the browser on extension sends, the
+    // node stack (Host, Accept-Encoding, …) on desktop/daemon sends.
+    notes.push(
+      nodeRuntime
+        ? t('workbench.editors.request.response.meta.noteRequestHeadersNode')
+        : t('workbench.editors.request.response.meta.noteRequestHeaders'),
+    );
   }
   if (response.bodyTruncated) {
     // `bodyCapBytes` records the cap this send actually ran under (a
@@ -272,14 +280,12 @@ function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
   if (response.requestSize?.bodyApproximate) {
     notes.push(t('workbench.editors.request.response.meta.noteBodyApproximate'));
   }
-  if (!wireSizesExposed) {
-    // Absence reads differently per runtime: the browser's wire sizes
-    // are TAO-gated; the node stack never reports them at all.
-    notes.push(
-      (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
-        ? t('workbench.editors.request.response.meta.noteWireHiddenNode')
-        : t('workbench.editors.request.response.meta.noteWireHidden'),
-    );
+  if (!wireSizesExposed && !nodeRuntime) {
+    // The browser's wire sizes are TAO-gated — the note names the fix
+    // (the server's Timing-Allow-Origin). The node stack never reports
+    // wire sizes at all, so absence there is the permanent baseline,
+    // not a condition worth a footnote.
+    notes.push(t('workbench.editors.request.response.meta.noteWireHidden'));
   }
 
   return (

@@ -8,13 +8,32 @@
  * `cookiesCaptured`), never read from live jar state.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import ResponseMetaStrip from '@openheaders/ui/workbench/components/request-editor/response/ResponseMetaStrip';
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-afterEach(cleanup);
+beforeAll(() => {
+  // The popover legs mount antd Popover content, whose resize tracking
+  // needs a ResizeObserver jsdom does not ship (the scripts-tab-info
+  // idiom).
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
+
+afterEach(() => {
+  unregisterCapability('requestRuntime');
+  cleanup();
+});
 
 function makeTimingEntry(overrides: Partial<ResourceTimingEntry> = {}): ResourceTimingEntry {
   return {
@@ -212,5 +231,40 @@ describe('ResponseMetaStrip time and size facts', () => {
   it('leads with the wire transfer size on an ordinary (non-streamed) run', () => {
     renderStrip({ bodyBytes: 4096, timing: makeTimingEntry({ transferSize: 300 }) });
     expect(screen.getByText('300 B')).toBeTruthy();
+  });
+});
+
+describe('ResponseMetaStrip size popover notes', () => {
+  const requestSize = { headersBytes: 196, bodyBytes: 0 };
+
+  it('names the runtime as the header-adding actor on a node send — and drops the wire-sizes note', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderStrip({ requestSize });
+    fireEvent.mouseEnter(screen.getByText('2 B'));
+    expect(await screen.findByText(/the runtime adds its own/)).toBeTruthy();
+    expect(screen.queryByText(/the browser adds its own/)).toBeNull();
+    expect(screen.queryByText(/not reported by the app/)).toBeNull();
+  });
+
+  it('keeps the browser actor and the TAO-gated wire-sizes note on a browser send', async () => {
+    renderStrip({ requestSize });
+    fireEvent.mouseEnter(screen.getByText('2 B'));
+    expect(await screen.findByText(/the browser adds its own/)).toBeTruthy();
+    expect(screen.getByText(/no Timing-Allow-Origin/)).toBeTruthy();
+  });
+});
+
+describe('ResponseMetaStrip timing popover honesty note', () => {
+  it('drops the folded-into-Waiting note when the ladder carries instrumented legs — the QUIC shape included', async () => {
+    renderStrip({ phaseTimings: { dnsMs: 56, tlsMs: 239, waitingMs: 125, downloadMs: 1 } });
+    fireEvent.mouseEnter(screen.getByTestId('oh-response-duration'));
+    expect(await screen.findByText('TLS handshake')).toBeTruthy();
+    expect(screen.queryByText(/not observable per send/)).toBeNull();
+  });
+
+  it('keeps the note on an uninstrumented node ladder — the legs really do sit inside Waiting', async () => {
+    renderStrip({ phaseTimings: { waitingMs: 100, downloadMs: 5 } });
+    fireEvent.mouseEnter(screen.getByTestId('oh-response-duration'));
+    expect(await screen.findByText(/not observable per send/)).toBeTruthy();
   });
 });
