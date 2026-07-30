@@ -56,7 +56,8 @@ describe('DelayMsKnob', () => {
   });
 
   it('interprets a bare number with one in-bounds reading', () => {
-    // "250" reads as 250 ms only — 250 s and 250 min exceed the 30 s cap.
+    // "250" commits as 250 ms — the 250 s / 250 min readings exceed the
+    // 30 s cap, so they are disabled feedback, not committable.
     const onChange = vi.fn();
     render(<DelayMsKnob onChange={onChange} ariaLabel="Delay" />);
     fireEvent.change(knob(), { target: { value: '250' } });
@@ -65,7 +66,8 @@ describe('DelayMsKnob', () => {
   });
 
   it('reverts ambiguous text instead of guessing', () => {
-    // "5" reads as 5 ms or 5 s — two candidates, so blur must not commit.
+    // "5" reads as 5 ms or 5 s — two enabled candidates, so blur must
+    // not commit.
     const onChange = vi.fn();
     render(<DelayMsKnob onChange={onChange} ariaLabel="Delay" />);
     fireEvent.change(knob(), { target: { value: '5' } });
@@ -75,13 +77,54 @@ describe('DelayMsKnob', () => {
   });
 
   it('reverts out-of-bounds text to the committed value', () => {
-    // "60 s" is beyond the 30 s cap — zero candidates, so blur reverts.
+    // "60 s" is beyond the 30 s cap — its only candidate is disabled,
+    // so blur reverts.
     const onChange = vi.fn();
     render(<DelayMsKnob value={1000} onChange={onChange} ariaLabel="Delay" />);
     fireEvent.change(knob(), { target: { value: '60 s' } });
     fireEvent.blur(knob());
     expect(onChange).not.toHaveBeenCalled();
     expect(knob().value).toBe('1 s');
+  });
+
+  it('explains an over-cap reading as a disabled candidate', () => {
+    // "32" reads as 32 ms (in bounds) plus 32 s / 32 min over the cap —
+    // the pruned readings stay visible, disabled, naming the bound.
+    render(<DelayMsKnob onChange={() => {}} ariaLabel="Delay" />);
+    fireEvent.change(knob(), { target: { value: '32' } });
+    const options = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option'));
+    const byTitle = new Map(options.map((el) => [el.getAttribute('title'), el]));
+    expect(byTitle.get('32 ms')?.classList.contains('ant-select-item-option-disabled')).toBe(false);
+    expect(byTitle.get('32 s — max 30 s')?.classList.contains('ant-select-item-option-disabled')).toBe(true);
+    expect(byTitle.get('32 min — max 30 s')?.classList.contains('ant-select-item-option-disabled')).toBe(true);
+  });
+
+  it('never commits a disabled candidate via Enter', () => {
+    // "60 s" has a single candidate and it is disabled — Enter must
+    // leave the model untouched.
+    const onChange = vi.fn();
+    render(<DelayMsKnob onChange={onChange} ariaLabel="Delay" />);
+    fireEvent.change(knob(), { target: { value: '60 s' } });
+    fireEvent.keyDown(knob(), { key: 'Enter' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('groups big label numbers per the runtime locale', () => {
+    // Display only — the model keeps the plain 29304; the label rides
+    // Intl grouping ("29,304 ms" / "29.304 ms" per locale).
+    const grouped = new Intl.NumberFormat().format(29304);
+    render(<DelayMsKnob value={29304} onChange={() => {}} ariaLabel="Delay" />);
+    expect(knob().value).toBe(`${grouped} ms`);
+  });
+
+  it('explains a below-minimum reading as a disabled candidate', () => {
+    // "0" rounds to 0 ms, under the 1 ms floor — disabled, min named.
+    render(<DelayMsKnob onChange={() => {}} ariaLabel="Delay" />);
+    fireEvent.change(knob(), { target: { value: '0' } });
+    const labels = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option-disabled')).map((el) =>
+      el.getAttribute('title'),
+    );
+    expect(labels).toContain('0 ms — min 1 ms');
   });
 
   it('reports undefined when emptied so the save gate can block', () => {

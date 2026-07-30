@@ -8,10 +8,13 @@
  * effective behavior the placeholder states.
  *
  * Commit rules: picking a candidate commits it; Enter commits the
- * first candidate for the current text; blur commits an unambiguous
- * single candidate, empties back to the default, and otherwise
- * reverts to the last committed value — free text can never land in
- * the model uninterpreted.
+ * first enabled candidate for the current text; blur commits an
+ * unambiguous single enabled candidate, empties back to the default,
+ * and otherwise reverts to the last committed value — free text can
+ * never land in the model uninterpreted. Disabled candidates are
+ * feedback only (an interpreter explaining a rejected reading, e.g.
+ * one outside the field's bounds): they render greyed in the dropdown
+ * and can never commit.
  */
 import { AutoComplete } from 'antd';
 import type React from 'react';
@@ -20,6 +23,8 @@ import { useMemo, useState } from 'react';
 export interface ComboKnobOption<T> {
   value: T;
   label: string;
+  /** Feedback-only candidate — shown greyed, never committable. */
+  disabled?: boolean;
 }
 
 export interface ComboKnobProps<T> {
@@ -67,8 +72,10 @@ function ComboKnob<T>({
     return presets.filter((p) => p.label.toLowerCase().startsWith(needle));
   }, [text, presets, interpret]);
 
+  const committable = useMemo(() => candidates.filter((c) => c.disabled !== true), [candidates]);
+
   const commit = (label: string): boolean => {
-    const hit = candidates.find((c) => c.label === label);
+    const hit = committable.find((c) => c.label === label);
     if (!hit) return false;
     onChange(hit.value);
     setText(undefined);
@@ -79,12 +86,12 @@ function ComboKnob<T>({
     <AutoComplete
       size={size}
       value={display}
-      options={candidates.map((c) => ({ value: c.label }))}
+      options={candidates.map((c) => ({ value: c.label, disabled: c.disabled }))}
       onSearch={(input) => setText(input)}
       onSelect={(label: string) => commit(label)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && text !== undefined && candidates.length > 0) {
-          commit(candidates[0].label);
+        if (e.key === 'Enter' && text !== undefined && committable.length > 0) {
+          commit(committable[0].label);
         }
       }}
       onClear={() => {
@@ -94,10 +101,12 @@ function ComboKnob<T>({
       onBlur={() => {
         if (text === undefined) return;
         if (text.trim() === '') onChange(undefined);
-        else if (candidates.length === 1) commit(candidates[0].label);
+        else if (committable.length === 1) commit(committable[0].label);
         setText(undefined);
       }}
       allowClear
+      popupMatchSelectWidth={false}
+      dropdownStyle={{ maxWidth: 320 }}
       disabled={disabled}
       placeholder={placeholder}
       aria-label={ariaLabel}

@@ -466,8 +466,9 @@ const KnobRow: React.FC<{
 };
 
 /** Bounded interpreters + preset lists for the numeric combo knobs —
- *  free text becomes concrete candidates ("10" → "10 s" / "10 min"),
- *  bounds prune readings the schema would reject. */
+ *  free text becomes concrete candidates ("10" → "10 s" / "10 min");
+ *  readings the schema would reject stay visible as disabled entries
+ *  naming the violated bound. */
 const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
 const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000, 300_000], formatDurationMs);
 const interpretResponseSize = byteSizeInterpreter({ min: MIN_RESPONSE_BYTES, max: MAX_RESPONSE_BYTES });
@@ -475,7 +476,7 @@ const SIZE_PRESETS = numericPresets(
   [256, 512, 1024, 2048, 5120, 10240].map((kb) => kb * 1024),
   formatByteSize,
 );
-const interpretRedirectCap = countInterpreter({ min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS });
+const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
 const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
 
 /** Compact numeric-knob row: same `label · (i) · control` geometry as
@@ -748,11 +749,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
     value.proxyCredentialRef !== undefined &&
     !proxyCredentialOptions.some((o) => o.value === value.proxyCredentialRef);
   // Redirect-cap candidates carry a localized "hops" unit, so the
-  // labels are minted here where `t` lives rather than at module scope.
+  // interpreter is minted here where `t` lives rather than at module
+  // scope; formatting inside the interpreter keeps the disabled
+  // bound-explanation entries intact.
   const formatHops = (count: number): string => t('workbench.editors.request.settings.maxRedirectsHops', { count });
   const redirectPresets = REDIRECT_PRESET_VALUES.map((v) => ({ value: v, label: formatHops(v) }));
-  const interpretHops = (input: string): ComboKnobOption<number>[] =>
-    interpretRedirectCap(input).map((c) => ({ value: c.value, label: formatHops(c.value) }));
+  const interpretHops = countInterpreter(REDIRECT_BOUNDS, formatHops);
   // Mirrors the tab-dot predicate: only knobs with a visible row on
   // this runtime arm the reset action.
   const anyModified =
