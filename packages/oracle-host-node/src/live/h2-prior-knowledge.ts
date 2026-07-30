@@ -32,11 +32,23 @@
  * `http2.connect`, which forwards it to `tls.connect` / `net.connect`
  * — `socketPath` as the dial-winning `path`, TLS-only options dropped
  * on cleartext dials.
+ *
+ * A proxied hop rides the shared CONNECT tunnel instead: the dial
+ * opens the tunnel first (`dialConnectTunnel` — proxy leg, credential,
+ * honest per-leg failures), then runs the SAME session over the tunnel
+ * socket via `createConnection` — target-leg TLS wrapped over the
+ * tunnel with the connection policy intact, or the raw tunnel socket
+ * for cleartext prior-knowledge framing. The pre-wire guards keep the
+ * combinations a tunnel cannot honor (socket path, pinned lookup) from
+ * ever reaching this dial.
  */
 
 import { connect } from 'node:http2';
+import type * as net from 'node:net';
+import * as tls from 'node:tls';
 import type { TransportHeader } from '@openheaders/oracle/live/request-exec/transport';
 import { servernameFor } from './instrumented-connector';
+import { dialConnectTunnel, type ProxyTunnel } from './request-transport/connect-tunnel';
 import type { ConnectOptions, NodeRequestResponse } from './request-transport/seam';
 
 /** One prior-knowledge hop as the transport dispatches it — the hop's
@@ -50,6 +62,9 @@ export interface H2PriorKnowledgeHopRequest {
    *  the headers (no DATA frames). */
   payload?: string | Uint8Array;
   connect: ConnectOptions;
+  /** CONNECT-tunnel route when the send sets a proxy — the session
+   *  dials the proxy and runs over the tunnel socket. */
+  proxy?: ProxyTunnel;
   signal?: AbortSignal;
   /**
    * Reports the protocol this connection SPOKE, keyed like the
@@ -145,13 +160,23 @@ function unwrapStreamCancel(err: unknown): unknown {
  * (the merged deadline) destroys the session — pre-head that rejects,
  * post-head it errors the body read.
  */
-export function h2PriorKnowledgeHop(request: H2PriorKnowledgeHopRequest): Promise<NodeRequestResponse> {
+export async function h2PriorKnowledgeHop(request: H2PriorKnowledgeHopRequest): Promise<NodeRequestResponse> {
   const url = new URL(request.url);
   const secure = url.protocol === 'https:';
   const { socketPath, lookup, ...tlsOptions } = request.connect;
   const port = url.port !== '' ? url.port : secure ? '443' : '80';
   const origin = socketPath ?? `${url.hostname}:${port}`;
   const servername = servernameFor(url.hostname);
+  // A proxied hop opens its tunnel BEFORE the session exists — a
+  // failure on either proxy leg rejects here with the leg's own error
+  // for the classifier, never a session-shaped wrap.
+  const tunnel: net.Socket | undefined =
+    request.proxy !== undefined
+      ? await dialConnectTunnel(
+          { hostname: url.hostname, port: Number(port) },
+          { proxy: request.proxy, ...(request.signal !== undefined ? { signal: request.signal } : {}) },
+        )
+      : undefined;
   return new Promise<NodeRequestResponse>((resolve, reject) => {
     let settled = false;
     const session = connect(`${url.protocol}//${url.host}`, {
@@ -162,6 +187,23 @@ export function h2PriorKnowledgeHop(request: H2PriorKnowledgeHopRequest): Promis
       ...(lookup !== undefined ? { lookup } : {}),
       ...(socketPath !== undefined ? { path: socketPath } : {}),
       ...(secure && servername !== undefined ? { servername } : {}),
+      // The tunneled dial: target-leg TLS over the tunnel socket (the
+      // connection policy rides the wrap; Node's h2 client offer, h2
+      // via ALPN, rides it too), or the raw tunnel for cleartext
+      // prior-knowledge framing.
+      ...(tunnel !== undefined
+        ? {
+            createConnection: (): net.Socket =>
+              secure
+                ? tls.connect({
+                    ...tlsOptions,
+                    socket: tunnel,
+                    ...(servername !== undefined ? { servername } : {}),
+                    ALPNProtocols: ['h2'],
+                  })
+                : tunnel,
+          }
+        : {}),
     });
 
     const onAbort = (): void => {

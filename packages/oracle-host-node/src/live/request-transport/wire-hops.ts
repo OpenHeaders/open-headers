@@ -99,6 +99,7 @@ async function h2Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
       headers,
       ...(payload !== undefined ? { payload } : {}),
       connect: h2.connect,
+      ...(h2.proxy !== undefined ? { proxy: h2.proxy } : {}),
       ...(deadline ? { signal: deadline.signal } : {}),
       onProtocol: h2.onProtocol,
     });

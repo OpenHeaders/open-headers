@@ -46,6 +46,7 @@ import * as net from 'node:net';
 import { isIP } from 'node:net';
 import * as tls from 'node:tls';
 import { Agent, buildConnector, errors } from 'undici';
+import { dialConnectTunnel, type ProxyTunnel } from './request-transport/connect-tunnel';
 import type { ConnectOptions } from './request-transport/seam';
 
 /** Marks + facts for one dialed connection, `performance.now()` clock
@@ -117,20 +118,29 @@ export function servernameFor(hostname: string): string | undefined {
  * `onConnection` AT DIAL START (marks fill in as the socket
  * progresses), and a `pinH2` dial that can't negotiate h2 fails with
  * {@link H2_NOT_NEGOTIATED_CODE} instead of proceeding.
+ *
+ * With `proxy` set the dial rides the shared CONNECT tunnel
+ * (`dialConnectTunnel`): the tunnel opens first, then the SAME
+ * target-leg TLS — connection policy, servername, and the pinned ALPN
+ * offer intact — wraps the tunnel socket, so the pin stays enforced by
+ * this dial's own handshake, never delegated to a proxy agent's
+ * connector.
  */
 export function createDialConnector(
   connect: ConnectOptions,
   alpn: AlpnPolicy,
   onConnection: (record: ConnectionRecord) => void,
   onReady?: (record: ConnectionRecord) => void,
+  proxy?: ProxyTunnel,
 ): Connector {
   const { socketPath, lookup, ...tlsOpts } = connect;
 
   return ((opts, callback: ConnectorCallback) => {
     const { hostname, protocol, port } = opts;
     const secure = protocol === 'https:';
+    const targetPort = port !== undefined && port !== '' ? Number(port) : secure ? 443 : 80;
     const record: ConnectionRecord = {
-      origin: socketPath ?? `${hostname}:${port || (secure ? 443 : 80)}`,
+      origin: socketPath ?? `${hostname}:${targetPort}`,
       tlsUsed: secure,
       startAt: performance.now(),
     };
@@ -150,61 +160,15 @@ export function createDialConnector(
       return;
     }
 
-    let socket: net.Socket | tls.TLSSocket;
-    if (secure) {
-      socket = tls.connect({
-        ...tlsOpts,
-        ...(lookup !== undefined ? { lookup } : {}),
-        ...(socketPath !== undefined ? { path: socketPath } : {}),
-        servername: servernameFor(hostname),
-        ALPNProtocols: alpn.alpnProtocols,
-        port: port !== undefined && port !== '' ? Number(port) : 443,
-        host: hostname,
-      });
-    } else {
-      socket = net.connect({
-        ...(lookup !== undefined ? { lookup } : {}),
-        ...(socketPath !== undefined ? { path: socketPath } : {}),
-        port: port !== undefined && port !== '' ? Number(port) : 80,
-        host: hostname,
-      });
-    }
-
-    socket.setKeepAlive(true, 60_000);
-    socket.setNoDelay(true);
-
-    socket.once('lookup', () => {
-      record.dnsEndAt = performance.now();
-    });
-    socket.once('connect', () => {
-      record.tcpEndAt = performance.now();
-    });
-
-    const timeout = setTimeout(() => {
-      socket.destroy(new errors.ConnectTimeoutError(`Connect Timeout Error (attempted address: ${record.origin})`));
-    }, CONNECT_TIMEOUT_MS);
-
     let settled = false;
-    socket.once(secure ? 'secureConnect' : 'connect', () => {
-      clearTimeout(timeout);
-      const alpnRaw = secure ? (socket as tls.TLSSocket).alpnProtocol : null;
-      // A TLS server that negotiated no ALPN speaks HTTP/1.1 — the
-      // same assumption undici's h1 client makes.
-      const negotiated = typeof alpnRaw === 'string' && alpnRaw !== '' ? alpnRaw : 'http/1.1';
-      if (secure && alpn.pinH2 && negotiated !== 'h2') {
-        // The pinned offer was h2-only; a server that ignored ALPN and
-        // carried on speaks http/1.1 here — honoring that would be the
-        // silent downgrade the pin forbids.
-        socket.destroy();
-        if (!settled) {
-          settled = true;
-          callback(
-            h2NotNegotiatedError(`${record.origin} negotiated ${negotiated} instead of the pinned HTTP/2.`),
-            null,
-          );
-        }
-        return;
+    const fail = (err: Error): void => {
+      if (!settled) {
+        settled = true;
+        callback(err, null);
       }
+    };
+
+    const markReady = (socket: net.Socket | tls.TLSSocket, negotiated: string): void => {
       record.readyAt = performance.now();
       record.alpnProtocol = negotiated;
       if (socket.localAddress !== undefined) record.localAddress = socket.localAddress;
@@ -216,14 +180,92 @@ export function createDialConnector(
         settled = true;
         callback(null, socket);
       }
-    });
-    socket.once('error', (err) => {
-      clearTimeout(timeout);
-      if (!settled) {
-        settled = true;
-        callback(err, null);
-      }
-    });
+    };
+
+    // Shared readiness/error handling for a dialing socket — direct or
+    // the target-leg TLS wrap over an established tunnel.
+    const establish = (socket: net.Socket | tls.TLSSocket): void => {
+      socket.setKeepAlive(true, 60_000);
+      socket.setNoDelay(true);
+
+      socket.once('lookup', () => {
+        record.dnsEndAt = performance.now();
+      });
+      socket.once('connect', () => {
+        record.tcpEndAt = performance.now();
+      });
+
+      const timeout = setTimeout(() => {
+        socket.destroy(new errors.ConnectTimeoutError(`Connect Timeout Error (attempted address: ${record.origin})`));
+      }, CONNECT_TIMEOUT_MS);
+
+      socket.once(secure ? 'secureConnect' : 'connect', () => {
+        clearTimeout(timeout);
+        const alpnRaw = secure ? (socket as tls.TLSSocket).alpnProtocol : null;
+        // A TLS server that negotiated no ALPN speaks HTTP/1.1 — the
+        // same assumption undici's h1 client makes.
+        const negotiated = typeof alpnRaw === 'string' && alpnRaw !== '' ? alpnRaw : 'http/1.1';
+        if (secure && alpn.pinH2 && negotiated !== 'h2') {
+          // The pinned offer was h2-only; a server that ignored ALPN and
+          // carried on speaks http/1.1 here — honoring that would be the
+          // silent downgrade the pin forbids.
+          socket.destroy();
+          fail(h2NotNegotiatedError(`${record.origin} negotiated ${negotiated} instead of the pinned HTTP/2.`));
+          return;
+        }
+        markReady(socket, negotiated);
+      });
+      socket.once('error', (err) => {
+        clearTimeout(timeout);
+        fail(err);
+      });
+    };
+
+    if (proxy !== undefined) {
+      dialConnectTunnel({ hostname, port: targetPort }, { proxy })
+        .then((tunnel) => {
+          record.tcpEndAt = performance.now();
+          if (!secure) {
+            // The tunnel socket IS the connection for a cleartext
+            // target — it already connected, so readiness is now.
+            markReady(tunnel, 'http/1.1');
+            return;
+          }
+          establish(
+            tls.connect({
+              ...tlsOpts,
+              socket: tunnel,
+              servername: servernameFor(hostname),
+              ALPNProtocols: alpn.alpnProtocols,
+            }),
+          );
+        })
+        .catch((err: unknown) => fail(err instanceof Error ? err : new Error(String(err))));
+      return;
+    }
+
+    if (secure) {
+      establish(
+        tls.connect({
+          ...tlsOpts,
+          ...(lookup !== undefined ? { lookup } : {}),
+          ...(socketPath !== undefined ? { path: socketPath } : {}),
+          servername: servernameFor(hostname),
+          ALPNProtocols: alpn.alpnProtocols,
+          port: targetPort,
+          host: hostname,
+        }),
+      );
+    } else {
+      establish(
+        net.connect({
+          ...(lookup !== undefined ? { lookup } : {}),
+          ...(socketPath !== undefined ? { path: socketPath } : {}),
+          port: targetPort,
+          host: hostname,
+        }),
+      );
+    }
   }) as Connector;
 }
 

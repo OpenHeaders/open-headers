@@ -9,6 +9,7 @@
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { H3HelperFailure } from '../h3-helper/helper-process';
 import { H2_NOT_NEGOTIATED_CODE } from '../instrumented-connector';
+import { proxyConnectRejectedStatus } from './connect-tunnel';
 
 /** Whether this request carries any TLS version / cipher tuning — the
  *  error classifier only points at those settings when they exist. */
@@ -139,12 +140,15 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
   const cause = err && typeof err === 'object' && 'cause' in err ? (err as { cause: unknown }).cause : undefined;
   if (proxied !== undefined) {
     // A rejected CONNECT is a normal proxy RESPONSE undici turns into
-    // an abort — the status only survives in the wrapped message.
+    // an abort — the status only survives in the wrapped message. The
+    // hand-rolled tunnel dial (pinned pipelines) carries the status on
+    // its own error instead.
     const tunnel = chain
       .map((link) => (link.message !== undefined ? /Proxy response \((\d+)\) !== 200/.exec(link.message) : null))
       .find((match) => match !== null);
-    if (tunnel) {
-      const status = Number(tunnel[1]);
+    const rejectedStatus = proxyConnectRejectedStatus(err) ?? (tunnel ? Number(tunnel[1]) : undefined);
+    if (rejectedStatus !== undefined) {
+      const status = rejectedStatus;
       if (status === 407) {
         return request.proxyCredentialRef !== undefined
           ? `The proxy at ${proxyHostOf(proxied)} rejected the credentials (407). Check the request's proxy-credentials setting — the vault entry "${request.proxyCredentialRef}" may hold the wrong user:password.`

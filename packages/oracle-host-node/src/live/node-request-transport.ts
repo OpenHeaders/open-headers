@@ -48,8 +48,11 @@
  *     the pipeline can't honor (plain http://, proxy, Unix socket, a
  *     sub-1.3 TLS ceiling, OpenSSL cipher lists, no helper binary on
  *     this install); `'2'` and `'2-prior-knowledge'` through a proxy
- *     fail honestly too (the tunnel's connector owns the ALPN offer,
- *     and the tunnel leg for raw-h2 framing isn't wired yet);
+ *     ride the shared hand-rolled CONNECT tunnel (`connect-tunnel.ts`)
+ *     — the pinned dial and the prior-knowledge session own their
+ *     target leg over the tunnel socket, so the pin stays enforced and
+ *     the preface stays raw (a `ProxyAgent` connector would own the
+ *     ALPN offer instead);
  *     `resolveToAddress` maps to a pinned `connect.lookup` (see
  *     `dispatcher.ts`) that answers every hostname with the one
  *     address while SNI / Host / cert verification keep the URL's
@@ -76,8 +79,10 @@
  *     — session cache intact — or the hand-rolled pinned dial), so
  *     {@link TransportResponse.httpVersion} reports the wire's
  *     protocol on every send, not only under `captureNetwork`.
- *     Proxied sends report nothing (the tunnel's connector owns the
- *     dial) — the usual capability honesty.
+ *     Proxied sends on `ProxyAgent` report nothing (the tunnel's
+ *     connector owns the dial) — the usual capability honesty; pinned
+ *     proxied sends DO report, because their hand-rolled tunnel dial
+ *     owns the target handshake.
  *   - **Opt-in cookie jar.** The main process has no ambient cookie
  *     jar; `cookieJarKey` opts a send into the transport-owned
  *     in-memory jar for that key (the workspace id — see
@@ -253,23 +258,6 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       }
     }
     if (request.proxyUrl !== undefined) {
-      // A pinned HTTP/2 send cannot be honored through a proxy — the
-      // tunnel's connector owns the ALPN offer, so the pin would
-      // silently degrade to an unenforced preference.
-      if (request.httpVersion === '2') {
-        throw new TransportError(
-          "The request pins HTTP/2 and routes through a proxy, but the proxy tunnel owns protocol negotiation — the pin can't be enforced. Set the HTTP version to Auto, or clear the proxy.",
-        );
-      }
-      // A CONNECT tunnel CAN carry raw h2 framing in principle, but
-      // this runtime's prior-knowledge pipeline doesn't dial through
-      // one yet — fail loudly rather than quietly negotiate via the
-      // tunnel's own connector.
-      if (request.httpVersion === '2-prior-knowledge') {
-        throw new TransportError(
-          "The request sends HTTP/2 with prior knowledge and routes through a proxy, but this runtime doesn't carry prior-knowledge HTTP/2 through a tunnel yet. Set the HTTP version to Auto, or clear the proxy.",
-        );
-      }
       // A resolve-to-address pin cannot be honored through a proxy —
       // the proxy resolves the hostname itself, and the target leg
       // rides the tunnel socket, never a local lookup. Silently
@@ -300,8 +288,8 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // single place a dispatcher is applied. A `captureNetwork` send
     // trades the shared pool for a send-local instrumented dial (the
     // only correlation-safe way to observe socket phases + endpoints);
-    // proxied sends stay on `ProxyAgent` — the tunnel's connector owns
-    // the dial and there is nothing honest to observe.
+    // proxied sends skip the instrumented dial — socket facts through
+    // a tunnel are a residual (H4).
     // A pinned-pipeline send (`'2-prior-knowledge'`, `'3'`) never
     // touches undici's wire — every hop rides its hand-rolled pipeline,
     // so no dispatcher (and no instrumented dial: socket facts for
@@ -332,7 +320,19 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
               ...(request.resolveToAddress !== undefined ? { connectAddress: request.resolveToAddress } : {}),
               onProtocol,
             }
-          : { kind: '2-prior-knowledge', connect: connectOptionsFor(request), onProtocol };
+          : {
+              kind: '2-prior-knowledge',
+              connect: connectOptionsFor(request),
+              ...(request.proxyUrl !== undefined
+                ? {
+                    proxy: {
+                      url: request.proxyUrl,
+                      ...(request.proxyCredential !== undefined ? { credential: request.proxyCredential } : {}),
+                    },
+                  }
+                : {}),
+              onProtocol,
+            };
     }
     // The always-on negotiated-protocol source for this send: the
     // instrumented dial reports through its connection records; a

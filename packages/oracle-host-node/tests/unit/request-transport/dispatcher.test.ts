@@ -203,18 +203,6 @@ describe('createNodeRequestTransport — per-request HTTP version', () => {
     expect(callInit(1).dispatcher).toBe(first);
   });
 
-  it("fails honestly BEFORE the wire when '2-prior-knowledge' routes through a proxy", async () => {
-    // The tunnel CAN carry raw h2 framing in principle — this runtime
-    // just doesn't dial the pipeline through one yet, and quietly
-    // negotiating via the tunnel's connector would betray the pin.
-    const attempt = transport().send(
-      makeRequest({ httpVersion: '2-prior-knowledge', proxyUrl: 'http://proxy.openheaders.io:3128' }),
-    );
-    await expect(attempt).rejects.toBeInstanceOf(TransportError);
-    await expect(attempt).rejects.toThrow(/prior-knowledge HTTP\/2 through a tunnel/);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
   it("fails honestly BEFORE the wire on '3' when no helper binary is available", async () => {
     // No injected client and no OPENHEADERS_H3_HELPER override — the
     // pin must fail naming HTTP/3, never quietly ride another protocol.
@@ -265,11 +253,15 @@ describe('createNodeRequestTransport — per-request HTTP version', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("fails honestly BEFORE the wire when '2' is pinned through a proxy", async () => {
-    const attempt = transport().send(makeRequest({ httpVersion: '2', proxyUrl: 'http://proxy.openheaders.io:3128' }));
-    await expect(attempt).rejects.toBeInstanceOf(TransportError);
-    await expect(attempt).rejects.toThrow(/proxy tunnel owns protocol negotiation/);
-    expect(fetchMock).not.toHaveBeenCalled();
+  it("a pinned '2' tuple through a proxy rides the hand-rolled tunnel dial, never ProxyAgent", async () => {
+    // ProxyAgent's connector would own the ALPN offer and demote the
+    // pin to an unenforced preference — the pinned tuple gets a plain
+    // Agent over the CONNECT-tunnel dial connector instead.
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ httpVersion: '2', proxyUrl: 'http://proxy.openheaders.io:3128' }));
+    const dispatcher = callInit(0).dispatcher;
+    expect(dispatcher).toBeInstanceOf(Agent);
+    expect(dispatcher).not.toBeInstanceOf(ProxyAgent);
   });
 
   it('classifies the pinned dial guard failure naming the HTTP version setting', async () => {

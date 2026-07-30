@@ -18,6 +18,7 @@ import {
 import type { Dispatcher, FormData, Headers, fetch as undiciFetch } from 'undici';
 import type { H3HelperClient } from '../h3-helper/helper-process';
 import type { H3ClientCert } from '../h3-helper/protocol';
+import type { ProxyTunnel } from './connect-tunnel';
 
 /** The fetch pipeline behind the transport — undici's fetch in
  *  production; injectable so tests observe the exact init (including
@@ -121,6 +122,10 @@ export interface StreamingLeg {
 export interface H2Leg {
   kind: '2-prior-knowledge';
   connect: ConnectOptions;
+  /** CONNECT-tunnel route when the request sets a proxy — every hop's
+   *  session dials the proxy, tunnels to the origin, and runs its TLS
+   *  (or h2c framing) over the tunnel socket. */
+  proxy?: ProxyTunnel;
   onProtocol(origin: string, alpnProtocol: string): void;
 }
 

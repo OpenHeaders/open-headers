@@ -13,6 +13,7 @@ import { createSecureContext, type SecureVersion } from 'node:tls';
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, type Dispatcher, ProxyAgent } from 'undici';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
+import type { ProxyTunnel } from './connect-tunnel';
 import type { ConnectOptions } from './seam';
 
 /** Seam value (`'1.2'`) → Node `tls.connect` version token (`'TLSv1.2'`). */
@@ -36,8 +37,11 @@ const MAX_AGENTS = 32;
  * A cached dispatcher plus the per-origin negotiated-protocol log its
  * connector reports into — the always-on twin of the instrumented
  * dial's facts. `negotiatedByOrigin` is absent for proxied
- * dispatchers: the tunnel's connector owns the dial and there is
- * nothing honest to observe.
+ * dispatchers riding undici's `ProxyAgent` (`auto` / `'1.1'`): the
+ * tunnel's connector owns the dial and there is nothing honest to
+ * observe. A PINNED proxied tuple rides the hand-rolled tunnel dial
+ * instead, whose own handshake reports the negotiated protocol — so
+ * its entry carries the log like a direct one.
  */
 export interface DispatcherEntry {
   dispatcher: Dispatcher;
@@ -174,10 +178,18 @@ export function dispatcherFor(request: TransportRequest): DispatcherEntry {
   const cached = agentCache.get(key);
   if (cached) return cached;
   const connect = connectOptionsFor(request);
-  const entry: DispatcherEntry =
+  // A pinned tuple through a proxy rides the hand-rolled tunnel dial —
+  // `ProxyAgent`'s connector owns the ALPN offer, which would demote
+  // the pin to an unenforced preference. Negotiating tuples keep
+  // `ProxyAgent` (its tunnel handling, session cache, and h2 seats).
+  const proxy: ProxyTunnel | undefined =
     proxyUrl !== undefined
-      ? { dispatcher: buildProxyAgent(proxyUrl, request, connect, offersH2(policy)) }
-      : buildAgentEntry(connect, policy);
+      ? { url: proxyUrl, ...(request.proxyCredential !== undefined ? { credential: request.proxyCredential } : {}) }
+      : undefined;
+  const entry: DispatcherEntry =
+    proxy !== undefined && !policy.pinH2
+      ? { dispatcher: buildProxyAgent(proxy.url, request, connect, offersH2(policy)) }
+      : buildAgentEntry(connect, policy, proxy);
   if (agentCache.size >= MAX_AGENTS) {
     const oldest = agentCache.entries().next().value;
     if (oldest) {
@@ -253,9 +265,12 @@ export function connectOptionsFor(request: TransportRequest): ConnectOptions {
  * ({@link createDialConnector}), the only connector that can offer
  * h2-only and refuse a non-h2 negotiation. `allowH2` is an Agent
  * option, NOT a `connect` option — it sits beside the connector and
- * lets the client speak h2 when the dial negotiated it.
+ * lets the client speak h2 when the dial negotiated it. A `proxy`
+ * route only ever arrives with the pinned dial (negotiating proxied
+ * tuples ride `ProxyAgent`); the dial opens the CONNECT tunnel and
+ * enforces the pin on the target leg itself.
  */
-function buildAgentEntry(connect: ConnectOptions, policy: AlpnPolicy): DispatcherEntry {
+function buildAgentEntry(connect: ConnectOptions, policy: AlpnPolicy, proxy?: ProxyTunnel): DispatcherEntry {
   const negotiatedByOrigin = new Map<string, string>();
   const allowH2 = offersH2(policy);
   const connector = policy.pinH2
@@ -268,6 +283,7 @@ function buildAgentEntry(connect: ConnectOptions, policy: AlpnPolicy): Dispatche
             recordNegotiated(negotiatedByOrigin, record.origin, record.alpnProtocol);
           }
         },
+        proxy,
       )
     : createRecordingConnector({ ...connect, ...(allowH2 ? { allowH2: true } : {}) }, (origin, alpnProtocol) =>
         recordNegotiated(negotiatedByOrigin, origin, alpnProtocol),
