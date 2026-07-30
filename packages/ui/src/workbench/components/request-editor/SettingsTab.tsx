@@ -151,7 +151,10 @@
  * remounts for the session; every field control shares one width so
  * the control column keeps a straight left edge; and a modified row
  * carries a per-row undo (the app Settings page's FieldRow idiom) so
- * one experiment can be undone without the footer's full reset.
+ * one experiment can be undone without the footer's full reset. Every
+ * knob row's and group header's (i) opens the structured popover built
+ * in SettingsRowInfo.tsx — one shared example send with the popover's
+ * own slice highlighted, the network column-popover idiom.
  */
 
 import { EyeInvisibleOutlined, EyeOutlined, UndoOutlined } from '@ant-design/icons';
@@ -190,8 +193,15 @@ import {
   formatDurationMs,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import CookieJarRow from './CookieJarRow';
+import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
+import {
+  type SettingsExampleToken,
+  settingsExampleCard,
+  settingsGroupInfo,
+  settingsRowInfo,
+} from './SettingsRowInfo';
 import { useScriptExecutionMode } from './use-script-execution-mode';
 
 const { Text } = Typography;
@@ -264,19 +274,6 @@ interface SettingsTabProps {
   workspaceId?: string | null;
 }
 
-type SettingsGroupKey = 'connection' | 'tls' | 'redirects' | 'cookies' | 'execution';
-
-/** Section order + labels shared by the live groups and the revealed
- *  fact sheet, so both read in the same topical order. */
-const GROUP_ORDER: SettingsGroupKey[] = ['connection', 'tls', 'redirects', 'cookies', 'execution'];
-const GROUP_LABEL_KEY: Record<SettingsGroupKey, MessageKey> = {
-  connection: 'workbench.editors.request.settings.group.connection',
-  tls: 'workbench.editors.request.settings.group.tls',
-  redirects: 'workbench.editors.request.settings.group.redirects',
-  cookies: 'workbench.editors.request.settings.group.cookies',
-  execution: 'workbench.editors.request.settings.group.execution',
-};
-
 interface RuntimeManagedDef {
   labelKey: MessageKey;
   /** Effective behavior shown in the muted value column. */
@@ -285,6 +282,11 @@ interface RuntimeManagedDef {
   /** Topic sub-header the fact renders under inside the revealed
    *  sheet — same vocabulary as the live knob groups. */
   group: SettingsGroupKey;
+  /** The fact's slice of the shared example send. Every fact popover
+   *  leads with the same card the live knobs use; a fact with no
+   *  visible slice (Referer, strict parser) shows it unlit — shared
+   *  context, same format everywhere. */
+  tokens?: readonly SettingsExampleToken[];
   /** Row anchor for e2e assertions on posture facts. */
   testId?: string;
 }
@@ -295,30 +297,35 @@ const BROWSER_MANAGED: RuntimeManagedDef[] = [
     valueKey: 'workbench.editors.request.settings.managed.auto',
     descriptionKey: 'workbench.editors.request.settings.managed.httpVersionDesc',
     group: 'connection',
+    tokens: ['protocol'],
   },
   {
     labelKey: 'workbench.editors.request.settings.sslVerification',
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.sslVerificationDesc',
     group: 'tls',
+    tokens: ['verify'],
   },
   {
     labelKey: 'workbench.editors.request.settings.followOriginalMethod',
     valueKey: 'workbench.editors.request.settings.managed.off',
     descriptionKey: 'workbench.editors.request.settings.managed.followOriginalMethodDesc',
     group: 'redirects',
+    tokens: ['methodRewrite'],
   },
   {
     labelKey: 'workbench.editors.request.settings.followAuthHeader',
     valueKey: 'workbench.editors.request.settings.managed.off',
     descriptionKey: 'workbench.editors.request.settings.managed.followAuthHeaderDesc',
     group: 'redirects',
+    tokens: ['authDrop'],
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.refererRedirect',
     valueKey: 'workbench.editors.request.settings.managed.policy',
     descriptionKey: 'workbench.editors.request.settings.managed.refererRedirectDesc',
     group: 'redirects',
+    tokens: ['chain'],
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.strictParser',
@@ -331,24 +338,28 @@ const BROWSER_MANAGED: RuntimeManagedDef[] = [
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
     group: 'connection',
+    tokens: ['url'],
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.cipherOrder',
     valueKey: 'workbench.editors.request.settings.managed.browser',
     descriptionKey: 'workbench.editors.request.settings.managed.cipherOrderDesc',
     group: 'tls',
+    tokens: ['suite'],
   },
   {
     labelKey: 'workbench.editors.request.settings.maxRedirects',
     valueKey: 'workbench.editors.request.settings.managed.about20',
     descriptionKey: 'workbench.editors.request.settings.managed.maxRedirectsDesc',
     group: 'redirects',
+    tokens: ['hops'],
   },
   {
     labelKey: 'workbench.editors.request.settings.managed.tlsVersions',
     valueKey: 'workbench.editors.request.settings.managed.browser',
     descriptionKey: 'workbench.editors.request.settings.managed.tlsVersionsDesc',
     group: 'tls',
+    tokens: ['tlsWindow'],
   },
 ];
 
@@ -370,6 +381,7 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
     valueKey: 'workbench.editors.request.settings.managed.on',
     descriptionKey: 'workbench.editors.request.settings.managed.encodeUrlDesc',
     group: 'connection',
+    tokens: ['url'],
   },
 ];
 
@@ -388,7 +400,8 @@ const SCRIPTS_NOT_RUN_ROW: RuntimeManagedDef = {
   labelKey: 'workbench.editors.request.settings.managed.scripts',
   valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
   descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
-    group: 'execution',
+  group: 'execution',
+  tokens: ['scripts'],
   testId: 'oh-managed-scripts-row',
 };
 
@@ -396,7 +409,8 @@ const SCRIPTS_SAFE_FORWARDED_ROW: RuntimeManagedDef = {
   labelKey: 'workbench.editors.request.settings.managed.scripts',
   valueKey: 'workbench.editors.request.settings.managed.scriptsSafeForwarded',
   descriptionKey: 'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc',
-    group: 'execution',
+  group: 'execution',
+  tokens: ['scripts'],
   testId: 'oh-managed-scripts-row',
 };
 
@@ -469,7 +483,7 @@ const KnobRow: React.FC<{
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
-  info: string;
+  info: InfoPopoverContent;
   warning?: string;
   warningWhenChecked?: boolean;
   modified?: boolean;
@@ -481,7 +495,7 @@ const KnobRow: React.FC<{
       <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
         <Text style={{ fontSize: 13 }}>{label}</Text>
         {modified === true && <ModifiedDot />}
-        <InfoTrigger content={{ title: label, summary: info }} />
+        <InfoTrigger content={info} />
         {modified === true && onReset !== undefined && <RowReset label={label} onReset={onReset} />}
         <span style={{ flex: 1 }} />
         <Switch
@@ -526,7 +540,7 @@ const ComboKnobRow: React.FC<{
   label: string;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
-  info: string;
+  info: InfoPopoverContent;
   presets: ReadonlyArray<ComboKnobOption<number>>;
   interpret: (input: string) => ComboKnobOption<number>[];
   format: (value: number) => string;
@@ -535,7 +549,7 @@ const ComboKnobRow: React.FC<{
   <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
     <Text style={{ fontSize: 13 }}>{label}</Text>
     {value !== undefined && <ModifiedDot />}
-    <InfoTrigger content={{ title: label, summary: info }} />
+    <InfoTrigger content={info} />
     {value !== undefined && <RowReset label={label} onReset={() => onChange(undefined)} />}
     <span style={{ flex: 1 }} />
     <ComboKnob
@@ -560,7 +574,7 @@ const SelectKnobRow: React.FC<{
   label: string;
   value: string | undefined;
   onChange: (value: string | undefined) => void;
-  info: string;
+  info: InfoPopoverContent;
   options: Array<{ value: string; label: string; disabled?: boolean }>;
   placeholder?: string;
   warning?: string;
@@ -575,7 +589,7 @@ const SelectKnobRow: React.FC<{
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
       {(modified ?? value !== undefined) && <ModifiedDot />}
-      <InfoTrigger content={{ title: label, summary: info }} />
+      <InfoTrigger content={info} />
       {(modified ?? value !== undefined) && (
         <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />
       )}
@@ -611,7 +625,7 @@ const TextKnobRow: React.FC<{
   label: string;
   value: string | undefined;
   onChange: (value: string | undefined) => void;
-  info: string;
+  info: InfoPopoverContent;
   placeholder: string;
   maxLength: number;
   error?: string;
@@ -623,7 +637,7 @@ const TextKnobRow: React.FC<{
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
       {value !== undefined && <ModifiedDot />}
-      <InfoTrigger content={{ title: label, summary: info }} />
+      <InfoTrigger content={info} />
       {value !== undefined && <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />}
       <span style={{ flex: 1 }} />
       <Input
@@ -655,6 +669,7 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   valueKey,
   descriptionKey,
   kicker,
+  tokens,
   testId,
 }) => {
   const { token } = theme.useToken();
@@ -666,7 +681,14 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
       style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 26 }}
     >
       <Text style={{ fontSize: 12, color: token.colorTextSecondary }}>{t(labelKey)}</Text>
-      <InfoTrigger content={{ title: t(labelKey), kicker, summary: t(descriptionKey) }} />
+      <InfoTrigger
+        content={{
+          title: t(labelKey),
+          kicker,
+          summary: t(descriptionKey),
+          diagram: settingsExampleCard(tokens ?? []),
+        }}
+      />
       <span style={{ flex: 1 }} />
       <Text style={{ fontSize: 12, color: token.colorTextTertiary }}>{t(valueKey)}</Text>
     </div>
@@ -704,20 +726,25 @@ const GroupSection: React.FC<{
   label: string;
   expanded: boolean;
   onToggle: () => void;
+  /** Header (i) popover — the group's slice of the shared example. */
+  info?: InfoPopoverContent;
   modified?: boolean;
   children: React.ReactNode;
-}> = ({ label, expanded, onToggle, modified, children }) => {
+}> = ({ label, expanded, onToggle, info, modified, children }) => {
   const { token } = theme.useToken();
   return (
     <>
       <div
         role="button"
         tabIndex={0}
+        aria-label={label}
         aria-expanded={expanded}
         onClick={onToggle}
         onKeyDown={(e) => {
           // Space must not scroll the pane — it activates, like Enter.
-          if (e.key === 'Enter' || e.key === ' ') {
+          // Keys landing on the inner (i) trigger stay its own: they
+          // must open the popover, not also toggle the fold.
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
             e.preventDefault();
             onToggle();
           }
@@ -754,6 +781,7 @@ const GroupSection: React.FC<{
         >
           {label}
         </Text>
+        {info !== undefined && <InfoTrigger content={info} />}
         {modified === true && !expanded && <ModifiedDot />}
         <div style={{ flex: 1, height: 1, background: token.colorSplit }} />
       </div>
@@ -881,13 +909,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.group.connection')}
               expanded={collapsed.connection !== true}
               onToggle={() => toggleGroup('connection')}
+              info={settingsGroupInfo(t, 'connection')}
               modified={connModified}
             >
             <SelectKnobRow
               label={t('workbench.editors.request.settings.httpVersion')}
               value={value.httpVersion === 'auto' ? undefined : value.httpVersion}
               onChange={(v) => onChange({ ...value, httpVersion: v === 'auto' ? undefined : (v as HttpVersion | undefined) })}
-              info={t('workbench.editors.request.settings.httpVersionInfo')}
+              info={settingsRowInfo(t, 'httpVersion')}
               options={[
                 { value: 'auto', label: t('workbench.editors.request.settings.httpVersionPlaceholder') },
                 { value: '1.1', label: 'HTTP/1.1' },
@@ -902,7 +931,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.resolveToAddress')}
               value={value.resolveToAddress}
               onChange={(resolveToAddress) => onChange({ ...value, resolveToAddress })}
-              info={t('workbench.editors.request.settings.resolveToAddressInfo')}
+              info={settingsRowInfo(t, 'resolveToAddress')}
               placeholder={t('workbench.editors.request.settings.resolveToAddressPlaceholder')}
               maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
               error={
@@ -922,7 +951,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   proxyUrl === undefined ? { ...value, proxyUrl, proxyCredentialRef: undefined } : { ...value, proxyUrl },
                 )
               }
-              info={t('workbench.editors.request.settings.proxyInfo')}
+              info={settingsRowInfo(t, 'proxy')}
               placeholder={t('workbench.editors.request.settings.proxyPlaceholder')}
               onReset={() => onChange({ ...value, proxyUrl: undefined, proxyCredentialRef: undefined })}
               maxLength={MAX_PROXY_URL_LENGTH}
@@ -942,7 +971,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                 label={t('workbench.editors.request.settings.proxyCredentials')}
                 value={value.proxyCredentialRef}
                 onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
-                info={t('workbench.editors.request.settings.proxyCredentialsInfo')}
+                info={settingsRowInfo(t, 'proxyCredentials')}
                 options={proxyCredentialOptions}
                 placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
                 warning={
@@ -958,7 +987,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.unixSocket')}
               value={value.unixSocketPath}
               onChange={(unixSocketPath) => onChange({ ...value, unixSocketPath })}
-              info={t('workbench.editors.request.settings.unixSocketInfo')}
+              info={settingsRowInfo(t, 'unixSocket')}
               placeholder={t('workbench.editors.request.settings.unixSocketPlaceholder')}
               maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
               error={
@@ -979,6 +1008,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.group.tls')}
               expanded={collapsed.tls !== true}
               onToggle={() => toggleGroup('tls')}
+              info={settingsGroupInfo(t, 'tls')}
               modified={tlsModified}
             >
             <KnobRow
@@ -987,14 +1017,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               modified={value.sslVerification === false}
               onReset={() => onChange({ ...value, sslVerification: undefined })}
               onChange={(checked) => onChange({ ...value, sslVerification: checked })}
-              info={t('workbench.editors.request.settings.sslVerificationInfo')}
+              info={settingsRowInfo(t, 'sslVerification')}
               warning={t('workbench.editors.request.settings.sslVerificationWarning')}
             />
             <SelectKnobRow
               label={t('workbench.editors.request.settings.tlsMin')}
               value={value.tlsMinVersion}
               onChange={(v) => onChange({ ...value, tlsMinVersion: v as TlsVersion | undefined })}
-              info={t('workbench.editors.request.settings.tlsMinInfo')}
+              info={settingsRowInfo(t, 'tlsMin')}
               options={TLS_VERSIONS.map((v) => ({
                 value: v,
                 label: v,
@@ -1011,7 +1041,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.tlsMax')}
               value={value.tlsMaxVersion}
               onChange={(v) => onChange({ ...value, tlsMaxVersion: v as TlsVersion | undefined })}
-              info={t('workbench.editors.request.settings.tlsMaxInfo')}
+              info={settingsRowInfo(t, 'tlsMax')}
               options={TLS_VERSIONS.map((v) => ({
                 value: v,
                 label: v,
@@ -1023,7 +1053,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.tlsCipherSuites')}
               value={value.tlsCipherSuites}
               onChange={(tlsCipherSuites) => onChange({ ...value, tlsCipherSuites })}
-              info={t('workbench.editors.request.settings.tlsCipherSuitesInfo')}
+              info={settingsRowInfo(t, 'tlsCipherSuites')}
               placeholder={t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder')}
               maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
               error={
@@ -1036,7 +1066,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.clientCertificate')}
               value={value.clientCertificateRef}
               onChange={(clientCertificateRef) => onChange({ ...value, clientCertificateRef })}
-              info={t('workbench.editors.request.settings.clientCertificateInfo')}
+              info={settingsRowInfo(t, 'clientCertificate')}
               options={clientCertificateOptions}
               placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
               warning={
@@ -1054,6 +1084,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.group.redirects')}
               expanded={collapsed.redirects !== true}
               onToggle={() => toggleGroup('redirects')}
+              info={settingsGroupInfo(t, 'redirects')}
               modified={redirectsModified}
             >
         <KnobRow
@@ -1062,7 +1093,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
           modified={value.followRedirects === false}
           onReset={() => onChange({ ...value, followRedirects: undefined })}
           onChange={(checked) => onChange({ ...value, followRedirects: checked })}
-          info={t('workbench.editors.request.settings.followRedirectsInfo')}
+          info={settingsRowInfo(t, 'followRedirects')}
         />
         {runtime === 'node' && value.followRedirects !== false && (
           <>
@@ -1070,7 +1101,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.maxRedirects')}
               value={value.maxRedirects}
               onChange={(maxRedirects) => onChange({ ...value, maxRedirects })}
-              info={t('workbench.editors.request.settings.maxRedirectsInfo')}
+              info={settingsRowInfo(t, 'maxRedirects')}
               presets={redirectPresets}
               interpret={interpretHops}
               format={formatHops}
@@ -1082,7 +1113,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               modified={value.followOriginalHttpMethod === true}
               onReset={() => onChange({ ...value, followOriginalHttpMethod: undefined })}
               onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
-              info={t('workbench.editors.request.settings.followOriginalMethodInfo')}
+              info={settingsRowInfo(t, 'followOriginalMethod')}
             />
             <KnobRow
               label={t('workbench.editors.request.settings.followAuthHeader')}
@@ -1090,7 +1121,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               modified={value.followAuthorizationHeader === true}
               onReset={() => onChange({ ...value, followAuthorizationHeader: undefined })}
               onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
-              info={t('workbench.editors.request.settings.followAuthHeaderInfo')}
+              info={settingsRowInfo(t, 'followAuthHeader')}
               warning={t('workbench.editors.request.settings.followAuthHeaderWarning')}
               warningWhenChecked
             />
@@ -1101,6 +1132,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.group.cookies')}
               expanded={collapsed.cookies !== true}
               onToggle={() => toggleGroup('cookies')}
+              info={settingsGroupInfo(t, 'cookies')}
               modified={cookiesModified}
             >
         {runtime === 'browser' && (
@@ -1110,7 +1142,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
             modified={value.credentialsMode === 'include'}
             onReset={() => onChange({ ...value, credentialsMode: undefined })}
             onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
-            info={t('workbench.editors.request.settings.sendBrowserCookiesInfo')}
+            info={settingsRowInfo(t, 'sendBrowserCookies')}
           />
         )}
         {runtime === 'node' && (
@@ -1121,7 +1153,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               modified={value.cookieJar === true}
               onReset={() => onChange({ ...value, cookieJar: undefined })}
               onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
-              info={t('workbench.editors.request.settings.cookieJarInfo')}
+              info={settingsRowInfo(t, 'cookieJar')}
             />
             <CookieJarRow />
           </>
@@ -1131,6 +1163,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.group.execution')}
               expanded={collapsed.execution !== true}
               onToggle={() => toggleGroup('execution')}
+              info={settingsGroupInfo(t, 'execution')}
               modified={executionModified}
             >
         {runtime === 'node' && scriptMode.available && (
@@ -1140,7 +1173,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
             modified={scriptMode.mode === 'developer'}
             onReset={() => scriptMode.setMode('safe')}
             onChange={(v) => scriptMode.setMode(v === 'developer' ? 'developer' : 'safe')}
-            info={t('workbench.editors.request.settings.scriptModeInfo')}
+            info={settingsRowInfo(t, 'scriptMode')}
             options={[
               { value: 'safe', label: t('workbench.editors.request.settings.scriptModeSafe') },
               { value: 'developer', label: t('workbench.editors.request.settings.scriptModeDeveloper') },
@@ -1156,7 +1189,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
           label={t('workbench.editors.request.settings.timeout')}
           value={value.timeoutMs}
           onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
-          info={t('workbench.editors.request.settings.timeoutInfo')}
+          info={settingsRowInfo(t, 'timeout')}
           presets={TIMEOUT_PRESETS}
           interpret={interpretTimeout}
           format={formatDurationMs}
@@ -1167,7 +1200,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
             label={t('workbench.editors.request.settings.responseSizeLimit')}
             value={value.maxResponseBytes}
             onChange={(maxResponseBytes) => onChange({ ...value, maxResponseBytes })}
-            info={t('workbench.editors.request.settings.responseSizeLimitInfo')}
+            info={settingsRowInfo(t, 'responseSizeLimit')}
             presets={SIZE_PRESETS}
             interpret={interpretResponseSize}
             format={formatByteSize}
@@ -1205,6 +1238,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                 label={t(GROUP_LABEL_KEY[group])}
                 expanded={collapsed[`sheet-${group}`] !== true}
                 onToggle={() => toggleGroup(`sheet-${group}`)}
+                info={settingsGroupInfo(t, group)}
               >
                 {sheetRows
                   .filter((r) => r.group === group)

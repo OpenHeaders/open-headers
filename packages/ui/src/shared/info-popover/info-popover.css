@@ -246,3 +246,58 @@
   border-color: var(--ant-color-primary);
   outline: none;
 }
+
+/* ── Shared example card ──────────────────────────────────
+ * A canonical concrete example rendered inside the popover's diagram
+ * slot, with the popover's own slice highlighted — so a family of
+ * popovers (settings rows, column headers) builds one coherent picture
+ * example by example. Host-neutral twin of the panel's `.dt-col-eg*`
+ * card: styled with the antd tokens this sheet already rides, so it
+ * resolves on every surface that renders an InfoPopover. */
+.oh-info-eg {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 0 2px;
+}
+.oh-info-eg-cap {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-tertiary);
+  margin-bottom: 4px;
+}
+.oh-info-eg-card {
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 5px;
+  background: var(--ant-color-fill-quaternary);
+  padding: 6px 8px;
+  font-family: var(--ant-font-family-code, monospace);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.oh-info-eg-line {
+  color: var(--ant-color-text-secondary);
+  word-break: break-word;
+}
+.oh-info-eg-sep {
+  color: var(--ant-color-text-secondary);
+  opacity: 0.6;
+}
+.oh-info-eg-method {
+  font-weight: 600;
+  color: var(--ant-color-text);
+}
+/* Default token: readable but quiet, so the highlighted one pops. */
+.oh-info-eg-tok {
+  border-radius: 3px;
+  padding: 0 1px;
+}
+/* The slice this popover represents — accent pill, full-strength text. */
+.oh-info-eg-hl {
+  background: color-mix(in srgb, var(--ant-color-primary) 16%, transparent);
+  color: var(--ant-color-primary);
+  font-weight: 700;
+  padding: 0 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ant-color-primary) 30%, transparent);
+}

@@ -325,23 +325,40 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.sendBrowserCookiesInfo':
     "Attach the browser's existing cookies for the target site to this request. Off is the safe default: the request is sent with no cookies, so results don't depend on your logged-in browser state.",
   'workbench.editors.request.settings.sslVerification': 'SSL certificate verification',
-  'workbench.editors.request.settings.sslVerificationInfo':
-    "Verify the server's TLS certificate against the runtime's trusted CA store. A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate.",
+  'workbench.editors.request.settings.sslVerificationSummary':
+    "Verify the server's TLS certificate against the runtime's trusted CA store — on by default.",
+  'workbench.editors.request.settings.sslVerificationDescription':
+    'A host with a self-signed, expired, or otherwise untrusted certificate fails with a TLS certificate error — switch verification off to reach it anyway, e.g. a development server with a self-signed certificate.',
   'workbench.editors.request.settings.sslVerificationWarning':
     'Sends skip the server identity check — any certificate is accepted, including self-signed and expired ones. The response is marked as unverified.',
   'workbench.editors.request.settings.tlsMin': 'TLS version minimum',
-  'workbench.editors.request.settings.tlsMinInfo':
-    'Lowest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.2. Choosing 1.0 or 1.1 lowers the floor below the default to reach legacy servers — a response sent with a lowered floor is marked.',
+  'workbench.editors.request.settings.tlsMinSummary':
+    'Lowest TLS protocol version a send may negotiate — empty keeps the runtime default of TLS 1.2.',
+  'workbench.editors.request.settings.tlsMinDescription':
+    'Choosing 1.0 or 1.1 lowers the floor below the default to reach legacy servers — a response sent with a lowered floor is marked.',
   'workbench.editors.request.settings.tlsMinPlaceholder': '1.2 (default)',
   'workbench.editors.request.settings.tlsMinWarning':
     'Sends may negotiate TLS below 1.2 — protocol versions with known weaknesses. The response is marked.',
   'workbench.editors.request.settings.tlsMax': 'TLS version maximum',
-  'workbench.editors.request.settings.tlsMaxInfo':
-    "Highest TLS protocol version a send may negotiate. Leave empty for the runtime default of TLS 1.3. Lower it to check how a server behaves on an older protocol — the minimum may need lowering too, or the two won't overlap.",
+  'workbench.editors.request.settings.tlsMaxSummary':
+    'Highest TLS protocol version a send may negotiate — empty keeps the runtime default of TLS 1.3.',
+  'workbench.editors.request.settings.tlsMaxDescription':
+    "Lower it to check how a server behaves on an older protocol — the minimum may need lowering too, or the two won't overlap.",
+  'workbench.editors.request.settings.tlsVersionsHeading': 'Versions',
+  'workbench.editors.request.settings.tlsVersionLegacyDesc': 'Legacy, known weaknesses — sends are marked.',
+  'workbench.editors.request.settings.tlsVersion12Desc': 'The default floor.',
+  'workbench.editors.request.settings.tlsVersion13Desc': 'The default ceiling — current best practice.',
   'workbench.editors.request.settings.tlsMaxPlaceholder': '1.3 (default)',
   'workbench.editors.request.settings.tlsCipherSuites': 'TLS cipher suites',
-  'workbench.editors.request.settings.tlsCipherSuitesInfo':
-    "Cipher suites offered during the TLS handshake, as a colon-separated OpenSSL-format list — TLS 1.3 suite names and older suite names both go in the one list. Leave empty to offer the runtime's default suites. The server picks the suite from what is offered, in its own preference order.",
+  'workbench.editors.request.settings.tlsCipherSuitesSummary':
+    "Cipher suites offered during the TLS handshake, as one colon-separated list — empty offers the runtime's default suites.",
+  'workbench.editors.request.settings.tlsCipherSuitesDescription':
+    'The server picks the suite from what is offered, in its own preference order.',
+  'workbench.editors.request.settings.tlsCipherSuitesFormatHeading': 'Format',
+  'workbench.editors.request.settings.tlsCipherSuitesIanaDesc': 'A TLS 1.3 suite by its IANA name.',
+  'workbench.editors.request.settings.tlsCipherSuitesOpensslDesc':
+    'An older suite by its OpenSSL name — both kinds go in the one list.',
+  'workbench.editors.request.settings.tlsCipherSuitesJoinDesc': 'Joins the entries — no spaces.',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Runtime default suites',
   'workbench.editors.request.settings.tlsCipherSuitesError': 'Colon-separated OpenSSL suite names only — no spaces.',
   'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 hops (default)',
@@ -355,9 +372,31 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.group.connection': 'Connection',
   'workbench.editors.request.settings.group.cookies': 'Cookies',
   'workbench.editors.request.settings.group.execution': 'Execution & limits',
+  'workbench.editors.request.settings.groupInfo.connection':
+    'How the send reaches the server — the HTTP protocol it speaks and the leg it dials: direct, through a proxy, to a pinned address, or into a local socket.',
+  'workbench.editors.request.settings.groupInfo.tls':
+    'What the send trusts and offers in the TLS handshake — certificate verification, the protocol window, the cipher suites, and a client certificate.',
+  'workbench.editors.request.settings.groupInfo.redirects':
+    'What happens when the server answers with a redirect — whether the chain is followed, how far, and what the follow-up requests carry.',
+  'workbench.editors.request.settings.groupInfo.cookies':
+    'Whether cookies ride the send — off by default, so results never depend on ambient login state.',
+  'workbench.editors.request.settings.groupInfo.execution':
+    'How the run itself is bounded — the script mode, the time budget, and the response-size cap.',
   'workbench.editors.request.settings.httpVersion': 'HTTP version',
-  'workbench.editors.request.settings.httpVersionInfo':
-    'How the send speaks HTTP. Auto (the default) offers HTTP/2 alongside HTTP/1.1 during the TLS handshake and the server picks — plain http:// stays HTTP/1.1. HTTP/1.1 pins classic semantics. HTTP/2 pins the protocol via the handshake offer. HTTP/2 (prior knowledge) skips negotiation and speaks HTTP/2 immediately — the route for cleartext HTTP/2 servers. HTTP/3 dials the server directly over QUIC, with no fallback to TCP. A pinned version the server can’t speak fails with a clear error, never a silent fallback. The Network popover on the response always shows the protocol that was actually negotiated on the wire.',
+  'workbench.editors.request.settings.httpVersionSummary':
+    'How the send speaks HTTP — Auto (the default) offers HTTP/2 alongside HTTP/1.1 and the server picks.',
+  'workbench.editors.request.settings.httpVersionDescription':
+    'A pinned version the server can’t speak fails with a clear error, never a silent fallback. The Network popover on the response always shows the protocol that was actually negotiated on the wire.',
+  'workbench.editors.request.settings.httpVersionValuesHeading': 'Values',
+  'workbench.editors.request.settings.httpVersionAutoDesc':
+    'Offers HTTP/2 + HTTP/1.1 during the TLS handshake and the server picks — plain http:// stays HTTP/1.1.',
+  'workbench.editors.request.settings.httpVersion11Desc': 'Pins classic HTTP/1.1 semantics.',
+  'workbench.editors.request.settings.httpVersion2Desc': 'Pins HTTP/2 via the handshake offer.',
+  'workbench.editors.request.settings.httpVersionPkDesc':
+    'Speaks HTTP/2 immediately without negotiating — the route for cleartext HTTP/2 servers.',
+  'workbench.editors.request.settings.httpVersion3Desc':
+    'Dials the server directly over QUIC, with no fallback to TCP.',
+  'workbench.editors.request.settings.exampleCaption': 'Example send',
   'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto — server picks',
   'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2 (prior knowledge)',
   'workbench.editors.request.settings.resolveToAddress': 'Resolve to address',
@@ -466,8 +505,11 @@ export const workbenchEditorsRequest = {
   // ── Settings tab — script execution chooser (per-workspace,
   //    host-local — never syncs) ───────────────────────────────────────
   'workbench.editors.request.settings.scriptMode': 'Script execution',
-  'workbench.editors.request.settings.scriptModeInfo':
-    'How pre-request and post-response scripts in this workspace run on this device. Safe mode executes them in the app’s sandboxed script runtime: the oh.* script API only — no filesystem, no process access, no module loader. Developer mode executes them in a full Node.js runtime with require and system access. The choice applies to every request in the workspace, stays on this device, and never syncs — each run records the mode it executed under on the response.',
+  'workbench.editors.request.settings.scriptModeSummary':
+    'How pre-request and post-response scripts in this workspace run on this device.',
+  'workbench.editors.request.settings.scriptModeDescription':
+    'The choice applies to every request in the workspace, stays on this device, and never syncs — each run records the mode it executed under on the response.',
+  'workbench.editors.request.settings.scriptModeModesHeading': 'Modes',
   'workbench.editors.request.settings.scriptModeSafe': 'Safe mode',
   'workbench.editors.request.settings.scriptModeDeveloper': 'Developer mode',
   'workbench.editors.request.settings.scriptModeWarning':

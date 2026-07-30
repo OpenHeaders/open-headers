@@ -833,7 +833,7 @@ describe('SettingsTab row chrome and group folds', () => {
   it('toggles a group fold from the keyboard with Space and Enter', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
-    const header = screen.getByRole('button', { name: /TLS & trust/ });
+    const header = screen.getByRole('button', { name: 'TLS & trust' });
     expect(header.getAttribute('tabindex')).toBe('0');
     fireEvent.keyDown(header, { key: ' ' });
     expect(screen.queryByRole('switch', { name: 'SSL certificate verification' })).toBeNull();
@@ -844,14 +844,79 @@ describe('SettingsTab row chrome and group folds', () => {
   it('remembers a fold across a remount for the session', () => {
     registerCapability('requestRuntime', () => 'node');
     const first = render(<SettingsTab value={{}} onChange={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: /Execution & limits/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Execution & limits' }));
     expect(screen.queryByRole('combobox', { name: 'Request timeout' })).toBeNull();
     first.unmount();
 
     render(<SettingsTab value={{}} onChange={() => {}} />);
     expect(screen.queryByRole('combobox', { name: 'Request timeout' })).toBeNull();
     // Unfold again so the session store ends the suite at the default.
-    fireEvent.click(screen.getByRole('button', { name: /Execution & limits/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Execution & limits' }));
     expect(screen.getByRole('combobox', { name: 'Request timeout' })).toBeTruthy();
+  });
+});
+
+describe('SettingsTab info popovers', () => {
+  /** Highlighted example-card tokens of the currently open popover. */
+  const litTokens = (): string[] =>
+    Array.from(document.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent ?? '');
+
+  it('opens a structured row popover: kicker, example card with the slice lit, glossary', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'About HTTP version' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Connection');
+    expect(litTokens()).toEqual(['h2']);
+    expect(screen.getByText('HTTP/3')).toBeTruthy();
+    expect(screen.getByText('Dials the server directly over QUIC, with no fallback to TCP.')).toBeTruthy();
+  });
+
+  it('swaps the dial slot to the row leg on the proxy popover', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'About Proxy' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(litTokens()).toEqual(['proxy 127.0.0.1:8080']);
+  });
+
+  it('lights the whole sub-slice on a group-header popover', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'About TLS & trust' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(litTokens()).toEqual(['TLS 1.2–1.3', 'verify ✓', 'TLS_AES_128_GCM_SHA256', 'cert: acme-mtls']);
+  });
+
+  it('keeps Enter on a header (i) from toggling the fold', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'About TLS & trust' }), { key: 'Enter' });
+    expect(screen.getByRole('switch', { name: 'SSL certificate verification' })).toBeTruthy();
+  });
+
+  it('leads a runtime-managed fact row with the same card when it has a slice', async () => {
+    renderTab();
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByRole('button', { name: 'About HTTP version' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(litTokens()).toEqual(['h2']);
+  });
+
+  it('keeps the card, unlit, on a slice-less managed fact', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    fireEvent.click(screen.getByText('4 runtime-managed'));
+    fireEvent.click(screen.getByRole('button', { name: 'About Referer header' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(litTokens()).toEqual([]);
+  });
+
+  it('gives the fact-sheet group headers the same group popover', async () => {
+    renderTab();
+    fireEvent.click(screen.getByText('10 browser-managed'));
+    fireEvent.click(screen.getByRole('button', { name: 'About Connection' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(litTokens()).toEqual(['h2', 'direct']);
   });
 });

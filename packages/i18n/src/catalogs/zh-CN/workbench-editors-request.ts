@@ -332,23 +332,39 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.sendBrowserCookiesInfo':
     '把浏览器中目标站点的现有 Cookie 附加到此请求。关闭是安全默认：请求不带任何 Cookie 发送，结果不依赖你在浏览器中的登录状态。',
   'workbench.editors.request.settings.sslVerification': 'SSL 证书验证',
-  'workbench.editors.request.settings.sslVerificationInfo':
-    '对照运行时的受信任 CA 存储验证服务器的 TLS 证书。证书自签名、过期或不受信任的主机会以 TLS 证书错误失败——关闭验证仍可访问它，例如使用自签名证书的开发服务器。',
+  'workbench.editors.request.settings.sslVerificationSummary':
+    '对照运行时的受信任 CA 存储验证服务器的 TLS 证书——默认开启。',
+  'workbench.editors.request.settings.sslVerificationDescription':
+    '证书自签名、过期或不受信任的主机会以 TLS 证书错误失败——关闭验证仍可访问它，例如使用自签名证书的开发服务器。',
   'workbench.editors.request.settings.sslVerificationWarning':
     '发送会跳过服务器身份检查——任何证书都被接受，包括自签名和已过期的。响应会被标记为未验证。',
   'workbench.editors.request.settings.tlsMin': 'TLS 最低版本',
-  'workbench.editors.request.settings.tlsMinInfo':
-    '一次发送可协商的最低 TLS 协议版本。留空为运行时默认的 TLS 1.2。选择 1.0 或 1.1 会把下限降到默认之下以连接旧式服务器——以降低的下限发送的响应会被标记。',
+  'workbench.editors.request.settings.tlsMinSummary':
+    '一次发送可协商的最低 TLS 协议版本——留空保持运行时默认的 TLS 1.2。',
+  'workbench.editors.request.settings.tlsMinDescription':
+    '选择 1.0 或 1.1 会把下限降到默认之下以连接旧式服务器——以降低的下限发送的响应会被标记。',
   'workbench.editors.request.settings.tlsMinPlaceholder': '1.2（默认）',
   'workbench.editors.request.settings.tlsMinWarning':
     '发送可能协商出低于 1.2 的 TLS——这些协议版本存在已知弱点。响应会被标记。',
   'workbench.editors.request.settings.tlsMax': 'TLS 最高版本',
-  'workbench.editors.request.settings.tlsMaxInfo':
-    '一次发送可协商的最高 TLS 协议版本。留空为运行时默认的 TLS 1.3。降低它可检查服务器在旧协议上的行为——最低版本可能也需要降低，否则两者没有交集。',
+  'workbench.editors.request.settings.tlsMaxSummary':
+    '一次发送可协商的最高 TLS 协议版本——留空保持运行时默认的 TLS 1.3。',
+  'workbench.editors.request.settings.tlsMaxDescription':
+    '降低它可检查服务器在旧协议上的行为——最低版本可能也需要降低，否则两者没有交集。',
+  'workbench.editors.request.settings.tlsVersionsHeading': '版本',
+  'workbench.editors.request.settings.tlsVersionLegacyDesc': '旧式版本，存在已知弱点——发送会被标记。',
+  'workbench.editors.request.settings.tlsVersion12Desc': '默认下限。',
+  'workbench.editors.request.settings.tlsVersion13Desc': '默认上限——当前最佳实践。',
   'workbench.editors.request.settings.tlsMaxPlaceholder': '1.3（默认）',
   'workbench.editors.request.settings.tlsCipherSuites': 'TLS 密码套件',
-  'workbench.editors.request.settings.tlsCipherSuitesInfo':
-    'TLS 握手期间提供的密码套件，为冒号分隔的 OpenSSL 格式列表——TLS 1.3 套件名和旧式套件名都放进同一个列表。留空则提供运行时的默认套件。服务器按自己的偏好顺序从所提供的套件中选择。',
+  'workbench.editors.request.settings.tlsCipherSuitesSummary':
+    'TLS 握手期间提供的密码套件，为一个冒号分隔的列表——留空则提供运行时的默认套件。',
+  'workbench.editors.request.settings.tlsCipherSuitesDescription': '服务器按自己的偏好顺序从所提供的套件中选择。',
+  'workbench.editors.request.settings.tlsCipherSuitesFormatHeading': '格式',
+  'workbench.editors.request.settings.tlsCipherSuitesIanaDesc': '以 IANA 名称表示的 TLS 1.3 套件。',
+  'workbench.editors.request.settings.tlsCipherSuitesOpensslDesc':
+    '以 OpenSSL 名称表示的旧式套件——两类都放进同一个列表。',
+  'workbench.editors.request.settings.tlsCipherSuitesJoinDesc': '连接各条目——不能有空格。',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': '运行时默认套件',
   'workbench.editors.request.settings.tlsCipherSuitesError': '仅限冒号分隔的 OpenSSL 套件名——不能有空格。',
   'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 跳（默认）',
@@ -362,9 +378,28 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.group.connection': '连接',
   'workbench.editors.request.settings.group.cookies': 'Cookie',
   'workbench.editors.request.settings.group.execution': '执行与限制',
+  'workbench.editors.request.settings.groupInfo.connection':
+    '发送如何抵达服务器——所使用的 HTTP 协议以及拨号路径：直连、经代理、连到固定地址，或进入本地套接字。',
+  'workbench.editors.request.settings.groupInfo.tls':
+    '发送在 TLS 握手中验证和提供的内容——证书验证、协议版本窗口、密码套件与客户端证书。',
+  'workbench.editors.request.settings.groupInfo.redirects':
+    '服务器以重定向应答时会发生什么——是否跟随链条、跟随多远，以及后续请求携带什么。',
+  'workbench.editors.request.settings.groupInfo.cookies':
+    'Cookie 是否随发送一起——默认关闭，结果绝不依赖环境中的登录状态。',
+  'workbench.editors.request.settings.groupInfo.execution': '这次运行本身如何受限——脚本模式、时间预算与响应大小上限。',
   'workbench.editors.request.settings.httpVersion': 'HTTP 版本',
-  'workbench.editors.request.settings.httpVersionInfo':
-    '发送使用的 HTTP 协议方式。Auto（默认）在 TLS 握手中同时提供 HTTP/2 与 HTTP/1.1，由服务器选择——普通 http:// 保持 HTTP/1.1。HTTP/1.1 固定使用经典语义。HTTP/2 通过握手提供项固定协议。HTTP/2（prior knowledge）跳过协商直接以 HTTP/2 通信——这是明文 HTTP/2 服务器的通路。HTTP/3 直接以 QUIC 连接服务器，不回退到 TCP。固定的版本若服务器无法使用，会以明确错误失败，绝不静默回退。响应的“网络”弹层始终显示线上实际协商出的协议。',
+  'workbench.editors.request.settings.httpVersionSummary':
+    '发送使用的 HTTP 协议方式——Auto（默认）同时提供 HTTP/2 与 HTTP/1.1，由服务器选择。',
+  'workbench.editors.request.settings.httpVersionDescription':
+    '固定的版本若服务器无法使用，会以明确错误失败，绝不静默回退。响应的“网络”弹层始终显示线上实际协商出的协议。',
+  'workbench.editors.request.settings.httpVersionValuesHeading': '取值',
+  'workbench.editors.request.settings.httpVersionAutoDesc':
+    '在 TLS 握手中同时提供 HTTP/2 + HTTP/1.1，由服务器选择——普通 http:// 保持 HTTP/1.1。',
+  'workbench.editors.request.settings.httpVersion11Desc': '固定使用经典的 HTTP/1.1 语义。',
+  'workbench.editors.request.settings.httpVersion2Desc': '通过握手提供项固定 HTTP/2。',
+  'workbench.editors.request.settings.httpVersionPkDesc': '跳过协商直接以 HTTP/2 通信——这是明文 HTTP/2 服务器的通路。',
+  'workbench.editors.request.settings.httpVersion3Desc': '直接以 QUIC 连接服务器，不回退到 TCP。',
+  'workbench.editors.request.settings.exampleCaption': '示例发送',
   'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto——由服务器选择',
   'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2（prior knowledge）',
   'workbench.editors.request.settings.resolveToAddress': '解析到地址',
@@ -471,8 +506,10 @@ export const workbenchEditorsRequest = {
   // ── Settings tab — script execution chooser (per-workspace,
   //    host-local — never syncs) ───────────────────────────────────────
   'workbench.editors.request.settings.scriptMode': '脚本执行',
-  'workbench.editors.request.settings.scriptModeInfo':
-    '此工作区的请求前和响应后脚本在这台设备上如何运行。安全模式在应用的沙箱化脚本运行时中执行它们：只有 oh.* 脚本 API——没有文件系统、没有进程访问、没有模块加载器。开发者模式在完整的 Node.js 运行时中执行它们，带 require 和系统访问。该选择适用于工作区中的每个请求，只留在这台设备上，从不同步——每次运行都会在响应上记录其执行模式。',
+  'workbench.editors.request.settings.scriptModeSummary': '此工作区的请求前和响应后脚本在这台设备上如何运行。',
+  'workbench.editors.request.settings.scriptModeDescription':
+    '该选择适用于工作区中的每个请求，只留在这台设备上，从不同步——每次运行都会在响应上记录其执行模式。',
+  'workbench.editors.request.settings.scriptModeModesHeading': '模式',
   'workbench.editors.request.settings.scriptModeSafe': '安全模式',
   'workbench.editors.request.settings.scriptModeDeveloper': '开发者模式',
   'workbench.editors.request.settings.scriptModeWarning':

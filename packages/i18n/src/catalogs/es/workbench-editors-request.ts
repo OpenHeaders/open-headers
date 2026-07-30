@@ -384,35 +384,51 @@ export const workbenchEditorsRequest = {
     'es el valor seguro por defecto: la solicitud se envía sin cookies, así que los resultados no dependen ' +
     'de tu estado de sesión en el navegador.',
   'workbench.editors.request.settings.sslVerification': 'Verificación del certificado SSL',
-  'workbench.editors.request.settings.sslVerificationInfo':
-    'Verifica el certificado TLS del servidor contra el almacén de CA de confianza del runtime. Un host con ' +
-    'un certificado autofirmado, caducado o no confiable falla con un error de certificado TLS — desactiva ' +
-    'la verificación para alcanzarlo de todos modos, p. ej. un servidor de desarrollo con certificado ' +
-    'autofirmado.',
+  'workbench.editors.request.settings.sslVerificationSummary':
+    'Verifica el certificado TLS del servidor contra el almacén de CA de confianza del runtime — activado ' +
+    'por defecto.',
+  'workbench.editors.request.settings.sslVerificationDescription':
+    'Un host con un certificado autofirmado, caducado o no confiable falla con un error de certificado TLS ' +
+    '— desactiva la verificación para alcanzarlo de todos modos, p. ej. un servidor de desarrollo con ' +
+    'certificado autofirmado.',
   'workbench.editors.request.settings.sslVerificationWarning':
     'Los envíos omiten la comprobación de identidad del servidor — se acepta cualquier certificado, ' +
     'incluidos los autofirmados y caducados. La respuesta queda marcada como no verificada.',
   'workbench.editors.request.settings.tlsMin': 'Versión mínima de TLS',
-  'workbench.editors.request.settings.tlsMinInfo':
-    'La versión más baja del protocolo TLS que un envío puede negociar. Déjalo vacío para el valor por ' +
-    'defecto del runtime, TLS 1.2. Elegir 1.0 o 1.1 baja el suelo por debajo del valor por defecto para ' +
-    'alcanzar servidores heredados — una respuesta enviada con el suelo bajado queda marcada.',
+  'workbench.editors.request.settings.tlsMinSummary':
+    'La versión más baja del protocolo TLS que un envío puede negociar — vacío conserva el valor por ' +
+    'defecto del runtime, TLS 1.2.',
+  'workbench.editors.request.settings.tlsMinDescription':
+    'Elegir 1.0 o 1.1 baja el suelo por debajo del valor por defecto para alcanzar servidores heredados — ' +
+    'una respuesta enviada con el suelo bajado queda marcada.',
   'workbench.editors.request.settings.tlsMinPlaceholder': '1.2 (por defecto)',
   'workbench.editors.request.settings.tlsMinWarning':
     'Los envíos pueden negociar TLS por debajo de 1.2 — versiones del protocolo con debilidades conocidas. ' +
     'La respuesta queda marcada.',
   'workbench.editors.request.settings.tlsMax': 'Versión máxima de TLS',
-  'workbench.editors.request.settings.tlsMaxInfo':
-    'La versión más alta del protocolo TLS que un envío puede negociar. Déjalo vacío para el valor por ' +
-    'defecto del runtime, TLS 1.3. Bájala para comprobar cómo se comporta un servidor con un protocolo más ' +
-    'antiguo — puede que también haya que bajar la mínima, o las dos no se solaparán.',
+  'workbench.editors.request.settings.tlsMaxSummary':
+    'La versión más alta del protocolo TLS que un envío puede negociar — vacío conserva el valor por ' +
+    'defecto del runtime, TLS 1.3.',
+  'workbench.editors.request.settings.tlsMaxDescription':
+    'Bájala para comprobar cómo se comporta un servidor con un protocolo más antiguo — puede que también ' +
+    'haya que bajar la mínima, o las dos no se solaparán.',
+  'workbench.editors.request.settings.tlsVersionsHeading': 'Versiones',
+  'workbench.editors.request.settings.tlsVersionLegacyDesc':
+    'Heredadas, con debilidades conocidas — los envíos quedan marcados.',
+  'workbench.editors.request.settings.tlsVersion12Desc': 'El suelo por defecto.',
+  'workbench.editors.request.settings.tlsVersion13Desc': 'El techo por defecto — la buena práctica actual.',
   'workbench.editors.request.settings.tlsMaxPlaceholder': '1.3 (por defecto)',
   'workbench.editors.request.settings.tlsCipherSuites': 'Suites de cifrado TLS',
-  'workbench.editors.request.settings.tlsCipherSuitesInfo':
-    'Las suites de cifrado ofrecidas durante el handshake TLS, como lista en formato OpenSSL separada por ' +
-    'dos puntos — los nombres de suites de TLS 1.3 y los antiguos van en la misma lista. Déjalo vacío para ' +
-    'ofrecer las suites por defecto del runtime. El servidor elige la suite entre lo ofrecido, en su propio ' +
-    'orden de preferencia.',
+  'workbench.editors.request.settings.tlsCipherSuitesSummary':
+    'Las suites de cifrado ofrecidas durante el handshake TLS, como una lista separada por dos puntos — ' +
+    'vacío ofrece las suites por defecto del runtime.',
+  'workbench.editors.request.settings.tlsCipherSuitesDescription':
+    'El servidor elige la suite entre lo ofrecido, en su propio orden de preferencia.',
+  'workbench.editors.request.settings.tlsCipherSuitesFormatHeading': 'Formato',
+  'workbench.editors.request.settings.tlsCipherSuitesIanaDesc': 'Una suite de TLS 1.3 por su nombre IANA.',
+  'workbench.editors.request.settings.tlsCipherSuitesOpensslDesc':
+    'Una suite más antigua por su nombre OpenSSL — ambos tipos van en la misma lista.',
+  'workbench.editors.request.settings.tlsCipherSuitesJoinDesc': 'Une las entradas — sin espacios.',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Suites por defecto del runtime',
   'workbench.editors.request.settings.tlsCipherSuitesError':
     'Solo nombres de suites OpenSSL separados por dos puntos — sin espacios.',
@@ -427,15 +443,39 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.group.connection': 'Conexión',
   'workbench.editors.request.settings.group.cookies': 'Cookies',
   'workbench.editors.request.settings.group.execution': 'Ejecución y límites',
+  'workbench.editors.request.settings.groupInfo.connection':
+    'Cómo alcanza el envío al servidor — el protocolo HTTP que habla y el tramo que marca: directo, a ' +
+    'través de un proxy, a una dirección fijada o hacia un socket local.',
+  'workbench.editors.request.settings.groupInfo.tls':
+    'Qué verifica y ofrece el envío en el handshake TLS — la verificación del certificado, la ventana de ' +
+    'protocolo, las suites de cifrado y un certificado de cliente.',
+  'workbench.editors.request.settings.groupInfo.redirects':
+    'Qué pasa cuando el servidor responde con una redirección — si se sigue la cadena, hasta dónde, y qué ' +
+    'llevan las solicitudes siguientes.',
+  'workbench.editors.request.settings.groupInfo.cookies':
+    'Si las cookies acompañan al envío — desactivado por defecto, para que los resultados nunca dependan ' +
+    'del estado de sesión ambiental.',
+  'workbench.editors.request.settings.groupInfo.execution':
+    'Cómo se acota la propia ejecución — el modo de scripts, el presupuesto de tiempo y el tope de tamaño ' +
+    'de respuesta.',
   'workbench.editors.request.settings.httpVersion': 'Versión de HTTP',
-  'workbench.editors.request.settings.httpVersionInfo':
-    'Cómo habla HTTP el envío. Auto (el valor por defecto) ofrece HTTP/2 junto con HTTP/1.1 durante el ' +
-    'handshake TLS y el servidor elige — el http:// plano se queda en HTTP/1.1. HTTP/1.1 fija la semántica ' +
-    'clásica. HTTP/2 fija el protocolo mediante la oferta del handshake. HTTP/2 (prior knowledge) omite la ' +
-    'negociación y habla HTTP/2 de inmediato — la vía para servidores HTTP/2 en claro. HTTP/3 se conecta ' +
-    'al servidor directamente por QUIC, sin recurrir a TCP. Una versión fijada que el servidor no puede ' +
-    'hablar falla con un error claro, nunca con una degradación silenciosa. El popover «Red» de la ' +
-    'respuesta muestra siempre el protocolo realmente negociado en el cable.',
+  'workbench.editors.request.settings.httpVersionSummary':
+    'Cómo habla HTTP el envío — Auto (el valor por defecto) ofrece HTTP/2 junto con HTTP/1.1 y el servidor ' + 'elige.',
+  'workbench.editors.request.settings.httpVersionDescription':
+    'Una versión fijada que el servidor no puede hablar falla con un error claro, nunca con una degradación ' +
+    'silenciosa. El popover «Red» de la respuesta muestra siempre el protocolo realmente negociado en el ' +
+    'cable.',
+  'workbench.editors.request.settings.httpVersionValuesHeading': 'Valores',
+  'workbench.editors.request.settings.httpVersionAutoDesc':
+    'Ofrece HTTP/2 + HTTP/1.1 durante el handshake TLS y el servidor elige — el http:// plano se queda en ' +
+    'HTTP/1.1.',
+  'workbench.editors.request.settings.httpVersion11Desc': 'Fija la semántica clásica de HTTP/1.1.',
+  'workbench.editors.request.settings.httpVersion2Desc': 'Fija HTTP/2 mediante la oferta del handshake.',
+  'workbench.editors.request.settings.httpVersionPkDesc':
+    'Habla HTTP/2 de inmediato sin negociar — la vía para servidores HTTP/2 en claro.',
+  'workbench.editors.request.settings.httpVersion3Desc':
+    'Se conecta al servidor directamente por QUIC, sin recurrir a TCP.',
+  'workbench.editors.request.settings.exampleCaption': 'Envío de ejemplo',
   'workbench.editors.request.settings.httpVersionPlaceholder': 'Auto — el servidor elige',
   'workbench.editors.request.settings.httpVersionPriorKnowledge': 'HTTP/2 (prior knowledge)',
   'workbench.editors.request.settings.resolveToAddress': 'Resolver a una dirección',
@@ -593,13 +633,13 @@ export const workbenchEditorsRequest = {
   // ── Settings tab — script execution chooser (per-workspace,
   //    host-local — never syncs) ───────────────────────────────────────
   'workbench.editors.request.settings.scriptMode': 'Ejecución de scripts',
-  'workbench.editors.request.settings.scriptModeInfo':
+  'workbench.editors.request.settings.scriptModeSummary':
     'Cómo se ejecutan en este dispositivo los scripts de pre-solicitud y post-respuesta de este espacio de ' +
-    'trabajo. El modo seguro los ejecuta en el runtime de scripts aislado de la aplicación: solo la API de ' +
-    'scripts oh.* — sin sistema de archivos, sin acceso a procesos, sin cargador de módulos. El modo ' +
-    'desarrollador los ejecuta en un runtime Node.js completo con require y acceso al sistema. La elección ' +
-    'se aplica a todas las solicitudes del espacio de trabajo, se queda en este dispositivo y nunca se ' +
-    'sincroniza — cada ejecución registra en la respuesta el modo en el que se ejecutó.',
+    'trabajo.',
+  'workbench.editors.request.settings.scriptModeDescription':
+    'La elección se aplica a todas las solicitudes del espacio de trabajo, se queda en este dispositivo y ' +
+    'nunca se sincroniza — cada ejecución registra en la respuesta el modo en el que se ejecutó.',
+  'workbench.editors.request.settings.scriptModeModesHeading': 'Modos',
   'workbench.editors.request.settings.scriptModeSafe': 'Modo seguro',
   'workbench.editors.request.settings.scriptModeDeveloper': 'Modo desarrollador',
   'workbench.editors.request.settings.scriptModeWarning':

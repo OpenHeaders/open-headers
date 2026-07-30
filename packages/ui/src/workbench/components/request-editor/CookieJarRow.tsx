@@ -51,7 +51,7 @@ const CookieJarRow: React.FC = () => {
     if (!bridge) return;
     bridge
       .call('getCookieJarSummary', {})
-      .then((res) => setCookies(res.cookies))
+      .then((res) => setCookies(Array.isArray(res?.cookies) ? res.cookies : null))
       .catch(() => setCookies(null));
   }, []);
 
