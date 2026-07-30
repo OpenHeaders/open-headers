@@ -96,6 +96,17 @@ describe('h3Hop', () => {
     expect(response.headers['x-echo-client-cert-key']).toBe('KEY-MATERIAL-PKCS8');
   });
 
+  it('carries the TLS 1.3 cipher-suite restriction onto the protocol head, order kept', async () => {
+    const response = await h3Hop({
+      url: 'https://api.openheaders.io/ok',
+      method: 'GET',
+      headers: [],
+      cipherSuites: ['TLS_CHACHA20_POLY1305_SHA256', 'TLS_AES_128_GCM_SHA256'],
+      client: makeClient(),
+    });
+    expect(response.headers['x-echo-cipher-suites']).toBe('TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256');
+  });
+
   it('rejects pre-head with the helper failure for the classifier', async () => {
     const attempt = h3Hop({
       url: 'https://api.openheaders.io/error-pre',

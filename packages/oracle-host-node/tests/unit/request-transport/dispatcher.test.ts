@@ -246,11 +246,45 @@ describe('createNodeRequestTransport — per-request HTTP version', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("fails honestly BEFORE the wire when '3' sets an OpenSSL cipher list (no rustls mapping)", async () => {
+  it("fails honestly BEFORE the wire when '3' sets an OpenSSL cipher list, naming the IANA requirement", async () => {
     const attempt = transport().send(makeRequest({ httpVersion: '3', tlsCipherSuites: 'ECDHE-RSA-AES128-GCM-SHA256' }));
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
-    await expect(attempt).rejects.toThrow(/cipher/);
+    await expect(attempt).rejects.toThrow(/exact IANA names only.*TLS_AES_128_GCM_SHA256/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '3' lists a TLS 1.3 IANA name outside the helper's vocabulary", async () => {
+    // A real IANA TLS 1.3 suite the helper's provider doesn't carry —
+    // an honest refusal, never a silent pass-through.
+    const attempt = transport().send(makeRequest({ httpVersion: '3', tlsCipherSuites: 'TLS_AES_128_CCM_SHA256' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/"TLS_AES_128_CCM_SHA256".*exact IANA names only/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails honestly BEFORE the wire when '3' sets an empty cipher list", async () => {
+    const attempt = transport().send(makeRequest({ httpVersion: '3', tlsCipherSuites: ' : ' }));
+    await expect(attempt).rejects.toBeInstanceOf(TransportError);
+    await expect(attempt).rejects.toThrow(/empty "TLS cipher suites" setting/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("an exact TLS 1.3 IANA list passes the '3' cipher gate (the next guard speaks, not the cipher one)", async () => {
+    // No helper binary in this rig — a list of legal IANA names must
+    // fall through to the helper-availability refusal, proving the
+    // cipher gate admitted it.
+    const previous = process.env.OPENHEADERS_H3_HELPER;
+    delete process.env.OPENHEADERS_H3_HELPER;
+    try {
+      const attempt = transport().send(
+        makeRequest({ httpVersion: '3', tlsCipherSuites: 'TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256' }),
+      );
+      await expect(attempt).rejects.toBeInstanceOf(TransportError);
+      await expect(attempt).rejects.toThrow(/helper that speaks it isn't available/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      if (previous !== undefined) process.env.OPENHEADERS_H3_HELPER = previous;
+    }
   });
 
   it("a pinned '2' tuple through a proxy rides the hand-rolled tunnel dial, never ProxyAgent", async () => {

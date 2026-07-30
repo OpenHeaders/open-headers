@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 pub mod frame_type {
     pub const HELLO: u8 = 0x01;
@@ -55,6 +55,10 @@ pub struct RequestHead {
     /// verification keep the URL's host.
     #[serde(default)]
     pub connect_address: Option<String>,
+    /// TLS 1.3 IANA suite names restricting the handshake's offer —
+    /// the node side admits only names this helper's provider carries.
+    #[serde(default)]
+    pub cipher_suites: Option<Vec<String>>,
     #[serde(default)]
     pub idle_timeout_ms: Option<u64>,
 }

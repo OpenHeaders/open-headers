@@ -36,7 +36,7 @@ function json(type, id, value) {
 }
 
 if (process.env.FAKE_H3_SILENT !== '1') {
-  const protocol = process.env.FAKE_H3_PROTOCOL !== undefined ? Number(process.env.FAKE_H3_PROTOCOL) : 1;
+  const protocol = process.env.FAKE_H3_PROTOCOL !== undefined ? Number(process.env.FAKE_H3_PROTOCOL) : 2;
   process.stdout.write(json(FRAME.HELLO, 0, { protocol, helper: 'fake' }));
 }
 
@@ -93,6 +93,10 @@ function respond(id, head, body) {
     process.stdout.write(json(FRAME.ERROR, id, { code: 'tls-verify', message: 'invalid peer certificate: UnknownIssuer' }));
     return;
   }
+  if (path === '/error-handshake') {
+    process.stdout.write(json(FRAME.ERROR, id, { code: 'tls-handshake', message: 'connect: aborted by peer: the TLS handshake failed' }));
+    return;
+  }
   if (path === '/error-post') {
     process.stdout.write(json(FRAME.RESPONSE_HEAD, id, { status: 200, headers: [['content-type', 'text/plain']] }));
     process.stdout.write(frame(FRAME.RESPONSE_BODY, id, Buffer.from('partial')));
@@ -121,6 +125,7 @@ function respond(id, head, body) {
   if (head.insecure === true) headers.push(['x-echo-insecure', '1']);
   if (head.connectAddress !== undefined) headers.push(['x-echo-connect-address', head.connectAddress]);
   if (head.clientCert !== undefined) headers.push(['x-echo-client-cert-key', head.clientCert.keyPem.slice(0, 32)]);
+  if (head.cipherSuites !== undefined) headers.push(['x-echo-cipher-suites', head.cipherSuites.join(':')]);
   process.stdout.write(json(FRAME.RESPONSE_HEAD, id, { status: 200, headers }));
   const responseBody = Buffer.from(JSON.stringify({ path, receivedBytes: body.length, headers: head.headers }), 'utf8');
   process.stdout.write(frame(FRAME.RESPONSE_BODY, id, responseBody));

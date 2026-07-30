@@ -541,6 +541,18 @@ describe("createNodeRequestTransport — pinned '3' sends over the helper pipeli
     expect(headers['x-echo-client-cert-key']).toBeDefined();
   });
 
+  it('parses an exact TLS 1.3 IANA cipher list onto the framed head — trimmed, order kept', async () => {
+    const res = await h3Transport().send(
+      makeRequest({
+        httpVersion: '3',
+        url: 'https://api.openheaders.io/ok',
+        tlsCipherSuites: ' TLS_AES_256_GCM_SHA384 : TLS_AES_128_GCM_SHA256 ',
+      }),
+    );
+    const headers = Object.fromEntries(res.headers.map((h) => [h.key, h.value]));
+    expect(headers['x-echo-cipher-suites']).toBe('TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256');
+  });
+
   it('classifies a pre-head helper failure naming the HTTP version setting', async () => {
     const attempt = h3Transport().send(makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-pre' }));
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
@@ -552,5 +564,18 @@ describe("createNodeRequestTransport — pinned '3' sends over the helper pipeli
       makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-verify' }),
     );
     await expect(attempt).rejects.toThrow(/certificate verification failed.*SSL-verification setting/i);
+  });
+
+  it('classifies a handshake failure under a cipher restriction naming the cipher setting', async () => {
+    const attempt = h3Transport().send(
+      makeRequest({
+        httpVersion: '3',
+        url: 'https://api.openheaders.io/error-handshake',
+        tlsCipherSuites: 'TLS_AES_256_GCM_SHA384',
+      }),
+    );
+    await expect(attempt).rejects.toThrow(
+      /TLS handshake .* failed over HTTP\/3.*"TLS cipher suites" setting restricts the offer/,
+    );
   });
 });

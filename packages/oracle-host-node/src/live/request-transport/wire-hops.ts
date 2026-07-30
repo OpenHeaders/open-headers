@@ -134,6 +134,7 @@ async function h3Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
       ...(leg.insecure === true ? { insecure: true } : {}),
       ...(leg.clientCert !== undefined ? { clientCert: leg.clientCert } : {}),
       ...(leg.connectAddress !== undefined ? { connectAddress: leg.connectAddress } : {}),
+      ...(leg.cipherSuites !== undefined ? { cipherSuites: leg.cipherSuites } : {}),
       client: leg.client,
       ...(deadline ? { signal: deadline.signal } : {}),
       onProtocol: leg.onProtocol,

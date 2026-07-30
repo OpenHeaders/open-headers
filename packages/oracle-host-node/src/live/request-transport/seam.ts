@@ -149,6 +149,9 @@ export interface H3Leg {
   insecure?: boolean;
   clientCert?: H3ClientCert;
   connectAddress?: string;
+  /** TLS 1.3 IANA suite names restricting every hop's handshake —
+   *  parsed and gated to the helper's vocabulary pre-wire. */
+  cipherSuites?: string[];
   onProtocol(origin: string, alpnProtocol: string): void;
 }
 

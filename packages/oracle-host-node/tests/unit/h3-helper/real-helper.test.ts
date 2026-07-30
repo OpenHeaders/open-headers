@@ -74,6 +74,17 @@ describe.skipIf(!helperPresent)('real helper twins', () => {
     expect(DEAD_DIAL_CODES).toContain(error.code);
   }, 15000);
 
+  it('answers a cipher name outside its vocabulary with a bad-request ERROR frame', async () => {
+    // The node gate normally refuses this pre-wire; driving the head
+    // directly proves the real binary's own mapping refuses too —
+    // defense in depth, never a silent widening. The TLS config is
+    // built before the dial, so no server is needed.
+    client = createH3HelperClient({ binaryPath: REAL_HELPER as string });
+    const error = await awaitError(client, makeHead({ cipherSuites: ['TLS_AES_128_CCM_SHA256'] }));
+    expect(error.code).toBe('bad-request');
+    expect(error.message).toContain('TLS_AES_128_CCM_SHA256');
+  });
+
   it('multiplexes both legs over the one long-lived process', async () => {
     client = createH3HelperClient({ binaryPath: REAL_HELPER as string });
     const [badRequest, deadDial] = await Promise.all([

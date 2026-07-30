@@ -41,6 +41,9 @@ export interface H3HopRequest {
   clientCert?: H3ClientCert;
   /** resolveToAddress pin. */
   connectAddress?: string;
+  /** TLS 1.3 IANA suite names restricting the handshake's offer —
+   *  already gated to the helper's vocabulary pre-wire. */
+  cipherSuites?: string[];
   client: H3HelperClient;
   signal?: AbortSignal;
   /** Reports the protocol this exchange SPOKE, keyed like the other
@@ -118,6 +121,7 @@ export function h3Hop(request: H3HopRequest): Promise<NodeRequestResponse> {
     ...(request.insecure === true ? { insecure: true } : {}),
     ...(request.clientCert !== undefined ? { clientCert: request.clientCert } : {}),
     ...(request.connectAddress !== undefined ? { connectAddress: request.connectAddress } : {}),
+    ...(request.cipherSuites !== undefined ? { cipherSuites: request.cipherSuites } : {}),
   };
   return new Promise<NodeRequestResponse>((resolve, reject) => {
     let settled = false;

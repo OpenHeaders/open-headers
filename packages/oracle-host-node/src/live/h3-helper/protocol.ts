@@ -7,7 +7,17 @@
  * sides ship from one repo.
  */
 
-export const H3_PROTOCOL_VERSION = 1;
+export const H3_PROTOCOL_VERSION = 2;
+
+/** The `'3'` pipeline's entire legal cipher vocabulary — QUIC is TLS
+ *  1.3-only and the helper's provider carries exactly these three
+ *  suites, so the pre-wire gate admits these IANA names and nothing
+ *  else (no OpenSSL-format lists, no other TLS 1.3 names). */
+export const H3_TLS13_CIPHER_SUITES = [
+  'TLS_AES_128_GCM_SHA256',
+  'TLS_AES_256_GCM_SHA384',
+  'TLS_CHACHA20_POLY1305_SHA256',
+] as const;
 
 export const H3_FRAME = {
   HELLO: 0x01,
@@ -56,6 +66,9 @@ export interface H3RequestHead {
   /** resolveToAddress pin — the helper dials this IP; SNI and
    *  certificate verification keep the URL's host. */
   connectAddress?: string;
+  /** TLS 1.3 IANA suite names restricting the handshake's offer —
+   *  members of {@link H3_TLS13_CIPHER_SUITES} only, gated pre-wire. */
+  cipherSuites?: string[];
   /** QUIC max-idle ceiling; helper default 30 000. */
   idleTimeoutMs?: number;
 }

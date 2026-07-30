@@ -44,10 +44,11 @@
  *     exchange with the bundled Rust helper — see
  *     `docs/REQUEST_ENGINE_H3_PROTOCOL.md` and `h3-helper/`), one QUIC
  *     connection per hop with the TLS trust legs carried onto the
- *     helper's own TLS stack, failing honestly PRE-wire on every knob
- *     the pipeline can't honor (plain http://, proxy, Unix socket, a
- *     sub-1.3 TLS ceiling, OpenSSL cipher lists, no helper binary on
- *     this install); `'2'` and `'2-prior-knowledge'` through a proxy
+ *     helper's own TLS stack (cipher suites cross only as exact TLS
+ *     1.3 IANA names — the helper's three-suite vocabulary), failing
+ *     honestly PRE-wire on every knob the pipeline can't honor (plain
+ *     http://, proxy, Unix socket, a sub-1.3 TLS ceiling,
+ *     OpenSSL-format cipher lists, no helper binary on this install); `'2'` and `'2-prior-knowledge'` through a proxy
  *     ride the shared hand-rolled CONNECT tunnel (`connect-tunnel.ts`)
  *     — the pinned dial and the prior-knowledge session own their
  *     target leg over the tunnel socket, so the pin stays enforced and
@@ -136,6 +137,7 @@ import { cookieJarFor } from './cookie-jar';
 import { decryptedClientKeyPem } from './h3-helper/client-key';
 import { resolveH3HelperBinary } from './h3-helper/helper-binary';
 import { type H3HelperClient, sharedH3HelperClient } from './h3-helper/helper-process';
+import { H3_TLS13_CIPHER_SUITES } from './h3-helper/protocol';
 import { type ConnectionRecord, createInstrumentedDial } from './instrumented-connector';
 import { digestRetryHop } from './request-transport/digest-leg';
 import { connectOptionsFor, dispatcherFor, httpVersionPolicy } from './request-transport/dispatcher';
@@ -205,6 +207,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // TLS subset mapping).
     let h3Client: H3HelperClient | undefined;
     let h3ClientCert: { certPem: string; keyPem: string } | undefined;
+    let h3CipherSuites: string[] | undefined;
     if (request.httpVersion === '3') {
       if (new URL(request.url).protocol !== 'https:') {
         throw new TransportError(
@@ -226,10 +229,29 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           `The request pins HTTP/3 with a TLS ceiling of ${request.tlsMaxVersion}, but QUIC is TLS 1.3-only — the ceiling can't hold. Raise the "TLS max version" setting to 1.3 (or clear it), or pick another HTTP version.`,
         );
       }
+      // The cipher knob crosses to the helper only as exact TLS 1.3
+      // IANA names — QUIC is TLS 1.3-only, so the helper's three
+      // suites are the entire legal vocabulary. An OpenSSL-format
+      // list (aliases, `!aNULL`, pre-1.3 names) or an IANA name
+      // outside the set fails HERE naming the requirement — never a
+      // silent pass-through the helper would misread.
       if (request.tlsCipherSuites !== undefined) {
-        throw new TransportError(
-          'The request pins HTTP/3 and sets TLS cipher suites, but the HTTP/3 pipeline\'s TLS stack doesn\'t accept an OpenSSL-format cipher list. Clear the "TLS cipher suites" setting, or pick another HTTP version.',
-        );
+        const names = request.tlsCipherSuites
+          .split(':')
+          .map((name) => name.trim())
+          .filter((name) => name !== '');
+        if (names.length === 0) {
+          throw new TransportError(
+            'The request pins HTTP/3 with an empty "TLS cipher suites" setting. List exact TLS 1.3 IANA suite names, clear the setting, or pick another HTTP version.',
+          );
+        }
+        const outsider = names.find((name) => !(H3_TLS13_CIPHER_SUITES as readonly string[]).includes(name));
+        if (outsider !== undefined) {
+          throw new TransportError(
+            `The request pins HTTP/3, but "${outsider}" in the "TLS cipher suites" setting isn't a TLS 1.3 suite the HTTP/3 pipeline carries — it accepts exact IANA names only: ${H3_TLS13_CIPHER_SUITES.join(', ')} (QUIC is TLS 1.3-only, so OpenSSL-format lists and pre-1.3 suites can't apply). Fix the setting, or pick another HTTP version.`,
+          );
+        }
+        h3CipherSuites = names;
       }
       // A passphrase-protected client key crosses the helper protocol
       // decrypted (rustls can't decrypt encrypted PEM) — bad material
@@ -324,6 +346,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
               ...(request.sslVerification === false ? { insecure: true } : {}),
               ...(h3ClientCert !== undefined ? { clientCert: h3ClientCert } : {}),
               ...(request.resolveToAddress !== undefined ? { connectAddress: request.resolveToAddress } : {}),
+              ...(h3CipherSuites !== undefined ? { cipherSuites: h3CipherSuites } : {}),
               onProtocol,
             }
           : {

@@ -72,8 +72,36 @@ fn parse_client_cert(cert_pem: &str, key_pem: &str) -> Result<(Vec<CertificateDe
     Ok((certs, key))
 }
 
+/// TLS 1.3 IANA suite name → this provider's suite. QUIC is TLS
+/// 1.3-only, so these three names are the entire legal vocabulary; the
+/// node side refuses everything else pre-wire, and an unknown name that
+/// still crosses fails here as `bad-request`, never a silent widening.
+fn tls13_suite(name: &str) -> Option<rustls::SupportedCipherSuite> {
+    use rustls::crypto::ring::cipher_suite;
+    match name {
+        "TLS_AES_128_GCM_SHA256" => Some(cipher_suite::TLS13_AES_128_GCM_SHA256),
+        "TLS_AES_256_GCM_SHA384" => Some(cipher_suite::TLS13_AES_256_GCM_SHA384),
+        "TLS_CHACHA20_POLY1305_SHA256" => Some(cipher_suite::TLS13_CHACHA20_POLY1305_SHA256),
+        _ => None,
+    }
+}
+
 pub fn client_config(head: &RequestHead) -> Result<ClientConfig, HelperError> {
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let mut provider = rustls::crypto::ring::default_provider();
+    if let Some(names) = &head.cipher_suites {
+        let mut suites = Vec::with_capacity(names.len());
+        for name in names {
+            let suite = tls13_suite(name).ok_or_else(|| {
+                HelperError::new("bad-request", format!("cipherSuites: {name} is not a TLS 1.3 suite this helper carries"))
+            })?;
+            suites.push(suite);
+        }
+        if suites.is_empty() {
+            return Err(HelperError::new("bad-request", "cipherSuites: empty list"));
+        }
+        provider.cipher_suites = suites;
+    }
+    let provider = Arc::new(provider);
     let builder = ClientConfig::builder_with_provider(provider.clone())
         .with_protocol_versions(&[&rustls::version::TLS13])
         .map_err(|e| HelperError::new("internal", format!("TLS 1.3 config: {e}")))?;

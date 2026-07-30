@@ -100,10 +100,18 @@ function classifyH3Failure(host: string, err: H3HelperFailure, request: Transpor
       return `No route to ${host} for the QUIC dial. The request's "HTTP version" setting pins this send to HTTP/3.`;
     case 'tls-verify':
       return `TLS certificate verification failed reaching ${host} over HTTP/3: ${err.message}. The HTTP/3 pipeline verifies against the bundled Mozilla roots — for a self-signed or private-CA target, turn off the request's SSL-verification setting.`;
-    case 'tls-handshake':
-      return certRef !== undefined
-        ? `TLS handshake with ${host} failed over HTTP/3: ${err.message}. The request presents the client certificate from vault entry "${certRef}" — the server may not accept it.`
-        : `TLS handshake with ${host} failed over HTTP/3: ${err.message}`;
+    case 'tls-handshake': {
+      const base = `TLS handshake with ${host} failed over HTTP/3: ${err.message}`;
+      if (certRef !== undefined) {
+        return `${base}. The request presents the client certificate from vault entry "${certRef}" — the server may not accept it.`;
+      }
+      // A restricted offer the server shares no suite with dies as a
+      // handshake alert — name the setting that narrowed the offer.
+      if (request.tlsCipherSuites !== undefined) {
+        return `${base}. The request's "TLS cipher suites" setting restricts the offer to the listed TLS 1.3 suites — the server may not accept any of them.`;
+      }
+      return base;
+    }
     case 'reset':
       return `${host} reset the HTTP/3 exchange: ${err.message}`;
     case 'idle-timeout':
