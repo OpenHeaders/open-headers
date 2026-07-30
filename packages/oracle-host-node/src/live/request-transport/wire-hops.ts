@@ -102,6 +102,7 @@ async function h2Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
       ...(h2.proxy !== undefined ? { proxy: h2.proxy } : {}),
       ...(deadline ? { signal: deadline.signal } : {}),
       onProtocol: h2.onProtocol,
+      ...(h2.onConnection !== undefined ? { onConnection: h2.onConnection } : {}),
     });
     return adaptRequestResponse(hop.url, response);
   } catch (err) {

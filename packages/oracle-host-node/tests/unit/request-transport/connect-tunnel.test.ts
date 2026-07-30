@@ -184,6 +184,62 @@ describe('prior-knowledge HTTP/2 through a CONNECT tunnel', () => {
     }
   });
 
+  it('reports proxy-leg socket facts under captureNetwork — the socket the process actually holds', async () => {
+    const origin = createSecureServer({ key: TLS_RIG_KEY, cert: TLS_RIG_CERT }, (_req, res) => {
+      res.end('ok');
+    });
+    const originPort = await listenPort(origin);
+    const proxy = await startConnectProxy();
+    const proxyPort = Number(new URL(proxy.url).port);
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({
+          url: `https://127.0.0.1:${originPort}/facts`,
+          httpVersion: '2-prior-knowledge',
+          proxyUrl: proxy.url,
+          sslVerification: false,
+          captureNetwork: true,
+        }),
+      );
+      // The endpoints are the PROXY's — post-200 the proxy is a
+      // transparent pipe, so no target-leg socket ever exists locally.
+      expect(res.network).toMatchObject({ httpVersion: 'h2', remoteAddress: '127.0.0.1', remotePort: proxyPort });
+      // The tunnel dial is the TCP leg; target-leg TLS over the tunnel
+      // is the TLS span. Nothing resolved locally — no DNS leg.
+      expect(res.phaseTimings?.connectMs).toBeGreaterThanOrEqual(0);
+      expect(res.phaseTimings?.tlsMs).toBeGreaterThanOrEqual(0);
+      expect(res.phaseTimings?.dnsMs).toBeUndefined();
+    } finally {
+      await proxy.close();
+      origin.close();
+    }
+  });
+
+  it('reports the established tunnel as the ready connection for a cleartext tunneled target', async () => {
+    const origin = createH2cServer((_req, res) => {
+      res.end('ok');
+    });
+    const originPort = await listenPort(origin);
+    const proxy = await startConnectProxy();
+    const proxyPort = Number(new URL(proxy.url).port);
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({
+          url: `http://127.0.0.1:${originPort}/facts`,
+          httpVersion: '2-prior-knowledge',
+          proxyUrl: proxy.url,
+          captureNetwork: true,
+        }),
+      );
+      expect(res.network).toMatchObject({ httpVersion: 'h2', remoteAddress: '127.0.0.1', remotePort: proxyPort });
+      expect(res.phaseTimings?.connectMs).toBeGreaterThanOrEqual(0);
+      expect(res.phaseTimings?.tlsMs).toBeUndefined();
+    } finally {
+      await proxy.close();
+      origin.close();
+    }
+  });
+
   it('sends the resolved credential as Proxy-Authorization on the CONNECT', async () => {
     const origin = createH2cServer((_req, res) => {
       res.end('ok');

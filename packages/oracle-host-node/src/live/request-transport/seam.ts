@@ -18,6 +18,7 @@ import {
 import type { Dispatcher, FormData, Headers, fetch as undiciFetch } from 'undici';
 import type { H3HelperClient } from '../h3-helper/helper-process';
 import type { H3ClientCert } from '../h3-helper/protocol';
+import type { ConnectionRecord } from '../instrumented-connector';
 import type { ProxyTunnel } from './connect-tunnel';
 
 /** The fetch pipeline behind the transport — undici's fetch in
@@ -127,6 +128,11 @@ export interface H2Leg {
    *  (or h2c framing) over the tunnel socket. */
   proxy?: ProxyTunnel;
   onProtocol(origin: string, alpnProtocol: string): void;
+  /** `captureNetwork` sink: every hop's session dial hands over its
+   *  connection record at dial start, the instrumented connector's
+   *  contract (a tunneled hop's record describes the proxy leg — see
+   *  `h2-prior-knowledge.ts`). Absent = no socket-fact collection. */
+  onConnection?(record: ConnectionRecord): void;
 }
 
 /**

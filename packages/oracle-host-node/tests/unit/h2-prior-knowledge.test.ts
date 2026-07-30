@@ -5,8 +5,9 @@
  * TLS (`createSecureServer`) rigs. Verifies the sanctioned
  * cleartext-h2 route, the trust knobs riding the dial, native GET
  * bodies and trailers, the shared policy layer (redirect follower)
- * above the pipeline, the always-on spoken-protocol report, and the
- * honest failure against a server that does not answer the preface.
+ * above the pipeline, the always-on spoken-protocol report, the
+ * honest failure against a server that does not answer the preface,
+ * and the `captureNetwork` socket facts off the session's own dial.
  */
 
 import { createServer } from 'node:http';
@@ -14,6 +15,8 @@ import { createServer as createH2cServer, createSecureServer } from 'node:http2'
 import type { AddressInfo } from 'node:net';
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { describe, expect, it } from 'vitest';
+import { h2PriorKnowledgeHop } from '../../src/live/h2-prior-knowledge';
+import type { ConnectionRecord } from '../../src/live/instrumented-connector';
 import { createNodeRequestTransport } from '../../src/live/node-request-transport';
 
 function makeRequest(overrides: Partial<TransportRequest> = {}): TransportRequest {
@@ -208,6 +211,99 @@ describe('createNodeRequestTransport — prior-knowledge HTTP/2 pipeline', () =>
         expect.objectContaining({ url: `http://127.0.0.1:${port}/start`, status: 302, location: '/final' }),
       ]);
       expect(res.httpVersion).toBe('h2');
+    } finally {
+      server.close();
+    }
+  });
+
+  it('reports socket facts under captureNetwork on a cleartext send — endpoints from the dialed rig', async () => {
+    const server = createH2cServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({ url: `http://127.0.0.1:${port}/facts`, captureNetwork: true }),
+      );
+      expect(res.network).toMatchObject({ httpVersion: 'h2', remoteAddress: '127.0.0.1', remotePort: port });
+      expect(res.network?.localAddress).toBe('127.0.0.1');
+      expect(typeof res.network?.localPort).toBe('number');
+      // The socket legs split out of Waiting: a TCP leg always, no TLS
+      // leg on a cleartext dial, no DNS leg for an IP literal.
+      expect(res.phaseTimings?.connectMs).toBeGreaterThanOrEqual(0);
+      expect(res.phaseTimings?.tlsMs).toBeUndefined();
+      expect(res.phaseTimings?.dnsMs).toBeUndefined();
+    } finally {
+      server.close();
+    }
+  });
+
+  it('reports socket facts under captureNetwork on a TLS send — the TLS leg present', async () => {
+    const server = createSecureServer({ key: TLS_RIG_KEY, cert: TLS_RIG_CERT }, (_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(
+        makeRequest({ url: `https://127.0.0.1:${port}/facts`, sslVerification: false, captureNetwork: true }),
+      );
+      expect(res.network).toMatchObject({ httpVersion: 'h2', remoteAddress: '127.0.0.1', remotePort: port });
+      expect(res.phaseTimings?.connectMs).toBeGreaterThanOrEqual(0);
+      expect(res.phaseTimings?.tlsMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('reports no socket facts without the captureNetwork opt-in', async () => {
+    const server = createH2cServer((_req, res) => {
+      res.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await createNodeRequestTransport().send(makeRequest({ url: `http://127.0.0.1:${port}/quiet` }));
+      expect(res.network).toBeUndefined();
+      expect(res.phaseTimings?.connectMs).toBeUndefined();
+      // The always-on report still rides the spoken-protocol log.
+      expect(res.httpVersion).toBe('h2');
+    } finally {
+      server.close();
+    }
+  });
+
+  it('hands over an ordered connection record at dial start — the instrumented connector contract', async () => {
+    const server = createSecureServer({ key: TLS_RIG_KEY, cert: TLS_RIG_CERT }, (_req, res) => {
+      res.end('recorded');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const records: ConnectionRecord[] = [];
+      const res = await h2PriorKnowledgeHop({
+        url: `https://127.0.0.1:${port}/record`,
+        method: 'GET',
+        headers: [],
+        connect: { rejectUnauthorized: false },
+        onConnection: (record) => records.push(record),
+      });
+      // Drain the stream so the session winds down behind the read.
+      for await (const _chunk of res.body) {
+        // body bytes irrelevant — the record is the subject
+      }
+      expect(records).toHaveLength(1);
+      const record = records[0] as ConnectionRecord;
+      expect(record.origin).toBe(`127.0.0.1:${port}`);
+      expect(record.tlsUsed).toBe(true);
+      expect(record.alpnProtocol).toBe('h2');
+      // Marks ordered: dial start ≤ TCP ≤ ready; no DNS mark for an IP
+      // literal (nothing resolved).
+      expect(record.dnsEndAt).toBeUndefined();
+      expect(record.tcpEndAt).toBeGreaterThanOrEqual(record.startAt);
+      expect(record.readyAt).toBeGreaterThanOrEqual(record.tcpEndAt as number);
+      expect(record.remotePort).toBe(port);
     } finally {
       server.close();
     }

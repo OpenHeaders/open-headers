@@ -27,11 +27,14 @@
  * finding).
  *
  * The per-request connection policy rides the session's own dial:
- * the transport's `ConnectOptions` bag (TLS window, ciphers, pinned
- * lookup, client certificate, socket path) passes straight into
- * `http2.connect`, which forwards it to `tls.connect` / `net.connect`
- * — `socketPath` as the dial-winning `path`, TLS-only options dropped
- * on cleartext dials.
+ * the hop owns its `createConnection` for every shape — `tls.connect`
+ * / `net.connect` with the transport's `ConnectOptions` bag (TLS
+ * window, ciphers, pinned lookup, client certificate, socket path) —
+ * `socketPath` as the dial-winning `path`, TLS-only options dropped
+ * on cleartext dials. Owning the socket is also what makes the dial
+ * observable: under `onConnection` the hop hands over an instrumented
+ * connector-shaped record whose marks fill straight off the socket's
+ * lifecycle events.
  *
  * A proxied hop rides the shared CONNECT tunnel instead: the dial
  * opens the tunnel first (`dialConnectTunnel` — proxy leg, credential,
@@ -44,10 +47,15 @@
  */
 
 import { connect } from 'node:http2';
-import type * as net from 'node:net';
+import * as net from 'node:net';
 import * as tls from 'node:tls';
 import type { TransportHeader } from '@openheaders/oracle/live/request-exec/transport';
-import { servernameFor } from './instrumented-connector';
+import {
+  type ConnectionRecord,
+  completeConnectionRecord,
+  markDialPhases,
+  servernameFor,
+} from './instrumented-connector';
 import { dialConnectTunnel, type ProxyTunnel } from './request-transport/connect-tunnel';
 import type { ConnectOptions, NodeRequestResponse } from './request-transport/seam';
 
@@ -73,6 +81,20 @@ export interface H2PriorKnowledgeHopRequest {
    * h2 frames both ways, so `'h2'` is wire truth, not the knob echoed.
    */
   onProtocol?(origin: string, alpnProtocol: string): void;
+  /**
+   * Hands over this hop's connection record AT DIAL START — the
+   * instrumented connector's contract, same shape and mark semantics
+   * (marks fill in as the socket progresses; readiness adds endpoints).
+   * The recorded protocol is `'h2'`, the preface protocol: the session
+   * speaks it from its first byte or the send fails, and records are
+   * only ever consumed off settled responses. A tunneled hop's record
+   * describes the PROXY leg — the socket the process actually holds:
+   * the tunnel dial is the TCP leg, target-leg TLS over the tunnel is
+   * the TLS span, and the endpoints are the proxy's (post-200 the
+   * proxy is a transparent pipe, so no target-leg socket ever exists
+   * locally).
+   */
+  onConnection?(record: ConnectionRecord): void;
 }
 
 /** Connection-specific headers HTTP/2 forbids — `node:http2` throws on
@@ -167,6 +189,11 @@ export async function h2PriorKnowledgeHop(request: H2PriorKnowledgeHopRequest): 
   const port = url.port !== '' ? url.port : secure ? '443' : '80';
   const origin = socketPath ?? `${url.hostname}:${port}`;
   const servername = servernameFor(url.hostname);
+  // The record is handed over AT DIAL START, before the tunnel leg —
+  // a tunneled hop's tunnel dial IS its TCP leg (see `onConnection`).
+  const record: ConnectionRecord | undefined =
+    request.onConnection !== undefined ? { origin, tlsUsed: secure, startAt: performance.now() } : undefined;
+  if (record !== undefined) request.onConnection?.(record);
   // A proxied hop opens its tunnel BEFORE the session exists — a
   // failure on either proxy leg rejects here with the leg's own error
   // for the classifier, never a session-shaped wrap.
@@ -177,34 +204,59 @@ export async function h2PriorKnowledgeHop(request: H2PriorKnowledgeHopRequest): 
           { proxy: request.proxy, ...(request.signal !== undefined ? { signal: request.signal } : {}) },
         )
       : undefined;
+  if (tunnel !== undefined && record !== undefined) record.tcpEndAt = performance.now();
+  // The session's socket, dialed by the hop itself for every shape —
+  // direct TLS / cleartext / socket-path (`path` wins over host+port
+  // inside net/tls.connect — the socket-path contract; TLS-only
+  // options ride only a TLS dial), or the target leg over the
+  // established tunnel: TLS wrapped over the tunnel socket with the
+  // connection policy intact (Node's h2 client offer, h2 via ALPN,
+  // rides it too), or the raw tunnel for cleartext prior-knowledge
+  // framing.
+  const dialSocket = (): net.Socket => {
+    const socket: net.Socket =
+      tunnel !== undefined
+        ? secure
+          ? tls.connect({
+              ...tlsOptions,
+              socket: tunnel,
+              ...(servername !== undefined ? { servername } : {}),
+              ALPNProtocols: ['h2'],
+            })
+          : tunnel
+        : secure
+          ? tls.connect({
+              ...tlsOptions,
+              ...(lookup !== undefined ? { lookup } : {}),
+              ...(socketPath !== undefined ? { path: socketPath } : {}),
+              ...(servername !== undefined ? { servername } : {}),
+              ALPNProtocols: ['h2'],
+              host: url.hostname,
+              port: Number(port),
+            })
+          : net.connect({
+              ...(lookup !== undefined ? { lookup } : {}),
+              ...(socketPath !== undefined ? { path: socketPath } : {}),
+              host: url.hostname,
+              port: Number(port),
+            });
+    if (record !== undefined) {
+      if (tunnel === undefined) markDialPhases(socket, record);
+      if (tunnel !== undefined && !secure) {
+        // The established tunnel IS the connection for a cleartext
+        // target — readiness is now, endpoints are the proxy's.
+        completeConnectionRecord(record, socket, 'h2');
+      } else {
+        socket.once(secure ? 'secureConnect' : 'connect', () => {
+          completeConnectionRecord(record, socket, 'h2');
+        });
+      }
+    }
+    return socket;
+  };
   return new Promise<NodeRequestResponse>((resolve, reject) => {
     let settled = false;
-    const session = connect(`${url.protocol}//${url.host}`, {
-      // TLS-only options ride only a TLS dial; the shared dial options
-      // (pinned lookup, socket path) ride both. `path` wins over
-      // host+port inside net/tls.connect — the socket-path contract.
-      ...(secure ? tlsOptions : {}),
-      ...(lookup !== undefined ? { lookup } : {}),
-      ...(socketPath !== undefined ? { path: socketPath } : {}),
-      ...(secure && servername !== undefined ? { servername } : {}),
-      // The tunneled dial: target-leg TLS over the tunnel socket (the
-      // connection policy rides the wrap; Node's h2 client offer, h2
-      // via ALPN, rides it too), or the raw tunnel for cleartext
-      // prior-knowledge framing.
-      ...(tunnel !== undefined
-        ? {
-            createConnection: (): net.Socket =>
-              secure
-                ? tls.connect({
-                    ...tlsOptions,
-                    socket: tunnel,
-                    ...(servername !== undefined ? { servername } : {}),
-                    ALPNProtocols: ['h2'],
-                  })
-                : tunnel,
-          }
-        : {}),
-    });
+    const session = connect(`${url.protocol}//${url.host}`, { createConnection: dialSocket });
 
     const onAbort = (): void => {
       session.destroy(new Error('aborted'));

@@ -309,9 +309,11 @@ export interface TransportRedirectHop {
 /** Socket-level facts an instrumented dial observed — see
  *  {@link TransportResponse.network}. */
 export interface TransportNetworkFacts {
-  /** Negotiated ALPN protocol id (`'h2'` / `'http/1.1'`). Plain-http
-   *  dials report `'http/1.1'` (the only protocol undici fetch speaks
-   *  in cleartext). */
+  /** Protocol id the connection speaks (`'h2'` / `'http/1.1'`) —
+   *  negotiated ALPN on TLS dials; plain-http dials report
+   *  `'http/1.1'` (the only protocol undici fetch speaks in
+   *  cleartext), except under `'2-prior-knowledge'`, whose sessions
+   *  speak `'h2'` from the first byte, negotiation-free. */
   httpVersion?: string;
   localAddress?: string;
   localPort?: number;
@@ -371,9 +373,13 @@ export interface TransportResponse {
    * Connection-level facts observed on the socket that served the
    * FINAL hop — present only when the send ran with
    * {@link TransportRequest.captureNetwork} and the transport could
-   * dial an instrumented connection (proxied sends tunnel through the
-   * proxy's connector and report nothing; the browser SW has no socket
-   * seat at all). Pure attribution for the executed-run snapshot.
+   * observe its own dial (proxied sends tunnel through the proxy
+   * agent's connector and report nothing; the browser SW has no socket
+   * seat at all). A pinned `'2-prior-knowledge'` send reports even
+   * through a proxy — its hand-rolled session owns the CONNECT tunnel
+   * end to end, and the facts describe the proxy leg, the socket the
+   * process actually holds. Pure attribution for the executed-run
+   * snapshot.
    */
   network?: TransportNetworkFacts;
   /**

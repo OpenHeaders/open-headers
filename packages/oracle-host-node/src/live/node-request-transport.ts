@@ -136,7 +136,7 @@ import { cookieJarFor } from './cookie-jar';
 import { decryptedClientKeyPem } from './h3-helper/client-key';
 import { resolveH3HelperBinary } from './h3-helper/helper-binary';
 import { type H3HelperClient, sharedH3HelperClient } from './h3-helper/helper-process';
-import { createInstrumentedDial } from './instrumented-connector';
+import { type ConnectionRecord, createInstrumentedDial } from './instrumented-connector';
 import { digestRetryHop } from './request-transport/digest-leg';
 import { connectOptionsFor, dispatcherFor, httpVersionPolicy } from './request-transport/dispatcher';
 import { finalizeResponse } from './request-transport/finalize';
@@ -288,19 +288,25 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // single place a dispatcher is applied. A `captureNetwork` send
     // trades the shared pool for a send-local instrumented dial (the
     // only correlation-safe way to observe socket phases + endpoints);
-    // proxied sends skip the instrumented dial — socket facts through
-    // a tunnel are a residual (H4).
+    // proxied sends skip the instrumented dial — `ProxyAgent`'s
+    // connector owns the socket, so there is no seat to observe.
     // A pinned-pipeline send (`'2-prior-knowledge'`, `'3'`) never
     // touches undici's wire — every hop rides its hand-rolled pipeline,
-    // so no dispatcher (and no instrumented dial: socket facts for
-    // these pipelines are a residual) — the per-send leg carries the
-    // pipeline's connection/trust inputs plus the sink its
-    // spoken-protocol facts report into.
+    // so no dispatcher — the per-send leg carries the pipeline's
+    // connection/trust inputs plus the sink its spoken-protocol facts
+    // report into. Under `captureNetwork` the prior-knowledge leg also
+    // collects its session dials' connection records straight from the
+    // pipeline (the session owns its socket end to end, tunnel legs
+    // included — tunneled records describe the proxy leg), riding the
+    // same merge as the instrumented undici dial; socket facts for the
+    // `'3'` pipeline stay a residual (the helper owns the socket).
     const priorKnowledge = request.httpVersion === '2-prior-knowledge';
     const instrumented =
       request.captureNetwork === true && request.proxyUrl === undefined && !priorKnowledge && h3Client === undefined
         ? createInstrumentedDial(connectOptionsFor(request), httpVersionPolicy(request.httpVersion))
         : null;
+    const h2Capture: ConnectionRecord[] | undefined =
+      priorKnowledge && request.captureNetwork === true ? [] : undefined;
     const entry =
       instrumented === null && !priorKnowledge && h3Client === undefined ? dispatcherFor(request) : undefined;
     const dispatcher = instrumented?.agent ?? entry?.dispatcher;
@@ -332,6 +338,13 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
                   }
                 : {}),
               onProtocol,
+              ...(h2Capture !== undefined
+                ? {
+                    onConnection: (record: ConnectionRecord): void => {
+                      h2Capture.push(record);
+                    },
+                  }
+                : {}),
             };
     }
     // The always-on negotiated-protocol source for this send: the
@@ -392,7 +405,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           undefined,
           { sentAt, finalHopSentAt },
           streaming,
-          instrumented?.connections,
+          instrumented?.connections ?? h2Capture,
           negotiated,
         );
       }
@@ -405,7 +418,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         jar,
         sentAt,
         streaming,
-        instrumented?.connections,
+        instrumented?.connections ?? h2Capture,
         negotiated,
         leg,
       );

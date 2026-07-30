@@ -62,9 +62,10 @@ export interface ConnectionRecord {
   /** Socket ready (TLS handshake done, or TCP established for
    *  cleartext). Absent when the dial failed. */
   readyAt?: number;
-  /** Negotiated ALPN protocol (`'h2'` / `'http/1.1'`). Cleartext dials
-   *  report `'http/1.1'` — the only protocol undici fetch speaks
-   *  without TLS. */
+  /** Protocol the connection speaks (`'h2'` / `'http/1.1'`).
+   *  Cleartext dials report `'http/1.1'` — the only protocol undici
+   *  fetch speaks without TLS; a prior-knowledge session's dial
+   *  records `'h2'`, the preface protocol, negotiation-free. */
   alpnProtocol?: string;
   localAddress?: string;
   localPort?: number;
@@ -107,6 +108,34 @@ function h2NotNegotiatedError(message: string): Error {
  *  literal (RFC 6066 forbids IPs in SNI; Node warns and ignores). */
 export function servernameFor(hostname: string): string | undefined {
   return isIP(hostname) === 0 ? hostname : undefined;
+}
+
+/** Attach the dial-phase marks to a dialing socket — DNS done and TCP
+ *  established, straight off the socket's own lifecycle events (absent
+ *  events leave their marks absent: IP literals and socket paths
+ *  resolve nothing). */
+export function markDialPhases(socket: net.Socket | tls.TLSSocket, record: ConnectionRecord): void {
+  socket.once('lookup', () => {
+    record.dnsEndAt = performance.now();
+  });
+  socket.once('connect', () => {
+    record.tcpEndAt = performance.now();
+  });
+}
+
+/** Fill a record's readiness facts — the ready instant, the protocol
+ *  the connection speaks, and the socket's local/remote endpoints. */
+export function completeConnectionRecord(
+  record: ConnectionRecord,
+  socket: net.Socket | tls.TLSSocket,
+  alpnProtocol: string,
+): void {
+  record.readyAt = performance.now();
+  record.alpnProtocol = alpnProtocol;
+  if (socket.localAddress !== undefined) record.localAddress = socket.localAddress;
+  if (socket.localPort !== undefined) record.localPort = socket.localPort;
+  if (socket.remoteAddress !== undefined) record.remoteAddress = socket.remoteAddress;
+  if (socket.remotePort !== undefined) record.remotePort = socket.remotePort;
 }
 
 /**
@@ -169,12 +198,7 @@ export function createDialConnector(
     };
 
     const markReady = (socket: net.Socket | tls.TLSSocket, negotiated: string): void => {
-      record.readyAt = performance.now();
-      record.alpnProtocol = negotiated;
-      if (socket.localAddress !== undefined) record.localAddress = socket.localAddress;
-      if (socket.localPort !== undefined) record.localPort = socket.localPort;
-      if (socket.remoteAddress !== undefined) record.remoteAddress = socket.remoteAddress;
-      if (socket.remotePort !== undefined) record.remotePort = socket.remotePort;
+      completeConnectionRecord(record, socket, negotiated);
       onReady?.(record);
       if (!settled) {
         settled = true;
@@ -188,12 +212,7 @@ export function createDialConnector(
       socket.setKeepAlive(true, 60_000);
       socket.setNoDelay(true);
 
-      socket.once('lookup', () => {
-        record.dnsEndAt = performance.now();
-      });
-      socket.once('connect', () => {
-        record.tcpEndAt = performance.now();
-      });
+      markDialPhases(socket, record);
 
       const timeout = setTimeout(() => {
         socket.destroy(new errors.ConnectTimeoutError(`Connect Timeout Error (attempted address: ${record.origin})`));
