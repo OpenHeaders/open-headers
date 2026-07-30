@@ -356,6 +356,7 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { other: '{count} 跳' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB（默认）',
   'workbench.editors.request.settings.resetToDefault': '重置为默认值',
+  'workbench.editors.request.settings.resetRow': '将{label}重置为默认值',
   'workbench.editors.request.settings.group.redirects': '重定向',
   'workbench.editors.request.settings.group.tls': 'TLS 与信任',
   'workbench.editors.request.settings.group.connection': '连接',

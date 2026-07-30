@@ -421,6 +421,7 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { one: '{count} salto', many: '{count} saltos', other: '{count} saltos' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (por defecto)',
   'workbench.editors.request.settings.resetToDefault': 'Restablecer los valores por defecto',
+  'workbench.editors.request.settings.resetRow': 'Restablecer {label} al valor por defecto',
   'workbench.editors.request.settings.group.redirects': 'Redirecciones',
   'workbench.editors.request.settings.group.tls': 'TLS y confianza',
   'workbench.editors.request.settings.group.connection': 'Conexión',

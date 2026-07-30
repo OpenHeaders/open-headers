@@ -789,3 +789,69 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount()).toBe(0);
   });
 });
+
+describe('SettingsTab row chrome and group folds', () => {
+  it('offers a per-row undo on a modified row and resets only that knob', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ timeoutMs: 15000, maxRedirects: 5 }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Request timeout to default' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined, maxRedirects: 5 }));
+  });
+
+  it('shows no per-row undo while a row sits at its default', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.queryByRole('button', { name: 'Reset Request timeout to default' })).toBeNull();
+    // The footer's full reset is unaffected by the per-row affordance.
+    expect(screen.getByRole('button', { name: 'Reset to default' })).toBeTruthy();
+  });
+
+  it('resets a switch row to undefined, not merely back on', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ sslVerification: false }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset SSL certificate verification to default' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sslVerification: undefined }));
+  });
+
+  it('resetting the proxy row clears its credential ref too', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(
+      <SettingsTab
+        value={{ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Proxy to default' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ proxyUrl: undefined, proxyCredentialRef: undefined }),
+    );
+  });
+
+  it('toggles a group fold from the keyboard with Space and Enter', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    const header = screen.getByRole('button', { name: /TLS & trust/ });
+    expect(header.getAttribute('tabindex')).toBe('0');
+    fireEvent.keyDown(header, { key: ' ' });
+    expect(screen.queryByRole('switch', { name: 'SSL certificate verification' })).toBeNull();
+    fireEvent.keyDown(header, { key: 'Enter' });
+    expect(screen.getByRole('switch', { name: 'SSL certificate verification' })).toBeTruthy();
+  });
+
+  it('remembers a fold across a remount for the session', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const first = render(<SettingsTab value={{}} onChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Execution & limits/ }));
+    expect(screen.queryByRole('combobox', { name: 'Request timeout' })).toBeNull();
+    first.unmount();
+
+    render(<SettingsTab value={{}} onChange={() => {}} />);
+    expect(screen.queryByRole('combobox', { name: 'Request timeout' })).toBeNull();
+    // Unfold again so the session store ends the suite at the default.
+    fireEvent.click(screen.getByRole('button', { name: /Execution & limits/ }));
+    expect(screen.getByRole('combobox', { name: 'Request timeout' })).toBeTruthy();
+  });
+});

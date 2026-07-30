@@ -349,6 +349,7 @@ export const workbenchEditorsRequest = {
     plural(locale, Number(count), { one: '{count} hop', other: '{count} hops' }),
   'workbench.editors.request.settings.responseSizeLimitPlaceholder': '2 MB (default)',
   'workbench.editors.request.settings.resetToDefault': 'Reset to default',
+  'workbench.editors.request.settings.resetRow': 'Reset {label} to default',
   'workbench.editors.request.settings.group.redirects': 'Redirects',
   'workbench.editors.request.settings.group.tls': 'TLS & trust',
   'workbench.editors.request.settings.group.connection': 'Connection',
