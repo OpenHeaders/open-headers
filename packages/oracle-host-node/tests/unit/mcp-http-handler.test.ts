@@ -276,6 +276,142 @@ describe('MCP HTTP handler', () => {
   });
 });
 
+// ── H6: runs_execute progress streaming ─────────────────────────────
+//
+// The one carve-out from single-shot JSON: a `tools/call` of
+// `runs_execute` carrying `_meta.progressToken` answers as SSE —
+// progress frames ahead of the final buffered report. Everything else
+// (token-less runs_execute, other tools with a token) keeps today's
+// JSON byte-shape.
+
+const RUN_STREAM_TOOL: McpToolDefinition = {
+  name: 'runs_execute',
+  title: 'Run stub',
+  description: 'emits two frames through the per-call progress seat, then returns a report',
+  inputSchema: { type: 'object', properties: {} },
+  tier: 'read',
+  resolveWorkspaceId: () => undefined,
+  handler: async (_args, ctx) => {
+    ctx.progress?.({ progress: 0, total: 2, message: 'running Smoke: 2 items' });
+    ctx.progress?.({ progress: 2, total: 2, message: '[2/2] PASS GET https://openheaders.io/ok (3ms)' });
+    return { ok: true, totals: { items: 2, passed: 2, failed: 0, skipped: 0 } };
+  },
+};
+
+function parseSseData(text: string): Array<Record<string, unknown>> {
+  return text
+    .split('\n')
+    .filter((line) => line.startsWith('data: '))
+    .map((line) => JSON.parse(line.slice('data: '.length)) as Record<string, unknown>);
+}
+
+function callBody(name: string, meta?: Record<string, unknown>, id = 7): string {
+  return JSON.stringify({
+    jsonrpc: '2.0',
+    id,
+    method: 'tools/call',
+    params: { name, arguments: {}, ...(meta ? { _meta: meta } : {}) },
+  });
+}
+
+describe('MCP HTTP handler — runs_execute progress streaming (H6)', () => {
+  let harness: { baseUrl: string; server: Server };
+  let secret: string;
+
+  beforeEach(async () => {
+    setHostLogger(consoleLogger);
+    setHostStorage(createHostStorageFake());
+    clearIdentitySnapshot();
+    await ensureSyntheticIdentity({ hostKind: 'daemon', now: '2026-07-09T00:00:00.000Z' });
+    secret = (await mintDaemonAuthToken({ label: 'stream client' })).secret;
+    const handler = createMcpHttpHandler({
+      registry: createMcpToolRegistry([ECHO_TOOL, RUN_STREAM_TOOL]),
+      isEnabled: () => true,
+      getPolicy: () => ({ enabledTiers: new Set(['read']) }),
+      serverVersion: '2026.7.0',
+    });
+    harness = await startHarness(handler);
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve, reject) => {
+      harness.server.close((err) => (err ? reject(err) : resolve()));
+    });
+  });
+
+  it('streams progress frames as SSE ahead of the final buffered report when a progressToken rides the call', async () => {
+    const response = await fetch(`${harness.baseUrl}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: rpcHeaders(secret),
+      body: callBody('runs_execute', { progressToken: 'run-7' }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+    const frames = parseSseData(await response.text());
+    const progressFrames = frames.filter((frame) => frame.method === 'notifications/progress');
+    expect(progressFrames).toHaveLength(2);
+    expect(progressFrames[0].params).toMatchObject({
+      progressToken: 'run-7',
+      progress: 0,
+      total: 2,
+      message: 'running Smoke: 2 items',
+    });
+    expect(progressFrames[1].params).toMatchObject({ progressToken: 'run-7', progress: 2, total: 2 });
+
+    // The final frame is the buffered report — the ratified v1 shape.
+    const last = frames[frames.length - 1] as { id: number; result: { content: Array<{ text: string }> } };
+    expect(last.id).toBe(7);
+    const report = JSON.parse(last.result.content[0].text) as { ok: boolean; totals: Record<string, number> };
+    expect(report.ok).toBe(true);
+    expect(report.totals).toEqual({ items: 2, passed: 2, failed: 0, skipped: 0 });
+    // Frames arrive strictly ahead of the closing report.
+    expect(frames.indexOf(progressFrames[1])).toBeLessThan(frames.length - 1);
+  });
+
+  it('keeps the single-shot JSON answer for runs_execute without a progressToken', async () => {
+    const response = await fetch(`${harness.baseUrl}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: rpcHeaders(secret),
+      body: callBody('runs_execute'),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    const json = (await response.json()) as { id: number; result: { content: Array<{ text: string }> } };
+    expect(json.id).toBe(7);
+    const report = JSON.parse(json.result.content[0].text) as { ok: boolean };
+    expect(report.ok).toBe(true);
+  });
+
+  it('leaves every other tool single-shot JSON even when it carries a progressToken', async () => {
+    const response = await fetch(`${harness.baseUrl}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: rpcHeaders(secret),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: { name: 'echo_args', arguments: { value: 'openheaders.io' }, _meta: { progressToken: 'tok' } },
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    const json = (await response.json()) as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(json.result.content[0].text)).toMatchObject({ echoed: 'openheaders.io' });
+  });
+
+  it('400s an unparsable body with the JSON-RPC parse-error code', async () => {
+    const response = await fetch(`${harness.baseUrl}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: rpcHeaders(secret),
+      body: '{not json',
+    });
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { error: { code: number } };
+    expect(json.error.code).toBe(-32700);
+  });
+});
+
 // ── LAN / self-host matrix ──────────────────────────────────────────
 //
 // The `backend.bindAddress` toggle can put the daemon socket on

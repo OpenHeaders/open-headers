@@ -35,6 +35,14 @@ export interface McpToolCallContext {
   /** The user the token acts as (directory binding; unbound → the
    *  daemon operator). Resolved once per request at the auth gate. */
   readonly userId: string;
+  /**
+   * Per-call progress seat, present only when the calling request
+   * carried the MCP progress opt-in (`_meta.progressToken`). Emits a
+   * spec `notifications/progress` frame; fire-and-forget — emission
+   * failure never fails the tool call. Tools that never stream simply
+   * ignore it.
+   */
+  readonly progress?: (update: { progress: number; total?: number; message?: string }) => void;
 }
 
 export interface McpToolDefinition {

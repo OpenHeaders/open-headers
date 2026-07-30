@@ -21,11 +21,19 @@
  *      one revoke list, one admin UI, one audit trail.
  *
  * Transport: stateless streamable HTTP. Each POST builds a fresh
- * SDK `Server` + transport pair (no session ids, JSON responses), which
- * keeps the endpoint restart-safe and multi-client-safe with zero
- * session bookkeeping. GET (standalone SSE stream) and DELETE (session
- * teardown) have no meaning in stateless mode; the SDK answers them
- * with the spec's 405.
+ * SDK `Server` + transport pair (no session ids), which keeps the
+ * endpoint restart-safe and multi-client-safe with zero session
+ * bookkeeping. Answers are single-shot JSON with one carve-out: a
+ * `runs_execute` call carrying the MCP progress opt-in
+ * (`_meta.progressToken`) answers as `text/event-stream`, streaming
+ * spec `notifications/progress` frames ahead of the final result —
+ * the buffered report stays the contract, streaming is additive.
+ * Every other request (including token-less `runs_execute`) keeps
+ * today's JSON byte-shape; the SDK already 406s POSTs whose `Accept`
+ * doesn't offer both `application/json` and `text/event-stream`, so
+ * the SSE leg never surprises a conformant client. GET (standalone
+ * SSE stream) and DELETE (session teardown) have no meaning in
+ * stateless mode; the SDK answers them with the spec's 405.
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -69,6 +77,7 @@ function jsonError(
   statusCode: number,
   message: string,
   extraHeaders?: Record<string, string>,
+  code = -32000,
 ): void {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -80,10 +89,49 @@ function jsonError(
   res.end(
     JSON.stringify({
       jsonrpc: '2.0',
-      error: { code: -32000, message },
+      error: { code, message },
       id: null,
     }),
   );
+}
+
+/** Mirrors the SDK transport's own message-size ceiling (4 MiB). */
+const MAXIMUM_BODY_BYTES = 4 * 1024 * 1024;
+
+/** Buffer the request body; `null` = over the size ceiling (chunks are
+ *  dropped past the limit, so memory stays bounded either way). */
+function readRequestBody(req: IncomingMessage): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let overLimit = false;
+    req.on('data', (chunk: Buffer) => {
+      if (overLimit) return;
+      size += chunk.length;
+      if (size > MAXIMUM_BODY_BYTES) {
+        overLimit = true;
+        chunks.length = 0;
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(overLimit ? null : Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+/** The H6 streaming gate: a `tools/call` of `runs_execute` carrying the
+ *  MCP progress opt-in answers as SSE; anything else keeps the
+ *  single-shot JSON answer byte-for-byte. */
+function isStreamingRunCall(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return false;
+  const message = body as { method?: unknown; params?: unknown };
+  if (message.method !== 'tools/call') return false;
+  if (typeof message.params !== 'object' || message.params === null) return false;
+  const params = message.params as { name?: unknown; _meta?: unknown };
+  if (params.name !== 'runs_execute') return false;
+  if (typeof params._meta !== 'object' || params._meta === null) return false;
+  return (params._meta as { progressToken?: unknown }).progressToken !== undefined;
 }
 
 function readBearerSecret(req: IncomingMessage): string | undefined {
@@ -137,6 +185,24 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
           return;
         }
 
+        // POST bodies are read here (not by the SDK) so the answer mode
+        // can be picked per call — the parsed body rides through the
+        // transport's pre-parsed-body seat.
+        let parsedBody: unknown;
+        if (req.method === 'POST') {
+          const raw = await readRequestBody(req);
+          if (raw === null) {
+            jsonError(res, 413, 'request body exceeds maximum size');
+            return;
+          }
+          try {
+            parsedBody = JSON.parse(raw);
+          } catch {
+            jsonError(res, 400, 'Parse error', undefined, -32700);
+            return;
+          }
+        }
+
         const server = createMcpServer({
           registry,
           getPolicy,
@@ -149,14 +215,14 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
         });
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined,
-          enableJsonResponse: true,
+          enableJsonResponse: !isStreamingRunCall(parsedBody),
         });
         res.on('close', () => {
           void transport.close();
           void server.close();
         });
         await server.connect(transport);
-        await transport.handleRequest(req, res);
+        await transport.handleRequest(req, res, parsedBody);
       } catch (err) {
         logger.warn(SCOPE, 'request handling failed', err);
         if (!res.headersSent) {

@@ -55,7 +55,20 @@ export interface SuiteRunArgs {
   requests: readonly Request[];
   /** Stop at the first failure; remaining items report `skipped`. */
   bail: boolean;
+  /** Optional progress listener, fired synchronously from the loop.
+   *  Additive only — the buffered result stays the ratified contract
+   *  and is byte-identical with or without a listener. */
+  onEvent?: (event: SuiteRunEvent) => void;
 }
+
+/** Progress vocabulary: suite `begin`/`end` bracket the run; every item
+ *  `settle`s exactly once (skipped items settle without starting), and
+ *  `end` fires on every path, bail included. */
+export type SuiteRunEvent =
+  | { type: 'begin'; total: number }
+  | { type: 'item-start'; index: number; uid: string; name: string; method: string; url: string }
+  | { type: 'item-settle'; index: number; item: SuiteRunItem }
+  | { type: 'end'; passed: number; failed: number; skipped: number };
 
 export interface SuiteRunAssertion {
   name: string;
@@ -92,12 +105,23 @@ export async function runRequestSuite(args: SuiteRunArgs): Promise<SuiteRunResul
   const refreshOAuth = buildRefreshOAuthHook(args.workspaceId);
   const items: SuiteRunItem[] = [];
   let bailed = false;
+  args.onEvent?.({ type: 'begin', total: args.requests.length });
 
-  for (const request of args.requests) {
+  for (const [index, request] of args.requests.entries()) {
     if (bailed) {
-      items.push(itemBase(request, 'skipped', []));
+      const item = itemBase(request, 'skipped', []);
+      items.push(item);
+      args.onEvent?.({ type: 'item-settle', index, item });
       continue;
     }
+    args.onEvent?.({
+      type: 'item-start',
+      index,
+      uid: request.uid,
+      name: request.name,
+      method: request.method,
+      url: request.url,
+    });
     const snapshot = await runStepRequest(request, {
       workspaceId: args.workspaceId,
       environmentId: args.environmentId,
@@ -121,15 +145,23 @@ export async function runRequestSuite(args: SuiteRunArgs): Promise<SuiteRunResul
           ? `HTTP ${snapshot.status}${snapshot.statusText ? ` ${snapshot.statusText}` : ''}`
           : undefined;
 
-    items.push({
+    const item: SuiteRunItem = {
       ...itemBase(request, failed ? 'failed' : 'passed', assertions),
       ...(headReceived ? { httpStatus: snapshot.status, durationMs: snapshot.durationMs } : {}),
       ...(snapshot.httpVersion !== undefined ? { httpVersion: snapshot.httpVersion } : {}),
       ...(error !== undefined ? { error } : {}),
-    });
+    };
+    items.push(item);
+    args.onEvent?.({ type: 'item-settle', index, item });
     if (failed && args.bail) bailed = true;
   }
 
+  args.onEvent?.({
+    type: 'end',
+    passed: items.filter((item) => item.status === 'passed').length,
+    failed: items.filter((item) => item.status === 'failed').length,
+    skipped: items.filter((item) => item.status === 'skipped').length,
+  });
   return {
     scripts: { available: scripts !== null, ...(scripts ? { mode: scripts.mode } : {}) },
     items,

@@ -71,15 +71,32 @@ export function createMcpServer(options: CreateMcpServerOptions): Server {
     };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const tool = registry.get(request.params.name);
     if (!tool) {
       throw new McpError(ErrorCode.InvalidParams, `unknown tool: ${request.params.name}`);
     }
     const args: Record<string, unknown> = request.params.arguments ?? {};
+    // The spec's progress opt-in: a `_meta.progressToken` on the call
+    // opens the per-call progress seat. `sendNotification` ties the
+    // frame to this request id, so on an SSE answer it rides the same
+    // POST stream ahead of the final result; fire-and-forget by
+    // contract — a dropped frame never fails the call.
+    const progressToken = request.params._meta?.progressToken;
+    const callContext: McpToolCallContext =
+      progressToken === undefined
+        ? context
+        : {
+            ...context,
+            progress: (update) => {
+              void extra
+                .sendNotification({ method: 'notifications/progress', params: { progressToken, ...update } })
+                .catch((err) => logger.info(SCOPE, `progress notification dropped (token=${context.tokenId})`, err));
+            },
+          };
     try {
-      await gateMcpToolCall(tool, args, getPolicy(), context);
-      const result = await tool.handler(args, context);
+      await gateMcpToolCall(tool, args, getPolicy(), callContext);
+      const result = await tool.handler(args, callContext);
       return textResult(result);
     } catch (err) {
       if (err instanceof McpPermissionDeniedError || err instanceof McpToolInputError) {

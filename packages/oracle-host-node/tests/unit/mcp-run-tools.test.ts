@@ -29,12 +29,13 @@ import {
   snapshotRequestCollectionPostStates,
 } from '@openheaders/oracle/sync/service';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { runRequestSuite } from '../../src/daemon/live/suite-runner';
+import { runRequestSuite, type SuiteRunEvent } from '../../src/daemon/live/suite-runner';
 import { setHostScriptCapabilities } from '../../src/daemon/script-capability';
 import { type McpToolDefinition, McpToolInputError } from '../../src/mcp/registry';
 import { applyMcpMutation, mintMcpContext } from '../../src/mcp/tools/common';
 import type { McpWorkflowRunOutcome } from '../../src/mcp/tools/execute-tools';
 import { createReadToolDefinitions } from '../../src/mcp/tools/read-tools';
+import { resolveSuitePlan } from '../../src/mcp/tools/run-plan';
 import { createRunToolDefinitions } from '../../src/mcp/tools/run-tools';
 import { createWriteToolDefinitions } from '../../src/mcp/tools/write-tools';
 import { createHostStorageFake } from './_host-storage-fake';
@@ -361,6 +362,87 @@ describe('runs_execute folder', () => {
     expect(byPath.items.map((item) => item.name)).toEqual(['Login']);
 
     await expect(runTarget({ kind: 'folder', ref: 'My Requests/Nope' })).rejects.toThrow(/folder under 'My Requests'/);
+  });
+});
+
+// ── H6: progress events ─────────────────────────────────────────────
+
+describe('runs_execute progress (H6)', () => {
+  it('narrates the real loop — begin, start/settle pairs, end — while the buffered report stays the contract', async () => {
+    await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
+    await saveRequest({ name: 'Bravo', url: `http://127.0.0.1:${port}/ok?bravo` });
+    const plan = resolveSuitePlan(wsId, 'collection', 'My Requests');
+    const events: SuiteRunEvent[] = [];
+
+    const result = await runRequestSuite({
+      workspaceId: wsId,
+      environmentId: null,
+      requests: plan.requests,
+      bail: false,
+      onEvent: (event) => events.push(event),
+    });
+
+    expect(events[0]).toEqual({ type: 'begin', total: 2 });
+    expect(events[events.length - 1]).toEqual({ type: 'end', passed: 2, failed: 0, skipped: 0 });
+    expect(events.slice(1, -1).map((event) => event.type)).toEqual([
+      'item-start',
+      'item-settle',
+      'item-start',
+      'item-settle',
+    ]);
+    const settles = events.filter((event): event is Extract<SuiteRunEvent, { type: 'item-settle' }> => {
+      return event.type === 'item-settle';
+    });
+    expect(settles.map((event) => event.index)).toEqual([0, 1]);
+    // The settled items ARE the report rows — streaming narrates the
+    // same objects the buffered contract returns.
+    expect(result.items).toEqual(settles.map((event) => event.item));
+  });
+
+  it('bail: skipped items settle without starting, and end still fires with the counts', async () => {
+    await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
+    await seedFolderWithRequest('First', 'Boom', `http://127.0.0.1:${port}/boom`);
+    const plan = resolveSuitePlan(wsId, 'collection', 'My Requests');
+    const events: SuiteRunEvent[] = [];
+
+    await runRequestSuite({
+      workspaceId: wsId,
+      environmentId: null,
+      requests: plan.requests,
+      bail: true,
+      onEvent: (event) => events.push(event),
+    });
+
+    expect(events.map((event) => event.type)).toEqual(['begin', 'item-start', 'item-settle', 'item-settle', 'end']);
+    expect(events[events.length - 1]).toEqual({ type: 'end', passed: 0, failed: 1, skipped: 1 });
+  });
+
+  it('bridges runner events onto the per-call progress seat as counters plus compact lines', async () => {
+    await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
+    await seedFolderWithRequest('First', 'Boom', `http://127.0.0.1:${port}/boom`);
+    const frames: Array<{ progress: number; total?: number; message?: string }> = [];
+    const tool = tools.get('runs_execute');
+    if (!tool) throw new Error('missing tool runs_execute');
+
+    const report = (await tool.handler(
+      { workspaceId: wsId, kind: 'collection', ref: 'My Requests', bail: true },
+      { ...CTX, progress: (update) => frames.push(update) },
+    )) as unknown as ReportShape;
+
+    expect(frames).toHaveLength(3);
+    expect(frames[0]).toEqual({ progress: 0, total: 2, message: 'running My Requests: 2 items' });
+    expect(frames[1].progress).toBe(1);
+    expect(frames[1].message).toMatch(/^\[1\/2\] FAIL GET http:\/\/127\.0\.0\.1:\d+\/boom \(\d+ms\) — HTTP 500/);
+    expect(frames[2].progress).toBe(2);
+    expect(frames[2].message).toMatch(/^\[2\/2\] SKIP GET http:\/\/127\.0\.0\.1:\d+\/ok\?alpha$/);
+    // The buffered report is untouched by the streaming seat.
+    expect(report.totals).toEqual({ items: 2, passed: 0, failed: 1, skipped: 1 });
+  });
+
+  it('passes no runner hook when the call carries no progress seat', async () => {
+    await saveRequest({ name: 'Alpha', url: `http://127.0.0.1:${port}/ok?alpha` });
+    const report = await runTarget({ kind: 'collection', ref: 'My Requests' });
+    expect(report.totals).toEqual({ items: 1, passed: 1, failed: 0, skipped: 0 });
   });
 });
 

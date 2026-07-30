@@ -16,7 +16,7 @@
 import type { LiveWorkflow, Request } from '@openheaders/core/types';
 import { getWorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
 import { snapshotLiveWorkflowPostStates } from '@openheaders/oracle/sync/service';
-import { type McpToolDefinition, McpToolInputError } from '../registry';
+import { type McpToolCallContext, type McpToolDefinition, McpToolInputError } from '../registry';
 import {
   requireStringArg,
   requireWorkspace,
@@ -52,7 +52,18 @@ export interface McpSuiteRunArgs {
   environmentId: string | null;
   requests: readonly Request[];
   bail: boolean;
+  /** Optional progress listener — additive; the buffered report stays
+   *  the ratified contract either way. */
+  onEvent?: (event: McpSuiteRunEvent) => void;
 }
+
+/** Progress vocabulary of the injected runner (structural mirror of
+ *  the daemon suite-runner's events — the injection stays type-only). */
+export type McpSuiteRunEvent =
+  | { type: 'begin'; total: number }
+  | { type: 'item-start'; index: number; uid: string; name: string; method: string; url: string }
+  | { type: 'item-settle'; index: number; item: McpRunItem }
+  | { type: 'end'; passed: number; failed: number; skipped: number };
 
 export interface McpSuiteRunResult {
   scripts: { available: boolean; mode?: string };
@@ -96,6 +107,33 @@ function totalsFor(items: readonly McpRunItem[]): { items: number; passed: numbe
   };
 }
 
+/** Map runner events onto the caller's `notifications/progress` seat —
+ *  one compact human line for suite begin and for each settled item;
+ *  the structured detail stays in the final buffered report (streaming
+ *  is additive, never a contract fork). */
+function progressBridge(
+  progress: NonNullable<McpToolCallContext['progress']>,
+  targetName: string,
+): (event: McpSuiteRunEvent) => void {
+  let total = 0;
+  let settled = 0;
+  return (event) => {
+    if (event.type === 'begin') {
+      total = event.total;
+      progress({ progress: 0, total, message: `running ${targetName}: ${total} item${total === 1 ? '' : 's'}` });
+      return;
+    }
+    if (event.type !== 'item-settle') return;
+    settled += 1;
+    const { item } = event;
+    const verdict = item.status === 'passed' ? 'PASS' : item.status === 'failed' ? 'FAIL' : 'SKIP';
+    const label = item.method !== undefined && item.url !== undefined ? `${item.method} ${item.url}` : item.name;
+    const timing = item.durationMs !== undefined ? ` (${item.durationMs}ms)` : '';
+    const failure = item.status === 'failed' && item.error !== undefined ? ` — ${item.error}` : '';
+    progress({ progress: settled, total, message: `[${settled}/${total}] ${verdict} ${label}${timing}${failure}` });
+  };
+}
+
 /** Reshape one workflow run as report items — atomic semantics made
  *  visible: on failure only the failing step ran to a verdict; every
  *  other step's work was discarded with the cache commit, so it
@@ -133,7 +171,8 @@ export function createRunToolDefinitions(deps: McpRunToolDeps): McpToolDefinitio
         'explicit assertions outrank the status code. ref accepts a name or uid (folders also a ' +
         "'Collection/Folder' path); bail stops at the first failure and reports the rest skipped. A " +
         'workflow target runs exactly like workflows_run (atomic captures, publish-on-run), reported as ' +
-        'per-step items.',
+        'per-step items. A collection/folder call carrying a _meta.progressToken streams live per-item ' +
+        'progress notifications during the run; the final report is unchanged either way.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -160,7 +199,7 @@ export function createRunToolDefinitions(deps: McpRunToolDeps): McpToolDefinitio
       },
       tier: 'execute',
       resolveWorkspaceId: resolveWorkspaceIdArg,
-      handler: async (args) => {
+      handler: async (args, ctx) => {
         const workspaceId = requireWorkspace(args);
         const kind = requireKindArg(args);
         const ref = requireStringArg(args, 'ref');
@@ -191,7 +230,13 @@ export function createRunToolDefinitions(deps: McpRunToolDeps): McpToolDefinitio
         if (plan.requests.length === 0) {
           throw new McpToolInputError(`${kind} '${plan.name}' contains no requests — nothing to run`);
         }
-        const result = await deps.runSuite({ workspaceId, environmentId, requests: plan.requests, bail });
+        const result = await deps.runSuite({
+          workspaceId,
+          environmentId,
+          requests: plan.requests,
+          bail,
+          ...(ctx.progress ? { onEvent: progressBridge(ctx.progress, plan.name) } : {}),
+        });
         const totals = totalsFor(result.items);
         return {
           workspaceId,

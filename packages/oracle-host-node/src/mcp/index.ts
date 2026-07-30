@@ -33,6 +33,7 @@ export {
   type McpRunItem,
   type McpRunToolDeps,
   type McpSuiteRunArgs,
+  type McpSuiteRunEvent,
   type McpSuiteRunResult,
 } from './tools/run-tools';
 export { createRuntimeToolDefinitions } from './tools/runtime-tools';
