@@ -36,7 +36,7 @@ function json(type, id, value) {
 }
 
 if (process.env.FAKE_H3_SILENT !== '1') {
-  const protocol = process.env.FAKE_H3_PROTOCOL !== undefined ? Number(process.env.FAKE_H3_PROTOCOL) : 2;
+  const protocol = process.env.FAKE_H3_PROTOCOL !== undefined ? Number(process.env.FAKE_H3_PROTOCOL) : 3;
   process.stdout.write(json(FRAME.HELLO, 0, { protocol, helper: 'fake' }));
 }
 
@@ -106,6 +106,21 @@ function respond(id, head, body) {
   if (path === '/crash') {
     process.exit(3);
   }
+  if (path === '/exit-clean') {
+    // The idle-exit shape: answer fully, then exit 0 with nothing in
+    // flight — the client's clean-exit contract resets quietly.
+    process.stdout.write(json(FRAME.RESPONSE_HEAD, id, { status: 200, headers: [['content-type', 'text/plain']] }));
+    process.stdout.write(frame(FRAME.RESPONSE_BODY, id, Buffer.from('bye')));
+    process.stdout.write(frame(FRAME.RESPONSE_END, id));
+    process.stdout.once('drain', () => process.exit(0));
+    if (process.stdout.writableLength === 0) process.exit(0);
+    return;
+  }
+  if (path === '/exit-clean-pending') {
+    // Exit 0 WITHOUT answering — a clean code with a send still in
+    // flight is a crash from the client's perspective.
+    process.exit(0);
+  }
   if (path === '/never') {
     // Stays silent — the cancel and dispose tests own the id's fate.
     return;
@@ -126,7 +141,15 @@ function respond(id, head, body) {
   if (head.connectAddress !== undefined) headers.push(['x-echo-connect-address', head.connectAddress]);
   if (head.clientCert !== undefined) headers.push(['x-echo-client-cert-key', head.clientCert.keyPem.slice(0, 32)]);
   if (head.cipherSuites !== undefined) headers.push(['x-echo-cipher-suites', head.cipherSuites.join(':')]);
-  process.stdout.write(json(FRAME.RESPONSE_HEAD, id, { status: 200, headers }));
+  if (head.captureNetwork === true) headers.push(['x-echo-capture-network', '1']);
+  const responseHead = { status: 200, headers };
+  if (head.captureNetwork === true) {
+    // The v3 instrumented-dial facts a real helper reports on a
+    // captureNetwork head — fixed values so assertions read them back.
+    responseHead.socket = { localAddress: '127.0.0.1', localPort: 52341, remoteAddress: '203.0.113.7', remotePort: 443 };
+    responseHead.timings = { dnsMs: 1.5, handshakeMs: 12.25 };
+  }
+  process.stdout.write(json(FRAME.RESPONSE_HEAD, id, responseHead));
   const responseBody = Buffer.from(JSON.stringify({ path, receivedBytes: body.length, headers: head.headers }), 'utf8');
   process.stdout.write(frame(FRAME.RESPONSE_BODY, id, responseBody));
   process.stdout.write(json(FRAME.RESPONSE_TRAILERS, id, [['x-fake-trailer', 'end']]));

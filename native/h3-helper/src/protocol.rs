@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 pub mod frame_type {
     pub const HELLO: u8 = 0x01;
@@ -61,6 +61,34 @@ pub struct RequestHead {
     pub cipher_suites: Option<Vec<String>>,
     #[serde(default)]
     pub idle_timeout_ms: Option<u64>,
+    /// captureNetwork (v3): dial a fresh instrumented connection —
+    /// never a pooled one — and report its socket facts + dial timings
+    /// on RESPONSE_HEAD.
+    #[serde(default)]
+    pub capture_network: bool,
+}
+
+/// Endpoints of the instrumented dial's socket (v3) — the UDP socket
+/// the QUIC connection rides.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SocketFacts {
+    pub local_address: String,
+    pub local_port: u16,
+    pub remote_address: String,
+    pub remote_port: u16,
+}
+
+/// Phase durations of the instrumented dial (v3). QUIC merges
+/// transport establishment and TLS into ONE handshake, so there is no
+/// TCP-connect leg — `handshake_ms` is the whole of it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialTimings {
+    /// Absent when `connectAddress` pinned the dial — nothing resolved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dns_ms: Option<f64>,
+    pub handshake_ms: f64,
 }
 
 #[derive(Serialize)]
@@ -68,6 +96,12 @@ pub struct RequestHead {
 pub struct ResponseHead {
     pub status: u16,
     pub headers: Vec<(String, String)>,
+    /// v3, present only on a `captureNetwork` head's instrumented dial.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub socket: Option<SocketFacts>,
+    /// v3, present only on a `captureNetwork` head's instrumented dial.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timings: Option<DialTimings>,
 }
 
 #[derive(Serialize)]

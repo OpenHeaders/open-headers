@@ -553,6 +553,34 @@ describe("createNodeRequestTransport — pinned '3' sends over the helper pipeli
     expect(headers['x-echo-cipher-suites']).toBe('TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256');
   });
 
+  it('captureNetwork surfaces the helper dial facts: network endpoints and QUIC-shaped phase legs', async () => {
+    const res = await h3Transport().send(
+      makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/ok', captureNetwork: true }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.network).toEqual({
+      httpVersion: 'h3',
+      localAddress: '127.0.0.1',
+      localPort: 52341,
+      remoteAddress: '203.0.113.7',
+      remotePort: 443,
+    });
+    // QUIC merges transport establishment and TLS into one handshake —
+    // it lands in the tlsMs seat, with no TCP connect leg.
+    expect(res.phaseTimings?.dnsMs).toBe(1.5);
+    expect(res.phaseTimings?.connectMs).toBeUndefined();
+    expect(res.phaseTimings?.tlsMs).toBeGreaterThanOrEqual(12.2);
+    expect(res.phaseTimings?.tlsMs).toBeLessThanOrEqual(12.3);
+    expect(res.phaseTimings?.waitingMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('without captureNetwork the helper reports no dial facts — network stays absent', async () => {
+    const res = await h3Transport().send(makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/ok' }));
+    expect(res.status).toBe(200);
+    expect(res.network).toBeUndefined();
+    expect(res.httpVersion).toBe('h3');
+  });
+
   it('classifies a pre-head helper failure naming the HTTP version setting', async () => {
     const attempt = h3Transport().send(makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-pre' }));
     await expect(attempt).rejects.toBeInstanceOf(TransportError);

@@ -144,6 +144,30 @@ describe('createH3HelperClient', () => {
     expect(healed.head?.status).toBe(200);
   });
 
+  it('a clean helper exit with nothing in flight resets quietly — the next send respawns', async () => {
+    const c = makeClient();
+    const first = recordingHandlers();
+    c.request(makeHead({ url: 'https://api.openheaders.io/exit-clean' }), undefined, first.handlers);
+    const done = await first.done;
+    expect(done.error).toBeUndefined();
+    expect(done.ended).toBe(true);
+    // Let the helper's exit(0) land on the client — the clean-exit
+    // contract must not mint helper-crashed for anyone.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const after = recordingHandlers();
+    c.request(makeHead(), undefined, after.handlers);
+    const healed = await after.done;
+    expect(healed.error).toBeUndefined();
+    expect(healed.head?.status).toBe(200);
+  });
+
+  it('a clean exit code with a send still in flight is a crash — the pending send fails classified', async () => {
+    const rig = recordingHandlers();
+    makeClient().request(makeHead({ url: 'https://api.openheaders.io/exit-clean-pending' }), undefined, rig.handlers);
+    const exchange = await rig.done;
+    expect(exchange.error?.code).toBe('helper-crashed');
+  });
+
   it('cancel forgets the id — no callbacks fire, later requests keep working', async () => {
     const c = makeClient();
     const silent = recordingHandlers();

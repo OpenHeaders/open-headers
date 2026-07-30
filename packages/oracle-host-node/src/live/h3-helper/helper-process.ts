@@ -5,7 +5,9 @@
  * request id and concurrent sends multiplex over one stdio pair.
  * Sends queue until the helper's HELLO arrives (protocol-int mismatch
  * kills it and fails them all); a crash / EOF rejects every in-flight
- * send and the NEXT send respawns. Frames for an id the client no
+ * send and the NEXT send respawns; the helper's own idle-exit (a clean
+ * exit code with nothing in flight) resets quietly. Frames for an id
+ * the client no
  * longer tracks (canceled, already failed) are dropped — the protocol's
  * cancel race contract.
  */
@@ -183,6 +185,19 @@ export function createH3HelperClient(options: H3HelperClientOptions): H3HelperCl
     });
     spawned.on('exit', (exitCode) => {
       if (proc !== spawned) return;
+      if (exitCode === 0 && pending.size === 0) {
+        // The helper's idle-exit: a clean exit with nothing in flight
+        // is the lifecycle working, not a crash — quiet reset, the
+        // next send respawns.
+        proc = null;
+        helloSeen = false;
+        preHello = [];
+        if (helloTimer !== null) {
+          clearTimeout(helloTimer);
+          helloTimer = null;
+        }
+        return;
+      }
       teardown(
         new H3HelperFailure(
           'helper-crashed',

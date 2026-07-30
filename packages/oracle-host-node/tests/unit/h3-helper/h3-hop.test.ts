@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { h3Hop } from '../../../src/live/h3-helper/h3-hop';
 import { createH3HelperClient, type H3HelperClient, H3HelperFailure } from '../../../src/live/h3-helper/helper-process';
+import type { ConnectionRecord } from '../../../src/live/instrumented-connector';
 
 const FAKE_HELPER = fileURLToPath(new URL('./fixtures/fake-helper.mjs', import.meta.url));
 
@@ -105,6 +106,50 @@ describe('h3Hop', () => {
       client: makeClient(),
     });
     expect(response.headers['x-echo-cipher-suites']).toBe('TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256');
+  });
+
+  it('captureNetwork rides the head and the dial facts come back as a QUIC-shaped connection record', async () => {
+    const records: ConnectionRecord[] = [];
+    const before = performance.now();
+    const response = await h3Hop({
+      url: 'https://api.openheaders.io/ok',
+      method: 'GET',
+      headers: [],
+      captureNetwork: true,
+      client: makeClient(),
+      onConnection: (record) => records.push(record),
+    });
+    expect(response.headers['x-echo-capture-network']).toBe('1');
+    expect(records).toHaveLength(1);
+    const record = records[0];
+    expect(record?.origin).toBe('api.openheaders.io:443');
+    expect(record?.alpnProtocol).toBe('h3');
+    expect(record?.localAddress).toBe('127.0.0.1');
+    expect(record?.localPort).toBe(52341);
+    expect(record?.remoteAddress).toBe('203.0.113.7');
+    expect(record?.remotePort).toBe(443);
+    // Marks are synthesized on this process's clock from the helper's
+    // measured durations; QUIC has no TCP leg, so tcpEndAt stays absent.
+    expect(record?.tlsUsed).toBe(true);
+    expect(record?.tcpEndAt).toBeUndefined();
+    expect(record?.startAt).toBeGreaterThanOrEqual(before);
+    expect(record?.dnsEndAt).toBeCloseTo((record?.startAt ?? 0) + 1.5, 5);
+    expect(record?.readyAt).toBeCloseTo((record?.startAt ?? 0) + 1.5 + 12.25, 5);
+    await readAll(response.body);
+  });
+
+  it('without captureNetwork the helper reports no facts and the sink stays silent', async () => {
+    const records: ConnectionRecord[] = [];
+    const response = await h3Hop({
+      url: 'https://api.openheaders.io/ok',
+      method: 'GET',
+      headers: [],
+      client: makeClient(),
+      onConnection: (record) => records.push(record),
+    });
+    expect(response.statusCode).toBe(200);
+    expect(records).toHaveLength(0);
+    await readAll(response.body);
   });
 
   it('rejects pre-head with the helper failure for the classifier', async () => {

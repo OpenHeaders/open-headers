@@ -152,7 +152,16 @@ export interface H3Leg {
   /** TLS 1.3 IANA suite names restricting every hop's handshake —
    *  parsed and gated to the helper's vocabulary pre-wire. */
   cipherSuites?: string[];
+  /** `captureNetwork`: every hop asks the helper for a fresh
+   *  instrumented dial (never a pooled connection) whose socket facts
+   *  and QUIC dial timings ride the response head. */
+  captureNetwork?: boolean;
   onProtocol(origin: string, alpnProtocol: string): void;
+  /** `captureNetwork` sink: each hop's instrumented-dial facts as a
+   *  connection record (see `h3-helper/h3-hop.ts` — the record lands at
+   *  the response head, marks synthesized from the helper's measured
+   *  durations; no TCP leg on QUIC). Absent = no collection. */
+  onConnection?(record: ConnectionRecord): void;
 }
 
 /** The per-send pinned-pipeline leg — `null` on sends that ride the

@@ -1,24 +1,31 @@
 //! oh-h3-helper — the HTTP/3 wire pipeline behind the request engine's
 //! wire-hop seam. Reads frames from stdin, writes frames to stdout
 //! (single writer task — frames never interleave mid-frame), one tokio
-//! task per in-flight request. stdin EOF is the graceful shutdown
-//! signal: drain in-flight requests, then exit. stderr is human log
-//! text only, never protocol data.
+//! task per in-flight request, one shared connection pool. stdin EOF is
+//! the graceful shutdown signal: drain in-flight requests, then exit.
+//! The helper also exits on its own after 120 idle seconds with nothing
+//! in flight (exit code 0 — the client treats that as benign; the next
+//! send respawns). stderr is human log text only, never protocol data.
 
 mod error;
 mod framing;
+mod pool;
 mod protocol;
 mod request;
 mod tls;
 
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-use framing::{encode_frame, read_frame};
+use framing::{encode_frame, read_frame, Frame};
 use protocol::{frame_type, ErrorFrame, Hello, RequestHead, PROTOCOL_VERSION};
+
+const IDLE_EXIT_SECS: u64 = 120;
 
 /// A request head whose announced body is still streaming in.
 struct PendingBody {
@@ -47,19 +54,49 @@ async fn main() {
         return;
     }
 
-    let mut stdin = tokio::io::stdin();
+    // stdin reads run in their own task feeding a channel — `select!`
+    // cancels the losing branch, and a cancelled read_exact would drop
+    // partially consumed header bytes; a channel recv is cancel-safe.
+    let (frame_tx, mut frame_rx) = mpsc::channel::<Frame>(16);
+    tokio::spawn(async move {
+        let mut stdin = tokio::io::stdin();
+        loop {
+            match read_frame(&mut stdin).await {
+                Ok(Some(frame)) => {
+                    if frame_tx.send(frame).await.is_err() {
+                        return;
+                    }
+                }
+                // Clean EOF or an unrecoverable stdin failure — either
+                // way the session is over; the closed channel tells the
+                // frame loop.
+                Ok(None) => return,
+                Err(e) => {
+                    eprintln!("oh-h3-helper: stdin: {e}");
+                    return;
+                }
+            }
+        }
+    });
+
+    let pool = Arc::new(pool::Pool::new());
     let mut pending: HashMap<u32, PendingBody> = HashMap::new();
     let mut running: HashMap<u32, JoinHandle<()>> = HashMap::new();
 
     loop {
-        let frame = match read_frame(&mut stdin).await {
-            Ok(Some(frame)) => frame,
-            // Clean EOF or an unrecoverable stdin failure — either way
-            // the session is over; drain what's in flight below.
-            Ok(None) => break,
-            Err(e) => {
-                eprintln!("oh-h3-helper: stdin: {e}");
-                break;
+        let frame = tokio::select! {
+            maybe = frame_rx.recv() => match maybe {
+                Some(frame) => frame,
+                None => break,
+            },
+            // Re-armed every loop turn, so it fires only after a full
+            // idle window since the last frame (or the last check).
+            _ = tokio::time::sleep(Duration::from_secs(IDLE_EXIT_SECS)) => {
+                running.retain(|_, handle| !handle.is_finished());
+                if running.is_empty() && pending.is_empty() {
+                    return;
+                }
+                continue;
             }
         };
         running.retain(|_, handle| !handle.is_finished());
@@ -67,7 +104,10 @@ async fn main() {
             frame_type::REQUEST => match serde_json::from_slice::<RequestHead>(&frame.payload) {
                 Ok(head) => {
                     if head.body_bytes == 0 {
-                        running.insert(frame.id, tokio::spawn(request::run(frame.id, head, Vec::new(), out_tx.clone())));
+                        running.insert(
+                            frame.id,
+                            tokio::spawn(request::run(frame.id, head, Vec::new(), out_tx.clone(), pool.clone())),
+                        );
                     } else {
                         pending.insert(frame.id, PendingBody { head, body: Vec::new() });
                     }
@@ -91,7 +131,10 @@ async fn main() {
                         .await;
                         continue;
                     }
-                    running.insert(frame.id, tokio::spawn(request::run(frame.id, entry.head, entry.body, out_tx.clone())));
+                    running.insert(
+                        frame.id,
+                        tokio::spawn(request::run(frame.id, entry.head, entry.body, out_tx.clone(), pool.clone())),
+                    );
                 }
             }
             frame_type::CANCEL => {

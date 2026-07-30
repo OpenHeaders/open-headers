@@ -26,9 +26,10 @@
 
 import { Readable } from 'node:stream';
 import type { TransportHeader } from '@openheaders/oracle/live/request-exec/transport';
+import type { ConnectionRecord } from '../instrumented-connector';
 import type { NodeRequestResponse } from '../request-transport/seam';
 import type { H3HelperClient, H3HelperFailure } from './helper-process';
-import type { H3ClientCert, H3HeaderPair, H3RequestHead } from './protocol';
+import type { H3ClientCert, H3HeaderPair, H3RequestHead, H3ResponseHead } from './protocol';
 
 export interface H3HopRequest {
   url: string;
@@ -46,10 +47,21 @@ export interface H3HopRequest {
   cipherSuites?: string[];
   client: H3HelperClient;
   signal?: AbortSignal;
+  /** `captureNetwork`: ask the helper for a fresh instrumented dial
+   *  whose socket facts + timings come back on the response head. */
+  captureNetwork?: boolean;
   /** Reports the protocol this exchange SPOKE, keyed like the other
    *  pipelines' facts (`hostname:port`). Fired at the response head —
    *  wire truth, never the knob echoed. */
   onProtocol?(origin: string, alpnProtocol: string): void;
+  /** `captureNetwork` sink: the instrumented dial's facts as a
+   *  connection record. Unlike the TCP connectors' dial-start contract,
+   *  the record lands WITH the response head — the helper owns the
+   *  socket, so the facts only exist once RESPONSE_HEAD crosses; marks
+   *  are synthesized from the hop's dispatch instant plus the helper's
+   *  measured durations. No `tcpEndAt` — QUIC merges transport and TLS
+   *  into one handshake, which lands in the TLS leg. */
+  onConnection?(record: ConnectionRecord): void;
 }
 
 /** Connection-specific headers HTTP/3 forbids (the h2 rule carried
@@ -102,6 +114,32 @@ function recordOf(pairs: H3HeaderPair[]): Record<string, string | string[] | und
   return out;
 }
 
+/**
+ * The instrumented dial's facts as a connection record. The helper
+ * reports durations, not instants — marks are synthesized on this
+ * process's clock from the hop's dispatch instant, so helper spawn/IPC
+ * overhead lands in the waiting phase (after `readyAt`), never
+ * mis-attributed to a socket leg. QUIC has no TCP leg: `tcpEndAt`
+ * stays absent and the whole handshake lands between DNS and ready —
+ * the TLS seat.
+ */
+function connectionRecordOf(origin: string, dispatchedAt: number, head: H3ResponseHead): ConnectionRecord | null {
+  if (head.socket === undefined || head.timings === undefined) return null;
+  const dnsEndAt = head.timings.dnsMs !== undefined ? dispatchedAt + head.timings.dnsMs : undefined;
+  return {
+    origin,
+    tlsUsed: true,
+    startAt: dispatchedAt,
+    ...(dnsEndAt !== undefined ? { dnsEndAt } : {}),
+    readyAt: (dnsEndAt ?? dispatchedAt) + head.timings.handshakeMs,
+    alpnProtocol: 'h3',
+    localAddress: head.socket.localAddress,
+    localPort: head.socket.localPort,
+    remoteAddress: head.socket.remoteAddress,
+    remotePort: head.socket.remotePort,
+  };
+}
+
 export function h3Hop(request: H3HopRequest): Promise<NodeRequestResponse> {
   const url = new URL(request.url);
   const origin = `${url.hostname}:${url.port !== '' ? url.port : '443'}`;
@@ -122,7 +160,9 @@ export function h3Hop(request: H3HopRequest): Promise<NodeRequestResponse> {
     ...(request.clientCert !== undefined ? { clientCert: request.clientCert } : {}),
     ...(request.connectAddress !== undefined ? { connectAddress: request.connectAddress } : {}),
     ...(request.cipherSuites !== undefined ? { cipherSuites: request.cipherSuites } : {}),
+    ...(request.captureNetwork === true ? { captureNetwork: true } : {}),
   };
+  const dispatchedAt = performance.now();
   return new Promise<NodeRequestResponse>((resolve, reject) => {
     let settled = false;
     let ended = false;
@@ -156,6 +196,10 @@ export function h3Hop(request: H3HopRequest): Promise<NodeRequestResponse> {
         if (settled) return;
         settled = true;
         request.onProtocol?.(origin, 'h3');
+        if (request.onConnection !== undefined) {
+          const record = connectionRecordOf(origin, dispatchedAt, response);
+          if (record !== null) request.onConnection(record);
+        }
         body = new Readable({
           read() {},
           destroy(err, callback) {

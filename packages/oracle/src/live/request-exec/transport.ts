@@ -309,11 +309,12 @@ export interface TransportRedirectHop {
 /** Socket-level facts an instrumented dial observed — see
  *  {@link TransportResponse.network}. */
 export interface TransportNetworkFacts {
-  /** Protocol id the connection speaks (`'h2'` / `'http/1.1'`) —
-   *  negotiated ALPN on TLS dials; plain-http dials report
+  /** Protocol id the connection speaks (`'h2'` / `'http/1.1'` /
+   *  `'h3'`) — negotiated ALPN on TLS dials; plain-http dials report
    *  `'http/1.1'` (the only protocol undici fetch speaks in
    *  cleartext), except under `'2-prior-knowledge'`, whose sessions
-   *  speak `'h2'` from the first byte, negotiation-free. */
+   *  speak `'h2'` from the first byte, negotiation-free; a pinned
+   *  `'3'` send reports `'h3'` from its helper dial. */
   httpVersion?: string;
   localAddress?: string;
   localPort?: number;
@@ -355,7 +356,9 @@ export interface TransportResponse {
    * The socket legs — `dnsMs` / `connectMs` (TCP) / `tlsMs` — appear
    * only when the send ran with {@link TransportRequest.captureNetwork}
    * on an instrumented dial AND the chain had no redirect hops (a
-   * chained send's dial belongs to its first hop, inside `redirectMs`);
+   * chained send's dial belongs to its first hop, inside `redirectMs`).
+   * A pinned `'3'` send's QUIC dial merges transport and TLS into one
+   * handshake, which lands in `tlsMs` with `connectMs` absent;
    * when present, `waitingMs` starts at the socket's readiness, not
    * the dispatch instant. Present only on hosts that own the exchange
    * end to end (the browser SW rides its platform's resource timing

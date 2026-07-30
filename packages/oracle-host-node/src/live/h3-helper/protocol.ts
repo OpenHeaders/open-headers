@@ -7,7 +7,7 @@
  * sides ship from one repo.
  */
 
-export const H3_PROTOCOL_VERSION = 2;
+export const H3_PROTOCOL_VERSION = 3;
 
 /** The `'3'` pipeline's entire legal cipher vocabulary — QUIC is TLS
  *  1.3-only and the helper's provider carries exactly these three
@@ -71,11 +71,37 @@ export interface H3RequestHead {
   cipherSuites?: string[];
   /** QUIC max-idle ceiling; helper default 30 000. */
   idleTimeoutMs?: number;
+  /** `captureNetwork` (v3) — the helper dials a fresh instrumented
+   *  connection (never a pooled one) and reports its socket facts +
+   *  dial timings on RESPONSE_HEAD. */
+  captureNetwork?: true;
+}
+
+/** Endpoints of the instrumented dial's socket (v3) — the UDP socket
+ *  the QUIC connection rides. */
+export interface H3SocketFacts {
+  localAddress: string;
+  localPort: number;
+  remoteAddress: string;
+  remotePort: number;
+}
+
+/** Phase durations of the instrumented dial (v3). QUIC merges
+ *  transport establishment and TLS into ONE handshake, so there is no
+ *  TCP-connect leg — `handshakeMs` is the whole of it. */
+export interface H3DialTimings {
+  /** Absent when `connectAddress` pinned the dial — nothing resolved. */
+  dnsMs?: number;
+  handshakeMs: number;
 }
 
 export interface H3ResponseHead {
   status: number;
   headers: H3HeaderPair[];
+  /** v3, present only on a `captureNetwork` head's instrumented dial. */
+  socket?: H3SocketFacts;
+  /** v3, present only on a `captureNetwork` head's instrumented dial. */
+  timings?: H3DialTimings;
 }
 
 /** Helper-side codes are a closed set per protocol version; the node

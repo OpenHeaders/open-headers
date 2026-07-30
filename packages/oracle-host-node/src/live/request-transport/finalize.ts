@@ -45,10 +45,21 @@ function phaseMs(ms: number): number {
 function socketLegsOf(
   capture: ReadonlyArray<ConnectionRecord> | undefined,
   hadRedirects: boolean,
-): { dnsMs?: number; connectMs: number; tlsMs?: number; readyAt: number } | undefined {
+): { dnsMs?: number; connectMs?: number; tlsMs?: number; readyAt: number } | undefined {
   if (hadRedirects || capture === undefined) return undefined;
   const first = capture[0];
-  if (first === undefined || first.readyAt === undefined || first.tcpEndAt === undefined) return undefined;
+  if (first === undefined || first.readyAt === undefined) return undefined;
+  if (first.tcpEndAt === undefined) {
+    // A QUIC record (the `'3'` pipeline's instrumented dial): transport
+    // establishment and TLS are ONE handshake, so there is no TCP leg —
+    // the whole handshake lands in the TLS seat, `connectMs` absent.
+    if (!first.tlsUsed) return undefined;
+    return {
+      ...(first.dnsEndAt !== undefined ? { dnsMs: phaseMs(first.dnsEndAt - first.startAt) } : {}),
+      tlsMs: phaseMs(first.readyAt - (first.dnsEndAt ?? first.startAt)),
+      readyAt: first.readyAt,
+    };
+  }
   return {
     ...(first.dnsEndAt !== undefined ? { dnsMs: phaseMs(first.dnsEndAt - first.startAt) } : {}),
     connectMs: phaseMs(first.tcpEndAt - (first.dnsEndAt ?? first.startAt)),
@@ -192,7 +203,7 @@ export async function finalizeResponse(
       ...(legs !== undefined
         ? {
             ...(legs.dnsMs !== undefined ? { dnsMs: legs.dnsMs } : {}),
-            connectMs: legs.connectMs,
+            ...(legs.connectMs !== undefined ? { connectMs: legs.connectMs } : {}),
             ...(legs.tlsMs !== undefined ? { tlsMs: legs.tlsMs } : {}),
           }
         : {}),

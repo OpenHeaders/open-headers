@@ -320,8 +320,9 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // collects its session dials' connection records straight from the
     // pipeline (the session owns its socket end to end, tunnel legs
     // included — tunneled records describe the proxy leg), riding the
-    // same merge as the instrumented undici dial; socket facts for the
-    // `'3'` pipeline stay a residual (the helper owns the socket).
+    // same merge as the instrumented undici dial; a `'3'` send asks the
+    // helper for instrumented dials, whose socket facts + QUIC timings
+    // come back on the response head and ride the same record merge.
     const priorKnowledge = request.httpVersion === '2-prior-knowledge';
     const instrumented =
       request.captureNetwork === true && request.proxyUrl === undefined && !priorKnowledge && h3Client === undefined
@@ -329,6 +330,8 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         : null;
     const h2Capture: ConnectionRecord[] | undefined =
       priorKnowledge && request.captureNetwork === true ? [] : undefined;
+    const h3Capture: ConnectionRecord[] | undefined =
+      h3Client !== undefined && request.captureNetwork === true ? [] : undefined;
     const entry =
       instrumented === null && !priorKnowledge && h3Client === undefined ? dispatcherFor(request) : undefined;
     const dispatcher = instrumented?.agent ?? entry?.dispatcher;
@@ -347,7 +350,15 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
               ...(h3ClientCert !== undefined ? { clientCert: h3ClientCert } : {}),
               ...(request.resolveToAddress !== undefined ? { connectAddress: request.resolveToAddress } : {}),
               ...(h3CipherSuites !== undefined ? { cipherSuites: h3CipherSuites } : {}),
+              ...(h3Capture !== undefined ? { captureNetwork: true } : {}),
               onProtocol,
+              ...(h3Capture !== undefined
+                ? {
+                    onConnection: (record: ConnectionRecord): void => {
+                      h3Capture.push(record);
+                    },
+                  }
+                : {}),
             }
           : {
               kind: '2-prior-knowledge',
@@ -428,7 +439,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           undefined,
           { sentAt, finalHopSentAt },
           streaming,
-          instrumented?.connections ?? h2Capture,
+          instrumented?.connections ?? h2Capture ?? h3Capture,
           negotiated,
         );
       }
@@ -441,7 +452,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         jar,
         sentAt,
         streaming,
-        instrumented?.connections ?? h2Capture,
+        instrumented?.connections ?? h2Capture ?? h3Capture,
         negotiated,
         leg,
       );

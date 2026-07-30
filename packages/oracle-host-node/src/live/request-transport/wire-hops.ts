@@ -112,8 +112,9 @@ async function h2Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
 }
 
 /**
- * One wire round-trip over the HTTP/3 helper pipeline — a fresh QUIC
- * connection per hop through the framed helper exchange (see
+ * One wire round-trip over the HTTP/3 helper pipeline — the framed
+ * helper exchange over a QUIC connection the helper pools per trust
+ * tuple (a `captureNetwork` hop dials fresh, instrumented — see
  * `h3-helper/h3-hop.ts`). Rides the same deadline and error
  * classification as the other wire paths and adapts onto the same hop
  * surface via {@link adaptRequestResponse} — body and trailers carry
@@ -135,9 +136,11 @@ async function h3Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
       ...(leg.clientCert !== undefined ? { clientCert: leg.clientCert } : {}),
       ...(leg.connectAddress !== undefined ? { connectAddress: leg.connectAddress } : {}),
       ...(leg.cipherSuites !== undefined ? { cipherSuites: leg.cipherSuites } : {}),
+      ...(leg.captureNetwork === true ? { captureNetwork: true } : {}),
       client: leg.client,
       ...(deadline ? { signal: deadline.signal } : {}),
       onProtocol: leg.onProtocol,
+      ...(leg.onConnection !== undefined ? { onConnection: leg.onConnection } : {}),
     });
     return adaptRequestResponse(hop.url, response);
   } catch (err) {
