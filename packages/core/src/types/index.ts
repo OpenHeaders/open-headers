@@ -156,6 +156,14 @@ export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from '.
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────
 export type { PerfResourceEntry } from './perf';
+// ── Environment-plane proxy (per-device, never synced) ─────────────
+export type {
+  EnvironmentProxyMode,
+  EnvironmentProxyResolution,
+  EnvironmentProxyResolvedEntry,
+  EnvironmentProxyResolvedSource,
+  EnvironmentProxySettings,
+} from './environment-proxy';
 export type {
   ProxyCaptureSettings,
   ProxyCaptureStatus,

@@ -73,6 +73,14 @@ export {
 } from './live';
 export type { ParseEntityOptions } from './parse';
 export { parseEntity, parseEntityArray } from './parse';
+export {
+  ENVIRONMENT_PROXY_MODES,
+  EnvironmentProxyModeSchema,
+  EnvironmentProxySettingsSchema,
+  MAX_ENVIRONMENT_PROXY_BYPASS_LENGTH,
+  MAX_ENVIRONMENT_PROXY_PAC_LENGTH,
+  MAX_ENVIRONMENT_PROXY_VALUE_LENGTH,
+} from './environment-proxy';
 export { ProxyCaptureSettingsSchema } from './proxy-capture';
 export { ProxyCaRecordSchema, ProxyTrustChangeSchema, ProxyTrustStoreIdSchema } from './proxy-trust';
 export {

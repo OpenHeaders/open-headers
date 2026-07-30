@@ -34,6 +34,7 @@ export interface RequestPathBundle {
   httpVersion: string;
   resolveToAddress: string;
   clientCertificateRef: string;
+  proxyMode: string;
   proxyUrl: string;
   proxyCredentialRef: string;
   unixSocketPath: string;
@@ -69,6 +70,7 @@ export const REQUEST_PATHS: RequestPathBundle = {
   httpVersion: 'httpVersion',
   resolveToAddress: 'resolveToAddress',
   clientCertificateRef: 'clientCertificateRef',
+  proxyMode: 'proxyMode',
   proxyUrl: 'proxyUrl',
   proxyCredentialRef: 'proxyCredentialRef',
   unixSocketPath: 'unixSocketPath',

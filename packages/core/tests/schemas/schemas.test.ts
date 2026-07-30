@@ -456,19 +456,18 @@ describe('RequestSchema', () => {
       auth: { type: 'none' },
       body: { type: 'none' },
     };
-    expect(v.parse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io:3128' })).toBeTruthy();
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'https://proxy.openheaders.io' }).success).toBe(true);
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://127.0.0.1:8080/' }).success).toBe(true);
+    const withUrl = (proxyUrl: string) => ({ ...base, proxyMode: 'url', proxyUrl });
+    expect(v.parse(RequestSchema, withUrl('http://proxy.openheaders.io:3128'))).toBeTruthy();
+    expect(v.safeParse(RequestSchema, withUrl('https://proxy.openheaders.io')).success).toBe(true);
+    expect(v.safeParse(RequestSchema, withUrl('http://127.0.0.1:8080/')).success).toBe(true);
     // Userinfo would be honored by the runtime — rejected so credentials
     // never land in synced YAML; they ride a vault ref instead.
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://user:pass@proxy.openheaders.io' }).success).toBe(
-      false,
-    );
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'socks5://127.0.0.1:1080' }).success).toBe(false);
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io/path' }).success).toBe(false);
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io?q=1' }).success).toBe(false);
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'proxy.openheaders.io:3128' }).success).toBe(false);
-    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: '' }).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('http://user:pass@proxy.openheaders.io')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('socks5://127.0.0.1:1080')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('http://proxy.openheaders.io/path')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('http://proxy.openheaders.io?q=1')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('proxy.openheaders.io:3128')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('')).success).toBe(false);
   });
 
   it('ties proxyMode to proxyUrl', () => {
@@ -491,9 +490,10 @@ describe('RequestSchema', () => {
     expect(
       v.parse(RequestSchema, { ...base, proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' }),
     ).toBeTruthy();
-    // A pre-tri-state proxyUrl without the mode stays valid (explicit
-    // routing) until the P3 row always writes the pair.
-    expect(v.parse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io:3128' })).toBeTruthy();
+    // The tri-state row always writes the PAIR — a URL floating
+    // without its mode is a malformed write (the P2 transitional
+    // lenience, tightened with the P3 row).
+    expect(v.safeParse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io:3128' }).success).toBe(false);
     // 'url' with nothing to route through, 'direct' with a dormant
     // URL, and unknown modes all fail.
     expect(v.safeParse(RequestSchema, { ...base, proxyMode: 'url' }).success).toBe(false);

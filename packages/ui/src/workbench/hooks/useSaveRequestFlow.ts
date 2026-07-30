@@ -15,6 +15,7 @@ import type {
   ExecutedRequestSnapshot,
   HttpMethod,
   HttpVersion,
+  ProxyMode,
   QueryParam,
   Request,
   RequestBody,
@@ -67,6 +68,7 @@ export interface DraftData {
   httpVersion?: HttpVersion;
   resolveToAddress?: string;
   clientCertificateRef?: string;
+  proxyMode?: ProxyMode;
   proxyUrl?: string;
   proxyCredentialRef?: string;
   unixSocketPath?: string;
@@ -138,6 +140,7 @@ export function useSaveRequestFlow({
             httpVersion: draftData.httpVersion,
             resolveToAddress: draftData.resolveToAddress,
             clientCertificateRef: draftData.clientCertificateRef,
+            proxyMode: draftData.proxyMode,
             proxyUrl: draftData.proxyUrl,
             proxyCredentialRef: draftData.proxyCredentialRef,
             unixSocketPath: draftData.unixSocketPath,
@@ -191,6 +194,7 @@ export function useSaveRequestFlow({
           httpVersion: saveModalDraftData.httpVersion,
           resolveToAddress: saveModalDraftData.resolveToAddress,
           clientCertificateRef: saveModalDraftData.clientCertificateRef,
+          proxyMode: saveModalDraftData.proxyMode,
           proxyUrl: saveModalDraftData.proxyUrl,
           proxyCredentialRef: saveModalDraftData.proxyCredentialRef,
           unixSocketPath: saveModalDraftData.unixSocketPath,

@@ -48,6 +48,7 @@ const SCALAR_LABEL: Record<string, MessageKey> = {
   [REQUEST_PATHS.httpVersion]: 'shared.conflicts.label.request.scalar.httpVersion',
   [REQUEST_PATHS.resolveToAddress]: 'shared.conflicts.label.request.scalar.resolveToAddress',
   [REQUEST_PATHS.clientCertificateRef]: 'shared.conflicts.label.request.scalar.clientCertificateRef',
+  [REQUEST_PATHS.proxyMode]: 'shared.conflicts.label.request.scalar.proxyMode',
   [REQUEST_PATHS.proxyUrl]: 'shared.conflicts.label.request.scalar.proxyUrl',
   [REQUEST_PATHS.proxyCredentialRef]: 'shared.conflicts.label.request.scalar.proxyCredentialRef',
   [REQUEST_PATHS.unixSocketPath]: 'shared.conflicts.label.request.scalar.unixSocketPath',

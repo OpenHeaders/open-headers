@@ -968,16 +968,18 @@ const RequestObjectSchema = v.object({
  * The persisted Request shape, with the cross-field ties the field
  * schemas can't express. `proxyMode: 'url'` requires a `proxyUrl` (an
  * URL-mode row with nothing to route through is a config error, not a
- * direct send) and `'direct'` forbids one (the opt-out must not carry
- * a dormant URL that silently reactivates on a mode flip). A
- * `proxyUrl` with the mode ABSENT stays valid and routes explicitly —
- * the pre-tri-state editor writes only the URL; the P3 settings row
- * always writes the pair.
+ * direct send), `'direct'` forbids one (the opt-out must not carry a
+ * dormant URL that silently reactivates on a mode flip), and a
+ * `proxyUrl` requires `mode: 'url'` — the tri-state settings row
+ * always writes the PAIR, so a URL floating without its mode is a
+ * malformed write, never a valid explicit route (the P2 transitional
+ * lenience, tightened with the P3 row).
  */
 export const RequestSchema = v.pipe(
   RequestObjectSchema,
   v.check((r) => r.proxyMode !== 'url' || r.proxyUrl !== undefined, "Proxy mode 'url' requires a proxy URL"),
   v.check((r) => r.proxyMode !== 'direct' || r.proxyUrl === undefined, "Proxy mode 'direct' cannot carry a proxy URL"),
+  v.check((r) => r.proxyUrl === undefined || r.proxyMode === 'url', "A proxy URL requires proxy mode 'url'"),
 );
 
 /**

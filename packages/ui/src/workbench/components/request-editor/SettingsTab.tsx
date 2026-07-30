@@ -75,21 +75,30 @@
  *     verification — so no response marker, and no fact row on either
  *     sheet. The browser picks client certificates from its own
  *     store/prompt, so there is no browser control.
- *   • `proxyUrl` / `proxyCredentialRef` — node-runtime only: the node
- *     transport tunnels the send through the HTTP(S) proxy with
+ *   • `proxyMode` / `proxyUrl` / `proxyCredentialRef` — node-runtime
+ *     only: the tri-state Proxy row over the two-plane architecture
+ *     (docs/REQUEST_ENGINE_PROXY_DESIGN.md). Inherit (the default —
+ *     the cleared select, `undefined` on disk) lets the executing
+ *     DEVICE's environment plane decide (system settings / PAC /
+ *     env vars); Direct opts the send out of any ambient proxy;
+ *     Custom URL routes through the request's own proxy — the row
+ *     writes the MODE+URL pair, and the H11 reset returns all three
+ *     fields to `undefined` = Inherit. A custom proxy tunnels with
  *     CONNECT, so end-to-end TLS and certificate verification still
  *     run against the target. Credentials ride a vault string entry
  *     (`user:password`) picked by name, never the URL — the runtime
  *     would honor `user:pass@` userinfo, which is exactly why the
  *     schema rejects it (secrets must not land in synced YAML).
- *     SOCKS schemes are rejected. Not honorable together with
- *     `resolveToAddress` (the proxy resolves the hostname itself) —
- *     the row warns in place while both are set and the transport
- *     fails the send loudly. Not trust-relaxing, no response marker,
- *     no fact row on either sheet. The browser routes through its own
- *     proxy settings, so there is no browser control. The credentials
- *     row hides while no proxy URL is set (nothing to authenticate
- *     against), matching the dot rule: a hidden knob contributes no
+ *     SOCKS schemes are rejected. A CUSTOM proxy is not honorable
+ *     together with `resolveToAddress` (the proxy resolves the
+ *     hostname itself) — the URL row warns in place while both are
+ *     set and the transport fails the send loudly; an INHERITED proxy
+ *     instead STANDS DOWN against explicit conflicting knobs (the
+ *     seamlessness law). Not trust-relaxing, no response marker, no
+ *     fact row on either sheet. The browser routes through its own
+ *     proxy settings, so there is no browser control. The URL and
+ *     credentials rows hide while the mode isn't Custom (nothing to
+ *     configure), matching the dot rule: a hidden knob contributes no
  *     tab dot.
  *   • `unixSocketPath` — node-runtime only: the node transport dials
  *     the local Unix domain socket (or Windows named pipe) instead of
@@ -180,7 +189,7 @@ import {
   TLS_CIPHER_SUITES_PATTERN,
   TLS_VERSIONS,
 } from '@openheaders/core/schemas';
-import type { HttpVersion, TlsVersion } from '@openheaders/core/types';
+import type { HttpVersion, ProxyMode, TlsVersion } from '@openheaders/core/types';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
@@ -235,8 +244,14 @@ export interface RequestSettingsDraft {
   /** Name of a vault client-certificate entry presented during the TLS
    *  handshake. Undefined = no client certificate. Node runtimes only. */
   clientCertificateRef?: string;
-  /** HTTP(S) proxy URL the send tunnels through. Undefined = direct
-   *  connection. Node runtimes only. */
+  /** Proxy routing mode. Undefined = INHERIT the executing device's
+   *  environment plane (the default); `'direct'` opts the send out of
+   *  any ambient proxy; `'url'` routes through `proxyUrl`. Node
+   *  runtimes only. */
+  proxyMode?: ProxyMode;
+  /** HTTP(S) proxy URL the send tunnels through — meaningful only with
+   *  `proxyMode: 'url'` (the row writes the pair). Node runtimes
+   *  only. */
   proxyUrl?: string;
   /** Name of a vault string entry holding the proxy's `user:password`.
    *  Undefined = unauthenticated proxy. Node runtimes only. */
@@ -846,6 +861,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
         value.clientCertificateRef !== undefined ||
         (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
         value.resolveToAddress !== undefined ||
+        value.proxyMode !== undefined ||
         value.proxyUrl !== undefined ||
         value.unixSocketPath !== undefined ||
         value.cookieJar === true ||
@@ -867,6 +883,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
   const connModified =
     (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
     value.resolveToAddress !== undefined ||
+    value.proxyMode !== undefined ||
     value.proxyUrl !== undefined ||
     value.proxyCredentialRef !== undefined ||
     value.unixSocketPath !== undefined;
@@ -940,48 +957,87 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   : undefined
               }
             />
-            <TextKnobRow
+            <SelectKnobRow
               label={t('workbench.editors.request.settings.proxy')}
-              value={value.proxyUrl}
-              onChange={(proxyUrl) =>
+              value={value.proxyMode}
+              // The tri-state row writes the MODE+URL pair: Inherit
+              // (undefined — the H11 reset target) and Direct both
+              // clear the URL and its credentials (a hidden row must
+              // not keep a dormant URL or a stale ref alive); Custom
+              // keeps whatever URL is already set.
+              onChange={(v) =>
                 onChange(
-                  // Clearing the proxy URL also clears its credentials —
-                  // they have nothing to authenticate against, and a
-                  // hidden row must not keep a stale ref alive.
-                  proxyUrl === undefined ? { ...value, proxyUrl, proxyCredentialRef: undefined } : { ...value, proxyUrl },
+                  v === 'url'
+                    ? { ...value, proxyMode: 'url' }
+                    : {
+                        ...value,
+                        proxyMode: v as ProxyMode | undefined,
+                        proxyUrl: undefined,
+                        proxyCredentialRef: undefined,
+                      },
                 )
               }
               info={settingsRowInfo(t, 'proxy')}
-              placeholder={t('workbench.editors.request.settings.proxyPlaceholder')}
-              onReset={() => onChange({ ...value, proxyUrl: undefined, proxyCredentialRef: undefined })}
-              maxLength={MAX_PROXY_URL_LENGTH}
-              error={
-                value.proxyUrl !== undefined && !isValidProxyUrl(value.proxyUrl)
-                  ? t('workbench.editors.request.settings.proxyError')
-                  : undefined
+              options={[
+                { value: 'direct', label: t('workbench.editors.request.settings.proxyModeDirect') },
+                { value: 'url', label: t('workbench.editors.request.settings.proxyModeCustom') },
+              ]}
+              placeholder={t('workbench.editors.request.settings.proxyModePlaceholder')}
+              modified={value.proxyMode !== undefined || value.proxyUrl !== undefined}
+              onReset={() =>
+                onChange({ ...value, proxyMode: undefined, proxyUrl: undefined, proxyCredentialRef: undefined })
               }
-              warning={
-                value.proxyUrl !== undefined && value.resolveToAddress !== undefined
-                  ? t('workbench.editors.request.settings.proxyResolveConflict')
-                  : undefined
-              }
+              testId="oh-proxy-mode-select"
             />
-            {value.proxyUrl !== undefined && (
-              <SelectKnobRow
-                label={t('workbench.editors.request.settings.proxyCredentials')}
-                value={value.proxyCredentialRef}
-                onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
-                info={settingsRowInfo(t, 'proxyCredentials')}
-                options={proxyCredentialOptions}
-                placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
-                warning={
-                  proxyCredentialRefDangling
-                    ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
-                        name: value.proxyCredentialRef ?? '',
-                      })
-                    : undefined
-                }
-              />
+            {value.proxyMode === 'url' && (
+              <>
+                <TextKnobRow
+                  label={t('workbench.editors.request.settings.proxyUrl')}
+                  value={value.proxyUrl}
+                  onChange={(proxyUrl) =>
+                    onChange(
+                      // Clearing the URL also clears its credentials —
+                      // they have nothing to authenticate against.
+                      proxyUrl === undefined
+                        ? { ...value, proxyUrl, proxyCredentialRef: undefined }
+                        : { ...value, proxyUrl },
+                    )
+                  }
+                  info={settingsRowInfo(t, 'proxyUrl')}
+                  placeholder={t('workbench.editors.request.settings.proxyUrlPlaceholder')}
+                  onReset={() => onChange({ ...value, proxyUrl: undefined, proxyCredentialRef: undefined })}
+                  maxLength={MAX_PROXY_URL_LENGTH}
+                  error={
+                    value.proxyUrl === undefined
+                      ? t('workbench.editors.request.settings.proxyUrlMissing')
+                      : !isValidProxyUrl(value.proxyUrl)
+                        ? t('workbench.editors.request.settings.proxyError')
+                        : undefined
+                  }
+                  warning={
+                    value.proxyUrl !== undefined && value.resolveToAddress !== undefined
+                      ? t('workbench.editors.request.settings.proxyResolveConflict')
+                      : undefined
+                  }
+                />
+                {value.proxyUrl !== undefined && (
+                  <SelectKnobRow
+                    label={t('workbench.editors.request.settings.proxyCredentials')}
+                    value={value.proxyCredentialRef}
+                    onChange={(proxyCredentialRef) => onChange({ ...value, proxyCredentialRef })}
+                    info={settingsRowInfo(t, 'proxyCredentials')}
+                    options={proxyCredentialOptions}
+                    placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
+                    warning={
+                      proxyCredentialRefDangling
+                        ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
+                            name: value.proxyCredentialRef ?? '',
+                          })
+                        : undefined
+                    }
+                  />
+                )}
+              </>
             )}
             <TextKnobRow
               label={t('workbench.editors.request.settings.unixSocket')}

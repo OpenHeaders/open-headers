@@ -58,6 +58,7 @@ interface KnobValues {
   httpVersion?: 'auto' | '1.1' | '2' | '2-prior-knowledge' | '3';
   resolveToAddress?: string;
   clientCertificateRef?: string;
+  proxyMode?: 'direct' | 'url';
   proxyUrl?: string;
   proxyCredentialRef?: string;
   unixSocketPath?: string;
@@ -223,13 +224,14 @@ describe('SettingsTab on a browser runtime (capability absent)', () => {
   });
 
   it('shows no proxy controls or fact row and never dots a synced proxy', () => {
-    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
-    expect(screen.queryByRole('textbox', { name: 'Proxy' })).toBeNull();
+    renderTab({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
+    expect(screen.queryByRole('combobox', { name: 'Proxy' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Proxy URL' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
     // Not a sheet-listed fact — the browser sheet stays at 10 rows.
     fireEvent.click(screen.getByText('10 browser-managed'));
     expect(screen.queryByText('Proxy')).toBeNull();
-    expect(settingsDotCount({ proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(0);
+    expect(settingsDotCount({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(0);
   });
 
   it('shows no Unix-socket control or fact row and never dots a synced path', () => {
@@ -635,12 +637,13 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount()).toBe(0);
   });
 
-  it('shows the proxy URL field without touching the fact sheet; credentials row hides while empty', () => {
+  it('shows the tri-state proxy select; the URL and credentials rows hide while the mode is not Custom', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
-    expect(screen.getByRole('textbox', { name: 'Proxy' })).toBeTruthy();
-    expect(screen.getByPlaceholderText('No proxy — direct connection')).toBeTruthy();
-    // No proxy URL set — nothing to authenticate against, no row.
+    // Inherit is the default — the cleared select states it as live behavior.
+    expect(screen.getByRole('combobox', { name: 'Proxy' })).toBeTruthy();
+    expect(screen.getByText('Inherit — environment decides')).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Proxy URL' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
     // stays at 4 rows (incl. the scripts posture fact) and the label exists exactly once.
@@ -648,27 +651,50 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getAllByText('Proxy')).toHaveLength(1);
   });
 
+  it('writes the MODE+URL pair: Direct clears the URL and its credentials; Custom keeps the URL', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(
+      <SettingsTab
+        value={{ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
+        onChange={onChange}
+      />,
+    );
+    openCombobox(screen.getByRole('combobox', { name: 'Proxy' }));
+    fireEvent.click(dropdownOption('Direct — no proxy'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ proxyMode: 'direct', proxyUrl: undefined, proxyCredentialRef: undefined }),
+    );
+  });
+
+  it('Custom URL mode with no URL yet flags the missing URL in place', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ proxyMode: 'url' });
+    expect(screen.getByRole('textbox', { name: 'Proxy URL' })).toBeTruthy();
+    expect(screen.getByText(/Custom URL mode needs a proxy URL/)).toBeTruthy();
+  });
+
   it('flags a malformed, userinfo-bearing, or SOCKS proxy URL in place', () => {
     registerCapability('requestRuntime', () => 'node');
-    renderTab({ proxyUrl: 'socks5://127.0.0.1:1080' });
+    renderTab({ proxyMode: 'url', proxyUrl: 'socks5://127.0.0.1:1080' });
     expect(screen.getByText(/no credentials in the URL, no SOCKS/)).toBeTruthy();
 
     cleanup();
-    renderTab({ proxyUrl: 'http://user:pass@proxy.openheaders.io' });
+    renderTab({ proxyMode: 'url', proxyUrl: 'http://user:pass@proxy.openheaders.io' });
     expect(screen.getByText(/no credentials in the URL, no SOCKS/)).toBeTruthy();
 
     cleanup();
-    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128' });
+    renderTab({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' });
     expect(screen.queryByText(/no credentials in the URL, no SOCKS/)).toBeNull();
   });
 
   it('warns in place while both a proxy and a resolve-to-address pin are set', () => {
     registerCapability('requestRuntime', () => 'node');
-    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128', resolveToAddress: '10.0.0.7' });
+    renderTab({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', resolveToAddress: '10.0.0.7' });
     expect(screen.getByText(/a proxy resolves the hostname itself/)).toBeTruthy();
 
     cleanup();
-    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128' });
+    renderTab({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' });
     expect(screen.queryByText(/a proxy resolves the hostname itself/)).toBeNull();
   });
 
@@ -691,7 +717,7 @@ describe('SettingsTab on a node runtime', () => {
     const onChange = vi.fn();
     render(
       <VaultContext.Provider value={vault}>
-        <SettingsTab value={{ proxyUrl: 'http://proxy.openheaders.io:3128' }} onChange={onChange} />
+        <SettingsTab value={{ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' }} onChange={onChange} />
       </VaultContext.Provider>,
     );
     openCombobox(screen.getByRole('combobox', { name: 'Proxy credentials' }));
@@ -704,7 +730,7 @@ describe('SettingsTab on a node runtime', () => {
 
   it('warns in place when the credential ref names no vault entry on this device', () => {
     registerCapability('requestRuntime', () => 'node');
-    renderTab({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
+    renderTab({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
     expect(screen.getByText(/No vault string entry named "corp-proxy" on this device/)).toBeTruthy();
   });
 
@@ -713,20 +739,22 @@ describe('SettingsTab on a node runtime', () => {
     const onChange = vi.fn();
     render(
       <SettingsTab
-        value={{ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
+        value={{ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByRole('textbox', { name: 'Proxy' }), { target: { value: '' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Proxy URL' }), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ proxyUrl: undefined, proxyCredentialRef: undefined }),
     );
   });
 
-  it('dots the tab while a proxy URL is set; a bare synced credential ref never dots', () => {
+  it('dots the tab on any explicit proxy mode; a bare synced credential ref never dots', () => {
     registerCapability('requestRuntime', () => 'node');
-    expect(settingsDotCount({ proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(1);
-    // The credentials row hides while no URL is set — no control, no dot.
+    expect(settingsDotCount({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(1);
+    // Direct is off the Inherit default and dots too.
+    expect(settingsDotCount({ proxyMode: 'direct' })).toBe(1);
+    // The credentials row hides while the mode isn't Custom — no control, no dot.
     expect(settingsDotCount({ proxyCredentialRef: 'corp-proxy' })).toBe(0);
     expect(settingsDotCount()).toBe(0);
   });
@@ -758,7 +786,11 @@ describe('SettingsTab on a node runtime', () => {
 
   it('warns in place while the socket is combined with a proxy or an address pin', () => {
     registerCapability('requestRuntime', () => 'node');
-    renderTab({ unixSocketPath: '/var/run/docker.sock', proxyUrl: 'http://proxy.openheaders.io:3128' });
+    renderTab({
+      unixSocketPath: '/var/run/docker.sock',
+      proxyMode: 'url',
+      proxyUrl: 'http://proxy.openheaders.io:3128',
+    });
     expect(screen.getByText(/a proxy tunnel can’t dial a local socket/)).toBeTruthy();
 
     cleanup();
@@ -815,18 +847,18 @@ describe('SettingsTab row chrome and group folds', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sslVerification: undefined }));
   });
 
-  it('resetting the proxy row clears its credential ref too', () => {
+  it('resetting the proxy row returns all three fields to Inherit', () => {
     registerCapability('requestRuntime', () => 'node');
     const onChange = vi.fn();
     render(
       <SettingsTab
-        value={{ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
+        value={{ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
         onChange={onChange}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Reset Proxy to default' }));
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ proxyUrl: undefined, proxyCredentialRef: undefined }),
+      expect.objectContaining({ proxyMode: undefined, proxyUrl: undefined, proxyCredentialRef: undefined }),
     );
   });
 
@@ -872,10 +904,18 @@ describe('SettingsTab info popovers', () => {
     expect(screen.getByText('Dials the server directly over QUIC, with no fallback to TCP.')).toBeTruthy();
   });
 
-  it('swaps the dial slot to the row leg on the proxy popover', async () => {
+  it('swaps the dial slot to the INHERITED environment leg on the proxy-mode popover', async () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'About Proxy' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(litTokens()).toEqual(['proxy corp.example:8080 (system)']);
+  });
+
+  it('swaps the dial slot to the request leg on the proxy-URL popover', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ proxyMode: 'url' });
+    fireEvent.click(screen.getByRole('button', { name: 'About Proxy URL' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(litTokens()).toEqual(['proxy 127.0.0.1:8080']);
   });

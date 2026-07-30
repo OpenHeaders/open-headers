@@ -36,6 +36,7 @@ export type SettingsInfoKey =
   | 'httpVersion'
   | 'resolveToAddress'
   | 'proxy'
+  | 'proxyUrl'
   | 'proxyCredentials'
   | 'unixSocket'
   | 'sslVerification'
@@ -86,6 +87,7 @@ const HIGHLIGHT: Record<SettingsInfoKey, TokenId> = {
   httpVersion: 'protocol',
   resolveToAddress: 'dial',
   proxy: 'dial',
+  proxyUrl: 'dial',
   proxyCredentials: 'dial',
   unixSocket: 'dial',
   sslVerification: 'verify',
@@ -106,7 +108,10 @@ const HIGHLIGHT: Record<SettingsInfoKey, TokenId> = {
 
 /** The dial-slot text each dial-leg row substitutes for `direct`. */
 const DIAL_VARIANT: Partial<Record<SettingsInfoKey, string>> = {
-  proxy: 'proxy 127.0.0.1:8080',
+  // The mode row's card shows the INHERITED leg — what the environment
+  // plane supplies when the row stays on its default.
+  proxy: 'proxy corp.example:8080 (system)',
+  proxyUrl: 'proxy 127.0.0.1:8080',
   proxyCredentials: 'proxy 127.0.0.1:8080 · auth: corp-proxy',
   resolveToAddress: 'dial 203.0.113.42',
   unixSocket: 'sock /var/run/docker.sock',
@@ -183,6 +188,7 @@ const TITLE_KEY: Record<SettingsInfoKey, MessageKey> = {
   httpVersion: 'workbench.editors.request.settings.httpVersion',
   resolveToAddress: 'workbench.editors.request.settings.resolveToAddress',
   proxy: 'workbench.editors.request.settings.proxy',
+  proxyUrl: 'workbench.editors.request.settings.proxyUrl',
   proxyCredentials: 'workbench.editors.request.settings.proxyCredentials',
   unixSocket: 'workbench.editors.request.settings.unixSocket',
   sslVerification: 'workbench.editors.request.settings.sslVerification',
@@ -205,6 +211,7 @@ const GROUP_OF: Record<SettingsInfoKey, SettingsGroupKey> = {
   httpVersion: 'connection',
   resolveToAddress: 'connection',
   proxy: 'connection',
+  proxyUrl: 'connection',
   proxyCredentials: 'connection',
   unixSocket: 'connection',
   sslVerification: 'tls',
@@ -225,11 +232,11 @@ const GROUP_OF: Record<SettingsInfoKey, SettingsGroupKey> = {
 
 /** Rows whose copy is restructured into summary + description +
  * glossary section; every other row keeps its single `*Info` summary. */
-type RichInfoKey = 'httpVersion' | 'sslVerification' | 'tlsMin' | 'tlsMax' | 'tlsCipherSuites' | 'scriptMode';
+type RichInfoKey = 'httpVersion' | 'proxy' | 'sslVerification' | 'tlsMin' | 'tlsMax' | 'tlsCipherSuites' | 'scriptMode';
 
 const SUMMARY_KEY: Record<Exclude<SettingsInfoKey, RichInfoKey>, MessageKey> = {
   resolveToAddress: 'workbench.editors.request.settings.resolveToAddressInfo',
-  proxy: 'workbench.editors.request.settings.proxyInfo',
+  proxyUrl: 'workbench.editors.request.settings.proxyUrlInfo',
   proxyCredentials: 'workbench.editors.request.settings.proxyCredentialsInfo',
   unixSocket: 'workbench.editors.request.settings.unixSocketInfo',
   clientCertificate: 'workbench.editors.request.settings.clientCertificateInfo',
@@ -315,6 +322,32 @@ export function settingsRowInfo(t: Translate, infoKey: SettingsInfoKey): InfoPop
                 desc: t('workbench.editors.request.settings.httpVersionPkDesc'),
               },
               { label: 'HTTP/3', desc: t('workbench.editors.request.settings.httpVersion3Desc') },
+            ],
+          },
+        ],
+      };
+    case 'proxy':
+      return {
+        ...base,
+        summary: t('workbench.editors.request.settings.proxySummary'),
+        description: t('workbench.editors.request.settings.proxyDescription'),
+        sections: [
+          {
+            heading: t('workbench.editors.request.settings.proxyModesHeading'),
+            layout: 'stacked',
+            items: [
+              {
+                label: t('workbench.editors.request.settings.proxyModePlaceholder'),
+                desc: t('workbench.editors.request.settings.proxyModeInheritDesc'),
+              },
+              {
+                label: t('workbench.editors.request.settings.proxyModeDirect'),
+                desc: t('workbench.editors.request.settings.proxyModeDirectDesc'),
+              },
+              {
+                label: t('workbench.editors.request.settings.proxyModeCustom'),
+                desc: t('workbench.editors.request.settings.proxyModeCustomDesc'),
+              },
             ],
           },
         ],

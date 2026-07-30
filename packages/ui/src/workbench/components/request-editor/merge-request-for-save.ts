@@ -19,6 +19,7 @@ import type {
   CredentialsMode,
   HttpMethod,
   HttpVersion,
+  ProxyMode,
   QueryParam,
   Request,
   RequestBody,
@@ -44,6 +45,7 @@ export interface RequestSaveBatch {
   httpVersion: HttpVersion | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
+  proxyMode: ProxyMode | undefined;
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
@@ -75,6 +77,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
+    proxyMode: req.proxyMode,
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
@@ -128,6 +131,7 @@ export function mergeRequestForSave(
     httpVersion: form.httpVersion,
     resolveToAddress: form.resolveToAddress,
     clientCertificateRef: form.clientCertificateRef,
+    proxyMode: form.proxyMode,
     proxyUrl: form.proxyUrl,
     proxyCredentialRef: form.proxyCredentialRef,
     unixSocketPath: form.unixSocketPath,
@@ -154,6 +158,7 @@ export function mergeRequestForSave(
     httpVersion: baseProj.httpVersion,
     resolveToAddress: baseProj.resolveToAddress,
     clientCertificateRef: baseProj.clientCertificateRef,
+    proxyMode: baseProj.proxyMode,
     proxyUrl: baseProj.proxyUrl,
     proxyCredentialRef: baseProj.proxyCredentialRef,
     unixSocketPath: baseProj.unixSocketPath,
@@ -180,6 +185,7 @@ export function mergeRequestForSave(
     httpVersion: liveProj.httpVersion,
     resolveToAddress: liveProj.resolveToAddress,
     clientCertificateRef: liveProj.clientCertificateRef,
+    proxyMode: liveProj.proxyMode,
     proxyUrl: liveProj.proxyUrl,
     proxyCredentialRef: liveProj.proxyCredentialRef,
     unixSocketPath: liveProj.unixSocketPath,
@@ -216,6 +222,7 @@ export function mergeRequestForSave(
     httpVersion: merged.httpVersion as HttpVersion | undefined,
     resolveToAddress: merged.resolveToAddress as string | undefined,
     clientCertificateRef: merged.clientCertificateRef as string | undefined,
+    proxyMode: merged.proxyMode as ProxyMode | undefined,
     proxyUrl: merged.proxyUrl as string | undefined,
     proxyCredentialRef: merged.proxyCredentialRef as string | undefined,
     unixSocketPath: merged.unixSocketPath as string | undefined,

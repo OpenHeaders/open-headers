@@ -428,9 +428,24 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.clientCertificateDangling':
     '此设备上没有名为“{name}”的 vault 证书条目——在该条目存在或此设置被清除之前，发送都会失败。',
   'workbench.editors.request.settings.proxy': '代理',
-  'workbench.editors.request.settings.proxyInfo':
-    '让此请求经由 HTTP(S) 代理，而不是直接连接。到目标的连接以隧道穿过代理，因此 https 交换保持端到端加密，证书验证仍针对目标进行。不支持 SOCKS 代理。凭据填在下方的“代理凭据”设置中，绝不放进此 URL。留空则直接连接。',
-  'workbench.editors.request.settings.proxyPlaceholder': '无代理——直接连接',
+  'workbench.editors.request.settings.proxySummary':
+    '此次发送如何抵达网络。默认继承执行设备的环境——系统代理设置、PAC 或代理环境变量——因此企业机器下发的代理开箱即用；“直连”让这一个请求退出任何环境代理，“自定义 URL”则让它经由请求自己的代理。',
+  'workbench.editors.request.settings.proxyDescription':
+    '响应元信息始终记录发送实际走过的路由——哪个代理、由请求还是由环境决定。尚不支持 SOCKS 代理：自定义 SOCKS URL 会被拒绝，环境解析出 SOCKS 代理的机器会收到指名它的明确错误。',
+  'workbench.editors.request.settings.proxyModesHeading': '模式',
+  'workbench.editors.request.settings.proxyModePlaceholder': '继承——由环境决定',
+  'workbench.editors.request.settings.proxyModeDirect': '直连——不走代理',
+  'workbench.editors.request.settings.proxyModeCustom': '自定义 URL',
+  'workbench.editors.request.settings.proxyModeInheritDesc':
+    '由执行设备的环境按 URL 决定——机器配置了代理就走代理，否则直连。对固定 HTTP/3、拨号本地套接字或解析到固定地址的发送，继承的代理会主动让路。',
+  'workbench.editors.request.settings.proxyModeDirectDesc': '此请求永不走代理，无论机器环境怎么说。',
+  'workbench.editors.request.settings.proxyModeCustomDesc':
+    '以隧道穿过请求自己的代理 URL——随请求同步，在每台设备上走同一条路由。',
+  'workbench.editors.request.settings.proxyUrl': '代理 URL',
+  'workbench.editors.request.settings.proxyUrlInfo':
+    '让此请求经由此 HTTP(S) 代理。到目标的连接以隧道穿过代理，因此 https 交换保持端到端加密，证书验证仍针对目标进行。凭据填在下方的“代理凭据”设置中，绝不放进此 URL。',
+  'workbench.editors.request.settings.proxyUrlPlaceholder': 'http://proxy.example:8080',
+  'workbench.editors.request.settings.proxyUrlMissing': '自定义 URL 模式需要代理 URL——输入一个，或把模式切回去。',
   'workbench.editors.request.settings.proxyError':
     '仅限带主机和端口的 http:// 或 https:// URL——URL 中不能有凭据，不支持 SOCKS。',
   'workbench.editors.request.settings.proxyResolveConflict':

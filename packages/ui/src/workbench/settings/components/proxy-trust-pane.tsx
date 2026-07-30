@@ -17,8 +17,10 @@ import { Alert, App as AntApp, Button, Checkbox, Modal, Popconfirm, Tag, theme }
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
+import EnvironmentProxySection from './environment-proxy-section';
 
 interface TrustStatus {
   ca: ProxyCaPublicInfo | null;
@@ -312,6 +314,12 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
           </p>
         )}
       </header>
+
+      {/* Environment plane first — the per-device egress modes; the
+          capture-proxy trust plane keeps the rest of the pane. Desktop
+          only: the modes are Chromium concerns the Electron main
+          process serves (a served web admin has no seam for them). */}
+      {getCurrentHost() === 'desktop' && <EnvironmentProxySection />}
 
       <p style={{ margin: '0 0 12px', fontSize: 12, color: token.colorTextSecondary }}>
         {t('workbench.settings.proxyTrustPane.intro')}

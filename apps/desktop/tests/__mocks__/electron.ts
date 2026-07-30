@@ -36,6 +36,22 @@ export const dialog = {
 export const desktopCapturer = { getSources: () => Promise.resolve([]) };
 export const screen = { getAllDisplays: () => [] };
 
+/** One mutable partition singleton: tests reach it via
+ *  `session.fromPartition(...)` and steer `resolveProxyAnswer` /
+ *  inspect the last `setProxy` config. */
+export const sessionPartitionMock = {
+  proxyConfig: undefined as unknown,
+  resolveProxyAnswer: 'DIRECT',
+  setProxy(config: unknown): Promise<void> {
+    this.proxyConfig = config;
+    return Promise.resolve();
+  },
+  resolveProxy(_url: string): Promise<string> {
+    return Promise.resolve(this.resolveProxyAnswer);
+  },
+};
+export const session = { fromPartition: (_name: string) => sessionPartitionMock };
+
 export default {
   app,
   ipcMain,
@@ -48,4 +64,5 @@ export default {
   dialog,
   desktopCapturer,
   screen,
+  session,
 };

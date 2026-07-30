@@ -95,10 +95,11 @@ export function buildRequestTabItems(
     (!browserRuntime && draft.httpVersion !== undefined && draft.httpVersion !== 'auto') ||
     (!browserRuntime && draft.resolveToAddress !== undefined) ||
     (!browserRuntime && draft.clientCertificateRef !== undefined) ||
-    // The proxy-credentials row hides while no proxy URL is set, so a
-    // bare synced ref never dots; a set ref implies a set URL, which
-    // already counts.
-    (!browserRuntime && draft.proxyUrl !== undefined) ||
+    // The proxy-credentials row hides while the mode isn't Custom, so a
+    // bare synced ref never dots; a set ref implies a set mode, which
+    // already counts. Any explicit mode (Direct or Custom) is off the
+    // Inherit default and dots.
+    (!browserRuntime && (draft.proxyMode !== undefined || draft.proxyUrl !== undefined)) ||
     (!browserRuntime && draft.unixSocketPath !== undefined) ||
     (!browserRuntime && draft.cookieJar === true) ||
     draft.timeoutMs !== undefined ||

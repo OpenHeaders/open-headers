@@ -512,13 +512,6 @@ export const workbenchEditorsRequest = {
     'Kein vault-Zertifikatseintrag namens „{name}“ auf diesem Gerät — Sendevorgänge schlagen fehl, bis der ' +
     'Eintrag existiert oder diese Einstellung geleert wird.',
   'workbench.editors.request.settings.proxy': 'Proxy',
-  'workbench.editors.request.settings.proxyInfo':
-    'Leitet diese Anfrage über einen HTTP(S)-Proxy statt direkt zu verbinden. Die Verbindung zum Ziel wird ' +
-    'durch den Proxy getunnelt, ein https-Austausch bleibt also Ende-zu-Ende verschlüsselt und die ' +
-    'Zertifikatsprüfung läuft weiterhin gegen das Ziel. SOCKS-Proxys werden nicht unterstützt. ' +
-    'Anmeldedaten gehören in die Einstellung „Proxy-Anmeldedaten“ darunter, nie in diese URL. Leer lassen ' +
-    'für eine direkte Verbindung.',
-  'workbench.editors.request.settings.proxyPlaceholder': 'Kein Proxy — direkte Verbindung',
   'workbench.editors.request.settings.proxyError':
     'Nur http://- oder https://-URLs mit Host und Port — keine Anmeldedaten in der URL, kein SOCKS.',
   'workbench.editors.request.settings.proxyResolveConflict':

@@ -208,6 +208,7 @@ export const sharedConflicts = {
   'shared.conflicts.label.request.scalar.httpVersion': 'HTTP version',
   'shared.conflicts.label.request.scalar.resolveToAddress': 'Resolve to address',
   'shared.conflicts.label.request.scalar.clientCertificateRef': 'Client certificate',
+  'shared.conflicts.label.request.scalar.proxyMode': 'Proxy mode',
   'shared.conflicts.label.request.scalar.proxyUrl': 'Proxy URL',
   'shared.conflicts.label.request.scalar.proxyCredentialRef': 'Proxy credentials',
   'shared.conflicts.label.request.scalar.unixSocketPath': 'Unix socket',

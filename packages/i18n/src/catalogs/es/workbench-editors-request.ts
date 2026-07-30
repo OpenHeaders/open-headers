@@ -500,13 +500,6 @@ export const workbenchEditorsRequest = {
     'No hay ninguna entrada de certificado del vault llamada «{name}» en este dispositivo — los envíos ' +
     'fallarán hasta que la entrada exista o se borre este ajuste.',
   'workbench.editors.request.settings.proxy': 'Proxy',
-  'workbench.editors.request.settings.proxyInfo':
-    'Encamina esta solicitud a través de un proxy HTTP(S) en lugar de conectar directamente. La conexión ' +
-    'con el destino se tuneliza a través del proxy, así que un intercambio https sigue cifrado de extremo a ' +
-    'extremo y la verificación del certificado se ejecuta igualmente contra el destino. Los proxies SOCKS ' +
-    'no están admitidos. Las credenciales van en el ajuste «Credenciales del proxy» de abajo, nunca en esta ' +
-    'URL. Déjalo vacío para una conexión directa.',
-  'workbench.editors.request.settings.proxyPlaceholder': 'Sin proxy — conexión directa',
   'workbench.editors.request.settings.proxyError':
     'Solo URL http:// o https:// con host y puerto — sin credenciales en la URL, sin SOCKS.',
   'workbench.editors.request.settings.proxyResolveConflict':

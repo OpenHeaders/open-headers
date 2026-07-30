@@ -527,6 +527,35 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Install',
   'workbench.settings.licensePane.loadFromFile': 'Load from file…',
 
+  // ── Environment-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  'workbench.settings.environmentProxy.title': 'Outbound proxy — this device',
+  'workbench.settings.environmentProxy.intro':
+    'How requests sent from this machine reach the network. Device-local and never synced — requests follow it unless one sets its own proxy mode.',
+  'workbench.settings.environmentProxy.mode.system': 'System',
+  'workbench.settings.environmentProxy.mode.systemDesc':
+    'Follow this machine’s own proxy configuration — system settings, PAC files, and auto-discovery — exactly like the browser does. The default; an unmanaged machine simply connects directly.',
+  'workbench.settings.environmentProxy.mode.manual': 'Manual',
+  'workbench.settings.environmentProxy.mode.manualDesc':
+    'One proxy for everything, configured here — with vault credentials and a bypass list.',
+  'workbench.settings.environmentProxy.mode.pac': 'PAC',
+  'workbench.settings.environmentProxy.mode.pacDesc':
+    'A PAC file by URL or local path decides per URL. The script runs only inside the sandboxed browser network stack, never in the app.',
+  'workbench.settings.environmentProxy.mode.off': 'Off',
+  'workbench.settings.environmentProxy.mode.offDesc': 'Always connect directly, whatever the machine says.',
+  'workbench.settings.environmentProxy.manual.url': 'Proxy',
+  'workbench.settings.environmentProxy.manual.urlPlaceholder': 'proxy.example:8080 or http://proxy.example:8080',
+  'workbench.settings.environmentProxy.manual.credentials': 'Credentials',
+  'workbench.settings.environmentProxy.manual.credentialsPlaceholder': 'No authentication',
+  'workbench.settings.environmentProxy.manual.bypass': 'Bypass list',
+  'workbench.settings.environmentProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
+  'workbench.settings.environmentProxy.pac.source': 'PAC URL or file',
+  'workbench.settings.environmentProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac or /path/to/proxy.pac',
+  'workbench.settings.environmentProxy.saveFailed': 'The setting could not be saved: {message}',
+  'workbench.settings.environmentProxy.sourced': 'Resolves {url} to',
+  'workbench.settings.environmentProxy.refresh': 'Refresh',
+  'workbench.settings.environmentProxy.previewPlaceholder': 'Preview a URL — what route would it take?',
+  'workbench.settings.environmentProxy.previewButton': 'Resolve',
+
   // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':
     'Decrypting HTTPS traffic needs a certificate authority created on this machine. Nothing is installed until you set up trust here, and everything installed here can be removed here.',

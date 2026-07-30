@@ -500,6 +500,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           ...(seed?.httpVersion !== undefined ? { httpVersion: seed.httpVersion } : {}),
           ...(seed?.resolveToAddress !== undefined ? { resolveToAddress: seed.resolveToAddress } : {}),
           ...(seed?.clientCertificateRef !== undefined ? { clientCertificateRef: seed.clientCertificateRef } : {}),
+          ...(seed?.proxyMode !== undefined ? { proxyMode: seed.proxyMode } : {}),
           ...(seed?.proxyUrl !== undefined ? { proxyUrl: seed.proxyUrl } : {}),
           ...(seed?.proxyCredentialRef !== undefined ? { proxyCredentialRef: seed.proxyCredentialRef } : {}),
           ...(seed?.unixSocketPath !== undefined ? { unixSocketPath: seed.unixSocketPath } : {}),

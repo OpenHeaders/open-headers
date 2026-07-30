@@ -31,6 +31,7 @@ import type { AwarenessRpc } from './awareness';
 import type { BridgeBroadcastContract } from './broadcast';
 import type { DaemonRpc } from './daemon';
 import type { DevToolsRpc } from './devtools';
+import type { EnvironmentProxyRpc } from './environment-proxy';
 import type { EnvironmentRpc } from './environments';
 import type { FileRpc } from './files';
 import type { LiveRpc } from './live';
@@ -145,6 +146,7 @@ export interface BridgeRpcContract
     UpdatesRpc,
     SecretsRpc,
     MigrationRpc,
+    EnvironmentProxyRpc,
     ProductTelemetryRpc {}
 
 /**

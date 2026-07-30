@@ -207,6 +207,7 @@ export const sharedConflicts = {
   'shared.conflicts.label.request.scalar.httpVersion': 'HTTP 版本',
   'shared.conflicts.label.request.scalar.resolveToAddress': '解析到地址',
   'shared.conflicts.label.request.scalar.clientCertificateRef': '客户端证书',
+  'shared.conflicts.label.request.scalar.proxyMode': '代理模式',
   'shared.conflicts.label.request.scalar.proxyUrl': '代理 URL',
   'shared.conflicts.label.request.scalar.proxyCredentialRef': '代理凭据',
   'shared.conflicts.label.request.scalar.unixSocketPath': 'Unix 套接字',

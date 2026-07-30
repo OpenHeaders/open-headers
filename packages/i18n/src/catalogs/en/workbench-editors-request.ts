@@ -427,9 +427,26 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.clientCertificateDangling':
     'No vault certificate entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
   'workbench.editors.request.settings.proxy': 'Proxy',
-  'workbench.editors.request.settings.proxyInfo':
-    "Route this request through an HTTP(S) proxy instead of connecting directly. The connection to the target tunnels through the proxy, so an https exchange stays end-to-end encrypted and certificate verification still runs against the target. SOCKS proxies are not supported. Credentials go in the 'Proxy credentials' setting below, never in this URL. Leave empty for a direct connection.",
-  'workbench.editors.request.settings.proxyPlaceholder': 'No proxy — direct connection',
+  'workbench.editors.request.settings.proxySummary':
+    'How this send reaches the network. By default it inherits the executing device’s environment — system proxy settings, PAC, or proxy environment variables — so a corporate machine’s pushed proxy just works; Direct opts this one request out of any ambient proxy, and Custom URL routes it through a proxy of its own.',
+  'workbench.editors.request.settings.proxyDescription':
+    'The response meta always records the route the send actually took — which proxy, and whether the request or the environment decided it. SOCKS proxies are not supported yet: a custom SOCKS URL is rejected, and a machine whose environment resolves to a SOCKS proxy gets a clear error naming it.',
+  'workbench.editors.request.settings.proxyModesHeading': 'Modes',
+  'workbench.editors.request.settings.proxyModePlaceholder': 'Inherit — environment decides',
+  'workbench.editors.request.settings.proxyModeDirect': 'Direct — no proxy',
+  'workbench.editors.request.settings.proxyModeCustom': 'Custom URL',
+  'workbench.editors.request.settings.proxyModeInheritDesc':
+    'The executing device’s environment decides per URL — a proxy where the machine is configured for one, direct otherwise. An inherited proxy stands down for sends that pin HTTP/3, dial a local socket, or resolve to a fixed address.',
+  'workbench.editors.request.settings.proxyModeDirectDesc':
+    'Never a proxy for this request, whatever the machine’s environment says.',
+  'workbench.editors.request.settings.proxyModeCustomDesc':
+    'Tunnel through this request’s own proxy URL — synced with the request, the same route on every device.',
+  'workbench.editors.request.settings.proxyUrl': 'Proxy URL',
+  'workbench.editors.request.settings.proxyUrlInfo':
+    "Route this request through this HTTP(S) proxy. The connection to the target tunnels through the proxy, so an https exchange stays end-to-end encrypted and certificate verification still runs against the target. Credentials go in the 'Proxy credentials' setting below, never in this URL.",
+  'workbench.editors.request.settings.proxyUrlPlaceholder': 'http://proxy.example:8080',
+  'workbench.editors.request.settings.proxyUrlMissing':
+    'Custom URL mode needs a proxy URL — enter one, or switch the mode back.',
   'workbench.editors.request.settings.proxyError':
     'http:// or https:// URL with host and port only — no credentials in the URL, no SOCKS.',
   'workbench.editors.request.settings.proxyResolveConflict':

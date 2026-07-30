@@ -42,6 +42,7 @@ function batchOf(req: Request): RequestSaveBatch {
     httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
+    proxyMode: req.proxyMode,
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
@@ -100,8 +101,13 @@ describe('mergeRequestForSave', () => {
 
   it('merges the proxy pair per leaf like the other scalars', () => {
     const baseline = makeReq();
-    const live = makeReq({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' });
+    const live = makeReq({
+      proxyMode: 'url',
+      proxyUrl: 'http://proxy.openheaders.io:3128',
+      proxyCredentialRef: 'corp-proxy',
+    });
     const untouched = mergeRequestForSave(batchOf(baseline), baseline, live);
+    expect(untouched.proxyMode).toBe('url');
     expect(untouched.proxyUrl).toBe('http://proxy.openheaders.io:3128');
     expect(untouched.proxyCredentialRef).toBe('corp-proxy');
 

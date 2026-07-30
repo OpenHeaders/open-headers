@@ -28,6 +28,7 @@ tlsCipherSuites: TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256
 httpVersion: "2"
 resolveToAddress: 10.0.0.7
 clientCertificateRef: gateway-mtls
+proxyMode: url
 proxyUrl: http://proxy.openheaders.io:3128
 proxyCredentialRef: corp-proxy
 unixSocketPath: /var/run/openheaders/api.sock

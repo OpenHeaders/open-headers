@@ -81,7 +81,7 @@ import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
-import { installEnvironmentProxyResolver } from './environment-proxy-install';
+import { installEnvironmentProxyService } from './environment-proxy-install';
 import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
@@ -267,12 +267,14 @@ export async function installRpcHost(): Promise<void> {
     );
   }
 
-  // Environment-plane proxy resolution (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
-  // inherit-mode sends follow this machine's proxy reality via
-  // Chromium's own resolver — a dedicated session partition, System
-  // mode by default. An unmanaged machine resolves DIRECT and behaves
-  // exactly as before.
-  installEnvironmentProxyResolver();
+  // Environment-plane proxy service (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+  // inherit-mode sends follow this machine's proxy reality — Off /
+  // System / Manual / PAC per the per-device settings, System by
+  // default via Chromium's own resolver on a dedicated session
+  // partition. An unmanaged machine resolves DIRECT and behaves
+  // exactly as before. The service also answers the settings surface's
+  // `oh.desktop.environmentProxy.*` RPCs below.
+  const environmentProxyService = await installEnvironmentProxyService(hostStorage);
 
   // Native-surface locale (tray / menus / dialogs) follows the same
   // settings blob — bound here because the menus install before this
@@ -509,6 +511,26 @@ export async function installRpcHost(): Promise<void> {
     // status (never probes — see installHostStorage above); relaunch is
     // the one honest remedy for a canceled keychain prompt (cached for
     // the process lifetime, so no in-process retry can succeed).
+    // Environment-plane proxy settings surface — per-device egress
+    // config; a set applies live (the resolver re-registers, no
+    // restart). `resolve` serves both the sourced display's probe and
+    // the per-URL resolution preview.
+    if (type === 'oh.desktop.environmentProxy.get') {
+      return { settings: environmentProxyService.getSettings() };
+    }
+    if (type === 'oh.desktop.environmentProxy.set') {
+      return environmentProxyService.setSettings(message.settings);
+    }
+    if (type === 'oh.desktop.environmentProxy.resolve') {
+      const url = typeof message.url === 'string' ? message.url.trim() : '';
+      if (url === '') return { ok: false, error: 'A URL is required to preview resolution.' };
+      const target = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url) ? url : `https://${url}`;
+      try {
+        return { ok: true, resolution: await environmentProxyService.resolve(target) };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
     if (type === 'oh.secrets.getState') {
       return { status: hostStorage.cipherStatus(), platform: process.platform };
     }

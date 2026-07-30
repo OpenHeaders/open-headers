@@ -16,6 +16,7 @@ import type {
   CredentialsMode,
   HttpMethod,
   HttpVersion,
+  ProxyMode,
   QueryParam,
   Request,
   RequestBody,
@@ -42,6 +43,7 @@ export interface Draft {
   httpVersion?: HttpVersion;
   resolveToAddress?: string;
   clientCertificateRef?: string;
+  proxyMode?: ProxyMode;
   proxyUrl?: string;
   proxyCredentialRef?: string;
   unixSocketPath?: string;
@@ -75,6 +77,7 @@ export interface RequestUpdates {
   httpVersion: HttpVersion | undefined;
   resolveToAddress: string | undefined;
   clientCertificateRef: string | undefined;
+  proxyMode: ProxyMode | undefined;
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
   unixSocketPath: string | undefined;
@@ -217,6 +220,7 @@ export function draftFromRequest(req: Request): Draft {
     httpVersion: req.httpVersion,
     resolveToAddress: req.resolveToAddress,
     clientCertificateRef: req.clientCertificateRef,
+    proxyMode: req.proxyMode,
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     unixSocketPath: req.unixSocketPath,
@@ -261,6 +265,7 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
     httpVersion: draft.httpVersion,
     resolveToAddress: draft.resolveToAddress,
     clientCertificateRef: draft.clientCertificateRef,
+    proxyMode: draft.proxyMode,
     proxyUrl: draft.proxyUrl,
     proxyCredentialRef: draft.proxyCredentialRef,
     unixSocketPath: draft.unixSocketPath,

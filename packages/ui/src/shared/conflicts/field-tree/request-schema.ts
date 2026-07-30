@@ -184,6 +184,7 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   httpVersion: leaf('string', { coercion: 'optional-string' }),
   resolveToAddress: leaf('string', { coercion: 'optional-string' }),
   clientCertificateRef: leaf('string', { coercion: 'optional-string' }),
+  proxyMode: leaf('string', { coercion: 'optional-string' }),
   proxyUrl: leaf('string', { coercion: 'optional-string' }),
   proxyCredentialRef: leaf('string', { coercion: 'optional-string' }),
   unixSocketPath: leaf('string', { coercion: 'optional-string' }),
