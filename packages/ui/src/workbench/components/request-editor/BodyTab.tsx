@@ -32,13 +32,14 @@ import type { RequestBody } from '@openheaders/core/types';
 import { Radio, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
+import { settingsExampleCard } from './SettingsRowInfo';
 import { ViewPickerIcon } from './response/ViewPickerIcons';
 
 const { Text } = Typography;
@@ -58,6 +59,61 @@ type RadioValue = 'none' | 'form-data' | 'form-urlencoded' | 'raw' | 'graphql';
 // form-data / x-www-form-urlencoded siblings.
 const MODE_NONE = 'none';
 const MODE_RAW = 'raw';
+
+// Every mode's `(i)` popover leads with the Settings tab's shared
+// example card — the body leg is the card's variant slot (the modes
+// are mutually exclusive, like the dial legs), so each popover swaps
+// the slot to its own wire shape and lights it. Slot texts ride raw
+// (wire vocabulary — the `RequestBody` discriminants).
+const BODY_SLOT: Record<RadioValue, string> = {
+  none: 'body: none',
+  'form-data': 'body: multipart',
+  'form-urlencoded': 'body: form',
+  raw: 'body: json',
+  graphql: 'body: graphql',
+};
+
+const bodyModeInfo = (mode: RadioValue, t: Translate): InfoPopoverContent => {
+  const base = {
+    kicker: t('workbench.editors.request.tab.body'),
+    diagram: settingsExampleCard(['body'], { bodyText: BODY_SLOT[mode] }),
+  };
+  switch (mode) {
+    case 'none':
+      return { ...base, title: MODE_NONE, summary: t('workbench.editors.request.body.modeNoneInfo') };
+    case 'form-data':
+      return {
+        ...base,
+        title: 'form-data',
+        summary: t('workbench.editors.request.body.modeFormDataInfo'),
+        description: t('workbench.editors.request.body.modeFormDataDescription'),
+      };
+    case 'form-urlencoded':
+      return {
+        ...base,
+        title: 'x-www-form-urlencoded',
+        summary: t('workbench.editors.request.body.modeFormUrlencodedInfo'),
+      };
+    case 'raw':
+      return {
+        ...base,
+        title: MODE_RAW,
+        summary: t('workbench.editors.request.body.modeRawInfo'),
+        description: t('workbench.editors.request.body.modeRawDescription'),
+      };
+    case 'graphql':
+      return {
+        ...base,
+        title: 'GraphQL',
+        summary: t('workbench.editors.request.body.modeGraphqlInfo'),
+        description: t('workbench.editors.request.body.modeGraphqlDescription'),
+      };
+  }
+};
+
+// Inline-flex keeps the hover-revealed `(i)` from shifting the label:
+// the glyph always occupies its slot and only fades in.
+const MODE_LABEL_STYLE: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
 interface BodyTabProps {
   body: RequestBody;
@@ -180,11 +236,36 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           encodings. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minHeight: 28 }}>
         <Radio.Group value={radio} onChange={(e) => switchRadio(e.target.value as RadioValue)}>
-          <Radio value="none">{MODE_NONE}</Radio>
-          <Radio value="form-data">form-data</Radio>
-          <Radio value="form-urlencoded">x-www-form-urlencoded</Radio>
-          <Radio value="raw">{MODE_RAW}</Radio>
-          <Radio value="graphql">GraphQL</Radio>
+          <Radio value="none">
+            <span className="oh-info-hover-host" style={MODE_LABEL_STYLE}>
+              {MODE_NONE}
+              <InfoTrigger className="oh-info-trigger--hover" content={bodyModeInfo('none', t)} />
+            </span>
+          </Radio>
+          <Radio value="form-data">
+            <span className="oh-info-hover-host" style={MODE_LABEL_STYLE}>
+              form-data
+              <InfoTrigger className="oh-info-trigger--hover" content={bodyModeInfo('form-data', t)} />
+            </span>
+          </Radio>
+          <Radio value="form-urlencoded">
+            <span className="oh-info-hover-host" style={MODE_LABEL_STYLE}>
+              x-www-form-urlencoded
+              <InfoTrigger className="oh-info-trigger--hover" content={bodyModeInfo('form-urlencoded', t)} />
+            </span>
+          </Radio>
+          <Radio value="raw">
+            <span className="oh-info-hover-host" style={MODE_LABEL_STYLE}>
+              {MODE_RAW}
+              <InfoTrigger className="oh-info-trigger--hover" content={bodyModeInfo('raw', t)} />
+            </span>
+          </Radio>
+          <Radio value="graphql">
+            <span className="oh-info-hover-host" style={MODE_LABEL_STYLE}>
+              GraphQL
+              <InfoTrigger className="oh-info-trigger--hover" content={bodyModeInfo('graphql', t)} />
+            </span>
+          </Radio>
         </Radio.Group>
         {radio === 'raw' && (
           <Select

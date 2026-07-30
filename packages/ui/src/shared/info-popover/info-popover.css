@@ -246,6 +246,22 @@
   border-color: var(--ant-color-primary);
   outline: none;
 }
+/* Hover-revealed variant — for triggers on always-visible content
+ * labels (e.g. the Body tab's mode radios) where a permanent (i) per
+ * option would read as noise. The glyph keeps its layout slot and
+ * fades in while its `.oh-info-hover-host` wrapper is hovered, while
+ * the trigger itself has focus (click leaves focus on the button, so
+ * the glyph stays visible while its popover is open), or on keyboard
+ * focus. */
+.oh-info-trigger--hover {
+  opacity: 0;
+}
+.oh-info-hover-host:hover .oh-info-trigger--hover,
+.oh-info-trigger--hover:hover,
+.oh-info-trigger--hover:focus,
+.oh-info-trigger--hover:focus-visible {
+  opacity: 1;
+}
 
 /* ── Shared example card ──────────────────────────────────
  * A canonical concrete example rendered inside the popover's diagram

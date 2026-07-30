@@ -252,6 +252,22 @@ export const workbenchEditorsRequest = {
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'This request does not have a body',
+  'workbench.editors.request.body.modeNoneInfo':
+    'The request is sent without a payload — no body bytes and no Content-Type header.',
+  'workbench.editors.request.body.modeFormDataInfo':
+    'Sends the parts as one multipart/form-data payload — each row is a text field or a file part.',
+  'workbench.editors.request.body.modeFormDataDescription':
+    'The boundary-framed Content-Type is minted at send time; a hand-set multipart Content-Type is replaced so the boundary always matches the payload.',
+  'workbench.editors.request.body.modeFormUrlencodedInfo':
+    'Sends the fields as percent-encoded key=value pairs with an application/x-www-form-urlencoded Content-Type. Disabled rows stay in the editor but never reach the wire.',
+  'workbench.editors.request.body.modeRawInfo':
+    'Sends the editor content verbatim — the bytes on the wire are exactly what you typed.',
+  'workbench.editors.request.body.modeRawDescription':
+    'The format picker drives syntax highlighting and the default Content-Type (application/json, application/xml, text/plain, text/javascript, text/html); a Content-Type set on the Headers tab wins.',
+  'workbench.editors.request.body.modeGraphqlInfo':
+    'Sends the query and variables as one application/json payload — { query, variables } — per the GraphQL HTTP transport.',
+  'workbench.editors.request.body.modeGraphqlDescription':
+    'Variables must be valid JSON; an unparsable variables pane is omitted from the wire body and the query is sent alone.',
   'workbench.editors.request.body.beautify': 'Beautify',
   'workbench.editors.request.body.format': 'Format',
   'workbench.editors.request.body.formatAria': 'Format body',

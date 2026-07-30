@@ -263,6 +263,20 @@ export const workbenchEditorsRequest = {
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': '此请求没有正文',
+  'workbench.editors.request.body.modeNoneInfo': '发送请求时不携带载荷——没有正文字节，也不发送 Content-Type 头。',
+  'workbench.editors.request.body.modeFormDataInfo':
+    '将各部分作为一个 multipart/form-data 载荷发送——每一行是一个文本字段或文件部分。',
+  'workbench.editors.request.body.modeFormDataDescription':
+    '带边界的 Content-Type 在发送时生成；手动设置的 multipart Content-Type 会被替换，确保边界始终与载荷一致。',
+  'workbench.editors.request.body.modeFormUrlencodedInfo':
+    '将字段以百分号编码的 key=value 形式发送，Content-Type 为 application/x-www-form-urlencoded。停用的行保留在编辑器中，但不会随请求发送。',
+  'workbench.editors.request.body.modeRawInfo': '按原样发送编辑器内容——线上的字节与你输入的完全一致。',
+  'workbench.editors.request.body.modeRawDescription':
+    '格式选择器决定语法高亮和默认 Content-Type（application/json、application/xml、text/plain、text/javascript、text/html）；在 Headers 标签页设置的 Content-Type 优先。',
+  'workbench.editors.request.body.modeGraphqlInfo':
+    '按照 GraphQL HTTP 传输规范，将查询和变量作为一个 application/json 载荷（{ query, variables }）发送。',
+  'workbench.editors.request.body.modeGraphqlDescription':
+    '变量必须是有效的 JSON；无法解析的变量面板会从线上正文中省略，仅发送查询。',
   'workbench.editors.request.body.beautify': '美化',
   'workbench.editors.request.body.format': '格式化',
   'workbench.editors.request.body.formatAria': '格式化正文',

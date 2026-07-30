@@ -17,7 +17,10 @@
  * (the tab warns while two are set), so one truthful card cannot carry
  * all three at once — each of those rows swaps the slot's text to its
  * own leg and lights it, and every other row shows the `direct`
- * default.
+ * default. The body slot works the same way for the Body tab's
+ * mutually-exclusive encodings: the canonical POST carries `body:
+ * json`, and each Body-mode popover swaps the slot to its own wire
+ * shape and lights it.
  *
  * Card tokens ride raw (wire vocabulary — the column-card precedent);
  * only the caption is localized.
@@ -56,6 +59,7 @@ export type SettingsInfoKey =
 const EX = {
   method: 'POST',
   url: 'https://api.openheaders.io/v1/users',
+  body: 'body: json',
   protocol: 'h2',
   dial: 'direct',
   tlsWindow: 'TLS 1.2–1.3',
@@ -118,7 +122,15 @@ const GROUP_TOKENS: Record<SettingsGroupKey, readonly TokenId[]> = {
   execution: ['time', 'cap', 'scripts'],
 };
 
-function SettingsExampleCard({ lit, dialText }: { lit: ReadonlySet<TokenId>; dialText?: string }) {
+function SettingsExampleCard({
+  lit,
+  dialText,
+  bodyText,
+}: {
+  lit: ReadonlySet<TokenId>;
+  dialText?: string;
+  bodyText?: string;
+}) {
   const t = useT();
   const tok = (id: TokenId, text: string) => (
     <span className={`oh-info-eg-tok${lit.has(id) ? ' oh-info-eg-hl' : ''}`}>{text}</span>
@@ -129,6 +141,8 @@ function SettingsExampleCard({ lit, dialText }: { lit: ReadonlySet<TokenId>; dia
       <div className="oh-info-eg-card">
         <div className="oh-info-eg-line">
           <span className="oh-info-eg-method">{EX.method}</span> {tok('url', EX.url)}
+          {' · '}
+          {tok('body', bodyText ?? EX.body)}
         </div>
         <div className="oh-info-eg-line">
           {tok('protocol', EX.protocol)}
@@ -246,10 +260,14 @@ function tlsVersionsSection(t: Translate): InfoPopoverSection {
 export type SettingsExampleToken = TokenId;
 
 /** The shared example card with an arbitrary slice lit — the fact
- * sheet's rows ride this so managed facts and live knobs illustrate
- * the same send. */
-export function settingsExampleCard(lit: readonly SettingsExampleToken[]): React.ReactElement {
-  return <SettingsExampleCard lit={new Set(lit)} />;
+ * sheet's rows and the Body / Scripts tabs ride this so managed facts
+ * and live knobs illustrate the same send. `bodyText` swaps the body
+ * variant slot the way the dial rows swap the dial leg. */
+export function settingsExampleCard(
+  lit: readonly SettingsExampleToken[],
+  opts?: { bodyText?: string },
+): React.ReactElement {
+  return <SettingsExampleCard lit={new Set(lit)} bodyText={opts?.bodyText} />;
 }
 
 const GROUP_SUMMARY_KEY: Record<SettingsGroupKey, MessageKey> = {
