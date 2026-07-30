@@ -838,6 +838,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                 { value: '3', label: 'HTTP/3' },
               ]}
               placeholder={t('workbench.editors.request.settings.httpVersionPlaceholder')}
+              testId="oh-http-version-select"
               width={220}
             />
             <TextKnobRow

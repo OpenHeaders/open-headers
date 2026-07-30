@@ -361,8 +361,12 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
   const remote = endpoint(network?.remoteAddress, network?.remotePort) ?? response.wire?.ip;
   const local = endpoint(network?.localAddress, network?.localPort);
 
-  const rows: Array<{ label: string; value: string }> = [
-    { label: t('workbench.editors.request.response.meta.httpVersion'), value: versionLabel ?? '—' },
+  const rows: Array<{ label: string; value: string; testId?: string }> = [
+    {
+      label: t('workbench.editors.request.response.meta.httpVersion'),
+      value: versionLabel ?? '—',
+      testId: 'oh-response-http-version',
+    },
     ...(local !== undefined ? [{ label: t('workbench.editors.request.response.meta.localAddress'), value: local }] : []),
     { label: t('workbench.editors.request.response.meta.remoteAddress'), value: remote ?? '—' },
   ];
@@ -386,7 +390,9 @@ function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
         {rows.map((row) => (
           <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', gap: 12, fontSize: 12 }}>
             <span style={{ width: 110, flexShrink: 0, color: token.colorTextSecondary }}>{row.label}</span>
-            <span style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'break-all' }}>{row.value}</span>
+            <span data-testid={row.testId} style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'break-all' }}>
+              {row.value}
+            </span>
           </div>
         ))}
       </div>
@@ -777,6 +783,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
       <MetaDot />
       <InfoPopover content={networkContent(response, t)} trigger="hover">
         <span
+          data-testid="oh-response-network"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
