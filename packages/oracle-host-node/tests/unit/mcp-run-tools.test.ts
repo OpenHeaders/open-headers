@@ -282,6 +282,25 @@ describe('runs_execute collection', () => {
     expect(hits).toEqual(['/boom']);
   });
 
+  it('runs a >5-item one-origin suite without riding the refresh rate limiter', async () => {
+    // Default limiter budget (5 starts/min/origin). Suite sends bypass
+    // the bucket — the limiter guards background OAuth refresh and
+    // workflow steps, not a deliberate CI run — so seven same-origin
+    // items complete immediately instead of stalling ~60s for starts
+    // six and seven.
+    __configureRateLimiterForTests({ maxConcurrent: 1, maxPerMinute: 5 });
+    for (let i = 1; i <= 7; i += 1) {
+      await saveRequest({ name: `Item ${i}`, url: `http://127.0.0.1:${port}/ok?item=${i}` });
+    }
+
+    const started = Date.now();
+    const report = await runTarget({ kind: 'collection', ref: 'My Requests' });
+
+    expect(report.totals).toEqual({ items: 7, passed: 7, failed: 0, skipped: 0 });
+    expect(hits).toHaveLength(7);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  }, 10_000);
+
   it('refuses an empty target instead of minting a vacuous green run', async () => {
     await saveRequest({ name: 'Seed', url: `http://127.0.0.1:${port}/ok` });
     await seedFolderWithRequest('Full', 'Inside', `http://127.0.0.1:${port}/ok`);

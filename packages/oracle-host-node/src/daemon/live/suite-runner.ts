@@ -4,8 +4,7 @@
  *
  * Each request runs through the same `runStepRequest` core the chain
  * runner and `requests_send` use — full scope-chain resolution, TOTP
- * cooldown gate, per-origin refresh rate limiter — with two postures
- * chosen for unattended CI runs:
+ * cooldown gate — with two postures chosen for unattended CI runs:
  *
  *   - Scripts run under the strict chain contract (read-only `oh.*`
  *     tier, script errors and failed assertions fail the item) when
@@ -17,8 +16,17 @@
  *     interactively.
  *
  * Items run sequentially in plan order — shared state (cookie jars,
- * `{{live.*}}` publication, the rate limiter's token bucket) assumes
- * one send at a time, and a CI report wants deterministic order.
+ * `{{live.*}}` publication) assumes one send at a time, and a CI
+ * report wants deterministic order.
+ *
+ * Suite sends do NOT ride the per-origin refresh rate limiter: that
+ * bucket exists so BACKGROUND traffic (OAuth token refresh, scheduled
+ * workflow steps) can't race an upstream to 429-land, while a suite
+ * run is a deliberate user/CI invocation — throttling a >5-item
+ * one-origin suite to 5 starts/min stalls CI for minutes. Sequential
+ * execution already provides the one-in-flight guarantee the wrapper's
+ * `maxConcurrent` gave. OAuth refresh triggered by an item still pays
+ * the limiter through its own hook.
  *
  * Pass/fail law (mirrored in the tool description): an item fails on
  * a transport/script/assertion error; without any assertions an HTTP
@@ -30,7 +38,6 @@
 import type { ScriptExecutionMode } from '@openheaders/core/scripts';
 import type { Request } from '@openheaders/core/types';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
-import { withRefreshRateLimit } from '@openheaders/oracle/live/request-exec/rate-limiter';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import { createNodeRequestTransport } from '../../live/node-request-transport';
 import { resolveScriptRunner } from '../script-capability';
@@ -91,15 +98,13 @@ export async function runRequestSuite(args: SuiteRunArgs): Promise<SuiteRunResul
       items.push(itemBase(request, 'skipped', []));
       continue;
     }
-    const snapshot = await withRefreshRateLimit(request.url, () =>
-      runStepRequest(request, {
-        workspaceId: args.workspaceId,
-        environmentId: args.environmentId,
-        transport: nodeTransport,
-        scriptRunner: scripts?.runner,
-        refreshOAuth,
-      }),
-    );
+    const snapshot = await runStepRequest(request, {
+      workspaceId: args.workspaceId,
+      environmentId: args.environmentId,
+      transport: nodeTransport,
+      scriptRunner: scripts?.runner,
+      refreshOAuth,
+    });
 
     const assertions: SuiteRunAssertion[] = (snapshot.scripts?.postResponse?.assertions ?? []).map((assertion) => ({
       name: assertion.name,
