@@ -20,7 +20,11 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import type { EnvironmentProxyMode, EnvironmentProxyResolution, EnvironmentProxySettings } from '@openheaders/core/types';
+import type {
+  DesktopEnvironmentProxyMode,
+  EnvironmentProxyResolution,
+  EnvironmentProxySettings,
+} from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Button, Input, Radio, Select, theme } from 'antd';
 import type React from 'react';
@@ -32,14 +36,14 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
  *  https URL; the per-URL preview answers everything else. */
 const PROBE_URL = 'https://api.openheaders.io';
 
-const MODE_LABEL: Record<EnvironmentProxyMode, MessageKey> = {
+const MODE_LABEL: Record<DesktopEnvironmentProxyMode, MessageKey> = {
   system: 'workbench.settings.environmentProxy.mode.system',
   manual: 'workbench.settings.environmentProxy.mode.manual',
   pac: 'workbench.settings.environmentProxy.mode.pac',
   off: 'workbench.settings.environmentProxy.mode.off',
 };
 
-const MODE_DESC: Record<EnvironmentProxyMode, MessageKey> = {
+const MODE_DESC: Record<DesktopEnvironmentProxyMode, MessageKey> = {
   system: 'workbench.settings.environmentProxy.mode.systemDesc',
   manual: 'workbench.settings.environmentProxy.mode.manualDesc',
   pac: 'workbench.settings.environmentProxy.mode.pacDesc',
@@ -82,7 +86,7 @@ const EnvironmentProxySection: React.FC = () => {
     .filter((s) => s.kind === 'string')
     .map((s) => ({ value: s.name, label: s.name }));
 
-  const refreshProbe = useCallback(async (mode: EnvironmentProxyMode): Promise<void> => {
+  const refreshProbe = useCallback(async (mode: EnvironmentProxySettings['mode']): Promise<void> => {
     if (mode === 'off') {
       setProbe(null);
       return;
@@ -156,7 +160,7 @@ const EnvironmentProxySection: React.FC = () => {
         <Radio.Group
           data-testid="oh-envproxy-mode"
           value={settings.mode}
-          onChange={(e) => setField({ mode: e.target.value as EnvironmentProxyMode })}
+          onChange={(e) => setField({ mode: e.target.value as DesktopEnvironmentProxyMode })}
           style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           {(['system', 'manual', 'pac', 'off'] as const).map((mode) => (

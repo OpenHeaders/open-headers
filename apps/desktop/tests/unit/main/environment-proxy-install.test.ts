@@ -12,7 +12,6 @@ import {
   environmentProxyResolver,
   resetEnvironmentProxyResolver,
 } from '@openheaders/oracle-host-node/live/environment-proxy';
-import { sessionPartitionMock } from 'electron';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   chromiumEnvironmentProxyResolver,
@@ -20,6 +19,11 @@ import {
   pacScriptUrl,
   projectSelection,
 } from '../../../src/main/environment-proxy-install';
+// The mock-only session handle comes from the mock module itself — the
+// vitest alias resolves 'electron' to the same file, so it is the same
+// singleton, and the type exists (real electron types have no such
+// member).
+import { sessionPartitionMock } from '../../__mocks__/electron';
 
 function makeStore(initial?: unknown) {
   const slots = new Map<string, unknown>();
@@ -111,6 +115,11 @@ describe('installEnvironmentProxyService', () => {
     expect(service.getSettings()).toEqual({ version: 1, mode: 'system' });
   });
 
+  it("reads a stored node-tier 'env' mode as the tier default — Chromium resolves here, not the process env", async () => {
+    const service = await installEnvironmentProxyService(makeStore({ version: 1, mode: 'env' }));
+    expect(service.getSettings()).toEqual({ version: 1, mode: 'system' });
+  });
+
   it('applies a set live: Off registers the explicit null, Manual resolves by config', async () => {
     const store = makeStore();
     const service = await installEnvironmentProxyService(store);
@@ -156,10 +165,13 @@ describe('installEnvironmentProxyService', () => {
     await expect(service.resolve('https://api.openheaders.io')).resolves.toBeNull();
   });
 
-  it('refuses an invalid settings shape without touching the active mode', async () => {
+  it("refuses an invalid shape and the node tier's env mode without touching the active mode", async () => {
     const service = await installEnvironmentProxyService(makeStore());
-    const result = await service.setSettings({ version: 1, mode: 'env' });
-    expect(result.ok).toBe(false);
+    const shape = await service.setSettings({ version: 1, mode: 'sideways' });
+    expect(shape.ok).toBe(false);
+    const nodeMode = await service.setSettings({ version: 1, mode: 'env' });
+    expect(nodeMode.ok).toBe(false);
+    if (!nodeMode.ok) expect(nodeMode.error).toMatch(/not available on the desktop/);
     expect(service.getSettings()).toEqual({ version: 1, mode: 'system' });
   });
 });

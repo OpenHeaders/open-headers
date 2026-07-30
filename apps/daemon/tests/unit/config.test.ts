@@ -398,3 +398,64 @@ describe('resolveDaemonConfig — validation', () => {
     expect(() => resolve(['--allowed-host', '*.openheaders.io'])).toThrow(/bare hostname/);
   });
 });
+
+describe('resolveDaemonConfig — egress proxy (environment plane)', () => {
+  it('defaults to null — the stored slot or the tier default applies', () => {
+    expect(resolve().environmentProxy).toBeNull();
+  });
+
+  it('reads the proxy block from the file, manual shape mapped onto the settings slot', () => {
+    const file = writeConfigFile({
+      proxy: {
+        mode: 'manual',
+        url: 'corp.openheaders.io:8080',
+        credentialRef: 'corp-proxy',
+        bypassList: '.internal.openheaders.io,10.0.0.0/8',
+      },
+    });
+    expect(resolve(['--config', file]).environmentProxy).toEqual({
+      version: 1,
+      mode: 'manual',
+      manualProxyUrl: 'corp.openheaders.io:8080',
+      manualCredentialRef: 'corp-proxy',
+      manualBypassList: '.internal.openheaders.io,10.0.0.0/8',
+    });
+  });
+
+  it('resolves the mode through argv → env → file', () => {
+    const file = writeConfigFile({ proxy: { mode: 'off' } });
+    expect(resolve(['--config', file]).environmentProxy).toEqual({ version: 1, mode: 'off' });
+    expect(resolve(['--config', file], { OH_DAEMON_PROXY_MODE: 'env' }).environmentProxy).toEqual({
+      version: 1,
+      mode: 'env',
+    });
+    expect(
+      resolve(['--config', file, '--proxy-mode', 'off'], { OH_DAEMON_PROXY_MODE: 'env' }).environmentProxy,
+    ).toEqual({ version: 1, mode: 'off' });
+  });
+
+  it('refuses pac and system with the honest error naming env and manual', () => {
+    expect(() => resolve(['--proxy-mode', 'pac'])).toThrow(/'pac' is not available on this tier.*'env'.*'manual'/s);
+    expect(() => resolve([], { OH_DAEMON_PROXY_MODE: 'system' })).toThrow(/'system' is not available on this tier/);
+  });
+
+  it('refuses an unknown mode naming the tier vocabulary', () => {
+    expect(() => resolve(['--proxy-mode', 'auto'])).toThrow(/one of off, env, manual — got 'auto'/);
+  });
+
+  it('ties the manual fields to the manual mode, both directions', () => {
+    expect(() => resolve(['--proxy-mode', 'manual'])).toThrow(/needs a proxy URL/);
+    expect(() => resolve(['--proxy-url', 'corp:8080'])).toThrow(/set proxy mode 'manual'/);
+    expect(() => resolve(['--proxy-mode', 'env', '--proxy-url', 'corp:8080'])).toThrow(
+      /URL only applies to mode 'manual'/,
+    );
+    expect(() => resolve(['--proxy-mode', 'off', '--proxy-bypass', '*'])).toThrow(
+      /bypass list only applies to mode 'manual'/,
+    );
+  });
+
+  it('rejects a malformed proxy block in the config file', () => {
+    expect(() => resolve(['--config', writeConfigFile({ proxy: 'corp:8080' })])).toThrow(/proxy must be a JSON object/);
+    expect(() => resolve(['--config', writeConfigFile({ proxy: { url: 42 } })])).toThrow(/proxy\.url/);
+  });
+});

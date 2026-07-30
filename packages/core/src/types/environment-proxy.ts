@@ -9,9 +9,20 @@
  */
 
 import type * as v from 'valibot';
-import type { EnvironmentProxyModeSchema, EnvironmentProxySettingsSchema } from '../schemas/environment-proxy';
+import type {
+  DESKTOP_ENVIRONMENT_PROXY_MODES,
+  EnvironmentProxyModeSchema,
+  EnvironmentProxySettingsSchema,
+  NODE_ENVIRONMENT_PROXY_MODES,
+} from '../schemas/environment-proxy';
 
 export type EnvironmentProxyMode = v.InferOutput<typeof EnvironmentProxyModeSchema>;
+
+/** The desktop tier's mode subset — what its settings surface offers. */
+export type DesktopEnvironmentProxyMode = (typeof DESKTOP_ENVIRONMENT_PROXY_MODES)[number];
+
+/** The node tier's mode subset (daemon / CLI / TUI). */
+export type NodeEnvironmentProxyMode = (typeof NODE_ENVIRONMENT_PROXY_MODES)[number];
 
 export type EnvironmentProxySettings = v.InferOutput<typeof EnvironmentProxySettingsSchema>;
 

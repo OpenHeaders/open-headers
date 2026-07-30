@@ -26,7 +26,11 @@
  */
 
 import { pathToFileURL } from 'node:url';
-import { EnvironmentProxySettingsSchema, parseEntity } from '@openheaders/core/schemas';
+import {
+  DESKTOP_ENVIRONMENT_PROXY_MODES,
+  EnvironmentProxySettingsSchema,
+  parseEntity,
+} from '@openheaders/core/schemas';
 import type { StorageKey } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
 import type {
@@ -50,6 +54,12 @@ import { session } from 'electron';
 /** The desktop tier default: System ON (FORK A) — an unmanaged machine
  *  resolves DIRECT and behaves exactly as before. */
 export const DEFAULT_ENVIRONMENT_PROXY_SETTINGS: EnvironmentProxySettings = { version: 1, mode: 'system' };
+
+/** The shared picklist also carries the node tier's `env` — schema-valid
+ *  but meaningless where Chromium resolves; this tier refuses it. */
+function isDesktopMode(mode: EnvironmentProxySettings['mode']): boolean {
+  return (DESKTOP_ENVIRONMENT_PROXY_MODES as readonly string[]).includes(mode);
+}
 
 /** The Chromium-backed resolver over an injected `resolveProxy` — the
  *  Electron session stays behind this seam so the mapping is
@@ -120,10 +130,12 @@ export async function installEnvironmentProxyService(
   let active: EnvironmentProxyResolver | null = null;
   let settings = DEFAULT_ENVIRONMENT_PROXY_SETTINGS;
 
-  // A malformed slot reads as the tier default — never a boot failure.
+  // A malformed slot — or one carrying another tier's mode — reads as
+  // the tier default, never a boot failure.
   const stored = await hostStorage.get(OH.environmentProxy);
   if (stored !== undefined) {
-    settings = parseEntity(EnvironmentProxySettingsSchema, stored) ?? DEFAULT_ENVIRONMENT_PROXY_SETTINGS;
+    const parsed = parseEntity(EnvironmentProxySettingsSchema, stored);
+    settings = parsed !== null && isDesktopMode(parsed.mode) ? parsed : DEFAULT_ENVIRONMENT_PROXY_SETTINGS;
   }
 
   async function apply(next: EnvironmentProxySettings): Promise<void> {
@@ -175,6 +187,12 @@ export async function installEnvironmentProxyService(
       const next = parseEntity(EnvironmentProxySettingsSchema, raw);
       if (next === null) {
         return { ok: false, error: 'Invalid environment-proxy settings shape.' };
+      }
+      if (!isDesktopMode(next.mode)) {
+        return {
+          ok: false,
+          error: `Mode '${next.mode}' is not available on the desktop — use System, Manual, PAC, or Off.`,
+        };
       }
       await hostStorage.set(OH.environmentProxy, next);
       await apply(next);

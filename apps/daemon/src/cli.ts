@@ -142,6 +142,16 @@ Options (install / status / show-token / config):
                            a TLS proxy (tokens ride unencrypted; trusted LANs only)
   --web-root <path>        Directory with the built web app to serve at /
                            (default: the web/ dir shipped beside the daemon)
+  --proxy-mode <mode>      How the daemon's own egress reaches the network:
+                           env (default — honor HTTP_PROXY / HTTPS_PROXY /
+                           NO_PROXY, curl precedence), manual, or off
+  --proxy-url <value>      manual mode: the proxy to traverse (host:port
+                           implies http://)
+  --proxy-credential-ref <name>
+                           manual mode: vault entry holding user:password
+                           for the proxy (never the value itself)
+  --proxy-bypass <list>    manual mode: NO_PROXY-syntax bypass list
+                           (host suffixes, host:port, IPv4 CIDR, *)
   --verbose                status only: read the token-gated /metrics route
   --token <secret>         status only: paired token for /metrics (or set
                            the OH_DAEMON_TOKEN environment variable)

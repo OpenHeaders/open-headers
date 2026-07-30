@@ -19,6 +19,10 @@ export const CONFIG_OPTIONS = {
   'allowed-host': { type: 'string', multiple: true },
   'allow-insecure-lan': { type: 'boolean' },
   'web-root': { type: 'string' },
+  'proxy-mode': { type: 'string' },
+  'proxy-url': { type: 'string' },
+  'proxy-credential-ref': { type: 'string' },
+  'proxy-bypass': { type: 'string' },
 } as const;
 
 export interface ConfigFlagValues {
@@ -31,6 +35,10 @@ export interface ConfigFlagValues {
   'allowed-host'?: string[];
   'allow-insecure-lan'?: boolean;
   'web-root'?: string;
+  'proxy-mode'?: string;
+  'proxy-url'?: string;
+  'proxy-credential-ref'?: string;
+  'proxy-bypass'?: string;
 }
 
 export interface ParsedConfigCommand {
@@ -43,7 +51,18 @@ export function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigComman
   // Re-issue only the config flags — `resolveDaemonConfig` parses
   // strictly and must not see command-specific ones like --label.
   const configArgv: string[] = [];
-  for (const flag of ['config', 'data-dir', 'bind-address', 'bind-port', 'log-level', 'web-root'] as const) {
+  for (const flag of [
+    'config',
+    'data-dir',
+    'bind-address',
+    'bind-port',
+    'log-level',
+    'web-root',
+    'proxy-mode',
+    'proxy-url',
+    'proxy-credential-ref',
+    'proxy-bypass',
+  ] as const) {
     const value = values[flag];
     if (typeof value === 'string') configArgv.push(`--${flag}`, value);
   }
@@ -63,6 +82,19 @@ export function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigComman
   }
   if (values['allow-insecure-lan'] !== undefined && config.allowInsecureLan) unitArgs.push('--allow-insecure-lan');
   if (values['web-root'] !== undefined && config.webRoot !== null) unitArgs.push('--web-root', config.webRoot);
+  const egress = config.environmentProxy;
+  if (egress !== null) {
+    if (values['proxy-mode'] !== undefined) unitArgs.push('--proxy-mode', egress.mode);
+    if (values['proxy-url'] !== undefined && egress.manualProxyUrl !== undefined) {
+      unitArgs.push('--proxy-url', egress.manualProxyUrl);
+    }
+    if (values['proxy-credential-ref'] !== undefined && egress.manualCredentialRef !== undefined) {
+      unitArgs.push('--proxy-credential-ref', egress.manualCredentialRef);
+    }
+    if (values['proxy-bypass'] !== undefined && egress.manualBypassList !== undefined) {
+      unitArgs.push('--proxy-bypass', egress.manualBypassList);
+    }
+  }
   return { config, unitArgs };
 }
 

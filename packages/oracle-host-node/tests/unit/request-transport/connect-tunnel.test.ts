@@ -9,14 +9,12 @@
  * negotiation failure on the target leg.
  */
 
-import * as http from 'node:http';
 import { createServer as createH2cServer, createSecureServer } from 'node:http2';
-import type { AddressInfo } from 'node:net';
-import * as net from 'node:net';
 import * as tls from 'node:tls';
 import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { describe, expect, it } from 'vitest';
 import { createNodeRequestTransport } from '../../../src/live/node-request-transport';
+import { closedPort, listenPort, startConnectProxy } from './connect-proxy-rig';
 
 function makeRequest(overrides: Partial<TransportRequest> = {}): TransportRequest {
   return {
@@ -50,89 +48,6 @@ EwEB/wQFMAMBAf8wGgYDVR0RBBMwEYIJbG9jYWxob3N0hwR/AAABMAoGCCqGSM49
 BAMCA0cAMEQCIB0tJC0hYo5VLj5dDo5pjjNYWGkCMAg/+MY3yUvg20w5AiBopnqk
 1hvixhrpP4hunsMqznTiTa07e7tnUcx6as6gpw==
 -----END CERTIFICATE-----`;
-
-interface ProxyRig {
-  url: string;
-  /** `host:port` CONNECT targets, arrival order — refused CONNECTs
-   *  are never recorded. */
-  tunnels: string[];
-  /** `Proxy-Authorization` value of every CONNECT, arrival order. */
-  authHeaders: Array<string | undefined>;
-  close(): Promise<void>;
-}
-
-/** A minimal live CONNECT proxy. `requireAuth` (`user:password`)
- *  demands a matching Basic `Proxy-Authorization` and refuses with 407;
- *  `rejectStatus` refuses EVERY tunnel with that status — the
- *  proxy-reachable-but-tunnel-failed leg. */
-async function startConnectProxy(options: { requireAuth?: string; rejectStatus?: number } = {}): Promise<ProxyRig> {
-  const tunnels: string[] = [];
-  const authHeaders: Array<string | undefined> = [];
-  const sockets = new Set<{ destroy(): void }>();
-  const server = http.createServer((_req, res) => {
-    res.statusCode = 405;
-    res.end();
-  });
-  server.on('connect', (req, clientSocket, head) => {
-    authHeaders.push(req.headers['proxy-authorization']);
-    if (options.requireAuth !== undefined) {
-      const expected = `Basic ${Buffer.from(options.requireAuth).toString('base64')}`;
-      if (req.headers['proxy-authorization'] !== expected) {
-        clientSocket.write(
-          'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="rig"\r\n\r\n',
-        );
-        clientSocket.destroy();
-        return;
-      }
-    }
-    if (options.rejectStatus !== undefined) {
-      clientSocket.write(`HTTP/1.1 ${options.rejectStatus} Tunnel Refused\r\n\r\n`);
-      clientSocket.destroy();
-      return;
-    }
-    const target = req.url ?? '';
-    tunnels.push(target);
-    const [host, portStr] = target.split(':');
-    const upstream = net.connect(Number(portStr ?? 443), host, () => {
-      clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-      if (head.length > 0) upstream.write(head);
-      upstream.pipe(clientSocket);
-      clientSocket.pipe(upstream);
-    });
-    sockets.add(clientSocket).add(upstream);
-    const drop = (): void => {
-      upstream.destroy();
-      clientSocket.destroy();
-    };
-    upstream.on('error', drop);
-    clientSocket.on('error', drop);
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
-  const { port } = server.address() as AddressInfo;
-  return {
-    url: `http://127.0.0.1:${port}`,
-    tunnels,
-    authHeaders,
-    close: () =>
-      new Promise<void>((resolve) => {
-        for (const s of sockets) s.destroy();
-        server.close(() => resolve());
-      }),
-  };
-}
-
-async function listenPort(server: net.Server): Promise<number> {
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
-  return (server.address() as AddressInfo).port;
-}
-
-/** An ephemeral port with nothing listening — bound once, then freed. */
-async function closedPort(): Promise<number> {
-  const probe = net.createServer();
-  const port = await listenPort(probe);
-  await new Promise<void>((resolve) => probe.close(() => resolve()));
-  return port;
-}
 
 describe('prior-knowledge HTTP/2 through a CONNECT tunnel', () => {
   it('carries cleartext h2 framing through the tunnel — wire truth from the exchanged frames', async () => {

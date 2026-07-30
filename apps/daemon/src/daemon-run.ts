@@ -30,7 +30,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
-import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
+import { bootDaemonSpine, installNodeEnvironmentProxy } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { installDaemonAutoUpdate } from './auto-update';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
@@ -130,6 +130,16 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       'backend.bindPort': config.bindPort,
     });
 
+    // Egress environment plane (Off / Env / Manual — Env the tier
+    // default): a config answer seeds the per-device slot; the mode's
+    // resolver registers now so every send (and refresh) resolves under
+    // it. Consulted at send time, so ordering against the spine boot
+    // never matters.
+    const environmentProxy = await installNodeEnvironmentProxy({
+      hostStorage,
+      ...(config.environmentProxy !== null ? { configured: config.environmentProxy } : {}),
+    });
+
     const staticWeb = resolveStaticWebRoot(config.webRoot);
 
     // HTTP/3 helper: register where this distribution keeps the
@@ -148,9 +158,15 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
         : '';
     const forwardNote = config.auditForwarding ? `, audit stream to ${new URL(config.auditForwarding.url).host}` : '';
     const licenseNote = config.licenseRefresh ? '' : ', license refresh off';
+    const egressNote =
+      environmentProxy.mode === 'off'
+        ? ', egress proxy off'
+        : environmentProxy.mode === 'manual'
+          ? `, egress proxy ${environmentProxy.manualProxyUrl ?? 'unset'}`
+          : '';
     log.info(
       SCOPE,
-      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}${licenseNote}`,
+      `starting v${appVersion}${formatBuildStamp(getBuildInfo())} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}${oidcNote}${vaultNote}${auditNote}${forwardNote}${licenseNote}${egressNote}`,
     );
     if (config.bindAddress === '0.0.0.0' && !config.trustedProxy) {
       log.warn(

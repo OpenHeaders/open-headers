@@ -10,6 +10,12 @@
 export type { DaemonAuditForwardingConfig } from './audit-forwarder';
 export { bootDaemonSpine, type DaemonSpineConfig, type DaemonSpineHandle } from './boot-spine';
 export { registerPeerRpcPlane } from './compose-peer-rpc';
+export {
+  DEFAULT_NODE_ENVIRONMENT_PROXY_SETTINGS,
+  type InstallNodeEnvironmentProxyOptions,
+  installNodeEnvironmentProxy,
+  type NodeEnvironmentProxyStore,
+} from './environment-proxy-install';
 export { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 export type { DaemonMetrics } from './metrics';
 export type { DaemonOidcConfig, OidcClaimMappingRule, OidcClaimMappings } from './oidc/oidc-config';

@@ -18,6 +18,12 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 import { WS_PORT } from '@openheaders/core/protocol';
+import {
+  MAX_ENVIRONMENT_PROXY_BYPASS_LENGTH,
+  MAX_ENVIRONMENT_PROXY_VALUE_LENGTH,
+  NODE_ENVIRONMENT_PROXY_MODES,
+} from '@openheaders/core/schemas';
+import type { EnvironmentProxySettings, NodeEnvironmentProxyMode } from '@openheaders/core/types';
 import { isValidLogLevel, type LogLevel, validatePort } from '@openheaders/core/utils';
 import type {
   DaemonAuditForwardingConfig,
@@ -130,8 +136,30 @@ export interface DaemonConfig {
    * not a runtime toggle.
    */
   auditForwarding: DaemonAuditForwardingConfig | null;
+  /**
+   * Environment-plane egress proxy — how THIS daemon's own sends reach
+   * the network (docs/REQUEST_ENGINE_PROXY_DESIGN.md; distinct from
+   * `trustedProxy`, the inbound reverse-proxy posture). `null` = no
+   * explicit config; the stored per-device slot (or the tier default,
+   * Env — honor HTTP_PROXY / HTTPS_PROXY / NO_PROXY with curl
+   * precedence) applies. Configured via the `proxy` object in
+   * `daemon.json`, `OH_DAEMON_PROXY_*`, or `--proxy-*` flags; an
+   * explicit answer seeds the per-device slot at boot. PAC is not
+   * available on this tier (no sandboxed evaluator) — it refuses with
+   * a config error naming Env/Manual.
+   */
+  environmentProxy: EnvironmentProxySettings | null;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
+}
+
+/** The `proxy` object in `daemon.json` — the daemon's own egress
+ *  (environment plane), not the inbound reverse-proxy posture. */
+interface ProxyConfigFile {
+  mode?: string;
+  url?: string;
+  credentialRef?: string;
+  bypassList?: string;
 }
 
 /** The `daemon.json` shape — every field optional; absent = next source down. */
@@ -150,6 +178,7 @@ interface ConfigFile {
   licenseFile?: string;
   licenseRefresh?: boolean;
   personalSeats?: boolean;
+  proxy?: ProxyConfigFile;
 }
 
 export interface ResolveConfigInput {
@@ -353,6 +382,85 @@ function parseAuditForwarding(raw: unknown, source: string): DaemonAuditForwardi
   return out;
 }
 
+/** The `proxy` object — string fields only; the combined answer is
+ *  validated in {@link resolveEnvironmentProxy} after env/argv overlay. */
+function parseProxyConfigFile(raw: unknown, source: string): ProxyConfigFile {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`${source}: proxy must be a JSON object`);
+  }
+  const record = raw as Record<string, unknown>;
+  const out: ProxyConfigFile = {};
+  for (const field of ['mode', 'url', 'credentialRef', 'bypassList'] as const) {
+    const value = record[field];
+    if (value === undefined) continue;
+    if (typeof value !== 'string') throw new Error(`${source}: proxy.${field} must be a string`);
+    out[field] = value;
+  }
+  return out;
+}
+
+/**
+ * The egress environment-proxy answer from argv → env → file, or `null`
+ * when nothing is configured (the stored slot / tier default applies).
+ * PAC and the desktop's system mode refuse with the honest error — this
+ * tier has no sandboxed evaluator, and a silent direct would lie.
+ */
+function resolveEnvironmentProxy(
+  mode: string | undefined,
+  url: string | undefined,
+  credentialRef: string | undefined,
+  bypassList: string | undefined,
+): EnvironmentProxySettings | null {
+  if (mode === undefined && url === undefined && credentialRef === undefined && bypassList === undefined) return null;
+  if (mode === undefined) {
+    throw new Error(
+      "proxy: a proxy URL/credential/bypass needs an explicit mode — set proxy mode 'manual' " +
+        '(--proxy-mode, OH_DAEMON_PROXY_MODE, or proxy.mode in daemon.json)',
+    );
+  }
+  if (mode === 'pac' || mode === 'system') {
+    throw new Error(
+      `proxy mode '${mode}' is not available on this tier — PAC and system resolution need the sandboxed ` +
+        `Chromium resolver only the desktop app ships; use 'env' (HTTP_PROXY / HTTPS_PROXY / NO_PROXY) or 'manual'`,
+    );
+  }
+  if (!(NODE_ENVIRONMENT_PROXY_MODES as readonly string[]).includes(mode)) {
+    throw new Error(`proxy mode must be one of off, env, manual — got '${mode}'`);
+  }
+  const nodeMode = mode as NodeEnvironmentProxyMode;
+  if (nodeMode !== 'manual') {
+    if (url !== undefined) throw new Error(`proxy URL only applies to mode 'manual' (mode is '${nodeMode}')`);
+    if (credentialRef !== undefined) {
+      throw new Error(`proxy credential ref only applies to mode 'manual' (mode is '${nodeMode}')`);
+    }
+    if (bypassList !== undefined) {
+      throw new Error(`proxy bypass list only applies to mode 'manual' (mode is '${nodeMode}')`);
+    }
+    return { version: 1, mode: nodeMode };
+  }
+  if (url === undefined || url.trim() === '') {
+    throw new Error(
+      "proxy mode 'manual' needs a proxy URL (--proxy-url, OH_DAEMON_PROXY_URL, or proxy.url in daemon.json)",
+    );
+  }
+  if (url.length > MAX_ENVIRONMENT_PROXY_VALUE_LENGTH) {
+    throw new Error(`proxy URL exceeds ${MAX_ENVIRONMENT_PROXY_VALUE_LENGTH} characters`);
+  }
+  if (credentialRef !== undefined && (credentialRef.trim() === '' || credentialRef.length > 256)) {
+    throw new Error('proxy credential ref must be a non-empty vault entry name of at most 256 characters');
+  }
+  if (bypassList !== undefined && bypassList.length > MAX_ENVIRONMENT_PROXY_BYPASS_LENGTH) {
+    throw new Error(`proxy bypass list exceeds ${MAX_ENVIRONMENT_PROXY_BYPASS_LENGTH} characters`);
+  }
+  return {
+    version: 1,
+    mode: nodeMode,
+    manualProxyUrl: url.trim(),
+    ...(credentialRef !== undefined ? { manualCredentialRef: credentialRef.trim() } : {}),
+    ...(bypassList !== undefined ? { manualBypassList: bypassList } : {}),
+  };
+}
+
 function readConfigFile(configPath: string): ConfigFile {
   let text: string;
   try {
@@ -426,6 +534,9 @@ function readConfigFile(configPath: string): ConfigFile {
     if (typeof record.personalSeats !== 'boolean') throw new Error(`${configPath}: personalSeats must be a boolean`);
     out.personalSeats = record.personalSeats;
   }
+  if (record.proxy !== undefined) {
+    out.proxy = parseProxyConfigFile(record.proxy, configPath);
+  }
   return out;
 }
 
@@ -493,6 +604,10 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'allow-insecure-lan': { type: 'boolean' },
       'web-root': { type: 'string' },
       'license-file': { type: 'string' },
+      'proxy-mode': { type: 'string' },
+      'proxy-url': { type: 'string' },
+      'proxy-credential-ref': { type: 'string' },
+      'proxy-bypass': { type: 'string' },
     },
   });
 
@@ -596,6 +711,13 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     file.personalSeats ??
     true;
 
+  const environmentProxy = resolveEnvironmentProxy(
+    values['proxy-mode'] ?? input.env.OH_DAEMON_PROXY_MODE ?? file.proxy?.mode,
+    values['proxy-url'] ?? input.env.OH_DAEMON_PROXY_URL ?? file.proxy?.url,
+    values['proxy-credential-ref'] ?? input.env.OH_DAEMON_PROXY_CREDENTIAL_REF ?? file.proxy?.credentialRef,
+    values['proxy-bypass'] ?? input.env.OH_DAEMON_PROXY_BYPASS ?? file.proxy?.bypassList,
+  );
+
   return {
     dataDir,
     bindAddress,
@@ -612,6 +734,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     licenseFile,
     licenseRefresh,
     personalSeats,
+    environmentProxy,
     configPath,
   };
 }

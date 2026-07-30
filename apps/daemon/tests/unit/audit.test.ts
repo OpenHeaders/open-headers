@@ -45,6 +45,7 @@ function makeConfig(): DaemonConfig {
     licenseFile: null,
     licenseRefresh: true,
     personalSeats: true,
+    environmentProxy: null,
     configPath: path.join(dataDir, 'daemon.json'),
   };
 }

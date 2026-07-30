@@ -59,6 +59,16 @@ export type {
   SurfaceType,
   UseEditingScopeViewStateOptions,
 } from './editing-scope-view-state';
+// ── Environment-plane proxy (per-device, never synced) ─────────────
+export type {
+  DesktopEnvironmentProxyMode,
+  EnvironmentProxyMode,
+  EnvironmentProxyResolution,
+  EnvironmentProxyResolvedEntry,
+  EnvironmentProxyResolvedSource,
+  EnvironmentProxySettings,
+  NodeEnvironmentProxyMode,
+} from './environment-proxy';
 // ── Extension workspace (browser-side multi-workspace record) ─────
 export type {
   ExtensionWorkspace,
@@ -156,14 +166,6 @@ export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from '.
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────
 export type { PerfResourceEntry } from './perf';
-// ── Environment-plane proxy (per-device, never synced) ─────────────
-export type {
-  EnvironmentProxyMode,
-  EnvironmentProxyResolution,
-  EnvironmentProxyResolvedEntry,
-  EnvironmentProxyResolvedSource,
-  EnvironmentProxySettings,
-} from './environment-proxy';
 export type {
   ProxyCaptureSettings,
   ProxyCaptureStatus,

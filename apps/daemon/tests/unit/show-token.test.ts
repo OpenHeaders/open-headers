@@ -35,6 +35,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     licenseFile: null,
     licenseRefresh: true,
     personalSeats: true,
+    environmentProxy: null,
     configPath: path.join(dataDir, 'daemon.json'),
     ...overrides,
   };
