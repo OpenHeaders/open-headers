@@ -73,7 +73,12 @@ export interface ResolvedRequest {
   clientCertificateKeyPem?: string;
   /** See {@link clientCertificatePem}. */
   clientCertificatePassphrase?: string;
-  /** HTTP(S) proxy the send tunnels through; absent → direct. */
+  /** Request-plane proxy routing mode. Absent → inherit the executing
+   *  host's environment plane; `'direct'` opts out of any ambient
+   *  proxy; `'url'` routes through `proxyUrl`. */
+  proxyMode?: 'direct' | 'url';
+  /** HTTP(S) proxy the send tunnels through; absent → the mode above
+   *  decides (inherit / direct). */
   proxyUrl?: string;
   /** Vault string entry NAME holding the proxy's `user:password`.
    *  Carried even when unresolved on this device — the transport owns
@@ -331,6 +336,7 @@ export async function resolveRequest(
       httpVersion: request.httpVersion,
       resolveToAddress: request.resolveToAddress,
       ...clientCertificate,
+      proxyMode: request.proxyMode,
       proxyUrl: request.proxyUrl,
       ...proxyCredential,
       unixSocketPath: request.unixSocketPath,

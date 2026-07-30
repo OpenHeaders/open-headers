@@ -113,6 +113,38 @@ export interface ExecutedNetworkFacts {
   remotePort?: number;
 }
 
+/**
+ * Wire truth for the send's proxy routing — which plane decided the
+ * effective route and what it was (docs/REQUEST_ENGINE_PROXY_DESIGN.md).
+ * Present only when a plane made a decision: an explicit request-plane
+ * proxy or opt-out, an environment-plane proxy answer, or an ambient
+ * proxy standing down for an explicit ask. A plain default-direct send
+ * (no request-plane setting, environment plane off or answering
+ * DIRECT) carries no field. Attribution only — recorded from what the
+ * send did, never read back by the runtime.
+ */
+export interface ExecutedProxyRoute {
+  /** The plane that decided the route: the request's own setting or
+   *  the executing device's environment plane. */
+  plane: 'request' | 'environment';
+  /** The proxy the send actually tunneled through (credentials never
+   *  ride it). Absent = the decision was to go direct. */
+  proxyUrl?: string;
+  /** Where the environment plane's answer came from (environment
+   *  plane only): the host env vars, the OS system settings (PAC and
+   *  WPAD included), or — later slices — a manual/PAC configuration. */
+  source?: 'env' | 'system' | 'manual' | 'pac';
+  /**
+   * Present when an INHERITED proxy stood down for this send: the
+   * environment plane answered a proxy, but the request explicitly
+   * asked for something incompatible with proxying, and the ambient
+   * proxy yields (an explicit request-plane proxy in the same conflict
+   * keeps its pre-wire error — that contradiction is the user's to
+   * resolve). The send proceeded direct.
+   */
+  standDownReason?: 'unix-socket' | 'resolve-to-address' | 'http-version-3';
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */
@@ -270,6 +302,14 @@ export interface ExecutedRequestSnapshot {
    * capability asymmetry. Attribution only, never a behavior change.
    */
   redirectChain?: ExecutedRedirectHop[];
+  /**
+   * Wire truth for the send's proxy routing — the effective route, the
+   * plane that decided it, and any ambient stand-down. See
+   * {@link ExecutedProxyRoute}. Present only when a plane decided
+   * something; a plain default-direct send carries no field. Browser
+   * runtimes never stamp it (the browser owns proxying there).
+   */
+  proxyRoute?: ExecutedProxyRoute;
   /**
    * The remote host that executed this send on the caller's behalf — a
    * peer-forwarded dispatch answered by a connected back-end. Stamped

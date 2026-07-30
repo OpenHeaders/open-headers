@@ -162,6 +162,17 @@ export interface TransportRequest {
    *  carries one. See {@link clientCertificatePem}. */
   clientCertificatePassphrase?: string;
   /**
+   * Request-plane proxy routing mode. Absent = INHERIT: a transport
+   * with an environment plane (the node host's system/env resolver —
+   * see docs/REQUEST_ENGINE_PROXY_DESIGN.md) resolves whether the send
+   * traverses a proxy; transports without one go direct, as before.
+   * `'direct'` opts the send out of any ambient proxy. `'url'` routes
+   * through {@link proxyUrl} (a set `proxyUrl` is explicit routing
+   * regardless — the executor keeps the pair consistent). Transports
+   * whose network stack owns proxying (the browser SW) ignore it.
+   */
+  proxyMode?: 'direct' | 'url';
+  /**
    * HTTP(S) proxy the send tunnels through (HTTP CONNECT) instead of
    * connecting directly. End-to-end TLS and certificate verification
    * still run against the TARGET; the proxy sees the tunnel endpoint.
@@ -306,6 +317,31 @@ export interface TransportRedirectHop {
   authorization?: 'stripped' | 'forwarded';
 }
 
+/**
+ * Wire truth for the send's proxy routing — which plane decided the
+ * effective route and what it was. Reported by transports that own
+ * their egress (the node host); the browser SW never reports (the
+ * browser owns proxying there). Present only when a plane made a
+ * decision — an explicit request-plane proxy or opt-out, an
+ * environment-plane answer, or an ambient stand-down; a plain
+ * default-direct send omits the field. Pure attribution for the
+ * executed-run snapshot.
+ */
+export interface TransportProxyRoute {
+  /** The deciding plane: the request's own setting or the executing
+   *  device's environment plane. */
+  plane: 'request' | 'environment';
+  /** The proxy the send actually tunneled through (credentials never
+   *  ride it). Absent = the decision was direct. */
+  proxyUrl?: string;
+  /** Where the environment plane's answer came from. */
+  source?: 'env' | 'system' | 'manual' | 'pac';
+  /** Present when an INHERITED proxy stood down for an explicit ask
+   *  the tunnel can't honor — the send proceeded direct. Explicit
+   *  request-plane conflicts keep their pre-wire errors instead. */
+  standDownReason?: 'unix-socket' | 'resolve-to-address' | 'http-version-3';
+}
+
 /** Socket-level facts an instrumented dial observed — see
  *  {@link TransportResponse.network}. */
 export interface TransportNetworkFacts {
@@ -385,6 +421,12 @@ export interface TransportResponse {
    * snapshot.
    */
   network?: TransportNetworkFacts;
+  /**
+   * Wire truth for the send's proxy routing — see
+   * {@link TransportProxyRoute}. Absent on plain default-direct sends
+   * and on transports without an egress seat.
+   */
+  proxyRoute?: TransportProxyRoute;
   /**
    * Negotiated protocol id of the connection that served the FINAL
    * hop (`'h2'` / `'http/1.1'`), reported from the WIRE — the

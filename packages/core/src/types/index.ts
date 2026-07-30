@@ -183,6 +183,7 @@ export type {
   MultipartPart,
   OAuth2Auth,
   OAuth2Flow,
+  ProxyMode,
   QueryParam,
   Request,
   RequestBody,
@@ -193,6 +194,7 @@ export type {
 
 // ── Request execution ──────────────────────────────────────────────
 export type {
+  ExecutedProxyRoute,
   ExecutedRedirectHop,
   ExecutedRequestErrorHint,
   ExecutedRequestSize,

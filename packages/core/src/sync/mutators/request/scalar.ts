@@ -46,6 +46,7 @@ export type RequestScalarPath =
   | 'httpVersion'
   | 'resolveToAddress'
   | 'clientCertificateRef'
+  | 'proxyMode'
   | 'proxyUrl'
   | 'proxyCredentialRef'
   | 'unixSocketPath'

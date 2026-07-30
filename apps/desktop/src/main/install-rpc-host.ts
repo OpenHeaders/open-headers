@@ -81,6 +81,7 @@ import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
 import { createElectronUpdaterPort, updaterSupported } from './electron-updater-port';
+import { installEnvironmentProxyResolver } from './environment-proxy-install';
 import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
@@ -265,6 +266,13 @@ export async function installRpcHost(): Promise<void> {
       `HTTP/3 helper not found at ${h3HelperCandidates[0]}; the '3' HTTP-version pin stays inert`,
     );
   }
+
+  // Environment-plane proxy resolution (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+  // inherit-mode sends follow this machine's proxy reality via
+  // Chromium's own resolver — a dedicated session partition, System
+  // mode by default. An unmanaged machine resolves DIRECT and behaves
+  // exactly as before.
+  installEnvironmentProxyResolver();
 
   // Native-surface locale (tray / menus / dialogs) follows the same
   // settings blob — bound here because the menus install before this

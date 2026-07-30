@@ -6,10 +6,33 @@
  * classification.
  */
 
-import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
+import { TransportError, type TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { H3HelperFailure } from '../h3-helper/helper-process';
 import { H2_NOT_NEGOTIATED_CODE } from '../instrumented-connector';
 import { proxyConnectRejectedStatus } from './connect-tunnel';
+
+/**
+ * The classified wire failure the hop pipelines throw — a
+ * {@link TransportError} (the seam's contract, message unchanged) that
+ * additionally carries the FIRST machine code off the raw error's
+ * cause chain. The environment-plane chain walk reads the code to tell
+ * a proxy DIAL failure (fall through to the next chain entry) from
+ * everything else (surface it); nothing crosses the seam — the code is
+ * transport-internal.
+ */
+export class WireExchangeError extends TransportError {
+  readonly causeCode?: string;
+  constructor(message: string, causeCode?: string) {
+    super(message);
+    if (causeCode !== undefined) this.causeCode = causeCode;
+  }
+}
+
+/** Build the classified wire failure for one hop's raw error. */
+export function classifiedWireError(url: string, err: unknown, request: TransportRequest): WireExchangeError {
+  const code = causeChain(err).find((link) => link.code !== undefined && link.code !== '')?.code;
+  return new WireExchangeError(classifyFetchFailure(url, err, request), code);
+}
 
 /** Whether this request carries any TLS version / cipher tuning — the
  *  error classifier only points at those settings when they exist. */

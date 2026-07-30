@@ -11,16 +11,12 @@
 
 import { STATUS_CODES } from 'node:http';
 import { Readable } from 'node:stream';
-import {
-  TransportError,
-  type TransportHeader,
-  type TransportRequest,
-} from '@openheaders/oracle/live/request-exec/transport';
+import type { TransportHeader, TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import type { Dispatcher } from 'undici';
 import { Headers } from 'undici';
 import { h2PriorKnowledgeHop } from '../h2-prior-knowledge';
 import { h3Hop as h3HelperHop } from '../h3-helper/h3-hop';
-import { classifyFetchFailure } from './classify-error';
+import { classifiedWireError } from './classify-error';
 import { buildBody, buildH2Body, buildHeaders, buildRequestBody } from './hop-body';
 import {
   type Deadline,
@@ -107,7 +103,7 @@ async function h2Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
     return adaptRequestResponse(hop.url, response);
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+    throw classifiedWireError(hop.url, err, request);
   }
 }
 
@@ -145,7 +141,7 @@ async function h3Hop(request: TransportRequest, hop: HopState, deadline: Deadlin
     return adaptRequestResponse(hop.url, response);
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+    throw classifiedWireError(hop.url, err, request);
   }
 }
 
@@ -175,7 +171,7 @@ async function fetchHop(
     return await fetchFn(hop.url, init);
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+    throw classifiedWireError(hop.url, err, request);
   }
 }
 
@@ -209,7 +205,7 @@ async function requestHop(
     return adaptRequestResponse(hop.url, response);
   } catch (err) {
     if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-    throw new TransportError(classifyFetchFailure(hop.url, err, request));
+    throw classifiedWireError(hop.url, err, request);
   }
 }
 

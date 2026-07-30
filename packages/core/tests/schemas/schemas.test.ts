@@ -471,6 +471,39 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, proxyUrl: '' }).success).toBe(false);
   });
 
+  it('ties proxyMode to proxyUrl', () => {
+    const base = {
+      schemaVersion: 5,
+      uid: 'abcd1234',
+      path: 'x',
+      name: 'x',
+      method: 'GET',
+      url: 'x',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+    };
+    // Absent mode = inherit (the default); 'direct' opts out; 'url'
+    // routes through the request's own proxyUrl.
+    expect(v.parse(RequestSchema, { ...base })).toBeTruthy();
+    expect(v.parse(RequestSchema, { ...base, proxyMode: 'direct' })).toBeTruthy();
+    expect(
+      v.parse(RequestSchema, { ...base, proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' }),
+    ).toBeTruthy();
+    // A pre-tri-state proxyUrl without the mode stays valid (explicit
+    // routing) until the P3 row always writes the pair.
+    expect(v.parse(RequestSchema, { ...base, proxyUrl: 'http://proxy.openheaders.io:3128' })).toBeTruthy();
+    // 'url' with nothing to route through, 'direct' with a dormant
+    // URL, and unknown modes all fail.
+    expect(v.safeParse(RequestSchema, { ...base, proxyMode: 'url' }).success).toBe(false);
+    expect(
+      v.safeParse(RequestSchema, { ...base, proxyMode: 'direct', proxyUrl: 'http://proxy.openheaders.io:3128' })
+        .success,
+    ).toBe(false);
+    expect(v.safeParse(RequestSchema, { ...base, proxyMode: 'inherit' }).success).toBe(false);
+  });
+
   it('accepts a proxyCredentialRef vault-entry name; rejects empty and overlong', () => {
     const base = {
       schemaVersion: 5,

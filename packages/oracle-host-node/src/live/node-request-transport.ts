@@ -74,6 +74,22 @@
  *     minted per send. `fetch` + `Agent` come from the same undici
  *     package so the dispatcher and the fetch pipeline are one stack,
  *     one version.
+ *   - **Two-plane proxy resolution.** An explicit request-plane proxy
+ *     (`proxyUrl`) or opt-out (`proxyMode: 'direct'`) wins outright; a
+ *     send that INHERITS (both absent — the default) asks the host's
+ *     environment plane per target (`environment-proxy/` — the
+ *     desktop's Chromium system resolver or the node tier's env-var
+ *     default), walks its fallback chain (a dial failure reaching one
+ *     proxy falls through to the next entry), and materializes the
+ *     effective proxy onto the same seam fields the explicit knob uses
+ *     — dispatcher tuple, tunnel legs, and error classification honor
+ *     it with zero special cases. An inherited proxy STANDS DOWN
+ *     (recorded with the reason) for explicit asks a tunnel can't
+ *     honor — `unixSocketPath`, `resolveToAddress`, a pinned `'3'` —
+ *     while the explicit-vs-explicit conflicts keep their pre-wire
+ *     errors. The winning route lands on
+ *     {@link TransportResponse.proxyRoute} as wire truth. See
+ *     docs/REQUEST_ENGINE_PROXY_DESIGN.md.
  *   - **Always-on negotiated-protocol report.** Every direct send's
  *     dispatcher dials through a connector that observes the ready
  *     socket's ALPN result per origin (undici's own connector wrapped
@@ -134,17 +150,22 @@ import {
 } from '@openheaders/oracle/live/request-exec/transport';
 import { fetch as undiciFetch, request as undiciRequest } from 'undici';
 import { cookieJarFor } from './cookie-jar';
+import { environmentProxyResolver } from './environment-proxy/registry';
+import type { EnvironmentProxyResolver } from './environment-proxy/types';
 import { decryptedClientKeyPem } from './h3-helper/client-key';
 import { resolveH3HelperBinary } from './h3-helper/helper-binary';
 import { type H3HelperClient, sharedH3HelperClient } from './h3-helper/helper-process';
 import { H3_TLS13_CIPHER_SUITES } from './h3-helper/protocol';
 import { type ConnectionRecord, createInstrumentedDial } from './instrumented-connector';
+import { WireExchangeError } from './request-transport/classify-error';
 import { digestRetryHop } from './request-transport/digest-leg';
 import { connectOptionsFor, dispatcherFor, httpVersionPolicy } from './request-transport/dispatcher';
 import { finalizeResponse } from './request-transport/finalize';
 import { captureJarCookies, type JarActivity, withJarCookie } from './request-transport/jar-leg';
+import { materializeProxyAttempt, resolveProxyAttempts } from './request-transport/proxy-route';
 import { followRedirectChain } from './request-transport/redirect-follower';
 import {
+  type Deadline,
   type HopState,
   type NodeFetchFn,
   type NodeRequestFn,
@@ -166,19 +187,50 @@ export interface NodeRequestTransportOptions {
    *  falls back to the shared host-process client over the resolved
    *  helper binary. */
   h3Client?: H3HelperClient;
+  /** The environment-plane resolver — injectable so unit rigs drive
+   *  inherit-mode sends with fake resolvers. `null` turns the plane
+   *  off for this transport; omitted = the host's registered resolver
+   *  (see `environment-proxy/registry`). */
+  environmentProxy?: EnvironmentProxyResolver | null;
+}
+
+/**
+ * Dial-level failure codes REACHING a proxy — the only failures the
+ * environment-plane chain walk falls through on. On a proxied send a
+ * refused / unresolved / unroutable / timed-out CONNECT dial can only
+ * be the proxy itself (target dialing happens at the proxy), which is
+ * exactly Chromium's fall-through condition. CONNECT rejections (407
+ * and friends) and target-leg failures surface instead — by then the
+ * proxy answered, and the failure is meaningful.
+ */
+const PROXY_DIAL_FAILURE_CODES = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ETIMEDOUT',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+function isProxyDialFailure(err: unknown): err is WireExchangeError {
+  return err instanceof WireExchangeError && err.causeCode !== undefined && PROXY_DIAL_FAILURE_CODES.has(err.causeCode);
 }
 
 export function createNodeRequestTransport(options: NodeRequestTransportOptions = {}): RequestTransport {
   const fetchFn = options.fetchFn ?? undiciFetch;
   const requestFn = options.requestFn ?? undiciRequest;
-  const dispatchSend = async (
-    incoming: TransportRequest,
+  // One attempt's full exchange — the request already carries its
+  // EFFECTIVE proxy (an inherited environment-plane answer is
+  // materialized onto the same seam fields the explicit knob uses, so
+  // every layer below honors the route with zero special cases), and
+  // the deadline is the walker's: ONE deadline spans every attempt of
+  // a send, not each retry.
+  const sendResolved = async (
+    request: TransportRequest,
     streaming: StreamingLeg | null,
+    deadline: Deadline,
   ): Promise<TransportResponse> => {
-    // A timeout-less pinned-pipeline send gets the seam's backstop
-    // deadline — the hand-rolled pipelines have no library watchdog
-    // behind them the way undici's own timers back the fetch paths.
-    const request = withPinnedPipelineTimeout(incoming);
     // A configured client certificate whose vault entry didn't
     // resolve on this device fails BEFORE the wire — silently
     // dialing a mutual-TLS gateway without the certificate would
@@ -304,12 +356,6 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         );
       }
     }
-    // ONE deadline spans the whole send — every hop of a redirect
-    // chain plus the final body read; the abort also cancels a body
-    // stream stalled mid-read, which a fetch-only signal would miss.
-    // A streaming leg's caller signal (Stop) merges onto the same
-    // abort, so both triggers cancel connection AND read alike.
-    const deadline = startDeadline(request.timeoutMs, streaming?.signal);
     // ONE dispatcher per send — the connection options can't change
     // across hops, and the cache lookup here keeps the wire hop the
     // single place a dispatcher is applied. A `captureNetwork` send
@@ -462,11 +508,64 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         leg,
       );
     } finally {
-      deadline?.clear();
       // The send-local instrumented agent has nothing to pool for —
       // close releases its sockets (graceful: the settled response's
       // body is already read).
       if (instrumented !== null) void instrumented.agent.close();
+    }
+  };
+  const dispatchSend = async (
+    incoming: TransportRequest,
+    streaming: StreamingLeg | null,
+  ): Promise<TransportResponse> => {
+    // A timeout-less pinned-pipeline send gets the seam's backstop
+    // deadline — the hand-rolled pipelines have no library watchdog
+    // behind them the way undici's own timers back the fetch paths.
+    const request = withPinnedPipelineTimeout(incoming);
+    // Two-plane proxy resolution (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+    // an explicit request-plane setting wins outright; an inheriting
+    // send asks the host's environment plane, whose answer is a
+    // fallback chain of attempts. The injectable resolver seat is for
+    // unit rigs; production reads the host's registered resolver (the
+    // desktop's Chromium adapter, or the node tier's env-var default).
+    const resolver = options.environmentProxy !== undefined ? options.environmentProxy : environmentProxyResolver();
+    const attempts = await resolveProxyAttempts(request, resolver);
+    // ONE deadline spans the whole send — every attempt, every hop of
+    // a redirect chain, and the final body read; the abort also
+    // cancels a body stream stalled mid-read, which a fetch-only
+    // signal would miss. A streaming leg's caller signal (Stop) merges
+    // onto the same abort, so both triggers cancel connection AND read
+    // alike.
+    const deadline = startDeadline(request.timeoutMs, streaming?.signal);
+    try {
+      let lastDialFailure: WireExchangeError | undefined;
+      for (let i = 0; i < attempts.length; i += 1) {
+        const attempt = attempts[i];
+        try {
+          const response = await sendResolved(materializeProxyAttempt(request, attempt), streaming, deadline);
+          return attempt.meta !== undefined ? { ...response, proxyRoute: attempt.meta } : response;
+        } catch (err) {
+          // Chain walking: a dial-level failure REACHING an
+          // environment-plane proxy falls through to the next chain
+          // entry (Chromium's own fallback semantics). Everything else
+          // — CONNECT rejections, target-leg failures, explicit
+          // request-plane proxies — surfaces as-is. A streamed send
+          // only ever retries before its head (a post-head failure
+          // resolves partial instead of throwing), so the observer
+          // never sees a double head.
+          const nextExists = i < attempts.length - 1;
+          if (attempt.environmentChain === true && nextExists && isProxyDialFailure(err)) {
+            lastDialFailure = err;
+            continue;
+          }
+          throw err;
+        }
+      }
+      // Unreachable while the attempt list is non-empty (the last
+      // attempt never falls through) — defensive for the type system.
+      throw lastDialFailure ?? new TransportError('The proxy fallback chain produced no attempt to send.');
+    } finally {
+      deadline?.clear();
     }
   };
   return {

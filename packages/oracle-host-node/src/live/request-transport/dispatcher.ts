@@ -121,16 +121,19 @@ function clientCertKeySegment(request: TransportRequest): string {
  * a short content hash of the `user:password` value — same discipline
  * as {@link clientCertKeySegment}: rotating the vault entry under the
  * same name mints a fresh dispatcher, and the credential itself never
- * sits in a Map key. Only contributes while a proxy URL is set — a
- * credential without a proxy has nothing to authenticate against.
+ * sits in a Map key. An environment-plane credential (inline in an env
+ * var — no vault identity) keys as `inline` plus the same content
+ * hash, so two ambient proxies at one URL with different credentials
+ * never share a dispatcher. Only contributes while a proxy URL is set
+ * — a credential without a proxy has nothing to authenticate against.
  */
 function proxyCredKeySegment(request: TransportRequest): string {
-  if (request.proxyCredentialRef === undefined) return '';
+  if (request.proxyCredentialRef === undefined && request.proxyCredential === undefined) return '';
   const hash = createHash('sha256')
     .update(request.proxyCredential ?? '')
     .digest('hex')
     .slice(0, 16);
-  return `${request.proxyCredentialRef}#${hash}`;
+  return `${request.proxyCredentialRef ?? 'inline'}#${hash}`;
 }
 
 /**

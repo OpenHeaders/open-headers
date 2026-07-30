@@ -95,6 +95,7 @@ export const REQUEST_FIELD_ORDER = [
   'httpVersion',
   'resolveToAddress',
   'clientCertificateRef',
+  'proxyMode',
   'proxyUrl',
   'proxyCredentialRef',
   'unixSocketPath',

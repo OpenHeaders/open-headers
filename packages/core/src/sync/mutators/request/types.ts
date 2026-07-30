@@ -10,7 +10,7 @@
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
  * `sslVerification`, `tlsMinVersion`, `tlsMaxVersion`,
  * `tlsCipherSuites`, `httpVersion`, `resolveToAddress`,
- * `clientCertificateRef`, `proxyUrl`, `proxyCredentialRef`,
+ * `clientCertificateRef`, `proxyMode`, `proxyUrl`, `proxyCredentialRef`,
  * `unixSocketPath`, `cookieJar`, `timeoutMs`,
  * `maxResponseBytes`, `maxRedirects`,
  * `followOriginalHttpMethod`, `followAuthorizationHeader`,

@@ -12,6 +12,7 @@ import {
   createNodeRequestTransport,
   type NodeFetchFn,
   type NodeRequestFn,
+  type NodeRequestTransportOptions,
 } from '../../../src/live/node-request-transport';
 
 export function makeRequest(overrides: Partial<TransportRequest> = {}): TransportRequest {
@@ -43,7 +44,11 @@ export function redirectResponse(status: number, location: string): Response {
 export function makeRig() {
   const fetchMock = vi.fn<NodeFetchFn>();
   const requestMock = vi.fn<NodeRequestFn>();
-  const transport = () => createNodeRequestTransport({ fetchFn: fetchMock, requestFn: requestMock });
+  // The environment plane is OFF by default so every suite stays
+  // hermetic against the running machine's proxy env vars; the
+  // environment-plane suite passes its own fake resolver.
+  const transport = (options: Partial<NodeRequestTransportOptions> = {}) =>
+    createNodeRequestTransport({ fetchFn: fetchMock, requestFn: requestMock, environmentProxy: null, ...options });
   /** Init of the n-th recorded fetch call — the transport always passes one. */
   const callInit = (n = 0): NonNullable<Parameters<NodeFetchFn>[1]> => {
     const init = fetchMock.mock.calls[n]?.[1];

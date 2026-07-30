@@ -192,6 +192,7 @@ export async function executeOverTransport(
     clientCertificatePem: resolved.clientCertificatePem,
     clientCertificateKeyPem: resolved.clientCertificateKeyPem,
     clientCertificatePassphrase: resolved.clientCertificatePassphrase,
+    proxyMode: resolved.proxyMode,
     proxyUrl: resolved.proxyUrl,
     proxyCredentialRef: resolved.proxyCredentialRef,
     proxyCredential: resolved.proxyCredential,
@@ -286,6 +287,9 @@ export async function executeOverTransport(
       // The always-on negotiated protocol — reported from the wire on
       // every send whose transport owns its dial, never from the knob.
       ...(response.httpVersion !== undefined ? { httpVersion: response.httpVersion } : {}),
+      // Proxy-routing wire truth — which plane decided the effective
+      // route (only a transport that owns its egress can know).
+      ...(response.proxyRoute !== undefined ? { proxyRoute: { ...response.proxyRoute } } : {}),
       // Wire bytes this executor serialized for the request — a lower
       // bound (the network stack adds headers the seam never sees),
       // presented as such by the size popover.

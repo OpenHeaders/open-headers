@@ -165,6 +165,7 @@ export function requestExecutableFingerprint(request: Request): string {
     httpVersion: request.httpVersion ?? null,
     resolveToAddress: request.resolveToAddress ?? null,
     clientCertificateRef: request.clientCertificateRef ?? null,
+    proxyMode: request.proxyMode ?? null,
     proxyUrl: request.proxyUrl ?? null,
     proxyCredentialRef: request.proxyCredentialRef ?? null,
     unixSocketPath: request.unixSocketPath ?? null,

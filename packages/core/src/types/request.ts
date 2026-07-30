@@ -33,6 +33,7 @@ import type {
   OAuth1AuthSchema,
   OAuth2AuthSchema,
   OAuth2FlowSchema,
+  ProxyModeSchema,
   QueryParamSchema,
   RequestBodySchema,
   RequestHeaderSchema,
@@ -128,6 +129,13 @@ export type TlsVersion = v.InferOutput<typeof TlsVersionSchema>;
  * from this knob.
  */
 export type HttpVersion = v.InferOutput<typeof HttpVersionSchema>;
+
+/**
+ * Request-plane proxy routing mode. Absent = inherit the executing
+ * host's environment plane; `'direct'` opts out of any ambient proxy;
+ * `'url'` routes through the request's own `proxyUrl`.
+ */
+export type ProxyMode = v.InferOutput<typeof ProxyModeSchema>;
 
 export type Request = v.InferOutput<typeof RequestSchema>;
 

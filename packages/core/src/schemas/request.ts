@@ -190,6 +190,20 @@ export const ProxyUrlSchema = v.pipe(
 );
 
 /**
+ * Request-plane proxy routing mode. ABSENT is the default and means
+ * INHERIT: the executing host's environment plane (system settings /
+ * PAC on the desktop, HTTP_PROXY-family env vars on the node tier)
+ * resolves whether the send traverses a proxy — see
+ * docs/REQUEST_ENGINE_PROXY_DESIGN.md. `'direct'` is the explicit
+ * opt-out (never proxy this request, whatever the machine says);
+ * `'url'` routes through the request's own `proxyUrl`. The H11 reset
+ * law holds: per-row reset returns the field to absent = inherit.
+ */
+export const PROXY_MODES = ['direct', 'url'] as const;
+
+export const ProxyModeSchema = v.picklist(PROXY_MODES);
+
+/**
  * Reference to a vault string entry by NAME, holding the proxy
  * credentials as `user:password`. Same contract as
  * {@link ClientCertificateRefSchema}: the vault is local-per-device and
@@ -714,7 +728,7 @@ export const RequestBodySchema = v.variant('type', [
   }),
 ]);
 
-export const RequestSchema = v.object({
+const RequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
@@ -824,6 +838,16 @@ export const RequestSchema = v.object({
    * one schema, all runtimes carry the value).
    */
   clientCertificateRef: v.optional(ClientCertificateRefSchema),
+  /**
+   * Proxy routing mode for the send. Absent = INHERIT the executing
+   * host's environment plane (the default — an unmanaged machine
+   * resolves direct and behaves exactly as before; a corporate machine
+   * traverses its pushed proxy with zero per-request configuration).
+   * `'direct'` opts this request out of any ambient proxy; `'url'`
+   * routes through `proxyUrl`. Validation ties the pair — see the
+   * checks on {@link RequestSchema}.
+   */
+  proxyMode: v.optional(ProxyModeSchema),
   /**
    * Route the send through this HTTP(S) proxy instead of connecting
    * directly. The connection to the target tunnels through the proxy
@@ -941,10 +965,28 @@ export const RequestSchema = v.object({
 });
 
 /**
+ * The persisted Request shape, with the cross-field ties the field
+ * schemas can't express. `proxyMode: 'url'` requires a `proxyUrl` (an
+ * URL-mode row with nothing to route through is a config error, not a
+ * direct send) and `'direct'` forbids one (the opt-out must not carry
+ * a dormant URL that silently reactivates on a mode flip). A
+ * `proxyUrl` with the mode ABSENT stays valid and routes explicitly —
+ * the pre-tri-state editor writes only the URL; the P3 settings row
+ * always writes the pair.
+ */
+export const RequestSchema = v.pipe(
+  RequestObjectSchema,
+  v.check((r) => r.proxyMode !== 'url' || r.proxyUrl !== undefined, "Proxy mode 'url' requires a proxy URL"),
+  v.check((r) => r.proxyMode !== 'direct' || r.proxyUrl === undefined, "Proxy mode 'direct' cannot carry a proxy URL"),
+);
+
+/**
  * Content-only request shape — a `Request` minus its identity fields
  * (`schemaVersion`, `uid`, `path`). The unit of pre-fill handoff:
  * importers produce it, the devpanel "Create API request" draft store
  * validates it, and the workbench scratch tab (`seedRequestContent`)
  * consumes it. Nothing is persisted until the user saves the scratch.
+ * Derived from the plain object shape — the proxy-pair ties above
+ * apply at the persist boundary, not to pre-fill drafts.
  */
-export const RequestSeedSchema = v.omit(RequestSchema, ['schemaVersion', 'uid', 'path']);
+export const RequestSeedSchema = v.omit(RequestObjectSchema, ['schemaVersion', 'uid', 'path']);
