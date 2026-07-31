@@ -58,6 +58,7 @@ import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import EditorHeader from '../shell/EditorHeader';
 import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
 import { mergeRequestForSave } from './merge-request-for-save';
+import { firstInvalidRequestSetting, INVALID_SETTING_LABEL_KEY } from './settings-validity';
 import {
   type Draft,
   buildRequestUpdates,
@@ -359,6 +360,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 
   const handleSave = useCallback(async () => {
+    // Save gate: a settings value the schema would reject never
+    // reaches the wire. Refusing here keeps the editor dirty, so the
+    // invalid experiment stays an unsaved draft the user can fix or
+    // undo — instead of persisting bad data or claiming "Saved".
+    const invalidSetting = firstInvalidRequestSetting(draft);
+    if (invalidSetting !== null) {
+      message.error(
+        t('workbench.editors.request.toast.invalidSetting', { label: t(INVALID_SETTING_LABEL_KEY[invalidSetting]) }),
+      );
+      return;
+    }
     if (isCreateMode) {
       onSaveDraft?.({
         name: draftName ?? 'New Request',

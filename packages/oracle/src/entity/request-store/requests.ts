@@ -54,6 +54,7 @@ export async function addRequest(
     ...(seed?.httpVersion !== undefined ? { httpVersion: seed.httpVersion } : {}),
     ...(seed?.resolveToAddress !== undefined ? { resolveToAddress: seed.resolveToAddress } : {}),
     ...(seed?.clientCertificateRef !== undefined ? { clientCertificateRef: seed.clientCertificateRef } : {}),
+    ...(seed?.proxyMode !== undefined ? { proxyMode: seed.proxyMode } : {}),
     ...(seed?.proxyUrl !== undefined ? { proxyUrl: seed.proxyUrl } : {}),
     ...(seed?.proxyCredentialRef !== undefined ? { proxyCredentialRef: seed.proxyCredentialRef } : {}),
     ...(seed?.unixSocketPath !== undefined ? { unixSocketPath: seed.unixSocketPath } : {}),
@@ -177,8 +178,8 @@ export async function updateRequest(
   // SW-side oracle exposes `(itemId, item, key)`; adapt to the
   // `LiveSetEntries` shape (`orderKey` rename) so the diff-detect can
   // compute `moveBefore` against fractional keys. The second reader
-  // supplies the live `auth` / `body` variant as the per-leaf
-  // flatten-diff baseline from the canonical pre-image.
+  // answers any scalar path from the canonical pre-image — the
+  // auth/body flatten-diff baseline and the explicit-clear guard.
   const payload = buildUpdateBatch(
     uid,
     updates,
@@ -187,11 +188,7 @@ export async function updateRequest(
       oracle
         .liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, setPath)
         .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
-    (_requestUid, path) => {
-      if (path === 'auth') return existing.auth;
-      if (path === 'body') return existing.body;
-      return undefined;
-    },
+    (_requestUid, path) => existing[path as keyof Request],
   );
   if (payload.batch.mutations.length === 0) {
     // No-op patch — return the canonical pre-image.

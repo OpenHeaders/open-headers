@@ -19,6 +19,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.deletedOtherTab': 'Request was deleted from another tab',
   'workbench.editors.request.toast.updateFailed': 'Failed to update request',
   'workbench.editors.request.toast.updateFailedDetail': 'Failed to update request: {message}',
+  'workbench.editors.request.toast.invalidSetting': '{label} is invalid — fix it in Settings before saving.',
   'workbench.editors.request.toast.savedExample': 'Saved example "{name}"',
   'workbench.editors.request.toast.saveExampleFailed': 'Failed to save example',
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Failed to save example: {message}',

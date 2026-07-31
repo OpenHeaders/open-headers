@@ -12,7 +12,11 @@
  * call the imperative functions directly with an explicit workspace id.
  */
 
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import {
+  buildAddBatch,
+  buildDeleteBatch,
+  buildUpdateBatch,
+} from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Request } from '@openheaders/core/types';
 import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/mirrors/request-sync-mirror';
 import {
@@ -76,14 +80,12 @@ export async function applyRequestUpdate(
       for (const row of rows) byUid.set(row.uid, row);
       return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
     },
-    // Baseline for the auth / body per-leaf flatten-diff — the live
-    // materialized variant, read from the same canonical snapshot.
+    // Scalar pre-image reader from the same canonical snapshot — the
+    // auth/body flatten-diff baseline and the explicit-clear guard.
     (uid, path) => {
       const snap = mirror.getRequestMirror(uid)?.request;
       if (!snap) return undefined;
-      if (path === 'auth') return snap.auth;
-      if (path === 'body') return snap.body;
-      return undefined;
+      return snap[path as keyof Request];
     },
   );
   const ack = await applySyncPayload(payload);

@@ -39,6 +39,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.deletedOtherTab': '请求已在另一个标签页中被删除',
   'workbench.editors.request.toast.updateFailed': '更新请求失败',
   'workbench.editors.request.toast.updateFailedDetail': '更新请求失败：{message}',
+  'workbench.editors.request.toast.invalidSetting': '{label}无效——请先在设置中修正后再保存。',
   'workbench.editors.request.toast.savedExample': '已保存示例“{name}”',
   'workbench.editors.request.toast.saveExampleFailed': '保存示例失败',
   'workbench.editors.request.toast.saveExampleFailedDetail': '保存示例失败：{message}',

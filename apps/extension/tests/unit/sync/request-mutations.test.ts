@@ -212,6 +212,53 @@ describe('buildUpdateBatch — request set replacement', () => {
   });
 });
 
+describe('buildUpdateBatch — explicit scalar clears', () => {
+  // The editors encode "cleared back to default" as a key explicitly
+  // present with `undefined` (the Settings tab's reset affordances,
+  // the proxy row's Inherit option). The pre-image reader gates the
+  // tombstone so untouched default fields never emit.
+  const liveValues =
+    (values: Record<string, unknown>): LiveFieldValue =>
+    (_uid, path) =>
+      values[path];
+
+  it('emits unsetField for a cleared scalar the pre-image carries', () => {
+    const { batch } = buildUpdateBatch(
+      'rq',
+      { timeoutMs: undefined, proxyMode: undefined },
+      ctx,
+      liveOf([]),
+      liveValues({ timeoutMs: 5000, proxyMode: 'direct' }),
+    );
+    const bodies = batch.mutations.map((m) => m.body);
+    expect(bodies).toHaveLength(2);
+    expect(bodies.every((b) => b.kind === 'unsetField')).toBe(true);
+    expect(bodies.map((b) => (b.kind === 'unsetField' ? b.path : '')).sort()).toEqual(['proxyMode', 'timeoutMs']);
+  });
+
+  it('emits nothing for a cleared scalar that is already absent', () => {
+    const { batch } = buildUpdateBatch(
+      'rq',
+      { timeoutMs: undefined, sslVerification: undefined },
+      ctx,
+      liveOf([]),
+      liveValues({}),
+    );
+    expect(batch.mutations).toHaveLength(0);
+  });
+
+  it('never tombstones a set-modeled path on an undefined patch value', () => {
+    const { batch } = buildUpdateBatch(
+      'rq',
+      { headers: undefined },
+      ctx,
+      liveOf([{ itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') }]),
+      liveValues({ headers: [header('h1', 'X-A', 'a')] }),
+    );
+    expect(batch.mutations).toHaveLength(0);
+  });
+});
+
 function expectFinalOrderMatches(
   live: ReadonlyArray<{ itemId: string; orderKey: string }>,
   bodies: ReadonlyArray<MutationBody>,

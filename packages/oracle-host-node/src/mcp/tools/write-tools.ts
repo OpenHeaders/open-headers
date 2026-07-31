@@ -902,12 +902,7 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
             input as Partial<Omit<Request, 'uid' | 'path'>>,
             mintMcpContext(workspaceId),
             liveSetEntriesFor(oracle, REQUEST_ENTITY_TYPE),
-            (uid, path) => {
-              const current = findRequest(workspaceId, uid);
-              if (path === 'auth') return current.auth;
-              if (path === 'body') return current.body;
-              return undefined;
-            },
+            (uid, path) => findRequest(workspaceId, uid)[path as keyof Request],
           );
           await applyMcpMutation(payload);
           return {
