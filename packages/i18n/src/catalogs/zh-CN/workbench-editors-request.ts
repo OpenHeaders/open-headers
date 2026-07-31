@@ -666,6 +666,28 @@ export const workbenchEditorsRequest = {
     '无——没有已存 Cookie 匹配，或请求上自设的 Cookie 标头胜出。',
   'workbench.editors.request.response.meta.jarStoredLabel': '从 Set-Cookie 响应存入',
   'workbench.editors.request.response.meta.jarStoredNone': '无——没有响应设置 Cookie。',
+  'workbench.editors.request.response.meta.proxyTag': '经代理',
+  'workbench.editors.request.response.meta.proxyTitle': '代理路由',
+  'workbench.editors.request.response.meta.proxySummaryRequest':
+    '本次运行经其自身请求设置中所设的代理隧道传输——记录自发送实际所做的。',
+  'workbench.editors.request.response.meta.proxySummaryEnvironment':
+    '本次运行经执行设备环境所指定的代理隧道传输——记录自运行实际所做的，绝非实时读取设置。',
+  'workbench.editors.request.response.meta.proxyRowUrl': '代理',
+  'workbench.editors.request.response.meta.proxyRowSource': '决定方',
+  'workbench.editors.request.response.meta.proxySourceRequest': '请求设置',
+  'workbench.editors.request.response.meta.proxySourceEnvironment': '环境代理设置',
+  'workbench.editors.request.response.meta.proxySourceEnv': '环境变量',
+  'workbench.editors.request.response.meta.proxySourceSystem': '系统代理设置',
+  'workbench.editors.request.response.meta.proxySourceManual': '手动代理配置',
+  'workbench.editors.request.response.meta.proxySourcePac': 'PAC 脚本',
+  'workbench.editors.request.response.meta.proxyStandDownTag': '代理已绕过',
+  'workbench.editors.request.response.meta.proxyStandDownTitle': '环境代理已让位',
+  'workbench.editors.request.response.meta.proxyStandDownUnixSocket':
+    '环境指定了代理，但本次运行的目标是代理隧道无法拨号的本地套接字——因此直连进行。',
+  'workbench.editors.request.response.meta.proxyStandDownResolveToAddress':
+    '环境指定了代理，但本次运行固定了自己的地址解析，而代理会覆盖它——因此直连进行。',
+  'workbench.editors.request.response.meta.proxyStandDownHttpVersion3':
+    '环境指定了代理，但本次运行固定为 HTTP/3，它拨号自己的 QUIC 路径——因此直连进行。',
   'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 次重定向' }),
   'workbench.editors.request.response.meta.redirectsTitle': '重定向链',

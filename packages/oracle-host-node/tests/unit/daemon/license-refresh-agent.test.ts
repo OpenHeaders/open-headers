@@ -3,8 +3,8 @@
  * marker / outside the renewal window / lapsed latch), the exact wire
  * payload, the success swap through the slot (including the distinct
  * refresh audit stamp), refusal-vs-transport handling, and the timer
- * scheduling contract. Injected fetch/now/timers throughout — no real
- * network, no real clock.
+ * scheduling contract. Injected transport/now/timers throughout — no
+ * real network, no real clock.
  */
 
 import * as fs from 'node:fs';
@@ -14,6 +14,11 @@ import { resetAuditSink, setAuditSink } from '@openheaders/core/identity';
 import type { License, LicenseKeyRing } from '@openheaders/core/licensing';
 import { generateLicenseSigningKeys, signLicense } from '@openheaders/core/licensing';
 import type { DaemonUserRecord } from '@openheaders/core/types';
+import {
+  type RequestTransport,
+  TransportError,
+  type TransportResponse,
+} from '@openheaders/oracle/live/request-exec/transport';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   installLicenseRefreshAgent,
@@ -32,25 +37,39 @@ let filePath: string;
 let signer: { ring: LicenseKeyRing; sign(claims: unknown): Promise<string> };
 let disposables: Array<{ dispose(): void }>;
 
-interface FetchCall {
+interface SendCall {
   url: string;
-  method: string | undefined;
+  method: string;
   body: unknown;
 }
 
-function makeFetch(respond: () => Response | Error): { calls: FetchCall[]; fetchFn: typeof fetch } {
-  const calls: FetchCall[] = [];
-  const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
-    calls.push({
-      url: String(input),
-      method: init?.method,
-      body: typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body,
-    });
-    const result = respond();
-    if (result instanceof Error) throw result;
-    return result;
-  }) as typeof fetch;
-  return { calls, fetchFn };
+function transportResponse(bodyText: string, status: number): TransportResponse {
+  return {
+    status,
+    statusText: '',
+    url: LICENSE_REFRESH_ENDPOINT,
+    headers: [],
+    body: bodyText,
+    bodyTruncated: false,
+    bodyBytes: bodyText.length,
+  };
+}
+
+function makeTransport(respond: () => TransportResponse | Error): { calls: SendCall[]; transport: RequestTransport } {
+  const calls: SendCall[] = [];
+  const transport: RequestTransport = {
+    async send(request) {
+      calls.push({
+        url: request.url,
+        method: request.method,
+        body: request.body.kind === 'raw' ? JSON.parse(request.body.content) : request.body,
+      });
+      const result = respond();
+      if (result instanceof Error) throw result;
+      return result;
+    },
+  };
+  return { calls, transport };
 }
 
 function makeLicense(overrides: Partial<License> = {}): License {
@@ -81,7 +100,7 @@ async function makeSlot(): Promise<LicenseSlotHandle> {
 
 function makeAgent(
   slot: LicenseSlotHandle,
-  fetchFn: typeof fetch,
+  transport: RequestTransport,
   options: {
     timers?: Array<{ ms: number }>;
     now?: () => number;
@@ -93,7 +112,7 @@ function makeAgent(
     slot,
     appVersion: APP_VERSION,
     platform: 'testos',
-    fetchFn,
+    transport,
     ring: signer.ring,
     ...(options.listUsers ? { listUsers: options.listUsers } : {}),
     ...(options.replaceArtifact ? { replaceArtifact: options.replaceArtifact } : {}),
@@ -160,8 +179,8 @@ afterEach(() => {
 describe('license refresh agent — stand-down matrix', () => {
   it('does not POST when no license is installed', async () => {
     const slot = await makeSlot();
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 200 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 200));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(calls).toHaveLength(0);
   });
@@ -169,8 +188,8 @@ describe('license refresh agent — stand-down matrix', () => {
   it('does not POST for an offline: true license', async () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense({ offline: true })));
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 200 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 200));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(calls).toHaveLength(0);
   });
@@ -178,8 +197,8 @@ describe('license refresh agent — stand-down matrix', () => {
   it('does not POST outside the renewal window', async () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense({ validUntil: NOW + 40 * DAY })));
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 200 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 200));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(calls).toHaveLength(0);
   });
@@ -187,13 +206,13 @@ describe('license refresh agent — stand-down matrix', () => {
   it('POSTs exactly at the window boundary crossing', async () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense({ validUntil: NOW + 30 * DAY })));
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 500 }));
+    const { calls, transport } = makeTransport(() => transportResponse('', 500));
     // validUntil − now === 30d: still outside (strict less-than).
-    const atBoundary = makeAgent(slot, fetchFn);
+    const atBoundary = makeAgent(slot, transport);
     await atBoundary.tick();
     expect(calls).toHaveLength(0);
     // One ms later the file is inside the window.
-    const inside = makeAgent(slot, fetchFn, { now: () => NOW + 1 });
+    const inside = makeAgent(slot, transport, { now: () => NOW + 1 });
     await inside.tick();
     expect(calls).toHaveLength(1);
   });
@@ -202,8 +221,8 @@ describe('license refresh agent — stand-down matrix', () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense({ validUntil: NOW - 5 * DAY })));
     expect(slot.getSnapshot().status).toBe('grace');
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 500 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 500));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(calls).toHaveLength(1);
   });
@@ -214,8 +233,8 @@ describe('license refresh agent — wire payload', () => {
     const slot = await makeSlot();
     const installed = await signer.sign(makeLicense());
     await slot.install(installed);
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 500 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 500));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toBe('https://license.openheaders.io/refresh');
@@ -233,8 +252,8 @@ describe('license refresh agent — success swap', () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense()));
     const fresh = await signer.sign(makeLicense({ validUntil: NOW + 45 * DAY, seats: 30 }));
-    const { fetchFn } = makeFetch(() => new Response(`${fresh}\n`, { status: 200 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { transport } = makeTransport(() => transportResponse(`${fresh}\n`, 200));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     const snapshot = slot.getSnapshot();
     expect(snapshot.status).toBe('licensed');
@@ -250,8 +269,8 @@ describe('license refresh agent — success swap', () => {
     const capabilities: string[] = [];
     setAuditSink((entry) => capabilities.push(entry.capability));
     const fresh = await signer.sign(makeLicense({ validUntil: NOW + 45 * DAY }));
-    const { fetchFn } = makeFetch(() => new Response(fresh, { status: 200 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { transport } = makeTransport(() => transportResponse(fresh, 200));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(capabilities).toEqual(['daemon.license-refresh']);
   });
@@ -260,8 +279,8 @@ describe('license refresh agent — success swap', () => {
     const slot = await makeSlot();
     const installed = await signer.sign(makeLicense());
     await slot.install(installed);
-    const { calls, fetchFn } = makeFetch(() => new Response('not a license', { status: 200 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('not a license', 200));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     expect(fs.readFileSync(filePath, 'utf8').trim()).toBe(installed);
     await agent.tick();
@@ -273,8 +292,8 @@ describe('license refresh agent — refusal vs transport', () => {
   it('latches off after a 4xx until a different license is installed', async () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense()));
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 410 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 410));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     await agent.tick();
     expect(calls).toHaveLength(1);
@@ -287,8 +306,8 @@ describe('license refresh agent — refusal vs transport', () => {
   it('retries on the next tick after a network failure', async () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense()));
-    const { calls, fetchFn } = makeFetch(() => new Error('connect ECONNREFUSED'));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => new TransportError('connect ECONNREFUSED'));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     await agent.tick();
     expect(calls).toHaveLength(2);
@@ -298,8 +317,8 @@ describe('license refresh agent — refusal vs transport', () => {
   it('retries on the next tick after a 5xx', async () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense()));
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 503 }));
-    const agent = makeAgent(slot, fetchFn);
+    const { calls, transport } = makeTransport(() => transportResponse('', 503));
+    const agent = makeAgent(slot, transport);
     await agent.tick();
     await agent.tick();
     expect(calls).toHaveLength(2);
@@ -324,8 +343,8 @@ describe('license refresh agent — personal seats', () => {
     const replaced: Array<{ licenseId: string; licenseKey: string }> = [];
     const capabilities: string[] = [];
     setAuditSink((entry) => capabilities.push(entry.capability));
-    const { calls, fetchFn } = makeFetch(() => new Response(`${fresh}\n`, { status: 200 }));
-    const agent = makeAgent(slot, fetchFn, {
+    const { calls, transport } = makeTransport(() => transportResponse(`${fresh}\n`, 200));
+    const agent = makeAgent(slot, transport, {
       listUsers: async () => [
         makeUserRecord({
           userId: 'u1',
@@ -349,8 +368,8 @@ describe('license refresh agent — personal seats', () => {
     const slot = await makeSlot();
     const inWindow = await signer.sign(makePersonal());
     const outside = await signer.sign(makePersonal({ licenseId: 'lic-personal-2', validUntil: NOW + 40 * DAY }));
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 500 }));
-    const agent = makeAgent(slot, fetchFn, {
+    const { calls, transport } = makeTransport(() => transportResponse('', 500));
+    const agent = makeAgent(slot, transport, {
       listUsers: async () => [
         makeUserRecord({
           userId: 'u1',
@@ -389,8 +408,8 @@ describe('license refresh agent — personal seats', () => {
   it('latches per licenseId on 4xx and re-arms when the stored artifact changes', async () => {
     const slot = await makeSlot();
     let installed = await signer.sign(makePersonal());
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 410 }));
-    const agent = makeAgent(slot, fetchFn, {
+    const { calls, transport } = makeTransport(() => transportResponse('', 410));
+    const agent = makeAgent(slot, transport, {
       listUsers: async () => [
         makeUserRecord({
           userId: 'u1',
@@ -414,8 +433,8 @@ describe('license refresh agent — personal seats', () => {
     const foreignLineage = await signer.sign(makePersonal({ licenseId: 'lic-other', validUntil: NOW + 45 * DAY }));
     const replaced: string[] = [];
     let body = 'not a license';
-    const { calls, fetchFn } = makeFetch(() => new Response(body, { status: 200 }));
-    const agent = makeAgent(slot, fetchFn, {
+    const { calls, transport } = makeTransport(() => transportResponse(body, 200));
+    const agent = makeAgent(slot, transport, {
       listUsers: async () => [
         makeUserRecord({
           userId: 'u1',
@@ -444,7 +463,7 @@ describe('license refresh agent — scheduling', () => {
       slot,
       appVersion: APP_VERSION,
       platform: 'testos',
-      fetchFn: makeFetch(() => new Response('', { status: 200 })).fetchFn,
+      transport: makeTransport(() => transportResponse('', 200)).transport,
       now: () => NOW,
       setTimer: (fn, ms) => {
         timers.push({ fn, ms });
@@ -466,8 +485,8 @@ describe('license refresh agent — scheduling', () => {
     const slot = await makeSlot();
     await slot.install(await signer.sign(makeLicense()));
     const timers: Array<{ ms: number }> = [];
-    const { calls, fetchFn } = makeFetch(() => new Response('', { status: 200 }));
-    const agent = makeAgent(slot, fetchFn, { timers });
+    const { calls, transport } = makeTransport(() => transportResponse('', 200));
+    const agent = makeAgent(slot, transport, { timers });
     agent.dispose();
     await agent.tick();
     expect(calls).toHaveLength(0);

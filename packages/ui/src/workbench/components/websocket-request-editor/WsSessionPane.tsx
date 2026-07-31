@@ -22,6 +22,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
 import type { LiveWsSession, WsSessionTiming } from './useLiveWsSession';
@@ -188,6 +189,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       ) : (
         <>
           {closeTag}
+          {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           <Text type="secondary" style={{ fontSize: 11 }} data-testid="ws-session-duration">
             {t('workbench.editors.websocket.session.duration', { ms: snapshot.durationMs })}
           </Text>

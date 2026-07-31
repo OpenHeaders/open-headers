@@ -679,6 +679,28 @@ export const workbenchEditorsRequest = {
     'Nothing — no stored cookie matched, or a Cookie header set on the request won.',
   'workbench.editors.request.response.meta.jarStoredLabel': 'Stored from Set-Cookie responses',
   'workbench.editors.request.response.meta.jarStoredNone': 'Nothing — no response set a cookie.',
+  'workbench.editors.request.response.meta.proxyTag': 'Proxied',
+  'workbench.editors.request.response.meta.proxyTitle': 'Proxy route',
+  'workbench.editors.request.response.meta.proxySummaryRequest':
+    'This run tunneled through the proxy set in its own request settings — recorded from what the send actually did.',
+  'workbench.editors.request.response.meta.proxySummaryEnvironment':
+    'This run tunneled through the proxy the executing device’s environment names — recorded from what the run actually did, never a live settings read.',
+  'workbench.editors.request.response.meta.proxyRowUrl': 'Proxy',
+  'workbench.editors.request.response.meta.proxyRowSource': 'Decided by',
+  'workbench.editors.request.response.meta.proxySourceRequest': 'Request settings',
+  'workbench.editors.request.response.meta.proxySourceEnvironment': 'Environment proxy settings',
+  'workbench.editors.request.response.meta.proxySourceEnv': 'Environment variables',
+  'workbench.editors.request.response.meta.proxySourceSystem': 'System proxy settings',
+  'workbench.editors.request.response.meta.proxySourceManual': 'Manual proxy configuration',
+  'workbench.editors.request.response.meta.proxySourcePac': 'PAC script',
+  'workbench.editors.request.response.meta.proxyStandDownTag': 'Proxy bypassed',
+  'workbench.editors.request.response.meta.proxyStandDownTitle': 'Environment proxy stood down',
+  'workbench.editors.request.response.meta.proxyStandDownUnixSocket':
+    'The environment names a proxy, but this run targets a local socket a proxy tunnel can’t dial — it proceeded direct.',
+  'workbench.editors.request.response.meta.proxyStandDownResolveToAddress':
+    'The environment names a proxy, but this run pins its own address resolution, which a proxy would override — it proceeded direct.',
+  'workbench.editors.request.response.meta.proxyStandDownHttpVersion3':
+    'The environment names a proxy, but this run is pinned to HTTP/3, which dials its own QUIC path — it proceeded direct.',
   'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} redirect', other: '{count} redirects' }),
   'workbench.editors.request.response.meta.redirectsTitle': 'Redirect chain',

@@ -18,6 +18,7 @@ import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/da
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import { formatBytes } from './response-format';
 import { statusDisplayLabel, useStatusPillStyle } from './response-status';
 import {
@@ -764,6 +765,12 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
               {streamedTagLabel(response.streamedCapture.endedBy, t)}
             </Tag>
           </InfoPopover>
+        </>
+      )}
+      {proxyRouteHasBadge(response.proxyRoute) && (
+        <>
+          <MetaDot />
+          <ProxyRouteTag route={response.proxyRoute} />
         </>
       )}
       {response.executedOn !== undefined && (

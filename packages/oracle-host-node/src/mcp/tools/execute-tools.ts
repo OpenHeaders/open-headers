@@ -7,9 +7,10 @@
  * runner uses — no parallel data path:
  *
  *   - `requests_send` runs one saved request through `runStepRequest`
- *     (full scope-chain resolution, TOTP cooldown gate) over the host
- *     transport, wrapped in the per-origin refresh rate limiter so
- *     agent sends share the same token bucket as scheduled refreshes.
+ *     (full scope-chain resolution, TOTP cooldown gate, OAuth refresh
+ *     via the host transport's seam) over the host transport, wrapped
+ *     in the per-origin refresh rate limiter so agent sends share the
+ *     same token bucket as scheduled refreshes.
  *   - `workflows_run` fires the host's chain runner — the same gated
  *     run a cadence tick performs, including the atomic cache commit
  *     and publish-on-run for exposed live variables — then reads the
@@ -23,6 +24,7 @@
 
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { getWorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { withRefreshRateLimit } from '@openheaders/oracle/live/request-exec/rate-limiter';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
@@ -119,7 +121,12 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
         const request = findRequest(workspaceId, requireStringArg(args, 'uid'));
         const environmentId = resolveEnvironmentArg(workspaceId, args);
         const snapshot = await withRefreshRateLimit(request.url, () =>
-          runStepRequest(request, { workspaceId, environmentId, transport: deps.transport }),
+          runStepRequest(request, {
+            workspaceId,
+            environmentId,
+            transport: deps.transport,
+            refreshOAuth: buildRefreshOAuthHook(workspaceId, deps.transport),
+          }),
         );
         const requestRow = { uid: request.uid, name: request.name, method: request.method, url: request.url };
         if (snapshot.error != null) {

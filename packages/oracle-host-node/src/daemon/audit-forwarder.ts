@@ -4,7 +4,10 @@
  * Streams `audit_log` rows to an operator-configured HTTP collector as
  * JSON POST batches (`{ entries: AuditLogEntry[] }`). This is the
  * daemon's ONE deliberate outbound plane: absent config, nothing here
- * is installed and the zero-outbound posture holds unchanged.
+ * is installed and the zero-outbound posture holds unchanged. Delivery
+ * rides the node request transport, so the daemon's environment-proxy
+ * plane (system/env/manual) routes the collector POST like any other
+ * egress.
  *
  * Delivery is at-least-once via a durable cursor: each acknowledged
  * batch persists the full keyset position (`occurred_at, org_id, seq`)
@@ -21,13 +24,23 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
+import type {
+  RequestTransport,
+  TransportHeader,
+  TransportResponse,
+} from '@openheaders/oracle/live/request-exec/transport';
 import type Database from 'better-sqlite3';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 import { type AuditQueryCursor, queryAuditEntries } from '../sync/sqlite-audit-log';
 
 const SCOPE = 'AuditForward';
 
 const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_INTERVAL_MS = 5_000;
+/** Ack bodies are discarded — the cap only bounds a hostile collector. */
+const MAX_ACK_BODY_BYTES = 64 * 1024;
+
+const nodeTransport = createNodeRequestTransport();
 
 /** The `auditForwarding` block of `daemon.json`, parsed by the host shell. */
 export interface DaemonAuditForwardingConfig {
@@ -44,6 +57,9 @@ export interface DaemonAuditForwardingConfig {
 export interface InstallAuditForwarderInput {
   db: Database.Database;
   config: DaemonAuditForwardingConfig;
+  /** Test seam — production rides the module's node transport (and
+   *  through it the environment-proxy plane). */
+  transport?: RequestTransport;
 }
 
 export interface AuditForwarderHandle {
@@ -79,7 +95,11 @@ export function installAuditForwarder(input: InstallAuditForwarderInput): AuditF
      ON CONFLICT (id) DO UPDATE SET occurred_at = excluded.occurred_at, org_id = excluded.org_id, seq = excluded.seq`,
   );
   const batchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
-  const headers: Record<string, string> = { 'content-type': 'application/json', ...(config.headers ?? {}) };
+  const transport = input.transport ?? nodeTransport;
+  const headers: TransportHeader[] = [
+    { key: 'content-type', value: 'application/json' },
+    ...Object.entries(config.headers ?? {}).map(([key, value]) => ({ key, value })),
+  ];
 
   let stopped = false;
   let draining = false;
@@ -110,10 +130,17 @@ export function installAuditForwarder(input: InstallAuditForwarderInput): AuditF
         });
         const last = entries[entries.length - 1];
         if (last === undefined) return;
-        let response: Response;
+        let response: TransportResponse;
         try {
-          response = await fetch(config.url, { method: 'POST', headers, body: JSON.stringify({ entries }) });
-          await response.text();
+          response = await transport.send({
+            method: 'POST',
+            url: config.url,
+            headers,
+            body: { kind: 'raw', content: JSON.stringify({ entries }) },
+            redirect: 'follow',
+            credentials: 'omit',
+            maxBodyBytes: MAX_ACK_BODY_BYTES,
+          });
         } catch (err) {
           if (!deliveryDown) {
             deliveryDown = true;
@@ -121,7 +148,7 @@ export function installAuditForwarder(input: InstallAuditForwarderInput): AuditF
           }
           return;
         }
-        if (!response.ok) {
+        if (response.status < 200 || response.status >= 300) {
           if (!deliveryDown) {
             deliveryDown = true;
             logger.warn(SCOPE, `collector answered ${response.status} — will retry with the cursor held`);

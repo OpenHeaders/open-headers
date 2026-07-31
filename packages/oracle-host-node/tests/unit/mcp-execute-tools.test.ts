@@ -13,7 +13,9 @@ import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger as consoleLogger } from '@openheaders/core/utils';
+import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import {
@@ -60,6 +62,11 @@ beforeAll(async () => {
       if (req.url === '/big') {
         res.writeHead(200, { 'content-type': 'text/plain' });
         res.end('a'.repeat(150_000));
+        return;
+      }
+      if (req.url === '/token') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ access_token: 'at-fresh', token_type: 'Bearer', expires_in: 3600 }));
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -205,6 +212,44 @@ describe('requests_send', () => {
     expect(response.body).toHaveLength(100_000);
     expect(response.bodyTruncated).toBe(true);
     expect(response.bodyBytes).toBe(150_000);
+  });
+
+  it('refreshes an expired OAuth bundle through the host transport before the send', async () => {
+    const oauthConfig: OAuth2Auth = {
+      type: 'oauth2',
+      credentialRef: 'cred-mcp',
+      flow: 'authorization-code-pkce',
+      tokenEndpoint: `http://127.0.0.1:${port}/token`,
+      clientId: 'client-mcp',
+      scopes: [],
+    };
+    await putTokenBundle(
+      'cred-mcp',
+      {
+        accessToken: 'at-stale',
+        refreshToken: 'rt-1',
+        tokenType: 'Bearer',
+        expiresAt: Date.now() - 1000,
+        issuedAt: Date.now() - 3_600_000,
+        scope: '',
+      },
+      oauthConfig,
+      wsId,
+    );
+    const uid = await saveRequest({
+      name: 'Authed echo',
+      url: `http://127.0.0.1:${port}/echo`,
+      auth: oauthConfig,
+    });
+
+    const result = await call('requests_send', { uid });
+
+    expect(result.sent).toBe(true);
+    // The refresh POST rode the same transport first; the send carried
+    // the fresh token, and the refreshed bundle persisted to the store.
+    expect(captured?.url).toBe('/echo');
+    expect(captured?.headers.authorization).toBe('Bearer at-fresh');
+    expect((await getTokenBundle('cred-mcp', wsId))?.accessToken).toBe('at-fresh');
   });
 
   it('surfaces a network failure as an error result, not an exception', async () => {

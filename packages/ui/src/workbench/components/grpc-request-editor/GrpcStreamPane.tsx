@@ -135,6 +135,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             status={snapshot.grpcStatus}
             durationMs={snapshot.durationMs}
             stopped={snapshot.stopped === true}
+            {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
           />
           <Dropdown
             trigger={['click']}

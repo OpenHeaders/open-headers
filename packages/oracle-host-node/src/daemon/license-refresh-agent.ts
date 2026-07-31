@@ -45,11 +45,18 @@ import {
 } from '@openheaders/core/identity';
 import { LICENSE_PUBLIC_KEYS, type LicenseKeyRing, verifyLicense } from '@openheaders/core/licensing';
 import { logger as consoleLogger } from '@openheaders/core/utils';
+import type { RequestTransport, TransportResponse } from '@openheaders/oracle/live/request-exec/transport';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 import type { LicenseSlotHandle } from './license-slot';
 
 const SCOPE = 'license-refresh';
 
 export const LICENSE_REFRESH_ENDPOINT = 'https://license.openheaders.io/refresh';
+
+/** A signed license file is a few KiB — the cap bounds a hostile answer. */
+const MAX_RESPONSE_BODY_BYTES = 256 * 1024;
+
+const nodeTransport = createNodeRequestTransport();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** First tick waits out host startup, mirroring the update checker. */
@@ -70,8 +77,9 @@ export interface LicenseRefreshAgentOptions {
   replaceArtifact?: typeof replacePersonalSeatArtifact;
   /** Test seam — trust ring for user-attached artifacts; production verifies against the compiled ring. */
   ring?: LicenseKeyRing;
-  /** Test seams — production uses the real network and clock. */
-  fetchFn?: typeof fetch;
+  /** Test seams — production uses the real network (the module's node
+   *  transport, which rides the environment-proxy plane) and clock. */
+  transport?: RequestTransport;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => NodeJS.Timeout;
   clearTimer?: (handle: NodeJS.Timeout) => void;
@@ -93,7 +101,7 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
   const listUsers = options.listUsers ?? listDaemonUsers;
   const replaceArtifact = options.replaceArtifact ?? replacePersonalSeatArtifact;
   const ring = options.ring ?? LICENSE_PUBLIC_KEYS;
-  const fetchFn = options.fetchFn ?? fetch;
+  const transport = options.transport ?? nodeTransport;
   const now = options.now ?? Date.now;
   const setTimer = options.setTimer ?? setTimeout;
   const clearTimer = options.clearTimer ?? clearTimeout;
@@ -130,12 +138,16 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
 
   /** One wire round-trip; owns the once-per-outage delivery logging. */
   const postRefresh = async (licenseKey: string): Promise<RefreshOutcome> => {
-    let response: Response;
+    let response: TransportResponse;
     try {
-      response = await fetchFn(endpoint, {
+      response = await transport.send({
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ licenseKey, appVersion, platform }),
+        url: endpoint,
+        headers: [{ key: 'content-type', value: 'application/json' }],
+        body: { kind: 'raw', content: JSON.stringify({ licenseKey, appVersion, platform }) },
+        redirect: 'follow',
+        credentials: 'omit',
+        maxBodyBytes: MAX_RESPONSE_BODY_BYTES,
       });
     } catch (err) {
       if (!deliveryDown) {
@@ -148,7 +160,7 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
       deliveryDown = false;
       return { kind: 'lapsed', status: response.status };
     }
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       if (!deliveryDown) {
         deliveryDown = true;
         consoleLogger.warn(SCOPE, `license endpoint answered ${response.status} — will retry on the next tick`);
@@ -159,7 +171,7 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
       deliveryDown = false;
       consoleLogger.info(SCOPE, 'license endpoint reachable again');
     }
-    return { kind: 'fresh', text: (await response.text()).trim() };
+    return { kind: 'fresh', text: response.body.trim() };
   };
 
   const attempt = async (licenseKey: string, installedKey: string): Promise<void> => {
@@ -242,7 +254,10 @@ export function installLicenseRefreshAgent(options: LicenseRefreshAgentOptions):
       if (outcome.kind === 'transient') continue;
       const fresh = await verifyLicense(outcome.text, new Date(now()), ring);
       if (fresh.status !== 'licensed' && fresh.status !== 'grace') {
-        consoleLogger.warn(SCOPE, `license endpoint returned an individual-seat artifact the host refuses (${licenseId})`);
+        consoleLogger.warn(
+          SCOPE,
+          `license endpoint returned an individual-seat artifact the host refuses (${licenseId})`,
+        );
         continue;
       }
       if (fresh.license.licenseId !== licenseId) {

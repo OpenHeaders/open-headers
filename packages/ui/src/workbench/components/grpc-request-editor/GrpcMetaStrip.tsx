@@ -8,11 +8,13 @@
  */
 
 import { GRPC_STATUS_NAMES, grpcStatusLabel } from '@openheaders/core/proto';
+import type { ExecutedProxyRoute } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
+import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { MetaDot } from '../request-editor/response/ResponseMetaStrip';
 
 const { Text } = Typography;
@@ -58,7 +60,11 @@ const GrpcMetaStrip: React.FC<{
   durationMs: number;
   /** Cancelled mid-stream — the Stopped badge. */
   stopped?: boolean;
-}> = ({ status, durationMs, stopped }) => {
+  /** The capture's proxy-routing wire truth — the shared attribution
+   *  tag when a plane proxied (or stood down for) the dial. Examples
+   *  strip it with the other volatile internals, so they omit it. */
+  proxyRoute?: ExecutedProxyRoute;
+}> = ({ status, durationMs, stopped, proxyRoute }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -97,6 +103,7 @@ const GrpcMetaStrip: React.FC<{
           </Tag>
         </InfoPopover>
       )}
+      {proxyRouteHasBadge(proxyRoute) && <ProxyRouteTag route={proxyRoute} />}
       <MetaDot />
       <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
         {t('workbench.editors.grpc.response.duration', { ms: durationMs })}

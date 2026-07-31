@@ -90,7 +90,11 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({ snapshot, registry,
   // meaning) · duration, then the ⋯ actions menu.
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-      <GrpcMetaStrip status={snapshot.grpcStatus} durationMs={snapshot.durationMs} />
+      <GrpcMetaStrip
+        status={snapshot.grpcStatus}
+        durationMs={snapshot.durationMs}
+        {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
+      />
       <Dropdown
         trigger={['click']}
         overlayStyle={{ minWidth: 180 }}

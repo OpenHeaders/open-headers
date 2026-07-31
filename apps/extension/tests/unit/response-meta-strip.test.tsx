@@ -175,6 +175,37 @@ describe('ResponseMetaStrip redirect-chain attribution', () => {
   });
 });
 
+describe('ResponseMetaStrip proxy-route attribution', () => {
+  it('shows no proxy tag on a run without the rider', () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-proxy-route')).toBeNull();
+  });
+
+  it('shows no proxy tag when the plane decided plain direct', () => {
+    renderStrip({ proxyRoute: { plane: 'environment', source: 'env' } });
+    expect(screen.queryByTestId('oh-response-proxy-route')).toBeNull();
+  });
+
+  it('tags a proxied run neutral — attribution, not a warning', () => {
+    renderStrip({
+      proxyRoute: { plane: 'environment', source: 'system', proxyUrl: 'http://proxy.openheaders.io:3128' },
+    });
+    const tag = screen.getByTestId('oh-response-proxy-route');
+    expect(tag.textContent).toBe('Proxied');
+    expect(tag.className).not.toContain('ant-tag-warning');
+  });
+
+  it('tags a request-plane proxied run the same way', () => {
+    renderStrip({ proxyRoute: { plane: 'request', proxyUrl: 'http://proxy.openheaders.io:3128' } });
+    expect(screen.getByTestId('oh-response-proxy-route').textContent).toBe('Proxied');
+  });
+
+  it('tags an ambient stand-down as bypassed — the send went direct', () => {
+    renderStrip({ proxyRoute: { plane: 'environment', source: 'env', standDownReason: 'unix-socket' } });
+    expect(screen.getByTestId('oh-response-proxy-route').textContent).toBe('Proxy bypassed');
+  });
+});
+
 describe('ResponseMetaStrip streamed-capture attribution', () => {
   it('shows no streamed tag on a run without the rider', () => {
     renderStrip();
