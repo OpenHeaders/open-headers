@@ -30,10 +30,10 @@ beforeAll(() => {
 });
 
 const CATEGORY: CategoryDef = {
-  id: 'proxy',
-  labelKey: 'workbench.settings.category.proxy.label',
+  id: 'proxyTrust',
+  labelKey: 'workbench.settings.category.proxyTrust.label',
   icon: null,
-  order: 87,
+  order: 89,
 };
 
 interface TrustStatus {
@@ -52,7 +52,12 @@ const CA: ProxyCaPublicInfo = {
 };
 
 function storeState(overrides: Partial<ProxyTrustStoreState> = {}): ProxyTrustStoreState {
-  return { store: 'macos-login-keychain', ref: '/Users/dev/Library/Keychains/login.keychain-db', state: 'absent', ...overrides };
+  return {
+    store: 'macos-login-keychain',
+    ref: '/Users/dev/Library/Keychains/login.keychain-db',
+    state: 'absent',
+    ...overrides,
+  };
 }
 
 function change(overrides: Partial<ProxyTrustChange> = {}): ProxyTrustChange {
@@ -111,7 +116,12 @@ describe('ProxyTrustPane', () => {
       stores: [
         storeState({ state: 'absent' }),
         storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' }),
-        storeState({ store: 'nss-firefox', ref: '/Users/dev/profile.default', state: 'unavailable', detail: 'certutil not found' }),
+        storeState({
+          store: 'nss-firefox',
+          ref: '/Users/dev/profile.default',
+          state: 'unavailable',
+          detail: 'certutil not found',
+        }),
       ],
       changes: [],
     }));
@@ -121,7 +131,7 @@ describe('ProxyTrustPane', () => {
     expect(screen.getByText('No certificate authority exists yet', { exact: false })).toBeTruthy();
     expect(screen.getAllByText('Not installed')).toHaveLength(2);
     expect(screen.getByText('Unreadable')).toBeTruthy();
-    expect(screen.getByText('certutil not found')).toBeTruthy();
+    expect(screen.getByText('default — certutil not found')).toBeTruthy();
     expect(screen.getByTestId('proxy-trust-setup')).toBeTruthy();
     expect(screen.queryByTestId('proxy-trust-remove')).toBeNull();
     expect(screen.queryByTestId('proxy-trust-delete-ca')).toBeNull();
@@ -143,7 +153,10 @@ describe('ProxyTrustPane', () => {
     const fake = installBridge(
       () => ({
         ca: null,
-        stores: [storeState(), storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
+        stores: [
+          storeState(),
+          storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' }),
+        ],
         changes: [],
       }),
       { install: () => ({ ok: true, ca: CA, results: [{ store: 'macos-login-keychain', ref: '/k', ok: true }] }) },
@@ -177,7 +190,10 @@ describe('ProxyTrustPane', () => {
     const fake = installBridge(
       () => ({
         ca: null,
-        stores: [storeState(), storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
+        stores: [
+          storeState(),
+          storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' }),
+        ],
         changes: [],
       }),
       {
@@ -186,7 +202,12 @@ describe('ProxyTrustPane', () => {
           ca: CA,
           results: [
             { store: 'macos-login-keychain', ref: '/k', ok: true },
-            { store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain', ok: false, elevationRequired: true },
+            {
+              store: 'macos-system-keychain',
+              ref: '/Library/Keychains/System.keychain',
+              ok: false,
+              elevationRequired: true,
+            },
           ],
         }),
       },
@@ -216,7 +237,14 @@ describe('ProxyTrustPane', () => {
       {
         remove: () => ({
           ok: false,
-          results: [{ store: 'macos-login-keychain', ref: '/k', ok: false, error: 'store still trusts the certificate after removal' }],
+          results: [
+            {
+              store: 'macos-login-keychain',
+              ref: '/k',
+              ok: false,
+              error: 'store still trusts the certificate after removal',
+            },
+          ],
         }),
       },
     );
@@ -231,7 +259,9 @@ describe('ProxyTrustPane', () => {
     await waitFor(() => expect(fake.remove).toHaveBeenCalledTimes(1));
     expect(fake.remove).toHaveBeenCalledWith({});
     await waitFor(() =>
-      expect(screen.getAllByText('Some stores could not be verified clean.', { exact: false }).length).toBeGreaterThan(0),
+      expect(screen.getAllByText('Some stores could not be verified clean.', { exact: false }).length).toBeGreaterThan(
+        0,
+      ),
     );
     expect(screen.getByText('Failed: store still trusts the certificate after removal')).toBeTruthy();
   });
@@ -264,7 +294,10 @@ describe('ProxyTrustPane', () => {
     installBridge(
       () => ({
         ca: null,
-        stores: [storeState(), storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
+        stores: [
+          storeState(),
+          storeState({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' }),
+        ],
         changes: [change({ store: 'macos-system-keychain', ref: '/Library/Keychains/System.keychain' })],
       }),
       {

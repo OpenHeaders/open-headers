@@ -1,9 +1,9 @@
 /**
  * SystemProxySection — the system plane's settings surface
  * (docs/REQUEST_ENGINE_PROXY_DESIGN.md P3): how THIS device's egress
- * reaches the network. Renders at the top of the Proxy category on the
- * desktop host, above the capture-proxy trust plane — per-device state
- * (the vault posture), never workspace data.
+ * reaches the network. The body of the Proxy · Outbound category on
+ * the desktop host (`SystemProxyPane` owns the header) — per-device
+ * state (the vault posture), never workspace data.
  *
  * Four modes: System (default — resolution delegated to Chromium,
  * "works exactly like Chrome on this machine"), Manual (one proxy URL,

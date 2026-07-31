@@ -1,6 +1,6 @@
 /**
- * ProxyTrustPane — right-pane renderer for the Proxy category (desktop
- * + served web admin). The consent surface over the
+ * ProxyTrustPane — right-pane renderer for the Proxy · HTTPS Trust
+ * child category (desktop + served web admin). The consent surface over the
  * `oh.daemon.proxy.trust.*` admin RPCs (PROXY_SECURITY.md §2.3): a
  * wizard that names what is installed, what it enables, and how it is
  * removed — nothing is installed before the explicit commit; per-store
@@ -17,10 +17,8 @@ import { Alert, App as AntApp, Button, Checkbox, Modal, Popconfirm, Tag, theme }
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { resolveLabel, resolveOptionalDescription } from '../localize';
 import type { CategoryPaneProps } from '../types';
-import SystemProxySection from './system-proxy-section';
 
 interface TrustStatus {
   ca: ProxyCaPublicInfo | null;
@@ -314,12 +312,6 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
           </p>
         )}
       </header>
-
-      {/* System plane first — the per-device egress modes; the
-          capture-proxy trust plane keeps the rest of the pane. Desktop
-          only: the modes are Chromium concerns the Electron main
-          process serves (a served web admin has no seam for them). */}
-      {getCurrentHost() === 'desktop' && <SystemProxySection />}
 
       <p style={{ margin: '0 0 12px', fontSize: 12, color: token.colorTextSecondary }}>
         {t('workbench.settings.proxyTrustPane.intro')}

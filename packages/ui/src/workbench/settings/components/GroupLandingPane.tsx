@@ -9,6 +9,7 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
 import { categoryNavLabel, resolveOptionalDescription } from '../localize';
 import { allCategories } from '../registry';
 import type { CategoryPaneProps } from '../types';
@@ -16,7 +17,14 @@ import type { CategoryPaneProps } from '../types';
 const GroupLandingPane: React.FC<CategoryPaneProps> = ({ category, onSelectCategory }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const children = allCategories().filter((c) => c.parent === category.id);
+  const daemonAdmin = useServerAdminStatus();
+  // Mirror the shell's nav filter: a child whose `when` denies this host
+  // stays linkable only if it renders a teaser — otherwise the link
+  // would target a pane the nav doesn't show.
+  const children = allCategories().filter(
+    (c) =>
+      c.parent === category.id && (c.when?.({ daemonAdmin }) !== false || c.teaserWhenUnavailable !== undefined),
+  );
   const description = resolveOptionalDescription(category, t);
 
   return (

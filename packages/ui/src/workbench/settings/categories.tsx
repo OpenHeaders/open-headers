@@ -18,6 +18,7 @@ import {
   DatabaseOutlined,
   DownloadOutlined,
   EditOutlined,
+  ExportOutlined,
   FunctionOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
@@ -43,6 +44,7 @@ const McpPane = lazy(() => import('./components/mcp-pane'));
 const LicensePane = lazy(() => import('./components/license-pane'));
 const GitWorkspacePane = lazy(() => import('./components/git-workspace-pane'));
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
+const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
 
 registerCategory({
@@ -272,14 +274,44 @@ registerCategory({
   icon: <GlobalOutlined />,
   order: 87,
   descriptionKey: 'workbench.settings.category.proxy.description',
+  renderPane: GroupLandingPane,
+  // Group node over the two proxy planes — outbound egress and capture
+  // trust share the word but nothing else, so each child carries its
+  // own pane and its own host gate. Hosts where every child's gate
+  // denies keep this nav entry and render the desktop teaser.
+  when: ({ daemonAdmin }) => getCurrentHost() === 'desktop' || daemonAdmin === 'admin',
+  teaserWhenUnavailable: 'proxy',
+});
+
+registerCategory({
+  id: 'proxyOutbound',
+  labelKey: 'workbench.settings.category.proxyOutbound.label',
+  navLabelKey: 'workbench.settings.category.proxyOutbound.navLabel',
+  parent: 'proxy',
+  icon: <ExportOutlined />,
+  order: 88,
+  descriptionKey: 'workbench.settings.category.proxyOutbound.description',
+  renderPane: SystemProxyPane,
+  // The outbound plane is per-device state the Electron main process
+  // serves (Chromium resolution seams) — only the desktop host has it.
+  // A served web tab is not that device, so the entry simply hides.
+  when: () => getCurrentHost() === 'desktop',
+});
+
+registerCategory({
+  id: 'proxyTrust',
+  labelKey: 'workbench.settings.category.proxyTrust.label',
+  navLabelKey: 'workbench.settings.category.proxyTrust.navLabel',
+  parent: 'proxy',
+  icon: <SafetyCertificateOutlined />,
+  order: 89,
+  descriptionKey: 'workbench.settings.category.proxyTrust.description',
   renderPane: ProxyTrustPane,
   // The trust plane rides the daemon admin table: the desktop operator
   // administers their own spine; a served web tab shows it only to
   // subjects whose `daemon.admin` probe resolves. The extension never
-  // reaches the daemon's trust RPCs. Hosts where the probe denies keep
-  // the nav entry and render the desktop teaser.
+  // reaches the daemon's trust RPCs — there the parent's teaser covers.
   when: ({ daemonAdmin }) => getCurrentHost() === 'desktop' || daemonAdmin === 'admin',
-  teaserWhenUnavailable: 'proxy',
 });
 
 registerCategory({

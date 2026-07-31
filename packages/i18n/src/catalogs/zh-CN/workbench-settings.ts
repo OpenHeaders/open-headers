@@ -139,6 +139,14 @@ export const workbenchSettings = {
   'workbench.settings.category.git.description': '把此工作区绑定到磁盘上的文件夹——一棵实时的、对 git 友好的 YAML 树。',
   'workbench.settings.category.proxy.label': '代理',
   'workbench.settings.category.proxy.description': '此设备的出站代理——请求如何抵达网络——以及捕获代理的信任设置。',
+  'workbench.settings.category.proxyOutbound.label': '代理 · 出站',
+  'workbench.settings.category.proxyOutbound.navLabel': '出站',
+  'workbench.settings.category.proxyOutbound.description':
+    '此设备的出站代理——请求、WebSocket 会话和 gRPC 调用如何抵达网络。',
+  'workbench.settings.category.proxyTrust.label': '代理 · HTTPS 信任',
+  'workbench.settings.category.proxyTrust.navLabel': 'HTTPS 信任',
+  'workbench.settings.category.proxyTrust.description':
+    '让 HTTPS 流量可被解密检查的证书颁发机构与信任存储——在本机创建,也可在此移除。',
   'workbench.settings.category.data.label': '数据',
   'workbench.settings.category.data.description': '诊断、导入/导出，以及破坏性维护。',
   'workbench.settings.category.license.label': '许可证',

@@ -193,11 +193,13 @@ async function resetRequestProxyRow(): Promise<void> {
   await reset.click();
 }
 
-/** Open the Settings sheet on the Proxy category (environment pane). */
+/** Open the Settings sheet on the Proxy · Outbound category. The Proxy
+ *  group row lands on a link page; the Outbound link mounts the pane. */
 async function openProxySettings(): Promise<void> {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
   await workbench.locator('.settings-category-nav').getByText('Proxy', { exact: true }).click();
+  await workbench.getByRole('button', { name: 'Outbound', exact: true }).click();
   await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'visible', timeout: 10_000 });
 }
 
