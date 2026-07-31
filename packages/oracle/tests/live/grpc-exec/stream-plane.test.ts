@@ -44,6 +44,21 @@ describe('createGrpcStreamEmitter', () => {
     expect(events[1].items).toHaveLength(2);
   });
 
+  it('carries the proxy route on the head frame and omits it for a direct call', () => {
+    const events: GrpcStreamEventWire[] = [];
+    const emitter = createGrpcStreamEmitter('send-1', (e) => events.push(e));
+    emitter.head(200, [], 0, { plane: 'system', proxyUrl: 'http://proxy.openheaders.io:3128', source: 'system' });
+    expect(events[0]).toMatchObject({
+      kind: 'head',
+      proxyRoute: { plane: 'system', proxyUrl: 'http://proxy.openheaders.io:3128', source: 'system' },
+    });
+
+    const directEvents: GrpcStreamEventWire[] = [];
+    const directEmitter = createGrpcStreamEmitter('send-2', (e) => directEvents.push(e));
+    directEmitter.head(200, [], 0);
+    expect(directEvents[0]).not.toHaveProperty('proxyRoute');
+  });
+
   it('flushes eagerly on the message bound instead of pooling a burst', () => {
     const events: GrpcStreamEventWire[] = [];
     const emitter = createGrpcStreamEmitter('send-1', (e) => events.push(e));

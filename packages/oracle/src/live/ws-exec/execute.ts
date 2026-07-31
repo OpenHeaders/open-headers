@@ -260,7 +260,7 @@ export async function executeWsSession(
           // system plane decided — H5 leaves WS no request plane,
           // so the plane is always the executing device's.
           if (route !== undefined) proxyRoute = { plane: 'system', ...route };
-          emitter?.open(selectedProtocol, negotiatedExtensions);
+          emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute);
         },
         onMessage: ({ data, binary }) => {
           const dataBase64 = encodeBase64Bytes(data);

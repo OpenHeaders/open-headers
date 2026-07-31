@@ -20,6 +20,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import ResponseHeadersView from '../request-editor/response/ResponseHeadersView';
 import { ExampleChip } from '../shared/ExampleChip';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
@@ -126,9 +127,12 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
-        <Tag color="processing" style={{ marginInlineEnd: 0 }} data-testid="grpc-streaming-badge">
-          {t('workbench.editors.grpc.stream.streamingBadge')}
-        </Tag>
+        <>
+          <Tag color="processing" style={{ marginInlineEnd: 0 }} data-testid="grpc-streaming-badge">
+            {t('workbench.editors.grpc.stream.streamingBadge')}
+          </Tag>
+          {proxyRouteHasBadge(live?.head?.proxyRoute) && <ProxyRouteTag route={live?.head?.proxyRoute} />}
+        </>
       ) : (
         <>
           <GrpcMetaStrip

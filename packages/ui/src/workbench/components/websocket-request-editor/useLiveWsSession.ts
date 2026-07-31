@@ -22,6 +22,7 @@
  */
 
 import { hostBridge, type WsStreamEventWire, type WsStreamMessageWire } from '@openheaders/core/bridge';
+import type { ExecutedProxyRoute } from '@openheaders/core/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Session-only timing retained past materialization — joins the
@@ -38,8 +39,10 @@ export interface WsSessionTiming {
 }
 
 export interface LiveWsSession {
-  /** The settled handshake, or null until the open frame arrives. */
-  open: { protocol: string; extensions: string } | null;
+  /** The settled handshake, or null until the open frame arrives.
+   *  `proxyRoute` is the transport's route decision riding the open
+   *  frame — the session strip's live attribution. Absent = direct. */
+  open: { protocol: string; extensions: string; proxyRoute?: ExecutedProxyRoute } | null;
   /** When Connect left — the ticking lifecycle base. */
   startedAt: number;
   /** When the handshake settled — the "Connected" row's time. */
@@ -131,7 +134,11 @@ export function useLiveWsSession(): {
         if (event.seq <= acc.lastSeq) return;
         acc.lastSeq = event.seq;
         if (event.kind === 'open') {
-          acc.open = { protocol: event.protocol, extensions: event.extensions };
+          acc.open = {
+            protocol: event.protocol,
+            extensions: event.extensions,
+            ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
+          };
           acc.connectedAt = Date.now();
         } else if (event.kind === 'messages') {
           for (const item of event.items) {

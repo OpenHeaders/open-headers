@@ -16,6 +16,7 @@
  */
 
 import type { GrpcStreamEventWire, GrpcStreamMessageWire } from '@openheaders/core/bridge';
+import type { ExecutedProxyRoute } from '@openheaders/core/types';
 
 /** Flush the pending message batch on this cadence — the HTTP
  *  emitter's window; per-message `atMs` stamps keep arrival fidelity
@@ -31,8 +32,15 @@ export interface GrpcStreamEmitter {
   /** Push the response head as soon as it arrives — one frame.
    *  `afterMessages` = messages already recorded in CALL order when the
    *  head arrived; it rides the wire event so consumers can interleave
-   *  the head correctly even though pooled messages arrive after it. */
-  head(httpStatus: number, headers: ReadonlyArray<{ key: string; value: string }>, afterMessages: number): void;
+   *  the head correctly even though pooled messages arrive after it.
+   *  `proxyRoute` carries the transport's route decision so the live
+   *  meta strip attributes honestly before the snapshot settles. */
+  head(
+    httpStatus: number,
+    headers: ReadonlyArray<{ key: string; value: string }>,
+    afterMessages: number,
+    proxyRoute?: ExecutedProxyRoute,
+  ): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: GrpcStreamMessageWire): void;
   /** Settle the emitter (any end path): flush pending messages, then
@@ -60,9 +68,17 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
   };
 
   return {
-    head(httpStatus, headers, afterMessages) {
+    head(httpStatus, headers, afterMessages, proxyRoute) {
       if (settled) return;
-      emit({ sendId, seq: seq++, kind: 'head', httpStatus, headers: headers.map((h) => ({ ...h })), afterMessages });
+      emit({
+        sendId,
+        seq: seq++,
+        kind: 'head',
+        httpStatus,
+        headers: headers.map((h) => ({ ...h })),
+        afterMessages,
+        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+      });
     },
     message(message) {
       if (settled) return;

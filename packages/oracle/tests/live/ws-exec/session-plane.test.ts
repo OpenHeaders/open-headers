@@ -45,6 +45,21 @@ describe('createWsStreamEmitter', () => {
     expect(events[1].items.map((i) => i.direction)).toEqual(['down', 'up']);
   });
 
+  it('carries the proxy route on the open frame and omits it for a direct session', () => {
+    const events: WsStreamEventWire[] = [];
+    const emitter = createWsStreamEmitter('send-1', (e) => events.push(e));
+    emitter.open('chat.v2', '', { plane: 'system', proxyUrl: 'http://proxy.openheaders.io:3128', source: 'system' });
+    expect(events[0]).toMatchObject({
+      kind: 'open',
+      proxyRoute: { plane: 'system', proxyUrl: 'http://proxy.openheaders.io:3128', source: 'system' },
+    });
+
+    const directEvents: WsStreamEventWire[] = [];
+    const directEmitter = createWsStreamEmitter('send-2', (e) => directEvents.push(e));
+    directEmitter.open('', '');
+    expect(directEvents[0]).not.toHaveProperty('proxyRoute');
+  });
+
   it('flushes eagerly on the message bound instead of pooling a burst', () => {
     const events: WsStreamEventWire[] = [];
     const emitter = createWsStreamEmitter('send-1', (e) => events.push(e));

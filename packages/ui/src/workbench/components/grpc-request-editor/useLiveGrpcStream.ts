@@ -21,6 +21,7 @@
  */
 
 import { type GrpcStreamEventWire, type GrpcStreamMessageWire, hostBridge } from '@openheaders/core/bridge';
+import type { ExecutedProxyRoute } from '@openheaders/core/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Session-only stream timing retained past materialization — joins
@@ -37,8 +38,10 @@ export interface GrpcStreamSession {
 }
 
 export interface LiveGrpcStream {
-  /** Response head, or null until the head frame arrives. */
-  head: { httpStatus: number; headers: Array<{ key: string; value: string }> } | null;
+  /** Response head, or null until the head frame arrives.
+   *  `proxyRoute` is the transport's route decision riding the head
+   *  frame — the streaming strip's live attribution. Absent = direct. */
+  head: { httpStatus: number; headers: Array<{ key: string; value: string }>; proxyRoute?: ExecutedProxyRoute } | null;
   /** When the invoke left — the ticking lifecycle base. */
   startedAt: number;
   /** When the head arrived — the "Response received" row's time. */
@@ -136,7 +139,11 @@ export function useLiveGrpcStream(): {
         if (event.seq <= acc.lastSeq) return;
         acc.lastSeq = event.seq;
         if (event.kind === 'head') {
-          acc.head = { httpStatus: event.httpStatus, headers: event.headers };
+          acc.head = {
+            httpStatus: event.httpStatus,
+            headers: event.headers,
+            ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
+          };
           acc.connectedAt = Date.now();
           acc.headAtMessage = event.afterMessages;
         } else if (event.kind === 'messages') {

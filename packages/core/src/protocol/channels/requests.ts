@@ -9,6 +9,7 @@ import type {
   Collection,
   CollectionTree,
   ExecutedGrpcSnapshot,
+  ExecutedProxyRoute,
   ExecutedRequestSnapshot,
   ExecutedWsSnapshot,
   GrpcRequest,
@@ -108,6 +109,10 @@ export type GrpcStreamEventWire =
        *  batching means the head event can outrun pooled ↑ frames on
        *  the wire; this count is the order truth. */
       afterMessages: number;
+      /** The call's effective proxy route as the transport decided it —
+       *  attribution from the record's live twin, so the streaming meta
+       *  strip is honest BEFORE the snapshot settles. Absent = direct. */
+      proxyRoute?: ExecutedProxyRoute;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
   | { sendId: string; seq: number; kind: 'end' };
@@ -160,6 +165,10 @@ export type WsStreamEventWire =
       protocol: string;
       /** Negotiated extensions; empty when none. */
       extensions: string;
+      /** The session's effective proxy route as the transport decided
+       *  it — attribution from the record's live twin, so the session
+       *  strip is honest WHILE the session is open. Absent = direct. */
+      proxyRoute?: ExecutedProxyRoute;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: WsStreamMessageWire[] }
   | { sendId: string; seq: number; kind: 'end' };

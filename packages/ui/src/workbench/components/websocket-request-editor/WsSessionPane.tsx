@@ -177,15 +177,18 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
-        <Tag
-          color={live?.open !== null ? 'processing' : 'default'}
-          style={{ marginInlineEnd: 0 }}
-          data-testid="ws-session-live-badge"
-        >
-          {live?.open !== null
-            ? t('workbench.editors.websocket.session.connectedBadge')
-            : t('workbench.editors.websocket.session.connectingBadge')}
-        </Tag>
+        <>
+          <Tag
+            color={live?.open !== null ? 'processing' : 'default'}
+            style={{ marginInlineEnd: 0 }}
+            data-testid="ws-session-live-badge"
+          >
+            {live?.open !== null
+              ? t('workbench.editors.websocket.session.connectedBadge')
+              : t('workbench.editors.websocket.session.connectingBadge')}
+          </Tag>
+          {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
+        </>
       ) : (
         <>
           {closeTag}

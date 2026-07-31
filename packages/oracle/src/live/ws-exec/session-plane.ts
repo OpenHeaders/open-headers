@@ -15,6 +15,7 @@
  */
 
 import type { WsSendSocketIoWire, WsStreamEventWire, WsStreamMessageWire } from '@openheaders/core/bridge';
+import type { ExecutedProxyRoute } from '@openheaders/core/types';
 
 /** Flush the pending message batch on this cadence — the gRPC
  *  emitter's window; per-message `atMs` stamps keep arrival fidelity
@@ -27,8 +28,10 @@ const FLUSH_MAX_MESSAGES = 256;
 // ── Session-frame emitter ───────────────────────────────────────────
 
 export interface WsStreamEmitter {
-  /** Push the settled handshake as soon as it arrives — one frame. */
-  open(protocol: string, extensions: string): void;
+  /** Push the settled handshake as soon as it arrives — one frame.
+   *  `proxyRoute` carries the transport's route decision so the live
+   *  session strip attributes honestly before the snapshot settles. */
+  open(protocol: string, extensions: string, proxyRoute?: ExecutedProxyRoute): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: WsStreamMessageWire): void;
   /** Settle the emitter (any end path): flush pending messages, then
@@ -56,9 +59,16 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
   };
 
   return {
-    open(protocol, extensions) {
+    open(protocol, extensions, proxyRoute) {
       if (settled) return;
-      emit({ sendId, seq: seq++, kind: 'open', protocol, extensions });
+      emit({
+        sendId,
+        seq: seq++,
+        kind: 'open',
+        protocol,
+        extensions,
+        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+      });
     },
     message(message) {
       if (settled) return;

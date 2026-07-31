@@ -94,6 +94,27 @@ describe('useLiveGrpcStream', () => {
     expect(result.current.live?.timestamps).toEqual([100, 200]);
   });
 
+  it('carries the head event proxyRoute into the live head — the streaming strip attribution', () => {
+    const { result } = renderHook(() => useLiveGrpcStream());
+    act(() => result.current.beginStream('send-1'));
+    act(() =>
+      emit({
+        sendId: 'send-1',
+        seq: 0,
+        kind: 'head',
+        httpStatus: 200,
+        headers: [],
+        afterMessages: 0,
+        proxyRoute: { plane: 'system', proxyUrl: 'http://proxy.openheaders.io:3128', source: 'system' },
+      }),
+    );
+    expect(result.current.live?.head?.proxyRoute).toEqual({
+      plane: 'system',
+      proxyUrl: 'http://proxy.openheaders.io:3128',
+      source: 'system',
+    });
+  });
+
   it('drops stale seq frames and ignores foreign sendIds', () => {
     const { result } = renderHook(() => useLiveGrpcStream());
     act(() => result.current.beginStream('send-1'));
