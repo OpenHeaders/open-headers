@@ -19,6 +19,13 @@ import { readBuildInfo } from './vite.build-info';
 // Build metadata captured once at config-load time.
 const buildInfo = readBuildInfo(__dirname);
 
+// undici's SOCKS5 tunnel lazily `require`s node:tls at dial time (and
+// only then), so the bundled CJS survives into this ESM output as a
+// bare `require` call. Hand every chunk a real one — the SEA build is
+// CJS and has its own.
+const REQUIRE_SHIM =
+  "import { createRequire as __ohCreateRequire } from 'node:module'; const require = __ohCreateRequire(import.meta.url);";
+
 export default defineConfig({
   define: {
     __BUILD_INFO__: JSON.stringify(buildInfo),
@@ -39,7 +46,7 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
-        banner: (chunk) => (chunk.name === 'cli' ? '#!/usr/bin/env node\n' : ''),
+        banner: (chunk) => `${chunk.name === 'cli' ? '#!/usr/bin/env node\n' : ''}${REQUIRE_SHIM}\n`,
       },
     },
   },
