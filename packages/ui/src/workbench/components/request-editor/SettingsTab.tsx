@@ -526,8 +526,8 @@ const KnobRow: React.FC<{
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
         <Text style={{ fontSize: 13 }}>{label}</Text>
-        {modified === true && <ModifiedDot />}
         <InfoTrigger content={info} />
+        {modified === true && <ModifiedDot />}
         <span style={{ flex: 1 }} />
         <Switch
           size="small"
@@ -580,8 +580,8 @@ const ComboKnobRow: React.FC<{
 }> = ({ label, value, onChange, info, presets, interpret, format, placeholder }) => (
   <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
     <Text style={{ fontSize: 13 }}>{label}</Text>
-    {value !== undefined && <ModifiedDot />}
     <InfoTrigger content={info} />
+    {value !== undefined && <ModifiedDot />}
     <span style={{ flex: 1 }} />
     <ComboKnob
       value={value}
@@ -622,8 +622,8 @@ const SelectKnobRow: React.FC<{
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
-      {(modified ?? value !== undefined) && <ModifiedDot />}
       <InfoTrigger content={info} />
+      {(modified ?? value !== undefined) && <ModifiedDot />}
       <span style={{ flex: 1 }} />
       <Select
         size="small"
@@ -675,8 +675,8 @@ const TextKnobRow: React.FC<{
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
-      {value !== undefined && <ModifiedDot />}
       <InfoTrigger content={info} />
+      {value !== undefined && <ModifiedDot />}
       <span style={{ flex: 1 }} />
       <Input
         size="small"
