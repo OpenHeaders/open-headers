@@ -181,12 +181,17 @@ export async function startMtlsEcho(material: TlsMaterial, clientCa: Buffer): Pr
 }
 
 /** Self-signed HTTPS echo — `{"ok":true}`. */
-export async function startHttpsEcho(material: TlsMaterial): Promise<Rig> {
+export async function startHttpsEcho(material: TlsMaterial, host = '127.0.0.1'): Promise<Rig> {
   const server = https.createServer(material, (_req, res) => {
     res.setHeader('content-type', 'application/json');
     res.end('{"ok":true}');
   });
-  const port = await listen(server);
+  const port = await new Promise<number>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, host, () => {
+      resolve((server.address() as net.AddressInfo).port);
+    });
+  });
   return { port, close: closer(server) };
 }
 
@@ -344,6 +349,107 @@ export async function startConnectProxy(requireAuth?: string): Promise<ProxyRig>
         server.close(() => resolve());
       }),
   };
+}
+
+export interface Socks5Rig extends Rig {
+  /** `host:port` CONNECT targets, arrival order. */
+  targets: string[];
+}
+
+/** The SOCKS5 target address (ATYP + addr + port) as `host:port`, or
+ *  `null` while the buffer is still short of a full request. */
+function readSocks5Target(buffer: Buffer): { target: string; length: number } | null {
+  if (buffer.length < 5) return null;
+  const atyp = buffer[3];
+  let host: string;
+  let addrEnd: number;
+  if (atyp === 0x01) {
+    if (buffer.length < 10) return null;
+    host = Array.from(buffer.subarray(4, 8)).join('.');
+    addrEnd = 8;
+  } else if (atyp === 0x03) {
+    const len = buffer[4]!;
+    if (buffer.length < 5 + len + 2) return null;
+    host = buffer.subarray(5, 5 + len).toString('utf8');
+    addrEnd = 5 + len;
+  } else {
+    return null;
+  }
+  const port = buffer.readUInt16BE(addrEnd);
+  return { target: `${host}:${port}`, length: addrEnd + 2 };
+}
+
+/** A minimal RFC 1928 SOCKS5 CONNECT proxy (no-auth) recording every
+ *  target it dials — the UI suite's socks5:// answer. */
+export async function startSocks5Proxy(): Promise<Socks5Rig> {
+  const targets: string[] = [];
+  const sockets = new Set<{ destroy(): void }>();
+  const server = net.createServer((client) => {
+    sockets.add(client);
+    let stage: 'greeting' | 'request' | 'piping' = 'greeting';
+    let buffer = Buffer.alloc(0);
+    client.on('error', () => client.destroy());
+    client.on('data', (chunk) => {
+      if (stage === 'piping') return;
+      buffer = Buffer.concat([buffer, chunk]);
+      if (stage === 'greeting') {
+        if (buffer.length < 2 || buffer.length < 2 + buffer[1]!) return;
+        buffer = buffer.subarray(2 + buffer[1]!);
+        stage = 'request';
+        client.write(Buffer.from([0x05, 0x00]));
+        if (buffer.length === 0) return;
+      }
+      const parsed = readSocks5Target(buffer);
+      if (parsed === null) return;
+      if (buffer[0] !== 0x05 || buffer[1] !== 0x01) {
+        client.write(Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+        client.destroy();
+        return;
+      }
+      const remainder = buffer.subarray(parsed.length);
+      targets.push(parsed.target);
+      stage = 'piping';
+      const [host, portStr] = parsed.target.split(':');
+      const upstream = net.connect(Number(portStr), host, () => {
+        client.write(Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+        if (remainder.length > 0) upstream.write(remainder);
+        upstream.pipe(client);
+        client.pipe(upstream);
+      });
+      sockets.add(upstream);
+      const drop = () => {
+        upstream.destroy();
+        client.destroy();
+      };
+      upstream.on('error', drop);
+      client.on('close', () => upstream.destroy());
+    });
+  });
+  const port = await new Promise<number>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve((server.address() as net.AddressInfo).port));
+  });
+  return {
+    port,
+    targets,
+    close: () =>
+      new Promise((resolve) => {
+        for (const s of sockets) s.destroy();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+/** A one-file PAC server: every request answers `pacBody` with the
+ *  auto-config content type — the environment plane's PAC-mode target. */
+export async function startPacServer(pacBody: string): Promise<Rig> {
+  const server = http.createServer((_req, res) => {
+    res.setHeader('Content-Type', 'application/x-ns-proxy-autoconfig');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(pacBody);
+  });
+  const port = await listen(server);
+  return { port, close: closer(server) };
 }
 
 export interface OAuthTokenRig extends Rig {

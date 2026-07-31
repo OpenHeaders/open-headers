@@ -646,9 +646,10 @@ const TextKnobRow: React.FC<{
   maxLength: number;
   error?: string;
   warning?: string;
+  testId?: string;
   /** Row undo; defaults to clearing the value back to undefined. */
   onReset?: () => void;
-}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, onReset }) => (
+}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, testId, onReset }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
@@ -659,6 +660,7 @@ const TextKnobRow: React.FC<{
       <Input
         size="small"
         aria-label={label}
+        data-testid={testId}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
         placeholder={placeholder}
@@ -1006,6 +1008,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   }
                   info={settingsRowInfo(t, 'proxyUrl')}
                   placeholder={t('workbench.editors.request.settings.proxyUrlPlaceholder')}
+                  testId="oh-proxy-url-input"
                   onReset={() => onChange({ ...value, proxyUrl: undefined, proxyCredentialRef: undefined })}
                   maxLength={MAX_PROXY_URL_LENGTH}
                   error={
