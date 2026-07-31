@@ -87,7 +87,7 @@ export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<Wor
     // Refresh-on-expired for oauth2-authed steps — the host-neutral
     // runner with the extension's exact semantics (recoverable failure
     // → stale bundle attaches, the target's 401 speaks).
-    refreshOAuth: buildRefreshOAuthHook(workspaceId),
+    refreshOAuth: buildRefreshOAuthHook(workspaceId, nodeTransport),
   });
   const outcome: ChainRunOutcome = await runChain({
     workflow,

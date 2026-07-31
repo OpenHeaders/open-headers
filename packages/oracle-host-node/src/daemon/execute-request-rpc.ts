@@ -143,7 +143,7 @@ export async function handleExecuteRequestRpc(
     // Refresh-on-expired against the workspace the run resolves in —
     // the unpinned (null) dispatch reads and persists through the
     // runtime-Active workspace's store, same as the resolver.
-    const refreshOAuth = buildRefreshOAuthHook(workspaceId ?? undefined);
+    const refreshOAuth = buildRefreshOAuthHook(workspaceId ?? undefined, transport);
     const snapshot = resolved
       ? await runInteractiveSend(request, {
           workspaceId,

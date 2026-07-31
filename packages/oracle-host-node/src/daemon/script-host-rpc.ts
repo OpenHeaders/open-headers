@@ -52,10 +52,15 @@ import { getCollections as getRuleCollections } from '@openheaders/oracle/entity
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import { applySyncRequest, getOracleForWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 
 /** Activity-feed attribution for script-initiated writes. */
 const SCRIPT_HOST_SURFACE_ID = 'script-host';
+
+// Egress for the vault-ref OAuth refresh leg — the same transport seam
+// every send rides, so the environment plane covers it.
+const nodeTransport = createNodeRequestTransport();
 
 export async function handleScriptHostRequest(request: ScriptHostRequest): Promise<ScriptHostResponse> {
   try {
@@ -173,7 +178,7 @@ async function resolveVaultRef(ref: string): Promise<string | null> {
   if (bundle && isOAuthTokenExpired(bundle) && bundle.refreshToken) {
     const config = await getOAuthRefreshConfig(ref);
     if (config) {
-      bundle = (await buildRefreshOAuthHook(undefined)(config)) ?? bundle;
+      bundle = (await buildRefreshOAuthHook(undefined, nodeTransport)(config)) ?? bundle;
     }
   }
   return bundle?.accessToken ?? null;

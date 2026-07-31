@@ -430,97 +430,89 @@ describe('handleExecuteRequestRpc — OAuth refresh-on-expired', () => {
     };
   }
 
-  function stubTokenEndpoint(response: () => Response): () => void {
-    const original = globalThis.fetch;
-    const stub = vi.fn(async () => response());
-    globalThis.fetch = stub as unknown as typeof fetch;
-    return () => {
-      globalThis.fetch = original;
+  // The refresh POST rides the SAME injected transport as the send
+  // (the egress-coverage slice) — answer the token endpoint's URL and
+  // let everything else fall through to the capture.
+  function tokenEndpointTransport(respond: () => TransportResponse): {
+    transport: RequestTransport;
+    sent: () => TransportRequest;
+  } {
+    const inner = captureTransport();
+    const transport: RequestTransport = {
+      async send(req): Promise<TransportResponse> {
+        if (req.url.startsWith('https://auth.openheaders.io/token')) return respond();
+        return inner.transport.send(req);
+      },
+    };
+    return { transport, sent: inner.sent };
+  }
+
+  function tokenJson(json: Record<string, unknown>, status = 200): TransportResponse {
+    const body = JSON.stringify(json);
+    return {
+      status,
+      statusText: status === 200 ? 'OK' : 'Bad Request',
+      url: 'https://auth.openheaders.io/token',
+      headers: [],
+      body,
+      bodyTruncated: false,
+      bodyBytes: body.length,
     };
   }
 
   it('an expired bundle refreshes through the REAL runner and the fresh token rides the wire', async () => {
     h.getTokenBundle.mockResolvedValue(bundle());
-    const restore = stubTokenEndpoint(
-      () => new Response(JSON.stringify({ access_token: 'at-fresh', expires_in: 3600 }), { status: 200 }),
-    );
-    try {
-      const { transport, sent } = captureTransport();
-      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
-      expect(result.success).toBe(true);
-      expect(result.snapshot?.error).toBeNull();
-      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-fresh' });
-      // The refreshed bundle persists through the store so the next
-      // send skips the refresh.
-      expect(h.putTokenBundle).toHaveBeenCalledOnce();
-    } finally {
-      restore();
-    }
+    const { transport, sent } = tokenEndpointTransport(() => tokenJson({ access_token: 'at-fresh', expires_in: 3600 }));
+    const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBeNull();
+    expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-fresh' });
+    // The refreshed bundle persists through the store so the next
+    // send skips the refresh.
+    expect(h.putTokenBundle).toHaveBeenCalledOnce();
   });
 
   it('a failed refresh attaches the stale bundle — the run is not failed, the 401 speaks', async () => {
     h.getTokenBundle.mockResolvedValue(bundle());
-    const restore = stubTokenEndpoint(() => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }));
-    try {
-      const { transport, sent } = captureTransport();
-      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
-      expect(result.success).toBe(true);
-      expect(result.snapshot?.error).toBeNull();
-      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-stale' });
-      expect(h.putTokenBundle).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
+    const { transport, sent } = tokenEndpointTransport(() => tokenJson({ error: 'invalid_grant' }, 400));
+    const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBeNull();
+    expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-stale' });
+    expect(h.putTokenBundle).not.toHaveBeenCalled();
   });
 
   it('an unexpired bundle attaches as-is — no token-endpoint round-trip', async () => {
     h.getTokenBundle.mockResolvedValue(bundle({ accessToken: 'at-live', expiresAt: Date.now() + 3_600_000 }));
-    const restore = stubTokenEndpoint(() => {
+    const { transport, sent } = tokenEndpointTransport(() => {
       throw new Error('token endpoint must not be called');
     });
-    try {
-      const { transport, sent } = captureTransport();
-      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
-      expect(result.success).toBe(true);
-      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-live' });
-      expect(h.putTokenBundle).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
+    const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+    expect(result.success).toBe(true);
+    expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-live' });
+    expect(h.putTokenBundle).not.toHaveBeenCalled();
   });
 
   it('an expired bundle WITHOUT a refresh token attaches stale — nothing to refresh with', async () => {
     h.getTokenBundle.mockResolvedValue(bundle({ refreshToken: undefined }));
-    const restore = stubTokenEndpoint(() => {
+    const { transport, sent } = tokenEndpointTransport(() => {
       throw new Error('token endpoint must not be called');
     });
-    try {
-      const { transport, sent } = captureTransport();
-      const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
-      expect(result.success).toBe(true);
-      expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-stale' });
-    } finally {
-      restore();
-    }
+    const result = await handleExecuteRequestRpc({ draft: makeRequest({ auth: { ...oauthAuth } }) }, transport);
+    expect(result.success).toBe(true);
+    expect(sent().headers).toContainEqual({ key: 'Authorization', value: 'Bearer at-stale' });
   });
 
   it('a pinned dispatch refreshes against the pinned workspace store', async () => {
     h.getTokenBundle.mockResolvedValue(bundle());
-    const restore = stubTokenEndpoint(
-      () => new Response(JSON.stringify({ access_token: 'at-fresh' }), { status: 200 }),
+    const { transport } = tokenEndpointTransport(() => tokenJson({ access_token: 'at-fresh' }));
+    await handleExecuteRequestRpc(
+      { draft: makeRequest({ auth: { ...oauthAuth } }), workspaceId: 'ws-other' },
+      transport,
     );
-    try {
-      const { transport } = captureTransport();
-      await handleExecuteRequestRpc(
-        { draft: makeRequest({ auth: { ...oauthAuth } }), workspaceId: 'ws-other' },
-        transport,
-      );
-      expect(h.getTokenBundle).toHaveBeenCalledWith('cred-e2e', 'ws-other');
-      const putArgs = h.putTokenBundle.mock.calls[0] as unknown[];
-      expect(putArgs[3]).toBe('ws-other');
-    } finally {
-      restore();
-    }
+    expect(h.getTokenBundle).toHaveBeenCalledWith('cred-e2e', 'ws-other');
+    const putArgs = h.putTokenBundle.mock.calls[0] as unknown[];
+    expect(putArgs[3]).toBe('ws-other');
   });
 });
 

@@ -123,6 +123,7 @@ import { FileSystemBlobBackend } from '../files/fs-blob-backend';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import {
@@ -177,6 +178,10 @@ import { installSyncStatusReporter, type SyncStatusReporter } from './sync-statu
 import { createBrowserLiveRelay } from './telemetry/browser-live-relay';
 
 const SCOPE = 'boot-spine';
+
+// Egress for the resolve-wire path's OAuth refresh leg — the same
+// transport seam every send rides, so the environment plane covers it.
+const nodeTransport = createNodeRequestTransport();
 
 // Pairing service's global unknown-code budget when a trusted proxy
 // fronts the daemon (S30 finding d) — sized so it only trips on a
@@ -941,7 +946,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // plus this host's OAuth refresh hook so the copied command carries
     // a fresh token exactly like a Send would.
     if (type === 'resolveRequestWire') {
-      return await handleResolveRequestWireRpc(message, (workspaceId) => buildRefreshOAuthHook(workspaceId));
+      return await handleResolveRequestWireRpc(message, (workspaceId) =>
+        buildRefreshOAuthHook(workspaceId, nodeTransport),
+      );
     }
     // Workbench gRPC Invoke — the GrpcRequest entity's executor plane,
     // same in-process answer posture as executeRequest above.

@@ -102,7 +102,7 @@ export interface SuiteRunResult {
 
 export async function runRequestSuite(args: SuiteRunArgs): Promise<SuiteRunResult> {
   const scripts = await resolveScriptRunner({ workspaceId: args.workspaceId, hostContext: 'chain' });
-  const refreshOAuth = buildRefreshOAuthHook(args.workspaceId);
+  const refreshOAuth = buildRefreshOAuthHook(args.workspaceId, nodeTransport);
   const items: SuiteRunItem[] = [];
   let bailed = false;
   args.onEvent?.({ type: 'begin', total: args.requests.length });

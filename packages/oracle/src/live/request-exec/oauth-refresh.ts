@@ -9,14 +9,17 @@
  *
  * Everything here is platform-agnostic: the POST body / client-auth
  * header / response parsing come from `@openheaders/core/oauth`, the
- * fetch is the standard global, and the per-origin token bucket is the
- * same `withRefreshRateLimit` every refresh-subsystem fetch pays into.
+ * exchange rides the host's injected {@link RequestTransport} — the
+ * same seam every request-engine send dispatches through, so the
+ * node hosts' environment-plane proxy resolution covers the token
+ * leg too — and the per-origin token bucket is the same
+ * `withRefreshRateLimit` every refresh-subsystem fetch pays into.
  *
  * Failure semantics (the executor contract): a recoverable exchange
  * failure ({@link OAuth2RefreshError}) maps to `null` in the hook — the
  * stale bundle attaches and the target's 401 is the actionable signal;
- * anything else (store faults, programmer errors) propagates as a
- * fetch-phase failure.
+ * anything else (transport failures, store faults, programmer errors)
+ * propagates as a fetch-phase failure.
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
@@ -26,6 +29,11 @@ import { logger } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '../../entity/oauth-token-store';
 import { withRefreshRateLimit } from './rate-limiter';
 import type { OAuthRefreshFn } from './resolve-request';
+import type { RequestTransport, TransportHeader } from './transport';
+
+/** Same streamed-read cap the request executor rides — a token
+ *  response never nears it; the cap bounds a hostile endpoint. */
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 /** A recoverable refresh failure — the token endpoint refused or
  *  answered garbage. The hook maps it to "attach the stale bundle". */
@@ -42,7 +50,11 @@ export class OAuth2RefreshError extends Error {
  * `refresh_token` on refresh — the prior one is carried forward so the
  * next refresh still works.
  */
-export async function performRefresh(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
+export async function performRefresh(
+  config: OAuth2Auth,
+  workspaceId: string | undefined,
+  transport: RequestTransport,
+): Promise<OAuth2TokenBundle> {
   const current = await getTokenBundle(config.credentialRef, workspaceId);
   if (!current?.refreshToken) {
     throw new OAuth2RefreshError('No refresh_token available for this credential');
@@ -52,7 +64,7 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
   // refresh endpoint; fall back to the primary token endpoint when the
   // config doesn't override.
   const endpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
-  const bundle = await exchangeRefreshToken(endpoint, body, buildClientAuthHeader(config));
+  const bundle = await exchangeRefreshToken(transport, endpoint, body, buildClientAuthHeader(config));
   if (!bundle.refreshToken && current.refreshToken) {
     bundle.refreshToken = current.refreshToken;
   }
@@ -65,10 +77,10 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
  * workspace pin. Recoverable exchange failures log + return `null` (the
  * seam attaches the stale bundle); unexpected errors propagate.
  */
-export function buildRefreshOAuthHook(workspaceId: string | undefined): OAuthRefreshFn {
+export function buildRefreshOAuthHook(workspaceId: string | undefined, transport: RequestTransport): OAuthRefreshFn {
   return async (auth) => {
     try {
-      return await performRefresh(auth, workspaceId);
+      return await performRefresh(auth, workspaceId, transport);
     } catch (err) {
       if (err instanceof OAuth2RefreshError) {
         logger.info('RequestExecutor', `OAuth refresh failed for ${auth.credentialRef}: ${err.message}`);
@@ -80,24 +92,31 @@ export function buildRefreshOAuthHook(workspaceId: string | undefined): OAuthRef
 }
 
 async function exchangeRefreshToken(
+  transport: RequestTransport,
   endpoint: string,
   body: URLSearchParams,
   clientAuthHeader: string | null,
 ): Promise<OAuth2TokenBundle> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    // Accept JSON explicitly — GitHub returns urlencoded otherwise.
-    Accept: 'application/json',
-  };
-  if (clientAuthHeader) headers.Authorization = clientAuthHeader;
+  // Accept JSON explicitly — GitHub returns urlencoded otherwise. The
+  // urlencoded body kind sets the Content-Type on the wire.
+  const headers: TransportHeader[] = [{ key: 'Accept', value: 'application/json' }];
+  if (clientAuthHeader) headers.push({ key: 'Authorization', value: clientAuthHeader });
   // Per-origin token bucket shared with chain-step fetches — a provider
   // handling both OAuth token endpoints AND a token-reading workflow
   // pays a single budget across both paths.
   const response = await withRefreshRateLimit(endpoint, () =>
-    fetch(endpoint, { method: 'POST', credentials: 'omit', headers, body }),
+    transport.send({
+      method: 'POST',
+      url: endpoint,
+      headers,
+      body: { kind: 'urlencoded', fields: [...body.entries()].map(([name, value]) => ({ name, value })) },
+      redirect: 'follow',
+      credentials: 'omit',
+      maxBodyBytes: MAX_BODY_BYTES,
+    }),
   );
-  const text = await response.text();
-  if (!response.ok) {
+  const text = response.body;
+  if (response.status < 200 || response.status >= 300) {
     throw new OAuth2RefreshError(
       `Token endpoint returned ${response.status} ${response.statusText}: ${truncate(text, 200)}`,
     );

@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   getRefreshConfig: vi.fn(async (_ref: string, _wsId?: string): Promise<unknown> => null),
   putTokenBundle: vi.fn(async (): Promise<void> => {}),
   executeRequestRpc: vi.fn(async (_input: unknown): Promise<unknown> => ({ success: false, error: 'not under test' })),
+  transportSend: vi.fn(async (_req: unknown): Promise<unknown> => null),
 }));
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -50,12 +51,27 @@ vi.mock('@openheaders/oracle/sync/service', () => ({
 vi.mock('../../../src/daemon/execute-request-rpc', () => ({
   handleExecuteRequestRpc: (input: unknown) => h.executeRequestRpc(input),
 }));
+// The refresh POST rides the module's node transport (the egress-
+// coverage slice) — stub the seam so no real dial leaves the test.
+vi.mock('../../../src/live/node-request-transport', () => ({
+  createNodeRequestTransport: () => ({ send: (req: unknown) => h.transportSend(req) }),
+}));
 
 import { __resetRateLimiterForTests } from '@openheaders/oracle/live/request-exec/rate-limiter';
 import { handleScriptHostRequest } from '../../../src/daemon/script-host-rpc';
 
-const fetchMock = vi.fn();
-vi.stubGlobal('fetch', fetchMock);
+function tokenJson(json: Record<string, unknown>, status = 200) {
+  const body = JSON.stringify(json);
+  return {
+    status,
+    statusText: status === 200 ? 'OK' : 'Bad Request',
+    url: 'https://auth.openheaders.io/token',
+    headers: [],
+    body,
+    bodyTruncated: false,
+    bodyBytes: body.length,
+  };
+}
 
 function vaultGet(ref: string): ScriptHostRequest {
   return { op: 'vault.get', ref, executionId: 'e1', rpcId: 'r1' } as ScriptHostRequest;
@@ -89,7 +105,7 @@ beforeEach(() => {
   h.getTokenBundle.mockResolvedValue(null);
   h.getRefreshConfig.mockResolvedValue(null);
   h.executeRequestRpc.mockResolvedValue({ success: false, error: 'not under test' });
-  fetchMock.mockResolvedValue(new Response(JSON.stringify({ access_token: 'at-fresh' }), { status: 200 }));
+  h.transportSend.mockResolvedValue(tokenJson({ access_token: 'at-fresh' }));
 });
 
 describe('handleScriptHostRequest — vault.get', () => {
@@ -99,7 +115,7 @@ describe('handleScriptHostRequest — vault.get', () => {
       secrets: [{ uid: 's1', kind: 'string', name: 'api-key', value: 'k-1' }],
     });
     await expect(handleScriptHostRequest(vaultGet('api-key'))).resolves.toMatchObject({ ok: true, value: 'k-1' });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.transportSend).not.toHaveBeenCalled();
   });
 
   it('refreshes an expired OAuth bundle from the config sidecar before answering', async () => {
@@ -107,28 +123,28 @@ describe('handleScriptHostRequest — vault.get', () => {
     h.getRefreshConfig.mockResolvedValue(sidecarConfig);
     const reply = await handleScriptHostRequest(vaultGet('cred-1'));
     expect(reply).toMatchObject({ ok: true, value: 'at-fresh' });
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toBe('https://auth.openheaders.io/token');
+    expect(h.transportSend).toHaveBeenCalledOnce();
+    expect((h.transportSend.mock.calls[0][0] as { url: string }).url).toBe('https://auth.openheaders.io/token');
     expect(h.putTokenBundle).toHaveBeenCalledOnce();
   });
 
   it('answers the stale token when the refresh fails — lenient, never an error reply', async () => {
     h.getTokenBundle.mockResolvedValue(bundle());
     h.getRefreshConfig.mockResolvedValue(sidecarConfig);
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }));
+    h.transportSend.mockResolvedValue(tokenJson({ error: 'invalid_grant' }, 400));
     await expect(handleScriptHostRequest(vaultGet('cred-1'))).resolves.toMatchObject({ ok: true, value: 'at-stale' });
   });
 
   it('answers the stale token when no config sidecar exists to rebuild the POST', async () => {
     h.getTokenBundle.mockResolvedValue(bundle());
     await expect(handleScriptHostRequest(vaultGet('cred-1'))).resolves.toMatchObject({ ok: true, value: 'at-stale' });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.transportSend).not.toHaveBeenCalled();
   });
 
   it('skips the refresh for an unexpired bundle', async () => {
     h.getTokenBundle.mockResolvedValue(bundle({ accessToken: 'at-live', expiresAt: Date.now() + 3_600_000 }));
     await expect(handleScriptHostRequest(vaultGet('cred-1'))).resolves.toMatchObject({ ok: true, value: 'at-live' });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.transportSend).not.toHaveBeenCalled();
   });
 
   it('answers null for an unknown ref', async () => {
