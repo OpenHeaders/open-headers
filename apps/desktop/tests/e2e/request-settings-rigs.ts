@@ -441,7 +441,7 @@ export async function startSocks5Proxy(): Promise<Socks5Rig> {
 }
 
 /** A one-file PAC server: every request answers `pacBody` with the
- *  auto-config content type — the environment plane's PAC-mode target. */
+ *  auto-config content type — the system plane's PAC-mode target. */
 export async function startPacServer(pacBody: string): Promise<Rig> {
   const server = http.createServer((_req, res) => {
     res.setHeader('Content-Type', 'application/x-ns-proxy-autoconfig');

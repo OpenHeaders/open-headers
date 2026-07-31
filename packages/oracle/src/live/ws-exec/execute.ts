@@ -257,9 +257,9 @@ export async function executeWsSession(
           protocol = selectedProtocol;
           extensions = negotiatedExtensions;
           // Route wire truth: the transport reports what its host's
-          // environment plane decided — H5 leaves WS no request plane,
+          // system plane decided — H5 leaves WS no request plane,
           // so the plane is always the executing device's.
-          if (route !== undefined) proxyRoute = { plane: 'environment', ...route };
+          if (route !== undefined) proxyRoute = { plane: 'system', ...route };
           emitter?.open(selectedProtocol, negotiatedExtensions);
         },
         onMessage: ({ data, binary }) => {

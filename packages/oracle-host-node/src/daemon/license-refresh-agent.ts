@@ -78,7 +78,7 @@ export interface LicenseRefreshAgentOptions {
   /** Test seam — trust ring for user-attached artifacts; production verifies against the compiled ring. */
   ring?: LicenseKeyRing;
   /** Test seams — production uses the real network (the module's node
-   *  transport, which rides the environment-proxy plane) and clock. */
+   *  transport, which rides the system-proxy plane) and clock. */
   transport?: RequestTransport;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => NodeJS.Timeout;

@@ -1,6 +1,6 @@
 /**
  * Per-send proxy-route resolution — the request plane's order of
- * precedence over the environment plane, turned into the attempt list
+ * precedence over the system plane, turned into the attempt list
  * the transport walks (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
  *
  *   1. Request plane `proxyMode: 'url'` / a set `proxyUrl` → that
@@ -10,7 +10,7 @@
  *      plane resolves the target; its answer is a Chromium-semantics
  *      fallback chain the transport walks (first supported entry
  *      dials, a dial failure falls through, DIRECT means direct).
- *   4. No environment plane / no answer → direct.
+ *   4. No system plane / no answer → direct.
  *
  * The STAND-DOWN rule lives here too: an INHERITED proxy never breaks
  * a request that explicitly asked for something a tunnel can't honor —
@@ -34,15 +34,15 @@ import {
   type TransportProxyRoute,
   type TransportRequest,
 } from '@openheaders/oracle/live/request-exec/transport';
-import { isSocks5ProxyUrl } from '../environment-proxy/proxy-value';
-import type { EnvironmentProxyResolver } from '../environment-proxy/types';
+import { isSocks5ProxyUrl } from '../system-proxy/proxy-value';
+import type { SystemProxyResolver } from '../system-proxy/types';
 
 /** One send attempt the transport runs — the effective proxy for it
  *  (absent = direct) and the wire truth recorded when it wins. */
 export interface ProxyAttempt {
   proxy?: { url: string; credential?: string };
   meta?: TransportProxyRoute;
-  /** True when this attempt came from an environment-plane chain — the
+  /** True when this attempt came from an system-plane chain — the
    *  only attempts a proxy dial failure may fall through from. */
   environmentChain?: boolean;
 }
@@ -64,7 +64,7 @@ const DIRECT_ATTEMPT: ProxyAttempt[] = [{}];
  */
 export async function resolveProxyAttempts(
   request: TransportRequest,
-  resolver: EnvironmentProxyResolver | null,
+  resolver: SystemProxyResolver | null,
 ): Promise<ProxyAttempt[]> {
   // Request plane first — an explicit setting never consults the
   // environment. A set proxyUrl is explicit routing regardless of the
@@ -82,7 +82,7 @@ export async function resolveProxyAttempts(
   if (!proxyish) return DIRECT_ATTEMPT;
   const standDown = standDownReasonFor(request);
   if (standDown !== null) {
-    return [{ meta: { plane: 'environment', source: selection.source, standDownReason: standDown } }];
+    return [{ meta: { plane: 'system', source: selection.source, standDownReason: standDown } }];
   }
   const pinnedH2 = request.httpVersion === '2' || request.httpVersion === '2-prior-knowledge';
   const attempts: ProxyAttempt[] = [];
@@ -92,8 +92,8 @@ export async function resolveProxyAttempts(
     if (entry.kind === 'direct') {
       // Nothing falls past a DIRECT entry. A chain that OPENS with one
       // is a plain direct answer (no meta); direct as a fallback after
-      // proxies is a real environment-plane decision and says so.
-      attempts.push(attempts.length === 0 ? {} : { meta: { plane: 'environment', source: selection.source } });
+      // proxies is a real system-plane decision and says so.
+      attempts.push(attempts.length === 0 ? {} : { meta: { plane: 'system', source: selection.source } });
       break;
     }
     if (entry.kind === 'socks') {
@@ -109,19 +109,19 @@ export async function resolveProxyAttempts(
     }
     attempts.push({
       proxy: { url: entry.url, ...(entry.credential !== undefined ? { credential: entry.credential } : {}) },
-      meta: { plane: 'environment', proxyUrl: entry.url, source: selection.source },
+      meta: { plane: 'system', proxyUrl: entry.url, source: selection.source },
       environmentChain: true,
     });
   }
   if (attempts.length === 0) {
     if (sawPinBlockedSocks5 !== null) {
       throw new TransportError(
-        `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawPinBlockedSocks5}), but the request pins HTTP/2, which rides an HTTP CONNECT tunnel the SOCKS5 dial can't carry. Set the HTTP version to Auto, set the request's proxy setting to Direct, or point the environment plane at an HTTP(S) proxy.`,
+        `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawPinBlockedSocks5}), but the request pins HTTP/2, which rides an HTTP CONNECT tunnel the SOCKS5 dial can't carry. Set the HTTP version to Auto, set the request's proxy setting to Direct, or point the system plane at an HTTP(S) proxy.`,
       );
     }
     if (sawSocks4 !== null) {
       throw new TransportError(
-        `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported. Set the request's proxy setting to Direct to bypass it, or point the environment plane at a SOCKS5 or HTTP(S) proxy.`,
+        `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported. Set the request's proxy setting to Direct to bypass it, or point the system plane at a SOCKS5 or HTTP(S) proxy.`,
       );
     }
     return DIRECT_ATTEMPT;
@@ -131,7 +131,7 @@ export async function resolveProxyAttempts(
 
 /**
  * The request as the wire layers see it for one attempt: an
- * environment-plane proxy materializes onto the same seam fields the
+ * system-plane proxy materializes onto the same seam fields the
  * explicit knob uses, so every layer below (guards, dispatcher tuple,
  * tunnel legs, error classification) honors the effective route with
  * zero special cases. The vault ref never rides along — an inline

@@ -1,5 +1,5 @@
 /**
- * Desktop environment-plane service (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
+ * Desktop system-plane service (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
  * the mode-driven half of the two-plane proxy architecture on this
  * device — Off / System / Manual / PAC — around the P2 resolver
  * registry, plus the settings surface's RPCs.
@@ -17,7 +17,7 @@
  * per send against THIS device's vault by entry name. Off registers
  * the explicit `null`.
  *
- * Settings are per-DEVICE (`OH.environmentProxy`, the vault posture —
+ * Settings are per-DEVICE (`OH.systemProxy`, the vault posture —
  * machine state, never synced); a set applies live, so the next send
  * resolves under the new mode with no restart. The Chromium adapter
  * answers `null` on any resolution failure — Chromium itself treats an
@@ -26,39 +26,31 @@
  */
 
 import { pathToFileURL } from 'node:url';
-import {
-  DESKTOP_ENVIRONMENT_PROXY_MODES,
-  EnvironmentProxySettingsSchema,
-  parseEntity,
-} from '@openheaders/core/schemas';
+import { DESKTOP_SYSTEM_PROXY_MODES, parseEntity, SystemProxySettingsSchema } from '@openheaders/core/schemas';
 import type { StorageKey } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
-import type {
-  EnvironmentProxyResolution,
-  EnvironmentProxyResolvedEntry,
-  EnvironmentProxySettings,
-} from '@openheaders/core/types';
+import type { SystemProxyResolution, SystemProxyResolvedEntry, SystemProxySettings } from '@openheaders/core/types';
 import { getVault } from '@openheaders/oracle/entity/environment-store';
 import type {
-  EnvironmentProxyResolver,
-  EnvironmentProxySelection,
-  EnvironmentProxySource,
-} from '@openheaders/oracle-host-node/live/environment-proxy';
+  SystemProxyResolver,
+  SystemProxySelection,
+  SystemProxySource,
+} from '@openheaders/oracle-host-node/live/system-proxy';
 import {
   createManualProxyResolver,
   parsePacProxyList,
-  registerEnvironmentProxyResolver,
-} from '@openheaders/oracle-host-node/live/environment-proxy';
+  registerSystemProxyResolver,
+} from '@openheaders/oracle-host-node/live/system-proxy';
 import { session } from 'electron';
 
 /** The desktop tier default: System ON (FORK A) — an unmanaged machine
  *  resolves DIRECT and behaves exactly as before. */
-export const DEFAULT_ENVIRONMENT_PROXY_SETTINGS: EnvironmentProxySettings = { version: 1, mode: 'system' };
+export const DEFAULT_SYSTEM_PROXY_SETTINGS: SystemProxySettings = { version: 1, mode: 'system' };
 
 /** The shared picklist also carries the node tier's `env` — schema-valid
  *  but meaningless where Chromium resolves; this tier refuses it. */
-function isDesktopMode(mode: EnvironmentProxySettings['mode']): boolean {
-  return (DESKTOP_ENVIRONMENT_PROXY_MODES as readonly string[]).includes(mode);
+function isDesktopMode(mode: SystemProxySettings['mode']): boolean {
+  return (DESKTOP_SYSTEM_PROXY_MODES as readonly string[]).includes(mode);
 }
 
 /** The Chromium-backed resolver over an injected `resolveProxy` — the
@@ -66,10 +58,10 @@ function isDesktopMode(mode: EnvironmentProxySettings['mode']): boolean {
  *  unit-testable without a browser. `source` distinguishes the OS
  *  delegation (`'system'`) from the explicit PAC mode (`'pac'`) riding
  *  the same session. */
-export function chromiumEnvironmentProxyResolver(
+export function chromiumSystemProxyResolver(
   resolveProxy: (url: string) => Promise<string>,
-  source: Extract<EnvironmentProxySource, 'system' | 'pac'> = 'system',
-): EnvironmentProxyResolver {
+  source: Extract<SystemProxySource, 'system' | 'pac'> = 'system',
+): SystemProxyResolver {
   return {
     async resolve(url: string) {
       try {
@@ -91,10 +83,10 @@ export function pacScriptUrl(source: string): string {
 
 /** Renderer-safe projection of a resolver answer: a chain entry crosses
  *  the bridge with `hasCredential`, never the credential value. */
-export function projectSelection(selection: EnvironmentProxySelection): EnvironmentProxyResolution {
+export function projectSelection(selection: SystemProxySelection): SystemProxyResolution {
   return {
     source: selection.source,
-    entries: selection.entries.map((entry): EnvironmentProxyResolvedEntry => {
+    entries: selection.entries.map((entry): SystemProxyResolvedEntry => {
       if (entry.kind !== 'proxy') return entry;
       return { kind: 'proxy', url: entry.url, ...(entry.credential !== undefined ? { hasCredential: true } : {}) };
     }),
@@ -103,42 +95,40 @@ export function projectSelection(selection: EnvironmentProxySelection): Environm
 
 /** The slice of `HostStorage` the service actually rides — narrow so
  *  unit rigs hand in a plain map-backed store. */
-export interface EnvironmentProxySettingsStore {
+export interface SystemProxySettingsStore {
   get<T>(spec: StorageKey<T>): Promise<T | undefined>;
   set<T>(spec: StorageKey<T>, value: T): Promise<void>;
 }
 
-export interface EnvironmentProxyService {
-  getSettings(): EnvironmentProxySettings;
-  setSettings(raw: unknown): Promise<{ ok: true; settings: EnvironmentProxySettings } | { ok: false; error: string }>;
-  resolve(url: string): Promise<EnvironmentProxyResolution | null>;
+export interface SystemProxyService {
+  getSettings(): SystemProxySettings;
+  setSettings(raw: unknown): Promise<{ ok: true; settings: SystemProxySettings } | { ok: false; error: string }>;
+  resolve(url: string): Promise<SystemProxyResolution | null>;
 }
 
 /**
- * Install the desktop's environment plane: hydrate the per-device
+ * Install the desktop's system plane: hydrate the per-device
  * settings, register the mode's resolver, and hand back the settings
  * surface's service. Called once from the engine bootstrap, after
  * `app` is ready (sessions need it).
  */
-export async function installEnvironmentProxyService(
-  hostStorage: EnvironmentProxySettingsStore,
-): Promise<EnvironmentProxyService> {
+export async function installSystemProxyService(hostStorage: SystemProxySettingsStore): Promise<SystemProxyService> {
   // Dedicated in-memory partition, never the UI session: PAC JS runs in
   // Chromium's sandboxed network service, and the explicit-PAC mode
   // repoints THIS session without touching what the windows browse with.
-  const resolverSession = session.fromPartition('environment-proxy-resolver');
-  let active: EnvironmentProxyResolver | null = null;
-  let settings = DEFAULT_ENVIRONMENT_PROXY_SETTINGS;
+  const resolverSession = session.fromPartition('system-proxy-resolver');
+  let active: SystemProxyResolver | null = null;
+  let settings = DEFAULT_SYSTEM_PROXY_SETTINGS;
 
   // A malformed slot — or one carrying another tier's mode — reads as
   // the tier default, never a boot failure.
-  const stored = await hostStorage.get(OH.environmentProxy);
+  const stored = await hostStorage.get(OH.systemProxy);
   if (stored !== undefined) {
-    const parsed = parseEntity(EnvironmentProxySettingsSchema, stored);
-    settings = parsed !== null && isDesktopMode(parsed.mode) ? parsed : DEFAULT_ENVIRONMENT_PROXY_SETTINGS;
+    const parsed = parseEntity(SystemProxySettingsSchema, stored);
+    settings = parsed !== null && isDesktopMode(parsed.mode) ? parsed : DEFAULT_SYSTEM_PROXY_SETTINGS;
   }
 
-  async function apply(next: EnvironmentProxySettings): Promise<void> {
+  async function apply(next: SystemProxySettings): Promise<void> {
     settings = next;
     switch (next.mode) {
       case 'off':
@@ -146,7 +136,7 @@ export async function installEnvironmentProxyService(
         break;
       case 'system':
         await resolverSession.setProxy({ mode: 'system' });
-        active = chromiumEnvironmentProxyResolver((url) => resolverSession.resolveProxy(url), 'system');
+        active = chromiumSystemProxyResolver((url) => resolverSession.resolveProxy(url), 'system');
         break;
       case 'pac':
         if (next.pacSource === undefined) {
@@ -154,7 +144,7 @@ export async function installEnvironmentProxyService(
           break;
         }
         await resolverSession.setProxy({ pacScript: pacScriptUrl(next.pacSource) });
-        active = chromiumEnvironmentProxyResolver((url) => resolverSession.resolveProxy(url), 'pac');
+        active = chromiumSystemProxyResolver((url) => resolverSession.resolveProxy(url), 'pac');
         break;
       case 'manual':
         if (next.manualProxyUrl === undefined) {
@@ -176,7 +166,7 @@ export async function installEnvironmentProxyService(
         });
         break;
     }
-    registerEnvironmentProxyResolver(active);
+    registerSystemProxyResolver(active);
   }
 
   await apply(settings);
@@ -184,9 +174,9 @@ export async function installEnvironmentProxyService(
   return {
     getSettings: () => settings,
     async setSettings(raw) {
-      const next = parseEntity(EnvironmentProxySettingsSchema, raw);
+      const next = parseEntity(SystemProxySettingsSchema, raw);
       if (next === null) {
-        return { ok: false, error: 'Invalid environment-proxy settings shape.' };
+        return { ok: false, error: 'Invalid system-proxy settings shape.' };
       }
       if (!isDesktopMode(next.mode)) {
         return {
@@ -194,7 +184,7 @@ export async function installEnvironmentProxyService(
           error: `Mode '${next.mode}' is not available on the desktop — use System, Manual, PAC, or Off.`,
         };
       }
-      await hostStorage.set(OH.environmentProxy, next);
+      await hostStorage.set(OH.systemProxy, next);
       await apply(next);
       return { ok: true, settings: next };
     },

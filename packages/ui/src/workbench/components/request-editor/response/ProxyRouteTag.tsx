@@ -3,7 +3,7 @@
  * routing was decided by a plane, rendered from the record's
  * `proxyRoute` wire truth (never a live settings read): "Proxied" when
  * the run actually tunneled through a proxy, "Proxy bypassed" when an
- * inherited environment proxy stood down for an explicit ask and the
+ * inherited system proxy stood down for an explicit ask and the
  * run proceeded direct. A route that decided plain direct (a NO_PROXY
  * match, an explicit direct opt-out) renders nothing — quiet direct is
  * the baseline, not a badge. Shared by the HTTP ResponseMetaStrip and
@@ -28,7 +28,7 @@ function sourceLabel(route: ExecutedProxyRoute, t: Translate): string {
     case 'pac':
       return t('workbench.editors.request.response.meta.proxySourcePac');
     default:
-      return t('workbench.editors.request.response.meta.proxySourceEnvironment');
+      return t('workbench.editors.request.response.meta.proxySourceDevice');
   }
 }
 
@@ -76,7 +76,7 @@ function proxiedContent(route: ExecutedProxyRoute, t: Translate): InfoPopoverCon
     summary:
       route.plane === 'request'
         ? t('workbench.editors.request.response.meta.proxySummaryRequest')
-        : t('workbench.editors.request.response.meta.proxySummaryEnvironment'),
+        : t('workbench.editors.request.response.meta.proxySummarySystem'),
     description: <ProxyRouteFacts route={route} />,
   };
 }

@@ -4,8 +4,8 @@
  * requests are opened in the built app's workbench and Sent with the
  * toolbar button, while the proxy decision is steered from the two
  * real surfaces — the request Settings tab's tri-state Proxy row
- * (request plane) and the Settings sheet's environment-proxy pane
- * (environment plane: Manual / PAC / Off, live apply, resolution
+ * (request plane) and the Settings sheet's system-proxy pane
+ * (system plane: Manual / PAC / Off, live apply, resolution
  * preview). Every routed leg asserts BOTH truths: the meta strip's
  * `proxyRoute` attribution tag (rendered from the record, never a live
  * settings read) and the local proxy rig's server-side arrival log —
@@ -198,21 +198,21 @@ async function openProxySettings(): Promise<void> {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
   await workbench.locator('.settings-category-nav').getByText('Proxy', { exact: true }).click();
-  await workbench.getByTestId('oh-envproxy-mode').waitFor({ state: 'visible', timeout: 10_000 });
+  await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'visible', timeout: 10_000 });
 }
 
 /** Close the Settings sheet (edits applied live — closing loses nothing). */
 async function closeSettings(): Promise<void> {
   await workbench.keyboard.press('Escape');
   await workbench
-    .getByTestId('oh-envproxy-mode')
+    .getByTestId('oh-sysproxy-mode')
     .waitFor({ state: 'hidden', timeout: 10_000 })
     .catch(() => {});
 }
 
-/** Flip the environment-proxy mode radio in the open settings pane. */
+/** Flip the system-proxy mode radio in the open settings pane. */
 async function setEnvironmentMode(mode: 'system' | 'manual' | 'pac' | 'off'): Promise<void> {
-  await workbench.getByTestId(`oh-envproxy-mode-${mode}`).click();
+  await workbench.getByTestId(`oh-sysproxy-mode-${mode}`).click();
 }
 
 /** Commit a value into one of the pane's blur-committed inputs. */
@@ -422,13 +422,13 @@ test.describe('request plane — the Settings tab Proxy row to the wire', () => 
   });
 });
 
-// ── Environment plane: the settings pane, live apply ────────────────
+// ── System plane: the settings pane, live apply ────────────────
 
-test.describe('environment plane — the settings pane to the wire', () => {
+test.describe('system plane — the settings pane to the wire', () => {
   test('Manual mode proxies an inherit-mode request and the tag names the manual source', async () => {
     await openProxySettings();
     await setEnvironmentMode('manual');
-    await fillEnvironmentField('oh-envproxy-manual-url', `http://127.0.0.1:${connectProxy.port}`);
+    await fillEnvironmentField('oh-sysproxy-manual-url', `http://127.0.0.1:${connectProxy.port}`);
     await closeSettings();
 
     await openRequest(environmentUid);
@@ -439,9 +439,9 @@ test.describe('environment plane — the settings pane to the wire', () => {
 
   test('the resolution preview answers with the manual chain — the honesty primitive on pixels', async () => {
     await openProxySettings();
-    await fillEnvironmentField('oh-envproxy-preview-url', `https://localhost:${httpsEcho.port}/`);
-    await workbench.getByTestId('oh-envproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-envproxy-preview-result')).toContainText(
+    await fillEnvironmentField('oh-sysproxy-preview-url', `https://localhost:${httpsEcho.port}/`);
+    await workbench.getByTestId('oh-sysproxy-preview-run').click();
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText(
       `PROXY 127.0.0.1:${connectProxy.port}`,
       { timeout: 10_000 },
     );
@@ -457,20 +457,20 @@ test.describe('environment plane — the settings pane to the wire', () => {
   test("PAC mode fetches the script and the preview answers its PROXY — Chromium's loopback bypass stays honest", async () => {
     await openProxySettings();
     await setEnvironmentMode('pac');
-    await fillEnvironmentField('oh-envproxy-pac-source', `http://127.0.0.1:${pacServer.port}/proxy.pac`);
+    await fillEnvironmentField('oh-sysproxy-pac-source', `http://127.0.0.1:${pacServer.port}/proxy.pac`);
 
     // Resolution only — no send: a non-loopback URL consults the script.
-    await fillEnvironmentField('oh-envproxy-preview-url', 'https://openheaders.io/');
-    await workbench.getByTestId('oh-envproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-envproxy-preview-result')).toContainText(
+    await fillEnvironmentField('oh-sysproxy-preview-url', 'https://openheaders.io/');
+    await workbench.getByTestId('oh-sysproxy-preview-run').click();
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText(
       `PROXY 127.0.0.1:${connectProxy.port}`,
       { timeout: 10_000 },
     );
 
     // Chromium's implicit bypass: a loopback URL never reaches the PAC.
-    await fillEnvironmentField('oh-envproxy-preview-url', `https://localhost:${httpsEcho.port}/`);
-    await workbench.getByTestId('oh-envproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-envproxy-preview-result')).toContainText('DIRECT', { timeout: 10_000 });
+    await fillEnvironmentField('oh-sysproxy-preview-url', `https://localhost:${httpsEcho.port}/`);
+    await workbench.getByTestId('oh-sysproxy-preview-run').click();
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText('DIRECT', { timeout: 10_000 });
     await closeSettings();
   });
 
@@ -502,22 +502,22 @@ test.describe('environment plane — the settings pane to the wire', () => {
 const REMOTE_HOST = process.env.OH_REMOTE_PLAYGROUND ?? '';
 const REMOTE_SKIP = 'OH_REMOTE_PLAYGROUND not set — no remote playground tier';
 
-test.describe('environment plane — remote PAC over real trust', () => {
+test.describe('system plane — remote PAC over real trust', () => {
   test('the remote per-URL PAC branches: playground host → PROXY, anything else → DIRECT', async () => {
     test.skip(REMOTE_HOST === '', REMOTE_SKIP);
     await openProxySettings();
     await setEnvironmentMode('pac');
-    await fillEnvironmentField('oh-envproxy-pac-source', `https://${REMOTE_HOST}/pac/per-url.pac`);
+    await fillEnvironmentField('oh-sysproxy-pac-source', `https://${REMOTE_HOST}/pac/per-url.pac`);
 
-    await fillEnvironmentField('oh-envproxy-preview-url', `https://${REMOTE_HOST}/echo/preview`);
-    await workbench.getByTestId('oh-envproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-envproxy-preview-result')).toContainText(`PROXY ${REMOTE_HOST}:`, {
+    await fillEnvironmentField('oh-sysproxy-preview-url', `https://${REMOTE_HOST}/echo/preview`);
+    await workbench.getByTestId('oh-sysproxy-preview-run').click();
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText(`PROXY ${REMOTE_HOST}:`, {
       timeout: 20_000,
     });
 
-    await fillEnvironmentField('oh-envproxy-preview-url', 'https://openheaders.io/');
-    await workbench.getByTestId('oh-envproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-envproxy-preview-result')).toContainText('DIRECT', { timeout: 20_000 });
+    await fillEnvironmentField('oh-sysproxy-preview-url', 'https://openheaders.io/');
+    await workbench.getByTestId('oh-sysproxy-preview-run').click();
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText('DIRECT', { timeout: 20_000 });
 
     await setEnvironmentMode('off');
     await closeSettings();

@@ -77,7 +77,7 @@
  *   - **Two-plane proxy resolution.** An explicit request-plane proxy
  *     (`proxyUrl`) or opt-out (`proxyMode: 'direct'`) wins outright; a
  *     send that INHERITS (both absent — the default) asks the host's
- *     environment plane per target (`environment-proxy/` — the
+ *     system plane per target (`system-proxy/` — the
  *     desktop's Chromium system resolver or the node tier's env-var
  *     default), walks its fallback chain (a dial failure reaching one
  *     proxy falls through to the next entry), and materializes the
@@ -150,10 +150,6 @@ import {
 } from '@openheaders/oracle/live/request-exec/transport';
 import { fetch as undiciFetch, request as undiciRequest } from 'undici';
 import { cookieJarFor } from './cookie-jar';
-import { isSocks5ProxyUrl } from './environment-proxy/proxy-value';
-import { environmentProxyResolver } from './environment-proxy/registry';
-import { PROXY_DIAL_FAILURE_CODES } from './environment-proxy/session-route';
-import type { EnvironmentProxyResolver } from './environment-proxy/types';
 import { decryptedClientKeyPem } from './h3-helper/client-key';
 import { resolveH3HelperBinary } from './h3-helper/helper-binary';
 import { type H3HelperClient, sharedH3HelperClient } from './h3-helper/helper-process';
@@ -177,6 +173,10 @@ import {
   withPinnedPipelineTimeout,
 } from './request-transport/seam';
 import { wireHop } from './request-transport/wire-hops';
+import { isSocks5ProxyUrl } from './system-proxy/proxy-value';
+import { systemProxyResolver } from './system-proxy/registry';
+import { PROXY_DIAL_FAILURE_CODES } from './system-proxy/session-route';
+import type { SystemProxyResolver } from './system-proxy/types';
 
 export { connectOptionsFor, httpVersionPolicy } from './request-transport/dispatcher';
 export type { ConnectOptions, NodeFetchFn, NodeRequestFn, NodeRequestResponse } from './request-transport/seam';
@@ -189,11 +189,11 @@ export interface NodeRequestTransportOptions {
    *  falls back to the shared host-process client over the resolved
    *  helper binary. */
   h3Client?: H3HelperClient;
-  /** The environment-plane resolver — injectable so unit rigs drive
+  /** The system-plane resolver — injectable so unit rigs drive
    *  inherit-mode sends with fake resolvers. `null` turns the plane
    *  off for this transport; omitted = the host's registered resolver
-   *  (see `environment-proxy/registry`). */
-  environmentProxy?: EnvironmentProxyResolver | null;
+   *  (see `system-proxy/registry`). */
+  systemProxy?: SystemProxyResolver | null;
 }
 
 function isProxyDialFailure(err: unknown): err is WireExchangeError {
@@ -204,7 +204,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
   const fetchFn = options.fetchFn ?? undiciFetch;
   const requestFn = options.requestFn ?? undiciRequest;
   // One attempt's full exchange — the request already carries its
-  // EFFECTIVE proxy (an inherited environment-plane answer is
+  // EFFECTIVE proxy (an inherited system-plane answer is
   // materialized onto the same seam fields the explicit knob uses, so
   // every layer below honors the route with zero special cases), and
   // the deadline is the walker's: ONE deadline spans every attempt of
@@ -519,11 +519,11 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     const request = withPinnedPipelineTimeout(incoming);
     // Two-plane proxy resolution (docs/REQUEST_ENGINE_PROXY_DESIGN.md):
     // an explicit request-plane setting wins outright; an inheriting
-    // send asks the host's environment plane, whose answer is a
+    // send asks the host's system plane, whose answer is a
     // fallback chain of attempts. The injectable resolver seat is for
     // unit rigs; production reads the host's registered resolver (the
     // desktop's Chromium adapter, or the node tier's env-var default).
-    const resolver = options.environmentProxy !== undefined ? options.environmentProxy : environmentProxyResolver();
+    const resolver = options.systemProxy !== undefined ? options.systemProxy : systemProxyResolver();
     const attempts = await resolveProxyAttempts(request, resolver);
     // ONE deadline spans the whole send — every attempt, every hop of
     // a redirect chain, and the final body read; the abort also
@@ -541,7 +541,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           return attempt.meta !== undefined ? { ...response, proxyRoute: attempt.meta } : response;
         } catch (err) {
           // Chain walking: a dial-level failure REACHING an
-          // environment-plane proxy falls through to the next chain
+          // system-plane proxy falls through to the next chain
           // entry (Chromium's own fallback semantics). Everything else
           // — CONNECT rejections, target-leg failures, explicit
           // request-plane proxies — surfaces as-is. A streamed send

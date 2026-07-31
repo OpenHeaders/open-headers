@@ -1,5 +1,5 @@
 /**
- * Manual-mode environment-plane resolver — the config-driven resolver
+ * Manual-mode system-plane resolver — the config-driven resolver
  * the desktop's Manual mode (and the P4 daemon manual mode) builds:
  * value normalization via the shared parser, per-resolve credential
  * resolution through the injected callback (the vault seam), NO_PROXY
@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createManualProxyResolver } from '../../../src/live/environment-proxy/manual-resolver';
+import { createManualProxyResolver } from '../../../src/live/system-proxy/manual-resolver';
 
 const TARGET = 'https://api.openheaders.io/v1/users';
 

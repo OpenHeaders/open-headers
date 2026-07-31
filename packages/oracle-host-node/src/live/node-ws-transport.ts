@@ -24,7 +24,7 @@
  *     dialing while the handshake `Host`, SNI, and certificate
  *     verification keep it.
  *   - Ambient proxy coverage (docs/REQUEST_ENGINE_PROXY_DESIGN.md,
- *     P6): a connect consults the host's environment plane per target
+ *     P6): a connect consults the host's system plane per target
  *     — WS editors carry no request-plane proxy knobs (the H5
  *     ruling), so the plane's answer is the whole story. An HTTP(S)
  *     answer rides the shared hand-rolled CONNECT tunnel on the
@@ -63,25 +63,25 @@ import {
   type WsTransportRequest,
 } from '@openheaders/oracle/live/ws-exec/transport';
 import { Agent, buildConnector, type Dispatcher, WebSocket as UndiciWebSocket } from 'undici';
-import { isSocks5ProxyUrl } from './environment-proxy/proxy-value';
-import { environmentProxyResolver } from './environment-proxy/registry';
-import {
-  isSessionProxyDialFailure,
-  resolveSessionProxyAttempts,
-  type SessionProxyAttempt,
-} from './environment-proxy/session-route';
-import type { EnvironmentProxyResolver } from './environment-proxy/types';
 import { createDialConnector } from './instrumented-connector';
 import { proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
 import { buildSocks5Agent } from './request-transport/dispatcher';
 import type { ConnectOptions } from './request-transport/seam';
+import { isSocks5ProxyUrl } from './system-proxy/proxy-value';
+import { systemProxyResolver } from './system-proxy/registry';
+import {
+  isSessionProxyDialFailure,
+  resolveSessionProxyAttempts,
+  type SessionProxyAttempt,
+} from './system-proxy/session-route';
+import type { SystemProxyResolver } from './system-proxy/types';
 
 export interface NodeWsTransportOptions {
-  /** The environment-plane resolver — injectable so unit rigs drive
+  /** The system-plane resolver — injectable so unit rigs drive
    *  ambient-proxy connects with fake resolvers. `null` turns the
    *  plane off for this transport; omitted = the host's registered
-   *  resolver (see `environment-proxy/registry`). */
-  environmentProxy?: EnvironmentProxyResolver | null;
+   *  resolver (see `system-proxy/registry`). */
+  systemProxy?: SystemProxyResolver | null;
 }
 
 /** The failure's meaningful code, walking the `cause` chain (undici
@@ -136,7 +136,7 @@ function classifyWsFailure(url: string, err: unknown, socketPath?: string, proxy
     const proxyHost = hostLabelOf(proxyUrl);
     const rejected = proxyConnectRejectedStatus(err);
     if (rejected === 407) {
-      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this session through it. Check the environment plane's proxy credentials in the app settings.`;
+      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this session through it. Check the system plane's proxy credentials in the app settings.`;
     }
     if (rejected !== undefined) {
       return `The proxy at ${proxyHost} could not open a tunnel to ${host} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
@@ -396,7 +396,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
         });
 
       const runConnect = async (): Promise<void> => {
-        const resolver = options.environmentProxy !== undefined ? options.environmentProxy : environmentProxyResolver();
+        const resolver = options.systemProxy !== undefined ? options.systemProxy : systemProxyResolver();
         const resolved = await resolveSessionProxyAttempts(
           {
             url: request.url,
@@ -421,7 +421,7 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
           if (outcome.settled) return;
           active = null;
           // Chain walking: a dial-level failure REACHING an
-          // environment-plane proxy falls through to the next chain
+          // system-plane proxy falls through to the next chain
           // entry (Chromium's own fallback semantics). Everything else
           // — CONNECT rejections, target-leg failures — surfaces.
           const nextExists = i < attempts.length - 1;

@@ -15,7 +15,7 @@ import { proxyConnectRejectedStatus } from './connect-tunnel';
  * The classified wire failure the hop pipelines throw — a
  * {@link TransportError} (the seam's contract, message unchanged) that
  * additionally carries the FIRST machine code off the raw error's
- * cause chain. The environment-plane chain walk reads the code to tell
+ * cause chain. The system-plane chain walk reads the code to tell
  * a proxy DIAL failure (fall through to the next chain entry) from
  * everything else (surface it); nothing crosses the seam — the code is
  * transport-internal.

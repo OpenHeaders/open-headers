@@ -6,12 +6,12 @@
 
 import { TransportError } from '@openheaders/oracle/live/request-exec/transport';
 import { describe, expect, it, vi } from 'vitest';
-import type { EnvironmentProxyResolver, EnvironmentProxySelection } from '../../../src/live/environment-proxy/types';
 import { materializeProxyAttempt, resolveProxyAttempts } from '../../../src/live/request-transport/proxy-route';
+import type { SystemProxyResolver, SystemProxySelection } from '../../../src/live/system-proxy/types';
 import { makeRequest } from './helpers';
 
-function resolverAnswering(selection: EnvironmentProxySelection | null) {
-  const resolve = vi.fn<EnvironmentProxyResolver['resolve']>().mockResolvedValue(selection);
+function resolverAnswering(selection: SystemProxySelection | null) {
+  const resolve = vi.fn<SystemProxyResolver['resolve']>().mockResolvedValue(selection);
   return { resolver: { resolve }, resolve };
 }
 
@@ -42,7 +42,7 @@ describe('resolveProxyAttempts', () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
-  it('inherits the environment plane and maps its chain onto attempts', async () => {
+  it('inherits the system plane and maps its chain onto attempts', async () => {
     const { resolver } = resolverAnswering({
       entries: [
         { kind: 'proxy', url: 'http://a:8080', credential: 'user:pass' },
@@ -55,15 +55,15 @@ describe('resolveProxyAttempts', () => {
     expect(attempts).toEqual([
       {
         proxy: { url: 'http://a:8080', credential: 'user:pass' },
-        meta: { plane: 'environment', proxyUrl: 'http://a:8080', source: 'env' },
+        meta: { plane: 'system', proxyUrl: 'http://a:8080', source: 'env' },
         environmentChain: true,
       },
       {
         proxy: { url: 'http://b:8080' },
-        meta: { plane: 'environment', proxyUrl: 'http://b:8080', source: 'env' },
+        meta: { plane: 'system', proxyUrl: 'http://b:8080', source: 'env' },
         environmentChain: true,
       },
-      { meta: { plane: 'environment', source: 'env' } },
+      { meta: { plane: 'system', source: 'env' } },
     ]);
   });
 
@@ -73,12 +73,12 @@ describe('resolveProxyAttempts', () => {
     await expect(resolveProxyAttempts(makeRequest(), silent)).resolves.toEqual([{}]);
     const { resolver: direct } = resolverAnswering({ entries: [{ kind: 'direct' }], source: 'system' });
     await expect(resolveProxyAttempts(makeRequest(), direct)).resolves.toEqual([{}]);
-    const failing: EnvironmentProxyResolver = { resolve: () => Promise.reject(new Error('resolver died')) };
+    const failing: SystemProxyResolver = { resolve: () => Promise.reject(new Error('resolver died')) };
     await expect(resolveProxyAttempts(makeRequest(), failing)).resolves.toEqual([{}]);
   });
 
   it('stands the ambient proxy down for explicit asks a tunnel cannot honor, recording the reason', async () => {
-    const selection: EnvironmentProxySelection = {
+    const selection: SystemProxySelection = {
       entries: [{ kind: 'proxy', url: 'http://ambient:8080' }],
       source: 'system',
     };
@@ -89,7 +89,7 @@ describe('resolveProxyAttempts', () => {
     ] as const) {
       const { resolver } = resolverAnswering(selection);
       await expect(resolveProxyAttempts(makeRequest(overrides), resolver)).resolves.toEqual([
-        { meta: { plane: 'environment', source: 'system', standDownReason: reason } },
+        { meta: { plane: 'system', source: 'system', standDownReason: reason } },
       ]);
     }
     // No stand-down record when the environment answers DIRECT anyway.
@@ -107,7 +107,7 @@ describe('resolveProxyAttempts', () => {
     await expect(resolveProxyAttempts(makeRequest(), resolver)).resolves.toEqual([
       {
         proxy: { url: 'socks5://corp:1080', credential: 'user:secret' },
-        meta: { plane: 'environment', proxyUrl: 'socks5://corp:1080', source: 'env' },
+        meta: { plane: 'system', proxyUrl: 'socks5://corp:1080', source: 'env' },
         environmentChain: true,
       },
     ]);
@@ -137,7 +137,7 @@ describe('resolveProxyAttempts', () => {
     expect(attempts).toEqual([
       {
         proxy: { url: 'http://fallback:8080' },
-        meta: { plane: 'environment', proxyUrl: 'http://fallback:8080', source: 'system' },
+        meta: { plane: 'system', proxyUrl: 'http://fallback:8080', source: 'system' },
         environmentChain: true,
       },
     ]);
@@ -150,7 +150,7 @@ describe('resolveProxyAttempts', () => {
   });
 
   it('gates SOCKS5 entries for pinned-h2 sends: skip past to a fallback, honest error when SOCKS5-only', async () => {
-    const selection: EnvironmentProxySelection = {
+    const selection: SystemProxySelection = {
       entries: [
         { kind: 'proxy', url: 'socks5://corp:1080' },
         { kind: 'proxy', url: 'http://fallback:8080' },
@@ -162,7 +162,7 @@ describe('resolveProxyAttempts', () => {
       await expect(resolveProxyAttempts(makeRequest({ httpVersion }), resolver)).resolves.toEqual([
         {
           proxy: { url: 'http://fallback:8080' },
-          meta: { plane: 'environment', proxyUrl: 'http://fallback:8080', source: 'system' },
+          meta: { plane: 'system', proxyUrl: 'http://fallback:8080', source: 'system' },
           environmentChain: true,
         },
       ]);

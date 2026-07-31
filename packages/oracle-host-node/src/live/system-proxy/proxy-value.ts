@@ -1,7 +1,7 @@
 /**
  * Normalization of one configured proxy value (`corp:8080`,
  * `http://user:pass@corp:8080`, `socks5://corp:1080`) into an
- * environment-plane entry. Shared by the env-var adapter and — for its
+ * system-plane entry. Shared by the env-var adapter and — for its
  * scheme handling — the PAC-answer parser.
  *
  * The ecosystem norm for env-var proxies allows a bare `host:port`
@@ -12,7 +12,7 @@
  * recorded route).
  */
 
-import type { EnvironmentProxyEntry } from './types';
+import type { SystemProxyEntry } from './types';
 
 /** Whether a normalized proxy URL names a SOCKS5 proxy — the transport
  *  layers that must pick the SOCKS dial (or refuse a pin it can't
@@ -30,7 +30,7 @@ export function isSocks5ProxyUrl(url: string): boolean {
  * speak comes back as `kind: 'socks'` carrying the raw value — the
  * transport owns the honest failure.
  */
-export function parseProxyValue(value: string): EnvironmentProxyEntry | null {
+export function parseProxyValue(value: string): SystemProxyEntry | null {
   const trimmed = value.trim();
   if (trimmed === '') return null;
   const withScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`;

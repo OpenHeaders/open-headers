@@ -74,7 +74,7 @@ export interface ResolvedRequest {
   /** See {@link clientCertificatePem}. */
   clientCertificatePassphrase?: string;
   /** Request-plane proxy routing mode. Absent → inherit the executing
-   *  host's environment plane; `'direct'` opts out of any ambient
+   *  host's system plane; `'direct'` opts out of any ambient
    *  proxy; `'url'` routes through `proxyUrl`. */
   proxyMode?: 'direct' | 'url';
   /** HTTP(S) proxy the send tunnels through; absent → the mode above

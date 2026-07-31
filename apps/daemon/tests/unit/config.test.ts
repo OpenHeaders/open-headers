@@ -399,9 +399,9 @@ describe('resolveDaemonConfig — validation', () => {
   });
 });
 
-describe('resolveDaemonConfig — egress proxy (environment plane)', () => {
+describe('resolveDaemonConfig — egress proxy (system plane)', () => {
   it('defaults to null — the stored slot or the tier default applies', () => {
-    expect(resolve().environmentProxy).toBeNull();
+    expect(resolve().systemProxy).toBeNull();
   });
 
   it('reads the proxy block from the file, manual shape mapped onto the settings slot', () => {
@@ -413,7 +413,7 @@ describe('resolveDaemonConfig — egress proxy (environment plane)', () => {
         bypassList: '.internal.openheaders.io,10.0.0.0/8',
       },
     });
-    expect(resolve(['--config', file]).environmentProxy).toEqual({
+    expect(resolve(['--config', file]).systemProxy).toEqual({
       version: 1,
       mode: 'manual',
       manualProxyUrl: 'corp.openheaders.io:8080',
@@ -424,14 +424,15 @@ describe('resolveDaemonConfig — egress proxy (environment plane)', () => {
 
   it('resolves the mode through argv → env → file', () => {
     const file = writeConfigFile({ proxy: { mode: 'off' } });
-    expect(resolve(['--config', file]).environmentProxy).toEqual({ version: 1, mode: 'off' });
-    expect(resolve(['--config', file], { OH_DAEMON_PROXY_MODE: 'env' }).environmentProxy).toEqual({
+    expect(resolve(['--config', file]).systemProxy).toEqual({ version: 1, mode: 'off' });
+    expect(resolve(['--config', file], { OH_DAEMON_PROXY_MODE: 'env' }).systemProxy).toEqual({
       version: 1,
       mode: 'env',
     });
-    expect(
-      resolve(['--config', file, '--proxy-mode', 'off'], { OH_DAEMON_PROXY_MODE: 'env' }).environmentProxy,
-    ).toEqual({ version: 1, mode: 'off' });
+    expect(resolve(['--config', file, '--proxy-mode', 'off'], { OH_DAEMON_PROXY_MODE: 'env' }).systemProxy).toEqual({
+      version: 1,
+      mode: 'off',
+    });
   });
 
   it('refuses pac and system with the honest error naming env and manual', () => {

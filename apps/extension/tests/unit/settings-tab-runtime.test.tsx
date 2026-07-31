@@ -584,6 +584,18 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount()).toBe(0);
   });
 
+  it('shows the format example under the free-text rows, ceding its line to the error', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab();
+    expect(screen.getByText('e.g. 10.0.0.12 or 2001:db8::1')).toBeTruthy();
+    expect(screen.getByText('e.g. /var/run/docker.sock')).toBeTruthy();
+
+    cleanup();
+    renderTab({ resolveToAddress: 'backend.openheaders.io' });
+    expect(screen.getByText(/IPv4 or IPv6 address only/)).toBeTruthy();
+    expect(screen.queryByText('e.g. 10.0.0.12 or 2001:db8::1')).toBeNull();
+  });
+
   it('shows the client-certificate picker without touching the fact sheet', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
@@ -642,7 +654,7 @@ describe('SettingsTab on a node runtime', () => {
     renderTab();
     // Inherit is the default — the cleared select states it as live behavior.
     expect(screen.getByRole('combobox', { name: 'Proxy' })).toBeTruthy();
-    expect(screen.getByText('Inherit — environment decides')).toBeTruthy();
+    expect(screen.getByText('Inherit — system decides')).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Proxy URL' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Proxy credentials' })).toBeNull();
     // Not trust-relaxing, not a sheet-listed fact — the node sheet
@@ -667,6 +679,24 @@ describe('SettingsTab on a node runtime', () => {
     );
   });
 
+  it('lists Inherit as a real option — picking it returns the trio to undefined', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(
+      <SettingsTab
+        value={{ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }}
+        onChange={onChange}
+      />,
+    );
+    openCombobox(screen.getByRole('combobox', { name: 'Proxy' }));
+    expect(dropdownOption('Direct — no proxy')).toBeTruthy();
+    expect(dropdownOption('Custom URL')).toBeTruthy();
+    fireEvent.click(dropdownOption('Inherit — system decides'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ proxyMode: undefined, proxyUrl: undefined, proxyCredentialRef: undefined }),
+    );
+  });
+
   it('Custom URL mode with no URL yet flags the missing URL in place', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab({ proxyMode: 'url' });
@@ -674,18 +704,22 @@ describe('SettingsTab on a node runtime', () => {
     expect(screen.getByText(/Custom URL mode needs a proxy URL/)).toBeTruthy();
   });
 
-  it('flags a malformed, userinfo-bearing, or SOCKS proxy URL in place', () => {
+  it('flags a userinfo-bearing or SOCKS4 proxy URL in place; socks5 is a valid scheme', () => {
     registerCapability('requestRuntime', () => 'node');
-    renderTab({ proxyMode: 'url', proxyUrl: 'socks5://127.0.0.1:1080' });
-    expect(screen.getByText(/no credentials in the URL, no SOCKS/)).toBeTruthy();
+    renderTab({ proxyMode: 'url', proxyUrl: 'socks4://127.0.0.1:1080' });
+    expect(screen.getByText(/no credentials in the URL/)).toBeTruthy();
 
     cleanup();
     renderTab({ proxyMode: 'url', proxyUrl: 'http://user:pass@proxy.openheaders.io' });
-    expect(screen.getByText(/no credentials in the URL, no SOCKS/)).toBeTruthy();
+    expect(screen.getByText(/no credentials in the URL/)).toBeTruthy();
+
+    cleanup();
+    renderTab({ proxyMode: 'url', proxyUrl: 'socks5://127.0.0.1:1080' });
+    expect(screen.queryByText(/no credentials in the URL/)).toBeNull();
 
     cleanup();
     renderTab({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' });
-    expect(screen.queryByText(/no credentials in the URL, no SOCKS/)).toBeNull();
+    expect(screen.queryByText(/no credentials in the URL/)).toBeNull();
   });
 
   it('warns in place while both a proxy and a resolve-to-address pin are set', () => {

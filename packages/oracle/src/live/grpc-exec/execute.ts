@@ -256,9 +256,9 @@ export async function executeGrpcInvoke(
       bodyBytes: response.body.byteLength,
       durationMs,
       // Route wire truth: the transport reports what its host's
-      // environment plane decided — H5 leaves gRPC no request plane,
+      // system plane decided — H5 leaves gRPC no request plane,
       // so the plane is always the executing device's.
-      ...(response.proxyRoute !== undefined ? { proxyRoute: { plane: 'environment', ...response.proxyRoute } } : {}),
+      ...(response.proxyRoute !== undefined ? { proxyRoute: { plane: 'system', ...response.proxyRoute } } : {}),
       error: null,
     };
   } catch (err) {

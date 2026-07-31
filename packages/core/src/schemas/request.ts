@@ -193,7 +193,7 @@ export const ProxyUrlSchema = v.pipe(
 
 /**
  * Request-plane proxy routing mode. ABSENT is the default and means
- * INHERIT: the executing host's environment plane (system settings /
+ * INHERIT: the executing host's system plane (system settings /
  * PAC on the desktop, HTTP_PROXY-family env vars on the node tier)
  * resolves whether the send traverses a proxy — see
  * docs/REQUEST_ENGINE_PROXY_DESIGN.md. `'direct'` is the explicit
@@ -842,7 +842,7 @@ const RequestObjectSchema = v.object({
   clientCertificateRef: v.optional(ClientCertificateRefSchema),
   /**
    * Proxy routing mode for the send. Absent = INHERIT the executing
-   * host's environment plane (the default — an unmanaged machine
+   * host's system plane (the default — an unmanaged machine
    * resolves direct and behaves exactly as before; a corporate machine
    * traverses its pushed proxy with zero per-request configuration).
    * `'direct'` opts this request out of any ambient proxy; `'url'`

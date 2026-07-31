@@ -1,5 +1,5 @@
 /**
- * Desktop environment-plane service — the mode-driven half of the
+ * Desktop system-plane service — the mode-driven half of the
  * two-plane proxy architecture (docs/REQUEST_ENGINE_PROXY_DESIGN.md
  * P3): mode → resolver mapping over the P2 registry, the dedicated
  * Chromium resolver session's System/PAC wiring, per-device settings
@@ -8,17 +8,14 @@
  */
 
 import { OH, type StorageKey } from '@openheaders/core/storage';
-import {
-  environmentProxyResolver,
-  resetEnvironmentProxyResolver,
-} from '@openheaders/oracle-host-node/live/environment-proxy';
+import { resetSystemProxyResolver, systemProxyResolver } from '@openheaders/oracle-host-node/live/system-proxy';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  chromiumEnvironmentProxyResolver,
-  installEnvironmentProxyService,
+  chromiumSystemProxyResolver,
+  installSystemProxyService,
   pacScriptUrl,
   projectSelection,
-} from '../../../src/main/environment-proxy-install';
+} from '../../../src/main/system-proxy-install';
 // The mock-only session handle comes from the mock module itself — the
 // vitest alias resolves 'electron' to the same file, so it is the same
 // singleton, and the type exists (real electron types have no such
@@ -27,7 +24,7 @@ import { sessionPartitionMock } from '../../__mocks__/electron';
 
 function makeStore(initial?: unknown) {
   const slots = new Map<string, unknown>();
-  if (initial !== undefined) slots.set(OH.environmentProxy.key, initial);
+  if (initial !== undefined) slots.set(OH.systemProxy.key, initial);
   return {
     slots,
     get<T>(spec: StorageKey<T>): Promise<T | undefined> {
@@ -41,7 +38,7 @@ function makeStore(initial?: unknown) {
 }
 
 afterEach(() => {
-  resetEnvironmentProxyResolver();
+  resetSystemProxyResolver();
   sessionPartitionMock.resolveProxyAnswer = 'DIRECT';
   sessionPartitionMock.proxyConfig = undefined;
 });
@@ -54,9 +51,9 @@ describe('pacScriptUrl', () => {
   });
 });
 
-describe('chromiumEnvironmentProxyResolver', () => {
+describe('chromiumSystemProxyResolver', () => {
   it('parses the PAC-format answer under the given source', async () => {
-    const resolver = chromiumEnvironmentProxyResolver(
+    const resolver = chromiumSystemProxyResolver(
       () => Promise.resolve('PROXY corp.openheaders.io:8080; DIRECT'),
       'pac',
     );
@@ -68,10 +65,10 @@ describe('chromiumEnvironmentProxyResolver', () => {
 
   it('answers null on an empty answer and on a resolution failure — never a new way to fail', async () => {
     await expect(
-      chromiumEnvironmentProxyResolver(() => Promise.resolve('')).resolve('https://api.openheaders.io'),
+      chromiumSystemProxyResolver(() => Promise.resolve('')).resolve('https://api.openheaders.io'),
     ).resolves.toBeNull();
     await expect(
-      chromiumEnvironmentProxyResolver(() => Promise.reject(new Error('gone'))).resolve('https://api.openheaders.io'),
+      chromiumSystemProxyResolver(() => Promise.reject(new Error('gone'))).resolve('https://api.openheaders.io'),
     ).resolves.toBeNull();
   });
 });
@@ -98,9 +95,9 @@ describe('projectSelection', () => {
   });
 });
 
-describe('installEnvironmentProxyService', () => {
+describe('installSystemProxyService', () => {
   it('defaults to System, points the resolver session at the OS, and resolves through Chromium', async () => {
-    const service = await installEnvironmentProxyService(makeStore());
+    const service = await installSystemProxyService(makeStore());
     expect(service.getSettings()).toEqual({ version: 1, mode: 'system' });
     expect(sessionPartitionMock.proxyConfig).toEqual({ mode: 'system' });
     sessionPartitionMock.resolveProxyAnswer = 'PROXY corp.openheaders.io:8080';
@@ -111,21 +108,21 @@ describe('installEnvironmentProxyService', () => {
   });
 
   it('reads a malformed stored slot as the tier default — never a boot failure', async () => {
-    const service = await installEnvironmentProxyService(makeStore({ mode: 'sideways' }));
+    const service = await installSystemProxyService(makeStore({ mode: 'sideways' }));
     expect(service.getSettings()).toEqual({ version: 1, mode: 'system' });
   });
 
   it("reads a stored node-tier 'env' mode as the tier default — Chromium resolves here, not the process env", async () => {
-    const service = await installEnvironmentProxyService(makeStore({ version: 1, mode: 'env' }));
+    const service = await installSystemProxyService(makeStore({ version: 1, mode: 'env' }));
     expect(service.getSettings()).toEqual({ version: 1, mode: 'system' });
   });
 
   it('applies a set live: Off registers the explicit null, Manual resolves by config', async () => {
     const store = makeStore();
-    const service = await installEnvironmentProxyService(store);
+    const service = await installSystemProxyService(store);
     const off = await service.setSettings({ version: 1, mode: 'off' });
     expect(off.ok).toBe(true);
-    expect(environmentProxyResolver()).toBeNull();
+    expect(systemProxyResolver()).toBeNull();
     await expect(service.resolve('https://api.openheaders.io')).resolves.toBeNull();
 
     const manual = await service.setSettings({
@@ -136,7 +133,7 @@ describe('installEnvironmentProxyService', () => {
     });
     expect(manual.ok).toBe(true);
     // Persisted per device under the OH slot.
-    expect(store.slots.get(OH.environmentProxy.key)).toEqual({
+    expect(store.slots.get(OH.systemProxy.key)).toEqual({
       version: 1,
       mode: 'manual',
       manualProxyUrl: 'corp.openheaders.io:8080',
@@ -150,7 +147,7 @@ describe('installEnvironmentProxyService', () => {
   });
 
   it('PAC mode points the dedicated session at the script and answers under the pac source', async () => {
-    const service = await installEnvironmentProxyService(makeStore());
+    const service = await installSystemProxyService(makeStore());
     const result = await service.setSettings({ version: 1, mode: 'pac', pacSource: '/etc/proxy.pac' });
     expect(result.ok).toBe(true);
     expect(sessionPartitionMock.proxyConfig).toEqual({ pacScript: 'file:///etc/proxy.pac' });
@@ -166,7 +163,7 @@ describe('installEnvironmentProxyService', () => {
   });
 
   it("refuses an invalid shape and the node tier's env mode without touching the active mode", async () => {
-    const service = await installEnvironmentProxyService(makeStore());
+    const service = await installSystemProxyService(makeStore());
     const shape = await service.setSettings({ version: 1, mode: 'sideways' });
     expect(shape.ok).toBe(false);
     const nodeMode = await service.setSettings({ version: 1, mode: 'env' });

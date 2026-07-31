@@ -26,7 +26,7 @@
  *     cosmetic for dialing while `:authority`, SNI, and certificate
  *     verification keep it.
  *   - Ambient proxy coverage (docs/REQUEST_ENGINE_PROXY_DESIGN.md,
- *     P6): a call consults the host's environment plane per target —
+ *     P6): a call consults the host's system plane per target —
  *     gRPC editors carry no request-plane proxy knobs (the H5
  *     ruling), so the plane's answer is the whole story. An HTTP(S)
  *     answer pre-dials the shared hand-rolled CONNECT tunnel
@@ -77,23 +77,23 @@ import {
   type GrpcTransportResponse,
   type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
-import { environmentProxyResolver } from './environment-proxy/registry';
+import { servernameFor } from './instrumented-connector';
+import { dialConnectTunnel, proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
+import { systemProxyResolver } from './system-proxy/registry';
 import {
   isSessionProxyDialFailure,
   resolveSessionProxyAttempts,
   type SessionProxyAttempt,
   type SessionRouteResult,
-} from './environment-proxy/session-route';
-import type { EnvironmentProxyResolver } from './environment-proxy/types';
-import { servernameFor } from './instrumented-connector';
-import { dialConnectTunnel, proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
+} from './system-proxy/session-route';
+import type { SystemProxyResolver } from './system-proxy/types';
 
 export interface NodeGrpcTransportOptions {
-  /** The environment-plane resolver — injectable so unit rigs drive
+  /** The system-plane resolver — injectable so unit rigs drive
    *  ambient-proxy calls with fake resolvers. `null` turns the plane
    *  off for this transport; omitted = the host's registered resolver
-   *  (see `environment-proxy/registry`). */
-  environmentProxy?: EnvironmentProxyResolver | null;
+   *  (see `system-proxy/registry`). */
+  systemProxy?: SystemProxyResolver | null;
 }
 
 /**
@@ -285,7 +285,7 @@ function classifyGrpcFailure(
     const proxyHost = proxyHostOf(proxyUrl);
     const rejected = proxyConnectRejectedStatus(err);
     if (rejected === 407) {
-      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this call through it. Check the environment plane's proxy credentials in the app settings.`;
+      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this call through it. Check the system plane's proxy credentials in the app settings.`;
     }
     if (rejected !== undefined) {
       return `The proxy at ${proxyHost} could not open a tunnel to ${authority} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
@@ -347,8 +347,8 @@ function targetPortOf(target: URL, tlsChannel: boolean): number {
 type PendingStreamWrite = { kind: 'message'; message: Uint8Array } | { kind: 'half-close' };
 
 export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}): GrpcTransport {
-  const resolverFor = (): EnvironmentProxyResolver | null =>
-    options.environmentProxy !== undefined ? options.environmentProxy : environmentProxyResolver();
+  const resolverFor = (): SystemProxyResolver | null =>
+    options.systemProxy !== undefined ? options.systemProxy : systemProxyResolver();
   const resolveCallAttempts = (target: URL, unixSocketPath: string | undefined): Promise<SessionRouteResult> =>
     resolveSessionProxyAttempts(
       {

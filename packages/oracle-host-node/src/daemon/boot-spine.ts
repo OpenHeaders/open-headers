@@ -180,7 +180,7 @@ import { createBrowserLiveRelay } from './telemetry/browser-live-relay';
 const SCOPE = 'boot-spine';
 
 // Egress for the resolve-wire path's OAuth refresh leg — the same
-// transport seam every send rides, so the environment plane covers it.
+// transport seam every send rides, so the system plane covers it.
 const nodeTransport = createNodeRequestTransport();
 
 // Pairing service's global unknown-code budget when a trusted proxy

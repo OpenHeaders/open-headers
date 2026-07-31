@@ -1,9 +1,9 @@
 /**
  * Ambient WS/gRPC proxy coverage over REAL wire (P6) — the session
- * twins of the HTTP environment-plane rig legs: live CONNECT and
+ * twins of the HTTP system-plane rig legs: live CONNECT and
  * SOCKS5 proxies from the shared rig, real `ws` / `node:http2`
  * servers behind them, resolvers injected through each transport's
- * `environmentProxy` seat (the test-hermeticity law: REAL resolvers,
+ * `systemProxy` seat (the test-hermeticity law: REAL resolvers,
  * injected). Pins the tunnel actually carrying the session (the rig
  * records CONNECT targets / SOCKS negotiations), the credential leg,
  * the 407 honesty, chain fall-through past a dead proxy, the SOCKS5
@@ -21,12 +21,12 @@ import type { GrpcProxyRoute } from '@openheaders/oracle/live/grpc-exec/transpor
 import type { WsProxyRoute, WsTransportError } from '@openheaders/oracle/live/ws-exec/transport';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
-import type { EnvironmentProxyEntry, EnvironmentProxyResolver } from '../../src/live/environment-proxy/types';
 import { createNodeGrpcTransport } from '../../src/live/node-grpc-transport';
 import { createNodeWsTransport } from '../../src/live/node-ws-transport';
+import type { SystemProxyEntry, SystemProxyResolver } from '../../src/live/system-proxy/types';
 import { closedPort, startConnectProxy, startSocks5Proxy } from './request-transport/connect-proxy-rig';
 
-const resolverOf = (entries: EnvironmentProxyEntry[], source: 'env' | 'system' = 'env'): EnvironmentProxyResolver => ({
+const resolverOf = (entries: SystemProxyEntry[], source: 'env' | 'system' = 'env'): SystemProxyResolver => ({
   resolve: () => Promise.resolve({ entries, source }),
 });
 
@@ -77,10 +77,10 @@ interface WsRun {
  *  after the first echo, resolve on end with everything observed. */
 function runWsSession(
   url: string,
-  resolver: EnvironmentProxyResolver | null,
+  resolver: SystemProxyResolver | null,
   options: { unixSocketPath?: string; timeoutMs?: number } = {},
 ): Promise<WsRun> {
-  const transport = createNodeWsTransport({ environmentProxy: resolver });
+  const transport = createNodeWsTransport({ systemProxy: resolver });
   return new Promise<WsRun>((resolve) => {
     const seen: WsRun = { opened: false, echoes: [] };
     const writer = transport.connect(
@@ -226,7 +226,7 @@ describe('ambient gRPC coverage — live rigs', () => {
     const proxy = await startConnectProxy();
     cleanups.push(proxy.close);
     const { authority, port } = await startGrpcEcho();
-    const transport = createNodeGrpcTransport({ environmentProxy: resolverOf([{ kind: 'proxy', url: proxy.url }]) });
+    const transport = createNodeGrpcTransport({ systemProxy: resolverOf([{ kind: 'proxy', url: proxy.url }]) });
     const response = await transport.invoke(grpcRequest(authority));
     expect(response.httpStatus).toBe(200);
     const { frames } = readGrpcFrames(response.body);
@@ -239,7 +239,7 @@ describe('ambient gRPC coverage — live rigs', () => {
     const proxy = await startConnectProxy({ requireAuth: 'corp:secret' });
     cleanups.push(proxy.close);
     const { authority } = await startGrpcEcho();
-    const transport = createNodeGrpcTransport({ environmentProxy: resolverOf([{ kind: 'proxy', url: proxy.url }]) });
+    const transport = createNodeGrpcTransport({ systemProxy: resolverOf([{ kind: 'proxy', url: proxy.url }]) });
     await expect(transport.invoke(grpcRequest(authority))).rejects.toThrow(/407/);
   });
 
@@ -248,7 +248,7 @@ describe('ambient gRPC coverage — live rigs', () => {
     cleanups.push(proxy.close);
     const { authority, port } = await startGrpcEcho();
     const transport = createNodeGrpcTransport({
-      environmentProxy: resolverOf([
+      systemProxy: resolverOf([
         { kind: 'proxy', url: 'socks5://socks.openheaders.io:1080' },
         { kind: 'proxy', url: proxy.url },
       ]),
@@ -262,7 +262,7 @@ describe('ambient gRPC coverage — live rigs', () => {
   it('fails a SOCKS5-only chain honestly before the wire', async () => {
     const { authority } = await startGrpcEcho();
     const transport = createNodeGrpcTransport({
-      environmentProxy: resolverOf([{ kind: 'proxy', url: 'socks5://socks.openheaders.io:1080' }]),
+      systemProxy: resolverOf([{ kind: 'proxy', url: 'socks5://socks.openheaders.io:1080' }]),
     });
     await expect(transport.invoke(grpcRequest(authority))).rejects.toThrow(/HTTP CONNECT only/);
   });
@@ -272,7 +272,7 @@ describe('ambient gRPC coverage — live rigs', () => {
     cleanups.push(proxy.close);
     const { authority, port } = await startGrpcEcho();
     const transport = createNodeGrpcTransport({
-      environmentProxy: resolverOf([{ kind: 'proxy', url: proxy.url }], 'system'),
+      systemProxy: resolverOf([{ kind: 'proxy', url: proxy.url }], 'system'),
     });
     const openStream = transport.openStream;
     if (openStream === undefined) throw new Error('openStream missing');

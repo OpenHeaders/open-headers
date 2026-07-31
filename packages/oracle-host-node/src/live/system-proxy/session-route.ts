@@ -2,8 +2,8 @@
  * Ambient proxy-route resolution for SESSION dials — the WS and gRPC
  * twins of the HTTP transport's `proxy-route.ts` walk. These dials
  * carry NO request-plane proxy knobs (the H5 ruling: their editors
- * stay knob-free), so the environment plane is the only plane that
- * can answer, and every recorded route is `plane: 'environment'`.
+ * stay knob-free), so the system plane is the only plane that
+ * can answer, and every recorded route is `plane: 'system'`.
  *
  * Same chain semantics as HTTP sends: the resolved answer is a
  * Chromium-style fallback chain; the first supported entry dials, a
@@ -22,11 +22,11 @@
  */
 
 import { isSocks5ProxyUrl } from './proxy-value';
-import type { EnvironmentProxyResolver, EnvironmentProxySource } from './types';
+import type { SystemProxyResolver, SystemProxySource } from './types';
 
 /**
  * Dial-level failure codes REACHING a proxy — the only failures the
- * environment-plane chain walk falls through on, shared by the HTTP
+ * system-plane chain walk falls through on, shared by the HTTP
  * transport's walker and the session walkers here. On a proxied dial a
  * refused / unresolved / unroutable / timed-out connect can only be
  * the proxy itself (target dialing happens at the proxy), which is
@@ -45,13 +45,13 @@ export const PROXY_DIAL_FAILURE_CODES: ReadonlySet<string> = new Set([
 ]);
 
 /** Wire truth for one session's effective route — the seam callbacks
- *  carry it onto the session record (`plane: 'environment'` implied:
+ *  carry it onto the session record (`plane: 'system'` implied:
  *  these dials have no request plane). Absent route = plain direct. */
 export interface SessionProxyRoute {
   /** The proxy the session actually tunneled through (credentials
    *  never ride it). Absent = the decision was direct. */
   proxyUrl?: string;
-  source: EnvironmentProxySource;
+  source: SystemProxySource;
   /** Present when the ambient proxy stood down for a socket-pinned
    *  dial — the session proceeded direct. */
   standDownReason?: 'unix-socket';
@@ -62,7 +62,7 @@ export interface SessionProxyRoute {
 export interface SessionProxyAttempt {
   proxy?: { url: string; credential?: string };
   route?: SessionProxyRoute;
-  /** True when this attempt came from an environment-plane chain — the
+  /** True when this attempt came from an system-plane chain — the
    *  only attempts a proxy dial failure may fall through from. */
   environmentChain?: boolean;
 }
@@ -108,7 +108,7 @@ export function isSessionProxyDialFailure(err: unknown): boolean {
  */
 export async function resolveSessionProxyAttempts(
   request: SessionRouteRequest,
-  resolver: EnvironmentProxyResolver | null,
+  resolver: SystemProxyResolver | null,
 ): Promise<SessionRouteResult> {
   if (resolver === null) return { attempts: DIRECT_ATTEMPT };
   const selection = await resolver.resolve(request.url).catch(() => null);
@@ -125,7 +125,7 @@ export async function resolveSessionProxyAttempts(
     if (entry.kind === 'direct') {
       // Nothing falls past a DIRECT entry. A chain that OPENS with one
       // is a plain direct answer (no route); direct as a fallback after
-      // proxies is a real environment-plane decision and says so.
+      // proxies is a real system-plane decision and says so.
       attempts.push(attempts.length === 0 ? {} : { route: { source: selection.source } });
       break;
     }
@@ -148,15 +148,15 @@ export async function resolveSessionProxyAttempts(
   }
   if (attempts.length === 0) {
     // These dials have no request-plane Direct — the escape hatch is
-    // the environment plane itself (Off, or a supported proxy).
+    // the system plane itself (Off, or a supported proxy).
     if (sawBlockedSocks5 !== null) {
       return {
-        errorMessage: `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawBlockedSocks5}), which this connection can't traverse — it tunnels through HTTP CONNECT only. Set the environment-plane proxy to Off, or point it at an HTTP(S) proxy.`,
+        errorMessage: `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawBlockedSocks5}), which this connection can't traverse — it tunnels through HTTP CONNECT only. Set the system-plane proxy to Off, or point it at an HTTP(S) proxy.`,
       };
     }
     if (sawSocks4 !== null) {
       return {
-        errorMessage: `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported. Set the environment-plane proxy to Off, or point it at a SOCKS5 or HTTP(S) proxy.`,
+        errorMessage: `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported. Set the system-plane proxy to Off, or point it at a SOCKS5 or HTTP(S) proxy.`,
       };
     }
     return { attempts: DIRECT_ATTEMPT };

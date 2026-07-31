@@ -4,7 +4,7 @@
  * dispatch through the node request transport instead of bare fetch,
  * so on a proxied machine both operator-facing POSTs tunnel through
  * the proxy the environment names. Resolvers are the REAL env-var
- * implementation, injected through the transport's `environmentProxy`
+ * implementation, injected through the transport's `systemProxy`
  * option (the hermeticity law: the process-global registry stays off
  * for the whole run).
  */
@@ -15,8 +15,8 @@ import type { LicenseSnapshot } from '@openheaders/core/licensing';
 import { ensureAuditLogSchema, SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEnvProxyResolver } from '../../../src/live/environment-proxy/env-proxy-resolver';
 import { createNodeRequestTransport } from '../../../src/live/node-request-transport';
+import { createEnvProxyResolver } from '../../../src/live/system-proxy/env-proxy-resolver';
 import { openSqliteDatabase } from '../../../src/sync/sqlite-database';
 import { listenPort, startConnectProxy } from '../request-transport/connect-proxy-rig';
 
@@ -54,7 +54,7 @@ async function startEndpoint(status: number): Promise<EndpointRig> {
   };
 }
 
-describe('daemon-ops egress through the environment plane', () => {
+describe('daemon-ops egress through the system plane', () => {
   let db: Database.Database | null = null;
   let forwarder: AuditForwarderHandle | null = null;
   let agent: LicenseRefreshAgentHandle | null = null;
@@ -88,7 +88,7 @@ describe('daemon-ops egress through the environment plane', () => {
         db,
         config: { url: collector.url, intervalMs: 60_000 },
         transport: createNodeRequestTransport({
-          environmentProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url })),
+          systemProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url })),
         }),
       });
       await vi.waitFor(() => {
@@ -127,7 +127,7 @@ describe('daemon-ops egress through the environment plane', () => {
         appVersion: '2026.7.31',
         platform: 'testos',
         transport: createNodeRequestTransport({
-          environmentProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url })),
+          systemProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url })),
         }),
         listUsers: async () => [],
         endpoint: endpoint.url,

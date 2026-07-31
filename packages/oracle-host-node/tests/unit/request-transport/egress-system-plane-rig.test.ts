@@ -7,7 +7,7 @@
  * environment names — CONNECT and SOCKS5 alike. The token store is
  * mocked at its module seam (it rides the sync oracle); resolvers are
  * the REAL env-var implementation, injected through the transport's
- * `environmentProxy` option (the hermeticity law: the process-global
+ * `systemProxy` option (the hermeticity law: the process-global
  * registry stays off for the whole run).
  */
 
@@ -16,8 +16,8 @@ import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEnvProxyResolver } from '../../../src/live/environment-proxy/env-proxy-resolver';
 import { createNodeRequestTransport } from '../../../src/live/node-request-transport';
+import { createEnvProxyResolver } from '../../../src/live/system-proxy/env-proxy-resolver';
 import { listenPort, startConnectProxy, startSocks5Proxy } from './connect-proxy-rig';
 
 const store = vi.hoisted(() => ({
@@ -78,13 +78,13 @@ beforeEach(() => {
   store.getTokenBundle.mockResolvedValue(makeBundle());
 });
 
-describe('OAuth refresh egress through the environment plane', () => {
+describe('OAuth refresh egress through the system plane', () => {
   it('tunnels the token POST through the env-var CONNECT proxy', async () => {
     const endpoint = await startTokenEndpoint();
     const proxy = await startConnectProxy();
     try {
       const transport = createNodeRequestTransport({
-        environmentProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url })),
+        systemProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url })),
       });
       const bundle = await buildRefreshOAuthHook('ws-1', transport)(makeAuth(endpoint.url));
       expect(bundle?.accessToken).toBe('at-fresh');
@@ -102,7 +102,7 @@ describe('OAuth refresh egress through the environment plane', () => {
     const socks = await startSocks5Proxy();
     try {
       const transport = createNodeRequestTransport({
-        environmentProxy: createEnvProxyResolver(() => ({ all_proxy: socks.url })),
+        systemProxy: createEnvProxyResolver(() => ({ all_proxy: socks.url })),
       });
       const bundle = await buildRefreshOAuthHook('ws-1', transport)(makeAuth(endpoint.url));
       expect(bundle?.accessToken).toBe('at-fresh');
@@ -119,7 +119,7 @@ describe('OAuth refresh egress through the environment plane', () => {
     const proxy = await startConnectProxy();
     try {
       const transport = createNodeRequestTransport({
-        environmentProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url, no_proxy: '127.0.0.1' })),
+        systemProxy: createEnvProxyResolver(() => ({ http_proxy: proxy.url, no_proxy: '127.0.0.1' })),
       });
       const bundle = await buildRefreshOAuthHook('ws-1', transport)(makeAuth(endpoint.url));
       expect(bundle?.accessToken).toBe('at-fresh');

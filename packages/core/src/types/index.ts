@@ -59,16 +59,6 @@ export type {
   SurfaceType,
   UseEditingScopeViewStateOptions,
 } from './editing-scope-view-state';
-// ── Environment-plane proxy (per-device, never synced) ─────────────
-export type {
-  DesktopEnvironmentProxyMode,
-  EnvironmentProxyMode,
-  EnvironmentProxyResolution,
-  EnvironmentProxyResolvedEntry,
-  EnvironmentProxyResolvedSource,
-  EnvironmentProxySettings,
-  NodeEnvironmentProxyMode,
-} from './environment-proxy';
 // ── Extension workspace (browser-side multi-workspace record) ─────
 export type {
   ExtensionWorkspace,
@@ -201,7 +191,6 @@ export type {
   RequestSeed,
   TlsVersion,
 } from './request';
-
 // ── Request execution ──────────────────────────────────────────────
 export type {
   ExecutedProxyRoute,
@@ -296,6 +285,16 @@ export type {
 } from './status';
 // ── Storage ────────────────────────────────────────────────────────
 export { GITIGNORE } from './storage';
+// ── System-plane proxy (per-device, never synced) ─────────────
+export type {
+  DesktopSystemProxyMode,
+  NodeSystemProxyMode,
+  SystemProxyMode,
+  SystemProxyResolution,
+  SystemProxyResolvedEntry,
+  SystemProxyResolvedSource,
+  SystemProxySettings,
+} from './system-proxy';
 // ── Telemetry ──────────────────────────────────────────────────────
 export type {
   DeliveryMode,

@@ -1,5 +1,5 @@
 /**
- * Environment-plane legs through LIVE local proxies — the H2 CONNECT
+ * System-plane legs through LIVE local proxies — the H2 CONNECT
  * rig extended per P4, the SOCKS5 rig joined per P5
  * (docs/REQUEST_ENGINE_PROXY_DESIGN.md): an inheriting send (no
  * request-plane proxy) really tunnels through the proxy the machine's
@@ -8,15 +8,15 @@
  * negotiation (RFC 1929), and the wire truth (`proxyRoute`) reports
  * what actually happened. Resolvers
  * are the REAL env-var and manual implementations, injected through the
- * transport's `environmentProxy` option (the hermeticity law: the
+ * transport's `systemProxy` option (the hermeticity law: the
  * process-global registry stays off for the whole run).
  */
 
 import * as http from 'node:http';
 import { describe, expect, it } from 'vitest';
-import { createEnvProxyResolver } from '../../../src/live/environment-proxy/env-proxy-resolver';
-import { createManualProxyResolver } from '../../../src/live/environment-proxy/manual-resolver';
 import { createNodeRequestTransport } from '../../../src/live/node-request-transport';
+import { createEnvProxyResolver } from '../../../src/live/system-proxy/env-proxy-resolver';
+import { createManualProxyResolver } from '../../../src/live/system-proxy/manual-resolver';
 import { listenPort, type ProxyRig, startConnectProxy, startSocks5Proxy } from './connect-proxy-rig';
 
 interface OriginRig {
@@ -49,7 +49,7 @@ function makeRequest(originUrl: string) {
 
 /** Injected resolver — never the process env, never the registry. */
 function sendInheriting(originUrl: string, envSource: Record<string, string | undefined>) {
-  return createNodeRequestTransport({ environmentProxy: createEnvProxyResolver(() => envSource) }).send(
+  return createNodeRequestTransport({ systemProxy: createEnvProxyResolver(() => envSource) }).send(
     makeRequest(originUrl),
   );
 }
@@ -68,14 +68,14 @@ async function withRigs(
   }
 }
 
-describe('environment plane through a live local proxy', () => {
+describe('system plane through a live local proxy', () => {
   it('tunnels an inheriting send through the env-var proxy and stamps the wire truth', () =>
     withRigs(async (origin, proxy) => {
       const res = await sendInheriting(origin.url, { http_proxy: proxy.url });
       expect(res.status).toBe(200);
       expect(res.body).toBe('ok');
       expect(proxy.tunnels).toEqual([new URL(origin.url).host]);
-      expect(res.proxyRoute).toEqual({ plane: 'environment', proxyUrl: proxy.url, source: 'env' });
+      expect(res.proxyRoute).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'env' });
     }));
 
   it('honors NO_PROXY — the bypassed target dials direct and stays unstamped', () =>
@@ -107,7 +107,7 @@ describe('environment plane through a live local proxy', () => {
       expect(res.body).toBe('ok');
       expect(socks.targets).toEqual([new URL(origin.url).host]);
       expect(socks.auths).toEqual([undefined]);
-      expect(res.proxyRoute).toEqual({ plane: 'environment', proxyUrl: socks.url, source: 'env' });
+      expect(res.proxyRoute).toEqual({ plane: 'system', proxyUrl: socks.url, source: 'env' });
     } finally {
       await socks.close();
       await origin.close();
@@ -133,7 +133,7 @@ describe('environment plane through a live local proxy', () => {
     const origin = await startOrigin();
     const socks = await startSocks5Proxy();
     try {
-      const res = await createNodeRequestTransport({ environmentProxy: null }).send({
+      const res = await createNodeRequestTransport({ systemProxy: null }).send({
         ...makeRequest(origin.url),
         proxyUrl: socks.url,
       });
@@ -154,10 +154,10 @@ describe('environment plane through a live local proxy', () => {
         proxyValue: proxy.url.replace('http://', ''),
         bypassList: 'api.openheaders.io',
       });
-      const res = await createNodeRequestTransport({ environmentProxy: resolver }).send(makeRequest(origin.url));
+      const res = await createNodeRequestTransport({ systemProxy: resolver }).send(makeRequest(origin.url));
       expect(res.status).toBe(200);
       expect(proxy.tunnels).toEqual([new URL(origin.url).host]);
-      expect(res.proxyRoute).toEqual({ plane: 'environment', proxyUrl: proxy.url, source: 'manual' });
+      expect(res.proxyRoute).toEqual({ plane: 'system', proxyUrl: proxy.url, source: 'manual' });
     } finally {
       await proxy.close();
       await origin.close();

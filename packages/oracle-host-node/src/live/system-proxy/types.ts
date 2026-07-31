@@ -1,8 +1,8 @@
 /**
- * Environment-plane proxy resolution — the per-DEVICE half of the
+ * System-plane proxy resolution — the per-DEVICE half of the
  * two-plane proxy architecture (docs/REQUEST_ENGINE_PROXY_DESIGN.md).
  *
- * The environment plane answers "on this machine, egress works like
+ * The system plane answers "on this machine, egress works like
  * this" for one target URL at a time. It is machine state, never
  * synced (the vault posture): the desktop's resolver delegates to
  * Chromium's own proxy resolution (system settings, GPO, PAC, WPAD —
@@ -20,13 +20,13 @@
  * transport can fail honestly naming the resolved proxy.
  */
 
-/** Where an environment-plane answer came from — wire truth + the P3
+/** Where an system-plane answer came from — wire truth + the P3
  *  sourced display. `'system'` = the OS via Chromium (PAC and WPAD
  *  included); `'env'` = the HTTP_PROXY-family variables; `'manual'` /
  *  `'pac'` = the explicit modes (later slices). */
-export type EnvironmentProxySource = 'env' | 'system' | 'manual' | 'pac';
+export type SystemProxySource = 'env' | 'system' | 'manual' | 'pac';
 
-export type EnvironmentProxyEntry =
+export type SystemProxyEntry =
   /** Terminates the chain: connect directly. */
   | { kind: 'direct' }
   /** A proxy the send may traverse — an HTTP(S) CONNECT tunnel or a
@@ -39,15 +39,15 @@ export type EnvironmentProxyEntry =
    *  verbatim so the honest failure names what the machine resolved. */
   | { kind: 'socks'; raw: string };
 
-export interface EnvironmentProxySelection {
+export interface SystemProxySelection {
   /** Fallback entries in preference order (Chromium chain semantics).
    *  Empty means direct. */
-  entries: EnvironmentProxyEntry[];
-  source: EnvironmentProxySource;
+  entries: SystemProxyEntry[];
+  source: SystemProxySource;
 }
 
 /**
- * One environment-plane resolver — the seam both adapters implement:
+ * One system-plane resolver — the seam both adapters implement:
  * the desktop's Chromium `session.resolveProxy` adapter (installed at
  * host boot) and the node tier's env-var adapter (the default).
  * `resolve` answers per target URL; `null` means the plane has no
@@ -56,6 +56,6 @@ export interface EnvironmentProxySelection {
  * plane's job is seamlessness, and Chromium's own resolution treats
  * an unresolvable answer as DIRECT too.
  */
-export interface EnvironmentProxyResolver {
-  resolve(url: string): Promise<EnvironmentProxySelection | null>;
+export interface SystemProxyResolver {
+  resolve(url: string): Promise<SystemProxySelection | null>;
 }

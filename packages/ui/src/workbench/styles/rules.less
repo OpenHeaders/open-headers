@@ -2399,6 +2399,17 @@ body {
   &:hover {
     background: var(--ant-color-fill-tertiary);
   }
+
+  /*
+   * Settings-tab placeholders render at full text contrast (an empty
+   * knob states its effective default as live behavior), so unlike a
+   * normal dim placeholder they would read as content to delete once
+   * the caret is in the field — hide them while the input has focus;
+   * the example line under the row keeps the format visible.
+   */
+  input:focus::placeholder {
+    color: transparent;
+  }
 }
 
 /*

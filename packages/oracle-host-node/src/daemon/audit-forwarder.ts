@@ -5,7 +5,7 @@
  * JSON POST batches (`{ entries: AuditLogEntry[] }`). This is the
  * daemon's ONE deliberate outbound plane: absent config, nothing here
  * is installed and the zero-outbound posture holds unchanged. Delivery
- * rides the node request transport, so the daemon's environment-proxy
+ * rides the node request transport, so the daemon's system-proxy
  * plane (system/env/manual) routes the collector POST like any other
  * egress.
  *
@@ -58,7 +58,7 @@ export interface InstallAuditForwarderInput {
   db: Database.Database;
   config: DaemonAuditForwardingConfig;
   /** Test seam — production rides the module's node transport (and
-   *  through it the environment-proxy plane). */
+   *  through it the system-proxy plane). */
   transport?: RequestTransport;
 }
 

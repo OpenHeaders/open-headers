@@ -1,12 +1,12 @@
 /**
- * Env-var environment-plane adapter — curl precedence over the
+ * Env-var system-plane adapter — curl precedence over the
  * HTTP_PROXY family, case-insensitive pairs, NO_PROXY bypass, and the
  * normalization of configured values (bare host:port, inline
  * credentials, SOCKS schemes).
  */
 
 import { describe, expect, it } from 'vitest';
-import { createEnvProxyResolver } from '../../../src/live/environment-proxy/env-proxy-resolver';
+import { createEnvProxyResolver } from '../../../src/live/system-proxy/env-proxy-resolver';
 
 function resolverFor(env: Record<string, string | undefined>) {
   return createEnvProxyResolver(() => env);

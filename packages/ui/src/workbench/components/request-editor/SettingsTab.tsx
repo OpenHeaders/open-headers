@@ -79,7 +79,7 @@
  *     only: the tri-state Proxy row over the two-plane architecture
  *     (docs/REQUEST_ENGINE_PROXY_DESIGN.md). Inherit (the default —
  *     the cleared select, `undefined` on disk) lets the executing
- *     DEVICE's environment plane decide (system settings / PAC /
+ *     DEVICE's system plane decide (system settings / PAC /
  *     env vars); Direct opts the send out of any ambient proxy;
  *     Custom URL routes through the request's own proxy — the row
  *     writes the MODE+URL pair, and the H11 reset returns all three
@@ -246,7 +246,7 @@ export interface RequestSettingsDraft {
    *  handshake. Undefined = no client certificate. Node runtimes only. */
   clientCertificateRef?: string;
   /** Proxy routing mode. Undefined = INHERIT the executing device's
-   *  environment plane (the default); `'direct'` opts the send out of
+   *  system plane (the default); `'direct'` opts the send out of
    *  any ambient proxy; `'url'` routes through `proxyUrl`. Node
    *  runtimes only. */
   proxyMode?: ProxyMode;
@@ -489,6 +489,22 @@ const RowReset: React.FC<{ label: string; onReset: () => void }> = ({ label, onR
   );
 };
 
+/** Fixed-width slot to the right of every field control, holding the
+ *  per-row undo while the knob is off its default. Always rendered —
+ *  the control column's edges stay straight whether or not a row is
+ *  modified. */
+const ResetSlot: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
+  <span
+    style={{ width: 20, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+  >
+    {children}
+  </span>
+);
+
+/** Horizontal inset that lines a below-row line up with the control
+ *  column's right edge: the row gap (6) plus the {@link ResetSlot}. */
+const CONTROL_RIGHT_INSET = 26;
+
 /** Compact wired-knob row: label + (i) left-aligned, the switch
  *  right-aligned with Enabled/Disabled state text inside the track.
  *  `warning` renders under the row while the knob sits in its risky
@@ -512,7 +528,6 @@ const KnobRow: React.FC<{
         <Text style={{ fontSize: 13 }}>{label}</Text>
         {modified === true && <ModifiedDot />}
         <InfoTrigger content={info} />
-        {modified === true && onReset !== undefined && <RowReset label={label} onReset={onReset} />}
         <span style={{ flex: 1 }} />
         <Switch
           size="small"
@@ -522,6 +537,7 @@ const KnobRow: React.FC<{
           checkedChildren={t('workbench.editors.request.settings.enabled')}
           unCheckedChildren={t('workbench.editors.request.settings.disabled')}
         />
+        <ResetSlot>{modified === true && onReset !== undefined && <RowReset label={label} onReset={onReset} />}</ResetSlot>
       </div>
       {checked === (warningWhenChecked ?? false) && warning !== undefined && (
         <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
@@ -566,7 +582,6 @@ const ComboKnobRow: React.FC<{
     <Text style={{ fontSize: 13 }}>{label}</Text>
     {value !== undefined && <ModifiedDot />}
     <InfoTrigger content={info} />
-    {value !== undefined && <RowReset label={label} onReset={() => onChange(undefined)} />}
     <span style={{ flex: 1 }} />
     <ComboKnob
       value={value}
@@ -578,6 +593,9 @@ const ComboKnobRow: React.FC<{
       ariaLabel={label}
       style={{ width: CONTROL_WIDTH }}
     />
+    <ResetSlot>
+      {value !== undefined && <RowReset label={label} onReset={() => onChange(undefined)} />}
+    </ResetSlot>
   </div>
 );
 
@@ -606,9 +624,6 @@ const SelectKnobRow: React.FC<{
       <Text style={{ fontSize: 13 }}>{label}</Text>
       {(modified ?? value !== undefined) && <ModifiedDot />}
       <InfoTrigger content={info} />
-      {(modified ?? value !== undefined) && (
-        <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />
-      )}
       <span style={{ flex: 1 }} />
       <Select
         size="small"
@@ -622,6 +637,11 @@ const SelectKnobRow: React.FC<{
         popupMatchSelectWidth={false}
         style={{ width: CONTROL_WIDTH }}
       />
+      <ResetSlot>
+        {(modified ?? value !== undefined) && (
+          <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />
+        )}
+      </ResetSlot>
     </div>
     {warning !== undefined && (
       <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
@@ -633,10 +653,11 @@ const SelectKnobRow: React.FC<{
 
 /** Compact text-knob row: same geometry, with a wider free-text input.
  *  Empty means "no explicit value" — the placeholder states the
- *  effective default. `error` renders under the row (and tints the
- *  field) while the current text is malformed; `warning` renders under
- *  the row while the value is well-formed but conflicts with another
- *  setting (error wins when both apply). */
+ *  effective default. One line renders under the row at a time, by
+ *  priority: `error` (also tints the field) while the current text is
+ *  malformed; `warning` while the value is well-formed but conflicts
+ *  with another setting; otherwise `example`, a muted format sample
+ *  ("e.g. …") aligned under the control column. */
 const TextKnobRow: React.FC<{
   label: string;
   value: string | undefined;
@@ -646,16 +667,16 @@ const TextKnobRow: React.FC<{
   maxLength: number;
   error?: string;
   warning?: string;
+  example?: string;
   testId?: string;
   /** Row undo; defaults to clearing the value back to undefined. */
   onReset?: () => void;
-}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, testId, onReset }) => (
+}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, example, testId, onReset }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
       {value !== undefined && <ModifiedDot />}
       <InfoTrigger content={info} />
-      {value !== undefined && <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />}
       <span style={{ flex: 1 }} />
       <Input
         size="small"
@@ -668,6 +689,9 @@ const TextKnobRow: React.FC<{
         status={error !== undefined ? 'error' : undefined}
         style={{ width: CONTROL_WIDTH }}
       />
+      <ResetSlot>
+        {value !== undefined && <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />}
+      </ResetSlot>
     </div>
     {error !== undefined && (
       <Text type="danger" style={{ fontSize: 11, marginBottom: 4 }}>
@@ -677,6 +701,21 @@ const TextKnobRow: React.FC<{
     {error === undefined && warning !== undefined && (
       <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
         {warning}
+      </Text>
+    )}
+    {error === undefined && warning === undefined && example !== undefined && (
+      <Text
+        type="secondary"
+        style={{
+          fontSize: 11,
+          marginBottom: 4,
+          alignSelf: 'flex-end',
+          width: CONTROL_WIDTH,
+          marginRight: CONTROL_RIGHT_INSET,
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {example}
       </Text>
     )}
   </div>
@@ -959,22 +998,24 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   ? t('workbench.editors.request.settings.resolveToAddressError')
                   : undefined
               }
+              example={t('workbench.editors.request.settings.resolveToAddressExample')}
             />
             <SelectKnobRow
               label={t('workbench.editors.request.settings.proxy')}
               value={value.proxyMode}
               // The tri-state row writes the MODE+URL pair: Inherit
-              // (undefined — the H11 reset target) and Direct both
-              // clear the URL and its credentials (a hidden row must
-              // not keep a dormant URL or a stale ref alive); Custom
-              // keeps whatever URL is already set.
+              // (an explicit option mapping to undefined — the H11
+              // reset target) and Direct both clear the URL and its
+              // credentials (a hidden row must not keep a dormant URL
+              // or a stale ref alive); Custom keeps whatever URL is
+              // already set.
               onChange={(v) =>
                 onChange(
                   v === 'url'
                     ? { ...value, proxyMode: 'url' }
                     : {
                         ...value,
-                        proxyMode: v as ProxyMode | undefined,
+                        proxyMode: v === 'direct' ? 'direct' : undefined,
                         proxyUrl: undefined,
                         proxyCredentialRef: undefined,
                       },
@@ -982,6 +1023,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               }
               info={settingsRowInfo(t, 'proxy')}
               options={[
+                { value: 'inherit', label: t('workbench.editors.request.settings.proxyModePlaceholder') },
                 { value: 'direct', label: t('workbench.editors.request.settings.proxyModeDirect') },
                 { value: 'url', label: t('workbench.editors.request.settings.proxyModeCustom') },
               ]}
@@ -1023,6 +1065,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                       ? t('workbench.editors.request.settings.proxyResolveConflict')
                       : undefined
                   }
+                  example={t('workbench.editors.request.settings.proxyUrlExample')}
                 />
                 {value.proxyUrl !== undefined && (
                   <SelectKnobRow
@@ -1062,6 +1105,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                     ? t('workbench.editors.request.settings.unixSocketResolveConflict')
                     : undefined
               }
+              example={t('workbench.editors.request.settings.unixSocketExample')}
             />
             </GroupSection>
             <GroupSection
@@ -1121,6 +1165,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   ? t('workbench.editors.request.settings.tlsCipherSuitesError')
                   : undefined
               }
+              example={t('workbench.editors.request.settings.tlsCipherSuitesExample')}
             />
             <SelectKnobRow
               label={t('workbench.editors.request.settings.clientCertificate')}

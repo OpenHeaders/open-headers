@@ -163,7 +163,7 @@ export interface TransportRequest {
   clientCertificatePassphrase?: string;
   /**
    * Request-plane proxy routing mode. Absent = INHERIT: a transport
-   * with an environment plane (the node host's system/env resolver —
+   * with an system plane (the node host's system/env resolver —
    * see docs/REQUEST_ENGINE_PROXY_DESIGN.md) resolves whether the send
    * traverses a proxy; transports without one go direct, as before.
    * `'direct'` opts the send out of any ambient proxy. `'url'` routes
@@ -323,18 +323,18 @@ export interface TransportRedirectHop {
  * their egress (the node host); the browser SW never reports (the
  * browser owns proxying there). Present only when a plane made a
  * decision — an explicit request-plane proxy or opt-out, an
- * environment-plane answer, or an ambient stand-down; a plain
+ * system-plane answer, or an ambient stand-down; a plain
  * default-direct send omits the field. Pure attribution for the
  * executed-run snapshot.
  */
 export interface TransportProxyRoute {
   /** The deciding plane: the request's own setting or the executing
-   *  device's environment plane. */
-  plane: 'request' | 'environment';
+   *  device's system plane. */
+  plane: 'request' | 'system';
   /** The proxy the send actually tunneled through (credentials never
    *  ride it). Absent = the decision was direct. */
   proxyUrl?: string;
-  /** Where the environment plane's answer came from. */
+  /** Where the system plane's answer came from. */
   source?: 'env' | 'system' | 'manual' | 'pac';
   /** Present when an INHERITED proxy stood down for an explicit ask
    *  the tunnel can't honor — the send proceeded direct. Explicit

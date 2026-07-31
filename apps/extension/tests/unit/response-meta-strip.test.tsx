@@ -182,13 +182,13 @@ describe('ResponseMetaStrip proxy-route attribution', () => {
   });
 
   it('shows no proxy tag when the plane decided plain direct', () => {
-    renderStrip({ proxyRoute: { plane: 'environment', source: 'env' } });
+    renderStrip({ proxyRoute: { plane: 'system', source: 'env' } });
     expect(screen.queryByTestId('oh-response-proxy-route')).toBeNull();
   });
 
   it('tags a proxied run neutral — attribution, not a warning', () => {
     renderStrip({
-      proxyRoute: { plane: 'environment', source: 'system', proxyUrl: 'http://proxy.openheaders.io:3128' },
+      proxyRoute: { plane: 'system', source: 'system', proxyUrl: 'http://proxy.openheaders.io:3128' },
     });
     const tag = screen.getByTestId('oh-response-proxy-route');
     expect(tag.textContent).toBe('Proxied');
@@ -201,7 +201,7 @@ describe('ResponseMetaStrip proxy-route attribution', () => {
   });
 
   it('tags an ambient stand-down as bypassed — the send went direct', () => {
-    renderStrip({ proxyRoute: { plane: 'environment', source: 'env', standDownReason: 'unix-socket' } });
+    renderStrip({ proxyRoute: { plane: 'system', source: 'env', standDownReason: 'unix-socket' } });
     expect(screen.getByTestId('oh-response-proxy-route').textContent).toBe('Proxy bypassed');
   });
 });

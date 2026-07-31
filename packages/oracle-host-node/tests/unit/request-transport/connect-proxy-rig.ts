@@ -1,6 +1,6 @@
 /**
  * Minimal live proxies for the local rig legs. The CONNECT proxy is
- * the H2 rig (S15), shared since P4 so the environment-plane legs
+ * the H2 rig (S15), shared since P4 so the system-plane legs
  * tunnel through the same proxy the explicit-knob legs do; it records
  * CONNECT targets and `Proxy-Authorization` values in arrival order,
  * `requireAuth` (`user:password`) demands a matching Basic header and

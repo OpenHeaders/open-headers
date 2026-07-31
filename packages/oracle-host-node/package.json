@@ -46,9 +46,9 @@
       "import": "./src/files/fs-blob-backend.ts",
       "default": "./dist/files/fs-blob-backend.js"
     },
-    "./live/environment-proxy": {
-      "import": "./src/live/environment-proxy/index.ts",
-      "default": "./dist/live/environment-proxy/index.js"
+    "./live/system-proxy": {
+      "import": "./src/live/system-proxy/index.ts",
+      "default": "./dist/live/system-proxy/index.js"
     },
     "./live/node-request-transport": {
       "import": "./src/live/node-request-transport.ts",

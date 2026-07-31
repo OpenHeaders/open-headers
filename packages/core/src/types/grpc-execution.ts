@@ -67,9 +67,9 @@ export interface ExecutedGrpcSnapshot {
   /**
    * Wire truth for the call's proxy routing — the effective route as
    * the dial ran it. gRPC editors carry no request-plane proxy knobs
-   * (the H5 ruling), so the plane is always `'environment'` and the
+   * (the H5 ruling), so the plane is always `'system'` and the
    * stand-down analog is the Unix-socket pin only. Present only when
-   * the environment plane decided something; a plain direct call
+   * the system plane decided something; a plain direct call
    * carries no field.
    */
   proxyRoute?: ExecutedProxyRoute;

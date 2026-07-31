@@ -7,16 +7,6 @@ export { DaemonUserRecordSchema } from './daemon-users';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export {
-  DESKTOP_ENVIRONMENT_PROXY_MODES,
-  ENVIRONMENT_PROXY_MODES,
-  EnvironmentProxyModeSchema,
-  EnvironmentProxySettingsSchema,
-  MAX_ENVIRONMENT_PROXY_BYPASS_LENGTH,
-  MAX_ENVIRONMENT_PROXY_PAC_LENGTH,
-  MAX_ENVIRONMENT_PROXY_VALUE_LENGTH,
-  NODE_ENVIRONMENT_PROXY_MODES,
-} from './environment-proxy';
-export {
   GrpcMetadataPairSchema,
   GrpcMethodRefSchema,
   GrpcRequestSchema,
@@ -178,6 +168,16 @@ export {
 export { RuleDraftSchema } from './rule-draft';
 export { ScriptPackageNameSchema, ScriptPackageSchema } from './script-package';
 export { SPEC_FORMATS, SpecFileNameSchema, SpecFileSchema, SpecFormatSchema, SpecSchema } from './spec';
+export {
+  DESKTOP_SYSTEM_PROXY_MODES,
+  MAX_SYSTEM_PROXY_BYPASS_LENGTH,
+  MAX_SYSTEM_PROXY_PAC_LENGTH,
+  MAX_SYSTEM_PROXY_VALUE_LENGTH,
+  NODE_SYSTEM_PROXY_MODES,
+  SYSTEM_PROXY_MODES,
+  SystemProxyModeSchema,
+  SystemProxySettingsSchema,
+} from './system-proxy';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
 export {
   EnvironmentSchema,

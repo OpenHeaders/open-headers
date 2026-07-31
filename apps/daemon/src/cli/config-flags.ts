@@ -82,7 +82,7 @@ export function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigComman
   }
   if (values['allow-insecure-lan'] !== undefined && config.allowInsecureLan) unitArgs.push('--allow-insecure-lan');
   if (values['web-root'] !== undefined && config.webRoot !== null) unitArgs.push('--web-root', config.webRoot);
-  const egress = config.environmentProxy;
+  const egress = config.systemProxy;
   if (egress !== null) {
     if (values['proxy-mode'] !== undefined) unitArgs.push('--proxy-mode', egress.mode);
     if (values['proxy-url'] !== undefined && egress.manualProxyUrl !== undefined) {

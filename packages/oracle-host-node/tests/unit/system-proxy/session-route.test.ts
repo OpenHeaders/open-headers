@@ -1,7 +1,7 @@
 /**
  * Session-dial ambient route resolution — the WS/gRPC twins of the
  * HTTP `proxy-route` walk: no request plane exists (H5), so the
- * environment plane's answer is the whole story. Pins the attempt
+ * system plane's answer is the whole story. Pins the attempt
  * shapes per chain, the socket-pin stand-down, the per-capability
  * SOCKS5 posture ('socks5-dialable' seats it, 'connect-only' skips it
  * like a failed dial), and the honest error when a chain resolves only
@@ -13,10 +13,10 @@ import {
   isSessionProxyDialFailure,
   resolveSessionProxyAttempts,
   type SessionRouteRequest,
-} from '../../../src/live/environment-proxy/session-route';
-import type { EnvironmentProxyEntry, EnvironmentProxyResolver } from '../../../src/live/environment-proxy/types';
+} from '../../../src/live/system-proxy/session-route';
+import type { SystemProxyEntry, SystemProxyResolver } from '../../../src/live/system-proxy/types';
 
-const resolverOf = (entries: EnvironmentProxyEntry[], source: 'env' | 'system' = 'env'): EnvironmentProxyResolver => ({
+const resolverOf = (entries: SystemProxyEntry[], source: 'env' | 'system' = 'env'): SystemProxyResolver => ({
   resolve: () => Promise.resolve({ entries, source }),
 });
 
@@ -36,7 +36,7 @@ describe('resolveSessionProxyAttempts', () => {
   });
 
   it('a resolver failure resolves direct, never throws', async () => {
-    const failing: EnvironmentProxyResolver = { resolve: () => Promise.reject(new Error('boom')) };
+    const failing: SystemProxyResolver = { resolve: () => Promise.reject(new Error('boom')) };
     expect(await resolveSessionProxyAttempts(wsRequest(), failing)).toEqual({ attempts: [{}] });
   });
 
@@ -105,7 +105,7 @@ describe('resolveSessionProxyAttempts', () => {
   });
 
   it("'socks5-dialable' seats SOCKS5 entries; 'connect-only' skips them like a failed dial", async () => {
-    const entries: EnvironmentProxyEntry[] = [
+    const entries: SystemProxyEntry[] = [
       { kind: 'proxy', url: 'socks5://socks.openheaders.io:1080' },
       { kind: 'proxy', url: 'http://corp.openheaders.io:8080' },
     ];
@@ -131,7 +131,7 @@ describe('resolveSessionProxyAttempts', () => {
     if (!('errorMessage' in result)) throw new Error('expected the honest error');
     expect(result.errorMessage).toContain('socks5://socks.openheaders.io:1080');
     expect(result.errorMessage).toContain('HTTP CONNECT only');
-    expect(result.errorMessage).toContain('environment-plane proxy to Off');
+    expect(result.errorMessage).toContain('system-plane proxy to Off');
   });
 
   it('a SOCKS4-family-only chain fails honestly on every capability', async () => {

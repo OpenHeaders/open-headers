@@ -15,10 +15,10 @@
  * the chain walk.
  */
 
-import type { EnvironmentProxyEntry } from './types';
+import type { SystemProxyEntry } from './types';
 
-export function parsePacProxyList(answer: string): EnvironmentProxyEntry[] {
-  const entries: EnvironmentProxyEntry[] = [];
+export function parsePacProxyList(answer: string): SystemProxyEntry[] {
+  const entries: SystemProxyEntry[] = [];
   for (const rawPart of answer.split(';')) {
     const part = rawPart.trim();
     if (part === '') continue;

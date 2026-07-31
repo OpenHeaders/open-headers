@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { isBypassedByNoProxy } from '../../../src/live/environment-proxy/no-proxy';
+import { isBypassedByNoProxy } from '../../../src/live/system-proxy/no-proxy';
 
 describe('isBypassedByNoProxy', () => {
   it('matches exact hosts and dot-boundary suffixes', () => {

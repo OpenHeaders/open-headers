@@ -377,6 +377,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesJoinDesc': 'Joins the entries — no spaces.',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Runtime default suites',
   'workbench.editors.request.settings.tlsCipherSuitesError': 'Colon-separated OpenSSL suite names only — no spaces.',
+  'workbench.editors.request.settings.tlsCipherSuitesExample':
+    'e.g. TLS_AES_256_GCM_SHA384:ECDHE-RSA-AES128-GCM-SHA256',
   'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 hops (default)',
   'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} hop', other: '{count} hops' }),
@@ -420,6 +422,7 @@ export const workbenchEditorsRequest = {
     "Send this request to a specific server address instead of whatever DNS answers — the URL's hostname is still used for TLS and the Host header, so with verification on the certificate must still match it. Useful to test one specific backend behind a load balancer. The URL keeps its own port, and a redirect to another host also lands on this address. Leave empty to resolve through DNS as usual.",
   'workbench.editors.request.settings.resolveToAddressPlaceholder': 'System DNS',
   'workbench.editors.request.settings.resolveToAddressError': 'IPv4 or IPv6 address only — no hostname, no port.',
+  'workbench.editors.request.settings.resolveToAddressExample': 'e.g. 10.0.0.12 or 2001:db8::1',
   'workbench.editors.request.settings.clientCertificate': 'Client certificate',
   'workbench.editors.request.settings.clientCertificateInfo':
     "Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate.",
@@ -428,17 +431,17 @@ export const workbenchEditorsRequest = {
     'No vault certificate entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
   'workbench.editors.request.settings.proxy': 'Proxy',
   'workbench.editors.request.settings.proxySummary':
-    'How this send reaches the network. By default it inherits the executing device’s environment — system proxy settings, PAC, or proxy environment variables — so a corporate machine’s pushed proxy just works; Direct opts this one request out of any ambient proxy, and Custom URL routes it through a proxy of its own.',
+    'How this send reaches the network. By default it inherits the executing device’s system setup — system proxy settings, PAC, or proxy environment variables — so a corporate machine’s pushed proxy just works; Direct opts this one request out of any ambient proxy, and Custom URL routes it through a proxy of its own.',
   'workbench.editors.request.settings.proxyDescription':
-    'The response meta always records the route the send actually took — which proxy, and whether the request or the environment decided it. HTTP(S) and SOCKS5 proxies are supported — a socks5:// URL works as a custom proxy and as an environment answer; only the SOCKS4 family gets a clear error naming it.',
+    'The response meta always records the route the send actually took — which proxy, and whether the request or the system decided it. HTTP(S) and SOCKS5 proxies are supported — a socks5:// URL works as a custom proxy and as a system answer; only the SOCKS4 family gets a clear error naming it.',
   'workbench.editors.request.settings.proxyModesHeading': 'Modes',
-  'workbench.editors.request.settings.proxyModePlaceholder': 'Inherit — environment decides',
+  'workbench.editors.request.settings.proxyModePlaceholder': 'Inherit — system decides',
   'workbench.editors.request.settings.proxyModeDirect': 'Direct — no proxy',
   'workbench.editors.request.settings.proxyModeCustom': 'Custom URL',
   'workbench.editors.request.settings.proxyModeInheritDesc':
-    'The executing device’s environment decides per URL — a proxy where the machine is configured for one, direct otherwise. An inherited proxy stands down for sends that pin HTTP/3, dial a local socket, or resolve to a fixed address.',
+    'The executing device’s system decides per URL — a proxy where the machine is configured for one, direct otherwise. An inherited proxy stands down for sends that pin HTTP/3, dial a local socket, or resolve to a fixed address.',
   'workbench.editors.request.settings.proxyModeDirectDesc':
-    'Never a proxy for this request, whatever the machine’s environment says.',
+    'Never a proxy for this request, whatever the machine’s system settings say.',
   'workbench.editors.request.settings.proxyModeCustomDesc':
     'Tunnel through this request’s own proxy URL — synced with the request, the same route on every device.',
   'workbench.editors.request.settings.proxyUrl': 'Proxy URL',
@@ -449,6 +452,7 @@ export const workbenchEditorsRequest = {
     'Custom URL mode needs a proxy URL — enter one, or switch the mode back.',
   'workbench.editors.request.settings.proxyError':
     'http://, https://, or socks5:// URL with host and port only — no credentials in the URL.',
+  'workbench.editors.request.settings.proxyUrlExample': 'e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:1080',
   'workbench.editors.request.settings.proxyResolveConflict':
     'Also sets resolve-to-address, but a proxy resolves the hostname itself — sends will fail until one of the two is cleared.',
   'workbench.editors.request.settings.proxyCredentials': 'Proxy credentials',
@@ -467,6 +471,7 @@ export const workbenchEditorsRequest = {
     'Also sets a proxy, but a proxy tunnel can’t dial a local socket — sends will fail until one of the two is cleared.',
   'workbench.editors.request.settings.unixSocketResolveConflict':
     'Also sets resolve-to-address, but a socket dial resolves no hostname — sends will fail until one of the two is cleared.',
+  'workbench.editors.request.settings.unixSocketExample': 'e.g. /var/run/docker.sock',
   'workbench.editors.request.settings.cookieJar': 'Use cookie jar',
   'workbench.editors.request.settings.cookieJarInfo':
     "Store this request's Set-Cookie responses in the app's own cookie jar and attach matching cookies automatically — so a login request followed by an authenticated call works without copying cookie values by hand. The jar lives in memory per workspace, is used only by requests with this setting on, never syncs, and is cleared when the app quits. A Cookie header you set yourself always wins. Off is the default: no cookies are attached and Set-Cookie responses are discarded.",
@@ -683,24 +688,24 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.proxyTitle': 'Proxy route',
   'workbench.editors.request.response.meta.proxySummaryRequest':
     'This run tunneled through the proxy set in its own request settings — recorded from what the send actually did.',
-  'workbench.editors.request.response.meta.proxySummaryEnvironment':
-    'This run tunneled through the proxy the executing device’s environment names — recorded from what the run actually did, never a live settings read.',
+  'workbench.editors.request.response.meta.proxySummarySystem':
+    'This run tunneled through the proxy the executing device’s system names — recorded from what the run actually did, never a live settings read.',
   'workbench.editors.request.response.meta.proxyRowUrl': 'Proxy',
   'workbench.editors.request.response.meta.proxyRowSource': 'Decided by',
   'workbench.editors.request.response.meta.proxySourceRequest': 'Request settings',
-  'workbench.editors.request.response.meta.proxySourceEnvironment': 'Environment proxy settings',
+  'workbench.editors.request.response.meta.proxySourceDevice': 'Device proxy settings',
   'workbench.editors.request.response.meta.proxySourceEnv': 'Environment variables',
   'workbench.editors.request.response.meta.proxySourceSystem': 'System proxy settings',
   'workbench.editors.request.response.meta.proxySourceManual': 'Manual proxy configuration',
   'workbench.editors.request.response.meta.proxySourcePac': 'PAC script',
   'workbench.editors.request.response.meta.proxyStandDownTag': 'Proxy bypassed',
-  'workbench.editors.request.response.meta.proxyStandDownTitle': 'Environment proxy stood down',
+  'workbench.editors.request.response.meta.proxyStandDownTitle': 'System proxy stood down',
   'workbench.editors.request.response.meta.proxyStandDownUnixSocket':
-    'The environment names a proxy, but this run targets a local socket a proxy tunnel can’t dial — it proceeded direct.',
+    'The system names a proxy, but this run targets a local socket a proxy tunnel can’t dial — it proceeded direct.',
   'workbench.editors.request.response.meta.proxyStandDownResolveToAddress':
-    'The environment names a proxy, but this run pins its own address resolution, which a proxy would override — it proceeded direct.',
+    'The system names a proxy, but this run pins its own address resolution, which a proxy would override — it proceeded direct.',
   'workbench.editors.request.response.meta.proxyStandDownHttpVersion3':
-    'The environment names a proxy, but this run is pinned to HTTP/3, which dials its own QUIC path — it proceeded direct.',
+    'The system names a proxy, but this run is pinned to HTTP/3, which dials its own QUIC path — it proceeded direct.',
   'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} redirect', other: '{count} redirects' }),
   'workbench.editors.request.response.meta.redirectsTitle': 'Redirect chain',

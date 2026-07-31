@@ -32,7 +32,6 @@ import type {
   DaemonConfig,
   DaemonUserRecord,
   Environment,
-  EnvironmentProxySettings,
   ExtensionWorkspace,
   GrpcRequest,
   GrpcResponseExample,
@@ -50,6 +49,7 @@ import type {
   ScriptPackage,
   Spec,
   SyntheticIdentityRecord,
+  SystemProxySettings,
   Template,
   Vault,
   ViewMode,
@@ -473,7 +473,7 @@ export const OH = {
    */
   scriptExecutionModes: storageKey<Record<string, ScriptExecutionMode>>('oh.scriptExecutionModes'),
   /**
-   * Environment-plane proxy settings for THIS device
+   * System-plane proxy settings for THIS device
    * (docs/REQUEST_ENGINE_PROXY_DESIGN.md) — how this machine's egress
    * reaches the network: Off / System / Manual / PAC. Host-local by
    * design (the vault posture): machine state, never workspace data,
@@ -481,7 +481,7 @@ export const OH = {
    * desktop). Not sensitive — the manual credential is a vault entry
    * NAME; the value stays in the vault.
    */
-  environmentProxy: storageKey<EnvironmentProxySettings>('oh.environmentProxy'),
+  systemProxy: storageKey<SystemProxySettings>('oh.systemProxy'),
   /**
    * The proxy plane's per-machine CA (PROXY_SECURITY.md §2.1/§2.2) —
    * cert PEM + private key, minted on this machine at first trust and

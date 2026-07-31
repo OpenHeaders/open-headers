@@ -132,7 +132,7 @@ export type HttpVersion = v.InferOutput<typeof HttpVersionSchema>;
 
 /**
  * Request-plane proxy routing mode. Absent = inherit the executing
- * host's environment plane; `'direct'` opts out of any ambient proxy;
+ * host's system plane; `'direct'` opts out of any ambient proxy;
  * `'url'` routes through the request's own `proxyUrl`.
  */
 export type ProxyMode = v.InferOutput<typeof ProxyModeSchema>;

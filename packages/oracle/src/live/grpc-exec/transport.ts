@@ -32,16 +32,16 @@ export interface GrpcTransportHeader {
 
 /**
  * Wire truth for the call's proxy routing, reported by transports
- * whose host owns egress (the node hosts' environment plane). gRPC
+ * whose host owns egress (the node hosts' system plane). gRPC
  * editors carry no request-plane proxy knobs (the H5 ruling), so the
- * deciding plane is always the executing device's environment plane —
- * the executor stamps `plane: 'environment'` when it records this.
+ * deciding plane is always the executing device's system plane —
+ * the executor stamps `plane: 'system'` when it records this.
  */
 export interface GrpcProxyRoute {
   /** The proxy the call actually tunneled through (credentials never
    *  ride it). Absent = the plane decided direct. */
   proxyUrl?: string;
-  /** Where the environment plane's answer came from. */
+  /** Where the system plane's answer came from. */
   source: 'env' | 'system' | 'manual' | 'pac';
   /** Present when the ambient proxy stood down for a socket-pinned
    *  dial (a tunnel has nowhere to run) — the call dialed direct. */

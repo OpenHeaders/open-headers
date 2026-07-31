@@ -1,10 +1,10 @@
 /**
  * Chromium `resolveProxy` answer parsing — PAC-format fallback chains
- * mapped onto environment-plane entries.
+ * mapped onto system-plane entries.
  */
 
 import { describe, expect, it } from 'vitest';
-import { parsePacProxyList } from '../../../src/live/environment-proxy/pac-result';
+import { parsePacProxyList } from '../../../src/live/system-proxy/pac-result';
 
 describe('parsePacProxyList', () => {
   it('maps DIRECT to a direct entry', () => {

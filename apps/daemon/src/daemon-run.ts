@@ -30,7 +30,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
-import { bootDaemonSpine, installNodeEnvironmentProxy } from '@openheaders/oracle-host-node/daemon';
+import { bootDaemonSpine, installNodeSystemProxy } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { installDaemonAutoUpdate } from './auto-update';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
@@ -130,14 +130,14 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
       'backend.bindPort': config.bindPort,
     });
 
-    // Egress environment plane (Off / Env / Manual — Env the tier
+    // Egress system plane (Off / Env / Manual — Env the tier
     // default): a config answer seeds the per-device slot; the mode's
     // resolver registers now so every send (and refresh) resolves under
     // it. Consulted at send time, so ordering against the spine boot
     // never matters.
-    const environmentProxy = await installNodeEnvironmentProxy({
+    const systemProxy = await installNodeSystemProxy({
       hostStorage,
-      ...(config.environmentProxy !== null ? { configured: config.environmentProxy } : {}),
+      ...(config.systemProxy !== null ? { configured: config.systemProxy } : {}),
     });
 
     const staticWeb = resolveStaticWebRoot(config.webRoot);
@@ -159,10 +159,10 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const forwardNote = config.auditForwarding ? `, audit stream to ${new URL(config.auditForwarding.url).host}` : '';
     const licenseNote = config.licenseRefresh ? '' : ', license refresh off';
     const egressNote =
-      environmentProxy.mode === 'off'
+      systemProxy.mode === 'off'
         ? ', egress proxy off'
-        : environmentProxy.mode === 'manual'
-          ? `, egress proxy ${environmentProxy.manualProxyUrl ?? 'unset'}`
+        : systemProxy.mode === 'manual'
+          ? `, egress proxy ${systemProxy.manualProxyUrl ?? 'unset'}`
           : '';
     log.info(
       SCOPE,

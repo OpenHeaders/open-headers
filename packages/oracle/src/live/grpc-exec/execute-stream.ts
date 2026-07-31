@@ -174,7 +174,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
             headers = incoming.map((h) => ({ key: h.key, value: h.value }));
             // Route wire truth: H5 leaves gRPC no request plane, so the
             // deciding plane is always the executing device's.
-            if (route !== undefined) proxyRoute = { plane: 'environment', ...route };
+            if (route !== undefined) proxyRoute = { plane: 'system', ...route };
             emitter?.head(httpStatus, headers, headAtMessage);
           },
           onData: (chunk) => {

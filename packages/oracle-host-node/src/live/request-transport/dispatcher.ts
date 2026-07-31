@@ -12,8 +12,8 @@ import { isIP, type LookupFunction } from 'node:net';
 import { createSecureContext, type SecureVersion } from 'node:tls';
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { Agent, type Dispatcher, ProxyAgent, Socks5ProxyAgent } from 'undici';
-import { isSocks5ProxyUrl } from '../environment-proxy/proxy-value';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
+import { isSocks5ProxyUrl } from '../system-proxy/proxy-value';
 import type { ProxyTunnel } from './connect-tunnel';
 import type { ConnectOptions } from './seam';
 
@@ -122,7 +122,7 @@ function clientCertKeySegment(request: TransportRequest): string {
  * a short content hash of the `user:password` value — same discipline
  * as {@link clientCertKeySegment}: rotating the vault entry under the
  * same name mints a fresh dispatcher, and the credential itself never
- * sits in a Map key. An environment-plane credential (inline in an env
+ * sits in a Map key. An system-plane credential (inline in an env
  * var — no vault identity) keys as `inline` plus the same content
  * hash, so two ambient proxies at one URL with different credentials
  * never share a dispatcher. Only contributes while a proxy URL is set

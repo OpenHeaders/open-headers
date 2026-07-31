@@ -65,9 +65,9 @@ export interface ExecutedWsSnapshot {
   /**
    * Wire truth for the session's proxy routing — the effective route
    * as the dial ran it. WS editors carry no request-plane proxy knobs
-   * (the H5 ruling), so the plane is always `'environment'` and the
+   * (the H5 ruling), so the plane is always `'system'` and the
    * stand-down analog is the Unix-socket pin only. Present only when
-   * the environment plane decided something; a plain direct session
+   * the system plane decided something; a plain direct session
    * carries no field. Browser runtimes never stamp it (the browser
    * owns proxying there).
    */

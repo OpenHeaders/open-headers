@@ -509,33 +509,33 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': '安装',
   'workbench.settings.licensePane.loadFromFile': '从文件加载…',
 
-  // ── Environment-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
-  'workbench.settings.environmentProxy.title': '出站代理——此设备',
-  'workbench.settings.environmentProxy.intro':
+  // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  'workbench.settings.systemProxy.title': '出站代理——此设备',
+  'workbench.settings.systemProxy.intro':
     '从这台机器发出的请求、WebSocket 会话和 gRPC 调用如何抵达网络。设备本地、永不同步——除非请求自己设置了代理模式，否则都遵循此处配置。',
-  'workbench.settings.environmentProxy.mode.system': '系统',
-  'workbench.settings.environmentProxy.mode.systemDesc':
+  'workbench.settings.systemProxy.mode.system': '系统',
+  'workbench.settings.systemProxy.mode.systemDesc':
     '遵循这台机器自己的代理配置——系统设置、PAC 文件与自动发现——与浏览器完全一致。默认值；未托管的机器就是直接连接。',
-  'workbench.settings.environmentProxy.mode.manual': '手动',
-  'workbench.settings.environmentProxy.mode.manualDesc': '在此配置一个代理用于所有流量——含 vault 凭据与绕过列表。',
-  'workbench.settings.environmentProxy.mode.pac': 'PAC',
-  'workbench.settings.environmentProxy.mode.pacDesc':
+  'workbench.settings.systemProxy.mode.manual': '手动',
+  'workbench.settings.systemProxy.mode.manualDesc': '在此配置一个代理用于所有流量——含 vault 凭据与绕过列表。',
+  'workbench.settings.systemProxy.mode.pac': 'PAC',
+  'workbench.settings.systemProxy.mode.pacDesc':
     '由 URL 或本地路径指定的 PAC 文件按 URL 决定。脚本只在沙盒化的浏览器网络栈内运行，绝不在应用内。',
-  'workbench.settings.environmentProxy.mode.off': '关闭',
-  'workbench.settings.environmentProxy.mode.offDesc': '始终直接连接，无论机器怎么配置。',
-  'workbench.settings.environmentProxy.manual.url': '代理',
-  'workbench.settings.environmentProxy.manual.urlPlaceholder': 'proxy.example:8080 或 http://proxy.example:8080',
-  'workbench.settings.environmentProxy.manual.credentials': '凭据',
-  'workbench.settings.environmentProxy.manual.credentialsPlaceholder': '无身份验证',
-  'workbench.settings.environmentProxy.manual.bypass': '绕过列表',
-  'workbench.settings.environmentProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
-  'workbench.settings.environmentProxy.pac.source': 'PAC URL 或文件',
-  'workbench.settings.environmentProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac 或 /path/to/proxy.pac',
-  'workbench.settings.environmentProxy.saveFailed': '设置无法保存：{message}',
-  'workbench.settings.environmentProxy.sourced': '将 {url} 解析为',
-  'workbench.settings.environmentProxy.refresh': '刷新',
-  'workbench.settings.environmentProxy.previewPlaceholder': '预览一个 URL——它会走哪条路由？',
-  'workbench.settings.environmentProxy.previewButton': '解析',
+  'workbench.settings.systemProxy.mode.off': '关闭',
+  'workbench.settings.systemProxy.mode.offDesc': '始终直接连接，无论机器怎么配置。',
+  'workbench.settings.systemProxy.manual.url': '代理',
+  'workbench.settings.systemProxy.manual.urlPlaceholder': 'proxy.example:8080 或 http://proxy.example:8080',
+  'workbench.settings.systemProxy.manual.credentials': '凭据',
+  'workbench.settings.systemProxy.manual.credentialsPlaceholder': '无身份验证',
+  'workbench.settings.systemProxy.manual.bypass': '绕过列表',
+  'workbench.settings.systemProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
+  'workbench.settings.systemProxy.pac.source': 'PAC URL 或文件',
+  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac 或 /path/to/proxy.pac',
+  'workbench.settings.systemProxy.saveFailed': '设置无法保存：{message}',
+  'workbench.settings.systemProxy.sourced': '将 {url} 解析为',
+  'workbench.settings.systemProxy.refresh': '刷新',
+  'workbench.settings.systemProxy.previewPlaceholder': '预览一个 URL——它会走哪条路由？',
+  'workbench.settings.systemProxy.previewButton': '解析',
 
   // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':

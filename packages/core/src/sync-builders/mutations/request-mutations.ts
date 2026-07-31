@@ -57,12 +57,15 @@ export interface RequestMutationPayload {
 export type LiveSetEntries = (requestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
 /**
- * Current materialized value reader for object-valued scalar paths
- * (`auth`, `body`). Threaded as the baseline for {@link synthesizeFieldDiff}
- * so a variant switch tombstones the leaves that vanish. Returns
- * `undefined` when the path has no live value yet — the diff then emits
- * `setField` for every new leaf and no `unsetField`. SW + renderer both
- * satisfy this from their canonical request snapshot.
+ * Current materialized value reader for scalar paths, read from the
+ * canonical request snapshot. Two consumers: object-valued scalars
+ * (`auth`, `body`) use it as the baseline for {@link synthesizeFieldDiff}
+ * so a variant switch tombstones the leaves that vanish, and the
+ * explicit-clear branch consults it so an `undefined` patch value
+ * tombstones a slot only when the pre-image actually carries one.
+ * Returns `undefined` when the path has no live value — the field diff
+ * then emits `setField` for every new leaf and no `unsetField`, and a
+ * clear emits nothing.
  */
 export type LiveFieldValue = (requestUid: string, path: string) => unknown;
 
@@ -117,7 +120,18 @@ export function buildUpdateBatch(
   const bodies: MutationBody[] = [];
 
   for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
+    if (value === undefined) {
+      // A key explicitly present with `undefined` is the editors'
+      // "cleared back to default" encoding — tombstone the slot, but
+      // only when the canonical pre-image actually carries a value:
+      // unconditional tombstones would stamp fresh HLCs on every
+      // untouched default field and stomp a peer's concurrent set
+      // under LWW. Set-modeled paths never clear this way.
+      if (isSetPath(key) === null && liveFieldValue(requestUid, key) !== undefined) {
+        bodies.push({ kind: 'unsetField', type: REQUEST_ENTITY_TYPE, id: requestUid, path: key });
+      }
+      continue;
+    }
 
     const setPath = isSetPath(key);
     if (setPath && Array.isArray(value)) {

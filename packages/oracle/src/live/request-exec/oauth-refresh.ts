@@ -11,7 +11,7 @@
  * header / response parsing come from `@openheaders/core/oauth`, the
  * exchange rides the host's injected {@link RequestTransport} — the
  * same seam every request-engine send dispatches through, so the
- * node hosts' environment-plane proxy resolution covers the token
+ * node hosts' system-plane proxy resolution covers the token
  * leg too — and the per-origin token bucket is the same
  * `withRefreshRateLimit` every refresh-subsystem fetch pays into.
  *

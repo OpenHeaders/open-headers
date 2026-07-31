@@ -1,7 +1,7 @@
 /**
- * Node-tier environment-plane install (docs/REQUEST_ENGINE_PROXY_DESIGN.md
+ * Node-tier system-plane install (docs/REQUEST_ENGINE_PROXY_DESIGN.md
  * P4) — the daemon/CLI/TUI half of the mode-driven service the desktop
- * ships in its shell. Same per-device slot (`OH.environmentProxy`),
+ * ships in its shell. Same per-device slot (`OH.systemProxy`),
  * same resolvers; the tier's modes are Off / Env / Manual with Env the
  * default (FORK A — the ecosystem norm for headless tools: the
  * HTTP_PROXY-family variables with curl precedence).
@@ -21,36 +21,36 @@
  * is the honest surface).
  */
 
-import { EnvironmentProxySettingsSchema, NODE_ENVIRONMENT_PROXY_MODES, parseEntity } from '@openheaders/core/schemas';
+import { NODE_SYSTEM_PROXY_MODES, parseEntity, SystemProxySettingsSchema } from '@openheaders/core/schemas';
 import type { StorageKey } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
-import type { EnvironmentProxySettings } from '@openheaders/core/types';
+import type { SystemProxySettings } from '@openheaders/core/types';
 import { getVault } from '@openheaders/oracle/entity/environment-store';
-import { createEnvProxyResolver } from '../live/environment-proxy/env-proxy-resolver';
-import { createManualProxyResolver } from '../live/environment-proxy/manual-resolver';
-import { registerEnvironmentProxyResolver } from '../live/environment-proxy/registry';
+import { createEnvProxyResolver } from '../live/system-proxy/env-proxy-resolver';
+import { createManualProxyResolver } from '../live/system-proxy/manual-resolver';
+import { registerSystemProxyResolver } from '../live/system-proxy/registry';
 
 /** The node tier default: Env ON (FORK A) — a machine with no
  *  HTTP_PROXY-family variables resolves DIRECT and behaves as before. */
-export const DEFAULT_NODE_ENVIRONMENT_PROXY_SETTINGS: EnvironmentProxySettings = { version: 1, mode: 'env' };
+export const DEFAULT_NODE_SYSTEM_PROXY_SETTINGS: SystemProxySettings = { version: 1, mode: 'env' };
 
 /** The slice of `HostStorage` the install rides — narrow so unit rigs
  *  hand in a plain map-backed store. */
-export interface NodeEnvironmentProxyStore {
+export interface NodeSystemProxyStore {
   get<T>(spec: StorageKey<T>): Promise<T | undefined>;
   set<T>(spec: StorageKey<T>, value: T): Promise<void>;
 }
 
-export interface InstallNodeEnvironmentProxyOptions {
-  hostStorage: NodeEnvironmentProxyStore;
+export interface InstallNodeSystemProxyOptions {
+  hostStorage: NodeSystemProxyStore;
   /** The daemon config surface's answer (argv → env → daemon.json),
    *  already validated to this tier's modes; seeds the slot. Absent =
    *  the stored slot (or the tier default) applies. */
-  configured?: EnvironmentProxySettings;
+  configured?: SystemProxySettings;
 }
 
-function isNodeMode(mode: EnvironmentProxySettings['mode']): boolean {
-  return (NODE_ENVIRONMENT_PROXY_MODES as readonly string[]).includes(mode);
+function isNodeMode(mode: SystemProxySettings['mode']): boolean {
+  return (NODE_SYSTEM_PROXY_MODES as readonly string[]).includes(mode);
 }
 
 /**
@@ -59,18 +59,16 @@ function isNodeMode(mode: EnvironmentProxySettings['mode']): boolean {
  * config error on a slot carrying a mode this tier cannot honor —
  * refuse to boot rather than second-guess an explicit configuration.
  */
-export async function installNodeEnvironmentProxy(
-  options: InstallNodeEnvironmentProxyOptions,
-): Promise<EnvironmentProxySettings> {
-  let settings = DEFAULT_NODE_ENVIRONMENT_PROXY_SETTINGS;
+export async function installNodeSystemProxy(options: InstallNodeSystemProxyOptions): Promise<SystemProxySettings> {
+  let settings = DEFAULT_NODE_SYSTEM_PROXY_SETTINGS;
   if (options.configured !== undefined) {
     settings = options.configured;
-    await options.hostStorage.set(OH.environmentProxy, settings);
+    await options.hostStorage.set(OH.systemProxy, settings);
   } else {
     // A malformed slot reads as the tier default — never a boot failure.
-    const stored = await options.hostStorage.get(OH.environmentProxy);
+    const stored = await options.hostStorage.get(OH.systemProxy);
     if (stored !== undefined) {
-      settings = parseEntity(EnvironmentProxySettingsSchema, stored) ?? DEFAULT_NODE_ENVIRONMENT_PROXY_SETTINGS;
+      settings = parseEntity(SystemProxySettingsSchema, stored) ?? DEFAULT_NODE_SYSTEM_PROXY_SETTINGS;
     }
   }
   if (!isNodeMode(settings.mode)) {
@@ -82,20 +80,20 @@ export async function installNodeEnvironmentProxy(
   }
   switch (settings.mode) {
     case 'off':
-      registerEnvironmentProxyResolver(null);
+      registerSystemProxyResolver(null);
       break;
     case 'env':
-      registerEnvironmentProxyResolver(createEnvProxyResolver());
+      registerSystemProxyResolver(createEnvProxyResolver());
       break;
     case 'manual': {
       if (settings.manualProxyUrl === undefined) {
         // Mirror the desktop: manual with nothing configured is direct.
-        registerEnvironmentProxyResolver(null);
+        registerSystemProxyResolver(null);
         break;
       }
       const proxyValue = settings.manualProxyUrl;
       const credentialRef = settings.manualCredentialRef;
-      registerEnvironmentProxyResolver(
+      registerSystemProxyResolver(
         createManualProxyResolver({
           proxyValue,
           ...(settings.manualBypassList !== undefined ? { bypassList: settings.manualBypassList } : {}),

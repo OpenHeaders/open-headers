@@ -381,6 +381,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesJoinDesc': '连接各条目——不能有空格。',
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': '运行时默认套件',
   'workbench.editors.request.settings.tlsCipherSuitesError': '仅限冒号分隔的 OpenSSL 套件名——不能有空格。',
+  'workbench.editors.request.settings.tlsCipherSuitesExample':
+    '例如 TLS_AES_256_GCM_SHA384:ECDHE-RSA-AES128-GCM-SHA256',
   'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 跳（默认）',
   'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 跳' }),
@@ -421,6 +423,7 @@ export const workbenchEditorsRequest = {
     '把此请求发送到指定的服务器地址，而不是 DNS 的应答——URL 的主机名仍用于 TLS 和 Host 标头，因此开启验证时证书仍须与之匹配。适合测试负载均衡器背后的某个特定后端。URL 保留自己的端口，重定向到其他主机时也落在此地址上。留空则照常通过 DNS 解析。',
   'workbench.editors.request.settings.resolveToAddressPlaceholder': '系统 DNS',
   'workbench.editors.request.settings.resolveToAddressError': '仅限 IPv4 或 IPv6 地址——不能有主机名或端口。',
+  'workbench.editors.request.settings.resolveToAddressExample': '例如 10.0.0.12 或 2001:db8::1',
   'workbench.editors.request.settings.clientCertificate': '客户端证书',
   'workbench.editors.request.settings.clientCertificateInfo':
     '在 TLS 握手期间出示客户端证书，用于双向 TLS 网关背后按证书验证调用方的 API。从 vault 中选择一个证书条目——请求只保存条目名称，每台设备出示自己同名的 vault 条目；证书和密钥绝不离开 vault。留空则不带客户端证书连接。',
@@ -429,16 +432,16 @@ export const workbenchEditorsRequest = {
     '此设备上没有名为“{name}”的 vault 证书条目——在该条目存在或此设置被清除之前，发送都会失败。',
   'workbench.editors.request.settings.proxy': '代理',
   'workbench.editors.request.settings.proxySummary':
-    '此次发送如何抵达网络。默认继承执行设备的环境——系统代理设置、PAC 或代理环境变量——因此企业机器下发的代理开箱即用；“直连”让这一个请求退出任何环境代理，“自定义 URL”则让它经由请求自己的代理。',
+    '此次发送如何抵达网络。默认继承执行设备的系统配置——系统代理设置、PAC 或代理环境变量——因此企业机器下发的代理开箱即用；“直连”让这一个请求退出任何系统代理，“自定义 URL”则让它经由请求自己的代理。',
   'workbench.editors.request.settings.proxyDescription':
-    '响应元信息始终记录发送实际走过的路由——哪个代理、由请求还是由环境决定。支持 HTTP(S) 与 SOCKS5 代理——socks5:// URL 既可作为自定义代理也可作为环境应答；只有 SOCKS4 系列会收到指名它的明确错误。',
+    '响应元信息始终记录发送实际走过的路由——哪个代理、由请求还是由系统决定。支持 HTTP(S) 与 SOCKS5 代理——socks5:// URL 既可作为自定义代理也可作为系统应答；只有 SOCKS4 系列会收到指名它的明确错误。',
   'workbench.editors.request.settings.proxyModesHeading': '模式',
-  'workbench.editors.request.settings.proxyModePlaceholder': '继承——由环境决定',
+  'workbench.editors.request.settings.proxyModePlaceholder': '继承——由系统决定',
   'workbench.editors.request.settings.proxyModeDirect': '直连——不走代理',
   'workbench.editors.request.settings.proxyModeCustom': '自定义 URL',
   'workbench.editors.request.settings.proxyModeInheritDesc':
-    '由执行设备的环境按 URL 决定——机器配置了代理就走代理，否则直连。对固定 HTTP/3、拨号本地套接字或解析到固定地址的发送，继承的代理会主动让路。',
-  'workbench.editors.request.settings.proxyModeDirectDesc': '此请求永不走代理，无论机器环境怎么说。',
+    '由执行设备的系统按 URL 决定——机器配置了代理就走代理，否则直连。对固定 HTTP/3、拨号本地套接字或解析到固定地址的发送，继承的代理会主动让路。',
+  'workbench.editors.request.settings.proxyModeDirectDesc': '此请求永不走代理，无论机器的系统设置怎么说。',
   'workbench.editors.request.settings.proxyModeCustomDesc':
     '以隧道穿过请求自己的代理 URL——随请求同步，在每台设备上走同一条路由。',
   'workbench.editors.request.settings.proxyUrl': '代理 URL',
@@ -448,6 +451,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyUrlMissing': '自定义 URL 模式需要代理 URL——输入一个，或把模式切回去。',
   'workbench.editors.request.settings.proxyError':
     '仅限带主机和端口的 http://、https:// 或 socks5:// URL——URL 中不能有凭据。',
+  'workbench.editors.request.settings.proxyUrlExample': '例如 http://127.0.0.1:8080 或 socks5://127.0.0.1:1080',
   'workbench.editors.request.settings.proxyResolveConflict':
     '同时设置了解析到地址，但代理会自行解析主机名——在其中一项被清除之前，发送都会失败。',
   'workbench.editors.request.settings.proxyCredentials': '代理凭据',
@@ -466,6 +470,7 @@ export const workbenchEditorsRequest = {
     '同时设置了代理，但代理隧道无法拨号本地套接字——在其中一项被清除之前，发送都会失败。',
   'workbench.editors.request.settings.unixSocketResolveConflict':
     '同时设置了解析到地址，但套接字拨号不解析任何主机名——在其中一项被清除之前，发送都会失败。',
+  'workbench.editors.request.settings.unixSocketExample': '例如 /var/run/docker.sock',
   'workbench.editors.request.settings.cookieJar': '使用 Cookie 罐',
   'workbench.editors.request.settings.cookieJarInfo':
     '把此请求的 Set-Cookie 响应存进应用自己的 Cookie 罐，并自动附加匹配的 Cookie——这样登录请求之后的鉴权调用无需手动复制 Cookie 值即可工作。罐按工作区存于内存中，只被开启此设置的请求使用，从不同步，应用退出时清空。你自己设置的 Cookie 标头始终优先。关闭是默认：不附加任何 Cookie，Set-Cookie 响应被丢弃。',
@@ -670,24 +675,24 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.proxyTitle': '代理路由',
   'workbench.editors.request.response.meta.proxySummaryRequest':
     '本次运行经其自身请求设置中所设的代理隧道传输——记录自发送实际所做的。',
-  'workbench.editors.request.response.meta.proxySummaryEnvironment':
-    '本次运行经执行设备环境所指定的代理隧道传输——记录自运行实际所做的，绝非实时读取设置。',
+  'workbench.editors.request.response.meta.proxySummarySystem':
+    '本次运行经执行设备系统所指定的代理隧道传输——记录自运行实际所做的，绝非实时读取设置。',
   'workbench.editors.request.response.meta.proxyRowUrl': '代理',
   'workbench.editors.request.response.meta.proxyRowSource': '决定方',
   'workbench.editors.request.response.meta.proxySourceRequest': '请求设置',
-  'workbench.editors.request.response.meta.proxySourceEnvironment': '环境代理设置',
+  'workbench.editors.request.response.meta.proxySourceDevice': '设备代理设置',
   'workbench.editors.request.response.meta.proxySourceEnv': '环境变量',
   'workbench.editors.request.response.meta.proxySourceSystem': '系统代理设置',
   'workbench.editors.request.response.meta.proxySourceManual': '手动代理配置',
   'workbench.editors.request.response.meta.proxySourcePac': 'PAC 脚本',
   'workbench.editors.request.response.meta.proxyStandDownTag': '代理已绕过',
-  'workbench.editors.request.response.meta.proxyStandDownTitle': '环境代理已让位',
+  'workbench.editors.request.response.meta.proxyStandDownTitle': '系统代理已让位',
   'workbench.editors.request.response.meta.proxyStandDownUnixSocket':
-    '环境指定了代理，但本次运行的目标是代理隧道无法拨号的本地套接字——因此直连进行。',
+    '系统指定了代理，但本次运行的目标是代理隧道无法拨号的本地套接字——因此直连进行。',
   'workbench.editors.request.response.meta.proxyStandDownResolveToAddress':
-    '环境指定了代理，但本次运行固定了自己的地址解析，而代理会覆盖它——因此直连进行。',
+    '系统指定了代理，但本次运行固定了自己的地址解析，而代理会覆盖它——因此直连进行。',
   'workbench.editors.request.response.meta.proxyStandDownHttpVersion3':
-    '环境指定了代理，但本次运行固定为 HTTP/3，它拨号自己的 QUIC 路径——因此直连进行。',
+    '系统指定了代理，但本次运行固定为 HTTP/3，它拨号自己的 QUIC 路径——因此直连进行。',
   'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 次重定向' }),
   'workbench.editors.request.response.meta.redirectsTitle': '重定向链',

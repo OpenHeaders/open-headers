@@ -1,5 +1,5 @@
 /**
- * Manual-mode environment-plane resolver — the config-driven half of
+ * Manual-mode system-plane resolver — the config-driven half of
  * the P3 settings surface (docs/REQUEST_ENGINE_PROXY_DESIGN.md): one
  * proxy value (env-var idiom — bare `host:port` implies `http://`),
  * credentials by VAULT REF resolved at RESOLVE time through an
@@ -18,7 +18,7 @@
 
 import { isBypassedByNoProxy } from './no-proxy';
 import { parseProxyValue } from './proxy-value';
-import type { EnvironmentProxyResolver, EnvironmentProxySelection } from './types';
+import type { SystemProxyResolver, SystemProxySelection } from './types';
 
 export interface ManualProxyConfig {
   /** The configured proxy value (`corp:8080`, `http://corp:8080`). */
@@ -35,9 +35,9 @@ export interface ManualProxyConfig {
   resolveCredential?: () => string | null;
 }
 
-export function createManualProxyResolver(config: ManualProxyConfig): EnvironmentProxyResolver {
+export function createManualProxyResolver(config: ManualProxyConfig): SystemProxyResolver {
   return {
-    resolve(url: string): Promise<EnvironmentProxySelection | null> {
+    resolve(url: string): Promise<SystemProxySelection | null> {
       let target: URL;
       try {
         target = new URL(url);

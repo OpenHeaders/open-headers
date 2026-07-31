@@ -59,7 +59,7 @@ import { handleExecuteRequestRpc } from './execute-request-rpc';
 const SCRIPT_HOST_SURFACE_ID = 'script-host';
 
 // Egress for the vault-ref OAuth refresh leg — the same transport seam
-// every send rides, so the environment plane covers it.
+// every send rides, so the system plane covers it.
 const nodeTransport = createNodeRequestTransport();
 
 export async function handleScriptHostRequest(request: ScriptHostRequest): Promise<ScriptHostResponse> {

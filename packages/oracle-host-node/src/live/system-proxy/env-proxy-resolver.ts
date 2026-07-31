@@ -1,5 +1,5 @@
 /**
- * Env-var environment-plane adapter — the node tier's default resolver
+ * Env-var system-plane adapter — the node tier's default resolver
  * (FORK A: Env ON by default for daemon / CLI / TUI). Honors the
  * ecosystem-norm variables with curl precedence:
  *
@@ -17,7 +17,7 @@
 
 import { isBypassedByNoProxy } from './no-proxy';
 import { parseProxyValue } from './proxy-value';
-import type { EnvironmentProxyResolver, EnvironmentProxySelection } from './types';
+import type { SystemProxyResolver, SystemProxySelection } from './types';
 
 type EnvReader = () => Record<string, string | undefined>;
 
@@ -37,9 +37,9 @@ function readEnv(env: Record<string, string | undefined>, names: string[]): stri
  * reads the live environment per resolve (cheap, and honest about a
  * daemon whose environment was set at spawn).
  */
-export function createEnvProxyResolver(envSource: EnvReader = () => process.env): EnvironmentProxyResolver {
+export function createEnvProxyResolver(envSource: EnvReader = () => process.env): SystemProxyResolver {
   return {
-    resolve(url: string): Promise<EnvironmentProxySelection | null> {
+    resolve(url: string): Promise<SystemProxySelection | null> {
       let target: URL;
       try {
         target = new URL(url);
