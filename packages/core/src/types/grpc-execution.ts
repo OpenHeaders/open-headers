@@ -12,6 +12,8 @@
  * nothing here is ever rewritten to make a reply look well-formed.
  */
 
+import type { ExecutedProxyRoute } from './request-execution';
+
 /** One message frame of the call, unwrapped from the wire: the payload
  *  bytes base64-encoded and the frame's compression flag as received
  *  (v1 negotiates no compression, so a compressed frame renders as a
@@ -62,6 +64,15 @@ export interface ExecutedGrpcSnapshot {
   /** Framed body bytes read off the wire before any truncation. */
   bodyBytes: number;
   durationMs: number;
+  /**
+   * Wire truth for the call's proxy routing — the effective route as
+   * the dial ran it. gRPC editors carry no request-plane proxy knobs
+   * (the H5 ruling), so the plane is always `'environment'` and the
+   * stand-down analog is the Unix-socket pin only. Present only when
+   * the environment plane decided something; a plain direct call
+   * carries no field.
+   */
+  proxyRoute?: ExecutedProxyRoute;
   /** True when the user stopped a streaming call after the response
    *  head — the capture holds what arrived (unary aborts before a head
    *  map onto `error` instead). */

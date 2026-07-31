@@ -31,7 +31,7 @@ import {
   ProtoCodecError,
   type ProtoRegistry,
 } from '@openheaders/core/proto';
-import type { ExecutedGrpcMessageFrame, ExecutedGrpcSnapshot } from '@openheaders/core/types';
+import type { ExecutedGrpcMessageFrame, ExecutedGrpcSnapshot, ExecutedProxyRoute } from '@openheaders/core/types';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { createGrpcStreamEmitter, registerActiveGrpcStream } from './stream-plane';
@@ -85,6 +85,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
     let httpStatus = 0;
     let headers: Array<{ key: string; value: string }> = [];
     let trailers: Array<{ key: string; value: string }> = [];
+    let proxyRoute: ExecutedProxyRoute | undefined;
     const messages: ExecutedGrpcMessageFrame[] = [];
     let bodyBytes = 0;
     let truncated = false;
@@ -147,6 +148,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         bodyBytes,
         durationMs,
         ...(stopped ? { stopped: true } : {}),
+        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
         error: null,
       });
     };
@@ -165,11 +167,14 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           ...(params.timeoutMs !== undefined ? { timeoutMs: params.timeoutMs } : {}),
         },
         {
-          onHead: (status, incoming) => {
+          onHead: (status, incoming, route) => {
             headArrived = true;
             headAtMessage = messages.length;
             httpStatus = status;
             headers = incoming.map((h) => ({ key: h.key, value: h.value }));
+            // Route wire truth: H5 leaves gRPC no request plane, so the
+            // deciding plane is always the executing device's.
+            if (route !== undefined) proxyRoute = { plane: 'environment', ...route };
             emitter?.head(httpStatus, headers, headAtMessage);
           },
           onData: (chunk) => {

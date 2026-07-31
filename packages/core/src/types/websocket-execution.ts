@@ -12,6 +12,8 @@
  * ever rewritten or synthesized; pretty/decoded views are display-side.
  */
 
+import type { ExecutedProxyRoute } from './request-execution';
+
 /** One captured message of the session, in call order. `direction`
  *  tags client-sent ('up') vs server-sent ('down'). Payloads ride
  *  base64 whether the frame was text or binary — `binary` records
@@ -60,6 +62,16 @@ export interface ExecutedWsSnapshot {
   stopped?: boolean;
   /** Whole-session wall time (connect start → settle), display-only. */
   durationMs: number;
+  /**
+   * Wire truth for the session's proxy routing — the effective route
+   * as the dial ran it. WS editors carry no request-plane proxy knobs
+   * (the H5 ruling), so the plane is always `'environment'` and the
+   * stand-down analog is the Unix-socket pin only. Present only when
+   * the environment plane decided something; a plain direct session
+   * carries no field. Browser runtimes never stamp it (the browser
+   * owns proxying there).
+   */
+  proxyRoute?: ExecutedProxyRoute;
   /**
    * The remote host that ran this session on the caller's behalf —
    * a peer-forwarded dispatch answered by a connected back-end.

@@ -152,6 +152,7 @@ import { fetch as undiciFetch, request as undiciRequest } from 'undici';
 import { cookieJarFor } from './cookie-jar';
 import { isSocks5ProxyUrl } from './environment-proxy/proxy-value';
 import { environmentProxyResolver } from './environment-proxy/registry';
+import { PROXY_DIAL_FAILURE_CODES } from './environment-proxy/session-route';
 import type { EnvironmentProxyResolver } from './environment-proxy/types';
 import { decryptedClientKeyPem } from './h3-helper/client-key';
 import { resolveH3HelperBinary } from './h3-helper/helper-binary';
@@ -194,25 +195,6 @@ export interface NodeRequestTransportOptions {
    *  (see `environment-proxy/registry`). */
   environmentProxy?: EnvironmentProxyResolver | null;
 }
-
-/**
- * Dial-level failure codes REACHING a proxy — the only failures the
- * environment-plane chain walk falls through on. On a proxied send a
- * refused / unresolved / unroutable / timed-out CONNECT dial can only
- * be the proxy itself (target dialing happens at the proxy), which is
- * exactly Chromium's fall-through condition. CONNECT rejections (407
- * and friends) and target-leg failures surface instead — by then the
- * proxy answered, and the failure is meaningful.
- */
-const PROXY_DIAL_FAILURE_CODES = new Set([
-  'ECONNREFUSED',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-  'ETIMEDOUT',
-  'UND_ERR_CONNECT_TIMEOUT',
-]);
 
 function isProxyDialFailure(err: unknown): err is WireExchangeError {
   return err instanceof WireExchangeError && err.causeCode !== undefined && PROXY_DIAL_FAILURE_CODES.has(err.causeCode);

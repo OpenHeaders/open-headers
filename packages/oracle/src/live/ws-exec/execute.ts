@@ -32,7 +32,13 @@
 
 import type { WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
 import { buildEngineIoUrl, encodeEventPacket, isValidNamespace, normalizeNamespace } from '@openheaders/core/socketio';
-import type { ExecutedWsClose, ExecutedWsMessage, ExecutedWsSnapshot, WebSocketRequest } from '@openheaders/core/types';
+import type {
+  ExecutedProxyRoute,
+  ExecutedWsClose,
+  ExecutedWsMessage,
+  ExecutedWsSnapshot,
+  WebSocketRequest,
+} from '@openheaders/core/types';
 import { appendQueryParams, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { getRequestCollections, getRequestCollectionsForWorkspace } from '../../entity/request-store';
@@ -161,6 +167,7 @@ export async function executeWsSession(
     let opened = false;
     let protocol = '';
     let extensions = '';
+    let proxyRoute: ExecutedProxyRoute | undefined;
     let close: ExecutedWsClose | null = null;
     let settled = false;
     const messages: ExecutedWsMessage[] = [];
@@ -210,6 +217,7 @@ export async function executeWsSession(
         close,
         ...(stopped ? { stopped: true } : {}),
         durationMs,
+        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
         error: null,
       });
     };
@@ -244,10 +252,14 @@ export async function executeWsSession(
         ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
       },
       {
-        onOpen: (selectedProtocol, negotiatedExtensions) => {
+        onOpen: (selectedProtocol, negotiatedExtensions, route) => {
           opened = true;
           protocol = selectedProtocol;
           extensions = negotiatedExtensions;
+          // Route wire truth: the transport reports what its host's
+          // environment plane decided — H5 leaves WS no request plane,
+          // so the plane is always the executing device's.
+          if (route !== undefined) proxyRoute = { plane: 'environment', ...route };
           emitter?.open(selectedProtocol, negotiatedExtensions);
         },
         onMessage: ({ data, binary }) => {

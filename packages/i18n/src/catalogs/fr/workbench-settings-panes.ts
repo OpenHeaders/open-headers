@@ -609,6 +609,40 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Installer',
   'workbench.settings.licensePane.loadFromFile': 'Charger depuis un fichier…',
 
+  // ── Environment-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  'workbench.settings.environmentProxy.title': 'Proxy sortant — cet appareil',
+  'workbench.settings.environmentProxy.intro':
+    'Comment les requêtes, sessions WebSocket et appels gRPC de cette machine atteignent le réseau. Local ' +
+    "à l'appareil, jamais synchronisé — tout le suit, sauf si une requête définit son propre mode de proxy.",
+  'workbench.settings.environmentProxy.mode.system': 'Système',
+  'workbench.settings.environmentProxy.mode.systemDesc':
+    'Suit la configuration de proxy de cette machine — réglages système, fichiers PAC et découverte ' +
+    'automatique — exactement comme le navigateur. Le mode par défaut ; une machine non administrée se ' +
+    'connecte simplement en direct.',
+  'workbench.settings.environmentProxy.mode.manual': 'Manuel',
+  'workbench.settings.environmentProxy.mode.manualDesc':
+    'Un proxy pour tout, configuré ici — avec identifiants du coffre et liste de contournement.',
+  'workbench.settings.environmentProxy.mode.pac': 'PAC',
+  'workbench.settings.environmentProxy.mode.pacDesc':
+    "Un fichier PAC par URL ou chemin local décide par URL. Le script ne s'exécute que dans la pile réseau " +
+    "du navigateur, en bac à sable, jamais dans l'application.",
+  'workbench.settings.environmentProxy.mode.off': 'Désactivé',
+  'workbench.settings.environmentProxy.mode.offDesc': 'Toujours se connecter en direct, quoi que dise la machine.',
+  'workbench.settings.environmentProxy.manual.url': 'Proxy',
+  'workbench.settings.environmentProxy.manual.urlPlaceholder': 'proxy.example:8080 ou http://proxy.example:8080',
+  'workbench.settings.environmentProxy.manual.credentials': 'Identifiants',
+  'workbench.settings.environmentProxy.manual.credentialsPlaceholder': "Pas d'authentification",
+  'workbench.settings.environmentProxy.manual.bypass': 'Liste de contournement',
+  'workbench.settings.environmentProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
+  'workbench.settings.environmentProxy.pac.source': 'URL ou fichier PAC',
+  'workbench.settings.environmentProxy.pac.sourcePlaceholder':
+    'https://proxy.example/proxy.pac ou /chemin/vers/proxy.pac',
+  'workbench.settings.environmentProxy.saveFailed': "Le réglage n'a pas pu être enregistré : {message}",
+  'workbench.settings.environmentProxy.sourced': 'Résout {url} vers',
+  'workbench.settings.environmentProxy.refresh': 'Actualiser',
+  'workbench.settings.environmentProxy.previewPlaceholder': 'Prévisualiser une URL — quelle route prendrait-elle ?',
+  'workbench.settings.environmentProxy.previewButton': 'Résoudre',
+
   // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':
     "Déchiffrer le trafic HTTPS demande une autorité de certification créée sur cette machine. Rien n'est " +

@@ -608,6 +608,41 @@ export const workbenchSettingsPanes = {
   'workbench.settings.licensePane.installButton': 'Installieren',
   'workbench.settings.licensePane.loadFromFile': 'Aus Datei laden…',
 
+  // ── Environment-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
+  'workbench.settings.environmentProxy.title': 'Ausgehender Proxy — dieses Gerät',
+  'workbench.settings.environmentProxy.intro':
+    'Wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe dieser Maschine das Netzwerk erreichen. ' +
+    'Gerätelokal und nie synchronisiert — alles folgt dem, außer eine Anfrage setzt ihren eigenen ' +
+    'Proxy-Modus.',
+  'workbench.settings.environmentProxy.mode.system': 'System',
+  'workbench.settings.environmentProxy.mode.systemDesc':
+    'Folgt der Proxy-Konfiguration dieser Maschine — Systemeinstellungen, PAC-Dateien und automatische ' +
+    'Erkennung — genau wie der Browser. Der Standard; eine unverwaltete Maschine verbindet sich einfach ' +
+    'direkt.',
+  'workbench.settings.environmentProxy.mode.manual': 'Manuell',
+  'workbench.settings.environmentProxy.mode.manualDesc':
+    'Ein Proxy für alles, hier konfiguriert — mit Tresor-Anmeldedaten und Ausnahmeliste.',
+  'workbench.settings.environmentProxy.mode.pac': 'PAC',
+  'workbench.settings.environmentProxy.mode.pacDesc':
+    'Eine PAC-Datei per URL oder lokalem Pfad entscheidet pro URL. Das Skript läuft nur innerhalb des ' +
+    'isolierten Browser-Netzwerkstapels, nie in der App.',
+  'workbench.settings.environmentProxy.mode.off': 'Aus',
+  'workbench.settings.environmentProxy.mode.offDesc': 'Immer direkt verbinden, egal was die Maschine sagt.',
+  'workbench.settings.environmentProxy.manual.url': 'Proxy',
+  'workbench.settings.environmentProxy.manual.urlPlaceholder': 'proxy.example:8080 oder http://proxy.example:8080',
+  'workbench.settings.environmentProxy.manual.credentials': 'Anmeldedaten',
+  'workbench.settings.environmentProxy.manual.credentialsPlaceholder': 'Keine Authentifizierung',
+  'workbench.settings.environmentProxy.manual.bypass': 'Ausnahmeliste',
+  'workbench.settings.environmentProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
+  'workbench.settings.environmentProxy.pac.source': 'PAC-URL oder -Datei',
+  'workbench.settings.environmentProxy.pac.sourcePlaceholder':
+    'https://proxy.example/proxy.pac oder /pfad/zu/proxy.pac',
+  'workbench.settings.environmentProxy.saveFailed': 'Die Einstellung konnte nicht gespeichert werden: {message}',
+  'workbench.settings.environmentProxy.sourced': 'Löst {url} auf zu',
+  'workbench.settings.environmentProxy.refresh': 'Aktualisieren',
+  'workbench.settings.environmentProxy.previewPlaceholder': 'URL-Vorschau — welche Route würde sie nehmen?',
+  'workbench.settings.environmentProxy.previewButton': 'Auflösen',
+
   // ── Proxy trust pane body (PROXY_SECURITY.md §2.3 consent posture) ─
   'workbench.settings.proxyTrustPane.intro':
     'Das Entschlüsseln von HTTPS-Traffic braucht eine auf dieser Maschine erzeugte Zertifizierungsstelle. ' +

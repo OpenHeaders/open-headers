@@ -92,6 +92,13 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.subprotocolsHelp':
     "Liste d'offres Sec-WebSocket-Protocol, par ordre de préférence — le serveur en choisit un pendant le handshake.",
   'workbench.editors.websocket.settings.subprotocolsPlaceholder': 'Ajouter un sous-protocole…',
+  'workbench.editors.websocket.settings.unixSocketLabel': 'Socket Unix',
+  'workbench.editors.websocket.settings.unixSocketHelp':
+    'Se connecte à cette socket locale — un chemin absolu de socket Unix, ou un tube nommé Windows comme ' +
+    "\\\\.\\pipe\\nom — au lieu d'ouvrir une connexion TCP. L'URL continue de déterminer le Host du " +
+    'handshake, le nom de serveur TLS et la vérification du certificat ; seule la destination de la ' +
+    'connexion change. Laissez vide pour une connexion TCP normale.',
+  'workbench.editors.websocket.settings.unixSocketPlaceholder': 'Pas de socket — connexion TCP',
   'workbench.editors.websocket.settings.timeoutLabel': 'Délai de connexion (ms)',
   'workbench.editors.websocket.settings.timeoutHelp':
     "Plafond en temps réel sur le handshake de connexion. Vide, la valeur par défaut de l'application s'applique.",

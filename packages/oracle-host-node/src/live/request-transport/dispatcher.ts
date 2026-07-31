@@ -198,7 +198,7 @@ export function dispatcherFor(request: TransportRequest): DispatcherEntry {
     proxy !== undefined && !policy.pinH2
       ? {
           dispatcher: isSocks5ProxyUrl(proxy.url)
-            ? buildSocks5Agent(proxy.url, request, connect)
+            ? buildSocks5Agent(proxy, connect)
             : buildProxyAgent(proxy.url, request, connect, offersH2(policy)),
         }
       : buildAgentEntry(connect, policy, proxy);
@@ -351,14 +351,15 @@ interface Socks5AgentOptions extends Socks5ProxyAgent.Options {
  * connection options apply to the TARGET leg via `requestTls`, exactly
  * the `ProxyAgent` seat. The tunneled target leg negotiates http/1.1
  * (the agent's pools offer no h2) — reported protocol still comes from
- * the wire, never the knob.
+ * the wire, never the knob. Exported for the WS dial, whose ambient
+ * SOCKS5 answers ride the same agent seat per connect.
  */
-function buildSocks5Agent(proxyUrl: string, request: TransportRequest, connect: ConnectOptions): Socks5ProxyAgent {
+export function buildSocks5Agent(proxy: ProxyTunnel, connect: ConnectOptions): Socks5ProxyAgent {
   const options: Socks5AgentOptions = { requestTls: connect };
-  if (request.proxyCredential !== undefined) {
-    const colon = request.proxyCredential.indexOf(':');
-    options.username = colon === -1 ? request.proxyCredential : request.proxyCredential.slice(0, colon);
-    if (colon !== -1) options.password = request.proxyCredential.slice(colon + 1);
+  if (proxy.credential !== undefined) {
+    const colon = proxy.credential.indexOf(':');
+    options.username = colon === -1 ? proxy.credential : proxy.credential.slice(0, colon);
+    if (colon !== -1) options.password = proxy.credential.slice(colon + 1);
   }
-  return new Socks5ProxyAgent(proxyUrl, options);
+  return new Socks5ProxyAgent(proxy.url, options);
 }

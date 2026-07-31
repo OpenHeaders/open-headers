@@ -530,7 +530,7 @@ export const workbenchSettingsPanes = {
   // ── Environment-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
   'workbench.settings.environmentProxy.title': 'Outbound proxy — this device',
   'workbench.settings.environmentProxy.intro':
-    'How requests sent from this machine reach the network. Device-local and never synced — requests follow it unless one sets its own proxy mode.',
+    'How requests, WebSocket sessions, and gRPC calls from this machine reach the network. Device-local and never synced — everything follows it unless a request sets its own proxy mode.',
   'workbench.settings.environmentProxy.mode.system': 'System',
   'workbench.settings.environmentProxy.mode.systemDesc':
     'Follow this machine’s own proxy configuration — system settings, PAC files, and auto-discovery — exactly like the browser does. The default; an unmanaged machine simply connects directly.',

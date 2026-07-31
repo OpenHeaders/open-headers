@@ -29,6 +29,26 @@ export interface WsTransportHeader {
   value: string;
 }
 
+/**
+ * Wire truth for the session's proxy routing, reported by transports
+ * whose host owns egress (the node hosts' environment plane). WS
+ * editors carry no request-plane proxy knobs (the H5 ruling), so the
+ * deciding plane is always the executing device's environment plane —
+ * the executor stamps `plane: 'environment'` when it records this.
+ * Browser transports never report one (the browser owns proxying
+ * there).
+ */
+export interface WsProxyRoute {
+  /** The proxy the session actually tunneled through (credentials
+   *  never ride it). Absent = the plane decided direct. */
+  proxyUrl?: string;
+  /** Where the environment plane's answer came from. */
+  source: 'env' | 'system' | 'manual' | 'pac';
+  /** Present when the ambient proxy stood down for a socket-pinned
+   *  dial (a tunnel has nowhere to run) — the session dialed direct. */
+  standDownReason?: 'unix-socket';
+}
+
 export interface WsTransportRequest {
   /** Full session URL, `ws://` or `wss://`, params already appended —
    *  unlike the gRPC authority split, the WS URL carries its scheme. */
@@ -99,7 +119,10 @@ export class WsTransportError extends Error {
  * without a prior `onOpen` carries the classified pre-open failure.
  */
 export interface WsSessionCallbacks {
-  onOpen(protocol: string, extensions: string): void;
+  /** `proxyRoute` rides along when the transport's host decided an
+   *  egress route (see {@link WsProxyRoute}); transports without an
+   *  egress seat simply omit it. */
+  onOpen(protocol: string, extensions: string, proxyRoute?: WsProxyRoute): void;
   onMessage(message: WsTransportMessage): void;
   onClose(close: WsTransportClose): void;
   onEnd(error?: WsTransportError): void;

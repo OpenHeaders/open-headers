@@ -117,6 +117,21 @@ describe('executeGrpcStream — server-streaming ceremony', () => {
     expect(snapshot.bodyBytes).toBe(writeGrpcFrame(encodedNote('one')).byteLength * 2);
   });
 
+  it("stamps a transport-reported route as the environment plane's wire truth", async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(params(fake.transport, { shape: 'server-streaming' }));
+    const cb = fake.cb();
+    cb.onHead(200, [], { proxyUrl: 'http://corp.openheaders.io:8080', source: 'system' });
+    cb.onTrailers(okTrailers);
+    cb.onEnd();
+    const snapshot = await pending;
+    expect(snapshot.proxyRoute).toEqual({
+      plane: 'environment',
+      proxyUrl: 'http://corp.openheaders.io:8080',
+      source: 'system',
+    });
+  });
+
   it('unframes messages split across chunk boundaries and flags a cut tail', async () => {
     const fake = streamTransport();
     const pending = executeGrpcStream(params(fake.transport, { shape: 'server-streaming' }));

@@ -25,6 +25,23 @@
  *     prior-knowledge hop's hoisted-dial idiom) — the authority stays
  *     cosmetic for dialing while `:authority`, SNI, and certificate
  *     verification keep it.
+ *   - Ambient proxy coverage (docs/REQUEST_ENGINE_PROXY_DESIGN.md,
+ *     P6): a call consults the host's environment plane per target —
+ *     gRPC editors carry no request-plane proxy knobs (the H5
+ *     ruling), so the plane's answer is the whole story. An HTTP(S)
+ *     answer pre-dials the shared hand-rolled CONNECT tunnel
+ *     (`connect-tunnel.ts` — the prior-knowledge hop's exact idiom),
+ *     then the session's own `createConnection` runs the target leg
+ *     over the tunnel socket: TLS wrapped with `:authority`-derived
+ *     SNI and an h2 ALPN offer, or the raw tunnel for h2c. The
+ *     session speaks HTTP CONNECT only, so ambient SOCKS5 entries
+ *     skip like a failed dial (the pinned-h2 posture — a chain with
+ *     nothing else fails honestly pre-wire); the chain walks like
+ *     HTTP sends on dial-level failures REACHING a proxy; a
+ *     socket-pinned call makes the ambient proxy stand down
+ *     (recorded). The winning route reports on the unary response /
+ *     through `onHead` as wire truth. ONE deadline spans resolution,
+ *     tunnel dials, and every attempt.
  *   - Deadline: `grpc-timeout` header (so the SERVER can enforce it)
  *     plus a local abort spanning connect, response head, and body
  *     read — the HTTP transport's one-deadline discipline.
@@ -40,7 +57,9 @@
  *
  * Error classification mirrors the HTTP transport's: pre-head failures
  * throw a {@link GrpcTransportError} with a user-actionable message
- * (undici isn't in this path, so the `err.code` is Node's own).
+ * (undici isn't in this path, so the `err.code` is Node's own);
+ * proxied dials classify against the PROXY leg (407 names the
+ * credentials, a refused dial names the proxy).
  */
 
 import { type ClientHttp2Session, type ClientHttp2Stream, connect, constants } from 'node:http2';
@@ -48,6 +67,7 @@ import * as net from 'node:net';
 import * as tls from 'node:tls';
 import { encodeGrpcTimeout, writeGrpcFrame } from '@openheaders/core/proto';
 import {
+  type GrpcProxyRoute,
   type GrpcStreamCallbacks,
   type GrpcStreamWriter,
   type GrpcTransport,
@@ -57,7 +77,24 @@ import {
   type GrpcTransportResponse,
   type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
+import { environmentProxyResolver } from './environment-proxy/registry';
+import {
+  isSessionProxyDialFailure,
+  resolveSessionProxyAttempts,
+  type SessionProxyAttempt,
+  type SessionRouteResult,
+} from './environment-proxy/session-route';
+import type { EnvironmentProxyResolver } from './environment-proxy/types';
 import { servernameFor } from './instrumented-connector';
+import { dialConnectTunnel, proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
+
+export interface NodeGrpcTransportOptions {
+  /** The environment-plane resolver — injectable so unit rigs drive
+   *  ambient-proxy calls with fake resolvers. `null` turns the plane
+   *  off for this transport; omitted = the host's registered resolver
+   *  (see `environment-proxy/registry`). */
+  environmentProxy?: EnvironmentProxyResolver | null;
+}
 
 /**
  * TLS connect options for one session: verify against the system roots
@@ -100,6 +137,32 @@ export function sessionOptionsFor(
             ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
           })
         : net.connect({ path: socketPath }),
+  };
+}
+
+/**
+ * Session options for one call over an ESTABLISHED CONNECT tunnel —
+ * the ambient-proxy leg (the prior-knowledge hop's tunnel idiom): the
+ * target leg wraps the tunnel socket in TLS with the authority's SNI
+ * and an h2 ALPN offer, or rides the raw tunnel for cleartext h2c.
+ * Exported pure like {@link sessionOptionsFor}.
+ */
+export function tunnelSessionOptionsFor(
+  request: { tls: boolean; sslVerification?: boolean },
+  target: URL,
+  tunnel: net.Socket,
+): Parameters<typeof connect>[1] {
+  const servername = servernameFor(target.hostname);
+  return {
+    createConnection: (): net.Socket =>
+      request.tls
+        ? tls.connect({
+            socket: tunnel,
+            ...(servername !== undefined ? { servername } : {}),
+            ALPNProtocols: ['h2'],
+            ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+          })
+        : tunnel,
   };
 }
 
@@ -165,12 +228,32 @@ function grpcFailureCode(err: unknown): string | undefined {
   return fallback;
 }
 
+/** `host[:port]` of a proxy URL, for error messages. */
+function proxyHostOf(proxyUrl: string): string {
+  try {
+    return new URL(proxyUrl).host;
+  } catch {
+    return proxyUrl;
+  }
+}
+
 /**
  * Classify a pre-head failure into a user-actionable message. `err` is
  * Node's own (no undici layers here); the codes below are the ones a
- * dial, handshake, or protocol mismatch actually surfaces.
+ * dial, handshake, or protocol mismatch actually surfaces. With
+ * `proxyUrl` set the dial rode the ambient CONNECT tunnel — a rejected
+ * CONNECT is the proxy's own answer, and a dial-level failure can only
+ * be the proxy itself (target dialing happens at the proxy);
+ * target-leg failures past the tunnel fall through to the shared
+ * classification, because by then the proxy is a transparent pipe.
  */
-function classifyGrpcFailure(authority: string, tls: boolean, err: unknown, socketPath?: string): string {
+function classifyGrpcFailure(
+  authority: string,
+  tlsChannel: boolean,
+  err: unknown,
+  socketPath?: string,
+  proxyUrl?: string,
+): string {
   const code = grpcFailureCode(err);
   // A socket-pinned call never dials TCP, so every dial-level failure
   // is about the socket itself — name the setting and the path (the
@@ -198,6 +281,28 @@ function classifyGrpcFailure(authority: string, tls: boolean, err: unknown, sock
         return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
     }
   }
+  if (proxyUrl !== undefined) {
+    const proxyHost = proxyHostOf(proxyUrl);
+    const rejected = proxyConnectRejectedStatus(err);
+    if (rejected === 407) {
+      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this call through it. Check the environment plane's proxy credentials in the app settings.`;
+    }
+    if (rejected !== undefined) {
+      return `The proxy at ${proxyHost} could not open a tunnel to ${authority} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
+    }
+    switch (code) {
+      case 'ENOTFOUND':
+      case 'EAI_AGAIN':
+        return `Could not resolve the proxy host ${proxyHost} (DNS lookup failed) — this machine's proxy configuration routes this call through it.`;
+      case 'ECONNREFUSED':
+        return `Connection refused by the proxy at ${proxyHost} — this machine's proxy configuration routes this call through it. Is the proxy running?`;
+      case 'EHOSTUNREACH':
+      case 'ENETUNREACH':
+        return `No route to the proxy at ${proxyHost} (${code}) — this machine's proxy configuration routes this call through it.`;
+      case 'ETIMEDOUT':
+        return `Connection to the proxy at ${proxyHost} timed out — this machine's proxy configuration routes this call through it.`;
+    }
+  }
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -210,7 +315,7 @@ function classifyGrpcFailure(authority: string, tls: boolean, err: unknown, sock
     case 'ETIMEDOUT':
       return `Connection to ${authority} timed out.`;
     case 'ECONNRESET':
-      return tls
+      return tlsChannel
         ? `Connection to ${authority} was reset. If the server is plaintext (no TLS), turn the channel's TLS lock off.`
         : `Connection to ${authority} was reset. If the server expects TLS, turn the channel's TLS lock on.`;
     case 'CERT_HAS_EXPIRED':
@@ -231,7 +336,29 @@ function classifyGrpcFailure(authority: string, tls: boolean, err: unknown, sock
   }
 }
 
-export function createNodeGrpcTransport(): GrpcTransport {
+/** The target's dial port — the authority's own, or the scheme
+ *  default (the URL keeps `port` empty for defaults). */
+function targetPortOf(target: URL, tlsChannel: boolean): number {
+  return target.port !== '' ? Number(target.port) : tlsChannel ? 443 : 80;
+}
+
+/** A pending upstream write queued while the ambient route was still
+ *  resolving — flushed in order the moment the stream exists. */
+type PendingStreamWrite = { kind: 'message'; message: Uint8Array } | { kind: 'half-close' };
+
+export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}): GrpcTransport {
+  const resolverFor = (): EnvironmentProxyResolver | null =>
+    options.environmentProxy !== undefined ? options.environmentProxy : environmentProxyResolver();
+  const resolveCallAttempts = (target: URL, unixSocketPath: string | undefined): Promise<SessionRouteResult> =>
+    resolveSessionProxyAttempts(
+      {
+        url: target.origin,
+        ...(unixSocketPath !== undefined ? { unixSocketPath } : {}),
+        capability: 'connect-only',
+      },
+      resolverFor(),
+    );
+
   return {
     invoke(request: GrpcTransportRequest, signal?: AbortSignal): Promise<GrpcTransportResponse> {
       const scheme = request.tls ? 'https' : 'http';
@@ -246,117 +373,193 @@ export function createNodeGrpcTransport(): GrpcTransport {
           new GrpcTransportError(`The target must be host or host:port — got "${request.authority}".`),
         );
       }
-      return new Promise<GrpcTransportResponse>((resolve, reject) => {
-        let settled = false;
-        let headArrived = false;
-        let httpStatus = 0;
-        let headers: GrpcTransportHeader[] = [];
-        let trailers: GrpcTransportHeader[] = [];
-        const parts: Buffer[] = [];
-        let bytesRead = 0;
-        let truncated = false;
-        let deadlineExpired = false;
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        let stream: ClientHttp2Stream | null = null;
 
-        const session: ClientHttp2Session = connect(target.origin, sessionOptionsFor(request, target));
+      // The walk's shared abort: ONE deadline spans resolution, tunnel
+      // dials, and every attempt; the caller's Stop signal merges onto
+      // the same abort.
+      const walk = new AbortController();
+      let deadlineExpired = false;
 
-        const cleanup = (): void => {
-          if (timer !== null) clearTimeout(timer);
-          signal?.removeEventListener('abort', onAbort);
-          session.close();
-        };
-        const settleError = (err: unknown): void => {
-          if (settled) return;
-          settled = true;
-          cleanup();
-          if (deadlineExpired) {
+      // One attempt's full exchange over an already-decided session
+      // shape — the original single-shot body, its deadline and abort
+      // now the walk's.
+      const invokeAttempt = (
+        sessionOpts: Parameters<typeof connect>[1],
+        attempt: SessionProxyAttempt,
+      ): Promise<GrpcTransportResponse> =>
+        new Promise<GrpcTransportResponse>((resolve, reject) => {
+          let settled = false;
+          let headArrived = false;
+          let httpStatus = 0;
+          let headers: GrpcTransportHeader[] = [];
+          let trailers: GrpcTransportHeader[] = [];
+          const parts: Buffer[] = [];
+          let bytesRead = 0;
+          let truncated = false;
+          let stream: ClientHttp2Stream | null = null;
+
+          const session: ClientHttp2Session = connect(target.origin, sessionOpts);
+
+          const cleanup = (): void => {
+            walk.signal.removeEventListener('abort', onAbort);
+            session.close();
+          };
+          const settleError = (err: unknown): void => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (deadlineExpired) {
+              reject(
+                new GrpcTransportError(`Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`),
+              );
+              return;
+            }
+            if (signal?.aborted) {
+              reject(new GrpcTransportError('Call aborted before a response arrived.'));
+              return;
+            }
             reject(
-              new GrpcTransportError(`Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`),
+              new GrpcTransportError(
+                classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy?.url),
+              ),
             );
-            return;
-          }
-          if (signal?.aborted) {
-            reject(new GrpcTransportError('Call aborted before a response arrived.'));
-            return;
-          }
-          reject(
-            new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath)),
-          );
-        };
-        const settleResponse = (): void => {
-          if (settled) return;
-          settled = true;
-          cleanup();
-          const body = Buffer.concat(parts, Math.min(bytesRead, request.maxBodyBytes));
-          resolve({
-            httpStatus,
-            headers,
-            trailers,
-            body: new Uint8Array(body.buffer, body.byteOffset, body.byteLength),
-            bodyTruncated: truncated,
-          });
-        };
-        const abortExchange = (): void => {
-          // Once the head is in, arrived bytes materialize instead of
-          // erroring — destroying the stream fires 'close', which
-          // settles with the partial body below.
-          stream?.close(constants.NGHTTP2_CANCEL);
-          session.destroy();
-          if (!headArrived) settleError(new Error('aborted'));
-          else settleResponse();
-        };
-        const onAbort = (): void => abortExchange();
+          };
+          const settleResponse = (): void => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            const body = Buffer.concat(parts, Math.min(bytesRead, request.maxBodyBytes));
+            const route: GrpcProxyRoute | undefined = attempt.route;
+            resolve({
+              httpStatus,
+              headers,
+              trailers,
+              body: new Uint8Array(body.buffer, body.byteOffset, body.byteLength),
+              bodyTruncated: truncated,
+              ...(route !== undefined ? { proxyRoute: route } : {}),
+            });
+          };
+          const abortExchange = (): void => {
+            // Once the head is in, arrived bytes materialize instead of
+            // erroring — destroying the stream fires 'close', which
+            // settles with the partial body below.
+            stream?.close(constants.NGHTTP2_CANCEL);
+            session.destroy();
+            if (!headArrived) settleError(new Error('aborted'));
+            else settleResponse();
+          };
+          const onAbort = (): void => abortExchange();
 
-        if (request.timeoutMs !== undefined) {
-          timer = setTimeout(() => {
-            deadlineExpired = true;
-            abortExchange();
-          }, request.timeoutMs);
-        }
-        if (signal !== undefined) {
-          if (signal.aborted) {
+          if (walk.signal.aborted) {
             session.destroy();
             settleError(new Error('aborted'));
             return;
           }
-          signal.addEventListener('abort', onAbort);
-        }
+          walk.signal.addEventListener('abort', onAbort);
 
-        session.on('error', settleError);
-        stream = session.request(buildOutgoingHeaders(request));
-        stream.on('error', (err: unknown) => {
-          if (headArrived) {
-            settleResponse();
-            return;
+          session.on('error', settleError);
+          stream = session.request(buildOutgoingHeaders(request));
+          stream.on('error', (err: unknown) => {
+            if (headArrived) {
+              settleResponse();
+              return;
+            }
+            settleError(err);
+          });
+          stream.on('response', (incoming) => {
+            headArrived = true;
+            const status = incoming[':status'];
+            httpStatus = typeof status === 'number' ? status : 0;
+            headers = seamHeadersOf(incoming);
+          });
+          stream.on('trailers', (incoming) => {
+            trailers = seamHeadersOf(incoming);
+          });
+          stream.on('data', (chunk: Buffer) => {
+            if (truncated) return;
+            parts.push(chunk);
+            bytesRead += chunk.byteLength;
+            if (bytesRead > request.maxBodyBytes) {
+              truncated = true;
+              stream?.close(constants.NGHTTP2_CANCEL);
+            }
+          });
+          stream.on('close', () => {
+            if (headArrived) settleResponse();
+            else settleError(new Error(`stream closed (HTTP/2 code ${stream?.rstCode ?? 'unknown'})`));
+          });
+          stream.write(Buffer.from(writeGrpcFrame(request.message)));
+          stream.end();
+        });
+
+      const runInvoke = async (): Promise<GrpcTransportResponse> => {
+        const resolved = await resolveCallAttempts(target, request.unixSocketPath);
+        if ('errorMessage' in resolved) throw new GrpcTransportError(resolved.errorMessage);
+        const attempts = resolved.attempts;
+        const timer =
+          request.timeoutMs !== undefined
+            ? setTimeout(() => {
+                deadlineExpired = true;
+                walk.abort();
+              }, request.timeoutMs)
+            : null;
+        const onExternalAbort = (): void => walk.abort();
+        if (signal !== undefined) {
+          if (signal.aborted) walk.abort();
+          else signal.addEventListener('abort', onExternalAbort);
+        }
+        try {
+          for (let i = 0; i < attempts.length; i += 1) {
+            const attempt = attempts[i];
+            let tunnel: net.Socket | undefined;
+            if (attempt.proxy !== undefined) {
+              try {
+                tunnel = await dialConnectTunnel(
+                  { hostname: target.hostname, port: targetPortOf(target, request.tls) },
+                  { proxy: attempt.proxy, signal: walk.signal },
+                );
+              } catch (err) {
+                // Chain walking: a dial-level failure REACHING the
+                // proxy falls through to the next entry (Chromium's
+                // own fallback semantics); everything else surfaces.
+                const nextExists = i < attempts.length - 1;
+                if (
+                  attempt.environmentChain === true &&
+                  nextExists &&
+                  !walk.signal.aborted &&
+                  isSessionProxyDialFailure(err)
+                ) {
+                  continue;
+                }
+                if (deadlineExpired) {
+                  throw new GrpcTransportError(
+                    `Call deadline of ${request.timeoutMs} ms elapsed before a response arrived.`,
+                  );
+                }
+                if (signal?.aborted) {
+                  throw new GrpcTransportError('Call aborted before a response arrived.');
+                }
+                throw new GrpcTransportError(
+                  classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, attempt.proxy.url),
+                );
+              }
+            }
+            const sessionOpts =
+              tunnel !== undefined
+                ? tunnelSessionOptionsFor(request, target, tunnel)
+                : sessionOptionsFor(request, target);
+            return await invokeAttempt(sessionOpts, attempt);
           }
-          settleError(err);
-        });
-        stream.on('response', (incoming) => {
-          headArrived = true;
-          const status = incoming[':status'];
-          httpStatus = typeof status === 'number' ? status : 0;
-          headers = seamHeadersOf(incoming);
-        });
-        stream.on('trailers', (incoming) => {
-          trailers = seamHeadersOf(incoming);
-        });
-        stream.on('data', (chunk: Buffer) => {
-          if (truncated) return;
-          parts.push(chunk);
-          bytesRead += chunk.byteLength;
-          if (bytesRead > request.maxBodyBytes) {
-            truncated = true;
-            stream?.close(constants.NGHTTP2_CANCEL);
-          }
-        });
-        stream.on('close', () => {
-          if (headArrived) settleResponse();
-          else settleError(new Error(`stream closed (HTTP/2 code ${stream?.rstCode ?? 'unknown'})`));
-        });
-        stream.write(Buffer.from(writeGrpcFrame(request.message)));
-        stream.end();
-      });
+          // Unreachable while the attempt list is non-empty (the last
+          // attempt never falls through) — defensive for the type
+          // system.
+          throw new GrpcTransportError('The proxy fallback chain produced no attempt to dial.');
+        } finally {
+          if (timer !== null) clearTimeout(timer);
+          signal?.removeEventListener('abort', onExternalAbort);
+        }
+      };
+      return runInvoke();
     },
 
     openStream(
@@ -379,19 +582,27 @@ export function createNodeGrpcTransport(): GrpcTransport {
         );
         return { sendMessage: () => {}, halfClose: () => {} };
       }
+      const resolvedTarget = target;
 
       let ended = false;
       let headArrived = false;
       let deadlineExpired = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
       let stream: ClientHttp2Stream | null = null;
-
-      const session: ClientHttp2Session = connect(target.origin, sessionOptionsFor(request, target));
+      let session: ClientHttp2Session | null = null;
+      let activeProxyUrl: string | undefined;
+      // Upstream writes issued while the ambient route was still
+      // resolving (a server-stream call writes and half-closes the
+      // moment this returns) — flushed in order once the stream exists.
+      const pending: PendingStreamWrite[] = [];
+      const walk = new AbortController();
 
       const cleanup = (): void => {
         if (timer !== null) clearTimeout(timer);
-        signal?.removeEventListener('abort', onAbort);
-        session.close();
+        timer = null;
+        signal?.removeEventListener('abort', onExternalAbort);
+        walk.signal.removeEventListener('abort', onWalkAbort);
+        session?.close();
       };
       const endWithError = (err: unknown): void => {
         if (ended) return;
@@ -408,8 +619,16 @@ export function createNodeGrpcTransport(): GrpcTransport {
           return;
         }
         callbacks.onEnd(
-          new GrpcTransportError(classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath)),
+          new GrpcTransportError(
+            classifyGrpcFailure(request.authority, request.tls, err, request.unixSocketPath, activeProxyUrl),
+          ),
         );
+      };
+      const endMessage = (message: string): void => {
+        if (ended) return;
+        ended = true;
+        cleanup();
+        callbacks.onEnd(new GrpcTransportError(message));
       };
       const endComplete = (): void => {
         if (ended) return;
@@ -421,56 +640,124 @@ export function createNodeGrpcTransport(): GrpcTransport {
         // Same discipline as unary: once the head is in, arrived data
         // materializes — the close settles without an error.
         stream?.close(constants.NGHTTP2_CANCEL);
-        session.destroy();
+        session?.destroy();
         if (!headArrived) endWithError(new Error('aborted'));
         else endComplete();
       };
-      const onAbort = (): void => abortExchange();
+      const onWalkAbort = (): void => abortExchange();
+      const onExternalAbort = (): void => walk.abort();
 
+      if (signal?.aborted) {
+        queueMicrotask(() => endWithError(new Error('aborted')));
+        return { sendMessage: () => {}, halfClose: () => {} };
+      }
+      // ONE deadline spans resolution, tunnel dials, and the whole
+      // exchange (the unary walk's discipline).
       if (request.timeoutMs !== undefined) {
         timer = setTimeout(() => {
           deadlineExpired = true;
-          abortExchange();
+          walk.abort();
         }, request.timeoutMs);
       }
-      if (signal !== undefined) {
-        if (signal.aborted) {
-          session.destroy();
-          queueMicrotask(() => endWithError(new Error('aborted')));
-          return { sendMessage: () => {}, halfClose: () => {} };
-        }
-        signal.addEventListener('abort', onAbort);
-      }
+      signal?.addEventListener('abort', onExternalAbort);
+      walk.signal.addEventListener('abort', onWalkAbort);
 
-      session.on('error', endWithError);
-      stream = session.request(buildOutgoingHeaders(request));
-      stream.on('error', (err: unknown) => {
-        if (headArrived) endComplete();
-        else endWithError(err);
-      });
-      stream.on('response', (incoming) => {
-        headArrived = true;
-        const status = incoming[':status'];
-        callbacks.onHead(typeof status === 'number' ? status : 0, seamHeadersOf(incoming));
-      });
-      stream.on('trailers', (incoming) => {
-        callbacks.onTrailers(seamHeadersOf(incoming));
-      });
-      stream.on('data', (chunk: Buffer) => {
-        callbacks.onData(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
-      });
-      stream.on('close', () => {
-        if (headArrived) endComplete();
-        else endWithError(new Error(`stream closed (HTTP/2 code ${stream?.rstCode ?? 'unknown'})`));
-      });
+      // Open the session over the decided dial shape and flush the
+      // queued upstream writes — post-open failures settle through the
+      // shared paths.
+      const openAttempt = (sessionOpts: Parameters<typeof connect>[1], attempt: SessionProxyAttempt): void => {
+        session = connect(resolvedTarget.origin, sessionOpts);
+        session.on('error', endWithError);
+        const opened = session.request(buildOutgoingHeaders(request));
+        stream = opened;
+        opened.on('error', (err: unknown) => {
+          if (headArrived) endComplete();
+          else endWithError(err);
+        });
+        opened.on('response', (incoming) => {
+          headArrived = true;
+          const status = incoming[':status'];
+          const route: GrpcProxyRoute | undefined = attempt.route;
+          callbacks.onHead(typeof status === 'number' ? status : 0, seamHeadersOf(incoming), route);
+        });
+        opened.on('trailers', (incoming) => {
+          callbacks.onTrailers(seamHeadersOf(incoming));
+        });
+        opened.on('data', (chunk: Buffer) => {
+          callbacks.onData(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
+        });
+        opened.on('close', () => {
+          if (headArrived) endComplete();
+          else endWithError(new Error(`stream closed (HTTP/2 code ${opened.rstCode ?? 'unknown'})`));
+        });
+        for (const write of pending) {
+          if (opened.destroyed || opened.writableEnded) break;
+          if (write.kind === 'message') opened.write(Buffer.from(writeGrpcFrame(write.message)));
+          else opened.end();
+        }
+        pending.length = 0;
+      };
+
+      const runOpen = async (): Promise<void> => {
+        const resolved = await resolveCallAttempts(resolvedTarget, request.unixSocketPath);
+        if (ended) return;
+        if ('errorMessage' in resolved) {
+          endMessage(resolved.errorMessage);
+          return;
+        }
+        const attempts = resolved.attempts;
+        for (let i = 0; i < attempts.length; i += 1) {
+          if (ended) return;
+          const attempt = attempts[i];
+          activeProxyUrl = attempt.proxy?.url;
+          let tunnel: net.Socket | undefined;
+          if (attempt.proxy !== undefined) {
+            try {
+              tunnel = await dialConnectTunnel(
+                { hostname: resolvedTarget.hostname, port: targetPortOf(resolvedTarget, request.tls) },
+                { proxy: attempt.proxy, signal: walk.signal },
+              );
+            } catch (err) {
+              const nextExists = i < attempts.length - 1;
+              if (
+                attempt.environmentChain === true &&
+                nextExists &&
+                !walk.signal.aborted &&
+                isSessionProxyDialFailure(err)
+              ) {
+                continue;
+              }
+              endWithError(err);
+              return;
+            }
+          }
+          const sessionOpts =
+            tunnel !== undefined
+              ? tunnelSessionOptionsFor(request, resolvedTarget, tunnel)
+              : sessionOptionsFor(request, resolvedTarget);
+          openAttempt(sessionOpts, attempt);
+          return;
+        }
+      };
+      void runOpen();
 
       return {
         sendMessage(message: Uint8Array): void {
-          if (ended || stream === null || stream.destroyed || stream.writableEnded) return;
+          if (ended) return;
+          if (stream === null) {
+            pending.push({ kind: 'message', message });
+            return;
+          }
+          if (stream.destroyed || stream.writableEnded) return;
           stream.write(Buffer.from(writeGrpcFrame(message)));
         },
         halfClose(): void {
-          if (ended || stream === null || stream.destroyed || stream.writableEnded) return;
+          if (ended) return;
+          if (stream === null) {
+            pending.push({ kind: 'half-close' });
+            return;
+          }
+          if (stream.destroyed || stream.writableEnded) return;
           stream.end();
         },
       };

@@ -30,6 +30,24 @@ export interface GrpcTransportHeader {
   value: string;
 }
 
+/**
+ * Wire truth for the call's proxy routing, reported by transports
+ * whose host owns egress (the node hosts' environment plane). gRPC
+ * editors carry no request-plane proxy knobs (the H5 ruling), so the
+ * deciding plane is always the executing device's environment plane —
+ * the executor stamps `plane: 'environment'` when it records this.
+ */
+export interface GrpcProxyRoute {
+  /** The proxy the call actually tunneled through (credentials never
+   *  ride it). Absent = the plane decided direct. */
+  proxyUrl?: string;
+  /** Where the environment plane's answer came from. */
+  source: 'env' | 'system' | 'manual' | 'pac';
+  /** Present when the ambient proxy stood down for a socket-pinned
+   *  dial (a tunnel has nowhere to run) — the call dialed direct. */
+  standDownReason?: 'unix-socket';
+}
+
 export interface GrpcTransportRequest {
   /** Target authority (`host` or `host:port`), scheme-free — the
    *  channel's TLS question rides the separate flag. */
@@ -85,6 +103,10 @@ export interface GrpcTransportResponse {
   /** True when the upstream body overran the cap and the read aborted
    *  — `body` is the capped prefix. */
   bodyTruncated: boolean;
+  /** The effective egress route when the transport's host decided one
+   *  (see {@link GrpcProxyRoute}); absent on plain direct calls and on
+   *  transports without an egress seat. */
+  proxyRoute?: GrpcProxyRoute;
 }
 
 /**
@@ -133,7 +155,10 @@ export interface GrpcTransportStreamRequest {
  * prior `onHead` carries the classified pre-head failure.
  */
 export interface GrpcStreamCallbacks {
-  onHead(httpStatus: number, headers: ReadonlyArray<GrpcTransportHeader>): void;
+  /** `proxyRoute` rides along when the transport's host decided an
+   *  egress route (see {@link GrpcProxyRoute}); transports without an
+   *  egress seat simply omit it. */
+  onHead(httpStatus: number, headers: ReadonlyArray<GrpcTransportHeader>, proxyRoute?: GrpcProxyRoute): void;
   onData(chunk: Uint8Array): void;
   onTrailers(trailers: ReadonlyArray<GrpcTransportHeader>): void;
   onEnd(error?: GrpcTransportError): void;

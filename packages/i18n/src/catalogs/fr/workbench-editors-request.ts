@@ -61,6 +61,9 @@ export const workbenchEditorsRequest = {
 
   // ── URL bar + method picker (method names stay raw parity vocab) ───
   'workbench.editors.request.url.placeholder': 'Saisissez une URL ou collez du texte',
+  'workbench.editors.request.url.socketCta':
+    'URL de type socket — les envois se connectent à {path} via le réglage Socket Unix.',
+  'workbench.editors.request.url.socketCtaApply': 'Appliquer',
   'workbench.editors.request.method.customGroup': 'Personnalisées',
   'workbench.editors.request.method.usePrefix': 'Utiliser',
   'workbench.editors.request.method.forbiddenSuffix': 'ne peut pas être envoyée depuis un navigateur.',
@@ -299,6 +302,30 @@ export const workbenchEditorsRequest = {
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': "Cette requête n'a pas de corps",
+  'workbench.editors.request.body.modeNoneInfo':
+    "La requête est envoyée sans charge utile — pas d'octets de corps ni d'en-tête Content-Type.",
+  'workbench.editors.request.body.modeFormDataInfo':
+    'Envoie les parties comme une seule charge utile multipart/form-data — chaque ligne est un champ texte ' +
+    'ou un fichier.',
+  'workbench.editors.request.body.modeFormDataDescription':
+    "Le Content-Type avec délimiteur est généré au moment de l'envoi ; un Content-Type multipart défini à " +
+    'la main est remplacé pour que le délimiteur corresponde toujours à la charge utile.',
+  'workbench.editors.request.body.modeFormUrlencodedInfo':
+    'Envoie les champs comme des paires clé=valeur encodées en pourcent avec un Content-Type ' +
+    "application/x-www-form-urlencoded. Les lignes désactivées restent dans l'éditeur mais n'atteignent " +
+    'jamais le réseau.',
+  'workbench.editors.request.body.modeRawInfo':
+    "Envoie le contenu de l'éditeur tel quel — les octets sur le réseau sont exactement ce que vous avez " + 'saisi.',
+  'workbench.editors.request.body.modeRawDescription':
+    'Le sélecteur de format pilote la coloration syntaxique et le Content-Type par défaut ' +
+    '(application/json, application/xml, text/plain, text/javascript, text/html) ; un Content-Type défini ' +
+    "dans l'onglet Headers l'emporte.",
+  'workbench.editors.request.body.modeGraphqlInfo':
+    'Envoie la requête et les variables comme une seule charge utile application/json — ' +
+    '{ query, variables } — selon le transport HTTP GraphQL.',
+  'workbench.editors.request.body.modeGraphqlDescription':
+    'Les variables doivent être du JSON valide ; un panneau de variables non analysable est omis du corps ' +
+    'envoyé et la requête part seule.',
   'workbench.editors.request.body.beautify': 'Embellir',
   'workbench.editors.request.body.format': 'Formater',
   'workbench.editors.request.body.formatAria': 'Formater le corps',
@@ -503,8 +530,40 @@ export const workbenchEditorsRequest = {
     'Aucune entrée de certificat du vault nommée « {name} » sur cet appareil — les envois échoueront ' +
     "jusqu'à ce que l'entrée existe ou que ce réglage soit effacé.",
   'workbench.editors.request.settings.proxy': 'Proxy',
+  'workbench.editors.request.settings.proxySummary':
+    "Comment cet envoi atteint le réseau. Par défaut il hérite de l'environnement de l'appareil exécutant " +
+    "— réglages de proxy système, PAC ou variables d'environnement de proxy — ainsi le proxy poussé d'une " +
+    "machine d'entreprise fonctionne sans rien faire ; Direct exclut cette seule requête de tout proxy " +
+    'ambiant, et URL personnalisée la fait passer par un proxy qui lui est propre.',
+  'workbench.editors.request.settings.proxyDescription':
+    "Les métadonnées de réponse enregistrent toujours la route réellement prise par l'envoi — quel proxy, " +
+    "et si c'est la requête ou l'environnement qui a décidé. Les proxys HTTP(S) et SOCKS5 sont pris en " +
+    "charge — une URL socks5:// fonctionne comme proxy personnalisé et comme réponse d'environnement ; " +
+    'seule la famille SOCKS4 reçoit une erreur claire qui la nomme.',
+  'workbench.editors.request.settings.proxyModesHeading': 'Modes',
+  'workbench.editors.request.settings.proxyModePlaceholder': "Hériter — l'environnement décide",
+  'workbench.editors.request.settings.proxyModeDirect': 'Direct — pas de proxy',
+  'workbench.editors.request.settings.proxyModeCustom': 'URL personnalisée',
+  'workbench.editors.request.settings.proxyModeInheritDesc':
+    "L'environnement de l'appareil exécutant décide par URL — un proxy là où la machine en a un de " +
+    "configuré, direct sinon. Un proxy hérité s'efface pour les envois qui épinglent HTTP/3, se connectent " +
+    'à une socket locale ou résolvent vers une adresse fixe.',
+  'workbench.editors.request.settings.proxyModeDirectDesc':
+    "Jamais de proxy pour cette requête, quoi qu'en dise l'environnement de la machine.",
+  'workbench.editors.request.settings.proxyModeCustomDesc':
+    'Passe par le tunnel du proxy propre à cette requête — synchronisé avec la requête, la même route sur ' +
+    'chaque appareil.',
+  'workbench.editors.request.settings.proxyUrl': 'URL du proxy',
+  'workbench.editors.request.settings.proxyUrlInfo':
+    'Fait passer cette requête par ce proxy HTTP(S). La connexion vers la cible traverse le proxy en ' +
+    'tunnel, donc un échange https reste chiffré de bout en bout et la vérification du certificat ' +
+    "s'exécute toujours contre la cible. Les identifiants vont dans le réglage « Identifiants du proxy » " +
+    'ci-dessous, jamais dans cette URL.',
+  'workbench.editors.request.settings.proxyUrlPlaceholder': 'http://proxy.example:8080',
+  'workbench.editors.request.settings.proxyUrlMissing':
+    "Le mode URL personnalisée a besoin d'une URL de proxy — saisissez-en une, ou revenez à l'autre mode.",
   'workbench.editors.request.settings.proxyError':
-    "URL en http:// ou https:// avec hôte et port uniquement — pas d'identifiants dans l'URL, pas de SOCKS.",
+    "URL en http://, https:// ou socks5:// avec hôte et port uniquement — pas d'identifiants dans l'URL.",
   'workbench.editors.request.settings.proxyResolveConflict':
     "Définit aussi la résolution vers une adresse, mais un proxy résout lui-même le nom d'hôte — les envois " +
     "échoueront jusqu'à ce que l'un des deux soit effacé.",
@@ -751,6 +810,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.noteRequestHeaders':
     'Les en-têtes de requête ne comptent que ce que cet envoi a défini ; le navigateur ajoute les siens ' +
     '(Host, User-Agent, …).',
+  'workbench.editors.request.response.meta.noteRequestHeadersNode':
+    "Les en-têtes de requête ne comptent que ce que cet envoi a défini ; l'environnement d'exécution " +
+    'ajoute les siens (Host, Accept-Encoding, …).',
   'workbench.editors.request.response.meta.noteTruncatedAtCap':
     'Corps tronqué à la limite de taille de réponse de {cap} ; la taille complète est comptée.',
   'workbench.editors.request.response.meta.noteTruncated': 'Vue du corps tronquée ; la taille complète est comptée.',

@@ -123,6 +123,27 @@ describe('executeWsSession — injected resolution', () => {
     expect(snapshot.error).toContain('missing_host');
   });
 
+  it("stamps a transport-reported route as the environment plane's wire truth", async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-inject-route',
+      resolution: scopedResolution,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.callbacks().onOpen('', '', { proxyUrl: 'http://corp.openheaders.io:8080', source: 'system' });
+    rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.proxyRoute).toEqual({
+      plane: 'environment',
+      proxyUrl: 'http://corp.openheaders.io:8080',
+      source: 'system',
+    });
+  });
+
   it('resolves per-send riders through the same closure and fails an unresolved rider alone', async () => {
     const rig = scriptedTransport();
     const settled = executeWsSession(makeWsRequest(), {

@@ -16,11 +16,26 @@
  *     settle).
  *   - The connect deadline: `timeoutMs` spans dial + upgrade with a
  *     local timer — an OPEN session has no ceiling (the seam law).
+ *     One deadline spans EVERY dial attempt of a connect (the HTTP
+ *     transport's one-deadline discipline).
  *   - Socket-path dial: `unixSocketPath` rides the per-connect agent's
  *     connector as undici's `socketPath` — the dial-winning `path`
  *     into net/tls.connect, so the URL's host stays cosmetic for
  *     dialing while the handshake `Host`, SNI, and certificate
  *     verification keep it.
+ *   - Ambient proxy coverage (docs/REQUEST_ENGINE_PROXY_DESIGN.md,
+ *     P6): a connect consults the host's environment plane per target
+ *     — WS editors carry no request-plane proxy knobs (the H5
+ *     ruling), so the plane's answer is the whole story. An HTTP(S)
+ *     answer rides the shared hand-rolled CONNECT tunnel on the
+ *     per-connect agent's connector (`wss://` tunnels; `ws://`
+ *     through the same CONNECT tunnel — corporate proxies expect
+ *     CONNECT for WS upgrades); a SOCKS5 answer seats undici's
+ *     `Socks5ProxyAgent` as the per-connect dispatcher. The chain
+ *     walks like HTTP sends (a dial failure REACHING one proxy falls
+ *     through to the next entry); a socket-pinned connect makes the
+ *     ambient proxy stand down (recorded); the winning route reports
+ *     through `onOpen` as wire truth.
  *   - Frame types honest: `binaryType = 'arraybuffer'`; a text frame
  *     crosses the seam as its UTF-8 bytes with `binary: false`.
  *   - The Close event verbatim (`code`, `reason`, `wasClean`) — the
@@ -35,17 +50,39 @@
  * Error classification mirrors the HTTP transport's: pre-open
  * failures surface as a {@link WsTransportError} with a
  * user-actionable message, the meaningful `code` walked off undici's
- * `cause` chain.
+ * `cause` chain; proxied dials classify against the PROXY leg (407
+ * names the credentials, a refused dial names the proxy).
  */
 
 import {
+  type WsProxyRoute,
   type WsSessionCallbacks,
   type WsSessionWriter,
   type WsTransport,
   WsTransportError,
   type WsTransportRequest,
 } from '@openheaders/oracle/live/ws-exec/transport';
-import { Agent, buildConnector, WebSocket as UndiciWebSocket } from 'undici';
+import { Agent, buildConnector, type Dispatcher, WebSocket as UndiciWebSocket } from 'undici';
+import { isSocks5ProxyUrl } from './environment-proxy/proxy-value';
+import { environmentProxyResolver } from './environment-proxy/registry';
+import {
+  isSessionProxyDialFailure,
+  resolveSessionProxyAttempts,
+  type SessionProxyAttempt,
+} from './environment-proxy/session-route';
+import type { EnvironmentProxyResolver } from './environment-proxy/types';
+import { createDialConnector } from './instrumented-connector';
+import { proxyConnectRejectedStatus } from './request-transport/connect-tunnel';
+import { buildSocks5Agent } from './request-transport/dispatcher';
+import type { ConnectOptions } from './request-transport/seam';
+
+export interface NodeWsTransportOptions {
+  /** The environment-plane resolver — injectable so unit rigs drive
+   *  ambient-proxy connects with fake resolvers. `null` turns the
+   *  plane off for this transport; omitted = the host's registered
+   *  resolver (see `environment-proxy/registry`). */
+  environmentProxy?: EnvironmentProxyResolver | null;
+}
 
 /** The failure's meaningful code, walking the `cause` chain (undici
  *  wraps dial errors in handshake-level events). */
@@ -60,7 +97,7 @@ function wsFailureCode(err: unknown): string | undefined {
 }
 
 /** Classify a pre-open failure into a user-actionable message. */
-function classifyWsFailure(url: string, err: unknown, socketPath?: string): string {
+function classifyWsFailure(url: string, err: unknown, socketPath?: string, proxyUrl?: string): string {
   const host = hostLabelOf(url);
   const code = wsFailureCode(err);
   // A socket-pinned session never dials TCP, so every dial-level
@@ -87,6 +124,35 @@ function classifyWsFailure(url: string, err: unknown, socketPath?: string): stri
         return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
       case 'ETIMEDOUT':
         return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
+    }
+  }
+  // An ambient-proxied dial classifies against the PROXY leg: a
+  // rejected CONNECT is the proxy's own answer, and a dial-level
+  // failure can only be the proxy itself (target dialing happens at
+  // the proxy). Target-leg failures past the tunnel fall through to
+  // the shared classification — by then the proxy is a transparent
+  // pipe.
+  if (proxyUrl !== undefined) {
+    const proxyHost = hostLabelOf(proxyUrl);
+    const rejected = proxyConnectRejectedStatus(err);
+    if (rejected === 407) {
+      return `The proxy at ${proxyHost} requires authentication (407) — this machine's proxy configuration routes this session through it. Check the environment plane's proxy credentials in the app settings.`;
+    }
+    if (rejected !== undefined) {
+      return `The proxy at ${proxyHost} could not open a tunnel to ${host} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
+    }
+    switch (code) {
+      case 'ENOTFOUND':
+      case 'EAI_AGAIN':
+        return `Could not resolve the proxy host ${proxyHost} (DNS lookup failed) — this machine's proxy configuration routes this session through it.`;
+      case 'ECONNREFUSED':
+        return `Connection refused by the proxy at ${proxyHost} — this machine's proxy configuration routes this session through it. Is the proxy running?`;
+      case 'EHOSTUNREACH':
+      case 'ENETUNREACH':
+        return `No route to the proxy at ${proxyHost} (${code}) — this machine's proxy configuration routes this session through it.`;
+      case 'ETIMEDOUT':
+      case 'UND_ERR_CONNECT_TIMEOUT':
+        return `Connection to the proxy at ${proxyHost} timed out — this machine's proxy configuration routes this session through it.`;
     }
   }
   switch (code) {
@@ -132,42 +198,48 @@ function hostLabelOf(url: string): string {
   }
 }
 
-export function createNodeWsTransport(): WsTransport {
+/** One dial attempt's outcome: the session opened (or the connect
+ *  already settled some other way), or a pre-open failure the walker
+ *  may fall through from. */
+type WsAttemptOutcome = { settled: true } | { settled: false; failure: unknown };
+
+export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsTransport {
   return {
     connect(request: WsTransportRequest, callbacks: WsSessionCallbacks, signal?: AbortSignal): WsSessionWriter {
-      let socket: UndiciWebSocket | null = null;
-      let dispatcher: Agent | null = null;
+      let active: UndiciWebSocket | null = null;
+      let dispatcher: Dispatcher | null = null;
       let ended = false;
       let opened = false;
-      let lastError: unknown = null;
-      let dialError: unknown = null;
       let deadlineExpired = false;
+      let attemptProxyUrl: string | undefined;
       let timer: ReturnType<typeof setTimeout> | null = null;
 
       const cleanup = (): void => {
         if (timer !== null) clearTimeout(timer);
         timer = null;
         signal?.removeEventListener('abort', onAbort);
-        // Closing the per-connect agent releases its sockets; the
+        // Closing the per-connect dispatcher releases its sockets; the
         // default global dispatcher is never ours to close.
         void dispatcher?.close();
         dispatcher = null;
       };
-      const endWithError = (err: unknown): void => {
+      const settleError = (message: string): void => {
         if (ended) return;
         ended = true;
         cleanup();
+        callbacks.onEnd(new WsTransportError(message));
+      };
+      const endWithError = (err: unknown): void => {
+        if (ended) return;
         if (deadlineExpired) {
-          callbacks.onEnd(
-            new WsTransportError(`Connect deadline of ${request.timeoutMs} ms elapsed before the session opened.`),
-          );
+          settleError(`Connect deadline of ${request.timeoutMs} ms elapsed before the session opened.`);
           return;
         }
         if (signal?.aborted) {
-          callbacks.onEnd(new WsTransportError('Session stopped before it connected.'));
+          settleError('Session stopped before it connected.');
           return;
         }
-        callbacks.onEnd(new WsTransportError(classifyWsFailure(request.url, err, request.unixSocketPath)));
+        settleError(classifyWsFailure(request.url, err, request.unixSocketPath, attemptProxyUrl));
       };
       const endComplete = (): void => {
         if (ended) return;
@@ -180,7 +252,7 @@ export function createNodeWsTransport(): WsTransport {
         // the arrived capture materializes without waiting on a Close
         // answer; before it, the classified stop error tells the story.
         try {
-          socket?.close();
+          active?.close();
         } catch {
           // A socket already closing throws nowhere we care about.
         }
@@ -193,58 +265,14 @@ export function createNodeWsTransport(): WsTransport {
         return { send: () => {}, close: () => {} };
       }
 
-      try {
-        // A per-connect agent with a wrapped connector: undici's
-        // WebSocket layer swallows dial failures into a bare event
-        // (probed live — no `code`, no `cause`), so the connector is
-        // the only place the real ECONNREFUSED/DNS/TLS error exists.
-        // Captured here, classified on settle. `socketPath` pins the
-        // dial to the local socket / named pipe — undici passes it as
-        // the dial-winning `path` into net/tls.connect, so the URL's
-        // host stays cosmetic for dialing while the handshake `Host`,
-        // SNI, and certificate verification keep it.
-        const connector = buildConnector({
-          ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
-          ...(request.unixSocketPath !== undefined ? { socketPath: request.unixSocketPath } : {}),
-        });
-        dispatcher = new Agent({
-          connect: (opts, cb) => {
-            connector(opts, (err, sock) => {
-              if (err !== null) {
-                dialError = err;
-                cb(err, null);
-                return;
-              }
-              if (sock === null) {
-                const noSocket = new Error('the connector produced no socket');
-                dialError = noSocket;
-                cb(noSocket, null);
-                return;
-              }
-              cb(null, sock);
-            });
-          },
-        });
-        socket = new UndiciWebSocket(request.url, {
-          protocols: [...request.subprotocols],
-          dispatcher,
-          ...(request.headers.length > 0
-            ? { headers: request.headers.map(({ key, value }) => [key, value] as [string, string]) }
-            : {}),
-        });
-      } catch (err) {
-        queueMicrotask(() => endWithError(err));
-        return { send: () => {}, close: () => {} };
-      }
-      const ws = socket;
-      ws.binaryType = 'arraybuffer';
-
+      // ONE deadline spans resolution and every dial attempt — the
+      // HTTP transport's one-deadline discipline.
       if (request.timeoutMs !== undefined) {
         timer = setTimeout(() => {
           if (opened) return;
           deadlineExpired = true;
           try {
-            ws.close();
+            active?.close();
           } catch {
             // Ignore — the deadline settle below is the story.
           }
@@ -253,47 +281,177 @@ export function createNodeWsTransport(): WsTransport {
       }
       signal?.addEventListener('abort', onAbort);
 
-      ws.addEventListener('open', () => {
-        if (ended) return;
-        opened = true;
-        if (timer !== null) clearTimeout(timer);
-        timer = null;
-        callbacks.onOpen(ws.protocol, ws.extensions);
-      });
-      ws.addEventListener('message', (event) => {
-        if (ended) return;
-        const data = event.data;
-        if (typeof data === 'string') {
-          callbacks.onMessage({ data: new TextEncoder().encode(data), binary: false });
-        } else if (data instanceof ArrayBuffer) {
-          callbacks.onMessage({ data: new Uint8Array(data), binary: true });
+      // The per-connect dispatcher for one attempt. Direct attempts
+      // keep undici's own connector (TLS policy + socket path); an
+      // HTTP(S) proxy attempt rides the hand-rolled CONNECT tunnel
+      // dial (CONNECT for ws:// and wss:// alike — the corporate-proxy
+      // expectation); a SOCKS5 attempt seats undici's agent. The
+      // connector wrap captures the REAL dial error (undici's
+      // WebSocket layer swallows it into a bare event — probed live).
+      const mintDispatcher = (attempt: SessionProxyAttempt, onDialError: (err: unknown) => void): Dispatcher => {
+        const connectBag: ConnectOptions = {
+          ...(request.sslVerification === false ? { rejectUnauthorized: false } : {}),
+        };
+        if (attempt.proxy !== undefined && isSocks5ProxyUrl(attempt.proxy.url)) {
+          return buildSocks5Agent(attempt.proxy, connectBag);
         }
-      });
-      ws.addEventListener('error', (event) => {
-        // The close event follows and settles; keep the real cause for
-        // its classification (undici surfaces the dial error here).
-        const detail = event as { error?: unknown; message?: string };
-        lastError = detail.error ?? new Error(detail.message ?? 'WebSocket error');
-      });
-      ws.addEventListener('close', (event) => {
+        const inner =
+          attempt.proxy !== undefined
+            ? createDialConnector(connectBag, { alpnProtocols: ['http/1.1'], pinH2: false }, () => {}, undefined, {
+                url: attempt.proxy.url,
+                ...(attempt.proxy.credential !== undefined ? { credential: attempt.proxy.credential } : {}),
+              })
+            : buildConnector({
+                ...connectBag,
+                ...(request.unixSocketPath !== undefined ? { socketPath: request.unixSocketPath } : {}),
+              });
+        return new Agent({
+          connect: (opts, cb) => {
+            inner(opts, (err, sock) => {
+              if (err !== null) {
+                onDialError(err);
+                cb(err, null);
+                return;
+              }
+              if (sock === null) {
+                const noSocket = new Error('the connector produced no socket');
+                onDialError(noSocket);
+                cb(noSocket, null);
+                return;
+              }
+              cb(null, sock);
+            });
+          },
+        });
+      };
+
+      // One dial attempt: mint the socket on its own dispatcher, wire
+      // the session events. A pre-open close resolves the attempt as a
+      // failure (the walker decides fall-through); everything after
+      // `open` settles through the shared paths.
+      const dialAttempt = (attempt: SessionProxyAttempt): Promise<WsAttemptOutcome> =>
+        new Promise<WsAttemptOutcome>((resolveAttempt) => {
+          let dialError: unknown = null;
+          let lastError: unknown = null;
+          let ws: UndiciWebSocket;
+          try {
+            dispatcher = mintDispatcher(attempt, (err) => {
+              dialError = err;
+            });
+            ws = new UndiciWebSocket(request.url, {
+              protocols: [...request.subprotocols],
+              dispatcher,
+              ...(request.headers.length > 0
+                ? { headers: request.headers.map(({ key, value }) => [key, value] as [string, string]) }
+                : {}),
+            });
+          } catch (err) {
+            resolveAttempt({ settled: false, failure: err });
+            return;
+          }
+          active = ws;
+          ws.binaryType = 'arraybuffer';
+
+          ws.addEventListener('open', () => {
+            if (ended) return;
+            opened = true;
+            if (timer !== null) clearTimeout(timer);
+            timer = null;
+            const route: WsProxyRoute | undefined = attempt.route;
+            callbacks.onOpen(ws.protocol, ws.extensions, route);
+            resolveAttempt({ settled: true });
+          });
+          ws.addEventListener('message', (event) => {
+            if (ended) return;
+            const data = event.data;
+            if (typeof data === 'string') {
+              callbacks.onMessage({ data: new TextEncoder().encode(data), binary: false });
+            } else if (data instanceof ArrayBuffer) {
+              callbacks.onMessage({ data: new Uint8Array(data), binary: true });
+            }
+          });
+          ws.addEventListener('error', (event) => {
+            // The close event follows and settles; keep the real cause
+            // for its classification (undici surfaces the dial error
+            // here).
+            const detail = event as { error?: unknown; message?: string };
+            lastError = detail.error ?? new Error(detail.message ?? 'WebSocket error');
+          });
+          ws.addEventListener('close', (event) => {
+            if (ended) {
+              resolveAttempt({ settled: true });
+              return;
+            }
+            if (!opened) {
+              resolveAttempt({
+                settled: false,
+                failure: dialError ?? lastError ?? new Error(`the handshake failed (close code ${event.code})`),
+              });
+              return;
+            }
+            callbacks.onClose({ code: event.code, reason: event.reason, wasClean: event.wasClean });
+            endComplete();
+            resolveAttempt({ settled: true });
+          });
+        });
+
+      const runConnect = async (): Promise<void> => {
+        const resolver = options.environmentProxy !== undefined ? options.environmentProxy : environmentProxyResolver();
+        const resolved = await resolveSessionProxyAttempts(
+          {
+            url: request.url,
+            ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
+            capability: 'socks5-dialable',
+          },
+          resolver,
+        );
         if (ended) return;
-        if (!opened) {
-          endWithError(dialError ?? lastError ?? new Error(`the handshake failed (close code ${event.code})`));
+        if ('errorMessage' in resolved) {
+          // The honest pre-wire gate — the chain resolved only to
+          // proxies this dial cannot traverse.
+          settleError(resolved.errorMessage);
           return;
         }
-        callbacks.onClose({ code: event.code, reason: event.reason, wasClean: event.wasClean });
-        endComplete();
-      });
+        const attempts = resolved.attempts;
+        for (let i = 0; i < attempts.length; i += 1) {
+          if (ended) return;
+          const attempt = attempts[i];
+          attemptProxyUrl = attempt.proxy?.url;
+          const outcome = await dialAttempt(attempt);
+          if (outcome.settled) return;
+          active = null;
+          // Chain walking: a dial-level failure REACHING an
+          // environment-plane proxy falls through to the next chain
+          // entry (Chromium's own fallback semantics). Everything else
+          // — CONNECT rejections, target-leg failures — surfaces.
+          const nextExists = i < attempts.length - 1;
+          if (attempt.environmentChain === true && nextExists && isSessionProxyDialFailure(outcome.failure)) {
+            void dispatcher?.close();
+            dispatcher = null;
+            continue;
+          }
+          endWithError(outcome.failure);
+          return;
+        }
+      };
+      void runConnect();
 
       return {
         send(text: string): void {
-          if (ended || ws.readyState !== UndiciWebSocket.OPEN) return;
-          ws.send(text);
+          if (ended || active === null || active.readyState !== UndiciWebSocket.OPEN) return;
+          active.send(text);
         },
         close(code: number, reason: string): void {
-          if (ended || ws.readyState === UndiciWebSocket.CLOSED || ws.readyState === UndiciWebSocket.CLOSING) return;
+          if (
+            ended ||
+            active === null ||
+            active.readyState === UndiciWebSocket.CLOSED ||
+            active.readyState === UndiciWebSocket.CLOSING
+          ) {
+            return;
+          }
           try {
-            ws.close(code, reason);
+            active.close(code, reason);
           } catch {
             // An invalid close code from a rider is a quiet no-op.
           }
