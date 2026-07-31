@@ -20,10 +20,13 @@
  * pre-wire errors (an explicit contradiction is the user's to
  * resolve; an ambient one is ours to yield on).
  *
- * SOCKS answers are gated until a SOCKS slice lands (P5): a chain
- * whose only usable entries are SOCKS fails honestly, naming what the
- * machine resolved and both escape hatches; a SOCKS entry with a
- * supported fallback behind it is skipped like a failed dial.
+ * SOCKS5 entries are dialable like HTTP(S) ones (P5) — with one gate:
+ * a pinned `'2'`/`'2-prior-knowledge'` send can't ride the SOCKS5
+ * dial (its hand-rolled h2 pipeline speaks HTTP CONNECT only), so
+ * those sends skip SOCKS5 entries like a failed dial. SOCKS4-family
+ * answers stay ungated honesty: a chain whose only usable entries the
+ * send can't traverse fails honestly, naming what the machine
+ * resolved and both escape hatches.
  */
 
 import {
@@ -31,6 +34,7 @@ import {
   type TransportProxyRoute,
   type TransportRequest,
 } from '@openheaders/oracle/live/request-exec/transport';
+import { isSocks5ProxyUrl } from '../environment-proxy/proxy-value';
 import type { EnvironmentProxyResolver } from '../environment-proxy/types';
 
 /** One send attempt the transport runs — the effective proxy for it
@@ -80,8 +84,10 @@ export async function resolveProxyAttempts(
   if (standDown !== null) {
     return [{ meta: { plane: 'environment', source: selection.source, standDownReason: standDown } }];
   }
+  const pinnedH2 = request.httpVersion === '2' || request.httpVersion === '2-prior-knowledge';
   const attempts: ProxyAttempt[] = [];
-  let sawSocks: string | null = null;
+  let sawSocks4: string | null = null;
+  let sawPinBlockedSocks5: string | null = null;
   for (const entry of selection.entries) {
     if (entry.kind === 'direct') {
       // Nothing falls past a DIRECT entry. A chain that OPENS with one
@@ -91,7 +97,14 @@ export async function resolveProxyAttempts(
       break;
     }
     if (entry.kind === 'socks') {
-      sawSocks ??= entry.raw;
+      sawSocks4 ??= entry.raw;
+      continue;
+    }
+    if (pinnedH2 && isSocks5ProxyUrl(entry.url)) {
+      // The pinned h2 pipelines tunnel through HTTP CONNECT only — a
+      // SOCKS5 entry is undialable for THIS send, skipped like a
+      // failed dial so a supported fallback behind it still serves.
+      sawPinBlockedSocks5 ??= entry.url;
       continue;
     }
     attempts.push({
@@ -101,9 +114,14 @@ export async function resolveProxyAttempts(
     });
   }
   if (attempts.length === 0) {
-    if (sawSocks !== null) {
+    if (sawPinBlockedSocks5 !== null) {
       throw new TransportError(
-        `This machine's proxy configuration resolves ${request.url} to a SOCKS proxy (${sawSocks}), which the engine can't dial yet. Set the request's proxy setting to Direct to bypass it, or point the environment plane at an HTTP(S) proxy.`,
+        `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawPinBlockedSocks5}), but the request pins HTTP/2, which rides an HTTP CONNECT tunnel the SOCKS5 dial can't carry. Set the HTTP version to Auto, set the request's proxy setting to Direct, or point the environment plane at an HTTP(S) proxy.`,
+      );
+    }
+    if (sawSocks4 !== null) {
+      throw new TransportError(
+        `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported. Set the request's proxy setting to Direct to bypass it, or point the environment plane at a SOCKS5 or HTTP(S) proxy.`,
       );
     }
     return DIRECT_ATTEMPT;

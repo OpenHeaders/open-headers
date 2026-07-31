@@ -6,7 +6,7 @@
  * Chromium, no real proxies.
  */
 
-import { Agent, ProxyAgent, Response } from 'undici';
+import { Agent, ProxyAgent, Response, Socks5ProxyAgent } from 'undici';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EnvironmentProxyResolver, EnvironmentProxySelection } from '../../../src/live/environment-proxy/types';
 import { fetchError, makeRequest, makeRig } from './helpers';
@@ -146,10 +146,26 @@ describe('environment-plane resolution', () => {
     expect(rig.fetchMock).not.toHaveBeenCalled();
   });
 
-  it('fails honestly on a SOCKS-only environment answer', async () => {
-    const resolver = resolverAnswering({ entries: [{ kind: 'socks', raw: 'socks5://corp:1080' }], source: 'env' });
+  it('routes an inheriting send through a SOCKS5 environment answer and stamps the wire truth', async () => {
+    rig.fetchMock.mockResolvedValue(ok());
+    const resolver = resolverAnswering({
+      entries: [{ kind: 'proxy', url: 'socks5://ambient.openheaders.io:1080' }],
+      source: 'env',
+    });
+    const res = await rig.transport({ environmentProxy: resolver }).send(makeRequest());
+    expect(res.status).toBe(200);
+    expect(rig.callInit().dispatcher).toBeInstanceOf(Socks5ProxyAgent);
+    expect(res.proxyRoute).toEqual({
+      plane: 'environment',
+      proxyUrl: 'socks5://ambient.openheaders.io:1080',
+      source: 'env',
+    });
+  });
+
+  it('fails honestly on a SOCKS4-only environment answer', async () => {
+    const resolver = resolverAnswering({ entries: [{ kind: 'socks', raw: 'socks4://corp:1080' }], source: 'env' });
     await expect(rig.transport({ environmentProxy: resolver }).send(makeRequest())).rejects.toThrow(
-      /SOCKS proxy \(socks5:\/\/corp:1080\)/,
+      /SOCKS4 proxy \(socks4:\/\/corp:1080\)/,
     );
     expect(rig.fetchMock).not.toHaveBeenCalled();
   });

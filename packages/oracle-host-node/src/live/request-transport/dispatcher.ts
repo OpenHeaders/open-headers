@@ -11,7 +11,8 @@ import { createHash } from 'node:crypto';
 import { isIP, type LookupFunction } from 'node:net';
 import { createSecureContext, type SecureVersion } from 'node:tls';
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
-import { Agent, type Dispatcher, ProxyAgent } from 'undici';
+import { Agent, type Dispatcher, ProxyAgent, Socks5ProxyAgent } from 'undici';
+import { isSocks5ProxyUrl } from '../environment-proxy/proxy-value';
 import { type AlpnPolicy, createDialConnector, createRecordingConnector } from '../instrumented-connector';
 import type { ProxyTunnel } from './connect-tunnel';
 import type { ConnectOptions } from './seam';
@@ -37,9 +38,9 @@ const MAX_AGENTS = 32;
  * A cached dispatcher plus the per-origin negotiated-protocol log its
  * connector reports into — the always-on twin of the instrumented
  * dial's facts. `negotiatedByOrigin` is absent for proxied
- * dispatchers riding undici's `ProxyAgent` (`auto` / `'1.1'`): the
- * tunnel's connector owns the dial and there is nothing honest to
- * observe. A PINNED proxied tuple rides the hand-rolled tunnel dial
+ * dispatchers riding undici's `ProxyAgent` or `Socks5ProxyAgent`
+ * (`auto` / `'1.1'`): the tunnel's connector owns the dial and there
+ * is nothing honest to observe. A PINNED proxied tuple rides the hand-rolled tunnel dial
  * instead, whose own handshake reports the negotiated protocol — so
  * its entry carries the log like a direct one.
  */
@@ -185,13 +186,21 @@ export function dispatcherFor(request: TransportRequest): DispatcherEntry {
   // `ProxyAgent`'s connector owns the ALPN offer, which would demote
   // the pin to an unenforced preference. Negotiating tuples keep
   // `ProxyAgent` (its tunnel handling, session cache, and h2 seats).
+  // A socks5:// tuple rides undici's `Socks5ProxyAgent`; it never
+  // arrives pinned — the transport's pre-wire guard and the
+  // proxy-route pin gate both refuse that pairing before a dispatcher
+  // is asked for.
   const proxy: ProxyTunnel | undefined =
     proxyUrl !== undefined
       ? { url: proxyUrl, ...(request.proxyCredential !== undefined ? { credential: request.proxyCredential } : {}) }
       : undefined;
   const entry: DispatcherEntry =
     proxy !== undefined && !policy.pinH2
-      ? { dispatcher: buildProxyAgent(proxy.url, request, connect, offersH2(policy)) }
+      ? {
+          dispatcher: isSocks5ProxyUrl(proxy.url)
+            ? buildSocks5Agent(proxy.url, request, connect)
+            : buildProxyAgent(proxy.url, request, connect, offersH2(policy)),
+        }
       : buildAgentEntry(connect, policy, proxy);
   if (agentCache.size >= MAX_AGENTS) {
     const oldest = agentCache.entries().next().value;
@@ -323,4 +332,33 @@ function buildProxyAgent(
       ? { token: `Basic ${Buffer.from(request.proxyCredential).toString('base64')}` }
       : {}),
   });
+}
+
+/**
+ * `requestTls` is honored by `Socks5ProxyAgent`'s tunnel connect at
+ * runtime (target-leg TLS options, same seat `ProxyAgent` types) but
+ * lags in the published option type — this widening states the real
+ * contract instead of casting past it.
+ */
+interface Socks5AgentOptions extends Socks5ProxyAgent.Options {
+  requestTls?: ConnectOptions;
+}
+
+/**
+ * SOCKS5-proxied dispatcher. The agent CONNECTs through the SOCKS5
+ * proxy (RFC 1928, username/password auth per RFC 1929 from the
+ * `user:password` credential) and pools per origin; the per-request
+ * connection options apply to the TARGET leg via `requestTls`, exactly
+ * the `ProxyAgent` seat. The tunneled target leg negotiates http/1.1
+ * (the agent's pools offer no h2) — reported protocol still comes from
+ * the wire, never the knob.
+ */
+function buildSocks5Agent(proxyUrl: string, request: TransportRequest, connect: ConnectOptions): Socks5ProxyAgent {
+  const options: Socks5AgentOptions = { requestTls: connect };
+  if (request.proxyCredential !== undefined) {
+    const colon = request.proxyCredential.indexOf(':');
+    options.username = colon === -1 ? request.proxyCredential : request.proxyCredential.slice(0, colon);
+    if (colon !== -1) options.password = request.proxyCredential.slice(colon + 1);
+  }
+  return new Socks5ProxyAgent(proxyUrl, options);
 }

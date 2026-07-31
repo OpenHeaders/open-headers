@@ -157,14 +157,16 @@ export const ClientCertificateRefSchema = v.pipe(
 );
 
 /**
- * Per-request HTTP(S) proxy URL: scheme + host + optional port, nothing
- * else. `http://` or `https://` only — SOCKS schemes are rejected (the
- * node fetch stack does not support SOCKS proxies). Userinfo is
- * rejected outright: the runtime WOULD honor `user:pass@` credentials,
- * which is exactly why they must not land in synced request YAML by
- * muscle memory — credentials ride a vault ref instead (see
- * `proxyCredentialRef`). Validated by {@link isValidProxyUrl}, shared
- * with the Settings tab so the editor flags a malformed URL in place.
+ * Per-request proxy URL: scheme + host + optional port, nothing else.
+ * `http://`, `https://`, or `socks5://` — the engine tunnels through
+ * HTTP(S) proxies via CONNECT and dials SOCKS5 proxies natively; the
+ * SOCKS4 family stays rejected (the engine does not speak it).
+ * Userinfo is rejected outright: the runtime WOULD honor `user:pass@`
+ * credentials, which is exactly why they must not land in synced
+ * request YAML by muscle memory — credentials ride a vault ref instead
+ * (see `proxyCredentialRef`). Validated by {@link isValidProxyUrl},
+ * shared with the Settings tab so the editor flags a malformed URL in
+ * place.
  */
 export const MAX_PROXY_URL_LENGTH = 512;
 
@@ -177,7 +179,7 @@ export function isValidProxyUrl(value: string): boolean {
   } catch {
     return false;
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.protocol !== 'socks5:') return false;
   if (url.username !== '' || url.password !== '') return false;
   if (url.search !== '' || url.hash !== '') return false;
   return url.pathname === '' || url.pathname === '/';
@@ -186,7 +188,7 @@ export function isValidProxyUrl(value: string): boolean {
 export const ProxyUrlSchema = v.pipe(
   v.string(),
   v.maxLength(MAX_PROXY_URL_LENGTH),
-  v.check(isValidProxyUrl, 'Must be an http:// or https:// proxy URL — host and port only, no credentials'),
+  v.check(isValidProxyUrl, 'Must be an http://, https://, or socks5:// proxy URL — host and port only, no credentials'),
 );
 
 /**

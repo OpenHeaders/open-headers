@@ -76,10 +76,31 @@ describe('createEnvProxyResolver', () => {
     });
   });
 
-  it('carries SOCKS schemes as socks entries (the transport owns the honest failure)', async () => {
+  it('resolves SOCKS5 schemes as dialable socks5 entries', async () => {
     const resolver = resolverFor({ all_proxy: 'socks5://corp:1080' });
     await expect(resolver.resolve('https://api.openheaders.io/')).resolves.toEqual({
-      entries: [{ kind: 'socks', raw: 'socks5://corp:1080' }],
+      entries: [{ kind: 'proxy', url: 'socks5://corp:1080' }],
+      source: 'env',
+    });
+  });
+
+  it('normalizes socks:// and socks5h:// to socks5 with the default port and inline credential', async () => {
+    const resolver = resolverFor({ all_proxy: 'socks://corp' });
+    await expect(resolver.resolve('https://api.openheaders.io/')).resolves.toEqual({
+      entries: [{ kind: 'proxy', url: 'socks5://corp:1080' }],
+      source: 'env',
+    });
+    const hVariant = resolverFor({ all_proxy: 'socks5h://user:secret@corp:9050' });
+    await expect(hVariant.resolve('https://api.openheaders.io/')).resolves.toEqual({
+      entries: [{ kind: 'proxy', url: 'socks5://corp:9050', credential: 'user:secret' }],
+      source: 'env',
+    });
+  });
+
+  it('carries SOCKS4-family schemes as socks entries (the transport owns the honest failure)', async () => {
+    const resolver = resolverFor({ all_proxy: 'socks4://corp:1080' });
+    await expect(resolver.resolve('https://api.openheaders.io/')).resolves.toEqual({
+      entries: [{ kind: 'socks', raw: 'socks4://corp:1080' }],
       source: 'env',
     });
   });

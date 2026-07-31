@@ -7,7 +7,7 @@
 
 import { createSecureContext } from 'node:tls';
 import { TransportError } from '@openheaders/oracle/live/request-exec/transport';
-import { Agent, ProxyAgent, Response } from 'undici';
+import { Agent, ProxyAgent, Response, Socks5ProxyAgent } from 'undici';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { connectOptionsFor } from '../../../src/live/node-request-transport';
 import { fetchError, makeRequest, makeRig, redirectResponse } from './helpers';
@@ -637,6 +637,34 @@ describe('createNodeRequestTransport — per-request proxy', () => {
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
     await expect(attempt).rejects.toThrow(/proxy resolves the hostname itself/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('a socks5:// tuple mints a dedicated Socks5ProxyAgent, reused per tuple', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: 'socks5://proxy.openheaders.io:1080' }));
+    await transport().send(makeRequest({ proxyUrl: 'socks5://proxy.openheaders.io:1080' }));
+    const first = callInit(0).dispatcher;
+    expect(first).toBeInstanceOf(Socks5ProxyAgent);
+    expect(callInit(1).dispatcher).toBe(first);
+  });
+
+  it('a socks5 and an http tuple at the same host are distinct dispatcher classes', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'));
+    await transport().send(makeRequest({ proxyUrl: 'socks5://proxy.openheaders.io:1080' }));
+    await transport().send(makeRequest({ proxyUrl: 'http://proxy.openheaders.io:1080' }));
+    expect(callInit(0).dispatcher).toBeInstanceOf(Socks5ProxyAgent);
+    expect(callInit(1).dispatcher).toBeInstanceOf(ProxyAgent);
+    expect(callInit(1).dispatcher).not.toBe(callInit(0).dispatcher);
+  });
+
+  it('fails BEFORE the wire when a pinned-h2 send routes through a socks5 proxy', async () => {
+    for (const httpVersion of ['2', '2-prior-knowledge'] as const) {
+      const attempt = transport().send(makeRequest({ httpVersion, proxyUrl: 'socks5://proxy.openheaders.io:1080' }));
+      await expect(attempt).rejects.toBeInstanceOf(TransportError);
+      await expect(attempt).rejects.toThrow(/pins HTTP\/2.*HTTP CONNECT only/);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestMock).not.toHaveBeenCalled();
   });
 
   it('classifies a refused connection naming the PROXY, not the target', async () => {

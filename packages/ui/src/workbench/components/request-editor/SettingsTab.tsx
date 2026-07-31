@@ -89,7 +89,8 @@
  *     (`user:password`) picked by name, never the URL — the runtime
  *     would honor `user:pass@` userinfo, which is exactly why the
  *     schema rejects it (secrets must not land in synced YAML).
- *     SOCKS schemes are rejected. A CUSTOM proxy is not honorable
+ *     http://, https://, and socks5:// schemes are accepted — the
+ *     SOCKS4 family is rejected. A CUSTOM proxy is not honorable
  *     together with `resolveToAddress` (the proxy resolves the
  *     hostname itself) — the URL row warns in place while both are
  *     set and the transport fails the send loudly; an INHERITED proxy

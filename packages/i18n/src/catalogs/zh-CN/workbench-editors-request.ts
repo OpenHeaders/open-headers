@@ -431,7 +431,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxySummary':
     '此次发送如何抵达网络。默认继承执行设备的环境——系统代理设置、PAC 或代理环境变量——因此企业机器下发的代理开箱即用；“直连”让这一个请求退出任何环境代理，“自定义 URL”则让它经由请求自己的代理。',
   'workbench.editors.request.settings.proxyDescription':
-    '响应元信息始终记录发送实际走过的路由——哪个代理、由请求还是由环境决定。尚不支持 SOCKS 代理：自定义 SOCKS URL 会被拒绝，环境解析出 SOCKS 代理的机器会收到指名它的明确错误。',
+    '响应元信息始终记录发送实际走过的路由——哪个代理、由请求还是由环境决定。支持 HTTP(S) 与 SOCKS5 代理——socks5:// URL 既可作为自定义代理也可作为环境应答；只有 SOCKS4 系列会收到指名它的明确错误。',
   'workbench.editors.request.settings.proxyModesHeading': '模式',
   'workbench.editors.request.settings.proxyModePlaceholder': '继承——由环境决定',
   'workbench.editors.request.settings.proxyModeDirect': '直连——不走代理',
@@ -447,7 +447,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyUrlPlaceholder': 'http://proxy.example:8080',
   'workbench.editors.request.settings.proxyUrlMissing': '自定义 URL 模式需要代理 URL——输入一个，或把模式切回去。',
   'workbench.editors.request.settings.proxyError':
-    '仅限带主机和端口的 http:// 或 https:// URL——URL 中不能有凭据，不支持 SOCKS。',
+    '仅限带主机和端口的 http://、https:// 或 socks5:// URL——URL 中不能有凭据。',
   'workbench.editors.request.settings.proxyResolveConflict':
     '同时设置了解析到地址，但代理会自行解析主机名——在其中一项被清除之前，发送都会失败。',
   'workbench.editors.request.settings.proxyCredentials': '代理凭据',

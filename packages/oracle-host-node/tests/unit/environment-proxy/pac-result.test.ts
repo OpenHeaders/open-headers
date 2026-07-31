@@ -29,11 +29,20 @@ describe('parsePacProxyList', () => {
     expect(parsePacProxyList('PROXY corp')).toEqual([{ kind: 'proxy', url: 'http://corp:80' }]);
   });
 
-  it('carries SOCKS answers verbatim for the honest failure', () => {
+  it('maps SOCKS5 answers to dialable socks5 entries with the default port', () => {
     expect(parsePacProxyList('SOCKS5 corp:1080; DIRECT')).toEqual([
-      { kind: 'socks', raw: 'SOCKS5 corp:1080' },
+      { kind: 'proxy', url: 'socks5://corp:1080' },
       { kind: 'direct' },
     ]);
+    expect(parsePacProxyList('SOCKS5 corp')).toEqual([{ kind: 'proxy', url: 'socks5://corp:1080' }]);
+  });
+
+  it('carries SOCKS4-family answers verbatim for the honest failure (PAC SOCKS means v4)', () => {
+    expect(parsePacProxyList('SOCKS corp:1080; DIRECT')).toEqual([
+      { kind: 'socks', raw: 'SOCKS corp:1080' },
+      { kind: 'direct' },
+    ]);
+    expect(parsePacProxyList('SOCKS4 corp:1080')).toEqual([{ kind: 'socks', raw: 'SOCKS4 corp:1080' }]);
   });
 
   it('keeps bracketed IPv6 proxy hosts intact', () => {

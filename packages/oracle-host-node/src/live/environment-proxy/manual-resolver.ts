@@ -8,11 +8,12 @@
  * mode-driven service builds it today; the P4 daemon/CLI manual mode
  * reuses it unchanged.
  *
- * A bypassed target, an unparsable value, or a SOCKS-scheme value all
+ * A bypassed target, an unparsable value, or a SOCKS4-family value all
  * keep the plane's honesty contract: bypass and unparsable resolve
- * `null` (direct — seamlessness, never a new failure); a SOCKS value
+ * `null` (direct — seamlessness, never a new failure); a SOCKS4 value
  * resolves the `kind: 'socks'` entry so the transport owns the honest
- * gate naming what the machine configured.
+ * gate naming what the machine configured. SOCKS5 values are dialable
+ * entries like HTTP(S) ones (P5), vault credential included.
  */
 
 import { isBypassedByNoProxy } from './no-proxy';

@@ -150,6 +150,7 @@ import {
 } from '@openheaders/oracle/live/request-exec/transport';
 import { fetch as undiciFetch, request as undiciRequest } from 'undici';
 import { cookieJarFor } from './cookie-jar';
+import { isSocks5ProxyUrl } from './environment-proxy/proxy-value';
 import { environmentProxyResolver } from './environment-proxy/registry';
 import type { EnvironmentProxyResolver } from './environment-proxy/types';
 import { decryptedClientKeyPem } from './h3-helper/client-key';
@@ -273,7 +274,7 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       }
       if (request.proxyUrl !== undefined) {
         throw new TransportError(
-          "The request pins HTTP/3 and routes through a proxy, but an HTTP proxy tunnel can't carry QUIC (UDP). Set the HTTP version to Auto, or clear the proxy.",
+          "The request pins HTTP/3 and routes through a proxy, but a proxy tunnel can't carry QUIC (UDP). Set the HTTP version to Auto, or clear the proxy.",
         );
       }
       if (request.unixSocketPath !== undefined) {
@@ -344,6 +345,18 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       if (request.resolveToAddress !== undefined) {
         throw new TransportError(
           "The request sets both a proxy and resolve-to-address, but a proxy resolves the hostname itself — the address pin can't apply. Clear one of the two settings.",
+        );
+      }
+      // A pinned h2 send tunnels through the hand-rolled HTTP CONNECT
+      // dial, which a SOCKS5 proxy can't carry — the explicit
+      // contradiction fails BEFORE the wire (an ambient SOCKS5 answer
+      // never reaches here pinned: the proxy-route gate skips it).
+      if (
+        isSocks5ProxyUrl(request.proxyUrl) &&
+        (request.httpVersion === '2' || request.httpVersion === '2-prior-knowledge')
+      ) {
+        throw new TransportError(
+          'The request pins HTTP/2 and routes through a SOCKS5 proxy, but the pinned HTTP/2 pipeline tunnels through HTTP CONNECT only. Set the HTTP version to Auto, or use an http:// or https:// proxy.',
         );
       }
       // Configured proxy credentials whose vault entry didn't resolve

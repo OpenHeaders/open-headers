@@ -99,19 +99,36 @@ describe('resolveProxyAttempts', () => {
     ).resolves.toEqual([{}]);
   });
 
-  it('fails honestly on a SOCKS-only answer, naming the resolved proxy and the escape hatches', async () => {
+  it('maps a SOCKS5 answer onto a dialable attempt like any proxy entry', async () => {
     const { resolver } = resolverAnswering({
-      entries: [{ kind: 'socks', raw: 'socks5://corp:1080' }],
+      entries: [{ kind: 'proxy', url: 'socks5://corp:1080', credential: 'user:secret' }],
+      source: 'env',
+    });
+    await expect(resolveProxyAttempts(makeRequest(), resolver)).resolves.toEqual([
+      {
+        proxy: { url: 'socks5://corp:1080', credential: 'user:secret' },
+        meta: { plane: 'environment', proxyUrl: 'socks5://corp:1080', source: 'env' },
+        environmentChain: true,
+      },
+    ]);
+  });
+
+  it('fails honestly on a SOCKS4-only answer, naming the resolved proxy and the escape hatches', async () => {
+    const { resolver } = resolverAnswering({
+      entries: [{ kind: 'socks', raw: 'socks4://corp:1080' }],
       source: 'env',
     });
     await expect(resolveProxyAttempts(makeRequest(), resolver)).rejects.toThrow(TransportError);
-    await expect(resolveProxyAttempts(makeRequest(), resolver)).rejects.toThrow(/socks5:\/\/corp:1080/);
+    await expect(resolveProxyAttempts(makeRequest(), resolver)).rejects.toThrow(/socks4:\/\/corp:1080/);
+    await expect(resolveProxyAttempts(makeRequest(), resolver)).rejects.toThrow(
+      /SOCKS5 and HTTP\(S\) proxies are supported/,
+    );
   });
 
-  it('skips a SOCKS entry when a supported fallback follows it', async () => {
+  it('skips a SOCKS4 entry when a supported fallback follows it', async () => {
     const { resolver } = resolverAnswering({
       entries: [
-        { kind: 'socks', raw: 'SOCKS5 corp:1080' },
+        { kind: 'socks', raw: 'SOCKS corp:1080' },
         { kind: 'proxy', url: 'http://fallback:8080' },
       ],
       source: 'system',
@@ -124,12 +141,43 @@ describe('resolveProxyAttempts', () => {
         environmentChain: true,
       },
     ]);
-    // SOCKS followed only by DIRECT falls to direct rather than erroring.
+    // SOCKS4 followed only by DIRECT falls to direct rather than erroring.
     const { resolver: withDirect } = resolverAnswering({
-      entries: [{ kind: 'socks', raw: 'SOCKS5 corp:1080' }, { kind: 'direct' }],
+      entries: [{ kind: 'socks', raw: 'SOCKS corp:1080' }, { kind: 'direct' }],
       source: 'system',
     });
     await expect(resolveProxyAttempts(makeRequest(), withDirect)).resolves.toEqual([{}]);
+  });
+
+  it('gates SOCKS5 entries for pinned-h2 sends: skip past to a fallback, honest error when SOCKS5-only', async () => {
+    const selection: EnvironmentProxySelection = {
+      entries: [
+        { kind: 'proxy', url: 'socks5://corp:1080' },
+        { kind: 'proxy', url: 'http://fallback:8080' },
+      ],
+      source: 'system',
+    };
+    for (const httpVersion of ['2', '2-prior-knowledge'] as const) {
+      const { resolver } = resolverAnswering(selection);
+      await expect(resolveProxyAttempts(makeRequest({ httpVersion }), resolver)).resolves.toEqual([
+        {
+          proxy: { url: 'http://fallback:8080' },
+          meta: { plane: 'environment', proxyUrl: 'http://fallback:8080', source: 'system' },
+          environmentChain: true,
+        },
+      ]);
+      const { resolver: socksOnly } = resolverAnswering({
+        entries: [{ kind: 'proxy', url: 'socks5://corp:1080' }],
+        source: 'system',
+      });
+      await expect(resolveProxyAttempts(makeRequest({ httpVersion }), socksOnly)).rejects.toThrow(
+        /pins HTTP\/2.*socks5:\/\/corp:1080|socks5:\/\/corp:1080.*pins HTTP\/2/,
+      );
+    }
+    // An unpinned send dials the same entry first.
+    const { resolver: auto } = resolverAnswering(selection);
+    const attempts = await resolveProxyAttempts(makeRequest(), auto);
+    expect(attempts[0]?.proxy?.url).toBe('socks5://corp:1080');
   });
 });
 

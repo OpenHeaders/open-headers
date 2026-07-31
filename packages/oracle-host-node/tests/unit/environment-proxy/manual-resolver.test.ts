@@ -51,10 +51,21 @@ describe('createManualProxyResolver', () => {
     await expect(createManualProxyResolver({ proxyValue: '   ' }).resolve(TARGET)).resolves.toBeNull();
   });
 
-  it('carries a SOCKS value verbatim for the transport gate', async () => {
-    const resolver = createManualProxyResolver({ proxyValue: 'socks5://corp.openheaders.io:1080' });
+  it('resolves a SOCKS5 value as a dialable entry, vault credential included', async () => {
+    const resolver = createManualProxyResolver({
+      proxyValue: 'socks5://corp.openheaders.io:1080',
+      resolveCredential: () => 'user:secret',
+    });
     await expect(resolver.resolve(TARGET)).resolves.toEqual({
-      entries: [{ kind: 'socks', raw: 'socks5://corp.openheaders.io:1080' }],
+      entries: [{ kind: 'proxy', url: 'socks5://corp.openheaders.io:1080', credential: 'user:secret' }],
+      source: 'manual',
+    });
+  });
+
+  it('carries a SOCKS4 value verbatim for the transport gate', async () => {
+    const resolver = createManualProxyResolver({ proxyValue: 'socks4://corp.openheaders.io:1080' });
+    await expect(resolver.resolve(TARGET)).resolves.toEqual({
+      entries: [{ kind: 'socks', raw: 'socks4://corp.openheaders.io:1080' }],
       source: 'manual',
     });
   });

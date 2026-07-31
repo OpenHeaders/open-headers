@@ -443,7 +443,7 @@ describe('RequestSchema', () => {
     expect(v.safeParse(RequestSchema, { ...base, clientCertificateRef: 'x'.repeat(257) }).success).toBe(false);
   });
 
-  it('accepts an http/https proxyUrl; rejects userinfo, SOCKS, paths, and garbage', () => {
+  it('accepts an http/https/socks5 proxyUrl; rejects userinfo, SOCKS4, paths, and garbage', () => {
     const base = {
       schemaVersion: 5,
       uid: 'abcd1234',
@@ -463,7 +463,11 @@ describe('RequestSchema', () => {
     // Userinfo would be honored by the runtime — rejected so credentials
     // never land in synced YAML; they ride a vault ref instead.
     expect(v.safeParse(RequestSchema, withUrl('http://user:pass@proxy.openheaders.io')).success).toBe(false);
-    expect(v.safeParse(RequestSchema, withUrl('socks5://127.0.0.1:1080')).success).toBe(false);
+    // The engine dials SOCKS5 natively (P5); the SOCKS4 family stays out.
+    expect(v.safeParse(RequestSchema, withUrl('socks5://127.0.0.1:1080')).success).toBe(true);
+    expect(v.safeParse(RequestSchema, withUrl('socks5://user:pass@proxy.openheaders.io:1080')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('socks4://127.0.0.1:1080')).success).toBe(false);
+    expect(v.safeParse(RequestSchema, withUrl('socks://127.0.0.1:1080')).success).toBe(false);
     expect(v.safeParse(RequestSchema, withUrl('http://proxy.openheaders.io/path')).success).toBe(false);
     expect(v.safeParse(RequestSchema, withUrl('http://proxy.openheaders.io?q=1')).success).toBe(false);
     expect(v.safeParse(RequestSchema, withUrl('proxy.openheaders.io:3128')).success).toBe(false);

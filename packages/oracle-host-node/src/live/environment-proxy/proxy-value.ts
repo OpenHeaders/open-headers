@@ -14,11 +14,21 @@
 
 import type { EnvironmentProxyEntry } from './types';
 
+/** Whether a normalized proxy URL names a SOCKS5 proxy — the transport
+ *  layers that must pick the SOCKS dial (or refuse a pin it can't
+ *  carry) branch on this, never on ad-hoc scheme string checks. */
+export function isSocks5ProxyUrl(url: string): boolean {
+  return url.toLowerCase().startsWith('socks5://');
+}
+
 /**
  * Parse one configured proxy value into an entry, or `null` when the
- * value is empty or unusable. SOCKS schemes come back as
- * `kind: 'socks'` carrying the raw value — the transport owns the
- * honest failure.
+ * value is empty or unusable. The SOCKS5 family (`socks5://`,
+ * `socks://`, `socks5h://` — DNS-at-proxy is SOCKS5's default, so the
+ * `h` variant normalizes away) comes back as a dialable
+ * `socks5://host:port` entry; the SOCKS4 family the engine does not
+ * speak comes back as `kind: 'socks'` carrying the raw value — the
+ * transport owns the honest failure.
  */
 export function parseProxyValue(value: string): EnvironmentProxyEntry | null {
   const trimmed = value.trim();
@@ -30,19 +40,14 @@ export function parseProxyValue(value: string): EnvironmentProxyEntry | null {
   } catch {
     return null;
   }
-  const scheme = url.protocol.replace(/:$/, '').toLowerCase();
-  if (
-    scheme === 'socks' ||
-    scheme === 'socks4' ||
-    scheme === 'socks4a' ||
-    scheme === 'socks5' ||
-    scheme === 'socks5h'
-  ) {
+  const rawScheme = url.protocol.replace(/:$/, '').toLowerCase();
+  if (rawScheme === 'socks4' || rawScheme === 'socks4a') {
     return { kind: 'socks', raw: trimmed };
   }
-  if (scheme !== 'http' && scheme !== 'https') return null;
+  const scheme = rawScheme === 'socks' || rawScheme === 'socks5h' ? 'socks5' : rawScheme;
+  if (scheme !== 'http' && scheme !== 'https' && scheme !== 'socks5') return null;
   if (url.hostname === '') return null;
-  const port = url.port !== '' ? url.port : scheme === 'https' ? '443' : '80';
+  const port = url.port !== '' ? url.port : scheme === 'https' ? '443' : scheme === 'socks5' ? '1080' : '80';
   const credential =
     url.username !== '' ? `${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}` : undefined;
   return {

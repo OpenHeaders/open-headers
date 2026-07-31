@@ -163,8 +163,10 @@ describe('createNodeRequestTransport', () => {
     expect(form.get('field')).toBe('v');
     const file = form.get('upload');
     expect(file).toBeInstanceOf(Blob);
-    expect((file as File).name).toBe('doc.pdf');
-    expect((file as Blob).type).toBe('application/pdf');
+    // Narrowing instead of a File cast: undici ≥ 7.29 types the entry
+    // with node:buffer's File, which the DOM File type doesn't cover.
+    expect(file !== null && typeof file !== 'string' ? file.name : undefined).toBe('doc.pdf');
+    expect(file !== null && typeof file !== 'string' ? file.type : undefined).toBe('application/pdf');
   });
 
   it('honors a manual redirect policy', async () => {

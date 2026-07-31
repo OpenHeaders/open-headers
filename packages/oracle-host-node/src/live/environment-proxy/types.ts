@@ -14,9 +14,10 @@
  * Answers are fallback CHAINS in Chromium's semantics (`PROXY a;
  * PROXY b; DIRECT`): the transport walks the chain per send — the
  * first supported entry dials, a dial failure falls through to the
- * next, a `direct` entry means direct. SOCKS entries are carried
- * as-is (`kind: 'socks'`) so the transport can fail honestly naming
- * the resolved proxy until a SOCKS slice lands (P5).
+ * next, a `direct` entry means direct. SOCKS5 answers are dialable
+ * `kind: 'proxy'` entries like HTTP(S) ones (P5); only the SOCKS4
+ * family the engine does not speak rides `kind: 'socks'` so the
+ * transport can fail honestly naming the resolved proxy.
  */
 
 /** Where an environment-plane answer came from — wire truth + the P3
@@ -28,13 +29,14 @@ export type EnvironmentProxySource = 'env' | 'system' | 'manual' | 'pac';
 export type EnvironmentProxyEntry =
   /** Terminates the chain: connect directly. */
   | { kind: 'direct' }
-  /** An HTTP(S) proxy the send may tunnel through. `url` is a
-   *  normalized `http(s)://host:port` — credentials never ride it;
-   *  a `user:password` pair extracted from the configured value (the
+  /** A proxy the send may traverse — an HTTP(S) CONNECT tunnel or a
+   *  SOCKS5 dial. `url` is a normalized
+   *  `http(s)|socks5://host:port` — credentials never ride it; a
+   *  `user:password` pair extracted from the configured value (the
    *  env-var idiom) travels separately as `credential`. */
   | { kind: 'proxy'; url: string; credential?: string }
-  /** A SOCKS answer the engine cannot dial yet — carried verbatim so
-   *  the honest failure names what the machine resolved. */
+  /** A SOCKS4-family answer the engine does not speak — carried
+   *  verbatim so the honest failure names what the machine resolved. */
   | { kind: 'socks'; raw: string };
 
 export interface EnvironmentProxySelection {
