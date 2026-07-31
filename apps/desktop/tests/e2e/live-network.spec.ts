@@ -494,7 +494,7 @@ test('a wire flap re-subscribes the watch and replays what the wire missed', asy
 
 test('terminating the extension service worker self-heals the stream', async () => {
   if (!peerA) throw new Error('peer A not launched');
-  const cdp = await peerA.context.newCDPSession(peerA.popup);
+  const cdp = await peerA.context.newCDPSession(await peerPage(peerA));
   const { targetInfos } = (await cdp.send('Target.getTargets')) as {
     targetInfos: Array<{ targetId: string; type: string; url: string }>;
   };
@@ -505,7 +505,7 @@ test('terminating the extension service worker self-heals the stream', async () 
 
   // Revive: an extension page load spins the service worker back up;
   // the persisted registry redials, the relay re-subscribes the watch.
-  await peerA.popup.reload();
+  await (await peerPage(peerA)).reload();
   await expect.poll(peerCount, { timeout: 30000 }).toBe(1);
 
   // The stream is live again end to end. (How much history the replay
