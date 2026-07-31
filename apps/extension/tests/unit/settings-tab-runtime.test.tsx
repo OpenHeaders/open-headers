@@ -16,6 +16,7 @@ import { VaultContext, type VaultContextValue } from '@openheaders/ui/context';
 import { emptyDraft } from '@openheaders/ui/workbench/components/request-editor/draft';
 import { buildRequestTabItems } from '@openheaders/ui/workbench/components/request-editor/request-tab-items';
 import SettingsTab from '@openheaders/ui/workbench/components/request-editor/SettingsTab';
+import type { SettingsKnobKey } from '@openheaders/ui/workbench/components/request-editor/settings-unsaved';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -65,8 +66,8 @@ interface KnobValues {
   cookieJar?: boolean;
 }
 
-function renderTab(value: KnobValues = {}) {
-  return render(<SettingsTab value={value} onChange={() => {}} />);
+function renderTab(value: KnobValues = {}, unsaved?: SettingsKnobKey[]) {
+  return render(<SettingsTab value={value} onChange={() => {}} unsaved={unsaved && new Set(unsaved)} />);
 }
 
 /** Open an AntD Select dropdown; subsequent queries find the rendered items. */
@@ -90,6 +91,16 @@ function settingsDotCount(knobs: KnobValues = {}): number {
   const item = buildRequestTabItems(draft, NONE, t).find((i) => i.key === 'settings');
   const { container } = render(<div>{item?.label}</div>);
   return container.querySelectorAll('span[style*="border-radius: 50%"]').length;
+}
+
+/** Render the Settings tab label with an unsaved-key set and report
+ *  which dot tone it carries. */
+function settingsTabTone(knobs: KnobValues, unsaved: SettingsKnobKey[]): 'none' | 'default' | 'unsaved' {
+  const draft = { ...emptyDraft(), ...knobs };
+  const item = buildRequestTabItems(draft, NONE, t, undefined, new Set(unsaved)).find((i) => i.key === 'settings');
+  const { container } = render(<div>{item?.label}</div>);
+  if (container.querySelector('[data-testid="oh-section-unsaved"]')) return 'unsaved';
+  return container.querySelector('span[style*="border-radius: 50%"]') ? 'default' : 'none';
 }
 
 describe('SettingsTab on a browser runtime (capability absent)', () => {
@@ -404,23 +415,19 @@ describe('SettingsTab on a node runtime', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxRedirects: undefined }));
   });
 
-  it('dots modified rows and arms Reset to default', () => {
+  it('dots modified rows and renders no footer-wide reset', () => {
     registerCapability('requestRuntime', () => 'node');
-    const onChange = vi.fn();
-    render(<SettingsTab value={{ timeoutMs: 15000 }} onChange={onChange} />);
+    renderTab({ timeoutMs: 15000 });
     expect(screen.getAllByTestId('oh-setting-modified-dot')).toHaveLength(1);
-    const reset = screen.getByRole('button', { name: 'Reset to default' }) as HTMLButtonElement;
-    expect(reset.disabled).toBe(false);
-    fireEvent.click(reset);
-    expect(onChange).toHaveBeenCalledWith({});
+    // The per-row undo is the only reset affordance — no sticky
+    // all-knobs footer button.
+    expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
   });
 
-  it('disables Reset to default while every knob is at its default', () => {
+  it('shows no dots while every knob is at its default', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
     expect(screen.queryAllByTestId('oh-setting-modified-dot')).toHaveLength(0);
-    const reset = screen.getByRole('button', { name: 'Reset to default' }) as HTMLButtonElement;
-    expect(reset.disabled).toBe(true);
   });
 
   it('dots the tab for each trio knob only while redirects are followed', () => {
@@ -869,8 +876,6 @@ describe('SettingsTab row chrome and group folds', () => {
     registerCapability('requestRuntime', () => 'node');
     renderTab();
     expect(screen.queryByRole('button', { name: 'Reset Request timeout to default' })).toBeNull();
-    // The footer's full reset is unaffected by the per-row affordance.
-    expect(screen.getByRole('button', { name: 'Reset to default' })).toBeTruthy();
   });
 
   it('resets a switch row to undefined, not merely back on', () => {
@@ -919,6 +924,59 @@ describe('SettingsTab row chrome and group folds', () => {
     // Unfold again so the session store ends the suite at the default.
     fireEvent.click(screen.getByRole('button', { name: 'Execution & limits' }));
     expect(screen.getByRole('combobox', { name: 'Request timeout' })).toBeTruthy();
+  });
+});
+
+describe('SettingsTab unsaved (orange) dots', () => {
+  it('turns a modified row dot orange while the knob is unsaved', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ timeoutMs: 15000 }, ['timeoutMs']);
+    expect(screen.getAllByTestId('oh-setting-unsaved-dot')).toHaveLength(1);
+    expect(screen.queryAllByTestId('oh-setting-modified-dot')).toHaveLength(0);
+  });
+
+  it('keeps a saved non-default row dot blue', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({ timeoutMs: 15000 }, []);
+    expect(screen.getAllByTestId('oh-setting-modified-dot')).toHaveLength(1);
+    expect(screen.queryAllByTestId('oh-setting-unsaved-dot')).toHaveLength(0);
+  });
+
+  it('dots a row orange even at its default while the revert is unsaved', () => {
+    registerCapability('requestRuntime', () => 'node');
+    // Saved with TLS min 1.2, reverted to default, not yet saved: no
+    // blue dot would show, but the pending delta must stay visible.
+    renderTab({}, ['tlsMinVersion']);
+    expect(screen.getAllByTestId('oh-setting-unsaved-dot')).toHaveLength(1);
+    // The per-row undo stays armed only off the default — a reverted
+    // row has nothing to reset.
+    expect(screen.queryByRole('button', { name: 'Reset TLS version minimum to default' })).toBeNull();
+  });
+
+  it('carries the orange tone onto a collapsed group header', () => {
+    registerCapability('requestRuntime', () => 'node');
+    renderTab({}, ['tlsMinVersion']);
+    fireEvent.click(screen.getByRole('button', { name: 'TLS & trust' }));
+    // Collapsed header inherits the strongest child tone: 1 row dot
+    // before the fold, 1 header dot after.
+    expect(screen.getAllByTestId('oh-setting-unsaved-dot')).toHaveLength(1);
+    // Restore the session fold store for later suites.
+    fireEvent.click(screen.getByRole('button', { name: 'TLS & trust' }));
+  });
+
+  it('gives the Settings tab label the orange tone while any visible knob is unsaved', () => {
+    registerCapability('requestRuntime', () => 'node');
+    expect(settingsTabTone({ timeoutMs: 15000 }, ['timeoutMs'])).toBe('unsaved');
+    expect(settingsTabTone({ timeoutMs: 15000 }, [])).toBe('default');
+    expect(settingsTabTone({}, ['tlsMinVersion'])).toBe('unsaved');
+    expect(settingsTabTone({}, [])).toBe('none');
+  });
+
+  it('never orange-dots the tab for an unsaved knob with no control on this runtime', () => {
+    // Browser runtime: the capability is absent, so node-only knobs
+    // (TLS window, proxy, socket) contribute no tab dot even unsaved.
+    expect(settingsTabTone({}, ['tlsMinVersion', 'proxyMode', 'unixSocketPath'])).toBe('none');
+    expect(settingsTabTone({}, ['credentialsMode'])).toBe('unsaved');
   });
 });
 

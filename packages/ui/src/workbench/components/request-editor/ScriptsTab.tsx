@@ -45,6 +45,9 @@ interface ScriptsTabProps {
   workspaceId?: string | null;
   /** Open the Package Library tab (Packages popover footer). */
   onOpenPackageLibrary?: () => void;
+  /** Per-hook unsaved flags for the rail dots (see section-unsaved.ts). */
+  preRequestUnsaved?: boolean;
+  postResponseUnsaved?: boolean;
 }
 
 // `oh.*` API labels are code — only the descriptions localize.
@@ -107,8 +110,12 @@ const Rail: React.FC<{
   label: string;
   selected: boolean;
   hasScript: boolean;
+  /** This hook's script differs from the saved request — the dot
+   *  renders in the sidebar/tab-bar dirty salmon (and shows even on
+   *  an emptied-but-unsaved script), matching the tab-label tones. */
+  unsaved?: boolean;
   onSelect: (kind: ScriptKind) => void;
-}> = ({ kind, label, selected, hasScript, onSelect }) => {
+}> = ({ kind, label, selected, hasScript, unsaved, onSelect }) => {
   const { token } = theme.useToken();
   const t = useT();
   return (
@@ -137,13 +144,14 @@ const Rail: React.FC<{
       <span>{label}</span>
       <InfoTrigger content={scriptInfo(kind, t)} />
       <span style={{ flex: 1 }} />
-      {hasScript && (
+      {(unsaved === true || hasScript) && (
         <span
+          data-testid={unsaved === true ? 'oh-script-unsaved-dot' : undefined}
           style={{
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: token.colorPrimary,
+            background: unsaved === true ? '#ff7875' : token.colorPrimary,
             flexShrink: 0,
           }}
         />
@@ -159,6 +167,8 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   onPostResponseChange,
   workspaceId = null,
   onOpenPackageLibrary,
+  preRequestUnsaved,
+  postResponseUnsaved,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -236,6 +246,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           label={t('workbench.editors.request.scripts.preRequest')}
           selected={active === 'pre-request'}
           hasScript={preRequestScript.trim() !== ''}
+          unsaved={preRequestUnsaved}
           onSelect={setActive}
         />
         <Rail
@@ -243,6 +254,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           label={t('workbench.editors.request.scripts.postResponse')}
           selected={active === 'post-response'}
           hasScript={postResponseScript.trim() !== ''}
+          unsaved={postResponseUnsaved}
           onSelect={setActive}
         />
       </div>

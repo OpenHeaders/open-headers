@@ -17,6 +17,10 @@ import {
   buildRequestTabItems,
   type TabKey,
 } from '@openheaders/ui/workbench/components/request-editor/request-tab-items';
+import {
+  NO_UNSAVED_SECTIONS,
+  type UnsavedSections,
+} from '@openheaders/ui/workbench/components/request-editor/section-unsaved';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -41,6 +45,15 @@ function labelText(tab: TabKey, draft = emptyDraft()): string {
   const item = items.find((i) => i.key === tab);
   const { container } = render(<div>{item?.label}</div>);
   return (container.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** Render a tab's label with unsaved-section flags and return its
+ *  container for tone assertions. */
+function labelWithUnsaved(tab: TabKey, unsaved: Partial<UnsavedSections>, draft = emptyDraft()): HTMLElement {
+  const items = buildRequestTabItems(draft, NONE, t, undefined, undefined, { ...NO_UNSAVED_SECTIONS, ...unsaved });
+  const item = items.find((i) => i.key === tab);
+  const { container } = render(<div>{item?.label}</div>);
+  return container;
 }
 
 describe('request editor tab badge counts', () => {
@@ -78,5 +91,49 @@ describe('request editor tab badge counts', () => {
     };
     expect(labelText('params')).toBe('Params');
     expect(labelText('headers', draft)).toBe('Headers 1');
+  });
+});
+
+describe('request editor tab unsaved (salmon) tones', () => {
+  it('recolors the Headers/Params count badge while the section is unsaved', () => {
+    const draft = { ...emptyDraft(), headers: [kvRow('X-A', '1')] };
+    const on = labelWithUnsaved('headers', { headers: true }, draft);
+    expect(on.querySelector('[data-testid="oh-section-count-unsaved"]')?.textContent).toBe('1');
+    cleanup();
+    const off = labelWithUnsaved('headers', {}, draft);
+    expect(off.querySelector('[data-testid="oh-section-count-unsaved"]')).toBeNull();
+    expect(off.textContent?.trim()).toBe('Headers 1');
+  });
+
+  it('falls back to a bare unsaved dot when an unsaved section has no badge rows', () => {
+    // All rows removed but not yet saved: no count badge, dot stands in.
+    const container = labelWithUnsaved('params', { params: true });
+    expect(container.querySelector('[data-testid="oh-section-unsaved"]')).toBeTruthy();
+  });
+
+  it('gives Docs, Authorization, Body, and Scripts labels the unsaved dot', () => {
+    for (const [tab, unsaved] of [
+      ['docs', { docs: true }],
+      ['authorization', { auth: true }],
+      ['body', { body: true }],
+      ['scripts', { preRequestScript: true }],
+      ['scripts', { postResponseScript: true }],
+    ] as Array<[TabKey, Partial<UnsavedSections>]>) {
+      const container = labelWithUnsaved(tab, unsaved);
+      expect(container.querySelector('[data-testid="oh-section-unsaved"]')).toBeTruthy();
+      cleanup();
+    }
+    expect(labelWithUnsaved('docs', {}).querySelector('[data-testid="oh-section-unsaved"]')).toBeNull();
+  });
+
+  it('keeps the red unresolved tone above the unsaved tone on Body', () => {
+    const items = buildRequestTabItems(emptyDraft(), { ...NONE, body: true }, t, undefined, undefined, {
+      ...NO_UNSAVED_SECTIONS,
+      body: true,
+    });
+    const item = items.find((i) => i.key === 'body');
+    const { container } = render(<div>{item?.label}</div>);
+    expect(container.querySelector('[data-testid="oh-section-unresolved"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="oh-section-unsaved"]')).toBeNull();
   });
 });

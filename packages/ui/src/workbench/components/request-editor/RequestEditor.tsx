@@ -59,6 +59,8 @@ import EditorHeader from '../shell/EditorHeader';
 import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
 import { mergeRequestForSave } from './merge-request-for-save';
 import { firstInvalidRequestSetting, INVALID_SETTING_LABEL_KEY } from './settings-validity';
+import { settingsSlice, unsavedSettingKeys } from './settings-unsaved';
+import { unsavedSections } from './section-unsaved';
 import {
   type Draft,
   buildRequestUpdates,
@@ -247,12 +249,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // Edit mode: load full request from SW. Create mode: nothing to load.
   const initializedUidRef = useRef<string | null>(null);
 
+  // Structural projection of the draft — ONE projection feeds the
+  // dirty fingerprint AND every per-knob / per-section unsaved
+  // comparison below, so they can never disagree.
+  const draftUpdates = useMemo(() => buildRequestUpdates(draft), [draft]);
+
   // Form-fingerprint: structural projection of the draft. Empty string
   // pre-init so useReprime has a stable input; `enabled` gates seeding
   // until the SW load completes.
   const formFingerprint = useMemo(
-    () => (isInitialized ? stableStringify(buildRequestUpdates(draft)) : ''),
-    [draft, isInitialized],
+    () => (isInitialized ? stableStringify(draftUpdates) : ''),
+    [draftUpdates, isInitialized],
   );
 
   // Conflict-baseline ref pattern (canonical recipe — see RuleEditor /
@@ -262,6 +269,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // recent re-prime — feeds `mergeRequestForSave` so the save batch
   // only carries leaves the user actually edited.
   const baselineRequestRef = useRef<Request | null>(null);
+
+  // Last-primed request — the saved side of every unsaved comparison
+  // (per-knob settings dots, per-section tab tones). Stays null in
+  // create mode (no baseline: every non-empty section is unsaved) and
+  // advances with the conflict/merge baselines on every prime, so the
+  // salmon tones clear the moment a save echoes back.
+  const [savedRequest, setSavedRequest] = useState<Request | null>(null);
 
   const reprime = useReprime<Request>({
     liveEntity: liveRequest,
@@ -273,11 +287,27 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     onPrimed: (e) => {
       setBaselineRef.current(e);
       baselineRequestRef.current = e;
+      setSavedRequest(e);
     },
   });
   // Create mode: dirty until Save mints the entity. Edit mode: hook owns
   // the `formFp !== primedFp` comparison (BC1 by construction).
   const isDirty = isCreateMode ? true : reprime.isDirty;
+
+  // Saved side of the unsaved comparisons, in the same projection as
+  // `draftUpdates`. Create mode compares against an empty draft.
+  const savedUpdates = useMemo(
+    () => (savedRequest ? canonicalRequestProjection(savedRequest) : buildRequestUpdates(emptyDraft())),
+    [savedRequest],
+  );
+  // Per-knob unsaved settings — feeds the Settings tab label and the
+  // tab's row/group dots (the salmon tone outranks blue).
+  const unsavedSettings = useMemo(
+    () => unsavedSettingKeys(settingsSlice(draftUpdates), settingsSlice(savedUpdates)),
+    [draftUpdates, savedUpdates],
+  );
+  // Per-section unsaved tones for the remaining tab labels.
+  const unsavedTabSections = useMemo(() => unsavedSections(draftUpdates, savedUpdates), [draftUpdates, savedUpdates]);
 
   const conflicts = useRequestConflicts({
     liveRequest,
@@ -639,7 +669,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     );
   }
 
-  const tabItems = buildRequestTabItems(draft, sectionUnresolved, t, <ScriptModeTag workspaceId={workspaceId} />);
+  const tabItems = buildRequestTabItems(
+    draft,
+    sectionUnresolved,
+    t,
+    <ScriptModeTag workspaceId={workspaceId} />,
+    unsavedSettings,
+    unsavedTabSections,
+  );
 
   // Header consolidates the full URL row: method select + URL input in
   // the title (title has flex:1 so the URL input grows), Send in the
@@ -883,6 +920,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         workspaceId={workspaceId}
                         onOpenPackageLibrary={onOpenPackageLibrary}
                         onNavigateTab={setActiveTab}
+                        unsavedSettings={unsavedSettings}
+                        unsavedSections={unsavedTabSections}
                       />
                     </div>
                   </div>

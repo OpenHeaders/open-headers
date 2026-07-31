@@ -11,23 +11,28 @@ import { getCapability } from '@openheaders/core/capabilities';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { previewAuthContributions } from './auth-preview';
 import type { Draft } from './draft';
+import { NO_UNSAVED_SECTIONS, type UnsavedSections } from './section-unsaved';
+import { NO_UNSAVED_SETTINGS, type SettingsKnobKey } from './settings-unsaved';
 import type { SectionUnresolved } from './useSectionUnresolved';
 
 export type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';
 
-/** Mini count badge on a tab label. */
-const TabCount: React.FC<{ n: number }> = ({ n }) => {
+/** Mini count badge on a tab label. `unsaved` recolors it in the
+ *  sidebar/tab-bar dirty salmon — the section's rows differ from the
+ *  saved request, and the badge doubles as the dirty dot. */
+const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsaved }) => {
   const { token } = theme.useToken();
   return (
     <span
+      data-testid={unsaved === true ? 'oh-section-count-unsaved' : undefined}
       style={{
         display: 'inline-block',
         marginLeft: 4,
         padding: '0 6px',
         fontSize: 10,
         fontWeight: 500,
-        color: token.colorTextSecondary,
-        background: token.colorFillSecondary,
+        color: unsaved === true ? '#fff' : token.colorTextSecondary,
+        background: unsaved === true ? '#ff7875' : token.colorFillSecondary,
         borderRadius: 8,
         lineHeight: '16px',
       }}
@@ -39,19 +44,20 @@ const TabCount: React.FC<{ n: number }> = ({ n }) => {
 
 /** Small colored dot shown on a tab label to flag that the section
  *  has content OR an unresolved `{{ref}}`. `tone='error'` renders in
- *  red to match the inline mirror + sidebar badge — orange is
- *  reserved for the unsaved/dirty state on the Save button. */
-const TabDot: React.FC<{ tone?: 'default' | 'error' }> = ({ tone = 'default' }) => {
+ *  red to match the inline mirror + sidebar badge; `tone='unsaved'`
+ *  renders in the sidebar/tab-bar dirty salmon — the section holds
+ *  knobs that differ from the saved request (see settings-unsaved.ts). */
+const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ tone = 'default' }) => {
   const { token } = theme.useToken();
   return (
     <span
-      data-testid={tone === 'error' ? 'oh-section-unresolved' : undefined}
+      data-testid={tone === 'error' ? 'oh-section-unresolved' : tone === 'unsaved' ? 'oh-section-unsaved' : undefined}
       style={{
         display: 'inline-block',
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: tone === 'error' ? token.colorError : token.colorPrimary,
+        background: tone === 'error' ? token.colorError : tone === 'unsaved' ? '#ff7875' : token.colorPrimary,
         marginLeft: 4,
         verticalAlign: 'middle',
       }}
@@ -70,6 +76,8 @@ export function buildRequestTabItems(
   sectionUnresolved: SectionUnresolved,
   t: Translate,
   scriptsExtra?: React.ReactNode,
+  unsavedSettings: ReadonlySet<SettingsKnobKey> = NO_UNSAVED_SETTINGS,
+  unsaved: UnsavedSections = NO_UNSAVED_SECTIONS,
 ): { key: TabKey; label: React.ReactNode }[] {
   // Header badge counts the rows the user actually owns — their enabled
   // header rows plus the auth-derived `Authorization` row (shown locked
@@ -111,14 +119,59 @@ export function buildRequestTabItems(
       (draft.maxRedirects !== undefined ||
         draft.followOriginalHttpMethod === true ||
         draft.followAuthorizationHeader === true));
+  // Settings holds a knob that differs from the SAVED request — the
+  // orange (unsaved) tone outranks the blue non-default dot. Same
+  // per-runtime visibility gates as `settingsDirty`: a synced delta on
+  // a knob with no row here must not dot the tab. Hidden-row deltas
+  // (proxy URL with mode ≠ Custom, the redirect trio with follow off)
+  // only ever arrive together with a delta on their visible gate knob,
+  // which already counts.
+  const settingsUnsaved =
+    (browserRuntime && unsavedSettings.has('credentialsMode')) ||
+    unsavedSettings.has('followRedirects') ||
+    unsavedSettings.has('timeoutMs') ||
+    (!browserRuntime &&
+      (unsavedSettings.has('sslVerification') ||
+        unsavedSettings.has('tlsMinVersion') ||
+        unsavedSettings.has('tlsMaxVersion') ||
+        unsavedSettings.has('tlsCipherSuites') ||
+        unsavedSettings.has('httpVersion') ||
+        unsavedSettings.has('resolveToAddress') ||
+        unsavedSettings.has('clientCertificateRef') ||
+        unsavedSettings.has('proxyMode') ||
+        unsavedSettings.has('proxyUrl') ||
+        unsavedSettings.has('proxyCredentialRef') ||
+        unsavedSettings.has('unixSocketPath') ||
+        unsavedSettings.has('cookieJar') ||
+        unsavedSettings.has('maxResponseBytes') ||
+        unsavedSettings.has('maxRedirects') ||
+        unsavedSettings.has('followOriginalHttpMethod') ||
+        unsavedSettings.has('followAuthorizationHeader')));
 
+  // Tone precedence on every label: red unresolved > salmon unsaved >
+  // blue has-content. On the badge tabs (Params / Headers) the count
+  // badge itself carries the unsaved tone; a section whose rows were
+  // all removed but not yet saved has no badge, so a bare unsaved dot
+  // stands in.
   return [
-    { key: 'docs', label: t('workbench.editors.request.tab.docs') },
+    {
+      key: 'docs',
+      label: (
+        <span>
+          {t('workbench.editors.request.tab.docs')} {unsaved.docs && <TabDot tone="unsaved" />}
+        </span>
+      ),
+    },
     {
       key: 'params',
       label: (
         <span>
-          {t('workbench.editors.request.tab.params')} {paramCount > 0 && <TabCount n={paramCount} />}
+          {t('workbench.editors.request.tab.params')}{' '}
+          {paramCount > 0 ? (
+            <TabCount n={paramCount} unsaved={unsaved.params} />
+          ) : unsaved.params ? (
+            <TabDot tone="unsaved" />
+          ) : null}
           {sectionUnresolved.params && <TabDot tone="error" />}
         </span>
       ),
@@ -128,7 +181,7 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.authorization')}
-          {sectionUnresolved.auth && <TabDot tone="error" />}
+          {sectionUnresolved.auth ? <TabDot tone="error" /> : unsaved.auth ? <TabDot tone="unsaved" /> : null}
         </span>
       ),
     },
@@ -136,7 +189,12 @@ export function buildRequestTabItems(
       key: 'headers',
       label: (
         <span>
-          {t('workbench.editors.request.tab.headers')} {headerCount > 0 && <TabCount n={headerCount} />}
+          {t('workbench.editors.request.tab.headers')}{' '}
+          {headerCount > 0 ? (
+            <TabCount n={headerCount} unsaved={unsaved.headers} />
+          ) : unsaved.headers ? (
+            <TabDot tone="unsaved" />
+          ) : null}
           {sectionUnresolved.headers && <TabDot tone="error" />}
         </span>
       ),
@@ -146,7 +204,13 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.body')}{' '}
-          {sectionUnresolved.body ? <TabDot tone="error" /> : draft.body.type !== 'none' ? <TabDot /> : null}
+          {sectionUnresolved.body ? (
+            <TabDot tone="error" />
+          ) : unsaved.body ? (
+            <TabDot tone="unsaved" />
+          ) : draft.body.type !== 'none' ? (
+            <TabDot />
+          ) : null}
         </span>
       ),
     },
@@ -154,7 +218,12 @@ export function buildRequestTabItems(
       key: 'scripts',
       label: (
         <span>
-          {t('workbench.editors.request.tab.scripts')} {scriptsExtra} {scriptsMark > 0 && <TabDot />}
+          {t('workbench.editors.request.tab.scripts')} {scriptsExtra}{' '}
+          {unsaved.preRequestScript || unsaved.postResponseScript ? (
+            <TabDot tone="unsaved" />
+          ) : scriptsMark > 0 ? (
+            <TabDot />
+          ) : null}
         </span>
       ),
     },
@@ -162,7 +231,8 @@ export function buildRequestTabItems(
       key: 'settings',
       label: (
         <span>
-          {t('workbench.editors.request.tab.settings')} {settingsDirty && <TabDot />}
+          {t('workbench.editors.request.tab.settings')}{' '}
+          {settingsUnsaved ? <TabDot tone="unsaved" /> : settingsDirty ? <TabDot /> : null}
         </span>
       ),
     },

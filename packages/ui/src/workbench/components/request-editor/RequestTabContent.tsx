@@ -14,7 +14,9 @@ import type { KeyValueRowConflictBridge } from './KeyValueTable';
 import ParamsTab from './ParamsTab';
 import type { TabKey } from './request-tab-items';
 import ScriptsTab from './ScriptsTab';
+import type { UnsavedSections } from './section-unsaved';
 import SettingsTab from './SettingsTab';
+import { type SettingsKnobKey, settingsSlice } from './settings-unsaved';
 
 interface RequestTabContentProps {
   tab: TabKey;
@@ -31,6 +33,12 @@ interface RequestTabContentProps {
   /** Switch the editor's active sub-tab — drives the generated rows'
    *  "Go to …" jump links (Headers/Params → Authorization/Body/Settings). */
   onNavigateTab?: (tab: TabKey) => void;
+  /** Settings knobs differing from the saved request — the Settings
+   *  tab's salmon dots (see settings-unsaved.ts). */
+  unsavedSettings?: ReadonlySet<SettingsKnobKey>;
+  /** Per-section unsaved flags — feeds the Scripts tab's rail dots
+   *  (see section-unsaved.ts). */
+  unsavedSections?: UnsavedSections;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -42,6 +50,8 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   workspaceId,
   onOpenPackageLibrary,
   onNavigateTab,
+  unsavedSettings,
+  unsavedSections,
 }) => {
   switch (tab) {
     case 'docs':
@@ -82,33 +92,16 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           onPostResponseChange={(postResponseScript) => setDraft((d) => ({ ...d, postResponseScript }))}
           workspaceId={workspaceId}
           onOpenPackageLibrary={onOpenPackageLibrary}
+          preRequestUnsaved={unsavedSections?.preRequestScript}
+          postResponseUnsaved={unsavedSections?.postResponseScript}
         />
       );
     case 'settings':
       return (
         <SettingsTab
           workspaceId={workspaceId}
-          value={{
-            credentialsMode: draft.credentialsMode,
-            followRedirects: draft.followRedirects,
-            sslVerification: draft.sslVerification,
-            tlsMinVersion: draft.tlsMinVersion,
-            tlsMaxVersion: draft.tlsMaxVersion,
-            tlsCipherSuites: draft.tlsCipherSuites,
-            httpVersion: draft.httpVersion,
-            resolveToAddress: draft.resolveToAddress,
-            clientCertificateRef: draft.clientCertificateRef,
-            proxyMode: draft.proxyMode,
-            proxyUrl: draft.proxyUrl,
-            proxyCredentialRef: draft.proxyCredentialRef,
-            unixSocketPath: draft.unixSocketPath,
-            cookieJar: draft.cookieJar,
-            timeoutMs: draft.timeoutMs,
-            maxResponseBytes: draft.maxResponseBytes,
-            maxRedirects: draft.maxRedirects,
-            followOriginalHttpMethod: draft.followOriginalHttpMethod,
-            followAuthorizationHeader: draft.followAuthorizationHeader,
-          }}
+          unsaved={unsavedSettings}
+          value={settingsSlice(draft)}
           onChange={(next) =>
             setDraft((d) => ({
               ...d,

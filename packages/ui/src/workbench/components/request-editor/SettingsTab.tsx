@@ -161,7 +161,7 @@
  * remounts for the session; every field control shares one width so
  * the control column keeps a straight left edge; and a modified row
  * carries a per-row undo (the app Settings page's FieldRow idiom) so
- * one experiment can be undone without the footer's full reset. Every
+ * one experiment can be undone in place. Every
  * knob row's and group header's (i) opens the structured popover built
  * in SettingsRowInfo.tsx — one shared example send with the popover's
  * own slice highlighted, the network column-popover idiom.
@@ -169,7 +169,7 @@
 
 import { EyeInvisibleOutlined, EyeOutlined, UndoOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, ConfigProvider, Divider, Input, Select, Switch, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Input, Select, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { getCapability, type RequestRuntimeKind } from '@openheaders/core/capabilities';
@@ -206,6 +206,7 @@ import {
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
+import { NO_UNSAVED_SETTINGS, type SettingsKnobKey } from './settings-unsaved';
 import {
   type SettingsExampleToken,
   settingsExampleCard,
@@ -288,6 +289,11 @@ interface SettingsTabProps {
   /** Editing-scope workspace — target of the per-workspace Script
    *  execution chooser. `null` = the host's active workspace. */
   workspaceId?: string | null;
+  /** Knobs whose draft value differs from the SAVED request (see
+   *  settings-unsaved.ts) — their dots render in the sidebar/tab-bar
+   *  dirty salmon, outranking the blue non-default tone. Omitted = no
+   *  baseline, every dot keeps its blue non-default meaning. */
+  unsaved?: ReadonlySet<SettingsKnobKey>;
 }
 
 interface RuntimeManagedDef {
@@ -471,7 +477,7 @@ const sessionCollapsed: Record<string, boolean> = {};
 
 /** Per-row undo shown while the row's knob is off its default — the
  *  app Settings page's FieldRow reset idiom, so one experiment can be
- *  undone without the footer's full reset. */
+ *  undone in place. */
 const RowReset: React.FC<{ label: string; onReset: () => void }> = ({ label, onReset }) => {
   const t = useT();
   const title = t('workbench.editors.request.settings.resetRow', { label });
@@ -519,15 +525,16 @@ const KnobRow: React.FC<{
   warning?: string;
   warningWhenChecked?: boolean;
   modified?: boolean;
+  unsaved?: boolean;
   onReset?: () => void;
-}> = ({ label, checked, onChange, info, warning, warningWhenChecked, modified, onReset }) => {
+}> = ({ label, checked, onChange, info, warning, warningWhenChecked, modified, unsaved, onReset }) => {
   const t = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
         <Text style={{ fontSize: 13 }}>{label}</Text>
         <InfoTrigger content={info} />
-        {modified === true && <ModifiedDot />}
+        {(unsaved === true || modified === true) && <ModifiedDot unsaved={unsaved} />}
         <span style={{ flex: 1 }} />
         <Switch
           size="small"
@@ -577,11 +584,12 @@ const ComboKnobRow: React.FC<{
   interpret: (input: string) => ComboKnobOption<number>[];
   format: (value: number) => string;
   placeholder: string;
-}> = ({ label, value, onChange, info, presets, interpret, format, placeholder }) => (
+  unsaved?: boolean;
+}> = ({ label, value, onChange, info, presets, interpret, format, placeholder, unsaved }) => (
   <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
     <Text style={{ fontSize: 13 }}>{label}</Text>
     <InfoTrigger content={info} />
-    {value !== undefined && <ModifiedDot />}
+    {(unsaved === true || value !== undefined) && <ModifiedDot unsaved={unsaved} />}
     <span style={{ flex: 1 }} />
     <ComboKnob
       value={value}
@@ -616,14 +624,28 @@ const SelectKnobRow: React.FC<{
   allowClear?: boolean;
   testId?: string;
   modified?: boolean;
+  unsaved?: boolean;
   /** Row undo; defaults to clearing the value back to undefined. */
   onReset?: () => void;
-}> = ({ label, value, onChange, info, options, placeholder, warning, allowClear = true, testId, modified, onReset }) => (
+}> = ({
+  label,
+  value,
+  onChange,
+  info,
+  options,
+  placeholder,
+  warning,
+  allowClear = true,
+  testId,
+  modified,
+  unsaved,
+  onReset,
+}) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
       <InfoTrigger content={info} />
-      {(modified ?? value !== undefined) && <ModifiedDot />}
+      {(unsaved === true || (modified ?? value !== undefined)) && <ModifiedDot unsaved={unsaved} />}
       <span style={{ flex: 1 }} />
       <Select
         size="small"
@@ -669,14 +691,15 @@ const TextKnobRow: React.FC<{
   warning?: string;
   example?: string;
   testId?: string;
+  unsaved?: boolean;
   /** Row undo; defaults to clearing the value back to undefined. */
   onReset?: () => void;
-}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, example, testId, onReset }) => (
+}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, example, testId, unsaved, onReset }) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
       <InfoTrigger content={info} />
-      {value !== undefined && <ModifiedDot />}
+      {(unsaved === true || value !== undefined) && <ModifiedDot unsaved={unsaved} />}
       <span style={{ flex: 1 }} />
       <Input
         size="small"
@@ -752,21 +775,23 @@ const RuntimeManagedRow: React.FC<RuntimeManagedDef & { kicker: string }> = ({
   );
 };
 
-/** Accent dot after a row label whose knob differs from its default —
- *  the same affordance as the panel view-menu dots and the Settings
- *  tab's own label dot, so "what did I change here" reads at a
- *  glance. */
-const ModifiedDot: React.FC = () => {
+/** Accent dot after a row label: blue while the knob differs from its
+ *  default — the same affordance as the panel view-menu dots and the
+ *  Settings tab's own label dot, so "what did I change here" reads at
+ *  a glance — and the sidebar/tab-bar dirty salmon while it differs
+ *  from the SAVED request, so "what haven't I saved yet" reads the
+ *  same way. Unsaved wins while both hold. */
+const ModifiedDot: React.FC<{ unsaved?: boolean }> = ({ unsaved }) => {
   const { token } = theme.useToken();
   return (
     <span
-      data-testid="oh-setting-modified-dot"
+      data-testid={unsaved === true ? 'oh-setting-unsaved-dot' : 'oh-setting-modified-dot'}
       style={{
         display: 'inline-block',
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: token.colorPrimary,
+        background: unsaved === true ? '#ff7875' : token.colorPrimary,
         flexShrink: 0,
       }}
     />
@@ -777,8 +802,8 @@ const ModifiedDot: React.FC = () => {
  *  TLS & trust · redirects · cookies · execution) — the sidebar
  *  section idiom: rotating caret + uppercase title + rail, rows as
  *  children. A collapsed header carries the accent dot while any of
- *  its hidden knobs is off its default, so customizations never
- *  disappear behind a fold. */
+ *  its hidden knobs is off its default (orange while any is unsaved),
+ *  so customizations never disappear behind a fold. */
 const GroupSection: React.FC<{
   label: string;
   expanded: boolean;
@@ -786,8 +811,9 @@ const GroupSection: React.FC<{
   /** Header (i) popover — the group's slice of the shared example. */
   info?: InfoPopoverContent;
   modified?: boolean;
+  unsaved?: boolean;
   children: React.ReactNode;
-}> = ({ label, expanded, onToggle, info, modified, children }) => {
+}> = ({ label, expanded, onToggle, info, modified, unsaved, children }) => {
   const { token } = theme.useToken();
   return (
     <>
@@ -839,7 +865,7 @@ const GroupSection: React.FC<{
           {label}
         </Text>
         {info !== undefined && <InfoTrigger content={info} />}
-        {modified === true && !expanded && <ModifiedDot />}
+        {(unsaved === true || modified === true) && !expanded && <ModifiedDot unsaved={unsaved} />}
         <div style={{ flex: 1, height: 1, background: token.colorSplit }} />
       </div>
       {expanded && children}
@@ -852,7 +878,12 @@ const GroupSection: React.FC<{
  *  OTHER select already pinned, so min ≤ max holds by construction. */
 const tlsVersionRank = (version: TlsVersion): number => TLS_VERSIONS.indexOf(version);
 
-const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId = null }) => {
+const SettingsTab: React.FC<SettingsTabProps> = ({
+  value,
+  onChange,
+  workspaceId = null,
+  unsaved = NO_UNSAVED_SETTINGS,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const [showRuntimeManaged, setShowRuntimeManaged] = useState(false);
@@ -889,28 +920,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
   const formatHops = (count: number): string => t('workbench.editors.request.settings.maxRedirectsHops', { count });
   const redirectPresets = REDIRECT_PRESET_VALUES.map((v) => ({ value: v, label: formatHops(v) }));
   const interpretHops = countInterpreter(REDIRECT_BOUNDS, formatHops);
-  // Mirrors the tab-dot predicate: only knobs with a visible row on
-  // this runtime arm the reset action.
-  const anyModified =
-    value.followRedirects === false ||
-    value.timeoutMs !== undefined ||
-    (runtime === 'browser'
-      ? value.credentialsMode === 'include'
-      : value.sslVerification === false ||
-        value.tlsMinVersion !== undefined ||
-        value.tlsMaxVersion !== undefined ||
-        value.tlsCipherSuites !== undefined ||
-        value.clientCertificateRef !== undefined ||
-        (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
-        value.resolveToAddress !== undefined ||
-        value.proxyMode !== undefined ||
-        value.proxyUrl !== undefined ||
-        value.unixSocketPath !== undefined ||
-        value.cookieJar === true ||
-        value.maxResponseBytes !== undefined ||
-        value.maxRedirects !== undefined ||
-        value.followOriginalHttpMethod === true ||
-        value.followAuthorizationHeader === true);
   // Collapsible group state — all expanded by default; a collapsed
   // group's header keeps the accent dot while it hides a modified knob.
   // Folds seed from (and write back to) the session store, so a fold
@@ -945,6 +954,28 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
   const cookiesModified = runtime === 'browser' ? value.credentialsMode === 'include' : value.cookieJar === true;
   const executionModified =
     value.timeoutMs !== undefined || value.maxResponseBytes !== undefined || scriptMode.mode === 'developer';
+  // Per-group unsaved aggregation for the collapsed headers — same
+  // membership as the *Modified predicates above. The script-mode knob
+  // never contributes: it saves per-workspace on change, so it is
+  // never "unsaved" relative to the request.
+  const hasUnsaved = (...keys: SettingsKnobKey[]): boolean => keys.some((k) => unsaved.has(k));
+  const connUnsaved = hasUnsaved(
+    'httpVersion',
+    'resolveToAddress',
+    'proxyMode',
+    'proxyUrl',
+    'proxyCredentialRef',
+    'unixSocketPath',
+  );
+  const tlsUnsaved = hasUnsaved('sslVerification', 'tlsMinVersion', 'tlsMaxVersion', 'tlsCipherSuites', 'clientCertificateRef');
+  const redirectsUnsaved = hasUnsaved(
+    'followRedirects',
+    'maxRedirects',
+    'followOriginalHttpMethod',
+    'followAuthorizationHeader',
+  );
+  const cookiesUnsaved = runtime === 'browser' ? hasUnsaved('credentialsMode') : hasUnsaved('cookieJar');
+  const executionUnsaved = hasUnsaved('timeoutMs', 'maxResponseBytes');
 
   return (
     <ConfigProvider
@@ -970,6 +1001,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               onToggle={() => toggleGroup('connection')}
               info={settingsGroupInfo(t, 'connection')}
               modified={connModified}
+              unsaved={connUnsaved}
             >
             <SelectKnobRow
               label={t('workbench.editors.request.settings.httpVersion')}
@@ -985,6 +1017,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               ]}
               placeholder={t('workbench.editors.request.settings.httpVersionPlaceholder')}
               testId="oh-http-version-select"
+              unsaved={unsaved.has('httpVersion')}
             />
             <TextKnobRow
               label={t('workbench.editors.request.settings.resolveToAddress')}
@@ -999,6 +1032,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   : undefined
               }
               example={t('workbench.editors.request.settings.resolveToAddressExample')}
+              unsaved={unsaved.has('resolveToAddress')}
             />
             <SelectKnobRow
               label={t('workbench.editors.request.settings.proxy')}
@@ -1029,6 +1063,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               ]}
               placeholder={t('workbench.editors.request.settings.proxyModePlaceholder')}
               modified={value.proxyMode !== undefined || value.proxyUrl !== undefined}
+              unsaved={unsaved.has('proxyMode')}
               onReset={() =>
                 onChange({ ...value, proxyMode: undefined, proxyUrl: undefined, proxyCredentialRef: undefined })
               }
@@ -1052,6 +1087,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   placeholder={t('workbench.editors.request.settings.proxyUrlPlaceholder')}
                   testId="oh-proxy-url-input"
                   onReset={() => onChange({ ...value, proxyUrl: undefined, proxyCredentialRef: undefined })}
+                  unsaved={unsaved.has('proxyUrl')}
                   maxLength={MAX_PROXY_URL_LENGTH}
                   error={
                     value.proxyUrl === undefined
@@ -1075,6 +1111,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                     info={settingsRowInfo(t, 'proxyCredentials')}
                     options={proxyCredentialOptions}
                     placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
+                    unsaved={unsaved.has('proxyCredentialRef')}
                     warning={
                       proxyCredentialRefDangling
                         ? t('workbench.editors.request.settings.proxyCredentialsDangling', {
@@ -1106,6 +1143,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                     : undefined
               }
               example={t('workbench.editors.request.settings.unixSocketExample')}
+              unsaved={unsaved.has('unixSocketPath')}
             />
             </GroupSection>
             <GroupSection
@@ -1114,11 +1152,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               onToggle={() => toggleGroup('tls')}
               info={settingsGroupInfo(t, 'tls')}
               modified={tlsModified}
+              unsaved={tlsUnsaved}
             >
             <KnobRow
               label={t('workbench.editors.request.settings.sslVerification')}
               checked={value.sslVerification !== false}
               modified={value.sslVerification === false}
+              unsaved={unsaved.has('sslVerification')}
               onReset={() => onChange({ ...value, sslVerification: undefined })}
               onChange={(checked) => onChange({ ...value, sslVerification: checked })}
               info={settingsRowInfo(t, 'sslVerification')}
@@ -1135,6 +1175,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                 disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
               }))}
               placeholder={t('workbench.editors.request.settings.tlsMinPlaceholder')}
+              unsaved={unsaved.has('tlsMinVersion')}
               warning={
                 value.tlsMinVersion === '1.0' || value.tlsMinVersion === '1.1'
                   ? t('workbench.editors.request.settings.tlsMinWarning')
@@ -1152,6 +1193,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                 disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
               }))}
               placeholder={t('workbench.editors.request.settings.tlsMaxPlaceholder')}
+              unsaved={unsaved.has('tlsMaxVersion')}
             />
             <TextKnobRow
               label={t('workbench.editors.request.settings.tlsCipherSuites')}
@@ -1166,6 +1208,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
                   : undefined
               }
               example={t('workbench.editors.request.settings.tlsCipherSuitesExample')}
+              unsaved={unsaved.has('tlsCipherSuites')}
             />
             <SelectKnobRow
               label={t('workbench.editors.request.settings.clientCertificate')}
@@ -1174,6 +1217,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               info={settingsRowInfo(t, 'clientCertificate')}
               options={clientCertificateOptions}
               placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
+              unsaved={unsaved.has('clientCertificateRef')}
               warning={
                 clientCertificateRefDangling
                   ? t('workbench.editors.request.settings.clientCertificateDangling', {
@@ -1191,11 +1235,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               onToggle={() => toggleGroup('redirects')}
               info={settingsGroupInfo(t, 'redirects')}
               modified={redirectsModified}
+              unsaved={redirectsUnsaved}
             >
         <KnobRow
           label={t('workbench.editors.request.settings.followRedirects')}
           checked={value.followRedirects ?? true}
           modified={value.followRedirects === false}
+          unsaved={unsaved.has('followRedirects')}
           onReset={() => onChange({ ...value, followRedirects: undefined })}
           onChange={(checked) => onChange({ ...value, followRedirects: checked })}
           info={settingsRowInfo(t, 'followRedirects')}
@@ -1211,11 +1257,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               interpret={interpretHops}
               format={formatHops}
               placeholder={t('workbench.editors.request.settings.maxRedirectsPlaceholder')}
+              unsaved={unsaved.has('maxRedirects')}
             />
             <KnobRow
               label={t('workbench.editors.request.settings.followOriginalMethod')}
               checked={value.followOriginalHttpMethod === true}
               modified={value.followOriginalHttpMethod === true}
+              unsaved={unsaved.has('followOriginalHttpMethod')}
               onReset={() => onChange({ ...value, followOriginalHttpMethod: undefined })}
               onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
               info={settingsRowInfo(t, 'followOriginalMethod')}
@@ -1224,6 +1272,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.followAuthHeader')}
               checked={value.followAuthorizationHeader === true}
               modified={value.followAuthorizationHeader === true}
+              unsaved={unsaved.has('followAuthorizationHeader')}
               onReset={() => onChange({ ...value, followAuthorizationHeader: undefined })}
               onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
               info={settingsRowInfo(t, 'followAuthHeader')}
@@ -1239,12 +1288,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               onToggle={() => toggleGroup('cookies')}
               info={settingsGroupInfo(t, 'cookies')}
               modified={cookiesModified}
+              unsaved={cookiesUnsaved}
             >
         {runtime === 'browser' && (
           <KnobRow
             label={t('workbench.editors.request.settings.sendBrowserCookies')}
             checked={value.credentialsMode === 'include'}
             modified={value.credentialsMode === 'include'}
+            unsaved={unsaved.has('credentialsMode')}
             onReset={() => onChange({ ...value, credentialsMode: undefined })}
             onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
             info={settingsRowInfo(t, 'sendBrowserCookies')}
@@ -1256,6 +1307,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               label={t('workbench.editors.request.settings.cookieJar')}
               checked={value.cookieJar === true}
               modified={value.cookieJar === true}
+              unsaved={unsaved.has('cookieJar')}
               onReset={() => onChange({ ...value, cookieJar: undefined })}
               onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
               info={settingsRowInfo(t, 'cookieJar')}
@@ -1270,6 +1322,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
               onToggle={() => toggleGroup('execution')}
               info={settingsGroupInfo(t, 'execution')}
               modified={executionModified}
+              unsaved={executionUnsaved}
             >
         {runtime === 'node' && scriptMode.available && (
           <SelectKnobRow
@@ -1299,6 +1352,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
           interpret={interpretTimeout}
           format={formatDurationMs}
           placeholder={t('workbench.editors.request.settings.timeoutPlaceholder')}
+          unsaved={unsaved.has('timeoutMs')}
         />
         {runtime === 'node' && (
           <ComboKnobRow
@@ -1310,6 +1364,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
             interpret={interpretResponseSize}
             format={formatByteSize}
             placeholder={t('workbench.editors.request.settings.responseSizeLimitPlaceholder')}
+            unsaved={unsaved.has('maxResponseBytes')}
           />
         )}
 
@@ -1354,26 +1409,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange, workspaceId 
             ))}
           </div>
         )}
-        <div
-          style={{
-            position: 'sticky',
-            bottom: 0,
-            marginTop: 4,
-            paddingBottom: 4,
-            background: token.colorBgContainer,
-          }}
-        >
-          <Divider style={{ margin: '0 0 4px' }} />
-          <Button
-            size="small"
-            type="text"
-            disabled={!anyModified}
-            onClick={() => onChange({})}
-            style={{ fontSize: 12, ...(anyModified ? { color: token.colorTextSecondary } : {}) }}
-          >
-            {t('workbench.editors.request.settings.resetToDefault')}
-          </Button>
-        </div>
       </div>
     </ConfigProvider>
   );
