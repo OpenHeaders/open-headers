@@ -34,6 +34,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.deletedOtherTab': 'La solicitud se eliminó desde otra pestaña',
   'workbench.editors.request.toast.updateFailed': 'No se pudo actualizar la solicitud',
   'workbench.editors.request.toast.updateFailedDetail': 'No se pudo actualizar la solicitud: {message}',
+  'workbench.editors.request.toast.invalidSetting':
+    '{label} no es válido — corrígelo en «Configuración» antes de guardar.',
   'workbench.editors.request.toast.savedExample': 'Se guardó el ejemplo «{name}»',
   'workbench.editors.request.toast.saveExampleFailed': 'No se pudo guardar el ejemplo',
   'workbench.editors.request.toast.saveExampleFailedDetail': 'No se pudo guardar el ejemplo: {message}',
@@ -458,6 +460,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Suites por defecto del runtime',
   'workbench.editors.request.settings.tlsCipherSuitesError':
     'Solo nombres de suites OpenSSL separados por dos puntos — sin espacios.',
+  'workbench.editors.request.settings.tlsCipherSuitesExample':
+    'p. ej. TLS_AES_256_GCM_SHA384:ECDHE-RSA-AES128-GCM-SHA256',
   'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 saltos (por defecto)',
   'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} salto', many: '{count} saltos', other: '{count} saltos' }),
@@ -514,6 +518,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.resolveToAddressPlaceholder': 'DNS del sistema',
   'workbench.editors.request.settings.resolveToAddressError':
     'Solo direcciones IPv4 o IPv6 — sin nombre de host ni puerto.',
+  'workbench.editors.request.settings.resolveToAddressExample': 'p. ej. 10.0.0.12 o 2001:db8::1',
   'workbench.editors.request.settings.clientCertificate': 'Certificado de cliente',
   'workbench.editors.request.settings.clientCertificateInfo':
     'Presenta un certificado de cliente durante el handshake TLS, para APIs detrás de pasarelas de TLS ' +
@@ -560,6 +565,7 @@ export const workbenchEditorsRequest = {
     'El modo URL personalizada necesita una URL de proxy — introduce una, o vuelve al otro modo.',
   'workbench.editors.request.settings.proxyError':
     'Solo URL http://, https:// o socks5:// con host y puerto — sin credenciales en la URL.',
+  'workbench.editors.request.settings.proxyUrlExample': 'p. ej. http://127.0.0.1:8080 o socks5://127.0.0.1:1080',
   'workbench.editors.request.settings.proxyResolveConflict':
     'También define resolver-a-dirección, pero un proxy resuelve el nombre de host por sí mismo — los ' +
     'envíos fallarán hasta que se borre uno de los dos.',
@@ -589,6 +595,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.unixSocketResolveConflict':
     'También define resolver-a-dirección, pero una conexión por socket no resuelve ningún nombre de host — ' +
     'los envíos fallarán hasta que se borre uno de los dos.',
+  'workbench.editors.request.settings.unixSocketExample': 'p. ej. /var/run/docker.sock',
   'workbench.editors.request.settings.cookieJar': 'Usar el tarro de cookies',
   'workbench.editors.request.settings.cookieJarInfo':
     'Guarda las respuestas Set-Cookie de esta solicitud en el tarro de cookies propio de la aplicación y ' +
@@ -856,6 +863,33 @@ export const workbenchEditorsRequest = {
     'Nada — ninguna cookie almacenada coincidió, o ganó un encabezado Cookie definido en la solicitud.',
   'workbench.editors.request.response.meta.jarStoredLabel': 'Almacenadas desde respuestas Set-Cookie',
   'workbench.editors.request.response.meta.jarStoredNone': 'Nada — ninguna respuesta definió una cookie.',
+  'workbench.editors.request.response.meta.proxyTag': 'Vía proxy',
+  'workbench.editors.request.response.meta.proxyTitle': 'Ruta del proxy',
+  'workbench.editors.request.response.meta.proxySummaryRequest':
+    'Esta ejecución pasó en túnel por el proxy definido en la configuración de la propia solicitud — ' +
+    'registrado a partir de lo que el envío hizo realmente.',
+  'workbench.editors.request.response.meta.proxySummarySystem':
+    'Esta ejecución pasó en túnel por el proxy que nombra el sistema del dispositivo que la ejecuta — ' +
+    'registrado a partir de lo que la ejecución hizo realmente, nunca una lectura en vivo de los ajustes.',
+  'workbench.editors.request.response.meta.proxyRowUrl': 'Proxy',
+  'workbench.editors.request.response.meta.proxyRowSource': 'Decidido por',
+  'workbench.editors.request.response.meta.proxySourceRequest': 'Configuración de la solicitud',
+  'workbench.editors.request.response.meta.proxySourceDevice': 'Ajustes de proxy del dispositivo',
+  'workbench.editors.request.response.meta.proxySourceEnv': 'Variables de entorno',
+  'workbench.editors.request.response.meta.proxySourceSystem': 'Ajustes de proxy del sistema',
+  'workbench.editors.request.response.meta.proxySourceManual': 'Configuración manual del proxy',
+  'workbench.editors.request.response.meta.proxySourcePac': 'Script PAC',
+  'workbench.editors.request.response.meta.proxyStandDownTag': 'Proxy omitido',
+  'workbench.editors.request.response.meta.proxyStandDownTitle': 'El proxy del sistema se retiró',
+  'workbench.editors.request.response.meta.proxyStandDownUnixSocket':
+    'El sistema nombra un proxy, pero esta ejecución apunta a un socket local que un túnel de proxy no ' +
+    'puede marcar — continuó en directo.',
+  'workbench.editors.request.response.meta.proxyStandDownResolveToAddress':
+    'El sistema nombra un proxy, pero esta ejecución fija su propia resolución de dirección, que un proxy ' +
+    'sobrescribiría — continuó en directo.',
+  'workbench.editors.request.response.meta.proxyStandDownHttpVersion3':
+    'El sistema nombra un proxy, pero esta ejecución está fijada a HTTP/3, que marca su propia vía QUIC — ' +
+    'continuó en directo.',
   'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} redirección',

@@ -621,7 +621,7 @@ export const workbenchSettingsPanes = {
     'direkt.',
   'workbench.settings.systemProxy.mode.manual': 'Manuell',
   'workbench.settings.systemProxy.mode.manualDesc':
-    'Ein Proxy für alles, hier konfiguriert — mit Tresor-Anmeldedaten und Ausnahmeliste.',
+    'Ein Proxy für alles, hier konfiguriert — mit Anmeldedaten aus dem vault und Ausnahmeliste.',
   'workbench.settings.systemProxy.mode.pac': 'PAC',
   'workbench.settings.systemProxy.mode.pacDesc':
     'Eine PAC-Datei per URL oder lokalem Pfad entscheidet pro URL. Das Skript läuft nur innerhalb des ' +

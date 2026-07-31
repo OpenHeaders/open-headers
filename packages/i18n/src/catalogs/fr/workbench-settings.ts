@@ -155,8 +155,18 @@ export const workbenchSettings = {
     'Liez cet espace de travail à un dossier sur disque — une arborescence YAML vivante, adaptée à git.',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
-    "Mise en place de la confiance pour le proxy de capture — installez, vérifiez et retirez l'autorité de " +
-    'certification de cette machine.',
+    'Le proxy sortant de cet appareil — comment les requêtes atteignent le réseau — et la mise en place ' +
+    'de la confiance pour le proxy de capture.',
+  'workbench.settings.category.proxyOutbound.label': 'Proxy · Sortant',
+  'workbench.settings.category.proxyOutbound.navLabel': 'Sortant',
+  'workbench.settings.category.proxyOutbound.description':
+    'Le proxy sortant de cet appareil — comment les requêtes, sessions WebSocket et appels gRPC ' +
+    'atteignent le réseau.',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Confiance HTTPS',
+  'workbench.settings.category.proxyTrust.navLabel': 'Confiance HTTPS',
+  'workbench.settings.category.proxyTrust.description':
+    "L'autorité de certification et les magasins de confiance qui permettent de déchiffrer le trafic " +
+    'HTTPS pour inspection — créée sur cette machine, révocable ici.',
   'workbench.settings.category.data.label': 'Données',
   'workbench.settings.category.data.description': 'Diagnostics, import/export et maintenance destructive.',
   'workbench.settings.category.license.label': 'Licence',

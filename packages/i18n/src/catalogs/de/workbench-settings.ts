@@ -159,8 +159,18 @@ export const workbenchSettings = {
     'YAML-Baum.',
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
-    'Vertrauenseinrichtung für den Erfassungs-Proxy — die Zertifizierungsstelle dieser Maschine ' +
-    'installieren, prüfen und entfernen.',
+    'Der ausgehende Proxy dieses Geräts — wie Anfragen das Netzwerk erreichen — und die ' +
+    'Vertrauenseinrichtung für den Erfassungs-Proxy.',
+  'workbench.settings.category.proxyOutbound.label': 'Proxy · Ausgehend',
+  'workbench.settings.category.proxyOutbound.navLabel': 'Ausgehend',
+  'workbench.settings.category.proxyOutbound.description':
+    'Der ausgehende Proxy dieses Geräts — wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe das ' +
+    'Netzwerk erreichen.',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · HTTPS-Vertrauen',
+  'workbench.settings.category.proxyTrust.navLabel': 'HTTPS-Vertrauen',
+  'workbench.settings.category.proxyTrust.description':
+    'Die Zertifizierungsstelle und Vertrauensspeicher, die das Entschlüsseln von HTTPS-Verkehr zur ' +
+    'Inspektion erlauben — auf dieser Maschine erstellt, hier wieder entfernbar.',
   'workbench.settings.category.data.label': 'Daten',
   'workbench.settings.category.data.description': 'Diagnose, Import/Export und destruktive Wartung.',
   'workbench.settings.category.license.label': 'Lizenz',

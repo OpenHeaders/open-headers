@@ -621,7 +621,7 @@ export const workbenchSettingsPanes = {
     'connecte simplement en direct.',
   'workbench.settings.systemProxy.mode.manual': 'Manuel',
   'workbench.settings.systemProxy.mode.manualDesc':
-    'Un proxy pour tout, configuré ici — avec identifiants du coffre et liste de contournement.',
+    'Un proxy pour tout, configuré ici — avec identifiants du vault et liste de contournement.',
   'workbench.settings.systemProxy.mode.pac': 'PAC',
   'workbench.settings.systemProxy.mode.pacDesc':
     "Un fichier PAC par URL ou chemin local décide par URL. Le script ne s'exécute que dans la pile réseau " +

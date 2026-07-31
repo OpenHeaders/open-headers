@@ -45,6 +45,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.deletedOtherTab': 'Die Anfrage wurde aus einem anderen Tab gelöscht',
   'workbench.editors.request.toast.updateFailed': 'Die Anfrage ließ sich nicht aktualisieren',
   'workbench.editors.request.toast.updateFailedDetail': 'Die Anfrage ließ sich nicht aktualisieren: {message}',
+  'workbench.editors.request.toast.invalidSetting':
+    '{label} ist ungültig — korrigiere es in den Einstellungen, bevor du speicherst.',
   'workbench.editors.request.toast.savedExample': 'Beispiel „{name}“ gespeichert',
   'workbench.editors.request.toast.saveExampleFailed': 'Beispiel konnte nicht gespeichert werden',
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Beispiel konnte nicht gespeichert werden: {message}',
@@ -472,6 +474,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.tlsCipherSuitesPlaceholder': 'Standard-Suites der Laufzeitumgebung',
   'workbench.editors.request.settings.tlsCipherSuitesError':
     'Nur durch Doppelpunkte getrennte OpenSSL-Suite-Namen — keine Leerzeichen.',
+  'workbench.editors.request.settings.tlsCipherSuitesExample':
+    'z. B. TLS_AES_256_GCM_SHA384:ECDHE-RSA-AES128-GCM-SHA256',
   'workbench.editors.request.settings.maxRedirectsPlaceholder': '20 Hops (Standard)',
   'workbench.editors.request.settings.maxRedirectsHops': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Hop', other: '{count} Hops' }),
@@ -526,6 +530,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.resolveToAddressPlaceholder': 'System-DNS',
   'workbench.editors.request.settings.resolveToAddressError':
     'Nur IPv4- oder IPv6-Adressen — kein Hostname, kein Port.',
+  'workbench.editors.request.settings.resolveToAddressExample': 'z. B. 10.0.0.12 oder 2001:db8::1',
   'workbench.editors.request.settings.clientCertificate': 'Client-Zertifikat',
   'workbench.editors.request.settings.clientCertificateInfo':
     'Präsentiert während des TLS-Handshakes ein Client-Zertifikat, für APIs hinter Mutual-TLS-Gateways, ' +
@@ -572,6 +577,7 @@ export const workbenchEditorsRequest = {
     'Der Modus „Eigene URL“ braucht eine Proxy-URL — gib eine ein oder wechsle den Modus zurück.',
   'workbench.editors.request.settings.proxyError':
     'Nur http://-, https://- oder socks5://-URLs mit Host und Port — keine Anmeldedaten in der URL.',
+  'workbench.editors.request.settings.proxyUrlExample': 'z. B. http://127.0.0.1:8080 oder socks5://127.0.0.1:1080',
   'workbench.editors.request.settings.proxyResolveConflict':
     'Setzt auch „Zu Adresse auflösen“, aber ein Proxy löst den Hostnamen selbst auf — Sendevorgänge ' +
     'schlagen fehl, bis eine der beiden Einstellungen geleert wird.',
@@ -602,6 +608,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.unixSocketResolveConflict':
     'Setzt auch „Zu Adresse auflösen“, aber eine Socket-Verbindung löst keinen Hostnamen auf — ' +
     'Sendevorgänge schlagen fehl, bis eine der beiden Einstellungen geleert wird.',
+  'workbench.editors.request.settings.unixSocketExample': 'z. B. /var/run/docker.sock',
   'workbench.editors.request.settings.cookieJar': 'Cookie-Glas verwenden',
   'workbench.editors.request.settings.cookieJarInfo':
     'Speichert die Set-Cookie-Antworten dieser Anfrage im app-eigenen Cookie-Glas und hängt passende ' +
@@ -873,6 +880,33 @@ export const workbenchEditorsRequest = {
     'Nichts — kein gespeichertes Cookie passte, oder ein auf der Anfrage gesetzter Cookie-Header hat ' + 'gewonnen.',
   'workbench.editors.request.response.meta.jarStoredLabel': 'Aus Set-Cookie-Antworten gespeichert',
   'workbench.editors.request.response.meta.jarStoredNone': 'Nichts — keine Antwort hat ein Cookie gesetzt.',
+  'workbench.editors.request.response.meta.proxyTag': 'Über Proxy',
+  'workbench.editors.request.response.meta.proxyTitle': 'Proxy-Route',
+  'workbench.editors.request.response.meta.proxySummaryRequest':
+    'Dieser Lauf ging durch den Tunnel des Proxys aus den eigenen Anfrage-Einstellungen — aufgezeichnet ' +
+    'aus dem, was der Sendevorgang tatsächlich getan hat.',
+  'workbench.editors.request.response.meta.proxySummarySystem':
+    'Dieser Lauf ging durch den Tunnel des Proxys, den das System des ausführenden Geräts benennt — ' +
+    'aufgezeichnet aus dem, was der Lauf tatsächlich getan hat, nie eine Live-Abfrage der Einstellungen.',
+  'workbench.editors.request.response.meta.proxyRowUrl': 'Proxy',
+  'workbench.editors.request.response.meta.proxyRowSource': 'Entschieden durch',
+  'workbench.editors.request.response.meta.proxySourceRequest': 'Anfrage-Einstellungen',
+  'workbench.editors.request.response.meta.proxySourceDevice': 'Proxy-Einstellungen des Geräts',
+  'workbench.editors.request.response.meta.proxySourceEnv': 'Umgebungsvariablen',
+  'workbench.editors.request.response.meta.proxySourceSystem': 'System-Proxy-Einstellungen',
+  'workbench.editors.request.response.meta.proxySourceManual': 'Manuelle Proxy-Konfiguration',
+  'workbench.editors.request.response.meta.proxySourcePac': 'PAC-Script',
+  'workbench.editors.request.response.meta.proxyStandDownTag': 'Proxy umgangen',
+  'workbench.editors.request.response.meta.proxyStandDownTitle': 'System-Proxy ist zurückgetreten',
+  'workbench.editors.request.response.meta.proxyStandDownUnixSocket':
+    'Das System benennt einen Proxy, aber dieser Lauf zielt auf einen lokalen Socket, den ein Proxy-Tunnel ' +
+    'nicht anwählen kann — er lief direkt weiter.',
+  'workbench.editors.request.response.meta.proxyStandDownResolveToAddress':
+    'Das System benennt einen Proxy, aber dieser Lauf pinnt seine eigene Adressauflösung, die ein Proxy ' +
+    'überschreiben würde — er lief direkt weiter.',
+  'workbench.editors.request.response.meta.proxyStandDownHttpVersion3':
+    'Das System benennt einen Proxy, aber dieser Lauf ist auf HTTP/3 gepinnt, das seinen eigenen QUIC-Weg ' +
+    'anwählt — er lief direkt weiter.',
   'workbench.editors.request.response.meta.redirects': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Umleitung', other: '{count} Umleitungen' }),
   'workbench.editors.request.response.meta.redirectsTitle': 'Umleitungskette',
