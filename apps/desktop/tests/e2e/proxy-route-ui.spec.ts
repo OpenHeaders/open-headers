@@ -450,6 +450,33 @@ test.describe('system plane — the settings pane to the wire', () => {
     await closeSettings();
   });
 
+  test('Manual affordances: capability row, live URL validation, vault footer', async () => {
+    await openProxySettings();
+    await setEnvironmentMode('manual');
+    await expect(workbench.getByTestId('oh-sysproxy-manual-supported')).toContainText('SOCKS5');
+    await expect(workbench.getByTestId('oh-sysproxy-manual-url-hint')).toContainText('e.g.');
+
+    // Live validation: a host no resolver can dial flags before any
+    // blur, and the error line names the unsupported SOCKS4 family.
+    const url = workbench.getByTestId('oh-sysproxy-manual-url').filter({ visible: true }).first();
+    await url.fill("proxy;'=-example");
+    await expect(workbench.getByTestId('oh-sysproxy-manual-url-hint')).toContainText('SOCKS4');
+    await url.fill(`http://127.0.0.1:${connectProxy.port}`);
+    await expect(workbench.getByTestId('oh-sysproxy-manual-url-hint')).toContainText('e.g.');
+    await url.press('Enter');
+
+    // The credentials popup carries the sticky manage-in-vault footer.
+    await workbench.getByTestId('oh-sysproxy-manual-credential').filter({ visible: true }).first().click();
+    await expect(workbench.getByTestId('oh-sysproxy-credentials-manage')).toBeVisible();
+    await workbench.keyboard.press('Escape');
+    // Defocus the select before closing — its search input consumes
+    // the next Escape, which would strand the settings sheet open and
+    // hang whichever test follows.
+    await workbench.getByTestId('oh-sysproxy-manual-supported').click();
+    await closeSettings();
+    await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'hidden', timeout: 10_000 });
+  });
+
   test('an explicit per-request Direct opt-out beats the answering environment — quiet direct', async () => {
     await openRequest(environmentUid);
     await setRequestProxyMode('Direct — no proxy');

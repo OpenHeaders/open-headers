@@ -113,10 +113,15 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 /** One line under a field, request-settings idiom: the error while the
  *  current text is malformed, otherwise a muted "e.g. …" format sample
  *  aligned under the control column. */
-const FieldHint: React.FC<{ error: string | null; example: string }> = ({ error, example }) => {
+const FieldHint: React.FC<{ error: string | null; example: string; testId?: string }> = ({
+  error,
+  example,
+  testId,
+}) => {
   const { token } = theme.useToken();
   return (
     <div
+      data-testid={testId}
       style={{
         marginLeft: 162,
         maxWidth: 420,
@@ -397,6 +402,7 @@ const SystemProxySection: React.FC = () => {
                 />
               </div>
               <FieldHint
+                testId="oh-sysproxy-manual-url-hint"
                 error={manualUrlInvalid ? t('workbench.settings.systemProxy.manual.urlError') : null}
                 example={t('workbench.settings.systemProxy.manual.urlExample')}
               />
@@ -460,6 +466,7 @@ const SystemProxySection: React.FC = () => {
                 />
               </div>
               <FieldHint
+                testId="oh-sysproxy-manual-bypass-hint"
                 error={bypassInvalid ? t('workbench.settings.systemProxy.manual.bypassError') : null}
                 example={t('workbench.settings.systemProxy.manual.bypassExample')}
               />
@@ -512,6 +519,7 @@ const SystemProxySection: React.FC = () => {
                 </div>
               </div>
               <FieldHint
+                testId="oh-sysproxy-pac-hint"
                 error={
                   pacInvalid
                     ? t(
