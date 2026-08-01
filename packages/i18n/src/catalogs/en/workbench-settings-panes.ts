@@ -530,7 +530,9 @@ export const workbenchSettingsPanes = {
   // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
   'workbench.settings.systemProxy.title': 'Outbound proxy — this device',
   'workbench.settings.systemProxy.intro':
-    'How requests, WebSocket sessions, and gRPC calls from this machine reach the network. Device-local and never synced — everything follows it unless a request sets its own proxy mode.',
+    'How requests, WebSocket sessions, and gRPC calls from this machine reach the network.',
+  'workbench.settings.systemProxy.introNote':
+    'Device-local and never synced — everything follows it unless a request sets its own proxy mode.',
   'workbench.settings.systemProxy.mode.label': 'Mode',
   'workbench.settings.systemProxy.mode.infoTitle': 'Proxy modes',
   'workbench.settings.systemProxy.mode.infoSummary':

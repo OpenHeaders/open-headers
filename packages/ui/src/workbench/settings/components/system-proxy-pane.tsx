@@ -20,7 +20,7 @@ const SystemProxyPane: React.FC<CategoryPaneProps> = ({ category }) => {
   const description = resolveOptionalDescription(category, t);
 
   return (
-    <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
+    <div style={{ padding: '14px 18px 20px' }}>
       <header style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
           {resolveLabel(category, t)}

@@ -163,8 +163,11 @@ const SystemProxySection: React.FC = () => {
         <div style={{ fontSize: 12, fontWeight: 600, color: token.colorText, padding: '4px 0 2px' }}>
           {t('workbench.settings.systemProxy.title')}
         </div>
-        <p style={{ margin: '2px 0 8px', fontSize: 12, color: token.colorTextSecondary }}>
+        <p style={{ margin: '2px 0 0', fontSize: 12, color: token.colorTextSecondary }}>
           {t('workbench.settings.systemProxy.intro')}
+        </p>
+        <p style={{ margin: '0 0 8px', fontSize: 12, color: token.colorTextSecondary }}>
+          {t('workbench.settings.systemProxy.introNote')}
         </p>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -196,7 +199,7 @@ const SystemProxySection: React.FC = () => {
                   defaultValue={settings.manualProxyUrl ?? ''}
                   placeholder={t('workbench.settings.systemProxy.manual.urlPlaceholder')}
                   maxLength={512}
-                  style={{ maxWidth: 320 }}
+                  style={{ maxWidth: 420 }}
                   onBlur={(e) => {
                     const value = e.target.value.trim();
                     if (value !== (settings.manualProxyUrl ?? '')) {
@@ -217,7 +220,7 @@ const SystemProxySection: React.FC = () => {
                   allowClear
                   placeholder={t('workbench.settings.systemProxy.manual.credentialsPlaceholder')}
                   popupMatchSelectWidth={false}
-                  style={{ width: 320 }}
+                  style={{ width: 420 }}
                 />
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
@@ -228,7 +231,7 @@ const SystemProxySection: React.FC = () => {
                   defaultValue={settings.manualBypassList ?? ''}
                   placeholder={t('workbench.settings.systemProxy.manual.bypassPlaceholder')}
                   maxLength={2048}
-                  style={{ maxWidth: 320 }}
+                  style={{ maxWidth: 420 }}
                   onBlur={(e) => {
                     const value = e.target.value.trim();
                     if (value !== (settings.manualBypassList ?? '')) {
@@ -266,7 +269,7 @@ const SystemProxySection: React.FC = () => {
                       : 'workbench.settings.systemProxy.pac.filePlaceholder',
                   )}
                   maxLength={1024}
-                  style={{ width: 320 }}
+                  style={{ width: 420 }}
                   onBlur={(e) => {
                     const value = e.target.value.trim();
                     if (value !== (settings.pacSource ?? '')) {
@@ -300,7 +303,7 @@ const SystemProxySection: React.FC = () => {
               value={previewUrl}
               onChange={(e) => setPreviewUrl(e.target.value)}
               placeholder={t('workbench.settings.systemProxy.previewPlaceholder')}
-              style={{ maxWidth: 320 }}
+              style={{ maxWidth: 420 }}
               onPressEnter={() => void runResolve(previewUrl)}
             />
             <Button

@@ -511,8 +511,8 @@ export const workbenchSettingsPanes = {
 
   // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
   'workbench.settings.systemProxy.title': '出站代理——此设备',
-  'workbench.settings.systemProxy.intro':
-    '从这台机器发出的请求、WebSocket 会话和 gRPC 调用如何抵达网络。设备本地、永不同步——除非请求自己设置了代理模式，否则都遵循此处配置。',
+  'workbench.settings.systemProxy.intro': '从这台机器发出的请求、WebSocket 会话和 gRPC 调用如何抵达网络。',
+  'workbench.settings.systemProxy.introNote': '设备本地、永不同步——除非请求自己设置了代理模式，否则都遵循此处配置。',
   'workbench.settings.systemProxy.mode.label': '模式',
   'workbench.settings.systemProxy.mode.infoTitle': '代理模式',
   'workbench.settings.systemProxy.mode.infoSummary': '此设备如何为每个请求、WebSocket 会话与 gRPC 调用决定路由。',
