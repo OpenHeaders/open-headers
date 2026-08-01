@@ -4,6 +4,7 @@ All Open Headers release notes, every app, newest first. Full entries
 live under [`changelog/`](changelog/); download artifacts are on the
 [releases page](https://github.com/OpenHeaders/open-headers/releases).
 
+- **2026-08-01** · **CLI 2026.7.29** — [release notes](changelog/cli/2026/2026.7.29.md)
 - **2026-08-01** · **CLI 2026.7.28** — [release notes](changelog/cli/2026/2026.7.28.md)
 - **2026-08-01** · **Daemon 2026.7.28** — [release notes](changelog/daemon/2026/2026.7.28.md)
 - **2026-08-01** · **Desktop 2026.7.28** — [release notes](changelog/desktop/2026/2026.7.28.md)
