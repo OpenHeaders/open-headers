@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -50,6 +50,25 @@ const bunVersion = bunProbe.stdout.trim();
 
 // ── Compile ──────────────────────────────────────────────────────────
 
+// Mirrors src/bundling/changelog-entry.ts (the vite configs' define
+// source) — node can't import the TS module here; keep in lockstep.
+const entryVersion = manifest.version.replace(/-beta\.\d+$/, '');
+const entryPath = path.join(
+  packageRoot,
+  '..',
+  '..',
+  'changelog',
+  'cli',
+  entryVersion.split('.')[0] ?? '',
+  `${entryVersion}.md`,
+);
+const changelogEntry = existsSync(entryPath)
+  ? readFileSync(entryPath, 'utf8')
+      .replace(/^---\n[\s\S]*?\n---\n/, '')
+      .replaceAll('](./assets/', '](https://updates.openheaders.io/changelog/assets/cli/')
+      .trim()
+  : '';
+
 const binaryPath = path.join(outDir, process.platform === 'win32' ? 'oh.exe' : 'oh');
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
@@ -67,6 +86,8 @@ const build = spawnSync(
     '--bytecode',
     '--define',
     `__CLI_VERSION__=${JSON.stringify(manifest.version)}`,
+    '--define',
+    `__CLI_CHANGELOG__=${JSON.stringify(changelogEntry)}`,
     '--outfile',
     binaryPath,
     path.join('src', 'cli.ts'),
@@ -104,6 +125,15 @@ if (!unreachable.stderr.includes('no Open Headers daemon reachable')) {
   fail(`unreachable probe is missing the honest copy: ${unreachable.stderr}`);
 }
 
+const changelog = runBinary(['changelog']);
+if (changelog.status !== 0) fail(`changelog exited ${changelog.status}: ${changelog.stderr}`);
+if (changelogEntry !== '' && !changelog.stdout.includes(' — release notes')) {
+  fail('changelog probe: an entry exists but the binary printed the no-notes fallback');
+}
+if (changelogEntry === '' && !changelog.stdout.includes('no release notes')) {
+  fail('changelog probe: no entry exists but the binary printed notes');
+}
+
 const sizeMb = (statSync(binaryPath).size / (1024 * 1024)).toFixed(1);
-console.log('pack-bun: verified — version, help, unreachable exit 3');
+console.log('pack-bun: verified — version, help, unreachable exit 3, changelog embed');
 console.log(`pack-bun: binary ${binaryPath} (${sizeMb} MB, ${process.platform}-${process.arch}, bun ${bunVersion})`);
