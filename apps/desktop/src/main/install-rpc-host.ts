@@ -521,6 +521,16 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'oh.desktop.systemProxy.set') {
       return systemProxyService.setSettings(message.settings);
     }
+    if (type === 'oh.desktop.systemProxy.pickPacFile') {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          { name: 'PAC files', extensions: ['pac', 'js', 'dat'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+      });
+      return { path: result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0] };
+    }
     if (type === 'oh.desktop.systemProxy.resolve') {
       const url = typeof message.url === 'string' ? message.url.trim() : '';
       if (url === '') return { ok: false, error: 'A URL is required to preview resolution.' };

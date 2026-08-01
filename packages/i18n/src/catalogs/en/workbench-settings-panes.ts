@@ -531,6 +531,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.title': 'Outbound proxy — this device',
   'workbench.settings.systemProxy.intro':
     'How requests, WebSocket sessions, and gRPC calls from this machine reach the network. Device-local and never synced — everything follows it unless a request sets its own proxy mode.',
+  'workbench.settings.systemProxy.mode.label': 'Mode',
+  'workbench.settings.systemProxy.mode.infoTitle': 'Proxy modes',
+  'workbench.settings.systemProxy.mode.infoSummary':
+    'How this device decides the route each request, WebSocket session, and gRPC call takes.',
+  'workbench.settings.systemProxy.mode.infoHeading': 'Modes',
   'workbench.settings.systemProxy.mode.system': 'System',
   'workbench.settings.systemProxy.mode.systemDesc':
     'Follow this machine’s own proxy configuration — system settings, PAC files, and auto-discovery — exactly like the browser does. The default; an unmanaged machine simply connects directly.',
@@ -548,8 +553,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': 'No authentication',
   'workbench.settings.systemProxy.manual.bypass': 'Bypass list',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
-  'workbench.settings.systemProxy.pac.source': 'PAC URL or file',
-  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac or /path/to/proxy.pac',
+  'workbench.settings.systemProxy.pac.source': 'PAC',
+  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac',
+  'workbench.settings.systemProxy.pac.kindUrl': 'URL',
+  'workbench.settings.systemProxy.pac.kindFile': 'File',
+  'workbench.settings.systemProxy.pac.filePlaceholder': '/path/to/proxy.pac',
+  'workbench.settings.systemProxy.pac.browse': 'Browse…',
   'workbench.settings.systemProxy.saveFailed': 'The setting could not be saved: {message}',
   'workbench.settings.systemProxy.sourced': 'Resolves {url} to',
   'workbench.settings.systemProxy.refresh': 'Refresh',

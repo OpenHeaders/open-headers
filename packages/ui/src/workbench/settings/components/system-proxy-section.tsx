@@ -26,15 +26,16 @@ import type {
   SystemProxySettings,
 } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Input, Radio, Select, theme } from 'antd';
+import { Button, Input, Radio, Segmented, Select, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
 /** The sourced display's canonical probe target — one representative
  *  https URL; the per-URL preview answers everything else. */
-const PROBE_URL = 'https://api.openheaders.io';
+const PROBE_URL = 'https://openheaders.io';
 
 const MODE_LABEL: Record<DesktopSystemProxyMode, MessageKey> = {
   system: 'workbench.settings.systemProxy.mode.system',
@@ -78,6 +79,7 @@ const SystemProxySection: React.FC = () => {
   const [settings, setSettings] = useState<SystemProxySettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [probe, setProbe] = useState<{ text: string } | null>(null);
+  const [pacKind, setPacKind] = useState<'url' | 'file'>('url');
   const [previewUrl, setPreviewUrl] = useState('');
   const [preview, setPreview] = useState<{ url: string; text: string } | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -104,6 +106,8 @@ const SystemProxySection: React.FC = () => {
       try {
         const resp = await hostBridge.call('oh.desktop.systemProxy.get');
         setSettings(resp.settings);
+        const source = resp.settings.pacSource;
+        setPacKind(source !== undefined && !/^https?:\/\//i.test(source) ? 'file' : 'url');
         void refreshProbe(resp.settings.mode);
       } catch {
         // No service on this host — the section stays empty (the pane
@@ -147,6 +151,26 @@ const SystemProxySection: React.FC = () => {
     void persist({ ...settings, ...patch });
   };
 
+  const browsePacFile = async (): Promise<void> => {
+    const resp = await hostBridge.call('oh.desktop.systemProxy.pickPacFile');
+    if (resp.path !== null) setField({ pacSource: resp.path });
+  };
+
+  const modeInfo: InfoPopoverContent = {
+    title: t('workbench.settings.systemProxy.mode.infoTitle'),
+    summary: t('workbench.settings.systemProxy.mode.infoSummary'),
+    sections: [
+      {
+        heading: t('workbench.settings.systemProxy.mode.infoHeading'),
+        layout: 'stacked',
+        items: (['system', 'manual', 'pac', 'off'] as const).map((mode) => ({
+          label: t(MODE_LABEL[mode]),
+          desc: t(MODE_DESC[mode]),
+        })),
+      },
+    ],
+  };
+
   return (
     <section style={{ marginBottom: 14 }}>
       <div className="settings-card" style={{ padding: '8px 14px 12px' }}>
@@ -157,21 +181,21 @@ const SystemProxySection: React.FC = () => {
           {t('workbench.settings.systemProxy.intro')}
         </p>
 
-        <Radio.Group
-          data-testid="oh-sysproxy-mode"
-          value={settings.mode}
-          onChange={(e) => setField({ mode: e.target.value as DesktopSystemProxyMode })}
-          style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-        >
-          {(['system', 'manual', 'pac', 'off'] as const).map((mode) => (
-            <Radio key={mode} value={mode} data-testid={`oh-sysproxy-mode-${mode}`} style={{ alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: token.colorText }}>{t(MODE_LABEL[mode])}</span>
-              <span style={{ display: 'block', fontSize: 12, color: token.colorTextSecondary }}>
-                {t(MODE_DESC[mode])}
-              </span>
-            </Radio>
-          ))}
-        </Radio.Group>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <FieldLabel>{t('workbench.settings.systemProxy.mode.label')}</FieldLabel>
+          <Radio.Group
+            data-testid="oh-sysproxy-mode"
+            value={settings.mode}
+            onChange={(e) => setField({ mode: e.target.value as DesktopSystemProxyMode })}
+          >
+            {(['system', 'manual', 'pac', 'off'] as const).map((mode) => (
+              <Radio key={mode} value={mode} data-testid={`oh-sysproxy-mode-${mode}`}>
+                <span style={{ fontSize: 12 }}>{t(MODE_LABEL[mode])}</span>
+              </Radio>
+            ))}
+          </Radio.Group>
+          <InfoTrigger content={modeInfo} />
+        </div>
 
         {settings.mode === 'manual' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '10px 0 2px' }}>
@@ -231,21 +255,43 @@ const SystemProxySection: React.FC = () => {
         {settings.mode === 'pac' && (
           <div style={{ display: 'flex', gap: 12, margin: '10px 0 2px' }}>
             <FieldLabel>{t('workbench.settings.systemProxy.pac.source')}</FieldLabel>
-            <Input
-              size="small"
-              data-testid="oh-sysproxy-pac-source"
-              defaultValue={settings.pacSource ?? ''}
-              placeholder={t('workbench.settings.systemProxy.pac.sourcePlaceholder')}
-              maxLength={1024}
-              style={{ maxWidth: 420 }}
-              onBlur={(e) => {
-                const value = e.target.value.trim();
-                if (value !== (settings.pacSource ?? '')) {
-                  setField({ pacSource: value === '' ? undefined : value });
-                }
-              }}
-              onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Segmented
+                size="small"
+                data-testid="oh-sysproxy-pac-kind"
+                value={pacKind}
+                onChange={(value) => setPacKind(value as 'url' | 'file')}
+                options={[
+                  { value: 'url', label: t('workbench.settings.systemProxy.pac.kindUrl') },
+                  { value: 'file', label: t('workbench.settings.systemProxy.pac.kindFile') },
+                ]}
+              />
+              <Input
+                key={`${pacKind}:${settings.pacSource ?? ''}`}
+                size="small"
+                data-testid="oh-sysproxy-pac-source"
+                defaultValue={settings.pacSource ?? ''}
+                placeholder={t(
+                  pacKind === 'url'
+                    ? 'workbench.settings.systemProxy.pac.sourcePlaceholder'
+                    : 'workbench.settings.systemProxy.pac.filePlaceholder',
+                )}
+                maxLength={1024}
+                style={{ width: 320 }}
+                onBlur={(e) => {
+                  const value = e.target.value.trim();
+                  if (value !== (settings.pacSource ?? '')) {
+                    setField({ pacSource: value === '' ? undefined : value });
+                  }
+                }}
+                onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+              />
+              {pacKind === 'file' && (
+                <Button size="small" data-testid="oh-sysproxy-pac-browse" onClick={() => void browsePacFile()}>
+                  {t('workbench.settings.systemProxy.pac.browse')}
+                </Button>
+              )}
+            </div>
           </div>
         )}
 

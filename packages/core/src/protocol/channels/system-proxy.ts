@@ -44,4 +44,13 @@ export interface SystemProxyRpc {
     req: { url: string };
     res: { ok: true; resolution: SystemProxyResolution | null } | { ok: false; error: string };
   };
+  /**
+   * Native open dialog for the PAC file side of the settings surface —
+   * a desktop-shell concern (Electron dialog). `path: null` when the
+   * user cancels.
+   */
+  'oh.desktop.systemProxy.pickPacFile': {
+    req: Record<string, never>;
+    res: { path: string | null };
+  };
 }
