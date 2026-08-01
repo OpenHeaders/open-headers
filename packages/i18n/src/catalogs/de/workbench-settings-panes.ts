@@ -630,7 +630,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.system.unavailable': 'Die Systemkonfiguration konnte nicht gelesen werden: {message}',
   'workbench.settings.systemProxy.mode.manual': 'Manuell',
   'workbench.settings.systemProxy.mode.manualDesc':
-    'Ein Proxy für alles, hier konfiguriert — mit Anmeldedaten aus dem vault und Ausnahmeliste.',
+    'Ein Proxy für alles — HTTP, HTTPS oder SOCKS5 je nach URL-Schema — mit Anmeldedaten aus dem vault und Ausnahmeliste.',
   'workbench.settings.systemProxy.mode.pac': 'PAC',
   'workbench.settings.systemProxy.mode.pacDesc':
     'Eine PAC-Datei per URL oder lokalem Pfad entscheidet pro URL. Das Skript läuft nur innerhalb des ' +
@@ -638,16 +638,28 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.mode.off': 'Aus',
   'workbench.settings.systemProxy.mode.offDesc': 'Immer direkt verbinden, egal was die Maschine sagt.',
   'workbench.settings.systemProxy.manual.url': 'Proxy',
-  'workbench.settings.systemProxy.manual.urlPlaceholder': 'proxy.example:8080 oder http://proxy.example:8080',
+  'workbench.settings.systemProxy.manual.urlPlaceholder': 'Kein Proxy — direkte Verbindung',
+  'workbench.settings.systemProxy.manual.urlExample':
+    'z. B. http://proxy.example:8080 oder socks5://proxy.example:1080',
+  'workbench.settings.systemProxy.manual.urlError':
+    'Host:Port oder eine http://-, https://- oder socks5://-Proxy-URL eingeben — SOCKS4 wird nicht unterstützt.',
   'workbench.settings.systemProxy.manual.credentials': 'Anmeldedaten',
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': 'Keine Authentifizierung',
   'workbench.settings.systemProxy.manual.bypass': 'Ausnahmeliste',
-  'workbench.settings.systemProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
+  'workbench.settings.systemProxy.manual.bypassPlaceholder': 'Keine Ausnahmen — jeder Host nutzt den Proxy',
+  'workbench.settings.systemProxy.manual.bypassExample': 'z. B. localhost, .internal.example, 10.0.0.0/8',
+  'workbench.settings.systemProxy.manual.bypassError':
+    'Nur kommagetrennte Einträge — keine Leerzeichen innerhalb eines Eintrags, kein Schema.',
+  'workbench.settings.systemProxy.manual.supported': 'Unterstützt',
   'workbench.settings.systemProxy.pac.source': 'PAC',
-  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac',
+  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'Keine PAC-URL — direkte Verbindung',
+  'workbench.settings.systemProxy.pac.sourceExample': 'z. B. https://proxy.example/proxy.pac',
+  'workbench.settings.systemProxy.pac.sourceError': 'Muss eine http://- oder https://-PAC-URL sein.',
   'workbench.settings.systemProxy.pac.kindUrl': 'URL',
   'workbench.settings.systemProxy.pac.kindFile': 'Datei',
-  'workbench.settings.systemProxy.pac.filePlaceholder': '/pfad/zu/proxy.pac',
+  'workbench.settings.systemProxy.pac.filePlaceholder': 'Keine PAC-Datei — direkte Verbindung',
+  'workbench.settings.systemProxy.pac.fileExample': 'z. B. /pfad/zu/proxy.pac',
+  'workbench.settings.systemProxy.pac.fileError': 'Muss ein absoluter Dateipfad sein.',
   'workbench.settings.systemProxy.pac.browse': 'Durchsuchen…',
   'workbench.settings.systemProxy.saveFailed': 'Die Einstellung konnte nicht gespeichert werden: {message}',
   'workbench.settings.systemProxy.previewPlaceholder': 'URL-Vorschau — welche Route würde sie nehmen?',

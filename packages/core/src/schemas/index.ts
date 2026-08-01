@@ -170,6 +170,10 @@ export { ScriptPackageNameSchema, ScriptPackageSchema } from './script-package';
 export { SPEC_FORMATS, SpecFileNameSchema, SpecFileSchema, SpecFormatSchema, SpecSchema } from './spec';
 export {
   DESKTOP_SYSTEM_PROXY_MODES,
+  isValidPacFilePath,
+  isValidPacUrl,
+  isValidSystemProxyBypassList,
+  isValidSystemProxyValue,
   MAX_SYSTEM_PROXY_BYPASS_LENGTH,
   MAX_SYSTEM_PROXY_PAC_LENGTH,
   MAX_SYSTEM_PROXY_VALUE_LENGTH,

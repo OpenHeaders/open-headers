@@ -20,6 +20,12 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import {
+  isValidPacFilePath,
+  isValidPacUrl,
+  isValidSystemProxyBypassList,
+  isValidSystemProxyValue,
+} from '@openheaders/core/schemas';
 import type {
   DesktopSystemProxyMode,
   SystemProxyOsSnapshot,
@@ -103,6 +109,26 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+/** One line under a field, request-settings idiom: the error while the
+ *  current text is malformed, otherwise a muted "e.g. …" format sample
+ *  aligned under the control column. */
+const FieldHint: React.FC<{ error: string | null; example: string }> = ({ error, example }) => {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        marginLeft: 162,
+        maxWidth: 420,
+        fontSize: 11,
+        color: error !== null ? token.colorError : token.colorTextSecondary,
+        overflowWrap: 'anywhere',
+      }}
+    >
+      {error ?? example}
+    </div>
+  );
+};
+
 const SystemProxySection: React.FC = () => {
   const { token } = theme.useToken();
   const t = useT();
@@ -110,6 +136,11 @@ const SystemProxySection: React.FC = () => {
   const [settings, setSettings] = useState<SystemProxySettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pacKind, setPacKind] = useState<'url' | 'file'>('url');
+  // In-progress field text (null = not editing) so validation runs live
+  // while the persisted value still only changes on blur.
+  const [manualUrlDraft, setManualUrlDraft] = useState<string | null>(null);
+  const [bypassDraft, setBypassDraft] = useState<string | null>(null);
+  const [pacDraft, setPacDraft] = useState<string | null>(null);
   const [osSnapshot, setOsSnapshot] = useState<SystemProxyOsSnapshot | null>(null);
   const [osError, setOsError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState(DEFAULT_TARGET);
@@ -200,6 +231,14 @@ const SystemProxySection: React.FC = () => {
     void persist({ ...settings, ...patch });
   };
 
+  const manualUrlValue = manualUrlDraft ?? settings.manualProxyUrl ?? '';
+  const manualUrlInvalid = manualUrlValue.trim() !== '' && !isValidSystemProxyValue(manualUrlValue);
+  const bypassValue = bypassDraft ?? settings.manualBypassList ?? '';
+  const bypassInvalid = bypassValue.trim() !== '' && !isValidSystemProxyBypassList(bypassValue);
+  const pacValue = pacDraft ?? settings.pacSource ?? '';
+  const pacInvalid =
+    pacValue.trim() !== '' && (pacKind === 'url' ? !isValidPacUrl(pacValue) : !isValidPacFilePath(pacValue));
+
   const browsePacFile = async (): Promise<void> => {
     const resp = await hostBridge.call('oh.desktop.systemProxy.pickPacFile');
     if (resp.path !== null) setField({ pacSource: resp.path });
@@ -249,10 +288,10 @@ const SystemProxySection: React.FC = () => {
           <InfoTrigger content={modeInfo} />
         </div>
 
-        {/* Fixed-height slot sized to the tallest mode (System's note +
-            snapshot grid) so switching modes never bounces the rows
-            below. */}
-        <div style={{ minHeight: 112, margin: '10px 0 2px' }}>
+        {/* Fixed-height slot sized to the tallest mode (Manual's
+            capability row, three fields, and two hint lines) so
+            switching modes never bounces the rows below. */}
+        <div style={{ minHeight: 160, margin: '10px 0 2px' }}>
           {settings.mode === 'system' && (
             <div style={{ display: 'flex', gap: 12 }}>
               <FieldLabel>{t('workbench.settings.systemProxy.system.valuesLabel')}</FieldLabel>
@@ -315,17 +354,37 @@ const SystemProxySection: React.FC = () => {
           )}
           {settings.mode === 'manual' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* Capability statement — the URL scheme picks the protocol;
+                  raw wire vocabulary, the caption alone is localized. */}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <FieldLabel>{t('workbench.settings.systemProxy.manual.supported')}</FieldLabel>
+                <span
+                  data-testid="oh-sysproxy-manual-supported"
+                  style={{
+                    fontSize: 11,
+                    fontFamily: token.fontFamilyCode,
+                    color: token.colorTextSecondary,
+                    paddingTop: 5,
+                  }}
+                >
+                  HTTP ✓&emsp;HTTPS ✓&emsp;SOCKS5 ✓
+                </span>
+              </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <FieldLabel>{t('workbench.settings.systemProxy.manual.url')}</FieldLabel>
                 <Input
                   size="small"
                   data-testid="oh-sysproxy-manual-url"
-                  defaultValue={settings.manualProxyUrl ?? ''}
+                  value={manualUrlDraft ?? settings.manualProxyUrl ?? ''}
                   placeholder={t('workbench.settings.systemProxy.manual.urlPlaceholder')}
                   maxLength={512}
                   style={{ maxWidth: 420 }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim();
+                  status={manualUrlInvalid ? 'error' : undefined}
+                  onChange={(e) => setManualUrlDraft(e.target.value)}
+                  onBlur={() => {
+                    if (manualUrlDraft === null) return;
+                    const value = manualUrlDraft.trim();
+                    setManualUrlDraft(null);
                     if (value !== (settings.manualProxyUrl ?? '')) {
                       setField({ manualProxyUrl: value === '' ? undefined : value });
                     }
@@ -333,6 +392,10 @@ const SystemProxySection: React.FC = () => {
                   onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
                 />
               </div>
+              <FieldHint
+                error={manualUrlInvalid ? t('workbench.settings.systemProxy.manual.urlError') : null}
+                example={t('workbench.settings.systemProxy.manual.urlExample')}
+              />
               <div style={{ display: 'flex', gap: 12 }}>
                 <FieldLabel>{t('workbench.settings.systemProxy.manual.credentials')}</FieldLabel>
                 <Select
@@ -352,12 +415,16 @@ const SystemProxySection: React.FC = () => {
                 <Input
                   size="small"
                   data-testid="oh-sysproxy-manual-bypass"
-                  defaultValue={settings.manualBypassList ?? ''}
+                  value={bypassDraft ?? settings.manualBypassList ?? ''}
                   placeholder={t('workbench.settings.systemProxy.manual.bypassPlaceholder')}
                   maxLength={2048}
                   style={{ maxWidth: 420 }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim();
+                  status={bypassInvalid ? 'error' : undefined}
+                  onChange={(e) => setBypassDraft(e.target.value)}
+                  onBlur={() => {
+                    if (bypassDraft === null) return;
+                    const value = bypassDraft.trim();
+                    setBypassDraft(null);
                     if (value !== (settings.manualBypassList ?? '')) {
                       setField({ manualBypassList: value === '' ? undefined : value });
                     }
@@ -365,49 +432,74 @@ const SystemProxySection: React.FC = () => {
                   onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
                 />
               </div>
+              <FieldHint
+                error={bypassInvalid ? t('workbench.settings.systemProxy.manual.bypassError') : null}
+                example={t('workbench.settings.systemProxy.manual.bypassExample')}
+              />
             </div>
           )}
 
           {settings.mode === 'pac' && (
-            <div style={{ display: 'flex', gap: 12 }}>
-              <FieldLabel>{t('workbench.settings.systemProxy.pac.source')}</FieldLabel>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Segmented
-                  size="small"
-                  data-testid="oh-sysproxy-pac-kind"
-                  value={pacKind}
-                  onChange={(value) => setPacKind(value as 'url' | 'file')}
-                  options={[
-                    { value: 'url', label: t('workbench.settings.systemProxy.pac.kindUrl') },
-                    { value: 'file', label: t('workbench.settings.systemProxy.pac.kindFile') },
-                  ]}
-                />
-                <Input
-                  key={`${pacKind}:${settings.pacSource ?? ''}`}
-                  size="small"
-                  data-testid="oh-sysproxy-pac-source"
-                  defaultValue={settings.pacSource ?? ''}
-                  placeholder={t(
-                    pacKind === 'url'
-                      ? 'workbench.settings.systemProxy.pac.sourcePlaceholder'
-                      : 'workbench.settings.systemProxy.pac.filePlaceholder',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <FieldLabel>{t('workbench.settings.systemProxy.pac.source')}</FieldLabel>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Segmented
+                    size="small"
+                    data-testid="oh-sysproxy-pac-kind"
+                    value={pacKind}
+                    onChange={(value) => setPacKind(value as 'url' | 'file')}
+                    options={[
+                      { value: 'url', label: t('workbench.settings.systemProxy.pac.kindUrl') },
+                      { value: 'file', label: t('workbench.settings.systemProxy.pac.kindFile') },
+                    ]}
+                  />
+                  <Input
+                    size="small"
+                    data-testid="oh-sysproxy-pac-source"
+                    value={pacDraft ?? settings.pacSource ?? ''}
+                    placeholder={t(
+                      pacKind === 'url'
+                        ? 'workbench.settings.systemProxy.pac.sourcePlaceholder'
+                        : 'workbench.settings.systemProxy.pac.filePlaceholder',
+                    )}
+                    maxLength={1024}
+                    style={{ width: 420 }}
+                    status={pacInvalid ? 'error' : undefined}
+                    onChange={(e) => setPacDraft(e.target.value)}
+                    onBlur={() => {
+                      if (pacDraft === null) return;
+                      const value = pacDraft.trim();
+                      setPacDraft(null);
+                      if (value !== (settings.pacSource ?? '')) {
+                        setField({ pacSource: value === '' ? undefined : value });
+                      }
+                    }}
+                    onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+                  />
+                  {pacKind === 'file' && (
+                    <Button size="small" data-testid="oh-sysproxy-pac-browse" onClick={() => void browsePacFile()}>
+                      {t('workbench.settings.systemProxy.pac.browse')}
+                    </Button>
                   )}
-                  maxLength={1024}
-                  style={{ width: 420 }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim();
-                    if (value !== (settings.pacSource ?? '')) {
-                      setField({ pacSource: value === '' ? undefined : value });
-                    }
-                  }}
-                  onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-                />
-                {pacKind === 'file' && (
-                  <Button size="small" data-testid="oh-sysproxy-pac-browse" onClick={() => void browsePacFile()}>
-                    {t('workbench.settings.systemProxy.pac.browse')}
-                  </Button>
-                )}
+                </div>
               </div>
+              <FieldHint
+                error={
+                  pacInvalid
+                    ? t(
+                        pacKind === 'url'
+                          ? 'workbench.settings.systemProxy.pac.sourceError'
+                          : 'workbench.settings.systemProxy.pac.fileError',
+                      )
+                    : null
+                }
+                example={t(
+                  pacKind === 'url'
+                    ? 'workbench.settings.systemProxy.pac.sourceExample'
+                    : 'workbench.settings.systemProxy.pac.fileExample',
+                )}
+              />
             </div>
           )}
         </div>
