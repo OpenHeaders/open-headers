@@ -539,7 +539,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.manual.credentials': '凭据',
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': '无身份验证',
   'workbench.settings.systemProxy.manual.credentialsEmpty': '此设备的 vault 中还没有字符串条目。',
-  'workbench.settings.systemProxy.manual.credentialsOpenVault': '打开 vault',
+  'workbench.settings.systemProxy.manual.credentialsManage': '在 vault 中管理凭据',
   'workbench.settings.systemProxy.manual.bypass': '绕过列表',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': '无绕过——所有主机都走代理',
   'workbench.settings.systemProxy.manual.bypassExample': '例如 localhost, .internal.example, 10.0.0.0/8',

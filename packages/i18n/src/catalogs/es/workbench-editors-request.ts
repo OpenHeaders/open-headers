@@ -527,6 +527,9 @@ export const workbenchEditorsRequest = {
     'con ese nombre; el certificado y la clave nunca salen del vault. Déjalo vacío para conectar sin ' +
     'certificado de cliente.',
   'workbench.editors.request.settings.clientCertificatePlaceholder': 'Sin certificado de cliente',
+  'workbench.editors.request.settings.clientCertificateEmpty':
+    'Aún no hay entradas de certificado de cliente en el vault de este dispositivo.',
+  'workbench.editors.request.settings.vaultManageCertificates': 'Gestionar certificados en el vault',
   'workbench.editors.request.settings.clientCertificateDangling':
     'No hay ninguna entrada de certificado del vault llamada «{name}» en este dispositivo — los envíos ' +
     'fallarán hasta que la entrada exista o se borre este ajuste.',
@@ -576,6 +579,9 @@ export const workbenchEditorsRequest = {
     'local — las credenciales nunca salen del vault y se envían solo al proxy, nunca al destino. Déjalo ' +
     'vacío para un proxy sin autenticación.',
   'workbench.editors.request.settings.proxyCredentialsPlaceholder': 'Sin autenticación',
+  'workbench.editors.request.settings.proxyCredentialsEmpty':
+    'Aún no hay entradas de cadena en el vault de este dispositivo.',
+  'workbench.editors.request.settings.vaultManageCredentials': 'Gestionar credenciales en el vault',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'No hay ninguna entrada de texto del vault llamada «{name}» en este dispositivo — los envíos fallarán ' +
     'hasta que la entrada exista o se borre este ajuste.',

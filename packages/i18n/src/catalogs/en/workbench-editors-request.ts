@@ -428,6 +428,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.clientCertificateInfo':
     "Present a client certificate during the TLS handshake, for APIs behind mutual-TLS gateways that authenticate the caller by certificate. Pick a certificate entry from the vault — the request saves only the entry's name, and each device presents its own vault entry of that name; the certificate and key never leave the vault. Leave empty to connect without a client certificate.",
   'workbench.editors.request.settings.clientCertificatePlaceholder': 'No client certificate',
+  'workbench.editors.request.settings.clientCertificateEmpty':
+    'No client-certificate entries in this device’s vault yet.',
+  'workbench.editors.request.settings.vaultManageCertificates': 'Manage certificates in the vault',
   'workbench.editors.request.settings.clientCertificateDangling':
     'No vault certificate entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
   'workbench.editors.request.settings.proxy': 'Proxy',
@@ -460,6 +463,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyCredentialsInfo':
     "Authenticate against the proxy with credentials from the vault, as user:password in a string entry. The request saves only the entry's name, and each device resolves it against its own local vault — the credentials never leave the vault and are sent only to the proxy, never to the target. Leave empty for a proxy that needs no authentication.",
   'workbench.editors.request.settings.proxyCredentialsPlaceholder': 'No authentication',
+  'workbench.editors.request.settings.proxyCredentialsEmpty': 'No string entries in this device’s vault yet.',
+  'workbench.editors.request.settings.vaultManageCredentials': 'Manage credentials in the vault',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'No vault string entry named "{name}" on this device — sends will fail until the entry exists or this setting is cleared.',
   'workbench.editors.request.settings.unixSocket': 'Unix socket',

@@ -561,7 +561,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.manual.credentials': 'Credentials',
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': 'No authentication',
   'workbench.settings.systemProxy.manual.credentialsEmpty': 'No string entries in this device’s vault yet.',
-  'workbench.settings.systemProxy.manual.credentialsOpenVault': 'Open vault',
+  'workbench.settings.systemProxy.manual.credentialsManage': 'Manage credentials in the vault',
   'workbench.settings.systemProxy.manual.bypass': 'Bypass list',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': 'No bypass — every host uses the proxy',
   'workbench.settings.systemProxy.manual.bypassExample': 'e.g. localhost, .internal.example, 10.0.0.0/8',

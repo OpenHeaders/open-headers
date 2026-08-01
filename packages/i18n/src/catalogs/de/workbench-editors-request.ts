@@ -539,6 +539,9 @@ export const workbenchEditorsRequest = {
     'vault-Eintrag dieses Namens; Zertifikat und Schlüssel verlassen den vault nie. Leer lassen, um ohne ' +
     'Client-Zertifikat zu verbinden.',
   'workbench.editors.request.settings.clientCertificatePlaceholder': 'Kein Client-Zertifikat',
+  'workbench.editors.request.settings.clientCertificateEmpty':
+    'Noch keine Client-Zertifikat-Einträge im vault dieses Geräts.',
+  'workbench.editors.request.settings.vaultManageCertificates': 'Zertifikate im vault verwalten',
   'workbench.editors.request.settings.clientCertificateDangling':
     'Kein vault-Zertifikatseintrag namens „{name}“ auf diesem Gerät — Sendevorgänge schlagen fehl, bis der ' +
     'Eintrag existiert oder diese Einstellung geleert wird.',
@@ -588,6 +591,8 @@ export const workbenchEditorsRequest = {
     'seinen eigenen lokalen vault auf — die Anmeldedaten verlassen den vault nie und werden nur an den ' +
     'Proxy gesendet, nie an das Ziel. Leer lassen für einen Proxy ohne Authentifizierung.',
   'workbench.editors.request.settings.proxyCredentialsPlaceholder': 'Keine Authentifizierung',
+  'workbench.editors.request.settings.proxyCredentialsEmpty': 'Noch keine String-Einträge im vault dieses Geräts.',
+  'workbench.editors.request.settings.vaultManageCredentials': 'Anmeldedaten im vault verwalten',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'Kein vault-String-Eintrag namens „{name}“ auf diesem Gerät — Sendevorgänge schlagen fehl, bis der ' +
     'Eintrag existiert oder diese Einstellung geleert wird.',

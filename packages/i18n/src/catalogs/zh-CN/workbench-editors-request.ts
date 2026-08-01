@@ -429,6 +429,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.clientCertificateInfo':
     '在 TLS 握手期间出示客户端证书，用于双向 TLS 网关背后按证书验证调用方的 API。从 vault 中选择一个证书条目——请求只保存条目名称，每台设备出示自己同名的 vault 条目；证书和密钥绝不离开 vault。留空则不带客户端证书连接。',
   'workbench.editors.request.settings.clientCertificatePlaceholder': '无客户端证书',
+  'workbench.editors.request.settings.clientCertificateEmpty': '此设备的 vault 中还没有客户端证书条目。',
+  'workbench.editors.request.settings.vaultManageCertificates': '在 vault 中管理证书',
   'workbench.editors.request.settings.clientCertificateDangling':
     '此设备上没有名为“{name}”的 vault 证书条目——在该条目存在或此设置被清除之前，发送都会失败。',
   'workbench.editors.request.settings.proxy': '代理',
@@ -459,6 +461,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.proxyCredentialsInfo':
     '用 vault 中的凭据向代理进行身份验证，以 user:password 形式存入一个字符串条目。请求只保存条目名称，每台设备对照自己的本地 vault 解析——凭据绝不离开 vault，只发送给代理，绝不发送给目标。代理无需身份验证时留空。',
   'workbench.editors.request.settings.proxyCredentialsPlaceholder': '无身份验证',
+  'workbench.editors.request.settings.proxyCredentialsEmpty': '此设备的 vault 中还没有字符串条目。',
+  'workbench.editors.request.settings.vaultManageCredentials': '在 vault 中管理凭据',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     '此设备上没有名为“{name}”的 vault 字符串条目——在该条目存在或此设置被清除之前，发送都会失败。',
   'workbench.editors.request.settings.unixSocket': 'Unix 套接字',

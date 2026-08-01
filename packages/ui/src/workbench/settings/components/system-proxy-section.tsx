@@ -33,13 +33,13 @@ import type {
   SystemProxySettings,
 } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Divider, Input, Radio, Segmented, Select, theme } from 'antd';
+import { Button, ConfigProvider, Divider, Input, Radio, Segmented, Select, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { useOpenVault } from '../../hooks/OpenVaultContext';
+import VaultSelectFooter from '../../components/variables/VaultSelectFooter';
 
 /** The preview's canonical default target — schemeless (the resolve
  *  handler assumes https), auto-resolved when the pane opens. */
@@ -134,7 +134,6 @@ const SystemProxySection: React.FC = () => {
   const { token } = theme.useToken();
   const t = useT();
   const { vault } = useVaultContext();
-  const openVault = useOpenVault();
   const [settings, setSettings] = useState<SystemProxySettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pacKind, setPacKind] = useState<'url' | 'file'>('url');
@@ -143,6 +142,9 @@ const SystemProxySection: React.FC = () => {
   const [manualUrlDraft, setManualUrlDraft] = useState<string | null>(null);
   const [bypassDraft, setBypassDraft] = useState<string | null>(null);
   const [pacDraft, setPacDraft] = useState<string | null>(null);
+  // Controlled so the footer's navigate action can dismiss the popup —
+  // a footer click is not a selection, antd would leave it open.
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [osSnapshot, setOsSnapshot] = useState<SystemProxyOsSnapshot | null>(null);
   const [osError, setOsError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState(DEFAULT_TARGET);
@@ -400,41 +402,40 @@ const SystemProxySection: React.FC = () => {
               />
               <div style={{ display: 'flex', gap: 12 }}>
                 <FieldLabel>{t('workbench.settings.systemProxy.manual.credentials')}</FieldLabel>
-                <Select
-                  size="small"
-                  data-testid="oh-sysproxy-manual-credential"
-                  value={settings.manualCredentialRef}
-                  onChange={(manualCredentialRef) => setField({ manualCredentialRef })}
-                  options={credentialOptions}
-                  allowClear
-                  placeholder={t('workbench.settings.systemProxy.manual.credentialsPlaceholder')}
-                  popupMatchSelectWidth={false}
-                  style={{ width: 420 }}
-                  notFoundContent={
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        gap: 6,
-                        padding: '6px 8px',
-                      }}
-                    >
-                      <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                {/* Motion off: the footer's navigate-away dismissal must
+                    be instant, no leave transition over the vault tab. */}
+                <ConfigProvider theme={{ token: { motion: false } }}>
+                  <Select
+                    size="small"
+                    data-testid="oh-sysproxy-manual-credential"
+                    value={settings.manualCredentialRef}
+                    onChange={(manualCredentialRef) => setField({ manualCredentialRef })}
+                    options={credentialOptions}
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder={t('workbench.settings.systemProxy.manual.credentialsPlaceholder')}
+                    popupMatchSelectWidth={false}
+                    style={{ width: 420 }}
+                    notFoundContent={
+                      <span style={{ fontSize: 12, color: token.colorTextSecondary, padding: '6px 8px' }}>
                         {t('workbench.settings.systemProxy.manual.credentialsEmpty')}
                       </span>
-                      {openVault !== null && (
-                        <Button
-                          size="small"
-                          data-testid="oh-sysproxy-credentials-open-vault"
-                          onClick={() => openVault()}
-                        >
-                          {t('workbench.settings.systemProxy.manual.credentialsOpenVault')}
-                        </Button>
-                      )}
-                    </div>
-                  }
-                />
+                    }
+                    open={credentialsOpen}
+                    onOpenChange={setCredentialsOpen}
+                    popupRender={(menu) => (
+                      <>
+                        {menu}
+                        <VaultSelectFooter
+                          label={t('workbench.settings.systemProxy.manual.credentialsManage')}
+                          testId="oh-sysproxy-credentials-manage"
+                          onNavigate={() => setCredentialsOpen(false)}
+                        />
+                      </>
+                    )}
+                  />
+                </ConfigProvider>
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <FieldLabel>{t('workbench.settings.systemProxy.manual.bypass')}</FieldLabel>

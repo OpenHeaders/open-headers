@@ -204,6 +204,7 @@ import {
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import VaultSelectFooter from '../variables/VaultSelectFooter';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
 import { NO_UNSAVED_SETTINGS, type SettingsKnobKey } from './settings-unsaved';
@@ -622,6 +623,15 @@ const SelectKnobRow: React.FC<{
   warning?: string;
   /** Off for always-set knobs (a cleared field would be meaningless). */
   allowClear?: boolean;
+  /** Type-to-filter by option label — for open-ended lists (vault
+   *  entries), not fixed mode picklists. */
+  searchable?: boolean;
+  /** Custom empty state, e.g. naming where the options come from. */
+  notFoundContent?: React.ReactNode;
+  /** Sticky row under the option list, e.g. a manage-source action.
+   *  Receives a closer — a footer click is not a selection, so the
+   *  popup must be dismissed explicitly before navigating away. */
+  popupFooter?: (close: () => void) => React.ReactNode;
   testId?: string;
   modified?: boolean;
   unsaved?: boolean;
@@ -636,42 +646,73 @@ const SelectKnobRow: React.FC<{
   placeholder,
   warning,
   allowClear = true,
+  searchable = false,
+  notFoundContent,
+  popupFooter,
   testId,
   modified,
   unsaved,
   onReset,
-}) => (
-  <div style={{ display: 'flex', flexDirection: 'column' }}>
-    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-      <Text style={{ fontSize: 13 }}>{label}</Text>
-      <InfoTrigger content={info} />
-      {(unsaved === true || (modified ?? value !== undefined)) && <ModifiedDot unsaved={unsaved} />}
-      <span style={{ flex: 1 }} />
-      <Select
-        size="small"
-        aria-label={label}
-        data-testid={testId}
-        value={value}
-        onChange={(v) => onChange(v)}
-        options={options}
-        allowClear={allowClear}
-        placeholder={placeholder}
-        popupMatchSelectWidth={false}
-        style={{ width: CONTROL_WIDTH }}
-      />
-      <ResetSlot>
-        {(modified ?? value !== undefined) && (
-          <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />
+}) => {
+  // Controlled only when a footer needs to dismiss the popup itself;
+  // motion off so the navigate-away dismissal is instant, no leave
+  // transition lingering over the surface it navigated to.
+  const [open, setOpen] = useState(false);
+  const select = (
+    <Select
+      size="small"
+      aria-label={label}
+      data-testid={testId}
+      value={value}
+      onChange={(v) => onChange(v)}
+      options={options}
+      allowClear={allowClear}
+      showSearch={searchable}
+      optionFilterProp="label"
+      placeholder={placeholder}
+      popupMatchSelectWidth={false}
+      notFoundContent={notFoundContent}
+      open={popupFooter !== undefined ? open : undefined}
+      onOpenChange={popupFooter !== undefined ? setOpen : undefined}
+      popupRender={
+        popupFooter !== undefined
+          ? (menu) => (
+              <>
+                {menu}
+                {popupFooter(() => setOpen(false))}
+              </>
+            )
+          : undefined
+      }
+      style={{ width: CONTROL_WIDTH }}
+    />
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+        <Text style={{ fontSize: 13 }}>{label}</Text>
+        <InfoTrigger content={info} />
+        {(unsaved === true || (modified ?? value !== undefined)) && <ModifiedDot unsaved={unsaved} />}
+        <span style={{ flex: 1 }} />
+        {popupFooter !== undefined ? (
+          <ConfigProvider theme={{ token: { motion: false } }}>{select}</ConfigProvider>
+        ) : (
+          select
         )}
-      </ResetSlot>
+        <ResetSlot>
+          {(modified ?? value !== undefined) && (
+            <RowReset label={label} onReset={onReset ?? (() => onChange(undefined))} />
+          )}
+        </ResetSlot>
+      </div>
+      {warning !== undefined && (
+        <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
+          {warning}
+        </Text>
+      )}
     </div>
-    {warning !== undefined && (
-      <Text type="warning" style={{ fontSize: 11, marginBottom: 4 }}>
-        {warning}
-      </Text>
-    )}
-  </div>
-);
+  );
+};
 
 /** Compact text-knob row: same geometry, with a wider free-text input.
  *  Empty means "no explicit value" — the placeholder states the
@@ -1111,6 +1152,19 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                     info={settingsRowInfo(t, 'proxyCredentials')}
                     options={proxyCredentialOptions}
                     placeholder={t('workbench.editors.request.settings.proxyCredentialsPlaceholder')}
+                    searchable
+                    notFoundContent={
+                      <Text type="secondary" style={{ fontSize: 12, padding: '6px 8px' }}>
+                        {t('workbench.editors.request.settings.proxyCredentialsEmpty')}
+                      </Text>
+                    }
+                    popupFooter={(close) => (
+                      <VaultSelectFooter
+                        label={t('workbench.editors.request.settings.vaultManageCredentials')}
+                        testId="oh-proxy-credentials-manage"
+                        onNavigate={close}
+                      />
+                    )}
                     unsaved={unsaved.has('proxyCredentialRef')}
                     warning={
                       proxyCredentialRefDangling
@@ -1217,6 +1271,19 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               info={settingsRowInfo(t, 'clientCertificate')}
               options={clientCertificateOptions}
               placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
+              searchable
+              notFoundContent={
+                <Text type="secondary" style={{ fontSize: 12, padding: '6px 8px' }}>
+                  {t('workbench.editors.request.settings.clientCertificateEmpty')}
+                </Text>
+              }
+              popupFooter={(close) => (
+                <VaultSelectFooter
+                  label={t('workbench.editors.request.settings.vaultManageCertificates')}
+                  testId="oh-client-certificate-manage"
+                  onNavigate={close}
+                />
+              )}
               unsaved={unsaved.has('clientCertificateRef')}
               warning={
                 clientCertificateRefDangling

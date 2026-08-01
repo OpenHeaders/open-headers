@@ -531,6 +531,9 @@ export const workbenchEditorsRequest = {
     'ce nom ; le certificat et la clé ne quittent jamais le vault. Laissez vide pour vous connecter sans ' +
     'certificat client.',
   'workbench.editors.request.settings.clientCertificatePlaceholder': 'Aucun certificat client',
+  'workbench.editors.request.settings.clientCertificateEmpty':
+    'Aucune entrée de certificat client dans le vault de cet appareil pour l’instant.',
+  'workbench.editors.request.settings.vaultManageCertificates': 'Gérer les certificats dans le vault',
   'workbench.editors.request.settings.clientCertificateDangling':
     'Aucune entrée de certificat du vault nommée « {name} » sur cet appareil — les envois échoueront ' +
     "jusqu'à ce que l'entrée existe ou que ce réglage soit effacé.",
@@ -580,6 +583,9 @@ export const workbenchEditorsRequest = {
     'contre son propre vault local — les identifiants ne quittent jamais le vault et ne sont envoyés ' +
     "qu'au proxy, jamais à la cible. Laissez vide pour un proxy sans authentification.",
   'workbench.editors.request.settings.proxyCredentialsPlaceholder': 'Aucune authentification',
+  'workbench.editors.request.settings.proxyCredentialsEmpty':
+    'Aucune entrée de type chaîne dans le vault de cet appareil pour l’instant.',
+  'workbench.editors.request.settings.vaultManageCredentials': 'Gérer les identifiants dans le vault',
   'workbench.editors.request.settings.proxyCredentialsDangling':
     'Aucune entrée de type chaîne du vault nommée « {name} » sur cet appareil — les envois échoueront ' +
     "jusqu'à ce que l'entrée existe ou que ce réglage soit effacé.",
