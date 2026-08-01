@@ -540,8 +540,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.pac.filePlaceholder': '/path/to/proxy.pac',
   'workbench.settings.systemProxy.pac.browse': '浏览…',
   'workbench.settings.systemProxy.saveFailed': '设置无法保存：{message}',
-  'workbench.settings.systemProxy.sourced': '将 {url} 解析为',
-  'workbench.settings.systemProxy.refresh': '刷新',
   'workbench.settings.systemProxy.previewPlaceholder': '预览一个 URL——它会走哪条路由？',
   'workbench.settings.systemProxy.previewButton': '解析',
 

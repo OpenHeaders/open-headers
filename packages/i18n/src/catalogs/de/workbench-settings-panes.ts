@@ -611,9 +611,9 @@ export const workbenchSettingsPanes = {
   // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
   'workbench.settings.systemProxy.title': 'Ausgehender Proxy — dieses Gerät',
   'workbench.settings.systemProxy.intro':
-    'Wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe dieser Maschine das Netzwerk erreichen. ' +
-    'Gerätelokal und nie synchronisiert — alles folgt dem, außer eine Anfrage setzt ihren eigenen ' +
-    'Proxy-Modus.',
+    'Wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe dieser Maschine das Netzwerk erreichen.',
+  'workbench.settings.systemProxy.introNote':
+    'Gerätelokal und nie synchronisiert — alles folgt dem, außer eine Anfrage setzt ihren eigenen Proxy-Modus.',
   'workbench.settings.systemProxy.mode.label': 'Modus',
   'workbench.settings.systemProxy.mode.infoTitle': 'Proxy-Modi',
   'workbench.settings.systemProxy.mode.infoSummary':
@@ -646,8 +646,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.pac.filePlaceholder': '/pfad/zu/proxy.pac',
   'workbench.settings.systemProxy.pac.browse': 'Durchsuchen…',
   'workbench.settings.systemProxy.saveFailed': 'Die Einstellung konnte nicht gespeichert werden: {message}',
-  'workbench.settings.systemProxy.sourced': 'Löst {url} auf zu',
-  'workbench.settings.systemProxy.refresh': 'Aktualisieren',
   'workbench.settings.systemProxy.previewPlaceholder': 'URL-Vorschau — welche Route würde sie nehmen?',
   'workbench.settings.systemProxy.previewButton': 'Auflösen',
 

@@ -562,8 +562,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.pac.filePlaceholder': '/path/to/proxy.pac',
   'workbench.settings.systemProxy.pac.browse': 'Browse…',
   'workbench.settings.systemProxy.saveFailed': 'The setting could not be saved: {message}',
-  'workbench.settings.systemProxy.sourced': 'Resolves {url} to',
-  'workbench.settings.systemProxy.refresh': 'Refresh',
   'workbench.settings.systemProxy.previewPlaceholder': 'Preview a URL — what route would it take?',
   'workbench.settings.systemProxy.previewButton': 'Resolve',
 

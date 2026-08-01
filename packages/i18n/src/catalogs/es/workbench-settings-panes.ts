@@ -612,9 +612,9 @@ export const workbenchSettingsPanes = {
   // ── System-plane proxy section (REQUEST_ENGINE_PROXY_DESIGN.md P3) ─
   'workbench.settings.systemProxy.title': 'Proxy de salida — este dispositivo',
   'workbench.settings.systemProxy.intro':
-    'Cómo alcanzan la red las solicitudes, sesiones WebSocket y llamadas gRPC de esta máquina. Local al ' +
-    'dispositivo y nunca sincronizado — todo lo sigue, salvo que una solicitud defina su propio modo de ' +
-    'proxy.',
+    'Cómo alcanzan la red las solicitudes, sesiones WebSocket y llamadas gRPC de esta máquina.',
+  'workbench.settings.systemProxy.introNote':
+    'Local al dispositivo y nunca sincronizado — todo lo sigue, salvo que una solicitud defina su propio modo de proxy.',
   'workbench.settings.systemProxy.mode.label': 'Modo',
   'workbench.settings.systemProxy.mode.infoTitle': 'Modos de proxy',
   'workbench.settings.systemProxy.mode.infoSummary':
@@ -647,8 +647,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.pac.filePlaceholder': '/ruta/al/proxy.pac',
   'workbench.settings.systemProxy.pac.browse': 'Examinar…',
   'workbench.settings.systemProxy.saveFailed': 'El ajuste no se pudo guardar: {message}',
-  'workbench.settings.systemProxy.sourced': 'Resuelve {url} a',
-  'workbench.settings.systemProxy.refresh': 'Actualizar',
   'workbench.settings.systemProxy.previewPlaceholder': 'Previsualiza una URL — ¿qué ruta tomaría?',
   'workbench.settings.systemProxy.previewButton': 'Resolver',
 
