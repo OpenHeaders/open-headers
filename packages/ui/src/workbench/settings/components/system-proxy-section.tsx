@@ -22,6 +22,7 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import type {
   DesktopSystemProxyMode,
+  SystemProxyOsSnapshot,
   SystemProxyResolution,
   SystemProxySettings,
 } from '@openheaders/core/types';
@@ -36,6 +37,36 @@ import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/inf
 /** The preview's canonical default target — schemeless (the resolve
  *  handler assumes https), auto-resolved when the pane opens. */
 const DEFAULT_TARGET = 'openheaders.io';
+
+/** Platform-native key names for the System snapshot's rows — each
+ *  value is labeled what the OS itself calls it (raw wire vocabulary,
+ *  the caption alone is localized); `source` picks the vocabulary. */
+const SNAPSHOT_LABELS: Record<
+  SystemProxyOsSnapshot['source'],
+  { http: string; https: string; pac: string; bypass: string; wpad: string }
+> = {
+  'macos-system': {
+    http: 'HTTPProxy',
+    https: 'HTTPSProxy',
+    pac: 'ProxyAutoConfigURLString',
+    bypass: 'ExceptionsList',
+    wpad: 'ProxyAutoDiscoveryEnable',
+  },
+  'windows-registry': {
+    http: 'ProxyServer (http)',
+    https: 'ProxyServer (https)',
+    pac: 'AutoConfigURL',
+    bypass: 'ProxyOverride',
+    wpad: 'WPAD',
+  },
+  'process-env': {
+    http: 'http_proxy',
+    https: 'https_proxy',
+    pac: 'auto_proxy',
+    bypass: 'no_proxy',
+    wpad: 'WPAD',
+  },
+};
 
 const MODE_LABEL: Record<DesktopSystemProxyMode, MessageKey> = {
   system: 'workbench.settings.systemProxy.mode.system',
@@ -79,6 +110,8 @@ const SystemProxySection: React.FC = () => {
   const [settings, setSettings] = useState<SystemProxySettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pacKind, setPacKind] = useState<'url' | 'file'>('url');
+  const [osSnapshot, setOsSnapshot] = useState<SystemProxyOsSnapshot | null>(null);
+  const [osError, setOsError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState(DEFAULT_TARGET);
   const [preview, setPreview] = useState<{ url: string; text: string } | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -87,19 +120,41 @@ const SystemProxySection: React.FC = () => {
     .filter((s) => s.kind === 'string')
     .map((s) => ({ value: s.name, label: s.name }));
 
-  const runResolve = useCallback(async (url: string): Promise<void> => {
-    const target = url.trim();
-    if (target === '') return;
-    setPreviewBusy(true);
+  const fetchSnapshot = useCallback(async (): Promise<void> => {
     try {
-      const resp = await hostBridge.call('oh.desktop.systemProxy.resolve', { url: target });
-      setPreview({ url: target, text: resp.ok ? chainText(resp.resolution) : resp.error });
+      const resp = await hostBridge.call('oh.desktop.systemProxy.describe');
+      if (resp.ok) {
+        setOsSnapshot(resp.snapshot);
+        setOsError(null);
+      } else {
+        setOsSnapshot(null);
+        setOsError(resp.error);
+      }
     } catch (err) {
-      setPreview({ url: target, text: (err as Error).message });
-    } finally {
-      setPreviewBusy(false);
+      setOsSnapshot(null);
+      setOsError((err as Error).message);
     }
   }, []);
+
+  // Resolve is the ONE refresh verb: re-asking the machine re-reads the
+  // OS snapshot too, so the System display never needs its own button.
+  const runResolve = useCallback(
+    async (url: string): Promise<void> => {
+      const target = url.trim();
+      if (target === '') return;
+      setPreviewBusy(true);
+      void fetchSnapshot();
+      try {
+        const resp = await hostBridge.call('oh.desktop.systemProxy.resolve', { url: target });
+        setPreview({ url: target, text: resp.ok ? chainText(resp.resolution) : resp.error });
+      } catch (err) {
+        setPreview({ url: target, text: (err as Error).message });
+      } finally {
+        setPreviewBusy(false);
+      }
+    },
+    [fetchSnapshot],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -116,6 +171,14 @@ const SystemProxySection: React.FC = () => {
       }
     })();
   }, [runResolve]);
+
+  // The System slot's informational snapshot — read on every visit to
+  // the mode (and on every Resolve); informational only, resolution
+  // stays per-URL.
+  useEffect(() => {
+    if (settings?.mode !== 'system') return;
+    void fetchSnapshot();
+  }, [settings?.mode, fetchSnapshot]);
 
   const persist = useCallback(
     async (next: SystemProxySettings): Promise<void> => {
@@ -186,9 +249,69 @@ const SystemProxySection: React.FC = () => {
           <InfoTrigger content={modeInfo} />
         </div>
 
-        {/* Fixed-height slot sized to the tallest mode (Manual's three
-            rows) so switching modes never bounces the rows below. */}
-        <div style={{ minHeight: 84, margin: '10px 0 2px' }}>
+        {/* Fixed-height slot sized to the tallest mode (System's note +
+            snapshot grid) so switching modes never bounces the rows
+            below. */}
+        <div style={{ minHeight: 112, margin: '10px 0 2px' }}>
+          {settings.mode === 'system' && (
+            <div style={{ display: 'flex', gap: 12 }}>
+              <FieldLabel>{t('workbench.settings.systemProxy.system.valuesLabel')}</FieldLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {osError !== null ? (
+                  <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                    {t('workbench.settings.systemProxy.system.unavailable', { message: osError })}
+                  </span>
+                ) : (
+                  osSnapshot !== null && (
+                    <>
+                      <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                        {t('workbench.settings.systemProxy.system.sourcedNote', { source: osSnapshot.source })}
+                      </span>
+                      {/* Raw wire vocabulary — localized caption only. */}
+                      <div
+                        data-testid="oh-sysproxy-os-snapshot"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr',
+                          columnGap: 16,
+                          rowGap: 2,
+                          fontFamily: token.fontFamilyCode,
+                          fontSize: 11,
+                          color: token.colorText,
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        <span style={{ color: token.colorTextSecondary }}>
+                          {`[HTTP] ${SNAPSHOT_LABELS[osSnapshot.source].http}`}
+                        </span>
+                        <span>{osSnapshot.httpProxy ?? '—'}</span>
+                        <span style={{ color: token.colorTextSecondary }}>
+                          {`[HTTPS] ${SNAPSHOT_LABELS[osSnapshot.source].https}`}
+                        </span>
+                        <span>{osSnapshot.httpsProxy ?? '—'}</span>
+                        <span style={{ color: token.colorTextSecondary }}>
+                          {`[PAC] ${SNAPSHOT_LABELS[osSnapshot.source].pac}`}
+                        </span>
+                        <span>{osSnapshot.pacUrl ?? '—'}</span>
+                        <span style={{ color: token.colorTextSecondary }}>
+                          {`[BYPASS] ${SNAPSHOT_LABELS[osSnapshot.source].bypass}`}
+                        </span>
+                        <span>{osSnapshot.bypassList ?? '—'}</span>
+                        {osSnapshot.autoDetect === true && (
+                          <>
+                            <span style={{ color: token.colorTextSecondary }}>
+                              {`[WPAD] ${SNAPSHOT_LABELS[osSnapshot.source].wpad}`}
+                            </span>
+                            <span>on</span>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )
+                )}
+              </div>
+            </div>
+          )}
           {settings.mode === 'manual' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', gap: 12 }}>

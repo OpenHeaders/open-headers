@@ -97,6 +97,7 @@ import {
 import { installProductTelemetry } from './product-telemetry';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { installScriptSandbox } from './script-sandbox';
+import { describeOsProxy } from './system-proxy-describe';
 import { installSystemProxyService } from './system-proxy-install';
 import { createUpdateService, readUpdatePreferences } from './update-service';
 import { fetchDesktopSeverity } from './versions-manifest';
@@ -520,6 +521,13 @@ export async function installRpcHost(): Promise<void> {
     }
     if (type === 'oh.desktop.systemProxy.set') {
       return systemProxyService.setSettings(message.settings);
+    }
+    if (type === 'oh.desktop.systemProxy.describe') {
+      try {
+        return { ok: true, snapshot: await describeOsProxy() };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
     }
     if (type === 'oh.desktop.systemProxy.pickPacFile') {
       const result = await dialog.showOpenDialog({

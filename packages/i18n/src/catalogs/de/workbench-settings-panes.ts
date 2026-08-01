@@ -624,6 +624,10 @@ export const workbenchSettingsPanes = {
     'Folgt der Proxy-Konfiguration dieser Maschine — Systemeinstellungen, PAC-Dateien und automatische ' +
     'Erkennung — genau wie der Browser. Der Standard; eine unverwaltete Maschine verbindet sich einfach ' +
     'direkt.',
+  'workbench.settings.systemProxy.system.valuesLabel': 'Systemwerte',
+  'workbench.settings.systemProxy.system.sourcedNote':
+    'Von dieser Maschine gelesen ({source}) — die Auflösung antwortet weiterhin pro URL.',
+  'workbench.settings.systemProxy.system.unavailable': 'Die Systemkonfiguration konnte nicht gelesen werden: {message}',
   'workbench.settings.systemProxy.mode.manual': 'Manuell',
   'workbench.settings.systemProxy.mode.manualDesc':
     'Ein Proxy für alles, hier konfiguriert — mit Anmeldedaten aus dem vault und Ausnahmeliste.',

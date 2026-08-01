@@ -290,6 +290,7 @@ export type {
   DesktopSystemProxyMode,
   NodeSystemProxyMode,
   SystemProxyMode,
+  SystemProxyOsSnapshot,
   SystemProxyResolution,
   SystemProxyResolvedEntry,
   SystemProxyResolvedSource,

@@ -15,7 +15,7 @@
  * a chain entry carries `hasCredential`, never the credential value.
  */
 
-import type { SystemProxyResolution, SystemProxySettings } from '../../types';
+import type { SystemProxyOsSnapshot, SystemProxyResolution, SystemProxySettings } from '../../types';
 
 export interface SystemProxyRpc {
   /** Current per-device settings — absent storage reads as the tier
@@ -52,5 +52,14 @@ export interface SystemProxyRpc {
   'oh.desktop.systemProxy.pickPacFile': {
     req: Record<string, never>;
     res: { path: string | null };
+  };
+  /**
+   * Read-only snapshot of the OS-level proxy configuration — the
+   * System mode's informational display. Never an input to resolution:
+   * `resolve` answers per URL and always wins.
+   */
+  'oh.desktop.systemProxy.describe': {
+    req: Record<string, never>;
+    res: { ok: true; snapshot: SystemProxyOsSnapshot } | { ok: false; error: string };
   };
 }

@@ -520,6 +520,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.mode.system': '系统',
   'workbench.settings.systemProxy.mode.systemDesc':
     '遵循这台机器自己的代理配置——系统设置、PAC 文件与自动发现——与浏览器完全一致。默认值；未托管的机器就是直接连接。',
+  'workbench.settings.systemProxy.system.valuesLabel': '系统值',
+  'workbench.settings.systemProxy.system.sourcedNote': '读取自这台机器（{source}）——解析仍按每个 URL 应答。',
+  'workbench.settings.systemProxy.system.unavailable': '无法读取系统配置：{message}',
   'workbench.settings.systemProxy.mode.manual': '手动',
   'workbench.settings.systemProxy.mode.manualDesc': '在此配置一个代理用于所有流量——含 vault 凭据与绕过列表。',
   'workbench.settings.systemProxy.mode.pac': 'PAC',

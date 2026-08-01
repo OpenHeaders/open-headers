@@ -46,3 +46,25 @@ export interface SystemProxyResolution {
   entries: SystemProxyResolvedEntry[];
   source: SystemProxyResolvedSource;
 }
+
+/**
+ * Read-only snapshot of the OS-level proxy CONFIGURATION — what the
+ * machine's own settings say, shown in the System mode's slot of the
+ * settings surface. Informational only: `resolve` stays the honesty
+ * primitive, and resolution always answers per URL (a PAC script can
+ * answer differently for every target). Absent fields read as "not
+ * configured".
+ */
+export interface SystemProxyOsSnapshot {
+  /** Where the values were read from — the macOS system configuration,
+   *  the Windows per-user registry, or the process's HTTP_PROXY-family
+   *  variables (`process-env`, distinct from the product's Environment
+   *  concept). */
+  source: 'macos-system' | 'windows-registry' | 'process-env';
+  httpProxy?: string;
+  httpsProxy?: string;
+  pacUrl?: string;
+  bypassList?: string;
+  /** WPAD auto-discovery enabled (surfaced only where the OS records it). */
+  autoDetect?: boolean;
+}
