@@ -1,9 +1,12 @@
 name: Release Extension
 
+# Stable only: the extension has no beta channel — stores are its one
+# distribution, and the beta versions manifest carries no extension
+# entry.
 on:
   push:
     tags:
-      - 'v*-ext*'
+      - 'v*-ext'
 
 permissions:
   contents: write
@@ -35,13 +38,11 @@ jobs:
         id: parse_tag
         run: |
           RAW="${GITHUB_REF_NAME#v}"
-          # v4.1.4-ext-beta.1 → 4.1.4-beta.1 (beta), v4.1.4-ext → 4.1.4 (stable)
-          if [[ "$RAW" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-ext-beta\.([0-9]+)$ ]]; then
-            TAG="${BASH_REMATCH[1]}-beta.${BASH_REMATCH[2]}"
-          elif [[ "$RAW" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-ext$ ]]; then
+          # v4.1.4-ext → 4.1.4
+          if [[ "$RAW" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-ext$ ]]; then
             TAG="${BASH_REMATCH[1]}"
           else
-            echo "::error::Tag $GITHUB_REF_NAME does not match expected pattern v*-ext or v*-ext-beta.N"
+            echo "::error::Tag $GITHUB_REF_NAME does not match expected pattern v*-ext"
             exit 1
           fi
           echo "version=$TAG" >> $GITHUB_OUTPUT
@@ -52,34 +53,20 @@ jobs:
           TAG="${{ steps.parse_tag.outputs.version }}"
           PKG_VERSION=$(node -p "require('./package.json').version")
 
-          # Extract base version (strip -beta.N suffix)
-          TAG_BASE=$(echo "$TAG" | sed 's/-beta\.[0-9]*$//')
-          PKG_BASE=$(echo "$PKG_VERSION" | sed 's/-beta\.[0-9]*$//')
-
-          if [ "$TAG_BASE" != "$PKG_BASE" ]; then
-            echo "::error::Version mismatch! Tag base is $TAG_BASE but apps/extension/package.json base is $PKG_BASE"
-            echo "::error::Bump apps/extension/package.json to $TAG_BASE and commit before tagging."
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "::error::Version mismatch! Tag says $TAG but apps/extension/package.json says $PKG_VERSION"
+            echo "::error::Bump apps/extension/package.json to $TAG and commit before tagging."
             exit 1
           fi
 
-          echo "Extension version verified: tag=$TAG, package.json=$PKG_VERSION (base: $TAG_BASE)"
-
-          # Set the full tag version in package.json for the build
-          node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json'));p.version='$TAG';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          echo "Extension version verified: tag=$TAG, package.json=$PKG_VERSION"
 
       - name: Align manifests with version
         working-directory: apps/extension
         run: |
           TAG="${{ steps.parse_tag.outputs.version }}"
-
-          if [[ "$TAG" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-beta\.([0-9]+)$ ]]; then
-            MANIFEST_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-          else
-            MANIFEST_VERSION="$TAG"
-          fi
-
           for manifest in manifests/*/manifest.json; do
-            node -e "const fs=require('fs'),m=JSON.parse(fs.readFileSync('$manifest'));m.version='$MANIFEST_VERSION';fs.writeFileSync('$manifest',JSON.stringify(m,null,2)+'\n')"
+            node -e "const fs=require('fs'),m=JSON.parse(fs.readFileSync('$manifest'));m.version='$TAG';fs.writeFileSync('$manifest',JSON.stringify(m,null,2)+'\n')"
           done
 
       - name: Build core package
@@ -93,48 +80,28 @@ jobs:
         env:
           OH_EXT_CHANNEL: release
 
-      - name: Determine release type
-        id: release_type
-        run: |
-          if [[ "${{ github.ref_name }}" =~ -ext-beta\.[0-9]+$ ]]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Generate Release Body
         id: ext_repo
         run: |
           TAG="${{ steps.parse_tag.outputs.version }}"
           EXT_REPO_TAG="v${TAG}"
           echo "tag=${EXT_REPO_TAG}" >> $GITHUB_OUTPUT
-          IS_PRERELEASE="${{ steps.release_type.outputs.is_prerelease }}"
 
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            {
-              echo '> **This is a beta build for early testing.** It may contain bugs.'
-              echo ''
-              echo '## Installation'
-              echo ''
-              echo 'Beta builds carry their own extension ids and install through unlisted store listings — install links land here once those listings are published.'
-            } > release_body.md
-          else
-            {
-              echo '## Installation'
-              echo ''
-              echo "Install from your browser's store:"
-              echo ''
-              echo '- [Chrome Web Store](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)'
-              echo '- [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/gnbibobkkddlflknjkgcmokdlpddegpo)'
-              echo '- Firefox (AMO): listing pending'
-            } > release_body.md
-          fi
+          {
+            echo '## Installation'
+            echo ''
+            echo "Install from your browser's store:"
+            echo ''
+            echo '- [Chrome Web Store](https://chromewebstore.google.com/detail/ablaikadpbfblkmhpmbbnbbfjoibeejb)'
+            echo '- [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/gnbibobkkddlflknjkgcmokdlpddegpo)'
+            echo '- Firefox (AMO): listing pending'
+          } > release_body.md
 
       # Extension-only releases land on the same public flagship repo
       # as the full release train (DISTRIBUTION_PLAN §2) — the `v*-ext`
       # source tag maps to a plain `vX.Y.Z` extension tag there.
-      # No zips are attached on either channel — store listings are the
-      # only distribution; the build above is a verification gate.
+      # No zips are attached — store listings are the only
+      # distribution; the build above is a verification gate.
       - name: Publish to flagship repo
         uses: softprops/action-gh-release@v2
         with:
@@ -142,7 +109,7 @@ jobs:
           repository: OpenHeaders/open-headers
           tag_name: ${{ steps.ext_repo.outputs.tag }}
           draft: false
-          prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
+          prerelease: false
           name: ${{ steps.ext_repo.outputs.tag }}
           body_path: release_body.md
 
@@ -162,12 +129,10 @@ jobs:
 
       # Patch ONLY the extension entry of the STABLE versions manifest
       # — the desktop/cli/daemon entries ride through untouched, so
-      # this lane can never move another app's contract. Beta ext tags
-      # patch nothing: the beta manifest carries no extension entry
-      # (unlisted store listings are the beta channel; no machine
-      # contract consumes an extension beta version).
+      # this lane can never move another app's contract. The beta
+      # manifest carries no extension entry, ever.
       - name: Update extension entry on the update feed
-        if: steps.r2.outputs.enabled == 'true' && steps.release_type.outputs.is_prerelease == 'false'
+        if: steps.r2.outputs.enabled == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

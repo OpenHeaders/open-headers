@@ -67,9 +67,9 @@ if (!tag?.startsWith('v')) fail(`expected the release tag as argument, got '${ta
 
 // The extension entry exists for the website's download surfaces (the
 // extension itself never checks for updates — stores own that) and
-// names the store-submitted version. STABLE ONLY: extension betas
-// ship through unlisted store listings and no channel serves sideload
-// zips anymore, so a beta manifest carries no extension entry at all.
+// names the store-submitted version. STABLE ONLY: the extension has
+// no beta channel and no channel serves sideload zips, so a beta
+// manifest carries no extension entry at all.
 const isBeta = /-beta\.\d+$/.test(tag);
 
 const severityByApp = readJson('.github/release-severity.json');

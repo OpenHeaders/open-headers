@@ -864,8 +864,8 @@ jobs:
         with:
           path: dist
 
-      # Store listings serve the stable extension; betas come from the
-      # unlisted listings — the body's store table renders on stable only.
+      # Store listings serve the extension (stable only — it has no
+      # beta channel), so the body's store table renders on stable only.
       - name: Read extension version
         id: ext_ver
         if: steps.release_type.outputs.is_prerelease == 'false'
