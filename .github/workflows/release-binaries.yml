@@ -1,0 +1,572 @@
+name: Release Binaries
+
+# Stream-scoped release lanes for the standalone binaries
+# (RELEASES.md): a `v*-cli` tag ships only `oh`, a `v*-daemon` tag
+# only `ohd` + its ghcr image — no desktop matrix, no suite rebuild.
+# Stable-only by law (betas ship no standalone binaries): the tag
+# grammar takes no `-beta` suffix and the trigger patterns cannot
+# match one. The suite release.yml ignores these tags entirely, and
+# the flagship release publishes as NOT latest so the
+# `/releases/latest/download` one-liners and versions.json stay
+# anchored to the last suite release.
+
+on:
+  push:
+    tags:
+      - 'v*-cli'
+      - 'v*-daemon'
+
+# packages: write — the daemon lane's ubuntu leg pushes the ohd image
+# to ghcr.
+permissions:
+  contents: write
+  packages: write
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+  RELEASE_REPO: OpenHeaders/open-headers
+  R2_BUCKET: oh-updates
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    outputs:
+      stream: ${{ steps.parse_tag.outputs.stream }}
+      version: ${{ steps.parse_tag.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Parse stream and version from tag
+        id: parse_tag
+        run: |
+          RAW="${GITHUB_REF_NAME#v}"
+          if [[ "$RAW" =~ ^([0-9]{4}\.[0-9]{1,2}\.[0-9]+)-(cli|daemon)$ ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "stream=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Tag $GITHUB_REF_NAME does not match v<YYYY.M.PATCH>-cli or v<YYYY.M.PATCH>-daemon"
+            exit 1
+          fi
+
+      - name: Verify stream version matches tag
+        run: |
+          STREAM="${{ steps.parse_tag.outputs.stream }}"
+          VERSION="${{ steps.parse_tag.outputs.version }}"
+          PKG_VERSION=$(node -p "require('./apps/${STREAM}/package.json').version")
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "::error::Tag says $VERSION but apps/${STREAM}/package.json says $PKG_VERSION — bump and commit before tagging."
+            exit 1
+          fi
+          echo "Stream ${STREAM} version verified: $VERSION"
+
+  build:
+    needs: parse
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # A failed leg fails the lane — reruns are cheap here, and a
+      # partial binary set would break the per-OS install paths the
+      # manifest tag names.
+      matrix:
+        os: ${{ needs.parse.outputs.stream == 'cli' && fromJSON('["macos-latest", "windows-2022", "ubuntu-latest"]') || fromJSON('["macos-latest", "ubuntu-latest"]') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Full history so build stamps derived from commit counts
+          # mean something on release binaries.
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Setup Bun
+        if: needs.parse.outputs.stream == 'cli'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── CLI lane ─────────────────────────────────────────────────
+
+      # Insurance law (DISTRIBUTION_PLAN §6): the CLI source stays
+      # runtime-neutral, proven by running its unit suite under bun on
+      # every release that ships the compiled binary.
+      - name: Run CLI unit suite under bun
+        if: needs.parse.outputs.stream == 'cli'
+        working-directory: apps/cli
+        run: bun --bun vitest run
+        shell: bash
+
+      # pack:bun compiles src straight to a self-contained binary
+      # (minified, JSC bytecode) and verifies the binary's contract —
+      # including the changelog embed — before anything ships.
+      - name: Build and verify oh bun binary
+        if: needs.parse.outputs.stream == 'cli'
+        run: pnpm --filter @openheaders/cli run pack:bun
+        shell: bash
+
+      # Same eSigner path as the suite: the downloaded CLI exe trips
+      # SmartScreen unsigned, and `install-oh.ps1` fails under
+      # AllSigned execution policies. Missing secrets degrade to
+      # unsigned.
+      - name: Check Windows signing credentials
+        if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022'
+        id: win_sign
+        run: |
+          if [ -n "$ES_USERNAME" ] && [ -n "$ES_PASSWORD" ] && [ -n "$CREDENTIAL_ID" ] && [ -n "$ES_TOTP_SECRET" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::notice::Windows signing secrets not configured - publishing unsigned oh.exe"
+          fi
+        shell: bash
+        env:
+          ES_USERNAME: ${{ secrets.ES_USERNAME }}
+          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
+          CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
+
+      - name: Sign oh CLI executable
+        if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/cli/dist-bun/oh.exe
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      - name: Sign Windows install script
+        if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        uses: sslcom/esigner-codesign@v1.3.1
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: apps/cli/scripts/install.ps1
+          malware_block: true
+          override: true
+          environment_name: PROD
+          clean_logs: false
+          jvm_max_memory: 1024M
+          signing_method: v1
+
+      # The signed exe must still answer — a signature that breaks the
+      # binary is worse than no signature.
+      - name: Verify CLI signatures
+        if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        run: |
+          foreach ($f in @("apps/cli/dist-bun/oh.exe", "apps/cli/scripts/install.ps1")) {
+            $sig = Get-AuthenticodeSignature $f
+            Write-Host "$f -> $($sig.Status)"
+            if ($sig.Status -ne 'Valid') {
+              Write-Error "Authenticode signature status for ${f}: $($sig.Status)"
+              exit 1
+            }
+          }
+          & "apps/cli/dist-bun/oh.exe" --version
+          if ($LASTEXITCODE -ne 0) { Write-Error "signed oh.exe no longer runs"; exit 1 }
+        shell: pwsh
+
+      # ── Daemon lane ──────────────────────────────────────────────
+
+      # The ohd SEA payload embeds the platform's HTTP/3 helper.
+      - name: Cache cargo (HTTP/3 helper)
+        if: needs.parse.outputs.stream == 'daemon'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/h3-helper/target
+          key: ${{ runner.os }}-h3-helper-${{ hashFiles('native/h3-helper/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-h3-helper-
+
+      - name: Build HTTP/3 helper
+        if: needs.parse.outputs.stream == 'daemon'
+        run: node scripts/build-h3-helper.mjs
+        shell: bash
+
+      # The daemon binary embeds the built web app when present.
+      - name: Build and verify ohd SEA binary
+        if: needs.parse.outputs.stream == 'daemon'
+        run: |
+          pnpm turbo build --filter=@openheaders/daemon --filter=@openheaders/web
+          pnpm --filter @openheaders/daemon run pack:sea
+        shell: bash
+
+      # The container is the same verified SEA binary in an LTS base;
+      # the probe re-runs boot + /healthz inside it before anything is
+      # pushed. Stable-only lane, so the image and :latest always move
+      # together.
+      - name: Build and push ohd Docker image
+        if: needs.parse.outputs.stream == 'daemon' && matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders'
+        run: |
+          OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
+          IMAGE=ghcr.io/openheaders/ohd
+
+          docker build -t "$IMAGE:$OHD_VERSION" apps/daemon
+          docker run --rm "$IMAGE:$OHD_VERSION" --version
+
+          CONTAINER=$(docker run -d -p 18637:8137 "$IMAGE:$OHD_VERSION")
+          HEALTHY=""
+          for _ in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:18637/healthz > /dev/null; then
+              HEALTHY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$HEALTHY" ]; then
+            docker logs "$CONTAINER"
+            echo "::error::ohd container never answered /healthz"
+            exit 1
+          fi
+          docker rm -f "$CONTAINER"
+
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:$OHD_VERSION"
+          docker tag "$IMAGE:$OHD_VERSION" "$IMAGE:latest"
+          docker push "$IMAGE:latest"
+        shell: bash
+
+      # ── Shared: macOS signing + staging ──────────────────────────
+
+      - name: Import macOS certificates
+        if: matrix.os == 'macos-latest'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      # The pack scripts leave ad-hoc/unsigned binaries; re-sign with
+      # Developer ID (hardened runtime + timestamp, required for
+      # notarization), then notarize. Flat binaries can't be stapled —
+      # Gatekeeper resolves the ticket from Apple's servers on first
+      # quarantined run. Hardened runtime without the JIT entitlements
+      # SIGTRAPs the JS engine on user machines — V8 for the Node SEA
+      # `ohd`, JSC for the bun-compiled `oh`.
+      - name: Sign and notarize binary (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          if [ "${{ needs.parse.outputs.stream }}" = "cli" ]; then
+            BINARY=apps/cli/dist-bun/oh
+          else
+            BINARY=apps/daemon/dist-sea/ohd
+          fi
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application identity in the keychain"
+            exit 1
+          fi
+          codesign --force --sign "$IDENTITY" --options runtime --timestamp \
+            --entitlements .github/sea-entitlements.plist "$BINARY"
+          codesign --verify --strict "$BINARY"
+          codesign -d --entitlements - "$BINARY" 2>&1 | grep -q allow-jit
+          # The signed binary must still answer
+          "$BINARY" --version
+          mkdir -p notarize-stage
+          cp "$BINARY" notarize-stage/
+          ditto -c -k notarize-stage notarize.zip
+          xcrun notarytool submit notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Stage binary assets
+        run: |
+          mkdir -p release-binaries
+          case "${{ matrix.os }}" in
+            macos-latest) OS_ARCH=mac-arm64 ;;
+            windows-2022) OS_ARCH=win-x64 ;;
+            ubuntu-latest) OS_ARCH=linux-x64 ;;
+          esac
+          if [ "${{ needs.parse.outputs.stream }}" = "cli" ]; then
+            OH_VERSION=$(node -p "require('./apps/cli/package.json').version")
+            if [ "$RUNNER_OS" == "Windows" ]; then
+              cp apps/cli/dist-bun/oh.exe "release-binaries/oh-${OH_VERSION}-${OS_ARCH}.exe"
+              # Travels via artifact so the release job stages the
+              # signed copy instead of the plain one from its checkout.
+              cp apps/cli/scripts/install.ps1 release-binaries/install-oh.ps1
+            else
+              cp apps/cli/dist-bun/oh "release-binaries/oh-${OH_VERSION}-${OS_ARCH}"
+            fi
+          else
+            OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
+            cp apps/daemon/dist-sea/ohd "release-binaries/ohd-${OHD_VERSION}-${OS_ARCH}"
+          fi
+        shell: bash
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: release-binaries/*
+
+  release:
+    needs: [parse, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Canonical-form gate for the changelog projections below.
+      - name: Lint changelog tree
+        run: node scripts/lint-changelog.mjs
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Check R2 credentials
+        id: r2
+        run: |
+          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::R2 secrets not configured — feed not updated, downloads served from GitHub"
+          fi
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Process artifacts for release
+        run: |
+          mkdir -p processed_files
+          find dist -path 'dist/binaries-*' -type f -exec cp {} processed_files/ \;
+          BINS=$(cd processed_files && ls oh-* ohd-* 2>/dev/null || true)
+          if [ -z "$BINS" ]; then
+            echo "::error::No binaries staged — nothing to release"
+            exit 1
+          fi
+          (cd processed_files && shasum -a 256 $BINS > SHA256SUMS.txt)
+          if [ "${{ needs.parse.outputs.stream }}" = "cli" ]; then
+            cp apps/cli/scripts/install.sh processed_files/install-oh.sh
+            # The ps1 prefers the windows-leg artifact copy — that one
+            # is Authenticode-signed.
+            [ -f processed_files/install-oh.ps1 ] || cp apps/cli/scripts/install.ps1 processed_files/install-oh.ps1
+          fi
+          echo "Files prepared for release:"
+          ls -la processed_files/
+        shell: bash
+
+      # Detached GPG signature over the checksums manifest — a trust
+      # root beyond TLS. Missing key means the manifest ships unsigned
+      # instead of failing the release.
+      - name: Sign checksums manifest
+        run: |
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::notice::GPG_PRIVATE_KEY not configured - SHA256SUMS.txt ships unsigned"
+            exit 0
+          fi
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+            --armor --detach-sign \
+            --output processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
+          gpg --verify processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
+          gpg --batch --armor --export security@openheaders.io \
+            > processed_files/openheaders-release-key.asc
+        shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Generate Release Body
+        run: |
+          STREAM="${{ needs.parse.outputs.stream }}"
+          VERSION="${{ needs.parse.outputs.version }}"
+          if [ "$STREAM" = "cli" ]; then LABEL="CLI (\`oh\`)"; else LABEL="Server (\`ohd\`)"; fi
+          {
+            echo "**Standalone ${LABEL} release** — this tag ships only the ${STREAM} stream; the newest suite release carries the desktop app."
+          } > release_body.md
+          node scripts/changelog-entry-body.mjs "$STREAM" "$VERSION" > entry_body.md
+          if [ -s entry_body.md ]; then
+            { echo ""; echo "---"; echo ""; echo "## What's New"; echo ""; cat entry_body.md; } >> release_body.md
+          fi
+
+      # Release bytes live on the feed bucket under an immutable
+      # per-tag path — uploaded BEFORE the release exists, so no
+      # published URL can name missing bytes.
+      - name: Upload release artifacts to R2
+        if: steps.r2.outputs.enabled == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          find processed_files -maxdepth 1 -type f | while read -r file; do
+            NAME="$(basename "$file")"
+            case "$NAME" in
+              *.txt) TYPE="text/plain; charset=utf-8" ;;
+              *.asc) TYPE="text/plain; charset=utf-8" ;;
+              *.sh) TYPE="text/x-shellscript; charset=utf-8" ;;
+              *.ps1) TYPE="text/plain; charset=utf-8" ;;
+              *) TYPE="application/octet-stream" ;;
+            esac
+            aws s3 cp "$file" "s3://${R2_BUCKET}/dl/${GITHUB_REF_NAME}/${NAME}" \
+              --endpoint-url "$ENDPOINT" --region auto \
+              --content-type "$TYPE" \
+              --cache-control "public, max-age=31536000, immutable" \
+              --no-progress
+          done
+
+      # NOT latest: `/releases/latest/download/*` (versions.json, the
+      # install one-liners) must keep resolving against the last suite
+      # release, which carries those assets.
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASES_PAT }}
+          repository: ${{ env.RELEASE_REPO }}
+          tag_name: "${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          make_latest: "false"
+          name: "${{ github.ref_name }}"
+          files: processed_files/*
+          fail_on_unmatched_files: false
+          body_path: release_body.md
+          generate_release_notes: false
+
+      # Patch ONLY this stream's entry of the stable versions manifest
+      # — every other app's contract rides through untouched (the
+      # extension-lane precedent).
+      - name: Update stream entry on the update feed
+        if: steps.r2.outputs.enabled == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          STREAM="${{ needs.parse.outputs.stream }}"
+          VERSION="${{ needs.parse.outputs.version }}"
+          if ! curl -fsS "https://updates.openheaders.io/versions/stable.json" -o current.json; then
+            echo '{}' > current.json
+          fi
+          # Severity is human-authored in release-severity.json; a
+          # security severity carries minimumSafeVersion through.
+          PATCH=$(jq -c --arg v "$VERSION" --arg t "$GITHUB_REF_NAME" \
+            "{latest: \$v, tag: \$t, severity: (.${STREAM}.severity // \"normal\")}
+             + (if .${STREAM}.minimumSafeVersion then {minimumSafeVersion: .${STREAM}.minimumSafeVersion} else {} end)" \
+            .github/release-severity.json)
+          node scripts/patch-versions-entry.mjs current.json "$STREAM" "$PATCH" > patched.json
+          cat patched.json
+          aws s3 cp patched.json "s3://${R2_BUCKET}/versions/stable.json" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --region auto \
+            --content-type "application/json" \
+            --cache-control "public, max-age=300, must-revalidate" \
+            --no-progress
+
+      # Changelog feed objects regenerate so the stream's entry (and
+      # its index row) go live — the generator is lane-aware and cuts
+      # only this stream.
+      - name: Stage changelog feed objects
+        run: |
+          curl -fsS --max-time 30 "https://updates.openheaders.io/changelog/index.json" -o prior_index.json \
+            || rm -f prior_index.json
+          if [ -f prior_index.json ]; then
+            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed prior_index.json
+          else
+            echo "No live changelog index — generating from the tree alone"
+            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed
+          fi
+          find feed -type f | sort
+
+      - name: Upload update feed to R2
+        if: steps.r2.outputs.enabled == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          find feed -type f | while read -r file; do
+            KEY="${file#feed/}"
+            case "$file" in
+              *.json) TYPE="application/json" ;;
+              *.md)   TYPE="text/markdown; charset=utf-8" ;;
+              *.txt)  TYPE="text/plain; charset=utf-8" ;;
+              *.webp) TYPE="image/webp" ;;
+              *.png)  TYPE="image/png" ;;
+              *)      TYPE="application/octet-stream" ;;
+            esac
+            case "$KEY" in
+              changelog/assets/*)
+                CACHE="public, max-age=31536000, immutable" ;;
+              *)
+                CACHE="public, max-age=300, must-revalidate" ;;
+            esac
+            aws s3 cp "$file" "s3://${R2_BUCKET}/${KEY}" \
+              --endpoint-url "$ENDPOINT" --region auto \
+              --content-type "$TYPE" \
+              --cache-control "$CACHE" \
+              --no-progress
+          done
+
+      # Flagship projection (CHANGELOG_PLAN §4.2), same gate as the
+      # suite lane.
+      - name: Project changelog to flagship repo
+        env:
+          RELEASES_PAT: ${{ secrets.RELEASES_PAT }}
+          OH_CHANGELOG_FLAGSHIP: ${{ vars.OH_CHANGELOG_FLAGSHIP }}
+        run: |
+          if [ -z "$RELEASES_PAT" ]; then
+            echo "::warning::RELEASES_PAT not configured — changelog not projected to ${RELEASE_REPO}"
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:${RELEASES_PAT}@github.com/${RELEASE_REPO}.git" flagship
+          rm -rf flagship/changelog
+          cp -R changelog flagship/changelog
+          node scripts/generate-flagship-changelog.mjs > flagship/CHANGELOG.md
+          cd flagship
+          git config user.name "OpenHeaders Release"
+          git config user.email "releases@openheaders.io"
+          git add changelog CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changelog changes to project"
+            exit 0
+          fi
+          git commit -m "changelog: ${{ needs.parse.outputs.stream }} ${GITHUB_REF_NAME}"
+          git show --stat HEAD
+          if [ "$OH_CHANGELOG_FLAGSHIP" = "1" ]; then
+            git push origin HEAD:main
+          else
+            echo "::notice::OH_CHANGELOG_FLAGSHIP is not 1 — dry run only, nothing pushed to ${RELEASE_REPO}"
+          fi

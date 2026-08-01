@@ -27,7 +27,7 @@ env:
 
 jobs:
   build-desktop:
-    if: ${{ !contains(github.ref_name, '-ext') }}
+    if: ${{ !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
     runs-on: ${{ matrix.os }}
     # Shipped-artifact hardening (terser passes, strip-testid runtime,
     # debug-console removal, license-chunk bytecode) — release pipeline
@@ -616,7 +616,7 @@ jobs:
   # (DISTRIBUTION_PLAN §6): `oh` is bun-compiled, `ohd` stays Node SEA
   # — two toolchains, one leg, no cross-contamination.
   build-binaries:
-    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-beta') }}
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !contains(github.ref_name, '-beta') }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -834,7 +834,7 @@ jobs:
   release:
     # Runs as long as the workflow wasn't cancelled — a failed OS leg
     # still yields a release from the legs that produced artifacts.
-    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
+    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
     needs: [build-desktop, build-binaries]
     runs-on: ubuntu-latest
 

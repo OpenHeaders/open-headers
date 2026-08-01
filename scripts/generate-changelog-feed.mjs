@@ -40,7 +40,8 @@ const FIRST_PUBLIC_VERSION = '2026.7.23';
 
 // The streams a suite tag cuts (the extension rides its own store
 // lane; its rows come from authored tree entries and its manifest
-// version, like versions.json's extension entry).
+// version, like versions.json's extension entry). A stream-lane tag
+// (`v*-cli` / `v*-daemon`, RELEASES.md) cuts only its own stream.
 const CUT_APPS = { desktop: null, cli: 'apps/cli', daemon: 'apps/daemon', web: 'apps/web', extension: 'apps/extension' };
 
 function fail(message) {
@@ -57,7 +58,11 @@ if (!tag?.startsWith('v')) fail(`expected the release tag as first argument, got
 if (!outputDir) fail('usage: generate-changelog-feed.mjs <tag> <output-dir> [prior-index.json]');
 
 const betaN = tag.match(/-beta\.(\d+)$/)?.[1] ?? null;
-const tagBase = tag.slice(1).replace(/-beta\.\d+$/, '');
+const lane = tag.match(/-(cli|daemon)$/)?.[1] ?? null;
+const tagBase = tag
+  .slice(1)
+  .replace(/-beta\.\d+$/, '')
+  .replace(/-(cli|daemon)$/, '');
 const outRoot = path.join(outputDir, 'changelog');
 
 /** `](./assets/…` → absolute feed asset URL for the stream. */
@@ -117,12 +122,13 @@ for (const entry of entries) {
 
 // ── Immutable per-beta snapshots for the streams this tag cuts ───────
 const severityByApp = readJson('.github/release-severity.json');
+const cutApps = lane ? { [lane]: CUT_APPS[lane] } : CUT_APPS;
 const cutVersions = {};
-for (const [app, pkgDir] of Object.entries(CUT_APPS)) {
+for (const [app, pkgDir] of Object.entries(cutApps)) {
   cutVersions[app] = pkgDir ? readJson(`${pkgDir}/package.json`).version.replace(/-beta\.\d+$/, '') : tagBase;
 }
 if (betaN) {
-  for (const app of Object.keys(CUT_APPS)) {
+  for (const app of Object.keys(cutApps)) {
     if (app === 'extension') continue;
     const entry = byKey.get(`${app}@${cutVersions[app]}`);
     if (!entry) continue;
