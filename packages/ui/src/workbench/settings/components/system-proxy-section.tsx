@@ -13,10 +13,10 @@
  * edit applies live over `oh.desktop.systemProxy.set` — the next
  * send resolves under the new mode, no restart.
  *
- * Two honesty surfaces ride the same `resolve` RPC: the sourced
- * read-only display (a canonical-URL probe naming the resolved source
- * and chain, with Refresh) and the per-URL resolution preview —
- * "what would this machine do for this URL right now".
+ * One honesty surface rides the `resolve` RPC: a resolution preview —
+ * "what would this machine do for this URL right now" — pre-filled
+ * with a canonical target and resolved automatically on open and after
+ * every settings change, so it doubles as the sourced display.
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
@@ -26,16 +26,16 @@ import type {
   SystemProxySettings,
 } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Input, Radio, Segmented, Select, theme } from 'antd';
+import { Button, Divider, Input, Radio, Segmented, Select, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
-/** The sourced display's canonical probe target — one representative
- *  https URL; the per-URL preview answers everything else. */
-const PROBE_URL = 'https://openheaders.io';
+/** The preview's canonical default target — schemeless (the resolve
+ *  handler assumes https), auto-resolved when the pane opens. */
+const DEFAULT_TARGET = 'openheaders.io';
 
 const MODE_LABEL: Record<DesktopSystemProxyMode, MessageKey> = {
   system: 'workbench.settings.systemProxy.mode.system',
@@ -78,9 +78,8 @@ const SystemProxySection: React.FC = () => {
   const { vault } = useVaultContext();
   const [settings, setSettings] = useState<SystemProxySettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [probe, setProbe] = useState<{ text: string } | null>(null);
   const [pacKind, setPacKind] = useState<'url' | 'file'>('url');
-  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewUrl, setPreviewUrl] = useState(DEFAULT_TARGET);
   const [preview, setPreview] = useState<{ url: string; text: string } | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
 
@@ -88,16 +87,17 @@ const SystemProxySection: React.FC = () => {
     .filter((s) => s.kind === 'string')
     .map((s) => ({ value: s.name, label: s.name }));
 
-  const refreshProbe = useCallback(async (mode: SystemProxySettings['mode']): Promise<void> => {
-    if (mode === 'off') {
-      setProbe(null);
-      return;
-    }
+  const runResolve = useCallback(async (url: string): Promise<void> => {
+    const target = url.trim();
+    if (target === '') return;
+    setPreviewBusy(true);
     try {
-      const resp = await hostBridge.call('oh.desktop.systemProxy.resolve', { url: PROBE_URL });
-      setProbe({ text: resp.ok ? chainText(resp.resolution) : resp.error });
-    } catch {
-      setProbe(null);
+      const resp = await hostBridge.call('oh.desktop.systemProxy.resolve', { url: target });
+      setPreview({ url: target, text: resp.ok ? chainText(resp.resolution) : resp.error });
+    } catch (err) {
+      setPreview({ url: target, text: (err as Error).message });
+    } finally {
+      setPreviewBusy(false);
     }
   }, []);
 
@@ -108,14 +108,14 @@ const SystemProxySection: React.FC = () => {
         setSettings(resp.settings);
         const source = resp.settings.pacSource;
         setPacKind(source !== undefined && !/^https?:\/\//i.test(source) ? 'file' : 'url');
-        void refreshProbe(resp.settings.mode);
+        void runResolve(DEFAULT_TARGET);
       } catch {
         // No service on this host — the section stays empty (the pane
         // gates on the desktop host, so this is a dev-harness case).
         setSettings(null);
       }
     })();
-  }, [refreshProbe]);
+  }, [runResolve]);
 
   const persist = useCallback(
     async (next: SystemProxySettings): Promise<void> => {
@@ -123,27 +123,13 @@ const SystemProxySection: React.FC = () => {
       try {
         const resp = await hostBridge.call('oh.desktop.systemProxy.set', { settings: next });
         setSaveError(resp.ok ? null : resp.error);
-        if (resp.ok) void refreshProbe(resp.settings.mode);
+        if (resp.ok) void runResolve(previewUrl);
       } catch (err) {
         setSaveError((err as Error).message);
       }
     },
-    [refreshProbe],
+    [runResolve, previewUrl],
   );
-
-  const runPreview = async (): Promise<void> => {
-    const url = previewUrl.trim();
-    if (url === '') return;
-    setPreviewBusy(true);
-    try {
-      const resp = await hostBridge.call('oh.desktop.systemProxy.resolve', { url });
-      setPreview({ url, text: resp.ok ? chainText(resp.resolution) : resp.error });
-    } catch (err) {
-      setPreview({ url, text: (err as Error).message });
-    } finally {
-      setPreviewBusy(false);
-    }
-  };
 
   if (settings === null) return null;
 
@@ -197,103 +183,107 @@ const SystemProxySection: React.FC = () => {
           <InfoTrigger content={modeInfo} />
         </div>
 
-        {settings.mode === 'manual' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '10px 0 2px' }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <FieldLabel>{t('workbench.settings.systemProxy.manual.url')}</FieldLabel>
-              <Input
-                size="small"
-                data-testid="oh-sysproxy-manual-url"
-                defaultValue={settings.manualProxyUrl ?? ''}
-                placeholder={t('workbench.settings.systemProxy.manual.urlPlaceholder')}
-                maxLength={512}
-                style={{ maxWidth: 320 }}
-                onBlur={(e) => {
-                  const value = e.target.value.trim();
-                  if (value !== (settings.manualProxyUrl ?? '')) {
-                    setField({ manualProxyUrl: value === '' ? undefined : value });
-                  }
-                }}
-                onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-              />
+        {/* Fixed-height slot sized to the tallest mode (Manual's three
+            rows) so switching modes never bounces the rows below. */}
+        <div style={{ minHeight: 84, margin: '10px 0 2px' }}>
+          {settings.mode === 'manual' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <FieldLabel>{t('workbench.settings.systemProxy.manual.url')}</FieldLabel>
+                <Input
+                  size="small"
+                  data-testid="oh-sysproxy-manual-url"
+                  defaultValue={settings.manualProxyUrl ?? ''}
+                  placeholder={t('workbench.settings.systemProxy.manual.urlPlaceholder')}
+                  maxLength={512}
+                  style={{ maxWidth: 320 }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (settings.manualProxyUrl ?? '')) {
+                      setField({ manualProxyUrl: value === '' ? undefined : value });
+                    }
+                  }}
+                  onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <FieldLabel>{t('workbench.settings.systemProxy.manual.credentials')}</FieldLabel>
+                <Select
+                  size="small"
+                  data-testid="oh-sysproxy-manual-credential"
+                  value={settings.manualCredentialRef}
+                  onChange={(manualCredentialRef) => setField({ manualCredentialRef })}
+                  options={credentialOptions}
+                  allowClear
+                  placeholder={t('workbench.settings.systemProxy.manual.credentialsPlaceholder')}
+                  popupMatchSelectWidth={false}
+                  style={{ width: 320 }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <FieldLabel>{t('workbench.settings.systemProxy.manual.bypass')}</FieldLabel>
+                <Input
+                  size="small"
+                  data-testid="oh-sysproxy-manual-bypass"
+                  defaultValue={settings.manualBypassList ?? ''}
+                  placeholder={t('workbench.settings.systemProxy.manual.bypassPlaceholder')}
+                  maxLength={2048}
+                  style={{ maxWidth: 320 }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (settings.manualBypassList ?? '')) {
+                      setField({ manualBypassList: value === '' ? undefined : value });
+                    }
+                  }}
+                  onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <FieldLabel>{t('workbench.settings.systemProxy.manual.credentials')}</FieldLabel>
-              <Select
-                size="small"
-                data-testid="oh-sysproxy-manual-credential"
-                value={settings.manualCredentialRef}
-                onChange={(manualCredentialRef) => setField({ manualCredentialRef })}
-                options={credentialOptions}
-                allowClear
-                placeholder={t('workbench.settings.systemProxy.manual.credentialsPlaceholder')}
-                popupMatchSelectWidth={false}
-                style={{ width: 320 }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <FieldLabel>{t('workbench.settings.systemProxy.manual.bypass')}</FieldLabel>
-              <Input
-                size="small"
-                data-testid="oh-sysproxy-manual-bypass"
-                defaultValue={settings.manualBypassList ?? ''}
-                placeholder={t('workbench.settings.systemProxy.manual.bypassPlaceholder')}
-                maxLength={2048}
-                style={{ maxWidth: 320 }}
-                onBlur={(e) => {
-                  const value = e.target.value.trim();
-                  if (value !== (settings.manualBypassList ?? '')) {
-                    setField({ manualBypassList: value === '' ? undefined : value });
-                  }
-                }}
-                onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-              />
-            </div>
-          </div>
-        )}
+          )}
 
-        {settings.mode === 'pac' && (
-          <div style={{ display: 'flex', gap: 12, margin: '10px 0 2px' }}>
-            <FieldLabel>{t('workbench.settings.systemProxy.pac.source')}</FieldLabel>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Segmented
-                size="small"
-                data-testid="oh-sysproxy-pac-kind"
-                value={pacKind}
-                onChange={(value) => setPacKind(value as 'url' | 'file')}
-                options={[
-                  { value: 'url', label: t('workbench.settings.systemProxy.pac.kindUrl') },
-                  { value: 'file', label: t('workbench.settings.systemProxy.pac.kindFile') },
-                ]}
-              />
-              <Input
-                key={`${pacKind}:${settings.pacSource ?? ''}`}
-                size="small"
-                data-testid="oh-sysproxy-pac-source"
-                defaultValue={settings.pacSource ?? ''}
-                placeholder={t(
-                  pacKind === 'url'
-                    ? 'workbench.settings.systemProxy.pac.sourcePlaceholder'
-                    : 'workbench.settings.systemProxy.pac.filePlaceholder',
+          {settings.mode === 'pac' && (
+            <div style={{ display: 'flex', gap: 12 }}>
+              <FieldLabel>{t('workbench.settings.systemProxy.pac.source')}</FieldLabel>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Segmented
+                  size="small"
+                  data-testid="oh-sysproxy-pac-kind"
+                  value={pacKind}
+                  onChange={(value) => setPacKind(value as 'url' | 'file')}
+                  options={[
+                    { value: 'url', label: t('workbench.settings.systemProxy.pac.kindUrl') },
+                    { value: 'file', label: t('workbench.settings.systemProxy.pac.kindFile') },
+                  ]}
+                />
+                <Input
+                  key={`${pacKind}:${settings.pacSource ?? ''}`}
+                  size="small"
+                  data-testid="oh-sysproxy-pac-source"
+                  defaultValue={settings.pacSource ?? ''}
+                  placeholder={t(
+                    pacKind === 'url'
+                      ? 'workbench.settings.systemProxy.pac.sourcePlaceholder'
+                      : 'workbench.settings.systemProxy.pac.filePlaceholder',
+                  )}
+                  maxLength={1024}
+                  style={{ width: 320 }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (settings.pacSource ?? '')) {
+                      setField({ pacSource: value === '' ? undefined : value });
+                    }
+                  }}
+                  onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+                />
+                {pacKind === 'file' && (
+                  <Button size="small" data-testid="oh-sysproxy-pac-browse" onClick={() => void browsePacFile()}>
+                    {t('workbench.settings.systemProxy.pac.browse')}
+                  </Button>
                 )}
-                maxLength={1024}
-                style={{ width: 320 }}
-                onBlur={(e) => {
-                  const value = e.target.value.trim();
-                  if (value !== (settings.pacSource ?? '')) {
-                    setField({ pacSource: value === '' ? undefined : value });
-                  }
-                }}
-                onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-              />
-              {pacKind === 'file' && (
-                <Button size="small" data-testid="oh-sysproxy-pac-browse" onClick={() => void browsePacFile()}>
-                  {t('workbench.settings.systemProxy.pac.browse')}
-                </Button>
-              )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {saveError !== null && (
           <p style={{ margin: '6px 0 0', fontSize: 12, color: token.colorError }}>
@@ -301,49 +291,42 @@ const SystemProxySection: React.FC = () => {
           </p>
         )}
 
-        {settings.mode !== 'off' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginTop: 10, fontSize: 12 }}>
-            <span style={{ color: token.colorTextSecondary, flex: 'none' }}>
-              {t('workbench.settings.systemProxy.sourced', { url: PROBE_URL.replace(/^https:\/\//, '') })}
-            </span>
-            <span
-              data-testid="oh-sysproxy-sourced"
-              style={{ fontFamily: token.fontFamilyCode, fontSize: 11, color: token.colorText, wordBreak: 'break-all' }}
+        <div>
+          <Divider style={{ margin: '14px 0 12px' }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Input
+              size="small"
+              data-testid="oh-sysproxy-preview-url"
+              value={previewUrl}
+              onChange={(e) => setPreviewUrl(e.target.value)}
+              placeholder={t('workbench.settings.systemProxy.previewPlaceholder')}
+              style={{ maxWidth: 320 }}
+              onPressEnter={() => void runResolve(previewUrl)}
+            />
+            <Button
+              size="small"
+              loading={previewBusy}
+              onClick={() => void runResolve(previewUrl)}
+              data-testid="oh-sysproxy-preview-run"
             >
-              {probe?.text ?? '—'}
-            </span>
-            <Button size="small" type="text" style={{ fontSize: 12, color: token.colorTextSecondary }} onClick={() => void refreshProbe(settings.mode)}>
-              {t('workbench.settings.systemProxy.refresh')}
+              {t('workbench.settings.systemProxy.previewButton')}
             </Button>
           </div>
-        )}
-
-        {settings.mode !== 'off' && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Input
-                size="small"
-                data-testid="oh-sysproxy-preview-url"
-                value={previewUrl}
-                onChange={(e) => setPreviewUrl(e.target.value)}
-                placeholder={t('workbench.settings.systemProxy.previewPlaceholder')}
-                style={{ maxWidth: 320 }}
-                onPressEnter={() => void runPreview()}
-              />
-              <Button size="small" loading={previewBusy} onClick={() => void runPreview()} data-testid="oh-sysproxy-preview-run">
-                {t('workbench.settings.systemProxy.previewButton')}
-              </Button>
-            </div>
-            {preview !== null && (
-              <div
-                data-testid="oh-sysproxy-preview-result"
-                style={{ marginTop: 4, fontSize: 11, fontFamily: token.fontFamilyCode, color: token.colorText, wordBreak: 'break-all' }}
-              >
-                {preview.url} → {preview.text}
-              </div>
-            )}
+          {/* Reserved line so the first resolution doesn't push the card taller. */}
+          <div
+            data-testid="oh-sysproxy-preview-result"
+            style={{
+              marginTop: 4,
+              minHeight: 16,
+              fontSize: 11,
+              fontFamily: token.fontFamilyCode,
+              color: token.colorText,
+              wordBreak: 'break-all',
+            }}
+          >
+            {preview !== null && `${preview.url} → ${preview.text}`}
           </div>
-        )}
+        </div>
       </div>
     </section>
   );
