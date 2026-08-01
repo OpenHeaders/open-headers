@@ -272,7 +272,7 @@ const SystemProxySection: React.FC = () => {
                         data-testid="oh-sysproxy-os-snapshot"
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'auto 1fr',
+                          gridTemplateColumns: 'auto auto 1fr',
                           columnGap: 16,
                           rowGap: 2,
                           fontFamily: token.fontFamilyCode,
@@ -281,26 +281,27 @@ const SystemProxySection: React.FC = () => {
                           wordBreak: 'break-all',
                         }}
                       >
-                        <span style={{ color: token.colorTextSecondary }}>
-                          {`[HTTP] ${SNAPSHOT_LABELS[osSnapshot.source].http}`}
-                        </span>
+                        <span style={{ color: token.colorTextSecondary }}>[HTTP]</span>
+                        <span style={{ color: token.colorTextSecondary }}>{SNAPSHOT_LABELS[osSnapshot.source].http}</span>
                         <span>{osSnapshot.httpProxy ?? '—'}</span>
+                        <span style={{ color: token.colorTextSecondary }}>[HTTPS]</span>
                         <span style={{ color: token.colorTextSecondary }}>
-                          {`[HTTPS] ${SNAPSHOT_LABELS[osSnapshot.source].https}`}
+                          {SNAPSHOT_LABELS[osSnapshot.source].https}
                         </span>
                         <span>{osSnapshot.httpsProxy ?? '—'}</span>
-                        <span style={{ color: token.colorTextSecondary }}>
-                          {`[PAC] ${SNAPSHOT_LABELS[osSnapshot.source].pac}`}
-                        </span>
+                        <span style={{ color: token.colorTextSecondary }}>[PAC]</span>
+                        <span style={{ color: token.colorTextSecondary }}>{SNAPSHOT_LABELS[osSnapshot.source].pac}</span>
                         <span>{osSnapshot.pacUrl ?? '—'}</span>
+                        <span style={{ color: token.colorTextSecondary }}>[BYPASS]</span>
                         <span style={{ color: token.colorTextSecondary }}>
-                          {`[BYPASS] ${SNAPSHOT_LABELS[osSnapshot.source].bypass}`}
+                          {SNAPSHOT_LABELS[osSnapshot.source].bypass}
                         </span>
                         <span>{osSnapshot.bypassList ?? '—'}</span>
                         {osSnapshot.autoDetect === true && (
                           <>
+                            <span style={{ color: token.colorTextSecondary }}>[WPAD]</span>
                             <span style={{ color: token.colorTextSecondary }}>
-                              {`[WPAD] ${SNAPSHOT_LABELS[osSnapshot.source].wpad}`}
+                              {SNAPSHOT_LABELS[osSnapshot.source].wpad}
                             </span>
                             <span>on</span>
                           </>
