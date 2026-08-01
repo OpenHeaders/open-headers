@@ -1,27 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Monochrome template variant of logo.svg for the macOS menu-bar tray.
-
-  Glyph, not tile: menu-bar template icons read best as bare shapes, so
-  this drops the rounded-square plate and draws the pixel letters +
-  smile directly. NOT geometry-identical to logo.svg on purpose — the
-  tray renders at 16px (1 device pixel = 32 SVG units), so every stroke
-  is at least 64 units (2px) and the O's recording block is omitted;
-  its counter is only 2px wide here and a filled block would collapse
-  the O into a solid square.
+  Monochrome knockout of logo-pixel.svg for the macOS menu-bar tray:
+  the exact dock tile — same plate radius, same glyph geometry — with
+  the letters and smile cut to transparency. A template image is
+  alpha-only, so the blue plate becomes ink the OS recolors, and the
+  red recording block survives automatically: its region is plate
+  showing through the O's counter, separated on all four sides by the
+  cut-out white bars. Rasterized to iconTemplate.png (16px) and
+  iconTemplate@2x.png (32px).
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <g fill="black" shape-rendering="crispEdges">
-    <!-- O: 64-unit ring, x 32..224, y 64..320 -->
-    <rect x="32"  y="64"  width="192" height="64"/>
-    <rect x="32"  y="128" width="64"  height="128"/>
-    <rect x="160" y="128" width="64"  height="128"/>
-    <rect x="32"  y="256" width="192" height="64"/>
+  <defs>
+    <mask id="glyph">
+      <rect width="512" height="512" fill="white"/>
+      <g transform="translate(32 32) scale(0.875)">
+        <g fill="black" shape-rendering="crispEdges">
+          <rect x="80"  y="112" width="128" height="32"/>
+          <rect x="48"  y="144" width="64"  height="160"/>
+          <rect x="176" y="144" width="64"  height="160"/>
+          <rect x="80"  y="304" width="128" height="32"/>
 
-    <!-- H: 64-unit bars, x 288..480, y 64..320 -->
-    <rect x="288" y="64"  width="64"  height="256"/>
-    <rect x="416" y="64"  width="64"  height="256"/>
-    <rect x="288" y="160" width="192" height="64"/>
-  </g>
-  <path d="M 64 384 C 176 464, 336 464, 448 384" stroke="black" stroke-width="64" fill="none" stroke-linecap="round"/>
+          <rect x="272" y="112" width="64"  height="224"/>
+          <rect x="400" y="112" width="64"  height="224"/>
+          <rect x="272" y="208" width="192" height="32"/>
+        </g>
+        <path d="M 80 388 C 180 448, 332 448, 432 388" stroke="black" stroke-width="28" fill="none" stroke-linecap="round"/>
+      </g>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="80" fill="black" mask="url(#glyph)"/>
 </svg>
