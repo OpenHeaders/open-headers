@@ -614,6 +614,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.intro':
     'Comment les requêtes, sessions WebSocket et appels gRPC de cette machine atteignent le réseau. Local ' +
     "à l'appareil, jamais synchronisé — tout le suit, sauf si une requête définit son propre mode de proxy.",
+  'workbench.settings.systemProxy.mode.label': 'Mode',
+  'workbench.settings.systemProxy.mode.infoTitle': 'Modes de proxy',
+  'workbench.settings.systemProxy.mode.infoSummary':
+    'Comment cet appareil décide de la route que prend chaque requête, session WebSocket et appel gRPC.',
+  'workbench.settings.systemProxy.mode.infoHeading': 'Modes',
   'workbench.settings.systemProxy.mode.system': 'Système',
   'workbench.settings.systemProxy.mode.systemDesc':
     'Suit la configuration de proxy de cette machine — réglages système, fichiers PAC et découverte ' +
@@ -634,8 +639,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': "Pas d'authentification",
   'workbench.settings.systemProxy.manual.bypass': 'Liste de contournement',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
-  'workbench.settings.systemProxy.pac.source': 'URL ou fichier PAC',
-  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac ou /chemin/vers/proxy.pac',
+  'workbench.settings.systemProxy.pac.source': 'PAC',
+  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac',
+  'workbench.settings.systemProxy.pac.kindUrl': 'URL',
+  'workbench.settings.systemProxy.pac.kindFile': 'Fichier',
+  'workbench.settings.systemProxy.pac.filePlaceholder': '/chemin/vers/proxy.pac',
+  'workbench.settings.systemProxy.pac.browse': 'Parcourir…',
   'workbench.settings.systemProxy.saveFailed': "Le réglage n'a pas pu être enregistré : {message}",
   'workbench.settings.systemProxy.sourced': 'Résout {url} vers',
   'workbench.settings.systemProxy.refresh': 'Actualiser',

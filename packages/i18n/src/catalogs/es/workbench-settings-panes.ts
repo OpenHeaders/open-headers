@@ -615,6 +615,11 @@ export const workbenchSettingsPanes = {
     'Cómo alcanzan la red las solicitudes, sesiones WebSocket y llamadas gRPC de esta máquina. Local al ' +
     'dispositivo y nunca sincronizado — todo lo sigue, salvo que una solicitud defina su propio modo de ' +
     'proxy.',
+  'workbench.settings.systemProxy.mode.label': 'Modo',
+  'workbench.settings.systemProxy.mode.infoTitle': 'Modos de proxy',
+  'workbench.settings.systemProxy.mode.infoSummary':
+    'Cómo este dispositivo decide la ruta que toma cada solicitud, sesión WebSocket y llamada gRPC.',
+  'workbench.settings.systemProxy.mode.infoHeading': 'Modos',
   'workbench.settings.systemProxy.mode.system': 'Sistema',
   'workbench.settings.systemProxy.mode.systemDesc':
     'Sigue la configuración de proxy de esta máquina — ajustes del sistema, archivos PAC y descubrimiento ' +
@@ -635,8 +640,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': 'Sin autenticación',
   'workbench.settings.systemProxy.manual.bypass': 'Lista de exclusión',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
-  'workbench.settings.systemProxy.pac.source': 'URL o archivo PAC',
-  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac o /ruta/al/proxy.pac',
+  'workbench.settings.systemProxy.pac.source': 'PAC',
+  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac',
+  'workbench.settings.systemProxy.pac.kindUrl': 'URL',
+  'workbench.settings.systemProxy.pac.kindFile': 'Archivo',
+  'workbench.settings.systemProxy.pac.filePlaceholder': '/ruta/al/proxy.pac',
+  'workbench.settings.systemProxy.pac.browse': 'Examinar…',
   'workbench.settings.systemProxy.saveFailed': 'El ajuste no se pudo guardar: {message}',
   'workbench.settings.systemProxy.sourced': 'Resuelve {url} a',
   'workbench.settings.systemProxy.refresh': 'Actualizar',

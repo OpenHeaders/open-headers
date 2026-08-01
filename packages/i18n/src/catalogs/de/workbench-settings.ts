@@ -161,13 +161,13 @@ export const workbenchSettings = {
   'workbench.settings.category.proxy.description':
     'Der ausgehende Proxy dieses Geräts — wie Anfragen das Netzwerk erreichen — und die ' +
     'Vertrauenseinrichtung für den Erfassungs-Proxy.',
-  'workbench.settings.category.proxyOutbound.label': 'Proxy · Ausgehend',
-  'workbench.settings.category.proxyOutbound.navLabel': 'Ausgehend',
+  'workbench.settings.category.proxyOutbound.label': 'Proxy · Ausgehende Anfragen',
+  'workbench.settings.category.proxyOutbound.navLabel': 'Ausgehende Anfragen',
   'workbench.settings.category.proxyOutbound.description':
     'Der ausgehende Proxy dieses Geräts — wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe das ' +
     'Netzwerk erreichen.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · HTTPS-Vertrauen',
-  'workbench.settings.category.proxyTrust.navLabel': 'HTTPS-Vertrauen',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Traffic-Interception',
+  'workbench.settings.category.proxyTrust.navLabel': 'Traffic-Interception',
   'workbench.settings.category.proxyTrust.description':
     'Die Zertifizierungsstelle und Vertrauensspeicher, die das Entschlüsseln von HTTPS-Verkehr zur ' +
     'Inspektion erlauben — auf dieser Maschine erstellt, hier wieder entfernbar.',

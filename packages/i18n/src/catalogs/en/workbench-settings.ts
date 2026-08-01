@@ -139,12 +139,12 @@ export const workbenchSettings = {
   'workbench.settings.category.proxy.label': 'Proxy',
   'workbench.settings.category.proxy.description':
     'This device’s outbound proxy — how requests reach the network — and trust setup for the capture proxy.',
-  'workbench.settings.category.proxyOutbound.label': 'Proxy · Outbound',
-  'workbench.settings.category.proxyOutbound.navLabel': 'Outbound',
+  'workbench.settings.category.proxyOutbound.label': 'Proxy · Outbound Requests',
+  'workbench.settings.category.proxyOutbound.navLabel': 'Outbound Requests',
   'workbench.settings.category.proxyOutbound.description':
     'This device’s outbound proxy — how requests, WebSocket sessions, and gRPC calls reach the network.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · HTTPS Trust',
-  'workbench.settings.category.proxyTrust.navLabel': 'HTTPS Trust',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Traffic Interception',
+  'workbench.settings.category.proxyTrust.navLabel': 'Traffic Interception',
   'workbench.settings.category.proxyTrust.description':
     'The certificate authority and trust stores that let HTTPS traffic be decrypted for inspection — created on this machine, removable here.',
   'workbench.settings.category.data.label': 'Data',

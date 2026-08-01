@@ -157,13 +157,13 @@ export const workbenchSettings = {
   'workbench.settings.category.proxy.description':
     'Le proxy sortant de cet appareil — comment les requêtes atteignent le réseau — et la mise en place ' +
     'de la confiance pour le proxy de capture.',
-  'workbench.settings.category.proxyOutbound.label': 'Proxy · Sortant',
-  'workbench.settings.category.proxyOutbound.navLabel': 'Sortant',
+  'workbench.settings.category.proxyOutbound.label': 'Proxy · Requêtes sortantes',
+  'workbench.settings.category.proxyOutbound.navLabel': 'Requêtes sortantes',
   'workbench.settings.category.proxyOutbound.description':
     'Le proxy sortant de cet appareil — comment les requêtes, sessions WebSocket et appels gRPC ' +
     'atteignent le réseau.',
-  'workbench.settings.category.proxyTrust.label': 'Proxy · Confiance HTTPS',
-  'workbench.settings.category.proxyTrust.navLabel': 'Confiance HTTPS',
+  'workbench.settings.category.proxyTrust.label': 'Proxy · Interception du trafic',
+  'workbench.settings.category.proxyTrust.navLabel': 'Interception du trafic',
   'workbench.settings.category.proxyTrust.description':
     "L'autorité de certification et les magasins de confiance qui permettent de déchiffrer le trafic " +
     'HTTPS pour inspection — créée sur cette machine, révocable ici.',

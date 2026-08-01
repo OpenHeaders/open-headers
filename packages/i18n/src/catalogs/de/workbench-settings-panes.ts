@@ -614,6 +614,11 @@ export const workbenchSettingsPanes = {
     'Wie Anfragen, WebSocket-Sitzungen und gRPC-Aufrufe dieser Maschine das Netzwerk erreichen. ' +
     'Gerätelokal und nie synchronisiert — alles folgt dem, außer eine Anfrage setzt ihren eigenen ' +
     'Proxy-Modus.',
+  'workbench.settings.systemProxy.mode.label': 'Modus',
+  'workbench.settings.systemProxy.mode.infoTitle': 'Proxy-Modi',
+  'workbench.settings.systemProxy.mode.infoSummary':
+    'Wie dieses Gerät die Route bestimmt, die jede Anfrage, WebSocket-Sitzung und jeder gRPC-Aufruf nimmt.',
+  'workbench.settings.systemProxy.mode.infoHeading': 'Modi',
   'workbench.settings.systemProxy.mode.system': 'System',
   'workbench.settings.systemProxy.mode.systemDesc':
     'Folgt der Proxy-Konfiguration dieser Maschine — Systemeinstellungen, PAC-Dateien und automatische ' +
@@ -634,8 +639,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': 'Keine Authentifizierung',
   'workbench.settings.systemProxy.manual.bypass': 'Ausnahmeliste',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': 'localhost, .internal.example, 10.0.0.0/8',
-  'workbench.settings.systemProxy.pac.source': 'PAC-URL oder -Datei',
-  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac oder /pfad/zu/proxy.pac',
+  'workbench.settings.systemProxy.pac.source': 'PAC',
+  'workbench.settings.systemProxy.pac.sourcePlaceholder': 'https://proxy.example/proxy.pac',
+  'workbench.settings.systemProxy.pac.kindUrl': 'URL',
+  'workbench.settings.systemProxy.pac.kindFile': 'Datei',
+  'workbench.settings.systemProxy.pac.filePlaceholder': '/pfad/zu/proxy.pac',
+  'workbench.settings.systemProxy.pac.browse': 'Durchsuchen…',
   'workbench.settings.systemProxy.saveFailed': 'Die Einstellung konnte nicht gespeichert werden: {message}',
   'workbench.settings.systemProxy.sourced': 'Löst {url} auf zu',
   'workbench.settings.systemProxy.refresh': 'Aktualisieren',
