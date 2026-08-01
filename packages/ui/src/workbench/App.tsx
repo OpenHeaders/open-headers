@@ -93,6 +93,7 @@ import {
 import { ImportTextProvider } from './hooks/ImportTextContext';
 import { OpenServerAdminProvider } from './hooks/OpenServerAdminContext';
 import { OpenSettingsProvider } from './hooks/OpenSettingsContext';
+import { OpenVaultProvider } from './hooks/OpenVaultContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useEditorGroups } from './hooks/useEditorGroups';
@@ -810,6 +811,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openServerAdmin();
   }, [closeSettings, openServerAdmin]);
 
+  // Same dismissal on the way to the vault editor tab.
+  const openVaultFromAnywhere = useCallback(() => {
+    closeSettings();
+    openVault();
+  }, [closeSettings, openVault]);
+
   // ── Save-to-collection flow ────────────────────────────────────
   // Both rule-create and request-create scratch tabs hand their form
   // values to a save-flow hook that fast-paths to a preferred
@@ -1446,6 +1453,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <OpenSettingsProvider openSettings={openSettings}>
       <OpenServerAdminProvider openServerAdmin={openServerAdminFromAnywhere}>
+      <OpenVaultProvider openVault={openVaultFromAnywhere}>
       <ImportTextProvider importText={importText}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
@@ -1705,6 +1713,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         </div>
       </VariablePopoverProvider>
       </ImportTextProvider>
+      </OpenVaultProvider>
       </OpenServerAdminProvider>
       </OpenSettingsProvider>
     </EnvSwitcherProvider>

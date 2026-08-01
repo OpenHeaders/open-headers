@@ -645,6 +645,9 @@ export const workbenchSettingsPanes = {
     'Introduce host:puerto o una URL de proxy http://, https:// o socks5:// — SOCKS4 no es compatible.',
   'workbench.settings.systemProxy.manual.credentials': 'Credenciales',
   'workbench.settings.systemProxy.manual.credentialsPlaceholder': 'Sin autenticación',
+  'workbench.settings.systemProxy.manual.credentialsEmpty':
+    'Aún no hay entradas de cadena en el vault de este dispositivo.',
+  'workbench.settings.systemProxy.manual.credentialsOpenVault': 'Abrir el vault',
   'workbench.settings.systemProxy.manual.bypass': 'Lista de exclusión',
   'workbench.settings.systemProxy.manual.bypassPlaceholder': 'Sin exclusiones — todos los hosts usan el proxy',
   'workbench.settings.systemProxy.manual.bypassExample': 'p. ej. localhost, .internal.example, 10.0.0.0/8',

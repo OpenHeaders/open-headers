@@ -39,6 +39,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useVaultContext } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { useOpenVault } from '../../hooks/OpenVaultContext';
 
 /** The preview's canonical default target — schemeless (the resolve
  *  handler assumes https), auto-resolved when the pane opens. */
@@ -133,6 +134,7 @@ const SystemProxySection: React.FC = () => {
   const { token } = theme.useToken();
   const t = useT();
   const { vault } = useVaultContext();
+  const openVault = useOpenVault();
   const [settings, setSettings] = useState<SystemProxySettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pacKind, setPacKind] = useState<'url' | 'file'>('url');
@@ -408,6 +410,30 @@ const SystemProxySection: React.FC = () => {
                   placeholder={t('workbench.settings.systemProxy.manual.credentialsPlaceholder')}
                   popupMatchSelectWidth={false}
                   style={{ width: 420 }}
+                  notFoundContent={
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: 6,
+                        padding: '6px 8px',
+                      }}
+                    >
+                      <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                        {t('workbench.settings.systemProxy.manual.credentialsEmpty')}
+                      </span>
+                      {openVault !== null && (
+                        <Button
+                          size="small"
+                          data-testid="oh-sysproxy-credentials-open-vault"
+                          onClick={() => openVault()}
+                        >
+                          {t('workbench.settings.systemProxy.manual.credentialsOpenVault')}
+                        </Button>
+                      )}
+                    </div>
+                  }
                 />
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
