@@ -160,11 +160,14 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
-      # Patch ONLY the extension entry of the channel's versions
-      # manifest — the desktop/cli/daemon entries ride through
-      # untouched, so this lane can never move another app's contract.
+      # Patch ONLY the extension entry of the STABLE versions manifest
+      # — the desktop/cli/daemon entries ride through untouched, so
+      # this lane can never move another app's contract. Beta ext tags
+      # patch nothing: the beta manifest carries no extension entry
+      # (unlisted store listings are the beta channel; no machine
+      # contract consumes an extension beta version).
       - name: Update extension entry on the update feed
-        if: steps.r2.outputs.enabled == 'true'
+        if: steps.r2.outputs.enabled == 'true' && steps.release_type.outputs.is_prerelease == 'false'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -172,17 +175,12 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
         run: |
-          if [[ "${{ github.ref_name }}" =~ -ext-beta\.[0-9]+$ ]]; then
-            CHANNEL=beta
-          else
-            CHANNEL=stable
-          fi
           EXT_VERSION="${{ steps.parse_tag.outputs.version }}"
           EXT_TAG="${{ steps.ext_repo.outputs.tag }}"
 
           # Current manifest from the feed; a channel that has never
           # published starts from an empty object.
-          if ! curl -fsS "https://updates.openheaders.io/versions/${CHANNEL}.json" -o current.json; then
+          if ! curl -fsS "https://updates.openheaders.io/versions/stable.json" -o current.json; then
             echo '{}' > current.json
           fi
 
@@ -190,7 +188,7 @@ jobs:
             "{\"latest\":\"${EXT_VERSION}\",\"tag\":\"${EXT_TAG}\",\"severity\":\"normal\"}" > patched.json
           cat patched.json
 
-          aws s3 cp patched.json "s3://${R2_BUCKET}/versions/${CHANNEL}.json" \
+          aws s3 cp patched.json "s3://${R2_BUCKET}/versions/stable.json" \
             --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --region auto \
             --content-type "application/json" \
             --cache-control "public, max-age=300, must-revalidate" \

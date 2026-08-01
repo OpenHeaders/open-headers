@@ -66,26 +66,23 @@ const tag = process.argv[2];
 if (!tag?.startsWith('v')) fail(`expected the release tag as argument, got '${tag}'`);
 
 // The extension entry exists for the website's download surfaces (the
-// extension itself never checks for updates — stores own that). On the
-// stable channel it names the store-submitted version; the beta entry
-// is kept fresh by the extension-only release lane, which patches it
-// without a full release train.
-// A beta tag suffixes the extension version the same way the build job
-// does (base + tag's -beta.N) — the zips on the release page carry
-// that suffixed version in their names.
-const betaSuffix = tag.match(/(-beta\.\d+)$/)?.[1] ?? '';
-const extBase = readJson('apps/extension/package.json').version.replace(/-beta\.\d+$/, '');
+// extension itself never checks for updates — stores own that) and
+// names the store-submitted version. STABLE ONLY: extension betas
+// ship through unlisted store listings and no channel serves sideload
+// zips anymore, so a beta manifest carries no extension entry at all.
+const isBeta = /-beta\.\d+$/.test(tag);
 
 const severityByApp = readJson('.github/release-severity.json');
+const apps = isBeta ? APPS.filter((app) => app !== 'extension') : APPS;
 const latestByApp = {
   desktop: tag.slice(1),
   daemon: readJson('apps/daemon/package.json').version,
   cli: readJson('apps/cli/package.json').version,
-  extension: `${extBase}${betaSuffix}`,
+  extension: readJson('apps/extension/package.json').version.replace(/-beta\.\d+$/, ''),
 };
 
 const manifest = {};
-for (const app of APPS) {
+for (const app of apps) {
   const authored = severityByApp[app];
   if (!authored) fail(`.github/release-severity.json has no '${app}' entry`);
   const { severity, minimumSafeVersion } = authored;

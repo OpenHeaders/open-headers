@@ -1011,18 +1011,23 @@ jobs:
         run: |
           CHANNEL=stable
           if [ "${{ steps.release_type.outputs.is_prerelease }}" = "true" ]; then CHANNEL=beta; fi
-          if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/${CHANNEL}.json" -o live_versions.json; then
-            STORES=$(jq -c '.extension.stores // empty' live_versions.json)
-            if [ -n "$STORES" ]; then
-              node scripts/patch-versions-entry.mjs processed_files/versions.json extension \
-                "{\"stores\":${STORES}}" > versions_with_stores.json
-              mv versions_with_stores.json processed_files/versions.json
-              echo "Carried extension.stores: ${STORES}"
+          # Stores carry on stable only — the beta manifest carries no
+          # extension entry at all (stores are the extension's only
+          # channel; no sideload zips exist on any channel).
+          if [ "$CHANNEL" = "stable" ]; then
+            if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/stable.json" -o live_versions.json; then
+              STORES=$(jq -c '.extension.stores // empty' live_versions.json)
+              if [ -n "$STORES" ]; then
+                node scripts/patch-versions-entry.mjs processed_files/versions.json extension \
+                  "{\"stores\":${STORES}}" > versions_with_stores.json
+                mv versions_with_stores.json processed_files/versions.json
+                echo "Carried extension.stores: ${STORES}"
+              else
+                echo "Live stable manifest has no extension.stores — nothing to carry"
+              fi
             else
-              echo "Live ${CHANNEL} manifest has no extension.stores — nothing to carry"
+              echo "No live stable manifest — nothing to carry"
             fi
-          else
-            echo "No live ${CHANNEL} manifest — nothing to carry"
           fi
           if [ "$CHANNEL" = "beta" ]; then
             if curl -fsS --max-time 30 "https://updates.openheaders.io/versions/stable.json" -o live_stable.json; then
