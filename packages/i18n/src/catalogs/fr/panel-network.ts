@@ -533,15 +533,15 @@ export const panelNetwork = {
     "Cette redirection est Open Headers appliquant une règle de redirection, pas le serveur. Elle s'effectue " +
     "comme une redirection interne, la requête d'origine apparaît donc comme son propre saut avant de " +
     "continuer vers l'URL réécrite.",
-  'panel.rowAnnotations.wireJoined.label': 'Capture sur le fil jointe',
-  'panel.rowAnnotations.wireJoined.detail':
-    'Cet échange a aussi été capturé sur le fil par le proxy local. Les en-têtes exacts sur le fil, les ' +
+  'panel.rowAnnotations.interceptionJoined.label': 'Interception du trafic jointe',
+  'panel.rowAnnotations.interceptionJoined.detail':
+    'Cet échange a aussi été capturé par l’interception du trafic — le proxy local. Les en-têtes exacts sur le fil, les ' +
     "tailles mesurées et les temps de socket de cette capture complètent ce que la capture navigateur n'a " +
     'pas enregistré elle-même.',
-  'panel.rowAnnotations.wireSeen.label': 'Vu sur un onglet du navigateur',
-  'panel.rowAnnotations.wireSeen.detail':
-    "Cet échange sur le fil a aussi été observé sur l'onglet du navigateur {tab} — les deux lignes sont la " +
+  'panel.rowAnnotations.interceptionSeen.label': 'Vu sur un onglet du navigateur',
+  'panel.rowAnnotations.interceptionSeen.detail':
+    "Cet échange intercepté a aussi été observé sur l'onglet du navigateur {tab} — les deux lignes sont la " +
     'même requête vue des deux côtés.',
-  'panel.rowAnnotations.wireSeen.unknownTab': 'un onglet surveillé',
-  'panel.rowAnnotations.wireSeen.jump': "Afficher dans la source de l'onglet",
+  'panel.rowAnnotations.interceptionSeen.unknownTab': 'un onglet surveillé',
+  'panel.rowAnnotations.interceptionSeen.jump': "Afficher dans la source de l'onglet",
 } as const satisfies Catalog;

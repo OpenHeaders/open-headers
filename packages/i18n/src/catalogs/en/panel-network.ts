@@ -475,12 +475,12 @@ export const panelNetwork = {
   'panel.rowAnnotations.redirectRule.label': 'Redirect rule',
   'panel.rowAnnotations.redirectRule.detail':
     'This redirect is Open Headers applying a redirect rule, not the server. It is performed as an internal redirect, so the original request shows as its own hop before the request continues to the rewritten URL.',
-  'panel.rowAnnotations.wireJoined.label': 'Wire capture joined',
-  'panel.rowAnnotations.wireJoined.detail':
-    'This exchange was also captured on the wire by the local proxy. Exact on-the-wire headers, measured sizes, and socket timings from that capture fill in where the browser capture has no record of its own.',
-  'panel.rowAnnotations.wireSeen.label': 'Seen on a browser tab',
-  'panel.rowAnnotations.wireSeen.detail':
-    'This wire exchange was also observed on browser tab {tab} — the two rows are the same request witnessed from both sides.',
-  'panel.rowAnnotations.wireSeen.unknownTab': 'a watched tab',
-  'panel.rowAnnotations.wireSeen.jump': 'Show in tab source',
+  'panel.rowAnnotations.interceptionJoined.label': 'Traffic Interception joined',
+  'panel.rowAnnotations.interceptionJoined.detail':
+    'This exchange was also captured by Traffic Interception — the local proxy. Exact on-the-wire headers, measured sizes, and socket timings from that capture fill in where the browser capture has no record of its own.',
+  'panel.rowAnnotations.interceptionSeen.label': 'Seen on a browser tab',
+  'panel.rowAnnotations.interceptionSeen.detail':
+    'This intercepted exchange was also observed on browser tab {tab} — the two rows are the same request witnessed from both sides.',
+  'panel.rowAnnotations.interceptionSeen.unknownTab': 'a watched tab',
+  'panel.rowAnnotations.interceptionSeen.jump': 'Show in tab source',
 } as const satisfies Catalog;

@@ -69,7 +69,7 @@ function RoutingExampleCard({ port }: { port: number | null }) {
 function scopeInfo(t: Translate): InfoPopoverContent {
   return {
     title: t('workbench.proxyCapture.scope'),
-    kicker: t('workbench.trafficMonitor.wireCapture'),
+    kicker: t('workbench.trafficMonitor.trafficInterception'),
     diagram: <ScopeExampleCard />,
     summary: t('workbench.proxyCapture.scopeInfo.summary'),
     description: t('workbench.proxyCapture.scopeInfo.description'),
@@ -89,7 +89,7 @@ function scopeInfo(t: Translate): InfoPopoverContent {
 function routingInfo(t: Translate, port: number | null): InfoPopoverContent {
   return {
     title: t('workbench.proxyCapture.routing'),
-    kicker: t('workbench.trafficMonitor.wireCapture'),
+    kicker: t('workbench.trafficMonitor.trafficInterception'),
     diagram: <RoutingExampleCard port={port} />,
     summary: t('workbench.proxyCapture.routingInfo.summary'),
     description: t('workbench.proxyCapture.routingInfo.description'),

@@ -447,19 +447,19 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   const wirePane = showWire ? (
     <div style={splitActive ? { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' } : { flex: '0 0 auto' }}>
       <SectionHeader
-        title={t('workbench.trafficMonitor.wire')}
+        title={t('workbench.trafficMonitor.proxySystem')}
         expanded={wireOpen}
         onToggle={() => setWireOpen((v) => !v)}
       />
       {wireOpen && (
-        <Tooltip title={t('workbench.trafficMonitor.wireCaptureHint')} placement="left">
+        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="left">
           <SourceRow
             testid="traffic-monitor-source-wire"
             active={selected === WIRE_SOURCE_KEY}
             onClick={() => onSelect(WIRE_SOURCE_KEY)}
           >
             <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
-            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.wireCapture')}</span>
+            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
             <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
               {wireRunning && wirePort !== null
                 ? t('workbench.proxyCapture.running', { port: wirePort })

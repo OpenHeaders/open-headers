@@ -476,7 +476,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'La vista unificada del tráfico en vivo: elige una fuente a la derecha, una pestaña de navegador conectada ' +
-    '(la extensión transmite su tráfico en vivo) o la captura en el cable (cualquier herramienta de esta máquina ' +
+    '(la extensión transmite su tráfico en vivo) o la interceptación de tráfico (cualquier herramienta de esta máquina ' +
     'apuntada al puerto del proxy local). Ambas usan el mismo registro de red del panel DevTools; no se transmite ' +
     'nada hasta que se selecciona una fuente.',
   'workbench.toolWindows.info.terminal.summary':
@@ -550,9 +550,9 @@ export const workbenchChrome = {
     'Los hosts enrutados caen de HTTP/3 a HTTP/2 o 1.1; los endpoints con certificado fijado pueden fallar mientras ' +
     'están enrutados.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Enruta los hosts del ámbito de descifrado de los navegadores conectados a través del cable. Sobre todo para ' +
-    'navegadores que no puedes observar ni depurar directamente: una pestaña observable obtiene más con el modo ' +
-    'Depuración en su fila.',
+    'Enruta los hosts del ámbito de descifrado de los navegadores conectados a través del proxy de interceptación. ' +
+    'Sobre todo para navegadores que no puedes observar ni depurar directamente: una pestaña observable obtiene ' +
+    'más con el modo Depuración en su fila.',
   'workbench.proxyCapture.routingOnTag': 'Activado',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
@@ -566,14 +566,14 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sources': 'Fuentes',
   'workbench.trafficMonitor.browserTabs': 'Pestañas del navegador',
   'workbench.trafficMonitor.windowLabel': 'Ventana {n}',
-  'workbench.trafficMonitor.wire': 'En el cable',
-  'workbench.trafficMonitor.wireCapture': 'Captura en el cable',
-  'workbench.trafficMonitor.wireCaptureHint':
+  'workbench.trafficMonitor.proxySystem': 'Proxy · Sistema',
+  'workbench.trafficMonitor.trafficInterception': 'Interceptación de tráfico',
+  'workbench.trafficMonitor.trafficInterceptionHint':
     'Tráfico fuera del navegador y no observable: todo lo enrutado por el puerto de captura — herramientas CLI, ' +
     'aplicaciones nativas, otros dispositivos',
   'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Elige a la derecha una pestaña del navegador o la captura en el cable para ver su tráfico',
+    'Elige a la derecha una pestaña del navegador o la interceptación de tráfico para ver su tráfico',
   'workbench.trafficMonitor.debugTab': 'Depurar esta pestaña: fidelidad completa — cuerpos, cabeceras exactas, tiempos',
   'workbench.trafficMonitor.debugAttached':
     'Depurando esta pestaña: fidelidad completa mediante el depurador del navegador',

@@ -473,7 +473,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'La vue unifiée du trafic en direct — choisissez une source à droite : un onglet de navigateur connecté ' +
-    '(l’extension diffuse son trafic en direct) ou la capture sur le fil (tout outil de cette machine pointé vers ' +
+    '(l’extension diffuse son trafic en direct) ou l’interception du trafic (tout outil de cette machine pointé vers ' +
     'le port du proxy local). Les deux s’affichent avec le même journal réseau que le panneau DevTools ; rien ' +
     'n’est diffusé tant qu’aucune source n’est sélectionnée.',
   'workbench.toolWindows.info.terminal.summary':
@@ -550,9 +550,9 @@ export const workbenchChrome = {
     'Les hôtes routés retombent de HTTP/3 vers HTTP/2 ou 1.1 ; les points de terminaison à épinglage de certificat ' +
     'peuvent échouer pendant le routage.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Route les hôtes du périmètre de déchiffrement des navigateurs connectés à travers le fil. Surtout pour les ' +
-    'navigateurs impossibles à surveiller ou à déboguer directement — un onglet observable obtient davantage via le ' +
-    'mode Débogage sur sa ligne.',
+    'Route les hôtes du périmètre de déchiffrement des navigateurs connectés à travers le proxy d’interception. ' +
+    'Surtout pour les navigateurs impossibles à surveiller ou à déboguer directement — un onglet observable ' +
+    'obtient davantage via le mode Débogage sur sa ligne.',
   'workbench.proxyCapture.routingOnTag': 'Activé',
 
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
@@ -567,14 +567,14 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sources': 'Sources',
   'workbench.trafficMonitor.browserTabs': 'Onglets du navigateur',
   'workbench.trafficMonitor.windowLabel': 'Fenêtre {n}',
-  'workbench.trafficMonitor.wire': 'Sur le fil',
-  'workbench.trafficMonitor.wireCapture': 'Capture sur le fil',
-  'workbench.trafficMonitor.wireCaptureHint':
+  'workbench.trafficMonitor.proxySystem': 'Proxy · Système',
+  'workbench.trafficMonitor.trafficInterception': 'Interception du trafic',
+  'workbench.trafficMonitor.trafficInterceptionHint':
     'Trafic hors navigateur et non observable — tout ce qui est routé par le port de capture : outils CLI, ' +
     'applications natives, autres appareils',
   'workbench.trafficMonitor.emptyNoSource': 'Aucune source sélectionnée',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Choisissez à droite un onglet de navigateur ou la capture sur le fil pour suivre son trafic',
+    'Choisissez à droite un onglet de navigateur ou l’interception du trafic pour suivre son trafic',
   'workbench.trafficMonitor.debugTab': 'Déboguer cet onglet — fidélité maximale : corps, en-têtes exacts, timings',
   'workbench.trafficMonitor.debugAttached':
     'Onglet en cours de débogage — fidélité maximale via le débogueur du navigateur',

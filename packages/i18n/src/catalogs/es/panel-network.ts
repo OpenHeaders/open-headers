@@ -539,15 +539,15 @@ export const panelNetwork = {
     'Esta redirección es Open Headers aplicando una regla de redirección, no el servidor. Se realiza como ' +
     'una redirección interna, así que la solicitud original aparece como su propio salto antes de continuar ' +
     'hacia la URL reescrita.',
-  'panel.rowAnnotations.wireJoined.label': 'Captura en el cable unida',
-  'panel.rowAnnotations.wireJoined.detail':
-    'Este intercambio también fue capturado en el cable por el proxy local. Los encabezados exactos en el ' +
+  'panel.rowAnnotations.interceptionJoined.label': 'Interceptación de tráfico unida',
+  'panel.rowAnnotations.interceptionJoined.detail':
+    'Este intercambio también fue capturado por la interceptación de tráfico — el proxy local. Los encabezados exactos en el ' +
     'cable, los tamaños medidos y los tiempos de socket de esa captura completan lo que la captura del ' +
     'navegador no registró por sí misma.',
-  'panel.rowAnnotations.wireSeen.label': 'Visto en una pestaña del navegador',
-  'panel.rowAnnotations.wireSeen.detail':
-    'Este intercambio en el cable también se observó en la pestaña del navegador {tab} — las dos filas son ' +
+  'panel.rowAnnotations.interceptionSeen.label': 'Visto en una pestaña del navegador',
+  'panel.rowAnnotations.interceptionSeen.detail':
+    'Este intercambio interceptado también se observó en la pestaña del navegador {tab} — las dos filas son ' +
     'la misma solicitud vista desde ambos lados.',
-  'panel.rowAnnotations.wireSeen.unknownTab': 'una pestaña observada',
-  'panel.rowAnnotations.wireSeen.jump': 'Mostrar en la fuente de la pestaña',
+  'panel.rowAnnotations.interceptionSeen.unknownTab': 'una pestaña observada',
+  'panel.rowAnnotations.interceptionSeen.jump': 'Mostrar en la fuente de la pestaña',
 } as const satisfies Catalog;

@@ -446,7 +446,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': '打开终端',
   'workbench.terminal.cliGate.openSettings': '打开设置',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    '统一的实时流量视图——在右侧选择来源：已连接的浏览器标签页（扩展实时流式传输其流量），或线路捕获' +
+    '统一的实时流量视图——在右侧选择来源：已连接的浏览器标签页（扩展实时流式传输其流量），或流量拦截' +
     '（本机任何指向本地代理端口的工具）。两者都使用与 DevTools 面板相同的网络日志呈现；' +
     '在选择来源之前，不会传输任何数据。',
   'workbench.toolWindows.info.terminal.summary':
@@ -524,7 +524,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.h3Desc':
     '被路由的主机从 HTTP/3 回退到 HTTP/2 或 1.1；证书固定的端点在路由期间可能失败。',
   'workbench.proxyCapture.routingPopoverHint':
-    '把已连接浏览器中解密范围内的主机经线路路由。主要用于无法直接监视或调试的浏览器——可监视的标签页在其行上启用调试模式能获得更多。',
+    '把已连接浏览器中解密范围内的主机经拦截代理路由。主要用于无法直接监视或调试的浏览器——可监视的标签页在其行上启用调试模式能获得更多。',
   'workbench.proxyCapture.routingOnTag': '开',
 
   // ── 流量监视工具窗口（统一可观测性界面） ────────────────────────────
@@ -538,12 +538,12 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sources': '来源',
   'workbench.trafficMonitor.browserTabs': '浏览器标签页',
   'workbench.trafficMonitor.windowLabel': '窗口 {n}',
-  'workbench.trafficMonitor.wire': '线路',
-  'workbench.trafficMonitor.wireCapture': '线路捕获',
-  'workbench.trafficMonitor.wireCaptureHint':
+  'workbench.trafficMonitor.proxySystem': '代理 · 系统',
+  'workbench.trafficMonitor.trafficInterception': '流量拦截',
+  'workbench.trafficMonitor.trafficInterceptionHint':
     '非浏览器及不可监视的流量——所有经捕获端口路由的内容：CLI 工具、原生应用、其他设备',
   'workbench.trafficMonitor.emptyNoSource': '未选择来源',
-  'workbench.trafficMonitor.emptyNoSourceHint': '在右侧选择一个浏览器标签页或线路捕获，即可实时查看其流量',
+  'workbench.trafficMonitor.emptyNoSourceHint': '在右侧选择一个浏览器标签页或流量拦截，即可实时查看其流量',
   'workbench.trafficMonitor.debugTab': '调试此标签页——完整保真：响应体、精确标头、时序',
   'workbench.trafficMonitor.debugAttached': '正在调试此标签页——经浏览器调试器获得完整保真',
   'workbench.trafficMonitor.debugPinned': '已固定用于调试——调试模式开启后即会附加',

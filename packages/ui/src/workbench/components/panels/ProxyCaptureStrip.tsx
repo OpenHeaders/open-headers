@@ -64,7 +64,7 @@ export function useProxyCaptureStatus(): ProxyCaptureControls {
 
 export interface ProxyCaptureStripProps {
   controls: ProxyCaptureControls;
-  /** Opens Settings › Proxy — the CA-install action on the no-CA alert. */
+  /** Opens Settings › Proxy · Traffic Interception — the CA-install action on the no-CA alert. */
   onOpenProxySettings: () => void;
 }
 

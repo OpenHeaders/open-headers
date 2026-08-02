@@ -104,8 +104,8 @@ const LABEL_KEY: Record<RowAnnotationMessage, MessageKey> = {
   'debug-paused': 'panel.rowAnnotations.debugPaused.label',
   'query-param-rewrite': 'panel.rowAnnotations.queryParamRewrite.label',
   'redirect-rule': 'panel.rowAnnotations.redirectRule.label',
-  'wire-joined': 'panel.rowAnnotations.wireJoined.label',
-  'wire-seen': 'panel.rowAnnotations.wireSeen.label',
+  'wire-joined': 'panel.rowAnnotations.interceptionJoined.label',
+  'wire-seen': 'panel.rowAnnotations.interceptionSeen.label',
 };
 
 const DETAIL_KEY: Record<RowAnnotationMessage, MessageKey> = {
@@ -117,8 +117,8 @@ const DETAIL_KEY: Record<RowAnnotationMessage, MessageKey> = {
   'debug-paused': 'panel.rowAnnotations.debugPaused.detail',
   'query-param-rewrite': 'panel.rowAnnotations.queryParamRewrite.detail',
   'redirect-rule': 'panel.rowAnnotations.redirectRule.detail',
-  'wire-joined': 'panel.rowAnnotations.wireJoined.detail',
-  'wire-seen': 'panel.rowAnnotations.wireSeen.detail',
+  'wire-joined': 'panel.rowAnnotations.interceptionJoined.detail',
+  'wire-seen': 'panel.rowAnnotations.interceptionSeen.detail',
 };
 
 /** Resolved annotation copy for one locale. Labels and the static
@@ -138,7 +138,7 @@ export function buildRowAnnotationMessages(t: Translate): RowAnnotationMessages 
   const labels = Object.fromEntries(
     (Object.keys(LABEL_KEY) as RowAnnotationMessage[]).map((m) => [m, t(LABEL_KEY[m])]),
   ) as Record<RowAnnotationMessage, string>;
-  const unknownTab = t('panel.rowAnnotations.wireSeen.unknownTab');
+  const unknownTab = t('panel.rowAnnotations.interceptionSeen.unknownTab');
   return {
     label: (a) => labels[a.message],
     detail: (a) =>
@@ -149,7 +149,7 @@ export function buildRowAnnotationMessages(t: Translate): RowAnnotationMessages 
           : t(DETAIL_KEY[a.message]),
     alsoOnThisRow: t('panel.rowAnnotations.alsoOnThisRow'),
     openDetails: t('panel.rowAnnotations.openDetails'),
-    wireSeenJump: t('panel.rowAnnotations.wireSeen.jump'),
+    wireSeenJump: t('panel.rowAnnotations.interceptionSeen.jump'),
   };
 }
 

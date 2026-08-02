@@ -851,7 +851,7 @@ test("a scoped routed exchange joins the watched tab's row to the wire capture",
   // annotation rail once the derive-at-consume join matches the twins.
   const row = workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first();
   await expect(row).toBeVisible({ timeout: 15000 });
-  await expect(row.locator('.dt-annot-glyph')).toHaveAttribute('aria-label', 'Wire capture joined', {
+  await expect(row.locator('.dt-annot-glyph')).toHaveAttribute('aria-label', 'Traffic Interception joined', {
     timeout: 15000,
   });
 });
@@ -986,7 +986,7 @@ test('perf: a 300-burst on the watched tab stays in budget with the join active'
   await filter.fill('wirejoin-1');
   await expect(
     workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first().locator('.dt-annot-glyph'),
-  ).toHaveAttribute('aria-label', 'Wire capture joined');
+  ).toHaveAttribute('aria-label', 'Traffic Interception joined');
   await filter.fill('');
 
   console.log(

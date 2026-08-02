@@ -401,7 +401,7 @@ export const workbenchChrome = {
     'Per-request behavior — SSL verification, redirects, and more.',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'The unified live traffic view — pick a source on the right: a connected browser tab (the extension streams its ' +
-    'traffic live) or the wire capture (any tool on this machine pointed at the local proxy port). Both render the ' +
+    'traffic live) or Traffic Interception (any tool on this machine pointed at the local proxy port). Both render the ' +
     'same network log the DevTools panel uses; nothing streams until a source is selected.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
@@ -530,8 +530,8 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingInfo.h3Desc':
     'Routed hosts fall back from HTTP/3 to HTTP/2 or 1.1; certificate-pinned endpoints may fail while routed.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Routes decrypt-scope hosts from connected browsers through the wire. Mainly for browsers you can’t watch or ' +
-    'debug directly — a watchable tab gets more via Debug mode on its row.',
+    'Routes decrypt-scope hosts from connected browsers through the interception proxy. Mainly for browsers ' +
+    'you can’t watch or debug directly — a watchable tab gets more via Debug mode on its row.',
   'workbench.proxyCapture.routingOnTag': 'On',
 
   // ── Traffic Monitor tool window (unified observability surface) ─────
@@ -545,13 +545,13 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sources': 'Sources',
   'workbench.trafficMonitor.browserTabs': 'Browser tabs',
   'workbench.trafficMonitor.windowLabel': 'Window {n}',
-  'workbench.trafficMonitor.wire': 'Wire',
-  'workbench.trafficMonitor.wireCapture': 'Wire capture',
-  'workbench.trafficMonitor.wireCaptureHint':
+  'workbench.trafficMonitor.proxySystem': 'Proxy · System',
+  'workbench.trafficMonitor.trafficInterception': 'Traffic Interception',
+  'workbench.trafficMonitor.trafficInterceptionHint':
     'Non-browser & un-watchable traffic — anything routed through the capture port: CLI tools, native apps, other devices',
   'workbench.trafficMonitor.emptyNoSource': 'No source selected',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Pick a browser tab or the wire capture on the right to watch its traffic',
+    'Pick a browser tab or Traffic Interception on the right to watch its traffic',
   'workbench.trafficMonitor.debugTab': 'Debug this tab — full fidelity: bodies, exact headers, timing',
   'workbench.trafficMonitor.debugAttached': 'Debugging this tab — full fidelity via the browser’s debugger',
   'workbench.trafficMonitor.debugPinned': 'Pinned for debugging — attaches once Debug mode is on',

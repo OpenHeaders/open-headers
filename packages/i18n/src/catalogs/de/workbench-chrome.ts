@@ -473,7 +473,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
   'workbench.toolWindows.info.trafficMonitor.summary':
     'Die vereinte Live-Verkehrsansicht — wähle rechts eine Quelle: einen verbundenen Browser-Tab (die Erweiterung ' +
-    'streamt seinen Verkehr live) oder den Leitungsmitschnitt (beliebige Tools dieser Maschine, die auf den ' +
+    'streamt seinen Verkehr live) oder die Traffic-Interception (beliebige Tools dieser Maschine, die auf den ' +
     'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
     'gestreamt, bis eine Quelle ausgewählt ist.',
   'workbench.toolWindows.info.terminal.summary':
@@ -546,7 +546,7 @@ export const workbenchChrome = {
     'Geroutete Hosts fallen von HTTP/3 auf HTTP/2 oder 1.1 zurück; Endpunkte mit Certificate-Pinning können ' +
     'während des Routings fehlschlagen.',
   'workbench.proxyCapture.routingPopoverHint':
-    'Leitet Hosts im Entschlüsselungsbereich verbundener Browser über die Leitung. Vor allem für Browser, die sich ' +
+    'Leitet Hosts im Entschlüsselungsbereich verbundener Browser über den Interception-Proxy. Vor allem für Browser, die sich ' +
     'nicht direkt beobachten oder debuggen lassen — ein beobachtbarer Tab bekommt mehr über den Debug-Modus in ' +
     'seiner Zeile.',
   'workbench.proxyCapture.routingOnTag': 'An',
@@ -562,14 +562,14 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sources': 'Quellen',
   'workbench.trafficMonitor.browserTabs': 'Browser-Tabs',
   'workbench.trafficMonitor.windowLabel': 'Fenster {n}',
-  'workbench.trafficMonitor.wire': 'Leitung',
-  'workbench.trafficMonitor.wireCapture': 'Leitungsmitschnitt',
-  'workbench.trafficMonitor.wireCaptureHint':
+  'workbench.trafficMonitor.proxySystem': 'Proxy · System',
+  'workbench.trafficMonitor.trafficInterception': 'Traffic-Interception',
+  'workbench.trafficMonitor.trafficInterceptionHint':
     'Nicht-Browser- und nicht beobachtbarer Verkehr — alles, was über den Capture-Port geroutet wird: CLI-Tools, ' +
     'native Apps, andere Geräte',
   'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Wähle rechts einen Browser-Tab oder den Leitungsmitschnitt, um seinen Verkehr live zu sehen',
+    'Wähle rechts einen Browser-Tab oder die Traffic-Interception, um den zugehörigen Verkehr live zu sehen',
   'workbench.trafficMonitor.debugTab': 'Diesen Tab debuggen — volle Genauigkeit: Bodies, exakte Header, Timing',
   'workbench.trafficMonitor.debugAttached': 'Tab wird debuggt — volle Genauigkeit über den Debugger des Browsers',
   'workbench.trafficMonitor.debugPinned': 'Zum Debuggen angepinnt — verbindet sich, sobald der Debug-Modus an ist',
