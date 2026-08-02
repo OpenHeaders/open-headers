@@ -201,6 +201,46 @@ describe('gateMcpToolCall', () => {
     );
   });
 
+  describe('observe tier (AGENT_TRAFFIC_PLAN.md §4 — the S2 grant model)', () => {
+    it('is disabled by default — a read-enabled host denies observe tools outright', async () => {
+      const tool = makeTool({ tier: 'observe', resolveWorkspaceId: () => WS_ID });
+      expect(await reasonOf(gateMcpToolCall(tool, {}, policyOf('read'), ctxOf(operatorUserId)))).toBe('tier-disabled');
+    });
+
+    it('defaults to workspace.observe — distinct from workspace.read, so a viewer gets nothing', async () => {
+      const viewer = await addUser('Viewer', 'viewer');
+      const readTool = makeTool({ tier: 'read', resolveWorkspaceId: () => WS_ID });
+      await expect(gateMcpToolCall(readTool, {}, policyOf('read'), ctxOf(viewer.user.id))).resolves.toBeUndefined();
+
+      const observeTool = makeTool({ tier: 'observe', resolveWorkspaceId: () => WS_ID });
+      expect(await reasonOf(gateMcpToolCall(observeTool, {}, policyOf('observe'), ctxOf(viewer.user.id)))).toBe(
+        'insufficient-workspace-role',
+      );
+      expect(audits.at(-1)).toMatchObject({
+        actorUserId: viewer.user.id,
+        capability: 'workspace.observe',
+        workspaceId: WS_ID,
+        decision: { allow: false },
+      });
+    });
+
+    it('allows editor grants and the operator, and audits workspace.observe as the capability', async () => {
+      const editor = await addUser('Editor', 'editor');
+      const observeTool = makeTool({ tier: 'observe', resolveWorkspaceId: () => WS_ID });
+      await expect(
+        gateMcpToolCall(observeTool, {}, policyOf('observe'), ctxOf(editor.user.id)),
+      ).resolves.toBeUndefined();
+      expect(audits.at(-1)).toMatchObject({
+        actorUserId: editor.user.id,
+        capability: 'workspace.observe',
+        decision: { allow: true },
+      });
+      await expect(
+        gateMcpToolCall(observeTool, {}, policyOf('observe'), ctxOf(operatorUserId)),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   it('re-resolves the snapshot per call — a revocation bites the next call', async () => {
     const editor = await addUser('Editor', 'editor');
     const tool = makeTool({ tier: 'write', resolveWorkspaceId: () => WS_ID });

@@ -9,6 +9,7 @@
  * Settings, all default-off / read-only-by-default:
  *
  *   - `mcp.enabled`      — master switch. Off ⇒ the `/mcp` path 404s.
+ *   - `mcp.allowObserve` — enables `observe`-tier tools (agent traffic).
  *   - `mcp.allowWrite`   — enables `write`-tier tools (Phase 2).
  *   - `mcp.allowExecute` — enables `execute`-tier tools (Phase 3).
  *   - `mcp.allowSecrets` — enables `secrets`-tier tools (Phase 5).
@@ -32,6 +33,7 @@ import {
   createSecretToolDefinitions,
   createWriteToolDefinitions,
   type McpHttpHandler,
+  type McpObserveCallEvent,
   type McpPolicy,
   type McpToolTier,
 } from '../mcp';
@@ -46,6 +48,7 @@ export interface McpServerInstall {
 function policyFromSettings(values: Record<string, unknown> | undefined): { enabled: boolean; policy: McpPolicy } {
   const enabled = values?.['mcp.enabled'] === true;
   const tiers = new Set<McpToolTier>(['read']);
+  if (values?.['mcp.allowObserve'] === true) tiers.add('observe');
   if (values?.['mcp.allowWrite'] === true) tiers.add('write');
   if (values?.['mcp.allowExecute'] === true) tiers.add('execute');
   if (values?.['mcp.allowSecrets'] === true) tiers.add('secrets');
@@ -57,6 +60,9 @@ export interface InstallMcpServerOptions {
   serverVersion: string;
   /** Trusted-proxy-aware peer resolver for rejection log lines (Phase 3). */
   resolvePeer?: (req: IncomingMessage) => string;
+  /** Observe-visibility sink (AGENT_TRAFFIC_PLAN.md §4) — the spine
+   *  lands each successful `observe`-tier call in the Activity Feed. */
+  onObserveCall?: (event: McpObserveCallEvent) => void;
 }
 
 export async function installMcpServer(options: InstallMcpServerOptions): Promise<McpServerInstall> {
@@ -87,6 +93,7 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
     getPolicy: () => current.policy,
     serverVersion: options.serverVersion,
     resolvePeer: options.resolvePeer,
+    ...(options.onObserveCall !== undefined ? { onObserveCall: options.onObserveCall } : {}),
   });
 
   return {

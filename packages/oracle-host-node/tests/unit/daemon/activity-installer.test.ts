@@ -32,11 +32,18 @@ vi.mock('@openheaders/oracle/sync', async () => {
   };
 });
 
+const nextContextMock = vi.fn<(workspaceId: string) => { hlc: unknown; deviceId: string } | null>(() => null);
+
+vi.mock('@openheaders/oracle/sync/service', () => ({
+  nextSwMutatorContextForWorkspace: (workspaceId: string) => nextContextMock(workspaceId),
+}));
+
 import {
   __getDroppedNoLogCount,
   __resetActivityInstallerForTests,
   countUnreadActivityEntries,
   observeForActivityFeed,
+  recordAgentObservation,
   setActivityClockForTests,
   setActivityLog,
   subscribeActivityEntries,
@@ -68,6 +75,8 @@ beforeEach(() => {
   hasRecentlyAppliedMock.mockReturnValue(false);
   materializeOneMock.mockReset();
   materializeOneMock.mockReturnValue(null);
+  nextContextMock.mockReset();
+  nextContextMock.mockReturnValue(null);
   __resetActivityInstallerForTests();
   __resetActivityPriorsForTests();
   setActivityClockForTests(() => 1_700_000_000_000);
@@ -227,6 +236,48 @@ describe('observeForActivityFeed (node host)', () => {
 
     const rows = await log.list(WS);
     expect(rows.map((r) => r.kind).sort()).toEqual(['edit-entity', 'permission-scope-expansion'].sort());
+  });
+
+  it('recordAgentObservation lands an agent-observe entry with the MCP surface origin', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    nextContextMock.mockReturnValue({ hlc: { physicalMs: 2_000, logical: 3, nodeId: 'daemon' }, deviceId: 'dev-1' });
+
+    const seen: string[] = [];
+    const unsubscribe = subscribeActivityEntries((entry) => seen.push(entry.kind));
+    recordAgentObservation({
+      workspaceId: WS,
+      toolName: 'traffic_list',
+      tokenId: 'tok-1',
+      tokenLabel: 'Claude',
+      userId: 'user-1',
+    });
+    unsubscribe();
+    await Promise.resolve();
+
+    expect(seen).toEqual(['agent-observe']);
+    const rows = await log.list(WS);
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toMatchObject({
+      kind: 'agent-observe',
+      entityType: 'traffic-observation',
+      entityId: 'traffic_list',
+      origin: { surfaceId: 'mcp', deviceId: 'dev-1', userId: 'user-1' },
+      summary: 'traffic_list · Claude',
+      read: false,
+      observedAt: 1_700_000_000_000,
+    });
+  });
+
+  it('recordAgentObservation drops when the workspace is not loaded on this host', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    nextContextMock.mockReturnValue(null);
+
+    recordAgentObservation({ workspaceId: WS, toolName: 'traffic_list', tokenId: 'tok-1', userId: 'user-1' });
+    await Promise.resolve();
+
+    expect((await log.list(WS)).length).toBe(0);
   });
 
   it('countUnreadActivityEntries delegates to the installed log', async () => {

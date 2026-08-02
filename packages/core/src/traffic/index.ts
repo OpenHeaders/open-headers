@@ -13,4 +13,12 @@ export type {
   TrafficSourceKind,
   TrafficSourceProjection,
 } from './projection';
+export {
+  isSensitiveHeaderName,
+  isTokenShapedValue,
+  redactHeaders,
+  redactHeaderValue,
+  redactionMarker,
+  redactUrl,
+} from './redaction';
 export { normalizeTrafficResourceType, type TrafficResourceType } from './resource-type';

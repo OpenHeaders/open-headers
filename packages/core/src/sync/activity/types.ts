@@ -20,9 +20,10 @@
  * sent peer-to-peer for cross-host activity fan-out. Anything added
  * later must be additive.
  */
+
+import type { EntityType, MutationOrigin } from '../envelope';
 import type { HLC } from '../hlc';
 import { hlcToString } from '../hlc';
-import type { EntityType, MutationOrigin } from '../envelope';
 
 /**
  * Classification produced by the receiver-side classifier (F2). The
@@ -41,7 +42,16 @@ export type ActivityEntryKind =
   | 'delete-entity'
   | 'supersede-local-edit'
   | 'sensitive-field-rotation'
-  | 'permission-scope-expansion';
+  | 'permission-scope-expansion'
+  /**
+   * An agent READ through the MCP `observe` tier (AGENT_TRAFFIC_PLAN.md
+   * §4): reads of live traffic must be answerable after the fact
+   * ("what did the agent look at?"), so every observe-tier tool call
+   * lands here the way MCP mutations do. Not a mutation — there is no
+   * envelope, no prior, nothing to revert; the entry is minted directly
+   * by the host's observe sink.
+   */
+  | 'agent-observe';
 
 export interface ActivityEntry {
   /** `${hlcKey}|${mutationId}|${kind}` — sortable by HLC, unique per row. */
@@ -68,10 +78,6 @@ export interface ActivityEntry {
 }
 
 /** Compose the canonical entry id. Pure; safe to call anywhere. */
-export function activityEntryId(input: {
-  hlc: HLC;
-  mutationId: string;
-  kind: ActivityEntryKind;
-}): string {
+export function activityEntryId(input: { hlc: HLC; mutationId: string; kind: ActivityEntryKind }): string {
   return `${hlcToString(input.hlc)}|${input.mutationId}|${input.kind}`;
 }

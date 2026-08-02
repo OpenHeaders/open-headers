@@ -43,7 +43,7 @@ import { hostLogger as logger } from '@openheaders/core/logger';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import type { McpPolicy } from './policy';
 import type { McpToolRegistry } from './registry';
-import { createMcpServer } from './server';
+import { createMcpServer, type McpObserveCallEvent } from './server';
 
 const SCOPE = 'McpHttp';
 
@@ -61,6 +61,8 @@ export interface McpHttpHandlerOptions {
    * resolver so logs behind a reverse proxy carry the real client.
    */
   readonly resolvePeer?: (req: IncomingMessage) => string;
+  /** Observe-visibility sink — see {@link McpObserveCallEvent}. */
+  readonly onObserveCall?: (event: McpObserveCallEvent) => void;
 }
 
 /** Same contract as `PairingHttpHandler` — `true` = response owned. */
@@ -143,7 +145,7 @@ function readBearerSecret(req: IncomingMessage): string | undefined {
 }
 
 export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHandler {
-  const { registry, isEnabled, getPolicy, serverVersion, resolvePeer } = options;
+  const { registry, isEnabled, getPolicy, serverVersion, resolvePeer, onObserveCall } = options;
 
   return (req, res) => {
     if (!isMcpPath(req.url)) return false;
@@ -212,6 +214,7 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
             ...(validation.label !== undefined ? { tokenLabel: validation.label } : {}),
             userId: resolved.userId,
           },
+          ...(onObserveCall !== undefined ? { onObserveCall } : {}),
         });
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined,

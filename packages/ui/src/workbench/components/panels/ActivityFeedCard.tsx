@@ -111,6 +111,11 @@ const KIND_META: Record<ActivityEntryKind, KindMeta> = {
     color: 'volcano',
     tooltipKey: 'workbench.activityFeed.kind.scopeWidenedTip',
   },
+  'agent-observe': {
+    labelKey: 'workbench.activityFeed.kind.agentObserved',
+    color: 'purple',
+    tooltipKey: 'workbench.activityFeed.kind.agentObservedTip',
+  },
 };
 
 function entityLabel(entityType: string, entityId: string): string {

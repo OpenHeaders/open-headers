@@ -19,6 +19,7 @@ import { registerSetting } from '../registry';
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'mcp.enabled': boolean;
+    'mcp.allowObserve': boolean;
     'mcp.allowWrite': boolean;
     'mcp.allowExecute': boolean;
     'mcp.allowSecrets': boolean;
@@ -36,6 +37,19 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.mcp.enabled.description',
   category: 'mcp',
   tags: ['mcp', 'agent', 'ai', 'server', 'model', 'context', 'protocol'],
+  scope: 'user',
+  when: desktopOnly,
+});
+
+registerSetting({
+  key: 'mcp.allowObserve',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.mcp.allowObserve.label',
+  descriptionKey: 'workbench.settings.def.mcp.allowObserve.description',
+  category: 'mcp',
+  tags: ['mcp', 'observe', 'traffic', 'network', 'agent', 'redaction'],
   scope: 'user',
   when: desktopOnly,
 });

@@ -14,6 +14,8 @@ export {
 export { connectBrowserTabSource, connectProxySource, type TrafficSourceConnection } from './sources';
 export {
   createTrafficTap,
+  DEFAULT_TRAFFIC_ARM_TTL_MS,
+  MAX_TRAFFIC_REVEAL_TTL_MS,
   type TrafficArmOptions,
   type TrafficSourceStatus,
   type TrafficTap,

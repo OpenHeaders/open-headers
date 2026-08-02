@@ -5,9 +5,9 @@
  * Two checks, in order:
  *
  *   1. Tier gate. The host controls which tool families are enabled
- *      (`read` rides the master switch; `write` / `execute` / `secrets`
- *      are separate opt-ins). A disabled tier denies before any
- *      workspace context is even resolved.
+ *      (`read` rides the master switch; `observe` / `write` / `execute`
+ *      / `secrets` are separate opt-ins). A disabled tier denies before
+ *      any workspace context is even resolved.
  *   2. Capability gate. Same discipline as oracle's `gateDispatch`
  *      (UNIFIED_ORACLE_MODEL.md §5.8): resolve the workspaceId(s) the
  *      tool acts on, consult {@link hasCapability} against the CALLING
@@ -53,13 +53,16 @@ export class McpPermissionDeniedError extends Error {
 
 const TIER_LABEL: Record<McpToolTier, string> = {
   read: 'Read',
+  observe: 'Traffic observation',
   write: 'Write',
   execute: 'Execute',
   secrets: 'Secrets',
 };
 
 function defaultCapabilityForTier(tier: McpToolTier): Capability {
-  return tier === 'write' || tier === 'execute' ? 'workspace.write' : 'workspace.read';
+  if (tier === 'write' || tier === 'execute') return 'workspace.write';
+  if (tier === 'observe') return 'workspace.observe';
+  return 'workspace.read';
 }
 
 /**

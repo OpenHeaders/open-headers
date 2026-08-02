@@ -23,8 +23,9 @@ import type { TrafficResourceType } from './resource-type';
 /** The two source families the tap can arm (PLAN §1 / §8 S1). */
 export type TrafficSourceKind = 'browser-tab' | 'proxy';
 
-/** One projected header. S2 replaces sensitive values with the stable
- *  `[redacted:<sha256-prefix>]` marker at projection time. */
+/** One projected header. Sensitive values arrive as the stable
+ *  `[redacted:<sha256-prefix>]` marker (see `./redaction`), applied at
+ *  projection time — never by a consumer. */
 export interface TrafficHeaderProjection {
   readonly name: string;
   readonly value: string;
@@ -65,7 +66,17 @@ export interface TrafficSourceProjection {
   readonly kind: TrafficSourceKind;
   /** Partition label — `tab <tabId> @ <nodeId>` or the proxy partition. */
   readonly label: string;
+  /** Structured partition identity (browser-tab sources) — surfaces map
+   *  armed state back to a rail row without parsing labels. */
+  readonly nodeId?: string;
+  readonly tabId?: number;
   readonly armedAtMs: number;
+  /**
+   * When the arm lapses (S2): an armed source streams, so an idle one —
+   * no observe reads — auto-disarms at this wall-clock instant rather
+   * than streaming forever. Reads push it forward; disarm is absence.
+   */
+  readonly expiresAtMs: number;
   /** `streaming` while the subscription is live; `refused` when the
    *  peer's consent gate rejected the watch; `ended` after disarm. */
   readonly state: 'streaming' | 'refused' | 'ended';

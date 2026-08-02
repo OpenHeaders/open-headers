@@ -20,7 +20,9 @@ import {
   BugFilled,
   BugOutlined,
   CaretRightOutlined,
+  EyeFilled,
   EyeInvisibleOutlined,
+  EyeOutlined,
   FileOutlined,
   GlobalOutlined,
   LoadingOutlined,
@@ -115,6 +117,14 @@ export interface TrafficMonitorSourceRailProps {
   debugPending: ReadonlySet<TrafficSourceKey>;
   /** Peers whose master-switch command is in flight — switch loading. */
   debugEnablePending: ReadonlySet<string>;
+  /** Sources armed for agent observation (AGENT_TRAFFIC_PLAN.md §4) —
+   *  tab keys plus {@link WIRE_SOURCE_KEY} when the proxy partition is
+   *  armed. Armed = the source streams to the desktop app. */
+  observeArmed: ReadonlySet<TrafficSourceKey>;
+  /** Sources whose arm/disarm command is in flight — spinner state. */
+  observePending: ReadonlySet<TrafficSourceKey>;
+  /** Arm/disarm a source for agent observation. */
+  onObserveToggle: (key: TrafficSourceKey) => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -216,6 +226,63 @@ function TabDebugAffordance({
   );
 }
 
+/**
+ * Per-source agent-observation toggle (AGENT_TRAFFIC_PLAN.md §4): the
+ * human gesture that arms one source for the MCP `observe` tier. The
+ * affordance carries the honesty copy — armed = the source STREAMS to
+ * the desktop with no panel open, redaction is best-effort, idle arms
+ * expire — and stays visible while armed, hover-revealed otherwise
+ * (the Debug affordance's posture).
+ */
+function SourceObserveAffordance({
+  armed,
+  pending,
+  onToggle,
+}: {
+  armed: boolean;
+  /** An arm/disarm the last click triggered is still in flight. */
+  pending: boolean;
+  onToggle: () => void;
+}) {
+  const t = useT();
+  const { token } = theme.useToken();
+  const title = armed ? t('workbench.trafficMonitor.observeArmed') : t('workbench.trafficMonitor.observeArm');
+  const icon = pending ? (
+    <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
+  ) : armed ? (
+    <EyeFilled style={{ fontSize: 12, color: token.colorWarning }} />
+  ) : (
+    <EyeOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+  );
+  return (
+    <Tooltip title={title} placement="left">
+      <span
+        role="button"
+        tabIndex={0}
+        data-testid="traffic-monitor-source-observe"
+        aria-label={t('workbench.trafficMonitor.observeAria')}
+        aria-pressed={armed}
+        aria-busy={pending}
+        className={pending || armed ? undefined : 'rules-sidebar-item-hover-action'}
+        style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!pending) onToggle();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!pending) onToggle();
+          }
+        }}
+      >
+        {icon}
+      </span>
+    </Tooltip>
+  );
+}
+
 export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> = ({
   peers,
   loading,
@@ -229,6 +296,9 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   onDebugEnable,
   debugPending,
   debugEnablePending,
+  observeArmed,
+  observePending,
+  onObserveToggle,
   width,
 }) => {
   const t = useT();
@@ -422,6 +492,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                             >
                               {title}
                             </span>
+                            {peer.watchConsent && (
+                              <SourceObserveAffordance
+                                armed={observeArmed.has(key)}
+                                pending={observePending.has(key)}
+                                onToggle={() => onObserveToggle(key)}
+                              />
+                            )}
                             {peer.debug.available && peer.watchConsent && (
                               <TabDebugAffordance
                                 attached={peer.debug.attachedTabs.includes(tab.tabId)}
@@ -460,6 +537,11 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
           >
             <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
             <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
+            <SourceObserveAffordance
+              armed={observeArmed.has(WIRE_SOURCE_KEY)}
+              pending={observePending.has(WIRE_SOURCE_KEY)}
+              onToggle={() => onObserveToggle(WIRE_SOURCE_KEY)}
+            />
             <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
               {wireRunning && wirePort !== null
                 ? t('workbench.proxyCapture.running', { port: wirePort })

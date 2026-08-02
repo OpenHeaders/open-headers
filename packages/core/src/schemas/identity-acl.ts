@@ -128,6 +128,7 @@ export const DaemonAdminSchema = v.object({
 export const CapabilitySchema = v.picklist([
   'workspace.read',
   'workspace.write',
+  'workspace.observe',
   'workspace.list',
   'workspace.create',
   'daemon.admin',

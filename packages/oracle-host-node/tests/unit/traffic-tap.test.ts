@@ -23,10 +23,10 @@ import {
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { installLoopbackLifelineDialer } from '../../src/traffic/loopback-lifeline';
-import { createTrafficTap } from '../../src/traffic/tap';
+import { createTrafficTap, DEFAULT_TRAFFIC_ARM_TTL_MS, MAX_TRAFFIC_REVEAL_TTL_MS } from '../../src/traffic/tap';
 
 function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecycle {
   return {
@@ -141,6 +141,109 @@ describe('traffic tap — browser-tab source over the loopback lifeline', () => 
     const second = tap.armBrowserTab('ext-node-1', 7);
     expect(second).toBe(first);
     expect(relay.ports).toHaveLength(1);
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+});
+
+describe('traffic tap — idle expiry + reveal escalation (S2)', () => {
+  let priorServer: LifelineServer;
+
+  beforeEach(() => {
+    setHostLogger(consoleLogger);
+    priorServer = getLifelineServer();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setLifelineServer(priorServer);
+  });
+
+  it('an idle arm lapses into ABSENCE; observe reads push the expiry forward', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7, { ttlMs: 10_000 }) ?? '';
+
+    expect(tap.status()[0]?.expiresAtMs).toBe(Date.now() + 10_000);
+
+    // A read at t+8s keeps the source warm — the lapse moves to t+18s.
+    vi.advanceTimersByTime(8_000);
+    expect(tap.records(uid)).not.toBeNull();
+    vi.advanceTimersByTime(8_000);
+    expect(tap.status()).toHaveLength(1);
+
+    // No reads for a full ttl: the sweep disarms and detaches — the
+    // streaming cost stops without any caller touching the tap.
+    vi.advanceTimersByTime(40_000);
+    expect(relay.disconnects).toEqual([7]);
+    expect(tap.status()).toEqual([]);
+    expect(tap.records(uid)).toBeNull();
+
+    // Status polling alone never extends an arm.
+    const uid2 = tap.armBrowserTab('ext-node-1', 7, { ttlMs: 10_000 }) ?? '';
+    const armedUntil = tap.status()[0]?.expiresAtMs;
+    vi.advanceTimersByTime(9_000);
+    tap.status();
+    expect(tap.status()[0]?.expiresAtMs).toBe(armedUntil);
+    expect(tap.records(uid2)).not.toBeNull();
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('defaults the ttl when none is given', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ dialer, proxyHub });
+    tap.armBrowserTab('ext-node-1', 7);
+    expect(tap.status()[0]?.expiresAtMs).toBe(Date.now() + DEFAULT_TRAFFIC_ARM_TTL_MS);
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('escalate opens a hard-capped reveal window; outside it reads are redacted', () => {
+    const AUTH =
+      'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c';
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([
+      makeLifecycle({
+        requestId: 'secret',
+        startedAtMs: 900,
+        requestHeaders: [{ name: 'Authorization', value: AUTH }],
+      }),
+    ]);
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+
+    // Default read: redacted.
+    expect(JSON.stringify(tap.records(uid))).not.toContain(AUTH);
+
+    // Unknown uid or nonsense ttl refuses; a real escalation reveals.
+    expect(tap.escalate('browser-tab:missing:1', 5_000)).toBe(false);
+    expect(tap.escalate(uid, 0)).toBe(false);
+    expect(tap.escalate(uid, 5_000)).toBe(true);
+    expect(JSON.stringify(tap.records(uid))).toContain(AUTH);
+
+    // The window is time-boxed — after it lapses, redaction returns.
+    vi.advanceTimersByTime(5_001);
+    expect(JSON.stringify(tap.records(uid))).not.toContain(AUTH);
+
+    // The requested ttl clamps to the hard ceiling.
+    expect(tap.escalate(uid, Number.MAX_SAFE_INTEGER)).toBe(true);
+    vi.advanceTimersByTime(MAX_TRAFFIC_REVEAL_TTL_MS + 1);
+    expect(JSON.stringify(tap.records(uid))).not.toContain(AUTH);
+
     tap.dispose();
     relay.uninstall();
     proxyHub.dispose();

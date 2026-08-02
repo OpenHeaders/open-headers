@@ -582,6 +582,15 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Modo Depuración: adjunta el depurador del navegador a las pestañas del ámbito y fijadas para obtener cuerpos y ' +
     'cabeceras exactas. El navegador muestra un aviso en cada pestaña adjuntada.',
+  'workbench.trafficMonitor.observeArm':
+    'Armar para la observación por agente: mientras esté armada, esta fuente transmite su tráfico a la aplicación de ' +
+    'escritorio incluso sin ningún panel abierto. Las cabeceras de autenticación, las cookies y los valores con ' +
+    'forma de token se reemplazan por marcadores estables (mejor esfuerzo — un secreto en un lugar inusual puede ' +
+    'colarse). Los armados inactivos caducan por sí solos.',
+  'workbench.trafficMonitor.observeArmed':
+    'Armada para la observación por agente: transmitiendo hasta desarmarla o hasta la caducidad por inactividad. ' +
+    'Los secretos se censuran con marcadores estables (mejor esfuerzo).',
+  'workbench.trafficMonitor.observeAria': 'Alternar la observación por agente para esta fuente',
   'workbench.trafficMonitor.noBrowsersHint':
     'No hay navegadores conectados. Abre un navegador con la extensión instalada, o instálala:',
   'workbench.trafficMonitor.installExtension': 'Instalar la extensión de {browser}',

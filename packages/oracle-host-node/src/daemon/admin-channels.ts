@@ -110,11 +110,12 @@ export interface AdminChannelDeps {
   ): Promise<{ ok: boolean; payload: unknown }>;
   /**
    * The `oh.daemon.traffic.*` backing — the agent-traffic tap's
-   * operator-plane arm/disarm/status controls (AGENT_TRAFFIC_PLAN.md §8
-   * S1). Status is content-free counters; retained records never cross
-   * this table. Optional so dispatch tables composed without the tap
-   * (test rigs) answer an empty source list instead of failing
-   * construction.
+   * operator-plane arm/disarm/status/records controls
+   * (AGENT_TRAFFIC_PLAN.md §8 S1/S2). Status is content-free counters;
+   * `records` answers REDACTED projections only (the projection-layer
+   * law makes anything else unrepresentable). Optional so dispatch
+   * tables composed without the tap (test rigs) answer an empty source
+   * list instead of failing construction.
    */
   trafficTap?: TrafficTap;
   /**
@@ -426,24 +427,30 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     );
   });
 
-  // Agent-traffic tap (S1) — operator-plane arming of retention
-  // sources and their content-free counters. The `observe` tier and
-  // every agent-facing tool ride S2/S3 on top of this seam; nothing
-  // here returns a retained record.
+  // Agent-traffic tap — operator-plane arming of retention sources
+  // (S1) and, since S2, the operator read of REDACTED projections
+  // (`records`). Status stays content-free counters; the records read
+  // crosses the projection boundary, so redaction is structural — the
+  // raw record type cannot ride this table. Agent-facing exposure is
+  // the `observe` MCP tier (S3 tools), never these channels.
   handlers.set('oh.daemon.traffic.arm', (message) => {
     if (!deps.trafficTap) return { ok: false, error: 'traffic tap unavailable' };
     const bounds = {
       ...(typeof message.maxRecords === 'number' ? { maxRecords: Math.floor(message.maxRecords) } : {}),
       ...(typeof message.maxBytes === 'number' ? { maxBytes: Math.floor(message.maxBytes) } : {}),
     };
+    const options = {
+      bounds,
+      ...(typeof message.ttlMs === 'number' && message.ttlMs > 0 ? { ttlMs: Math.floor(message.ttlMs) } : {}),
+    };
     if (message.kind === 'proxy') {
-      return { ok: true, uid: deps.trafficTap.armProxy({ bounds }) };
+      return { ok: true, uid: deps.trafficTap.armProxy(options) };
     }
     if (message.kind === 'browser-tab') {
       if (typeof message.nodeId !== 'string' || message.nodeId.length === 0 || typeof message.tabId !== 'number') {
         return { ok: false, error: 'missing nodeId or tabId' };
       }
-      const uid = deps.trafficTap.armBrowserTab(message.nodeId, message.tabId, { bounds });
+      const uid = deps.trafficTap.armBrowserTab(message.nodeId, message.tabId, options);
       if (uid === null) return { ok: false, error: 'arm refused — relay unavailable' };
       return { ok: true, uid };
     }
@@ -458,6 +465,15 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   });
 
   handlers.set('oh.daemon.traffic.status', () => ({ sources: deps.trafficTap?.status() ?? [] }));
+
+  handlers.set('oh.daemon.traffic.records', (message) => {
+    if (!deps.trafficTap) return { records: null };
+    const uid = typeof message.uid === 'string' ? message.uid : '';
+    if (!uid) return { records: null };
+    // Unarmed = absent: an unknown uid answers null, indistinguishable
+    // from a uid that never existed (PLAN §4).
+    return { records: deps.trafficTap.records(uid) };
+  });
 
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';

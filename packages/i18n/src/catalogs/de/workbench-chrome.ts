@@ -577,6 +577,15 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug-Modus — verbindet den Debugger des Browsers mit Tabs im Geltungsbereich und angepinnten Tabs für Bodies ' +
     'und exakte Header. Der Browser zeigt auf jedem verbundenen Tab einen Hinweis an.',
+  'workbench.trafficMonitor.observeArm':
+    'Für Agent-Beobachtung scharf schalten — solange die Quelle scharf ist, streamt sie ihren Verkehr zur ' +
+    'Desktop-App, auch ohne offenes Panel. Auth-Header, Cookies und tokenförmige Werte werden durch stabile Marker ' +
+    'ersetzt (bestmöglich — ein Secret an ungewöhnlicher Stelle kann durchrutschen). Inaktive Scharfschaltungen ' +
+    'laufen von selbst ab.',
+  'workbench.trafficMonitor.observeArmed':
+    'Für Agent-Beobachtung scharf — streamt bis zum Entschärfen oder zum Ablauf bei Inaktivität. Secrets werden ' +
+    'durch stabile Marker geschwärzt (bestmöglich).',
+  'workbench.trafficMonitor.observeAria': 'Agent-Beobachtung für diese Quelle umschalten',
   'workbench.trafficMonitor.noBrowsersHint':
     'Keine Browser verbunden. Öffne einen Browser mit installierter Erweiterung oder installiere sie:',
   'workbench.trafficMonitor.installExtension': 'Erweiterung für {browser} installieren',

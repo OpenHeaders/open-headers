@@ -91,6 +91,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.mcp.enabled.description':
     'Beantwortet MCP-Clients auf dem Back-end-Port dieser App. Solange aus, existiert der Endpunkt nicht. An ' +
     'können Agents mit einem Zugriffstoken deine Arbeitsbereiche lesen.',
+  'workbench.settings.def.mcp.allowObserve.label': 'Traffic-Beobachtung erlauben',
+  'workbench.settings.def.mcp.allowObserve.description':
+    'Agents können den Live-Traffic der Quellen lesen, die du im Traffic-Monitor scharf schaltest. Nicht scharf ' +
+    'geschaltete Quellen bleiben unsichtbar; Auth-Header, Cookies und tokenförmige Werte werden durch stabile ' +
+    'Marker ersetzt.',
   'workbench.settings.def.mcp.allowWrite.label': 'Schreib-Tools erlauben',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents können Regeln, Anfragen, Umgebungen, Variablen und Workflows anlegen, bearbeiten und löschen. ' +

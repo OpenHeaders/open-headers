@@ -69,6 +69,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.mcp.enabled.label': 'Enable MCP server',
   'workbench.settings.def.mcp.enabled.description':
     'Answer MCP clients on this app’s back-end port. While off, the endpoint does not exist. On, agents with an access token can read your workspaces.',
+  'workbench.settings.def.mcp.allowObserve.label': 'Allow traffic observation',
+  'workbench.settings.def.mcp.allowObserve.description':
+    'Agents can read live traffic from sources you arm in the Traffic Monitor. Unarmed sources stay invisible; auth headers, cookies, and token-shaped values are replaced with stable markers.',
   'workbench.settings.def.mcp.allowWrite.label': 'Allow write tools',
   'workbench.settings.def.mcp.allowWrite.description':
     'Agents can create, edit, and delete rules, requests, environments, variables, and workflows. Every change lands in the Activity Feed and can be reverted.',

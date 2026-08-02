@@ -355,6 +355,75 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     [peers, debugControl],
   );
 
+  // Agent-observation arming (AGENT_TRAFFIC_PLAN.md §4 S2): the rail's
+  // per-source affordance drives the daemon tap's operator plane. The
+  // armed set is re-read on every inventory reload and on a slow poll —
+  // idle arms expire host-side (`expiresAtMs`), and reading status
+  // deliberately does NOT extend them, so the poll converges the eye
+  // icon after a lapse instead of keeping the source warm.
+  const [observeArmed, setObserveArmed] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const [observePending, setObservePending] = useState<ReadonlySet<string>>(() => new Set());
+  const reloadArmed = useCallback(async (): Promise<void> => {
+    try {
+      const { sources } = await hostBridge.call('oh.daemon.traffic.status');
+      const next = new Map<string, string>();
+      for (const source of sources) {
+        if (source.kind === 'browser-tab' && source.nodeId !== undefined && source.tabId !== undefined) {
+          next.set(tabSourceKey(source.nodeId, source.tabId), source.uid);
+        } else if (source.kind === 'proxy') {
+          next.set(WIRE_SOURCE_KEY, source.uid);
+        }
+      }
+      setObserveArmed(next);
+    } catch {
+      setObserveArmed(new Map());
+    }
+  }, []);
+  useEffect(() => {
+    void reloadArmed();
+    const timer = setInterval(() => void reloadArmed(), 15_000);
+    return () => clearInterval(timer);
+  }, [reloadArmed]);
+
+  const onObserveToggle = useCallback(
+    (key: string) => {
+      const armedUid = observeArmed.get(key);
+      setObservePending((prev) => new Set(prev).add(key));
+      void (async () => {
+        try {
+          if (armedUid !== undefined) {
+            await hostBridge.call('oh.daemon.traffic.disarm', { uid: armedUid });
+          } else if (key === WIRE_SOURCE_KEY) {
+            await hostBridge.call('oh.daemon.traffic.arm', { kind: 'proxy' });
+          } else {
+            for (const peer of peers) {
+              for (const tab of peer.tabs) {
+                if (tabSourceKey(peer.nodeId, tab.tabId) === key) {
+                  await hostBridge.call('oh.daemon.traffic.arm', {
+                    kind: 'browser-tab',
+                    nodeId: peer.nodeId,
+                    tabId: tab.tabId,
+                  });
+                }
+              }
+            }
+          }
+        } catch {
+          // Tap unavailable — the reload below converges the icon.
+        }
+        await reloadArmed();
+        setObservePending((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      })();
+    },
+    [observeArmed, peers, reloadArmed],
+  );
+
+  const observeArmedKeys = useMemo(() => new Set(observeArmed.keys()), [observeArmed]);
+
   // Wire-join (Phase 6): a wire row's "seen on tab" annotation jumps to
   // the browser-tab source that also witnessed it — switch the source
   // and highlight the twin row once the tab view mounts.
@@ -857,7 +926,10 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
         <TrafficMonitorSourceRail
           peers={peers}
           loading={loading}
-          onRefresh={() => void reload()}
+          onRefresh={() => {
+            void reload();
+            void reloadArmed();
+          }}
           showWire={showWire}
           wireRunning={proxy.status?.running === true}
           wirePort={proxy.status?.boundPort ?? null}
@@ -867,6 +939,9 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           onDebugEnable={onDebugEnable}
           debugPending={debugPending}
           debugEnablePending={debugEnablePending}
+          observeArmed={observeArmedKeys}
+          observePending={observePending}
+          onObserveToggle={onObserveToggle}
           width={railWidth}
         />
       </div>

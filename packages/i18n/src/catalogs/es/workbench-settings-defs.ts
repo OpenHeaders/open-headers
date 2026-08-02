@@ -108,6 +108,11 @@ export const workbenchSettingsDefs = {
     'Responde a los clientes MCP en el puerto del back-end de esta aplicación. Mientras está desactivado, el ' +
     'punto de acceso no existe. Activado, los agentes con un token de acceso pueden leer tus espacios de ' +
     'trabajo.',
+  'workbench.settings.def.mcp.allowObserve.label': 'Permitir la observación del tráfico',
+  'workbench.settings.def.mcp.allowObserve.description':
+    'Los agentes pueden leer el tráfico en vivo de las fuentes que armas en el Monitor de tráfico. Las fuentes ' +
+    'sin armar permanecen invisibles; las cabeceras de autenticación, las cookies y los valores con forma de ' +
+    'token se reemplazan por marcadores estables.',
   'workbench.settings.def.mcp.allowWrite.label': 'Permitir las herramientas de escritura',
   'workbench.settings.def.mcp.allowWrite.description':
     'Los agentes pueden crear, editar y eliminar reglas, solicitudes, entornos, variables y workflows. Cada ' +

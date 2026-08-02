@@ -216,6 +216,44 @@ describe('hasCapability', () => {
     });
   });
 
+  describe('workspace.observe (AGENT_TRAFFIC_PLAN.md §4 — distinct from workspace.read)', () => {
+    it('allows for LocalAdmin on any workspace', () => {
+      expect(hasCapability(makeSnapshot(), 'workspace.observe', { workspaceId: W1 })).toEqual({ allow: true });
+    });
+
+    it('allows for owner and editor WRAs', () => {
+      const owner = makeSnapshot({ localAdmin: null, wras: [makeWra(W1, 'owner')] });
+      const editor = makeSnapshot({ localAdmin: null, wras: [makeWra(W1, 'editor')] });
+      expect(hasCapability(owner, 'workspace.observe', { workspaceId: W1 })).toEqual({ allow: true });
+      expect(hasCapability(editor, 'workspace.observe', { workspaceId: W1 })).toEqual({ allow: true });
+    });
+
+    it('denies a viewer — a read grant does not carry observation', () => {
+      const viewer = makeSnapshot({ localAdmin: null, wras: [makeWra(W1, 'viewer')] });
+      expect(hasCapability(viewer, 'workspace.read', { workspaceId: W1 })).toEqual({ allow: true });
+      expect(hasCapability(viewer, 'workspace.observe', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'insufficient-workspace-role',
+      });
+    });
+
+    it('denies without a WRA, without a workspaceId, and without a snapshot', () => {
+      const stranger = makeSnapshot({ localAdmin: null, wras: [] });
+      expect(hasCapability(stranger, 'workspace.observe', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-workspace-role-assignment',
+      });
+      expect(hasCapability(stranger, 'workspace.observe', {})).toEqual({
+        allow: false,
+        reason: 'workspace-id-required',
+      });
+      expect(hasCapability(null, 'workspace.observe', { workspaceId: W1 })).toEqual({
+        allow: false,
+        reason: 'no-current-user',
+      });
+    });
+  });
+
   it('does not consult isStandalone — connected user with same shape resolves identically', () => {
     const standalone = makeSnapshot({ user: { isStandalone: true } });
     const connected = makeSnapshot({ user: { isStandalone: false } });

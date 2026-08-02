@@ -23,6 +23,7 @@ import { resolveDaemonCipher } from '../vault-cipher';
 
 export const DAEMON_SETTING_KEYS = [
   'mcp.enabled',
+  'mcp.allowObserve',
   'mcp.allowWrite',
   'mcp.allowExecute',
   'mcp.allowSecrets',

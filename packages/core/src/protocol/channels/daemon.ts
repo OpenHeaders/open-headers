@@ -11,6 +11,7 @@
  */
 
 import type { LicenseSnapshot } from '../../licensing';
+import type { TrafficRecordProjection, TrafficRetentionStats, TrafficSourceProjection } from '../../traffic';
 import type {
   ProxyCaPublicInfo,
   ProxyCaptureStatus,
@@ -694,6 +695,62 @@ export interface DaemonRpc {
   'oh.daemon.telemetry.storage.call': {
     req: { nodeId: string; method: TelemetryStorageMethod; params: unknown };
     res: { ok: boolean; payload: unknown };
+  };
+
+  // ── Agent-traffic tap (AGENT_TRAFFIC_PLAN.md §8 S1/S2) ────────────
+  //
+  // Admin-only. The operator plane of the daemon's traffic-retention
+  // tap: arm/disarm a source, read content-free counters, and (S2) read
+  // one armed source's RETAINED RECORDS as redacted projections — auth
+  // headers, cookies and token-shaped values arrive as stable
+  // `[redacted:<sha256-prefix>]` markers, applied at the projection
+  // boundary, never by a caller. Agent-facing exposure is the MCP
+  // `observe` tier, not these channels.
+
+  /**
+   * Arm one source: a browser tab (via the live-relay's qualified
+   * lifeline — the extension streams that tab while armed) or the L7
+   * proxy partition. Idempotent per partition. `ttlMs` bounds the arm:
+   * an idle armed source auto-disarms when it lapses; observe reads
+   * push the lapse forward. Ring-bound overrides are test knobs.
+   */
+  'oh.daemon.traffic.arm': {
+    req: {
+      kind: 'browser-tab' | 'proxy';
+      nodeId?: string;
+      tabId?: number;
+      maxRecords?: number;
+      maxBytes?: number;
+      ttlMs?: number;
+    };
+    res: { ok: true; uid: string } | { ok: false; error: string };
+  };
+
+  /** Release the subscription and drop the source. `ok` false = unknown uid. */
+  'oh.daemon.traffic.disarm': {
+    req: { uid: string };
+    res: { ok: boolean; error?: string };
+  };
+
+  /**
+   * Every ARMED source with its content-free retention counters. An
+   * unarmed source is ABSENT — never a disabled row. Reading status
+   * never extends an arm (a polling UI must not keep a tab streaming).
+   */
+  'oh.daemon.traffic.status': {
+    req: Record<string, never>;
+    res: { sources: ReadonlyArray<TrafficSourceProjection & { stats: TrafficRetentionStats }> };
+  };
+
+  /**
+   * One armed source's retained records as REDACTED projections, FIFO.
+   * `records` null = unknown or unarmed uid — indistinguishable from a
+   * uid that never existed. The read counts as observe activity and
+   * extends the source's idle expiry.
+   */
+  'oh.daemon.traffic.records': {
+    req: { uid: string };
+    res: { records: ReadonlyArray<TrafficRecordProjection> | null };
   };
 
   'oh.daemon.audit.query': {

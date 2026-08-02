@@ -205,6 +205,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.scopeWidened': 'Cobertura ampliada',
   'workbench.activityFeed.kind.scopeWidenedTip':
     'Se relajó una condición de la regla — la regla ahora coincide con un conjunto de URL/métodos más amplio.',
+  'workbench.activityFeed.kind.agentObserved': 'Lectura por agente',
+  'workbench.activityFeed.kind.agentObservedTip':
+    'Un agente leyó tráfico en vivo a través del nivel MCP observe — proyecciones censuradas de una fuente armada.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

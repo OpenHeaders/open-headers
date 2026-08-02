@@ -34,6 +34,26 @@ const SCOPE = 'McpServer';
 
 export const MCP_SERVER_NAME = 'open-headers';
 
+/**
+ * One successful `observe`-tier tool call (AGENT_TRAFFIC_PLAN.md §4).
+ * Reads through the observe tier must be visible after the fact —
+ * "what did the agent look at?" — so the server reports each one to
+ * the host's sink, which lands it in the Activity Feed the way
+ * MCP mutations already land via `MCP_SURFACE_ID`. Emitted only on
+ * success: denied or failed calls are already recorded by the policy
+ * gate's audit emit, and an entry for traffic the agent never received
+ * would be a false answer to that question.
+ */
+export interface McpObserveCallEvent {
+  readonly toolName: string;
+  /** Workspaces the gate authorized the read against (may be empty for
+   *  a tool the gate skipped — the sink decides where those land). */
+  readonly workspaceIds: readonly string[];
+  readonly tokenId: string;
+  readonly tokenLabel?: string;
+  readonly userId: string;
+}
+
 export interface CreateMcpServerOptions {
   readonly registry: McpToolRegistry;
   readonly getPolicy: () => McpPolicy;
@@ -41,6 +61,10 @@ export interface CreateMcpServerOptions {
   readonly serverVersion: string;
   /** Token identity of the authenticated client this server serves. */
   readonly context: McpToolCallContext;
+  /** Observe-visibility sink — fire-and-forget; a throwing sink never
+   *  fails the tool call. Structural: every `observe`-tier tool is
+   *  reported here, so an S3 tool cannot be born invisible. */
+  readonly onObserveCall?: (event: McpObserveCallEvent) => void;
 }
 
 function textResult(payload: unknown): CallToolResult {
@@ -52,7 +76,7 @@ function errorResult(message: string): CallToolResult {
 }
 
 export function createMcpServer(options: CreateMcpServerOptions): Server {
-  const { registry, getPolicy, serverVersion, context } = options;
+  const { registry, getPolicy, serverVersion, context, onObserveCall } = options;
 
   const server = new Server({ name: MCP_SERVER_NAME, version: serverVersion }, { capabilities: { tools: {} } });
 
@@ -97,6 +121,23 @@ export function createMcpServer(options: CreateMcpServerOptions): Server {
     try {
       await gateMcpToolCall(tool, args, getPolicy(), callContext);
       const result = await tool.handler(args, callContext);
+      if (tool.tier === 'observe' && onObserveCall !== undefined) {
+        // Same resolution the gate authorized against (pure, cheap).
+        const resolved = tool.resolveWorkspaceId(args);
+        const workspaceIds =
+          resolved === undefined || resolved === null ? [] : typeof resolved === 'string' ? [resolved] : [...resolved];
+        try {
+          onObserveCall({
+            toolName: tool.name,
+            workspaceIds,
+            tokenId: context.tokenId,
+            ...(context.tokenLabel !== undefined ? { tokenLabel: context.tokenLabel } : {}),
+            userId: context.userId,
+          });
+        } catch (err) {
+          logger.warn(SCOPE, 'observe-visibility sink threw', err);
+        }
+      }
       return textResult(result);
     } catch (err) {
       if (err instanceof McpPermissionDeniedError || err instanceof McpToolInputError) {

@@ -33,6 +33,7 @@ const KIND_ORDER: Record<ActivityEntryKind, number> = {
   'supersede-local-edit': 3,
   'sensitive-field-rotation': 4,
   'permission-scope-expansion': 5,
+  'agent-observe': 6,
 };
 
 export function groupActivityEntriesByMutation(entries: readonly ActivityEntry[]): ActivityFeedGroup[] {

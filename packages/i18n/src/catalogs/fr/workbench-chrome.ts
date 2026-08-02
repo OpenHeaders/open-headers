@@ -583,6 +583,15 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Mode Débogage — attache le débogueur du navigateur aux onglets du périmètre et épinglés pour obtenir corps et ' +
     'en-têtes exacts. Le navigateur affiche un bandeau sur chaque onglet attaché.',
+  'workbench.trafficMonitor.observeArm':
+    "Armer pour l'observation par agent — tant que la source est armée, son trafic est diffusé vers l'application de " +
+    "bureau même sans panneau ouvert. Les en-têtes d'authentification, les cookies et les valeurs en forme de token " +
+    'sont remplacés par des marqueurs stables (au mieux — un secret placé à un endroit inhabituel peut passer). Les ' +
+    'armements inactifs expirent d’eux-mêmes.',
+  'workbench.trafficMonitor.observeArmed':
+    "Armée pour l'observation par agent — diffusion en cours jusqu'au désarmement ou à l'expiration d'inactivité. " +
+    'Les secrets sont caviardés par des marqueurs stables (au mieux).',
+  'workbench.trafficMonitor.observeAria': "Basculer l'observation par agent pour cette source",
   'workbench.trafficMonitor.noBrowsersHint':
     "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
   'workbench.trafficMonitor.installExtension': "Installer l'extension {browser}",

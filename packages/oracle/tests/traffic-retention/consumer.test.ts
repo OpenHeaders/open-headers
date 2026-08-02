@@ -133,7 +133,13 @@ describe('TrafficRetentionConsumer — refinement folding', () => {
         tabId: 1,
         requestId: 'a',
         hopIndex: 0,
-        body: { content: 'OH-SECRET-BODY-MUST-NOT-BE-RETAINED', encoding: '' },
+        body: {
+          method: 'GET',
+          url: 'https://openheaders.io/probe',
+          startedDateTime: new Date(1_000).toISOString(),
+          content: 'OH-SECRET-BODY-MUST-NOT-BE-RETAINED',
+          encoding: '',
+        },
       },
     });
     expect(JSON.stringify(ring.snapshot())).not.toContain('OH-SECRET-BODY');

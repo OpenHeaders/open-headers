@@ -18,7 +18,7 @@ export {
   type McpToolRegistry,
   type McpToolTier,
 } from './registry';
-export { type CreateMcpServerOptions, createMcpServer, MCP_SERVER_NAME } from './server';
+export { type CreateMcpServerOptions, createMcpServer, MCP_SERVER_NAME, type McpObserveCallEvent } from './server';
 export { createDiffToolDefinitions } from './tools/diff-tools';
 export {
   createExecuteToolDefinitions,

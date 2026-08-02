@@ -30,7 +30,7 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
-import type { ActivityEntry } from '@openheaders/core/sync';
+import { type ActivityEntry, activityEntryId } from '@openheaders/core/sync';
 import {
   type ActivityLog,
   classifyEnvelopeForActivity,
@@ -41,6 +41,7 @@ import {
   isMutedForActivityFeed,
   type OracleSyncBroadcastEvent,
 } from '@openheaders/oracle/sync';
+import { nextSwMutatorContextForWorkspace } from '@openheaders/oracle/sync/service';
 import { MCP_SURFACE_ID } from '../mcp';
 
 const SCOPE = 'SyncActivity';
@@ -155,6 +156,74 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
       logger.warn(SCOPE, 'activity log append failed', err);
     });
   }
+}
+
+/** One successful agent read through the MCP `observe` tier. */
+export interface AgentObservationInput {
+  workspaceId: string;
+  toolName: string;
+  tokenId: string;
+  tokenLabel?: string;
+  userId: string;
+}
+
+/** Disambiguates observe entries minted inside one HLC tick. */
+let observeSeq = 0;
+
+/**
+ * Land one `observe`-tier read in the Activity Feed
+ * (AGENT_TRAFFIC_PLAN.md §4: "a human must be able to answer 'what did
+ * the agent look at?' after the fact"). Reads have no envelope, no
+ * prior and nothing to revert, so the entry is minted directly rather
+ * than through the classifier: the workspace's own context handle
+ * supplies the HLC and deviceId, so observe rows order correctly among
+ * the mutation rows in the same feed. A workspace that is not loaded
+ * on this host drops the entry with a log line — the gate already
+ * audited the read on the capability plane.
+ */
+export function recordAgentObservation(input: AgentObservationInput): void {
+  const ctx = nextSwMutatorContextForWorkspace(input.workspaceId, { surfaceId: MCP_SURFACE_ID });
+  if (!ctx) {
+    logger.info(SCOPE, `observe entry dropped — workspace ${input.workspaceId} not loaded`);
+    return;
+  }
+  const mutationId = `observe-${ctx.hlc.physicalMs}-${ctx.hlc.logical}-${observeSeq++}`;
+  const entry: ActivityEntry = {
+    id: activityEntryId({ hlc: ctx.hlc, mutationId, kind: 'agent-observe' }),
+    workspaceId: input.workspaceId,
+    mutationId,
+    hlc: ctx.hlc,
+    kind: 'agent-observe',
+    entityType: 'traffic-observation',
+    entityId: input.toolName,
+    origin: {
+      surfaceId: MCP_SURFACE_ID,
+      deviceId: ctx.deviceId,
+      userId: input.userId,
+    },
+    observedAt: clock(),
+    read: false,
+    summary: input.tokenLabel !== undefined ? `${input.toolName} · ${input.tokenLabel}` : input.toolName,
+    context: {
+      toolName: input.toolName,
+      tokenId: input.tokenId,
+      ...(input.tokenLabel !== undefined ? { tokenLabel: input.tokenLabel } : {}),
+    },
+  };
+
+  fanOutToSubscribers(entry);
+
+  if (!activityLog) {
+    droppedNoLog += 1;
+    if (!loggedNoLogOnce) {
+      logger.info(SCOPE, 'no activity log installed; entry dropped');
+      loggedNoLogOnce = true;
+    }
+    return;
+  }
+  void activityLog.append(entry).catch((err) => {
+    logger.warn(SCOPE, 'activity log append failed', err);
+  });
 }
 
 /**

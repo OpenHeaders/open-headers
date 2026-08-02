@@ -559,6 +559,14 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug mode — attaches the browser’s debugger to scoped and pinned tabs for bodies and exact headers. The browser ' +
     'shows a banner on each attached tab.',
+  'workbench.trafficMonitor.observeArm':
+    'Arm for agent observation — while armed, this source streams its traffic to the desktop app even with no panel ' +
+    'open. Auth headers, cookies, and token-shaped values are replaced with stable markers (best effort — a secret in ' +
+    'an unusual place can slip through). Idle arms expire on their own.',
+  'workbench.trafficMonitor.observeArmed':
+    'Armed for agent observation — streaming until disarmed or idle expiry. Secrets are redacted with stable markers ' +
+    '(best effort).',
+  'workbench.trafficMonitor.observeAria': 'Toggle agent observation for this source',
   'workbench.trafficMonitor.noBrowsersHint':
     'No browsers connected. Open a browser with the extension installed, or install it:',
   'workbench.trafficMonitor.installExtension': 'Install {browser} extension',

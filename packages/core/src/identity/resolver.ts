@@ -17,7 +17,13 @@ import type { DaemonAdmin, Org, OrgMembership, Principal, User, WorkspaceRoleAss
  * `rule.publish`) layer on top in later slices without changing the
  * resolver contract.
  */
-export type Capability = 'workspace.read' | 'workspace.write' | 'workspace.list' | 'workspace.create' | 'daemon.admin';
+export type Capability =
+  | 'workspace.read'
+  | 'workspace.write'
+  | 'workspace.observe'
+  | 'workspace.list'
+  | 'workspace.create'
+  | 'daemon.admin';
 
 /**
  * The `OrgMembership.functionalRoles` entry that grants a directory user
@@ -117,7 +123,7 @@ export function hasCapability(
       : { allow: false, reason: 'workspace-create-not-granted' };
   }
 
-  if (capability === 'workspace.read' || capability === 'workspace.write') {
+  if (capability === 'workspace.read' || capability === 'workspace.write' || capability === 'workspace.observe') {
     const { workspaceId } = ctx;
     if (!workspaceId) {
       return { allow: false, reason: 'workspace-id-required' };
@@ -132,6 +138,10 @@ export function hasCapability(
     if (capability === 'workspace.read') {
       return { allow: true };
     }
+    // `workspace.observe` (AGENT_TRAFFIC_PLAN.md §4): live-traffic
+    // observation is a categorically larger grant than a config read,
+    // so a viewer's `workspace.read` deliberately does not carry it —
+    // the same owner/editor floor as `workspace.write`.
     return wra.role === 'owner' || wra.role === 'editor'
       ? { allow: true }
       : { allow: false, reason: 'insufficient-workspace-role' };

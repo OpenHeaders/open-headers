@@ -134,7 +134,12 @@ import {
   type WorkspaceTreeGitStatusRpcResult,
   type WorkspaceTreeRuntime,
 } from '../workspace-tree';
-import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
+import {
+  observeForActivityFeed,
+  recordAgentObservation,
+  setActivityLog,
+  subscribeActivityEntries,
+} from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { createAdminChannelHandlers } from './admin-channels';
 import { createAdmissionControl } from './admission-control';
@@ -833,6 +838,20 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const mcpInstall = await installMcpServer({
     serverVersion: config.appVersion,
     resolvePeer: admission.resolvePeer,
+    // Observe-visibility (AGENT_TRAFFIC_PLAN.md §4): every successful
+    // `observe`-tier call lands in the Activity Feed per authorized
+    // workspace — reads must not stay invisible on this tier.
+    onObserveCall: (event) => {
+      for (const workspaceId of event.workspaceIds) {
+        recordAgentObservation({
+          workspaceId,
+          toolName: event.toolName,
+          tokenId: event.tokenId,
+          ...(event.tokenLabel !== undefined ? { tokenLabel: event.tokenLabel } : {}),
+          userId: event.userId,
+        });
+      }
+    },
   });
 
   // 4c'. `/metrics` (Phase 6) — token-gated JSON snapshot of operational

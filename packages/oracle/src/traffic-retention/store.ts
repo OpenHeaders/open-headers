@@ -25,7 +25,13 @@
 
 import type { TrafficRecordProjection, TrafficRetentionStats } from '@openheaders/core/traffic';
 
-import { measureRecordBytes, projectRecord, type RetainedTrafficRecord, recordKey } from './record';
+import {
+  measureRecordBytes,
+  type ProjectRecordOptions,
+  projectRecord,
+  type RetainedTrafficRecord,
+  recordKey,
+} from './record';
 
 export interface TrafficRetentionBounds {
   readonly maxRecords: number;
@@ -108,10 +114,12 @@ export class TrafficRetentionRing {
     return this.live.has(recordKey(tabId, requestId));
   }
 
-  /** Projected records, FIFO order (oldest admitted first). */
-  snapshot(): TrafficRecordProjection[] {
+  /** Projected records, FIFO order (oldest admitted first). Redacted by
+   *  default; `revealSecrets` is honored only when the caller holds an
+   *  active per-source reveal escalation (the tap owns that window). */
+  snapshot(options?: ProjectRecordOptions): TrafficRecordProjection[] {
     const out: TrafficRecordProjection[] = [];
-    for (const entry of this.live.values()) out.push(projectRecord(entry.record));
+    for (const entry of this.live.values()) out.push(projectRecord(entry.record, options));
     return out;
   }
 

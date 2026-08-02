@@ -188,6 +188,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.sensitiveRotationTip': '一个敏感字段（机密 / token / 敏感标头）被替换。',
   'workbench.activityFeed.kind.scopeWidened': '覆盖范围已扩大',
   'workbench.activityFeed.kind.scopeWidenedTip': '一个规则条件被放宽——该规则现在匹配更广的 URL/方法集合。',
+  'workbench.activityFeed.kind.agentObserved': '智能体读取',
+  'workbench.activityFeed.kind.agentObservedTip':
+    '一个智能体通过 MCP observe 层级读取了实时流量——来自已授权来源的脱敏投影。',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

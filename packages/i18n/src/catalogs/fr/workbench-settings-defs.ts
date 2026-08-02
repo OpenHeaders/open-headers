@@ -90,6 +90,11 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.mcp.enabled.description':
     "Répond aux clients MCP sur le port du back-end de cette application. Tant que c'est désactivé, le point " +
     "d'accès n'existe pas. Activé, les agents munis d'un jeton d'accès peuvent lire vos espaces de travail.",
+  'workbench.settings.def.mcp.allowObserve.label': "Autoriser l'observation du trafic",
+  'workbench.settings.def.mcp.allowObserve.description':
+    'Les agents peuvent lire le trafic en direct des sources que vous armez dans le Moniteur de trafic. Les ' +
+    "sources non armées restent invisibles ; les en-têtes d'authentification, les cookies et les valeurs en " +
+    'forme de token sont remplacés par des marqueurs stables.',
   'workbench.settings.def.mcp.allowWrite.label': "Autoriser les outils d'écriture",
   'workbench.settings.def.mcp.allowWrite.description':
     'Les agents peuvent créer, modifier et supprimer règles, requêtes, environnements, variables et ' +

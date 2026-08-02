@@ -15,7 +15,12 @@ import type {
   RequestLifecyclePatch,
   RequestPhase,
 } from '@openheaders/core/request-lifecycle';
-import { normalizeTrafficResourceType, type TrafficRecordProjection } from '@openheaders/core/traffic';
+import {
+  normalizeTrafficResourceType,
+  redactHeaders,
+  redactUrl,
+  type TrafficRecordProjection,
+} from '@openheaders/core/traffic';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 export interface RetainedTrafficRecord {
@@ -118,16 +123,44 @@ export function applyHarToRecord(record: RetainedTrafficRecord, har: InspectorHa
   }
 }
 
+/**
+ * Reveal escalation (AGENT_TRAFFIC_PLAN.md §4): unredacted projection
+ * is a separate, deliberate, per-source, TIME-BOXED grant the tap owns —
+ * never a tool-layer choice. Default is always redacted.
+ */
+export interface ProjectRecordOptions {
+  readonly revealSecrets?: boolean;
+}
+
 /** Project one record for consumers — the ONLY read shape the store
- *  emits. S2 inserts header-value redaction here, at the boundary. */
-export function projectRecord(record: RetainedTrafficRecord): TrafficRecordProjection {
+ *  emits. Redaction happens here, at the boundary (S2): sensitive
+ *  header values and token-shaped URL query values become stable
+ *  `[redacted:<sha256-prefix>]` markers unless an active per-source
+ *  reveal escalation passes `revealSecrets`. */
+export function projectRecord(record: RetainedTrafficRecord, options?: ProjectRecordOptions): TrafficRecordProjection {
+  const reveal = options?.revealSecrets === true;
+  const url = reveal ? record.url : redactUrl(record.url);
+  const initiator =
+    record.initiator === undefined ? undefined : reveal ? record.initiator : redactUrl(record.initiator);
+  const requestHeaders =
+    record.requestHeaders === undefined
+      ? undefined
+      : reveal
+        ? record.requestHeaders
+        : redactHeaders(record.requestHeaders);
+  const responseHeaders =
+    record.responseHeaders === undefined
+      ? undefined
+      : reveal
+        ? record.responseHeaders
+        : redactHeaders(record.responseHeaders);
   return {
     tabId: record.tabId,
     requestId: record.requestId,
-    url: record.url,
+    url,
     method: record.method,
     resourceType: normalizeTrafficResourceType(record.rawResourceType),
-    ...(record.initiator !== undefined ? { initiator: record.initiator } : {}),
+    ...(initiator !== undefined ? { initiator } : {}),
     phase: record.phase,
     ...(record.statusCode !== undefined ? { statusCode: record.statusCode } : {}),
     ...(record.statusText !== undefined ? { statusText: record.statusText } : {}),
@@ -136,8 +169,8 @@ export function projectRecord(record: RetainedTrafficRecord): TrafficRecordProje
     startedAtMs: record.startedAtMs,
     ...(record.completedAtMs !== undefined ? { completedAtMs: record.completedAtMs } : {}),
     redirectHopCount: record.redirectHopCount,
-    ...(record.requestHeaders !== undefined ? { requestHeaders: record.requestHeaders } : {}),
-    ...(record.responseHeaders !== undefined ? { responseHeaders: record.responseHeaders } : {}),
+    ...(requestHeaders !== undefined ? { requestHeaders } : {}),
+    ...(responseHeaders !== undefined ? { responseHeaders } : {}),
     ...(record.bodyBytes !== undefined ? { bodyBytes: record.bodyBytes } : {}),
     ...(record.transferBytes !== undefined ? { transferBytes: record.transferBytes } : {}),
     ...(record.mimeType !== undefined ? { mimeType: record.mimeType } : {}),

@@ -74,6 +74,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.mcp.enabled.label': '启用 MCP 服务器',
   'workbench.settings.def.mcp.enabled.description':
     '在此应用的后端端口上应答 MCP 客户端。关闭时端点不存在。开启后，持有访问 token 的智能体可以读取你的工作区。',
+  'workbench.settings.def.mcp.allowObserve.label': '允许观察流量',
+  'workbench.settings.def.mcp.allowObserve.description':
+    '智能体可以读取你在流量监视中授权观察的来源的实时流量。未授权的来源保持不可见；身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记。',
   'workbench.settings.def.mcp.allowWrite.label': '允许写入工具',
   'workbench.settings.def.mcp.allowWrite.description':
     '智能体可以创建、编辑和删除规则、请求、环境、变量和工作流。每次更改都会进入活动流，并且可以回退。',

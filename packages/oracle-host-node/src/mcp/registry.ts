@@ -14,11 +14,16 @@ import type { Capability } from '@openheaders/core/identity';
 
 /**
  * Policy tier a tool belongs to. Tiers gate tool families wholesale:
- * `read` ships enabled with the server; `write` / `execute` / `secrets`
- * are separate opt-ins (Phase 2+). A token's effective rights are the
+ * `read` ships enabled with the server; `observe` / `write` / `execute`
+ * / `secrets` are separate opt-ins. A token's effective rights are the
  * intersection of its own tier grant and the host's enabled tiers.
+ *
+ * `observe` (AGENT_TRAFFIC_PLAN.md §4) gates live-traffic observation —
+ * deliberately NOT `read`: a token holding `read` gets nothing from the
+ * traffic surface, and the default capability is `workspace.observe`,
+ * distinct from `workspace.read`.
  */
-export type McpToolTier = 'read' | 'write' | 'execute' | 'secrets';
+export type McpToolTier = 'read' | 'observe' | 'write' | 'execute' | 'secrets';
 
 /**
  * `MutatorContext.surfaceId` every MCP-minted envelope carries. Hosts
