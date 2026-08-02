@@ -10,10 +10,12 @@
  * lands in the record→projection mapping, never in tool code — and no
  * raw record can leak because no raw record type is importable.
  *
- * Bodies never appear in any projection: they are pulled on demand
- * through the lifecycle port's `request-body` message, never retained
- * (PLAN §3 — the failure-body carve-out arrives with classification in
- * S3 and is capped + counted against the ring's byte ceiling).
+ * Bodies never ride the default projections: they are pulled on demand
+ * through the lifecycle port's `request-body` message, never retained —
+ * with ONE carve-out (PLAN §3): a failure body is pulled eagerly at
+ * classification time, capped, counted against the ring's byte ceiling,
+ * and surfaces as {@link TrafficBodyProjection} only when a consumer
+ * asks for it explicitly.
  */
 
 import type { RequestPhase } from '../request-lifecycle/types';
@@ -29,6 +31,25 @@ export type TrafficSourceKind = 'browser-tab' | 'proxy';
 export interface TrafficHeaderProjection {
   readonly name: string;
   readonly value: string;
+}
+
+/**
+ * Cap on body text crossing to a consumer, in UTF-16 units — the same
+ * agent-facing bound the MCP execute tier applies to response bodies.
+ * Truncation is always flagged, never silent.
+ */
+export const TRAFFIC_BODY_CAP_CHARS = 100_000;
+
+/**
+ * One response body projected for consumers — a retained failure body
+ * or an on-demand pull. Text content passes the token-shape redaction
+ * scan at projection time (`redactBodyText`); base64 content rides
+ * verbatim so binary round-trips uncorrupted.
+ */
+export interface TrafficBodyProjection {
+  readonly content: string;
+  readonly encoding: 'text' | 'base64';
+  readonly truncated: boolean;
 }
 
 /** One retained exchange, projected for consumers. */
@@ -51,6 +72,13 @@ export interface TrafficRecordProjection {
   readonly responseHeaders?: readonly TrafficHeaderProjection[];
   /** Decoded body size (HAR `content.size`) — the size fact, never the body. */
   readonly bodyBytes?: number;
+  /**
+   * The retained failure body (PLAN §3 carve-out), present only when the
+   * consumer asked for bodies AND the record classified as an HTTP
+   * failure whose body the tap captured at classification time. Success
+   * bodies never appear here — they are pulled on demand.
+   */
+  readonly failureBody?: TrafficBodyProjection;
   /** Encoded wire bytes (HAR `_transferSize`); `0` for cache hits. */
   readonly transferBytes?: number;
   readonly mimeType?: string;

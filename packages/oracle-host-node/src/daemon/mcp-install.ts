@@ -1,8 +1,9 @@
 /**
  * MCP server install — engine-opaque wiring only. Builds the tool
- * registry (read + write + execute + secrets tiers; tier gating is per call
- * in the engine), injects the Node host's execution capabilities (Node
- * transport + chain runner), reads the MCP settings from `OH.settingsUser`
+ * registry (read + observe + write + execute + secrets tiers; tier gating
+ * is per call in the engine), injects the Node host's execution
+ * capabilities (Node transport + chain runner) and the agent-traffic
+ * tap, reads the MCP settings from `OH.settingsUser`
  * (same dotted-key record the daemon bind supervisor reads), and hands
  * back the HTTP handler the daemon bind composes onto its socket.
  *
@@ -31,12 +32,14 @@ import {
   createRunToolDefinitions,
   createRuntimeToolDefinitions,
   createSecretToolDefinitions,
+  createTrafficToolDefinitions,
   createWriteToolDefinitions,
   type McpHttpHandler,
   type McpObserveCallEvent,
   type McpPolicy,
   type McpToolTier,
 } from '../mcp';
+import type { TrafficTap } from '../traffic';
 import { runWorkflowRefresh } from './live/chain-runner';
 import { runRequestSuite } from './live/suite-runner';
 
@@ -63,6 +66,9 @@ export interface InstallMcpServerOptions {
   /** Observe-visibility sink (AGENT_TRAFFIC_PLAN.md §4) — the spine
    *  lands each successful `observe`-tier call in the Activity Feed. */
   onObserveCall?: (event: McpObserveCallEvent) => void;
+  /** The agent-traffic tap (PLAN §5) — injected by the boot spine; the
+   *  observe-tier `traffic_*` tools register only when present. */
+  trafficTap?: TrafficTap;
 }
 
 export async function installMcpServer(options: InstallMcpServerOptions): Promise<McpServerInstall> {
@@ -75,6 +81,7 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
   const handler = createMcpHttpHandler({
     registry: createMcpToolRegistry([
       ...createReadToolDefinitions(),
+      ...(options.trafficTap !== undefined ? createTrafficToolDefinitions({ tap: options.trafficTap }) : []),
       ...createDiffToolDefinitions(),
       ...createWriteToolDefinitions(),
       ...createImportToolDefinitions(),

@@ -6,16 +6,19 @@
  * never crosses the store boundary.
  */
 
-export type {
-  TrafficHeaderProjection,
-  TrafficRecordProjection,
-  TrafficRetentionStats,
-  TrafficSourceKind,
-  TrafficSourceProjection,
+export {
+  TRAFFIC_BODY_CAP_CHARS,
+  type TrafficBodyProjection,
+  type TrafficHeaderProjection,
+  type TrafficRecordProjection,
+  type TrafficRetentionStats,
+  type TrafficSourceKind,
+  type TrafficSourceProjection,
 } from './projection';
 export {
   isSensitiveHeaderName,
   isTokenShapedValue,
+  redactBodyText,
   redactHeaders,
   redactHeaderValue,
   redactionMarker,

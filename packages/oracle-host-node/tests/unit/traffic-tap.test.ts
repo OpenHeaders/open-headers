@@ -26,7 +26,12 @@ import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-sto
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { installLoopbackLifelineDialer } from '../../src/traffic/loopback-lifeline';
-import { createTrafficTap, DEFAULT_TRAFFIC_ARM_TTL_MS, MAX_TRAFFIC_REVEAL_TTL_MS } from '../../src/traffic/tap';
+import {
+  createTrafficTap,
+  DEFAULT_TRAFFIC_ARM_TTL_MS,
+  MAX_TRAFFIC_REVEAL_TTL_MS,
+  TRAFFIC_BODY_PULL_TIMEOUT_MS,
+} from '../../src/traffic/tap';
 
 function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecycle {
   return {
@@ -279,6 +284,188 @@ describe('traffic tap — proxy source over a real hub', () => {
     expect(records?.[0]?.provenance).toBe('proxy');
 
     tap.dispose();
+    proxyHub.dispose();
+  });
+});
+
+describe('traffic tap — body plane (S3)', () => {
+  let priorServer: LifelineServer;
+
+  beforeEach(() => {
+    setHostLogger(consoleLogger);
+    priorServer = getLifelineServer();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setLifelineServer(priorServer);
+  });
+
+  const JWT =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c';
+
+  /** Relay fake with the body plane: answers `request-body` from a
+   *  canned body table (silence when absent — the engine's contract). */
+  function installBodyRelay(replay: RequestLifecycle[], bodies: Map<string, string>) {
+    const pulls: Array<{ requestId: string; hopIndex: number }> = [];
+    const uninstall = getLifelineServer().onConnect((port) => {
+      const target = parseQualifiedLifecyclePortName(port.name);
+      if (target === null) return;
+      port.onMessage<LifecycleConsumerMessage>((msg) => {
+        if (msg.kind === 'subscribe') {
+          port.postMessage({ kind: 'ready', tabId: target.tabId, watermarkMs: 500 } satisfies LifecycleWireMessage);
+          for (const lifecycle of replay) {
+            port.postMessage({ kind: 'lifecycle-update', update: { kind: 'started', lifecycle } });
+          }
+          return;
+        }
+        if (msg.kind === 'request-body') {
+          pulls.push({ requestId: msg.requestId, hopIndex: msg.hopIndex });
+          const content = bodies.get(msg.requestId);
+          if (content === undefined) return;
+          port.postMessage({
+            kind: 'lifecycle-update',
+            update: {
+              kind: 'body-attached',
+              tabId: target.tabId,
+              requestId: msg.requestId,
+              hopIndex: msg.hopIndex,
+              body: {
+                method: 'GET',
+                url: 'https://api.openheaders.io/users',
+                startedDateTime: '2026-08-03T10:00:00.000Z',
+                content,
+                encoding: '',
+              },
+            },
+          } satisfies LifecycleWireMessage);
+        }
+      });
+    });
+    return { pulls, uninstall };
+  }
+
+  it('pulls a failure body eagerly at classification time and retains it capped + redacted', async () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installBodyRelay(
+      [
+        makeLifecycle({
+          requestId: 'broken',
+          startedAtMs: 900,
+          phase: 'completed',
+          statusCode: 500,
+          statusText: 'Server Error',
+        }),
+      ],
+      new Map([['broken', `{"error":"stack trace","token":"${JWT}"}`]]),
+    );
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+
+    // The seam defers a microtask before dispatching the pull.
+    await Promise.resolve();
+    expect(relay.pulls).toEqual([{ requestId: 'broken', hopIndex: 0 }]);
+
+    // Default reads stay body-free; the failure read carries it, redacted.
+    expect(JSON.stringify(tap.records(uid))).not.toContain('stack trace');
+    const [record] = tap.records(uid, { includeFailureBodies: true }) ?? [];
+    expect(record?.failureBody?.content).toContain('stack trace');
+    expect(record?.failureBody?.content).not.toContain(JWT);
+
+    // traffic_get's path answers from retention without a second pull.
+    const pulled = await tap.pullBody(uid, 'broken');
+    expect(pulled).toEqual({ ok: true, body: record?.failureBody });
+    expect(relay.pulls).toHaveLength(1);
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('pulls a success body on demand without retaining it', async () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installBodyRelay(
+      [makeLifecycle({ requestId: 'ok', startedAtMs: 900, phase: 'completed', statusCode: 200 })],
+      new Map([['ok', '{"users":[1,2,3]}']]),
+    );
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    await Promise.resolve();
+    expect(relay.pulls).toEqual([]);
+
+    const pulled = await tap.pullBody(uid, 'ok');
+    expect(pulled).toEqual({ ok: true, body: { content: '{"users":[1,2,3]}', encoding: 'text', truncated: false } });
+    expect(relay.pulls).toEqual([{ requestId: 'ok', hopIndex: 0 }]);
+    // Never retained: the failure-read projection carries no body.
+    const [record] = tap.records(uid, { includeFailureBodies: true }) ?? [];
+    expect(record?.failureBody).toBeUndefined();
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('answers honest unavailability: unknown ids, in-flight, network failures, and silence', async () => {
+    vi.useFakeTimers();
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installBodyRelay(
+      [
+        makeLifecycle({ requestId: 'in-flight', startedAtMs: 900, phase: 'pending' }),
+        makeLifecycle({
+          requestId: 'net-error',
+          startedAtMs: 901,
+          phase: 'failed',
+          error: { code: 'net::ERR_FAILED', reason: 'CORS' },
+        }),
+        makeLifecycle({ requestId: 'decayed', startedAtMs: 902, phase: 'completed', statusCode: 200 }),
+      ],
+      new Map(),
+    );
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+
+    expect(await tap.pullBody('browser-tab:missing:1', 'x')).toBeNull();
+    expect(await tap.pullBody(uid, 'ghost')).toEqual({ ok: false, reason: 'unknown-request' });
+    expect(await tap.pullBody(uid, 'in-flight')).toEqual({ ok: false, reason: 'in-flight' });
+    expect(await tap.pullBody(uid, 'net-error')).toEqual({ ok: false, reason: 'no-response-body' });
+
+    // A pull the engine cannot satisfy is silence — the bounded wait
+    // resolves to the decay reason.
+    const pending = tap.pullBody(uid, 'decayed');
+    await vi.advanceTimersByTimeAsync(TRAFFIC_BODY_PULL_TIMEOUT_MS + 1);
+    expect(await pending).toEqual({ ok: false, reason: 'gone' });
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('getRecord projects one identity with the failure body attached', async () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installBodyRelay(
+      [makeLifecycle({ requestId: 'broken', startedAtMs: 900, phase: 'completed', statusCode: 404 })],
+      new Map([['broken', 'not found']]),
+    );
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    await Promise.resolve();
+
+    expect(tap.getRecord(uid, 'ghost')).toBeNull();
+    expect(tap.getRecord('browser-tab:missing:1', 'broken')).toBeNull();
+    const record = tap.getRecord(uid, 'broken');
+    expect(record?.statusCode).toBe(404);
+    expect(record?.failureBody?.content).toBe('not found');
+
+    tap.dispose();
+    relay.uninstall();
     proxyHub.dispose();
   });
 });

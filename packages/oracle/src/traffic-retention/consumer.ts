@@ -22,7 +22,10 @@
  *     below it is dropped, and later `ready`s never move the floor.
  *   - **Bodies are never retained.** `body-attached` updates and the
  *     stream/override planes are ignored wholesale; HAR facts fold in
- *     through the body-stripping record derivation only.
+ *     through the body-stripping record derivation only. The failure-
+ *     body carve-out (PLAN §3) does NOT run through this reducer: the
+ *     consumer only fires the `onFailure` seam and stamps the record;
+ *     the tap pulls and the ring retains, capped.
  *
  * Host-neutral and transport-blind: the browser-tab tap feeds it port
  * frames, the proxy tap feeds it hub-sink deliveries wrapped in the
@@ -33,7 +36,13 @@
 import type { LifecycleSource, LifecycleWireMessage } from '@openheaders/core/request-lifecycle';
 import type { TrafficRetentionStats } from '@openheaders/core/traffic';
 
-import { applyHarToRecord, applyPatchToRecord, recordFromLifecycle } from './record';
+import {
+  applyHarToRecord,
+  applyPatchToRecord,
+  isBodyBearingFailure,
+  type RetainedTrafficRecord,
+  recordFromLifecycle,
+} from './record';
 import type { TrafficRetentionRing } from './store';
 
 export interface TrafficRetentionConsumerOptions {
@@ -45,11 +54,21 @@ export interface TrafficRetentionConsumerOptions {
   /** Observes consent-gate refusals (`watch-refused` envelopes) so the
    *  source registry can surface the refused state. */
   readonly onWatchRefused?: () => void;
+  /**
+   * The eager failure-body seam (PLAN §3 carve-out): fired exactly once
+   * per record, the moment it classifies as a body-bearing HTTP failure
+   * (error status + ran to completion — a network-level failure has no
+   * response body to pull). The tap answers by pulling the body over
+   * the source connection; the ring retains it only because the record
+   * carries the `failureBodyRequested` stamp this seam sets first.
+   */
+  readonly onFailure?: (tabId: number, requestId: string, finalHopIndex: number) => void;
 }
 
 export class TrafficRetentionConsumer {
   private readonly ring: TrafficRetentionRing;
   private readonly onWatchRefused: (() => void) | undefined;
+  private readonly onFailure: ((tabId: number, requestId: string, finalHopIndex: number) => void) | undefined;
   private provenance: LifecycleSource;
   /** Arm floor (`startedAtMs`, exclusive) — set by the FIRST `ready`. */
   private armFloorMs: number | null = null;
@@ -61,6 +80,7 @@ export class TrafficRetentionConsumer {
     this.ring = options.ring;
     this.provenance = options.initialProvenance ?? 'heuristic';
     this.onWatchRefused = options.onWatchRefused;
+    this.onFailure = options.onFailure;
   }
 
   /** Fold one wire envelope. Replay and live share this single path. */
@@ -90,6 +110,16 @@ export class TrafficRetentionConsumer {
     }
   }
 
+  /** Fire the eager failure-body seam exactly once per record. The
+   *  stamp lives ON the record (and survives replay reconciliation via
+   *  the ring's carry-over), so a reconnect replay never re-fires. */
+  private checkFailure(record: RetainedTrafficRecord): void {
+    if (this.onFailure === undefined || record.failureBodyRequested === true) return;
+    if (!isBodyBearingFailure(record)) return;
+    record.failureBodyRequested = true;
+    this.onFailure(record.tabId, record.requestId, record.redirectHopCount);
+  }
+
   /** The consumer's slice of the stats projection; the ring contributes
    *  the bounds/eviction counters. */
   stats(): TrafficRetentionStats {
@@ -111,12 +141,19 @@ export class TrafficRetentionConsumer {
           this.droppedPreArm++;
           return;
         }
-        const outcome = this.ring.upsert(recordFromLifecycle(update.lifecycle, this.provenance));
+        const record = recordFromLifecycle(update.lifecycle, this.provenance);
+        const outcome = this.ring.upsert(record);
         if (outcome === 'refused-evicted') this.droppedEvictedReplay++;
+        // A replayed lifecycle can arrive terminal — an admitted or
+        // reconciled record classifies right here.
+        if (outcome === 'admitted' || outcome === 'updated') this.checkFailure(record);
         return;
       }
       case 'phase': {
-        this.ring.update(update.tabId, update.requestId, (record) => applyPatchToRecord(record, update.patch));
+        this.ring.update(update.tabId, update.requestId, (record) => {
+          applyPatchToRecord(record, update.patch);
+          this.checkFailure(record);
+        });
         return;
       }
       case 'redirect': {
@@ -127,7 +164,12 @@ export class TrafficRetentionConsumer {
         return;
       }
       case 'har-attached': {
-        this.ring.update(update.tabId, update.requestId, (record) => applyHarToRecord(record, update.har));
+        // HAR facts can supply the error status a lifecycle never
+        // patched — classification re-checks here too.
+        this.ring.update(update.tabId, update.requestId, (record) => {
+          applyHarToRecord(record, update.har);
+          this.checkFailure(record);
+        });
         return;
       }
       case 'gone': {

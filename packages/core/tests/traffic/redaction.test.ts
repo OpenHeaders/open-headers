@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isSensitiveHeaderName,
   isTokenShapedValue,
+  redactBodyText,
   redactHeaders,
   redactHeaderValue,
   redactionMarker,
@@ -162,5 +163,34 @@ describe('redactHeaders', () => {
     expect(redacted[0]).toBe(benign);
     expect(redacted[1]?.value).toBe(`Bearer ${redactionMarker(JWT)}`);
     expect(JSON.stringify(redacted)).not.toContain(JWT);
+  });
+});
+
+describe('redactBodyText (S3 — the body content plane)', () => {
+  it('redacts a JWT inside JSON body text with the SAME marker the header plane mints', () => {
+    const body = `{"error":"boom","token":"${JWT}","hint":"retry"}`;
+    const redacted = redactBodyText(body);
+    expect(redacted).not.toContain(JWT);
+    expect(redacted).toContain(`"token":"${redactionMarker(JWT)}"`);
+    // Cross-position marker algebra: header, URL and body agree.
+    expect(redactHeaderValue('Authorization', `Bearer ${JWT}`)).toBe(`Bearer ${redactionMarker(JWT)}`);
+  });
+
+  it('redacts long opaque tokens and leaves prose, paths and timestamps alone', () => {
+    const body = `stack trace at /var/www/handlers/renew.php:214 (2026-08-03T10:00:00Z) key=${OPAQUE}`;
+    const redacted = redactBodyText(body);
+    expect(redacted).not.toContain(OPAQUE);
+    expect(redacted).toContain('/var/www/handlers/renew.php:214');
+    expect(redacted).toContain('2026-08-03T10:00:00Z');
+  });
+
+  it('does not fire on long letter-only or digit-only runs', () => {
+    const body = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and 12345678901234567890123456789012';
+    expect(redactBodyText(body)).toBe(body);
+  });
+
+  it('returns the SAME reference when nothing matches', () => {
+    const body = '{"status":503,"message":"service unavailable"}';
+    expect(redactBodyText(body)).toBe(body);
   });
 });

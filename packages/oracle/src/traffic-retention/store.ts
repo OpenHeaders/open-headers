@@ -24,8 +24,11 @@
  */
 
 import type { TrafficRecordProjection, TrafficRetentionStats } from '@openheaders/core/traffic';
+import type { InspectorHarBody } from '@openheaders/core/types';
 
+import { captureBody } from './body';
 import {
+  isFailureRecord,
   measureRecordBytes,
   type ProjectRecordOptions,
   projectRecord,
@@ -77,6 +80,13 @@ export class TrafficRetentionRing {
     const key = recordKey(record.tabId, record.requestId);
     const existing = this.live.get(key);
     if (existing !== undefined) {
+      // Replay reconciliation replaces the record object wholesale —
+      // the carve-out body and its request stamp must survive it, or a
+      // wire flap silently drops every eagerly-captured failure body.
+      if (existing.record.failureBody !== undefined && record.failureBody === undefined) {
+        record.failureBody = existing.record.failureBody;
+      }
+      if (existing.record.failureBodyRequested === true) record.failureBodyRequested = true;
       const bytes = measureRecordBytes(record);
       this.byteSize += bytes - existing.bytes;
       existing.record = record;
@@ -112,6 +122,35 @@ export class TrafficRetentionRing {
   /** Whether the identity is currently retained. */
   has(tabId: number, requestId: string): boolean {
     return this.live.has(recordKey(tabId, requestId));
+  }
+
+  /**
+   * Retain one eagerly-pulled failure body (PLAN §3 carve-out). Guarded
+   * three ways: the record must be live, must classify as a failure, and
+   * must carry the consumer's `failureBodyRequested` stamp — a body the
+   * retention plane never asked for is not retained, whoever pulled it.
+   * The capped body counts against the byte ceiling like any growth.
+   */
+  attachFailureBody(tabId: number, requestId: string, body: InspectorHarBody): boolean {
+    const entry = this.live.get(recordKey(tabId, requestId));
+    if (entry === undefined) return false;
+    const record = entry.record;
+    if (record.failureBodyRequested !== true || record.failureBody !== undefined || !isFailureRecord(record)) {
+      return false;
+    }
+    record.failureBody = captureBody(body);
+    const bytes = measureRecordBytes(record);
+    this.byteSize += bytes - entry.bytes;
+    entry.bytes = bytes;
+    this.evictOverflow();
+    return true;
+  }
+
+  /** Project one retained record, or null when the identity is not
+   *  live. Same options contract as {@link snapshot}. */
+  projectOne(tabId: number, requestId: string, options?: ProjectRecordOptions): TrafficRecordProjection | null {
+    const entry = this.live.get(recordKey(tabId, requestId));
+    return entry === undefined ? null : projectRecord(entry.record, options);
   }
 
   /** Projected records, FIFO order (oldest admitted first). Redacted by

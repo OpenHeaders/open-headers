@@ -122,3 +122,69 @@ describe('TrafficRetentionRing — projection boundary', () => {
     expect(ring.snapshot().map((r) => r.resourceType)).toEqual(['xhr', 'document', 'other']);
   });
 });
+
+describe('TrafficRetentionRing — failure-body carve-out (S3)', () => {
+  const body = {
+    method: 'GET',
+    url: 'https://api.openheaders.io/users',
+    startedDateTime: '2026-08-03T10:00:00.000Z',
+    content: '{"error":"stack trace at renew.php:214"}',
+    encoding: '',
+  };
+
+  function failureRecord(requestId: string) {
+    const record = makeRecord(requestId, { phase: 'completed', statusCode: 500, statusText: 'Server Error' });
+    record.failureBodyRequested = true;
+    return record;
+  }
+
+  it('attaches only onto a live, stamped failure record', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    // Unstamped failure — the retention plane never asked: refused.
+    ring.upsert(makeRecord('unstamped', { phase: 'completed', statusCode: 500 }));
+    expect(ring.attachFailureBody(1, 'unstamped', body)).toBe(false);
+    // Stamped success — not a failure: refused.
+    const success = makeRecord('success', { phase: 'completed', statusCode: 200 });
+    success.failureBodyRequested = true;
+    ring.upsert(success);
+    expect(ring.attachFailureBody(1, 'success', body)).toBe(false);
+    // Unknown identity: refused.
+    expect(ring.attachFailureBody(1, 'ghost', body)).toBe(false);
+    // Stamped failure: retained, once.
+    ring.upsert(failureRecord('failed'));
+    expect(ring.attachFailureBody(1, 'failed', body)).toBe(true);
+    expect(ring.attachFailureBody(1, 'failed', body)).toBe(false);
+  });
+
+  it('surfaces the body only through the includeFailureBody projection option', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    ring.upsert(failureRecord('failed'));
+    ring.attachFailureBody(1, 'failed', body);
+    expect(JSON.stringify(ring.snapshot())).not.toContain('stack trace');
+    const [projected] = ring.snapshot({ includeFailureBody: true });
+    expect(projected?.failureBody?.content).toContain('stack trace at renew.php:214');
+    expect(projected?.failureBody?.truncated).toBe(false);
+    expect(ring.projectOne(1, 'failed', { includeFailureBody: true })?.failureBody).toBeDefined();
+    expect(ring.projectOne(1, 'ghost')).toBeNull();
+  });
+
+  it('counts the retained body against the byte ceiling', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    ring.upsert(failureRecord('failed'));
+    const before = ring.counters().byteSize;
+    ring.attachFailureBody(1, 'failed', body);
+    expect(ring.counters().byteSize).toBeGreaterThan(before + body.content.length);
+  });
+
+  it('replay reconciliation preserves the retained body and the request stamp', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    ring.upsert(failureRecord('failed'));
+    ring.attachFailureBody(1, 'failed', body);
+    // A reconnect replay re-upserts the same identity WITHOUT the body.
+    expect(ring.upsert(makeRecord('failed', { phase: 'completed', statusCode: 500 }))).toBe('updated');
+    const [projected] = ring.snapshot({ includeFailureBody: true });
+    expect(projected?.failureBody?.content).toContain('stack trace');
+    // The carried stamp keeps a re-attach refused (already retained).
+    expect(ring.attachFailureBody(1, 'failed', body)).toBe(false);
+  });
+});

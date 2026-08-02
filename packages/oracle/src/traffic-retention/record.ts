@@ -6,7 +6,12 @@
  * strips bodies structurally — no code path ever copies HAR
  * `content.text` / `postData` or a `body-attached` payload into a
  * record, which is the "bodies are pulled, never retained" law
- * enforced by construction rather than by filtering.
+ * enforced by construction rather than by filtering. The ONE carve-out
+ * (PLAN §3, slice S3) is `failureBody`: when a record classifies as an
+ * HTTP failure, the tap pulls its body eagerly and the ring retains it
+ * capped — attached through the ring's `attachFailureBody`, never
+ * through derivation, and only onto a record the consumer stamped
+ * `failureBodyRequested`.
  */
 
 import type {
@@ -22,6 +27,8 @@ import {
   type TrafficRecordProjection,
 } from '@openheaders/core/traffic';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+
+import { projectBody, type RetainedTrafficBody } from './body';
 
 export interface RetainedTrafficRecord {
   tabId: number;
@@ -45,6 +52,33 @@ export interface RetainedTrafficRecord {
   transferBytes?: number;
   mimeType?: string;
   provenance: LifecycleSource;
+  /** The eagerly-captured failure body (PLAN §3 carve-out) — capped at
+   *  capture, redacted at projection like every other content plane. */
+  failureBody?: RetainedTrafficBody;
+  /** Set by the consumer when it fires the eager-pull seam, exactly
+   *  once per record — the dedup stamp AND the ring's admission gate
+   *  for `attachFailureBody` (an unrequested body is never retained). */
+  failureBodyRequested?: boolean;
+}
+
+/**
+ * Failure classification (PLAN §5 — `traffic_failures`): an HTTP error
+ * status or a request that never completed (network error, CORS block,
+ * timeout, abort — all fold to phase `failed` with a `net::ERR_*` /
+ * `oh:*` code). Redirect hops fold into one lifecycle, so a 3xx final
+ * status is not a failure.
+ */
+export function isFailureRecord(record: RetainedTrafficRecord): boolean {
+  return record.phase === 'failed' || (record.statusCode !== undefined && record.statusCode >= 400);
+}
+
+/**
+ * Whether the eager failure-body pull applies: an HTTP failure that ran
+ * to completion has a response body worth capturing; a network-level
+ * failure (`failed` without an error status) has none to pull.
+ */
+export function isBodyBearingFailure(record: RetainedTrafficRecord): boolean {
+  return record.phase === 'completed' && record.statusCode !== undefined && record.statusCode >= 400;
 }
 
 /** Identity key inside one source's ring. */
@@ -130,6 +164,9 @@ export function applyHarToRecord(record: RetainedTrafficRecord, har: InspectorHa
  */
 export interface ProjectRecordOptions {
   readonly revealSecrets?: boolean;
+  /** Surface the retained failure body (PLAN §3 carve-out). Off by
+   *  default so list-shaped reads stay lean and body-free. */
+  readonly includeFailureBody?: boolean;
 }
 
 /** Project one record for consumers — the ONLY read shape the store
@@ -174,6 +211,9 @@ export function projectRecord(record: RetainedTrafficRecord, options?: ProjectRe
     ...(record.bodyBytes !== undefined ? { bodyBytes: record.bodyBytes } : {}),
     ...(record.transferBytes !== undefined ? { transferBytes: record.transferBytes } : {}),
     ...(record.mimeType !== undefined ? { mimeType: record.mimeType } : {}),
+    ...(options?.includeFailureBody === true && record.failureBody !== undefined
+      ? { failureBody: projectBody(record.failureBody, options) }
+      : {}),
     provenance: record.provenance,
   };
 }

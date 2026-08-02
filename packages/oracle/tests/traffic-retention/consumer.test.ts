@@ -186,3 +186,73 @@ describe('TrafficRetentionConsumer — per-source isolation', () => {
     expect(b.ring.counters().recordCount).toBe(0);
   });
 });
+
+describe('TrafficRetentionConsumer — eager failure-body seam (S3)', () => {
+  function failureRig() {
+    const ring = new TrafficRetentionRing({ maxRecords: 100, maxBytes: BIG });
+    const fired: Array<{ tabId: number; requestId: string; hopIndex: number }> = [];
+    const consumer = new TrafficRetentionConsumer({
+      ring,
+      onFailure: (tabId, requestId, hopIndex) => fired.push({ tabId, requestId, hopIndex }),
+    });
+    consumer.handle(ready(0));
+    return { ring, consumer, fired };
+  }
+
+  it('fires once when a request completes with an error status', () => {
+    const { consumer, fired } = failureRig();
+    consumer.handle(started('req-1', 1_000));
+    expect(fired).toEqual([]);
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'phase',
+        tabId: 1,
+        requestId: 'req-1',
+        patch: { phase: 'completed', statusCode: 503, statusText: 'Service Unavailable', completedAtMs: 1_100 },
+      },
+    });
+    expect(fired).toEqual([{ tabId: 1, requestId: 'req-1', hopIndex: 0 }]);
+    // A later refinement (terminal HAR) must not re-fire.
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: { kind: 'har-attached', tabId: 1, requestId: 'req-1', hopIndex: 0, har: makeHarEntry() },
+    });
+    expect(fired).toHaveLength(1);
+  });
+
+  it('fires for a replayed lifecycle that arrives already terminal, and never twice across replays', () => {
+    const { consumer, fired } = failureRig();
+    const terminal = () =>
+      makeLifecycle({ requestId: 'req-1', startedAtMs: 1_000, phase: 'completed', statusCode: 404 });
+    consumer.handle({ kind: 'lifecycle-update', update: { kind: 'started', lifecycle: terminal() } });
+    expect(fired).toEqual([{ tabId: 1, requestId: 'req-1', hopIndex: 0 }]);
+    // Reconnect replay: same identity re-upserts in place — the carried
+    // stamp keeps the seam quiet.
+    consumer.handle(ready(0));
+    consumer.handle({ kind: 'lifecycle-update', update: { kind: 'started', lifecycle: terminal() } });
+    expect(fired).toHaveLength(1);
+  });
+
+  it('does not fire for network-level failures or successes', () => {
+    const { consumer, fired } = failureRig();
+    // A CORS/abort/timeout shape: failed phase, no HTTP status — there
+    // is no response body to pull.
+    consumer.handle(started('net-error', 1_000));
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'phase',
+        tabId: 1,
+        requestId: 'net-error',
+        patch: { phase: 'failed', error: { code: 'net::ERR_FAILED', reason: 'CORS' } },
+      },
+    });
+    consumer.handle(started('ok', 2_000));
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 1, requestId: 'ok', patch: { phase: 'completed', statusCode: 200 } },
+    });
+    expect(fired).toEqual([]);
+  });
+});

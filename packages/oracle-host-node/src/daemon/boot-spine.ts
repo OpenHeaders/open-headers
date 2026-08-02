@@ -772,9 +772,15 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
 
   // Agent-traffic tap (AGENT_TRAFFIC_PLAN.md §8 S1) — the armed-source
   // registry over the relay (browser tabs, via loopback lifelines) and
-  // the proxy-capture hub. Dormant until an operator arms a source;
-  // agent-facing exposure (`observe` tier, tools) arrives S2/S3.
-  const trafficTap = createTrafficTap({ dialer: lifelineDialer, proxyHub: proxyCaptureService.hub });
+  // the proxy-capture hub. Dormant until an operator arms a source; the
+  // `observe`-tier traffic_* tools (S3) read it through the MCP install
+  // below. The proxy body server backs the failure-body carve-out and
+  // on-demand pulls for the proxy partition.
+  const trafficTap = createTrafficTap({
+    dialer: lifelineDialer,
+    proxyHub: proxyCaptureService.hub,
+    proxyServeRequestBody: (requestId, hopIndex) => proxyCaptureService.serveRequestBody(requestId, hopIndex),
+  });
 
   // CLI provisioning writes this machine's `openheaders/cli.json`;
   // rotate evicts the old token's live peers, same as tokens.revoke.
@@ -838,6 +844,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const mcpInstall = await installMcpServer({
     serverVersion: config.appVersion,
     resolvePeer: admission.resolvePeer,
+    // Agent-traffic tap (S3) — the observe-tier traffic_* tools' read
+    // seam; redaction and absence semantics live below it.
+    trafficTap,
     // Observe-visibility (AGENT_TRAFFIC_PLAN.md §4): every successful
     // `observe`-tier call lands in the Activity Feed per authorized
     // workspace — reads must not stay invisible on this tier.

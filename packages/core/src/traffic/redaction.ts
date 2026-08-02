@@ -161,6 +161,37 @@ export function redactUrl(url: string): string {
 }
 
 /**
+ * Candidate runs inside free text — the opaque-token charset (which
+ * also spans a full JWT: dots are in-charset), 24+ chars. Body text is
+ * delimited by JSON/HTML/whitespace punctuation outside this charset,
+ * so a token embedded in a body surfaces as exactly the value a header
+ * carried — and therefore maps to the SAME stable marker.
+ */
+const BODY_TOKEN_RUN_PATTERN = /[A-Za-z0-9_\-.+=]{24,}/g;
+
+/**
+ * Redact token-shaped values inside free body text (S3 — bodies are the
+ * first content plane after the header/URL planes). Each candidate run
+ * is tested under the same shape predicates the header plane uses, so
+ * marker algebra holds across positions: a JWT in a response body and
+ * in an `Authorization` header yield one marker. Returns the same
+ * reference when nothing matches. Callers pass TEXT only — base64
+ * content must ride verbatim (one giant "token") or binary corrupts.
+ */
+export function redactBodyText(text: string): string {
+  BODY_TOKEN_RUN_PATTERN.lastIndex = 0;
+  if (!BODY_TOKEN_RUN_PATTERN.test(text)) return text;
+  BODY_TOKEN_RUN_PATTERN.lastIndex = 0;
+  let changed = false;
+  const redacted = text.replace(BODY_TOKEN_RUN_PATTERN, (run) => {
+    if (!isTokenShapedValue(run)) return run;
+    changed = true;
+    return redactionMarker(run);
+  });
+  return changed ? redacted : text;
+}
+
+/**
  * Redact a header list in one pass. Returns the SAME array reference
  * when no header matched, so untouched projections stay allocation-free.
  */

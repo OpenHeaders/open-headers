@@ -12,5 +12,6 @@
  * "complete" this surface by re-exporting it.
  */
 
+export { projectPulledBody } from './body';
 export { TrafficRetentionConsumer, type TrafficRetentionConsumerOptions } from './consumer';
 export { DEFAULT_TRAFFIC_RETENTION_BOUNDS, type TrafficRetentionBounds, TrafficRetentionRing } from './store';
