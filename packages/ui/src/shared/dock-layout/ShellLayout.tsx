@@ -178,6 +178,7 @@ function ShellLayoutInner<T extends string>({
   // reads these to position the dock-half rectangles flush with the
   // real bar edges, no matter what the user has resized them to.
   const [barWidths, setBarWidths] = useState<{ left: number; right: number }>({ left: 64, right: 64 });
+  const shellMeasured = shellSize.height > 0 && shellSize.width > 0;
 
   useLayoutEffect(() => {
     const el = shellRef.current;
@@ -190,6 +191,12 @@ function ShellLayoutInner<T extends string>({
     return () => ro.disconnect();
   }, []);
 
+  // `shellMeasured` is a dependency because the main row (and with it
+  // the activity bars) only mounts after the shell has been measured —
+  // on the very first run the bars aren't in the DOM yet and the query
+  // finds nothing; the flip to true re-runs this effect against the
+  // now-mounted bars. Without it, barWidths would silently stay at its
+  // 64px seed and every drop zone would sit offset from the real rails.
   useLayoutEffect(() => {
     const shell = shellRef.current;
     if (!shell) return;
@@ -207,7 +214,7 @@ function ShellLayoutInner<T extends string>({
     ro.observe(leftBar);
     ro.observe(rightBar);
     return () => ro.disconnect();
-  }, [showToolWindowLabels, sidebarLayout]);
+  }, [showToolWindowLabels, sidebarLayout, shellMeasured]);
 
   // Sash-drag onChange handlers forward straight to the host — no React
   // state per drag tick. Allotment owns the live pane sizes in the DOM;
@@ -315,7 +322,6 @@ function ShellLayoutInner<T extends string>({
   // the shell has been measured (`shellMeasured` below) — one
   // pre-paint frame on the very first render, and already live by the
   // time any alignment toggle remounts a keyed variant.
-  const shellMeasured = shellSize.height > 0 && shellSize.width > 0;
   const verticalDefaults: [number, number] = [
     Math.max(0, shellSize.height - sizes.bottom.preferred),
     sizes.bottom.preferred,
@@ -533,7 +539,7 @@ function ShellLayoutInner<T extends string>({
   );
 
   const { barMin, barMax, leftBarPreferred, rightBarPreferred, barsAllotmentRef, barsRowRef, handleBarsReset } =
-    useActivityBarSizing({ showToolWindowLabels, activityBarWidths, onActivityBarResize });
+    useActivityBarSizing({ showToolWindowLabels, activityBarWidths, onActivityBarResize, shellMeasured });
 
   const mainRow = (
     <div className="rules-main-row" ref={barsRowRef}>

@@ -16,12 +16,17 @@ interface ActivityBarSizingInput {
   showToolWindowLabels: boolean;
   activityBarWidths: { left: number; right: number };
   onActivityBarResize: (sizes: { left: number; right: number }) => void;
+  /** The bars row mounts only after the shell has been measured, so
+      effects that bind against it must re-run when this flips true —
+      their first run happens against an empty shell. */
+  shellMeasured: boolean;
 }
 
 export function useActivityBarSizing({
   showToolWindowLabels,
   activityBarWidths,
   onActivityBarResize,
+  shellMeasured,
 }: ActivityBarSizingInput) {
   // Bar pane sizing. In icon-only (compact) mode, both rails are
   // locked to BAR_COMPACT_WIDTH by setting min == max; the user can't
@@ -43,6 +48,10 @@ export function useActivityBarSizing({
   const barsMountedRef = useRef(false);
 
   useLayoutEffect(() => {
+    // The bars row isn't in the DOM until the shell is measured — a
+    // run before that must not consume the first-mount guard below,
+    // or the first real label toggle would be swallowed by it.
+    if (!shellMeasured) return;
     // First mount: rely on each pane's `preferredSize` prop to lay
     // out the bars; calling into Allotment before its children have
     // registered with the layout service throws (`undefined.minimumSize`).
@@ -66,7 +75,7 @@ export function useActivityBarSizing({
     if (total <= 0) return;
     const middleW = Math.max(0, total - leftBarPreferred - rightBarPreferred);
     barsAllotmentRef.current?.resize([leftBarPreferred, middleW, rightBarPreferred]);
-  }, [leftBarPreferred, rightBarPreferred]);
+  }, [leftBarPreferred, rightBarPreferred, shellMeasured]);
 
   // Allotment fires `onChange` for many things beyond user drags —
   // remount fit-passes, container resizes, pane prop changes — and
@@ -78,6 +87,10 @@ export function useActivityBarSizing({
   // bar widths on mouseup, and write them once.
   const barsRowRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    // The row this ref binds to only mounts once the shell has been
+    // measured — the pre-measurement run sees a null ref and must not
+    // be the last, so gate on `shellMeasured` and re-run on its flip.
+    if (!shellMeasured) return;
     const root = barsRowRef.current;
     if (!root) return;
     let dragging = false;
@@ -91,7 +104,7 @@ export function useActivityBarSizing({
       const sash = target.closest('.sash');
       if (!sash) return;
       const outerSplitView = root.firstElementChild;
-      if (!outerSplitView || !outerSplitView.contains(sash)) return;
+      if (!outerSplitView?.contains(sash)) return;
       dragging = true;
     };
 
@@ -116,7 +129,7 @@ export function useActivityBarSizing({
       document.removeEventListener('pointerup', onPointerUp, true);
       document.removeEventListener('pointercancel', onPointerUp, true);
     };
-  }, [activityBarWidths.left, activityBarWidths.right, onActivityBarResize, showToolWindowLabels]);
+  }, [activityBarWidths.left, activityBarWidths.right, onActivityBarResize, showToolWindowLabels, shellMeasured]);
 
   // Sash double-click on the activity-bar sashes snaps both rails to
   // BAR_LABELED_MIN; the middle column absorbs the slack. We compute
