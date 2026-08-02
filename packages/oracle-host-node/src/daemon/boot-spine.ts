@@ -126,6 +126,7 @@ import { peekCookieJar } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
+import { createTrafficTap, installLoopbackLifelineDialer } from '../traffic';
 import {
   createWorkspaceTreeRuntime,
   dispatchWorkspaceTreeRpc,
@@ -749,6 +750,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // browser peers and folds their acks into the status projection.
   const proxyRoutingControl = createProxyRoutingControl(proxyCaptureService);
 
+  // Loopback lifeline dialing (AGENT_TRAFFIC_PLAN.md §2) — wraps the
+  // installed lifeline server so an in-process consumer can dial the
+  // acceptors registered BELOW this line. Ordering is load-bearing: the
+  // relay's acceptor must register through the wrapper for the traffic
+  // tap's browser-tab source to be dialable.
+  const lifelineDialer = installLoopbackLifelineDialer();
+
   // Browser live-telemetry relay (OBSERVABILITY_PLAN.md Phase 1) — the
   // workbench's qualified lifecycle lifelines bridge through here to
   // the extension peer that owns each browser tab. No second store or
@@ -756,6 +764,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // gated end to end. No-op on a headless host (no lifeline server).
   const browserLiveRelay = createBrowserLiveRelay();
   const uninstallBrowserLiveLifeline = browserLiveRelay.installLifeline();
+
+  // Agent-traffic tap (AGENT_TRAFFIC_PLAN.md §8 S1) — the armed-source
+  // registry over the relay (browser tabs, via loopback lifelines) and
+  // the proxy-capture hub. Dormant until an operator arms a source;
+  // agent-facing exposure (`observe` tier, tools) arrives S2/S3.
+  const trafficTap = createTrafficTap({ dialer: lifelineDialer, proxyHub: proxyCaptureService.hub });
 
   // CLI provisioning writes this machine's `openheaders/cli.json`;
   // rotate evicts the old token's live peers, same as tokens.revoke.
@@ -798,6 +812,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // the owning extension peer; invalidation watches ride the
     // qualified storage lifeline, not RPC.
     telemetryStorageCall: (nodeId, method, params) => browserLiveRelay.storageCall(nodeId, method, params),
+    // Agent-traffic tap (S1) — operator-plane arm/disarm/status; the
+    // stats are content-free counters, never records.
+    trafficTap,
     // The admin console's Git card rides the same verb table the local
     // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.
@@ -1259,6 +1276,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     await workspaceTreeRuntime?.dispose();
     workspaceTreeRuntime = null;
     stopLiveRunner();
+    trafficTap.dispose();
     uninstallProxyCaptureLifeline();
     uninstallBrowserLiveLifeline();
     browserLiveRelay.dispose();

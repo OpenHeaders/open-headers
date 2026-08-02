@@ -171,6 +171,10 @@
       "import": "./src/page-stream/index.ts",
       "default": "./dist/page-stream/index.js"
     },
+    "./traffic": {
+      "import": "./src/traffic/index.ts",
+      "default": "./dist/traffic/index.js"
+    },
     "./resource-timing": {
       "import": "./src/resource-timing/index.ts",
       "default": "./dist/resource-timing/index.js"

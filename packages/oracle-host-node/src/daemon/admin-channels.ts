@@ -37,6 +37,7 @@ import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
+import type { TrafficTap } from '../traffic';
 import type { CliProvisionService } from './cli-provision';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
@@ -107,6 +108,15 @@ export interface AdminChannelDeps {
     method: TelemetryStorageMethod,
     params: unknown,
   ): Promise<{ ok: boolean; payload: unknown }>;
+  /**
+   * The `oh.daemon.traffic.*` backing — the agent-traffic tap's
+   * operator-plane arm/disarm/status controls (AGENT_TRAFFIC_PLAN.md §8
+   * S1). Status is content-free counters; retained records never cross
+   * this table. Optional so dispatch tables composed without the tap
+   * (test rigs) answer an empty source list instead of failing
+   * construction.
+   */
+  trafficTap?: TrafficTap;
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -415,6 +425,39 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
       }
     );
   });
+
+  // Agent-traffic tap (S1) — operator-plane arming of retention
+  // sources and their content-free counters. The `observe` tier and
+  // every agent-facing tool ride S2/S3 on top of this seam; nothing
+  // here returns a retained record.
+  handlers.set('oh.daemon.traffic.arm', (message) => {
+    if (!deps.trafficTap) return { ok: false, error: 'traffic tap unavailable' };
+    const bounds = {
+      ...(typeof message.maxRecords === 'number' ? { maxRecords: Math.floor(message.maxRecords) } : {}),
+      ...(typeof message.maxBytes === 'number' ? { maxBytes: Math.floor(message.maxBytes) } : {}),
+    };
+    if (message.kind === 'proxy') {
+      return { ok: true, uid: deps.trafficTap.armProxy({ bounds }) };
+    }
+    if (message.kind === 'browser-tab') {
+      if (typeof message.nodeId !== 'string' || message.nodeId.length === 0 || typeof message.tabId !== 'number') {
+        return { ok: false, error: 'missing nodeId or tabId' };
+      }
+      const uid = deps.trafficTap.armBrowserTab(message.nodeId, message.tabId, { bounds });
+      if (uid === null) return { ok: false, error: 'arm refused — relay unavailable' };
+      return { ok: true, uid };
+    }
+    return { ok: false, error: 'kind must be browser-tab or proxy' };
+  });
+
+  handlers.set('oh.daemon.traffic.disarm', (message) => {
+    if (!deps.trafficTap) return { ok: false, error: 'traffic tap unavailable' };
+    const uid = typeof message.uid === 'string' ? message.uid : '';
+    if (!uid) return { ok: false, error: 'missing uid' };
+    return { ok: deps.trafficTap.disarm(uid) };
+  });
+
+  handlers.set('oh.daemon.traffic.status', () => ({ sources: deps.trafficTap?.status() ?? [] }));
 
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';
