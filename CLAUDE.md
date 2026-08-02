@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm install                          # Install dependencies (requires pnpm 10+, Node 22+)
-pnpm turbo test                       # Run all tests (~7900 across all packages)
+pnpm turbo test                       # Run all tests (~14000 across all packages)
 pnpm turbo typecheck                  # Typecheck all packages
 pnpm turbo build                      # Build everything
 pnpm biome check .                    # Lint + format check
