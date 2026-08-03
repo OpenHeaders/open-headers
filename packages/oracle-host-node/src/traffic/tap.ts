@@ -291,6 +291,19 @@ function bodyWaiterKey(requestId: string, hopIndex: number): string {
   return `${requestId}:${hopIndex}`;
 }
 
+/** Whether the record's own facts say a response body existed — the
+ *  measured byte count when a fidelity plane recorded one, the
+ *  Content-Length header otherwise. Decides the honest reason for an
+ *  empty pull answer: bytes were observed ⇒ the body is `gone`;
+ *  otherwise there was never body content to serve. */
+function recordIndicatesBody(record: TrafficRecordProjection): boolean {
+  if (record.bodyBytes !== undefined) return record.bodyBytes > 0;
+  const contentLength = record.responseHeaders?.find((header) => header.name.toLowerCase() === 'content-length');
+  if (contentLength === undefined) return false;
+  const bytes = Number.parseInt(contentLength.value, 10);
+  return Number.isFinite(bytes) && bytes > 0;
+}
+
 interface RecordWaiter {
   readonly match: (record: TrafficRecordProjection) => boolean;
   readonly settle: (result: TrafficWaitResult) => void;
@@ -646,6 +659,14 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
         }, TRAFFIC_BODY_PULL_TIMEOUT_MS).unref?.();
       });
       if (answer === null) return { ok: false, reason: 'gone' };
+      // The engine's universal "no body to show" signal: an unknown or
+      // evicted request, or a body the host dropped, answers as an EMPTY
+      // body, never an error frame (cdp-body-synth.ts) — projecting it
+      // as a real empty body would mask decay. The record's own size
+      // facts pick the honest reason.
+      if (answer.content === '') {
+        return { ok: false, reason: recordIndicatesBody(record) ? 'gone' : 'no-response-body' };
+      }
       return { ok: true, body: projectPulledBody(answer, reveal) };
     },
     async waitForRecord(uid, match, options) {

@@ -3,9 +3,12 @@
  * (AGENT_TRAFFIC_PLAN.md §5, slices S3–S6), over the injected
  * {@link TrafficTap}: the observe-tier read tools plus the ONE
  * write-tier member, `traffic_to_rule`, which mints a response-override
- * DRAFT from an observed exchange through the same canonical rule-mint
- * path `rules_create` uses (publishing stays a human gesture — the
- * publication-gate law).
+ * rule from an observed exchange through the same canonical rule-mint
+ * path `rules_create` uses — published by default like any write-tier
+ * mint (the write grant IS the consent boundary; `rules_create` can
+ * publish, so a draft-only mint would be theater), EXCEPT when a minted
+ * field carries a redaction marker: publishing would serve the literal
+ * `[redacted:…]` text, so redacted fields force a draft.
  *
  * Contracts inherited structurally, never re-implemented here:
  *
@@ -436,7 +439,8 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
                     : pull.reason === 'in-flight'
                       ? 'the request has not completed yet — retry once it settles'
                       : pull.reason === 'no-response-body'
-                        ? 'the request failed before a response body existed (network error, block, timeout, or abort)'
+                        ? 'the exchange has no response body — it failed before one existed (network error, ' +
+                          'block, timeout, abort) or the response carried no body content'
                         : 'the exchange was evicted by the retention bounds',
               }
             : { body: pull.body };
@@ -670,21 +674,22 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
     },
     {
       name: 'traffic_to_rule',
-      title: 'Mint a response-override draft from an observed exchange',
+      title: 'Mint a response-override rule from an observed exchange',
       description:
-        'Mint a response-override RULE DRAFT from one observed exchange — "make this endpoint serve X" in ' +
+        'Mint a response-override rule from one observed exchange — "make this endpoint serve X" in ' +
         'one call. The exchange URL becomes the match condition (origin + path; the query is ignored so the ' +
-        'rule matches the re-fire), and the draft serves a MOCK response (the request never reaches the ' +
+        'rule matches the re-fire), and the rule serves a MOCK response (the request never reaches the ' +
         'server) built from the observed status, content type and body — pass statusCode / body / ' +
         'contentType to serve a fix instead (e.g. statusCode 200 with a healthy body for an endpoint that ' +
         'is currently failing). CORS response headers are copied from the observed response; when none were ' +
         'observed and the request was cross-origin, a permissive set is synthesized and reported (a ' +
-        'hand-written mock reliably forgets them). A missing or binary body mints an empty draft body with ' +
-        'an honest note, never an error. The draft is NEVER auto-published (published: false — drafts do ' +
-        'not affect live traffic): publishing stays a human gesture, in Open Headers or via an explicitly ' +
-        'requested rules_update. [redacted:<hash>] markers are minted verbatim — secrets are never ' +
-        'revealed — and every draft field carrying one is listed in redactedFields so a human can fill the ' +
-        'real value before publishing. Rules are executed by connected browser extensions.',
+        'hand-written mock reliably forgets them). A missing or binary body mints an empty body with an ' +
+        'honest note, never an error. The rule is PUBLISHED by default — live in connected browser ' +
+        'extensions immediately; pass published: false to mint an unpublished draft for human review ' +
+        'instead. Exception: [redacted:<hash>] markers are minted verbatim (secrets are never revealed), ' +
+        'and when any minted field carries one the rule is forced to a DRAFT with the fields listed in ' +
+        'redactedFields — publishing would serve the literal markers; a human fills the real values and ' +
+        'publishes in Open Headers.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -707,6 +712,12 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
             type: 'string',
             description: 'Target rule collection. Omit to use the first collection in the workspace.',
           },
+          published: {
+            type: 'boolean',
+            description:
+              'Default true — the rule goes live in connected extensions immediately. Pass false to mint an ' +
+              'unpublished draft for human review. Redacted fields always force a draft.',
+          },
           ...WORKSPACE_ID_PROPERTY,
         },
         required: ['uid', 'requestId'],
@@ -716,12 +727,6 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
       resolveWorkspaceId: resolveWorkspaceIdArg,
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
-        if ('published' in args) {
-          throw new McpToolInputError(
-            "'published' is not accepted — traffic_to_rule always mints a draft (published: false); " +
-              'publishing stays a human gesture (save in Open Headers, or an explicitly requested rules_update)',
-          );
-        }
         // The tier gate checks `write`, but this tool READS observed
         // traffic into the minted rule — without the observe switch it
         // would be a side door for traffic content through the write
@@ -759,7 +764,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
                 ? 'the body decayed or the source cannot serve bodies'
                 : pull.reason === 'in-flight'
                   ? 'the request has not completed yet'
-                  : 'the request failed before a response body existed';
+                  : 'the exchange has no response body';
             bodyInput = {
               projection: null,
               source: 'empty',
@@ -775,6 +780,20 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
           ...(contentTypeOverride !== undefined ? { contentType: contentTypeOverride } : {}),
         });
 
+        // Published by default — the write grant is the consent boundary
+        // (rules_create publishes through the same gate). Redacted fields
+        // force a draft whatever was asked: publishing would serve the
+        // literal [redacted:…] markers to live traffic.
+        const publishRequested = args.published !== false;
+        const published = publishRequested && draft.redactedFields.length === 0;
+        const notes = [...draft.notes];
+        if (publishRequested && !published) {
+          notes.push(
+            'redacted fields force a draft — fill the fields listed in redactedFields with real values and ' +
+              'publish in Open Headers',
+          );
+        }
+
         const parentPath = await resolveRuleParentPath(workspaceId, optionalString(args, 'collectionUid'));
         const ruleUid = generateUid();
         const defaultName = `Override ${record.method.toUpperCase()} ${conditionValueForUrl(record.url)}`;
@@ -788,7 +807,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
             name,
             type: 'response',
             enabled: true,
-            published: false,
+            published,
             conditions: [{ uid: generateUid(), type: 'url-filter', values: [draft.conditionValue] }],
             action: {
               responseSource: 'mock',
@@ -805,7 +824,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
         return {
           workspaceId,
           rule: created,
-          draft: true,
+          published,
           observed: {
             uid,
             requestId,
@@ -816,7 +835,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
           cors: { copied: draft.corsCopied, synthesized: draft.corsSynthesized },
           body: draft.body,
           redactedFields: draft.redactedFields,
-          notes: draft.notes,
+          notes,
         };
       },
     },

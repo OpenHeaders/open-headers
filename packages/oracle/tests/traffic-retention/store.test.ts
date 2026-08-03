@@ -114,6 +114,22 @@ describe('TrafficRetentionRing — projection boundary', () => {
     expect(JSON.stringify(projection)).not.toContain('OH-SECRET-BODY');
   });
 
+  it('folds no sizes from a webrequest-partial entry — unknown is not zero', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    // The heuristic synth invents no sizes: content.size 0 is the
+    // exporter's unknown marker, not a measurement — folding it would
+    // claim a confident zero-byte body.
+    const har = makeHarEntry({ size: 0 });
+    har._ohEntrySource = 'webrequest-partial';
+    ring.upsert(recordFromLifecycle(makeLifecycle({ requestId: 'wr-har', har: [har] }), 'heuristic'));
+    const [projection] = ring.snapshot();
+    expect(projection?.bodyBytes).toBeUndefined();
+    expect(projection?.transferBytes).toBeUndefined();
+    // The non-size facts still fold.
+    expect(projection?.statusCode).toBe(200);
+    expect(projection?.mimeType).toBe('application/json');
+  });
+
   it('normalizes the per-correlator resourceType vocabulary', () => {
     const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
     ring.upsert(makeRecord('wr', { resourceType: 'xmlhttprequest' }));
@@ -203,5 +219,24 @@ describe('TrafficRetentionRing — failure-body carve-out (S3)', () => {
     expect(projected?.failureBody?.content).toContain('stack trace');
     // The carried stamp keeps a re-attach refused (already retained).
     expect(ring.attachFailureBody(1, 'failed', body)).toBe(false);
+  });
+
+  it('an empty body answer is refused — the engine has no body to show, and a fake empty must not mask that', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    ring.upsert(failureRecord('failed'));
+    expect(ring.attachFailureBody(1, 'failed', { ...body, content: '' })).toBe(false);
+    // The record stays body-less — a real answer can still attach.
+    expect(ring.attachFailureBody(1, 'failed', body)).toBe(true);
+  });
+
+  it('replay reconciliation keeps the provenance the record was observed under', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    ring.upsert(makeRecord('flip'));
+    // A reconnect replay after a fidelity flip re-mints with the
+    // source's CURRENT provenance — the record must keep the fidelity
+    // it was OBSERVED under, not retroactively claim a body plane it
+    // never had.
+    expect(ring.upsert(recordFromLifecycle(makeLifecycle({ requestId: 'flip' }), 'cdp'))).toBe('updated');
+    expect(ring.snapshot().map((r) => r.provenance)).toEqual(['heuristic']);
   });
 });

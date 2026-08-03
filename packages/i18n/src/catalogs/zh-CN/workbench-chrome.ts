@@ -550,10 +550,8 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugPinAria': '切换此标签页的调试',
   'workbench.trafficMonitor.debugModeHint':
     '调试模式——将浏览器调试器附加到范围内及已固定的标签页，以获取响应体和精确标头。浏览器会在每个已附加的标签页上显示横幅。',
-  'workbench.trafficMonitor.observeArm':
-    '授权智能体观察——授权期间，此来源会将其流量持续传送到桌面应用，即使没有打开任何面板。身份验证标头、Cookie 和 token 形态的值会被替换为稳定的标记（尽力而为——藏在不寻常位置的机密仍可能漏过）。闲置的授权会自行过期。',
-  'workbench.trafficMonitor.observeArmed':
-    '已授权智能体观察——持续传送中，直到取消授权或因闲置过期。机密会以稳定的标记脱敏（尽力而为）。',
+  'workbench.trafficMonitor.observeArm': '授权智能体观察——授权期间，已连接的智能体可读取此来源的流量',
+  'workbench.trafficMonitor.observeArmed': '已授权智能体观察——智能体可持续读取，直到取消授权或闲置过期',
   'workbench.trafficMonitor.observeAria': '切换此来源的智能体观察',
   'workbench.trafficMonitor.captureBadge': '正在捕获到磁盘',
   'workbench.trafficMonitor.captureBadgeHint':

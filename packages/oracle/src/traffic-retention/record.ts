@@ -169,9 +169,16 @@ export function applyPatchToRecord(record: RetainedTrafficRecord, patch: Request
  */
 export function applyHarToRecord(record: RetainedTrafficRecord, har: InspectorHarEntry): void {
   const response = har.response;
+  // A webrequest-partial entry invents no sizes — its `content.size` 0 /
+  // `bodySize` -1 are the exporter's unknown markers, not measurements
+  // (webrequest-har-synth.ts), so folding them would turn "unknown" into
+  // a confident zero byte count. Sizes fold only from producers that
+  // measure them (devtools / cdp / proxy); heuristic rows honestly
+  // carry no size.
+  const sizesMeasured = har._ohEntrySource !== 'webrequest-partial';
   if (response !== undefined) {
-    if (response.content.size >= 0) record.bodyBytes = response.content.size;
-    if (response._transferSize !== undefined && response._transferSize >= 0) {
+    if (sizesMeasured && response.content.size >= 0) record.bodyBytes = response.content.size;
+    if (sizesMeasured && response._transferSize !== undefined && response._transferSize >= 0) {
       record.transferBytes = response._transferSize;
     }
     if (response.content.mimeType) record.mimeType = response.content.mimeType;

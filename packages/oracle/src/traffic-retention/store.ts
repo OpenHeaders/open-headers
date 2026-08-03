@@ -93,6 +93,13 @@ export class TrafficRetentionRing {
       if (existing.record.redirectTrail !== undefined && record.redirectTrail === undefined) {
         record.redirectTrail = existing.record.redirectTrail;
       }
+      // Provenance is a historical observation fact: the record keeps the
+      // fidelity it was OBSERVED under. A reconnect replay after a
+      // fidelity flip (heuristic → cdp) re-mints with the source's
+      // CURRENT provenance — carrying the original stops old rows from
+      // retroactively claiming a fidelity (and a body plane) they never
+      // had.
+      record.provenance = existing.record.provenance;
       const bytes = measureRecordBytes(record);
       this.byteSize += bytes - existing.bytes;
       existing.record = record;
@@ -147,6 +154,11 @@ export class TrafficRetentionRing {
     if (record.failureBodyRequested !== true || record.failureBody !== undefined || !isFailureRecord(record)) {
       return false;
     }
+    // An empty content is the engine's universal "no body to show"
+    // answer (cdp-body-synth.ts): an unknown or dropped body arrives as
+    // an empty `body-attached`, never an error frame. Retaining it would
+    // mask the honest bodyUnavailable answer with a fake empty body.
+    if (body.content === '') return false;
     record.failureBody = captureBody(body);
     const bytes = measureRecordBytes(record);
     this.byteSize += bytes - entry.bytes;

@@ -5,10 +5,11 @@
  * `bodyUnavailable` reasons, unknown-source/unknown-request errors that
  * read as agent guidance, the mandatory workspace resolution the
  * observe-visibility seam depends on (STATUS finding 13), and the S6
- * `traffic_to_rule` mint: draft-always (the publication-gate law), CORS
- * copy/synthesis, body-decay honesty, redacted-field honesty, and the
- * dual-switch observe guard. The mint rides the REAL sync service
- * (in-memory), like the write-tools suite.
+ * `traffic_to_rule` mint: publish-by-default with the redaction-forced
+ * draft (publishing a marker-bearing field would serve the literal
+ * markers), CORS copy/synthesis, body-decay honesty, redacted-field
+ * honesty, and the dual-switch observe guard. The mint rides the REAL
+ * sync service (in-memory), like the write-tools suite.
  */
 
 import { setHostLogger } from '@openheaders/core/logger';
@@ -575,7 +576,7 @@ describe('traffic_get', () => {
     expect(decayed.body).toBeUndefined();
     expect(decayed.bodyUnavailable).toContain('decayed');
     const netError = await call('traffic_get', { uid: UID, requestId: 'cors' });
-    expect(netError.bodyUnavailable).toContain('failed before a response body existed');
+    expect(netError.bodyUnavailable).toContain('has no response body');
   });
 
   it('surfaces unknown requestIds as agent-correctable errors', async () => {
@@ -775,7 +776,7 @@ describe('traffic_wait', () => {
 });
 
 describe('traffic_to_rule', () => {
-  it('mints a DRAFT response override through the real write path, with overrides serving the fix', async () => {
+  it('mints and PUBLISHES a response override through the real write path, with overrides serving the fix', async () => {
     const result = await call('traffic_to_rule', {
       uid: UID_M,
       requestId: 'm-fail',
@@ -783,12 +784,13 @@ describe('traffic_to_rule', () => {
       body: '{"ok":true}',
     });
     expect(result.workspaceId).toBe(WS);
-    expect(result.draft).toBe(true);
+    expect(result.published).toBe(true);
     const rule = result.rule as ResponseRule;
     expect(rule.type).toBe('response');
-    // The publication-gate law: NEVER auto-published; enabled so the
-    // human's publish gesture is the only step left.
-    expect(rule.published).toBe(false);
+    // Published by default: the write grant is the consent boundary
+    // (rules_create publishes through the same gate), so a clean mint
+    // is live on the re-fire with no further gesture.
+    expect(rule.published).toBe(true);
     expect(rule.enabled).toBe(true);
     expect(rule.action.responseSource).toBe('mock');
     expect(rule.action.bodyType).toBe('static');
@@ -812,7 +814,7 @@ describe('traffic_to_rule', () => {
     const snapshot = snapshotRulePostStates(WS);
     expect(snapshot).toHaveLength(1);
     expect(snapshot[0]?.rule.uid).toBe(rule.uid);
-    expect(snapshot[0]?.rule.published).toBe(false);
+    expect(snapshot[0]?.rule.published).toBe(true);
   });
 
   it('defaults replay the observed exchange, carry the retained failure body, and honor redaction', async () => {
@@ -823,9 +825,14 @@ describe('traffic_to_rule', () => {
     expect(result.body).toMatchObject({ source: 'retained-failure', truncated: false });
     // Markers mint VERBATIM and the field is called out — never revealed.
     expect(result.redactedFields).toEqual(['action.responseBody']);
+    // Redacted fields force a DRAFT whatever the default: publishing
+    // would serve the literal markers to live traffic.
+    expect(result.published).toBe(false);
+    expect(rule.published).toBe(false);
     const notes = result.notes as string[];
     expect(notes.some((n) => n.includes('replays the observed 503'))).toBe(true);
     expect(notes.some((n) => n.includes('redactedFields'))).toBe(true);
+    expect(notes.some((n) => n.includes('force a draft'))).toBe(true);
   });
 
   it('synthesizes the permissive CORS set for a cross-origin exchange observed without one — and says so', async () => {
@@ -863,11 +870,20 @@ describe('traffic_to_rule', () => {
     expect((result.body as { note: string }).note).toContain('binary');
   });
 
-  it('rejects an explicit published arg — publishing stays a human gesture', async () => {
-    await expect(call('traffic_to_rule', { uid: UID_M, requestId: 'm-fail', published: true })).rejects.toThrow(
-      /human gesture/,
-    );
-    expect(snapshotRulePostStates(WS)).toHaveLength(0);
+  it('published: false mints an unpublished draft deliberately', async () => {
+    const result = await call('traffic_to_rule', {
+      uid: UID_M,
+      requestId: 'm-fail',
+      statusCode: 200,
+      body: '{"ok":true}',
+      published: false,
+    });
+    expect(result.published).toBe(false);
+    const rule = result.rule as ResponseRule;
+    expect(rule.published).toBe(false);
+    expect(rule.enabled).toBe(true);
+    const snapshot = snapshotRulePostStates(WS);
+    expect(snapshot[0]?.rule.published).toBe(false);
   });
 
   it('refuses when the observe switch is off — no traffic side door through the write grant', async () => {

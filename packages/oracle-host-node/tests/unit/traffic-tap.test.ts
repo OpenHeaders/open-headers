@@ -562,6 +562,44 @@ describe('traffic tap — body plane (S3)', () => {
     proxyHub.dispose();
   });
 
+  it('an empty body answer maps to a typed miss, never a fake empty body', async () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    // Two completed successes: one whose record proves bytes existed
+    // (Content-Length), one with no size facts at all. The relay answers
+    // both pulls with the engine's universal empty "no body to show"
+    // (an unknown or dropped body arrives as empty, never an error).
+    const relay = installBodyRelay(
+      [
+        makeLifecycle({
+          requestId: 'was-there',
+          startedAtMs: 900,
+          phase: 'completed',
+          statusCode: 200,
+          responseHeaders: [{ name: 'Content-Length', value: '60' }],
+        }),
+        makeLifecycle({ requestId: 'never-there', startedAtMs: 901, phase: 'completed', statusCode: 204 }),
+      ],
+      new Map([
+        ['was-there', ''],
+        ['never-there', ''],
+      ]),
+    );
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    await Promise.resolve();
+
+    // Bytes were observed ⇒ the body is gone; no size facts ⇒ there was
+    // never body content to serve. Neither projects a fake empty body.
+    expect(await tap.pullBody(uid, 'was-there')).toEqual({ ok: false, reason: 'gone' });
+    expect(await tap.pullBody(uid, 'never-there')).toEqual({ ok: false, reason: 'no-response-body' });
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
   it('getRecord projects one identity with the failure body attached', async () => {
     const dialer = installLoopbackLifelineDialer();
     const store = new RequestLifecycleStore();

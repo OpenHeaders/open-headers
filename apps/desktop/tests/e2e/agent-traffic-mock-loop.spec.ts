@@ -6,13 +6,14 @@
  *   1. A probe hits an endpoint that always fails server-side
  *      (`/net/gate/mock?status=503`) → `traffic_failures` finds the 503
  *      WITH its eagerly-captured body (CDP-pinned tab).
- *   2. `traffic_to_rule` mints a response-override DRAFT from the
- *      observed exchange — `published: false` (never auto-published),
- *      the observed CORS headers copied, the status/body overridden to
- *      the fix — and an explicit `published` arg is refused.
- *   3. Publishing is the separate, explicit write gesture
- *      (`rules_update`), after which the rule syncs into the connected
- *      browser extension (the mcp.spec.ts propagation idiom).
+ *   2. `traffic_to_rule` with `published: false` mints a DRAFT from the
+ *      observed exchange — the observed CORS headers copied, the
+ *      status/body overridden to the fix — and a draft never affects
+ *      live traffic.
+ *   3. The DEFAULT mint publishes directly (the write grant is the
+ *      consent boundary — `rules_create` publishes through the same
+ *      gate), after which the rule syncs into the connected browser
+ *      extension (the mcp.spec.ts propagation idiom).
  *   4. A re-probe of the SAME endpoint now succeeds page-visibly (the
  *      override serves in the extension) and `traffic_wait` observes
  *      the success — closing the loop in one spec.
@@ -301,29 +302,20 @@ test('the failing probe lands in traffic_failures with its eagerly-captured body
   expect(headerNames).toContain('access-control-allow-origin');
 });
 
-// ── 2. The mint — a draft, never a publish ──────────────────────────
+// ── 2. The opt-out mint — a deliberate draft ────────────────────────
 
-test('traffic_to_rule mints a response-override DRAFT with the observed CORS headers', async () => {
+test('traffic_to_rule with published: false mints a DRAFT with the observed CORS headers', async () => {
   test.setTimeout(60000);
-
-  // The draft law is enforced, not implicit: an explicit published arg
-  // is refused outright.
-  const refused = await callTool('traffic_to_rule', {
-    uid: sourceUid,
-    requestId: failureRequestId,
-    published: true,
-  });
-  expect(refused.isError).toBe(true);
-  expect(refused.text).toContain('human gesture');
 
   const { isError, payload } = await callTool('traffic_to_rule', {
     uid: sourceUid,
     requestId: failureRequestId,
     statusCode: 200,
     body: MOCK_BODY,
+    published: false,
   });
   expect(isError).toBeFalsy();
-  expect(payload.draft).toBe(true);
+  expect(payload.published).toBe(false);
 
   const rule = payload.rule as {
     uid: string;
@@ -379,12 +371,31 @@ test('traffic_to_rule mints a response-override DRAFT with the observed CORS hea
   expect(probe).toEqual({ ok: false, status: 503 });
 });
 
-// ── 3. Publish — the separate, explicit write gesture ───────────────
+// ── 3. The default mint — published directly, live in the extension ─
 
-test('publishing via the write surface syncs the rule into the connected extension', async () => {
+test('the default mint publishes directly and syncs into the connected extension', async () => {
   test.setTimeout(60000);
-  const { isError } = await callTool('rules_update', { uid: ruleUid, updates: { published: true } });
+
+  // Drop the deliberate draft so exactly one rule owns the endpoint.
+  const removed = await callTool('rules_delete', { uid: ruleUid });
+  expect(removed.isError).toBeFalsy();
+
+  const { isError, payload } = await callTool('traffic_to_rule', {
+    uid: sourceUid,
+    requestId: failureRequestId,
+    statusCode: 200,
+    body: MOCK_BODY,
+  });
   expect(isError).toBeFalsy();
+  // Published by default: the write grant is the consent boundary, and
+  // a clean mint (no redacted fields) goes live with no further gesture.
+  expect(payload.published).toBe(true);
+  const rule = payload.rule as { uid: string; name: string; published: boolean; enabled: boolean };
+  ruleUid = rule.uid;
+  ruleName = rule.name;
+  expect(rule.published).toBe(true);
+  expect(rule.enabled).toBe(true);
+  expect(payload.redactedFields).toEqual([]);
 
   // The workspace (and the rule inside it) replicates into
   // chrome.storage under the oh.ws.<id>.rules key family — the
