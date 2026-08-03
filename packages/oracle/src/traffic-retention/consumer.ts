@@ -39,6 +39,7 @@ import type { TrafficRetentionStats } from '@openheaders/core/traffic';
 import {
   applyHarToRecord,
   applyPatchToRecord,
+  applyRedirectToRecord,
   isBodyBearingFailure,
   type RetainedTrafficRecord,
   recordFromLifecycle,
@@ -176,8 +177,7 @@ export class TrafficRetentionConsumer {
       }
       case 'redirect': {
         const mutated = this.ring.update(update.tabId, update.requestId, (record) => {
-          record.redirectHopCount += 1;
-          record.url = update.nextUrl;
+          applyRedirectToRecord(record, update.hop, update.nextUrl);
         });
         if (mutated) this.onRecord?.(update.tabId, update.requestId);
         return;

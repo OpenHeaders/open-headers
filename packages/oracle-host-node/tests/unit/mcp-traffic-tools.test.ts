@@ -35,6 +35,7 @@ const UID = 'browser-tab:ext-node-1:7';
 const UID_A = 'browser-tab:ext-node-1:8';
 const UID_B = 'browser-tab:ext-node-1:9';
 const UID_W = 'browser-tab:ext-node-1:10';
+const UID_G = 'browser-tab:ext-node-1:11';
 
 function makeProjection(overrides: Partial<TrafficRecordProjection> = {}): TrafficRecordProjection {
   return {
@@ -163,6 +164,99 @@ const WINDOW_ROWS: TrafficRecordProjection[] = [
   }),
 ];
 
+/** The graph suites' window: an initiator tree (page → script → dep →
+ *  api call, page → img), two redirect chains, and failure clusters on
+ *  one folded endpoint plus one network-error path. */
+const PAGE_URL = 'https://app.openheaders.io/dashboard';
+const SCRIPT_URL = 'https://app.openheaders.io/assets/app.js';
+const DEP_URL = 'https://app.openheaders.io/assets/dep.js';
+
+const GRAPH_ROWS: TrafficRecordProjection[] = [
+  makeProjection({
+    requestId: 'page',
+    url: PAGE_URL,
+    resourceType: 'document',
+    startedAtMs: 1_000,
+    completedAtMs: 1_040,
+  }),
+  makeProjection({
+    requestId: 'redir',
+    url: 'https://app.openheaders.io/welcome',
+    startedAtMs: 1_010,
+    completedAtMs: 1_030,
+    redirectHopCount: 2,
+    redirectTrail: [
+      { url: 'https://app.openheaders.io/login', statusCode: 302 },
+      { url: 'https://app.openheaders.io/auth', statusCode: 301 },
+    ],
+  }),
+  makeProjection({
+    requestId: 'redir-bare',
+    url: 'https://app.openheaders.io/landed',
+    startedAtMs: 1_020,
+    completedAtMs: 1_035,
+    redirectHopCount: 1,
+  }),
+  makeProjection({
+    requestId: 'script',
+    url: SCRIPT_URL,
+    resourceType: 'script',
+    initiator: PAGE_URL,
+    startedAtMs: 1_050,
+    completedAtMs: 1_080,
+  }),
+  makeProjection({
+    requestId: 'img',
+    url: 'https://app.openheaders.io/assets/logo.png',
+    resourceType: 'image',
+    initiator: PAGE_URL,
+    startedAtMs: 1_060,
+    completedAtMs: 1_070,
+  }),
+  makeProjection({
+    requestId: 'dep',
+    url: DEP_URL,
+    resourceType: 'script',
+    initiator: SCRIPT_URL,
+    startedAtMs: 1_090,
+    completedAtMs: 1_120,
+  }),
+  makeProjection({
+    requestId: 'api-1',
+    url: 'https://api.openheaders.io/api/users/123',
+    initiator: DEP_URL,
+    startedAtMs: 1_130,
+    completedAtMs: 1_500,
+  }),
+  makeProjection({
+    requestId: 'f1',
+    url: 'https://api.openheaders.io/api/users/124',
+    statusCode: 500,
+    startedAtMs: 1_200,
+  }),
+  makeProjection({
+    requestId: 'f2',
+    url: 'https://api.openheaders.io/api/users/125',
+    statusCode: 503,
+    startedAtMs: 1_300,
+  }),
+  makeProjection({
+    requestId: 'f3',
+    url: 'https://api.openheaders.io/api/users/126',
+    statusCode: 500,
+    startedAtMs: 1_400,
+  }),
+  makeProjection({
+    requestId: 'f4',
+    url: 'https://api.openheaders.io/api/stream',
+    phase: 'failed',
+    statusCode: undefined,
+    completedAtMs: undefined,
+    error: { code: 'net::ERR_FAILED', reason: 'CORS' },
+    startedAtMs: 1_450,
+  }),
+];
+
 interface FakeTapControls {
   pullCalls: string[];
   waitCalls: Array<{ timeoutMs: number }>;
@@ -179,6 +273,7 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
     [UID_A, DIFF_ROWS_A],
     [UID_B, DIFF_ROWS_B],
     [UID_W, WINDOW_ROWS],
+    [UID_G, GRAPH_ROWS],
   ]);
   const sourceStatus = (uid: string, rows: TrafficRecordProjection[]): TrafficSourceStatus => ({
     uid,
@@ -278,6 +373,7 @@ describe('registration contract', () => {
       'traffic_failures',
       'traffic_get',
       'traffic_diff',
+      'traffic_graph',
       'traffic_wait',
     ]);
     for (const tool of tools.values()) {
@@ -292,7 +388,7 @@ describe('traffic_sources', () => {
     const result = await call('traffic_sources', {});
     expect(result.workspaceId).toBe(WS);
     const sources = result.sources as Array<Record<string, unknown>>;
-    expect(sources.map((s) => s.uid)).toEqual([UID, UID_A, UID_B, UID_W]);
+    expect(sources.map((s) => s.uid)).toEqual([UID, UID_A, UID_B, UID_W, UID_G]);
     expect(sources[0]).toMatchObject({ uid: UID, kind: 'browser-tab', tabId: 7, state: 'streaming' });
     expect((sources[0]?.stats as Record<string, unknown>).recordCount).toBe(ROWS.length);
   });
@@ -452,6 +548,95 @@ describe('traffic_diff', () => {
     await expect(call('traffic_diff', { a: { uid: 'nope' }, b: { uid: UID_B } })).rejects.toThrow(/traffic_sources/);
     await expect(call('traffic_diff', { a: 'not-an-object', b: { uid: UID_B } })).rejects.toThrow(/must be an object/);
     await expect(call('traffic_diff', { a: { uid: '' }, b: { uid: UID_B } })).rejects.toThrow(/a\.uid/);
+  });
+});
+
+describe('traffic_graph', () => {
+  it('resolves redirect chains — one node per requestId, hops with URLs and statuses', async () => {
+    const result = await call('traffic_graph', { uid: UID_G });
+    expect(result.workspaceId).toBe(WS);
+    expect(result.totalRecords).toBe(GRAPH_ROWS.length);
+    expect(result.redirectChainsTotal).toBe(2);
+    const chains = result.redirectChains as Array<Record<string, unknown>>;
+    expect(chains[0]).toMatchObject({
+      requestId: 'redir',
+      hopCount: 2,
+      truncated: false,
+      finalUrl: 'https://app.openheaders.io/welcome',
+      finalStatusCode: 200,
+    });
+    expect(chains[0]?.hops).toEqual([
+      { url: 'https://app.openheaders.io/login', statusCode: 302 },
+      { url: 'https://app.openheaders.io/auth', statusCode: 301 },
+    ]);
+    // A record whose trail did not survive reports the gap honestly.
+    expect(chains[1]).toMatchObject({ requestId: 'redir-bare', hopCount: 1, hops: [], truncated: true });
+  });
+
+  it('joins initiator chains root→leaf and reports deepest first', async () => {
+    const result = await call('traffic_graph', { uid: UID_G });
+    expect(result.initiatorChainsTotal).toBe(2);
+    const chains = result.initiatorChains as Array<{ urls: string[]; requestIds: string[]; depth: number }>;
+    expect(chains[0]?.requestIds).toEqual(['page', 'script', 'dep', 'api-1']);
+    expect(chains[0]?.urls).toEqual([PAGE_URL, SCRIPT_URL, DEP_URL, 'https://api.openheaders.io/api/users/123']);
+    expect(chains[0]?.depth).toBe(4);
+    // Inner nodes never surface as chains of their own — the page→script
+    // prefix lives inside the deep chain, not beside it.
+    expect(chains[1]?.requestIds).toEqual(['page', 'img']);
+  });
+
+  it('walks the critical path back from the last completed exchange', async () => {
+    const result = await call('traffic_graph', { uid: UID_G });
+    const path = result.criticalPath as {
+      chain: Array<{ requestId: string; durationMs?: number }>;
+      windowStartedAtMs: number;
+      windowEndedAtMs: number;
+      windowSpanMs: number;
+    };
+    expect(path.chain.map((n) => n.requestId)).toEqual(['page', 'script', 'dep', 'api-1']);
+    expect(path.chain[3]?.durationMs).toBe(370);
+    expect(path.windowStartedAtMs).toBe(1_000);
+    expect(path.windowEndedAtMs).toBe(1_500);
+    expect(path.windowSpanMs).toBe(500);
+  });
+
+  it('clusters failures by folded endpoint and failure kind', async () => {
+    const result = await call('traffic_graph', { uid: UID_G });
+    expect(result.failureClustersTotal).toBe(2);
+    const clusters = result.failureClusters as Array<Record<string, unknown>>;
+    // Biggest first: three 5xx on one variable-id endpoint fold to ONE
+    // cluster — the "one endpoint, not N problems" read.
+    expect(clusters[0]).toMatchObject({
+      failureKind: 'http-5xx',
+      path: 'https://api.openheaders.io/api/users/*',
+      count: 3,
+      statusCodes: [500, 503],
+      firstStartedAtMs: 1_200,
+      lastStartedAtMs: 1_400,
+    });
+    expect(clusters[1]).toMatchObject({
+      failureKind: 'network-error',
+      path: 'https://api.openheaders.io/api/stream',
+      count: 1,
+      errorCodes: ['net::ERR_FAILED'],
+    });
+    // The 200 on the same folded endpoint is NOT in the cluster.
+    expect((clusters[0]?.sampleRequestIds as string[]).includes('api-1')).toBe(false);
+  });
+
+  it('scopes by window and urlContains, and caps every list with honest totals', async () => {
+    const scoped = await call('traffic_graph', { uid: UID_G, urlContains: '/api/users/' });
+    expect(scoped.totalRecords).toBe(4);
+    expect(scoped.redirectChainsTotal).toBe(0);
+    const windowed = await call('traffic_graph', { uid: UID_G, sinceMs: 1_150, untilMs: 1_460 });
+    expect(windowed.totalRecords).toBe(4);
+    expect(windowed.failureClustersTotal).toBe(2);
+    const capped = await call('traffic_graph', { uid: UID_G, limit: 1 });
+    expect(capped.redirectChainsTotal).toBe(2);
+    expect((capped.redirectChains as unknown[]).length).toBe(1);
+    expect(capped.initiatorChainsTotal).toBe(2);
+    expect((capped.initiatorChains as unknown[]).length).toBe(1);
+    await expect(call('traffic_graph', { uid: 'nope' })).rejects.toThrow(/traffic_sources/);
   });
 });
 

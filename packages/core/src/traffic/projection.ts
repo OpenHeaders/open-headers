@@ -52,6 +52,15 @@ export interface TrafficBodyProjection {
   readonly truncated: boolean;
 }
 
+/** One hop of a redirect chain, projected: the URL that answered 3xx
+ *  and the status it answered with. The final URL is the record's own
+ *  `url` — the chain reads trail…, url (the lifecycle spine's
+ *  `urlChain` shape). Hop URLs are redacted like `url`/`initiator`. */
+export interface TrafficRedirectHopProjection {
+  readonly url: string;
+  readonly statusCode?: number;
+}
+
 /** One retained exchange, projected for consumers. */
 export interface TrafficRecordProjection {
   readonly tabId: number;
@@ -68,6 +77,15 @@ export interface TrafficRecordProjection {
   readonly startedAtMs: number;
   readonly completedAtMs?: number;
   readonly redirectHopCount: number;
+  /**
+   * Bounded per-hop URL trail for a redirected exchange — one entry per
+   * 3xx hop, oldest first; the record's `url` is the chain's final stop.
+   * Redirect hops fold into ONE record (never one row per hop), so this
+   * trail is the only place the intermediate URLs survive. Present only
+   * when the exchange redirected; may be shorter than `redirectHopCount`
+   * when the trail bound trips.
+   */
+  readonly redirectTrail?: readonly TrafficRedirectHopProjection[];
   readonly requestHeaders?: readonly TrafficHeaderProjection[];
   readonly responseHeaders?: readonly TrafficHeaderProjection[];
   /** Decoded body size (HAR `content.size`) — the size fact, never the body. */

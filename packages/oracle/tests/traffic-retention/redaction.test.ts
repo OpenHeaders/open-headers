@@ -65,6 +65,32 @@ describe('snapshot redaction', () => {
     );
   });
 
+  it('redirect-trail hop URLs redact like url and initiator — the trail is not a side door', () => {
+    const { ring, consumer } = rigWithSecretRecord();
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'redirect',
+        tabId: 1,
+        requestId: 'req-1',
+        hop: {
+          sourceUrl: `https://api.openheaders.io/users?access_token=${JWT}&tag=probe`,
+          redirectUrl: 'https://api.openheaders.io/final',
+          statusCode: 302,
+          timestampMs: 1_050,
+        },
+        nextUrl: 'https://api.openheaders.io/final',
+      },
+    });
+    const [record] = ring.snapshot();
+    expect(record?.redirectTrail?.[0]?.url).toBe(
+      `https://api.openheaders.io/users?access_token=${redactionMarker(JWT)}&tag=probe`,
+    );
+    expect(JSON.stringify(ring.snapshot())).not.toContain(JWT);
+    // The reveal escalation opens the trail too — one boundary, one law.
+    expect(JSON.stringify(ring.snapshot({ revealSecrets: true }))).toContain(JWT);
+  });
+
   it('revealSecrets projects raw values — the escalation seam, never the default', () => {
     const { ring } = rigWithSecretRecord();
     const serialized = JSON.stringify(ring.snapshot({ revealSecrets: true }));

@@ -87,6 +87,12 @@ export class TrafficRetentionRing {
         record.failureBody = existing.record.failureBody;
       }
       if (existing.record.failureBodyRequested === true) record.failureBodyRequested = true;
+      // The hop-URL trail re-derives from a replayed lifecycle's own
+      // `redirectHops`; carry the folded trail only when the replay
+      // arrives without one (same posture as the body carve-over).
+      if (existing.record.redirectTrail !== undefined && record.redirectTrail === undefined) {
+        record.redirectTrail = existing.record.redirectTrail;
+      }
       const bytes = measureRecordBytes(record);
       this.byteSize += bytes - existing.bytes;
       existing.record = record;

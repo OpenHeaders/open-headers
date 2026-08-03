@@ -11,6 +11,7 @@ export {
   type TrafficBodyProjection,
   type TrafficHeaderProjection,
   type TrafficRecordProjection,
+  type TrafficRedirectHopProjection,
   type TrafficRetentionStats,
   type TrafficSourceKind,
   type TrafficSourceProjection,

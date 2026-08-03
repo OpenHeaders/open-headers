@@ -176,6 +176,23 @@ describe('TrafficRetentionRing — failure-body carve-out (S3)', () => {
     expect(ring.counters().byteSize).toBeGreaterThan(before + body.content.length);
   });
 
+  it('replay reconciliation carries a folded hop trail the replay arrives without', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
+    ring.upsert(makeRecord('hopper'));
+    ring.update(1, 'hopper', (record) => {
+      record.redirectHopCount = 1;
+      record.redirectTrail = [{ url: 'https://api.openheaders.io/start', statusCode: 302 }];
+      record.url = 'https://api.openheaders.io/final';
+    });
+    // A replay whose lifecycle carries no redirectHops re-upserts the
+    // identity trail-less — the folded trail must survive in place.
+    expect(ring.upsert(makeRecord('hopper', { url: 'https://api.openheaders.io/final', redirectHopCount: 1 }))).toBe(
+      'updated',
+    );
+    const [projected] = ring.snapshot();
+    expect(projected?.redirectTrail).toEqual([{ url: 'https://api.openheaders.io/start', statusCode: 302 }]);
+  });
+
   it('replay reconciliation preserves the retained body and the request stamp', () => {
     const ring = new TrafficRetentionRing({ maxRecords: 10, maxBytes: 1_000_000 });
     ring.upsert(failureRecord('failed'));

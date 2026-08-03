@@ -16,6 +16,7 @@
 
 import type {
   LifecycleSource,
+  RedirectHop,
   RequestLifecycle,
   RequestLifecyclePatch,
   RequestPhase,
@@ -25,10 +26,17 @@ import {
   redactHeaders,
   redactUrl,
   type TrafficRecordProjection,
+  type TrafficRedirectHopProjection,
 } from '@openheaders/core/traffic';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import { projectBody, type RetainedTrafficBody } from './body';
+
+/** Bound on the retained hop-URL trail. Browsers cap a redirect chain
+ *  around 20 hops, so a longer trail is a loop the browser is about to
+ *  kill — the earliest hops (the chain's origin) are the ones kept,
+ *  `redirectHopCount` keeps the honest total. */
+export const MAX_REDIRECT_TRAIL_HOPS = 20;
 
 export interface RetainedTrafficRecord {
   tabId: number;
@@ -46,6 +54,11 @@ export interface RetainedTrafficRecord {
   startedAtMs: number;
   completedAtMs?: number;
   redirectHopCount: number;
+  /** Per-hop URL trail (S5 — `traffic_graph`): each 3xx hop's URL and
+   *  status, oldest first, bounded by {@link MAX_REDIRECT_TRAIL_HOPS};
+   *  `url` holds the chain's final stop. Seeded from a replayed
+   *  lifecycle's `redirectHops`, appended per live `redirect` update. */
+  redirectTrail?: { url: string; statusCode?: number }[];
   requestHeaders?: readonly { name: string; value: string }[];
   responseHeaders?: readonly { name: string; value: string }[];
   bodyBytes?: number;
@@ -108,12 +121,31 @@ export function recordFromLifecycle(lifecycle: RequestLifecycle, provenance: Lif
   if (lifecycle.completedAtMs !== undefined) record.completedAtMs = lifecycle.completedAtMs;
   if (lifecycle.requestHeaders !== undefined) record.requestHeaders = lifecycle.requestHeaders;
   if (lifecycle.responseHeaders !== undefined) record.responseHeaders = lifecycle.responseHeaders;
+  // A replayed lifecycle arrives terminal with its whole chain — seed
+  // the trail here; live records grow it hop by hop instead.
+  if (lifecycle.redirectHops.length > 0) {
+    record.redirectTrail = lifecycle.redirectHops
+      .slice(0, MAX_REDIRECT_TRAIL_HOPS)
+      .map((hop) => ({ url: hop.sourceUrl, statusCode: hop.statusCode }));
+  }
   // A replayed lifecycle may already carry terminal HARs — fold the size
   // facts in through the same body-stripping path live updates use.
   for (const har of lifecycle.har) {
     if (har !== null) applyHarToRecord(record, har);
   }
   return record;
+}
+
+/** Fold one redirect hop: count it, retain the hop URL (bounded), and
+ *  move the record's URL cursor to the hop's target. */
+export function applyRedirectToRecord(record: RetainedTrafficRecord, hop: RedirectHop, nextUrl: string): void {
+  record.redirectHopCount += 1;
+  if (record.redirectTrail === undefined) record.redirectTrail = [];
+  const trail = record.redirectTrail;
+  if (trail.length < MAX_REDIRECT_TRAIL_HOPS) {
+    trail.push({ url: hop.sourceUrl, ...(hop.statusCode > 0 ? { statusCode: hop.statusCode } : {}) });
+  }
+  record.url = nextUrl;
 }
 
 /** Fold a sparse `phase` patch into the record (invariant 5 — every
@@ -177,6 +209,13 @@ export interface ProjectRecordOptions {
 export function projectRecord(record: RetainedTrafficRecord, options?: ProjectRecordOptions): TrafficRecordProjection {
   const reveal = options?.revealSecrets === true;
   const url = reveal ? record.url : redactUrl(record.url);
+  const redirectTrail: readonly TrafficRedirectHopProjection[] | undefined =
+    record.redirectTrail === undefined || record.redirectTrail.length === 0
+      ? undefined
+      : record.redirectTrail.map((hop) => ({
+          url: reveal ? hop.url : redactUrl(hop.url),
+          ...(hop.statusCode !== undefined ? { statusCode: hop.statusCode } : {}),
+        }));
   const initiator =
     record.initiator === undefined ? undefined : reveal ? record.initiator : redactUrl(record.initiator);
   const requestHeaders =
@@ -206,6 +245,7 @@ export function projectRecord(record: RetainedTrafficRecord, options?: ProjectRe
     startedAtMs: record.startedAtMs,
     ...(record.completedAtMs !== undefined ? { completedAtMs: record.completedAtMs } : {}),
     redirectHopCount: record.redirectHopCount,
+    ...(redirectTrail !== undefined ? { redirectTrail } : {}),
     ...(requestHeaders !== undefined ? { requestHeaders } : {}),
     ...(responseHeaders !== undefined ? { responseHeaders } : {}),
     ...(record.bodyBytes !== undefined ? { bodyBytes: record.bodyBytes } : {}),

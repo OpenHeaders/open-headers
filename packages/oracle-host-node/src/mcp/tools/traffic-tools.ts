@@ -25,6 +25,7 @@ import type { TrafficTap } from '../../traffic';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
 import { requireStringArg, requireWorkspace, resolveWorkspaceIdArg, WORKSPACE_ID_PROPERTY } from './common';
 import { computeTrafficDiff } from './traffic-diff';
+import { computeTrafficGraph, isFailureProjection, trafficFailureKind } from './traffic-graph';
 
 const LIST_LIMIT_DEFAULT = 50;
 const LIST_LIMIT_MAX = 200;
@@ -38,6 +39,10 @@ const TRAFFIC_WAIT_TIMEOUT_MIN_MS = 500;
 /** Cap on the differing pairs one diff report carries in full. */
 const DIFF_PAIRS_DEFAULT = 20;
 const DIFF_PAIRS_MAX = 100;
+
+/** Cap on each of `traffic_graph`'s reported lists (chains, clusters). */
+const GRAPH_ITEMS_DEFAULT = 20;
+const GRAPH_ITEMS_MAX = 100;
 
 /** Shared description suffix — the marker algebra is agent-facing
  *  prompt surface: the agent must know equality still works. */
@@ -60,11 +65,6 @@ interface TrafficListFilters {
   urlContains?: string;
   resourceType?: string;
   sinceMs?: number;
-}
-
-/** An HTTP error status or a request that never completed. */
-function isFailureProjection(record: TrafficRecordProjection): boolean {
-  return record.phase === 'failed' || (record.statusCode !== undefined && record.statusCode >= 400);
 }
 
 function statusClassOf(record: TrafficRecordProjection): StatusClass | null {
@@ -116,7 +116,7 @@ function projectListRow(record: TrafficRecordProjection): Record<string, unknown
 /** `traffic_failures` row: the list row + response headers (the CORS /
  *  retry-after signal) + the failure verdict + the body when captured. */
 function projectFailureRow(record: TrafficRecordProjection): Record<string, unknown> {
-  const kind = record.phase === 'failed' ? 'network-error' : (record.statusCode ?? 0) >= 500 ? 'http-5xx' : 'http-4xx';
+  const kind = trafficFailureKind(record);
   return {
     ...projectListRow(record),
     failureKind: kind,
@@ -492,6 +492,73 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
           identicalPairs: report.identicalPairs,
           onlyInA: report.onlyInA,
           onlyInB: report.onlyInB,
+        };
+      },
+    },
+    {
+      name: 'traffic_graph',
+      title: 'Graph traffic structure',
+      description:
+        'Compute the STRUCTURE of one armed source’s retained traffic on the host and return it as ' +
+        'chains, clusters and a critical path — never an edge dump: (1) redirectChains — every ' +
+        'redirected exchange with its per-hop URLs and 3xx statuses plus the final URL/status; redirect hops ' +
+        'fold into ONE exchange (one requestId), so a chain is one row here and one row in traffic_list, ' +
+        'never one per hop. (2) initiatorChains — who loaded what, root→leaf (page → script ' +
+        '→ request), joined by matching each exchange’s initiator URL against other exchanges’ ' +
+        'URLs. The join is APPROXIMATE: several exchanges can share a URL, and sources without CDP fidelity ' +
+        'often record only an origin as the initiator, which joins nothing — treat chains as strong ' +
+        'hints, not proof. (3) criticalPath — the initiator chain ending at the LAST exchange to ' +
+        'complete in the window, with per-node timing and the window span. (4) failureClusters — failing ' +
+        'exchanges grouped by endpoint (origin + path, a variable last segment folded to *) and failure kind, ' +
+        'so 14 failures on one endpoint read as one problem, not 14. Optionally scope by sinceMs/untilMs ' +
+        '(startedAtMs bounds) and urlContains. Lists are capped (limit, default ' +
+        `${GRAPH_ITEMS_DEFAULT}, max ${GRAPH_ITEMS_MAX}) with honest totals. ` +
+        REDACTION_NOTE,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          uid: { type: 'string', description: 'Source uid from traffic_sources.' },
+          sinceMs: { type: 'number', description: 'Only exchanges started at or after this epoch-ms instant.' },
+          untilMs: { type: 'number', description: 'Only exchanges started before this epoch-ms instant.' },
+          urlContains: { type: 'string', description: 'Scope to exchanges whose (redacted) URL contains this.' },
+          limit: {
+            type: 'number',
+            description: `Max items per reported list (default ${GRAPH_ITEMS_DEFAULT}, max ${GRAPH_ITEMS_MAX}); totals always cover everything.`,
+          },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['uid'],
+        additionalProperties: false,
+      },
+      ...observeScoped,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        const uid = requireSourceUid(deps, args);
+        const sinceMs = optionalNumber(args, 'sinceMs');
+        const untilMs = optionalNumber(args, 'untilMs');
+        const urlContains = optionalString(args, 'urlContains');
+        const limitRaw = optionalNumber(args, 'limit');
+        const limit =
+          limitRaw !== undefined && limitRaw > 0
+            ? Math.min(Math.floor(limitRaw), GRAPH_ITEMS_MAX)
+            : GRAPH_ITEMS_DEFAULT;
+        const rows = windowRows(
+          deps,
+          { uid, ...(sinceMs !== undefined ? { sinceMs } : {}), ...(untilMs !== undefined ? { untilMs } : {}) },
+          urlContains,
+        );
+        const report = computeTrafficGraph(rows);
+        return {
+          workspaceId,
+          uid,
+          totalRecords: rows.length,
+          redirectChainsTotal: report.redirectChains.length,
+          redirectChains: report.redirectChains.slice(0, limit),
+          initiatorChainsTotal: report.initiatorChains.length,
+          initiatorChains: report.initiatorChains.slice(0, limit),
+          criticalPath: report.criticalPath,
+          failureClustersTotal: report.failureClusters.length,
+          failureClusters: report.failureClusters.slice(0, limit),
         };
       },
     },

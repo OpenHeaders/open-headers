@@ -11,6 +11,7 @@ import type { LifecycleWireMessage } from '@openheaders/core/request-lifecycle';
 import { describe, expect, it } from 'vitest';
 
 import { TrafficRetentionConsumer } from '../../src/traffic-retention/consumer';
+import { MAX_REDIRECT_TRAIL_HOPS } from '../../src/traffic-retention/record';
 import { TrafficRetentionRing } from '../../src/traffic-retention/store';
 import { makeHarEntry, makeLifecycle } from './factories';
 
@@ -152,6 +153,88 @@ describe('TrafficRetentionConsumer — refinement folding', () => {
     consumer.handle({ kind: 'lifecycle-update', update: { kind: 'gone', tabId: 1, requestId: 'a' } });
     consumer.handle({ kind: 'tab-cleared', tabId: 1 });
     expect(ring.snapshot().map((r) => r.requestId)).toEqual(['a']);
+  });
+});
+
+describe('TrafficRetentionConsumer — redirect hop-URL trail (S5)', () => {
+  function redirect(requestId: string, sourceUrl: string, nextUrl: string, statusCode = 302): LifecycleWireMessage {
+    return {
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'redirect',
+        tabId: 1,
+        requestId,
+        hop: { sourceUrl, redirectUrl: nextUrl, statusCode, timestampMs: 1_050 },
+        nextUrl,
+      },
+    };
+  }
+
+  it('folds each hop into the bounded trail and moves the URL cursor', () => {
+    const { ring, consumer } = rig();
+    consumer.handle(ready(0));
+    consumer.handle(started('a', 1_000));
+    consumer.handle(redirect('a', 'https://api.openheaders.io/users', 'https://api.openheaders.io/step-2', 302));
+    consumer.handle(redirect('a', 'https://api.openheaders.io/step-2', 'https://api.openheaders.io/final', 301));
+    const [projection] = ring.snapshot();
+    expect(projection?.redirectHopCount).toBe(2);
+    expect(projection?.url).toBe('https://api.openheaders.io/final');
+    expect(projection?.redirectTrail).toEqual([
+      { url: 'https://api.openheaders.io/users', statusCode: 302 },
+      { url: 'https://api.openheaders.io/step-2', statusCode: 301 },
+    ]);
+  });
+
+  it('seeds the trail from a replayed lifecycle that arrives terminal with its chain', () => {
+    const { ring, consumer } = rig();
+    consumer.handle(ready(0));
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'started',
+        lifecycle: makeLifecycle({
+          requestId: 'replayed',
+          url: 'https://api.openheaders.io/final',
+          phase: 'completed',
+          statusCode: 200,
+          redirectHopCount: 1,
+          redirectHops: [
+            {
+              sourceUrl: 'https://api.openheaders.io/start',
+              redirectUrl: 'https://api.openheaders.io/final',
+              statusCode: 302,
+              timestampMs: 1_010,
+            },
+          ],
+        }),
+      },
+    });
+    const [projection] = ring.snapshot();
+    expect(projection?.redirectTrail).toEqual([{ url: 'https://api.openheaders.io/start', statusCode: 302 }]);
+  });
+
+  it('bounds the trail while the hop count stays honest', () => {
+    const { ring, consumer } = rig();
+    consumer.handle(ready(0));
+    consumer.handle(started('loop', 1_000));
+    const hops = MAX_REDIRECT_TRAIL_HOPS + 3;
+    for (let i = 0; i < hops; i++) {
+      consumer.handle(
+        redirect('loop', `https://api.openheaders.io/hop-${i}`, `https://api.openheaders.io/hop-${i + 1}`),
+      );
+    }
+    const [projection] = ring.snapshot();
+    expect(projection?.redirectHopCount).toBe(hops);
+    expect(projection?.redirectTrail).toHaveLength(MAX_REDIRECT_TRAIL_HOPS);
+    // The chain's ORIGIN survives the bound — earliest hops kept.
+    expect(projection?.redirectTrail?.[0]?.url).toBe('https://api.openheaders.io/hop-0');
+  });
+
+  it('a record that never redirected projects no trail at all', () => {
+    const { ring, consumer } = rig();
+    consumer.handle(ready(0));
+    consumer.handle(started('plain', 1_000));
+    expect(JSON.stringify(ring.snapshot())).not.toContain('redirectTrail');
   });
 });
 
