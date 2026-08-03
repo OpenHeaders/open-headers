@@ -63,12 +63,25 @@ export interface TrafficRetentionConsumerOptions {
    * carries the `failureBodyRequested` stamp this seam sets first.
    */
   readonly onFailure?: (tabId: number, requestId: string, finalHopIndex: number) => void;
+  /**
+   * The admission/refinement seam (S4 — `traffic_wait`): fired after a
+   * record is admitted to the ring or a retained record is refined
+   * (phase patch, redirect hop, HAR facts), identity-only — the ring's
+   * projections stay the ONLY read shape. Never fires for records the
+   * floor dropped, replays the ring refused, or refinements of non-live
+   * identities, so a reconnect replay cannot false-trigger a waiter
+   * (replayed records below the arm floor never admit). Fired after the
+   * ring fold for that envelope has fully settled — a listener may read
+   * the ring synchronously.
+   */
+  readonly onRecord?: (tabId: number, requestId: string) => void;
 }
 
 export class TrafficRetentionConsumer {
   private readonly ring: TrafficRetentionRing;
   private readonly onWatchRefused: (() => void) | undefined;
   private readonly onFailure: ((tabId: number, requestId: string, finalHopIndex: number) => void) | undefined;
+  private readonly onRecord: ((tabId: number, requestId: string) => void) | undefined;
   private provenance: LifecycleSource;
   /** Arm floor (`startedAtMs`, exclusive) — set by the FIRST `ready`. */
   private armFloorMs: number | null = null;
@@ -81,6 +94,7 @@ export class TrafficRetentionConsumer {
     this.provenance = options.initialProvenance ?? 'heuristic';
     this.onWatchRefused = options.onWatchRefused;
     this.onFailure = options.onFailure;
+    this.onRecord = options.onRecord;
   }
 
   /** Fold one wire envelope. Replay and live share this single path. */
@@ -146,30 +160,36 @@ export class TrafficRetentionConsumer {
         if (outcome === 'refused-evicted') this.droppedEvictedReplay++;
         // A replayed lifecycle can arrive terminal — an admitted or
         // reconciled record classifies right here.
-        if (outcome === 'admitted' || outcome === 'updated') this.checkFailure(record);
+        if (outcome === 'admitted' || outcome === 'updated') {
+          this.checkFailure(record);
+          this.onRecord?.(record.tabId, record.requestId);
+        }
         return;
       }
       case 'phase': {
-        this.ring.update(update.tabId, update.requestId, (record) => {
+        const mutated = this.ring.update(update.tabId, update.requestId, (record) => {
           applyPatchToRecord(record, update.patch);
           this.checkFailure(record);
         });
+        if (mutated) this.onRecord?.(update.tabId, update.requestId);
         return;
       }
       case 'redirect': {
-        this.ring.update(update.tabId, update.requestId, (record) => {
+        const mutated = this.ring.update(update.tabId, update.requestId, (record) => {
           record.redirectHopCount += 1;
           record.url = update.nextUrl;
         });
+        if (mutated) this.onRecord?.(update.tabId, update.requestId);
         return;
       }
       case 'har-attached': {
         // HAR facts can supply the error status a lifecycle never
         // patched — classification re-checks here too.
-        this.ring.update(update.tabId, update.requestId, (record) => {
+        const mutated = this.ring.update(update.tabId, update.requestId, (record) => {
           applyHarToRecord(record, update.har);
           this.checkFailure(record);
         });
+        if (mutated) this.onRecord?.(update.tabId, update.requestId);
         return;
       }
       case 'gone': {

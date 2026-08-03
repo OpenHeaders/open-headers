@@ -255,6 +255,118 @@ describe('traffic tap — idle expiry + reveal escalation (S2)', () => {
   });
 });
 
+describe('traffic tap — wait plane (S4)', () => {
+  let priorServer: LifelineServer;
+
+  beforeEach(() => {
+    setHostLogger(consoleLogger);
+    priorServer = getLifelineServer();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setLifelineServer(priorServer);
+  });
+
+  function waitRig(replay: RequestLifecycle[] = []) {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay(replay);
+    const tap = createTrafficTap({ dialer, proxyHub });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    const teardown = () => {
+      tap.dispose();
+      relay.uninstall();
+      proxyHub.dispose();
+    };
+    return { tap, uid, relay, teardown };
+  }
+
+  it('an already-retained match resolves immediately, oldest first', async () => {
+    const { tap, uid, teardown } = waitRig([
+      makeLifecycle({ requestId: 'older', startedAtMs: 900, url: 'https://api.openheaders.io/renew' }),
+      makeLifecycle({ requestId: 'newer', startedAtMs: 950, url: 'https://api.openheaders.io/renew' }),
+    ]);
+    const result = await tap.waitForRecord(uid, (r) => r.url.includes('/renew'), { timeoutMs: 5_000 });
+    expect(result).toMatchObject({ ok: true, record: { requestId: 'older' } });
+    expect(tap.status()[0]?.pendingWaits).toBe(0);
+    teardown();
+  });
+
+  it('resolves on a live admission and on a refinement that turns a record matching', async () => {
+    const { tap, uid, relay, teardown } = waitRig();
+    // Admission leg.
+    const admission = tap.waitForRecord(uid, (r) => r.url.includes('/probe'), { timeoutMs: 5_000 });
+    expect(tap.status()[0]?.pendingWaits).toBe(1);
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'started',
+        lifecycle: makeLifecycle({ requestId: 'p1', startedAtMs: 900, url: 'https://api.openheaders.io/probe' }),
+      },
+    });
+    expect(await admission).toMatchObject({ ok: true, record: { requestId: 'p1' } });
+    // Refinement leg: the record exists but only matches once the
+    // status arrives — the wait settles on the phase patch.
+    const refinement = tap.waitForRecord(uid, (r) => r.statusCode === 503, { timeoutMs: 5_000 });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'phase',
+        tabId: 7,
+        requestId: 'p1',
+        patch: { phase: 'completed', statusCode: 503, statusText: 'Service Unavailable' },
+      },
+    });
+    expect(await refinement).toMatchObject({ ok: true, record: { requestId: 'p1', statusCode: 503 } });
+    expect(tap.status()[0]?.pendingWaits).toBe(0);
+    teardown();
+  });
+
+  it('a never-matching predicate times out cleanly with no leaked watch', async () => {
+    vi.useFakeTimers();
+    const { tap, uid, relay, teardown } = waitRig();
+    const pending = tap.waitForRecord(uid, () => false, { timeoutMs: 2_000 });
+    expect(tap.status()[0]?.pendingWaits).toBe(1);
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'started', lifecycle: makeLifecycle({ requestId: 'noise', startedAtMs: 900 }) },
+    });
+    await vi.advanceTimersByTimeAsync(2_001);
+    expect(await pending).toEqual({ ok: false, reason: 'timeout' });
+    expect(tap.status()[0]?.pendingWaits).toBe(0);
+    // A later wait behaves identically — nothing lingered.
+    const again = tap.waitForRecord(uid, (r) => r.requestId === 'noise', { timeoutMs: 2_000 });
+    expect(await again).toMatchObject({ ok: true, record: { requestId: 'noise' } });
+    teardown();
+  });
+
+  it('disarm mid-wait settles the watch honestly; unknown uids answer null', async () => {
+    const { tap, uid, teardown } = waitRig();
+    const pending = tap.waitForRecord(uid, () => false, { timeoutMs: 60_000 });
+    expect(tap.disarm(uid)).toBe(true);
+    expect(await pending).toEqual({ ok: false, reason: 'source-disarmed' });
+    expect(await tap.waitForRecord('browser-tab:missing:1', () => true, { timeoutMs: 1_000 })).toBeNull();
+    teardown();
+  });
+
+  it('a resolved wait is an observe read — it extends the arm', async () => {
+    vi.useFakeTimers();
+    const { tap, uid, relay, teardown } = waitRig();
+    const armedUntil = tap.status()[0]?.expiresAtMs ?? 0;
+    const pending = tap.waitForRecord(uid, (r) => r.requestId === 'later', { timeoutMs: 60_000 });
+    vi.advanceTimersByTime(10_000);
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'started', lifecycle: makeLifecycle({ requestId: 'later', startedAtMs: 900 }) },
+    });
+    expect(await pending).toMatchObject({ ok: true });
+    expect(tap.status()[0]?.expiresAtMs ?? 0).toBeGreaterThan(armedUntil);
+    teardown();
+  });
+});
+
 describe('traffic tap — proxy source over a real hub', () => {
   let priorServer: LifelineServer;
 

@@ -29,4 +29,7 @@ export {
   type TrafficSourceStatus,
   type TrafficTap,
   type TrafficTapDeps,
+  type TrafficWaitMissReason,
+  type TrafficWaitOptions,
+  type TrafficWaitResult,
 } from './tap';

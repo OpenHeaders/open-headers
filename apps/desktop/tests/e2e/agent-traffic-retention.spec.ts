@@ -42,6 +42,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -73,11 +74,20 @@ let workbench: Page;
 let token: string;
 let context: BrowserContext | undefined;
 let extensionId: string;
-let popup: Page | null = null;
 let playground: Page;
 let peerNodeId: string;
 let playgroundTabId: number;
 let armedUid: string;
+
+const harness = createExtensionSeedHarness({
+  context: () => context,
+  extensionId: () => extensionId,
+  token: () => token,
+  daemonPort: DAEMON_PORT,
+  recordId: 'agent-traffic-e2e-backend',
+  recordLabel: 'agent-traffic e2e desktop',
+  logTag: 'agent-traffic setup',
+});
 
 /** Invoke one operator-plane RPC through the Workbench bridge. */
 async function invoke(message: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -105,104 +115,6 @@ async function peerCount(): Promise<number> {
     peers?: Array<{ nodeId: string; tabs: Array<{ tabId: number; url: string }> }>;
   };
   return (peers ?? []).length;
-}
-
-/** The extension page — MV3 keep-alive client + storage evaluate surface
- *  (never the worker context; lazily recreated, per the live-network
- *  harness rationale). */
-async function extensionPage(): Promise<Page> {
-  if (popup && !popup.isClosed()) return popup;
-  if (!context) throw new Error('extension context not launched');
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/merge-showcase.html`);
-  await page.waitForLoadState('load');
-  popup = page;
-  return page;
-}
-
-/**
- * (Re-)seed the extension's backend registry record — same encrypted
- * blob as the live-network harness, with the S0 rider folded in: the
- * cipher-key read races a timeout and rejects instead of hanging when
- * the key is not yet minted, so the retry loop can spin.
- */
-async function seedBackend(seed: { enabled: boolean }): Promise<void> {
-  const page = await extensionPage();
-  await page.evaluate(
-    async ({ backendUrl, authToken, enabled }) => {
-      // Existence probe first — an eager indexedDB.open would CREATE an
-      // empty schema-less DB and race the extension's own cipher init.
-      const databases = await indexedDB.databases();
-      if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
-        throw new Error('cipher db not yet created');
-      }
-      const key = await Promise.race([
-        new Promise<CryptoKey>((resolve, reject) => {
-          const open = indexedDB.open('oh-secret-cipher');
-          open.onerror = () => reject(open.error);
-          open.onsuccess = () => {
-            const db = open.result;
-            if (!db.objectStoreNames.contains('keys')) {
-              // A schema-less husk (e.g. from an earlier eager open)
-              // blocks the extension's init — heal by deleting it.
-              db.close();
-              const drop = indexedDB.deleteDatabase('oh-secret-cipher');
-              drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
-              return;
-            }
-            const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () =>
-              request.result ? resolve(request.result as CryptoKey) : reject(new Error('cipher key not yet minted'));
-          };
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
-      ]);
-      const record = {
-        id: 'agent-traffic-e2e-backend',
-        label: 'agent-traffic e2e desktop',
-        url: backendUrl,
-        authToken,
-        autoConnect: true,
-        enabled,
-        addedAt: new Date().toISOString(),
-        lastConnectedAt: null,
-      };
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        new TextEncoder().encode(JSON.stringify([record])),
-      );
-      const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-      packed.set(iv, 0);
-      packed.set(new Uint8Array(ciphertext), iv.length);
-      let binary = '';
-      for (const byte of packed) binary += String.fromCharCode(byte);
-      await new Promise<void>((resolve) => {
-        chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-      });
-    },
-    { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token, enabled: seed.enabled },
-  );
-}
-
-async function seedBackendRetrying(seed: { enabled: boolean }): Promise<void> {
-  let seedError: unknown;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    try {
-      await seedBackend(seed);
-      return;
-    } catch (err) {
-      seedError = err;
-      console.log(`[agent-traffic setup] seed attempt ${attempt} failed: ${String(err).split('\n')[0]}`);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      // Keep the page across retries — extensionPage() recreates only
-      // when it actually closed (a not-yet-minted cipher key is a
-      // waiting condition, not a dead page).
-    }
-  }
-  throw new Error(`seedBackend failed: ${String(seedError)}`);
 }
 
 /** Fire a probe burst in the playground page. */
@@ -272,14 +184,14 @@ test.beforeAll(async () => {
   });
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   extensionId = bootWorker.url().split('/')[2] ?? '';
-  await extensionPage();
-  await seedBackendRetrying({ enabled: true });
+  await harness.extensionPage();
+  await harness.seedBackendRetrying({ enabled: true });
 
   playground = await context.newPage();
   await playground.goto(PAGE_URL);
   // Background the playground tab so every request in the watched
   // partition is one of this spec's own probes.
-  await (await extensionPage()).bringToFront();
+  await (await harness.extensionPage()).bringToFront();
 });
 
 test.afterAll(async () => {
@@ -330,9 +242,7 @@ test('arming the tab starts an empty ring — pre-arm history never lands', asyn
   expect(sources[0]?.state).toBe('streaming');
   // The subscribe round-trips through the extension (25ms batch tick);
   // the first ready lands shortly after the arm returns.
-  await expect
-    .poll(async () => (await armedStats())?.readyEpochs ?? 0, { timeout: 15000 })
-    .toBeGreaterThanOrEqual(1);
+  await expect.poll(async () => (await armedStats())?.readyEpochs ?? 0, { timeout: 15000 }).toBeGreaterThanOrEqual(1);
   // The page-load traffic predates the arm; the ring starts empty.
   expect((await armedStats())?.recordCount).toBe(0);
 });
@@ -358,10 +268,10 @@ test('overflowing the count bound evicts FIFO and counts honestly', async () => 
 // ── Reconnect: replay absorbed, nothing resurrected ─────────────────
 
 test('a wire flap replays without double-counting or resurrecting evicted rows', async () => {
-  await seedBackend({ enabled: false });
+  await harness.seedBackend({ enabled: false });
   await expect.poll(peerCount, { timeout: 15000 }).toBe(0);
 
-  await seedBackend({ enabled: true });
+  await harness.seedBackend({ enabled: true });
   await expect.poll(peerCount, { timeout: 15000 }).toBe(1);
 
   // The relay re-subscribes the live watch; the fresh ready + FULL

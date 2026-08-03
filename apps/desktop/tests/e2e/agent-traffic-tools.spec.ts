@@ -40,6 +40,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -78,7 +79,6 @@ let workbench: Page;
 let token: string;
 let context: BrowserContext | undefined;
 let extensionId: string;
-let popup: Page | null = null;
 let knownPage: Page;
 let failurePage: Page;
 let bodyPage: Page;
@@ -87,6 +87,16 @@ let knownTabId: number;
 let failureTabId: number;
 let bodyTabId: number;
 let knownUid: string;
+
+const harness = createExtensionSeedHarness({
+  context: () => context,
+  extensionId: () => extensionId,
+  token: () => token,
+  daemonPort: DAEMON_PORT,
+  recordId: 'agent-traffic-tools-e2e-backend',
+  recordLabel: 'agent-traffic tools e2e desktop',
+  logTag: 'agent-traffic-tools setup',
+});
 
 /** Invoke one operator-plane RPC through the Workbench bridge. */
 async function invoke(message: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -137,97 +147,6 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<Mc
 async function listToolNames(): Promise<string[]> {
   const { json } = await rpc('tools/list', {});
   return (json.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
-}
-
-/** The extension page — MV3 keep-alive client + storage evaluate surface
- *  (never the worker context; lazily recreated, per the live-network
- *  harness rationale). */
-async function extensionPage(): Promise<Page> {
-  if (popup && !popup.isClosed()) return popup;
-  if (!context) throw new Error('extension context not launched');
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/merge-showcase.html`);
-  await page.waitForLoadState('load');
-  popup = page;
-  return page;
-}
-
-/**
- * Seed the extension's backend registry record — same encrypted blob as
- * the retention harness, with the cipher-seed guard folded in: an
- * existence probe via `indexedDB.databases()` first (an eager open
- * CREATES the schema-less husk it then trips on) plus delete-to-heal.
- */
-async function seedBackend(seed: { enabled: boolean }): Promise<void> {
-  const page = await extensionPage();
-  await page.evaluate(
-    async ({ backendUrl, authToken, enabled }) => {
-      const databases = await indexedDB.databases();
-      if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
-        throw new Error('cipher db not yet created');
-      }
-      const key = await Promise.race([
-        new Promise<CryptoKey>((resolve, reject) => {
-          const open = indexedDB.open('oh-secret-cipher');
-          open.onerror = () => reject(open.error);
-          open.onsuccess = () => {
-            const db = open.result;
-            if (!db.objectStoreNames.contains('keys')) {
-              db.close();
-              const drop = indexedDB.deleteDatabase('oh-secret-cipher');
-              drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
-              return;
-            }
-            const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () =>
-              request.result ? resolve(request.result as CryptoKey) : reject(new Error('cipher key not yet minted'));
-          };
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
-      ]);
-      const record = {
-        id: 'agent-traffic-tools-e2e-backend',
-        label: 'agent-traffic tools e2e desktop',
-        url: backendUrl,
-        authToken,
-        autoConnect: true,
-        enabled,
-        addedAt: new Date().toISOString(),
-        lastConnectedAt: null,
-      };
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        new TextEncoder().encode(JSON.stringify([record])),
-      );
-      const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-      packed.set(iv, 0);
-      packed.set(new Uint8Array(ciphertext), iv.length);
-      let binary = '';
-      for (const byte of packed) binary += String.fromCharCode(byte);
-      await new Promise<void>((resolve) => {
-        chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-      });
-    },
-    { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token, enabled: seed.enabled },
-  );
-}
-
-async function seedBackendRetrying(seed: { enabled: boolean }): Promise<void> {
-  let seedError: unknown;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    try {
-      await seedBackend(seed);
-      return;
-    } catch (err) {
-      seedError = err;
-      console.log(`[agent-traffic-tools setup] seed attempt ${attempt} failed: ${String(err).split('\n')[0]}`);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-  }
-  throw new Error(`seedBackend failed: ${String(seedError)}`);
 }
 
 /** Flip one `oh.settings.user` key live through the storage bridge. */
@@ -358,8 +277,8 @@ test.beforeAll(async () => {
   });
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   extensionId = bootWorker.url().split('/')[2] ?? '';
-  await extensionPage();
-  await seedBackendRetrying({ enabled: true });
+  await harness.extensionPage();
+  await harness.seedBackendRetrying({ enabled: true });
 
   knownPage = await context.newPage();
   await knownPage.goto(KNOWN_PAGE_URL);
@@ -369,7 +288,7 @@ test.beforeAll(async () => {
   await bodyPage.goto(BODY_PAGE_URL);
   // Background the playground tabs so every request in the watched
   // partitions is one of this spec's own probes.
-  await (await extensionPage()).bringToFront();
+  await (await harness.extensionPage()).bringToFront();
 });
 
 test.afterAll(async () => {

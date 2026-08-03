@@ -187,6 +187,92 @@ describe('TrafficRetentionConsumer — per-source isolation', () => {
   });
 });
 
+describe('TrafficRetentionConsumer — admission/refinement seam (S4)', () => {
+  function recordRig() {
+    const ring = new TrafficRetentionRing({ maxRecords: 100, maxBytes: BIG });
+    const fired: Array<{ tabId: number; requestId: string }> = [];
+    const consumer = new TrafficRetentionConsumer({
+      ring,
+      onRecord: (tabId, requestId) => fired.push({ tabId, requestId }),
+    });
+    consumer.handle(ready(5_000));
+    return { ring, consumer, fired };
+  }
+
+  it('fires on admission and on every refinement of a retained record', () => {
+    const { consumer, fired } = recordRig();
+    consumer.handle(started('a', 6_000));
+    expect(fired).toEqual([{ tabId: 1, requestId: 'a' }]);
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 1, requestId: 'a', patch: { phase: 'completed', statusCode: 503 } },
+    });
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: { kind: 'har-attached', tabId: 1, requestId: 'a', hopIndex: 0, har: makeHarEntry({ size: 64 }) },
+    });
+    expect(fired).toHaveLength(3);
+  });
+
+  it('never fires for pre-arm drops, refused replays, or refinements of unknown identities', () => {
+    const { consumer, fired } = recordRig();
+    consumer.handle(started('pre-arm', 4_000));
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 1, requestId: 'ghost', patch: { phase: 'completed', statusCode: 200 } },
+    });
+    expect(fired).toEqual([]);
+  });
+
+  it('never fires for evicted-replay refusals or ignored body frames', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 1, maxBytes: BIG });
+    const fired: string[] = [];
+    const consumer = new TrafficRetentionConsumer({ ring, onRecord: (_tabId, requestId) => fired.push(requestId) });
+    consumer.handle(ready(0));
+    consumer.handle(started('a', 1_000));
+    consumer.handle(started('b', 2_000)); // evicts a
+    expect(fired).toEqual(['a', 'b']);
+    // Reconnect replay of the evicted identity is refused — no event.
+    consumer.handle(ready(0));
+    consumer.handle(started('a', 1_000));
+    expect(fired).toEqual(['a', 'b']);
+    // Body frames are ignored wholesale — no event either.
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'body-attached',
+        tabId: 1,
+        requestId: 'b',
+        hopIndex: 0,
+        body: {
+          method: 'GET',
+          url: 'https://openheaders.io/probe',
+          startedDateTime: new Date(2_000).toISOString(),
+          content: 'ignored',
+          encoding: '',
+        },
+      },
+    });
+    expect(fired).toEqual(['a', 'b']);
+  });
+
+  it('a listener reading the ring at fire time sees the refinement already applied', () => {
+    const ring = new TrafficRetentionRing({ maxRecords: 100, maxBytes: BIG });
+    const observed: Array<number | undefined> = [];
+    const consumer = new TrafficRetentionConsumer({
+      ring,
+      onRecord: (tabId, requestId) => observed.push(ring.projectOne(tabId, requestId)?.statusCode),
+    });
+    consumer.handle(ready(0));
+    consumer.handle(started('a', 1_000));
+    consumer.handle({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 1, requestId: 'a', patch: { phase: 'completed', statusCode: 503 } },
+    });
+    expect(observed).toEqual([undefined, 503]);
+  });
+});
+
 describe('TrafficRetentionConsumer — eager failure-body seam (S3)', () => {
   function failureRig() {
     const ring = new TrafficRetentionRing({ maxRecords: 100, maxBytes: BIG });

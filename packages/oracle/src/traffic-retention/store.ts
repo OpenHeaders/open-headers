@@ -108,15 +108,18 @@ export class TrafficRetentionRing {
   }
 
   /** Mutate a live record in place; a non-live key (evicted, pre-arm,
-   *  never admitted) is silently ignored — refinements never resurrect. */
-  update(tabId: number, requestId: string, mutate: (record: RetainedTrafficRecord) => void): void {
+   *  never admitted) is silently ignored — refinements never resurrect.
+   *  Returns whether a live record was actually mutated, so the
+   *  consumer's admission seam only fires for retained identities. */
+  update(tabId: number, requestId: string, mutate: (record: RetainedTrafficRecord) => void): boolean {
     const entry = this.live.get(recordKey(tabId, requestId));
-    if (entry === undefined) return;
+    if (entry === undefined) return false;
     mutate(entry.record);
     const bytes = measureRecordBytes(entry.record);
     this.byteSize += bytes - entry.bytes;
     entry.bytes = bytes;
     this.evictOverflow();
+    return true;
   }
 
   /** Whether the identity is currently retained. */

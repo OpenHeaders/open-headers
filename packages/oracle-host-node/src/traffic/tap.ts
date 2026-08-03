@@ -36,6 +36,15 @@
  *     at all, so a pull that answers with silence resolves to an
  *     honest `unavailable` reason after a bounded wait. Success bodies
  *     are never retained.
+ *
+ * S4 adds the wait plane (`waitForRecord`) over the consumer's
+ * admission/refinement seam: a bounded watch that resolves with the
+ * first retained projection matching a caller predicate — already-
+ * retained matches resolve immediately; otherwise the first admission
+ * or refinement that satisfies the predicate settles it. Every outcome
+ * (match, timeout, disarm) removes the watch — a lapsed wait never
+ * leaks a watcher, and `status()` reports the pending count so an
+ * operator can see an agent holding a wait open.
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
@@ -95,6 +104,10 @@ export interface TrafficArmOptions {
 
 export interface TrafficSourceStatus extends TrafficSourceProjection {
   readonly stats: TrafficRetentionStats;
+  /** Live `waitForRecord` watches on this source — an operator-visible
+   *  sign an agent is holding a wait open (and the no-leak pin: every
+   *  settled wait returns this to its prior count). */
+  readonly pendingWaits: number;
 }
 
 export interface TrafficRecordsOptions {
@@ -109,6 +122,19 @@ export type TrafficBodyUnavailableReason = 'unknown-request' | 'in-flight' | 'no
 export type TrafficBodyPullResult =
   | { readonly ok: true; readonly body: TrafficBodyProjection }
   | { readonly ok: false; readonly reason: TrafficBodyUnavailableReason };
+
+/** How a bounded wait settled without a match — a result, never a throw. */
+export type TrafficWaitMissReason = 'timeout' | 'source-disarmed';
+
+export type TrafficWaitResult =
+  | { readonly ok: true; readonly record: TrafficRecordProjection }
+  | { readonly ok: false; readonly reason: TrafficWaitMissReason };
+
+export interface TrafficWaitOptions {
+  /** Hard bound on the watch — the caller owns transport-appropriate
+   *  clamping; the tap just honors what it is given. */
+  readonly timeoutMs: number;
+}
 
 export interface TrafficTap {
   /** Arm one browser tab. Idempotent per partition — arming an armed
@@ -139,6 +165,20 @@ export interface TrafficTap {
    * extends the arm.
    */
   pullBody(uid: string, requestId: string): Promise<TrafficBodyPullResult | null>;
+  /**
+   * Block until a retained projection matches `match` (S4). An already-
+   * retained match resolves immediately (FIFO-oldest first); otherwise
+   * the watch settles on the first admission/refinement that satisfies
+   * the predicate, on the bounded timeout, or on disarm — and is
+   * removed on EVERY outcome (no leaked watch). The predicate sees
+   * redacted projections only. `null` = unknown uid. An observe read;
+   * extends the arm.
+   */
+  waitForRecord(
+    uid: string,
+    match: (record: TrafficRecordProjection) => boolean,
+    options: TrafficWaitOptions,
+  ): Promise<TrafficWaitResult | null>;
   /** Open a time-boxed reveal window on one armed source — the ONLY
    *  path to unredacted projections. Capped at
    *  {@link MAX_TRAFFIC_REVEAL_TTL_MS}; `false` = unknown uid. */
@@ -156,6 +196,9 @@ interface ArmedSource {
   readonly partitionTabId: number;
   /** On-demand pull waiters, keyed `requestId:hopIndex`. */
   readonly bodyWaiters: Map<string, Array<(body: InspectorHarBody) => void>>;
+  /** Live `waitForRecord` watches (S4) — settled and removed on match,
+   *  timeout, and disarm alike. */
+  readonly recordWaiters: Set<RecordWaiter>;
   connection: TrafficSourceConnection | null;
   state: TrafficSourceProjection['state'];
   expiresAtMs: number;
@@ -179,6 +222,11 @@ function bodyWaiterKey(requestId: string, hopIndex: number): string {
   return `${requestId}:${hopIndex}`;
 }
 
+interface RecordWaiter {
+  readonly match: (record: TrafficRecordProjection) => boolean;
+  readonly settle: (result: TrafficWaitResult) => void;
+}
+
 export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
   const sources = new Map<string, ArmedSource>();
 
@@ -187,9 +235,33 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     if (source === undefined) return false;
     source.connection?.close();
     source.bodyWaiters.clear();
+    // Settle live waits before dropping the source — a disarm (or lapse)
+    // mid-wait answers honestly instead of leaving a promise pending.
+    const waiters = [...source.recordWaiters];
+    source.recordWaiters.clear();
+    for (const waiter of waiters) waiter.settle({ ok: false, reason: 'source-disarmed' });
     sources.delete(uid);
     logger.info(SCOPE, `disarmed ${uid}`);
     return true;
+  }
+
+  /** The consumer's admission/refinement seam → predicate evaluation.
+   *  Projected ONCE per event, and only while a watch is pending. */
+  function notifyRecord(uid: string, tabId: number, requestId: string): void {
+    const source = sources.get(uid);
+    if (source === undefined || source.recordWaiters.size === 0) return;
+    const record = source.ring.projectOne(tabId, requestId);
+    if (record === null) return;
+    let matched = false;
+    for (const waiter of [...source.recordWaiters]) {
+      if (!waiter.match(record)) continue;
+      source.recordWaiters.delete(waiter);
+      matched = true;
+      waiter.settle({ ok: true, record });
+    }
+    // A settled wait is a completed observe read — it keeps the arm warm
+    // like every other record-bearing read.
+    if (matched) touchForRead(source);
   }
 
   function sweepExpired(): void {
@@ -258,10 +330,12 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
           if (live !== undefined) live.state = 'refused';
         },
         onFailure: (_tabId, requestId, finalHopIndex) => pullFailureBody(uid, requestId, finalHopIndex),
+        onRecord: (recordTabId, requestId) => notifyRecord(uid, recordTabId, requestId),
       }),
       ttlMs,
       partitionTabId: tabId,
       bodyWaiters: new Map(),
+      recordWaiters: new Set(),
       connection: null,
       state: 'streaming',
       expiresAtMs: now + ttlMs,
@@ -292,6 +366,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       ring,
       initialProvenance: 'proxy',
       onFailure: (_tabId, requestId, finalHopIndex) => pullFailureBody(uid, requestId, finalHopIndex),
+      onRecord: (recordTabId, requestId) => notifyRecord(uid, recordTabId, requestId),
     });
     const ttlMs = resolveTtl(options);
     const now = Date.now();
@@ -302,6 +377,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       ttlMs,
       partitionTabId: PROXY_LIFECYCLE_TAB_ID,
       bodyWaiters: new Map(),
+      recordWaiters: new Set(),
       connection: null,
       state: 'streaming',
       expiresAtMs: now + ttlMs,
@@ -346,6 +422,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
           expiresAtMs: source.expiresAtMs,
           state: source.state,
           stats: source.consumer.stats(),
+          pendingWaits: source.recordWaiters.size,
         });
       }
       return out;
@@ -405,6 +482,34 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       });
       if (answer === null) return { ok: false, reason: 'gone' };
       return { ok: true, body: projectPulledBody(answer, reveal) };
+    },
+    async waitForRecord(uid, match, options) {
+      sweepExpired();
+      const source = sources.get(uid);
+      if (source === undefined) return null;
+      touchForRead(source);
+      // Already-retained match: resolve immediately, FIFO-oldest first —
+      // registering a waiter and then scanning would answer the same
+      // record one event later than necessary; scanning first with no
+      // await in between leaves no gap an admission could fall through.
+      for (const record of source.ring.snapshot()) {
+        if (match(record)) return { ok: true, record };
+      }
+      return new Promise<TrafficWaitResult>((resolve) => {
+        const waiter: RecordWaiter = {
+          match,
+          settle(result) {
+            clearTimeout(timer);
+            resolve(result);
+          },
+        };
+        const timer = setTimeout(() => {
+          source.recordWaiters.delete(waiter);
+          resolve({ ok: false, reason: 'timeout' });
+        }, options.timeoutMs);
+        timer.unref?.();
+        source.recordWaiters.add(waiter);
+      });
     },
     dispose() {
       clearInterval(sweepTimer);

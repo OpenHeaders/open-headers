@@ -1,6 +1,6 @@
 /**
  * Observe-tier MCP tools — the agent traffic epic's Phase A read
- * surface (AGENT_TRAFFIC_PLAN.md §5, slice S3), over the injected
+ * surface (AGENT_TRAFFIC_PLAN.md §5, slices S3–S4), over the injected
  * {@link TrafficTap}.
  *
  * Contracts inherited structurally, never re-implemented here:
@@ -24,9 +24,20 @@ import type { TrafficRecordProjection } from '@openheaders/core/traffic';
 import type { TrafficTap } from '../../traffic';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
 import { requireStringArg, requireWorkspace, resolveWorkspaceIdArg, WORKSPACE_ID_PROPERTY } from './common';
+import { computeTrafficDiff } from './traffic-diff';
 
 const LIST_LIMIT_DEFAULT = 50;
 const LIST_LIMIT_MAX = 200;
+
+/** `traffic_wait` timeout bounds — well under the HTTP transport's
+ *  request ceiling so a wait always answers in-band. */
+export const TRAFFIC_WAIT_TIMEOUT_DEFAULT_MS = 20_000;
+export const TRAFFIC_WAIT_TIMEOUT_MAX_MS = 60_000;
+const TRAFFIC_WAIT_TIMEOUT_MIN_MS = 500;
+
+/** Cap on the differing pairs one diff report carries in full. */
+const DIFF_PAIRS_DEFAULT = 20;
+const DIFF_PAIRS_MAX = 100;
 
 /** Shared description suffix — the marker algebra is agent-facing
  *  prompt surface: the agent must know equality still works. */
@@ -142,6 +153,71 @@ function optionalNumber(args: Record<string, unknown>, name: string): number | u
   return typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined;
 }
 
+/** Shared filter-arg parsing — `traffic_list` filters double as the
+ *  `traffic_wait` predicate, so the vocabulary is parsed in one place. */
+function parseListFilters(args: Record<string, unknown>): TrafficListFilters {
+  const statusClass = optionalString(args, 'statusClass');
+  if (statusClass !== undefined && !['2xx', '3xx', '4xx', '5xx', 'error'].includes(statusClass)) {
+    throw new McpToolInputError("invalid statusClass — one of '2xx', '3xx', '4xx', '5xx', 'error'");
+  }
+  const method = optionalString(args, 'method');
+  const urlContains = optionalString(args, 'urlContains');
+  const resourceType = optionalString(args, 'resourceType');
+  const sinceMs = optionalNumber(args, 'sinceMs');
+  return {
+    ...(statusClass !== undefined ? { statusClass: statusClass as StatusClass } : {}),
+    ...(method !== undefined ? { method: method.toUpperCase() } : {}),
+    ...(urlContains !== undefined ? { urlContains } : {}),
+    ...(resourceType !== undefined ? { resourceType } : {}),
+    ...(sinceMs !== undefined ? { sinceMs } : {}),
+  };
+}
+
+function parsePage(args: Record<string, unknown>): { limit: number; offset: number } {
+  const limitRaw = optionalNumber(args, 'limit');
+  const limit =
+    limitRaw !== undefined && limitRaw > 0 ? Math.min(Math.floor(limitRaw), LIST_LIMIT_MAX) : LIST_LIMIT_DEFAULT;
+  const offsetRaw = optionalNumber(args, 'offset');
+  const offset = offsetRaw !== undefined && offsetRaw > 0 ? Math.floor(offsetRaw) : 0;
+  return { limit, offset };
+}
+
+interface TrafficDiffWindow {
+  readonly uid: string;
+  readonly sinceMs?: number;
+  readonly untilMs?: number;
+}
+
+/** One side of a diff: `{ uid, sinceMs?, untilMs? }`. */
+function requireWindowArg(args: Record<string, unknown>, name: string): TrafficDiffWindow {
+  const raw = args[name];
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new McpToolInputError(`'${name}' is required and must be an object { uid, sinceMs?, untilMs? }`);
+  }
+  const side = raw as Record<string, unknown>;
+  const uid = side.uid;
+  if (typeof uid !== 'string' || uid.length === 0) {
+    throw new McpToolInputError(`'${name}.uid' is required and must be a source uid from traffic_sources`);
+  }
+  const sinceMs = typeof side.sinceMs === 'number' && Number.isFinite(side.sinceMs) ? side.sinceMs : undefined;
+  const untilMs = typeof side.untilMs === 'number' && Number.isFinite(side.untilMs) ? side.untilMs : undefined;
+  return { uid, ...(sinceMs !== undefined ? { sinceMs } : {}), ...(untilMs !== undefined ? { untilMs } : {}) };
+}
+
+function windowRows(
+  deps: McpTrafficToolDeps,
+  window: TrafficDiffWindow,
+  urlContains: string | undefined,
+): TrafficRecordProjection[] {
+  const all = deps.tap.records(window.uid) ?? [];
+  return all.filter(
+    (record) =>
+      (window.sinceMs === undefined || record.startedAtMs >= window.sinceMs) &&
+      (window.untilMs === undefined || record.startedAtMs < window.untilMs) &&
+      (urlContains === undefined || record.url.includes(urlContains)),
+  );
+}
+
 export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolDefinition[] {
   const observeScoped: Pick<McpToolDefinition, 'tier' | 'resolveWorkspaceId'> = {
     tier: 'observe',
@@ -181,6 +257,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
             state: source.state,
             armedAtMs: source.armedAtMs,
             expiresAtMs: source.expiresAtMs,
+            pendingWaits: source.pendingWaits,
             stats: source.stats,
           })),
         };
@@ -220,28 +297,8 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
         const uid = requireSourceUid(deps, args);
-        const statusClass = optionalString(args, 'statusClass');
-        if (statusClass !== undefined && !['2xx', '3xx', '4xx', '5xx', 'error'].includes(statusClass)) {
-          throw new McpToolInputError("invalid statusClass — one of '2xx', '3xx', '4xx', '5xx', 'error'");
-        }
-        const filters: TrafficListFilters = {
-          ...(statusClass !== undefined ? { statusClass: statusClass as StatusClass } : {}),
-          ...(optionalString(args, 'method') !== undefined
-            ? { method: (optionalString(args, 'method') ?? '').toUpperCase() }
-            : {}),
-          ...(optionalString(args, 'urlContains') !== undefined
-            ? { urlContains: optionalString(args, 'urlContains') }
-            : {}),
-          ...(optionalString(args, 'resourceType') !== undefined
-            ? { resourceType: optionalString(args, 'resourceType') }
-            : {}),
-          ...(optionalNumber(args, 'sinceMs') !== undefined ? { sinceMs: optionalNumber(args, 'sinceMs') } : {}),
-        };
-        const limitRaw = optionalNumber(args, 'limit');
-        const limit =
-          limitRaw !== undefined && limitRaw > 0 ? Math.min(Math.floor(limitRaw), LIST_LIMIT_MAX) : LIST_LIMIT_DEFAULT;
-        const offsetRaw = optionalNumber(args, 'offset');
-        const offset = offsetRaw !== undefined && offsetRaw > 0 ? Math.floor(offsetRaw) : 0;
+        const filters = parseListFilters(args);
+        const { limit, offset } = parsePage(args);
 
         const all = deps.tap.records(uid) ?? [];
         const matched = all.filter((record) => matchesFilters(record, filters));
@@ -284,11 +341,7 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
         const uid = requireSourceUid(deps, args);
-        const limitRaw = optionalNumber(args, 'limit');
-        const limit =
-          limitRaw !== undefined && limitRaw > 0 ? Math.min(Math.floor(limitRaw), LIST_LIMIT_MAX) : LIST_LIMIT_DEFAULT;
-        const offsetRaw = optionalNumber(args, 'offset');
-        const offset = offsetRaw !== undefined && offsetRaw > 0 ? Math.floor(offsetRaw) : 0;
+        const { limit, offset } = parsePage(args);
 
         const all = deps.tap.records(uid, { includeFailureBodies: true }) ?? [];
         const failures = all.filter(isFailureProjection);
@@ -357,6 +410,164 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
               }
             : { body: pull.body };
         return { workspaceId, uid, record: recordRow, ...bodyPart };
+      },
+    },
+    {
+      name: 'traffic_diff',
+      title: 'Diff two sources or time windows',
+      description:
+        'Compare two armed sources — or two time windows of ONE source (same uid, different ' +
+        'sinceMs/untilMs bounds on startedAtMs) — and return the structural delta, computed on the host: ' +
+        'requests paired by method+path (nth occurrence against nth, query strings excluded), status ' +
+        'divergence per pair, request/response header presence and value changes, and the requests only ' +
+        'one side fired. Secret values compare through their stable markers: equal markers mean equal ' +
+        'underlying values, so "these two requests sent IDENTICAL headers" is provable without seeing any ' +
+        'secret — and a report of no differences is a meaningful answer (it rules out a whole class of ' +
+        'hypotheses, like "the failing session sends different headers"). Only differences and counts are ' +
+        'returned, never full row dumps. ' +
+        REDACTION_NOTE,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          a: {
+            type: 'object',
+            description: 'First side: a source uid, optionally bounded to a startedAtMs window.',
+            properties: {
+              uid: { type: 'string', description: 'Source uid from traffic_sources.' },
+              sinceMs: { type: 'number', description: 'Only rows started at or after this epoch-ms instant.' },
+              untilMs: { type: 'number', description: 'Only rows started before this epoch-ms instant.' },
+            },
+            required: ['uid'],
+            additionalProperties: false,
+          },
+          b: {
+            type: 'object',
+            description: 'Second side — same shape as a; may reuse a.uid with a different window.',
+            properties: {
+              uid: { type: 'string', description: 'Source uid from traffic_sources.' },
+              sinceMs: { type: 'number', description: 'Only rows started at or after this epoch-ms instant.' },
+              untilMs: { type: 'number', description: 'Only rows started before this epoch-ms instant.' },
+            },
+            required: ['uid'],
+            additionalProperties: false,
+          },
+          urlContains: { type: 'string', description: 'Scope both sides to URLs containing this substring.' },
+          limit: {
+            type: 'number',
+            description: `Max differing pairs reported in full (default ${DIFF_PAIRS_DEFAULT}, max ${DIFF_PAIRS_MAX}); counts always cover everything.`,
+          },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['a', 'b'],
+        additionalProperties: false,
+      },
+      ...observeScoped,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        const a = requireWindowArg(args, 'a');
+        const b = requireWindowArg(args, 'b');
+        for (const uid of a.uid === b.uid ? [a.uid] : [a.uid, b.uid]) {
+          if (!deps.tap.status().some((source) => source.uid === uid)) {
+            throw new McpToolInputError(
+              `no armed traffic source with uid '${uid}' — see traffic_sources (an unarmed or expired source is absent, not readable)`,
+            );
+          }
+        }
+        const urlContains = optionalString(args, 'urlContains');
+        const limitRaw = optionalNumber(args, 'limit');
+        const limit =
+          limitRaw !== undefined && limitRaw > 0 ? Math.min(Math.floor(limitRaw), DIFF_PAIRS_MAX) : DIFF_PAIRS_DEFAULT;
+        const rowsA = windowRows(deps, a, urlContains);
+        const rowsB = windowRows(deps, b, urlContains);
+        const report = computeTrafficDiff(rowsA, rowsB);
+        return {
+          workspaceId,
+          a: { ...a, rows: rowsA.length },
+          b: { ...b, rows: rowsB.length },
+          comparedPairs: report.comparedPairs,
+          divergentStatusPairs: report.divergentStatusPairs,
+          identicalRequestHeaderPairs: report.identicalRequestHeaderPairs,
+          differingPairsTotal: report.differingPairs.length,
+          differingPairs: report.differingPairs.slice(0, limit),
+          identicalPairs: report.identicalPairs,
+          onlyInA: report.onlyInA,
+          onlyInB: report.onlyInB,
+        };
+      },
+    },
+    {
+      name: 'traffic_wait',
+      title: 'Wait for a matching exchange',
+      description:
+        'Block until the armed source retains an exchange matching the given filters (the same filter ' +
+        'vocabulary as traffic_list: statusClass, method, urlContains, resourceType, sinceMs), then return ' +
+        'that row — "reload and tell me what breaks" as one call: start the wait, have the user act, and ' +
+        'the first matching request answers it. Already-retained exchanges match immediately; pass sinceMs ' +
+        '(e.g. the current epoch ms) to wait only for NEW traffic. A wait that times out is a NORMAL ' +
+        `result (matched: false, reason: "timeout"), not an error — "nothing matching appeared" is an ` +
+        `answer. timeoutMs defaults to ${TRAFFIC_WAIT_TIMEOUT_DEFAULT_MS} and is capped at ` +
+        `${TRAFFIC_WAIT_TIMEOUT_MAX_MS}. ` +
+        REDACTION_NOTE,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          uid: { type: 'string', description: 'Source uid from traffic_sources.' },
+          statusClass: {
+            type: 'string',
+            enum: ['2xx', '3xx', '4xx', '5xx', 'error'],
+            description: "Status bucket; 'error' = requests that failed without an HTTP status.",
+          },
+          method: { type: 'string', description: 'HTTP method filter (case-insensitive).' },
+          urlContains: { type: 'string', description: 'Substring match on the (redacted) URL.' },
+          resourceType: { type: 'string', description: 'Normalized resource type, e.g. fetch, xhr, document.' },
+          sinceMs: { type: 'number', description: 'Only match rows started at or after this epoch-ms instant.' },
+          timeoutMs: {
+            type: 'number',
+            description: `Wait bound in ms (default ${TRAFFIC_WAIT_TIMEOUT_DEFAULT_MS}, max ${TRAFFIC_WAIT_TIMEOUT_MAX_MS}).`,
+          },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['uid'],
+        additionalProperties: false,
+      },
+      ...observeScoped,
+      handler: async (args, ctx) => {
+        const workspaceId = requireWorkspace(args);
+        const uid = requireSourceUid(deps, args);
+        const filters = parseListFilters(args);
+        const timeoutRaw = optionalNumber(args, 'timeoutMs');
+        const timeoutMs =
+          timeoutRaw !== undefined
+            ? Math.min(Math.max(Math.floor(timeoutRaw), TRAFFIC_WAIT_TIMEOUT_MIN_MS), TRAFFIC_WAIT_TIMEOUT_MAX_MS)
+            : TRAFFIC_WAIT_TIMEOUT_DEFAULT_MS;
+        const startedAt = Date.now();
+        // Long waits keep the client informed when it opted into
+        // progress — fire-and-forget, never load-bearing.
+        const ticker = ctx.progress
+          ? setInterval(() => {
+              ctx.progress?.({
+                progress: Date.now() - startedAt,
+                total: timeoutMs,
+                message: 'waiting for a matching exchange',
+              });
+            }, 5_000)
+          : undefined;
+        ticker?.unref?.();
+        try {
+          const result = await deps.tap.waitForRecord(uid, (record) => matchesFilters(record, filters), { timeoutMs });
+          const waitedMs = Date.now() - startedAt;
+          if (result === null || (!result.ok && result.reason === 'source-disarmed')) {
+            // The arm lapsed or a human disarmed mid-wait — the source is
+            // now ABSENT, and the wait reports that rather than a bare miss.
+            return { workspaceId, uid, matched: false, reason: 'source-disarmed', waitedMs };
+          }
+          if (!result.ok) {
+            return { workspaceId, uid, matched: false, reason: 'timeout', waitedMs, timeoutMs };
+          }
+          return { workspaceId, uid, matched: true, waitedMs, row: projectListRow(result.record) };
+        } finally {
+          if (ticker !== undefined) clearInterval(ticker);
+        }
       },
     },
   ];
