@@ -314,11 +314,27 @@ interface FakeTapControls {
   /** Forced miss for waits whose predicate finds nothing retained;
    *  `null` mimics a source vanishing between gate and wait. */
   waitMiss: TrafficWaitResult | null;
+  /** Source uids reporting an ACTIVE capture session (S7) — drives the
+   *  `capturing` marker on traffic_sources rows. */
+  capturing: Set<string>;
 }
 
 function makeFakeTap(): TrafficTap & FakeTapControls {
   const pullCalls: string[] = [];
   const waitCalls: Array<{ timeoutMs: number }> = [];
+  const capturing = new Set<string>();
+  const captureProjection = (uid: string) => ({
+    sessionId: 'cap-1',
+    sourceUid: uid,
+    name: 'fake session',
+    redaction: 'standard' as const,
+    filePath: `/tmp/captures/${uid}.jsonl`,
+    startedAtMs: 600,
+    bounds: { maxBytes: 1_048_576, maxDurationMs: 3_600_000 },
+    recordLines: 0,
+    bytesWritten: 128,
+    state: 'active' as const,
+  });
   const rowsByUid = new Map<string, TrafficRecordProjection[]>([
     [UID, ROWS],
     [UID_A, DIFF_ROWS_A],
@@ -337,6 +353,7 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
     armedAtMs: 500,
     expiresAtMs: 999_999,
     pendingWaits: 0,
+    ...(capturing.has(uid) ? { capture: captureProjection(uid) } : {}),
     stats: {
       recordCount: rows.length,
       byteSize: 4_096,
@@ -352,9 +369,15 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
     pullCalls,
     waitCalls,
     waitMiss: { ok: false, reason: 'timeout' },
+    capturing,
     armBrowserTab: () => UID,
     armProxy: () => 'proxy',
     disarm: () => true,
+    // Capture control is the operator plane's, never a tool's — the
+    // tool layer only ever READS capture state off status rows.
+    captureStart: () => ({ ok: false, reason: 'capture-unavailable' }),
+    captureStop: () => null,
+    captureSessions: () => [...capturing].map(captureProjection),
     status: () => [...rowsByUid].map(([uid, rows]) => sourceStatus(uid, rows)),
     records: (uid: string, options?: TrafficRecordsOptions) => {
       const rows = rowsByUid.get(uid);
@@ -451,6 +474,22 @@ describe('traffic_sources', () => {
     expect(sources.map((s) => s.uid)).toEqual([UID, UID_A, UID_B, UID_W, UID_G, UID_M]);
     expect(sources[0]).toMatchObject({ uid: UID, kind: 'browser-tab', tabId: 7, state: 'streaming' });
     expect((sources[0]?.stats as Record<string, unknown>).recordCount).toBe(ROWS.length);
+  });
+
+  it('marks a capturing source with the honest boolean and nothing more (S7)', async () => {
+    tap.capturing.add(UID);
+    const result = await call('traffic_sources', {});
+    const sources = result.sources as Array<Record<string, unknown>>;
+    const capturingRow = sources.find((s) => s.uid === UID);
+    const idleRow = sources.find((s) => s.uid === UID_A);
+    expect(capturingRow?.capturing).toBe(true);
+    expect(idleRow).not.toHaveProperty('capturing');
+    // The marker is the WHOLE agent-visible surface: no session name,
+    // path, bounds, or control ever rides a tool row.
+    const serialized = JSON.stringify(sources);
+    expect(serialized).not.toContain('filePath');
+    expect(serialized).not.toContain('jsonl');
+    expect(serialized).not.toContain('fake session');
   });
 });
 

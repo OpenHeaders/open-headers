@@ -45,16 +45,42 @@
  * (match, timeout, disarm) removes the watch — a lapsed wait never
  * leaks a watcher, and `status()` reports the pending count so an
  * operator can see an agent holding a wait open.
+ *
+ * S7 adds capture sessions (PLAN §3, the disk tier) hanging off the
+ * armed source — per-source lifecycle, so disarm stops the capture:
+ *
+ *   - **Human-initiated only.** `captureStart` is reachable from the
+ *     operator plane alone; no MCP tool starts or stops a session, so
+ *     an agent cannot turn an in-memory grant into a durable one.
+ *     Agents may SEE that a source is capturing (an honest marker on
+ *     `traffic_sources` rows), never drive it.
+ *   - **The sink reads snapshots, never subscribes** (§10): the same
+ *     admission/refinement seam the wait plane uses triggers a
+ *     synchronous `projectOne` of that one record → one appended line.
+ *     A retained failure body that attaches later re-appends the
+ *     record (last-wins fold), so captured failures carry their body.
+ *   - **The reveal escalation never leaks into a capture** (STATUS
+ *     finding 10): capture lines are projected WITHOUT `revealSecrets`,
+ *     whatever reveal windows are open.
+ *   - **An active capture holds the arm.** "Reproduce this overnight"
+ *     must survive a quiet night: the expiry sweep skips a source
+ *     whose capture is active — the session's own duration bound is
+ *     the backstop — and the arm's idle clock restarts when the
+ *     session ends.
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import type {
   TrafficBodyProjection,
+  TrafficCaptureBounds,
+  TrafficCaptureRedactionPolicy,
+  TrafficCaptureSessionProjection,
   TrafficRecordProjection,
   TrafficRetentionStats,
   TrafficSourceProjection,
 } from '@openheaders/core/traffic';
+import { DEFAULT_TRAFFIC_CAPTURE_BOUNDS } from '@openheaders/core/traffic';
 import type { InspectorHarBody } from '@openheaders/core/types';
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import {
@@ -65,6 +91,7 @@ import {
   TrafficRetentionRing,
 } from '@openheaders/oracle/traffic-retention';
 
+import { startTrafficCaptureSession, type TrafficCaptureSession } from './capture';
 import type { LoopbackLifelineDialer } from './loopback-lifeline';
 import { connectBrowserTabSource, connectProxySource, type TrafficSourceConnection } from './sources';
 
@@ -79,6 +106,10 @@ export const MAX_TRAFFIC_REVEAL_TTL_MS = 15 * 60 * 1000;
 /** Cadence of the lapsed-source sweep. */
 const EXPIRY_SWEEP_INTERVAL_MS = 30 * 1000;
 
+/** Ended capture sessions kept readable on the status surface — the
+ *  operator's "what did that session do" answer without a disk scan. */
+const STOPPED_CAPTURES_KEPT = 20;
+
 /** Bounded wait on one on-demand body pull. The engine answers a pull
  *  it cannot satisfy with silence (never an error frame), so absence of
  *  a `body-attached` inside this window IS the unavailability signal. */
@@ -91,6 +122,9 @@ export interface TrafficTapDeps {
   /** `proxyCaptureService.serveRequestBody` — the proxy partition's
    *  body plane. Absent ⇒ proxy pulls answer with silence. */
   readonly proxyServeRequestBody?: (requestId: string, hopIndex: number) => void;
+  /** Directory capture-session files live in (PLAN §3 — the ONLY path
+   *  traffic ever takes to disk). Absent ⇒ `captureStart` refuses. */
+  readonly captureDir?: string;
 }
 
 export interface TrafficArmOptions {
@@ -108,6 +142,10 @@ export interface TrafficSourceStatus extends TrafficSourceProjection {
    *  sign an agent is holding a wait open (and the no-leak pin: every
    *  settled wait returns this to its prior count). */
   readonly pendingWaits: number;
+  /** The ACTIVE capture session recording this source (S7), when one
+   *  is — the retention-indicator surfaces render from this. Ended
+   *  sessions live on {@link TrafficTap.captureSessions} instead. */
+  readonly capture?: TrafficCaptureSessionProjection;
 }
 
 export interface TrafficRecordsOptions {
@@ -135,6 +173,20 @@ export interface TrafficWaitOptions {
    *  clamping; the tap just honors what it is given. */
   readonly timeoutMs: number;
 }
+
+export interface TrafficCaptureStartOptions {
+  readonly name: string;
+  /** Mandatory by type — a session with no redaction policy attached
+   *  is unstartable, not defaulted (PLAN §3). */
+  readonly redaction: TrafficCaptureRedactionPolicy;
+  readonly bounds?: Partial<TrafficCaptureBounds>;
+}
+
+export type TrafficCaptureStartRefusal = 'unknown-source' | 'capture-active' | 'capture-unavailable';
+
+export type TrafficCaptureStartResult =
+  | { readonly ok: true; readonly session: TrafficCaptureSessionProjection }
+  | { readonly ok: false; readonly reason: TrafficCaptureStartRefusal };
 
 export interface TrafficTap {
   /** Arm one browser tab. Idempotent per partition — arming an armed
@@ -183,6 +235,20 @@ export interface TrafficTap {
    *  path to unredacted projections. Capped at
    *  {@link MAX_TRAFFIC_REVEAL_TTL_MS}; `false` = unknown uid. */
   escalate(uid: string, ttlMs: number): boolean;
+  /**
+   * Start one capture session on an armed source (S7). Human gesture
+   * only — reachable from the operator plane, never a tool. One active
+   * session per source; the arm cannot lapse while it runs; disarm
+   * stops it (`source-disarmed`). Refuses without throwing.
+   */
+  captureStart(uid: string, options: TrafficCaptureStartOptions): TrafficCaptureStartResult;
+  /** Stop the source's active capture session. Idempotent: the ended
+   *  session's projection, or `null` when nothing was capturing (an
+   *  unknown uid is indistinguishable — absence semantics). */
+  captureStop(uid: string): TrafficCaptureSessionProjection | null;
+  /** Every session this tap started — active first, then the last
+   *  {@link STOPPED_CAPTURES_KEPT} ended ones, newest-ended last. */
+  captureSessions(): TrafficCaptureSessionProjection[];
   /** Disarm everything. Idempotent. */
   dispose(): void;
 }
@@ -204,6 +270,9 @@ interface ArmedSource {
   expiresAtMs: number;
   /** Active reveal window's end, or null while redaction holds. */
   revealUntilMs: number | null;
+  /** The source's capture session (S7) — at most one; stopped sessions
+   *  move to the tap-level ended list and this resets to null. */
+  capture: TrafficCaptureSession | null;
 }
 
 function resolveBounds(options?: TrafficArmOptions): TrafficRetentionBounds {
@@ -229,10 +298,38 @@ interface RecordWaiter {
 
 export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
   const sources = new Map<string, ArmedSource>();
+  const stoppedCaptures: TrafficCaptureSessionProjection[] = [];
+  let captureSeq = 0;
+
+  /** An ended session leaves the source and joins the bounded ended
+   *  list; the arm's idle clock restarts so a source held warm by its
+   *  capture does not lapse the instant the session stops. */
+  function retireCapture(source: ArmedSource): void {
+    const capture = source.capture;
+    if (capture === null) return;
+    source.capture = null;
+    stoppedCaptures.push(capture.projection());
+    while (stoppedCaptures.length > STOPPED_CAPTURES_KEPT) stoppedCaptures.shift();
+    source.expiresAtMs = Date.now() + source.ttlMs;
+  }
+
+  /** One seam event → one appended session line. Projected WITHOUT the
+   *  reveal escalation, whatever windows are open — a capture running
+   *  during a reveal window still writes redacted lines (finding 10). */
+  function captureAppend(source: ArmedSource, tabId: number, requestId: string): void {
+    const capture = source.capture;
+    if (capture === null) return;
+    const record = source.ring.projectOne(tabId, requestId, { includeFailureBody: true });
+    if (record !== null) capture.append(record);
+    if (!capture.active) retireCapture(source);
+  }
 
   function disarm(uid: string): boolean {
     const source = sources.get(uid);
     if (source === undefined) return false;
+    // Absence cascades: a source that stops existing stops its capture.
+    source.capture?.stop('source-disarmed');
+    retireCapture(source);
     source.connection?.close();
     source.bodyWaiters.clear();
     // Settle live waits before dropping the source — a disarm (or lapse)
@@ -245,11 +342,15 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     return true;
   }
 
-  /** The consumer's admission/refinement seam → predicate evaluation.
-   *  Projected ONCE per event, and only while a watch is pending. */
+  /** The consumer's admission/refinement seam: feed the capture sink
+   *  (S7), then evaluate pending wait predicates. Projections are read
+   *  per consumer — the capture line carries the failure body, the
+   *  predicate sees the lean default shape. */
   function notifyRecord(uid: string, tabId: number, requestId: string): void {
     const source = sources.get(uid);
-    if (source === undefined || source.recordWaiters.size === 0) return;
+    if (source === undefined) return;
+    captureAppend(source, tabId, requestId);
+    if (source.recordWaiters.size === 0) return;
     const record = source.ring.projectOne(tabId, requestId);
     if (record === null) return;
     let matched = false;
@@ -267,6 +368,10 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
   function sweepExpired(): void {
     const now = Date.now();
     for (const [uid, source] of sources) {
+      // An active capture holds the arm: "reproduce this overnight"
+      // must survive a quiet night, and the session's own duration
+      // bound is the backstop the idle heuristic would otherwise cut.
+      if (source.capture?.active === true) continue;
       if (source.expiresAtMs <= now) {
         logger.info(SCOPE, `arm expired for ${uid}`);
         disarm(uid);
@@ -292,7 +397,12 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       source.bodyWaiters.delete(key);
       for (const resolve of waiters) resolve(body);
     }
-    source.ring.attachFailureBody(source.partitionTabId, requestId, body);
+    // A retained failure body arrives OUTSIDE the reducer seam — when
+    // the ring keeps it, re-append the record so an active capture's
+    // last-wins fold carries the body too.
+    if (source.ring.attachFailureBody(source.partitionTabId, requestId, body)) {
+      captureAppend(source, source.partitionTabId, requestId);
+    }
   }
 
   /** The consumer's eager-failure seam → one deferred pull. Deferred a
@@ -340,6 +450,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       state: 'streaming',
       expiresAtMs: now + ttlMs,
       revealUntilMs: null,
+      capture: null,
     };
     const connection = connectBrowserTabSource({
       dialer: deps.dialer,
@@ -382,6 +493,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       state: 'streaming',
       expiresAtMs: now + ttlMs,
       revealUntilMs: null,
+      capture: null,
     };
     sources.set(uid, source);
     source.connection = connectProxySource({
@@ -413,6 +525,58 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       logger.info(SCOPE, `reveal escalation opened for ${uid}`);
       return true;
     },
+    captureStart(uid, options) {
+      sweepExpired();
+      const source = sources.get(uid);
+      if (source === undefined) return { ok: false, reason: 'unknown-source' };
+      if (source.capture?.active === true) return { ok: false, reason: 'capture-active' };
+      const captureDir = deps.captureDir;
+      if (captureDir === undefined) return { ok: false, reason: 'capture-unavailable' };
+      captureSeq++;
+      const sessionId = `cap-${captureSeq}`;
+      let session: TrafficCaptureSession;
+      try {
+        session = startTrafficCaptureSession({
+          dir: captureDir,
+          sessionId,
+          sourceUid: uid,
+          sourceLabel: source.projection.label,
+          name: options.name,
+          redaction: options.redaction,
+          bounds: {
+            maxBytes: options.bounds?.maxBytes ?? DEFAULT_TRAFFIC_CAPTURE_BOUNDS.maxBytes,
+            maxDurationMs: options.bounds?.maxDurationMs ?? DEFAULT_TRAFFIC_CAPTURE_BOUNDS.maxDurationMs,
+          },
+          // A bound trip or write failure stops the session from inside
+          // an append or its own timer — retire it here so the status
+          // surface converges without waiting for the next seam event.
+          onAutoStop: () => {
+            const live = sources.get(uid);
+            if (live !== undefined) retireCapture(live);
+          },
+        });
+      } catch (err) {
+        logger.warn(SCOPE, `capture start failed for ${uid}: ${(err as Error).message}`);
+        return { ok: false, reason: 'capture-unavailable' };
+      }
+      source.capture = session;
+      return { ok: true, session: session.projection() };
+    },
+    captureStop(uid) {
+      const source = sources.get(uid);
+      const capture = source?.capture ?? null;
+      if (source === undefined || capture === null) return null;
+      capture.stop();
+      retireCapture(source);
+      return capture.projection();
+    },
+    captureSessions() {
+      const active: TrafficCaptureSessionProjection[] = [];
+      for (const source of sources.values()) {
+        if (source.capture !== null) active.push(source.capture.projection());
+      }
+      return [...active, ...stoppedCaptures];
+    },
     status() {
       sweepExpired();
       const out: TrafficSourceStatus[] = [];
@@ -423,6 +587,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
           state: source.state,
           stats: source.consumer.stats(),
           pendingWaits: source.recordWaiters.size,
+          ...(source.capture !== null ? { capture: source.capture.projection() } : {}),
         });
       }
       return out;

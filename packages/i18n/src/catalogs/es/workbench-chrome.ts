@@ -591,6 +591,13 @@ export const workbenchChrome = {
     'Armada para la observación por agente: transmitiendo hasta desarmarla o hasta la caducidad por inactividad. ' +
     'Los secretos se censuran con marcadores estables (mejor esfuerzo).',
   'workbench.trafficMonitor.observeAria': 'Alternar la observación por agente para esta fuente',
+  'workbench.trafficMonitor.captureBadge': 'Capturando a disco',
+  'workbench.trafficMonitor.captureBadgeHint':
+    'Una sesión de captura está escribiendo en disco registros de tráfico censurados. Se detiene al alcanzar su ' +
+    'límite de tamaño o duración, al desarmar la fuente o cuando la detengas.',
+  'workbench.trafficMonitor.captureRow':
+    'Capturando esta fuente a disco: solo registros censurados, hasta detenerla o alcanzar su límite',
+  'workbench.trafficMonitor.captureRowAria': 'Una sesión de captura está grabando esta fuente a disco',
   'workbench.trafficMonitor.noBrowsersHint':
     'No hay navegadores conectados. Abre un navegador con la extensión instalada, o instálala:',
   'workbench.trafficMonitor.installExtension': 'Instalar la extensión de {browser}',

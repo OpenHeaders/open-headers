@@ -555,6 +555,11 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.observeArmed':
     '已授权智能体观察——持续传送中，直到取消授权或因闲置过期。机密会以稳定的标记脱敏（尽力而为）。',
   'workbench.trafficMonitor.observeAria': '切换此来源的智能体观察',
+  'workbench.trafficMonitor.captureBadge': '正在捕获到磁盘',
+  'workbench.trafficMonitor.captureBadgeHint':
+    '一个捕获会话正在把脱敏后的流量记录写入磁盘。达到大小或时长上限、来源被取消授权或你手动停止时，它会停止。',
+  'workbench.trafficMonitor.captureRow': '正在把此来源捕获到磁盘——仅脱敏记录，直到停止或达到上限',
+  'workbench.trafficMonitor.captureRowAria': '一个捕获会话正在把此来源录制到磁盘',
   'workbench.trafficMonitor.noBrowsersHint': '未连接任何浏览器。请打开已安装扩展的浏览器，或安装扩展：',
   'workbench.trafficMonitor.installExtension': '安装 {browser} 扩展',
   'workbench.trafficMonitor.watchConsentOff': '查看已关闭',

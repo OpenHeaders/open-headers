@@ -7,6 +7,13 @@
  */
 
 export {
+  DEFAULT_TRAFFIC_CAPTURE_BOUNDS,
+  type TrafficCaptureBounds,
+  type TrafficCaptureEndReason,
+  type TrafficCaptureRedactionPolicy,
+  type TrafficCaptureSessionProjection,
+} from './capture';
+export {
   TRAFFIC_BODY_CAP_CHARS,
   type TrafficBodyProjection,
   type TrafficHeaderProjection,

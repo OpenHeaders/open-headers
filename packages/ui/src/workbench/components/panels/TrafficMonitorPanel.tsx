@@ -363,20 +363,30 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   // icon after a lapse instead of keeping the source warm.
   const [observeArmed, setObserveArmed] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [observePending, setObservePending] = useState<ReadonlySet<string>>(() => new Set());
+  // Sources an ACTIVE disk capture session is recording (S7) — the
+  // retention indicator must stay visible the whole time one runs.
+  const [captureActive, setCaptureActive] = useState<ReadonlySet<string>>(() => new Set());
   const reloadArmed = useCallback(async (): Promise<void> => {
     try {
       const { sources } = await hostBridge.call('oh.daemon.traffic.status');
       const next = new Map<string, string>();
+      const capturing = new Set<string>();
       for (const source of sources) {
+        let key: string | null = null;
         if (source.kind === 'browser-tab' && source.nodeId !== undefined && source.tabId !== undefined) {
-          next.set(tabSourceKey(source.nodeId, source.tabId), source.uid);
+          key = tabSourceKey(source.nodeId, source.tabId);
         } else if (source.kind === 'proxy') {
-          next.set(WIRE_SOURCE_KEY, source.uid);
+          key = WIRE_SOURCE_KEY;
         }
+        if (key === null) continue;
+        next.set(key, source.uid);
+        if (source.capture !== undefined) capturing.add(key);
       }
       setObserveArmed(next);
+      setCaptureActive(capturing);
     } catch {
       setObserveArmed(new Map());
+      setCaptureActive(new Set());
     }
   }, []);
   useEffect(() => {
@@ -942,6 +952,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           observeArmed={observeArmedKeys}
           observePending={observePending}
           onObserveToggle={onObserveToggle}
+          captureActive={captureActive}
           width={railWidth}
         />
       </div>

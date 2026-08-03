@@ -592,6 +592,13 @@ export const workbenchChrome = {
     "Armée pour l'observation par agent — diffusion en cours jusqu'au désarmement ou à l'expiration d'inactivité. " +
     'Les secrets sont caviardés par des marqueurs stables (au mieux).',
   'workbench.trafficMonitor.observeAria': "Basculer l'observation par agent pour cette source",
+  'workbench.trafficMonitor.captureBadge': 'Capture sur disque en cours',
+  'workbench.trafficMonitor.captureBadgeHint':
+    "Une session de capture écrit sur disque des enregistrements de trafic caviardés. Elle s'arrête à sa limite de " +
+    'taille ou de durée, au désarmement de la source, ou quand vous l’arrêtez.',
+  'workbench.trafficMonitor.captureRow':
+    'Capture de cette source sur disque — enregistrements caviardés uniquement, jusqu’à l’arrêt ou la limite',
+  'workbench.trafficMonitor.captureRowAria': 'Une session de capture enregistre cette source sur disque',
   'workbench.trafficMonitor.noBrowsersHint':
     "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
   'workbench.trafficMonitor.installExtension': "Installer l'extension {browser}",

@@ -7,6 +7,10 @@
  * registry's status surface stays content-free.
  */
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
 import {
   getLifelineServer,
   type IncomingLifelinePort,
@@ -575,6 +579,208 @@ describe('traffic tap — body plane (S3)', () => {
     const record = tap.getRecord(uid, 'broken');
     expect(record?.statusCode).toBe(404);
     expect(record?.failureBody?.content).toBe('not found');
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+});
+
+describe('traffic tap — capture sessions (S7)', () => {
+  let priorServer: LifelineServer;
+  let captureDir: string;
+
+  const AUTH =
+    'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c';
+
+  beforeEach(() => {
+    setHostLogger(consoleLogger);
+    priorServer = getLifelineServer();
+    captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-tap-capture-'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setLifelineServer(priorServer);
+    fs.rmSync(captureDir, { recursive: true, force: true });
+  });
+
+  function fileLines(filePath: string): Array<{ kind: string; record?: { requestId: string; phase: string } }> {
+    return fs
+      .readFileSync(filePath, 'utf8')
+      .split('\n')
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line));
+  }
+
+  it('refuses unknown sources, hosts without a capture dir, and doubled starts', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+
+    const bare = createTrafficTap({ dialer, proxyHub });
+    const bareUid = bare.armBrowserTab('ext-node-1', 7) ?? '';
+    expect(bare.captureStart(bareUid, { name: 's', redaction: 'standard' })).toEqual({
+      ok: false,
+      reason: 'capture-unavailable',
+    });
+    bare.dispose();
+
+    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    expect(tap.captureStart('browser-tab:missing:1', { name: 's', redaction: 'standard' })).toEqual({
+      ok: false,
+      reason: 'unknown-source',
+    });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    const first = tap.captureStart(uid, { name: 'one', redaction: 'standard' });
+    expect(first.ok).toBe(true);
+    expect(tap.captureStart(uid, { name: 'two', redaction: 'standard' })).toEqual({
+      ok: false,
+      reason: 'capture-active',
+    });
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('appends redacted seam events — and a reveal window never leaks into the file', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+
+    const started = tap.captureStart(uid, { name: 'leak check', redaction: 'standard' });
+    if (!started.ok) throw new Error('capture refused');
+    expect(started.session.state).toBe('active');
+    expect(tap.status()[0]?.capture?.sessionId).toBe(started.session.sessionId);
+
+    // Open a reveal window BEFORE the traffic arrives — the capture
+    // line must still carry the marker, not the secret (finding 10).
+    expect(tap.escalate(uid, 60_000)).toBe(true);
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'started',
+        lifecycle: makeLifecycle({
+          requestId: 'secret',
+          startedAtMs: 900,
+          requestHeaders: [{ name: 'Authorization', value: AUTH }],
+        }),
+      },
+    });
+    // A refinement re-appends the same identity (last-wins fold).
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 7, requestId: 'secret', patch: { phase: 'completed', statusCode: 200 } },
+    });
+
+    const stopped = tap.captureStop(uid);
+    expect(stopped?.endReason).toBe('stopped');
+    expect(tap.status()[0]?.capture).toBeUndefined();
+
+    const raw = fs.readFileSync(stopped?.filePath ?? '', 'utf8');
+    expect(raw).not.toContain(AUTH);
+    expect(raw).toContain('[redacted:');
+    const lines = fileLines(stopped?.filePath ?? '');
+    expect(lines.map((l) => l.kind)).toEqual(['header', 'record', 'record', 'end']);
+    expect(lines[2]?.record?.phase).toBe('completed');
+
+    // Idempotent stop: nothing capturing answers null.
+    expect(tap.captureStop(uid)).toBeNull();
+    // The ended session stays on the sessions list.
+    expect(tap.captureSessions().map((s) => s.sessionId)).toEqual([stopped?.sessionId]);
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('disarm stops the capture (absence cascades) with the honest end reason', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    const started = tap.captureStart(uid, { name: 'cascade', redaction: 'standard' });
+    if (!started.ok) throw new Error('capture refused');
+
+    expect(tap.disarm(uid)).toBe(true);
+    const [session] = tap.captureSessions();
+    expect(session?.state).toBe('stopped');
+    expect(session?.endReason).toBe('source-disarmed');
+    const trailer = fileLines(session?.filePath ?? '').at(-1) as { kind: string; reason?: string };
+    expect(trailer.reason).toBe('source-disarmed');
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('an active capture holds the arm; the idle clock restarts when the session ends', () => {
+    vi.useFakeTimers();
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const uid = tap.armBrowserTab('ext-node-1', 7, { ttlMs: 5_000 }) ?? '';
+    const started = tap.captureStart(uid, {
+      name: 'overnight',
+      redaction: 'standard',
+      bounds: { maxDurationMs: 10 * 60 * 1000 },
+    });
+    if (!started.ok) throw new Error('capture refused');
+
+    // Far past the arm ttl with zero reads: the source survives — a
+    // quiet night must not end an overnight capture.
+    vi.advanceTimersByTime(60_000);
+    expect(tap.status()).toHaveLength(1);
+    expect(relay.disconnects).toEqual([]);
+
+    // Session ends → the idle clock restarts, then lapses normally.
+    tap.captureStop(uid);
+    expect(tap.status()).toHaveLength(1);
+    vi.advanceTimersByTime(5_001 + 30_000);
+    expect(tap.status()).toEqual([]);
+    expect(relay.disconnects).toEqual([7]);
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('the size bound trips mid-stream: the session stops itself and the status converges', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    const started = tap.captureStart(uid, {
+      name: 'tiny',
+      redaction: 'standard',
+      bounds: { maxBytes: 900 },
+    });
+    if (!started.ok) throw new Error('capture refused');
+
+    for (let i = 0; i < 5; i++) {
+      relay.ports[0]?.postMessage({
+        kind: 'lifecycle-update',
+        update: { kind: 'started', lifecycle: makeLifecycle({ requestId: `burst-${i}`, startedAtMs: 900 + i }) },
+      });
+    }
+
+    expect(tap.status()[0]?.capture).toBeUndefined();
+    const [session] = tap.captureSessions();
+    expect(session?.state).toBe('stopped');
+    expect(session?.endReason).toBe('size-bound');
+    // Retention itself is untouched by the sink's bound.
+    expect(tap.records(uid)).toHaveLength(5);
 
     tap.dispose();
     relay.uninstall();

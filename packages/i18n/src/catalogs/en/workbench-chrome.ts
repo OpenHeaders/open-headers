@@ -567,6 +567,13 @@ export const workbenchChrome = {
     'Armed for agent observation — streaming until disarmed or idle expiry. Secrets are redacted with stable markers ' +
     '(best effort).',
   'workbench.trafficMonitor.observeAria': 'Toggle agent observation for this source',
+  'workbench.trafficMonitor.captureBadge': 'Capturing to disk',
+  'workbench.trafficMonitor.captureBadgeHint':
+    'A capture session is writing redacted traffic records to disk. It stops at its size or duration bound, when the ' +
+    'source is disarmed, or when you stop it.',
+  'workbench.trafficMonitor.captureRow':
+    'Capturing this source to disk — redacted records only, until stopped or its bound trips',
+  'workbench.trafficMonitor.captureRowAria': 'A capture session is recording this source to disk',
   'workbench.trafficMonitor.noBrowsersHint':
     'No browsers connected. Open a browser with the extension installed, or install it:',
   'workbench.trafficMonitor.installExtension': 'Install {browser} extension',

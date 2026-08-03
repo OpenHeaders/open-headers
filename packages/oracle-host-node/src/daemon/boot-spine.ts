@@ -780,6 +780,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     dialer: lifelineDialer,
     proxyHub: proxyCaptureService.hub,
     proxyServeRequestBody: (requestId, hopIndex) => proxyCaptureService.serveRequestBody(requestId, hopIndex),
+    // Capture sessions (S7) — the ONLY path traffic ever takes to disk,
+    // scoped under the host's own data dir like every durable artifact.
+    captureDir: path.join(config.dataDir, 'traffic-captures'),
   });
 
   // CLI provisioning writes this machine's `openheaders/cli.json`;

@@ -11,7 +11,12 @@
  */
 
 import type { LicenseSnapshot } from '../../licensing';
-import type { TrafficRecordProjection, TrafficRetentionStats, TrafficSourceProjection } from '../../traffic';
+import type {
+  TrafficCaptureSessionProjection,
+  TrafficRecordProjection,
+  TrafficRetentionStats,
+  TrafficSourceProjection,
+} from '../../traffic';
 import type {
   ProxyCaPublicInfo,
   ProxyCaptureStatus,
@@ -736,10 +741,17 @@ export interface DaemonRpc {
    * Every ARMED source with its content-free retention counters. An
    * unarmed source is ABSENT — never a disabled row. Reading status
    * never extends an arm (a polling UI must not keep a tab streaming).
+   * `capture` rides a row while a disk capture session (S7) is actively
+   * recording that source — the retention-indicator surfaces render
+   * from it.
    */
   'oh.daemon.traffic.status': {
     req: Record<string, never>;
-    res: { sources: ReadonlyArray<TrafficSourceProjection & { stats: TrafficRetentionStats }> };
+    res: {
+      sources: ReadonlyArray<
+        TrafficSourceProjection & { stats: TrafficRetentionStats; capture?: TrafficCaptureSessionProjection }
+      >;
+    };
   };
 
   /**
@@ -751,6 +763,48 @@ export interface DaemonRpc {
   'oh.daemon.traffic.records': {
     req: { uid: string };
     res: { records: ReadonlyArray<TrafficRecordProjection> | null };
+  };
+
+  /**
+   * Start one disk capture session on an armed source (S7 — PLAN §3,
+   * the ONLY path traffic ever takes to disk). Human gesture only: this
+   * channel has no MCP mirror, so an agent cannot turn an in-memory
+   * grant into a durable one. REFUSES until a redaction policy is
+   * explicitly attached (`redaction: 'standard'` — absent means
+   * refusal, not a default). The session file carries redacted
+   * projections only; bounds default when omitted, and a tripped bound
+   * STOPS the session honestly. One active session per source;
+   * disarming the source stops its capture.
+   */
+  'oh.daemon.traffic.capture.start': {
+    req: {
+      uid: string;
+      name: string;
+      redaction?: 'standard';
+      maxBytes?: number;
+      maxDurationMs?: number;
+    };
+    res: { ok: true; session: TrafficCaptureSessionProjection } | { ok: false; error: string };
+  };
+
+  /**
+   * Stop the source's active capture session. Idempotent: `session`
+   * null = nothing was capturing — indistinguishable from an unknown
+   * uid (absence semantics).
+   */
+  'oh.daemon.traffic.capture.stop': {
+    req: { uid: string };
+    res: { ok: true; session: TrafficCaptureSessionProjection | null };
+  };
+
+  /**
+   * Every capture session this host started — active first, then the
+   * recent ended ones with their honest end reasons (`stopped`,
+   * `size-bound`, `duration-bound`, `source-disarmed`, `write-error`).
+   */
+  'oh.daemon.traffic.capture.status': {
+    req: Record<string, never>;
+    res: { sessions: ReadonlyArray<TrafficCaptureSessionProjection> };
   };
 
   'oh.daemon.audit.query': {

@@ -28,6 +28,7 @@ import {
   LoadingOutlined,
   PushpinFilled,
   ReloadOutlined,
+  SaveFilled,
 } from '@ant-design/icons';
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
@@ -125,6 +126,10 @@ export interface TrafficMonitorSourceRailProps {
   observePending: ReadonlySet<TrafficSourceKey>;
   /** Arm/disarm a source for agent observation. */
   onObserveToggle: (key: TrafficSourceKey) => void;
+  /** Sources an ACTIVE disk capture session is recording (S7). The
+   *  retention indicator (header badge + per-row mark) must be visible
+   *  the whole time a session runs — PLAN §3. */
+  captureActive: ReadonlySet<TrafficSourceKey>;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -227,6 +232,29 @@ function TabDebugAffordance({
 }
 
 /**
+ * Per-source retention indicator (AGENT_TRAFFIC_PLAN.md §3, S7): shown
+ * — always visible, never hover-revealed — while a disk capture session
+ * records this source. Purely informational: sessions start and stop on
+ * the operator plane; the rail only makes the disk write legible.
+ */
+function SourceCaptureIndicator() {
+  const t = useT();
+  const { token } = theme.useToken();
+  return (
+    <Tooltip title={t('workbench.trafficMonitor.captureRow')} placement="left">
+      <span
+        role="img"
+        data-testid="traffic-monitor-source-capturing"
+        aria-label={t('workbench.trafficMonitor.captureRowAria')}
+        style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
+      >
+        <SaveFilled style={{ fontSize: 12, color: token.colorError }} />
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
  * Per-source agent-observation toggle (AGENT_TRAFFIC_PLAN.md §4): the
  * human gesture that arms one source for the MCP `observe` tier. The
  * affordance carries the honesty copy — armed = the source STREAMS to
@@ -299,6 +327,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   observeArmed,
   observePending,
   onObserveToggle,
+  captureActive,
   width,
 }) => {
   const t = useT();
@@ -492,6 +521,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                             >
                               {title}
                             </span>
+                            {captureActive.has(key) && <SourceCaptureIndicator />}
                             {peer.watchConsent && (
                               <SourceObserveAffordance
                                 armed={observeArmed.has(key)}
@@ -537,6 +567,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
           >
             <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
             <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
+            {captureActive.has(WIRE_SOURCE_KEY) && <SourceCaptureIndicator />}
             <SourceObserveAffordance
               armed={observeArmed.has(WIRE_SOURCE_KEY)}
               pending={observePending.has(WIRE_SOURCE_KEY)}
@@ -577,6 +608,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
       >
         <span style={{ fontSize: 12, fontWeight: 600 }}>{t('workbench.trafficMonitor.sources')}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {captureActive.size > 0 && (
+            <Tooltip title={t('workbench.trafficMonitor.captureBadgeHint')}>
+              <Tag color="red" icon={<SaveFilled />} style={{ margin: 0 }} data-testid="traffic-monitor-capturing">
+                {t('workbench.trafficMonitor.captureBadge')}
+              </Tag>
+            </Tooltip>
+          )}
           <Tag color={peers.length > 0 ? 'green' : undefined} style={{ margin: 0 }} data-testid="traffic-monitor-peers">
             {peers.length > 0
               ? t('workbench.trafficMonitor.browserConnected', { count: peers.length })

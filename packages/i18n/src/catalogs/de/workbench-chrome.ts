@@ -586,6 +586,13 @@ export const workbenchChrome = {
     'Für Agent-Beobachtung scharf — streamt bis zum Entschärfen oder zum Ablauf bei Inaktivität. Secrets werden ' +
     'durch stabile Marker geschwärzt (bestmöglich).',
   'workbench.trafficMonitor.observeAria': 'Agent-Beobachtung für diese Quelle umschalten',
+  'workbench.trafficMonitor.captureBadge': 'Aufzeichnung auf Datenträger',
+  'workbench.trafficMonitor.captureBadgeHint':
+    'Eine Aufzeichnungssitzung schreibt geschwärzte Verkehrsdatensätze auf den Datenträger. Sie stoppt an ihrer ' +
+    'Größen- oder Zeitgrenze, beim Entschärfen der Quelle oder wenn Sie sie stoppen.',
+  'workbench.trafficMonitor.captureRow':
+    'Diese Quelle wird auf den Datenträger aufgezeichnet — nur geschwärzte Datensätze, bis zum Stopp oder zur Grenze',
+  'workbench.trafficMonitor.captureRowAria': 'Eine Aufzeichnungssitzung zeichnet diese Quelle auf den Datenträger auf',
   'workbench.trafficMonitor.noBrowsersHint':
     'Keine Browser verbunden. Öffne einen Browser mit installierter Erweiterung oder installiere sie:',
   'workbench.trafficMonitor.installExtension': 'Erweiterung für {browser} installieren',

@@ -7,6 +7,11 @@
  */
 
 export {
+  startTrafficCaptureSession,
+  type TrafficCaptureSession,
+  type TrafficCaptureSessionOptions,
+} from './capture';
+export {
   installLoopbackLifelineDialer,
   type LoopbackLifelineDialer,
   type LoopbackLifelinePort,
@@ -25,6 +30,9 @@ export {
   type TrafficArmOptions,
   type TrafficBodyPullResult,
   type TrafficBodyUnavailableReason,
+  type TrafficCaptureStartOptions,
+  type TrafficCaptureStartRefusal,
+  type TrafficCaptureStartResult,
   type TrafficRecordsOptions,
   type TrafficSourceStatus,
   type TrafficTap,

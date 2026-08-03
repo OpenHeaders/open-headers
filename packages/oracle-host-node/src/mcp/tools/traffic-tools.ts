@@ -262,7 +262,9 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
         'kind, label, armed-at, expiry, and retention counters (records held, bytes, evictions). Arming is ' +
         'a human gesture in the Open Headers Traffic Monitor — an unarmed source is absent from this list ' +
         'and unreadable by uid; if a tab you need is missing, ask the user to arm it. Arms expire when ' +
-        'idle; reading traffic keeps them warm. Source uids feed every other traffic_* tool.',
+        'idle; reading traffic keeps them warm. Source uids feed every other traffic_* tool. A row may ' +
+        'carry capturing: true while a HUMAN-started disk capture session records that source — capture ' +
+        'sessions are informational here and cannot be started or stopped by any tool.',
       inputSchema: {
         type: 'object',
         properties: { ...WORKSPACE_ID_PROPERTY },
@@ -283,6 +285,10 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
             armedAtMs: source.armedAtMs,
             expiresAtMs: source.expiresAtMs,
             pendingWaits: source.pendingWaits,
+            // The honest marker, nothing more: an agent may KNOW a
+            // human is capturing this source to disk (S7); the session
+            // itself — path, bounds, control — stays off this surface.
+            ...(source.capture !== undefined ? { capturing: true } : {}),
             stats: source.stats,
           })),
         };
