@@ -193,6 +193,10 @@ test('lists the read + write catalog with the write tier enabled', async () => {
     'workflows_list',
     'workflows_history',
     'activity_list',
+    // The one write-tier member of the traffic family — visible with
+    // allowWrite even while the observe tools stay hidden (its handler
+    // still refuses without the observe switch).
+    'traffic_to_rule',
     'workspaces_diff',
     'rules_toggle',
     'rules_create',

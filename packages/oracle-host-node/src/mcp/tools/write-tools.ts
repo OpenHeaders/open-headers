@@ -194,9 +194,11 @@ async function applyRulePatch(workspaceId: string, rule: Rule, patch: Record<str
 /**
  * Resolve the parent collection for a new rule, minting the default
  * "My Rules" collection when the workspace has none yet — the same
- * ensure-on-demand shape the rule store applies at hydration.
+ * ensure-on-demand shape the rule store applies at hydration. Shared
+ * with `traffic_to_rule`, which mints its draft through the same
+ * create path.
  */
-async function resolveRuleParentPath(workspaceId: string, collectionUid: string | undefined): Promise<string> {
+export async function resolveRuleParentPath(workspaceId: string, collectionUid: string | undefined): Promise<string> {
   const collections = snapshotCollectionPostStates(workspaceId).map((ps) => ps.collection);
   if (collectionUid !== undefined) {
     const match = collections.find((c) => c.uid === collectionUid);

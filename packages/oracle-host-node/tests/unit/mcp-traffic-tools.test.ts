@@ -1,17 +1,26 @@
 /**
- * Observe-tier traffic tools (AGENT_TRAFFIC_PLAN.md §5, slice S3) over
- * a fake tap: host-side filters + pagination (the "host computes, agent
+ * Traffic tools (AGENT_TRAFFIC_PLAN.md §5, slices S3–S6) over a fake
+ * tap: host-side filters + pagination (the "host computes, agent
  * queries" law), failure classification with attached bodies and honest
  * `bodyUnavailable` reasons, unknown-source/unknown-request errors that
- * read as agent guidance, and the mandatory workspace resolution the
- * observe-visibility seam depends on (STATUS finding 13).
+ * read as agent guidance, the mandatory workspace resolution the
+ * observe-visibility seam depends on (STATUS finding 13), and the S6
+ * `traffic_to_rule` mint: draft-always (the publication-gate law), CORS
+ * copy/synthesis, body-decay honesty, redacted-field honesty, and the
+ * dual-switch observe guard. The mint rides the REAL sync service
+ * (in-memory), like the write-tools suite.
  */
 
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
 import type { TrafficRecordProjection } from '@openheaders/core/traffic';
+import type { ResponseRule } from '@openheaders/core/types';
 import { logger as consoleLogger } from '@openheaders/core/utils';
-import { __initSyncServiceForTests, dispose as disposeSyncService } from '@openheaders/oracle/sync/service';
+import {
+  __initSyncServiceForTests,
+  dispose as disposeSyncService,
+  snapshotRulePostStates,
+} from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { McpToolDefinition } from '../../src/mcp/registry';
 import {
@@ -36,6 +45,7 @@ const UID_A = 'browser-tab:ext-node-1:8';
 const UID_B = 'browser-tab:ext-node-1:9';
 const UID_W = 'browser-tab:ext-node-1:10';
 const UID_G = 'browser-tab:ext-node-1:11';
+const UID_M = 'browser-tab:ext-node-1:12';
 
 function makeProjection(overrides: Partial<TrafficRecordProjection> = {}): TrafficRecordProjection {
   return {
@@ -257,6 +267,47 @@ const GRAPH_ROWS: TrafficRecordProjection[] = [
   }),
 ];
 
+/** The S6 mint window: a failure with a retained (marker-bearing) body
+ *  and observed CORS, a cross-origin success with NO CORS observed, a
+ *  success whose body decayed, and a binary-body failure. */
+const MINT_ROWS: TrafficRecordProjection[] = [
+  makeProjection({
+    requestId: 'm-fail',
+    url: 'https://api.openheaders.io/net/gate/mock?status=503',
+    statusCode: 503,
+    statusText: 'Service Unavailable',
+    startedAtMs: 1_000,
+    initiator: 'https://app.openheaders.io/dashboard',
+    responseHeaders: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'Access-Control-Allow-Origin', value: '*' },
+    ],
+    failureBody: { content: '{"status":503,"token":"[redacted:cafe1234]"}', encoding: 'text', truncated: false },
+  }),
+  makeProjection({
+    requestId: 'm-cross',
+    url: 'https://api.openheaders.io/plain',
+    statusCode: 200,
+    startedAtMs: 1_100,
+    initiator: 'https://app.openheaders.io/dashboard',
+    responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }],
+  }),
+  makeProjection({
+    requestId: 'm-nobody',
+    url: 'https://api.openheaders.io/decayed',
+    statusCode: 200,
+    startedAtMs: 1_200,
+    mimeType: 'application/json',
+  }),
+  makeProjection({
+    requestId: 'm-binary',
+    url: 'https://api.openheaders.io/image',
+    statusCode: 500,
+    startedAtMs: 1_300,
+    failureBody: { content: 'iVBORw0KGgoAAAANSUhEUg==', encoding: 'base64', truncated: false },
+  }),
+];
+
 interface FakeTapControls {
   pullCalls: string[];
   waitCalls: Array<{ timeoutMs: number }>;
@@ -274,6 +325,7 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
     [UID_B, DIFF_ROWS_B],
     [UID_W, WINDOW_ROWS],
     [UID_G, GRAPH_ROWS],
+    [UID_M, MINT_ROWS],
   ]);
   const sourceStatus = (uid: string, rows: TrafficRecordProjection[]): TrafficSourceStatus => ({
     uid,
@@ -313,14 +365,17 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
     getRecord: (uid: string, requestId: string) =>
       rowsByUid.get(uid)?.find((row) => row.requestId === requestId) ?? null,
     pullBody: async (uid: string, requestId: string): Promise<TrafficBodyPullResult | null> => {
-      if (uid !== UID) return null;
+      if (uid !== UID && uid !== UID_M) return null;
       pullCalls.push(requestId);
-      const row = ROWS.find((r) => r.requestId === requestId);
+      const row = rowsByUid.get(uid)?.find((r) => r.requestId === requestId);
       if (row === undefined) return { ok: false, reason: 'unknown-request' };
       if (row.failureBody !== undefined) return { ok: true, body: row.failureBody };
       if (row.phase === 'failed') return { ok: false, reason: 'no-response-body' };
       if (row.requestId === 'ok-1') {
         return { ok: true, body: { content: '{"users":[1]}', encoding: 'text', truncated: false } };
+      }
+      if (row.requestId === 'm-cross') {
+        return { ok: true, body: { content: 'plain body text', encoding: 'text', truncated: false } };
       }
       return { ok: false, reason: 'gone' };
     },
@@ -344,6 +399,7 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
 
 let tap: ReturnType<typeof makeFakeTap>;
 let tools: Map<string, McpToolDefinition>;
+let observeEnabled: boolean;
 
 function call(name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const tool = tools.get(name);
@@ -358,7 +414,10 @@ beforeEach(() => {
   setHostStorage(createHostStorageFake());
   __initSyncServiceForTests(WS);
   tap = makeFakeTap();
-  tools = new Map(createTrafficToolDefinitions({ tap }).map((t) => [t.name, t]));
+  observeEnabled = true;
+  tools = new Map(
+    createTrafficToolDefinitions({ tap, isObserveEnabled: () => observeEnabled }).map((t) => [t.name, t]),
+  );
 });
 
 afterEach(() => {
@@ -366,7 +425,7 @@ afterEach(() => {
 });
 
 describe('registration contract', () => {
-  it('every tool is observe-tier and resolves the active workspace for the visibility seam', () => {
+  it('read tools are observe-tier, the mint is write-tier, and every tool resolves the workspace', () => {
     expect([...tools.keys()]).toEqual([
       'traffic_sources',
       'traffic_list',
@@ -375,9 +434,10 @@ describe('registration contract', () => {
       'traffic_diff',
       'traffic_graph',
       'traffic_wait',
+      'traffic_to_rule',
     ]);
     for (const tool of tools.values()) {
-      expect(tool.tier).toBe('observe');
+      expect(tool.tier).toBe(tool.name === 'traffic_to_rule' ? 'write' : 'observe');
       expect(tool.resolveWorkspaceId({ workspaceId: WS })).toBe(WS);
     }
   });
@@ -388,7 +448,7 @@ describe('traffic_sources', () => {
     const result = await call('traffic_sources', {});
     expect(result.workspaceId).toBe(WS);
     const sources = result.sources as Array<Record<string, unknown>>;
-    expect(sources.map((s) => s.uid)).toEqual([UID, UID_A, UID_B, UID_W, UID_G]);
+    expect(sources.map((s) => s.uid)).toEqual([UID, UID_A, UID_B, UID_W, UID_G, UID_M]);
     expect(sources[0]).toMatchObject({ uid: UID, kind: 'browser-tab', tabId: 7, state: 'streaming' });
     expect((sources[0]?.stats as Record<string, unknown>).recordCount).toBe(ROWS.length);
   });
@@ -672,6 +732,116 @@ describe('traffic_wait', () => {
     await expect(call('traffic_wait', { uid: 'nope' })).rejects.toThrow(/traffic_sources/);
     await expect(call('traffic_wait', { uid: UID, statusClass: '6xx' })).rejects.toThrow(/invalid statusClass/);
     expect(tap.waitCalls).toEqual([]);
+  });
+});
+
+describe('traffic_to_rule', () => {
+  it('mints a DRAFT response override through the real write path, with overrides serving the fix', async () => {
+    const result = await call('traffic_to_rule', {
+      uid: UID_M,
+      requestId: 'm-fail',
+      statusCode: 200,
+      body: '{"ok":true}',
+    });
+    expect(result.workspaceId).toBe(WS);
+    expect(result.draft).toBe(true);
+    const rule = result.rule as ResponseRule;
+    expect(rule.type).toBe('response');
+    // The publication-gate law: NEVER auto-published; enabled so the
+    // human's publish gesture is the only step left.
+    expect(rule.published).toBe(false);
+    expect(rule.enabled).toBe(true);
+    expect(rule.action.responseSource).toBe('mock');
+    expect(rule.action.bodyType).toBe('static');
+    expect(rule.action.statusCode).toBe(200);
+    expect(rule.action.responseBody).toBe('{"ok":true}');
+    expect(rule.action.contentType).toBe('application/json');
+    // The condition is origin + path + `*` — the query (the status knob)
+    // is deliberately excluded so the rule matches the re-fire, and the
+    // trailing glob keeps the CDP Fetch urlPattern (full-URL glob)
+    // matching query-bearing requests.
+    expect(rule.conditions[0]?.type).toBe('url-filter');
+    expect(rule.conditions[0]?.values).toEqual(['https://api.openheaders.io/net/gate/mock*']);
+    expect(rule.conditions[0]?.uid).toBeTruthy();
+    expect(rule.name).toBe('Override GET https://api.openheaders.io/net/gate/mock');
+    // CORS rides the mint: the observed header is copied, none invented.
+    expect(rule.action.responseHeaders).toEqual({ 'Access-Control-Allow-Origin': '*' });
+    expect(result.cors).toEqual({ copied: ['Access-Control-Allow-Origin'], synthesized: [] });
+    expect(result.body).toMatchObject({ source: 'argument', truncated: false });
+    expect((result.observed as Record<string, unknown>).statusCode).toBe(503);
+    // The mint landed through the canonical write path.
+    const snapshot = snapshotRulePostStates(WS);
+    expect(snapshot).toHaveLength(1);
+    expect(snapshot[0]?.rule.uid).toBe(rule.uid);
+    expect(snapshot[0]?.rule.published).toBe(false);
+  });
+
+  it('defaults replay the observed exchange, carry the retained failure body, and honor redaction', async () => {
+    const result = await call('traffic_to_rule', { uid: UID_M, requestId: 'm-fail' });
+    const rule = result.rule as ResponseRule;
+    expect(rule.action.statusCode).toBe(503);
+    expect(rule.action.responseBody).toBe('{"status":503,"token":"[redacted:cafe1234]"}');
+    expect(result.body).toMatchObject({ source: 'retained-failure', truncated: false });
+    // Markers mint VERBATIM and the field is called out — never revealed.
+    expect(result.redactedFields).toEqual(['action.responseBody']);
+    const notes = result.notes as string[];
+    expect(notes.some((n) => n.includes('replays the observed 503'))).toBe(true);
+    expect(notes.some((n) => n.includes('redactedFields'))).toBe(true);
+  });
+
+  it('synthesizes the permissive CORS set for a cross-origin exchange observed without one — and says so', async () => {
+    const result = await call('traffic_to_rule', { uid: UID_M, requestId: 'm-cross' });
+    const rule = result.rule as ResponseRule;
+    expect(rule.action.responseHeaders).toEqual({
+      'Access-Control-Allow-Origin': 'https://app.openheaders.io',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': '*',
+    });
+    expect(result.cors).toEqual({
+      copied: [],
+      synthesized: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Methods', 'Access-Control-Allow-Headers'],
+    });
+    expect((result.notes as string[]).some((n) => n.includes('permissive set was synthesized'))).toBe(true);
+    // The success body arrived via the on-demand pull.
+    expect(result.body).toMatchObject({ source: 'pulled' });
+    expect(rule.action.responseBody).toBe('plain body text');
+    expect(rule.action.contentType).toBe('text/plain');
+  });
+
+  it('a decayed body mints an empty draft with an honest note, never an error', async () => {
+    const result = await call('traffic_to_rule', { uid: UID_M, requestId: 'm-nobody' });
+    const rule = result.rule as ResponseRule;
+    expect(rule.action.responseBody).toBe('');
+    expect(result.body).toMatchObject({ source: 'empty' });
+    expect((result.body as { note: string }).note).toContain('fill responseBody');
+    expect(rule.action.contentType).toBe('application/json');
+  });
+
+  it('a binary body is not minted into the draft', async () => {
+    const result = await call('traffic_to_rule', { uid: UID_M, requestId: 'm-binary' });
+    expect((result.rule as ResponseRule).action.responseBody).toBe('');
+    expect(result.body).toMatchObject({ source: 'empty' });
+    expect((result.body as { note: string }).note).toContain('binary');
+  });
+
+  it('rejects an explicit published arg — publishing stays a human gesture', async () => {
+    await expect(call('traffic_to_rule', { uid: UID_M, requestId: 'm-fail', published: true })).rejects.toThrow(
+      /human gesture/,
+    );
+    expect(snapshotRulePostStates(WS)).toHaveLength(0);
+  });
+
+  it('refuses when the observe switch is off — no traffic side door through the write grant', async () => {
+    observeEnabled = false;
+    await expect(call('traffic_to_rule', { uid: UID_M, requestId: 'm-fail' })).rejects.toThrow(
+      /Traffic observation enabled/,
+    );
+    expect(snapshotRulePostStates(WS)).toHaveLength(0);
+  });
+
+  it('surfaces unknown uids and requestIds as agent guidance', async () => {
+    await expect(call('traffic_to_rule', { uid: 'nope', requestId: 'm-fail' })).rejects.toThrow(/traffic_sources/);
+    await expect(call('traffic_to_rule', { uid: UID_M, requestId: 'ghost' })).rejects.toThrow(/see traffic_list/);
   });
 });
 

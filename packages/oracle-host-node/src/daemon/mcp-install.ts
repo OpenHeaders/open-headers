@@ -81,7 +81,14 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
   const handler = createMcpHttpHandler({
     registry: createMcpToolRegistry([
       ...createReadToolDefinitions(),
-      ...(options.trafficTap !== undefined ? createTrafficToolDefinitions({ tap: options.trafficTap }) : []),
+      ...(options.trafficTap !== undefined
+        ? createTrafficToolDefinitions({
+            tap: options.trafficTap,
+            // traffic_to_rule's dual-switch guard: write-tier by gate,
+            // but it reads observed traffic — live-read like the policy.
+            isObserveEnabled: () => current.policy.enabledTiers.has('observe'),
+          })
+        : []),
       ...createDiffToolDefinitions(),
       ...createWriteToolDefinitions(),
       ...createImportToolDefinitions(),

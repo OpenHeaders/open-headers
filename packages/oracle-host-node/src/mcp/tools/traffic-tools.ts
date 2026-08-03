@@ -1,7 +1,11 @@
 /**
- * Observe-tier MCP tools — the agent traffic epic's Phase A read
- * surface (AGENT_TRAFFIC_PLAN.md §5, slices S3–S4), over the injected
- * {@link TrafficTap}.
+ * Traffic MCP tools — the agent traffic epic's Phase A surface
+ * (AGENT_TRAFFIC_PLAN.md §5, slices S3–S6), over the injected
+ * {@link TrafficTap}: the observe-tier read tools plus the ONE
+ * write-tier member, `traffic_to_rule`, which mints a response-override
+ * DRAFT from an observed exchange through the same canonical rule-mint
+ * path `rules_create` uses (publishing stays a human gesture — the
+ * publication-gate law).
  *
  * Contracts inherited structurally, never re-implemented here:
  *
@@ -20,12 +24,25 @@
  *     are 500 rows, you figure it out".
  */
 
+import { RuleSchema } from '@openheaders/core/schemas';
+import { buildAddBatch as buildAddRuleBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import type { TrafficRecordProjection } from '@openheaders/core/traffic';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
 import type { TrafficTap } from '../../traffic';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
-import { requireStringArg, requireWorkspace, resolveWorkspaceIdArg, WORKSPACE_ID_PROPERTY } from './common';
+import {
+  applyMcpMutation,
+  mintMcpContext,
+  parseOrThrow,
+  requireStringArg,
+  requireWorkspace,
+  resolveWorkspaceIdArg,
+  WORKSPACE_ID_PROPERTY,
+} from './common';
 import { computeTrafficDiff } from './traffic-diff';
 import { computeTrafficGraph, isFailureProjection, trafficFailureKind } from './traffic-graph';
+import { buildResponseOverrideDraft, conditionValueForUrl, type TrafficDraftBodyInput } from './traffic-to-rule';
+import { resolveRuleParentPath } from './write-tools';
 
 const LIST_LIMIT_DEFAULT = 50;
 const LIST_LIMIT_MAX = 200;
@@ -54,6 +71,14 @@ const REDACTION_NOTE =
 
 export interface McpTrafficToolDeps {
   readonly tap: TrafficTap;
+  /**
+   * Whether the host's `observe` tier is currently enabled.
+   * `traffic_to_rule` is write-tier (the tier gate checks `write`), but
+   * it READS observed traffic — with observe disabled it would be a
+   * side door for traffic content through the write grant, so the
+   * handler refuses unless BOTH switches are on.
+   */
+  readonly isObserveEnabled: () => boolean;
 }
 
 /** The five status buckets `traffic_list` can filter by. */
@@ -635,6 +660,158 @@ export function createTrafficToolDefinitions(deps: McpTrafficToolDeps): McpToolD
         } finally {
           if (ticker !== undefined) clearInterval(ticker);
         }
+      },
+    },
+    {
+      name: 'traffic_to_rule',
+      title: 'Mint a response-override draft from an observed exchange',
+      description:
+        'Mint a response-override RULE DRAFT from one observed exchange — "make this endpoint serve X" in ' +
+        'one call. The exchange URL becomes the match condition (origin + path; the query is ignored so the ' +
+        'rule matches the re-fire), and the draft serves a MOCK response (the request never reaches the ' +
+        'server) built from the observed status, content type and body — pass statusCode / body / ' +
+        'contentType to serve a fix instead (e.g. statusCode 200 with a healthy body for an endpoint that ' +
+        'is currently failing). CORS response headers are copied from the observed response; when none were ' +
+        'observed and the request was cross-origin, a permissive set is synthesized and reported (a ' +
+        'hand-written mock reliably forgets them). A missing or binary body mints an empty draft body with ' +
+        'an honest note, never an error. The draft is NEVER auto-published (published: false — drafts do ' +
+        'not affect live traffic): publishing stays a human gesture, in Open Headers or via an explicitly ' +
+        'requested rules_update. [redacted:<hash>] markers are minted verbatim — secrets are never ' +
+        'revealed — and every draft field carrying one is listed in redactedFields so a human can fill the ' +
+        'real value before publishing. Rules are executed by connected browser extensions.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          uid: { type: 'string', description: 'Source uid from traffic_sources.' },
+          requestId: { type: 'string', description: 'Request id from traffic_list / traffic_failures.' },
+          statusCode: {
+            type: 'number',
+            description: 'Status the draft serves. Defaults to the observed status (200 when none exists).',
+          },
+          body: {
+            type: 'string',
+            description: 'Body the draft serves. Defaults to the observed body (retained or pulled).',
+          },
+          contentType: {
+            type: 'string',
+            description: 'Content type the draft serves. Defaults to the observed one.',
+          },
+          name: { type: 'string', description: 'Rule name. Defaults to "Override <METHOD> <path>".' },
+          collectionUid: {
+            type: 'string',
+            description: 'Target rule collection. Omit to use the first collection in the workspace.',
+          },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['uid', 'requestId'],
+        additionalProperties: false,
+      },
+      tier: 'write',
+      resolveWorkspaceId: resolveWorkspaceIdArg,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        if ('published' in args) {
+          throw new McpToolInputError(
+            "'published' is not accepted — traffic_to_rule always mints a draft (published: false); " +
+              'publishing stays a human gesture (save in Open Headers, or an explicitly requested rules_update)',
+          );
+        }
+        // The tier gate checks `write`, but this tool READS observed
+        // traffic into the minted rule — without the observe switch it
+        // would be a side door for traffic content through the write
+        // grant, so both host switches must be on.
+        if (!deps.isObserveEnabled()) {
+          throw new McpToolInputError(
+            'traffic_to_rule reads observed traffic, so it needs Traffic observation enabled in ' +
+              'Open Headers → Settings → MCP in addition to Write access',
+          );
+        }
+        const uid = requireSourceUid(deps, args);
+        const requestId = requireStringArg(args, 'requestId');
+        const record = deps.tap.getRecord(uid, requestId);
+        if (record === null) {
+          throw new McpToolInputError(
+            `no exchange with requestId '${requestId}' on source '${uid}' — it may have been evicted by the ` +
+              'retention bounds; see traffic_list',
+          );
+        }
+
+        // Body precedence: agent argument → retained failure body →
+        // on-demand pull → honestly empty (bodies decay — PLAN §3).
+        let bodyInput: TrafficDraftBodyInput;
+        if (typeof args.body === 'string') {
+          bodyInput = { projection: { content: args.body, encoding: 'text', truncated: false }, source: 'argument' };
+        } else if (record.failureBody !== undefined) {
+          bodyInput = { projection: record.failureBody, source: 'retained-failure' };
+        } else {
+          const pull = await deps.tap.pullBody(uid, requestId);
+          if (pull?.ok) {
+            bodyInput = { projection: pull.body, source: 'pulled' };
+          } else {
+            const reason =
+              pull === null || pull.reason === 'gone'
+                ? 'the body decayed or the source cannot serve bodies'
+                : pull.reason === 'in-flight'
+                  ? 'the request has not completed yet'
+                  : 'the request failed before a response body existed';
+            bodyInput = {
+              projection: null,
+              source: 'empty',
+              unavailableNote: `${reason} — the draft body is empty; fill responseBody before publishing`,
+            };
+          }
+        }
+
+        const statusOverride = optionalNumber(args, 'statusCode');
+        const contentTypeOverride = optionalString(args, 'contentType');
+        const draft = buildResponseOverrideDraft(record, bodyInput, {
+          ...(statusOverride !== undefined ? { statusCode: Math.floor(statusOverride) } : {}),
+          ...(contentTypeOverride !== undefined ? { contentType: contentTypeOverride } : {}),
+        });
+
+        const parentPath = await resolveRuleParentPath(workspaceId, optionalString(args, 'collectionUid'));
+        const ruleUid = generateUid();
+        const defaultName = `Override ${record.method.toUpperCase()} ${conditionValueForUrl(record.url)}`;
+        const name = optionalString(args, 'name')?.trim() || defaultName;
+        const created = parseOrThrow(
+          RuleSchema,
+          {
+            schemaVersion: 5,
+            uid: ruleUid,
+            path: `${parentPath}/${toFolderName(name, ruleUid)}`,
+            name,
+            type: 'response',
+            enabled: true,
+            published: false,
+            conditions: [{ uid: generateUid(), type: 'url-filter', values: [draft.conditionValue] }],
+            action: {
+              responseSource: 'mock',
+              bodyType: 'static',
+              responseBody: draft.responseBody,
+              statusCode: draft.statusCode,
+              contentType: draft.contentType,
+              responseHeaders: draft.responseHeaders,
+            },
+          },
+          'rule',
+        );
+        await applyMcpMutation(buildAddRuleBatch(created, mintMcpContext(workspaceId)));
+        return {
+          workspaceId,
+          rule: created,
+          draft: true,
+          observed: {
+            uid,
+            requestId,
+            url: record.url,
+            method: record.method,
+            ...(record.statusCode !== undefined ? { statusCode: record.statusCode } : {}),
+          },
+          cors: { copied: draft.corsCopied, synthesized: draft.corsSynthesized },
+          body: draft.body,
+          redactedFields: draft.redactedFields,
+          notes: draft.notes,
+        };
       },
     },
   ];
