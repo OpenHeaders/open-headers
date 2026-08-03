@@ -594,8 +594,22 @@ export const workbenchChrome = {
     "Une session de capture écrit sur disque des enregistrements de trafic caviardés. Elle s'arrête à sa limite de " +
     'taille ou de durée, au désarmement de la source, ou quand vous l’arrêtez.',
   'workbench.trafficMonitor.captureRow':
-    'Capture de cette source sur disque — enregistrements caviardés uniquement, jusqu’à l’arrêt ou la limite',
-  'workbench.trafficMonitor.captureRowAria': 'Une session de capture enregistre cette source sur disque',
+    'Capture de cette source sur disque — enregistrements caviardés uniquement ; cliquez pour arrêter',
+  'workbench.trafficMonitor.captureStart':
+    'Enregistrer sur disque — écrit le trafic caviardé de cette source dans un fichier local borné',
+  'workbench.trafficMonitor.captureAria': 'Basculer la capture sur disque pour cette source',
+  'workbench.trafficMonitor.sessionsTitle': 'Sessions',
+  'workbench.trafficMonitor.sessionsEmpty': 'Les enregistrements sur disque de cette exécution apparaissent ici',
+  'workbench.trafficMonitor.sessionDetail': '{records} enregistrements · {size}',
+  'workbench.trafficMonitor.sessionStop': 'Enregistrement en cours — cliquez pour arrêter',
+  'workbench.trafficMonitor.sessionStopAria': 'Arrêter cette session de capture',
+  'workbench.trafficMonitor.sessionReveal': 'Afficher le fichier dans le dossier',
+  'workbench.trafficMonitor.sessionRevealAria': 'Afficher le fichier de session dans le gestionnaire de fichiers',
+  'workbench.trafficMonitor.sessionEndStopped': 'Arrêtée',
+  'workbench.trafficMonitor.sessionEndSizeBound': 'Limite de taille',
+  'workbench.trafficMonitor.sessionEndDurationBound': 'Limite de durée',
+  'workbench.trafficMonitor.sessionEndSourceDisarmed': 'Source désarmée',
+  'workbench.trafficMonitor.sessionEndWriteError': 'Erreur d’écriture',
   'workbench.trafficMonitor.noBrowsersHint':
     "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
   'workbench.trafficMonitor.installExtension': "Installer l'extension {browser}",

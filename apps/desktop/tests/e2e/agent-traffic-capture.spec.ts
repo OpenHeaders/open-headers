@@ -21,6 +21,13 @@
  *   5. Bound trip: a session with a tiny byte bound STOPS itself
  *      (`size-bound` in its status and trailer) — never a silent
  *      truncate-and-continue — and the indicator converges off.
+ *   6. Workbench gesture: the rail's per-source record affordance
+ *      starts a session (redaction policy attached by the UI path —
+ *      never an unredacted file from a button) and the indicator it
+ *      becomes stops it on the next click.
+ *   7. Sessions section: the rail's third section lists this run's
+ *      recordings — honest end-reason labels, reveal-in-folder on
+ *      ended rows, and an active row's stop action working.
  *
  * Requires builds: `pnpm --filter @openheaders/desktop build` and the
  * extension `dist/chrome` (built separately). The playground dev server
@@ -407,4 +414,89 @@ test('a tripped byte bound stops the session with the honest reason and the indi
   // The indicator converges off once nothing captures.
   await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
+});
+
+// ── The Workbench affordance: start/stop as a human gesture ─────────
+
+test('the rail affordance starts a session with the forced redaction policy and stops it on the next click', async () => {
+  await openTrafficMonitor();
+  await refreshRail();
+
+  // The armed row reveals the record affordance; unarmed rows carry none.
+  const start = workbench.locator('[data-testid="traffic-monitor-source-capture"]').first();
+  await expect(start).toBeVisible({ timeout: 10000 });
+  const before = (await captureSessions()).length;
+  await start.click();
+
+  // The click's own convergence (no refresh): an ACTIVE session on the
+  // operator plane, on the armed source, with the redaction policy the
+  // UI path attaches — never an unredacted file from a button.
+  await expect
+    .poll(async () => (await captureSessions()).find((s) => s.state === 'active')?.sourceUid, { timeout: 15000 })
+    .toBe(armedUid);
+  const active = (await captureSessions()).find((s) => s.state === 'active');
+  expect(active?.redaction).toBe('standard');
+  expect(active?.name.length).toBeGreaterThan(0);
+
+  // The affordance became the always-visible retention indicator.
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
+    timeout: 10000,
+  });
+  await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toBeVisible({ timeout: 10000 });
+
+  // Second click stops the session honestly and the indicator converges.
+  await workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first().click();
+  await expect
+    .poll(async () => (await captureSessions()).find((s) => s.sessionId === active?.sessionId)?.state, {
+      timeout: 15000,
+    })
+    .toBe('stopped');
+  expect((await captureSessions()).find((s) => s.sessionId === active?.sessionId)?.endReason).toBe('stopped');
+  expect((await captureSessions()).length).toBe(before + 1);
+  await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-capture"]').first()).toBeVisible({
+    timeout: 10000,
+  });
+});
+
+// ── The SESSIONS rail section: this run's recordings ────────────────
+
+test("the Sessions section lists this run's recordings with honest end reasons, reveal and stop actions", async () => {
+  await openTrafficMonitor();
+  await refreshRail();
+
+  // Every session the operator plane knows appears as a row (this-run
+  // scope by design — prior-run files stay unenumerated).
+  const sessions = await captureSessions();
+  expect(sessions.length).toBeGreaterThanOrEqual(3);
+  const rows = workbench.locator('[data-testid="traffic-monitor-session-row"]');
+  await expect(rows).toHaveCount(sessions.length, { timeout: 10000 });
+
+  // Ended rows carry their end reason; the size-bound trip from the
+  // bound-trip leg renders its honest label, and ended rows offer the
+  // reveal-in-folder action (the host capability is present on desktop).
+  await expect(workbench.locator('[data-testid="traffic-monitor-session-end"]', { hasText: 'Size limit' })).toHaveCount(
+    1,
+  );
+  expect(await workbench.locator('[data-testid="traffic-monitor-session-reveal"]').count()).toBe(sessions.length);
+
+  // An active session's row stops it from the section itself.
+  const started = (await invoke({
+    type: 'oh.daemon.traffic.capture.start',
+    uid: armedUid,
+    name: 'sessions-section stop',
+    redaction: 'standard',
+  })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
+  expect(started.ok, started.error).toBe(true);
+  await refreshRail();
+  const stop = workbench.locator('[data-testid="traffic-monitor-session-stop"]');
+  await expect(stop).toBeVisible({ timeout: 10000 });
+  await stop.click();
+  await expect
+    .poll(async () => (await captureSessions()).find((s) => s.sessionId === started.session?.sessionId)?.state, {
+      timeout: 15000,
+    })
+    .toBe('stopped');
+  expect((await captureSessions()).find((s) => s.sessionId === started.session?.sessionId)?.endReason).toBe('stopped');
+  await expect(workbench.locator('[data-testid="traffic-monitor-session-stop"]')).toHaveCount(0, { timeout: 10000 });
 });

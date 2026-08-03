@@ -594,8 +594,22 @@ export const workbenchChrome = {
     'Una sesión de captura está escribiendo en disco registros de tráfico censurados. Se detiene al alcanzar su ' +
     'límite de tamaño o duración, al desarmar la fuente o cuando la detengas.',
   'workbench.trafficMonitor.captureRow':
-    'Capturando esta fuente a disco: solo registros censurados, hasta detenerla o alcanzar su límite',
-  'workbench.trafficMonitor.captureRowAria': 'Una sesión de captura está grabando esta fuente a disco',
+    'Capturando esta fuente a disco: solo registros censurados; haz clic para detener',
+  'workbench.trafficMonitor.captureStart':
+    'Grabar a disco: escribe el tráfico censurado de esta fuente en un archivo local acotado',
+  'workbench.trafficMonitor.captureAria': 'Alternar la captura a disco de esta fuente',
+  'workbench.trafficMonitor.sessionsTitle': 'Sesiones',
+  'workbench.trafficMonitor.sessionsEmpty': 'Las grabaciones a disco de esta ejecución aparecen aquí',
+  'workbench.trafficMonitor.sessionDetail': '{records} registros · {size}',
+  'workbench.trafficMonitor.sessionStop': 'Grabando: haz clic para detener',
+  'workbench.trafficMonitor.sessionStopAria': 'Detener esta sesión de captura',
+  'workbench.trafficMonitor.sessionReveal': 'Mostrar el archivo en la carpeta',
+  'workbench.trafficMonitor.sessionRevealAria': 'Mostrar el archivo de la sesión en el gestor de archivos',
+  'workbench.trafficMonitor.sessionEndStopped': 'Detenida',
+  'workbench.trafficMonitor.sessionEndSizeBound': 'Límite de tamaño',
+  'workbench.trafficMonitor.sessionEndDurationBound': 'Límite de tiempo',
+  'workbench.trafficMonitor.sessionEndSourceDisarmed': 'Fuente desarmada',
+  'workbench.trafficMonitor.sessionEndWriteError': 'Error de escritura',
   'workbench.trafficMonitor.noBrowsersHint':
     'No hay navegadores conectados. Abre un navegador con la extensión instalada, o instálala:',
   'workbench.trafficMonitor.installExtension': 'Instalar la extensión de {browser}',

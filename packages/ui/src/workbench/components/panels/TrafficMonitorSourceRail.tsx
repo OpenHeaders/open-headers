@@ -1,12 +1,13 @@
 /**
  * TrafficMonitorSourceRail — the right-hand source list of the Traffic Monitor
- * tool window. Two collapsible sections in the sidebar's own idiom
+ * tool window. Three collapsible sections in the sidebar's own idiom
  * (shared {@link SectionHeader} + `rules-sidebar-item` rows): BROWSER
  * TABS — every connected peer under a colored brand roundel with its
  * extension version, each tab as favicon + title like the browser's own
- * tab strip — and WIRE, the L7 capture partition (any app routed
- * through the capture port). Selecting a row binds the panel's plane
- * views on the left to that source.
+ * tab strip — WIRE, the L7 capture partition (any app routed through
+ * the capture port) — and SESSIONS, this run's disk capture sessions
+ * ({@link TrafficMonitorSessionsSection}). Selecting a row binds the
+ * panel's plane views on the left to that source.
  *
  * Favicons arrive as `data:` URIs the EXTENSION resolved from the
  * browser's own favicon cache — the workbench renderer's CSP forbids
@@ -29,9 +30,11 @@ import {
   PushpinFilled,
   ReloadOutlined,
   SaveFilled,
+  SaveOutlined,
 } from '@ant-design/icons';
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
+import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
 import { Button, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
@@ -43,6 +46,7 @@ import {
 } from '../../data/extension-stores';
 import { SectionHeader } from '../sidebar/SectionHeader';
 import { BrowserBrandIcon } from './browser-brand-icons';
+import { TrafficMonitorSessionsSection } from './TrafficMonitorSessionsSection';
 
 /** Default rail width; the vertical sash can resize it within bounds. */
 export const RAIL_DEFAULT_WIDTH = 350;
@@ -130,6 +134,22 @@ export interface TrafficMonitorSourceRailProps {
    *  retention indicator (header badge + per-row mark) must be visible
    *  the whole time a session runs — PLAN §3. */
   captureActive: ReadonlySet<TrafficSourceKey>;
+  /** Sources whose capture start/stop command is in flight — spinner state. */
+  capturePending: ReadonlySet<TrafficSourceKey>;
+  /** Start/stop a disk capture session on an ARMED source. Human gesture
+   *  only — the channel has no MCP mirror by design. */
+  onCaptureToggle: (key: TrafficSourceKey) => void;
+  /** THIS RUN's capture sessions — the SESSIONS section's rows (active
+   *  first, then recent ended ones with their honest end reasons). */
+  sessions: ReadonlyArray<TrafficCaptureSessionProjection>;
+  /** Sessions whose stop command is in flight — spinner state. */
+  sessionPending: ReadonlySet<string>;
+  /** Stop an ACTIVE session from its row. */
+  onSessionStop: (session: TrafficCaptureSessionProjection) => void;
+  /** The host can reveal session files in its OS file manager. */
+  canRevealSessions: boolean;
+  /** Reveal an ended session's file. */
+  onSessionReveal: (session: TrafficCaptureSessionProjection) => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -232,23 +252,59 @@ function TabDebugAffordance({
 }
 
 /**
- * Per-source retention indicator (AGENT_TRAFFIC_PLAN.md §3, S7): shown
- * — always visible, never hover-revealed — while a disk capture session
- * records this source. Purely informational: sessions start and stop on
- * the operator plane; the rail only makes the disk write legible.
+ * Per-source disk-capture affordance (AGENT_TRAFFIC_PLAN.md §3, S7):
+ * the human gesture that starts/stops a capture session on an ARMED
+ * source. While a session records, it doubles as the retention
+ * indicator — always visible, never hover-revealed, the whole time the
+ * session runs (PLAN §3) — and a click stops the session. Idle it is
+ * hover-revealed like the Debug affordance. Renders only on armed
+ * sources: arming is the entry gesture for the records plane, and an
+ * unarmed source has nothing to capture.
  */
-function SourceCaptureIndicator() {
+function SourceCaptureAffordance({
+  capturing,
+  pending,
+  onToggle,
+}: {
+  capturing: boolean;
+  /** A start/stop the last click triggered is still in flight. */
+  pending: boolean;
+  onToggle: () => void;
+}) {
   const t = useT();
   const { token } = theme.useToken();
+  const title = capturing ? t('workbench.trafficMonitor.captureRow') : t('workbench.trafficMonitor.captureStart');
+  const icon = pending ? (
+    <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
+  ) : capturing ? (
+    <SaveFilled style={{ fontSize: 12, color: token.colorError }} />
+  ) : (
+    <SaveOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+  );
   return (
-    <Tooltip title={t('workbench.trafficMonitor.captureRow')} placement="left">
+    <Tooltip title={title} placement="left">
       <span
-        role="img"
-        data-testid="traffic-monitor-source-capturing"
-        aria-label={t('workbench.trafficMonitor.captureRowAria')}
+        role="button"
+        tabIndex={0}
+        data-testid={capturing ? 'traffic-monitor-source-capturing' : 'traffic-monitor-source-capture'}
+        aria-label={t('workbench.trafficMonitor.captureAria')}
+        aria-pressed={capturing}
+        aria-busy={pending}
+        className={pending || capturing ? undefined : 'rules-sidebar-item-hover-action'}
         style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!pending) onToggle();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!pending) onToggle();
+          }
+        }}
       >
-        <SaveFilled style={{ fontSize: 12, color: token.colorError }} />
+        {icon}
       </span>
     </Tooltip>
   );
@@ -328,6 +384,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   observePending,
   onObserveToggle,
   captureActive,
+  capturePending,
+  onCaptureToggle,
+  sessions,
+  sessionPending,
+  onSessionStop,
+  canRevealSessions,
+  onSessionReveal,
   width,
 }) => {
   const t = useT();
@@ -521,7 +584,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                             >
                               {title}
                             </span>
-                            {captureActive.has(key) && <SourceCaptureIndicator />}
+                            {(captureActive.has(key) || (observeArmed.has(key) && peer.watchConsent)) && (
+                              <SourceCaptureAffordance
+                                capturing={captureActive.has(key)}
+                                pending={capturePending.has(key)}
+                                onToggle={() => onCaptureToggle(key)}
+                              />
+                            )}
                             {peer.watchConsent && (
                               <SourceObserveAffordance
                                 armed={observeArmed.has(key)}
@@ -567,7 +636,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
           >
             <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
             <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
-            {captureActive.has(WIRE_SOURCE_KEY) && <SourceCaptureIndicator />}
+            {(captureActive.has(WIRE_SOURCE_KEY) || observeArmed.has(WIRE_SOURCE_KEY)) && (
+              <SourceCaptureAffordance
+                capturing={captureActive.has(WIRE_SOURCE_KEY)}
+                pending={capturePending.has(WIRE_SOURCE_KEY)}
+                onToggle={() => onCaptureToggle(WIRE_SOURCE_KEY)}
+              />
+            )}
             <SourceObserveAffordance
               armed={observeArmed.has(WIRE_SOURCE_KEY)}
               pending={observePending.has(WIRE_SOURCE_KEY)}
@@ -644,6 +719,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
           />
         )}
         {wirePane}
+        <TrafficMonitorSessionsSection
+          sessions={sessions}
+          pending={sessionPending}
+          onStop={onSessionStop}
+          canReveal={canRevealSessions}
+          onReveal={onSessionReveal}
+        />
       </div>
     </div>
   );

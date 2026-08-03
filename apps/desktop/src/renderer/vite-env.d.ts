@@ -82,6 +82,7 @@ declare global {
       };
       openExternal(url: string): Promise<{ ok: boolean; error?: string }>;
       openInBrowser(url: string, browser: 'chrome' | 'edge' | 'firefox'): Promise<{ ok: boolean; error?: string }>;
+      revealInFolder(path: string): Promise<{ ok: boolean; error?: string }>;
       protocol: {
         onUrl(handler: (url: string) => void): () => void;
       };

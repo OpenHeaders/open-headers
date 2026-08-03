@@ -8,12 +8,16 @@
  * `oh.openInBrowser(url, browser)` targets a NAMED browser (the
  * extension-install CTAs); main falls back to the default browser when
  * the named one isn't installed. http(s) only.
+ *
+ * `oh.revealInFolder(path)` shows one of the app's own files in the OS
+ * file manager — main refuses anything outside the app data directory.
  */
 
 import { ipcRenderer } from 'electron';
 
 const CHANNEL = 'oh:open-external';
 const BROWSER_CHANNEL = 'oh:open-in-browser';
+const REVEAL_CHANNEL = 'oh:reveal-in-folder';
 
 export interface OpenExternalResult {
   ok: boolean;
@@ -28,5 +32,8 @@ export const externalLinks = {
   },
   openInBrowser(url: string, browser: InstallTargetBrowser): Promise<OpenExternalResult> {
     return ipcRenderer.invoke(BROWSER_CHANNEL, url, browser) as Promise<OpenExternalResult>;
+  },
+  revealInFolder(path: string): Promise<OpenExternalResult> {
+    return ipcRenderer.invoke(REVEAL_CHANNEL, path) as Promise<OpenExternalResult>;
   },
 };

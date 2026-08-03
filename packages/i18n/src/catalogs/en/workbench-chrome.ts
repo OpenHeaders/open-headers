@@ -568,9 +568,22 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.captureBadgeHint':
     'A capture session is writing redacted traffic records to disk. It stops at its size or duration bound, when the ' +
     'source is disarmed, or when you stop it.',
-  'workbench.trafficMonitor.captureRow':
-    'Capturing this source to disk — redacted records only, until stopped or its bound trips',
-  'workbench.trafficMonitor.captureRowAria': 'A capture session is recording this source to disk',
+  'workbench.trafficMonitor.captureRow': 'Capturing this source to disk — redacted records only; click to stop',
+  'workbench.trafficMonitor.captureStart':
+    'Record to disk — writes this source’s redacted traffic to a bounded local file',
+  'workbench.trafficMonitor.captureAria': 'Toggle disk capture for this source',
+  'workbench.trafficMonitor.sessionsTitle': 'Sessions',
+  'workbench.trafficMonitor.sessionsEmpty': 'Disk recordings from this app run appear here',
+  'workbench.trafficMonitor.sessionDetail': '{records} records · {size}',
+  'workbench.trafficMonitor.sessionStop': 'Recording — click to stop',
+  'workbench.trafficMonitor.sessionStopAria': 'Stop this capture session',
+  'workbench.trafficMonitor.sessionReveal': 'Show file in folder',
+  'workbench.trafficMonitor.sessionRevealAria': 'Show the session file in the file manager',
+  'workbench.trafficMonitor.sessionEndStopped': 'Stopped',
+  'workbench.trafficMonitor.sessionEndSizeBound': 'Size limit',
+  'workbench.trafficMonitor.sessionEndDurationBound': 'Time limit',
+  'workbench.trafficMonitor.sessionEndSourceDisarmed': 'Source disarmed',
+  'workbench.trafficMonitor.sessionEndWriteError': 'Write error',
   'workbench.trafficMonitor.noBrowsersHint':
     'No browsers connected. Open a browser with the extension installed, or install it:',
   'workbench.trafficMonitor.installExtension': 'Install {browser} extension',

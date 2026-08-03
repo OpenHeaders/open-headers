@@ -33,6 +33,7 @@ const api = {
   lifeline,
   openExternal: externalLinks.openExternal,
   openInBrowser: externalLinks.openInBrowser,
+  revealInFolder: externalLinks.revealInFolder,
   protocol,
   terminal,
 };

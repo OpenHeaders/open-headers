@@ -588,8 +588,22 @@ export const workbenchChrome = {
     'Eine Aufzeichnungssitzung schreibt geschwärzte Verkehrsdatensätze auf den Datenträger. Sie stoppt an ihrer ' +
     'Größen- oder Zeitgrenze, beim Entschärfen der Quelle oder wenn Sie sie stoppen.',
   'workbench.trafficMonitor.captureRow':
-    'Diese Quelle wird auf den Datenträger aufgezeichnet — nur geschwärzte Datensätze, bis zum Stopp oder zur Grenze',
-  'workbench.trafficMonitor.captureRowAria': 'Eine Aufzeichnungssitzung zeichnet diese Quelle auf den Datenträger auf',
+    'Diese Quelle wird auf den Datenträger aufgezeichnet — nur geschwärzte Datensätze; zum Stoppen klicken',
+  'workbench.trafficMonitor.captureStart':
+    'Auf Datenträger aufzeichnen — schreibt den geschwärzten Verkehr dieser Quelle in eine begrenzte lokale Datei',
+  'workbench.trafficMonitor.captureAria': 'Datenträger-Aufzeichnung für diese Quelle umschalten',
+  'workbench.trafficMonitor.sessionsTitle': 'Sitzungen',
+  'workbench.trafficMonitor.sessionsEmpty': 'Aufzeichnungen dieser App-Ausführung erscheinen hier',
+  'workbench.trafficMonitor.sessionDetail': '{records} Datensätze · {size}',
+  'workbench.trafficMonitor.sessionStop': 'Aufzeichnung läuft — zum Stoppen klicken',
+  'workbench.trafficMonitor.sessionStopAria': 'Diese Aufzeichnungssitzung stoppen',
+  'workbench.trafficMonitor.sessionReveal': 'Datei im Ordner anzeigen',
+  'workbench.trafficMonitor.sessionRevealAria': 'Die Sitzungsdatei im Dateimanager anzeigen',
+  'workbench.trafficMonitor.sessionEndStopped': 'Gestoppt',
+  'workbench.trafficMonitor.sessionEndSizeBound': 'Größenlimit',
+  'workbench.trafficMonitor.sessionEndDurationBound': 'Zeitlimit',
+  'workbench.trafficMonitor.sessionEndSourceDisarmed': 'Quelle entwaffnet',
+  'workbench.trafficMonitor.sessionEndWriteError': 'Schreibfehler',
   'workbench.trafficMonitor.noBrowsersHint':
     'Keine Browser verbunden. Öffne einen Browser mit installierter Erweiterung oder installiere sie:',
   'workbench.trafficMonitor.installExtension': 'Erweiterung für {browser} installieren',

@@ -15,14 +15,23 @@
  * listing must land in the browser that will install the extension),
  * falling back to the default-browser path when that browser isn't
  * installed. http(s) only — no mailto for a browser-targeted open.
+ *
+ * `oh:reveal-in-folder` shows one of the APP'S OWN files in the OS file
+ * manager (the capture-session rows). Scoped hard: only existing files
+ * under the app's `data/` root are revealed — this is a
+ * show-my-recording gesture, never a generic reveal-any-path primitive.
  */
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { relative, resolve, sep } from 'node:path';
 import { ipcMain, shell } from 'electron';
+import { dataDir } from './app-paths';
 import { createLogger } from './logger';
 
 const CHANNEL = 'oh:open-external';
 const BROWSER_CHANNEL = 'oh:open-in-browser';
+const REVEAL_CHANNEL = 'oh:reveal-in-folder';
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 const BROWSER_PROTOCOLS = new Set(['http:', 'https:']);
 
@@ -131,5 +140,23 @@ export function installExternalLinkHandler(): void {
       logger.error('shell.openExternal fallback failed', err);
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
+  });
+
+  ipcMain.handle(REVEAL_CHANNEL, (_event, rawPath: unknown): OpenExternalResult => {
+    if (typeof rawPath !== 'string' || rawPath.length === 0) {
+      return { ok: false, error: 'path must be a string' };
+    }
+    const target = resolve(rawPath);
+    const root = resolve(dataDir());
+    const rel = relative(root, target);
+    if (rel.length === 0 || rel.startsWith('..') || rel.split(sep)[0] === '..') {
+      logger.warn('blocked reveal outside the data root');
+      return { ok: false, error: 'path outside the app data directory' };
+    }
+    if (!existsSync(target)) {
+      return { ok: false, error: 'file not found' };
+    }
+    shell.showItemInFolder(target);
+    return { ok: true };
   });
 }
