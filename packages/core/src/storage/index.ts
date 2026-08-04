@@ -25,6 +25,7 @@ export {
   type StorageKey,
   type StorageKeyOptions,
   storageKey,
+  type TabGroupFeedbackEntry,
   UI,
   type WorkspaceKeys,
   type WorkspaceTreeBindingRecord,

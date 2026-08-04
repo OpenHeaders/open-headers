@@ -282,6 +282,14 @@ export interface DesktopWatchActivity {
   sessions: number;
 }
 
+/** One tab's entry in {@link OH.tabGroupFeedback}. */
+export interface TabGroupFeedbackEntry {
+  /** The group the tab sat in before the reactor grouped it, or -1. */
+  priorGroupId: number;
+  /** The reactor-created group the tab was put in. */
+  groupId: number;
+}
+
 // ── Global keys ──────────────────────────────────────────────────────
 
 export const OH = {
@@ -318,6 +326,14 @@ export const OH = {
    * hosts restart (they publish their empty state on install).
    */
   desktopWatchActivity: storageKey<DesktopWatchActivity>('oh.desktopWatchActivity'),
+  /**
+   * Tab-group feedback bookkeeping (AGENT_TRAFFIC_PLAN.md §4): tabId →
+   * prior/current group for tabs the reactor grouped while a desktop
+   * consumer observes them. chrome.storage-authoritative so a service-
+   * worker restart mid-arm still restores the tab's prior grouping on
+   * disarm.
+   */
+  tabGroupFeedback: storageKey<Record<string, TabGroupFeedbackEntry>>('oh.tabGroupFeedback'),
   /**
    * Product-telemetry install identity (TELEMETRY_PLAN.md §4, amended
    * 2026-07-16): a random resettable id + mint date. Deleted whenever

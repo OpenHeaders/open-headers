@@ -56,6 +56,7 @@ import { startResourceTimingRelay } from '../resource-timing-relay';
 import { startRuleEngineDriver } from '../rule-engine-driver';
 import { recordFiresForReport } from '../rule-engine-driver/fire-recorder';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
+import { startTabGroupReactor } from '../tab-group-reactor';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { startTelemetryStreamHost } from '../telemetry-stream-host';
 import { startTelemetryConsoleHost } from '../telemetry-stream-host/console-host';
@@ -396,6 +397,12 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // view-only (no eval verbs cross this seam); loopback wires only.
   // Same start-order law as the storage host — before the announce.
   startTelemetryConsoleHost({ hub: consoleStreamHub });
+  // In-browser observation feedback (AGENT_TRAFFIC_PLAN.md §4): while a
+  // desktop consumer watches a tab, the tab rides in a blue "OpenHeaders"
+  // tab group. Started BEFORE the stream host so the armed-tab ledger's
+  // first transition already has its subscriber; feature-detected —
+  // browsers without tab groups get a silent no-op.
+  startTabGroupReactor();
   // Desktop live-view plane (OBSERVABILITY_PLAN.md Phase 1): the same
   // hub + floors + provenance + body fetcher served over the backend
   // wire — a forwarded workbench subscribe raises the tracking ref and

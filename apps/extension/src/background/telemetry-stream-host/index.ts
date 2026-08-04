@@ -58,6 +58,7 @@ import { logger } from '@utils/logger';
 import type { LifecycleBodyFetcher, LifecycleProvenance } from '../lifecycle-port-host';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { browserName, platformName } from '../self-host-label';
+import { armedTabDrop, armedTabRaise } from './armed-tabs';
 import { desktopWatchAllowed, subscribeDesktopWatchConsent, watchRefusedFrame } from './consent';
 import { watchActivityDrop, watchActivityRaise, watchActivitySync } from './watch-activity';
 
@@ -338,6 +339,9 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     session = created;
     sessions.set(key, created);
     watchActivityRaise(`lc:${key}`);
+    // The armed-tab ledger feeds the tab-group reactor's in-browser
+    // observation feedback — raised per session, armed on the first.
+    armedTabRaise(tabId, key);
     // The watch itself is what turns webRequest ingestion on for the
     // tab — the same ref-count plane the panel's port raises.
     startTracking(tabId, created.trackingReason);
@@ -354,6 +358,7 @@ export function startTelemetryStreamHost(options: TelemetryStreamHostOptions): T
     const key = sessionKey(session.backendId, session.tabId, session.consumerId);
     sessions.delete(key);
     watchActivityDrop(`lc:${key}`);
+    armedTabDrop(session.tabId, key);
     session.handle?.detach();
     session.handle = null;
     if (session.flushTimer !== null) {

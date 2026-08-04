@@ -87,6 +87,8 @@ function describeLastEntry(entry: ActivityEntry | null): string | null {
       return `${entry.entityType} sensitive field changed`;
     case 'permission-scope-expansion':
       return `${entry.entityType} scope widened`;
+    case 'agent-observe':
+      return 'AI agent observed traffic';
   }
 }
 

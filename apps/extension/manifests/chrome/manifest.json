@@ -21,6 +21,7 @@
     "declarativeNetRequestWithHostAccess",
     "declarativeNetRequestFeedback",
     "tabs",
+    "tabGroups",
     "webRequest",
     "webNavigation",
     "debugger",
