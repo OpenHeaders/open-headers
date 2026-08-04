@@ -633,30 +633,26 @@ body {
   }
 }
 
-// Draggable divider between the browser-tabs pane and the wire pane.
-.traffic-monitor-sash {
-  flex: 0 0 auto;
-  height: 6px;
-  margin: 2px 0;
-  cursor: row-resize;
-  position: relative;
+// Option rows inside the observe affordance's popover.
+.traffic-monitor-observe-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
 
-  &::after {
-    content: '';
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    top: 50%;
-    height: 1px;
-    transform: translateY(-50%);
-    background: rgba(128, 128, 128, 0.25);
-    transition: background 0.12s ease;
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
   }
+}
 
-  &:hover::after {
-    background: rgba(24, 144, 255, 0.5);
-    height: 2px;
-  }
+[data-theme='dark'] .traffic-monitor-observe-option:hover {
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 // Draggable divider above the Traffic Monitor's stacked storage/console panes.

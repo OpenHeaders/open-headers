@@ -1,11 +1,14 @@
 /**
  * TrafficMonitorSourceRail — the right-hand source list of the Traffic Monitor
  * tool window. Three collapsible sections in the sidebar's own idiom
- * (shared {@link SectionHeader} + `rules-sidebar-item` rows): BROWSER
- * TABS — every connected peer under a colored brand roundel with its
- * extension version, each tab as favicon + title like the browser's own
- * tab strip — WIRE, the L7 capture partition (any app routed through
- * the capture port) — and SESSIONS, this run's disk capture sessions
+ * (shared {@link SectionHeader} + `rules-sidebar-item` rows inside one
+ * `rules-sidebar-content` column — collapsed sections shrink to their
+ * headers, expanded bodies share the space, exactly like the workspace
+ * sidebar's sections): BROWSER TABS — every connected peer under a
+ * colored brand roundel with its extension version, each tab as
+ * favicon + title like the browser's own tab strip — WIRE, the L7
+ * capture partition (any app routed through the capture port) — and
+ * SESSIONS, this run's disk capture sessions
  * ({@link TrafficMonitorSessionsSection}). Selecting a row binds the
  * panel's plane views on the left to that source.
  *
@@ -35,9 +38,9 @@ import {
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
 import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
-import { Button, Switch, Tag, theme, Tooltip } from 'antd';
+import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   EXTENSION_STORE_URLS,
@@ -52,8 +55,6 @@ import { TrafficMonitorSessionsSection } from './TrafficMonitorSessionsSection';
 export const RAIL_DEFAULT_WIDTH = 350;
 export const RAIL_MIN_WIDTH = 180;
 export const RAIL_MAX_WIDTH = 520;
-/** Min height either sash pane keeps; drag clamps against this. */
-const MIN_PANE_HEIGHT = 96;
 
 export interface RailPeerTab {
   tabId: number;
@@ -122,23 +123,20 @@ export interface TrafficMonitorSourceRailProps {
   debugPending: ReadonlySet<TrafficSourceKey>;
   /** Peers whose master-switch command is in flight — switch loading. */
   debugEnablePending: ReadonlySet<string>;
-  /** Sources armed for agent observation (AGENT_TRAFFIC_PLAN.md §4) —
-   *  tab keys plus {@link WIRE_SOURCE_KEY} when the proxy partition is
-   *  armed. Armed = the source streams to the desktop app. */
+  /** Sources armed for AI-agent observation (AGENT_TRAFFIC_PLAN.md §4)
+   *  — tab keys plus {@link WIRE_SOURCE_KEY} when the proxy partition
+   *  is armed. Armed = the source streams to the desktop app. */
   observeArmed: ReadonlySet<TrafficSourceKey>;
-  /** Sources whose arm/disarm command is in flight — spinner state. */
+  /** Sources whose observe action is in flight — spinner state. */
   observePending: ReadonlySet<TrafficSourceKey>;
-  /** Arm/disarm a source for agent observation. */
-  onObserveToggle: (key: TrafficSourceKey) => void;
+  /** Fire one observe-popover action on a source. The save-flavored
+   *  verbs start/stop disk sessions — human gesture only, the channel
+   *  has no MCP mirror by design. */
+  onObserveAction: (key: TrafficSourceKey, action: ObserveAction) => void;
   /** Sources an ACTIVE disk capture session is recording (S7). The
    *  retention indicator (header badge + per-row mark) must be visible
    *  the whole time a session runs — PLAN §3. */
   captureActive: ReadonlySet<TrafficSourceKey>;
-  /** Sources whose capture start/stop command is in flight — spinner state. */
-  capturePending: ReadonlySet<TrafficSourceKey>;
-  /** Start/stop a disk capture session on an ARMED source. Human gesture
-   *  only — the channel has no MCP mirror by design. */
-  onCaptureToggle: (key: TrafficSourceKey) => void;
   /** THIS RUN's capture sessions — the SESSIONS section's rows (active
    *  first, then recent ended ones with their honest end reasons). */
   sessions: ReadonlyArray<TrafficCaptureSessionProjection>;
@@ -252,118 +250,169 @@ function TabDebugAffordance({
 }
 
 /**
- * Per-source disk-capture affordance (AGENT_TRAFFIC_PLAN.md §3, S7):
- * the human gesture that starts/stops a capture session on an ARMED
- * source. While a session records, it doubles as the retention
- * indicator — always visible, never hover-revealed, the whole time the
- * session runs (PLAN §3) — and a click stops the session. Idle it is
- * hover-revealed like the Debug affordance. Renders only on armed
- * sources: arming is the entry gesture for the records plane, and an
- * unarmed source has nothing to capture.
+ * The action verbs the observe affordance's popover can fire — the
+ * panel owns their host-call sequences. `arm-save` and `stop-save`
+ * bundle the disk session with the arm gesture; every save-flavored
+ * verb stays a human click, so the no-MCP-mirror law (PLAN §3) holds.
  */
-function SourceCaptureAffordance({
-  capturing,
-  pending,
-  onToggle,
+export type ObserveAction = 'arm' | 'arm-save' | 'save' | 'stop' | 'stop-save';
+
+/** One popover option row: icon + title, optional honesty hint below. */
+function ObserveMenuOption({
+  testid,
+  icon,
+  title,
+  hint,
+  onClick,
 }: {
-  capturing: boolean;
-  /** A start/stop the last click triggered is still in flight. */
-  pending: boolean;
-  onToggle: () => void;
+  testid: string;
+  icon: React.ReactNode;
+  title: string;
+  hint?: string;
+  onClick: () => void;
 }) {
-  const t = useT();
   const { token } = theme.useToken();
-  const title = capturing ? t('workbench.trafficMonitor.captureRow') : t('workbench.trafficMonitor.captureStart');
-  const icon = pending ? (
-    <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
-  ) : capturing ? (
-    <SaveFilled style={{ fontSize: 12, color: token.colorError }} />
-  ) : (
-    <SaveOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-  );
   return (
-    <Tooltip title={title} placement="left">
-      <span
-        role="button"
-        tabIndex={0}
-        data-testid={capturing ? 'traffic-monitor-source-capturing' : 'traffic-monitor-source-capture'}
-        aria-label={t('workbench.trafficMonitor.captureAria')}
-        aria-pressed={capturing}
-        aria-busy={pending}
-        className={pending || capturing ? undefined : 'rules-sidebar-item-hover-action'}
-        style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!pending) onToggle();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!pending) onToggle();
-          }
-        }}
-      >
-        {icon}
+    <button type="button" data-testid={testid} className="traffic-monitor-observe-option" onClick={onClick}>
+      <span style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', paddingTop: 1 }}>{icon}</span>
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>{title}</span>
+        {hint !== undefined && (
+          <span style={{ fontSize: 11, color: token.colorTextTertiary, textAlign: 'left' }}>{hint}</span>
+        )}
       </span>
-    </Tooltip>
+    </button>
   );
 }
 
 /**
- * Per-source agent-observation toggle (AGENT_TRAFFIC_PLAN.md §4): the
- * human gesture that arms one source for the MCP `observe` tier. The
- * affordance carries the honesty copy — armed = the source STREAMS to
- * the desktop with no panel open, redaction is best-effort, idle arms
- * expire — and stays visible while armed, hover-revealed otherwise
- * (the Debug affordance's posture).
+ * Per-source AI-agent observation affordance (AGENT_TRAFFIC_PLAN.md §4
+ * arming + §3 disk capture behind ONE control): the eye opens a popover
+ * whose options carry the honesty copy. Idle it offers "Observe only" /
+ * "Observe + save session"; armed it offers the single stop plus the
+ * save upgrade; while a session records it offers the single combined
+ * stop. Colors state the stakes — blue (the Debug affordance's color) =
+ * streaming to the desktop app in memory, red = also writing to disk —
+ * and the red eye IS the per-row retention indicator, always visible,
+ * never hover-revealed, the whole time a session runs (PLAN §3).
  */
 function SourceObserveAffordance({
   armed,
+  capturing,
   pending,
-  onToggle,
+  onAction,
 }: {
   armed: boolean;
-  /** An arm/disarm the last click triggered is still in flight. */
+  /** An ACTIVE disk capture session is recording this source. */
+  capturing: boolean;
+  /** An action the last click triggered is still in flight. */
   pending: boolean;
-  onToggle: () => void;
+  onAction: (action: ObserveAction) => void;
 }) {
   const t = useT();
   const { token } = theme.useToken();
-  const title = armed ? t('workbench.trafficMonitor.observeArmed') : t('workbench.trafficMonitor.observeArm');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const title = capturing
+    ? t('workbench.trafficMonitor.observeCapturing')
+    : armed
+      ? t('workbench.trafficMonitor.observeArmed')
+      : t('workbench.trafficMonitor.observeArm');
   const icon = pending ? (
     <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
+  ) : capturing ? (
+    <EyeFilled style={{ fontSize: 12, color: token.colorError }} />
   ) : armed ? (
-    <EyeFilled style={{ fontSize: 12, color: token.colorWarning }} />
+    <EyeFilled style={{ fontSize: 12, color: token.colorPrimary }} />
   ) : (
     <EyeOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
   );
+  const fire = (action: ObserveAction): void => {
+    setMenuOpen(false);
+    onAction(action);
+  };
+  const options = capturing ? (
+    <ObserveMenuOption
+      testid="traffic-monitor-observe-stop-save"
+      icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: token.colorError }} />}
+      title={t('workbench.trafficMonitor.observeMenuStopSave')}
+      hint={t('workbench.trafficMonitor.observeMenuStopSaveHint')}
+      onClick={() => fire('stop-save')}
+    />
+  ) : armed ? (
+    <>
+      <ObserveMenuOption
+        testid="traffic-monitor-observe-stop"
+        icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+        title={t('workbench.trafficMonitor.observeMenuStop')}
+        onClick={() => fire('stop')}
+      />
+      <ObserveMenuOption
+        testid="traffic-monitor-observe-save"
+        icon={<SaveOutlined style={{ fontSize: 12, color: token.colorError }} />}
+        title={t('workbench.trafficMonitor.observeMenuSave')}
+        hint={t('workbench.trafficMonitor.observeMenuSaveHint')}
+        onClick={() => fire('save')}
+      />
+    </>
+  ) : (
+    <>
+      <ObserveMenuOption
+        testid="traffic-monitor-observe-arm"
+        icon={<EyeOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+        title={t('workbench.trafficMonitor.observeMenuArm')}
+        hint={t('workbench.trafficMonitor.observeMenuArmHint')}
+        onClick={() => fire('arm')}
+      />
+      <ObserveMenuOption
+        testid="traffic-monitor-observe-arm-save"
+        icon={<SaveOutlined style={{ fontSize: 12, color: token.colorError }} />}
+        title={t('workbench.trafficMonitor.observeMenuArmSave')}
+        hint={t('workbench.trafficMonitor.observeMenuArmSaveHint')}
+        onClick={() => fire('arm-save')}
+      />
+    </>
+  );
   return (
-    <Tooltip title={title} placement="left">
-      <span
-        role="button"
-        tabIndex={0}
-        data-testid="traffic-monitor-source-observe"
-        aria-label={t('workbench.trafficMonitor.observeAria')}
-        aria-pressed={armed}
-        aria-busy={pending}
-        className={pending || armed ? undefined : 'rules-sidebar-item-hover-action'}
-        style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!pending) onToggle();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
+    <Popover
+      open={menuOpen}
+      onOpenChange={(open) => {
+        if (!open || !pending) setMenuOpen(open);
+      }}
+      trigger="click"
+      placement="left"
+      overlayInnerStyle={{ padding: 4 }}
+      content={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 260 }}>{options}</div>
+      }
+    >
+      <Tooltip title={title} placement="left" {...(menuOpen ? { open: false } : {})}>
+        <span
+          role="button"
+          tabIndex={0}
+          data-testid={capturing ? 'traffic-monitor-source-capturing' : 'traffic-monitor-source-observe'}
+          aria-label={t('workbench.trafficMonitor.observeAria')}
+          aria-pressed={armed || capturing}
+          aria-busy={pending}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          className={pending || armed || capturing || menuOpen ? undefined : 'rules-sidebar-item-hover-action'}
+          style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
+          onClick={(e) => {
             e.stopPropagation();
-            if (!pending) onToggle();
-          }
-        }}
-      >
-        {icon}
-      </span>
-    </Tooltip>
+            if (pending) e.preventDefault();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!pending) setMenuOpen((v) => !v);
+            }
+          }}
+        >
+          {icon}
+        </span>
+      </Tooltip>
+    </Popover>
   );
 }
 
@@ -382,10 +431,8 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   debugEnablePending,
   observeArmed,
   observePending,
-  onObserveToggle,
+  onObserveAction,
   captureActive,
-  capturePending,
-  onCaptureToggle,
   sessions,
   sessionPending,
   onSessionStop,
@@ -409,37 +456,6 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
     });
   };
 
-  // Draggable split between the browser pane and the wire pane. `null`
-  // until first drag — the browser pane grows to fill until the user
-  // sizes it, after which the height is explicit and clamped on every
-  // move against the live body height (so a panel resize can't strand
-  // the sash off-screen).
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [browserPaneHeight, setBrowserPaneHeight] = useState<number | null>(null);
-
-  const onSashDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const body = bodyRef.current;
-      if (!body) return;
-      const bodyTop = body.getBoundingClientRect().top;
-      const move = (ev: PointerEvent): void => {
-        const max = body.clientHeight - MIN_PANE_HEIGHT;
-        const next = Math.min(Math.max(ev.clientY - bodyTop, MIN_PANE_HEIGHT), Math.max(MIN_PANE_HEIGHT, max));
-        setBrowserPaneHeight(next);
-      };
-      const up = (): void => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-    },
-    [],
-  );
-
-  const splitActive = showWire && wireOpen;
-
   // Install CTA — a store listing must land in the browser that will
   // install the extension, so the named-browser capability leads and
   // the default-browser open is the degraded path.
@@ -453,210 +469,229 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
     void getCapability('openExternalUrl')?.(url);
   }, []);
 
-  const browsersPane = (
-    <div
-      style={
-        splitActive && browserPaneHeight !== null
-          ? { height: browserPaneHeight, flex: '0 0 auto', minHeight: 0, overflowY: 'auto' }
-          : { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }
-      }
-    >
+  const browsersSection = (
+    <>
       <SectionHeader
         title={t('workbench.trafficMonitor.browserTabs')}
         expanded={browsersOpen}
         onToggle={() => setBrowsersOpen((v) => !v)}
-      />
-      {browsersOpen && peers.length === 0 && !loading && (
-        <div
-          data-testid="traffic-monitor-install-ctas"
-          style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}
-        >
-          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-            {t('workbench.trafficMonitor.noBrowsersHint')}
-          </span>
-          {INSTALLABLE_BROWSERS.map((browser) => (
-            <Button
-              key={browser}
-              size="small"
-              data-testid={`traffic-monitor-install-${browser}`}
-              icon={<BrowserBrandIcon name={INSTALL_BROWSER_LABELS[browser]} size={14} />}
-              onClick={() => openStore(browser)}
+        actions={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Tag
+              color={peers.length > 0 ? 'green' : undefined}
+              style={{ margin: 0 }}
+              data-testid="traffic-monitor-peers"
             >
-              {t('workbench.trafficMonitor.installExtension', { browser: INSTALL_BROWSER_LABELS[browser] })}
-            </Button>
-          ))}
+              {peers.length > 0
+                ? t('workbench.trafficMonitor.browserConnected', { count: peers.length })
+                : t('workbench.trafficMonitor.noBrowser')}
+            </Tag>
+            <Tooltip title={t('workbench.trafficMonitor.refreshTabs')}>
+              {loading ? (
+                <LoadingOutlined spin style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              ) : (
+                <ReloadOutlined
+                  data-testid="traffic-monitor-refresh"
+                  style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                  onClick={onRefresh}
+                />
+              )}
+            </Tooltip>
+          </span>
+        }
+      />
+      {browsersOpen && (
+        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+          {peers.length === 0 && !loading && (
+            <div
+              data-testid="traffic-monitor-install-ctas"
+              style={{
+                padding: '8px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                {t('workbench.trafficMonitor.noBrowsersHint')}
+              </span>
+              {INSTALLABLE_BROWSERS.map((browser) => (
+                <Button
+                  key={browser}
+                  size="small"
+                  data-testid={`traffic-monitor-install-${browser}`}
+                  icon={<BrowserBrandIcon name={INSTALL_BROWSER_LABELS[browser]} size={14} />}
+                  onClick={() => openStore(browser)}
+                >
+                  {t('workbench.trafficMonitor.installExtension', { browser: INSTALL_BROWSER_LABELS[browser] })}
+                </Button>
+              ))}
+            </div>
+          )}
+          {peers.map((peer) => {
+            const version = agentVersion(peer.agent);
+            const expanded = !collapsedPeers.has(peer.nodeId);
+            return (
+              <div key={peer.nodeId}>
+                <div className="traffic-monitor-peer-row">
+                  <button
+                    type="button"
+                    data-testid="traffic-monitor-peer"
+                    aria-expanded={expanded}
+                    className="rules-sidebar-item traffic-monitor-source-row"
+                    onClick={() => togglePeer(peer.nodeId)}
+                  >
+                    <CaretRightOutlined
+                      style={{
+                        color: token.colorTextTertiary,
+                        fontSize: 10,
+                        transition: 'transform 0.2s',
+                        transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                      }}
+                    />
+                    <BrowserBrandIcon name={peer.browser.name} />
+                    <span className="rules-sidebar-item-label">
+                      {peer.browser.name}
+                      <span style={{ color: token.colorTextTertiary }}>
+                        {version !== null
+                          ? ` · ${t('workbench.trafficMonitor.extensionVersion', { version })}`
+                          : ` · ${peer.agent}`}
+                      </span>
+                    </span>
+                  </button>
+                  {!peer.watchConsent && (
+                    <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement="left">
+                      <Tag
+                        data-testid="traffic-monitor-peer-consent-off"
+                        icon={<EyeInvisibleOutlined />}
+                        style={{ margin: 0, flex: '0 0 auto' }}
+                      >
+                        {t('workbench.trafficMonitor.watchConsentOff')}
+                      </Tag>
+                    </Tooltip>
+                  )}
+                  {peer.debug.available && peer.watchConsent && (
+                    <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="left">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
+                          {t('shared.chrome.debug.title')}
+                        </span>
+                        <Switch
+                          size="small"
+                          data-testid="traffic-monitor-peer-debug"
+                          checked={peer.debug.enabled}
+                          loading={debugEnablePending.has(peer.nodeId)}
+                          onChange={(checked) => onDebugEnable(peer.nodeId, checked)}
+                          aria-label={t('shared.chrome.debug.toggleAria')}
+                        />
+                      </span>
+                    </Tooltip>
+                  )}
+                </div>
+                {expanded &&
+                  groupByWindow(peer.tabs).map((group, index, groups) => (
+                    <div key={group.windowId}>
+                      {groups.length > 1 && (
+                        <div style={{ padding: '4px 14px 0 30px', fontSize: 11, color: token.colorTextTertiary }}>
+                          {t('workbench.trafficMonitor.windowLabel', { n: index + 1 })}
+                        </div>
+                      )}
+                      {group.tabs.map((tab) => {
+                        const key = tabSourceKey(peer.nodeId, tab.tabId);
+                        const title = tab.title || tab.url || t('workbench.trafficMonitor.untitledTab');
+                        return (
+                          <Tooltip key={key} title={tab.url} placement="left">
+                            <SourceRow
+                              testid="traffic-monitor-source-tab"
+                              active={selected === key}
+                              indent
+                              onClick={() => onSelect(key)}
+                            >
+                              {tab.favIconUrl?.startsWith('data:') ? (
+                                <img
+                                  src={tab.favIconUrl}
+                                  alt=""
+                                  width={14}
+                                  height={14}
+                                  style={{ flex: '0 0 auto', borderRadius: 2, opacity: peer.watchConsent ? 1 : 0.5 }}
+                                />
+                              ) : (
+                                <FileOutlined
+                                  style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }}
+                                />
+                              )}
+                              <span
+                                className="rules-sidebar-item-label"
+                                style={peer.watchConsent ? undefined : { color: token.colorTextTertiary }}
+                              >
+                                {title}
+                              </span>
+                              {peer.watchConsent && (
+                                <SourceObserveAffordance
+                                  armed={observeArmed.has(key)}
+                                  capturing={captureActive.has(key)}
+                                  pending={observePending.has(key)}
+                                  onAction={(action) => onObserveAction(key, action)}
+                                />
+                              )}
+                              {peer.debug.available && peer.watchConsent && (
+                                <TabDebugAffordance
+                                  attached={peer.debug.attachedTabs.includes(tab.tabId)}
+                                  pinned={peer.debug.pinnedTabs.includes(tab.tabId)}
+                                  pending={debugPending.has(key)}
+                                  onToggle={() =>
+                                    onDebugPin(peer.nodeId, tab.tabId, !peer.debug.pinnedTabs.includes(tab.tabId))
+                                  }
+                                />
+                              )}
+                            </SourceRow>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  ))}
+              </div>
+            );
+          })}
         </div>
       )}
-      {browsersOpen &&
-        peers.map((peer) => {
-          const version = agentVersion(peer.agent);
-          const expanded = !collapsedPeers.has(peer.nodeId);
-          return (
-            <div key={peer.nodeId}>
-              <div className="traffic-monitor-peer-row">
-                <button
-                  type="button"
-                  data-testid="traffic-monitor-peer"
-                  aria-expanded={expanded}
-                  className="rules-sidebar-item traffic-monitor-source-row"
-                  onClick={() => togglePeer(peer.nodeId)}
-                >
-                  <CaretRightOutlined
-                    style={{
-                      color: token.colorTextTertiary,
-                      fontSize: 10,
-                      transition: 'transform 0.2s',
-                      transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                    }}
-                  />
-                  <BrowserBrandIcon name={peer.browser.name} />
-                  <span className="rules-sidebar-item-label">
-                    {peer.browser.name}
-                    <span style={{ color: token.colorTextTertiary }}>
-                      {version !== null
-                        ? ` · ${t('workbench.trafficMonitor.extensionVersion', { version })}`
-                        : ` · ${peer.agent}`}
-                    </span>
-                  </span>
-                </button>
-                {!peer.watchConsent && (
-                  <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement="left">
-                    <Tag
-                      data-testid="traffic-monitor-peer-consent-off"
-                      icon={<EyeInvisibleOutlined />}
-                      style={{ margin: 0, flex: '0 0 auto' }}
-                    >
-                      {t('workbench.trafficMonitor.watchConsentOff')}
-                    </Tag>
-                  </Tooltip>
-                )}
-                {peer.debug.available && peer.watchConsent && (
-                  <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="left">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
-                      <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
-                        {t('shared.chrome.debug.title')}
-                      </span>
-                      <Switch
-                        size="small"
-                        data-testid="traffic-monitor-peer-debug"
-                        checked={peer.debug.enabled}
-                        loading={debugEnablePending.has(peer.nodeId)}
-                        onChange={(checked) => onDebugEnable(peer.nodeId, checked)}
-                        aria-label={t('shared.chrome.debug.toggleAria')}
-                      />
-                    </span>
-                  </Tooltip>
-                )}
-              </div>
-              {expanded &&
-                groupByWindow(peer.tabs).map((group, index, groups) => (
-                  <div key={group.windowId}>
-                    {groups.length > 1 && (
-                      <div style={{ padding: '4px 14px 0 30px', fontSize: 11, color: token.colorTextTertiary }}>
-                        {t('workbench.trafficMonitor.windowLabel', { n: index + 1 })}
-                      </div>
-                    )}
-                    {group.tabs.map((tab) => {
-                      const key = tabSourceKey(peer.nodeId, tab.tabId);
-                      const title = tab.title || tab.url || t('workbench.trafficMonitor.untitledTab');
-                      return (
-                        <Tooltip key={key} title={tab.url} placement="left">
-                          <SourceRow
-                            testid="traffic-monitor-source-tab"
-                            active={selected === key}
-                            indent
-                            onClick={() => onSelect(key)}
-                          >
-                            {tab.favIconUrl?.startsWith('data:') ? (
-                              <img
-                                src={tab.favIconUrl}
-                                alt=""
-                                width={14}
-                                height={14}
-                                style={{ flex: '0 0 auto', borderRadius: 2, opacity: peer.watchConsent ? 1 : 0.5 }}
-                              />
-                            ) : (
-                              <FileOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flex: '0 0 auto' }} />
-                            )}
-                            <span
-                              className="rules-sidebar-item-label"
-                              style={peer.watchConsent ? undefined : { color: token.colorTextTertiary }}
-                            >
-                              {title}
-                            </span>
-                            {(captureActive.has(key) || (observeArmed.has(key) && peer.watchConsent)) && (
-                              <SourceCaptureAffordance
-                                capturing={captureActive.has(key)}
-                                pending={capturePending.has(key)}
-                                onToggle={() => onCaptureToggle(key)}
-                              />
-                            )}
-                            {peer.watchConsent && (
-                              <SourceObserveAffordance
-                                armed={observeArmed.has(key)}
-                                pending={observePending.has(key)}
-                                onToggle={() => onObserveToggle(key)}
-                              />
-                            )}
-                            {peer.debug.available && peer.watchConsent && (
-                              <TabDebugAffordance
-                                attached={peer.debug.attachedTabs.includes(tab.tabId)}
-                                pinned={peer.debug.pinnedTabs.includes(tab.tabId)}
-                                pending={debugPending.has(key)}
-                                onToggle={() =>
-                                  onDebugPin(peer.nodeId, tab.tabId, !peer.debug.pinnedTabs.includes(tab.tabId))
-                                }
-                              />
-                            )}
-                          </SourceRow>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                ))}
-            </div>
-          );
-        })}
-    </div>
+    </>
   );
 
-  const wirePane = showWire ? (
-    <div style={splitActive ? { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' } : { flex: '0 0 auto' }}>
+  const wireSection = showWire ? (
+    <>
       <SectionHeader
         title={t('workbench.trafficMonitor.proxySystem')}
         expanded={wireOpen}
         onToggle={() => setWireOpen((v) => !v)}
       />
       {wireOpen && (
-        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="left">
-          <SourceRow
-            testid="traffic-monitor-source-wire"
-            active={selected === WIRE_SOURCE_KEY}
-            onClick={() => onSelect(WIRE_SOURCE_KEY)}
-          >
-            <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
-            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
-            {(captureActive.has(WIRE_SOURCE_KEY) || observeArmed.has(WIRE_SOURCE_KEY)) && (
-              <SourceCaptureAffordance
+        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
+          <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="left">
+            <SourceRow
+              testid="traffic-monitor-source-wire"
+              active={selected === WIRE_SOURCE_KEY}
+              onClick={() => onSelect(WIRE_SOURCE_KEY)}
+            >
+              <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
+              <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
+              <SourceObserveAffordance
+                armed={observeArmed.has(WIRE_SOURCE_KEY)}
                 capturing={captureActive.has(WIRE_SOURCE_KEY)}
-                pending={capturePending.has(WIRE_SOURCE_KEY)}
-                onToggle={() => onCaptureToggle(WIRE_SOURCE_KEY)}
+                pending={observePending.has(WIRE_SOURCE_KEY)}
+                onAction={(action) => onObserveAction(WIRE_SOURCE_KEY, action)}
               />
-            )}
-            <SourceObserveAffordance
-              armed={observeArmed.has(WIRE_SOURCE_KEY)}
-              pending={observePending.has(WIRE_SOURCE_KEY)}
-              onToggle={() => onObserveToggle(WIRE_SOURCE_KEY)}
-            />
-            <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
-              {wireRunning && wirePort !== null
-                ? t('workbench.proxyCapture.running', { port: wirePort })
-                : t('workbench.proxyCapture.stopped')}
-            </Tag>
-          </SourceRow>
-        </Tooltip>
+              <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
+                {wireRunning && wirePort !== null
+                  ? t('workbench.proxyCapture.running', { port: wirePort })
+                  : t('workbench.proxyCapture.stopped')}
+              </Tag>
+            </SourceRow>
+          </Tooltip>
+        </div>
       )}
-    </div>
+    </>
   ) : null;
 
   return (
@@ -690,35 +725,11 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
               </Tag>
             </Tooltip>
           )}
-          <Tag color={peers.length > 0 ? 'green' : undefined} style={{ margin: 0 }} data-testid="traffic-monitor-peers">
-            {peers.length > 0
-              ? t('workbench.trafficMonitor.browserConnected', { count: peers.length })
-              : t('workbench.trafficMonitor.noBrowser')}
-          </Tag>
-          <Tooltip title={t('workbench.trafficMonitor.refreshTabs')}>
-            <Button
-              size="small"
-              type="text"
-              data-testid="traffic-monitor-refresh"
-              icon={<ReloadOutlined />}
-              loading={loading}
-              onClick={onRefresh}
-            />
-          </Tooltip>
         </span>
       </div>
-      <div ref={bodyRef} style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {browsersPane}
-        {splitActive && (
-          <div
-            className="traffic-monitor-sash"
-            data-testid="traffic-monitor-sash"
-            role="separator"
-            aria-orientation="horizontal"
-            onPointerDown={onSashDown}
-          />
-        )}
-        {wirePane}
+      <div className="rules-sidebar-content">
+        {browsersSection}
+        {wireSection}
         <TrafficMonitorSessionsSection
           sessions={sessions}
           pending={sessionPending}

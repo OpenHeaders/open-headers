@@ -560,18 +560,28 @@ export const workbenchChrome = {
     'Debug mode — attaches the browser’s debugger to scoped and pinned tabs for bodies and exact headers. The browser ' +
     'shows a banner on each attached tab.',
   'workbench.trafficMonitor.observeArm':
-    'Arm for agent observation — a connected agent can read this source’s traffic while armed',
+    'Observe with AI agents — a connected AI agent can read this source’s traffic while armed',
   'workbench.trafficMonitor.observeArmed':
-    'Armed for agent observation — readable by connected agents until disarmed or idle expiry',
-  'workbench.trafficMonitor.observeAria': 'Toggle agent observation for this source',
+    'Observing — readable by connected AI agents until stopped or idle expiry. Click for options.',
+  'workbench.trafficMonitor.observeCapturing':
+    'Observing + saving session to disk — redacted records only. Click for options.',
+  'workbench.trafficMonitor.observeAria': 'AI agent observation options for this source',
+  'workbench.trafficMonitor.observeMenuArm': 'Observe only',
+  'workbench.trafficMonitor.observeMenuArmHint':
+    'Streams this source’s traffic to the desktop app in memory — connected AI agents can read it while armed',
+  'workbench.trafficMonitor.observeMenuArmSave': 'Observe + save session',
+  'workbench.trafficMonitor.observeMenuArmSaveHint':
+    'Also records redacted traffic to a bounded session file on disk',
+  'workbench.trafficMonitor.observeMenuSave': 'Also save session to disk',
+  'workbench.trafficMonitor.observeMenuSaveHint':
+    'Start recording this armed source — redacted records, bounded file',
+  'workbench.trafficMonitor.observeMenuStop': 'Stop observing',
+  'workbench.trafficMonitor.observeMenuStopSave': 'Stop observing & save session',
+  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Ends the recording and keeps the session file',
   'workbench.trafficMonitor.captureBadge': 'Capturing to disk',
   'workbench.trafficMonitor.captureBadgeHint':
     'A capture session is writing redacted traffic records to disk. It stops at its size or duration bound, when the ' +
     'source is disarmed, or when you stop it.',
-  'workbench.trafficMonitor.captureRow': 'Capturing this source to disk — redacted records only; click to stop',
-  'workbench.trafficMonitor.captureStart':
-    'Record to disk — writes this source’s redacted traffic to a bounded local file',
-  'workbench.trafficMonitor.captureAria': 'Toggle disk capture for this source',
   'workbench.trafficMonitor.sessionsTitle': 'Sessions',
   'workbench.trafficMonitor.sessionsEmpty': 'Disk recordings from this app run appear here',
   'workbench.trafficMonitor.sessionDetail': '{records} records · {size}',

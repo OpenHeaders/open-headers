@@ -578,20 +578,30 @@ export const workbenchChrome = {
     'Debug-Modus — verbindet den Debugger des Browsers mit Tabs im Geltungsbereich und angepinnten Tabs für Bodies ' +
     'und exakte Header. Der Browser zeigt auf jedem verbundenen Tab einen Hinweis an.',
   'workbench.trafficMonitor.observeArm':
-    'Für Agent-Beobachtung scharf schalten — ein verbundener Agent kann den Verkehr dieser Quelle lesen, solange ' +
-    'sie scharf ist',
+    'Mit KI-Agents beobachten — ein verbundener KI-Agent kann den Verkehr dieser Quelle lesen, solange sie scharf ist',
   'workbench.trafficMonitor.observeArmed':
-    'Für Agent-Beobachtung scharf — für verbundene Agents lesbar bis zum Entschärfen oder Inaktivitäts-Ablauf',
-  'workbench.trafficMonitor.observeAria': 'Agent-Beobachtung für diese Quelle umschalten',
+    'Beobachtung läuft — für verbundene KI-Agents lesbar bis zum Stoppen oder Inaktivitäts-Ablauf. Für Optionen ' +
+    'klicken.',
+  'workbench.trafficMonitor.observeCapturing':
+    'Beobachtung + Sitzung wird auf Datenträger gespeichert — nur geschwärzte Datensätze. Für Optionen klicken.',
+  'workbench.trafficMonitor.observeAria': 'KI-Agent-Beobachtungsoptionen für diese Quelle',
+  'workbench.trafficMonitor.observeMenuArm': 'Nur beobachten',
+  'workbench.trafficMonitor.observeMenuArmHint':
+    'Streamt den Verkehr dieser Quelle im Arbeitsspeicher an die Desktop-App — verbundene KI-Agents können ihn ' +
+    'lesen, solange sie scharf ist',
+  'workbench.trafficMonitor.observeMenuArmSave': 'Beobachten + Sitzung speichern',
+  'workbench.trafficMonitor.observeMenuArmSaveHint':
+    'Zeichnet den geschwärzten Verkehr zusätzlich in eine begrenzte Sitzungsdatei auf dem Datenträger auf',
+  'workbench.trafficMonitor.observeMenuSave': 'Sitzung zusätzlich auf Datenträger speichern',
+  'workbench.trafficMonitor.observeMenuSaveHint':
+    'Startet die Aufzeichnung dieser scharfen Quelle — geschwärzte Datensätze, begrenzte Datei',
+  'workbench.trafficMonitor.observeMenuStop': 'Beobachtung stoppen',
+  'workbench.trafficMonitor.observeMenuStopSave': 'Beobachtung stoppen & Sitzung behalten',
+  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Beendet die Aufzeichnung und behält die Sitzungsdatei',
   'workbench.trafficMonitor.captureBadge': 'Aufzeichnung auf Datenträger',
   'workbench.trafficMonitor.captureBadgeHint':
     'Eine Aufzeichnungssitzung schreibt geschwärzte Verkehrsdatensätze auf den Datenträger. Sie stoppt an ihrer ' +
     'Größen- oder Zeitgrenze, beim Entschärfen der Quelle oder wenn Sie sie stoppen.',
-  'workbench.trafficMonitor.captureRow':
-    'Diese Quelle wird auf den Datenträger aufgezeichnet — nur geschwärzte Datensätze; zum Stoppen klicken',
-  'workbench.trafficMonitor.captureStart':
-    'Auf Datenträger aufzeichnen — schreibt den geschwärzten Verkehr dieser Quelle in eine begrenzte lokale Datei',
-  'workbench.trafficMonitor.captureAria': 'Datenträger-Aufzeichnung für diese Quelle umschalten',
   'workbench.trafficMonitor.sessionsTitle': 'Sitzungen',
   'workbench.trafficMonitor.sessionsEmpty': 'Aufzeichnungen dieser App-Ausführung erscheinen hier',
   'workbench.trafficMonitor.sessionDetail': '{records} Datensätze · {size}',

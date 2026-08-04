@@ -418,19 +418,21 @@ test('a tripped byte bound stops the session with the honest reason and the indi
 
 // ── The Workbench affordance: start/stop as a human gesture ─────────
 
-test('the rail affordance starts a session with the forced redaction policy and stops it on the next click', async () => {
+test('the observe popover starts a session with the forced redaction policy and the combined stop ends it', async () => {
   await openTrafficMonitor();
   await refreshRail();
 
-  // The armed row reveals the record affordance; unarmed rows carry none.
-  const start = workbench.locator('[data-testid="traffic-monitor-source-capture"]').first();
-  await expect(start).toBeVisible({ timeout: 10000 });
+  // The armed row's eye is the single affordance; its popover carries
+  // the save upgrade — unarmed rows offer arm options only.
+  const armedEye = workbench.locator('[data-testid="traffic-monitor-source-observe"][aria-pressed="true"]');
+  await expect(armedEye.first()).toBeVisible({ timeout: 10000 });
   const before = (await captureSessions()).length;
-  await start.click();
 
-  // The click's own convergence (no refresh): an ACTIVE session on the
-  // operator plane, on the armed source, with the redaction policy the
-  // UI path attaches — never an unredacted file from a button.
+  // "Also save session to disk": an ACTIVE session on the operator
+  // plane, on the armed source, with the redaction policy the UI path
+  // attaches — never an unredacted file from a button.
+  await armedEye.first().click();
+  await workbench.locator('[data-testid="traffic-monitor-observe-save"]').click();
   await expect
     .poll(async () => (await captureSessions()).find((s) => s.state === 'active')?.sourceUid, { timeout: 15000 })
     .toBe(armedUid);
@@ -438,14 +440,16 @@ test('the rail affordance starts a session with the forced redaction policy and 
   expect(active?.redaction).toBe('standard');
   expect(active?.name.length).toBeGreaterThan(0);
 
-  // The affordance became the always-visible retention indicator.
+  // The eye became the always-visible retention indicator (red state).
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
     timeout: 10000,
   });
   await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toBeVisible({ timeout: 10000 });
 
-  // Second click stops the session honestly and the indicator converges.
+  // The combined stop is ONE button: it ends the session honestly
+  // (stop BEFORE disarm keeps the 'stopped' reason) and stops observing.
   await workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first().click();
+  await workbench.locator('[data-testid="traffic-monitor-observe-stop-save"]').click();
   await expect
     .poll(async () => (await captureSessions()).find((s) => s.sessionId === active?.sessionId)?.state, {
       timeout: 15000,
@@ -454,9 +458,22 @@ test('the rail affordance starts a session with the forced redaction policy and 
   expect((await captureSessions()).find((s) => s.sessionId === active?.sessionId)?.endReason).toBe('stopped');
   expect((await captureSessions()).length).toBe(before + 1);
   await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
-  await expect(workbench.locator('[data-testid="traffic-monitor-source-capture"]').first()).toBeVisible({
-    timeout: 10000,
-  });
+  // The combined stop also disarmed the source — no armed eye remains.
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-observe"][aria-pressed="true"]')).toHaveCount(
+    0,
+    { timeout: 10000 },
+  );
+
+  // Re-arm for the legs that follow (the sessions section stops a
+  // session on this uid).
+  const rearmed = (await invoke({
+    type: 'oh.daemon.traffic.arm',
+    kind: 'browser-tab',
+    nodeId: peerNodeId,
+    tabId: captureTabId,
+  })) as { ok: boolean; uid?: string; error?: string };
+  expect(rearmed.ok, rearmed.error).toBe(true);
+  armedUid = rearmed.uid ?? '';
 });
 
 // ── The SESSIONS rail section: this run's recordings ────────────────

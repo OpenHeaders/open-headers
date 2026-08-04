@@ -64,6 +64,7 @@ import {
 import { subscribeTrafficStorageReveal, takeTrafficStorageReveal } from '../../data/traffic-storage-reveal';
 import type { LiveStorageDocRef, WorkbenchTab } from '../../types';
 import {
+  type ObserveAction,
   RAIL_DEFAULT_WIDTH,
   RAIL_MAX_WIDTH,
   RAIL_MIN_WIDTH,
@@ -405,26 +406,70 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     return () => clearInterval(timer);
   }, [reloadArmed]);
 
-  const onObserveToggle = useCallback(
-    (key: string) => {
-      const armedUid = observeArmed.get(key);
+  // One handler for every observe-popover action (PLAN §4 arming + §3
+  // disk capture behind one control). Save-flavored verbs attach the
+  // redaction policy explicitly (the daemon refuses without one) and
+  // name the session after the source; bounds stay host defaults.
+  // `stop-save` ends the session BEFORE disarming so its end reason
+  // stays the honest 'stopped', not 'source-disarmed'. Failures
+  // converge silently — the reload leaves the icon in its true state.
+  const sourceName = useCallback(
+    (key: string): string => {
+      if (key === WIRE_SOURCE_KEY) return 'traffic-interception';
+      for (const peer of peers) {
+        for (const tab of peer.tabs) {
+          if (tabSourceKey(peer.nodeId, tab.tabId) === key) return tab.title || tab.url || 'tab';
+        }
+      }
+      return 'tab';
+    },
+    [peers],
+  );
+  const onObserveAction = useCallback(
+    (key: string, action: ObserveAction) => {
       setObservePending((prev) => new Set(prev).add(key));
       void (async () => {
         try {
-          if (armedUid !== undefined) {
-            await hostBridge.call('oh.daemon.traffic.disarm', { uid: armedUid });
-          } else if (key === WIRE_SOURCE_KEY) {
-            await hostBridge.call('oh.daemon.traffic.arm', { kind: 'proxy' });
-          } else {
-            for (const peer of peers) {
-              for (const tab of peer.tabs) {
-                if (tabSourceKey(peer.nodeId, tab.tabId) === key) {
-                  await hostBridge.call('oh.daemon.traffic.arm', {
-                    kind: 'browser-tab',
-                    nodeId: peer.nodeId,
-                    tabId: tab.tabId,
-                  });
+          if (action === 'arm' || action === 'arm-save') {
+            let uid: string | null = null;
+            if (key === WIRE_SOURCE_KEY) {
+              const armed = await hostBridge.call('oh.daemon.traffic.arm', { kind: 'proxy' });
+              uid = armed.ok ? armed.uid : null;
+            } else {
+              for (const peer of peers) {
+                for (const tab of peer.tabs) {
+                  if (tabSourceKey(peer.nodeId, tab.tabId) === key) {
+                    const armed = await hostBridge.call('oh.daemon.traffic.arm', {
+                      kind: 'browser-tab',
+                      nodeId: peer.nodeId,
+                      tabId: tab.tabId,
+                    });
+                    uid = armed.ok ? armed.uid : null;
+                  }
                 }
+              }
+            }
+            if (action === 'arm-save' && uid !== null) {
+              await hostBridge.call('oh.daemon.traffic.capture.start', {
+                uid,
+                name: sourceName(key),
+                redaction: 'standard',
+              });
+            }
+          } else {
+            const uid = observeArmed.get(key);
+            if (uid !== undefined) {
+              if (action === 'save') {
+                await hostBridge.call('oh.daemon.traffic.capture.start', {
+                  uid,
+                  name: sourceName(key),
+                  redaction: 'standard',
+                });
+              } else {
+                if (action === 'stop-save') {
+                  await hostBridge.call('oh.daemon.traffic.capture.stop', { uid });
+                }
+                await hostBridge.call('oh.daemon.traffic.disarm', { uid });
               }
             }
           }
@@ -439,50 +484,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
         });
       })();
     },
-    [observeArmed, peers, reloadArmed],
-  );
-
-  // Disk-capture start/stop (S7 operator plane, driven by the rail's
-  // per-source affordance — the Workbench's human gesture; the channel
-  // has no MCP mirror). Start attaches the redaction policy explicitly
-  // (the daemon refuses without one) and names the session after the
-  // source; bounds stay host defaults. Failures converge silently like
-  // the observe toggle — the reload leaves the icon in its true state.
-  const [capturePending, setCapturePending] = useState<ReadonlySet<string>>(() => new Set());
-  const onCaptureToggle = useCallback(
-    (key: string) => {
-      const uid = observeArmed.get(key);
-      if (uid === undefined) return;
-      setCapturePending((prev) => new Set(prev).add(key));
-      void (async () => {
-        try {
-          if (captureActive.has(key)) {
-            await hostBridge.call('oh.daemon.traffic.capture.stop', { uid });
-          } else {
-            let name = 'traffic-interception';
-            if (key !== WIRE_SOURCE_KEY) {
-              for (const peer of peers) {
-                for (const tab of peer.tabs) {
-                  if (tabSourceKey(peer.nodeId, tab.tabId) === key) {
-                    name = tab.title || tab.url || 'tab';
-                  }
-                }
-              }
-            }
-            await hostBridge.call('oh.daemon.traffic.capture.start', { uid, name, redaction: 'standard' });
-          }
-        } catch {
-          // Tap unavailable — the reload below converges the icon.
-        }
-        await reloadArmed();
-        setCapturePending((prev) => {
-          const next = new Set(prev);
-          next.delete(key);
-          return next;
-        });
-      })();
-    },
-    [observeArmed, captureActive, peers, reloadArmed],
+    [observeArmed, peers, reloadArmed, sourceName],
   );
 
   // Session-row actions: stop rides the same operator verb as the rail
@@ -1033,10 +1035,8 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           debugEnablePending={debugEnablePending}
           observeArmed={observeArmedKeys}
           observePending={observePending}
-          onObserveToggle={onObserveToggle}
+          onObserveAction={onObserveAction}
           captureActive={captureActive}
-          capturePending={capturePending}
-          onCaptureToggle={onCaptureToggle}
           sessions={captureSessions}
           sessionPending={sessionPending}
           onSessionStop={onSessionStop}

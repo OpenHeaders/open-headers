@@ -583,21 +583,30 @@ export const workbenchChrome = {
     'Modo Depuración: adjunta el depurador del navegador a las pestañas del ámbito y fijadas para obtener cuerpos y ' +
     'cabeceras exactas. El navegador muestra un aviso en cada pestaña adjuntada.',
   'workbench.trafficMonitor.observeArm':
-    'Armar para la observación por agente: un agente conectado puede leer el tráfico de esta fuente mientras esté ' +
-    'armada',
+    'Observar con agentes de IA: un agente de IA conectado puede leer el tráfico de esta fuente mientras esté armada',
   'workbench.trafficMonitor.observeArmed':
-    'Armada para la observación por agente: legible por los agentes conectados hasta desarmarla o caducar por ' +
-    'inactividad',
-  'workbench.trafficMonitor.observeAria': 'Alternar la observación por agente para esta fuente',
+    'Observando: legible por los agentes de IA conectados hasta detenerla o caducar por inactividad. Haz clic para ' +
+    'ver las opciones.',
+  'workbench.trafficMonitor.observeCapturing':
+    'Observando + guardando la sesión en disco: solo registros censurados. Haz clic para ver las opciones.',
+  'workbench.trafficMonitor.observeAria': 'Opciones de observación por agente de IA para esta fuente',
+  'workbench.trafficMonitor.observeMenuArm': 'Solo observar',
+  'workbench.trafficMonitor.observeMenuArmHint':
+    'Transmite el tráfico de esta fuente a la aplicación de escritorio en memoria: los agentes de IA conectados ' +
+    'pueden leerlo mientras esté armada',
+  'workbench.trafficMonitor.observeMenuArmSave': 'Observar + guardar sesión',
+  'workbench.trafficMonitor.observeMenuArmSaveHint':
+    'También graba el tráfico censurado en un archivo de sesión acotado en disco',
+  'workbench.trafficMonitor.observeMenuSave': 'Guardar también la sesión en disco',
+  'workbench.trafficMonitor.observeMenuSaveHint':
+    'Empieza a grabar esta fuente armada: registros censurados, archivo acotado',
+  'workbench.trafficMonitor.observeMenuStop': 'Dejar de observar',
+  'workbench.trafficMonitor.observeMenuStopSave': 'Dejar de observar y conservar la sesión',
+  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Termina la grabación y conserva el archivo de sesión',
   'workbench.trafficMonitor.captureBadge': 'Capturando a disco',
   'workbench.trafficMonitor.captureBadgeHint':
     'Una sesión de captura está escribiendo en disco registros de tráfico censurados. Se detiene al alcanzar su ' +
     'límite de tamaño o duración, al desarmar la fuente o cuando la detengas.',
-  'workbench.trafficMonitor.captureRow':
-    'Capturando esta fuente a disco: solo registros censurados; haz clic para detener',
-  'workbench.trafficMonitor.captureStart':
-    'Grabar a disco: escribe el tráfico censurado de esta fuente en un archivo local acotado',
-  'workbench.trafficMonitor.captureAria': 'Alternar la captura a disco de esta fuente',
   'workbench.trafficMonitor.sessionsTitle': 'Sesiones',
   'workbench.trafficMonitor.sessionsEmpty': 'Las grabaciones a disco de esta ejecución aparecen aquí',
   'workbench.trafficMonitor.sessionDetail': '{records} registros · {size}',

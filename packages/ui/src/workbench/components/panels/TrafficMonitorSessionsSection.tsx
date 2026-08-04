@@ -149,31 +149,37 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
   const { token } = theme.useToken();
   const [open, setOpen] = useState(true);
   return (
-    <div data-testid="traffic-monitor-sessions" style={{ flex: '0 0 auto', maxHeight: 200, overflowY: 'auto' }}>
+    <>
       <SectionHeader
         title={t('workbench.trafficMonitor.sessionsTitle')}
         expanded={open}
         onToggle={() => setOpen((v) => !v)}
       />
-      {open && sessions.length === 0 && (
+      {open && (
         <div
-          data-testid="traffic-monitor-sessions-empty"
-          style={{ padding: '4px 14px 8px', fontSize: 12, color: token.colorTextSecondary }}
+          data-testid="traffic-monitor-sessions"
+          style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}
         >
-          {t('workbench.trafficMonitor.sessionsEmpty')}
+          {sessions.length === 0 && (
+            <div
+              data-testid="traffic-monitor-sessions-empty"
+              style={{ padding: '4px 14px 8px', fontSize: 12, color: token.colorTextSecondary }}
+            >
+              {t('workbench.trafficMonitor.sessionsEmpty')}
+            </div>
+          )}
+          {sessions.map((session) => (
+            <SessionRow
+              key={session.sessionId}
+              session={session}
+              pending={pending.has(session.sessionId)}
+              onStop={() => onStop(session)}
+              canReveal={canReveal}
+              onReveal={() => onReveal(session)}
+            />
+          ))}
         </div>
       )}
-      {open &&
-        sessions.map((session) => (
-          <SessionRow
-            key={session.sessionId}
-            session={session}
-            pending={pending.has(session.sessionId)}
-            onStop={() => onStop(session)}
-            canReveal={canReveal}
-            onReveal={() => onReveal(session)}
-          />
-        ))}
-    </div>
+    </>
   );
 };
