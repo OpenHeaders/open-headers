@@ -1,9 +1,10 @@
 /**
  * `oracle-host-node/traffic` — the broker tap for the agent traffic
- * epic (AGENT_TRAFFIC_PLAN.md §2): loopback lifeline dialing, the two
- * source connectors, and the armed-source registry. Host-side by
- * design; the retention machinery itself lives host-neutral in
- * `@openheaders/oracle/traffic-retention`.
+ * epic (AGENT_TRAFFIC_PLAN.md §2): loopback lifeline dialing, the
+ * partition mirror (§11.2 — the one authoritative store per watched
+ * partition), the two source connectors, and the armed-source
+ * registry. Host-side by design; the retention machinery itself lives
+ * host-neutral in `@openheaders/oracle/traffic-retention`.
  */
 
 export {
@@ -16,6 +17,12 @@ export {
   type LoopbackLifelineDialer,
   type LoopbackLifelinePort,
 } from './loopback-lifeline';
+export {
+  createTrafficPartitionMirror,
+  type TrafficMirrorTapSeat,
+  type TrafficPartitionMirror,
+  type TrafficPartitionMirrorDeps,
+} from './partition-mirror';
 export {
   connectBrowserTabSource,
   connectProxySource,

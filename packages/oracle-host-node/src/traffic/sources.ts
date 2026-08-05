@@ -4,11 +4,11 @@
  * `TrafficRetentionConsumer` — so the reducer neither knows nor cares
  * which transport fed it:
  *
- *   - **browser-tab** — a loopback lifeline dialed against the browser
- *     live-relay's qualified acceptor (`oh-lifecycle:<tabId>@<nodeId>`).
- *     The tap is one more viewer of the partition: own consumer id, own
- *     extension-side stream session, and the relay's `rejoinPeerWatches`
- *     re-subscribes it across peer reconnects like any other viewer.
+ *   - **browser-tab** — a tap seat on the partition mirror (§11.2, C2):
+ *     the mirror owns the ONE wire session per watched partition and
+ *     fans the verbatim envelope stream to this consumer, so the
+ *     replay/dedup/arm-floor contract is exactly what a dedicated relay
+ *     port carried before convergence.
  *   - **proxy** — a hub sink attached directly to the daemon-side
  *     proxy-capture hub (the partition's engine lives in this process;
  *     there is no wire to ride). Deliveries are wrapped into the same
@@ -16,20 +16,19 @@
  *     `daemon/proxy/capture-lifeline.ts`.
  *
  * S3 adds the body-pull plane on the SAME transports: `requestBody`
- * sends the lifecycle port's one pull message (`request-body` — the
- * relay forwards it to the owning peer exactly as it does the panel's),
- * and the engine's `body-attached` answer is intercepted here and
- * routed to `onBodyAttached` instead of the consumer — the reducer
- * keeps ignoring body frames wholesale; body handling is the tap's.
+ * forwards the lifecycle port's one pull message (`request-body` — the
+ * mirror sends it over the shared wire session), and the engine's
+ * `body-attached` answer is intercepted here and routed to
+ * `onBodyAttached` instead of the consumer — the reducer keeps ignoring
+ * body frames wholesale; body handling is the tap's.
  */
 
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
-import { type LifecycleWireMessage, qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody } from '@openheaders/core/types';
 import type { RequestLifecycleHub, Sink } from '@openheaders/oracle/request-lifecycle-hub';
 import type { TrafficRetentionConsumer } from '@openheaders/oracle/traffic-retention';
 
-import type { LoopbackLifelineDialer } from './loopback-lifeline';
+import type { TrafficPartitionMirror } from './partition-mirror';
 
 /** One live source connection; `close()` releases the subscription. */
 export interface TrafficSourceConnection {
@@ -43,38 +42,34 @@ export interface TrafficSourceConnection {
 export type TrafficBodyAttachedHandler = (requestId: string, hopIndex: number, body: InspectorHarBody) => void;
 
 /**
- * Subscribe one browser tab through the relay. Returns `null` when no
- * acceptor claimed the qualified port (relay not installed) — the
- * caller surfaces that as an arm failure, not a throw.
+ * Join one browser tab's partition through the mirror. Returns `null`
+ * when the mirror's wire dial found no acceptor (relay not installed) —
+ * the caller surfaces that as an arm failure, not a throw.
  */
 export function connectBrowserTabSource(deps: {
-  dialer: LoopbackLifelineDialer;
+  mirror: TrafficPartitionMirror;
   nodeId: string;
   tabId: number;
   consumer: TrafficRetentionConsumer;
   onBodyAttached: TrafficBodyAttachedHandler;
 }): TrafficSourceConnection | null {
-  const port = deps.dialer.dial(qualifiedLifecyclePortName(deps.tabId, deps.nodeId));
-  if (port === null) return null;
-  port.onMessage<LifecycleWireMessage>((message) => {
+  const seat = deps.mirror.attachTapConsumer(deps.nodeId, deps.tabId, (message) => {
     if (message.kind === 'lifecycle-update' && message.update.kind === 'body-attached') {
       deps.onBodyAttached(message.update.requestId, message.update.hopIndex, message.update.body);
       return;
     }
     deps.consumer.handle(message);
   });
-  // Arming subscribes (PLAN §1.1) — the relay forwards this to the
-  // owning peer and re-sends it on every peer reconnect.
-  port.send({ kind: 'subscribe' });
+  if (seat === null) return null;
   return {
     requestBody(requestId, hopIndex) {
-      port.send({ kind: 'request-body', requestId, hopIndex });
+      seat.requestBody(requestId, hopIndex);
     },
     close() {
-      // The relay turns the port disconnect into the peer-side detach;
-      // the extension refcounts sessions and stops streaming on the
-      // last one (the no-viewer → silence law).
-      port.disconnect();
+      // The last reader out releases the mirror's wire session — the
+      // relay turns that disconnect into the peer-side detach and the
+      // extension stops streaming (the no-viewer → silence law).
+      seat.detach();
     },
   };
 }

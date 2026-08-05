@@ -30,6 +30,7 @@ import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-sto
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { installLoopbackLifelineDialer } from '../../src/traffic/loopback-lifeline';
+import { createTrafficPartitionMirror } from '../../src/traffic/partition-mirror';
 import {
   createTrafficTap,
   DEFAULT_TRAFFIC_ARM_TTL_MS,
@@ -94,6 +95,7 @@ describe('traffic tap — browser-tab source over the loopback lifeline', () => 
 
   it('dials the qualified acceptor, honors the arm floor, and detaches on disarm', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([
@@ -103,7 +105,7 @@ describe('traffic tap — browser-tab source over the loopback lifeline', () => 
       makeLifecycle({ requestId: 'post-arm', startedAtMs: 900 }),
     ]);
 
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7);
     expect(uid).toBe('browser-tab:ext-node-1:7');
     expect(relay.ports).toHaveLength(1);
@@ -132,9 +134,10 @@ describe('traffic tap — browser-tab source over the loopback lifeline', () => 
 
   it('refuses the arm when no acceptor claims the qualified port', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     expect(tap.armBrowserTab('ext-node-1', 7)).toBeNull();
     expect(tap.status()).toEqual([]);
     proxyHub.dispose();
@@ -142,10 +145,11 @@ describe('traffic tap — browser-tab source over the loopback lifeline', () => 
 
   it('arming an armed partition is idempotent — one subscription, same uid', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const first = tap.armBrowserTab('ext-node-1', 7);
     const second = tap.armBrowserTab('ext-node-1', 7);
     expect(second).toBe(first);
@@ -172,10 +176,11 @@ describe('traffic tap — idle expiry + reveal escalation (S2)', () => {
 
   it('an idle arm lapses into ABSENCE; observe reads push the expiry forward', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7, { ttlMs: 10_000 }) ?? '';
 
     expect(tap.status()[0]?.expiresAtMs).toBe(Date.now() + 10_000);
@@ -208,10 +213,11 @@ describe('traffic tap — idle expiry + reveal escalation (S2)', () => {
 
   it('defaults the ttl when none is given', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     tap.armBrowserTab('ext-node-1', 7);
     expect(tap.status()[0]?.expiresAtMs).toBe(Date.now() + DEFAULT_TRAFFIC_ARM_TTL_MS);
     tap.dispose();
@@ -223,6 +229,7 @@ describe('traffic tap — idle expiry + reveal escalation (S2)', () => {
     const AUTH =
       'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c';
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([
@@ -232,7 +239,7 @@ describe('traffic tap — idle expiry + reveal escalation (S2)', () => {
         requestHeaders: [{ name: 'Authorization', value: AUTH }],
       }),
     ]);
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
 
     // Default read: redacted.
@@ -274,10 +281,11 @@ describe('traffic tap — wait plane (S4)', () => {
 
   function waitRig(replay: RequestLifecycle[] = []) {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay(replay);
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
     const teardown = () => {
       tap.dispose();
@@ -385,13 +393,14 @@ describe('traffic tap — proxy source over a real hub', () => {
 
   it('attaches at arm time and retains only post-arm proxy exchanges', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     // PROXY_LIFECYCLE_TAB_ID partition traffic from before the arm — the
     // hub floors a FIRST watcher at the watermark, so this never replays.
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: -59210, requestId: 'pre', startedAtMs: 100 }) });
 
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armProxy();
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: -59210, requestId: 'post', startedAtMs: 200 }) });
 
@@ -463,6 +472,7 @@ describe('traffic tap — body plane (S3)', () => {
 
   it('pulls a failure body eagerly at classification time and retains it capped + redacted', async () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installBodyRelay(
@@ -477,7 +487,7 @@ describe('traffic tap — body plane (S3)', () => {
       ],
       new Map([['broken', `{"error":"stack trace","token":"${JWT}"}`]]),
     );
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
 
     // The seam defers a microtask before dispatching the pull.
@@ -502,13 +512,14 @@ describe('traffic tap — body plane (S3)', () => {
 
   it('pulls a success body on demand without retaining it', async () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installBodyRelay(
       [makeLifecycle({ requestId: 'ok', startedAtMs: 900, phase: 'completed', statusCode: 200 })],
       new Map([['ok', '{"users":[1,2,3]}']]),
     );
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
     await Promise.resolve();
     expect(relay.pulls).toEqual([]);
@@ -528,6 +539,7 @@ describe('traffic tap — body plane (S3)', () => {
   it('answers honest unavailability: unknown ids, in-flight, network failures, and silence', async () => {
     vi.useFakeTimers();
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installBodyRelay(
@@ -543,7 +555,7 @@ describe('traffic tap — body plane (S3)', () => {
       ],
       new Map(),
     );
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
 
     expect(await tap.pullBody('browser-tab:missing:1', 'x')).toBeNull();
@@ -564,6 +576,7 @@ describe('traffic tap — body plane (S3)', () => {
 
   it('an empty body answer maps to a typed miss, never a fake empty body', async () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     // Two completed successes: one whose record proves bytes existed
@@ -586,7 +599,7 @@ describe('traffic tap — body plane (S3)', () => {
         ['never-there', ''],
       ]),
     );
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
     await Promise.resolve();
 
@@ -602,13 +615,14 @@ describe('traffic tap — body plane (S3)', () => {
 
   it('getRecord projects one identity with the failure body attached', async () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installBodyRelay(
       [makeLifecycle({ requestId: 'broken', startedAtMs: 900, phase: 'completed', statusCode: 404 })],
       new Map([['broken', 'not found']]),
     );
-    const tap = createTrafficTap({ dialer, proxyHub });
+    const tap = createTrafficTap({ mirror, proxyHub });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
     await Promise.resolve();
 
@@ -653,11 +667,12 @@ describe('traffic tap — capture sessions (S7)', () => {
 
   it('refuses unknown sources, hosts without a capture dir, and doubled starts', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
 
-    const bare = createTrafficTap({ dialer, proxyHub });
+    const bare = createTrafficTap({ mirror, proxyHub });
     const bareUid = bare.armBrowserTab('ext-node-1', 7) ?? '';
     expect(bare.captureStart(bareUid, { name: 's', redaction: 'standard' })).toEqual({
       ok: false,
@@ -665,7 +680,7 @@ describe('traffic tap — capture sessions (S7)', () => {
     });
     bare.dispose();
 
-    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
     expect(tap.captureStart('browser-tab:missing:1', { name: 's', redaction: 'standard' })).toEqual({
       ok: false,
       reason: 'unknown-source',
@@ -685,10 +700,11 @@ describe('traffic tap — capture sessions (S7)', () => {
 
   it('appends redacted seam events — and a reveal window never leaks into the file', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
 
     const started = tap.captureStart(uid, { name: 'leak check', redaction: 'standard' });
@@ -739,10 +755,11 @@ describe('traffic tap — capture sessions (S7)', () => {
 
   it('disarm stops the capture (absence cascades) with the honest end reason', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
     const started = tap.captureStart(uid, { name: 'cascade', redaction: 'standard' });
     if (!started.ok) throw new Error('capture refused');
@@ -762,10 +779,11 @@ describe('traffic tap — capture sessions (S7)', () => {
   it('an active capture holds the arm; the idle clock restarts when the session ends', () => {
     vi.useFakeTimers();
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
     const uid = tap.armBrowserTab('ext-node-1', 7, { ttlMs: 5_000 }) ?? '';
     const started = tap.captureStart(uid, {
       name: 'overnight',
@@ -794,10 +812,11 @@ describe('traffic tap — capture sessions (S7)', () => {
 
   it('the size bound trips mid-stream: the session stops itself and the status converges', () => {
     const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ dialer, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
     const started = tap.captureStart(uid, {
       name: 'tiny',

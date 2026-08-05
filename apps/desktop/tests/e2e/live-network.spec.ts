@@ -193,16 +193,36 @@ async function seedBackend(
 ): Promise<void> {
   const page = await peerPage(peer);
   await page.evaluate(async ({ backendUrl, authToken, enabled }) => {
-    const key = await new Promise<CryptoKey>((resolve, reject) => {
-      const open = indexedDB.open('oh-secret-cipher', 1);
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result;
-        const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result as CryptoKey);
-      };
-    });
+    // Existence probe first — an eager indexedDB.open would CREATE an
+    // empty schema-less DB and race the extension's cipher init; the
+    // guarded read (probe → husk heal → bounded wait) is the
+    // agent-traffic harness idiom, lifted here per its standing rider.
+    const databases = await indexedDB.databases();
+    if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
+      throw new Error('cipher db not yet created');
+    }
+    const key = await Promise.race([
+      new Promise<CryptoKey>((resolve, reject) => {
+        const open = indexedDB.open('oh-secret-cipher');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('keys')) {
+            // A schema-less husk (e.g. from an earlier eager open)
+            // blocks the extension's init — heal by deleting it.
+            db.close();
+            const drop = indexedDB.deleteDatabase('oh-secret-cipher');
+            drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
+            return;
+          }
+          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () =>
+            request.result ? resolve(request.result as CryptoKey) : reject(new Error('cipher key not yet minted'));
+        };
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
+    ]);
     const record = {
       id: 'live-network-e2e-backend',
       label: 'live-network e2e desktop',
@@ -257,7 +277,7 @@ async function seedBackendRetrying(
   seed: { backendUrl: string; authToken: string; enabled: boolean },
 ): Promise<void> {
   let seedError: unknown;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     try {
       await seedBackend(peer, seed);
       return;

@@ -92,7 +92,7 @@ import {
 } from '@openheaders/oracle/traffic-retention';
 
 import { startTrafficCaptureSession, type TrafficCaptureSession } from './capture';
-import type { LoopbackLifelineDialer } from './loopback-lifeline';
+import type { TrafficPartitionMirror } from './partition-mirror';
 import { connectBrowserTabSource, connectProxySource, type TrafficSourceConnection } from './sources';
 
 const SCOPE = 'TrafficTap';
@@ -116,7 +116,9 @@ const STOPPED_CAPTURES_KEPT = 20;
 export const TRAFFIC_BODY_PULL_TIMEOUT_MS = 10 * 1000;
 
 export interface TrafficTapDeps {
-  readonly dialer: LoopbackLifelineDialer;
+  /** The partition mirror (C2) — browser-tab sources join it as tap
+   *  seats instead of dialing the relay themselves. */
+  readonly mirror: TrafficPartitionMirror;
   /** The daemon-side proxy-capture hub (`proxyCaptureService.hub`). */
   readonly proxyHub: RequestLifecycleHub;
   /** `proxyCaptureService.serveRequestBody` — the proxy partition's
@@ -466,7 +468,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       capture: null,
     };
     const connection = connectBrowserTabSource({
-      dialer: deps.dialer,
+      mirror: deps.mirror,
       nodeId,
       tabId,
       consumer: source.consumer,

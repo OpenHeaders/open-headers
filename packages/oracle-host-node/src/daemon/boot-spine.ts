@@ -126,7 +126,7 @@ import { peekCookieJar } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
-import { createTrafficTap, installLoopbackLifelineDialer } from '../traffic';
+import { createTrafficPartitionMirror, createTrafficTap, installLoopbackLifelineDialer } from '../traffic';
 import {
   createWorkspaceTreeRuntime,
   dispatchWorkspaceTreeRpc,
@@ -758,26 +758,36 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // Loopback lifeline dialing (AGENT_TRAFFIC_PLAN.md §2) — wraps the
   // installed lifeline server so an in-process consumer can dial the
   // acceptors registered BELOW this line. Ordering is load-bearing: the
-  // relay's acceptor must register through the wrapper for the traffic
-  // tap's browser-tab source to be dialable.
+  // relay's acceptor must register through the wrapper for the
+  // partition mirror's wire session to be dialable.
   const lifelineDialer = installLoopbackLifelineDialer();
 
+  // Traffic partition mirror (AGENT_TRAFFIC_PLAN.md §11.2, C2) — ONE
+  // wire consumer session per watched browser-tab partition feeding one
+  // host-side fold; workbench viewer ports are claimed by the
+  // interposer below and served hub-style from the local store, and the
+  // tap joins as a read-policy. The interposer must install BEFORE the
+  // relay's acceptor registers so viewer ports never reach the relay —
+  // the mirror's own dials are the relay's only remaining consumers.
+  const trafficMirror = createTrafficPartitionMirror({ dialer: lifelineDialer });
+  const uninstallTrafficMirrorInterposer = trafficMirror.installInterposer();
+
   // Browser live-telemetry relay (OBSERVABILITY_PLAN.md Phase 1) — the
-  // workbench's qualified lifecycle lifelines bridge through here to
-  // the extension peer that owns each browser tab. No second store or
-  // hub: envelopes relay frame-for-frame, watches are subscription-
-  // gated end to end. No-op on a headless host (no lifeline server).
+  // qualified lifecycle lifelines bridge through here to the extension
+  // peer that owns each browser tab. No second store or hub: envelopes
+  // relay frame-for-frame, watches are subscription-gated end to end.
+  // No-op on a headless host (no lifeline server).
   const browserLiveRelay = createBrowserLiveRelay();
   const uninstallBrowserLiveLifeline = browserLiveRelay.installLifeline();
 
   // Agent-traffic tap (AGENT_TRAFFIC_PLAN.md §8 S1) — the armed-source
-  // registry over the relay (browser tabs, via loopback lifelines) and
-  // the proxy-capture hub. Dormant until an operator arms a source; the
+  // registry over the partition mirror (browser tabs) and the
+  // proxy-capture hub. Dormant until an operator arms a source; the
   // `observe`-tier traffic_* tools (S3) read it through the MCP install
   // below. The proxy body server backs the failure-body carve-out and
   // on-demand pulls for the proxy partition.
   const trafficTap = createTrafficTap({
-    dialer: lifelineDialer,
+    mirror: trafficMirror,
     proxyHub: proxyCaptureService.hub,
     proxyServeRequestBody: (requestId, hopIndex) => proxyCaptureService.serveRequestBody(requestId, hopIndex),
     // Capture sessions (S7) — the ONLY path traffic ever takes to disk,
@@ -1308,6 +1318,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     workspaceTreeRuntime = null;
     stopLiveRunner();
     trafficTap.dispose();
+    trafficMirror.dispose();
+    uninstallTrafficMirrorInterposer();
     uninstallProxyCaptureLifeline();
     uninstallBrowserLiveLifeline();
     browserLiveRelay.dispose();
