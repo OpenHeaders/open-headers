@@ -436,6 +436,21 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.label': 'Les deux',
   'workbench.settings.def.inspection.cdpScope.option.both.description': "Les onglets DevTools et l'onglet actif.",
 
+  // ── Traffic Monitor category defs ──────────────────────────────────
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Démarrer les sessions avec le mode débogage',
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
+    'Les nouvelles sessions d’observation attachent le débogueur du navigateur pour une fidélité maximale — corps ' +
+    'de réponse et en-têtes exacts. Le navigateur affiche un bandeau de débogage sur l’onglet. Chaque geste de ' +
+    'démarrage peut remplacer ce réglage sous Avancé.',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Enregistrer les sessions dans l’archive',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
+    'Les nouvelles sessions d’observation sont enregistrées dans l’archive de sessions chiffrée sur cet ' +
+    'ordinateur. Chaque geste de démarrage peut remplacer ce réglage sous Avancé.',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Budget de taille de l’archive de sessions (Gio)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
+    'Espace disque total des sessions archivées. Une fois le budget dépassé, les sessions scellées les plus ' +
+    'anciennes sont supprimées en premier ; une session en cours d’enregistrement n’est jamais supprimée.',
+
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': 'Taille de police',
   'workbench.settings.def.editor.fontSize.description': "Taille de police en pixels des surfaces d'édition.",

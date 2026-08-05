@@ -20,6 +20,7 @@ import './devpanel-cookies';
 import './devpanel-timing';
 import './devpanel-network';
 import './inspection';
+import './traffic-monitor';
 import './editor';
 import './requests';
 import './rules-engine';

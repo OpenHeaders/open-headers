@@ -16,6 +16,7 @@ import * as path from 'node:path';
 
 import { setHostLogger } from '@openheaders/core/logger';
 import type { LifecycleWireMessage, RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { DEFAULT_TRAFFIC_SESSION_RETENTION } from '@openheaders/core/traffic';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import type { SecretCipher } from '@openheaders/oracle/host-storage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -28,7 +29,11 @@ import {
   sealContainer,
   sha256Hex,
 } from '../../src/traffic/seal';
-import { createTrafficSessionArchive, type TrafficSessionArchive } from '../../src/traffic/session-archive';
+import {
+  createTrafficSessionArchive,
+  type TrafficSessionArchive,
+  trafficSessionRetentionFromSettings,
+} from '../../src/traffic/session-archive';
 import type { TrafficSessionMeta } from '../../src/traffic/session-recorder';
 
 let root: string;
@@ -363,7 +368,7 @@ describe('session recorder + archive', () => {
     const archive = createTrafficSessionArchive({
       dir: root,
       sealKey: null,
-      retention: { maxTotalBytes: 7_000 },
+      retention: () => ({ maxTotalBytes: 7_000 }),
     });
     // Incompressible payloads (base64 of random bytes) so the budget
     // math survives the try-keep-if-smaller compression: one session
@@ -402,5 +407,19 @@ describe('session recorder + archive', () => {
     await vi.waitFor(() => {
       expect(live.projection().state).toBe('sealed');
     });
+  });
+
+  it('maps the Settings budget row to a retention posture, defaulting on absent or junk values', () => {
+    expect(trafficSessionRetentionFromSettings({ 'trafficMonitor.sessionRetentionGiB': 3 })).toEqual({
+      maxTotalBytes: 3 * 1024 * 1024 * 1024,
+    });
+    expect(trafficSessionRetentionFromSettings(undefined)).toEqual(DEFAULT_TRAFFIC_SESSION_RETENTION);
+    expect(trafficSessionRetentionFromSettings({})).toEqual(DEFAULT_TRAFFIC_SESSION_RETENTION);
+    expect(trafficSessionRetentionFromSettings({ 'trafficMonitor.sessionRetentionGiB': 0 })).toEqual(
+      DEFAULT_TRAFFIC_SESSION_RETENTION,
+    );
+    expect(trafficSessionRetentionFromSettings({ 'trafficMonitor.sessionRetentionGiB': 'big' })).toEqual(
+      DEFAULT_TRAFFIC_SESSION_RETENTION,
+    );
   });
 });

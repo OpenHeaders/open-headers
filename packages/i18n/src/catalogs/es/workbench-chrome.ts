@@ -586,34 +586,28 @@ export const workbenchChrome = {
     'Observar con agentes de IA: un agente de IA conectado puede leer el tráfico de esta fuente mientras esté armada',
   'workbench.trafficMonitor.observeArmed':
     'Observando: legible por los agentes de IA conectados hasta detenerla o caducar por inactividad. Haz clic para ' +
-    'ver las opciones.',
+    'detener.',
   'workbench.trafficMonitor.observeCapturing':
-    'Observando + guardando la sesión en disco: solo registros censurados. Haz clic para ver las opciones.',
+    'Observando + grabando una sesión en el archivo. Haz clic para detener.',
   'workbench.trafficMonitor.observeAria': 'Opciones de observación por agente de IA para esta fuente',
-  'workbench.trafficMonitor.observeMenuArm': 'Solo observar',
-  'workbench.trafficMonitor.observeMenuArmHint':
-    'Transmite el tráfico de esta fuente a la aplicación de escritorio en memoria: los agentes de IA conectados ' +
-    'pueden leerlo mientras esté armada',
-  'workbench.trafficMonitor.observeMenuArmSave': 'Observar + guardar sesión',
-  'workbench.trafficMonitor.observeMenuArmSaveHint':
-    'También graba el tráfico censurado en un archivo de sesión acotado en disco',
-  'workbench.trafficMonitor.observeMenuSave': 'Guardar también la sesión en disco',
-  'workbench.trafficMonitor.observeMenuSaveHint':
-    'Empieza a grabar esta fuente armada: registros censurados, archivo acotado',
+  'workbench.trafficMonitor.observeMenuStart': 'Empezar a observar',
+  'workbench.trafficMonitor.observeMenuStartHint':
+    'Transmite el tráfico de esta fuente a la aplicación de escritorio: los agentes de IA conectados pueden ' +
+    'leerlo durante la observación',
+  'workbench.trafficMonitor.observeAdvanced': 'Avanzado',
+  'workbench.trafficMonitor.observeDebugOptionHint':
+    'Fidelidad completa mediante el depurador del navegador: cuerpos de respuesta y encabezados exactos. El ' +
+    'navegador muestra un aviso de depuración.',
+  'workbench.trafficMonitor.observeSaveOption': 'Guardar sesión',
+  'workbench.trafficMonitor.observeSaveOptionHint':
+    'Graba la observación en el archivo de sesiones cifrado de este equipo',
   'workbench.trafficMonitor.observeMenuStop': 'Dejar de observar',
-  'workbench.trafficMonitor.observeMenuStopSave': 'Dejar de observar y conservar la sesión',
-  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Termina la grabación y conserva el archivo de sesión',
-  'workbench.trafficMonitor.captureBadge': 'Capturando a disco',
-  'workbench.trafficMonitor.captureBadgeHint':
-    'Una sesión de captura está escribiendo en disco registros de tráfico censurados. Se detiene al alcanzar su ' +
-    'límite de tamaño o duración, al desarmar la fuente o cuando la detengas.',
+  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Termina la grabación y conserva la sesión',
   'workbench.trafficMonitor.sessionsTitle': 'Sesiones',
-  'workbench.trafficMonitor.sessionsEmpty': 'Las grabaciones a disco de esta ejecución aparecen aquí',
+  'workbench.trafficMonitor.sessionsEmpty': 'Las sesiones en grabación aparecen aquí mientras se ejecutan',
   'workbench.trafficMonitor.sessionDetail': '{records} registros · {size}',
   'workbench.trafficMonitor.sessionStop': 'Grabando: haz clic para detener',
   'workbench.trafficMonitor.sessionStopAria': 'Detener esta sesión de captura',
-  'workbench.trafficMonitor.sessionReveal': 'Mostrar en la carpeta',
-  'workbench.trafficMonitor.sessionRevealAria': 'Mostrar la carpeta de la sesión en el gestor de archivos',
   'workbench.trafficMonitor.sessionEndStopped': 'Detenida',
   'workbench.trafficMonitor.sessionEndSizeBound': 'Límite de tamaño',
   'workbench.trafficMonitor.sessionEndDurationBound': 'Límite de tiempo',

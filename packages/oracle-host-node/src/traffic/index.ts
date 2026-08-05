@@ -34,6 +34,7 @@ export {
 } from './seal';
 export {
   createTrafficSessionArchive,
+  trafficSessionRetentionFromSettings,
   type TrafficSessionArchive,
   type TrafficSessionArchiveOptions,
 } from './session-archive';

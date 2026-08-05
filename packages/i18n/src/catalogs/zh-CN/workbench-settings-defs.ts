@@ -327,6 +327,17 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.label': '两者',
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools 标签页加聚焦的标签页。',
 
+  // ── Traffic Monitor category defs ──────────────────────────────────
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': '以调试模式开始会话',
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
+    '新的观察会话会附加浏览器调试器以获得完整保真度——响应正文与精确的标头。浏览器会在该标签页上显示调试横幅。每次开始手势都可在“高级”中覆盖此设置。',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': '把会话保存到归档',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
+    '新的观察会话会录制到本机的加密会话归档中。每次开始手势都可在“高级”中覆盖此设置。',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': '会话归档大小预算（GiB）',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
+    '归档会话占用的磁盘空间总额。超出预算后，最旧的已封存会话会最先被删除；正在录制的会话永远不会被删除。',
+
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': '字号',
   'workbench.settings.def.editor.fontSize.description': '编辑器界面的字号，单位为像素。',

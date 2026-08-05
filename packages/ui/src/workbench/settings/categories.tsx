@@ -19,6 +19,7 @@ import {
   DownloadOutlined,
   EditOutlined,
   ExportOutlined,
+  EyeOutlined,
   FunctionOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
@@ -190,6 +191,19 @@ registerCategory({
   icon: <BugOutlined />,
   order: 21,
   descriptionKey: 'workbench.settings.category.inspection.description',
+});
+
+registerCategory({
+  id: 'trafficMonitor',
+  labelKey: 'workbench.settings.category.trafficMonitor.label',
+  icon: <EyeOutlined />,
+  order: 22,
+  descriptionKey: 'workbench.settings.category.trafficMonitor.description',
+  // Only the desktop host runs the Traffic Monitor tool window (the
+  // `liveNetwork` capability); browser hosts keep the nav entry and
+  // render the desktop teaser, same as the tool window itself.
+  when: () => getCurrentHost() === 'desktop',
+  teaserWhenUnavailable: 'liveNetwork',
 });
 
 registerCategory({

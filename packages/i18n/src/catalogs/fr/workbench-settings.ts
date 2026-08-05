@@ -124,6 +124,10 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.description':
     'La voie opt-in qui attache le protocole de débogage de votre navigateur — inspectez et modifiez les ' +
     'requêtes avec la même profondeur que les outils de développement intégrés.',
+  'workbench.settings.category.trafficMonitor.label': 'Moniteur de trafic',
+  'workbench.settings.category.trafficMonitor.description':
+    'Valeurs par défaut du geste « Démarrer l’observation » du Moniteur de trafic, et budget disque de ' +
+    'l’archive de sessions.',
   'workbench.settings.category.editor.label': 'Éditeur de code',
   'workbench.settings.category.editor.description':
     "Police, indentation et options d'affichage des surfaces d'édition de code.",

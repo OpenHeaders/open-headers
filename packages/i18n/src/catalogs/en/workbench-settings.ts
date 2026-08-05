@@ -108,6 +108,9 @@ export const workbenchSettings = {
   'workbench.settings.category.inspection.label': 'Debug mode',
   'workbench.settings.category.inspection.description':
     'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
+  'workbench.settings.category.trafficMonitor.label': 'Traffic Monitor',
+  'workbench.settings.category.trafficMonitor.description':
+    'Defaults for the start-observing gesture in the Traffic Monitor, and the disk budget of the session archive.',
   'workbench.settings.category.editor.label': 'Code Editor',
   'workbench.settings.category.editor.description': 'Font, indentation, and view options for code editing surfaces.',
   'workbench.settings.category.requests.label': 'API Requests',

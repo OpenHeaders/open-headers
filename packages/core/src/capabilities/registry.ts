@@ -225,17 +225,6 @@ export interface Capabilities {
   openUrlInBrowser?: (url: string, browser: InstallTargetBrowser) => Promise<{ ok: boolean; error?: string }>;
 
   /**
-   * Reveal a file the APP wrote in the OS file manager (Finder /
-   * Explorer / the desktop's file browser) — the capture-session rows'
-   * "show me the file" gesture. Registered only by hosts with an OS
-   * shell under them (the desktop renderer); the main-process handler
-   * refuses paths outside the app's own data directory, so this never
-   * becomes a generic reveal-any-path primitive. Browser surfaces
-   * leave it absent and shared UI hides the affordance.
-   */
-  revealInFolder?: (path: string) => Promise<{ ok: boolean; error?: string }>;
-
-  /**
    * Dismiss the current surface — the extension popup closes its own
    * window; the extension sidepanel can self-close. Desktop windows
    * have no equivalent (the workbench is long-lived), so the desktop

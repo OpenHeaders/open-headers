@@ -562,31 +562,26 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.observeArm':
     'Observe with AI agents — a connected AI agent can read this source’s traffic while armed',
   'workbench.trafficMonitor.observeArmed':
-    'Observing — readable by connected AI agents until stopped or idle expiry. Click for options.',
+    'Observing — readable by connected AI agents until stopped or idle expiry. Click to stop.',
   'workbench.trafficMonitor.observeCapturing':
-    'Observing + saving session to disk — redacted records only. Click for options.',
+    'Observing + recording a session to the archive. Click to stop.',
   'workbench.trafficMonitor.observeAria': 'AI agent observation options for this source',
-  'workbench.trafficMonitor.observeMenuArm': 'Observe only',
-  'workbench.trafficMonitor.observeMenuArmHint':
-    'Streams this source’s traffic to the desktop app in memory — connected AI agents can read it while armed',
-  'workbench.trafficMonitor.observeMenuArmSave': 'Observe + save session',
-  'workbench.trafficMonitor.observeMenuArmSaveHint': 'Also records redacted traffic to a bounded session file on disk',
-  'workbench.trafficMonitor.observeMenuSave': 'Also save session to disk',
-  'workbench.trafficMonitor.observeMenuSaveHint': 'Start recording this armed source — redacted records, bounded file',
+  'workbench.trafficMonitor.observeMenuStart': 'Start observing',
+  'workbench.trafficMonitor.observeMenuStartHint':
+    'Streams this source’s traffic to the desktop app — connected AI agents can read it while observing',
+  'workbench.trafficMonitor.observeAdvanced': 'Advanced',
+  'workbench.trafficMonitor.observeDebugOptionHint':
+    'Full fidelity via the browser’s debugger — response bodies and exact headers. The browser shows a debugging banner.',
+  'workbench.trafficMonitor.observeSaveOption': 'Save session',
+  'workbench.trafficMonitor.observeSaveOptionHint':
+    'Records the observation to the encrypted session archive on this computer',
   'workbench.trafficMonitor.observeMenuStop': 'Stop observing',
-  'workbench.trafficMonitor.observeMenuStopSave': 'Stop observing & save session',
-  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Ends the recording and keeps the session file',
-  'workbench.trafficMonitor.captureBadge': 'Capturing to disk',
-  'workbench.trafficMonitor.captureBadgeHint':
-    'A capture session is writing redacted traffic records to disk. It stops at its size or duration bound, when the ' +
-    'source is disarmed, or when you stop it.',
+  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Ends the recording and keeps the session',
   'workbench.trafficMonitor.sessionsTitle': 'Sessions',
-  'workbench.trafficMonitor.sessionsEmpty': 'Disk recordings from this app run appear here',
+  'workbench.trafficMonitor.sessionsEmpty': 'Recording sessions appear here while they run',
   'workbench.trafficMonitor.sessionDetail': '{records} records · {size}',
   'workbench.trafficMonitor.sessionStop': 'Recording — click to stop',
   'workbench.trafficMonitor.sessionStopAria': 'Stop this capture session',
-  'workbench.trafficMonitor.sessionReveal': 'Show in folder',
-  'workbench.trafficMonitor.sessionRevealAria': 'Show the session folder in the file manager',
   'workbench.trafficMonitor.sessionEndStopped': 'Stopped',
   'workbench.trafficMonitor.sessionEndSizeBound': 'Size limit',
   'workbench.trafficMonitor.sessionEndDurationBound': 'Time limit',

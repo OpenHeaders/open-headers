@@ -587,35 +587,28 @@ export const workbenchChrome = {
     'Observer avec des agents IA — un agent IA connecté peut lire le trafic de cette source tant qu’elle est armée',
   'workbench.trafficMonitor.observeArmed':
     'Observation en cours — lisible par les agents IA connectés jusqu’à l’arrêt ou l’expiration d’inactivité. ' +
-    'Cliquez pour les options.',
+    'Cliquez pour arrêter.',
   'workbench.trafficMonitor.observeCapturing':
-    'Observation + enregistrement de la session sur disque — enregistrements caviardés uniquement. ' +
-    'Cliquez pour les options.',
+    'Observation + enregistrement d’une session dans l’archive. Cliquez pour arrêter.',
   'workbench.trafficMonitor.observeAria': 'Options d’observation par agent IA pour cette source',
-  'workbench.trafficMonitor.observeMenuArm': 'Observer uniquement',
-  'workbench.trafficMonitor.observeMenuArmHint':
-    'Diffuse le trafic de cette source vers l’application de bureau en mémoire — les agents IA connectés peuvent le ' +
-    'lire tant qu’elle est armée',
-  'workbench.trafficMonitor.observeMenuArmSave': 'Observer + enregistrer la session',
-  'workbench.trafficMonitor.observeMenuArmSaveHint':
-    'Enregistre aussi le trafic caviardé dans un fichier de session borné sur disque',
-  'workbench.trafficMonitor.observeMenuSave': 'Enregistrer aussi la session sur disque',
-  'workbench.trafficMonitor.observeMenuSaveHint':
-    'Démarre l’enregistrement de cette source armée — enregistrements caviardés, fichier borné',
+  'workbench.trafficMonitor.observeMenuStart': 'Démarrer l’observation',
+  'workbench.trafficMonitor.observeMenuStartHint':
+    'Diffuse le trafic de cette source vers l’application de bureau — les agents IA connectés peuvent le lire ' +
+    'pendant l’observation',
+  'workbench.trafficMonitor.observeAdvanced': 'Avancé',
+  'workbench.trafficMonitor.observeDebugOptionHint':
+    'Fidélité maximale via le débogueur du navigateur — corps de réponse et en-têtes exacts. Le navigateur affiche ' +
+    'un bandeau de débogage.',
+  'workbench.trafficMonitor.observeSaveOption': 'Enregistrer la session',
+  'workbench.trafficMonitor.observeSaveOptionHint':
+    'Enregistre l’observation dans l’archive de sessions chiffrée sur cet ordinateur',
   'workbench.trafficMonitor.observeMenuStop': 'Arrêter l’observation',
-  'workbench.trafficMonitor.observeMenuStopSave': 'Arrêter l’observation et conserver la session',
-  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Termine l’enregistrement et conserve le fichier de session',
-  'workbench.trafficMonitor.captureBadge': 'Capture sur disque en cours',
-  'workbench.trafficMonitor.captureBadgeHint':
-    "Une session de capture écrit sur disque des enregistrements de trafic caviardés. Elle s'arrête à sa limite de " +
-    'taille ou de durée, au désarmement de la source, ou quand vous l’arrêtez.',
+  'workbench.trafficMonitor.observeMenuStopRecordingHint': 'Termine l’enregistrement et conserve la session',
   'workbench.trafficMonitor.sessionsTitle': 'Sessions',
-  'workbench.trafficMonitor.sessionsEmpty': 'Les enregistrements sur disque de cette exécution apparaissent ici',
+  'workbench.trafficMonitor.sessionsEmpty': 'Les sessions en cours d’enregistrement apparaissent ici',
   'workbench.trafficMonitor.sessionDetail': '{records} enregistrements · {size}',
   'workbench.trafficMonitor.sessionStop': 'Enregistrement en cours — cliquez pour arrêter',
   'workbench.trafficMonitor.sessionStopAria': 'Arrêter cette session de capture',
-  'workbench.trafficMonitor.sessionReveal': 'Afficher dans le dossier',
-  'workbench.trafficMonitor.sessionRevealAria': 'Afficher le dossier de session dans le gestionnaire de fichiers',
   'workbench.trafficMonitor.sessionEndStopped': 'Arrêtée',
   'workbench.trafficMonitor.sessionEndSizeBound': 'Limite de taille',
   'workbench.trafficMonitor.sessionEndDurationBound': 'Limite de durée',

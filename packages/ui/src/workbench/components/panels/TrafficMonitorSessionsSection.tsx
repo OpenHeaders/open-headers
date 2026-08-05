@@ -1,22 +1,23 @@
 /**
  * TrafficMonitorSessionsSection — the third collapsible section of the
- * Traffic Monitor source rail: THIS RUN's disk capture sessions
- * (AGENT_TRAFFIC_PLAN.md §3), read from the operator plane's
- * `capture.status` — active sessions first, then the recent ended ones
- * with their honest end reasons. Prior-run files sit on disk
- * unenumerated by design; the empty hint names the this-run scope.
+ * Traffic Monitor source rail: LIVE recording state only
+ * (AGENT_TRAFFIC_PLAN.md §11.1, C4) — sessions currently `recording`
+ * or `sealing`, read from the operator plane's `capture.status`.
+ * Sealed sessions leave the rail; browsing the archive belongs to the
+ * C5 sessions tool window. Disk location is an abstraction — there is
+ * no reveal-in-folder here by design; all access to session content
+ * goes through the app.
  *
- * Row vocabulary mirrors the rail's capture affordance: the red save
+ * Row vocabulary mirrors the rail's observe affordance: the red save
  * mark = actively recording, click stops (a human gesture — the
- * channel has no MCP mirror). Ended rows carry their end reason and a
- * hover-revealed "show in folder" action on the session directory,
- * gated on the host's `revealInFolder` capability.
+ * channel has no MCP mirror). A sealing row shows its honest end
+ * reason until the seal completes and the row retires.
  *
  * Presentational: the panel owns the session list, the pending set and
- * both actions; this section renders and reports clicks.
+ * the stop action; this section renders and reports clicks.
  */
 
-import { FileOutlined, FolderOpenOutlined, LoadingOutlined, SaveFilled } from '@ant-design/icons';
+import { FileOutlined, LoadingOutlined, SaveFilled } from '@ant-design/icons';
 import type { TrafficCaptureEndReason, TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
 import type { MessageKey } from '@openheaders/i18n';
 import { theme, Tooltip } from 'antd';
@@ -36,29 +37,22 @@ const END_REASON_KEYS: Record<TrafficCaptureEndReason, MessageKey> = {
 };
 
 export interface TrafficMonitorSessionsSectionProps {
+  /** Live sessions only — `recording` and `sealing` rows. */
   sessions: ReadonlyArray<TrafficCaptureSessionProjection>;
   /** Sessions whose stop command is in flight — spinner state. */
   pending: ReadonlySet<string>;
-  /** Stop an ACTIVE session (the rail affordance's stop path). */
+  /** Stop an ACTIVE session (the observe affordance's stop path). */
   onStop: (session: TrafficCaptureSessionProjection) => void;
-  /** The host can reveal files in its OS file manager. */
-  canReveal: boolean;
-  /** Reveal an ended session's file. */
-  onReveal: (session: TrafficCaptureSessionProjection) => void;
 }
 
 function SessionRow({
   session,
   pending,
   onStop,
-  canReveal,
-  onReveal,
 }: {
   session: TrafficCaptureSessionProjection;
   pending: boolean;
   onStop: () => void;
-  canReveal: boolean;
-  onReveal: () => void;
 }) {
   const t = useT();
   const { token } = theme.useToken();
@@ -109,31 +103,6 @@ function SessionRow({
             </span>
           </Tooltip>
         )}
-        {!active && canReveal && (
-          <Tooltip title={t('workbench.trafficMonitor.sessionReveal')} placement="left">
-            <span
-              role="button"
-              tabIndex={0}
-              data-testid="traffic-monitor-session-reveal"
-              aria-label={t('workbench.trafficMonitor.sessionRevealAria')}
-              className="rules-sidebar-item-hover-action"
-              style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onReveal();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onReveal();
-                }
-              }}
-            >
-              <FolderOpenOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-            </span>
-          </Tooltip>
-        )}
       </div>
     </Tooltip>
   );
@@ -143,8 +112,6 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
   sessions,
   pending,
   onStop,
-  canReveal,
-  onReveal,
 }) => {
   const t = useT();
   const { token } = theme.useToken();
@@ -175,8 +142,6 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
               session={session}
               pending={pending.has(session.sessionId)}
               onStop={() => onStop(session)}
-              canReveal={canReveal}
-              onReveal={() => onReveal(session)}
             />
           ))}
         </div>

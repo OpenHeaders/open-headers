@@ -27,12 +27,16 @@
  *   5. Bound trip: a session with a tiny log bound STOPS itself
  *      (`size-bound`) — never a silent truncate-and-continue — and
  *      the indicator converges off.
- *   6. Workbench gesture: the observe popover's save verb starts a
- *      session on the operator plane and the combined stop ends it
- *      with the honest 'stopped' reason.
- *   7. Sessions section: the rail's section lists this run's
- *      recordings — honest end-reason labels, reveal-in-folder on
- *      ended rows, and an active row's stop action working.
+ *   6. Workbench gesture (C4 — one gesture, one bundle): from a cold
+ *      posture the popover's single start verb arms, attaches CDP
+ *      debug, and opens a recording session per the Advanced toggles
+ *      (seeded from their Settings defaults); the single stop verb
+ *      seals the session 'stopped', disarms, and restores the debug
+ *      state the start gesture found.
+ *   7. Sessions section (C4 — live state only): sealed sessions leave
+ *      the rail (no rows, no reveal-in-folder — disk location is an
+ *      abstraction); an active session shows one live row whose stop
+ *      seals it, after which the row retires.
  *
  * Requires builds: `pnpm --filter @openheaders/desktop build` and the
  * extension `dist/chrome` (built separately). The playground dev server
@@ -368,10 +372,10 @@ test('the start gesture opens the session and the Traffic Monitor shows the reco
   expect(sources.find((s) => s.uid === armedUid)?.capture?.sessionId).toBe(started.session?.sessionId);
 
   // The retention indicator: visible in the Traffic Monitor the whole
-  // time the session runs — header badge + per-row mark (PLAN §3).
+  // time the session runs — the per-row red eye (PLAN §3; the header
+  // chip retired in C4, transparency lives in the row state).
   await openTrafficMonitor();
   await refreshRail();
-  await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toBeVisible({ timeout: 10000 });
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
     timeout: 10000,
   });
@@ -486,53 +490,100 @@ test('a tripped log bound stops the session with the honest reason and the indic
   // Event lines never cross the bound; only the honest trailer may.
   expect(session.bytesWritten).toBeLessThanOrEqual(2048 + 256);
 
-  // The indicator converges off once nothing records.
+  // The indicator converges off once nothing records — the eye drops
+  // back to its armed (non-capturing) identity.
   await openTrafficMonitor();
   await refreshRail();
-  await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]')).toHaveCount(0, {
+    timeout: 10000,
+  });
 });
 
-// ── The Workbench affordance: start/stop as a human gesture ─────────
+// ── The Workbench affordance: one gesture, one bundle (C4) ──────────
 
-test('the observe popover starts a session and the combined stop ends it with the honest reason', async () => {
+test('the popover start bundles arm + debug + record, and the single stop unwinds it', async () => {
+  // Reset to a COLD posture: disarm the operator-plane arm and drop
+  // the leg-1 debug enable/pin — the auto-debug proof needs the start
+  // gesture to be what re-creates all of it.
+  await invoke({ type: 'oh.daemon.traffic.disarm', uid: armedUid });
+  await invoke({
+    type: 'oh.daemon.telemetry.debug.control',
+    nodeId: peerNodeId,
+    command: { kind: 'pin', tabId: archiveTabId, pinned: false },
+  });
+  await invoke({
+    type: 'oh.daemon.telemetry.debug.control',
+    nodeId: peerNodeId,
+    command: { kind: 'enable', enabled: false },
+  });
+  const debugState = async (): Promise<{ enabled: boolean; attached: boolean }> => {
+    const { peers } = (await invoke({ type: 'oh.daemon.telemetry.tabs.list' })) as unknown as {
+      peers?: Array<{ nodeId: string; debug: { enabled: boolean; attachedTabs: number[] } }>;
+    };
+    const peer = (peers ?? []).find((p) => p.nodeId === peerNodeId);
+    return {
+      enabled: peer?.debug.enabled ?? false,
+      attached: peer?.debug.attachedTabs.includes(archiveTabId) ?? false,
+    };
+  };
+  await expect
+    .poll(async () => JSON.stringify(await debugState()), { timeout: 20000 })
+    .toBe(JSON.stringify({ enabled: false, attached: false }));
+
   await openTrafficMonitor();
   await refreshRail();
-
-  // The armed row's eye is the single affordance; its popover carries
-  // the save upgrade — unarmed rows offer arm options only.
-  const armedEye = workbench.locator('[data-testid="traffic-monitor-source-observe"][aria-pressed="true"]');
-  await expect(armedEye.first()).toBeVisible({ timeout: 10000 });
   const before = (await captureSessions()).length;
 
-  // "Also save session to disk": a recording session on the operator
-  // plane, on the armed source — the human gesture IS the consent.
-  await armedEye.first().click();
-  await workbench.locator('[data-testid="traffic-monitor-observe-save"]').click();
+  // The idle eye opens the popover: ONE primary verb, with the two
+  // bundled toggles under Advanced, seeded ON from their Settings
+  // defaults (`trafficMonitor.observe{Debug,Save}Default`).
+  const row = workbench.locator('[data-testid="traffic-monitor-source-tab"]', { hasText: 'Session archive' }).first();
+  await row.hover();
+  await row.locator('[data-testid="traffic-monitor-source-observe"]').click();
+  await expect(workbench.locator('[data-testid="traffic-monitor-observe-start"]')).toBeVisible({ timeout: 10000 });
+  await workbench.locator('[data-testid="traffic-monitor-observe-advanced"]').click();
+  await expect(workbench.locator('[data-testid="traffic-monitor-observe-debug"]')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(workbench.locator('[data-testid="traffic-monitor-observe-save"]')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  // Start: the bundle arms the source, attaches the browser debugger,
+  // and opens a recording session — the gesture IS the consent.
+  await workbench.locator('[data-testid="traffic-monitor-observe-start"]').click();
   await expect
-    .poll(async () => (await captureSessions()).find((s) => s.state === 'recording')?.sourceUid, { timeout: 15000 })
-    .toBe(armedUid);
+    .poll(async () => (await captureSessions()).find((s) => s.state === 'recording')?.sessionId ?? '', {
+      timeout: 20000,
+    })
+    .not.toBe('');
   const active = (await captureSessions()).find((s) => s.state === 'recording');
   expect(active?.name.length).toBeGreaterThan(0);
+  await expect.poll(async () => (await debugState()).attached, { timeout: 20000 }).toBe(true);
 
   // The eye became the always-visible retention indicator (red state).
+  await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
     timeout: 10000,
   });
-  await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toBeVisible({ timeout: 10000 });
 
-  // The combined stop is ONE button: it ends the session honestly
-  // (stop BEFORE disarm keeps the 'stopped' reason) and stops observing.
+  // The single stop unwinds the whole bundle: the session seals with
+  // the honest 'stopped' (stop BEFORE disarm), the source disarms, and
+  // the debug state restores to the cold posture the start found.
   await workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first().click();
-  await workbench.locator('[data-testid="traffic-monitor-observe-stop-save"]').click();
+  await workbench.locator('[data-testid="traffic-monitor-observe-stop"]').click();
   const ended = await waitSealed(active?.sessionId ?? '');
   expect(ended.endReason).toBe('stopped');
   expect((await captureSessions()).length).toBe(before + 1);
-  await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
-  // The combined stop also disarmed the source — no armed eye remains.
   await expect(workbench.locator('[data-testid="traffic-monitor-source-observe"][aria-pressed="true"]')).toHaveCount(
     0,
     { timeout: 10000 },
   );
+  await expect
+    .poll(async () => JSON.stringify(await debugState()), { timeout: 20000 })
+    .toBe(JSON.stringify({ enabled: false, attached: false }));
 
   // Re-arm for the legs that follow (the sessions section stops a
   // session on this uid).
@@ -546,28 +597,25 @@ test('the observe popover starts a session and the combined stop ends it with th
   armedUid = rearmed.uid ?? '';
 });
 
-// ── The SESSIONS rail section: this run's recordings ────────────────
+// ── The SESSIONS rail section: live state only (C4) ─────────────────
 
-test("the Sessions section lists this run's recordings with honest end reasons, reveal and stop actions", async () => {
+test('the Sessions section shows live recordings only and its stop retires the row', async () => {
   await openTrafficMonitor();
   await refreshRail();
 
-  // Every session the operator plane knows appears as a row (this-run
-  // scope by design — prior-run sessions wait for the C5 tool window).
+  // Every prior leg's session is sealed — sealed sessions leave the
+  // rail (live state only; browsing the archive is the C5 window),
+  // and the reveal-in-folder affordance retired with the chip (disk
+  // location is an abstraction).
   const sessions = await captureSessions();
   expect(sessions.length).toBeGreaterThanOrEqual(4);
-  const rows = workbench.locator('[data-testid="traffic-monitor-session-row"]');
-  await expect(rows).toHaveCount(sessions.length, { timeout: 10000 });
+  expect(sessions.every((s) => s.state === 'sealed')).toBe(true);
+  await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(0, { timeout: 10000 });
+  expect(await workbench.locator('[data-testid="traffic-monitor-session-reveal"]').count()).toBe(0);
+  await expect(workbench.locator('[data-testid="traffic-monitor-sessions-empty"]')).toBeVisible();
 
-  // Ended rows carry their end reason; the size-bound trip from the
-  // bound-trip leg renders its honest label, and ended rows offer the
-  // reveal-in-folder action (the host capability is present on desktop).
-  await expect(workbench.locator('[data-testid="traffic-monitor-session-end"]', { hasText: 'Size limit' })).toHaveCount(
-    1,
-  );
-  expect(await workbench.locator('[data-testid="traffic-monitor-session-reveal"]').count()).toBe(sessions.length);
-
-  // An active session's row stops it from the section itself.
+  // An active session appears as the one live row; its stop seals it
+  // and the row retires once sealed.
   const started = (await invoke({
     type: 'oh.daemon.traffic.capture.start',
     uid: armedUid,
@@ -575,10 +623,12 @@ test("the Sessions section lists this run's recordings with honest end reasons, 
   })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
   expect(started.ok, started.error).toBe(true);
   await refreshRail();
+  await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(1, { timeout: 10000 });
   const stop = workbench.locator('[data-testid="traffic-monitor-session-stop"]');
   await expect(stop).toBeVisible({ timeout: 10000 });
   await stop.click();
   const ended = await waitSealed(started.session?.sessionId ?? '');
   expect(ended.endReason).toBe('stopped');
-  await expect(workbench.locator('[data-testid="traffic-monitor-session-stop"]')).toHaveCount(0, { timeout: 10000 });
+  await refreshRail();
+  await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(0, { timeout: 10000 });
 });

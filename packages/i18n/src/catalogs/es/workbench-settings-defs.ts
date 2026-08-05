@@ -457,6 +457,22 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.description':
     'Las pestañas con DevTools y la pestaña con el foco.',
 
+  // ── Traffic Monitor category defs ──────────────────────────────────
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Iniciar sesiones con el modo de depuración',
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
+    'Las nuevas sesiones de observación adjuntan el depurador del navegador para una fidelidad completa: cuerpos ' +
+    'de respuesta y encabezados exactos. El navegador muestra un aviso de depuración en la pestaña. Cada gesto de ' +
+    'inicio puede cambiarlo en Avanzado.',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Guardar sesiones en el archivo',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
+    'Las nuevas sesiones de observación se graban en el archivo de sesiones cifrado de este equipo. Cada gesto de ' +
+    'inicio puede cambiarlo en Avanzado.',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label':
+    'Presupuesto de tamaño del archivo de sesiones (GiB)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
+    'Espacio en disco total para las sesiones archivadas. Al superar el presupuesto, se eliminan primero las ' +
+    'sesiones selladas más antiguas; una sesión que aún graba nunca se elimina.',
+
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': 'Tamaño de fuente',
   'workbench.settings.def.editor.fontSize.description': 'Tamaño de fuente en píxeles de las superficies de edición.',

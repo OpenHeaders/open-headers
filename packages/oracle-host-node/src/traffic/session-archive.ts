@@ -50,13 +50,31 @@ import {
 
 const SCOPE = 'TrafficSessionArchive';
 
+/** The Settings row for the archive's global byte budget (C4) — the
+ *  host reads the same dotted-key user-settings record the workbench
+ *  writes, live, so a change applies to the next prune pass. */
+const RETENTION_GIB_SETTING = 'trafficMonitor.sessionRetentionGiB';
+const GIB = 1024 * 1024 * 1024;
+
+export function trafficSessionRetentionFromSettings(
+  values: Record<string, unknown> | undefined,
+): TrafficSessionRetention {
+  const raw = values?.[RETENTION_GIB_SETTING];
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 1) {
+    return { maxTotalBytes: Math.round(raw) * GIB };
+  }
+  return DEFAULT_TRAFFIC_SESSION_RETENTION;
+}
+
 export interface TrafficSessionArchiveOptions {
   /** Archive root — `sessions/` and `blobs/` live under it. */
   readonly dir: string;
   /** The §9.5 seal key. `null` = artifacts land honestly unencrypted
    *  (`meta.encrypted: false`) — never a refusal to record. */
   readonly sealKey: Buffer | null;
-  readonly retention?: TrafficSessionRetention;
+  /** Live retention provider — read on every prune pass, so a Settings
+   *  change applies to the next enforcement without a restart (C4). */
+  readonly retention?: () => TrafficSessionRetention;
 }
 
 export interface TrafficSessionStartOptions {
@@ -134,7 +152,7 @@ async function dirBytes(dir: string): Promise<number> {
 export function createTrafficSessionArchive(options: TrafficSessionArchiveOptions): TrafficSessionArchive {
   const sessionsDir = path.join(options.dir, 'sessions');
   const blobs = createTrafficBlobStore({ dir: path.join(options.dir, 'blobs'), sealKey: options.sealKey });
-  const retention = options.retention ?? DEFAULT_TRAFFIC_SESSION_RETENTION;
+  const retention = options.retention ?? ((): TrafficSessionRetention => DEFAULT_TRAFFIC_SESSION_RETENTION);
   /** Serialize sweep/prune/recovery — concurrent sweeps would race the
    *  union they each computed. */
   let maintenance: Promise<void> = Promise.resolve();
@@ -182,7 +200,7 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
   async function enforceRetentionNow(): Promise<void> {
     for (;;) {
       const total = await archiveTotalBytes();
-      if (total <= retention.maxTotalBytes) return;
+      if (total <= retention().maxTotalBytes) return;
       const sessions: Array<{ dir: string; meta: TrafficSessionMeta }> = [];
       for (const dir of await listSessionDirs()) {
         const meta = await readMeta(dir);

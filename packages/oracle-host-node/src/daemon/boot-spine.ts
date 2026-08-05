@@ -65,6 +65,7 @@ import {
   invalidateAllWorkspaceOrgCache,
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
+import { DEFAULT_TRAFFIC_SESSION_RETENTION, type TrafficSessionRetention } from '@openheaders/core/traffic';
 import type { HostKind } from '@openheaders/core/types';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import {
@@ -92,7 +93,7 @@ import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-ex
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { closeActiveWsSession, sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
   type OracleAwarenessBroadcast,
   type OracleSyncBroadcastEvent,
@@ -132,6 +133,7 @@ import {
   createTrafficTap,
   installLoopbackLifelineDialer,
   TRAFFIC_SESSIONS_DIR_NAME,
+  trafficSessionRetentionFromSettings,
 } from '../traffic';
 import {
   createWorkspaceTreeRuntime,
@@ -809,11 +811,24 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // headless daemon); absent, sealed artifacts stamp themselves
   // honestly unencrypted. Boot recovery seals what a dead process left
   // recording, then sweeps and prunes.
+  // The retention budget is a Settings row (C4) — mirrored into the
+  // dotted-key user-settings record like the MCP switches, read live so
+  // a change applies to the next prune pass without a restart.
+  let trafficRetention: TrafficSessionRetention = DEFAULT_TRAFFIC_SESSION_RETENTION;
+  const applyTrafficRetention = (values: Record<string, unknown> | undefined): void => {
+    trafficRetention = trafficSessionRetentionFromSettings(values);
+  };
+  const unsubscribeTrafficRetention = hostStorage.subscribe(OH.settingsUser, applyTrafficRetention);
   const trafficArchive = createTrafficSessionArchive({
     dir: path.join(config.dataDir, TRAFFIC_SESSIONS_DIR_NAME),
     sealKey: config.trafficSealKey ?? null,
+    retention: () => trafficRetention,
   });
-  void trafficArchive.recoverAtBoot();
+  void hostStorage
+    .get(OH.settingsUser)
+    .then((values) => applyTrafficRetention(values))
+    .catch(() => undefined)
+    .then(() => trafficArchive.recoverAtBoot());
 
   const trafficTap = createTrafficTap({
     mirror: trafficMirror,
@@ -1360,6 +1375,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     unsubscribeActivityEntries();
     unsubscribeMuteChanges();
     unsubscribeWorkspaceStore();
+    unsubscribeTrafficRetention();
     status.clear();
     setMutationForwarderWsServer(null);
     setActivityLog(null);

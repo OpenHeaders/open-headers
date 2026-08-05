@@ -427,6 +427,21 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.label': 'Beides',
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools-Tabs und der fokussierte Tab.',
 
+  // ── Traffic Monitor category defs ──────────────────────────────────
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Sitzungen mit Debug-Modus starten',
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
+    'Neue Beobachtungssitzungen binden den Debugger des Browsers für volle Detailtreue an — Antwortinhalte und ' +
+    'exakte Header. Der Browser zeigt ein Debugging-Banner auf dem Tab. Jede Start-Geste kann dies unter ' +
+    '„Erweitert“ überschreiben.',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Sitzungen im Archiv speichern',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
+    'Neue Beobachtungssitzungen werden im verschlüsselten Sitzungsarchiv auf diesem Computer aufgezeichnet. Jede ' +
+    'Start-Geste kann dies unter „Erweitert“ überschreiben.',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Größenbudget des Sitzungsarchivs (GiB)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
+    'Gesamter Speicherplatz für archivierte Sitzungen. Wird das Budget überschritten, werden zuerst die ältesten ' +
+    'versiegelten Sitzungen entfernt; eine noch aufzeichnende Sitzung wird nie entfernt.',
+
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': 'Schriftgröße',
   'workbench.settings.def.editor.fontSize.description': 'Schriftgröße in Pixeln für Editor-Oberflächen.',

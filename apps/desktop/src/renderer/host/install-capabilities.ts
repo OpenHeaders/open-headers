@@ -39,11 +39,6 @@ registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
 // back to the default browser when the named one isn't installed.
 registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser(url, browser));
 
-// Reveal one of the app's own files in the OS file manager (the
-// Traffic Monitor's capture-session rows). Main refuses paths outside
-// the app data directory.
-registerCapability('revealInFolder', (path) => window.oh.revealInFolder(path));
-
 // In-app updater (docs/UPDATES_PLAN.md): report a seen-but-not-installed
 // update so the gear menu shows its dot. No `url` — the gear routes to
 // the Settings update row, where download/restart run in-app.

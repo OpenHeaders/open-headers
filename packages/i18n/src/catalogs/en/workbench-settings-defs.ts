@@ -346,6 +346,17 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.inspection.cdpScope.option.both.label': 'Both',
   'workbench.settings.def.inspection.cdpScope.option.both.description': 'DevTools tabs and the focused tab.',
 
+  // ── Traffic Monitor category defs ──────────────────────────────────
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.label': 'Start sessions with Debug mode',
+  'workbench.settings.def.trafficMonitor.observeDebugDefault.description':
+    'New observation sessions attach the browser’s debugger for full fidelity — response bodies and exact headers. The browser shows a debugging banner on the tab. Each start gesture can override this under Advanced.',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.label': 'Save sessions to the archive',
+  'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
+    'New observation sessions record to the encrypted session archive on this computer. Each start gesture can override this under Advanced.',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Session archive size budget (GiB)',
+  'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
+    'Total disk space for archived sessions. Once the archive exceeds the budget, the oldest sealed sessions are removed first; a session that is still recording is never removed.',
+
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': 'Font Size',
   'workbench.settings.def.editor.fontSize.description': 'Font size in pixels for editor surfaces.',

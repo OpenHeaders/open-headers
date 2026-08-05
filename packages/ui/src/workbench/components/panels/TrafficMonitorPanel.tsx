@@ -26,7 +26,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { getCapability, hasCapability } from '@openheaders/core/capabilities';
+import { hasCapability } from '@openheaders/core/capabilities';
 import type { JsContext } from '@openheaders/core/js-contexts';
 import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
 import { qualifiedConsolePortName, type TelemetryDebugCommand, type TelemetryDebugState } from '@openheaders/core/protocol';
@@ -70,6 +70,7 @@ import {
   RAIL_MIN_WIDTH,
   TrafficMonitorSourceRail,
   type RailPeer,
+  type RailPeerTab,
   tabSourceKey,
   WIRE_SOURCE_KEY,
 } from './TrafficMonitorSourceRail';
@@ -148,6 +149,16 @@ const lastPanelState: {
 
 /** Reported for a peer that vanished from the inventory mid-selection. */
 const DEBUG_NONE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
+
+/**
+ * Debug-mode state a start-observing gesture changed, per source key —
+ * the stop gesture restores exactly what the bundle touched (a pin or
+ * master switch the user set beforehand survives untouched). Module
+ * scope like {@link lastPanelState}: the bookkeeping outlives
+ * dock-tab switches; an app restart forgets it, and the debug state
+ * then simply stays where the browser left it.
+ */
+const observeDebugPrior = new Map<string, { enabled: boolean; pinned: boolean }>();
 
 // Identity-stable statics for the console pane's unwired seams: the
 // workbench streams no JS-contexts plane (selector hides on empty), has
@@ -406,69 +417,86 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     return () => clearInterval(timer);
   }, [reloadArmed]);
 
-  // One handler for every observe-popover action (PLAN §4 arming + §11
-  // disk recording behind one control). Save-flavored verbs name the
-  // session after the source; bounds stay host defaults. The gesture
-  // itself is the durable-capture consent — redaction is applied at
-  // read time by every consumer-facing projection, never at write.
-  // `stop-save` ends the session BEFORE disarming so its end reason
-  // stays the honest 'stopped', not 'source-disarmed'. Failures
+  // One handler for the observe popover's two verbs (PLAN §11.1 — one
+  // gesture, one bundle). Start arms, then applies the gesture's
+  // bundled toggles: debug fidelity through the peer's Debug control
+  // plane (remembering exactly what it changed) and the recording
+  // session named after the source (bounds stay host defaults). The
+  // gesture itself is the durable-capture consent — redaction is
+  // applied at read time by every consumer-facing projection, never at
+  // write. Stop unwinds the bundle: session BEFORE disarm so the end
+  // reason stays the honest 'stopped' (never 'source-disarmed'), then
+  // the debug state restores to what the start gesture found. Failures
   // converge silently — the reload leaves the icon in its true state.
+  const findTab = useCallback(
+    (key: string): { peer: RailPeer; tab: RailPeerTab } | null => {
+      for (const peer of peers) {
+        for (const tab of peer.tabs) {
+          if (tabSourceKey(peer.nodeId, tab.tabId) === key) return { peer, tab };
+        }
+      }
+      return null;
+    },
+    [peers],
+  );
   const sourceName = useCallback(
     (key: string): string => {
       if (key === WIRE_SOURCE_KEY) return 'traffic-interception';
-      for (const peer of peers) {
-        for (const tab of peer.tabs) {
-          if (tabSourceKey(peer.nodeId, tab.tabId) === key) return tab.title || tab.url || 'tab';
-        }
-      }
-      return 'tab';
+      const found = findTab(key);
+      return found ? found.tab.title || found.tab.url || 'tab' : 'tab';
     },
-    [peers],
+    [findTab],
   );
   const onObserveAction = useCallback(
     (key: string, action: ObserveAction) => {
       setObservePending((prev) => new Set(prev).add(key));
       void (async () => {
         try {
-          if (action === 'arm' || action === 'arm-save') {
+          if (action.kind === 'start') {
             let uid: string | null = null;
+            const found = key === WIRE_SOURCE_KEY ? null : findTab(key);
             if (key === WIRE_SOURCE_KEY) {
               const armed = await hostBridge.call('oh.daemon.traffic.arm', { kind: 'proxy' });
               uid = armed.ok ? armed.uid : null;
-            } else {
-              for (const peer of peers) {
-                for (const tab of peer.tabs) {
-                  if (tabSourceKey(peer.nodeId, tab.tabId) === key) {
-                    const armed = await hostBridge.call('oh.daemon.traffic.arm', {
-                      kind: 'browser-tab',
-                      nodeId: peer.nodeId,
-                      tabId: tab.tabId,
-                    });
-                    uid = armed.ok ? armed.uid : null;
-                  }
-                }
+            } else if (found !== null) {
+              const armed = await hostBridge.call('oh.daemon.traffic.arm', {
+                kind: 'browser-tab',
+                nodeId: found.peer.nodeId,
+                tabId: found.tab.tabId,
+              });
+              uid = armed.ok ? armed.uid : null;
+            }
+            if (uid !== null && action.debug && found !== null && found.peer.debug.available) {
+              const prior = {
+                enabled: found.peer.debug.enabled,
+                pinned: found.peer.debug.pinnedTabs.includes(found.tab.tabId),
+              };
+              if (!prior.enabled || !prior.pinned) observeDebugPrior.set(key, prior);
+              if (!prior.enabled) await debugControl(found.peer.nodeId, { kind: 'enable', enabled: true });
+              if (!prior.pinned) {
+                await debugControl(found.peer.nodeId, { kind: 'pin', tabId: found.tab.tabId, pinned: true });
               }
             }
-            if (action === 'arm-save' && uid !== null) {
-              await hostBridge.call('oh.daemon.traffic.capture.start', {
-                uid,
-                name: sourceName(key),
-              });
+            if (uid !== null && action.save) {
+              await hostBridge.call('oh.daemon.traffic.capture.start', { uid, name: sourceName(key) });
             }
           } else {
             const uid = observeArmed.get(key);
             if (uid !== undefined) {
-              if (action === 'save') {
-                await hostBridge.call('oh.daemon.traffic.capture.start', {
-                  uid,
-                  name: sourceName(key),
-                });
-              } else {
-                if (action === 'stop-save') {
-                  await hostBridge.call('oh.daemon.traffic.capture.stop', { uid });
+              if (captureActive.has(key)) {
+                await hostBridge.call('oh.daemon.traffic.capture.stop', { uid });
+              }
+              await hostBridge.call('oh.daemon.traffic.disarm', { uid });
+            }
+            const prior = observeDebugPrior.get(key);
+            if (prior !== undefined) {
+              observeDebugPrior.delete(key);
+              const found = findTab(key);
+              if (found !== null && found.peer.debug.available) {
+                if (!prior.pinned) {
+                  await debugControl(found.peer.nodeId, { kind: 'pin', tabId: found.tab.tabId, pinned: false });
                 }
-                await hostBridge.call('oh.daemon.traffic.disarm', { uid });
+                if (!prior.enabled) await debugControl(found.peer.nodeId, { kind: 'enable', enabled: false });
               }
             }
           }
@@ -483,13 +511,18 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
         });
       })();
     },
-    [observeArmed, peers, reloadArmed, sourceName],
+    [observeArmed, captureActive, findTab, sourceName, debugControl, reloadArmed],
   );
 
   // Session-row actions: stop rides the same operator verb as the rail
-  // affordance (keyed by sessionId for the spinner); reveal hands the
-  // ended session's directory to the OS file manager through the host
-  // capability — main refuses paths outside the app data directory.
+  // affordance (keyed by sessionId for the spinner). The rail shows
+  // LIVE state only (§11.1 C4) — recording/sealing rows; sealed
+  // sessions belong to the C5 sessions window, and disk location stays
+  // an abstraction (no reveal affordance by design).
+  const liveSessions = useMemo(
+    () => captureSessions.filter((session) => session.state !== 'sealed'),
+    [captureSessions],
+  );
   const [sessionPending, setSessionPending] = useState<ReadonlySet<string>>(() => new Set());
   const onSessionStop = useCallback(
     (session: TrafficCaptureSessionProjection) => {
@@ -510,11 +543,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     },
     [reloadArmed],
   );
-  const canRevealSessions = hasCapability('revealInFolder');
-  const onSessionReveal = useCallback((session: TrafficCaptureSessionProjection) => {
-    void getCapability('revealInFolder')?.(session.dirPath);
-  }, []);
-
   const observeArmedKeys = useMemo(() => new Set(observeArmed.keys()), [observeArmed]);
 
   // Wire-join (Phase 6): a wire row's "seen on tab" annotation jumps to
@@ -1036,11 +1064,9 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           observePending={observePending}
           onObserveAction={onObserveAction}
           captureActive={captureActive}
-          sessions={captureSessions}
+          sessions={liveSessions}
           sessionPending={sessionPending}
           onSessionStop={onSessionStop}
-          canRevealSessions={canRevealSessions}
-          onSessionReveal={onSessionReveal}
           width={railWidth}
         />
       </div>

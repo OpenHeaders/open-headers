@@ -8,7 +8,7 @@
  * colored brand roundel with its extension version, each tab as
  * favicon + title like the browser's own tab strip — WIRE, the L7
  * capture partition (any app routed through the capture port) — and
- * SESSIONS, this run's disk capture sessions
+ * SESSIONS, live recording state only
  * ({@link TrafficMonitorSessionsSection}). Selecting a row binds the
  * panel's plane views on the left to that source.
  *
@@ -32,8 +32,6 @@ import {
   LoadingOutlined,
   PushpinFilled,
   ReloadOutlined,
-  SaveFilled,
-  SaveOutlined,
 } from '@ant-design/icons';
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
@@ -42,6 +40,7 @@ import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useSettingValue } from '../../settings/hooks';
 import {
   EXTENSION_STORE_URLS,
   INSTALL_BROWSER_LABELS,
@@ -129,25 +128,21 @@ export interface TrafficMonitorSourceRailProps {
   observeArmed: ReadonlySet<TrafficSourceKey>;
   /** Sources whose observe action is in flight — spinner state. */
   observePending: ReadonlySet<TrafficSourceKey>;
-  /** Fire one observe-popover action on a source. The save-flavored
-   *  verbs start/stop disk sessions — human gesture only, the channel
-   *  has no MCP mirror by design. */
+  /** Fire one observe-popover verb on a source. Start bundles arm +
+   *  debug fidelity + recording session per its toggles — human
+   *  gesture only, the channel has no MCP mirror by design (§11.5). */
   onObserveAction: (key: TrafficSourceKey, action: ObserveAction) => void;
-  /** Sources an ACTIVE disk capture session is recording (S7). The
-   *  retention indicator (header badge + per-row mark) must be visible
-   *  the whole time a session runs — PLAN §3. */
+  /** Sources an ACTIVE recording session is capturing. The per-row red
+   *  eye is the retention indicator and must be visible the whole time
+   *  a session records — PLAN §3. */
   captureActive: ReadonlySet<TrafficSourceKey>;
-  /** THIS RUN's capture sessions — the SESSIONS section's rows (active
-   *  first, then recent ended ones with their honest end reasons). */
+  /** LIVE sessions only (recording/sealing) — the SESSIONS section's
+   *  rows; sealed sessions belong to the C5 sessions window. */
   sessions: ReadonlyArray<TrafficCaptureSessionProjection>;
   /** Sessions whose stop command is in flight — spinner state. */
   sessionPending: ReadonlySet<string>;
   /** Stop an ACTIVE session from its row. */
   onSessionStop: (session: TrafficCaptureSessionProjection) => void;
-  /** The host can reveal session files in its OS file manager. */
-  canRevealSessions: boolean;
-  /** Reveal an ended session's file. */
-  onSessionReveal: (session: TrafficCaptureSessionProjection) => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -250,12 +245,13 @@ function TabDebugAffordance({
 }
 
 /**
- * The action verbs the observe affordance's popover can fire — the
- * panel owns their host-call sequences. `arm-save` and `stop-save`
- * bundle the disk session with the arm gesture; every save-flavored
- * verb stays a human click, so the no-MCP-mirror law (PLAN §3) holds.
+ * The two verbs the observe popover can fire (PLAN §11.1 — one
+ * gesture, one bundle). `start` carries the gesture's effective
+ * Advanced toggles: debug fidelity and the recording session ride the
+ * arm as ONE bundle, and both stay human clicks, so the no-MCP-mirror
+ * law (§11.5) holds. `stop` unwinds the whole bundle.
  */
-export type ObserveAction = 'arm' | 'arm-save' | 'save' | 'stop' | 'stop-save';
+export type ObserveAction = { kind: 'start'; debug: boolean; save: boolean } | { kind: 'stop' };
 
 /** One popover option row: icon + title, optional honesty hint below. */
 function ObserveMenuOption({
@@ -285,33 +281,72 @@ function ObserveMenuOption({
   );
 }
 
+/** One popover toggle row: label + hint on the left, a small switch on
+ *  the right. Clicks stay inside the popover — toggling never fires a
+ *  verb, only the primary option does. */
+function ObserveMenuToggle({
+  testid,
+  title,
+  hint,
+  checked,
+  onChange,
+}: {
+  testid: string;
+  title: string;
+  hint: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const { token } = theme.useToken();
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '4px 8px 4px 24px' }}>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 auto' }}>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>{title}</span>
+        <span style={{ fontSize: 11, color: token.colorTextTertiary }}>{hint}</span>
+      </span>
+      <Switch size="small" data-testid={testid} checked={checked} onChange={onChange} aria-label={title} />
+    </div>
+  );
+}
+
 /**
- * Per-source AI-agent observation affordance (AGENT_TRAFFIC_PLAN.md §4
- * arming + §3 disk capture behind ONE control): the eye opens a popover
- * whose options carry the honesty copy. Idle it offers "Observe only" /
- * "Observe + save session"; armed it offers the single stop plus the
- * save upgrade; while a session records it offers the single combined
- * stop. Colors state the stakes — blue (the Debug affordance's color) =
- * streaming to the desktop app in memory, red = also writing to disk —
- * and the red eye IS the per-row retention indicator, always visible,
- * never hover-revealed, the whole time a session runs (PLAN §3).
+ * Per-source observation affordance (AGENT_TRAFFIC_PLAN.md §11.1 —
+ * one gesture, one bundle): the eye opens a popover with ONE primary
+ * verb. Idle it offers "Start observing", with an Advanced
+ * expand/collapse over the two bundled toggles — Debug mode (full
+ * fidelity; shown only where the peer has the debugger) and Save
+ * session — seeded from their Settings defaults per open. Armed or
+ * recording it offers the single stop, which unwinds the whole
+ * bundle. Colors state the stakes — blue (the Debug affordance's
+ * color) = streaming to the desktop app, red = also recording to the
+ * session archive — and the red eye IS the per-row retention
+ * indicator, always visible, never hover-revealed, the whole time a
+ * session records (PLAN §3).
  */
 function SourceObserveAffordance({
   armed,
   capturing,
   pending,
+  debugAvailable,
   onAction,
 }: {
   armed: boolean;
-  /** An ACTIVE disk capture session is recording this source. */
+  /** An ACTIVE recording session is capturing this source. */
   capturing: boolean;
   /** An action the last click triggered is still in flight. */
   pending: boolean;
+  /** The peer offers CDP debug fidelity for this source. */
+  debugAvailable: boolean;
   onAction: (action: ObserveAction) => void;
 }) {
   const t = useT();
   const { token } = theme.useToken();
+  const debugDefault = useSettingValue('trafficMonitor.observeDebugDefault');
+  const saveDefault = useSettingValue('trafficMonitor.observeSaveDefault');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [debugOn, setDebugOn] = useState(true);
+  const [saveOn, setSaveOn] = useState(true);
   const title = capturing
     ? t('workbench.trafficMonitor.observeCapturing')
     : armed
@@ -330,53 +365,80 @@ function SourceObserveAffordance({
     setMenuOpen(false);
     onAction(action);
   };
-  const options = capturing ? (
-    <ObserveMenuOption
-      testid="traffic-monitor-observe-stop-save"
-      icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: token.colorError }} />}
-      title={t('workbench.trafficMonitor.observeMenuStopSave')}
-      hint={t('workbench.trafficMonitor.observeMenuStopSaveHint')}
-      onClick={() => fire('stop-save')}
-    />
-  ) : armed ? (
-    <>
+  const options =
+    armed || capturing ? (
       <ObserveMenuOption
         testid="traffic-monitor-observe-stop"
-        icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+        icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: capturing ? token.colorError : token.colorPrimary }} />}
         title={t('workbench.trafficMonitor.observeMenuStop')}
-        onClick={() => fire('stop')}
+        {...(capturing ? { hint: t('workbench.trafficMonitor.observeMenuStopRecordingHint') } : {})}
+        onClick={() => fire({ kind: 'stop' })}
       />
-      <ObserveMenuOption
-        testid="traffic-monitor-observe-save"
-        icon={<SaveOutlined style={{ fontSize: 12, color: token.colorError }} />}
-        title={t('workbench.trafficMonitor.observeMenuSave')}
-        hint={t('workbench.trafficMonitor.observeMenuSaveHint')}
-        onClick={() => fire('save')}
-      />
-    </>
-  ) : (
-    <>
-      <ObserveMenuOption
-        testid="traffic-monitor-observe-arm"
-        icon={<EyeOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
-        title={t('workbench.trafficMonitor.observeMenuArm')}
-        hint={t('workbench.trafficMonitor.observeMenuArmHint')}
-        onClick={() => fire('arm')}
-      />
-      <ObserveMenuOption
-        testid="traffic-monitor-observe-arm-save"
-        icon={<SaveOutlined style={{ fontSize: 12, color: token.colorError }} />}
-        title={t('workbench.trafficMonitor.observeMenuArmSave')}
-        hint={t('workbench.trafficMonitor.observeMenuArmSaveHint')}
-        onClick={() => fire('arm-save')}
-      />
-    </>
-  );
+    ) : (
+      <>
+        <ObserveMenuOption
+          testid="traffic-monitor-observe-start"
+          icon={<EyeOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+          title={t('workbench.trafficMonitor.observeMenuStart')}
+          hint={t('workbench.trafficMonitor.observeMenuStartHint')}
+          onClick={() => fire({ kind: 'start', debug: debugAvailable && debugOn, save: saveOn })}
+        />
+        <button
+          type="button"
+          data-testid="traffic-monitor-observe-advanced"
+          aria-expanded={advancedOpen}
+          className="traffic-monitor-observe-option"
+          onClick={() => setAdvancedOpen((v) => !v)}
+        >
+          <span style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', paddingTop: 1 }}>
+            <CaretRightOutlined
+              style={{
+                fontSize: 10,
+                color: token.colorTextTertiary,
+                transition: 'transform 0.2s',
+                transform: advancedOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}
+            />
+          </span>
+          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+            {t('workbench.trafficMonitor.observeAdvanced')}
+          </span>
+        </button>
+        {advancedOpen && (
+          <>
+            {debugAvailable && (
+              <ObserveMenuToggle
+                testid="traffic-monitor-observe-debug"
+                title={t('shared.chrome.debug.title')}
+                hint={t('workbench.trafficMonitor.observeDebugOptionHint')}
+                checked={debugOn}
+                onChange={setDebugOn}
+              />
+            )}
+            <ObserveMenuToggle
+              testid="traffic-monitor-observe-save"
+              title={t('workbench.trafficMonitor.observeSaveOption')}
+              hint={t('workbench.trafficMonitor.observeSaveOptionHint')}
+              checked={saveOn}
+              onChange={setSaveOn}
+            />
+          </>
+        )}
+      </>
+    );
   return (
     <Popover
       open={menuOpen}
       onOpenChange={(open) => {
-        if (!open || !pending) setMenuOpen(open);
+        if (open) {
+          if (pending) return;
+          // Each open re-seeds the Advanced toggles from their Settings
+          // defaults — the gesture overrides per session, never durably.
+          setDebugOn(debugDefault);
+          setSaveOn(saveDefault);
+          setAdvancedOpen(false);
+        }
+        setMenuOpen(open);
       }}
       trigger="click"
       placement="left"
@@ -436,8 +498,6 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   sessions,
   sessionPending,
   onSessionStop,
-  canRevealSessions,
-  onSessionReveal,
   width,
 }) => {
   const t = useT();
@@ -632,6 +692,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                                   armed={observeArmed.has(key)}
                                   capturing={captureActive.has(key)}
                                   pending={observePending.has(key)}
+                                  debugAvailable={peer.debug.available}
                                   onAction={(action) => onObserveAction(key, action)}
                                 />
                               )}
@@ -680,6 +741,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                 armed={observeArmed.has(WIRE_SOURCE_KEY)}
                 capturing={captureActive.has(WIRE_SOURCE_KEY)}
                 pending={observePending.has(WIRE_SOURCE_KEY)}
+                debugAvailable={false}
                 onAction={(action) => onObserveAction(WIRE_SOURCE_KEY, action)}
               />
               <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
@@ -711,32 +773,16 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
           padding: '6px 10px',
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <span style={{ fontSize: 12, fontWeight: 600 }}>{t('workbench.trafficMonitor.sources')}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {captureActive.size > 0 && (
-            <Tooltip title={t('workbench.trafficMonitor.captureBadgeHint')}>
-              <Tag color="red" icon={<SaveFilled />} style={{ margin: 0 }} data-testid="traffic-monitor-capturing">
-                {t('workbench.trafficMonitor.captureBadge')}
-              </Tag>
-            </Tooltip>
-          )}
-        </span>
       </div>
       <div className="rules-sidebar-content">
         {browsersSection}
         {wireSection}
-        <TrafficMonitorSessionsSection
-          sessions={sessions}
-          pending={sessionPending}
-          onStop={onSessionStop}
-          canReveal={canRevealSessions}
-          onReveal={onSessionReveal}
-        />
+        <TrafficMonitorSessionsSection sessions={sessions} pending={sessionPending} onStop={onSessionStop} />
       </div>
     </div>
   );
