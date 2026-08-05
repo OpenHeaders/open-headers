@@ -32,6 +32,11 @@ import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { bootDaemonSpine, installNodeSystemProxy } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
+import {
+  loadOrCreateSealKeyFile,
+  TRAFFIC_SEAL_KEY_FILE_DAEMON,
+  trafficSealKeyConfigSegments,
+} from '@openheaders/oracle-host-node/traffic';
 import { installDaemonAutoUpdate } from './auto-update';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { DAEMON_CHANGELOG } from './changelog';
@@ -142,6 +147,19 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
 
     const staticWeb = resolveStaticWebRoot(config.webRoot);
 
+    // Traffic-session seal key (AGENT_TRAFFIC_PLAN.md §9.5): the
+    // headless daemon has no OS keychain, so the key lives as a 0600
+    // file in the CONFIG dir — deliberately outside the data dir, so a
+    // data-dir exfiltration (backup, cloud sync) alone never carries
+    // the key that opens the sealed sessions. Same dir convention as
+    // the CLI's `openheaders/cli.json`.
+    const trafficSealKey = loadOrCreateSealKeyFile(
+      path.join(
+        ...trafficSealKeyConfigSegments(process.env, os.homedir(), process.platform),
+        TRAFFIC_SEAL_KEY_FILE_DAEMON,
+      ),
+    );
+
     // HTTP/3 helper: register where this distribution keeps the
     // bundled `oh-h3-helper` (SEA payload / beside the bundle) so a
     // `'3'` send can spawn it — lazy, so nothing unpacks until then.
@@ -179,6 +197,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
     const spine = await bootDaemonSpine({
       dataDir: config.dataDir,
       appVersion,
+      trafficSealKey,
       // Build-embedded release notes for the admin console's card —
       // empty = entry-less build (the card hides).
       changelogNotes: DAEMON_CHANGELOG === '' ? null : DAEMON_CHANGELOG,

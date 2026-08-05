@@ -126,7 +126,13 @@ import { peekCookieJar } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { queryAuditEntries, SqliteAuditLog } from '../sync/sqlite-audit-log';
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
-import { createTrafficPartitionMirror, createTrafficTap, installLoopbackLifelineDialer } from '../traffic';
+import {
+  createTrafficPartitionMirror,
+  createTrafficSessionArchive,
+  createTrafficTap,
+  installLoopbackLifelineDialer,
+  TRAFFIC_SESSIONS_DIR_NAME,
+} from '../traffic';
 import {
   createWorkspaceTreeRuntime,
   dispatchWorkspaceTreeRpc,
@@ -229,6 +235,16 @@ export interface DaemonSpineConfig {
   localAppId: string;
   /** Already-composed host storage backend; the spine installs it as the process-wide seam. */
   hostStorage: HostStorage;
+  /**
+   * Traffic-session seal key (AGENT_TRAFFIC_PLAN.md §9.5/§11.5) — 32
+   * random bytes the sessions archive encrypts sealed artifacts with.
+   * The HOST owns acquisition: desktop wraps it via `safeStorage`
+   * (`loadOrCreateWrappedSealKey`), the headless daemon keeps a 0600
+   * key file OUTSIDE the data dir (`loadOrCreateSealKeyFile`) so a
+   * data-dir exfiltration alone never carries the key. Absent/null =
+   * sessions record with an honest `encrypted: false` stamp.
+   */
+  trafficSealKey?: Buffer | null;
   /**
    * Host-owned logger installed as the process-wide seam. Hosts with a
    * durable sink pass their own (desktop: electron-log's main.log —
@@ -786,13 +802,24 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // `observe`-tier traffic_* tools (S3) read it through the MCP install
   // below. The proxy body server backs the failure-body carve-out and
   // on-demand pulls for the proxy partition.
+  // Sessions archive (AGENT_TRAFFIC_PLAN.md §11.4, C3) — the ONLY path
+  // traffic ever takes to disk, scoped under the host's own data dir
+  // like every durable artifact. The host supplies the §9.5 seal key
+  // (safeStorage-wrapped on desktop, config-dir key file on the
+  // headless daemon); absent, sealed artifacts stamp themselves
+  // honestly unencrypted. Boot recovery seals what a dead process left
+  // recording, then sweeps and prunes.
+  const trafficArchive = createTrafficSessionArchive({
+    dir: path.join(config.dataDir, TRAFFIC_SESSIONS_DIR_NAME),
+    sealKey: config.trafficSealKey ?? null,
+  });
+  void trafficArchive.recoverAtBoot();
+
   const trafficTap = createTrafficTap({
     mirror: trafficMirror,
     proxyHub: proxyCaptureService.hub,
     proxyServeRequestBody: (requestId, hopIndex) => proxyCaptureService.serveRequestBody(requestId, hopIndex),
-    // Capture sessions (S7) — the ONLY path traffic ever takes to disk,
-    // scoped under the host's own data dir like every durable artifact.
-    captureDir: path.join(config.dataDir, 'traffic-captures'),
+    archive: trafficArchive,
   });
 
   // CLI provisioning writes this machine's `openheaders/cli.json`;

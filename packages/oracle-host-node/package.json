@@ -73,6 +73,10 @@
     "./sync/*": {
       "import": "./src/sync/*.ts",
       "default": "./dist/sync/*.js"
+    },
+    "./traffic": {
+      "import": "./src/traffic/index.ts",
+      "default": "./dist/traffic/index.js"
     }
   },
   "scripts": {

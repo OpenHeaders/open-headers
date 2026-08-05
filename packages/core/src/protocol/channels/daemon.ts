@@ -766,21 +766,20 @@ export interface DaemonRpc {
   };
 
   /**
-   * Start one disk capture session on an armed source (S7 — PLAN §3,
-   * the ONLY path traffic ever takes to disk). Human gesture only: this
-   * channel has no MCP mirror, so an agent cannot turn an in-memory
-   * grant into a durable one. REFUSES until a redaction policy is
-   * explicitly attached (`redaction: 'standard'` — absent means
-   * refusal, not a default). The session file carries redacted
-   * projections only; bounds default when omitted, and a tripped bound
-   * STOPS the session honestly. One active session per source;
-   * disarming the source stops its capture.
+   * Start one recording session on an armed source (§11 — the sessions
+   * archive, the ONLY path traffic ever takes to disk). Human gesture
+   * only: this channel has no MCP mirror, so an agent cannot turn an
+   * in-memory grant into a durable one — and the gesture IS the
+   * durable-capture consent (§11.5): the session records the raw
+   * wire-plane event log; redaction is applied at read time by every
+   * consumer-facing projection. Bounds default when omitted, and a
+   * tripped bound STOPS the session honestly. One active session per
+   * source; disarming the source stops its recording.
    */
   'oh.daemon.traffic.capture.start': {
     req: {
       uid: string;
       name: string;
-      redaction?: 'standard';
       maxBytes?: number;
       maxDurationMs?: number;
     };
@@ -788,9 +787,10 @@ export interface DaemonRpc {
   };
 
   /**
-   * Stop the source's active capture session. Idempotent: `session`
-   * null = nothing was capturing — indistinguishable from an unknown
-   * uid (absence semantics).
+   * Stop the source's active recording session — the log seals in the
+   * background (`state` walks `sealing` → `sealed` on later status
+   * reads). Idempotent: `session` null = nothing was recording —
+   * indistinguishable from an unknown uid (absence semantics).
    */
   'oh.daemon.traffic.capture.stop': {
     req: { uid: string };
@@ -798,9 +798,10 @@ export interface DaemonRpc {
   };
 
   /**
-   * Every capture session this host started — active first, then the
+   * Every recording session this host started — active first, then the
    * recent ended ones with their honest end reasons (`stopped`,
-   * `size-bound`, `duration-bound`, `source-disarmed`, `write-error`).
+   * `size-bound`, `duration-bound`, `source-disarmed`, `write-error`,
+   * `crashed`).
    */
   'oh.daemon.traffic.capture.status': {
     req: Record<string, never>;

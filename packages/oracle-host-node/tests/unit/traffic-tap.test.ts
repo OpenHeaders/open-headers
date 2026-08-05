@@ -7,6 +7,7 @@
  * registry's status surface stays content-free.
  */
 
+import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -31,6 +32,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { installLoopbackLifelineDialer } from '../../src/traffic/loopback-lifeline';
 import { createTrafficPartitionMirror } from '../../src/traffic/partition-mirror';
+import { openContainer } from '../../src/traffic/seal';
+import { createTrafficSessionArchive } from '../../src/traffic/session-archive';
 import {
   createTrafficTap,
   DEFAULT_TRAFFIC_ARM_TTL_MS,
@@ -64,11 +67,13 @@ function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecy
 function installFakeRelay(replay: RequestLifecycle[]) {
   const ports: IncomingLifelinePort[] = [];
   const disconnects: number[] = [];
+  const consumerMessages: LifecycleConsumerMessage[] = [];
   const uninstall = getLifelineServer().onConnect((port) => {
     const target = parseQualifiedLifecyclePortName(port.name);
     if (target === null) return;
     ports.push(port);
     port.onMessage<LifecycleConsumerMessage>((msg) => {
+      consumerMessages.push(msg);
       if (msg.kind !== 'subscribe') return;
       port.postMessage({ kind: 'ready', tabId: target.tabId, watermarkMs: 500 } satisfies LifecycleWireMessage);
       port.postMessage({ kind: 'source', tabId: target.tabId, source: 'heuristic' } satisfies LifecycleWireMessage);
@@ -78,7 +83,7 @@ function installFakeRelay(replay: RequestLifecycle[]) {
     });
     port.onDisconnect(() => disconnects.push(target.tabId));
   });
-  return { ports, disconnects, uninstall };
+  return { ports, disconnects, consumerMessages, uninstall };
 }
 
 describe('traffic tap — browser-tab source over the loopback lifeline', () => {
@@ -638,9 +643,10 @@ describe('traffic tap — body plane (S3)', () => {
   });
 });
 
-describe('traffic tap — capture sessions (S7)', () => {
+describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', () => {
   let priorServer: LifelineServer;
-  let captureDir: string;
+  let archiveDir: string;
+  let sealKey: Buffer;
 
   const AUTH =
     'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c';
@@ -648,24 +654,30 @@ describe('traffic tap — capture sessions (S7)', () => {
   beforeEach(() => {
     setHostLogger(consoleLogger);
     priorServer = getLifelineServer();
-    captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-tap-capture-'));
+    archiveDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-tap-sessions-'));
+    sealKey = randomBytes(32);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     setLifelineServer(priorServer);
-    fs.rmSync(captureDir, { recursive: true, force: true });
+    fs.rmSync(archiveDir, { recursive: true, force: true });
   });
 
-  function fileLines(filePath: string): Array<{ kind: string; record?: { requestId: string; phase: string } }> {
-    return fs
-      .readFileSync(filePath, 'utf8')
+  function makeArchive() {
+    return createTrafficSessionArchive({ dir: archiveDir, sealKey });
+  }
+
+  function sealedLines(dirPath: string): Array<{ kind: string; reason?: string; msg?: { kind: string } }> {
+    const framed = fs.readFileSync(path.join(dirPath, 'events.seal'));
+    return openContainer(framed, sealKey)
+      .content.toString('utf8')
       .split('\n')
       .filter((line) => line.length > 0)
       .map((line) => JSON.parse(line));
   }
 
-  it('refuses unknown sources, hosts without a capture dir, and doubled starts', () => {
+  it('refuses unknown sources, hosts without an archive, and doubled starts', () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
@@ -674,46 +686,40 @@ describe('traffic tap — capture sessions (S7)', () => {
 
     const bare = createTrafficTap({ mirror, proxyHub });
     const bareUid = bare.armBrowserTab('ext-node-1', 7) ?? '';
-    expect(bare.captureStart(bareUid, { name: 's', redaction: 'standard' })).toEqual({
-      ok: false,
-      reason: 'capture-unavailable',
-    });
+    expect(bare.captureStart(bareUid, { name: 's' })).toEqual({ ok: false, reason: 'capture-unavailable' });
     bare.dispose();
 
-    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
-    expect(tap.captureStart('browser-tab:missing:1', { name: 's', redaction: 'standard' })).toEqual({
-      ok: false,
-      reason: 'unknown-source',
-    });
+    const tap = createTrafficTap({ mirror, proxyHub, archive: makeArchive() });
+    expect(tap.captureStart('browser-tab:missing:1', { name: 's' })).toEqual({ ok: false, reason: 'unknown-source' });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
-    const first = tap.captureStart(uid, { name: 'one', redaction: 'standard' });
+    const first = tap.captureStart(uid, { name: 'one' });
     expect(first.ok).toBe(true);
-    expect(tap.captureStart(uid, { name: 'two', redaction: 'standard' })).toEqual({
-      ok: false,
-      reason: 'capture-active',
-    });
+    expect(tap.captureStart(uid, { name: 'two' })).toEqual({ ok: false, reason: 'capture-active' });
 
     tap.dispose();
     relay.uninstall();
     proxyHub.dispose();
   });
 
-  it('appends redacted seam events — and a reveal window never leaks into the file', () => {
+  it('records the raw event log — plaintext while active, sealed encrypted on stop (§11.5)', async () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, archive: makeArchive() });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
 
-    const started = tap.captureStart(uid, { name: 'leak check', redaction: 'standard' });
+    const started = tap.captureStart(uid, { name: 'raw at rest' });
     if (!started.ok) throw new Error('capture refused');
-    expect(started.session.state).toBe('active');
+    expect(started.session.state).toBe('recording');
+    expect(started.session.encrypted).toBe(true);
+    expect(started.session.planes).toEqual(['lifecycle']);
     expect(tap.status()[0]?.capture?.sessionId).toBe(started.session.sessionId);
 
-    // Open a reveal window BEFORE the traffic arrives — the capture
-    // line must still carry the marker, not the secret (finding 10).
+    // A reveal window open during recording changes NOTHING about the
+    // session — the store is raw by design now; redaction is a read-time
+    // projection concern, not a write-time one.
     expect(tap.escalate(uid, 60_000)).toBe(true);
     relay.ports[0]?.postMessage({
       kind: 'lifecycle-update',
@@ -726,74 +732,86 @@ describe('traffic tap — capture sessions (S7)', () => {
         }),
       },
     });
-    // A refinement re-appends the same identity (last-wins fold).
     relay.ports[0]?.postMessage({
       kind: 'lifecycle-update',
       update: { kind: 'phase', tabId: 7, requestId: 'secret', patch: { phase: 'completed', statusCode: 200 } },
     });
 
+    // The ACTIVE log is plaintext (crash-safe append) and carries the
+    // raw value — the inversion of the v1 write-time pin.
+    await vi.waitFor(() => {
+      expect(tap.status()[0]?.capture?.events).toBe(2);
+    });
+    const dirPath = started.session.dirPath;
+    expect(fs.readFileSync(path.join(dirPath, 'events.jsonl'), 'utf8')).toContain(AUTH);
+
     const stopped = tap.captureStop(uid);
     expect(stopped?.endReason).toBe('stopped');
+    expect(stopped?.requests).toBe(1);
     expect(tap.status()[0]?.capture).toBeUndefined();
 
-    const raw = fs.readFileSync(stopped?.filePath ?? '', 'utf8');
-    expect(raw).not.toContain(AUTH);
-    expect(raw).toContain('[redacted:');
-    const lines = fileLines(stopped?.filePath ?? '');
-    expect(lines.map((l) => l.kind)).toEqual(['header', 'record', 'record', 'end']);
-    expect(lines[2]?.record?.phase).toBe('completed');
+    // The ended list projects LIVE state: sealing completes async.
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
+    expect(fs.existsSync(path.join(dirPath, 'events.jsonl'))).toBe(false);
+    // Sealed bytes never carry the plaintext secret…
+    expect(fs.readFileSync(path.join(dirPath, 'events.seal')).includes(Buffer.from(AUTH, 'utf8'))).toBe(false);
+    // …but the decrypted log does, at full fidelity, with the honest
+    // v2 frame: header → events → end trailer.
+    const lines = sealedLines(dirPath);
+    expect(lines.map((l) => l.kind)).toEqual(['header', 'event', 'event', 'end']);
+    expect((lines[0] as { formatVersion?: number }).formatVersion).toBe(2);
+    expect(JSON.stringify(lines)).toContain(AUTH);
+    expect(lines.at(-1)?.reason).toBe('stopped');
 
-    // Idempotent stop: nothing capturing answers null.
+    // Idempotent stop: nothing recording answers null.
     expect(tap.captureStop(uid)).toBeNull();
-    // The ended session stays on the sessions list.
-    expect(tap.captureSessions().map((s) => s.sessionId)).toEqual([stopped?.sessionId]);
+    expect(tap.captureSessions().map((s) => s.sessionId)).toEqual([started.session.sessionId]);
 
     tap.dispose();
     relay.uninstall();
     proxyHub.dispose();
   });
 
-  it('disarm stops the capture (absence cascades) with the honest end reason', () => {
+  it('disarm stops the recording (absence cascades) with the honest end reason', async () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, archive: makeArchive() });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
-    const started = tap.captureStart(uid, { name: 'cascade', redaction: 'standard' });
+    const started = tap.captureStart(uid, { name: 'cascade' });
     if (!started.ok) throw new Error('capture refused');
 
     expect(tap.disarm(uid)).toBe(true);
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
     const [session] = tap.captureSessions();
-    expect(session?.state).toBe('stopped');
     expect(session?.endReason).toBe('source-disarmed');
-    const trailer = fileLines(session?.filePath ?? '').at(-1) as { kind: string; reason?: string };
-    expect(trailer.reason).toBe('source-disarmed');
+    expect(sealedLines(session?.dirPath ?? '').at(-1)?.reason).toBe('source-disarmed');
 
     tap.dispose();
     relay.uninstall();
     proxyHub.dispose();
   });
 
-  it('an active capture holds the arm; the idle clock restarts when the session ends', () => {
+  it('an active recording holds the arm; the idle clock restarts when the session ends', () => {
     vi.useFakeTimers();
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, archive: makeArchive() });
     const uid = tap.armBrowserTab('ext-node-1', 7, { ttlMs: 5_000 }) ?? '';
-    const started = tap.captureStart(uid, {
-      name: 'overnight',
-      redaction: 'standard',
-      bounds: { maxDurationMs: 10 * 60 * 1000 },
-    });
+    const started = tap.captureStart(uid, { name: 'overnight', bounds: { maxDurationMs: 10 * 60 * 1000 } });
     if (!started.ok) throw new Error('capture refused');
 
     // Far past the arm ttl with zero reads: the source survives — a
-    // quiet night must not end an overnight capture.
+    // quiet night must not end an overnight recording.
     vi.advanceTimersByTime(60_000);
     expect(tap.status()).toHaveLength(1);
     expect(relay.disconnects).toEqual([]);
@@ -810,19 +828,15 @@ describe('traffic tap — capture sessions (S7)', () => {
     proxyHub.dispose();
   });
 
-  it('the size bound trips mid-stream: the session stops itself and the status converges', () => {
+  it('the log byte bound trips mid-stream: the session stops itself and retention is untouched', async () => {
     const dialer = installLoopbackLifelineDialer();
     const mirror = createTrafficPartitionMirror({ dialer });
     const store = new RequestLifecycleStore();
     const proxyHub = new RequestLifecycleHub({ store });
     const relay = installFakeRelay([]);
-    const tap = createTrafficTap({ mirror, proxyHub, captureDir });
+    const tap = createTrafficTap({ mirror, proxyHub, archive: makeArchive() });
     const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
-    const started = tap.captureStart(uid, {
-      name: 'tiny',
-      redaction: 'standard',
-      bounds: { maxBytes: 900 },
-    });
+    const started = tap.captureStart(uid, { name: 'tiny', bounds: { maxBytes: 900 } });
     if (!started.ok) throw new Error('capture refused');
 
     for (let i = 0; i < 5; i++) {
@@ -832,12 +846,89 @@ describe('traffic tap — capture sessions (S7)', () => {
       });
     }
 
+    await vi.waitFor(() => {
+      expect(tap.captureSessions()[0]?.state).toBe('sealed');
+    });
     expect(tap.status()[0]?.capture).toBeUndefined();
     const [session] = tap.captureSessions();
-    expect(session?.state).toBe('stopped');
     expect(session?.endReason).toBe('size-bound');
-    // Retention itself is untouched by the sink's bound.
+    expect(session?.bytesWritten).toBeLessThanOrEqual(900);
+    // Retention itself is untouched by the recorder's bound.
     expect(tap.records(uid)).toHaveLength(5);
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+
+  it('pulls every response body at completion on debug-fed partitions — and skips the heuristic plane', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({ mirror, proxyHub, archive: makeArchive() });
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    const started = tap.captureStart(uid, { name: 'wire honesty' });
+    if (!started.ok) throw new Error('capture refused');
+
+    // Heuristic-fed (the relay's subscribe answer): bodies arrive
+    // inline on har-attached, so completion never round-trips a pull.
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'started', lifecycle: makeLifecycle({ requestId: 'h-1', startedAtMs: 900 }) },
+    });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 7, requestId: 'h-1', patch: { phase: 'completed', statusCode: 200 } },
+    });
+    expect(relay.consumerMessages.filter((m) => m.kind === 'request-body')).toEqual([]);
+
+    // The partition flips to CDP: completion now pulls the final hop —
+    // hop 0 for a direct exchange, hop N after N redirects — once per
+    // request, over the tap's own wire session.
+    relay.ports[0]?.postMessage({ kind: 'source', tabId: 7, source: 'cdp' });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'started', lifecycle: makeLifecycle({ requestId: 'c-1', startedAtMs: 910 }) },
+    });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 7, requestId: 'c-1', patch: { phase: 'completed', statusCode: 200 } },
+    });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'started', lifecycle: makeLifecycle({ requestId: 'c-2', startedAtMs: 920 }) },
+    });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: {
+        kind: 'redirect',
+        tabId: 7,
+        requestId: 'c-2',
+        hop: {
+          sourceUrl: 'https://api.openheaders.io/from',
+          redirectUrl: 'https://api.openheaders.io/to',
+          statusCode: 302,
+          timestampMs: 921,
+        },
+        nextUrl: 'https://api.openheaders.io/to',
+      },
+    });
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 7, requestId: 'c-2', patch: { phase: 'completed', statusCode: 200 } },
+    });
+    // A refinement on an already-completed request never re-pulls.
+    relay.ports[0]?.postMessage({
+      kind: 'lifecycle-update',
+      update: { kind: 'phase', tabId: 7, requestId: 'c-1', patch: { phase: 'completed', fromCache: true } },
+    });
+
+    expect(relay.consumerMessages.filter((m) => m.kind === 'request-body')).toEqual([
+      { kind: 'request-body', requestId: 'c-1', hopIndex: 0 },
+      { kind: 'request-body', requestId: 'c-2', hopIndex: 1 },
+    ]);
 
     tap.dispose();
     relay.uninstall();

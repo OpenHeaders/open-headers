@@ -8,10 +8,12 @@
 
 export {
   DEFAULT_TRAFFIC_CAPTURE_BOUNDS,
+  DEFAULT_TRAFFIC_SESSION_RETENTION,
   type TrafficCaptureBounds,
   type TrafficCaptureEndReason,
-  type TrafficCaptureRedactionPolicy,
   type TrafficCaptureSessionProjection,
+  type TrafficSessionPlane,
+  type TrafficSessionRetention,
 } from './capture';
 export {
   TRAFFIC_BODY_CAP_CHARS,

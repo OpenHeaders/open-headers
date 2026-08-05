@@ -604,8 +604,7 @@ export const workbenchChrome = {
     'Démarre l’enregistrement de cette source armée — enregistrements caviardés, fichier borné',
   'workbench.trafficMonitor.observeMenuStop': 'Arrêter l’observation',
   'workbench.trafficMonitor.observeMenuStopSave': 'Arrêter l’observation et conserver la session',
-  'workbench.trafficMonitor.observeMenuStopSaveHint':
-    'Termine l’enregistrement et conserve le fichier de session',
+  'workbench.trafficMonitor.observeMenuStopSaveHint': 'Termine l’enregistrement et conserve le fichier de session',
   'workbench.trafficMonitor.captureBadge': 'Capture sur disque en cours',
   'workbench.trafficMonitor.captureBadgeHint':
     "Une session de capture écrit sur disque des enregistrements de trafic caviardés. Elle s'arrête à sa limite de " +
@@ -615,13 +614,14 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sessionDetail': '{records} enregistrements · {size}',
   'workbench.trafficMonitor.sessionStop': 'Enregistrement en cours — cliquez pour arrêter',
   'workbench.trafficMonitor.sessionStopAria': 'Arrêter cette session de capture',
-  'workbench.trafficMonitor.sessionReveal': 'Afficher le fichier dans le dossier',
-  'workbench.trafficMonitor.sessionRevealAria': 'Afficher le fichier de session dans le gestionnaire de fichiers',
+  'workbench.trafficMonitor.sessionReveal': 'Afficher dans le dossier',
+  'workbench.trafficMonitor.sessionRevealAria': 'Afficher le dossier de session dans le gestionnaire de fichiers',
   'workbench.trafficMonitor.sessionEndStopped': 'Arrêtée',
   'workbench.trafficMonitor.sessionEndSizeBound': 'Limite de taille',
   'workbench.trafficMonitor.sessionEndDurationBound': 'Limite de durée',
   'workbench.trafficMonitor.sessionEndSourceDisarmed': 'Source désarmée',
   'workbench.trafficMonitor.sessionEndWriteError': 'Erreur d’écriture',
+  'workbench.trafficMonitor.sessionEndCrashed': 'Interrompue',
   'workbench.trafficMonitor.noBrowsersHint':
     "Aucun navigateur connecté. Ouvrez un navigateur avec l'extension installée, ou installez-la :",
   'workbench.trafficMonitor.installExtension': "Installer l'extension {browser}",

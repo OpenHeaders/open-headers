@@ -570,11 +570,9 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.observeMenuArmHint':
     'Streams this source’s traffic to the desktop app in memory — connected AI agents can read it while armed',
   'workbench.trafficMonitor.observeMenuArmSave': 'Observe + save session',
-  'workbench.trafficMonitor.observeMenuArmSaveHint':
-    'Also records redacted traffic to a bounded session file on disk',
+  'workbench.trafficMonitor.observeMenuArmSaveHint': 'Also records redacted traffic to a bounded session file on disk',
   'workbench.trafficMonitor.observeMenuSave': 'Also save session to disk',
-  'workbench.trafficMonitor.observeMenuSaveHint':
-    'Start recording this armed source — redacted records, bounded file',
+  'workbench.trafficMonitor.observeMenuSaveHint': 'Start recording this armed source — redacted records, bounded file',
   'workbench.trafficMonitor.observeMenuStop': 'Stop observing',
   'workbench.trafficMonitor.observeMenuStopSave': 'Stop observing & save session',
   'workbench.trafficMonitor.observeMenuStopSaveHint': 'Ends the recording and keeps the session file',
@@ -587,13 +585,14 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.sessionDetail': '{records} records · {size}',
   'workbench.trafficMonitor.sessionStop': 'Recording — click to stop',
   'workbench.trafficMonitor.sessionStopAria': 'Stop this capture session',
-  'workbench.trafficMonitor.sessionReveal': 'Show file in folder',
-  'workbench.trafficMonitor.sessionRevealAria': 'Show the session file in the file manager',
+  'workbench.trafficMonitor.sessionReveal': 'Show in folder',
+  'workbench.trafficMonitor.sessionRevealAria': 'Show the session folder in the file manager',
   'workbench.trafficMonitor.sessionEndStopped': 'Stopped',
   'workbench.trafficMonitor.sessionEndSizeBound': 'Size limit',
   'workbench.trafficMonitor.sessionEndDurationBound': 'Time limit',
   'workbench.trafficMonitor.sessionEndSourceDisarmed': 'Source disarmed',
   'workbench.trafficMonitor.sessionEndWriteError': 'Write error',
+  'workbench.trafficMonitor.sessionEndCrashed': 'Interrupted',
   'workbench.trafficMonitor.noBrowsersHint':
     'No browsers connected. Open a browser with the extension installed, or install it:',
   'workbench.trafficMonitor.installExtension': 'Install {browser} extension',

@@ -1,44 +1,59 @@
 /**
  * Capture-session vocabulary — the disk tier of the storage model
- * (AGENT_TRAFFIC_PLAN.md §3). A capture session is the ONLY path by
- * which observed traffic ever reaches disk, and every property of that
- * path is deliberate:
+ * (AGENT_TRAFFIC_PLAN.md §3, rebuilt to §11 in Phase C). A capture
+ * session is the ONLY path by which observed traffic ever reaches disk,
+ * and every property of that path is deliberate:
  *
  *   - **Human-initiated, never agent-initiated.** Sessions start from
  *     the operator plane (`oh.daemon.traffic.capture.start`) or a UI
  *     gesture — no MCP tool can start or stop one, so an agent cannot
  *     turn an in-memory grant into a durable one.
- *   - **Refuses to write until a redaction policy is attached.** The
- *     start call carries an explicit {@link TrafficCaptureRedactionPolicy};
- *     absent means refusal, not a default. v1 knows exactly one policy,
- *     `standard` — the projection boundary as-is. The point is the
- *     explicit attachment, not a policy language.
- *   - **Redacted projections only.** The session file carries
- *     `TrafficRecordProjection` lines — never raw records, and never
- *     the reveal escalation (a reveal window open during a capture
- *     still writes redacted lines).
- *   - **Bounded.** Size and duration bounds ride the session from
- *     start; a session that trips a bound STOPS and says so
- *     ({@link TrafficCaptureEndReason}), never silently truncates.
+ *   - **Raw at rest, redacted at read (§11.5).** `formatVersion 2`
+ *     records the wire-plane event log at full fidelity — the reducer
+ *     INPUT, so replay re-runs the live reducers. Redaction moved from
+ *     write time to read time: the store and its raw event types stay
+ *     private to the host packages, and every consumer-facing read is
+ *     a projection with an explicit policy. Sealed artifacts are
+ *     encrypted with an app-held key (§9.5); the {@link
+ *     TrafficCaptureSessionProjection.encrypted} stamp is honest when
+ *     no key was available.
+ *   - **Bounded.** Event-log size and duration bounds ride the session
+ *     from start; a session that trips a bound STOPS and says so
+ *     ({@link TrafficCaptureEndReason}), never silently truncates. A
+ *     global retention budget prunes sealed sessions oldest-first
+ *     ({@link DEFAULT_TRAFFIC_SESSION_RETENTION}).
  */
 
-/** The redaction policies a capture session can attach. v1 has exactly
- *  one — the projection boundary as-is — but the attachment is
- *  explicit and mandatory by contract. */
-export type TrafficCaptureRedactionPolicy = 'standard';
-
-/** Hard bounds one capture session carries from start. */
+/** Hard bounds one capture session carries from start. `maxBytes`
+ *  bounds the session's EVENT LOG — bodies travel out-of-line through
+ *  the content-addressed blob store and count against the global
+ *  retention budget instead. */
 export interface TrafficCaptureBounds {
   readonly maxBytes: number;
   readonly maxDurationMs: number;
 }
 
 /** Production defaults — sized for "reproduce this overnight": the
- *  duration bound outlives a work day, the byte bound keeps one session
- *  from eating a disk. E2E drives tiny overrides through the start call. */
+ *  duration bound outlives a work day, the byte bound keeps one
+ *  session's log from eating a disk (bodies live in the shared blob
+ *  store, deduplicated). E2E drives tiny overrides through the start
+ *  call. */
 export const DEFAULT_TRAFFIC_CAPTURE_BOUNDS: TrafficCaptureBounds = {
   maxBytes: 64 * 1024 * 1024,
   maxDurationMs: 24 * 60 * 60 * 1000,
+};
+
+/** Global retention posture for the sessions archive (§11.4): dedup
+ *  slows growth, this bounds it. Sealed sessions are pruned
+ *  oldest-first once the archive (logs + reachable blobs) crosses the
+ *  budget; the recording session is never pruned. Surfaced in Settings
+ *  with the arm defaults (C4). */
+export interface TrafficSessionRetention {
+  readonly maxTotalBytes: number;
+}
+
+export const DEFAULT_TRAFFIC_SESSION_RETENTION: TrafficSessionRetention = {
+  maxTotalBytes: 2 * 1024 * 1024 * 1024,
 };
 
 /**
@@ -47,28 +62,51 @@ export const DEFAULT_TRAFFIC_CAPTURE_BOUNDS: TrafficCaptureBounds = {
  * honestly — nothing was silently dropped); `source-disarmed` is the
  * absence cascade (disarming a source stops its capture); `write-error`
  * is a failed disk write (disk full, permissions) — the session stops
- * rather than pretending to record.
+ * rather than pretending to record; `crashed` is stamped at boot on a
+ * session a dead process left recording — everything appended before
+ * the crash is preserved and sealed.
  */
-export type TrafficCaptureEndReason = 'stopped' | 'size-bound' | 'duration-bound' | 'source-disarmed' | 'write-error';
+export type TrafficCaptureEndReason =
+  | 'stopped'
+  | 'size-bound'
+  | 'duration-bound'
+  | 'source-disarmed'
+  | 'write-error'
+  | 'crashed';
 
-/** One capture session, projected for operator surfaces. */
+/** The planes a session's event log carries (§11.1). C3 records the
+ *  lifecycle plane; console/storage join the converged store with a
+ *  later slice and stamp themselves here — the viewer renders what the
+ *  manifest declares and never overpromises. */
+export type TrafficSessionPlane = 'lifecycle' | 'console' | 'storage';
+
+/**
+ * One capture session, projected for operator surfaces. `state` walks
+ * `recording` → `sealing` (stop accepted, the log is being compressed
+ * and encrypted) → `sealed`; `endReason` is set from `sealing` onward.
+ */
 export interface TrafficCaptureSessionProjection {
   readonly sessionId: string;
   /** The armed source this session records. */
   readonly sourceUid: string;
-  /** Operator-chosen session name (also part of the file name). */
+  /** Operator-chosen session name (also part of the directory name). */
   readonly name: string;
-  readonly redaction: TrafficCaptureRedactionPolicy;
-  /** Absolute path of the session's JSONL file. */
-  readonly filePath: string;
+  /** Absolute path of the session's directory (event log + meta). */
+  readonly dirPath: string;
   readonly startedAtMs: number;
   readonly bounds: TrafficCaptureBounds;
-  /** Record lines appended so far. The file folds last-wins by
-   *  (tabId, requestId) — a record refined after its first append
-   *  appears again with the refinement applied. */
-  readonly recordLines: number;
+  readonly planes: ReadonlyArray<TrafficSessionPlane>;
+  /** Requests recorded — the count of `started` events in the log. */
+  readonly requests: number;
+  /** Event lines appended so far. */
+  readonly events: number;
+  /** Event-log bytes written (plain, pre-seal) — the `maxBytes` meter. */
   readonly bytesWritten: number;
-  readonly state: 'active' | 'stopped';
+  /** Whether sealed artifacts (log + blobs) are encrypted with the
+   *  app-held key. `false` = no key was available on this host; the
+   *  stamp keeps the downgrade visible, never silent. */
+  readonly encrypted: boolean;
+  readonly state: 'recording' | 'sealing' | 'sealed';
   readonly stoppedAtMs?: number;
   readonly endReason?: TrafficCaptureEndReason;
 }

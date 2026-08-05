@@ -1,31 +1,36 @@
 /**
- * Agent traffic S7 E2E — opt-in disk capture sessions against the real
- * dual-app stack (AGENT_TRAFFIC_PLAN.md §7.2 `agent-traffic/capture-session`).
+ * Agent traffic C3 E2E — the sessions archive against the real
+ * dual-app stack (AGENT_TRAFFIC_PLAN.md §11.6 `agent-traffic/
+ * session-archive`; supersedes the retired v1 `capture-session` page
+ * and its "no raw on disk" pin — §11.5 inverted that law).
  *
  *   1. Launch the built desktop app isolated on a fresh daemon port;
  *      launch Chromium with the built extension and open the
- *      capture-session generator page. Arm that tab.
- *   2. Refusal: a capture start WITHOUT a redaction policy is refused —
- *      and no session file exists afterwards (the captures directory
- *      was never even created).
- *   3. Start + retention indicator: an explicit `redaction: 'standard'`
- *      starts the session; the operator status lists it active; the
- *      Traffic Monitor UI shows "capturing to disk" — header badge and
- *      per-row mark — the whole time it runs.
- *   4. Secrets nowhere ON DISK (the slice's highest-value assertion):
- *      the armed tab fires a burst carrying a bearer JWT in the header
- *      AND as a token query parameter; after stop, the session file
- *      parses (header → record lines → honest trailer), carries the
- *      burst's projections with ONE stable marker across both
- *      positions, and the raw JWT appears NOWHERE in the file bytes.
- *   5. Bound trip: a session with a tiny byte bound STOPS itself
- *      (`size-bound` in its status and trailer) — never a silent
- *      truncate-and-continue — and the indicator converges off.
- *   6. Workbench gesture: the rail's per-source record affordance
- *      starts a session (redaction policy attached by the UI path —
- *      never an unredacted file from a button) and the indicator it
- *      becomes stops it on the next click.
- *   7. Sessions section: the rail's third section lists this run's
+ *      session-archive generator page. Arm that tab and pin it to CDP
+ *      fidelity (eager body pulls need a debug-fed partition).
+ *   2. Start + retention indicator: the start gesture alone opens the
+ *      session (no write-time redaction policy exists in v2 — the
+ *      gesture IS the durable-capture consent); the operator status
+ *      lists it `recording`; the Traffic Monitor shows the indicator
+ *      the whole time it runs.
+ *   3. Raw at rest, ciphertext on disk (the slice's highest-value
+ *      assertion): the armed tab fires a burst carrying a bearer JWT
+ *      in the header AND as a token query parameter; after stop the
+ *      session seals — `meta.json` is honest (formatVersion 2,
+ *      encrypted, lifecycle plane, cdp fidelity), the plain log is
+ *      gone, and the planted JWT appears NOWHERE in the archive's
+ *      on-disk bytes (§9.5 encryption at seal), while the session
+ *      projection proves the requests were recorded at full count.
+ *   4. CAS dedup (§11.4): two sessions record the SAME 16 KB
+ *      deterministic asset — the blob store holds ONE artifact, both
+ *      session manifests reference the same digest.
+ *   5. Bound trip: a session with a tiny log bound STOPS itself
+ *      (`size-bound`) — never a silent truncate-and-continue — and
+ *      the indicator converges off.
+ *   6. Workbench gesture: the observe popover's save verb starts a
+ *      session on the operator plane and the combined stop ends it
+ *      with the honest 'stopped' reason.
+ *   7. Sessions section: the rail's section lists this run's
  *      recordings — honest end-reason labels, reveal-in-folder on
  *      ended rows, and an active row's stop action working.
  *
@@ -34,7 +39,7 @@
  * is started by the playwright `webServer` block.
  */
 
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
 import {
@@ -50,41 +55,44 @@ import { createExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
-// Port etiquette: fresh port off every prior suite (ledger through 20637).
+// Port etiquette: this spec keeps its S7 port (ledger through 20937).
 const DAEMON_PORT = 20737;
 const MCP_URL = `http://127.0.0.1:${DAEMON_PORT}/mcp`;
-const PAGE_URL = 'http://127.0.0.1:3000/src/agent-traffic/capture-session.html';
+const PAGE_URL = 'http://127.0.0.1:3000/src/agent-traffic/session-archive.html';
 
 // The planted secret: the SAME JWT rides the Authorization header of
 // every probe and the final probe's token query parameter — one value,
-// two positions, so the on-disk marker algebra can be asserted.
+// two positions. In v2 it IS recorded (raw at rest) — the disk-level
+// assertion is that no archive file ever carries it as plaintext.
 const JWT =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmUtY2FwdHVyZSIsIm5hbWUiOiJPcGVuIEhlYWRlcnMifQ.ZTJlLWNhcHR1cmUtc2lnbmF0dXJlLTAxMjM0NTY3ODlhYmNkZWY';
-const MARKER = /\[redacted:[0-9a-f]{8}\]/;
 
 interface CaptureSessionRow {
   sessionId: string;
   sourceUid: string;
   name: string;
-  redaction: string;
-  filePath: string;
+  dirPath: string;
   bounds: { maxBytes: number; maxDurationMs: number };
-  recordLines: number;
+  planes: string[];
+  requests: number;
+  events: number;
   bytesWritten: number;
+  encrypted: boolean;
   state: string;
   endReason?: string;
 }
 
-interface CaptureLine {
-  kind: string;
-  reason?: string;
-  redaction?: string;
-  recordFold?: string;
-  record?: {
-    requestId: string;
-    url: string;
-    requestHeaders?: Array<{ name: string; value: string }>;
-  };
+interface SessionMetaFile {
+  formatVersion: number;
+  sessionId: string;
+  state: string;
+  encrypted: boolean;
+  planes: string[];
+  fidelity: string;
+  requests: number;
+  events: number;
+  endReason?: string;
+  origins: string[];
 }
 
 let electronApp: ElectronApplication;
@@ -92,11 +100,11 @@ let workbench: Page;
 let token: string;
 let context: BrowserContext | undefined;
 let extensionId: string;
-let capturePage: Page;
+let archivePage: Page;
 let userData: string;
-let capturesDir: string;
+let archiveDir: string;
 let peerNodeId: string;
-let captureTabId: number;
+let archiveTabId: number;
 let armedUid: string;
 
 const harness = createExtensionSeedHarness({
@@ -124,12 +132,34 @@ async function captureSessions(): Promise<CaptureSessionRow[]> {
   return sessions ?? [];
 }
 
-async function parseSessionFile(filePath: string): Promise<CaptureLine[]> {
-  const raw = await readFile(filePath, 'utf8');
+async function readSessionMeta(dirPath: string): Promise<SessionMetaFile> {
+  return JSON.parse(await readFile(path.join(dirPath, 'meta.json'), 'utf8')) as SessionMetaFile;
+}
+
+/** Every file under the archive root, recursively. */
+async function archiveFiles(dir: string): Promise<string[]> {
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const name of names) {
+    const full = path.join(dir, name);
+    if ((await stat(full)).isDirectory()) out.push(...(await archiveFiles(full)));
+    else out.push(full);
+  }
+  return out;
+}
+
+/** Digest lines of one session's blob manifest. */
+async function manifestDigests(dirPath: string): Promise<string[]> {
+  const raw = await readFile(path.join(dirPath, 'blobs.manifest'), 'utf8');
   return raw
     .split('\n')
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as CaptureLine);
+    .map((line) => line.split(' ')[0] ?? '')
+    .filter((digest) => digest.length === 64);
 }
 
 /** State-driven dock-strip toggle — click only when the state is wrong. */
@@ -146,11 +176,40 @@ async function refreshRail(): Promise<void> {
   await workbench.locator('[data-testid="traffic-monitor-refresh"]').first().click();
 }
 
+async function fireSecretBurst(count: number): Promise<void> {
+  await archivePage.evaluate(
+    async (options) => {
+      await (
+        window as unknown as { __ohFireSecretBurst(o: { jwt: string; count: number }): Promise<number> }
+      ).__ohFireSecretBurst(options);
+    },
+    { jwt: JWT, count },
+  );
+}
+
+async function fetchFixedAsset(): Promise<void> {
+  await archivePage.evaluate(async () => {
+    await (
+      window as unknown as { __ohFetchFixedAsset(o: { name: string; bytes: number }): Promise<number> }
+    ).__ohFetchFixedAsset({ name: 'bundle', bytes: 16_384 });
+  });
+}
+
+/** Poll one session row until it reports `sealed`. */
+async function waitSealed(sessionId: string): Promise<CaptureSessionRow> {
+  await expect
+    .poll(async () => (await captureSessions()).find((s) => s.sessionId === sessionId)?.state, { timeout: 20000 })
+    .toBe('sealed');
+  const session = (await captureSessions()).find((s) => s.sessionId === sessionId);
+  if (session === undefined) throw new Error(`session ${sessionId} vanished from the status surface`);
+  return session;
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
   userData = await mkdtemp(path.join(os.tmpdir(), 'oh-agent-traffic-capture-e2e-'));
-  capturesDir = path.join(userData, 'data', 'traffic-captures');
+  archiveDir = path.join(userData, 'data', 'traffic-sessions');
   await mkdir(path.join(userData, 'data'), { recursive: true });
   await writeFile(
     path.join(userData, 'data', 'settings.json'),
@@ -203,8 +262,8 @@ test.beforeAll(async () => {
   await harness.extensionPage();
   await harness.seedBackendRetrying({ enabled: true });
 
-  capturePage = await context.newPage();
-  await capturePage.goto(PAGE_URL);
+  archivePage = await context.newPage();
+  await archivePage.goto(PAGE_URL);
   // Background the playground tab so every request in the watched
   // partition is one of this spec's own probes.
   await (await harness.extensionPage()).bringToFront();
@@ -215,9 +274,9 @@ test.afterAll(async () => {
   await electronApp?.close();
 });
 
-// ── Inventory gate + arm ────────────────────────────────────────────
+// ── Inventory gate + arm + CDP fidelity ─────────────────────────────
 
-test('the daemon inventories the capture page; arming it succeeds', async () => {
+test('the daemon inventories the archive page; arming and CDP-pinning it succeeds', async () => {
   await expect
     .poll(
       async () => {
@@ -228,7 +287,7 @@ test('the daemon inventories the capture page; arming it succeeds', async () => 
           const tab = peer.tabs.find((t) => t.url.startsWith(PAGE_URL));
           if (tab) {
             peerNodeId = peer.nodeId;
-            captureTabId = tab.tabId;
+            archiveTabId = tab.tabId;
             return true;
           }
         }
@@ -242,7 +301,7 @@ test('the daemon inventories the capture page; arming it succeeds', async () => 
     type: 'oh.daemon.traffic.arm',
     kind: 'browser-tab',
     nodeId: peerNodeId,
-    tabId: captureTabId,
+    tabId: archiveTabId,
   })) as { ok: boolean; uid?: string; error?: string };
   expect(armed.ok, armed.error).toBe(true);
   armedUid = armed.uid ?? '';
@@ -259,40 +318,47 @@ test('the daemon inventories the capture page; arming it succeeds', async () => 
       { timeout: 15000 },
     )
     .toBe(true);
-});
 
-// ── Refusal: no redaction policy, no file ───────────────────────────
-
-test('a capture start without a redaction policy is refused and writes nothing', async () => {
-  const refused = (await invoke({
-    type: 'oh.daemon.traffic.capture.start',
-    uid: armedUid,
-    name: 'no-policy attempt',
-  })) as { ok: boolean; error?: string };
-  expect(refused.ok).toBe(false);
-  expect(refused.error ?? '').toContain('redaction');
-
-  expect(await captureSessions()).toEqual([]);
-  // The captures directory was never even created — refusal happens
-  // before any disk touch.
-  await expect(readdir(capturesDir)).rejects.toThrow();
+  // Debug fidelity: the recorder's completion-time body pulls serve
+  // only on a CDP-fed (or proxy) partition — pin and wait for attach.
+  await invoke({
+    type: 'oh.daemon.telemetry.debug.control',
+    nodeId: peerNodeId,
+    command: { kind: 'enable', enabled: true },
+  });
+  await invoke({
+    type: 'oh.daemon.telemetry.debug.control',
+    nodeId: peerNodeId,
+    command: { kind: 'pin', tabId: archiveTabId, pinned: true },
+  });
+  await expect
+    .poll(
+      async () => {
+        const { peers } = (await invoke({ type: 'oh.daemon.telemetry.tabs.list' })) as unknown as {
+          peers?: Array<{ nodeId: string; debug: { attachedTabs: number[] } }>;
+        };
+        const peer = (peers ?? []).find((p) => p.nodeId === peerNodeId);
+        return peer?.debug.attachedTabs.includes(archiveTabId) ?? false;
+      },
+      { timeout: 20000 },
+    )
+    .toBe(true);
 });
 
 // ── Start + the retention indicator ─────────────────────────────────
 
-test('an explicit policy starts the session and the Traffic Monitor shows "capturing to disk"', async () => {
+test('the start gesture opens the session and the Traffic Monitor shows the recording indicator', async () => {
   const started = (await invoke({
     type: 'oh.daemon.traffic.capture.start',
     uid: armedUid,
-    name: 'e2e capture',
-    redaction: 'standard',
+    name: 'e2e archive',
   })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
   expect(started.ok, started.error).toBe(true);
-  expect(started.session?.state).toBe('active');
-  expect(started.session?.redaction).toBe('standard');
-  expect(started.session?.filePath.startsWith(capturesDir)).toBe(true);
+  expect(started.session?.state).toBe('recording');
+  expect(started.session?.planes).toEqual(['lifecycle']);
+  expect(started.session?.dirPath.startsWith(archiveDir)).toBe(true);
 
-  // The operator status lists the active session; the source status
+  // The operator status lists the recording session; the source status
   // row carries it for the UI.
   const sessions = await captureSessions();
   expect(sessions.map((s) => s.sessionId)).toEqual([started.session?.sessionId]);
@@ -311,21 +377,14 @@ test('an explicit policy starts the session and the Traffic Monitor shows "captu
   });
 });
 
-// ── Secrets nowhere ON DISK — the slice's highest-value assertion ───
+// ── Raw at rest, ciphertext on disk — the slice's highest-value pin ─
 
-test('the session file holds redacted projections only; the raw secret appears nowhere in its bytes', async () => {
-  await capturePage.evaluate(
-    async (options) => {
-      await (
-        window as unknown as { __ohFireCaptureBurst(o: { jwt: string; count: number }): Promise<number> }
-      ).__ohFireCaptureBurst(options);
-    },
-    { jwt: JWT, count: 4 },
-  );
+test('the sealed archive records full fidelity yet the planted secret is plaintext nowhere on disk', async () => {
+  await fireSecretBurst(4);
 
-  // The burst's seam events land as appended lines.
+  // The burst lands as recorded requests (started events).
   await expect
-    .poll(async () => (await captureSessions())[0]?.recordLines ?? 0, { timeout: 15000 })
+    .poll(async () => (await captureSessions())[0]?.requests ?? 0, { timeout: 15000 })
     .toBeGreaterThanOrEqual(4);
 
   const stopped = (await invoke({ type: 'oh.daemon.traffic.capture.stop', uid: armedUid })) as unknown as {
@@ -333,38 +392,35 @@ test('the session file holds redacted projections only; the raw secret appears n
     session: CaptureSessionRow | null;
   };
   expect(stopped.ok).toBe(true);
-  expect(stopped.session?.state).toBe('stopped');
   expect(stopped.session?.endReason).toBe('stopped');
 
-  const raw = await readFile(stopped.session?.filePath ?? '', 'utf8');
-  // THE assertion: the planted secret appears NOWHERE on disk.
-  expect(raw).not.toContain(JWT);
-  expect(raw).toMatch(MARKER);
+  // The seal completes in the background; the ended list projects it.
+  const sealed = await waitSealed(stopped.session?.sessionId ?? '');
+  expect(sealed.encrypted).toBe(true);
+  expect(sealed.requests).toBeGreaterThanOrEqual(4);
 
-  const lines = await parseSessionFile(stopped.session?.filePath ?? '');
-  expect(lines[0]?.kind).toBe('header');
-  expect(lines[0]?.redaction).toBe('standard');
-  expect(lines[0]?.recordFold).toContain('last-wins');
-  const trailer = lines[lines.length - 1];
-  expect(trailer?.kind).toBe('end');
-  expect(trailer?.reason).toBe('stopped');
+  // meta.json is the honest boot-scan row.
+  const meta = await readSessionMeta(sealed.dirPath);
+  expect(meta.formatVersion).toBe(2);
+  expect(meta.state).toBe('sealed');
+  expect(meta.encrypted).toBe(true);
+  expect(meta.planes).toEqual(['lifecycle']);
+  expect(meta.fidelity).toBe('cdp');
+  expect(meta.endReason).toBe('stopped');
+  expect(meta.origins).toContain('http://127.0.0.1:3000');
 
-  const records = lines.filter((l) => l.kind === 'record');
-  expect(records.length).toBe(stopped.session?.recordLines);
-  const probeRecords = records.filter((l) => l.record?.url.includes('/echo/capture'));
-  expect(probeRecords.length).toBeGreaterThanOrEqual(4);
+  // The plain log retired with the seal; the sealed artifact stands.
+  const files = await archiveFiles(sealed.dirPath);
+  expect(files.some((f) => f.endsWith('events.seal'))).toBe(true);
+  expect(files.some((f) => f.endsWith('events.jsonl'))).toBe(false);
 
-  // Marker algebra inside the file: the Authorization header's marker
-  // is the SAME marker the query position carries — one value, one
-  // marker, across positions, without the secret.
-  const authValue = probeRecords
-    .flatMap((l) => l.record?.requestHeaders ?? [])
-    .find((h) => h.name.toLowerCase() === 'authorization')?.value;
-  expect(authValue).toBeDefined();
-  const marker = (authValue ?? '').replace(/^Bearer /, '');
-  expect(marker).toMatch(/^\[redacted:[0-9a-f]{8}\]$/);
-  const queryRecord = probeRecords.find((l) => l.record?.url.includes('access_token='));
-  expect(queryRecord?.record?.url).toContain(`access_token=${marker}`);
+  // THE assertion, inverted from v1: the secret IS recorded (raw at
+  // rest — the projection above counted its requests), yet no file
+  // anywhere in the archive carries it as plaintext (§9.5).
+  for (const file of await archiveFiles(archiveDir)) {
+    const bytes = await readFile(file);
+    expect(bytes.includes(Buffer.from(JWT, 'utf8')), `plaintext secret leaked into ${file}`).toBe(false);
+  }
 
   // A stopped session drops off the source row; the ended list keeps it.
   const { sources } = (await invoke({ type: 'oh.daemon.traffic.status' })) as unknown as {
@@ -373,52 +429,72 @@ test('the session file holds redacted projections only; the raw secret appears n
   expect(sources.find((s) => s.uid === armedUid)?.capture).toBeUndefined();
 });
 
+// ── CAS dedup: one payload, two sessions, ONE blob ──────────────────
+
+test('two sessions recording the same asset share one content-addressed blob', async () => {
+  const blobsDir = path.join(archiveDir, 'blobs');
+  const blobsBefore = (await archiveFiles(blobsDir)).length;
+
+  const dirs: string[] = [];
+  const blobCounts: number[] = [];
+  for (const name of ['dedup a', 'dedup b']) {
+    const started = (await invoke({
+      type: 'oh.daemon.traffic.capture.start',
+      uid: armedUid,
+      name,
+    })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
+    expect(started.ok, started.error).toBe(true);
+    await fetchFixedAsset();
+    // The 16 KB body externalizes only once its completion pull
+    // answers — wait for the session's manifest to name the digest.
+    await expect
+      .poll(async () => (await manifestDigests(started.session?.dirPath ?? '').catch(() => [])).length, {
+        timeout: 15000,
+      })
+      .toBeGreaterThanOrEqual(1);
+    await invoke({ type: 'oh.daemon.traffic.capture.stop', uid: armedUid });
+    const sealed = await waitSealed(started.session?.sessionId ?? '');
+    dirs.push(sealed.dirPath);
+    blobCounts.push((await archiveFiles(blobsDir)).length);
+  }
+
+  // Both manifests name the SAME digest, and the second session added
+  // ZERO new artifacts — the §11.4 store-once claim, end to end.
+  const [digestsA, digestsB] = [await manifestDigests(dirs[0] ?? ''), await manifestDigests(dirs[1] ?? '')];
+  expect(digestsA.length).toBeGreaterThanOrEqual(1);
+  const shared = digestsA.filter((d) => digestsB.includes(d));
+  expect(shared.length).toBeGreaterThanOrEqual(1);
+  expect(blobCounts[0] ?? 0).toBeGreaterThan(blobsBefore);
+  expect(blobCounts[1]).toBe(blobCounts[0]);
+});
+
 // ── Bound trip: the session stops itself, honestly ──────────────────
 
-test('a tripped byte bound stops the session with the honest reason and the indicator converges off', async () => {
+test('a tripped log bound stops the session with the honest reason and the indicator converges off', async () => {
   const started = (await invoke({
     type: 'oh.daemon.traffic.capture.start',
     uid: armedUid,
     name: 'tiny bound',
-    redaction: 'standard',
     maxBytes: 2048,
   })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
   expect(started.ok, started.error).toBe(true);
 
-  await capturePage.evaluate(
-    async (options) => {
-      await (
-        window as unknown as { __ohFireCaptureBurst(o: { jwt: string; count: number }): Promise<number> }
-      ).__ohFireCaptureBurst(options);
-    },
-    { jwt: JWT, count: 4 },
-  );
+  await fireSecretBurst(4);
 
-  await expect
-    .poll(async () => (await captureSessions()).find((s) => s.sessionId === started.session?.sessionId)?.state, {
-      timeout: 15000,
-    })
-    .toBe('stopped');
-  const session = (await captureSessions()).find((s) => s.sessionId === started.session?.sessionId);
-  expect(session?.endReason).toBe('size-bound');
-  // Record lines never cross the bound; only the honest trailer may.
-  expect(session?.bytesWritten).toBeLessThanOrEqual(2048 + 256);
+  const session = await waitSealed(started.session?.sessionId ?? '');
+  expect(session.endReason).toBe('size-bound');
+  // Event lines never cross the bound; only the honest trailer may.
+  expect(session.bytesWritten).toBeLessThanOrEqual(2048 + 256);
 
-  const lines = await parseSessionFile(session?.filePath ?? '');
-  const trailer = lines[lines.length - 1];
-  expect(trailer?.kind).toBe('end');
-  expect(trailer?.reason).toBe('size-bound');
-  const raw = await readFile(session?.filePath ?? '', 'utf8');
-  expect(raw).not.toContain(JWT);
-
-  // The indicator converges off once nothing captures.
+  // The indicator converges off once nothing records.
+  await openTrafficMonitor();
   await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
 });
 
 // ── The Workbench affordance: start/stop as a human gesture ─────────
 
-test('the observe popover starts a session with the forced redaction policy and the combined stop ends it', async () => {
+test('the observe popover starts a session and the combined stop ends it with the honest reason', async () => {
   await openTrafficMonitor();
   await refreshRail();
 
@@ -428,16 +504,14 @@ test('the observe popover starts a session with the forced redaction policy and 
   await expect(armedEye.first()).toBeVisible({ timeout: 10000 });
   const before = (await captureSessions()).length;
 
-  // "Also save session to disk": an ACTIVE session on the operator
-  // plane, on the armed source, with the redaction policy the UI path
-  // attaches — never an unredacted file from a button.
+  // "Also save session to disk": a recording session on the operator
+  // plane, on the armed source — the human gesture IS the consent.
   await armedEye.first().click();
   await workbench.locator('[data-testid="traffic-monitor-observe-save"]').click();
   await expect
-    .poll(async () => (await captureSessions()).find((s) => s.state === 'active')?.sourceUid, { timeout: 15000 })
+    .poll(async () => (await captureSessions()).find((s) => s.state === 'recording')?.sourceUid, { timeout: 15000 })
     .toBe(armedUid);
-  const active = (await captureSessions()).find((s) => s.state === 'active');
-  expect(active?.redaction).toBe('standard');
+  const active = (await captureSessions()).find((s) => s.state === 'recording');
   expect(active?.name.length).toBeGreaterThan(0);
 
   // The eye became the always-visible retention indicator (red state).
@@ -450,12 +524,8 @@ test('the observe popover starts a session with the forced redaction policy and 
   // (stop BEFORE disarm keeps the 'stopped' reason) and stops observing.
   await workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first().click();
   await workbench.locator('[data-testid="traffic-monitor-observe-stop-save"]').click();
-  await expect
-    .poll(async () => (await captureSessions()).find((s) => s.sessionId === active?.sessionId)?.state, {
-      timeout: 15000,
-    })
-    .toBe('stopped');
-  expect((await captureSessions()).find((s) => s.sessionId === active?.sessionId)?.endReason).toBe('stopped');
+  const ended = await waitSealed(active?.sessionId ?? '');
+  expect(ended.endReason).toBe('stopped');
   expect((await captureSessions()).length).toBe(before + 1);
   await expect(workbench.locator('[data-testid="traffic-monitor-capturing"]')).toHaveCount(0, { timeout: 10000 });
   // The combined stop also disarmed the source — no armed eye remains.
@@ -470,7 +540,7 @@ test('the observe popover starts a session with the forced redaction policy and 
     type: 'oh.daemon.traffic.arm',
     kind: 'browser-tab',
     nodeId: peerNodeId,
-    tabId: captureTabId,
+    tabId: archiveTabId,
   })) as { ok: boolean; uid?: string; error?: string };
   expect(rearmed.ok, rearmed.error).toBe(true);
   armedUid = rearmed.uid ?? '';
@@ -483,9 +553,9 @@ test("the Sessions section lists this run's recordings with honest end reasons, 
   await refreshRail();
 
   // Every session the operator plane knows appears as a row (this-run
-  // scope by design — prior-run files stay unenumerated).
+  // scope by design — prior-run sessions wait for the C5 tool window).
   const sessions = await captureSessions();
-  expect(sessions.length).toBeGreaterThanOrEqual(3);
+  expect(sessions.length).toBeGreaterThanOrEqual(4);
   const rows = workbench.locator('[data-testid="traffic-monitor-session-row"]');
   await expect(rows).toHaveCount(sessions.length, { timeout: 10000 });
 
@@ -502,18 +572,13 @@ test("the Sessions section lists this run's recordings with honest end reasons, 
     type: 'oh.daemon.traffic.capture.start',
     uid: armedUid,
     name: 'sessions-section stop',
-    redaction: 'standard',
   })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
   expect(started.ok, started.error).toBe(true);
   await refreshRail();
   const stop = workbench.locator('[data-testid="traffic-monitor-session-stop"]');
   await expect(stop).toBeVisible({ timeout: 10000 });
   await stop.click();
-  await expect
-    .poll(async () => (await captureSessions()).find((s) => s.sessionId === started.session?.sessionId)?.state, {
-      timeout: 15000,
-    })
-    .toBe('stopped');
-  expect((await captureSessions()).find((s) => s.sessionId === started.session?.sessionId)?.endReason).toBe('stopped');
+  const ended = await waitSealed(started.session?.sessionId ?? '');
+  expect(ended.endReason).toBe('stopped');
   await expect(workbench.locator('[data-testid="traffic-monitor-session-stop"]')).toHaveCount(0, { timeout: 10000 });
 });

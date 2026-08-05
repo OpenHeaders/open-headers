@@ -9,8 +9,8 @@
  * Row vocabulary mirrors the rail's capture affordance: the red save
  * mark = actively recording, click stops (a human gesture — the
  * channel has no MCP mirror). Ended rows carry their end reason and a
- * hover-revealed "show file in folder" action, gated on the host's
- * `revealInFolder` capability — the file IS the deliverable.
+ * hover-revealed "show in folder" action on the session directory,
+ * gated on the host's `revealInFolder` capability.
  *
  * Presentational: the panel owns the session list, the pending set and
  * both actions; this section renders and reports clicks.
@@ -32,6 +32,7 @@ const END_REASON_KEYS: Record<TrafficCaptureEndReason, MessageKey> = {
   'duration-bound': 'workbench.trafficMonitor.sessionEndDurationBound',
   'source-disarmed': 'workbench.trafficMonitor.sessionEndSourceDisarmed',
   'write-error': 'workbench.trafficMonitor.sessionEndWriteError',
+  crashed: 'workbench.trafficMonitor.sessionEndCrashed',
 };
 
 export interface TrafficMonitorSessionsSectionProps {
@@ -61,9 +62,9 @@ function SessionRow({
 }) {
   const t = useT();
   const { token } = theme.useToken();
-  const active = session.state === 'active';
+  const active = session.state === 'recording';
   const detail = t('workbench.trafficMonitor.sessionDetail', {
-    records: session.recordLines,
+    records: session.requests,
     size: formatSize(session.bytesWritten),
   });
   return (

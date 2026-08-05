@@ -2,16 +2,16 @@
  * `oracle-host-node/traffic` — the broker tap for the agent traffic
  * epic (AGENT_TRAFFIC_PLAN.md §2): loopback lifeline dialing, the
  * partition mirror (§11.2 — the one authoritative store per watched
- * partition), the two source connectors, and the armed-source
- * registry. Host-side by design; the retention machinery itself lives
- * host-neutral in `@openheaders/oracle/traffic-retention`.
+ * partition), the sessions archive (§11.4 — event-log recorder, CAS
+ * blob store, reachability GC), the two source connectors, and the
+ * armed-source registry. Host-side by design; the retention machinery
+ * itself lives host-neutral in `@openheaders/oracle/traffic-retention`.
+ *
+ * §11.5 boundary note: the archive's RAW vocabulary (event lines,
+ * meta rows, blob refs) stays inside this package — only the factory,
+ * the key helpers and the wire-facing projections leave it.
  */
 
-export {
-  startTrafficCaptureSession,
-  type TrafficCaptureSession,
-  type TrafficCaptureSessionOptions,
-} from './capture';
 export {
   installLoopbackLifelineDialer,
   type LoopbackLifelineDialer,
@@ -24,9 +24,22 @@ export {
   type TrafficPartitionMirrorDeps,
 } from './partition-mirror';
 export {
+  loadOrCreateSealKeyFile,
+  loadOrCreateWrappedSealKey,
+  TRAFFIC_SEAL_KEY_FILE_DAEMON,
+  TRAFFIC_SEAL_KEY_FILE_DESKTOP,
+  TRAFFIC_SEAL_WRAPPED_KEY_FILE,
+  TRAFFIC_SESSIONS_DIR_NAME,
+  trafficSealKeyConfigSegments,
+} from './seal';
+export {
+  createTrafficSessionArchive,
+  type TrafficSessionArchive,
+  type TrafficSessionArchiveOptions,
+} from './session-archive';
+export {
   connectBrowserTabSource,
   connectProxySource,
-  type TrafficBodyAttachedHandler,
   type TrafficSourceConnection,
 } from './sources';
 export {

@@ -69,6 +69,14 @@ import {
   readPostmanBackupFile,
   scanToolData,
 } from '@openheaders/oracle-host-node/migration';
+import {
+  loadOrCreateSealKeyFile,
+  loadOrCreateWrappedSealKey,
+  TRAFFIC_SEAL_KEY_FILE_DESKTOP,
+  TRAFFIC_SEAL_WRAPPED_KEY_FILE,
+  TRAFFIC_SESSIONS_DIR_NAME,
+  trafficSealKeyConfigSegments,
+} from '@openheaders/oracle-host-node/traffic';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog } from 'electron';
 import { dataDir } from './bootstrap/app-paths';
@@ -96,6 +104,7 @@ import {
 } from './nm-host-install';
 import { installProductTelemetry } from './product-telemetry';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
+import { safeStorageCipher } from './safe-storage-cipher';
 import { installScriptSandbox } from './script-sandbox';
 import { describeOsProxy } from './system-proxy-describe';
 import { installSystemProxyService } from './system-proxy-install';
@@ -351,10 +360,29 @@ export async function installRpcHost(): Promise<void> {
     install: async () => (await updateService.dispatchRpc('oh.updates.install')) ?? updateService.state(),
   });
 
+  // Traffic-session seal key (AGENT_TRAFFIC_PLAN.md §9.5): a random
+  // 32-byte key wrapped by the OS keychain via safeStorage — the
+  // wrapped blob may live inside the data dir because it is ciphertext
+  // under the keychain. When no keychain backend exists (Linux without
+  // a keyring) the fallback is a 0600 key file OUTSIDE the data dir,
+  // so a data-dir exfiltration alone never carries the key.
+  const trafficSealKey =
+    loadOrCreateWrappedSealKey(
+      path.join(dataDir(), TRAFFIC_SESSIONS_DIR_NAME, TRAFFIC_SEAL_WRAPPED_KEY_FILE),
+      safeStorageCipher,
+    ) ??
+    loadOrCreateSealKeyFile(
+      path.join(
+        ...trafficSealKeyConfigSegments(process.env, os.homedir(), process.platform),
+        TRAFFIC_SEAL_KEY_FILE_DESKTOP,
+      ),
+    );
+
   const spine = await bootDaemonSpine({
     dataDir: dataDir(),
     appVersion: app.getVersion(),
     logger: engineLogger,
+    trafficSealKey,
     identity: {
       // `hostKind: 'desktop'` + the machine name as the local-org name
       // make this host's Org distinguishable from a joined peer's.

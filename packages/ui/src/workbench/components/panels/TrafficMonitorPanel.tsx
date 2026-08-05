@@ -406,10 +406,11 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     return () => clearInterval(timer);
   }, [reloadArmed]);
 
-  // One handler for every observe-popover action (PLAN §4 arming + §3
-  // disk capture behind one control). Save-flavored verbs attach the
-  // redaction policy explicitly (the daemon refuses without one) and
-  // name the session after the source; bounds stay host defaults.
+  // One handler for every observe-popover action (PLAN §4 arming + §11
+  // disk recording behind one control). Save-flavored verbs name the
+  // session after the source; bounds stay host defaults. The gesture
+  // itself is the durable-capture consent — redaction is applied at
+  // read time by every consumer-facing projection, never at write.
   // `stop-save` ends the session BEFORE disarming so its end reason
   // stays the honest 'stopped', not 'source-disarmed'. Failures
   // converge silently — the reload leaves the icon in its true state.
@@ -453,7 +454,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
               await hostBridge.call('oh.daemon.traffic.capture.start', {
                 uid,
                 name: sourceName(key),
-                redaction: 'standard',
               });
             }
           } else {
@@ -463,7 +463,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 await hostBridge.call('oh.daemon.traffic.capture.start', {
                   uid,
                   name: sourceName(key),
-                  redaction: 'standard',
                 });
               } else {
                 if (action === 'stop-save') {
@@ -489,7 +488,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   // Session-row actions: stop rides the same operator verb as the rail
   // affordance (keyed by sessionId for the spinner); reveal hands the
-  // ended session's file to the OS file manager through the host
+  // ended session's directory to the OS file manager through the host
   // capability — main refuses paths outside the app data directory.
   const [sessionPending, setSessionPending] = useState<ReadonlySet<string>>(() => new Set());
   const onSessionStop = useCallback(
@@ -513,7 +512,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   );
   const canRevealSessions = hasCapability('revealInFolder');
   const onSessionReveal = useCallback((session: TrafficCaptureSessionProjection) => {
-    void getCapability('revealInFolder')?.(session.filePath);
+    void getCapability('revealInFolder')?.(session.dirPath);
   }, []);
 
   const observeArmedKeys = useMemo(() => new Set(observeArmed.keys()), [observeArmed]);

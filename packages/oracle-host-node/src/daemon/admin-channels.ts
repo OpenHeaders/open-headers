@@ -475,23 +475,19 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     return { records: deps.trafficTap.records(uid) };
   });
 
-  // Capture sessions (S7) — the disk tier's HUMAN plane. These three
-  // channels have no MCP mirror by design: an agent may see that a
-  // source is capturing (traffic_sources marker) but can never start,
-  // stop, or steer one. Start refuses until a redaction policy is
-  // explicitly attached — absent is a refusal, never a default.
+  // Capture sessions (S7, rebuilt on the §11 archive in C3) — the disk
+  // tier's HUMAN plane. These three channels have no MCP mirror by
+  // design: an agent may see that a source is capturing
+  // (traffic_sources marker) but can never start, stop, or steer one.
+  // The start gesture IS the durable-capture consent (§11.5) — the
+  // session records the raw event log; redaction is applied at read
+  // time by every consumer-facing projection.
   handlers.set('oh.daemon.traffic.capture.start', (message) => {
     if (!deps.trafficTap) return { ok: false, error: 'traffic tap unavailable' };
     const uid = typeof message.uid === 'string' ? message.uid : '';
     if (!uid) return { ok: false, error: 'missing uid' };
     const name = typeof message.name === 'string' ? message.name.trim() : '';
     if (!name) return { ok: false, error: 'missing name' };
-    if (message.redaction !== 'standard') {
-      return {
-        ok: false,
-        error: "a capture session refuses to write until a redaction policy is attached — pass redaction: 'standard'",
-      };
-    }
     const bounds = {
       ...(typeof message.maxBytes === 'number' && message.maxBytes > 0
         ? { maxBytes: Math.floor(message.maxBytes) }
@@ -500,13 +496,13 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
         ? { maxDurationMs: Math.floor(message.maxDurationMs) }
         : {}),
     };
-    const result = deps.trafficTap.captureStart(uid, { name, redaction: 'standard', bounds });
+    const result = deps.trafficTap.captureStart(uid, { name, bounds });
     if (!result.ok) {
       const errors: Record<typeof result.reason, string> = {
         'unknown-source': `no armed source with uid '${uid}' — an unarmed or expired source is absent`,
         'capture-active': 'a capture session is already recording this source — stop it first',
         'capture-unavailable':
-          'capture is unavailable on this host (no capture directory or the file could not be created)',
+          'capture is unavailable on this host (no sessions archive or the session directory could not be created)',
       };
       return { ok: false, error: errors[result.reason] };
     }

@@ -1,12 +1,11 @@
 /**
  * The two tappable traffic sources (AGENT_TRAFFIC_PLAN.md §8 S1), each
- * normalized to ONE feed shape — a `LifecycleWireMessage` stream into a
- * `TrafficRetentionConsumer` — so the reducer neither knows nor cares
- * which transport fed it:
+ * normalized to ONE feed shape — a verbatim `LifecycleWireMessage`
+ * stream — so the tap neither knows nor cares which transport fed it:
  *
  *   - **browser-tab** — a tap seat on the partition mirror (§11.2, C2):
  *     the mirror owns the ONE wire session per watched partition and
- *     fans the verbatim envelope stream to this consumer, so the
+ *     fans the verbatim envelope stream to this connection, so the
  *     replay/dedup/arm-floor contract is exactly what a dedicated relay
  *     port carried before convergence.
  *   - **proxy** — a hub sink attached directly to the daemon-side
@@ -15,31 +14,27 @@
  *     wire envelopes the port would carry, mirroring the projection in
  *     `daemon/proxy/capture-lifeline.ts`.
  *
- * S3 adds the body-pull plane on the SAME transports: `requestBody`
- * forwards the lifecycle port's one pull message (`request-body` — the
- * mirror sends it over the shared wire session), and the engine's
- * `body-attached` answer is intercepted here and routed to
- * `onBodyAttached` instead of the consumer — the reducer keeps ignoring
- * body frames wholesale; body handling is the tap's.
+ * The C3 recorder made the envelope the ONE seam: connections deliver
+ * every envelope verbatim — `body-attached` included — and the tap
+ * owns the body/consumer routing split (it also tees the stream to an
+ * active recording session, which needs the reducer INPUT whole).
+ * `requestBody` forwards the lifecycle port's one pull message on the
+ * same transports.
  */
 
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
-import type { InspectorHarBody } from '@openheaders/core/types';
+import type { LifecycleWireMessage } from '@openheaders/core/request-lifecycle';
 import type { RequestLifecycleHub, Sink } from '@openheaders/oracle/request-lifecycle-hub';
-import type { TrafficRetentionConsumer } from '@openheaders/oracle/traffic-retention';
 
 import type { TrafficPartitionMirror } from './partition-mirror';
 
 /** One live source connection; `close()` releases the subscription. */
 export interface TrafficSourceConnection {
   /** Ask the engine for one hop's response body — answered (maybe) by a
-   *  `body-attached` routed to `onBodyAttached`, or by silence. */
+   *  `body-attached` envelope on the same stream, or by silence. */
   requestBody(requestId: string, hopIndex: number): void;
   close(): void;
 }
-
-/** The `body-attached` answers a source connection intercepts. */
-export type TrafficBodyAttachedHandler = (requestId: string, hopIndex: number, body: InspectorHarBody) => void;
 
 /**
  * Join one browser tab's partition through the mirror. Returns `null`
@@ -50,16 +45,9 @@ export function connectBrowserTabSource(deps: {
   mirror: TrafficPartitionMirror;
   nodeId: string;
   tabId: number;
-  consumer: TrafficRetentionConsumer;
-  onBodyAttached: TrafficBodyAttachedHandler;
+  onEnvelope: (message: LifecycleWireMessage) => void;
 }): TrafficSourceConnection | null {
-  const seat = deps.mirror.attachTapConsumer(deps.nodeId, deps.tabId, (message) => {
-    if (message.kind === 'lifecycle-update' && message.update.kind === 'body-attached') {
-      deps.onBodyAttached(message.update.requestId, message.update.hopIndex, message.update.body);
-      return;
-    }
-    deps.consumer.handle(message);
-  });
+  const seat = deps.mirror.attachTapConsumer(deps.nodeId, deps.tabId, deps.onEnvelope);
   if (seat === null) return null;
   return {
     requestBody(requestId, hopIndex) {
@@ -75,24 +63,23 @@ export function connectBrowserTabSource(deps: {
 }
 
 /**
- * Attach the retention consumer to the in-process proxy-capture hub.
- * The sink projects hub deliveries into the same envelopes the port
- * transport carries, so the consumer's replay/dedup path is identical
- * across sources. Body pulls dispatch to the capture service's
- * `serveRequestBody`, whose answer arrives as an ordinary hub
- * `body-attached` delivery — the same interception shape as the wire.
+ * Attach to the in-process proxy-capture hub. The sink projects hub
+ * deliveries into the same envelopes the port transport carries, so
+ * the tap's replay/dedup path is identical across sources. Body pulls
+ * dispatch to the capture service's `serveRequestBody`, whose answer
+ * arrives as an ordinary hub `body-attached` delivery — the same
+ * envelope shape as the wire.
  */
 export function connectProxySource(deps: {
   hub: RequestLifecycleHub;
-  consumer: TrafficRetentionConsumer;
-  onBodyAttached: TrafficBodyAttachedHandler;
+  onEnvelope: (message: LifecycleWireMessage) => void;
   /** `proxyCaptureService.serveRequestBody` — absent on hosts without
    *  the capture proxy; pulls then answer with silence. */
   serveBody?: (requestId: string, hopIndex: number) => void;
 }): TrafficSourceConnection {
   const sink: Sink = {
     deliverReady(tabId, watermarkMs, sessionToken) {
-      deps.consumer.handle({
+      deps.onEnvelope({
         kind: 'ready',
         tabId,
         watermarkMs,
@@ -100,14 +87,10 @@ export function connectProxySource(deps: {
       });
     },
     deliverUpdate(update) {
-      if (update.kind === 'body-attached') {
-        deps.onBodyAttached(update.requestId, update.hopIndex, update.body);
-        return;
-      }
-      deps.consumer.handle({ kind: 'lifecycle-update', update });
+      deps.onEnvelope({ kind: 'lifecycle-update', update });
     },
     deliverTabCleared(tabId) {
-      deps.consumer.handle({ kind: 'tab-cleared', tabId });
+      deps.onEnvelope({ kind: 'tab-cleared', tabId });
     },
     close() {
       // Hub-initiated detach (dispose); nothing to release beyond the
