@@ -670,6 +670,14 @@ export const workbenchChrome = {
   'workbench.trafficSessions.fidelityCdp': 'Fidelidad total (depurador)',
   'workbench.trafficSessions.fidelityHeuristic': 'Fidelidad heurística',
   'workbench.trafficSessions.fidelityProxy': 'Captura de red',
+  'workbench.trafficSessions.openSession': 'Abrir',
+
+  // ── Pestaña de reproducción de sesión (C6) ──────────────────────────
+  'workbench.sessionReplay.empty': 'Esta sesión no registró ninguna solicitud',
+  'workbench.sessionReplay.emptyHint': 'La fuente estaba en observación, pero no la cruzó tráfico durante la grabación',
+  'workbench.sessionReplay.unavailableTitle': 'No se pudo abrir esta sesión',
+  'workbench.sessionReplay.unavailableBody':
+    'Los datos grabados faltan o están dañados, o están cifrados con una clave que esta aplicación ya no posee.',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',

@@ -24,6 +24,11 @@ export {
   type TrafficPartitionMirrorDeps,
 } from './partition-mirror';
 export {
+  acceptTrafficReplayLifeline,
+  installTrafficReplayLifeline,
+  type TrafficReplayArchive,
+} from './replay-lifeline';
+export {
   loadOrCreateSealKeyFile,
   loadOrCreateWrappedSealKey,
   TRAFFIC_SEAL_KEY_FILE_DAEMON,
@@ -35,12 +40,13 @@ export {
 export {
   createTrafficSessionArchive,
   projectArchivedSession,
-  trafficSessionRetentionFromSettings,
   type TrafficArchivedSessionRow,
   type TrafficArchiveVerbResult,
   type TrafficSessionArchive,
   type TrafficSessionArchiveOptions,
+  trafficSessionRetentionFromSettings,
 } from './session-archive';
+export type { TrafficSessionReplay } from './session-reader';
 export {
   connectBrowserTabSource,
   connectProxySource,

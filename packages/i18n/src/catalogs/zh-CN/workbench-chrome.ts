@@ -623,6 +623,13 @@ export const workbenchChrome = {
   'workbench.trafficSessions.fidelityCdp': '完整保真（调试器）',
   'workbench.trafficSessions.fidelityHeuristic': '启发式保真',
   'workbench.trafficSessions.fidelityProxy': '网络抓取',
+  'workbench.trafficSessions.openSession': '打开',
+
+  // ── 会话回放标签页（C6） ────────────────────────────────────────────
+  'workbench.sessionReplay.empty': '此会话未录制任何请求',
+  'workbench.sessionReplay.emptyHint': '来源处于观察中，但录制期间没有流量经过',
+  'workbench.sessionReplay.unavailableTitle': '无法打开此会话',
+  'workbench.sessionReplay.unavailableBody': '录制的数据缺失或已损坏，或使用了本应用不再持有的密钥加密。',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': '标题',

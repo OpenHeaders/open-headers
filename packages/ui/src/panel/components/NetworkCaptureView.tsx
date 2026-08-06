@@ -71,6 +71,11 @@ export interface NetworkCaptureViewProps {
   /** Jump from a wire row's `wire-seen` annotation to its tab source
    *  (Wire source view only). */
   readonly onWireSeenJump?: (wireRequestId: string) => void;
+  /** Override the `watch-refused` banner copy — the default speaks the
+   *  live consent gate's language, which is a lie on surfaces whose
+   *  refusal means something else (the session-replay tab's
+   *  `replay-unavailable`). */
+  readonly watchRefusedCopy?: { readonly title: string; readonly body: string };
 }
 
 /**
@@ -142,6 +147,7 @@ export function NetworkCaptureView({
   onHide,
   wireJoin,
   onWireSeenJump,
+  watchRefusedCopy,
 }: NetworkCaptureViewProps) {
   const t = useT();
   const { lifecycleClient, data, wire } = useNetworkCaptureData(tabId, portName, wireJoin);
@@ -183,8 +189,8 @@ export function NetworkCaptureView({
           type="info"
           showIcon
           banner
-          message={t('panel.capture.watchRefused.title')}
-          description={t('panel.capture.watchRefused.body')}
+          message={watchRefusedCopy?.title ?? t('panel.capture.watchRefused.title')}
+          description={watchRefusedCopy?.body ?? t('panel.capture.watchRefused.body')}
           data-testid="capture-watch-refused"
         />
       )}

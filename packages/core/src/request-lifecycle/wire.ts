@@ -68,14 +68,17 @@ export type LifecycleWireMessage =
    */
   | { kind: 'source'; tabId: number; source: LifecycleSource }
   /**
-   * Relay-only envelope: the remote engine's consent gate refused this
-   * consumer's watch (`backend.allowDesktopWatch` off on the browser
-   * side), either at subscribe or by tearing down a live session on a
-   * mid-watch flip. Never produced by the local chrome-side port host —
-   * the in-browser panel is the user's own surface and is never gated.
-   * A later `ready` (consent restored, relay re-subscribed) clears it.
+   * Relay/host-only envelope: the watch could not be served. `consent-off`
+   * is the remote engine's consent gate (`backend.allowDesktopWatch` off
+   * on the browser side), at subscribe or by tearing down a live session
+   * on a mid-watch flip. `replay-unavailable` is the sessions-archive
+   * replay acceptor failing to open a sealed session (missing/corrupt
+   * artifact, or encrypted under a key this host no longer holds) — the
+   * refusal is honest instead of an empty list. Never produced by the
+   * local chrome-side port host — the in-browser panel is the user's own
+   * surface and is never gated. A later `ready` clears it.
    */
-  | { kind: 'watch-refused'; tabId: number; reason: 'consent-off' };
+  | { kind: 'watch-refused'; tabId: number; reason: 'consent-off' | 'replay-unavailable' };
 
 /**
  * Consumer→engine. Sent once on connect to declare the consumer's watch
@@ -169,6 +172,35 @@ export interface QualifiedLifecyclePortTarget {
 
 export function qualifiedLifecyclePortName(tabId: number, nodeId: string): string {
   return `${LIFECYCLE_PORT_PREFIX}${tabId}@${nodeId}`;
+}
+
+/**
+ * A sealed session in the traffic archive, replayed over the SAME wire
+ * vocabulary the live lifelines speak — `oh-replay:<archiveId>`, where
+ * `archiveId` is the session DIRECTORY basename the sessions window
+ * lists (AGENT_TRAFFIC_PLAN.md §11.1 "replay is the live UI"). A
+ * distinct prefix keeps replay ports out of every live acceptor's path
+ * (the partition mirror's interposer and the browser relay both parse
+ * only `oh-lifecycle:` shapes) and vice versa.
+ */
+export const REPLAY_LIFECYCLE_PORT_PREFIX = 'oh-replay:';
+
+export function replayLifecyclePortName(archiveId: string): string {
+  return `${REPLAY_LIFECYCLE_PORT_PREFIX}${archiveId}`;
+}
+
+/**
+ * Parse `oh-replay:<archiveId>`. Returns `null` for any other shape and
+ * for anything path-shaped — the archive id is a pure directory
+ * basename by construction, so separators or dot-leading names are
+ * refused here rather than reaching a filesystem join.
+ */
+export function parseReplayLifecyclePortName(name: string): string | null {
+  if (!name.startsWith(REPLAY_LIFECYCLE_PORT_PREFIX)) return null;
+  const archiveId = name.slice(REPLAY_LIFECYCLE_PORT_PREFIX.length);
+  if (archiveId.length === 0 || archiveId.startsWith('.')) return null;
+  if (archiveId.includes('/') || archiveId.includes('\\')) return null;
+  return archiveId;
 }
 
 /** Parse `oh-lifecycle:<tabId>@<nodeId>`. Returns `null` for any other

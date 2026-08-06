@@ -59,5 +59,8 @@ export {
   lifecyclePortName,
   parseLifecyclePortName,
   parseQualifiedLifecyclePortName,
+  parseReplayLifecyclePortName,
   qualifiedLifecyclePortName,
+  REPLAY_LIFECYCLE_PORT_PREFIX,
+  replayLifecyclePortName,
 } from './wire';

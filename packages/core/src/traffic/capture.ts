@@ -156,4 +156,9 @@ export interface TrafficArchivedSessionProjection {
   readonly fidelity: LifecycleSource;
   readonly planes: ReadonlyArray<TrafficSessionPlane>;
   readonly origins: ReadonlyArray<string>;
+  /** The lifecycle partition the recorded envelopes address — what a
+   *  replay viewer passes as its view's tab id (the recorded frames
+   *  carry it verbatim; the reserved proxy sentinel for proxy
+   *  sessions). */
+  readonly partitionTabId: number;
 }

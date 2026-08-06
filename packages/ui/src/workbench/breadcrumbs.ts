@@ -273,6 +273,11 @@ export function computeBreadcrumbs(
     return [t('workbench.toolWindows.trafficMonitor'), displayLabel];
   }
 
+  if (tab.mode === 'session-replay' || tab.mode === 'session-replay-request-inspect') {
+    // Replay tabs are minted from the Traffic Sessions window.
+    return [t('workbench.toolWindows.trafficSessions'), displayLabel];
+  }
+
   if (tab.mode === 'edit' && tab.ruleUid) {
     const rule = rules.find((r) => r.uid === tab.ruleUid);
     if (rule) {

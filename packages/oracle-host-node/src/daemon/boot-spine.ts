@@ -132,6 +132,7 @@ import {
   createTrafficSessionArchive,
   createTrafficTap,
   installLoopbackLifelineDialer,
+  installTrafficReplayLifeline,
   TRAFFIC_SESSIONS_DIR_NAME,
   trafficSessionRetentionFromSettings,
 } from '../traffic';
@@ -830,6 +831,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     .catch(() => undefined)
     .then(() => trafficArchive.recoverAtBoot());
 
+  // Replay lifeline (C6) — `oh-replay:<archiveId>` serves a sealed
+  // session's recorded envelope stream to the workbench's replay tab
+  // over the live wire vocabulary; bodies answer from the blob store.
+  // Human plane by construction: only workbench lifelines dial it.
+  const uninstallTrafficReplayLifeline = installTrafficReplayLifeline(trafficArchive);
+
   const trafficTap = createTrafficTap({
     mirror: trafficMirror,
     proxyHub: proxyCaptureService.hub,
@@ -1365,6 +1372,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     trafficTap.dispose();
     trafficMirror.dispose();
     uninstallTrafficMirrorInterposer();
+    uninstallTrafficReplayLifeline();
     uninstallProxyCaptureLifeline();
     uninstallBrowserLiveLifeline();
     browserLiveRelay.dispose();

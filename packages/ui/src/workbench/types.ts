@@ -66,7 +66,9 @@ export type TabMode =
   | 'live-workflow-create'
   | 'proxy-request-inspect'
   | 'live-network-request-inspect'
-  | 'live-storage-doc-inspect';
+  | 'live-storage-doc-inspect'
+  | 'session-replay'
+  | 'session-replay-request-inspect';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -194,6 +196,16 @@ export interface WorkbenchTab {
   liveStorageTabId?: number;
   liveStorageNodeId?: string;
   liveStorageDoc?: LiveStorageDocRef;
+  /** For session-replay (+request-inspect) tabs: the archived session's
+   *  directory-basename id (the Traffic Sessions window's row identity)
+   *  and the lifecycle partition its recorded envelopes address. Unlike
+   *  the live inspect tabs these are NOT ephemeral — the archive is
+   *  durable, and the tab re-streams the sealed log on every mount. */
+  sessionReplayId?: string;
+  sessionReplayTabId?: number;
+  /** For session-replay-request-inspect tabs: the recorded request to
+   *  show. */
+  sessionReplayRequestId?: string;
   /** For live-variable-edit tabs: the LV uid being edited. */
   liveVariableUid?: string;
   /** For live-workflow-edit tabs: the workflow uid being edited. */

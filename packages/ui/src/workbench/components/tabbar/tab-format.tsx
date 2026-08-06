@@ -16,6 +16,7 @@ import {
   FolderOutlined,
   GiftOutlined,
   GlobalOutlined,
+  HistoryOutlined,
   SettingOutlined,
   SisternodeOutlined,
   TeamOutlined,
@@ -103,6 +104,9 @@ export function tabIcon(
   )
     // Captured-traffic + storage inspect tabs — the Traffic Monitor's vocabulary.
     return <GlobalOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
+  if (tab.mode === 'session-replay' || tab.mode === 'session-replay-request-inspect')
+    // Archived-session replay tabs — the Traffic Sessions vocabulary.
+    return <HistoryOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-manager') return <AppstoreOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'server-admin') return <TeamOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'env-edit') return scopeBadge('environment');

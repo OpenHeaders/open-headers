@@ -41,6 +41,10 @@ import { formatSize } from '../../../panel/components/traffic/formatters';
 export interface TrafficSessionsPanelProps {
   info: InfoPopoverContent;
   onHide: () => void;
+  /** The C6 open gesture — a sealed session opens as a workbench
+   *  replay tab (row double-click, the menu's Open verb, or the detail
+   *  strip's Open button). */
+  onOpenSession: (sessionId: string, partitionTabId: number, label: string) => void;
 }
 
 type SessionSort = 'newest' | 'oldest' | 'name' | 'size';
@@ -81,7 +85,7 @@ function matchesNeedle(session: TrafficArchivedSessionProjection, needle: string
   return session.origins.some((origin) => origin.toLowerCase().includes(needle));
 }
 
-const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHide }) => {
+const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHide, onOpenSession }) => {
   const { token } = theme.useToken();
   const { locale, t } = useLocale();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
@@ -199,6 +203,14 @@ const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHid
     [sessions, selectedId],
   );
 
+  const openSession = useCallback(
+    (session: TrafficArchivedSessionProjection): void => {
+      if (session.state !== 'sealed') return;
+      onOpenSession(session.id, session.partitionTabId, session.name);
+    },
+    [onOpenSession],
+  );
+
   const rowMenu = useCallback(
     (session: TrafficArchivedSessionProjection): MenuProps => {
       const sealed = session.state === 'sealed';
@@ -227,6 +239,13 @@ const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHid
       return {
         items: [
           {
+            key: 'open',
+            label: <span data-testid="traffic-sessions-menu-open">{t('workbench.trafficSessions.openSession')}</span>,
+            disabled: !sealed,
+            onClick: () => openSession(session),
+          },
+          { type: 'divider' },
+          {
             key: 'rename',
             label: <span data-testid="traffic-sessions-menu-rename">{t('workbench.trafficSessions.rename')}</span>,
             disabled: !sealed,
@@ -252,7 +271,7 @@ const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHid
         ],
       };
     },
-    [folders, organize, confirmDelete, t],
+    [folders, organize, confirmDelete, openSession, t],
   );
 
   const renderRow = (session: TrafficArchivedSessionProjection, indented: boolean): React.ReactNode => {
@@ -269,6 +288,7 @@ const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHid
             backgroundColor: selectedId === session.id ? 'rgba(24, 144, 255, 0.08)' : undefined,
           }}
           onClick={() => setSelectedId(session.id)}
+          onDoubleClick={() => openSession(session)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') setSelectedId(session.id);
           }}
@@ -468,6 +488,16 @@ const TrafficSessionsPanel: React.FC<TrafficSessionsPanelProps> = ({ info, onHid
                 ? t('workbench.trafficSessions.detailEncrypted')
                 : t('workbench.trafficSessions.detailUnencrypted')}
             </span>
+            <span style={{ flex: 1 }} />
+            <Button
+              size="small"
+              type="primary"
+              disabled={selected.state !== 'sealed'}
+              onClick={() => openSession(selected)}
+              data-testid="traffic-sessions-open"
+            >
+              {t('workbench.trafficSessions.openSession')}
+            </Button>
           </div>
         )}
       </div>

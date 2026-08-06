@@ -40,6 +40,7 @@ import type {
 import { DEFAULT_TRAFFIC_SESSION_RETENTION } from '@openheaders/core/traffic';
 
 import { createTrafficBlobStore, type TrafficBlobStore } from './blob-store';
+import { readSessionReplay, type TrafficSessionReplay } from './session-reader';
 import {
   SESSION_EVENTS_FILE,
   SESSION_MANIFEST_FILE,
@@ -128,6 +129,11 @@ export interface TrafficSessionArchive {
   /** Rename and/or refile one SEALED session — one atomic meta rewrite
    *  (§11.4), nothing else touched. `folder: null` clears to unfiled. */
   organizeSession(id: string, changes: { name?: string; folder?: string | null }): Promise<TrafficArchiveVerbResult>;
+  /** Open one SEALED session for replay (C6): the resolved envelope
+   *  stream plus the CAS-backed body resolver. Throws on an unknown or
+   *  unsealed id, a missing/corrupt seal, or a key this host no longer
+   *  holds — the replay acceptor answers with an honest refusal. */
+  openReplay(id: string): Promise<TrafficSessionReplay>;
   /** Remove every blob no surviving manifest references. */
   sweepBlobs(): Promise<void>;
   /** Prune SEALED sessions oldest-first until under the byte budget. */
@@ -157,6 +163,7 @@ export function projectArchivedSession(id: string, meta: TrafficSessionMeta): Tr
     fidelity: meta.fidelity,
     planes: meta.planes,
     origins: meta.origins,
+    partitionTabId: meta.partitionTabId,
   };
 }
 
@@ -410,6 +417,21 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
         };
         await writeSessionMeta(dir, next);
         return { ok: true, session: projectArchivedSession(id, next) };
+      });
+    },
+    openReplay(id) {
+      // Rides the verb chain so the one-shot seal read never interleaves
+      // with a delete/prune sweeping the same directory; everything the
+      // returned replay serves afterwards is in memory (plus idempotent
+      // CAS reads the GC law already protects — a reachable blob is
+      // never swept while its session survives).
+      return scheduleVerb(async () => {
+        const dir = sessionDirById(id);
+        if (dir === null) throw new Error('unknown session');
+        const meta = await readMeta(dir);
+        if (meta === null) throw new Error('unknown session');
+        if (meta.state !== 'sealed') throw new Error('session is not sealed yet');
+        return readSessionReplay(dir, options.sealKey, blobs);
       });
     },
     sweepBlobs() {

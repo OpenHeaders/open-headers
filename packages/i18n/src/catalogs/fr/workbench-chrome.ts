@@ -673,6 +673,15 @@ export const workbenchChrome = {
   'workbench.trafficSessions.fidelityCdp': 'Fidélité totale (débogueur)',
   'workbench.trafficSessions.fidelityHeuristic': 'Fidélité heuristique',
   'workbench.trafficSessions.fidelityProxy': 'Capture réseau',
+  'workbench.trafficSessions.openSession': 'Ouvrir',
+
+  // ── Onglet de relecture de session (C6) ─────────────────────────────
+  'workbench.sessionReplay.empty': 'Cette session n’a enregistré aucune requête',
+  'workbench.sessionReplay.emptyHint':
+    'La source était observée, mais aucun trafic ne l’a traversée pendant l’enregistrement',
+  'workbench.sessionReplay.unavailableTitle': 'Impossible d’ouvrir cette session',
+  'workbench.sessionReplay.unavailableBody':
+    'Les données enregistrées sont manquantes ou endommagées, ou elles sont chiffrées avec une clé que cette application ne détient plus.',
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

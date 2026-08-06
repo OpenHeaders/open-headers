@@ -641,6 +641,14 @@ export const workbenchChrome = {
   'workbench.trafficSessions.fidelityCdp': 'Full fidelity (debugger)',
   'workbench.trafficSessions.fidelityHeuristic': 'Heuristic fidelity',
   'workbench.trafficSessions.fidelityProxy': 'Wire capture',
+  'workbench.trafficSessions.openSession': 'Open',
+
+  // ── Session replay tab (C6 — an archived session in the live views) ──
+  'workbench.sessionReplay.empty': 'This session recorded no requests',
+  'workbench.sessionReplay.emptyHint': 'The source was observed, but no traffic crossed it while recording',
+  'workbench.sessionReplay.unavailableTitle': 'This session could not be opened',
+  'workbench.sessionReplay.unavailableBody':
+    'The recorded data is missing or damaged, or it is encrypted with a key this app no longer holds.',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

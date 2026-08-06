@@ -11,7 +11,11 @@ import type { TabOpenerContext, UseTabOpenersApi } from './shared';
 
 export type ProxyOpeners = Pick<
   UseTabOpenersApi,
-  'openProxyRequestInspect' | 'openLiveNetworkRequestInspect' | 'openLiveStorageDocInspect'
+  | 'openProxyRequestInspect'
+  | 'openLiveNetworkRequestInspect'
+  | 'openLiveStorageDocInspect'
+  | 'openSessionReplay'
+  | 'openSessionReplayRequestInspect'
 >;
 
 export function useProxyOpeners({ allTabs, addTab, switchTab }: TabOpenerContext): ProxyOpeners {
@@ -76,5 +80,52 @@ export function useProxyOpeners({ allTabs, addTab, switchTab }: TabOpenerContext
     [allTabs, addTab, switchTab],
   );
 
-  return { openProxyRequestInspect, openLiveNetworkRequestInspect, openLiveStorageDocInspect };
+  const openSessionReplay = useCallback(
+    (sessionId: string, partitionTabId: number, label: string) => {
+      const id = `session-replay-${sessionId}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label,
+        ruleType: '',
+        dirty: false,
+        mode: 'session-replay',
+        sessionReplayId: sessionId,
+        sessionReplayTabId: partitionTabId,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openSessionReplayRequestInspect = useCallback(
+    (sessionId: string, partitionTabId: number, requestId: string, label: string) => {
+      const id = `session-replay-req-${sessionId}-${requestId}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label,
+        ruleType: '',
+        dirty: false,
+        mode: 'session-replay-request-inspect',
+        sessionReplayId: sessionId,
+        sessionReplayTabId: partitionTabId,
+        sessionReplayRequestId: requestId,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  return {
+    openProxyRequestInspect,
+    openLiveNetworkRequestInspect,
+    openLiveStorageDocInspect,
+    openSessionReplay,
+    openSessionReplayRequestInspect,
+  };
 }

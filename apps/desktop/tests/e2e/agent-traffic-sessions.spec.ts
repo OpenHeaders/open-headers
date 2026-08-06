@@ -455,10 +455,15 @@ test('rename and refile rewrite the session meta alone; search finds the new nam
   await workbench.locator('[data-testid="traffic-sessions-rename-ok"]').click();
   await expect(windowRow(sessionOne.id)).toContainText('Checkout repro', { timeout: 10000 });
 
-  // Refile into a new folder.
+  // Refile into a new folder. Open the submenu by CLICKING its title
+  // (antd toggles parent items on click) — hover-opening flaps shut
+  // while the pointer traverses to the child now that the C6 Open verb
+  // sits above it — and wait for the child before clicking it.
   await openRowMenu(sessionOne.id);
-  await workbench.locator('[data-testid="traffic-sessions-menu-move"]').hover();
-  await workbench.locator('[data-testid="traffic-sessions-menu-move-new"]').click();
+  await workbench.locator('[data-testid="traffic-sessions-menu-move"]').click();
+  const moveNew = workbench.locator('[data-testid="traffic-sessions-menu-move-new"]');
+  await expect(moveNew).toBeVisible({ timeout: 10000 });
+  await moveNew.click();
   await workbench.locator('[data-testid="traffic-sessions-new-folder-input"]').fill('investigations');
   await workbench.locator('[data-testid="traffic-sessions-new-folder-ok"]').click();
   await expect(workbench.locator('[data-testid="traffic-sessions-folder"][data-folder="investigations"]')).toBeVisible({

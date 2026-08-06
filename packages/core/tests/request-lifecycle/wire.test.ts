@@ -5,7 +5,10 @@ import {
   lifecyclePortName,
   parseLifecyclePortName,
   parseQualifiedLifecyclePortName,
+  parseReplayLifecyclePortName,
   qualifiedLifecyclePortName,
+  REPLAY_LIFECYCLE_PORT_PREFIX,
+  replayLifecyclePortName,
 } from '../../src/request-lifecycle/wire';
 
 describe('parseLifecyclePortName', () => {
@@ -62,5 +65,24 @@ describe('parseQualifiedLifecyclePortName', () => {
     expect(parseQualifiedLifecyclePortName('oh-lifecycle:7@')).toBeNull();
     expect(parseQualifiedLifecyclePortName('oh-lifecycle:12abc@node-a')).toBeNull();
     expect(parseQualifiedLifecyclePortName('oh-page:7@node-a')).toBeNull();
+  });
+});
+
+describe('parseReplayLifecyclePortName', () => {
+  it('round-trips archive ids (session directory basenames)', () => {
+    const id = '2026-08-06T10-15-30-123Z-openheaders-io-cap-1';
+    expect(parseReplayLifecyclePortName(replayLifecyclePortName(id))).toBe(id);
+  });
+
+  it('returns null for foreign prefixes and an empty id', () => {
+    expect(parseReplayLifecyclePortName('oh-lifecycle:7')).toBeNull();
+    expect(parseReplayLifecyclePortName(REPLAY_LIFECYCLE_PORT_PREFIX)).toBeNull();
+  });
+
+  it('refuses path-shaped ids — the archive id is a pure basename', () => {
+    expect(parseReplayLifecyclePortName('oh-replay:../escape')).toBeNull();
+    expect(parseReplayLifecyclePortName('oh-replay:a/b')).toBeNull();
+    expect(parseReplayLifecyclePortName('oh-replay:a\\b')).toBeNull();
+    expect(parseReplayLifecyclePortName('oh-replay:.hidden')).toBeNull();
   });
 });

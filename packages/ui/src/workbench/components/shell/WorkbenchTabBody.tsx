@@ -42,6 +42,8 @@ import RuleEditor from '../rule/RuleEditor';
 // `WorkbenchToolWindow`'s ProxyCapturePanel).
 const ProxyRequestInspectTab = lazy(() => import('../panels/ProxyRequestInspectTab'));
 const LiveNetworkRequestInspectTab = lazy(() => import('../panels/LiveNetworkRequestInspectTab'));
+const SessionReplayTab = lazy(() => import('../panels/SessionReplayTab'));
+const SessionReplayRequestInspectTab = lazy(() => import('../panels/SessionReplayRequestInspectTab'));
 const LiveStorageDocInspectTab = lazy(() => import('../panels/LiveStorageDocInspectTab'));
 import SpecEditorTab from '../specs/SpecEditorTab';
 import TemplateCollectionOverview from '../overviews/TemplateCollectionOverview';
@@ -98,6 +100,7 @@ interface WorkbenchTabBodyProps {
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
+  openSessionReplayRequestInspect: UseTabOpenersApi['openSessionReplayRequestInspect'];
 
   // Shell-local handlers and slices.
   handleSwitchWorkspace: (targetId: string, opts?: { makeActive?: boolean }) => void;
@@ -150,6 +153,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openWsResponseExampleTab,
   openGrpcRequestEditTab,
   openWebSocketRequestEditTab,
+  openSessionReplayRequestInspect,
   handleSwitchWorkspace,
   onRuleSaveDraft,
   onRequestSaveDraft,
@@ -305,6 +309,37 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           nodeId={tab.liveNetworkNodeId}
           tabId={tab.liveNetworkTabId}
           requestId={tab.liveNetworkRequestId}
+        />
+      </Suspense>
+    );
+  }
+  if (tab.mode === 'session-replay' && tab.sessionReplayId && tab.sessionReplayTabId !== undefined) {
+    const sessionId = tab.sessionReplayId;
+    const partitionTabId = tab.sessionReplayTabId;
+    return (
+      <Suspense fallback={null}>
+        <SessionReplayTab
+          sessionId={sessionId}
+          partitionTabId={partitionTabId}
+          onInspectRequest={(requestId, label) =>
+            openSessionReplayRequestInspect(sessionId, partitionTabId, requestId, label)
+          }
+        />
+      </Suspense>
+    );
+  }
+  if (
+    tab.mode === 'session-replay-request-inspect' &&
+    tab.sessionReplayId &&
+    tab.sessionReplayTabId !== undefined &&
+    tab.sessionReplayRequestId
+  ) {
+    return (
+      <Suspense fallback={null}>
+        <SessionReplayRequestInspectTab
+          sessionId={tab.sessionReplayId}
+          partitionTabId={tab.sessionReplayTabId}
+          requestId={tab.sessionReplayRequestId}
         />
       </Suspense>
     );

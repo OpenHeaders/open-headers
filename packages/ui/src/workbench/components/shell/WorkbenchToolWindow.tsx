@@ -102,6 +102,7 @@ interface WorkbenchToolWindowProps {
   openProxyRequestInspect: UseTabOpenersApi['openProxyRequestInspect'];
   openLiveNetworkRequestInspect: UseTabOpenersApi['openLiveNetworkRequestInspect'];
   openLiveStorageDocInspect: UseTabOpenersApi['openLiveStorageDocInspect'];
+  openSessionReplay: UseTabOpenersApi['openSessionReplay'];
   openSettingsTab: UseTabOpenersApi['openSettingsTab'];
 
   // Shell-local handlers.
@@ -169,6 +170,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openProxyRequestInspect,
   openLiveNetworkRequestInspect,
   openLiveStorageDocInspect,
+  openSessionReplay,
   openSettingsTab,
   handleDeleteRule,
   handleCloseTab,
@@ -333,7 +335,11 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
     case 'traffic-sessions':
       return (
         <Suspense fallback={null}>
-          <TrafficSessionsPanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />
+          <TrafficSessionsPanel
+            info={getToolWindowInfo(id, t)}
+            onHide={() => tl.closeDock(slot)}
+            onOpenSession={openSessionReplay}
+          />
         </Suspense>
       );
     case 'terminal':

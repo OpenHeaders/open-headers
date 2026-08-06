@@ -51,8 +51,9 @@ import type {
   LifecycleSource,
   LifecycleWireMessage,
   RequestLifecycleUpdate,
-  StreamMessage,
+  SseStreamMessage,
   StreamMessageCapture,
+  WsStreamMessage,
 } from '@openheaders/core/request-lifecycle';
 import type {
   TrafficCaptureBounds,
@@ -95,7 +96,7 @@ export function isBlobRefMarker(value: RecordedPayload | undefined): value is Tr
   return typeof value === 'object' && value !== null && '$oh-blob' in value;
 }
 
-type RecordedHarEntry = Omit<InspectorHarEntry, 'request' | 'response'> & {
+export type RecordedHarEntry = Omit<InspectorHarEntry, 'request' | 'response'> & {
   request?: Omit<NonNullable<InspectorHarEntry['request']>, 'postData'> & {
     postData?: Omit<NonNullable<NonNullable<InspectorHarEntry['request']>['postData']>, 'text'> & {
       text?: RecordedPayload;
@@ -106,7 +107,9 @@ type RecordedHarEntry = Omit<InspectorHarEntry, 'request' | 'response'> & {
   };
 };
 
-type RecordedStreamMessage = Omit<StreamMessage, 'data'> & { data: RecordedPayload };
+type RecordedStreamMessage =
+  | (Omit<WsStreamMessage, 'data'> & { data: RecordedPayload })
+  | (Omit<SseStreamMessage, 'data'> & { data: RecordedPayload });
 
 type RecordedStreamMessageCapture = Omit<StreamMessageCapture, 'original' | 'delivered'> & {
   original?: RecordedPayload;

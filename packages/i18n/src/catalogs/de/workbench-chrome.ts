@@ -666,6 +666,15 @@ export const workbenchChrome = {
   'workbench.trafficSessions.fidelityCdp': 'Volle Genauigkeit (Debugger)',
   'workbench.trafficSessions.fidelityHeuristic': 'Heuristische Genauigkeit',
   'workbench.trafficSessions.fidelityProxy': 'Netzwerkmitschnitt',
+  'workbench.trafficSessions.openSession': 'Öffnen',
+
+  // ── Sitzungswiedergabe-Tab (C6) ─────────────────────────────────────
+  'workbench.sessionReplay.empty': 'Diese Sitzung hat keine Anfragen aufgezeichnet',
+  'workbench.sessionReplay.emptyHint':
+    'Die Quelle wurde beobachtet, aber während der Aufzeichnung floss kein Datenverkehr über sie',
+  'workbench.sessionReplay.unavailableTitle': 'Diese Sitzung konnte nicht geöffnet werden',
+  'workbench.sessionReplay.unavailableBody':
+    'Die aufgezeichneten Daten fehlen oder sind beschädigt, oder sie sind mit einem Schlüssel verschlüsselt, den diese App nicht mehr besitzt.',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',
