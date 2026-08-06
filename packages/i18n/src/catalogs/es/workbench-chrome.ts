@@ -586,12 +586,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Modo Depuración: adjunta el depurador del navegador a las pestañas del ámbito y fijadas para obtener cuerpos y ' +
     'cabeceras exactas. El navegador muestra un aviso en cada pestaña adjuntada.',
-  'workbench.trafficMonitor.observeArm':
-    'Observar con agentes de IA: un agente de IA conectado puede leer el tráfico de esta fuente mientras esté armada',
-  'workbench.trafficMonitor.observeArmed':
-    'Observando: legible por los agentes de IA conectados hasta detenerla o caducar por inactividad. Haz clic para ' +
-    'detener.',
-  'workbench.trafficMonitor.observeCapturing': 'Observando + grabando una sesión en el archivo. Haz clic para detener.',
   'workbench.trafficMonitor.observeAria': 'Opciones de observación por agente de IA para esta fuente',
   'workbench.trafficMonitor.observeMenuStart': 'Empezar a observar',
   'workbench.trafficMonitor.observeMenuStartHint':

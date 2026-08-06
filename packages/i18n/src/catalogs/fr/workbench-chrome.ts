@@ -588,13 +588,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Mode Débogage — attache le débogueur du navigateur aux onglets du périmètre et épinglés pour obtenir corps et ' +
     'en-têtes exacts. Le navigateur affiche un bandeau sur chaque onglet attaché.',
-  'workbench.trafficMonitor.observeArm':
-    'Observer avec des agents IA — un agent IA connecté peut lire le trafic de cette source tant qu’elle est armée',
-  'workbench.trafficMonitor.observeArmed':
-    'Observation en cours — lisible par les agents IA connectés jusqu’à l’arrêt ou l’expiration d’inactivité. ' +
-    'Cliquez pour arrêter.',
-  'workbench.trafficMonitor.observeCapturing':
-    'Observation + enregistrement d’une session dans l’archive. Cliquez pour arrêter.',
   'workbench.trafficMonitor.observeAria': 'Options d’observation par agent IA pour cette source',
   'workbench.trafficMonitor.observeMenuStart': 'Démarrer l’observation',
   'workbench.trafficMonitor.observeMenuStartHint':

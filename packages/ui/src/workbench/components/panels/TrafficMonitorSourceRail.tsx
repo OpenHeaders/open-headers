@@ -24,7 +24,6 @@ import {
   BugFilled,
   BugOutlined,
   CaretRightOutlined,
-  EyeFilled,
   EyeInvisibleOutlined,
   EyeOutlined,
   FileOutlined,
@@ -38,6 +37,7 @@ import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic'
 import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
+import { RecordStartIcon, RecordStopIcon } from '@openheaders/ui/shared/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingValue } from '../../settings/hooks';
 import {
@@ -228,7 +228,9 @@ function TabDebugAffordance({
         aria-label={t('workbench.trafficMonitor.debugPinAria')}
         aria-pressed={attached || pinned}
         aria-busy={pending}
-        className={pending || attached || pinned ? undefined : 'rules-sidebar-item-hover-action'}
+        className={`rules-sidebar-item-hover-action${
+          pending || attached || pinned ? ' rules-sidebar-item-hover-action--pinned' : ''
+        }`}
         style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
         onClick={(e) => {
           e.stopPropagation();
@@ -315,17 +317,18 @@ function ObserveMenuToggle({
 
 /**
  * Per-source observation affordance (AGENT_TRAFFIC_PLAN.md §11.1 —
- * one gesture, one bundle): the eye opens a popover with ONE primary
- * verb. Idle it offers "Start observing", with an Advanced
- * expand/collapse over the two bundled toggles — Debug mode (full
- * fidelity; shown only where the peer has the debugger) and Save
- * session — seeded from their Settings defaults per open. Armed or
- * recording it offers the single stop, which unwinds the whole
+ * one gesture, one bundle): the record glyph (the browser devtools'
+ * own record-start/record-stop pair) opens a popover on hover with
+ * ONE primary verb. Idle it offers "Start observing", with an
+ * Advanced expand/collapse over the two bundled toggles — Debug mode
+ * (full fidelity; shown only where the peer has the debugger) and
+ * Save session — seeded from their Settings defaults per open. Armed
+ * or recording it offers the single stop, which unwinds the whole
  * bundle. Colors state the stakes — blue (the Debug affordance's
  * color) = streaming to the desktop app, red = also recording to the
- * session archive — and the red eye IS the per-row retention
- * indicator, always visible, never hover-revealed, the whole time a
- * session records (PLAN §3).
+ * session archive — and the red record-stop glyph IS the per-row
+ * retention indicator, always visible, never hover-revealed, the
+ * whole time a session records (PLAN §3).
  */
 function SourceObserveAffordance({
   armed,
@@ -351,19 +354,17 @@ function SourceObserveAffordance({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [debugOn, setDebugOn] = useState(true);
   const [saveOn, setSaveOn] = useState(true);
-  const title = capturing
-    ? t('workbench.trafficMonitor.observeCapturing')
-    : armed
-      ? t('workbench.trafficMonitor.observeArmed')
-      : t('workbench.trafficMonitor.observeArm');
+  // The record glyphs draw on the browser's padded 20x20 grid, so they
+  // render a size up to hold the same optical weight as the 16-grid
+  // neighbours (the bug/pin affordances).
   const icon = pending ? (
     <LoadingOutlined spin style={{ fontSize: 12, color: token.colorPrimary }} />
   ) : capturing ? (
-    <EyeFilled style={{ fontSize: 12, color: token.colorError }} />
+    <RecordStopIcon style={{ fontSize: 14, color: token.colorError }} />
   ) : armed ? (
-    <EyeFilled style={{ fontSize: 12, color: token.colorPrimary }} />
+    <RecordStopIcon style={{ fontSize: 14, color: token.colorPrimary }} />
   ) : (
-    <EyeOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+    <RecordStartIcon style={{ fontSize: 14, color: token.colorTextTertiary }} />
   );
   const fire = (action: ObserveAction): void => {
     setMenuOpen(false);
@@ -444,40 +445,54 @@ function SourceObserveAffordance({
         }
         setMenuOpen(open);
       }}
-      trigger="click"
-      placement="left"
+      trigger="hover"
+      // Top-anchored so toggling Advanced only grows/shrinks the overlay
+      // BELOW the cursor — the centered `left` placement re-centers on
+      // resize, sliding the overlay out from under a stationary cursor
+      // (a hover-close the collapse click never intended).
+      placement="leftTop"
       overlayInnerStyle={{ padding: 4 }}
       content={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 260 }}>{options}</div>
+        // The overlay is portaled but React still bubbles its events
+        // through the owner tree — without this stop, every click inside
+        // the popover also fires the host row's select.
+        // biome-ignore lint/a11y/noStaticElementInteractions: propagation fence, not an interactive control
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 260 }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {options}
+        </div>
       }
     >
-      <Tooltip title={title} placement="left" {...(menuOpen ? { open: false } : {})}>
-        <span
-          role="button"
-          tabIndex={0}
-          data-testid={capturing ? 'traffic-monitor-source-capturing' : 'traffic-monitor-source-observe'}
-          aria-label={t('workbench.trafficMonitor.observeAria')}
-          aria-pressed={armed || capturing}
-          aria-busy={pending}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          className={pending || armed || capturing || menuOpen ? undefined : 'rules-sidebar-item-hover-action'}
-          style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
-          onClick={(e) => {
+      <span
+        role="button"
+        tabIndex={0}
+        data-testid={capturing ? 'traffic-monitor-source-capturing' : 'traffic-monitor-source-observe'}
+        aria-label={t('workbench.trafficMonitor.observeAria')}
+        aria-pressed={armed || capturing}
+        aria-busy={pending}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        className={`rules-sidebar-item-hover-action${
+          pending || armed || capturing || menuOpen ? ' rules-sidebar-item-hover-action--pinned' : ''
+        }`}
+        style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (pending) e.preventDefault();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             e.stopPropagation();
-            if (pending) e.preventDefault();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!pending) setMenuOpen((v) => !v);
-            }
-          }}
-        >
-          {icon}
-        </span>
-      </Tooltip>
+            if (!pending) setMenuOpen((v) => !v);
+          }
+        }}
+      >
+        {icon}
+      </span>
     </Popover>
   );
 }

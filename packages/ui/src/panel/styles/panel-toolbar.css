@@ -164,6 +164,14 @@
   fill: currentColor;
 }
 
+/* The record glyph draws on the browser's padded 20x20 grid — render it
+ * at the browser's own 20px so the ring fills the button like the native
+ * Network-panel record control. */
+.dt-toolbar-icon--record svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* ── "More filters" dropdown button + popover ────────────────────
  * Mirrors Chrome's Network-panel convention — a compact text
  * trigger with a caret, opening a vertical list of checkbox filters.

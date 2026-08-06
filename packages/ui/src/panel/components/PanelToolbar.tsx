@@ -4,6 +4,7 @@ import type { Environment } from '@openheaders/core/types';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { LayoutMenuIcon, RegionToggle } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import { RecordStartIcon, RecordStopIcon } from '@openheaders/ui/shared/icons';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
@@ -44,15 +45,7 @@ const SettingsModalLazy = lazy(() =>
 const BRAND_TITLE_LINES = ['Open', 'Headers'] as const;
 
 function IconRecord({ active }: { active: boolean }) {
-  return active ? (
-    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-      <circle cx="8" cy="8" r="5" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-      <circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
+  return active ? <RecordStopIcon /> : <RecordStartIcon />;
 }
 
 function IconFilter() {

@@ -563,11 +563,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug mode — attaches the browser’s debugger to scoped and pinned tabs for bodies and exact headers. The browser ' +
     'shows a banner on each attached tab.',
-  'workbench.trafficMonitor.observeArm':
-    'Observe with AI agents — a connected AI agent can read this source’s traffic while armed',
-  'workbench.trafficMonitor.observeArmed':
-    'Observing — readable by connected AI agents until stopped or idle expiry. Click to stop.',
-  'workbench.trafficMonitor.observeCapturing': 'Observing + recording a session to the archive. Click to stop.',
   'workbench.trafficMonitor.observeAria': 'AI agent observation options for this source',
   'workbench.trafficMonitor.observeMenuStart': 'Start observing',
   'workbench.trafficMonitor.observeMenuStartHint':

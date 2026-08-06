@@ -581,13 +581,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugModeHint':
     'Debug-Modus — verbindet den Debugger des Browsers mit Tabs im Geltungsbereich und angepinnten Tabs für Bodies ' +
     'und exakte Header. Der Browser zeigt auf jedem verbundenen Tab einen Hinweis an.',
-  'workbench.trafficMonitor.observeArm':
-    'Mit KI-Agents beobachten — ein verbundener KI-Agent kann den Verkehr dieser Quelle lesen, solange sie scharf ist',
-  'workbench.trafficMonitor.observeArmed':
-    'Beobachtung läuft — für verbundene KI-Agents lesbar bis zum Stoppen oder Inaktivitäts-Ablauf. Zum Stoppen ' +
-    'klicken.',
-  'workbench.trafficMonitor.observeCapturing':
-    'Beobachtung + Aufzeichnung einer Sitzung ins Archiv. Zum Stoppen klicken.',
   'workbench.trafficMonitor.observeAria': 'KI-Agent-Beobachtungsoptionen für diese Quelle',
   'workbench.trafficMonitor.observeMenuStart': 'Beobachtung starten',
   'workbench.trafficMonitor.observeMenuStartHint':

@@ -553,9 +553,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.debugPinAria': '切换此标签页的调试',
   'workbench.trafficMonitor.debugModeHint':
     '调试模式——将浏览器调试器附加到范围内及已固定的标签页，以获取响应体和精确标头。浏览器会在每个已附加的标签页上显示横幅。',
-  'workbench.trafficMonitor.observeArm': '用 AI 智能体观察——授权期间，已连接的 AI 智能体可读取此来源的流量',
-  'workbench.trafficMonitor.observeArmed': '观察中——已连接的 AI 智能体可持续读取，直到停止或闲置过期。点击停止。',
-  'workbench.trafficMonitor.observeCapturing': '观察中 + 正在把会话录制到归档。点击停止。',
   'workbench.trafficMonitor.observeAria': '此来源的 AI 智能体观察选项',
   'workbench.trafficMonitor.observeMenuStart': '开始观察',
   'workbench.trafficMonitor.observeMenuStartHint': '把此来源的流量流式传输到桌面应用——观察期间已连接的 AI 智能体可读取',

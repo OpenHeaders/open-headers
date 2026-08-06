@@ -730,6 +730,13 @@ body {
   }
 }
 
+/* Active/pending/open affordances stay visible without dropping the base
+ * class — removing it would change the span's padding and margin, moving
+ * the trigger out from under the cursor (a hover-popover open/close loop). */
+.rules-sidebar-item-hover-action--pinned {
+  opacity: 1;
+}
+
 .rules-sidebar-item-menu {
   opacity: 0;
   font-size: 12px;

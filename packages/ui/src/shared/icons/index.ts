@@ -1,6 +1,8 @@
 export { ApiRequestsIcon } from './ApiRequestsIcon';
 export { KeyboardIcon } from './KeyboardIcon';
 export { LanguageIcon, type LanguageIconProps } from './LanguageIcon';
+export { RecordStartIcon } from './RecordStartIcon';
+export { RecordStopIcon } from './RecordStopIcon';
 export { RequestRulesIcon } from './RequestRulesIcon';
 export type { GlyphIconProps } from './types';
 export { VariablesIcon } from './VariablesIcon';
