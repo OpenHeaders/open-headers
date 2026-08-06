@@ -31,7 +31,12 @@ import * as path from 'node:path';
 
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { LifecycleSource } from '@openheaders/core/request-lifecycle';
-import type { TrafficCaptureBounds, TrafficCaptureEndReason, TrafficSessionRetention } from '@openheaders/core/traffic';
+import type {
+  TrafficArchivedSessionProjection,
+  TrafficCaptureBounds,
+  TrafficCaptureEndReason,
+  TrafficSessionRetention,
+} from '@openheaders/core/traffic';
 import { DEFAULT_TRAFFIC_SESSION_RETENTION } from '@openheaders/core/traffic';
 
 import { createTrafficBlobStore, type TrafficBlobStore } from './blob-store';
@@ -90,6 +95,20 @@ export interface TrafficSessionStartOptions {
   readonly onAutoStop?: (reason: TrafficCaptureEndReason) => void;
 }
 
+/** One archive index row: the directory-basename id (the archive-wide
+ *  identity every organize/delete verb keys on — `sessionId` restarts
+ *  per process) plus the raw meta. Host-private, like the meta. */
+export interface TrafficArchivedSessionRow {
+  readonly id: string;
+  readonly meta: TrafficSessionMeta;
+}
+
+/** Outcome of an organize/delete verb — refusals are strings for the
+ *  operator channel, never thrown. */
+export type TrafficArchiveVerbResult =
+  | { ok: true; session: TrafficArchivedSessionProjection }
+  | { ok: false; error: string };
+
 export interface TrafficSessionArchive {
   readonly blobs: TrafficBlobStore;
   /** Whether sealed artifacts will be encrypted. */
@@ -101,21 +120,53 @@ export interface TrafficSessionArchive {
   /** Scan + recover at boot: seal crashed/interrupted sessions, then
    *  sweep and enforce the budget. Idempotent. */
   recoverAtBoot(): Promise<void>;
-  /** Every archived session's meta row, oldest first. */
-  listSessions(): Promise<TrafficSessionMeta[]>;
-  /** Delete one session directory, then sweep unreachable blobs. */
-  deleteSession(sessionDir: string): Promise<void>;
+  /** Every archived session's index row, oldest first. */
+  listSessions(): Promise<TrafficArchivedSessionRow[]>;
+  /** Delete one archived session by id, then sweep unreachable blobs.
+   *  Refused while the session records or seals. */
+  deleteSession(id: string): Promise<{ ok: boolean; error?: string }>;
+  /** Rename and/or refile one SEALED session — one atomic meta rewrite
+   *  (§11.4), nothing else touched. `folder: null` clears to unfiled. */
+  organizeSession(id: string, changes: { name?: string; folder?: string | null }): Promise<TrafficArchiveVerbResult>;
   /** Remove every blob no surviving manifest references. */
   sweepBlobs(): Promise<void>;
   /** Prune SEALED sessions oldest-first until under the byte budget. */
   enforceRetention(): Promise<void>;
 }
 
+/** The meta row → wire projection map — the archive's ONLY
+ *  consumer-facing read (§11.5): index facts, never event-log
+ *  content. */
+export function projectArchivedSession(id: string, meta: TrafficSessionMeta): TrafficArchivedSessionProjection {
+  return {
+    id,
+    sessionId: meta.sessionId,
+    name: meta.name,
+    ...(meta.folder !== undefined ? { folder: meta.folder } : {}),
+    sourceKind: meta.sourceKind,
+    sourceLabel: meta.sourceLabel,
+    state: meta.state,
+    startedAtMs: meta.startedAtMs,
+    ...(meta.stoppedAtMs !== undefined ? { stoppedAtMs: meta.stoppedAtMs } : {}),
+    ...(meta.endReason !== undefined ? { endReason: meta.endReason } : {}),
+    requests: meta.requests,
+    errors: meta.errors,
+    events: meta.events,
+    sizeBytes: (meta.sealedBytes ?? meta.bytesWritten) + meta.blobBytesStored,
+    encrypted: meta.encrypted,
+    fidelity: meta.fidelity,
+    planes: meta.planes,
+    origins: meta.origins,
+  };
+}
+
 async function readMeta(sessionDir: string): Promise<TrafficSessionMeta | null> {
   try {
     const raw = await fsp.readFile(path.join(sessionDir, SESSION_META_FILE), 'utf8');
     const parsed = JSON.parse(raw) as TrafficSessionMeta;
-    return parsed.formatVersion === 2 ? parsed : null;
+    if (parsed.formatVersion !== 2) return null;
+    // Rows written before the C5 error tally read back as zero.
+    return typeof parsed.errors === 'number' ? parsed : { ...parsed, errors: 0 };
   } catch {
     return null;
   }
@@ -164,6 +215,27 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
     return maintenance;
   }
 
+  /** Serialize one result-carrying verb on the same chain — an
+   *  organize/delete must never interleave with a sweep pricing the
+   *  archive. Verbs answer refusal strings instead of throwing. */
+  function scheduleVerb<T>(task: () => Promise<T>): Promise<T> {
+    const run = maintenance.then(task);
+    maintenance = run.then(
+      () => undefined,
+      (err) => {
+        logger.warn(SCOPE, `maintenance failed: ${(err as Error).message}`);
+      },
+    );
+    return run;
+  }
+
+  /** Resolve a directory-basename id inside `sessions/` — anything
+   *  path-shaped is refused, never joined. */
+  function sessionDirById(id: string): string | null {
+    if (id.length === 0 || id !== path.basename(id) || id.startsWith('.')) return null;
+    return path.join(sessionsDir, id);
+  }
+
   async function listSessionDirs(): Promise<string[]> {
     try {
       const names = await fsp.readdir(sessionsDir);
@@ -181,11 +253,6 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
     for (const digest of await blobs.list()) {
       if (!reachable.has(digest)) await blobs.remove(digest);
     }
-  }
-
-  async function deleteSessionNow(sessionDir: string): Promise<void> {
-    await fsp.rm(sessionDir, { recursive: true, force: true });
-    await sweepBlobsNow();
   }
 
   async function archiveTotalBytes(): Promise<number> {
@@ -289,15 +356,61 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
       });
     },
     async listSessions() {
-      const metas: TrafficSessionMeta[] = [];
+      const rows: TrafficArchivedSessionRow[] = [];
       for (const dir of await listSessionDirs()) {
         const meta = await readMeta(dir);
-        if (meta !== null) metas.push(meta);
+        if (meta !== null) rows.push({ id: path.basename(dir), meta });
       }
-      return metas.sort((a, b) => a.startedAtMs - b.startedAtMs);
+      return rows.sort((a, b) => a.meta.startedAtMs - b.meta.startedAtMs);
     },
-    deleteSession(sessionDir) {
-      return scheduleMaintenance(() => deleteSessionNow(sessionDir));
+    deleteSession(id) {
+      return scheduleVerb(async () => {
+        const dir = sessionDirById(id);
+        if (dir === null) return { ok: false, error: 'unknown session' };
+        const meta = await readMeta(dir);
+        if (meta === null) {
+          const exists = await fsp
+            .access(dir)
+            .then(() => true)
+            .catch(() => false);
+          if (!exists) return { ok: false, error: 'unknown session' };
+          // Index-less directory (torn meta write) — deletable cleanup.
+        } else if (meta.state !== 'sealed') {
+          return { ok: false, error: 'session is still recording — stop it first' };
+        }
+        logger.info(SCOPE, `delete: ${id}`);
+        await fsp.rm(dir, { recursive: true, force: true });
+        await sweepBlobsNow();
+        return { ok: true };
+      });
+    },
+    organizeSession(id, changes) {
+      return scheduleVerb(async (): Promise<TrafficArchiveVerbResult> => {
+        const dir = sessionDirById(id);
+        if (dir === null) return { ok: false, error: 'unknown session' };
+        const meta = await readMeta(dir);
+        if (meta === null) return { ok: false, error: 'unknown session' };
+        if (meta.state !== 'sealed') return { ok: false, error: 'session is not sealed yet' };
+        const name = changes.name?.trim();
+        if (changes.name !== undefined && (name === undefined || name.length === 0)) {
+          return { ok: false, error: 'name cannot be empty' };
+        }
+        const folderChange = typeof changes.folder === 'string' ? changes.folder.trim() : changes.folder;
+        const { folder: keptFolder, ...bare } = meta;
+        const nextFolder =
+          folderChange === undefined
+            ? keptFolder
+            : folderChange === null || folderChange === ''
+              ? undefined
+              : folderChange;
+        const next: TrafficSessionMeta = {
+          ...bare,
+          name: name ?? meta.name,
+          ...(nextFolder !== undefined ? { folder: nextFolder } : {}),
+        };
+        await writeSessionMeta(dir, next);
+        return { ok: true, session: projectArchivedSession(id, next) };
+      });
     },
     sweepBlobs() {
       return scheduleMaintenance(sweepBlobsNow);

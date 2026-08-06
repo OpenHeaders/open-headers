@@ -12,6 +12,7 @@
 
 import type { LicenseSnapshot } from '../../licensing';
 import type {
+  TrafficArchivedSessionProjection,
   TrafficCaptureSessionProjection,
   TrafficRecordProjection,
   TrafficRetentionStats,
@@ -806,6 +807,42 @@ export interface DaemonRpc {
   'oh.daemon.traffic.capture.status': {
     req: Record<string, never>;
     res: { sessions: ReadonlyArray<TrafficCaptureSessionProjection> };
+  };
+
+  /**
+   * Every ARCHIVED session's index row — prior runs included, read
+   * from the archive's meta index (§11.4: one meta per session, no
+   * global index file). The Sessions tool window renders, searches and
+   * sorts this list in memory. Human gesture only, like the capture
+   * verbs: none of the `sessions.*` channels has an MCP mirror — agent
+   * session reads arrive only with the C7 tier, redacted.
+   */
+  'oh.daemon.traffic.sessions.list': {
+    req: Record<string, never>;
+    res: { sessions: ReadonlyArray<TrafficArchivedSessionProjection> };
+  };
+
+  /**
+   * Delete one archived session by its directory-basename id, then
+   * sweep blobs no surviving manifest references (§11.4 reachability
+   * GC — a blob shared with another session survives). Refused while
+   * the session is `recording` or `sealing`; stop it first.
+   */
+  'oh.daemon.traffic.sessions.delete': {
+    req: { id: string };
+    res: { ok: boolean; error?: string };
+  };
+
+  /**
+   * Rename and/or refile one archived session — the §11.4 organize
+   * law: rewrites that session's meta atomically and touches nothing
+   * else. `name` absent = unchanged; `folder` absent = unchanged,
+   * `null` = unfiled. Sealed sessions only — the recorder owns a live
+   * session's meta. Auto-placement never moves an organized session.
+   */
+  'oh.daemon.traffic.sessions.organize': {
+    req: { id: string; name?: string; folder?: string | null };
+    res: { ok: true; session: TrafficArchivedSessionProjection } | { ok: false; error: string };
   };
 
   'oh.daemon.audit.query': {

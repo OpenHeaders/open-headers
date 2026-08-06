@@ -359,6 +359,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Aktivität',
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
   'workbench.toolWindows.trafficMonitor': 'Traffic-Monitor',
+  'workbench.toolWindows.trafficSessions': 'Traffic-Sitzungen',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -429,6 +430,10 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.scriptsDesc': 'JavaScript-Hooks vor der Anfrage und nach der Antwort.',
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Einstellungen',
   'workbench.toolWindows.info.apiRequests.settingsDesc': 'Verhalten pro Anfrage — SSL-Prüfung, Umleitungen und mehr.',
+  'workbench.toolWindows.info.trafficSessions.summary':
+    'Jede gespeicherte Traffic-Sitzung — dieser Lauf und frühere. Sitzungen werden beim Ende automatisch benannt ' +
+    'und abgelegt (nach der aufgezeichneten Website); hier suchen, sortieren, umbenennen, umsortieren oder löschen. ' +
+    'Aufgezeichnet wird im Traffic-Monitor: Beobachtung einer Quelle mit aktiviertem „Sitzung speichern“ starten.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Schutzschalter-Dashboard pro Workflow — Zustand, aufeinanderfolgende Fehlschläge, Öffnungen und ' +
     'Countdown zum nächsten Versuch, mit den manuellen Aktionen Wiederholen und Schaltkreis zurücksetzen.',
@@ -621,6 +626,46 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     'Aktiviere „Desktop-App darf diesen Browser einsehen“ in den Einstellungen der Erweiterung, um Verkehr, ' +
     'Speicher und Konsole dieses Tabs hier zu beobachten',
+  'workbench.trafficMonitor.sessionsOpenArchive': 'Traffic-Sitzungen öffnen — alle gespeicherten Sitzungen',
+  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Das Fenster Traffic-Sitzungen öffnen',
+
+  // ── Werkzeugfenster Traffic-Sitzungen (das Sitzungsarchiv) ──────────
+  'workbench.trafficSessions.searchPlaceholder': 'Sitzungen durchsuchen',
+  'workbench.trafficSessions.sortNewest': 'Neueste zuerst',
+  'workbench.trafficSessions.sortOldest': 'Älteste zuerst',
+  'workbench.trafficSessions.sortName': 'Nach Name',
+  'workbench.trafficSessions.sortSize': 'Nach Größe',
+  'workbench.trafficSessions.refresh': 'Aktualisieren',
+  'workbench.trafficSessions.empty': 'Noch keine gespeicherten Sitzungen',
+  'workbench.trafficSessions.emptyHint':
+    'Beobachte eine Quelle im Traffic-Monitor mit aktiviertem „Sitzung speichern“ — gespeicherte Sitzungen ' +
+    'landen hier',
+  'workbench.trafficSessions.emptyFiltered': 'Keine Sitzung entspricht der Suche',
+  'workbench.trafficSessions.stateRecording': 'Aufzeichnung',
+  'workbench.trafficSessions.stateSealing': 'Versiegeln…',
+  'workbench.trafficSessions.rowMenuAria': 'Sitzungsaktionen',
+  'workbench.trafficSessions.rename': 'Umbenennen…',
+  'workbench.trafficSessions.renameTitle': 'Sitzung umbenennen',
+  'workbench.trafficSessions.renameOk': 'Umbenennen',
+  'workbench.trafficSessions.move': 'In Ordner verschieben',
+  'workbench.trafficSessions.moveNew': 'Neuer Ordner…',
+  'workbench.trafficSessions.moveNewTitle': 'In einen neuen Ordner verschieben',
+  'workbench.trafficSessions.moveNewOk': 'Verschieben',
+  'workbench.trafficSessions.moveNewPlaceholder': 'Ordnername',
+  'workbench.trafficSessions.moveNone': 'Aus dem Ordner entfernen',
+  'workbench.trafficSessions.delete': 'Löschen…',
+  'workbench.trafficSessions.deleteTitle': 'Diese Sitzung löschen?',
+  'workbench.trafficSessions.deleteBody':
+    '„{name}“ und alle aufgezeichneten Daten, auf die nur diese Sitzung verweist, werden von der Festplatte entfernt.',
+  'workbench.trafficSessions.deleteOk': 'Löschen',
+  'workbench.trafficSessions.detailRequests': '{count} Anfragen',
+  'workbench.trafficSessions.detailErrors': '{count} Fehler',
+  'workbench.trafficSessions.detailEvents': '{count} Ereignisse',
+  'workbench.trafficSessions.detailEncrypted': 'Verschlüsselt',
+  'workbench.trafficSessions.detailUnencrypted': 'Nicht verschlüsselt',
+  'workbench.trafficSessions.fidelityCdp': 'Volle Genauigkeit (Debugger)',
+  'workbench.trafficSessions.fidelityHeuristic': 'Heuristische Genauigkeit',
+  'workbench.trafficSessions.fidelityProxy': 'Netzwerkmitschnitt',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Nach Nachricht, Autor oder Hash filtern',

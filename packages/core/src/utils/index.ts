@@ -92,6 +92,7 @@ export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './p
 export type { PortIssueReason, PortValidation } from './port';
 export { EPHEMERAL_PORT_START, MAX_PORT, MIN_UNPRIVILEGED_PORT, validatePort } from './port';
 export { shouldAutoUnpublishOnUpdate, UNIVERSAL_METADATA_KEYS } from './publication-gate';
+export { registrableDomain } from './registrable-domain';
 export type { BuildEmptyRequestInput } from './request-defaults';
 export { buildEmptyRequest } from './request-defaults';
 export type { RequestIncompleteReason } from './request-validation';

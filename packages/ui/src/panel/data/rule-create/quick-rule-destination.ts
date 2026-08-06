@@ -14,25 +14,13 @@
  */
 
 import type { CollectionTree, TreeNode } from '@openheaders/core/types';
+import { registrableDomain } from '@openheaders/core/utils';
 
-/** Registrable-domain heuristic (no public-suffix list shipped): last
- *  two labels, or three when the second-level label is a well-known
- *  public second level (`example.co.uk`). IPs, `localhost`, and
- *  single-label hosts pass through as-is; `www.` is noise. */
-const PUBLIC_SECOND_LEVELS = new Set(['co', 'com', 'net', 'org', 'gov', 'edu', 'ac']);
-
+/** Registrable-domain heuristic, lifted to core and shared with the
+ *  sessions archive's auto-placement — see `registrableDomain` in
+ *  `@openheaders/core/utils`. */
 export function domainFolderName(url: string): string | null {
-  try {
-    const host = new URL(url).hostname;
-    if (!host) return null;
-    if (/^[\d.]+$/.test(host) || host.includes(':')) return host;
-    const labels = host.replace(/^www\./, '').split('.');
-    if (labels.length <= 2) return labels.join('.');
-    const take = PUBLIC_SECOND_LEVELS.has(labels[labels.length - 2]) ? 3 : 2;
-    return labels.slice(-take).join('.');
-  } catch {
-    return null;
-  }
+  return registrableDomain(url);
 }
 
 /** Folder selection in the picker: follow the domain heuristic, pin the

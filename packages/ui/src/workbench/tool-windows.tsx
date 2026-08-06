@@ -13,6 +13,7 @@ import {
   BranchesOutlined,
   CodeOutlined,
   GlobalOutlined,
+  HistoryOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
@@ -142,6 +143,21 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     id: 'traffic-monitor',
     labelKey: 'workbench.toolWindows.trafficMonitor',
     icon: <GlobalOutlined />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+    requiresCapability: 'liveNetwork',
+    teaserWhenUnavailable: 'liveNetwork',
+  },
+  // The sessions archive (AGENT_TRAFFIC_PLAN.md §11.1): every recorded
+  // traffic session, prior runs included, with search/sort and
+  // folder organization over the archive's meta index. Lives beside
+  // the Traffic Monitor (the rail's SESSIONS section keeps live state
+  // only and links here); same capability posture.
+  {
+    id: 'traffic-sessions',
+    labelKey: 'workbench.toolWindows.trafficSessions',
+    icon: <HistoryOutlined />,
     core: false,
     defaultSlot: 'bottom-right',
     openByDefault: false,

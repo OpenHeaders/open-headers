@@ -353,6 +353,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activité',
   'workbench.toolWindows.activityTooltip': "Flux d'activité — modifications entrantes des pairs",
   'workbench.toolWindows.trafficMonitor': 'Moniteur de trafic',
+  'workbench.toolWindows.trafficSessions': 'Sessions de trafic',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -428,6 +429,11 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Paramètres',
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Comportement par requête — vérification SSL, redirections et plus.',
+  'workbench.toolWindows.info.trafficSessions.summary':
+    'Toutes les sessions de trafic enregistrées — cette exécution et les précédentes. Les sessions sont nommées et ' +
+    'classées automatiquement à leur fin (selon le site enregistré) ; recherchez, triez, renommez, reclassez ou ' +
+    'supprimez-les ici. L’enregistrement se fait dans le Moniteur de trafic : commencez à observer une source avec ' +
+    '« Enregistrer la session » activé.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Tableau de bord du disjoncteur par workflow — état, échecs consécutifs, ouvertures et compte à rebours ' +
     'de la prochaine tentative, avec les actions manuelles Réessayer et Réinitialiser le circuit.',
@@ -627,6 +633,46 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     "Activez « Laisser l'application de bureau voir ce navigateur » dans les paramètres de l'extension pour " +
     'observer ici le trafic, le stockage et la console de cet onglet',
+  'workbench.trafficMonitor.sessionsOpenArchive': 'Ouvrir Sessions de trafic — toutes les sessions enregistrées',
+  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Ouvrir la fenêtre Sessions de trafic',
+
+  // ── Fenêtre d'outils Sessions de trafic (l'archive des sessions) ────
+  'workbench.trafficSessions.searchPlaceholder': 'Rechercher des sessions',
+  'workbench.trafficSessions.sortNewest': 'Plus récentes d’abord',
+  'workbench.trafficSessions.sortOldest': 'Plus anciennes d’abord',
+  'workbench.trafficSessions.sortName': 'Par nom',
+  'workbench.trafficSessions.sortSize': 'Par taille',
+  'workbench.trafficSessions.refresh': 'Actualiser',
+  'workbench.trafficSessions.empty': 'Aucune session enregistrée pour l’instant',
+  'workbench.trafficSessions.emptyHint':
+    'Commencez à observer une source dans le Moniteur de trafic avec « Enregistrer la session » activé — les ' +
+    'sessions enregistrées arrivent ici',
+  'workbench.trafficSessions.emptyFiltered': 'Aucune session ne correspond à la recherche',
+  'workbench.trafficSessions.stateRecording': 'Enregistrement',
+  'workbench.trafficSessions.stateSealing': 'Scellement…',
+  'workbench.trafficSessions.rowMenuAria': 'Actions de la session',
+  'workbench.trafficSessions.rename': 'Renommer…',
+  'workbench.trafficSessions.renameTitle': 'Renommer la session',
+  'workbench.trafficSessions.renameOk': 'Renommer',
+  'workbench.trafficSessions.move': 'Déplacer vers un dossier',
+  'workbench.trafficSessions.moveNew': 'Nouveau dossier…',
+  'workbench.trafficSessions.moveNewTitle': 'Déplacer vers un nouveau dossier',
+  'workbench.trafficSessions.moveNewOk': 'Déplacer',
+  'workbench.trafficSessions.moveNewPlaceholder': 'Nom du dossier',
+  'workbench.trafficSessions.moveNone': 'Retirer du dossier',
+  'workbench.trafficSessions.delete': 'Supprimer…',
+  'workbench.trafficSessions.deleteTitle': 'Supprimer cette session ?',
+  'workbench.trafficSessions.deleteBody':
+    '« {name} » et toutes les données enregistrées que seule cette session référence sont supprimées du disque.',
+  'workbench.trafficSessions.deleteOk': 'Supprimer',
+  'workbench.trafficSessions.detailRequests': '{count} requêtes',
+  'workbench.trafficSessions.detailErrors': '{count} erreurs',
+  'workbench.trafficSessions.detailEvents': '{count} événements',
+  'workbench.trafficSessions.detailEncrypted': 'Chiffré',
+  'workbench.trafficSessions.detailUnencrypted': 'Non chiffré',
+  'workbench.trafficSessions.fidelityCdp': 'Fidélité totale (débogueur)',
+  'workbench.trafficSessions.fidelityHeuristic': 'Fidélité heuristique',
+  'workbench.trafficSessions.fidelityProxy': 'Capture réseau',
   'workbench.gitLog.refresh': 'Actualiser',
   'workbench.gitLog.empty':
     'Aucun commit pour le moment — les commits arrivent selon la cadence configurée, ou committez manuellement dans Paramètres › Git.',

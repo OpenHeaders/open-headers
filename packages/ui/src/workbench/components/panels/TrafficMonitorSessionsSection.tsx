@@ -17,7 +17,7 @@
  * the stop action; this section renders and reports clicks.
  */
 
-import { FileOutlined, LoadingOutlined, SaveFilled } from '@ant-design/icons';
+import { FileOutlined, HistoryOutlined, LoadingOutlined, SaveFilled } from '@ant-design/icons';
 import type { TrafficCaptureEndReason, TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
 import type { MessageKey } from '@openheaders/i18n';
 import { theme, Tooltip } from 'antd';
@@ -43,6 +43,9 @@ export interface TrafficMonitorSessionsSectionProps {
   pending: ReadonlySet<string>;
   /** Stop an ACTIVE session (the observe affordance's stop path). */
   onStop: (session: TrafficCaptureSessionProjection) => void;
+  /** Open the Traffic Sessions tool window — the header's go-to into
+   *  the archive this section deliberately does not list (§11.1). */
+  onOpenArchive: () => void;
 }
 
 function SessionRow({
@@ -112,6 +115,7 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
   sessions,
   pending,
   onStop,
+  onOpenArchive,
 }) => {
   const t = useT();
   const { token } = theme.useToken();
@@ -122,6 +126,26 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
         title={t('workbench.trafficMonitor.sessionsTitle')}
         expanded={open}
         onToggle={() => setOpen((v) => !v)}
+        actions={
+          <Tooltip title={t('workbench.trafficMonitor.sessionsOpenArchive')} placement="left">
+            <span
+              role="button"
+              tabIndex={0}
+              data-testid="traffic-monitor-sessions-goto"
+              aria-label={t('workbench.trafficMonitor.sessionsOpenArchiveAria')}
+              style={{ display: 'inline-flex', alignItems: 'center', color: token.colorTextSecondary }}
+              onClick={onOpenArchive}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpenArchive();
+                }
+              }}
+            >
+              <HistoryOutlined style={{ fontSize: 12 }} />
+            </span>
+          </Tooltip>
+        }
       />
       {open && (
         <div

@@ -881,6 +881,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // Agent-traffic tap (S1) — operator-plane arm/disarm/status; the
     // stats are content-free counters, never records.
     trafficTap,
+    // Sessions archive (C5) — the Sessions tool window's index read
+    // and organize/delete verbs. Human plane; no MCP mirror.
+    trafficArchive,
     // The admin console's Git card rides the same verb table the local
     // operator dispatch uses (GIT_PLAN.md §11.5) — gated `daemon.admin`
     // by the peer plane like every other channel in this table.

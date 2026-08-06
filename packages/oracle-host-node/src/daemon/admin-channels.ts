@@ -37,7 +37,7 @@ import type { AuditLogEntry } from '@openheaders/core/types';
 import { getWorkspace } from '@openheaders/oracle/workspace/extension-workspace-store';
 import type { OracleWsServer } from '../host-runtime/ws-server';
 import type { AuditQueryCursor, AuditQueryFilter } from '../sync/sqlite-audit-log';
-import type { TrafficTap } from '../traffic';
+import { projectArchivedSession, type TrafficSessionArchive, type TrafficTap } from '../traffic';
 import type { CliProvisionService } from './cli-provision';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { listLanIpv4Addresses } from './lan-addresses';
@@ -118,6 +118,15 @@ export interface AdminChannelDeps {
    * list instead of failing construction.
    */
   trafficTap?: TrafficTap;
+  /**
+   * The `oh.daemon.traffic.sessions.*` backing — the sessions
+   * archive's index reads and organize/delete verbs (§11.1 the
+   * Sessions tool window). Human/operator plane only, like the capture
+   * verbs: no MCP mirror exists. Optional so dispatch tables composed
+   * without an archive answer an empty archive instead of failing
+   * construction.
+   */
+  trafficArchive?: TrafficSessionArchive;
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -520,6 +529,33 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   handlers.set('oh.daemon.traffic.capture.status', () => ({
     sessions: deps.trafficTap?.captureSessions() ?? [],
   }));
+
+  // Sessions archive (§11.1, C5) — the Sessions tool window's index
+  // read and organize/delete verbs over the meta index. Human plane
+  // like the capture verbs above: no MCP mirror; agent session reads
+  // arrive only with the C7 tier, redacted.
+  handlers.set('oh.daemon.traffic.sessions.list', async () => {
+    if (!deps.trafficArchive) return { sessions: [] };
+    const rows = await deps.trafficArchive.listSessions();
+    return { sessions: rows.map((row) => projectArchivedSession(row.id, row.meta)) };
+  });
+
+  handlers.set('oh.daemon.traffic.sessions.delete', async (message) => {
+    if (!deps.trafficArchive) return { ok: false, error: 'sessions archive unavailable' };
+    const id = typeof message.id === 'string' ? message.id : '';
+    if (!id) return { ok: false, error: 'missing id' };
+    return deps.trafficArchive.deleteSession(id);
+  });
+
+  handlers.set('oh.daemon.traffic.sessions.organize', async (message) => {
+    if (!deps.trafficArchive) return { ok: false, error: 'sessions archive unavailable' };
+    const id = typeof message.id === 'string' ? message.id : '';
+    if (!id) return { ok: false, error: 'missing id' };
+    return deps.trafficArchive.organizeSession(id, {
+      ...(typeof message.name === 'string' ? { name: message.name } : {}),
+      ...(typeof message.folder === 'string' || message.folder === null ? { folder: message.folder } : {}),
+    });
+  });
 
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';

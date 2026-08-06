@@ -143,6 +143,9 @@ export interface TrafficMonitorSourceRailProps {
   sessionPending: ReadonlySet<string>;
   /** Stop an ACTIVE session from its row. */
   onSessionStop: (session: TrafficCaptureSessionProjection) => void;
+  /** Open the Traffic Sessions tool window — the section's go-to into
+   *  the archive (§11.1, C5). */
+  onOpenSessions: () => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
 }
@@ -498,6 +501,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   sessions,
   sessionPending,
   onSessionStop,
+  onOpenSessions,
   width,
 }) => {
   const t = useT();
@@ -782,7 +786,12 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
       <div className="rules-sidebar-content">
         {browsersSection}
         {wireSection}
-        <TrafficMonitorSessionsSection sessions={sessions} pending={sessionPending} onStop={onSessionStop} />
+        <TrafficMonitorSessionsSection
+          sessions={sessions}
+          pending={sessionPending}
+          onStop={onSessionStop}
+          onOpenArchive={onOpenSessions}
+        />
       </div>
     </div>
   );

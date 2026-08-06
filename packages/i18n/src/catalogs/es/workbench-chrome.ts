@@ -359,6 +359,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
   'workbench.toolWindows.trafficMonitor': 'Monitor de tráfico',
+  'workbench.toolWindows.trafficSessions': 'Sesiones de tráfico',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -431,6 +432,10 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Configuración',
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Comportamiento por solicitud — verificación SSL, redirecciones y más.',
+  'workbench.toolWindows.info.trafficSessions.summary':
+    'Todas las sesiones de tráfico guardadas — esta ejecución y las anteriores. Las sesiones se nombran y archivan ' +
+    'automáticamente al terminar (según el sitio grabado); búscalas, ordénalas, renómbralas, reubícalas o elimínalas ' +
+    'aquí. La grabación ocurre en el Monitor de tráfico: empieza a observar una fuente con «Guardar sesión» activado.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Panel de control del disyuntor por workflow — estado, fallos consecutivos, aperturas y cuenta atrás del ' +
     'siguiente intento, con las acciones manuales Reintentar y Restablecer el circuito.',
@@ -587,8 +592,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.observeArmed':
     'Observando: legible por los agentes de IA conectados hasta detenerla o caducar por inactividad. Haz clic para ' +
     'detener.',
-  'workbench.trafficMonitor.observeCapturing':
-    'Observando + grabando una sesión en el archivo. Haz clic para detener.',
+  'workbench.trafficMonitor.observeCapturing': 'Observando + grabando una sesión en el archivo. Haz clic para detener.',
   'workbench.trafficMonitor.observeAria': 'Opciones de observación por agente de IA para esta fuente',
   'workbench.trafficMonitor.observeMenuStart': 'Empezar a observar',
   'workbench.trafficMonitor.observeMenuStartHint':
@@ -626,6 +630,46 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     'Activa «Permitir que la aplicación de escritorio vea este navegador» en los ajustes de la extensión para ' +
     'observar aquí el tráfico, el almacenamiento y la consola de esta pestaña',
+  'workbench.trafficMonitor.sessionsOpenArchive': 'Abrir Sesiones de tráfico — todas las sesiones guardadas',
+  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Abrir la ventana Sesiones de tráfico',
+
+  // ── Ventana de herramientas Sesiones de tráfico (el archivo) ────────
+  'workbench.trafficSessions.searchPlaceholder': 'Buscar sesiones',
+  'workbench.trafficSessions.sortNewest': 'Más recientes primero',
+  'workbench.trafficSessions.sortOldest': 'Más antiguas primero',
+  'workbench.trafficSessions.sortName': 'Por nombre',
+  'workbench.trafficSessions.sortSize': 'Por tamaño',
+  'workbench.trafficSessions.refresh': 'Actualizar',
+  'workbench.trafficSessions.empty': 'Aún no hay sesiones guardadas',
+  'workbench.trafficSessions.emptyHint':
+    'Empieza a observar una fuente en el Monitor de tráfico con «Guardar sesión» activado — las sesiones guardadas ' +
+    'llegan aquí',
+  'workbench.trafficSessions.emptyFiltered': 'Ninguna sesión coincide con la búsqueda',
+  'workbench.trafficSessions.stateRecording': 'Grabando',
+  'workbench.trafficSessions.stateSealing': 'Sellando…',
+  'workbench.trafficSessions.rowMenuAria': 'Acciones de la sesión',
+  'workbench.trafficSessions.rename': 'Renombrar…',
+  'workbench.trafficSessions.renameTitle': 'Renombrar sesión',
+  'workbench.trafficSessions.renameOk': 'Renombrar',
+  'workbench.trafficSessions.move': 'Mover a carpeta',
+  'workbench.trafficSessions.moveNew': 'Nueva carpeta…',
+  'workbench.trafficSessions.moveNewTitle': 'Mover a una carpeta nueva',
+  'workbench.trafficSessions.moveNewOk': 'Mover',
+  'workbench.trafficSessions.moveNewPlaceholder': 'Nombre de la carpeta',
+  'workbench.trafficSessions.moveNone': 'Quitar de la carpeta',
+  'workbench.trafficSessions.delete': 'Eliminar…',
+  'workbench.trafficSessions.deleteTitle': '¿Eliminar esta sesión?',
+  'workbench.trafficSessions.deleteBody':
+    '«{name}» y los datos grabados que solo esta sesión referencia se eliminan del disco.',
+  'workbench.trafficSessions.deleteOk': 'Eliminar',
+  'workbench.trafficSessions.detailRequests': '{count} solicitudes',
+  'workbench.trafficSessions.detailErrors': '{count} errores',
+  'workbench.trafficSessions.detailEvents': '{count} eventos',
+  'workbench.trafficSessions.detailEncrypted': 'Cifrado',
+  'workbench.trafficSessions.detailUnencrypted': 'Sin cifrar',
+  'workbench.trafficSessions.fidelityCdp': 'Fidelidad total (depurador)',
+  'workbench.trafficSessions.fidelityHeuristic': 'Fidelidad heurística',
+  'workbench.trafficSessions.fidelityProxy': 'Captura de red',
 
   // ── Git tool window (log view) ───────────────────────────────────
   'workbench.gitLog.filterPlaceholder': 'Filtrar por mensaje, autor o hash',

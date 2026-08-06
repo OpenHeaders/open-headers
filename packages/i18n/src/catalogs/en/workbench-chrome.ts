@@ -334,6 +334,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
   'workbench.toolWindows.trafficMonitor': 'Traffic Monitor',
+  'workbench.toolWindows.trafficSessions': 'Traffic Sessions',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -403,6 +404,10 @@ export const workbenchChrome = {
     'The unified live traffic view — pick a source on the right: a connected browser tab (the extension streams its ' +
     'traffic live) or Traffic Interception (any tool on this machine pointed at the local proxy port). Both render the ' +
     'same network log the DevTools panel uses; nothing streams until a source is selected.',
+  'workbench.toolWindows.info.trafficSessions.summary':
+    'Every saved traffic session — this run and prior ones. Sessions are named and filed automatically when they ' +
+    'end (by the site they recorded); search, sort, rename, refile or delete them here. Recording happens in the ' +
+    'Traffic Monitor: start observing a source with “Save session” on.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
     'countdown, with manual Retry and Reset-circuit actions.',
@@ -563,8 +568,7 @@ export const workbenchChrome = {
     'Observe with AI agents — a connected AI agent can read this source’s traffic while armed',
   'workbench.trafficMonitor.observeArmed':
     'Observing — readable by connected AI agents until stopped or idle expiry. Click to stop.',
-  'workbench.trafficMonitor.observeCapturing':
-    'Observing + recording a session to the archive. Click to stop.',
+  'workbench.trafficMonitor.observeCapturing': 'Observing + recording a session to the archive. Click to stop.',
   'workbench.trafficMonitor.observeAria': 'AI agent observation options for this source',
   'workbench.trafficMonitor.observeMenuStart': 'Start observing',
   'workbench.trafficMonitor.observeMenuStartHint':
@@ -598,6 +602,45 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmpty': 'Live view is turned off in this browser',
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     'Enable “Let the desktop app view this browser” in the extension’s settings to watch this tab’s traffic, storage, and console here',
+  'workbench.trafficMonitor.sessionsOpenArchive': 'Open Traffic Sessions — every saved session',
+  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Open the Traffic Sessions window',
+
+  // ── Traffic Sessions tool window (the sessions archive) ─────────────
+  'workbench.trafficSessions.searchPlaceholder': 'Search sessions',
+  'workbench.trafficSessions.sortNewest': 'Newest first',
+  'workbench.trafficSessions.sortOldest': 'Oldest first',
+  'workbench.trafficSessions.sortName': 'By name',
+  'workbench.trafficSessions.sortSize': 'By size',
+  'workbench.trafficSessions.refresh': 'Refresh',
+  'workbench.trafficSessions.empty': 'No saved sessions yet',
+  'workbench.trafficSessions.emptyHint':
+    'Start observing a source in the Traffic Monitor with “Save session” on — saved sessions land here',
+  'workbench.trafficSessions.emptyFiltered': 'No sessions match the search',
+  'workbench.trafficSessions.stateRecording': 'Recording',
+  'workbench.trafficSessions.stateSealing': 'Sealing…',
+  'workbench.trafficSessions.rowMenuAria': 'Session actions',
+  'workbench.trafficSessions.rename': 'Rename…',
+  'workbench.trafficSessions.renameTitle': 'Rename session',
+  'workbench.trafficSessions.renameOk': 'Rename',
+  'workbench.trafficSessions.move': 'Move to folder',
+  'workbench.trafficSessions.moveNew': 'New folder…',
+  'workbench.trafficSessions.moveNewTitle': 'Move to a new folder',
+  'workbench.trafficSessions.moveNewOk': 'Move',
+  'workbench.trafficSessions.moveNewPlaceholder': 'Folder name',
+  'workbench.trafficSessions.moveNone': 'Remove from folder',
+  'workbench.trafficSessions.delete': 'Delete…',
+  'workbench.trafficSessions.deleteTitle': 'Delete this session?',
+  'workbench.trafficSessions.deleteBody':
+    '“{name}” and any recorded data only this session references are removed from disk.',
+  'workbench.trafficSessions.deleteOk': 'Delete',
+  'workbench.trafficSessions.detailRequests': '{count} requests',
+  'workbench.trafficSessions.detailErrors': '{count} errors',
+  'workbench.trafficSessions.detailEvents': '{count} events',
+  'workbench.trafficSessions.detailEncrypted': 'Encrypted',
+  'workbench.trafficSessions.detailUnencrypted': 'Not encrypted',
+  'workbench.trafficSessions.fidelityCdp': 'Full fidelity (debugger)',
+  'workbench.trafficSessions.fidelityHeuristic': 'Heuristic fidelity',
+  'workbench.trafficSessions.fidelityProxy': 'Wire capture',
 
   // ── Shared markdown widgets (toolbar + highlighted code block) ──────
   'workbench.markdown.heading': 'Heading',

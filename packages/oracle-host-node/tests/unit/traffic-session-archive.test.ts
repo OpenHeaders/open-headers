@@ -31,6 +31,7 @@ import {
 } from '../../src/traffic/seal';
 import {
   createTrafficSessionArchive,
+  projectArchivedSession,
   type TrafficSessionArchive,
   trafficSessionRetentionFromSettings,
 } from '../../src/traffic/session-archive';
@@ -67,6 +68,13 @@ function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecy
 
 function startedEnvelope(requestId: string, url = 'https://api.openheaders.io/users'): LifecycleWireMessage {
   return { kind: 'lifecycle-update', update: { kind: 'started', lifecycle: makeLifecycle({ requestId, url }) } };
+}
+
+function phaseEnvelope(
+  requestId: string,
+  patch: { phase?: 'completed' | 'failed'; statusCode?: number },
+): LifecycleWireMessage {
+  return { kind: 'lifecycle-update', update: { kind: 'phase', tabId: 7, requestId, patch } };
 }
 
 function bodyEnvelope(requestId: string, content: string): LifecycleWireMessage {
@@ -119,10 +127,10 @@ async function recordOneSession(
   await vi.waitFor(() => {
     expect(session.projection().state).toBe('sealed');
   });
-  const metas = await archive.listSessions();
-  const meta = metas.find((m) => m.sessionId === sessionId);
-  if (meta === undefined) throw new Error(`session ${sessionId} missing from the archive index`);
-  return meta;
+  const rows = await archive.listSessions();
+  const row = rows.find((r) => r.meta.sessionId === sessionId);
+  if (row === undefined) throw new Error(`session ${sessionId} missing from the archive index`);
+  return row.meta;
 }
 
 function sessionDirOf(archiveRoot: string, sessionId: string): string {
@@ -324,11 +332,13 @@ describe('session recorder + archive', () => {
 
     // Deleting the session that exclusively holds one blob sweeps it;
     // the shared blob survives through the other session's manifest.
-    await archive.deleteSession(sessionDirOf(root, 'ses-b'));
+    const deletedB = await archive.deleteSession(path.basename(sessionDirOf(root, 'ses-b')));
+    expect(deletedB.ok).toBe(true);
     const afterB = await archive.blobs.list();
     expect(afterB).toEqual([sha256Hex(Buffer.from(shared, 'utf8'))]);
 
-    await archive.deleteSession(sessionDirOf(root, 'ses-a'));
+    const deletedA = await archive.deleteSession(path.basename(sessionDirOf(root, 'ses-a')));
+    expect(deletedA.ok).toBe(true);
     expect(await archive.blobs.list()).toEqual([]);
     expect(await archive.listSessions()).toEqual([]);
   });
@@ -355,9 +365,9 @@ describe('session recorder + archive', () => {
     // same root plays the boot-recovery path.
     const reborn = createTrafficSessionArchive({ dir: root, sealKey: key });
     await reborn.recoverAtBoot();
-    const [meta] = await reborn.listSessions();
-    expect(meta?.state).toBe('sealed');
-    expect(meta?.endReason).toBe('crashed');
+    const [row] = await reborn.listSessions();
+    expect(row?.meta.state).toBe('sealed');
+    expect(row?.meta.endReason).toBe('crashed');
     const dir = sessionDirOf(root, 'ses-crash');
     expect(fs.existsSync(path.join(dir, 'events.jsonl'))).toBe(false);
     const lines = sessionLines(dir, key);
@@ -379,7 +389,7 @@ describe('session recorder + archive', () => {
     // The budget-crossing seal prunes the OLDEST sealed session.
     await recordOneSession(archive, 'ses-new', [startedEnvelope('r-1'), bodyEnvelope('r-1', newBody)]);
     await archive.enforceRetention();
-    const survivors = (await archive.listSessions()).map((m) => m.sessionId);
+    const survivors = (await archive.listSessions()).map((r) => r.meta.sessionId);
     expect(survivors).toEqual(['ses-new']);
     // The pruned session's blob went with it.
     expect(await archive.blobs.list()).toEqual([sha256Hex(Buffer.from(newBody, 'utf8'))]);
@@ -401,12 +411,134 @@ describe('session recorder + archive', () => {
       expect(live.projection().events).toBe(1);
     });
     await archive.enforceRetention();
-    const after = (await archive.listSessions()).map((m) => m.sessionId);
+    const after = (await archive.listSessions()).map((r) => r.meta.sessionId);
     expect(after).toContain('ses-live');
     live.stop();
     await vi.waitFor(() => {
       expect(live.projection().state).toBe('sealed');
     });
+  });
+
+  it('stamps the §11.1 auto-name and auto-placement folder at seal from the dominant origin', async () => {
+    const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
+    const meta = await recordOneSession(archive, 'ses-auto', [
+      startedEnvelope('r-1', 'https://api.openheaders.io/users'),
+      phaseEnvelope('r-1', { phase: 'failed' }),
+      startedEnvelope('r-2', 'https://app.openheaders.io/dash'),
+      phaseEnvelope('r-2', { phase: 'completed', statusCode: 503 }),
+      startedEnvelope('r-3', 'https://cdn.example.com/lib.js'),
+      phaseEnvelope('r-3', { phase: 'completed', statusCode: 200 }),
+    ]);
+    // Dominant origin: openheaders.io carried 2 of 3 requests; a failed
+    // request and a 5xx answer both count as errors, a 200 does not.
+    expect(meta.folder).toBe('openheaders.io');
+    expect(meta.errors).toBe(2);
+    expect(meta.name).toMatch(/^openheaders\.io — \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(3 requests, 2 errors\)$/);
+  });
+
+  it('files a proxy session under its source label', async () => {
+    const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
+    const session = archive.start({
+      sessionId: 'ses-proxy',
+      sourceUid: 'proxy',
+      sourceKind: 'proxy',
+      sourceLabel: 'Proxy capture',
+      name: 'traffic-interception',
+      partitionTabId: -2,
+      initialFidelity: 'proxy',
+      bounds: { maxBytes: 1_048_576, maxDurationMs: 60_000 },
+      pullBody: () => {},
+    });
+    session.appendEnvelope(startedEnvelope('r-1'));
+    session.stop();
+    await vi.waitFor(() => {
+      expect(session.projection().state).toBe('sealed');
+    });
+    const [row] = await archive.listSessions();
+    expect(row?.meta.folder).toBe('Proxy capture');
+    expect(row?.meta.name).toMatch(/^Proxy capture — /);
+  });
+
+  it('refuses to delete a session that is still recording; the stop unlocks it', async () => {
+    const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
+    const session = archive.start({
+      sessionId: 'ses-locked',
+      sourceUid: 'browser-tab:ext-node-1:7',
+      sourceKind: 'browser-tab',
+      sourceLabel: 'tab 7',
+      name: 'locked',
+      partitionTabId: 7,
+      initialFidelity: 'cdp',
+      bounds: { maxBytes: 1_048_576, maxDurationMs: 60_000 },
+      pullBody: () => {},
+    });
+    session.appendEnvelope(startedEnvelope('r-1'));
+    await vi.waitFor(() => {
+      expect(session.projection().events).toBe(1);
+    });
+    const id = path.basename(sessionDirOf(root, 'ses-locked'));
+    const refused = await archive.deleteSession(id);
+    expect(refused).toEqual({ ok: false, error: 'session is still recording — stop it first' });
+    session.stop();
+    await vi.waitFor(() => {
+      expect(session.projection().state).toBe('sealed');
+    });
+    expect((await archive.deleteSession(id)).ok).toBe(true);
+    expect(await archive.listSessions()).toEqual([]);
+    // Junk ids never resolve to paths.
+    expect((await archive.deleteSession('../escape')).ok).toBe(false);
+    expect((await archive.deleteSession('missing')).ok).toBe(false);
+  });
+
+  it('organize rewrites ONE meta atomically: rename, refile, clear to unfiled — sealed artifacts untouched', async () => {
+    const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
+    await recordOneSession(archive, 'ses-org', [startedEnvelope('r-1')]);
+    await recordOneSession(archive, 'ses-bystander', [startedEnvelope('r-1')]);
+    const orgDir = sessionDirOf(root, 'ses-org');
+    const orgId = path.basename(orgDir);
+    const bystanderMetaBefore = fs.readFileSync(path.join(sessionDirOf(root, 'ses-bystander'), 'meta.json'), 'utf8');
+    const sealBefore = fs.readFileSync(path.join(orgDir, 'events.seal'));
+
+    const renamed = await archive.organizeSession(orgId, { name: 'Checkout repro', folder: 'investigations' });
+    expect(renamed.ok).toBe(true);
+    if (renamed.ok) {
+      expect(renamed.session.name).toBe('Checkout repro');
+      expect(renamed.session.folder).toBe('investigations');
+      expect(renamed.session.id).toBe(orgId);
+    }
+    // The rewrite touched exactly one meta: the sealed log is
+    // byte-identical and the bystander's meta is untouched.
+    expect(fs.readFileSync(path.join(orgDir, 'events.seal')).equals(sealBefore)).toBe(true);
+    expect(fs.readFileSync(path.join(sessionDirOf(root, 'ses-bystander'), 'meta.json'), 'utf8')).toBe(
+      bystanderMetaBefore,
+    );
+
+    const cleared = await archive.organizeSession(orgId, { folder: null });
+    expect(cleared.ok).toBe(true);
+    if (cleared.ok) {
+      expect(cleared.session.folder).toBeUndefined();
+      expect(cleared.session.name).toBe('Checkout repro');
+    }
+
+    expect((await archive.organizeSession(orgId, { name: '   ' })).ok).toBe(false);
+    expect((await archive.organizeSession('missing', { name: 'x' })).ok).toBe(false);
+  });
+
+  it('projects the archive index row honestly: footprint math and the C5 identity', async () => {
+    const archive = createTrafficSessionArchive({ dir: root, sealKey: null });
+    const body = randomBytes(6_000).toString('base64');
+    const meta = await recordOneSession(archive, 'ses-proj', [startedEnvelope('r-1'), bodyEnvelope('r-1', body)]);
+    const [row] = await archive.listSessions();
+    expect(row).toBeDefined();
+    if (row === undefined) throw new Error('missing row');
+    const projection = projectArchivedSession(row.id, row.meta);
+    expect(projection.id).toBe(path.basename(sessionDirOf(root, 'ses-proj')));
+    expect(projection.sessionId).toBe('ses-proj');
+    expect(projection.state).toBe('sealed');
+    expect(projection.sizeBytes).toBe((meta.sealedBytes ?? 0) + meta.blobBytesStored);
+    expect(projection.sizeBytes).toBeGreaterThan(0);
+    expect(projection.fidelity).toBe('cdp');
+    expect(projection.origins).toEqual(['https://api.openheaders.io']);
   });
 
   it('maps the Settings budget row to a retention posture, defaulting on absent or junk values', () => {

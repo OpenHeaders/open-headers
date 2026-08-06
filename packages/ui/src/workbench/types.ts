@@ -304,6 +304,7 @@ export type ToolWindowId =
   | 'docs'
   | 'var-scope'
   | 'traffic-monitor'
+  | 'traffic-sessions'
   | 'activity'
   | 'notifications'
   | 'terminal'

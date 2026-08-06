@@ -61,6 +61,7 @@ import type {
   TrafficSessionPlane,
 } from '@openheaders/core/traffic';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
+import { registrableDomain } from '@openheaders/core/utils';
 
 import type { TrafficBlobRef, TrafficBlobStore } from './blob-store';
 import { sealContainer, sha256Hex } from './seal';
@@ -72,6 +73,11 @@ export const EXTERNALIZE_THRESHOLD_BYTES = 4 * 1024;
 
 /** Origins listed in the meta index (auto-placement input, C5). */
 const MAX_META_ORIGINS = 32;
+
+/** Cadence of the live meta rewrite while recording — keeps the
+ *  Sessions window's row (and a crash's recovered counts) honest
+ *  without a per-event write. */
+const META_PERSIST_INTERVAL_MS = 5_000;
 
 export const SESSION_EVENTS_FILE = 'events.jsonl';
 export const SESSION_SEAL_FILE = 'events.seal';
@@ -172,6 +178,12 @@ export interface TrafficSessionMeta {
   readonly sourceKind: string;
   readonly sourceLabel: string;
   readonly name: string;
+  /** Organize folder (§11.1 auto-placement) — stamped at seal from the
+   *  dominant origin's registrable domain (proxy sessions: the source
+   *  label); rewritten only by the operator's organize verb after
+   *  that. Absent = unfiled (a crashed session recovers unfiled — the
+   *  dominant-origin tally died with the recorder). */
+  readonly folder?: string;
   readonly startedAtMs: number;
   readonly bounds: TrafficCaptureBounds;
   readonly planes: ReadonlyArray<TrafficSessionPlane>;
@@ -182,6 +194,9 @@ export interface TrafficSessionMeta {
   readonly state: 'recording' | 'sealing' | 'sealed';
   readonly events: number;
   readonly requests: number;
+  /** Requests that failed or answered 4xx/5xx — the auto-name's error
+   *  count. */
+  readonly errors: number;
   readonly bytesWritten: number;
   /** New blob bytes THIS session wrote (dedup accounting). */
   readonly blobBytesStored: number;
@@ -243,6 +258,15 @@ export function sessionDirName(startedAtMs: number, name: string, sessionId: str
   return `${stamp}-${slugifySessionName(name)}-${sessionId}`;
 }
 
+/** The auto-name's `<date time>` segment — local wall-clock, since the
+ *  name is what the user reads back ("the session from that
+ *  afternoon"), zero-padded so names sort with their sessions. */
+export function sessionStampLocal(atMs: number): string {
+  const d = new Date(atMs);
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function payloadBytes(value: string): number {
   return Buffer.byteLength(value, 'utf8');
 }
@@ -298,7 +322,15 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
   let stoppedAtMs: number | undefined;
   let endReason: TrafficCaptureEndReason | undefined;
   let fidelity: LifecycleSource = options.initialFidelity;
-  const origins = new Set<string>();
+  /** Meta name/folder — the operator start name until seal stamps the
+   *  §11.1 auto-name and auto-placement folder. */
+  let displayName = options.name;
+  let folder: string | undefined;
+  /** Requests counted toward the auto-name's error tally. */
+  const errored = new Set<string>();
+  /** Per-origin request tally (capped) — the dominant-origin input to
+   *  auto-placement; the key list doubles as the meta's origin index. */
+  const originCounts = new Map<string, number>();
   /** Digests already on this session's manifest. */
   const manifested = new Set<string>();
   /** Redirect hop count per live request — the eager pull's hop index. */
@@ -339,7 +371,8 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
       sourceUid: options.sourceUid,
       sourceKind: options.sourceKind,
       sourceLabel: options.sourceLabel,
-      name: options.name,
+      name: displayName,
+      ...(folder !== undefined ? { folder } : {}),
       startedAtMs,
       bounds: options.bounds,
       planes: ['lifecycle'],
@@ -349,9 +382,10 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
       state,
       events,
       requests,
+      errors: errored.size,
       bytesWritten,
       blobBytesStored,
-      origins: [...origins],
+      origins: [...originCounts.keys()],
       ...(stoppedAtMs !== undefined ? { stoppedAtMs } : {}),
       ...(endReason !== undefined ? { endReason } : {}),
     };
@@ -363,6 +397,12 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
     });
   }
   persistMeta();
+
+  // Live index row: the Sessions window lists a recording session from
+  // its meta, and a crash recovers with the last persisted counts — so
+  // the row is rewritten on a slow cadence, never per event.
+  const metaTimer = setInterval(persistMeta, META_PERSIST_INTERVAL_MS);
+  metaTimer.unref?.();
 
   async function externalize(value: string, mime?: string): Promise<RecordedPayload> {
     if (payloadBytes(value) < EXTERNALIZE_THRESHOLD_BYTES) return value;
@@ -439,7 +479,9 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
         requests++;
         try {
           const origin = new URL(update.lifecycle.url).origin;
-          if (origins.size < MAX_META_ORIGINS || origins.has(origin)) origins.add(origin);
+          const count = originCounts.get(origin);
+          if (count !== undefined) originCounts.set(origin, count + 1);
+          else if (originCounts.size < MAX_META_ORIGINS) originCounts.set(origin, 1);
         } catch {
           // Origin-less scheme — nothing to index.
         }
@@ -454,7 +496,11 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
         return;
       }
       case 'phase': {
-        if (update.patch.phase !== 'completed' || bodySettled.has(update.requestId)) return;
+        const patch = update.patch;
+        if (patch.phase === 'failed' || (patch.statusCode !== undefined && patch.statusCode >= 400)) {
+          errored.add(update.requestId);
+        }
+        if (patch.phase !== 'completed' || bodySettled.has(update.requestId)) return;
         bodySettled.add(update.requestId);
         if (fidelity === 'heuristic') return;
         options.pullBody(update.requestId, hopCounts.get(update.requestId) ?? 0);
@@ -465,6 +511,23 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
     }
   }
 
+  /** §11.1 auto-placement input: the registrable domain of the origin
+   *  that carried the most requests; proxy sessions file under their
+   *  source label, as does a tab session that saw no origin at all. */
+  function dominantSite(): string {
+    if (options.sourceKind !== 'browser-tab') return options.sourceLabel;
+    let best: string | null = null;
+    let bestCount = 0;
+    for (const [origin, count] of originCounts) {
+      if (count > bestCount) {
+        best = origin;
+        bestCount = count;
+      }
+    }
+    if (best === null) return options.sourceLabel;
+    return registrableDomain(best) ?? best;
+  }
+
   /** Returns whether THIS call performed the stop — callers fire
    *  `onAutoStop` only on the transition, never on a repeat trip. */
   function finish(reason: TrafficCaptureEndReason): boolean {
@@ -473,10 +536,15 @@ export function startTrafficSessionRecording(options: TrafficSessionRecorderOpti
     stoppedAtMs = Date.now();
     endReason = reason;
     clearTimeout(durationTimer);
+    clearInterval(metaTimer);
     queue = queue
       .then(async () => {
         // The trailer task runs AFTER every accepted append has
-        // flushed, so the live counters ARE the final counts.
+        // flushed, so the live counters ARE the final counts — which
+        // is also the earliest the §11.1 auto-name and auto-placement
+        // folder can be stamped honestly.
+        folder = dominantSite();
+        displayName = `${folder} — ${sessionStampLocal(startedAtMs)} (${requests} requests, ${errored.size} errors)`;
         try {
           writeLine(
             eventsFd,

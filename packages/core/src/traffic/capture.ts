@@ -24,6 +24,8 @@
  *     ({@link DEFAULT_TRAFFIC_SESSION_RETENTION}).
  */
 
+import type { LifecycleSource } from '../request-lifecycle/wire';
+
 /** Hard bounds one capture session carries from start. `maxBytes`
  *  bounds the session's EVENT LOG — bodies travel out-of-line through
  *  the content-addressed blob store and count against the global
@@ -109,4 +111,49 @@ export interface TrafficCaptureSessionProjection {
   readonly state: 'recording' | 'sealing' | 'sealed';
   readonly stoppedAtMs?: number;
   readonly endReason?: TrafficCaptureEndReason;
+}
+
+/**
+ * One ARCHIVED session's index row, projected for the Sessions tool
+ * window (§11.1) — every session on disk, prior runs included, read
+ * from the archive's boot-scan meta index. Identity is the session
+ * DIRECTORY basename (`<iso-stamp>-<slug>-<sessionId>`): unlike
+ * `sessionId` (`cap-<seq>`, which restarts per process) it is
+ * collision-proof across runs, and it is what the organize/delete
+ * verbs key on. Human/operator surface only — no MCP mirror exists
+ * for any archive read or verb until the C7 session tier.
+ */
+export interface TrafficArchivedSessionProjection {
+  /** Archive-wide identity — the session directory basename. */
+  readonly id: string;
+  /** The per-run id the recording projection carried. */
+  readonly sessionId: string;
+  /** Display name. Auto-stamped at seal (`<site> — <date time>
+   *  (<n> requests, <m> errors)`) unless the user renamed it — the
+   *  name is data, not chrome, so it is not localized. */
+  readonly name: string;
+  /** Organize folder (§11.1 auto-placement: the dominant origin's
+   *  registrable domain; proxy sessions under the source label).
+   *  Absent = unfiled. Reorganizing rewrites one meta atomically and
+   *  never moves any other session. */
+  readonly folder?: string;
+  readonly sourceKind: string;
+  readonly sourceLabel: string;
+  readonly state: 'recording' | 'sealing' | 'sealed';
+  readonly startedAtMs: number;
+  readonly stoppedAtMs?: number;
+  readonly endReason?: TrafficCaptureEndReason;
+  readonly requests: number;
+  /** Requests that failed or answered with a 4xx/5xx status. */
+  readonly errors: number;
+  readonly events: number;
+  /** Honest footprint on disk: the sealed (or still-plain) event log
+   *  plus the blob bytes THIS session stored (dedup accounting — blobs
+   *  other sessions already held cost it nothing). */
+  readonly sizeBytes: number;
+  readonly encrypted: boolean;
+  /** Last observed provenance — the §11.1 fidelity stamp. */
+  readonly fidelity: LifecycleSource;
+  readonly planes: ReadonlyArray<TrafficSessionPlane>;
+  readonly origins: ReadonlyArray<string>;
 }

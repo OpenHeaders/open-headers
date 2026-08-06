@@ -37,6 +37,8 @@ const TerminalPanel = lazy(() => import('../panels/terminal/TerminalPanel'));
 // browser workbenches that never register the observability capabilities
 // don't bundle it.
 const TrafficMonitorPanel = lazy(() => import('../panels/TrafficMonitorPanel'));
+// The sessions archive window shares the capability gate above.
+const TrafficSessionsPanel = lazy(() => import('../panels/TrafficSessionsPanel'));
 // Lazy for the same reason: the window exists solely on hosts with the
 // `workspaceGit` capability (registry `requiresCapability` gate).
 const GitLogPanel = lazy(() => import('../panels/git/GitLogPanel'));
@@ -320,8 +322,18 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
             onOpenLiveRequest={openLiveNetworkRequestInspect}
             onOpenStorageDoc={openLiveStorageDocInspect}
             onOpenProxySettings={() => openSettingsTab({ categoryId: 'proxyTrust' })}
+            onOpenSessionsWindow={() => {
+              if (tl.state.hidden.includes('traffic-sessions')) tl.restoreWindow('traffic-sessions');
+              tl.activateWindow('traffic-sessions');
+            }}
             activeTab={activeTab ?? null}
           />
+        </Suspense>
+      );
+    case 'traffic-sessions':
+      return (
+        <Suspense fallback={null}>
+          <TrafficSessionsPanel info={getToolWindowInfo(id, t)} onHide={() => tl.closeDock(slot)} />
         </Suspense>
       );
     case 'terminal':

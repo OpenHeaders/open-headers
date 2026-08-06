@@ -9,6 +9,7 @@
 export {
   DEFAULT_TRAFFIC_CAPTURE_BOUNDS,
   DEFAULT_TRAFFIC_SESSION_RETENTION,
+  type TrafficArchivedSessionProjection,
   type TrafficCaptureBounds,
   type TrafficCaptureEndReason,
   type TrafficCaptureSessionProjection,

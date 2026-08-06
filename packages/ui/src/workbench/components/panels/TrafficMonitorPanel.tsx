@@ -87,6 +87,9 @@ export interface TrafficMonitorPanelProps {
   onOpenStorageDoc: (nodeId: string, tabId: number, doc: LiveStorageDocRef, label: string) => void;
   /** Open Settings › Proxy (CA install + trust). */
   onOpenProxySettings: () => void;
+  /** Open the Traffic Sessions tool window — the archive the rail's
+   *  live-only SESSIONS section links to (§11.1, C5). */
+  onOpenSessionsWindow: () => void;
   /** The focused editor tab — an inspect tab highlights its row in the
    *  list (association only, never navigation). */
   activeTab: WorkbenchTab | null;
@@ -228,6 +231,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   onOpenLiveRequest,
   onOpenStorageDoc,
   onOpenProxySettings,
+  onOpenSessionsWindow,
   activeTab,
 }) => {
   const t = useT();
@@ -1067,6 +1071,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           sessions={liveSessions}
           sessionPending={sessionPending}
           onSessionStop={onSessionStop}
+          onOpenSessions={onOpenSessionsWindow}
           width={railWidth}
         />
       </div>
