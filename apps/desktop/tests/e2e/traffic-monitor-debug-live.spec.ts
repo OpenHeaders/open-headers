@@ -290,16 +290,34 @@ async function seedBackend(
 ): Promise<void> {
   const page = await peerPage(peer);
   await page.evaluate(async ({ backendUrl, authToken, enabled }) => {
-    const key = await new Promise<CryptoKey>((resolve, reject) => {
-      const open = indexedDB.open('oh-secret-cipher', 1);
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result;
-        const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result as CryptoKey);
-      };
-    });
+    // Existence probe first — an eager indexedDB.open would CREATE an
+    // empty schema-less DB and race the extension's cipher init.
+    const databases = await indexedDB.databases();
+    if (!databases.some((d) => d.name === 'oh-secret-cipher')) {
+      throw new Error('cipher db not yet created');
+    }
+    const key = await Promise.race([
+      new Promise<CryptoKey>((resolve, reject) => {
+        const open = indexedDB.open('oh-secret-cipher');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('keys')) {
+            // A schema-less husk (e.g. from an earlier eager open)
+            // blocks the extension's init — heal by deleting it.
+            db.close();
+            const drop = indexedDB.deleteDatabase('oh-secret-cipher');
+            drop.onsuccess = drop.onerror = () => reject(new Error('cipher db was empty — healed, retrying'));
+            return;
+          }
+          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () =>
+            request.result ? resolve(request.result as CryptoKey) : reject(new Error('cipher key not yet minted'));
+        };
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cipher read timed out')), 4000)),
+    ]);
     const record = {
       id: 'debug-live-e2e-backend',
       label: 'debug-live e2e desktop',
@@ -458,10 +476,11 @@ test('the rail lists the Chrome peer with the Debug-mode switch and per-tab bug 
     .toBeGreaterThan(0);
 
   // Chrome reports `debug.available` — the master switch renders on the
-  // peer header, ON (the Chromium host-aware default).
+  // peer header, OFF (attaching the debugging protocol shows the
+  // browser's banner, so it is an explicit user choice everywhere).
   const masterSwitch = workbench.locator('[data-testid="traffic-monitor-peer-debug"]').first();
   await expect(masterSwitch).toBeVisible();
-  await expect(masterSwitch).toHaveAttribute('aria-checked', 'true');
+  await expect(masterSwitch).toHaveAttribute('aria-checked', 'false');
 
   // The playground tab row carries the hover affordance, un-pressed.
   await expect(playgroundRow()).toBeVisible();
@@ -470,15 +489,10 @@ test('the rail lists the Chrome peer with the Debug-mode switch and per-tab bug 
   await expect(affordance).toBeVisible();
   await expect(affordance).toHaveAttribute('aria-pressed', 'false');
 
-  // Drive the master switch OFF from the rail — the `enable:false`
-  // command path — so the pin-while-off leg starts from a known state.
-  await masterSwitch.click();
-  await expect(masterSwitch).toHaveAttribute('aria-checked', 'false');
-  await expect
-    .poll(async () => (await extensionUserSettings(peerA as ExtensionPeer))['inspection.cdpEnabled'], {
-      timeout: 10000,
-    })
-    .toBe(false);
+  // The pin-while-off leg starts from this default-OFF posture; the
+  // persisted setting stays unwritten until a surface flips it.
+  const settings = await extensionUserSettings(peerA as ExtensionPeer);
+  expect(settings['inspection.cdpEnabled'] ?? false).toBe(false);
 });
 
 // ── Leg 2: pin with Debug mode OFF ──────────────────────────────────
