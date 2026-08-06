@@ -46,6 +46,15 @@ export {
   type TrafficSessionArchiveOptions,
   trafficSessionRetentionFromSettings,
 } from './session-archive';
+export {
+  createTrafficSessionQuery,
+  type TrafficSessionBodyGap,
+  type TrafficSessionQuery,
+  type TrafficSessionQueryDeps,
+  type TrafficSessionRecordRead,
+  type TrafficSessionRowsRead,
+  trafficSessionRawReadsFromSettings,
+} from './session-query';
 export type { TrafficSessionReplay } from './session-reader';
 export {
   connectBrowserTabSource,

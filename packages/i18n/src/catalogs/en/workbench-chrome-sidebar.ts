@@ -195,6 +195,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': 'Agent read',
   'workbench.activityFeed.kind.agentObservedTip':
     'An agent read live traffic through the MCP observe tier — redacted projections from an armed source.',
+  'workbench.activityFeed.rawRead': 'Unredacted',
+  'workbench.activityFeed.rawReadTip':
+    'This read projected raw values — the unredacted session reads grant was on in Settings → Traffic Monitor.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

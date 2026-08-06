@@ -446,6 +446,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
     'Les nouvelles sessions d’observation sont enregistrées dans l’archive de sessions chiffrée sur cet ' +
     'ordinateur. Chaque geste de démarrage peut remplacer ce réglage sous Avancé.',
+  'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label':
+    'Les agents lisent les sessions archivées sans caviardage',
+  'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
+    'Les agents connectés lisent les sessions archivées avec les valeurs réelles au lieu des marqueurs de ' +
+    'caviardage — en-têtes d’authentification, cookies et valeurs de type jeton compris. Désactivé par défaut ; ' +
+    'tant que c’est activé, chaque lecture non caviardée est consignée dans le fil d’activité.',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Budget de taille de l’archive de sessions (Gio)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Espace disque total des sessions archivées. Une fois le budget dépassé, les sessions scellées les plus ' +

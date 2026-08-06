@@ -437,6 +437,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
     'Neue Beobachtungssitzungen werden im verschlüsselten Sitzungsarchiv auf diesem Computer aufgezeichnet. Jede ' +
     'Start-Geste kann dies unter „Erweitert“ überschreiben.',
+  'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label':
+    'Agenten lesen archivierte Sitzungen ungeschwärzt',
+  'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
+    'Verbundene Agenten lesen archivierte Sitzungen mit echten Werten statt Schwärzungsmarkern — einschließlich ' +
+    'Authentifizierungs-Headern, Cookies und token-förmigen Werten. Standardmäßig aus; solange es aktiv ist, wird ' +
+    'jeder ungeschwärzte Lesezugriff im Aktivitäts-Feed protokolliert.',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Größenbudget des Sitzungsarchivs (GiB)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Gesamter Speicherplatz für archivierte Sitzungen. Wird das Budget überschritten, werden zuerst die ältesten ' +

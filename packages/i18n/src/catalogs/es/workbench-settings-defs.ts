@@ -467,6 +467,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.observeSaveDefault.description':
     'Las nuevas sesiones de observación se graban en el archivo de sesiones cifrado de este equipo. Cada gesto de ' +
     'inicio puede cambiarlo en Avanzado.',
+  'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label':
+    'Los agentes leen las sesiones archivadas sin censura',
+  'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description':
+    'Los agentes conectados leen las sesiones archivadas con los valores reales en lugar de los marcadores de ' +
+    'censura — incluidos encabezados de autenticación, cookies y valores con forma de token. Desactivado por ' +
+    'defecto; mientras está activado, cada lectura sin censura se registra en el feed de actividad.',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label':
     'Presupuesto de tamaño del archivo de sesiones (GiB)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':

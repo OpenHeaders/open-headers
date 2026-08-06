@@ -199,6 +199,11 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
   // sentinel `unavailable` variant renders the button as disabled
   // rather than hidden so the user understands why this particular
   // mutation can't be reverted (e.g. deletes are permanent).
+  // An agent read that projected RAW values under the archived-session
+  // unredacted grant (AGENT_TRAFFIC_PLAN.md §11.5) — flagged on the
+  // entry by the observe sink; surfaced here so "what did the agent
+  // look at" includes "and how".
+  const rawRead = kinds.includes('agent-observe') && group.entries.some((e) => e.context?.raw === true);
   const revertEntry = onRevert !== undefined ? pickRevertEntry(group) : null;
   const revertEnabled = revertEntry !== null && canRevertEntry(revertEntry);
   const revertUnavailableReason = revertEntry !== null ? getEntryRevertUnavailableReason(revertEntry) : null;
@@ -243,6 +248,13 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
             </Tooltip>
           );
         })}
+        {rawRead && (
+          <Tooltip title={t('workbench.activityFeed.rawReadTip')}>
+            <Tag color="red" style={{ marginInlineEnd: 0 }} data-testid="activity-feed-raw-read">
+              {t('workbench.activityFeed.rawRead')}
+            </Tag>
+          </Tooltip>
+        )}
       </div>
       {primary.summary && (
         <Text type="secondary" style={{ fontSize: 12 }}>

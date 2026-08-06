@@ -32,6 +32,7 @@ import {
   createRunToolDefinitions,
   createRuntimeToolDefinitions,
   createSecretToolDefinitions,
+  createSessionToolDefinitions,
   createTrafficToolDefinitions,
   createWriteToolDefinitions,
   type McpHttpHandler,
@@ -39,7 +40,7 @@ import {
   type McpPolicy,
   type McpToolTier,
 } from '../mcp';
-import type { TrafficTap } from '../traffic';
+import type { TrafficSessionQuery, TrafficTap } from '../traffic';
 import { runWorkflowRefresh } from './live/chain-runner';
 import { runRequestSuite } from './live/suite-runner';
 
@@ -69,6 +70,10 @@ export interface InstallMcpServerOptions {
   /** The agent-traffic tap (PLAN §5) — injected by the boot spine; the
    *  observe-tier `traffic_*` tools register only when present. */
   trafficTap?: TrafficTap;
+  /** The sessions-archive read plane (PLAN §11.5, C7) — the observe-tier
+   *  session tools register only when present. Redaction and the raw
+   *  grant live below it; tools are pure projection consumers. */
+  trafficSessions?: TrafficSessionQuery;
 }
 
 export async function installMcpServer(options: InstallMcpServerOptions): Promise<McpServerInstall> {
@@ -88,6 +93,9 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
             // but it reads observed traffic — live-read like the policy.
             isObserveEnabled: () => current.policy.enabledTiers.has('observe'),
           })
+        : []),
+      ...(options.trafficSessions !== undefined
+        ? createSessionToolDefinitions({ sessions: options.trafficSessions })
         : []),
       ...createDiffToolDefinitions(),
       ...createWriteToolDefinitions(),

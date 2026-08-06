@@ -204,6 +204,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': 'Lecture par agent',
   'workbench.activityFeed.kind.agentObservedTip':
     "Un agent a lu du trafic en direct via le palier MCP observe — des projections caviardées d'une source armée.",
+  'workbench.activityFeed.rawRead': 'Non caviardé',
+  'workbench.activityFeed.rawReadTip':
+    'Cette lecture a projeté les valeurs brutes — l’autorisation de lecture non caviardée des sessions était activée dans Paramètres → Moniteur de trafic.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

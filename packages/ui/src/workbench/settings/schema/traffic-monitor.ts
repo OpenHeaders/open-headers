@@ -1,14 +1,18 @@
 /**
- * Traffic Monitor category — the observe-gesture defaults and the
- * sessions archive's disk budget (AGENT_TRAFFIC_PLAN.md §11.1/§11.4).
+ * Traffic Monitor category — the observe-gesture defaults, the
+ * sessions archive's disk budget, and the agent raw-read grant
+ * (AGENT_TRAFFIC_PLAN.md §11.1/§11.4/§11.5).
  *
  * The two `observe*Default` rows seed the Advanced toggles of the
  * source rail's start-observing popover — the gesture itself can
- * override them per session. The retention row is mirrored into the
- * dotted-key user-settings record and read LIVE by the daemon's
- * sessions archive: a change applies to the next prune pass, no
- * restart. Only the desktop host runs the Traffic Monitor, so the
- * category is registered desktop-only in `../categories.tsx`.
+ * override them per session. The retention row and the raw-read grant
+ * are mirrored into the dotted-key user-settings record and read LIVE
+ * by the daemon: a retention change applies to the next prune pass, a
+ * grant flip to the next agent session read — no restart. The grant
+ * defaults OFF, and every read made under it lands in the Activity
+ * Feed flagged unredacted. Only the desktop host runs the Traffic
+ * Monitor, so the category is registered desktop-only in
+ * `../categories.tsx`.
  */
 
 import * as v from 'valibot';
@@ -20,6 +24,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'trafficMonitor.observeDebugDefault': boolean;
     'trafficMonitor.observeSaveDefault': boolean;
     'trafficMonitor.sessionRetentionGiB': number;
+    'trafficMonitor.sessionAgentRawReads': boolean;
   }
 }
 
@@ -47,6 +52,19 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.trafficMonitor.observeSaveDefault.description',
   category: 'trafficMonitor',
   tags: ['traffic', 'observe', 'session', 'save', 'record', 'archive', 'disk'],
+  scope: 'user',
+  when: desktopOnly,
+});
+
+registerSetting({
+  key: 'trafficMonitor.sessionAgentRawReads',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.trafficMonitor.sessionAgentRawReads.label',
+  descriptionKey: 'workbench.settings.def.trafficMonitor.sessionAgentRawReads.description',
+  category: 'trafficMonitor',
+  tags: ['traffic', 'session', 'archive', 'agent', 'mcp', 'redaction', 'raw', 'secrets', 'grant'],
   scope: 'user',
   when: desktopOnly,
 });

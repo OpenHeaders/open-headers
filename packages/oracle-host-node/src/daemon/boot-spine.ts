@@ -130,10 +130,12 @@ import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import {
   createTrafficPartitionMirror,
   createTrafficSessionArchive,
+  createTrafficSessionQuery,
   createTrafficTap,
   installLoopbackLifelineDialer,
   installTrafficReplayLifeline,
   TRAFFIC_SESSIONS_DIR_NAME,
+  trafficSessionRawReadsFromSettings,
   trafficSessionRetentionFromSettings,
 } from '../traffic';
 import {
@@ -816,8 +818,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // dotted-key user-settings record like the MCP switches, read live so
   // a change applies to the next prune pass without a restart.
   let trafficRetention: TrafficSessionRetention = DEFAULT_TRAFFIC_SESSION_RETENTION;
+  // The §11.5 unredacted-read grant (C7) — default OFF, read live from
+  // the same mirrored record so a Settings flip applies to the next
+  // session-tool read without a restart.
+  let trafficSessionRawReads = false;
   const applyTrafficRetention = (values: Record<string, unknown> | undefined): void => {
     trafficRetention = trafficSessionRetentionFromSettings(values);
+    trafficSessionRawReads = trafficSessionRawReadsFromSettings(values);
   };
   const unsubscribeTrafficRetention = hostStorage.subscribe(OH.settingsUser, applyTrafficRetention);
   const trafficArchive = createTrafficSessionArchive({
@@ -836,6 +843,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // over the live wire vocabulary; bodies answer from the blob store.
   // Human plane by construction: only workbench lifelines dial it.
   const uninstallTrafficReplayLifeline = installTrafficReplayLifeline(trafficArchive);
+
+  // Agent-facing session reads (§11.5, C7) — the projection-typed
+  // read plane the session MCP tools consume: list/read only, redacted
+  // by default, raw only under the persistent Settings grant above.
+  const trafficSessionQuery = createTrafficSessionQuery({
+    archive: trafficArchive,
+    rawGrant: () => trafficSessionRawReads,
+  });
 
   const trafficTap = createTrafficTap({
     mirror: trafficMirror,
@@ -912,6 +927,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // Agent-traffic tap (S3) — the observe-tier traffic_* tools' read
     // seam; redaction and absence semantics live below it.
     trafficTap,
+    // Sessions-archive read plane (C7) — the observe-tier session
+    // tools' seam; §11.5 redaction and the raw grant live below it.
+    trafficSessions: trafficSessionQuery,
     // Observe-visibility (AGENT_TRAFFIC_PLAN.md §4): every successful
     // `observe`-tier call lands in the Activity Feed per authorized
     // workspace — reads must not stay invisible on this tier.
@@ -923,6 +941,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
           tokenId: event.tokenId,
           ...(event.tokenLabel !== undefined ? { tokenLabel: event.tokenLabel } : {}),
           userId: event.userId,
+          ...(event.raw === true ? { raw: true } : {}),
         });
       }
     },

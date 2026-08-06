@@ -208,6 +208,10 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObservedTip':
     'Ein Agent hat Live-Traffic über die MCP-Stufe observe gelesen — geschwärzte Projektionen einer scharf ' +
     'geschalteten Quelle.',
+  'workbench.activityFeed.rawRead': 'Ungeschwärzt',
+  'workbench.activityFeed.rawReadTip':
+    'Dieser Lesezugriff projizierte Rohwerte — die Freigabe für ungeschwärzte Sitzungs-Lesezugriffe war in ' +
+    'Einstellungen → Traffic-Monitor aktiviert.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies

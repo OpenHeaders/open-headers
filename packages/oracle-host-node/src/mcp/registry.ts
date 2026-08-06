@@ -48,6 +48,14 @@ export interface McpToolCallContext {
    * ignore it.
    */
   readonly progress?: (update: { progress: number; total?: number; message?: string }) => void;
+  /**
+   * Raw-projection flag for the observe-visibility seam
+   * (AGENT_TRAFFIC_PLAN.md §11.5): a tool whose read projected RAW
+   * values under the persistent unredacted grant calls this so the
+   * call's Activity Feed entry carries the raw flag. The projection
+   * layer decides raw vs redacted — this only reports what happened.
+   */
+  readonly markRawRead?: () => void;
 }
 
 export interface McpToolDefinition {

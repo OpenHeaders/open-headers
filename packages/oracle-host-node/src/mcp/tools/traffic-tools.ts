@@ -47,8 +47,8 @@ import { computeTrafficGraph, isFailureProjection, trafficFailureKind } from './
 import { buildResponseOverrideDraft, conditionValueForUrl, type TrafficDraftBodyInput } from './traffic-to-rule';
 import { resolveRuleParentPath } from './write-tools';
 
-const LIST_LIMIT_DEFAULT = 50;
-const LIST_LIMIT_MAX = 200;
+export const LIST_LIMIT_DEFAULT = 50;
+export const LIST_LIMIT_MAX = 200;
 
 /** `traffic_wait` timeout bounds — well under the HTTP transport's
  *  request ceiling so a wait always answers in-band. */
@@ -65,8 +65,9 @@ const GRAPH_ITEMS_DEFAULT = 20;
 const GRAPH_ITEMS_MAX = 100;
 
 /** Shared description suffix — the marker algebra is agent-facing
- *  prompt surface: the agent must know equality still works. */
-const REDACTION_NOTE =
+ *  prompt surface: the agent must know equality still works. Shared
+ *  with the session tools (C7): archive reads speak the same algebra. */
+export const REDACTION_NOTE =
   'Values shaped like secrets (bearer tokens, JWTs, cookies, API keys) appear as stable ' +
   '[redacted:<hash>] markers: equal markers mean equal underlying values across requests and ' +
   'positions (header, URL, body), so comparisons still work without the secret. Redaction is ' +
@@ -87,7 +88,7 @@ export interface McpTrafficToolDeps {
 /** The five status buckets `traffic_list` can filter by. */
 type StatusClass = '2xx' | '3xx' | '4xx' | '5xx' | 'error';
 
-interface TrafficListFilters {
+export interface TrafficListFilters {
   statusClass?: StatusClass;
   method?: string;
   urlContains?: string;
@@ -106,7 +107,7 @@ function statusClassOf(record: TrafficRecordProjection): StatusClass | null {
   return null;
 }
 
-function matchesFilters(record: TrafficRecordProjection, filters: TrafficListFilters): boolean {
+export function matchesFilters(record: TrafficRecordProjection, filters: TrafficListFilters): boolean {
   if (filters.statusClass !== undefined && statusClassOf(record) !== filters.statusClass) return false;
   if (filters.method !== undefined && record.method.toUpperCase() !== filters.method) return false;
   if (filters.urlContains !== undefined && !record.url.includes(filters.urlContains)) return false;
@@ -117,7 +118,7 @@ function matchesFilters(record: TrafficRecordProjection, filters: TrafficListFil
 
 /** Lean list row (PLAN §5): identity + verdict + timing + size —
  *  never headers, never bodies. `traffic_get` has the rest. */
-function projectListRow(record: TrafficRecordProjection): Record<string, unknown> {
+export function projectListRow(record: TrafficRecordProjection): Record<string, unknown> {
   return {
     requestId: record.requestId,
     url: record.url,
@@ -182,8 +183,9 @@ function optionalNumber(args: Record<string, unknown>, name: string): number | u
 }
 
 /** Shared filter-arg parsing — `traffic_list` filters double as the
- *  `traffic_wait` predicate, so the vocabulary is parsed in one place. */
-function parseListFilters(args: Record<string, unknown>): TrafficListFilters {
+ *  `traffic_wait` predicate and the session tools' query vocabulary,
+ *  so the vocabulary is parsed in one place. */
+export function parseListFilters(args: Record<string, unknown>): TrafficListFilters {
   const statusClass = optionalString(args, 'statusClass');
   if (statusClass !== undefined && !['2xx', '3xx', '4xx', '5xx', 'error'].includes(statusClass)) {
     throw new McpToolInputError("invalid statusClass — one of '2xx', '3xx', '4xx', '5xx', 'error'");
@@ -201,7 +203,7 @@ function parseListFilters(args: Record<string, unknown>): TrafficListFilters {
   };
 }
 
-function parsePage(args: Record<string, unknown>): { limit: number; offset: number } {
+export function parsePage(args: Record<string, unknown>): { limit: number; offset: number } {
   const limitRaw = optionalNumber(args, 'limit');
   const limit =
     limitRaw !== undefined && limitRaw > 0 ? Math.min(Math.floor(limitRaw), LIST_LIMIT_MAX) : LIST_LIMIT_DEFAULT;

@@ -165,6 +165,10 @@ export interface AgentObservationInput {
   tokenId: string;
   tokenLabel?: string;
   userId: string;
+  /** The read projected RAW values under the persistent unredacted
+   *  session grant (AGENT_TRAFFIC_PLAN.md §11.5) — surfaced on the
+   *  feed card so "what did the agent look at" includes "and how". */
+  raw?: boolean;
 }
 
 /** Disambiguates observe entries minted inside one HLC tick. */
@@ -208,6 +212,7 @@ export function recordAgentObservation(input: AgentObservationInput): void {
       toolName: input.toolName,
       tokenId: input.tokenId,
       ...(input.tokenLabel !== undefined ? { tokenLabel: input.tokenLabel } : {}),
+      ...(input.raw === true ? { raw: true } : {}),
     },
   };
 

@@ -52,6 +52,9 @@ export interface McpObserveCallEvent {
   readonly tokenId: string;
   readonly tokenLabel?: string;
   readonly userId: string;
+  /** The call projected RAW values under the persistent unredacted
+   *  grant (§11.5) — the tool reported it via `ctx.markRawRead`. */
+  readonly raw?: boolean;
 }
 
 export interface CreateMcpServerOptions {
@@ -107,17 +110,24 @@ export function createMcpServer(options: CreateMcpServerOptions): Server {
     // POST stream ahead of the final result; fire-and-forget by
     // contract — a dropped frame never fails the call.
     const progressToken = request.params._meta?.progressToken;
-    const callContext: McpToolCallContext =
-      progressToken === undefined
-        ? context
+    // Raw-projection flag (§11.5): observe-tier tools report a raw
+    // read through the context so the visibility entry can carry it.
+    let rawRead = false;
+    const callContext: McpToolCallContext = {
+      ...context,
+      markRawRead: () => {
+        rawRead = true;
+      },
+      ...(progressToken === undefined
+        ? {}
         : {
-            ...context,
-            progress: (update) => {
+            progress: (update: { progress: number; total?: number; message?: string }) => {
               void extra
                 .sendNotification({ method: 'notifications/progress', params: { progressToken, ...update } })
                 .catch((err) => logger.info(SCOPE, `progress notification dropped (token=${context.tokenId})`, err));
             },
-          };
+          }),
+    };
     try {
       await gateMcpToolCall(tool, args, getPolicy(), callContext);
       const result = await tool.handler(args, callContext);
@@ -133,6 +143,7 @@ export function createMcpServer(options: CreateMcpServerOptions): Server {
             tokenId: context.tokenId,
             ...(context.tokenLabel !== undefined ? { tokenLabel: context.tokenLabel } : {}),
             userId: context.userId,
+            ...(rawRead ? { raw: true } : {}),
           });
         } catch (err) {
           logger.warn(SCOPE, 'observe-visibility sink threw', err);

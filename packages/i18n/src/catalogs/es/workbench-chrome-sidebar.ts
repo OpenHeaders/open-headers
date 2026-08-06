@@ -208,6 +208,9 @@ export const workbenchChromeSidebar = {
   'workbench.activityFeed.kind.agentObserved': 'Lectura por agente',
   'workbench.activityFeed.kind.agentObservedTip':
     'Un agente leyó tráfico en vivo a través del nivel MCP observe — proyecciones censuradas de una fuente armada.',
+  'workbench.activityFeed.rawRead': 'Sin censurar',
+  'workbench.activityFeed.rawReadTip':
+    'Esta lectura proyectó los valores reales — el permiso de lectura sin censura de sesiones estaba activado en Ajustes → Monitor de tráfico.',
 
   // ── Overview tabs (collection / folder, all three families). The
   // folder-suffix chunks carry their leading '· ' — the JSX supplies
