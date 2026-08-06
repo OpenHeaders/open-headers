@@ -564,7 +564,6 @@ export const workbenchChrome = {
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
   'workbench.trafficMonitor.browserConnected': 'Navigateurs connectés : {count}',
   'workbench.trafficMonitor.noBrowser': 'Aucun navigateur connecté',
-  'workbench.trafficMonitor.refreshTabs': 'Actualiser la liste des onglets',
   'workbench.trafficMonitor.untitledTab': 'Onglet sans titre',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',

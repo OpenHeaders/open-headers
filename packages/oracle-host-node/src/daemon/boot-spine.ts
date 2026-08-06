@@ -858,6 +858,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     proxyServeRequestBody: (requestId, hopIndex) => proxyCaptureService.serveRequestBody(requestId, hopIndex),
     archive: trafficArchive,
   });
+  // Tap invalidation feed → local surfaces: every source/capture
+  // transition (arm, disarm, expiry, capture start/stop/seal) nudges
+  // the workbench to re-read the status RPCs, so the Traffic Monitor's
+  // armed/recording indicators converge instantly instead of polling.
+  const unsubscribeTrafficStatus = trafficTap.onStatusChanged(() => {
+    broadcastLocal('trafficStatusChanged', {});
+  });
 
   // CLI provisioning writes this machine's `openheaders/cli.json`;
   // rotate evicts the old token's live peers, same as tokens.revoke.
@@ -1388,6 +1395,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     await workspaceTreeRuntime?.dispose();
     workspaceTreeRuntime = null;
     stopLiveRunner();
+    unsubscribeTrafficStatus();
     trafficTap.dispose();
     trafficMirror.dispose();
     uninstallTrafficMirrorInterposer();

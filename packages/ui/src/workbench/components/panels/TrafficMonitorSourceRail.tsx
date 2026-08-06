@@ -31,7 +31,6 @@ import {
   GlobalOutlined,
   LoadingOutlined,
   PushpinFilled,
-  ReloadOutlined,
 } from '@ant-design/icons';
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
@@ -105,9 +104,11 @@ export function tabSourceKey(nodeId: string, tabId: number): TrafficSourceKey {
 export const WIRE_SOURCE_KEY: TrafficSourceKey = 'wire';
 
 export interface TrafficMonitorSourceRailProps {
+  /** The pushed live inventory — the panel's tabs watch keeps it
+   *  current, so the rail needs no refresh affordance. */
   peers: readonly RailPeer[];
+  /** The mount-time baseline pull is in flight. */
   loading: boolean;
-  onRefresh: () => void;
   /** Wire row is present only on hosts with the proxyCapture capability. */
   showWire: boolean;
   wireRunning: boolean;
@@ -484,7 +485,6 @@ function SourceObserveAffordance({
 export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> = ({
   peers,
   loading,
-  onRefresh,
   showWire,
   wireRunning,
   wirePort,
@@ -550,17 +550,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                 ? t('workbench.trafficMonitor.browserConnected', { count: peers.length })
                 : t('workbench.trafficMonitor.noBrowser')}
             </Tag>
-            <Tooltip title={t('workbench.trafficMonitor.refreshTabs')}>
-              {loading ? (
-                <LoadingOutlined spin style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              ) : (
-                <ReloadOutlined
-                  data-testid="traffic-monitor-refresh"
-                  style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                  onClick={onRefresh}
-                />
-              )}
-            </Tooltip>
+            {loading && <LoadingOutlined spin style={{ fontSize: 11, color: token.colorTextTertiary }} />}
           </span>
         }
       />

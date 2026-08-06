@@ -27,7 +27,11 @@ import {
   TELEMETRY_STORAGE_CONSUMER_TYPE,
   TELEMETRY_STORAGE_DETACH_TYPE,
   TELEMETRY_STORAGE_INVALIDATION_TYPE,
+  TELEMETRY_TABS_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
+  TELEMETRY_TABS_PORT_NAME,
+  TELEMETRY_TABS_PUSH_TYPE,
+  TELEMETRY_TABS_SUBSCRIBE_TYPE,
   TELEMETRY_WATCH_REFUSED_TYPE,
 } from '@openheaders/core/protocol';
 import type { LifecycleConsumerMessage } from '@openheaders/core/request-lifecycle';
@@ -89,6 +93,7 @@ function fakeServer(peers: PeerSummary[]): {
   server: OracleWsServer;
   frames: SentFrame[];
   emitPeerConnect: (peer: PeerSummary) => void;
+  emitPeerDisconnect: (peer: PeerSummary) => void;
 } {
   const frames: SentFrame[] = [];
   const listeners = new Set<PeerChangeListener>();
@@ -113,6 +118,9 @@ function fakeServer(peers: PeerSummary[]): {
     frames,
     emitPeerConnect: (peer) => {
       for (const listener of listeners) listener({ kind: 'connect', peer });
+    },
+    emitPeerDisconnect: (peer) => {
+      for (const listener of listeners) listener({ kind: 'disconnect', peer });
     },
   };
 }
@@ -617,6 +625,101 @@ describe('createBrowserLiveRelay', () => {
     );
     expect(await firstPending).toEqual({ ok: true, payload: { entries: [], truncated: false } });
     expect(await secondPending).toEqual({ ok: true, payload: { quota: { usage: 1, quota: 2 } } });
+    relay.dispose();
+  });
+
+  it('opens the peer tab-inventory watches on the first oh-tabs port and detaches on the last disconnect', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server, frames } = fakeServer([peerSummary('node-a'), peerSummary('node-b')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const first = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(first);
+    // Subscribe broadcasts to every (loopback) peer.
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE)).toHaveLength(1);
+
+    // A second viewer re-broadcasts — each peer's snapshot-on-subscribe
+    // push seeds the late joiner (idempotent upserts for the first).
+    const second = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(second);
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE)).toHaveLength(2);
+
+    // One viewer leaving keeps the peers subscribed; the LAST detaches.
+    first.disconnect();
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_TABS_DETACH_TYPE)).toHaveLength(0);
+    second.disconnect();
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_TABS_DETACH_TYPE)).toHaveLength(1);
+    relay.dispose();
+  });
+
+  it('fans pushed inventory snapshots to every viewer keyed by the stable qualifier', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    // The peer's nodeId is workspace identity; installId is the stable
+    // qualifier the inventory reports.
+    const { server } = fakeServer([peerSummary('node-home', 'peer-1', 'install-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const first = fakePort(TELEMETRY_TABS_PORT_NAME);
+    const second = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(first);
+    connect(second);
+
+    relay.peerPush.handle(
+      {
+        type: TELEMETRY_TABS_PUSH_TYPE,
+        payload: {
+          tabs: [{ tabId: 7, windowId: 1, title: 'Docs', url: 'https://openheaders.io/docs', active: true }],
+          browser: { name: 'Chrome', platform: 'macOS' },
+          debug: { available: true, enabled: false, attachedTabs: [], pinnedTabs: [] },
+        },
+      },
+      peerSummary('node-home', 'peer-1', 'install-a'),
+    );
+    for (const port of [first, second]) {
+      expect(port.posted).toHaveLength(1);
+      const message = port.posted[0] as { kind: string; peer: { nodeId: string; watchConsent: boolean } };
+      expect(message.kind).toBe('peer-tabs');
+      expect(message.peer.nodeId).toBe('install-a');
+      expect(message.peer.watchConsent).toBe(true);
+    }
+
+    // A malformed push (no tabs array) is dropped, never fanned.
+    relay.peerPush.handle({ type: TELEMETRY_TABS_PUSH_TYPE, payload: {} }, peerSummary('node-home'));
+    expect(first.posted).toHaveLength(1);
+    relay.dispose();
+  });
+
+  it('fans peer-gone on a peer disconnect and re-subscribes the inventory on reconnect/host-ready', () => {
+    const connect = installFakeLifeline();
+    const relay = createBrowserLiveRelay();
+    const { server, frames, emitPeerConnect, emitPeerDisconnect } = fakeServer([peerSummary('node-a')]);
+    relay.setWsServer(server);
+    relay.installLifeline();
+
+    const port = fakePort(TELEMETRY_TABS_PORT_NAME);
+    connect(port);
+    const before = frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE).length;
+
+    emitPeerDisconnect(peerSummary('node-a'));
+    expect(port.posted).toEqual([{ kind: 'peer-gone', nodeId: 'node-a' }]);
+
+    // Reconnect and the cold-SW ready announce both re-subscribe the
+    // watched inventory — the peer's snapshot push re-adds it.
+    emitPeerConnect(peerSummary('node-a'));
+    relay.peerPush.handle({ type: TELEMETRY_HOST_READY_TYPE }, peerSummary('node-a'));
+    const rejoins = frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE).slice(before);
+    expect(rejoins).toHaveLength(2);
+    expect(rejoins[0].to).toEqual(['peer-node-a']);
+
+    // With no viewers, pushes fan nowhere and reconnects stay silent.
+    port.disconnect();
+    const afterDetach = frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE).length;
+    emitPeerConnect(peerSummary('node-a'));
+    expect(frames.filter((f) => f.frame.type === TELEMETRY_TABS_SUBSCRIBE_TYPE)).toHaveLength(afterDetach);
     relay.dispose();
   });
 

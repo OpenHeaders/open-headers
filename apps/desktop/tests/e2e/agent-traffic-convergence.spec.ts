@@ -100,10 +100,6 @@ async function openTrafficMonitor(): Promise<void> {
   }
 }
 
-async function refreshRail(): Promise<void> {
-  await workbench.locator('[data-testid="traffic-monitor-refresh"]').first().click();
-}
-
 async function fireBurst(tag: string, count: number): Promise<void> {
   await generatorPage.evaluate(
     async (opts) => {
@@ -212,7 +208,6 @@ test('the daemon inventories the generator page', async () => {
 
 test('a workbench watch opens ONE stream session and the panel renders through the mirror', async () => {
   await openTrafficMonitor();
-  await refreshRail();
   const row = workbench.locator('[data-testid="traffic-monitor-source-tab"]', { hasText: 'Retention bounds' }).first();
   await expect(row).toBeVisible({ timeout: 15000 });
   await row.click();

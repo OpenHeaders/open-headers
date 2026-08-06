@@ -191,9 +191,14 @@ export type {
   TelemetryLifecycleBatchMessage,
   TelemetryLifecycleConsumerMessage,
   TelemetryLifecycleDetachMessage,
+  TelemetryPeerTabsWire,
   TelemetryStreamMessage,
+  TelemetryTabsDetachMessage,
   TelemetryTabsListMessage,
   TelemetryTabsListResponsePayload,
+  TelemetryTabsPushMessage,
+  TelemetryTabsSubscribeMessage,
+  TelemetryTabsWatchMessage,
   TelemetryWatchPlane,
   TelemetryWatchRefusedMessage,
 } from './telemetry-stream';
@@ -203,7 +208,11 @@ export {
   TELEMETRY_LIFECYCLE_BATCH_TYPE,
   TELEMETRY_LIFECYCLE_CONSUMER_TYPE,
   TELEMETRY_LIFECYCLE_DETACH_TYPE,
+  TELEMETRY_TABS_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
+  TELEMETRY_TABS_PORT_NAME,
+  TELEMETRY_TABS_PUSH_TYPE,
+  TELEMETRY_TABS_SUBSCRIBE_TYPE,
   TELEMETRY_WATCH_REFUSED_TYPE,
 } from './telemetry-stream';
 export type { IncompatibleProtocolReason } from './version';

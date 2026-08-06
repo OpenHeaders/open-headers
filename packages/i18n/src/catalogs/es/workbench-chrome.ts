@@ -563,7 +563,6 @@ export const workbenchChrome = {
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
   'workbench.trafficMonitor.browserConnected': 'Navegadores conectados: {count}',
   'workbench.trafficMonitor.noBrowser': 'Ningún navegador conectado',
-  'workbench.trafficMonitor.refreshTabs': 'Actualizar la lista de pestañas',
   'workbench.trafficMonitor.untitledTab': 'Pestaña sin título',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',

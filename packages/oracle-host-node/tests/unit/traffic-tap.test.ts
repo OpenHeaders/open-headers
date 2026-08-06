@@ -935,3 +935,67 @@ describe('traffic tap — recording sessions (S7, rebuilt on the C3 archive)', (
     proxyHub.dispose();
   });
 });
+
+describe('traffic tap — status-change invalidation feed', () => {
+  let priorServer: LifelineServer;
+  let archiveDir: string;
+
+  beforeEach(() => {
+    setHostLogger(consoleLogger);
+    priorServer = getLifelineServer();
+    archiveDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-tap-status-'));
+  });
+
+  afterEach(() => {
+    setLifelineServer(priorServer);
+    fs.rmSync(archiveDir, { recursive: true, force: true });
+  });
+
+  it('fires post-commit on arm, capture start/stop, and disarm — never on reads or idempotent re-arms', () => {
+    const dialer = installLoopbackLifelineDialer();
+    const mirror = createTrafficPartitionMirror({ dialer });
+    const store = new RequestLifecycleStore();
+    const proxyHub = new RequestLifecycleHub({ store });
+    const relay = installFakeRelay([]);
+    const tap = createTrafficTap({
+      mirror,
+      proxyHub,
+      archive: createTrafficSessionArchive({ dir: archiveDir, sealKey: randomBytes(32) }),
+    });
+    let ticks = 0;
+    // Post-commit contract: a listener reading status() sees the state
+    // the tick announced.
+    let statusAtLastTick = 0;
+    const unsubscribe = tap.onStatusChanged(() => {
+      ticks++;
+      statusAtLastTick = tap.status().length;
+    });
+
+    const uid = tap.armBrowserTab('ext-node-1', 7) ?? '';
+    expect(ticks).toBe(1);
+    expect(statusAtLastTick).toBe(1);
+
+    // Idempotent re-arm and content-free reads stay silent.
+    tap.armBrowserTab('ext-node-1', 7);
+    tap.status();
+    tap.records(uid);
+    expect(ticks).toBe(1);
+
+    expect(tap.captureStart(uid, { name: 'run' }).ok).toBe(true);
+    expect(ticks).toBe(2);
+    tap.captureStop(uid);
+    expect(ticks).toBe(3);
+
+    tap.disarm(uid);
+    expect(ticks).toBe(4);
+    expect(statusAtLastTick).toBe(0);
+
+    unsubscribe();
+    tap.armProxy();
+    expect(ticks).toBe(4);
+
+    tap.dispose();
+    relay.uninstall();
+    proxyHub.dispose();
+  });
+});

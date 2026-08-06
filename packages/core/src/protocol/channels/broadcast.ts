@@ -107,6 +107,15 @@ export interface BridgeBroadcastContract {
    */
   statusUpdated: StatusSnapshot;
   /**
+   * Traffic tap invalidation: an armed source or capture session
+   * changed state (arm, disarm, idle expiry, capture start/stop/seal).
+   * Invalidation only, like `storageInvalidated` — the Traffic Monitor
+   * refetches through the same `oh.daemon.traffic.status` /
+   * `oh.daemon.traffic.capture.status` RPCs it reads at mount, so the
+   * armed/recording indicators converge instantly instead of on a poll.
+   */
+  trafficStatusChanged: Record<string, never>;
+  /**
    * Fires whenever the host's license slot re-evaluates to a different
    * entitlement snapshot — install/remove, an external file change, or
    * a validity/grace boundary crossing. Payload is the full snapshot;

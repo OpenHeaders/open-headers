@@ -277,7 +277,6 @@ test('the live pass records the probe set and the live view folds the fingerprin
   // Watch the tab in the Traffic Monitor — the LIVE half of the parity
   // comparison renders through the partition mirror.
   await openToolWindow('traffic-monitor');
-  await workbench.locator('[data-testid="traffic-monitor-refresh"]').first().click();
   const sourceRow = workbench
     .locator('[data-testid="traffic-monitor-source-tab"]', { hasText: 'Replay parity' })
     .first();

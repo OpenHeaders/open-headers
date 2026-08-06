@@ -174,12 +174,6 @@ async function openTrafficMonitor(): Promise<void> {
   }
 }
 
-/** The rail refresh re-reads the tab inventory AND the armed/capture
- *  state — the poll cadence is 15 s, so the specs converge via clicks. */
-async function refreshRail(): Promise<void> {
-  await workbench.locator('[data-testid="traffic-monitor-refresh"]').first().click();
-}
-
 async function fireSecretBurst(count: number): Promise<void> {
   await archivePage.evaluate(
     async (options) => {
@@ -375,7 +369,6 @@ test('the start gesture opens the session and the Traffic Monitor shows the reco
   // time the session runs — the per-row red eye (PLAN §3; the header
   // chip retired in C4, transparency lives in the row state).
   await openTrafficMonitor();
-  await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
     timeout: 10000,
   });
@@ -493,7 +486,6 @@ test('a tripped log bound stops the session with the honest reason and the indic
   // The indicator converges off once nothing records — the eye drops
   // back to its armed (non-capturing) identity.
   await openTrafficMonitor();
-  await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]')).toHaveCount(0, {
     timeout: 10000,
   });
@@ -531,7 +523,6 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
     .toBe(JSON.stringify({ enabled: false, attached: false }));
 
   await openTrafficMonitor();
-  await refreshRail();
   const before = (await captureSessions()).length;
 
   // The idle eye opens the popover: ONE primary verb, with the two
@@ -564,7 +555,6 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
   await expect.poll(async () => (await debugState()).attached, { timeout: 20000 }).toBe(true);
 
   // The eye became the always-visible retention indicator (red state).
-  await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
     timeout: 10000,
   });
@@ -601,7 +591,6 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
 
 test('the Sessions section shows live recordings only and its stop retires the row', async () => {
   await openTrafficMonitor();
-  await refreshRail();
 
   // Every prior leg's session is sealed — sealed sessions leave the
   // rail (live state only; browsing the archive is the C5 window),
@@ -622,13 +611,11 @@ test('the Sessions section shows live recordings only and its stop retires the r
     name: 'sessions-section stop',
   })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
   expect(started.ok, started.error).toBe(true);
-  await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(1, { timeout: 10000 });
   const stop = workbench.locator('[data-testid="traffic-monitor-session-stop"]');
   await expect(stop).toBeVisible({ timeout: 10000 });
   await stop.click();
   const ended = await waitSealed(started.session?.sessionId ?? '');
   expect(ended.endReason).toBe('stopped');
-  await refreshRail();
   await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(0, { timeout: 10000 });
 });

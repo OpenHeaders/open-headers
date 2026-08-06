@@ -34,7 +34,6 @@
 import { getLifelineServer, type IncomingLifelinePort } from '@openheaders/core/awareness';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import {
-  type BrowserTabWire,
   isTelemetryStorageMethod,
   parseQualifiedConsolePortName,
   parseQualifiedStoragePortName,
@@ -50,14 +49,19 @@ import {
   TELEMETRY_STORAGE_CONSUMER_TYPE,
   TELEMETRY_STORAGE_DETACH_TYPE,
   TELEMETRY_STORAGE_INVALIDATION_TYPE,
+  TELEMETRY_TABS_DETACH_TYPE,
   TELEMETRY_TABS_LIST_TYPE,
+  TELEMETRY_TABS_PORT_NAME,
+  TELEMETRY_TABS_PUSH_TYPE,
+  TELEMETRY_TABS_SUBSCRIBE_TYPE,
   TELEMETRY_WATCH_REFUSED_TYPE,
-  type TelemetryBrowserIdentity,
   type TelemetryDebugCommand,
   type TelemetryDebugControlResponsePayload,
   type TelemetryDebugState,
+  type TelemetryPeerTabsWire,
   type TelemetryStorageMethod,
   type TelemetryTabsListResponsePayload,
+  type TelemetryTabsWatchMessage,
   type TelemetryWatchPlane,
 } from '@openheaders/core/protocol';
 import { type LifecycleConsumerMessage, parseQualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
@@ -87,21 +91,13 @@ export const STORAGE_CALL_TIMEOUT_MS = 10_000;
 /** Reported for a peer whose reply predates the debug field (defensive). */
 const DEBUG_UNAVAILABLE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
 
-export interface BrowserTelemetryPeerTabs {
-  nodeId: string;
-  agent: string;
-  browser: TelemetryBrowserIdentity;
-  debug: TelemetryDebugState;
-  tabs: ReadonlyArray<BrowserTabWire>;
-  /**
-   * The peer's telemetry consent gate — `false` when the browser
-   * refuses watch subscriptions (`backend.allowDesktopWatch` off). The
-   * workbench renders such a peer's rows honestly-unwatchable instead
-   * of offering streams the peer will refuse. Absent on the wire means
-   * consenting (older peers).
-   */
-  watchConsent: boolean;
-}
+/**
+ * One answering peer's inventory row — the shared wire vocabulary
+ * ({@link TelemetryPeerTabsWire}): the peer's snapshot payload joined
+ * with its authenticated identity, identical whether it was pulled
+ * (`listTabs`) or pushed (the inventory watch).
+ */
+export type BrowserTelemetryPeerTabs = TelemetryPeerTabsWire;
 
 export interface BrowserLiveRelay {
   /** Inbound push seam for the WS server (batch + tabs-list replies). */
@@ -212,6 +208,10 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
   const watches = new Map<string, WatchEntry>();
   const storageWatches = new Map<string, StorageWatchEntry>();
   const consoleWatches = new Map<string, ConsoleWatchEntry>();
+  /** Workbench viewers of the whole-inventory watch, keyed by their
+   *  relay-minted consumer id. Unpartitioned — every viewer sees every
+   *  peer's pushes. */
+  const tabsWatchPorts = new Map<string, IncomingLifelinePort>();
   const pendingTabs = new Map<string, PendingTabsSlot[]>();
   const pendingDebug = new Map<string, PendingDebugSlot[]>();
   const pendingStorage = new Map<string, PendingStorageSlot>();
@@ -220,6 +220,37 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
 
   function sendToPeer(key: string, frame: Record<string, unknown>): void {
     server?.broadcastFrame(frame, { filterPeer: (p) => peerKey(p) === key });
+  }
+
+  /** Fan one watch envelope to every open inventory viewer port. */
+  function fanToTabsWatchers(message: TelemetryTabsWatchMessage): void {
+    for (const port of tabsWatchPorts.values()) port.postMessage(message);
+  }
+
+  /**
+   * Accept one `oh-tabs` viewer port — the workbench Sources rail's
+   * inventory watch. Every accept re-broadcasts `tabs.subscribe` to all
+   * peers: on the first port that opens the peers' watches; on a later
+   * port it makes each peer re-push its snapshot, which seeds the new
+   * viewer (snapshots are idempotent upserts, so existing viewers just
+   * fold a no-op). The LAST port's disconnect detaches every peer — the
+   * no-viewer → silence law on the inventory plane.
+   */
+  function acceptTabsPort(port: IncomingLifelinePort): boolean {
+    if (port.name !== TELEMETRY_TABS_PORT_NAME) return false;
+    const consumerId = `c${++consumerSeq}`;
+    tabsWatchPorts.set(consumerId, port);
+    if (tabsWatchPorts.size === 1) logger.info(SCOPE, 'tab-inventory watch opened');
+    // Same-device wires only, like every telemetry frame.
+    server?.broadcastFrame({ type: TELEMETRY_TABS_SUBSCRIBE_TYPE }, { loopbackOnly: true });
+    port.onDisconnect(() => {
+      tabsWatchPorts.delete(consumerId);
+      if (tabsWatchPorts.size === 0) {
+        logger.info(SCOPE, 'last tab-inventory viewer left — detaching peers');
+        server?.broadcastFrame({ type: TELEMETRY_TABS_DETACH_TYPE }, { loopbackOnly: true });
+      }
+    });
+    return true;
   }
 
   function forwardConsumer(key: string, tabId: number, consumerId: string, message: LifecycleConsumerMessage): void {
@@ -289,7 +320,9 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     const target = parseQualifiedLifecyclePortName(port.name);
     // Only real browser tabs ride the qualified shape — synthetic
     // partitions (the proxy sentinel) stay on their own acceptors.
-    if (target === null || target.tabId < 0) return acceptStoragePort(port) || acceptConsolePort(port);
+    if (target === null || target.tabId < 0) {
+      return acceptStoragePort(port) || acceptConsolePort(port) || acceptTabsPort(port);
+    }
     const key = watchKey(target.nodeId, target.tabId);
     const consumerId = `c${++consumerSeq}`;
     let entry = watches.get(key);
@@ -352,6 +385,30 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
     if (!slot) return;
     const payload = message.payload as TelemetryTabsListResponsePayload | undefined;
     slot.settle(payload && Array.isArray(payload.tabs) ? payload : null);
+  }
+
+  /** One peer's payload → the shared inventory row, identical for the
+   *  pulled read and the pushed watch. */
+  function peerTabsRow(payload: TelemetryTabsListResponsePayload, peer: PeerSummary): BrowserTelemetryPeerTabs {
+    return {
+      // `nodeId` on the inventory wire carries the STABLE qualifier —
+      // it is what the workbench passes back in qualified port names.
+      nodeId: peerKey(peer),
+      agent: peer.agent,
+      browser: payload.browser,
+      debug: payload.debug ?? DEBUG_UNAVAILABLE,
+      tabs: payload.tabs,
+      watchConsent: payload.watchConsent !== false,
+    };
+  }
+
+  /** One pushed inventory snapshot from a subscribed peer → upsert
+   *  envelope to every open viewer port. */
+  function handleTabsPush(message: Record<string, unknown>, peer: PeerSummary): void {
+    if (tabsWatchPorts.size === 0) return;
+    const payload = message.payload as TelemetryTabsListResponsePayload | undefined;
+    if (!payload || !Array.isArray(payload.tabs)) return;
+    fanToTabsWatchers({ kind: 'peer-tabs', peer: peerTabsRow(payload, peer) });
   }
 
   function handleDebugResponse(message: Record<string, unknown>, peer: PeerSummary): void {
@@ -418,6 +475,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
         type === TELEMETRY_LIFECYCLE_BATCH_TYPE ||
         type === TELEMETRY_CONSOLE_BATCH_TYPE ||
         type === TABS_LIST_RESPONSE_TYPE ||
+        type === TELEMETRY_TABS_PUSH_TYPE ||
         type === DEBUG_CONTROL_RESPONSE_TYPE ||
         type === STORAGE_CALL_RESPONSE_TYPE ||
         type === TELEMETRY_STORAGE_INVALIDATION_TYPE ||
@@ -429,6 +487,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
       if (message.type === TELEMETRY_LIFECYCLE_BATCH_TYPE) handleBatch(message, peer);
       else if (message.type === TELEMETRY_CONSOLE_BATCH_TYPE) handleConsoleBatch(message, peer);
       else if (message.type === TELEMETRY_HOST_READY_TYPE) rejoinPeerWatches(peer, 'telemetry host ready');
+      else if (message.type === TELEMETRY_TABS_PUSH_TYPE) handleTabsPush(message, peer);
       else if (message.type === DEBUG_CONTROL_RESPONSE_TYPE) handleDebugResponse(message, peer);
       else if (message.type === STORAGE_CALL_RESPONSE_TYPE) handleStorageResponse(message);
       else if (message.type === TELEMETRY_STORAGE_INVALIDATION_TYPE) handleStorageInvalidation(message, peer);
@@ -468,6 +527,12 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
         sendToPeer(entry.peerKey, { type: TELEMETRY_CONSOLE_CONSUMER_TYPE, tabId: entry.tabId, consumerId });
       }
     }
+    // The inventory watch rides the same lifecycle: a watched peer that
+    // (re)connects is re-subscribed, and its snapshot-on-subscribe push
+    // upserts it into every viewer's rail without a pull.
+    if (tabsWatchPorts.size > 0) {
+      sendToPeer(peerKey(peer), { type: TELEMETRY_TABS_SUBSCRIBE_TYPE });
+    }
   }
 
   return {
@@ -478,7 +543,14 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
       server = next;
       if (next) {
         unsubscribePeerChange = next.subscribePeerChange((event) => {
-          if (event.kind === 'connect') rejoinPeerWatches(event.peer, 'reconnected');
+          if (event.kind === 'connect') {
+            rejoinPeerWatches(event.peer, 'reconnected');
+            return;
+          }
+          // A closed wire drops the peer from every viewer's rail — an
+          // SW-eviction flap re-adds it via the reconnect's subscribe
+          // push, so consumers debounce the removal, not the relay.
+          fanToTabsWatchers({ kind: 'peer-gone', nodeId: peerKey(event.peer) });
         });
         // Peers already past handshake on an attached server (relay
         // installed after first bind) get their watches re-joined too.
@@ -507,21 +579,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
               const slot: PendingTabsSlot = {
                 settle(payload) {
                   clearTimeout(timer);
-                  // `nodeId` on the inventory wire carries the STABLE
-                  // qualifier — it is what the workbench passes back in
-                  // the qualified lifeline port name.
-                  resolve(
-                    payload
-                      ? {
-                          nodeId: key,
-                          agent: peer.agent,
-                          browser: payload.browser,
-                          debug: payload.debug ?? DEBUG_UNAVAILABLE,
-                          tabs: payload.tabs,
-                          watchConsent: payload.watchConsent !== false,
-                        }
-                      : null,
-                  );
+                  resolve(payload ? peerTabsRow(payload, peer) : null);
                 },
               };
               const timer = setTimeout(() => {
@@ -608,6 +666,7 @@ export function createBrowserLiveRelay(): BrowserLiveRelay {
       watches.clear();
       storageWatches.clear();
       consoleWatches.clear();
+      tabsWatchPorts.clear();
     },
   };
 }

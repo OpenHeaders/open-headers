@@ -61,6 +61,7 @@ import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { startTelemetryStreamHost } from '../telemetry-stream-host';
 import { startTelemetryConsoleHost } from '../telemetry-stream-host/console-host';
 import { startTelemetryStorageHost } from '../telemetry-stream-host/storage-host';
+import { startTabInventoryHost } from '../telemetry-stream-host/tab-inventory';
 import { debouncedUpdateBadge } from './badge-update';
 import { setCdpMasterSwitch } from './cdp-master-switch';
 
@@ -407,33 +408,43 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // hub + floors + provenance + body fetcher served over the backend
   // wire — a forwarded workbench subscribe raises the tracking ref and
   // streams tick-batched lifecycle envelopes; loopback wires only.
+  // Debug-mode seam for the desktop's per-tab fidelity affordance:
+  // state + pins feed off the ONE attach reconciler; the master
+  // switch writes through the SETTING so every surface reflects it.
+  // Omitted where the browser has no CDP — the hosts then report
+  // `available: false` and drop control commands. Shared by the stream
+  // host (control replies + inventory reads) and the inventory watch
+  // (whose `onChange` pushes converge the desktop's Debug indicators
+  // the moment an attach commits).
+  const telemetryDebugSeam = hasCapability('cdpInspection')
+    ? {
+        getState: () => {
+          const state = cdpAttachController.getState();
+          return {
+            available: true,
+            enabled: state.enabled,
+            attachedTabs: [...state.attachedTabs],
+            pinnedTabs: [...state.pinnedTabs],
+          };
+        },
+        setPin: (tabId: number, pinned: boolean) =>
+          pinned ? cdpAttachController.notePinned(tabId) : cdpAttachController.noteUnpinned(tabId),
+        setEnabled: (enabled: boolean) => setCdpMasterSwitch(enabled),
+        onChange: (listener: () => void) => cdpAttachController.onChange(() => listener()),
+      }
+    : undefined;
   startTelemetryStreamHost({
     hub: lifecycleHub,
     ready: sessionFloors.ready,
     provenance: lifecycleHost.router,
     bodyFetcher: lifecycleBodyFetcher,
-    // Debug-mode seam for the desktop's per-tab fidelity affordance:
-    // state + pins feed off the ONE attach reconciler; the master
-    // switch writes through the SETTING so every surface reflects it.
-    // Omitted where the browser has no CDP — the host then reports
-    // `available: false` and drops control commands.
-    debug: hasCapability('cdpInspection')
-      ? {
-          getState: () => {
-            const state = cdpAttachController.getState();
-            return {
-              available: true,
-              enabled: state.enabled,
-              attachedTabs: [...state.attachedTabs],
-              pinnedTabs: [...state.pinnedTabs],
-            };
-          },
-          setPin: (tabId, pinned) =>
-            pinned ? cdpAttachController.notePinned(tabId) : cdpAttachController.noteUnpinned(tabId),
-          setEnabled: (enabled) => setCdpMasterSwitch(enabled),
-        }
-      : undefined,
+    debug: telemetryDebugSeam,
   });
+  // The push half of the inventory plane: while the desktop's Sources
+  // rail is open the daemon holds a tabs subscription here, and every
+  // tab/Debug/consent change lands as a debounced snapshot push — the
+  // rail updates the instant a tab opens or closes, no manual refresh.
+  startTabInventoryHost({ debug: telemetryDebugSeam });
 
   // Page stream: two sources, one per tab-owner (same ownership the request
   // correlators route on). CDP-owned tabs take pages from the CDP

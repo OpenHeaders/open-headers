@@ -37,9 +37,22 @@ export const TELEMETRY_LIFECYCLE_CONSUMER_TYPE = 'oh.telemetry.lifecycle.consume
 export const TELEMETRY_LIFECYCLE_DETACH_TYPE = 'oh.telemetry.lifecycle.detach' as const;
 export const TELEMETRY_LIFECYCLE_BATCH_TYPE = 'oh.telemetry.lifecycle.batch' as const;
 export const TELEMETRY_TABS_LIST_TYPE = 'oh.telemetry.tabs.list' as const;
+export const TELEMETRY_TABS_SUBSCRIBE_TYPE = 'oh.telemetry.tabs.subscribe' as const;
+export const TELEMETRY_TABS_DETACH_TYPE = 'oh.telemetry.tabs.detach' as const;
+export const TELEMETRY_TABS_PUSH_TYPE = 'oh.telemetry.tabs.push' as const;
 export const TELEMETRY_HOST_READY_TYPE = 'oh.telemetry.host.ready' as const;
 export const TELEMETRY_DEBUG_CONTROL_TYPE = 'oh.telemetry.debug.control' as const;
 export const TELEMETRY_WATCH_REFUSED_TYPE = 'oh.telemetry.watch.refused' as const;
+
+/**
+ * The workbench-side tab-inventory watch lifeline. Unqualified on
+ * purpose — the inventory spans EVERY connected peer, so the watch has
+ * no `<tabId>@<nodeId>` partition to name. While at least one port is
+ * open the host's relay holds a tabs subscription on every peer;
+ * the last disconnect releases them (the no-viewer → silence law,
+ * applied to the inventory plane).
+ */
+export const TELEMETRY_TABS_PORT_NAME = 'oh-tabs' as const;
 
 /** Which telemetry plane a refusal addresses. */
 export type TelemetryWatchPlane = 'lifecycle' | 'storage' | 'console';
@@ -101,6 +114,36 @@ export interface TelemetryLifecycleBatchMessage {
 /** Host → extension: browser-tab inventory request (reply on `<type>:response`). */
 export interface TelemetryTabsListMessage {
   type: typeof TELEMETRY_TABS_LIST_TYPE;
+}
+
+/**
+ * Host → extension: open this wire's tab-inventory watch. The extension
+ * answers with an immediate {@link TelemetryTabsPushMessage} snapshot
+ * and keeps pushing debounced snapshots on every tab, Debug-posture, or
+ * consent change until the watch is detached or the wire closes.
+ * Idempotent — a re-subscribe on an already-watched wire just re-pushes
+ * the current snapshot (the relay uses this to seed a late-joining
+ * workbench viewer).
+ */
+export interface TelemetryTabsSubscribeMessage {
+  type: typeof TELEMETRY_TABS_SUBSCRIBE_TYPE;
+}
+
+/** Host → extension: close this wire's tab-inventory watch. */
+export interface TelemetryTabsDetachMessage {
+  type: typeof TELEMETRY_TABS_DETACH_TYPE;
+}
+
+/**
+ * Extension → host: one full inventory snapshot for this browser —
+ * the same payload the request/response read answers with, pushed
+ * whenever the inventory changes while a watch is open. Full-state on
+ * purpose: snapshots are idempotent upserts, so a dropped frame heals
+ * on the next change instead of desyncing a delta stream.
+ */
+export interface TelemetryTabsPushMessage {
+  type: typeof TELEMETRY_TABS_PUSH_TYPE;
+  payload: TelemetryTabsListResponsePayload;
 }
 
 /**
@@ -198,11 +241,40 @@ export interface TelemetryTabsListResponsePayload {
   watchConsent?: boolean;
 }
 
+/**
+ * One connected browser peer's inventory, as the host relay projects it
+ * to workbench viewers: the peer's snapshot payload joined with its
+ * authenticated wire identity. `nodeId` carries the STABLE partition
+ * qualifier (the HELLO `installId` when the peer sends one) — the same
+ * value the workbench passes back in qualified lifeline port names.
+ */
+export interface TelemetryPeerTabsWire {
+  nodeId: string;
+  agent: string;
+  browser: TelemetryBrowserIdentity;
+  debug: TelemetryDebugState;
+  tabs: ReadonlyArray<BrowserTabWire>;
+  watchConsent: boolean;
+}
+
+/**
+ * Host relay → workbench viewer, on the {@link TELEMETRY_TABS_PORT_NAME}
+ * lifeline: per-peer inventory upserts as pushes arrive, and a
+ * `peer-gone` when a peer's wire closes. Consumers key on `nodeId` —
+ * a `peer-tabs` replaces that peer's whole entry.
+ */
+export type TelemetryTabsWatchMessage =
+  | { kind: 'peer-tabs'; peer: TelemetryPeerTabsWire }
+  | { kind: 'peer-gone'; nodeId: string };
+
 export type TelemetryStreamMessage =
   | TelemetryLifecycleConsumerMessage
   | TelemetryLifecycleDetachMessage
   | TelemetryLifecycleBatchMessage
   | TelemetryTabsListMessage
+  | TelemetryTabsSubscribeMessage
+  | TelemetryTabsDetachMessage
+  | TelemetryTabsPushMessage
   | TelemetryHostReadyMessage
   | TelemetryDebugControlMessage
   | TelemetryWatchRefusedMessage;

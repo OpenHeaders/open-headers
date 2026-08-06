@@ -381,6 +381,7 @@ function makeFakeTap(): TrafficTap & FakeTapControls {
     captureStart: () => ({ ok: false, reason: 'capture-unavailable' }),
     captureStop: () => null,
     captureSessions: () => [...capturing].map(captureProjection),
+    onStatusChanged: () => () => undefined,
     status: () => [...rowsByUid].map(([uid, rows]) => sourceStatus(uid, rows)),
     records: (uid: string, options?: TrafficRecordsOptions) => {
       const rows = rowsByUid.get(uid);

@@ -431,8 +431,9 @@ test('the daemon inventories the connected browser tabs', async () => {
 
 test('the Live Network window streams a watched playground tab live', async () => {
   await setToolWindowOpen(true);
-  await workbench.locator('[data-testid="traffic-monitor-refresh"]').click();
-  await expect(workbench.locator('[data-testid="traffic-monitor-peers"]')).toHaveText('Connected browsers: 1');
+  await expect(workbench.locator('[data-testid="traffic-monitor-peers"]')).toHaveText('Connected browsers: 1', {
+    timeout: 15000,
+  });
 
   await pickPlaygroundTab();
 

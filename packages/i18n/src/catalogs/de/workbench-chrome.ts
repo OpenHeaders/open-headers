@@ -559,7 +559,6 @@ export const workbenchChrome = {
   // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
   'workbench.trafficMonitor.browserConnected': 'Verbundene Browser: {count}',
   'workbench.trafficMonitor.noBrowser': 'Kein Browser verbunden',
-  'workbench.trafficMonitor.refreshTabs': 'Tab-Liste aktualisieren',
   'workbench.trafficMonitor.untitledTab': 'Unbenannter Tab',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',

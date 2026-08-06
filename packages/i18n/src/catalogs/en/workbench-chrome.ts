@@ -542,7 +542,6 @@ export const workbenchChrome = {
   // ── Traffic Monitor tool window (unified observability surface) ─────
   'workbench.trafficMonitor.browserConnected': 'Connected browsers: {count}',
   'workbench.trafficMonitor.noBrowser': 'No browser connected',
-  'workbench.trafficMonitor.refreshTabs': 'Refresh tab list',
   'workbench.trafficMonitor.untitledTab': 'Untitled tab',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Waiting for traffic…',

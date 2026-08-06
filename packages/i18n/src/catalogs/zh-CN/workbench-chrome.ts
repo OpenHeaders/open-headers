@@ -534,7 +534,6 @@ export const workbenchChrome = {
   // ── 流量监视工具窗口（统一可观测性界面） ────────────────────────────
   'workbench.trafficMonitor.browserConnected': '已连接浏览器：{count}',
   'workbench.trafficMonitor.noBrowser': '未连接浏览器',
-  'workbench.trafficMonitor.refreshTabs': '刷新标签页列表',
   'workbench.trafficMonitor.untitledTab': '无标题标签页',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': '等待流量…',

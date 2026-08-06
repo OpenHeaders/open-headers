@@ -224,11 +224,6 @@ async function setToolWindowOpen(open: boolean): Promise<void> {
   }
 }
 
-/** Re-pull the rail's tab inventory through its refresh affordance. */
-async function refreshRail(): Promise<void> {
-  await workbench.locator('[data-testid="traffic-monitor-refresh"]').first().click();
-}
-
 /** The playground tab's rail row, identified by the page title. */
 function playgroundRow() {
   return workbench.locator('[data-testid="traffic-monitor-source-tab"]').filter({ hasText: PLAYGROUND_TITLE }).first();
@@ -456,17 +451,10 @@ test.afterAll(async () => {
 test('the rail lists the Chrome peer with the Debug-mode switch and per-tab bug affordance', async () => {
   await setToolWindowOpen(true);
 
-  // The peer lands in the inventory once its wire is up — re-pull until
-  // it does.
+  // The peer lands in the inventory once its wire is up — the panel's
+  // tabs watch pushes it into the rail.
   await expect
-    .poll(
-      async () => {
-        const count = await workbench.locator('[data-testid="traffic-monitor-peer"]').count();
-        if (count === 0) await refreshRail();
-        return count;
-      },
-      { timeout: 30000 },
-    )
+    .poll(async () => await workbench.locator('[data-testid="traffic-monitor-peer"]').count(), { timeout: 30000 })
     .toBeGreaterThan(0);
 
   // Chrome reports `debug.available` — the master switch renders on the
@@ -543,18 +531,15 @@ test('flipping Debug mode from the rail writes the extension setting and attache
   });
   await pill.close();
 
-  // The pinned tab attaches (banner handshake commits async) — the rail
-  // converges to the filled-bug state on re-pull.
+  // The pinned tab attaches (banner handshake commits async) — the
+  // reconciler's change push converges the rail to the filled-bug state.
   await expect
     .poll(
-      async () => {
-        const attached = await playgroundDebugAffordance()
+      async () =>
+        await playgroundDebugAffordance()
           .locator('.anticon-bug')
           .count()
-          .catch(() => 0);
-        if (attached === 0) await refreshRail();
-        return attached;
-      },
+          .catch(() => 0),
       { timeout: 30000 },
     )
     .toBeGreaterThan(0);
@@ -736,17 +721,10 @@ test('un-pinning from the rail detaches and returns the row to the ghost state',
   await playgroundRow().hover();
   await playgroundDebugAffordance().click();
 
-  // Snapshot patch drops the pin; the detach commits async — converge on
-  // re-pull to the un-pressed hover-ghost state.
+  // Snapshot patch drops the pin; the detach commits async — the change
+  // push converges the affordance to the un-pressed hover-ghost state.
   await expect
-    .poll(
-      async () => {
-        const pressed = await playgroundDebugAffordance().getAttribute('aria-pressed');
-        if (pressed !== 'false') await refreshRail();
-        return pressed;
-      },
-      { timeout: 30000 },
-    )
+    .poll(async () => await playgroundDebugAffordance().getAttribute('aria-pressed'), { timeout: 30000 })
     .toBe('false');
 });
 

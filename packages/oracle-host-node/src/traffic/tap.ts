@@ -251,6 +251,15 @@ export interface TrafficTap {
   /** Every session this tap started — active first, then the last
    *  {@link STOPPED_CAPTURES_KEPT} ended ones, newest-ended last. */
   captureSessions(): TrafficCaptureSessionProjection[];
+  /**
+   * Subscribe to source/capture state transitions: arm, disarm (idle
+   * expiry included), a refused watch, capture start/stop, and a
+   * stopped session's seal completing. Fired AFTER the transition
+   * commits, so a listener reading `status()` / `captureSessions()`
+   * sees the new state — the invalidation feed UI surfaces re-read on
+   * instead of polling. Returns the unsubscribe.
+   */
+  onStatusChanged(listener: () => void): () => void;
   /** Disarm everything. Idempotent. */
   dispose(): void;
 }
@@ -322,6 +331,13 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
    *  state (`sealing` → `sealed`) instead of a stale snapshot. */
   const stoppedCaptures: TrafficSessionRecording[] = [];
   let captureSeq = 0;
+  const statusListeners = new Set<() => void>();
+
+  /** One post-commit tick per source/capture transition — the
+   *  invalidation feed the workbench's rail converges on. */
+  function notifyStatusChanged(): void {
+    for (const listener of [...statusListeners]) listener();
+  }
 
   /** An ended session leaves the source and joins the bounded ended
    *  list; the arm's idle clock restarts so a source held warm by its
@@ -333,6 +349,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     stoppedCaptures.push(capture);
     while (stoppedCaptures.length > STOPPED_CAPTURES_KEPT) stoppedCaptures.shift();
     source.expiresAtMs = Date.now() + source.ttlMs;
+    notifyStatusChanged();
   }
 
   function disarm(uid: string): boolean {
@@ -350,6 +367,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     for (const waiter of waiters) waiter.settle({ ok: false, reason: 'source-disarmed' });
     sources.delete(uid);
     logger.info(SCOPE, `disarmed ${uid}`);
+    notifyStatusChanged();
     return true;
   }
 
@@ -462,7 +480,10 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
         initialProvenance: 'heuristic',
         onWatchRefused: () => {
           const live = sources.get(uid);
-          if (live !== undefined) live.state = 'refused';
+          if (live !== undefined) {
+            live.state = 'refused';
+            notifyStatusChanged();
+          }
         },
         onFailure: (_tabId, requestId, finalHopIndex) => pullFailureBody(uid, requestId, finalHopIndex),
         onRecord: (recordTabId, requestId) => notifyRecord(uid, recordTabId, requestId),
@@ -495,6 +516,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
     }
     source.connection = connection;
     logger.info(SCOPE, `armed ${uid}`);
+    notifyStatusChanged();
     return uid;
   }
 
@@ -532,6 +554,7 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
       ...(deps.proxyServeRequestBody !== undefined ? { serveBody: deps.proxyServeRequestBody } : {}),
     });
     logger.info(SCOPE, `armed ${uid}`);
+    notifyStatusChanged();
     return uid;
   }
 
@@ -590,12 +613,17 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
             const live = sources.get(uid);
             if (live !== undefined) retireCapture(live);
           },
+          // A stopped session seals in the background — the completed
+          // seal is a projection transition (`sealing` → `sealed`) the
+          // invalidation feed must carry like any other.
+          onSealed: () => notifyStatusChanged(),
         });
       } catch (err) {
         logger.warn(SCOPE, `capture start failed for ${uid}: ${(err as Error).message}`);
         return { ok: false, reason: 'capture-unavailable' };
       }
       source.capture = session;
+      notifyStatusChanged();
       return { ok: true, session: session.projection() };
     },
     captureStop(uid) {
@@ -720,9 +748,16 @@ export function createTrafficTap(deps: TrafficTapDeps): TrafficTap {
         source.recordWaiters.add(waiter);
       });
     },
+    onStatusChanged(listener) {
+      statusListeners.add(listener);
+      return () => {
+        statusListeners.delete(listener);
+      };
+    },
     dispose() {
       clearInterval(sweepTimer);
       for (const uid of [...sources.keys()]) disarm(uid);
+      statusListeners.clear();
     },
   };
 }

@@ -94,6 +94,9 @@ export interface TrafficSessionStartOptions {
   readonly bounds: TrafficCaptureBounds;
   readonly pullBody: (requestId: string, hopIndex: number) => void;
   readonly onAutoStop?: (reason: TrafficCaptureEndReason) => void;
+  /** Fired when a stopped session's background seal completes — the
+   *  archive composes it with its own retention enforcement. */
+  readonly onSealed?: () => void;
 }
 
 /** One archive index row: the directory-basename id (the archive-wide
@@ -342,7 +345,10 @@ export function createTrafficSessionArchive(options: TrafficSessionArchiveOption
         sealKey: options.sealKey,
         pullBody: startOptions.pullBody,
         ...(startOptions.onAutoStop !== undefined ? { onAutoStop: startOptions.onAutoStop } : {}),
-        onSealed: () => void scheduleMaintenance(enforceRetentionNow),
+        onSealed: () => {
+          startOptions.onSealed?.();
+          void scheduleMaintenance(enforceRetentionNow);
+        },
       });
     },
     recoverAtBoot() {

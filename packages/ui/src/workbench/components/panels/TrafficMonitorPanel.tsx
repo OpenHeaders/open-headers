@@ -29,7 +29,13 @@ import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { JsContext } from '@openheaders/core/js-contexts';
 import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
-import { qualifiedConsolePortName, type TelemetryDebugCommand, type TelemetryDebugState } from '@openheaders/core/protocol';
+import {
+  qualifiedConsolePortName,
+  TELEMETRY_TABS_PORT_NAME,
+  type TelemetryDebugCommand,
+  type TelemetryDebugState,
+  type TelemetryTabsWatchMessage,
+} from '@openheaders/core/protocol';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
 import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type React from 'react';
@@ -39,6 +45,7 @@ import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/doc
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { ConsoleView, type RemoteConsoleCapture } from '../../../panel/components/ConsoleView';
 import { NetworkCaptureView, type WireJoinSeam } from '../../../panel/components/NetworkCaptureView';
+import { useLifelineClient } from '../../../panel/data/use-lifeline-client';
 import { getWireSeen } from '../../../panel/data/wire-seen-store';
 import {
   StoragePanel,
@@ -152,6 +159,15 @@ const lastPanelState: {
 
 /** Reported for a peer that vanished from the inventory mid-selection. */
 const DEBUG_NONE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
+
+/** The inventory watch has no tab partition — a fixed synthetic id
+ *  binds the shared lifeline hook (the proxy-source posture). */
+const TABS_WATCH_TAB_ID = 0;
+
+/** How long a `peer-gone` removal lingers before applying, so an
+ *  SW-eviction flap's reconnect push cancels it instead of the rail
+ *  flashing empty. */
+const PEER_GONE_LINGER_MS = 1500;
 
 /**
  * Debug-mode state a start-observing gesture changed, per source key —
@@ -272,33 +288,64 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     void reload();
   }, [reload]);
 
-  // Peer connect/disconnect invalidation: the daemon's sync-status
-  // reporter re-emits on every WS peer change, so the `statusUpdated`
-  // broadcast doubles as the rail's refresh signal — a closed browser
-  // drops out of the inventory without a manual refresh. Debounced: an
-  // SW-eviction flap fires disconnect+connect within a breath, and the
-  // trailing reload sees the settled peer set.
-  const lastPeerSignal = useRef<string | null>(null);
+  // Live inventory watch: while the panel is mounted the daemon relay
+  // holds a tabs subscription on every extension peer, and each tab /
+  // Debug-posture / consent change lands here as a pushed per-peer
+  // snapshot — the rail updates the instant a tab opens or closes. The
+  // mount-time pull above stays the baseline (it answers definitively,
+  // zero-peer case included); pushes are idempotent upserts on top.
+  //
+  // `peer-gone` removals linger briefly: a service-worker eviction
+  // drops the wire and reconnects within a breath, and the reconnect's
+  // snapshot push cancels the pending removal instead of the rail
+  // flashing empty.
+  const peerGoneTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribe = hostBridge.subscribe('statusUpdated', (snapshot) => {
-      const sync = snapshot.sync;
-      if (!sync) return;
-      const count = sync.context?.peerCount;
-      const signal = typeof count === 'number' ? `peers:${count}` : `state:${sync.state}`;
-      if (lastPeerSignal.current === signal) return;
-      lastPeerSignal.current = signal;
-      if (timer !== null) clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        void reload();
-      }, 300);
-    });
+    const timers = peerGoneTimers.current;
     return () => {
-      unsubscribe();
-      if (timer !== null) clearTimeout(timer);
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
     };
-  }, [reload]);
+  }, []);
+  const onTabsWatchMessage = useCallback((message: TelemetryTabsWatchMessage) => {
+    if (message.kind === 'peer-tabs') {
+      const pendingGone = peerGoneTimers.current.get(message.peer.nodeId);
+      if (pendingGone !== undefined) {
+        clearTimeout(pendingGone);
+        peerGoneTimers.current.delete(message.peer.nodeId);
+      }
+      const next: RailPeer = {
+        nodeId: message.peer.nodeId,
+        agent: message.peer.agent,
+        browser: message.peer.browser,
+        debug: message.peer.debug,
+        tabs: [...message.peer.tabs],
+        watchConsent: message.peer.watchConsent,
+      };
+      setPeers((prev) => {
+        const index = prev.findIndex((peer) => peer.nodeId === next.nodeId);
+        if (index < 0) return [...prev, next];
+        const updated = [...prev];
+        updated[index] = next;
+        return updated;
+      });
+      return;
+    }
+    const existing = peerGoneTimers.current.get(message.nodeId);
+    if (existing !== undefined) clearTimeout(existing);
+    peerGoneTimers.current.set(
+      message.nodeId,
+      setTimeout(() => {
+        peerGoneTimers.current.delete(message.nodeId);
+        setPeers((prev) => prev.filter((peer) => peer.nodeId !== message.nodeId));
+      }, PEER_GONE_LINGER_MS),
+    );
+  }, []);
+  useLifelineClient<TelemetryTabsWatchMessage>({
+    portName: () => TELEMETRY_TABS_PORT_NAME,
+    tabId: TABS_WATCH_TAB_ID,
+    handler: onTabsWatchMessage,
+  });
 
   // Debug-mode control (per-tab pin / master switch) relayed to the
   // owning extension peer. The reply's snapshot patches the rail
@@ -374,10 +421,11 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   // Agent-observation arming (AGENT_TRAFFIC_PLAN.md §4 S2): the rail's
   // per-source affordance drives the daemon tap's operator plane. The
-  // armed set is re-read on every inventory reload and on a slow poll —
-  // idle arms expire host-side (`expiresAtMs`), and reading status
-  // deliberately does NOT extend them, so the poll converges the eye
-  // icon after a lapse instead of keeping the source warm.
+  // armed set re-reads on the tap's `trafficStatusChanged` nudges —
+  // idle arms expire host-side (`expiresAtMs`), the sweep's disarm
+  // nudges too, and reading status deliberately does NOT extend an arm,
+  // so the eye icon converges after a lapse instead of keeping the
+  // source warm.
   const [observeArmed, setObserveArmed] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [observePending, setObservePending] = useState<ReadonlySet<string>>(() => new Set());
   // Sources an ACTIVE disk capture session is recording (S7) — the
@@ -415,10 +463,26 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
       setCaptureSessions([]);
     }
   }, []);
+  // Armed/capture state is event-driven: the tap's invalidation feed
+  // (`trafficStatusChanged` — arm, disarm, idle expiry, capture
+  // start/stop/seal) nudges a re-read of the same status RPCs the
+  // mount reads, debounced because one observe gesture commits several
+  // transitions back-to-back. No poll: every transition the tap can
+  // undergo emits a nudge, expiry via its sweep included.
   useEffect(() => {
     void reloadArmed();
-    const timer = setInterval(() => void reloadArmed(), 15_000);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = hostBridge.subscribe('trafficStatusChanged', () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void reloadArmed();
+      }, 150);
+    });
+    return () => {
+      unsubscribe();
+      if (timer !== null) clearTimeout(timer);
+    };
   }, [reloadArmed]);
 
   // One handler for the observe popover's two verbs (PLAN §11.1 — one
@@ -1051,10 +1115,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
         <TrafficMonitorSourceRail
           peers={peers}
           loading={loading}
-          onRefresh={() => {
-            void reload();
-            void reloadArmed();
-          }}
           showWire={showWire}
           wireRunning={proxy.status?.running === true}
           wirePort={proxy.status?.boundPort ?? null}
