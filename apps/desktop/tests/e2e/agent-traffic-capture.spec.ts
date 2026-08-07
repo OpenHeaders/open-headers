@@ -37,6 +37,10 @@
  *      the rail (no rows, no reveal-in-folder — disk location is an
  *      abstraction); an active session shows one live row whose stop
  *      seals it, after which the row retires.
+ *   8. Source tab row (S25): rail clicks open-or-activate per-source
+ *      tabs on the panel's header line; the active tab drives the
+ *      plane views; closing a tab activates its neighbor and closing
+ *      the last restores the no-source hero.
  *
  * Requires builds: `pnpm --filter @openheaders/desktop build` and the
  * extension `dist/chrome` (built separately). The playground dev server
@@ -626,4 +630,50 @@ test('the rail lists no session rows and the SESSIONS row opens the archive wind
     'true',
     { timeout: 10000 },
   );
+});
+
+// ── The source tab row (S25): rail opens tabs, tabs drive the planes ─
+
+test('rail clicks open per-source tabs on the header row, the active tab drives the planes, close retires', async () => {
+  await openTrafficMonitor();
+  const pills = workbench.locator('[data-testid="traffic-monitor-tab"]');
+  await expect(pills).toHaveCount(0);
+
+  // Rail click opens the source's tab and activates it; the plane
+  // column binds to the tab source (stacked panes, no empty hero).
+  const row = workbench.locator('[data-testid="traffic-monitor-source-tab"]', { hasText: 'Session archive' }).first();
+  await row.click();
+  await expect(pills).toHaveCount(1);
+  await expect(pills.first()).toHaveAttribute('data-tab-active', 'true');
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toBeVisible();
+  await expect(workbench.locator('[data-testid="traffic-monitor-empty-hero"]')).toHaveCount(0);
+
+  // The wire row opens a SECOND tab; activation switches the planes to
+  // the wire view (capture strip present, tab-only panes gone).
+  await workbench.locator('[data-testid="traffic-monitor-source-wire"]').click();
+  await expect(pills).toHaveCount(2);
+  await expect(pills.nth(1)).toHaveAttribute('data-tab-active', 'true');
+  await expect(workbench.locator('[data-testid="proxy-routing-trigger"]')).toBeVisible();
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toHaveCount(0);
+
+  // Re-clicking an already-open source activates, never duplicates.
+  await row.click();
+  await expect(pills).toHaveCount(2);
+  await expect(pills.first()).toHaveAttribute('data-tab-active', 'true');
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toBeVisible();
+
+  // Clicking a pill switches the planes without touching the rail.
+  await pills.nth(1).click();
+  await expect(pills.nth(1)).toHaveAttribute('data-tab-active', 'true');
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toHaveCount(0);
+
+  // Closing the ACTIVE tab activates the neighbor that slid into its
+  // slot; closing the last restores the no-source hero.
+  await pills.nth(1).locator('[data-testid="traffic-monitor-tab-close"]').click();
+  await expect(pills).toHaveCount(1);
+  await expect(pills.first()).toHaveAttribute('data-tab-active', 'true');
+  await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toBeVisible();
+  await pills.first().locator('[data-testid="traffic-monitor-tab-close"]').click();
+  await expect(pills).toHaveCount(0);
+  await expect(workbench.locator('[data-testid="traffic-monitor-empty-hero"]')).toBeVisible();
 });

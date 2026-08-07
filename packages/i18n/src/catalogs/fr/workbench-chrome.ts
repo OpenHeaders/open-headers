@@ -565,6 +565,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.browserConnected': 'Navigateurs connectés : {count}',
   'workbench.trafficMonitor.noBrowser': 'Aucun navigateur connecté',
   'workbench.trafficMonitor.untitledTab': 'Onglet sans titre',
+  'workbench.trafficMonitor.closeSourceTab': 'Fermer l’onglet',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',
   'workbench.trafficMonitor.emptyWatchingHint':

@@ -3,11 +3,14 @@
  * ONE observability surface with a source dimension, replacing the
  * former Proxy and Live Network windows.
  *
- * Layout: plane views on the left, the {@link TrafficMonitorSourceRail} on the
- * right. The rail lists every observable source — connected browser
- * peers' tabs (the daemon's telemetry inventory) and the wire-capture
- * partition (the L7 proxy). Selecting a source binds the left side to
- * it:
+ * Layout: the {@link TrafficMonitorSourceRail} on the left, plane views on
+ * the right, split by ONE full-height divider (the workbench's
+ * inter-panel gutter) that runs from the card's top — through the
+ * shared 32 px header row — to its bottom. The header row carries the
+ * panel title left of the divider and the {@link TrafficMonitorTabStrip}
+ * right of it: every open source is a tab (one per observed browser
+ * tab, one for the wire partition), rail clicks open-or-activate, and
+ * the active tab binds the plane views:
  *
  *   - a browser tab renders the shared {@link NetworkCaptureView} on
  *     that tab's QUALIFIED lifeline (`oh-lifecycle:<tabId>@<nodeId>`,
@@ -40,8 +43,8 @@ import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle'
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { ConsoleView, type RemoteConsoleCapture } from '../../../panel/components/ConsoleView';
 import { NetworkCaptureView, type WireJoinSeam } from '../../../panel/components/NetworkCaptureView';
 import { useLifelineClient } from '../../../panel/data/use-lifeline-client';
@@ -68,6 +71,7 @@ import {
   trafficStorageHandle,
 } from '../../data/traffic-storage-host';
 import { subscribeTrafficStorageReveal, takeTrafficStorageReveal } from '../../data/traffic-storage-reveal';
+import { useIsDockFocused } from '../../stores/focus-region-store';
 import type { LiveStorageDocRef, WorkbenchTab } from '../../types';
 import {
   type ObserveAction,
@@ -81,9 +85,13 @@ import {
   WIRE_SOURCE_KEY,
 } from './TrafficMonitorSourceRail';
 import { ProxyCaptureStrip, useProxyCaptureStatus } from './ProxyCaptureStrip';
+import TrafficMonitorTabStrip, { type TrafficStripTab } from './TrafficMonitorTabStrip';
 
 export interface TrafficMonitorPanelProps {
   info: InfoPopoverContent;
+  /** Dock slot this panel rides — drives blue-vs-grey active-pill
+   *  highlighting on the source tab strip (editor focus posture). */
+  dockSlot: DockSlot;
   onHide: () => void;
   /** Open a wire-capture row's inspector as a main editor tab. */
   onOpenProxyRequest: (requestId: string, label: string) => void;
@@ -139,6 +147,7 @@ const FIXED_PANE_MIN_HEIGHT = 28;
 const lastPanelState: {
   selectedKey: string | null;
   tabSelection: TabSelection | null;
+  openTabs: TrafficStripTab[];
   railWidth: number;
   networkCollapsed: boolean;
   storageHeight: number;
@@ -148,6 +157,7 @@ const lastPanelState: {
 } = {
   selectedKey: null,
   tabSelection: null,
+  openTabs: [],
   railWidth: RAIL_DEFAULT_WIDTH,
   networkCollapsed: false,
   storageHeight: STORAGE_PANE_DEFAULT_HEIGHT,
@@ -155,6 +165,11 @@ const lastPanelState: {
   consoleHeight: CONSOLE_PANE_DEFAULT_HEIGHT,
   consoleCollapsed: true,
 };
+
+/** The panel header's own left padding — the header's title cell is
+ *  sized to `railWidth` minus this inset so the divider segment on the
+ *  header row lands exactly over the body divider below it. */
+const PANEL_HEADER_LEFT_PAD = 12;
 
 /** Reported for a peer that vanished from the inventory mid-selection. */
 const DEBUG_NONE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
@@ -241,6 +256,7 @@ const WIRE_VIEW_JOIN: WireJoinSeam = { mode: 'wire' };
 
 const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   info,
+  dockSlot,
   onHide,
   onOpenProxyRequest,
   onOpenLiveRequest,
@@ -251,6 +267,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 }) => {
   const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
+  const dockFocused = useIsDockFocused(dockSlot);
   const showWire = hasCapability('proxyCapture');
   const proxy = useProxyCaptureStatus();
 
@@ -258,6 +275,11 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(() => lastPanelState.selectedKey);
   const [tabSelection, setTabSelection] = useState<TabSelection | null>(() => lastPanelState.tabSelection);
+  const [openTabs, setOpenTabs] = useState<TrafficStripTab[]>(() => lastPanelState.openTabs);
+  // Vanished-source retirement waits for the first definitive inventory
+  // answer — without the gate, a remount's empty pre-fetch `peers`
+  // would wipe the persisted tab list before the baseline pull lands.
+  const inventoryReady = useRef(false);
 
   const reload = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -273,9 +295,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           watchConsent: peer.watchConsent !== false,
         })),
       );
-      // A picked tab that disappeared from the inventory (closed,
-      // browser gone) stays selected — the lifeline keeps replaying the
-      // engine's view until upstream clears it; the user re-picks.
+      inventoryReady.current = true;
     } catch {
       setPeers([]);
     } finally {
@@ -579,34 +599,133 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   // and highlight the twin row once the tab view mounts.
   const [pendingTabHighlight, setPendingTabHighlight] = useState<string | null>(null);
 
-  const onSelect = useCallback(
-    (key: string) => {
+  // ── The source tab row (S25): every open source is a tab on the
+  // header line. Rail clicks (and jump/reveal intents) open-or-activate
+  // — editor sidebar semantics; the active tab drives the plane views.
+  const openSource = useCallback(
+    (key: string, selection: TabSelection | null) => {
+      setOpenTabs((prev) => {
+        if (prev.some((entry) => entry.key === key)) return prev;
+        const found = key === WIRE_SOURCE_KEY ? null : findTab(key);
+        const entry: TrafficStripTab = {
+          key,
+          label: found ? found.tab.title || found.tab.url : '',
+          ...(found?.tab.favIconUrl !== undefined ? { favIconUrl: found.tab.favIconUrl } : {}),
+          ...(selection !== null ? { nodeId: selection.nodeId, tabId: selection.tabId } : {}),
+        };
+        return [...prev, entry];
+      });
       setSelectedKey(key);
-      setPendingTabHighlight(null);
-      if (key === WIRE_SOURCE_KEY) {
-        setTabSelection(null);
-        return;
-      }
-      for (const peer of peers) {
-        for (const tab of peer.tabs) {
-          if (tabSourceKey(peer.nodeId, tab.tabId) === key) {
-            setTabSelection({ nodeId: peer.nodeId, tabId: tab.tabId });
-            return;
-          }
-        }
-      }
+      setTabSelection(selection);
     },
-    [peers],
+    [findTab],
   );
 
-  const onWireSeenJump = useCallback((wireRequestId: string) => {
-    const record = getWireSeen(wireRequestId);
-    if (!record) return;
-    setSelectedKey(tabSourceKey(record.nodeId, record.tabId));
-    setTabSelection({ nodeId: record.nodeId, tabId: record.tabId });
-    setPendingTabHighlight(record.browserRequestId);
-    setNetworkCollapsed(false);
+  /** Activate one open tab (null = none left → the no-source hero). */
+  const activateEntry = useCallback((entry: TrafficStripTab | null) => {
+    setPendingTabHighlight(null);
+    if (entry === null) {
+      setSelectedKey(null);
+      setTabSelection(null);
+      return;
+    }
+    setSelectedKey(entry.key);
+    setTabSelection(
+      entry.key !== WIRE_SOURCE_KEY && entry.nodeId !== undefined && entry.tabId !== undefined
+        ? { nodeId: entry.nodeId, tabId: entry.tabId }
+        : null,
+    );
   }, []);
+
+  const onSelect = useCallback(
+    (key: string) => {
+      setPendingTabHighlight(null);
+      const found = key === WIRE_SOURCE_KEY ? null : findTab(key);
+      openSource(key, found !== null ? { nodeId: found.peer.nodeId, tabId: found.tab.tabId } : null);
+    },
+    [findTab, openSource],
+  );
+
+  const onActivateStripTab = useCallback(
+    (key: string) => {
+      const entry = openTabs.find((candidate) => candidate.key === key);
+      if (entry !== undefined) activateEntry(entry);
+    },
+    [openTabs, activateEntry],
+  );
+
+  // Close retires the tab; closing the active one activates the
+  // neighbor that slid into its slot (previous when it was last).
+  const onCloseStripTab = useCallback(
+    (key: string) => {
+      const index = openTabs.findIndex((entry) => entry.key === key);
+      if (index < 0) return;
+      const next = openTabs.filter((entry) => entry.key !== key);
+      setOpenTabs(next);
+      if (selectedKey === key) activateEntry(next[Math.min(index, next.length - 1)] ?? null);
+    },
+    [openTabs, selectedKey, activateEntry],
+  );
+
+  // A source vanishing from the inventory (browser tab closed, peer
+  // gone — after the peer-gone linger) retires its tab honestly; the
+  // wire tab exists only while the host runs the capability. The same
+  // pass refreshes labels/favicons so pills track live tab titles.
+  useEffect(() => {
+    if (!inventoryReady.current) return;
+    const live = new Map<string, RailPeerTab>();
+    for (const peer of peers) {
+      for (const tab of peer.tabs) live.set(tabSourceKey(peer.nodeId, tab.tabId), tab);
+    }
+    const next: TrafficStripTab[] = [];
+    let changed = false;
+    for (const entry of openTabs) {
+      if (entry.key === WIRE_SOURCE_KEY) {
+        if (!showWire) {
+          changed = true;
+          continue;
+        }
+        next.push(entry);
+        continue;
+      }
+      const tab = live.get(entry.key);
+      if (tab === undefined) {
+        changed = true;
+        continue;
+      }
+      const label = tab.title || tab.url;
+      if (label !== entry.label || tab.favIconUrl !== entry.favIconUrl) {
+        changed = true;
+        next.push({
+          key: entry.key,
+          label,
+          ...(tab.favIconUrl !== undefined ? { favIconUrl: tab.favIconUrl } : {}),
+          ...(entry.nodeId !== undefined && entry.tabId !== undefined
+            ? { nodeId: entry.nodeId, tabId: entry.tabId }
+            : {}),
+        });
+      } else {
+        next.push(entry);
+      }
+    }
+    if (!changed) return;
+    setOpenTabs(next);
+    if (selectedKey !== null && !next.some((entry) => entry.key === selectedKey)) {
+      const index = openTabs.findIndex((entry) => entry.key === selectedKey);
+      activateEntry(next[Math.min(Math.max(index, 0), next.length - 1)] ?? null);
+    }
+  }, [peers, showWire, openTabs, selectedKey, activateEntry]);
+
+  const onWireSeenJump = useCallback(
+    (wireRequestId: string) => {
+      const record = getWireSeen(wireRequestId);
+      if (!record) return;
+      openSource(tabSourceKey(record.nodeId, record.tabId), { nodeId: record.nodeId, tabId: record.tabId });
+      setPendingTabHighlight(record.browserRequestId);
+      setNetworkCollapsed(false);
+    },
+    [openSource],
+  );
 
   const inspectWireRequest = useCallback(
     (row: InspectorRowWithFires) => {
@@ -699,11 +818,10 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const consumeRevealIntent = useCallback(() => {
     const intent = takeTrafficStorageReveal();
     if (!intent) return;
-    setSelectedKey(tabSourceKey(intent.nodeId, intent.tabId));
-    setTabSelection({ nodeId: intent.nodeId, tabId: intent.tabId });
+    openSource(tabSourceKey(intent.nodeId, intent.tabId), { nodeId: intent.nodeId, tabId: intent.tabId });
     setStorageCollapsed(false);
     setStorageReveal(intent.reveal);
-  }, []);
+  }, [openSource]);
   useEffect(() => {
     consumeRevealIntent();
     return subscribeTrafficStorageReveal(consumeRevealIntent);
@@ -861,6 +979,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   useEffect(() => {
     lastPanelState.selectedKey = selectedKey;
     lastPanelState.tabSelection = tabSelection;
+    lastPanelState.openTabs = openTabs;
     lastPanelState.railWidth = railWidth;
     lastPanelState.networkCollapsed = networkCollapsed;
     lastPanelState.storageHeight = storageHeight;
@@ -870,6 +989,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   }, [
     selectedKey,
     tabSelection,
+    openTabs,
     railWidth,
     networkCollapsed,
     storageHeight,
@@ -905,8 +1025,49 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   return (
     <div className="rules-bottom-panel">
-      <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.trafficMonitor')}</strong>} info={info} />
-      <div style={{ display: 'flex', minHeight: 0, height: '100%' }}>
+      {/* Single-row header (terminal posture): the title cell — sized to
+          the rail width — the divider's header segment, and the source
+          tab strip share the ONE 32px PanelHeader row, so the divider
+          reads as one continuous bar from the card's top edge down
+          through the body row. The (i) rides inline after the title —
+          PanelHeader's own info slot would land after the flex-grown
+          strip, at the far right. */}
+      <PanelHeader
+        wiring={headerWiring}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, alignSelf: 'stretch' }}>
+            <div
+              style={{
+                flex: `0 0 ${railWidth - PANEL_HEADER_LEFT_PAD}px`,
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                overflow: 'hidden',
+              }}
+            >
+              <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {t('workbench.toolWindows.trafficMonitor')}
+              </strong>
+              <InfoTrigger content={info} className="rules-panel-header-info" />
+            </div>
+            <div
+              className="traffic-monitor-rail-sash"
+              role="separator"
+              aria-orientation="vertical"
+              onPointerDown={onRailSashDown}
+            />
+            <TrafficMonitorTabStrip
+              tabs={openTabs}
+              activeKey={selectedKey}
+              focused={dockFocused}
+              onActivate={onActivateStripTab}
+              onClose={onCloseStripTab}
+            />
+          </div>
+        }
+      />
+      <div style={{ display: 'flex', minHeight: 0, flex: '1 1 auto' }}>
         <TrafficMonitorSourceRail
           peers={peers}
           loading={loading}
@@ -1085,7 +1246,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                 )}
               </div>
             ) : (
-              <div className="dt-empty-hero" style={{ height: '100%' }}>
+              <div className="dt-empty-hero" style={{ height: '100%' }} data-testid="traffic-monitor-empty-hero">
                 <strong>{t('workbench.trafficMonitor.emptyNoSource')}</strong>
                 <span className="dt-empty-hero-sub">{t('workbench.trafficMonitor.emptyNoSourceHint')}</span>
               </div>

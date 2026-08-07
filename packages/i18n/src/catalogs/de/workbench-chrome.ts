@@ -560,6 +560,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.browserConnected': 'Verbundene Browser: {count}',
   'workbench.trafficMonitor.noBrowser': 'Kein Browser verbunden',
   'workbench.trafficMonitor.untitledTab': 'Unbenannter Tab',
+  'workbench.trafficMonitor.closeSourceTab': 'Tab schließen',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',

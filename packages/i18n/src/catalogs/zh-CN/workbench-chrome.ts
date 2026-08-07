@@ -535,6 +535,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.browserConnected': '已连接浏览器：{count}',
   'workbench.trafficMonitor.noBrowser': '未连接浏览器',
   'workbench.trafficMonitor.untitledTab': '无标题标签页',
+  'workbench.trafficMonitor.closeSourceTab': '关闭标签页',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': '等待流量…',
   'workbench.trafficMonitor.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',

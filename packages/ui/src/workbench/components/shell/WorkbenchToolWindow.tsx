@@ -319,6 +319,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
         <Suspense fallback={null}>
           <TrafficMonitorPanel
             info={getToolWindowInfo(id, t)}
+            dockSlot={slot}
             onHide={() => tl.closeDock(slot)}
             onOpenProxyRequest={openProxyRequestInspect}
             onOpenLiveRequest={openLiveNetworkRequestInspect}

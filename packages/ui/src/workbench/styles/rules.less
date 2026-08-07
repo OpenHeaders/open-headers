@@ -607,30 +607,19 @@ body {
   }
 }
 
-// Draggable vertical divider between the plane views and the source
-// rail — carries the rail's left border (the rail no longer draws it).
+// Draggable vertical divider between the source rail and the plane
+// views — the workbench's inter-panel gutter idiom (a 6px band of the
+// layout background, the editor split seam's exact treatment) rather
+// than a hairline. Two segments carry the class — one on the panel
+// header row, one spanning the body — stacked at the same x offset so
+// the bar reads as ONE continuous divider from the card's top edge to
+// its bottom; dragging either resizes the rail.
 .traffic-monitor-rail-sash {
   flex: 0 0 auto;
+  align-self: stretch;
   width: 6px;
   cursor: col-resize;
-  position: relative;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    transform: translateX(-50%);
-    background: rgba(128, 128, 128, 0.25);
-    transition: background 0.12s ease;
-  }
-
-  &:hover::after {
-    background: rgba(24, 144, 255, 0.5);
-    width: 2px;
-  }
+  background: var(--ant-color-bg-layout, #f5f5f5);
 }
 
 // Option rows inside the observe affordance's popover.
