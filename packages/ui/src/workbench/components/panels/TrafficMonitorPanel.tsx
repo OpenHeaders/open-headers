@@ -1287,6 +1287,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                     <div
                       key={`storage-${tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}`}
                       ref={storageGrows ? growerPaneRef : undefined}
+                      className="traffic-monitor-plane-pane"
                       data-testid="traffic-monitor-storage-pane"
                       style={
                         storageGrows
@@ -1334,6 +1335,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                     )}
                     <div
                       key={`console-${tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}`}
+                      className="traffic-monitor-plane-pane"
                       data-testid="traffic-monitor-console-pane"
                       style={
                         consoleGrows

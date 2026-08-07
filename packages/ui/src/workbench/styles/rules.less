@@ -771,6 +771,12 @@ body {
   padding: 0 12px;
   cursor: pointer;
 
+  // Directly under the shared panel header, whose ::after separator
+  // already draws this line — a second border would double it.
+  &:first-child {
+    border-top: none;
+  }
+
   &::before {
     content: '';
     width: 0;
@@ -784,6 +790,13 @@ body {
   &:hover {
     background: var(--dt-row-hover);
   }
+}
+
+// A pane growing directly under a collapsed strip has no sash between
+// them (a grower has nothing above to trade height with) — the pane's
+// top edge carries the separator the sash would have drawn.
+.traffic-monitor-plane-strip + .traffic-monitor-plane-pane {
+  border-top: 1px solid var(--dt-border);
 }
 
 .rules-sidebar-item-hover-action {
