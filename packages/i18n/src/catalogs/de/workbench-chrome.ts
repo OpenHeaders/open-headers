@@ -563,7 +563,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
-  'workbench.trafficMonitor.sources': 'Quellen',
   'workbench.trafficMonitor.browserTabs': 'Browser-Tabs',
   'workbench.trafficMonitor.windowLabel': 'Fenster {n}',
   'workbench.trafficMonitor.proxySystem': 'Proxy · System',

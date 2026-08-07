@@ -567,7 +567,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
-  'workbench.trafficMonitor.sources': 'Fuentes',
   'workbench.trafficMonitor.browserTabs': 'Pestañas del navegador',
   'workbench.trafficMonitor.windowLabel': 'Ventana {n}',
   'workbench.trafficMonitor.proxySystem': 'Proxy · Sistema',

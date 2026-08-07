@@ -538,7 +538,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': '等待流量…',
   'workbench.trafficMonitor.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
-  'workbench.trafficMonitor.sources': '来源',
   'workbench.trafficMonitor.browserTabs': '浏览器标签页',
   'workbench.trafficMonitor.windowLabel': '窗口 {n}',
   'workbench.trafficMonitor.proxySystem': '代理 · 系统',

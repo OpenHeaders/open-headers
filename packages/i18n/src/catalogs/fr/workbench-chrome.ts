@@ -569,7 +569,6 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',
   'workbench.trafficMonitor.emptyWatchingHint':
     'Naviguez dans l’onglet surveillé — ses requêtes apparaissent ici en direct',
-  'workbench.trafficMonitor.sources': 'Sources',
   'workbench.trafficMonitor.browserTabs': 'Onglets du navigateur',
   'workbench.trafficMonitor.windowLabel': 'Fenêtre {n}',
   'workbench.trafficMonitor.proxySystem': 'Proxy · Système',

@@ -763,16 +763,6 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         overflow: 'hidden',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '6px 10px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 600 }}>{t('workbench.trafficMonitor.sources')}</span>
-      </div>
       <div className="rules-sidebar-content">
         {browsersSection}
         {/* The browsers body absorbs the column's slack while open; when
