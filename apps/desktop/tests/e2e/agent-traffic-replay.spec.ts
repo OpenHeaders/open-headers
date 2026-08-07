@@ -13,11 +13,12 @@
  *      §11.4 externalize threshold, one 500), and snapshot the LIVE
  *      network view's rows.
  *   3. THE PARITY PIN: close the generator tab (the wire is gone),
- *      open the sealed session from the Traffic Sessions window
- *      (row double-click — the C6 open affordance), and assert the
- *      replay tab's SAME network view folds the SAME rows — identical
- *      row set, statuses included, out of nothing but the sealed
- *      event log (§11.1 "replay is the live UI").
+ *      open the sealed session from the Traffic Monitor's SESSIONS
+ *      rail section (row single-click — the S26 open affordance, a
+ *      source tab on the panel strip), and assert the session tab's
+ *      SAME network view folds the SAME rows — identical row set,
+ *      statuses included, out of nothing but the sealed event log
+ *      (§11.1 "replay is the live UI").
  *   4. Bodies resolve from the ARCHIVE, not the wire: the big asset's
  *      recorded body was withheld at stream time (the live lazy-pull
  *      idiom) and the inspect tab's Response view pulls it from the
@@ -127,10 +128,19 @@ async function archivedSessions(): Promise<ArchivedSessionRow[]> {
 }
 
 /** State-driven dock-strip toggle — click only when the state is wrong. */
-async function openToolWindow(id: 'traffic-monitor' | 'traffic-sessions'): Promise<void> {
+async function openToolWindow(id: 'traffic-monitor'): Promise<void> {
   const tab = workbench.locator(`[data-tool-window="${id}"]`).first();
   if ((await tab.getAttribute('aria-selected')) !== 'true') {
     await tab.click();
+  }
+}
+
+/** State-driven SESSIONS expand — the section reloads on expand and on
+ *  every trafficStatusChanged nudge. */
+async function expandSessions(): Promise<void> {
+  const header = workbench.locator('[data-testid="traffic-monitor-sessions-header"]');
+  if ((await header.getAttribute('aria-expanded')) !== 'true') {
+    await header.click();
   }
 }
 
@@ -351,18 +361,19 @@ test('opening the sealed session replays the SAME rows with the browser tab gone
   expect(archivedRow.fidelity).toBe('cdp');
   expect(archivedRow.partitionTabId).toBe(generatorTabId);
 
-  // Open through the window's C6 affordance: row double-click.
-  await openToolWindow('traffic-sessions');
-  await workbench.locator('[data-testid="traffic-sessions-refresh"]').first().click();
-  const windowRow = workbench.locator(`[data-testid="traffic-sessions-row"][data-session-id="${archivedRow.id}"]`);
-  await expect(windowRow).toBeVisible({ timeout: 10000 });
-  await windowRow.dblclick();
+  // Open through the S26 affordance: the SESSIONS rail section's row,
+  // single click — the session becomes a source tab on the strip.
+  await openToolWindow('traffic-monitor');
+  await expandSessions();
+  const sessionRow = workbench.locator(`[data-testid="traffic-sessions-row"][data-session-id="${archivedRow.id}"]`);
+  await expect(sessionRow).toBeVisible({ timeout: 15000 });
+  await sessionRow.click();
 
-  // The replay tab drives the SAME network view — same rows, same
+  // The session tab drives the SAME network view — same rows, same
   // statuses, same count: parity by construction, proven end to end.
-  const replayTab = workbench.locator('[data-testid="session-replay-tab"]');
-  await expect(replayTab).toBeVisible({ timeout: 10000 });
-  await expectProbeRows(replayTab);
+  const replayPlane = workbench.locator('[data-testid="traffic-monitor-session-plane"]');
+  await expect(replayPlane).toBeVisible({ timeout: 10000 });
+  await expectProbeRows(replayPlane);
 });
 
 // ── Bodies resolve from the archive, not the wire ───────────────────
@@ -375,7 +386,7 @@ test('the big asset body serves from the blob store through the inspect tab', as
   // Click the Name cell — the row's initiator column is a button of its
   // own and a row-center click can land on it instead of selecting.
   await workbench
-    .locator('[data-testid="session-replay-tab"] .dt-row')
+    .locator('[data-testid="traffic-monitor-session-plane"] .dt-row')
     .filter({ hasText: 'replay-big' })
     .first()
     .getByText('replay-big?bytes=16384')

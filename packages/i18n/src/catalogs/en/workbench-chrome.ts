@@ -334,7 +334,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Activity',
   'workbench.toolWindows.activityTooltip': 'Activity Feed — inbound changes from peers',
   'workbench.toolWindows.trafficMonitor': 'Traffic Monitor',
-  'workbench.toolWindows.trafficSessions': 'Traffic Sessions',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -403,11 +402,8 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.trafficMonitor.summary':
     'The unified live traffic view — pick a source from the list: a connected browser tab (the extension streams its ' +
     'traffic live) or Traffic Interception (any tool on this machine pointed at the local proxy port). Both render the ' +
-    'same network log the DevTools panel uses; nothing streams until a source is selected.',
-  'workbench.toolWindows.info.trafficSessions.summary':
-    'Every saved traffic session — this run and prior ones. Sessions are named and filed automatically when they ' +
-    'end (by the site they recorded); search, sort, rename, refile or delete them here. Recording happens in the ' +
-    'Traffic Monitor: start observing a source with “Save session” on.',
+    'same network log the DevTools panel uses; nothing streams until a source is selected. Saved sessions live under ' +
+    'SESSIONS — named and filed automatically when they end; click one to replay it as a tab.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Per-workflow circuit-breaker dashboard — state, consecutive failures, openings, and next-attempt ' +
     'countdown, with manual Retry and Reset-circuit actions.',
@@ -587,20 +583,11 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmpty': 'Live view is turned off in this browser',
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     'Enable “Let the desktop app view this browser” in the extension’s settings to watch this tab’s traffic, storage, and console here',
-  'workbench.trafficMonitor.sessionsOpenArchive': 'Open Traffic Sessions — every saved session',
-  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Open the Traffic Sessions window',
 
-  // ── Traffic Sessions tool window (the sessions archive) ─────────────
-  'workbench.trafficSessions.searchPlaceholder': 'Search sessions',
-  'workbench.trafficSessions.sortNewest': 'Newest first',
-  'workbench.trafficSessions.sortOldest': 'Oldest first',
-  'workbench.trafficSessions.sortName': 'By name',
-  'workbench.trafficSessions.sortSize': 'By size',
-  'workbench.trafficSessions.refresh': 'Refresh',
+  // ── The SESSIONS rail section (the sessions archive, in-rail) ───────
   'workbench.trafficSessions.empty': 'No saved sessions yet',
   'workbench.trafficSessions.emptyHint':
     'Start observing a source in the Traffic Monitor with “Save session” on — saved sessions land here',
-  'workbench.trafficSessions.emptyFiltered': 'No sessions match the search',
   'workbench.trafficSessions.stateRecording': 'Recording',
   'workbench.trafficSessions.stateSealing': 'Sealing…',
   'workbench.trafficSessions.rowMenuAria': 'Session actions',
@@ -620,7 +607,6 @@ export const workbenchChrome = {
   'workbench.trafficSessions.deleteOk': 'Delete',
   'workbench.trafficSessions.detailRequests': '{count} requests',
   'workbench.trafficSessions.detailErrors': '{count} errors',
-  'workbench.trafficSessions.detailEvents': '{count} events',
   'workbench.trafficSessions.detailEncrypted': 'Encrypted',
   'workbench.trafficSessions.detailUnencrypted': 'Not encrypted',
   'workbench.trafficSessions.fidelityCdp': 'Full fidelity (debugger)',

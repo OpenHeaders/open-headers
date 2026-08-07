@@ -184,17 +184,10 @@ export interface UseTabOpenersApi {
    */
   openLiveStorageDocInspect: (nodeId: string, tabId: number, doc: LiveStorageDocRef, label: string) => void;
   /**
-   * Open an archived traffic session's replay tab (the Traffic Sessions
-   * window's open gesture). Tab id `session-replay-<sessionId>` —
-   * reopening the same session switches to the existing tab. `label`
-   * is the session's display name; `partitionTabId` the lifecycle
-   * partition its recorded envelopes address.
-   */
-  openSessionReplay: (sessionId: string, partitionTabId: number, label: string) => void;
-  /**
-   * Open one recorded request from an archived session as an editor
-   * tab — the replay twin of {@link openLiveNetworkRequestInspect},
-   * fed from the sealed log instead of a live wire.
+   * Open one recorded request from an archived session's Traffic
+   * Monitor tab as an editor tab — the replay twin of
+   * {@link openLiveNetworkRequestInspect}, fed from the sealed log
+   * instead of a live wire.
    */
   openSessionReplayRequestInspect: (
     sessionId: string,

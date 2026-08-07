@@ -76,7 +76,7 @@ export interface NetworkCaptureViewProps {
   readonly onWireSeenJump?: (wireRequestId: string) => void;
   /** Override the `watch-refused` banner copy — the default speaks the
    *  live consent gate's language, which is a lie on surfaces whose
-   *  refusal means something else (the session-replay tab's
+   *  refusal means something else (an archived-session view's
    *  `replay-unavailable`). */
   readonly watchRefusedCopy?: { readonly title: string; readonly body: string };
 }

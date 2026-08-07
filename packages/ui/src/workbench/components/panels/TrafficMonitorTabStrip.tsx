@@ -16,7 +16,7 @@
  * the retirement of vanished sources.
  */
 
-import { CloseOutlined, FileOutlined, GlobalOutlined } from '@ant-design/icons';
+import { CloseOutlined, FileOutlined, GlobalOutlined, HistoryOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -24,13 +24,15 @@ import { useUiTheme } from '@openheaders/ui/context';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import OverlayScrollThumb from '../tabbar/OverlayScrollThumb';
 import { activePillRing } from '../tabbar/tab-format';
+import { isSessionSourceKey } from './TrafficMonitorSessionsSection';
 import { WIRE_SOURCE_KEY } from './TrafficMonitorSourceRail';
 
 /**
  * One open source tab. `label`/`favIconUrl` mirror the rail inventory
  * (refreshed live by the panel; empty label falls back to the untitled
  * copy at render). Browser-tab entries carry their lifeline binding so
- * activation never has to re-derive it from the key.
+ * activation never has to re-derive it from the key; archived-session
+ * entries carry the sealed log's replay binding the same way.
  */
 export interface TrafficStripTab {
   key: string;
@@ -38,6 +40,10 @@ export interface TrafficStripTab {
   favIconUrl?: string;
   nodeId?: string;
   tabId?: number;
+  /** Archived-session entries only: the archive id + the lifecycle
+   *  partition the recorded envelopes address. */
+  sessionId?: string;
+  partitionTabId?: number;
 }
 
 export interface TrafficMonitorTabStripProps {
@@ -111,6 +117,8 @@ function SourceTabPill({
     >
       {isWire ? (
         <GlobalOutlined style={{ fontSize: 12, flexShrink: 0 }} />
+      ) : isSessionSourceKey(tab.key) ? (
+        <HistoryOutlined style={{ fontSize: 12, color: token.colorTextTertiary, flexShrink: 0 }} />
       ) : tab.favIconUrl?.startsWith('data:') ? (
         <img src={tab.favIconUrl} alt="" width={14} height={14} style={{ flexShrink: 0, borderRadius: 2 }} />
       ) : (

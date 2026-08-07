@@ -565,7 +565,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openProxyRequestInspect,
     openLiveNetworkRequestInspect,
     openLiveStorageDocInspect,
-    openSessionReplay,
     openSessionReplayRequestInspect,
   } = openers;
 
@@ -1175,7 +1174,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openWsResponseExampleTab={openWsResponseExampleTab}
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
-        openSessionReplayRequestInspect={openSessionReplayRequestInspect}
         handleSwitchWorkspace={handleSwitchWorkspace}
         onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
         onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
@@ -1216,7 +1214,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openWsResponseExampleTab,
       openGrpcRequestEditTab,
       openWebSocketRequestEditTab,
-      openSessionReplayRequestInspect,
       liveWorkflowsApi.workflows,
       replaceTab,
       editingScopeWorkspaceId,
@@ -1384,7 +1381,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openProxyRequestInspect={openProxyRequestInspect}
         openLiveNetworkRequestInspect={openLiveNetworkRequestInspect}
         openLiveStorageDocInspect={openLiveStorageDocInspect}
-        openSessionReplay={openSessionReplay}
+        openSessionReplayRequestInspect={openSessionReplayRequestInspect}
         openSettingsTab={openSettingsTab}
         handleDeleteRule={handleDeleteRule}
         handleCloseTab={handleCloseTab}
@@ -1449,7 +1446,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openProxyRequestInspect,
       openLiveNetworkRequestInspect,
       openLiveStorageDocInspect,
-      openSessionReplay,
+      openSessionReplayRequestInspect,
       openSettingsTab,
       handleViewActivityEntity,
     ],

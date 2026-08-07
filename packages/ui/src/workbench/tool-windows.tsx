@@ -13,7 +13,6 @@ import {
   BranchesOutlined,
   CodeOutlined,
   GlobalOutlined,
-  HistoryOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
@@ -97,8 +96,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   },
   // Bottom dock, left pane: the working surfaces (a shell, the live
   // traffic monitor, the workspace tree's git plane). Bottom dock,
-  // right pane: the ambient/archive surfaces (sessions archive,
-  // workflow health, activity). The capability-gated windows below
+  // right pane: the ambient surfaces (workflow health, activity).
+  // The capability-gated windows below
   // declare `teaserWhenUnavailable`, so browser hosts keep their tabs
   // and render the desktop teaser instead of dropping the feature
   // from the dock — discoverability over silence.
@@ -150,20 +149,6 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     openByDefault: false,
     requiresCapability: 'workspaceGit',
     teaserWhenUnavailable: 'git',
-  },
-  // The sessions archive (AGENT_TRAFFIC_PLAN.md §11.1): every recorded
-  // traffic session, prior runs included, with search/sort and
-  // folder organization over the archive's meta index. The Traffic
-  // Monitor rail's SESSIONS row links here; same capability posture.
-  {
-    id: 'traffic-sessions',
-    labelKey: 'workbench.toolWindows.trafficSessions',
-    icon: <HistoryOutlined />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-    requiresCapability: 'liveNetwork',
-    teaserWhenUnavailable: 'liveNetwork',
   },
   // Per-workflow circuit-breaker dashboard (state, consecutive
   // failures, openings, next-attempt countdown, manual Retry /

@@ -20,7 +20,10 @@
  *   - the wire renders the same view bound to the reserved proxy
  *     partition — chrome-identical to a tab's column; the capture
  *     infrastructure (start/stop, port, decrypt scope, routing) lives
- *     on the rail row's {@link WireCaptureControl}.
+ *     on the rail row's {@link WireCaptureControl};
+ *   - an archived session (opened from the rail's SESSIONS section)
+ *     renders the same view bound to the archive's replay lifeline —
+ *     network-only like the wire, durable, never inventory-retired.
  *
  * Row inspection routes outward to main editor tabs on both sources.
  * The window is gated on `liveNetwork`; the wire source additionally
@@ -42,7 +45,8 @@ import {
   type TelemetryTabsWatchMessage,
 } from '@openheaders/core/protocol';
 import { PROXY_LIFECYCLE_TAB_ID } from '@openheaders/core/proxy';
-import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle';
+import { qualifiedLifecyclePortName, replayLifecyclePortName } from '@openheaders/core/request-lifecycle';
+import type { TrafficArchivedSessionProjection } from '@openheaders/core/traffic';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -77,6 +81,7 @@ import { subscribeTrafficStorageReveal, takeTrafficStorageReveal } from '../../d
 import { useSetting } from '../../settings/hooks';
 import { useIsDockFocused } from '../../stores/focus-region-store';
 import type { LiveStorageDocRef, WorkbenchTab } from '../../types';
+import { isSessionSourceKey, sessionSourceKey } from './TrafficMonitorSessionsSection';
 import {
   type ObserveAction,
   RAIL_DEFAULT_WIDTH,
@@ -105,9 +110,10 @@ export interface TrafficMonitorPanelProps {
   onOpenStorageDoc: (nodeId: string, tabId: number, doc: LiveStorageDocRef, label: string) => void;
   /** Open Settings › Proxy (CA install + trust). */
   onOpenProxySettings: () => void;
-  /** Open the Traffic Sessions tool window — the archive the rail's
-   *  live-only SESSIONS section links to (§11.1, C5). */
-  onOpenSessionsWindow: () => void;
+  /** Open one recorded request from an archived-session tab as a main
+   *  editor tab — the replay twin of `onOpenLiveRequest`, fed from the
+   *  sealed log instead of a live wire. */
+  onOpenSessionRequest: (sessionId: string, partitionTabId: number, requestId: string, label: string) => void;
   /** The focused editor tab — an inspect tab highlights its row in the
    *  list (association only, never navigation). */
   activeTab: WorkbenchTab | null;
@@ -274,7 +280,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   onOpenLiveRequest,
   onOpenStorageDoc,
   onOpenProxySettings,
-  onOpenSessionsWindow,
+  onOpenSessionRequest,
   activeTab,
 }) => {
   const t = useT();
@@ -682,10 +688,39 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     [openTabs, selectedKey, activateEntry],
   );
 
+  // ── Archived sessions as source tabs (S26): a sealed session opens
+  // through the same open-or-activate grammar, keyed `session:<id>`
+  // and bound to the archive's replay lifeline instead of a live wire.
+  const openArchivedSession = useCallback((session: TrafficArchivedSessionProjection) => {
+    const key = sessionSourceKey(session.id);
+    setPendingTabHighlight(null);
+    setOpenTabs((prev) => {
+      const existing = prev.find((entry) => entry.key === key);
+      if (existing !== undefined) {
+        // Re-open refreshes the pill label after a rename.
+        return existing.label === session.name
+          ? prev
+          : prev.map((entry) => (entry.key === key ? { ...entry, label: session.name } : entry));
+      }
+      return [...prev, { key, label: session.name, sessionId: session.id, partitionTabId: session.partitionTabId }];
+    });
+    setSelectedKey(key);
+    setTabSelection(null);
+  }, []);
+
+  // Deleting a session from the rail retires its open tab — the only
+  // retirement path a durable archive source has.
+  const onSessionDeleted = useCallback(
+    (id: string) => onCloseStripTab(sessionSourceKey(id)),
+    [onCloseStripTab],
+  );
+
   // A source vanishing from the inventory (browser tab closed, peer
   // gone — after the peer-gone linger) retires its tab honestly; the
-  // wire tab exists only while the host runs the capability. The same
-  // pass refreshes labels/favicons so pills track live tab titles.
+  // wire tab exists only while the host runs the capability; session
+  // tabs are archive-backed and never retire on peer churn (deletion
+  // retires them via `onSessionDeleted`). The same pass refreshes
+  // labels/favicons so pills track live tab titles.
   useEffect(() => {
     if (!inventoryReady.current) return;
     const live = new Map<string, RailPeerTab>();
@@ -700,6 +735,10 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           changed = true;
           continue;
         }
+        next.push(entry);
+        continue;
+      }
+      if (isSessionSourceKey(entry.key)) {
         next.push(entry);
         continue;
       }
@@ -781,6 +820,39 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
 
   const wireSelected = selectedKey === WIRE_SOURCE_KEY;
 
+  // The active archived-session tab (if any) — its plane column is the
+  // same network view bound to the archive's replay lifeline
+  // (`oh-replay:<archiveId>`): parity by construction, the sealed
+  // event log IS the reducer input the live pass folded. Network-only,
+  // like the wire — sessions record no storage/console planes.
+  const activeSession =
+    selectedKey !== null && isSessionSourceKey(selectedKey)
+      ? (openTabs.find((entry) => entry.key === selectedKey) ?? null)
+      : null;
+  const activeSessionId = activeSession?.sessionId;
+  const sessionPortName = useMemo(
+    () => (activeSessionId !== undefined ? () => replayLifecyclePortName(activeSessionId) : undefined),
+    [activeSessionId],
+  );
+  const activeSessionPartition = activeSession?.partitionTabId;
+  const inspectSessionRequest = useCallback(
+    (row: InspectorRowWithFires) => {
+      if (activeSessionId === undefined || activeSessionPartition === undefined) return;
+      const { name } = extractName(row.lifecycle.url);
+      onOpenSessionRequest(
+        activeSessionId,
+        activeSessionPartition,
+        row.lifecycle.requestId,
+        `${row.lifecycle.method} ${name}`,
+      );
+    },
+    [activeSessionId, activeSessionPartition, onOpenSessionRequest],
+  );
+  const sessionUnavailableCopy = useMemo(
+    () => ({ title: t('workbench.sessionReplay.unavailableTitle'), body: t('workbench.sessionReplay.unavailableBody') }),
+    [t],
+  );
+
   // Focused inspect tab → its row highlighted in the matching view
   // (association only — the source binding never changes on tab focus,
   // the DevTools posture).
@@ -793,6 +865,12 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     activeTab.liveNetworkTabId === tabSelection.tabId
       ? (activeTab.liveNetworkRequestId ?? null)
       : (pendingTabHighlight ?? null);
+  const sessionHighlight =
+    activeTab?.mode === 'session-replay-request-inspect' &&
+    activeSessionId !== undefined &&
+    activeTab.sessionReplayId === activeSessionId
+      ? (activeTab.sessionReplayRequestId ?? null)
+      : null;
 
   // ── Storage pane (Phase 3) — stacked below the network view for
   // browser-tab sources only (the wire has no storage domain). ────────
@@ -1148,7 +1226,8 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
       observePending={observePending}
       onObserveAction={onObserveAction}
       captureActive={captureActive}
-      onOpenSessions={onOpenSessionsWindow}
+      onOpenSession={openArchivedSession}
+      onSessionDeleted={onSessionDeleted}
       width={railWidth}
       side={railSide}
       wireControl={
@@ -1233,6 +1312,23 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                   </div>
                 }
               />
+            ) : activeSessionId !== undefined && activeSessionPartition !== undefined ? (
+              <div style={{ height: '100%', minHeight: 0 }} data-testid="traffic-monitor-session-plane">
+                <NetworkCaptureView
+                  key={activeSession?.key}
+                  tabId={activeSessionPartition}
+                  portName={sessionPortName}
+                  onInspectRequest={inspectSessionRequest}
+                  highlightRequestId={sessionHighlight}
+                  watchRefusedCopy={sessionUnavailableCopy}
+                  emptyHero={
+                    <div className="dt-empty-hero">
+                      <strong>{t('workbench.sessionReplay.empty')}</strong>
+                      <span className="dt-empty-hero-sub">{t('workbench.sessionReplay.emptyHint')}</span>
+                    </div>
+                  }
+                />
+              </div>
             ) : tabSelection && !selectedPeerConsent ? (
               <div className="dt-empty-hero" style={{ height: '100%' }} data-testid="traffic-monitor-consent-hero">
                 <strong>{t('workbench.trafficMonitor.watchConsentOffEmpty')}</strong>

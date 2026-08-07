@@ -352,7 +352,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': '活动',
   'workbench.toolWindows.activityTooltip': '活动流——来自对等方的入站更改',
   'workbench.toolWindows.trafficMonitor': '流量监视',
-  'workbench.toolWindows.trafficSessions': '流量会话',
   'workbench.toolWindows.terminal': '终端',
   'workbench.toolWindows.git': 'Git',
 
@@ -411,9 +410,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.scriptsDesc': '请求前与响应后的 JavaScript 钩子。',
   'workbench.toolWindows.info.apiRequests.settingsLabel': '设置',
   'workbench.toolWindows.info.apiRequests.settingsDesc': '按请求的行为——SSL 验证、重定向等。',
-  'workbench.toolWindows.info.trafficSessions.summary':
-    '每一个已保存的流量会话——包括本次运行和之前的运行。会话在结束时按所记录的网站自动命名并归档；' +
-    '可在此搜索、排序、重命名、重新归档或删除。录制在流量监视中进行：开启“保存会话”后开始观察某个来源。',
   'workbench.toolWindows.info.workflowStatus.summary':
     '按工作流的断路器仪表盘——状态、连续失败次数、断开次数和下次尝试倒计时，' +
     '并提供手动的“立即重试”和“重置电路”操作。',
@@ -452,7 +448,8 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.trafficMonitor.summary':
     '统一的实时流量视图——在来源列表中选择来源：已连接的浏览器标签页（扩展实时流式传输其流量），或流量拦截' +
     '（本机任何指向本地代理端口的工具）。两者都使用与 DevTools 面板相同的网络日志呈现；' +
-    '在选择来源之前，不会传输任何数据。',
+    '在选择来源之前，不会传输任何数据。已保存的会话位于“会话”之下——结束时自动命名并归档；' +
+    '点击即可在标签页中回放。',
   'workbench.toolWindows.info.terminal.summary':
     '一个集成终端，在真实的 pty 中运行你的 shell——凡是能在独立终端中运行的都能在这里运行，' +
     '包括对本地应用使用 oh CLI。',
@@ -573,19 +570,10 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmpty': '此浏览器已关闭实时查看',
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     '在扩展设置中开启“允许桌面应用查看此浏览器”，即可在此观察该标签页的流量、存储和控制台',
-  'workbench.trafficMonitor.sessionsOpenArchive': '打开流量会话——所有已保存的会话',
-  'workbench.trafficMonitor.sessionsOpenArchiveAria': '打开流量会话窗口',
 
-  // ── 流量会话工具窗口（会话归档） ─────────────────────────────────────
-  'workbench.trafficSessions.searchPlaceholder': '搜索会话',
-  'workbench.trafficSessions.sortNewest': '最新优先',
-  'workbench.trafficSessions.sortOldest': '最旧优先',
-  'workbench.trafficSessions.sortName': '按名称',
-  'workbench.trafficSessions.sortSize': '按大小',
-  'workbench.trafficSessions.refresh': '刷新',
+  // ── 侧栏的“会话”分区（会话归档，位于源列表内） ───────────────────────
   'workbench.trafficSessions.empty': '尚无已保存的会话',
   'workbench.trafficSessions.emptyHint': '在流量监视中开启“保存会话”并开始观察某个来源——保存的会话会出现在这里',
-  'workbench.trafficSessions.emptyFiltered': '没有会话符合搜索条件',
   'workbench.trafficSessions.stateRecording': '录制中',
   'workbench.trafficSessions.stateSealing': '封存中…',
   'workbench.trafficSessions.rowMenuAria': '会话操作',
@@ -604,7 +592,6 @@ export const workbenchChrome = {
   'workbench.trafficSessions.deleteOk': '删除',
   'workbench.trafficSessions.detailRequests': '{count} 个请求',
   'workbench.trafficSessions.detailErrors': '{count} 个错误',
-  'workbench.trafficSessions.detailEvents': '{count} 个事件',
   'workbench.trafficSessions.detailEncrypted': '已加密',
   'workbench.trafficSessions.detailUnencrypted': '未加密',
   'workbench.trafficSessions.fidelityCdp': '完整保真（调试器）',

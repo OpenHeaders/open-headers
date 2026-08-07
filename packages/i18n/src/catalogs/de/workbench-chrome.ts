@@ -359,7 +359,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Aktivität',
   'workbench.toolWindows.activityTooltip': 'Aktivitäts-Feed — eingehende Änderungen von Peers',
   'workbench.toolWindows.trafficMonitor': 'Traffic-Monitor',
-  'workbench.toolWindows.trafficSessions': 'Traffic-Sitzungen',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -430,10 +429,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.scriptsDesc': 'JavaScript-Hooks vor der Anfrage und nach der Antwort.',
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Einstellungen',
   'workbench.toolWindows.info.apiRequests.settingsDesc': 'Verhalten pro Anfrage — SSL-Prüfung, Umleitungen und mehr.',
-  'workbench.toolWindows.info.trafficSessions.summary':
-    'Jede gespeicherte Traffic-Sitzung — dieser Lauf und frühere. Sitzungen werden beim Ende automatisch benannt ' +
-    'und abgelegt (nach der aufgezeichneten Website); hier suchen, sortieren, umbenennen, umsortieren oder löschen. ' +
-    'Aufgezeichnet wird im Traffic-Monitor: Beobachtung einer Quelle mit aktiviertem „Sitzung speichern“ starten.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Schutzschalter-Dashboard pro Workflow — Zustand, aufeinanderfolgende Fehlschläge, Öffnungen und ' +
     'Countdown zum nächsten Versuch, mit den manuellen Aktionen Wiederholen und Schaltkreis zurücksetzen.',
@@ -480,7 +475,8 @@ export const workbenchChrome = {
     'Die vereinte Live-Verkehrsansicht — wähle eine Quelle aus der Liste: einen verbundenen Browser-Tab (die Erweiterung ' +
     'streamt seinen Verkehr live) oder die Traffic-Interception (beliebige Tools dieser Maschine, die auf den ' +
     'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
-    'gestreamt, bis eine Quelle ausgewählt ist.',
+    'gestreamt, bis eine Quelle ausgewählt ist. Gespeicherte Sitzungen liegen unter SITZUNGEN — beim Ende ' +
+    'automatisch benannt und abgelegt; ein Klick spielt sie in einem Tab wieder ab.',
   'workbench.toolWindows.info.terminal.summary':
     'Ein integriertes Terminal, das deine Shell in einem echten pty ausführt — alles, was in einem ' +
     'eigenständigen Terminal läuft, läuft auch hier, einschließlich der CLI oh gegen die lokale App.',
@@ -609,21 +605,12 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     'Aktiviere „Desktop-App darf diesen Browser einsehen“ in den Einstellungen der Erweiterung, um Verkehr, ' +
     'Speicher und Konsole dieses Tabs hier zu beobachten',
-  'workbench.trafficMonitor.sessionsOpenArchive': 'Traffic-Sitzungen öffnen — alle gespeicherten Sitzungen',
-  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Das Fenster Traffic-Sitzungen öffnen',
 
-  // ── Werkzeugfenster Traffic-Sitzungen (das Sitzungsarchiv) ──────────
-  'workbench.trafficSessions.searchPlaceholder': 'Sitzungen durchsuchen',
-  'workbench.trafficSessions.sortNewest': 'Neueste zuerst',
-  'workbench.trafficSessions.sortOldest': 'Älteste zuerst',
-  'workbench.trafficSessions.sortName': 'Nach Name',
-  'workbench.trafficSessions.sortSize': 'Nach Größe',
-  'workbench.trafficSessions.refresh': 'Aktualisieren',
+  // ── Die SITZUNGEN-Sektion der Quellenleiste (das Sitzungsarchiv) ────
   'workbench.trafficSessions.empty': 'Noch keine gespeicherten Sitzungen',
   'workbench.trafficSessions.emptyHint':
     'Beobachte eine Quelle im Traffic-Monitor mit aktiviertem „Sitzung speichern“ — gespeicherte Sitzungen ' +
     'landen hier',
-  'workbench.trafficSessions.emptyFiltered': 'Keine Sitzung entspricht der Suche',
   'workbench.trafficSessions.stateRecording': 'Aufzeichnung',
   'workbench.trafficSessions.stateSealing': 'Versiegeln…',
   'workbench.trafficSessions.rowMenuAria': 'Sitzungsaktionen',
@@ -643,7 +630,6 @@ export const workbenchChrome = {
   'workbench.trafficSessions.deleteOk': 'Löschen',
   'workbench.trafficSessions.detailRequests': '{count} Anfragen',
   'workbench.trafficSessions.detailErrors': '{count} Fehler',
-  'workbench.trafficSessions.detailEvents': '{count} Ereignisse',
   'workbench.trafficSessions.detailEncrypted': 'Verschlüsselt',
   'workbench.trafficSessions.detailUnencrypted': 'Nicht verschlüsselt',
   'workbench.trafficSessions.fidelityCdp': 'Volle Genauigkeit (Debugger)',

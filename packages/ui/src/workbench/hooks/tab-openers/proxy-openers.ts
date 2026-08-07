@@ -14,7 +14,6 @@ export type ProxyOpeners = Pick<
   | 'openProxyRequestInspect'
   | 'openLiveNetworkRequestInspect'
   | 'openLiveStorageDocInspect'
-  | 'openSessionReplay'
   | 'openSessionReplayRequestInspect'
 >;
 
@@ -80,26 +79,6 @@ export function useProxyOpeners({ allTabs, addTab, switchTab }: TabOpenerContext
     [allTabs, addTab, switchTab],
   );
 
-  const openSessionReplay = useCallback(
-    (sessionId: string, partitionTabId: number, label: string) => {
-      const id = `session-replay-${sessionId}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      addTab({
-        id,
-        label,
-        ruleType: '',
-        dirty: false,
-        mode: 'session-replay',
-        sessionReplayId: sessionId,
-        sessionReplayTabId: partitionTabId,
-      });
-    },
-    [allTabs, addTab, switchTab],
-  );
-
   const openSessionReplayRequestInspect = useCallback(
     (sessionId: string, partitionTabId: number, requestId: string, label: string) => {
       const id = `session-replay-req-${sessionId}-${requestId}`;
@@ -125,7 +104,6 @@ export function useProxyOpeners({ allTabs, addTab, switchTab }: TabOpenerContext
     openProxyRequestInspect,
     openLiveNetworkRequestInspect,
     openLiveStorageDocInspect,
-    openSessionReplay,
     openSessionReplayRequestInspect,
   };
 }

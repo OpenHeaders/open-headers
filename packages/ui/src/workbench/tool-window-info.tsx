@@ -214,10 +214,6 @@ function buildToolWindowInfo(t: Translate): Record<ToolWindowId, InfoPopoverCont
       title: t('workbench.toolWindows.trafficMonitor'),
       summary: t('workbench.toolWindows.info.trafficMonitor.summary'),
     },
-    'traffic-sessions': {
-      title: t('workbench.toolWindows.trafficSessions'),
-      summary: t('workbench.toolWindows.info.trafficSessions.summary'),
-    },
     'workflow-status': {
       title: t('workbench.toolWindows.workflowStatus'),
       summary: t('workbench.toolWindows.info.workflowStatus.summary'),

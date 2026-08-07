@@ -359,7 +359,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.activity': 'Actividad',
   'workbench.toolWindows.activityTooltip': 'Flujo de actividad — cambios entrantes de los pares',
   'workbench.toolWindows.trafficMonitor': 'Monitor de tráfico',
-  'workbench.toolWindows.trafficSessions': 'Sesiones de tráfico',
   'workbench.toolWindows.terminal': 'Terminal',
   'workbench.toolWindows.git': 'Git',
 
@@ -432,10 +431,6 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsLabel': 'Configuración',
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Comportamiento por solicitud — verificación SSL, redirecciones y más.',
-  'workbench.toolWindows.info.trafficSessions.summary':
-    'Todas las sesiones de tráfico guardadas — esta ejecución y las anteriores. Las sesiones se nombran y archivan ' +
-    'automáticamente al terminar (según el sitio grabado); búscalas, ordénalas, renómbralas, reubícalas o elimínalas ' +
-    'aquí. La grabación ocurre en el Monitor de tráfico: empieza a observar una fuente con «Guardar sesión» activado.',
   'workbench.toolWindows.info.workflowStatus.summary':
     'Panel de control del disyuntor por workflow — estado, fallos consecutivos, aperturas y cuenta atrás del ' +
     'siguiente intento, con las acciones manuales Reintentar y Restablecer el circuito.',
@@ -483,7 +478,8 @@ export const workbenchChrome = {
     'La vista unificada del tráfico en vivo: elige una fuente de la lista, una pestaña de navegador conectada ' +
     '(la extensión transmite su tráfico en vivo) o la interceptación de tráfico (cualquier herramienta de esta máquina ' +
     'apuntada al puerto del proxy local). Ambas usan el mismo registro de red del panel DevTools; no se transmite ' +
-    'nada hasta que se selecciona una fuente.',
+    'nada hasta que se selecciona una fuente. Las sesiones guardadas viven bajo SESIONES — se nombran y archivan ' +
+    'automáticamente al terminar; haz clic en una para reproducirla en una pestaña.',
   'workbench.toolWindows.info.terminal.summary':
     'Un terminal integrado que ejecuta tu shell en un pty real — todo lo que puedas ejecutar en un terminal ' +
     'independiente funciona aquí, incluida la CLI oh contra la aplicación local.',
@@ -614,21 +610,12 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.watchConsentOffEmptyHint':
     'Activa «Permitir que la aplicación de escritorio vea este navegador» en los ajustes de la extensión para ' +
     'observar aquí el tráfico, el almacenamiento y la consola de esta pestaña',
-  'workbench.trafficMonitor.sessionsOpenArchive': 'Abrir Sesiones de tráfico — todas las sesiones guardadas',
-  'workbench.trafficMonitor.sessionsOpenArchiveAria': 'Abrir la ventana Sesiones de tráfico',
 
-  // ── Ventana de herramientas Sesiones de tráfico (el archivo) ────────
-  'workbench.trafficSessions.searchPlaceholder': 'Buscar sesiones',
-  'workbench.trafficSessions.sortNewest': 'Más recientes primero',
-  'workbench.trafficSessions.sortOldest': 'Más antiguas primero',
-  'workbench.trafficSessions.sortName': 'Por nombre',
-  'workbench.trafficSessions.sortSize': 'Por tamaño',
-  'workbench.trafficSessions.refresh': 'Actualizar',
+  // ── La sección SESIONES del raíl (el archivo de sesiones) ───────────
   'workbench.trafficSessions.empty': 'Aún no hay sesiones guardadas',
   'workbench.trafficSessions.emptyHint':
     'Empieza a observar una fuente en el Monitor de tráfico con «Guardar sesión» activado — las sesiones guardadas ' +
     'llegan aquí',
-  'workbench.trafficSessions.emptyFiltered': 'Ninguna sesión coincide con la búsqueda',
   'workbench.trafficSessions.stateRecording': 'Grabando',
   'workbench.trafficSessions.stateSealing': 'Sellando…',
   'workbench.trafficSessions.rowMenuAria': 'Acciones de la sesión',
@@ -648,7 +635,6 @@ export const workbenchChrome = {
   'workbench.trafficSessions.deleteOk': 'Eliminar',
   'workbench.trafficSessions.detailRequests': '{count} solicitudes',
   'workbench.trafficSessions.detailErrors': '{count} errores',
-  'workbench.trafficSessions.detailEvents': '{count} eventos',
   'workbench.trafficSessions.detailEncrypted': 'Cifrado',
   'workbench.trafficSessions.detailUnencrypted': 'Sin cifrar',
   'workbench.trafficSessions.fidelityCdp': 'Fidelidad total (depurador)',

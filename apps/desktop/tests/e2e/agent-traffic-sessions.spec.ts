@@ -1,8 +1,9 @@
 /**
- * Agent traffic C5 E2E — the Traffic Sessions tool window against the
- * real dual-app stack (AGENT_TRAFFIC_PLAN.md §11.6 `agent-traffic/
- * sessions-window` + the inherited `session-gc` page the C5 delete
- * verb unlocked).
+ * Agent traffic C5 E2E — the sessions archive in the Traffic Monitor's
+ * SESSIONS rail section (S26; formerly the Traffic Sessions window)
+ * against the real dual-app stack (AGENT_TRAFFIC_PLAN.md §11.6
+ * `agent-traffic/sessions-window` + the inherited `session-gc` page
+ * the C5 delete verb unlocked).
  *
  *   1. Launch the built desktop app isolated on a fresh daemon port;
  *      launch Chromium with the built extension and open the
@@ -15,23 +16,21 @@
  *      registrable-domain heuristic verbatim), and the archive-wide
  *      operator read (`sessions.list`) projects it with the
  *      directory-basename id.
- *   3. The window lists the archive: rows under their folder header,
- *      newest-first by default, sort flips the order, and search
- *      filters down to the honest empty state.
+ *   3. The SESSIONS section lists the archive: rows under their
+ *      folder header, newest first — no sort/search chrome.
  *   4. Reorganize rewrites ONE meta only: rename and refile through
- *      the window's menu verbs change `meta.json` alone — the sealed
+ *      the section's menu verbs change `meta.json` alone — the sealed
  *      log is byte-identical after both, and a bystander session's
- *      meta is untouched; search finds the new name; the detail strip
- *      renders for the selected row.
+ *      meta is untouched.
  *   5. Reachability GC through the delete verb (`session-gc` page):
  *      two sessions record overlapping deterministic assets; deleting
- *      one through the window sweeps its EXCLUSIVE blob and spares the
- *      shared one (§11.4 manifest-union reachability). Budget pruning
- *      stays unit-pinned — the Settings floor is 1 GiB by design, no
- *      e2e-sized knob exists.
- *   6. The rail's go-to: the Traffic Monitor SESSIONS header opens the
- *      Traffic Sessions window; a recording session's row carries the
- *      live state tag until sealed.
+ *      one through the section sweeps its EXCLUSIVE blob and spares
+ *      the shared one (§11.4 manifest-union reachability). Budget
+ *      pruning stays unit-pinned — the Settings floor is 1 GiB by
+ *      design, no e2e-sized knob exists.
+ *   6. S26 open-as-tab: a sealed row single-click opens the session
+ *      as a source tab on the panel's strip, bound to the archive's
+ *      replay lifeline; re-click activates, close retires.
  *
  * Requires builds: `pnpm --filter @openheaders/desktop build` and the
  * extension `dist/chrome` (built separately). The playground dev server
@@ -145,28 +144,24 @@ async function manifestDigests(dirPath: string): Promise<string[]> {
 }
 
 /** State-driven dock-strip toggle — click only when the state is wrong. */
-async function openToolWindow(id: 'traffic-monitor' | 'traffic-sessions'): Promise<void> {
+async function openToolWindow(id: 'traffic-monitor'): Promise<void> {
   const tab = workbench.locator(`[data-tool-window="${id}"]`).first();
   if ((await tab.getAttribute('aria-selected')) !== 'true') {
     await tab.click();
   }
 }
 
-/** The window's poll cadence is 15 s — the specs converge via clicks. */
-async function refreshWindow(): Promise<void> {
-  await workbench.locator('[data-testid="traffic-sessions-refresh"]').first().click();
+/** State-driven SESSIONS expand — the section reloads on expand and on
+ *  every trafficStatusChanged nudge, so no refresh affordance exists. */
+async function expandSessions(): Promise<void> {
+  const header = workbench.locator('[data-testid="traffic-monitor-sessions-header"]');
+  if ((await header.getAttribute('aria-expanded')) !== 'true') {
+    await header.click();
+  }
 }
 
 function windowRow(id: string): ReturnType<Page['locator']> {
   return workbench.locator(`[data-testid="traffic-sessions-row"][data-session-id="${id}"]`);
-}
-
-/** antd Input renders the testid on the input OR an affix wrapper —
- *  the dual selector covers both (the login-gate idiom). */
-function windowSearch(): ReturnType<Page['locator']> {
-  return workbench
-    .locator('input[data-testid="traffic-sessions-search"], [data-testid="traffic-sessions-search"] input')
-    .first();
 }
 
 async function openRowMenu(id: string): Promise<void> {
@@ -406,11 +401,11 @@ test('a sealed session carries the stamped auto-name and dominant-origin folder 
   expect(sessionTwo.folder).toBe(LOOPBACK_SITE);
 });
 
-// ── The window lists the archive: folders, sort, search ─────────────
+// ── The SESSIONS section lists the archive: folders, newest first ───
 
-test('the Traffic Sessions window groups rows by folder, sorts, and searches', async () => {
-  await openToolWindow('traffic-sessions');
-  await refreshWindow();
+test('the SESSIONS section groups rows by folder, newest first', async () => {
+  await openToolWindow('traffic-monitor');
+  await expandSessions();
 
   // Both sealed sessions render under their auto-placement folder.
   await expect(
@@ -419,30 +414,17 @@ test('the Traffic Sessions window groups rows by folder, sorts, and searches', a
   await expect(windowRow(sessionOne.id)).toBeVisible();
   await expect(windowRow(sessionTwo.id)).toBeVisible();
 
-  // Newest first by default; oldest-first flips the order.
-  const rowIds = async (): Promise<string[]> =>
-    workbench
-      .locator('[data-testid="traffic-sessions-row"]')
-      .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-session-id') ?? ''));
-  expect((await rowIds())[0]).toBe(sessionTwo.id);
-  await workbench.locator('[data-testid="traffic-sessions-sort"]').click();
-  await workbench
-    .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option[title="Oldest first"]')
-    .click();
-  expect((await rowIds())[0]).toBe(sessionOne.id);
-
-  // Search: a non-matching needle answers the honest filtered-empty
-  // state, never a bare void; clearing restores the rows.
-  await windowSearch().fill('no-such-session-zzz');
-  await expect(workbench.locator('[data-testid="traffic-sessions-empty-filtered"]')).toBeVisible();
-  await expect(workbench.locator('[data-testid="traffic-sessions-row"]')).toHaveCount(0);
-  await windowSearch().fill('');
-  await expect(workbench.locator('[data-testid="traffic-sessions-row"]')).toHaveCount(2);
+  // Newest first — the section carries no sort/search chrome.
+  const rowIds = await workbench
+    .locator('[data-testid="traffic-sessions-row"]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-session-id') ?? ''));
+  expect(rowIds[0]).toBe(sessionTwo.id);
+  expect(rowIds).toContain(sessionOne.id);
 });
 
 // ── Organize verbs rewrite ONE meta only ────────────────────────────
 
-test('rename and refile rewrite the session meta alone; search finds the new name; the detail strip renders', async () => {
+test('rename and refile rewrite the session meta alone', async () => {
   const sealPath = path.join(archiveDir, 'sessions', sessionOne.id, 'events.seal');
   const bystanderMetaPath = path.join(archiveDir, 'sessions', sessionTwo.id, 'meta.json');
   const sealBefore = await readFile(sealPath);
@@ -480,17 +462,6 @@ test('rename and refile rewrite the session meta alone; search finds the new nam
   expect(meta.folder).toBe('investigations');
   expect((await readFile(sealPath)).equals(sealBefore)).toBe(true);
   expect(await readFile(bystanderMetaPath, 'utf8')).toBe(bystanderBefore);
-
-  // Search matches the operator's new name.
-  await windowSearch().fill('Checkout');
-  await expect(workbench.locator('[data-testid="traffic-sessions-row"]')).toHaveCount(1);
-  await windowSearch().fill('');
-
-  // Row select → the detail strip renders the index facts.
-  await windowRow(sessionOne.id).click();
-  const detail = workbench.locator('[data-testid="traffic-sessions-detail"]');
-  await expect(detail).toBeVisible();
-  await expect(detail).toContainText('requests');
 });
 
 // ── Reachability GC through the window's delete verb ────────────────
@@ -588,11 +559,13 @@ test('deleting a session sweeps its exclusive blobs and spares shared ones', asy
     expect(await exists(blobPath(digest))).toBe(true);
   }
 
-  // Delete the victim through the window: menu → danger confirm.
+  // Delete the victim through the rail section: menu → danger confirm.
+  // The seal's trafficStatusChanged nudge re-reads the expanded index,
+  // so the row appears without any refresh affordance.
   const victimRow = await archivedRowOf(victim.sessionId);
-  await openToolWindow('traffic-sessions');
-  await refreshWindow();
-  await expect(windowRow(victimRow.id)).toBeVisible({ timeout: 10000 });
+  await openToolWindow('traffic-monitor');
+  await expandSessions();
+  await expect(windowRow(victimRow.id)).toBeVisible({ timeout: 20000 });
   await openRowMenu(victimRow.id);
   await workbench.locator('[data-testid="traffic-sessions-menu-delete"]').click();
   await workbench.locator('[data-testid="traffic-sessions-delete-ok"]').click();
@@ -609,33 +582,37 @@ test('deleting a session sweeps its exclusive blobs and spares shared ones', asy
     expect(await exists(blobPath(digest))).toBe(true);
   }
   expect(await exists(path.join(archiveDir, 'sessions', victimRow.id))).toBe(false);
-  await refreshWindow();
   await expect(windowRow(victimRow.id)).toHaveCount(0, { timeout: 10000 });
 });
 
-// ── The rail's go-to + the live row posture ─────────────────────────
+// ── S26: a sealed row opens as a Traffic Monitor source tab ─────────
 
-test('the SESSIONS header go-to opens the window, and a recording row carries the live tag until sealed', async () => {
+test('a sealed session row opens as a source tab bound to the replay lifeline; closing the pill retires it', async () => {
   await openToolWindow('traffic-monitor');
-  await workbench.locator('[data-testid="traffic-monitor-sessions-goto"]').click();
-  await expect(workbench.locator('[data-tool-window="traffic-sessions"]').first()).toHaveAttribute(
-    'aria-selected',
-    'true',
-    { timeout: 10000 },
-  );
+  await expandSessions();
 
-  // A recording session's archive row is visible with the live state
-  // tag (its meta rides the recorder's slow persist cadence).
-  const started = (await invoke({
-    type: 'oh.daemon.traffic.capture.start',
-    uid: armedUid,
-    name: 'live row',
-  })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
-  expect(started.ok, started.error).toBe(true);
-  await refreshWindow();
-  await expect(workbench.locator('[data-testid="traffic-sessions-row-state"]')).toBeVisible({ timeout: 10000 });
-  await invoke({ type: 'oh.daemon.traffic.capture.stop', uid: armedUid });
-  await waitSealed(started.session?.sessionId ?? '');
-  await refreshWindow();
-  await expect(workbench.locator('[data-testid="traffic-sessions-row-state"]')).toHaveCount(0, { timeout: 10000 });
+  // Single click — the same open-or-activate grammar as every other
+  // rail row. The pill carries the session key and the history glyph;
+  // the plane column binds the SAME network view to the sealed log.
+  await windowRow(sessionOne.id).click();
+  const pill = workbench.locator(`[data-testid="traffic-monitor-tab"][data-tab-key="session:${sessionOne.id}"]`);
+  await expect(pill).toBeVisible({ timeout: 10000 });
+  await expect(pill).toHaveAttribute('data-tab-active', 'true');
+  await expect(pill).toContainText('Checkout repro');
+  const plane = workbench.locator('[data-testid="traffic-monitor-session-plane"]');
+  await expect(plane).toBeVisible();
+
+  // The recorded probe mix replays into rows (4 requests recorded in
+  // the auto-name leg) — out of nothing but the sealed event log.
+  await expect.poll(async () => plane.locator('.dt-row').count(), { timeout: 15000 }).toBeGreaterThanOrEqual(4);
+
+  // Re-clicking the rail row activates, never duplicates.
+  await windowRow(sessionOne.id).click();
+  await expect(workbench.locator('[data-testid="traffic-monitor-tab"]')).toHaveCount(1);
+
+  // Close retires the pill and unbinds the plane column.
+  await pill.hover();
+  await pill.locator('[data-testid="traffic-monitor-tab-close"]').click();
+  await expect(pill).toHaveCount(0);
+  await expect(plane).toHaveCount(0);
 });

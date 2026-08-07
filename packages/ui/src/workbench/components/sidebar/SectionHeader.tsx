@@ -7,16 +7,19 @@ export function SectionHeader({
   expanded,
   onToggle,
   actions,
+  testid,
 }: {
   title: string;
   expanded: boolean;
   onToggle: () => void;
   actions?: React.ReactNode;
+  testid?: string;
 }) {
   const { token } = theme.useToken();
   return (
     <div
       className="rules-sidebar-section"
+      data-testid={testid}
       style={{ color: token.colorTextSecondary }}
       onClick={onToggle}
       onKeyDown={(e) => {

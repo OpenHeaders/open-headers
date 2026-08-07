@@ -6,11 +6,13 @@
  * + `rules-sidebar-item` rows inside one `rules-sidebar-content`
  * column). BROWSER TABS — every connected peer under a colored brand
  * roundel with its extension version, each tab as favicon + title like
- * the browser's own tab strip — absorbs the column's slack, so WIRE
- * (the L7 capture partition — any app routed through the capture port)
- * and the SESSIONS opener row ({@link TrafficMonitorSessionsSection})
- * sit anchored at the bottom with no dead space under them. Selecting
- * a row binds the panel's plane views on the right to that source.
+ * the browser's own tab strip — stacks above WIRE (the L7 capture
+ * partition — any app routed through the capture port) and the
+ * SESSIONS archive section ({@link TrafficMonitorSessionsSection}).
+ * The open lists (browsers body, expanded sessions) share the
+ * column's slack; collapsing a section moves the ones below it up.
+ * Selecting a row binds the panel's plane views on the right to that
+ * source.
  *
  * Favicons arrive as `data:` URIs the EXTENSION resolved from the
  * browser's own favicon cache — the workbench renderer's CSP forbids
@@ -33,6 +35,7 @@ import {
 } from '@ant-design/icons';
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
+import type { TrafficArchivedSessionProjection } from '@openheaders/core/traffic';
 import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
@@ -136,9 +139,12 @@ export interface TrafficMonitorSourceRailProps {
    *  eye is the retention indicator and must be visible the whole time
    *  a session records — PLAN §3. */
   captureActive: ReadonlySet<TrafficSourceKey>;
-  /** Open the Traffic Sessions tool window — the SESSIONS row's verb
-   *  (§11.1, C5). */
-  onOpenSessions: () => void;
+  /** Open (or activate) a SEALED archived session as a source tab —
+   *  the SESSIONS section's row verb (§11.1, C5 folded in-rail). */
+  onOpenSession: (session: TrafficArchivedSessionProjection) => void;
+  /** A session deleted from the SESSIONS section — the panel retires
+   *  its open tab. */
+  onSessionDeleted: (id: string) => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
   /** Which side of the panel the rail sits on — overlays (tooltips,
@@ -533,7 +539,8 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   observePending,
   onObserveAction,
   captureActive,
-  onOpenSessions,
+  onOpenSession,
+  onSessionDeleted,
   width,
   side,
   wireControl,
@@ -811,12 +818,13 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
     >
       <div className="rules-sidebar-content">
         {browsersSection}
-        {/* The browsers body absorbs the column's slack while open; when
-            collapsed this spacer takes over so WIRE and SESSIONS stay
-            anchored at the bottom. */}
-        {!browsersOpen && <div style={{ flex: 1 }} />}
         {wireSection}
-        <TrafficMonitorSessionsSection onOpenArchive={onOpenSessions} tooltipPlacement={tooltipPlacement} />
+        <TrafficMonitorSessionsSection
+          tooltipPlacement={tooltipPlacement}
+          selected={selected}
+          onOpenSession={onOpenSession}
+          onSessionDeleted={onSessionDeleted}
+        />
       </div>
     </div>
   );

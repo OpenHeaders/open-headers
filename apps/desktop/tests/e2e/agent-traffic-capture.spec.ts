@@ -33,10 +33,10 @@
  *      (seeded from their Settings defaults); the single stop verb
  *      seals the session 'stopped', disarms, and restores the debug
  *      state the start gesture found.
- *   7. Sessions section (C4 — live state only): sealed sessions leave
- *      the rail (no rows, no reveal-in-folder — disk location is an
- *      abstraction); an active session shows one live row whose stop
- *      seals it, after which the row retires.
+ *   7. SESSIONS section (S26 — the archive in-rail): collapsed by
+ *      default with no rows in the rail; expanding lists the sealed
+ *      archive under its folders, and a recording session's row
+ *      carries the live state tag until the seal lands.
  *   8. Source tab row (S25): rail clicks open-or-activate per-source
  *      tabs on the panel's header line; the active tab drives the
  *      plane views; closing a tab activates its neighbor and closing
@@ -597,20 +597,28 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
   armedUid = rearmed.uid ?? '';
 });
 
-// ── The SESSIONS rail row: opener only, live state on source rows ───
+// ── The SESSIONS rail section: the archive in-rail (S26) ────────────
 
-test('the rail lists no session rows and the SESSIONS row opens the archive window', async () => {
+test('the SESSIONS section expands over the archive and a recording row carries the live tag until sealed', async () => {
   await openTrafficMonitor();
 
-  // The rail never lists session rows — sealed OR live. Live recording
-  // state shows on the source rows themselves (the red retention
-  // glyph), and browsing the archive is the C5 window.
+  // Collapsed by default — the rail lists no session rows; live
+  // recording state shows on the source rows themselves (the red
+  // retention glyph).
   const sessions = await captureSessions();
   expect(sessions.length).toBeGreaterThanOrEqual(4);
   expect(sessions.every((s) => s.state === 'sealed')).toBe(true);
-  expect(await workbench.locator('[data-testid="traffic-monitor-session-row"]').count()).toBe(0);
-  expect(await workbench.locator('[data-testid="traffic-monitor-sessions-empty"]').count()).toBe(0);
+  expect(await workbench.locator('[data-testid="traffic-sessions-row"]').count()).toBe(0);
 
+  // Expanding lists the sealed archive grouped under its folders.
+  await workbench.locator('[data-testid="traffic-monitor-sessions-header"]').click();
+  await expect(workbench.locator('[data-testid="traffic-sessions-folder"]').first()).toBeVisible({ timeout: 10000 });
+  await expect
+    .poll(async () => workbench.locator('[data-testid="traffic-sessions-row"]').count(), { timeout: 10000 })
+    .toBeGreaterThanOrEqual(4);
+
+  // A recording session's row carries the live state tag until the
+  // seal lands (the trafficStatusChanged nudge re-reads the index).
   const started = (await invoke({
     type: 'oh.daemon.traffic.capture.start',
     uid: armedUid,
@@ -620,22 +628,20 @@ test('the rail lists no session rows and the SESSIONS row opens the archive wind
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
     timeout: 10000,
   });
-  expect(await workbench.locator('[data-testid="traffic-monitor-session-row"]').count()).toBe(0);
+  await expect(workbench.locator('[data-testid="traffic-sessions-row-state"]').first()).toBeVisible({
+    timeout: 15000,
+  });
   await invoke({ type: 'oh.daemon.traffic.capture.stop', uid: armedUid });
   const ended = await waitSealed(started.session?.sessionId ?? '');
   expect(ended.endReason).toBe('stopped');
   await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]')).toHaveCount(0, {
     timeout: 10000,
   });
+  await expect(workbench.locator('[data-testid="traffic-sessions-row-state"]')).toHaveCount(0, { timeout: 15000 });
 
-  // The whole SESSIONS row is the go-to into the Traffic Sessions
-  // window — no separate header action.
-  await workbench.locator('[data-testid="traffic-monitor-sessions-goto"]').click();
-  await expect(workbench.locator('[data-tool-window="traffic-sessions"]').first()).toHaveAttribute(
-    'aria-selected',
-    'true',
-    { timeout: 10000 },
-  );
+  // Collapse back — the later legs assert rail geometry undisturbed.
+  await workbench.locator('[data-testid="traffic-monitor-sessions-header"]').click();
+  await expect(workbench.locator('[data-testid="traffic-sessions-row"]')).toHaveCount(0);
 });
 
 // ── The source tab row (S25): rail opens tabs, tabs drive the planes ─
