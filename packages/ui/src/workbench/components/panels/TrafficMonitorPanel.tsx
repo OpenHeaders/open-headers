@@ -141,7 +141,11 @@ const CONSOLE_PANE_MAX_HEIGHT = 560;
  *  pane to its strip row instead of pinning it at the clamp. */
 const SASH_COLLAPSE_SLACK = 48;
 
-/** A pane that grows to fill the column keeps at least a few rows. */
+/** A pane that grows to fill the column keeps at least a few rows.
+ *  A grower's flex basis must be 0, never auto: with basis auto its
+ *  CONTENT sets the basis, so streaming rows overflow the column and
+ *  flex-shrink eats the fixed panes below 1px at a time — and eats
+ *  sash-drag deltas mid-drag. */
 const GROW_PANE_MIN_HEIGHT = 88;
 
 /** A fixed-height pane crushed by a short window degrades to its own
@@ -1246,7 +1250,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                     {t('panel.toolWindows.network')}
                   </button>
                 ) : (
-                  <div ref={growerPaneRef} style={{ flex: '1 1 auto', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }}>
+                  <div ref={growerPaneRef} style={{ flex: '1 1 0', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }}>
                     <NetworkCaptureView
                       key={tabSourceKey(tabSelection.nodeId, tabSelection.tabId)}
                       tabId={tabSelection.tabId}
@@ -1291,7 +1295,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                       data-testid="traffic-monitor-storage-pane"
                       style={
                         storageGrows
-                          ? { flex: '1 1 auto', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }
+                          ? { flex: '1 1 0', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }
                           : { height: storageHeight, flex: '0 1 auto', minHeight: FIXED_PANE_MIN_HEIGHT, overflow: 'hidden' }
                       }
                     >
@@ -1339,7 +1343,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                       data-testid="traffic-monitor-console-pane"
                       style={
                         consoleGrows
-                          ? { flex: '1 1 auto', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }
+                          ? { flex: '1 1 0', minHeight: GROW_PANE_MIN_HEIGHT, overflow: 'hidden' }
                           : { height: consoleHeight, flex: '0 1 auto', minHeight: FIXED_PANE_MIN_HEIGHT, overflow: 'hidden' }
                       }
                     >
