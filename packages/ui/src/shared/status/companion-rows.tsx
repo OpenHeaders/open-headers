@@ -126,8 +126,45 @@ const DesktopAppRow: React.FC = () => {
     >
       <Typography.Text style={{ fontSize: 11 }}>{t(messageKey)}</Typography.Text>
       {state === 'not-installed' && <DesktopDownloadAction />}
-      {state === 'installed-not-connected' && <DesktopConnectAction />}
+      {state === 'not-connected' && <DesktopOpenAppAction primary />}
+      {state === 'installed-not-connected' && (
+        <span style={{ display: 'inline-flex', gap: 4 }}>
+          <DesktopConnectAction />
+          <DesktopOpenAppAction />
+        </span>
+      )}
     </CompanionRow>
+  );
+};
+
+/**
+ * Explicit launch for a disconnected companion — the NM host opens the
+ * desktop app it shipped inside (`desktopLaunch`), and the service
+ * worker's watch sentinel attaches the moment the app is up, so the
+ * row re-derives to Connected on its own. Absent capability (no NM
+ * plane) hides the button; a failed launch leaves the row as it was.
+ */
+const DesktopOpenAppAction: React.FC<{ primary?: boolean }> = ({ primary }) => {
+  const t = useT();
+  const [busy, setBusy] = React.useState(false);
+  const launch = getCapability('desktopLaunch');
+  if (!launch) return null;
+  const open = async (): Promise<void> => {
+    setBusy(true);
+    await launch();
+    setBusy(false);
+  };
+  return (
+    <Button
+      size="small"
+      type={primary ? 'primary' : 'default'}
+      loading={busy}
+      onClick={() => void open()}
+      data-testid="status-companion-open-app"
+      style={{ fontSize: 11, height: 20, padding: '0 6px' }}
+    >
+      {t('shared.chrome.status.companionOpenApp')}
+    </Button>
   );
 };
 

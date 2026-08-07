@@ -90,6 +90,7 @@ import { resumeOrphanedMigrationPull } from './modules/migration-run/orphan-resu
 import { rehydrateCacheBypassFromSessionRules } from './modules/net/cache-bypass';
 import { rehydrateNetworkConditionsFromSession } from './modules/net/network-conditions';
 import { runNmBootstrap } from './modules/nm-bootstrap';
+import { installNmWatchSentinel } from './modules/nm-watch-sentinel';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { auditHostPermissions } from './modules/permissions-audit';
@@ -263,6 +264,11 @@ async function initializeExtension(): Promise<void> {
     }).catch((err: unknown) => logger.warn('Background', 'NM bootstrap attempt failed', err));
   };
   attemptNmBootstrap();
+  // NM auto-connect sentinel: while a loopback backend is wanted but
+  // disconnected, a watch port at the NM host signals the moment the
+  // desktop app comes up and the wire dials instantly — the reconnect
+  // alarm below stays the safety net, not the attach path.
+  installNmWatchSentinel();
   // Offline fallback (WS-C C14): give the live scheduler a read of the
   // workspace's frozen priority list + this host's identity so an
   // *exclusive* workflow whose configured backend is offline runs on

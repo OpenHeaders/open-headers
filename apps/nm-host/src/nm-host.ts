@@ -1,13 +1,26 @@
 /**
- * `oh-nm-host` — the Open Headers native-messaging bootstrap host
+ * `oh-nm-host` — the Open Headers native-messaging host
  * (OBSERVABILITY_PLAN.md §4 + §8 Phase 7).
  *
- * The browser spawns this binary per its NM manifest; the extension
- * sends ONE bootstrap request (`chrome.runtime.sendNativeMessage`);
- * the host dials the desktop daemon's loopback `/nm/bootstrap` route,
- * relays the answer as one framed message, and exits. Token handoff
- * only — the WS lifeline carries everything else, always (§9: NM is
- * never bulk transport).
+ * The browser spawns this binary per its NM manifest. Three verbs, one
+ * dispatch on the first framed message:
+ *
+ *   - `bootstrap` — the original one-shot token handoff
+ *     (`chrome.runtime.sendNativeMessage`): dial the desktop daemon's
+ *     loopback `/nm/bootstrap` route, relay the answer, exit. Token
+ *     handoff only — the WS lifeline carries everything else, always
+ *     (§9: NM is never bulk transport).
+ *   - `watch` — the long-lived mode behind the extension's
+ *     auto-connect sentinel (`chrome.runtime.connectNative`): poll the
+ *     loopback port and post the up-signal the moment the verified
+ *     desktop app appears; heartbeat frames keep the service worker
+ *     alive across the wait. Ends when the port closes.
+ *   - `launch` — explicit user gesture: open the desktop app this
+ *     host shipped with (anchored by the binary's own install root,
+ *     never by the wire), relay the verdict, exit.
+ *
+ * Anything else — the extension's presence probe included — answers
+ * one `bad-request` frame and exits.
  *
  * Compiled with `bun build --compile` (see `scripts/pack-bun.mjs`) so
  * one signable, self-contained binary ships inside the desktop app's
@@ -19,13 +32,15 @@
 import * as process from 'node:process';
 import { type BootstrapResponse, parseBootstrapRequest, performBootstrap } from './bootstrap';
 import { createNmMessageDecoder, encodeNmMessage } from './framing';
+import { type LaunchResponse, parseLaunchRequest, performLaunch } from './launch';
 import { verifyDaemonListener } from './verify-daemon';
+import { parseWatchRequest, startWatch } from './watch';
 import { win32ImageNamePath } from './win32-image-name';
 
 /** A stuck spawn (browser never writes, daemon hangs) must not leak hosts. */
 const IDLE_EXIT_MS = 30_000;
 
-function respondAndExit(response: BootstrapResponse): void {
+function respondAndExit(response: BootstrapResponse | LaunchResponse): void {
   process.stdout.write(encodeNmMessage(response), () => {
     process.exit(0);
   });
@@ -48,17 +63,36 @@ function main(): void {
     process.exit(1);
   }, IDLE_EXIT_MS);
   let handled = false;
+  let watching = false;
   const decoder = createNmMessageDecoder({
     onMessage: (value) => {
       if (handled) return;
       handled = true;
       clearTimeout(idleTimer);
-      const request = parseBootstrapRequest(value);
-      if (!request) {
-        respondAndExit({ ok: false, reason: 'bad-request' });
+      const bootstrap = parseBootstrapRequest(value);
+      if (bootstrap) {
+        void performBootstrap(bootstrap, { verifyListener: listenerVerified }).then(respondAndExit);
         return;
       }
-      void performBootstrap(request, { verifyListener: listenerVerified }).then(respondAndExit);
+      const watch = parseWatchRequest(value);
+      if (watch) {
+        const session = startWatch(watch, {
+          post: (message) => process.stdout.write(encodeNmMessage(message)),
+          verifyListener: listenerVerified,
+        });
+        if (session === null) {
+          respondAndExit({ ok: false, reason: 'bad-request' });
+          return;
+        }
+        watching = true;
+        return;
+      }
+      const launch = parseLaunchRequest(value);
+      if (launch) {
+        void performLaunch({ ownExecutablePath: process.execPath }).then(respondAndExit);
+        return;
+      }
+      respondAndExit({ ok: false, reason: 'bad-request' });
     },
     onProtocolError: () => {
       clearTimeout(idleTimer);
@@ -67,7 +101,12 @@ function main(): void {
   });
   process.stdin.on('data', (chunk: Buffer) => decoder.push(chunk));
   process.stdin.on('end', () => {
-    if (!handled) process.exit(0);
+    if (!handled || watching) process.exit(0);
+  });
+  // A watch host whose port vanished mid-write (browser shut down)
+  // must exit, not crash on EPIPE.
+  process.stdout.on('error', () => {
+    process.exit(0);
   });
 }
 

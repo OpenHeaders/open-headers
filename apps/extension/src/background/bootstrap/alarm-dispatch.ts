@@ -16,6 +16,7 @@ import {
   NM_AUTO_JOIN_ALARM,
   NM_AUTO_JOIN_ALARM_PERIOD_MINUTES,
 } from '../modules/nm-bootstrap';
+import { evaluateNmWatchSentinel } from '../modules/nm-watch-sentinel';
 import { handleOAuthAlarm, isOAuthRefreshAlarm } from '../modules/oauth-refresh-scheduler';
 import { handleProductTelemetryAlarm, isProductTelemetryAlarm } from '../modules/product-telemetry';
 import { handleTotpAlarm, isTotpAlarm } from '../modules/totp-scheduler';
@@ -65,6 +66,10 @@ export function installAlarmDispatch(): void {
       } catch (error) {
         logger.debug('Background', 'Failed to reconnect:', (error as Error).message);
       }
+      // The alarm tick doubles as the watch sentinel's slow retry: it
+      // clears the dead-host suppression, so a watch host that died
+      // without an up-signal is re-attempted at this cadence at most.
+      evaluateNmWatchSentinel({ clearSuppression: true });
       return;
     }
     if (alarm.name === 'updateBadge') {

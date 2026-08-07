@@ -8,13 +8,17 @@
  * this machine (live loopback wire truth, same derivation as the
  * status popover's Desktop-app row) and the `companionReveal`
  * capability present, the primary action hands off — front the desktop
- * app and reveal this feature there. Otherwise it resolves the latest
- * installer for this platform from the update feed's versions manifest
- * (see `update-feed.ts`) and opens it outside the current surface via
- * the `openExternalUrl` capability; hosts without it (the web app)
- * fall back to a plain new tab. When the feed is unreachable, the CTA
- * and the "other platforms" link both route to the website's install
- * section instead.
+ * app and reveal this feature there. With the app INSTALLED but not
+ * connected (the `desktopLaunch` capability present and the NM host
+ * answering the presence probe), the primary action launches it — the
+ * service worker's watch sentinel attaches as it comes up and this
+ * teaser re-derives to the reveal CTA on its own. Otherwise it
+ * resolves the latest installer for this platform from the update
+ * feed's versions manifest (see `update-feed.ts`) and opens it outside
+ * the current surface via the `openExternalUrl` capability; hosts
+ * without it (the web app) fall back to a plain new tab. When the feed
+ * is unreachable, the CTA and the "other platforms" link both route to
+ * the website's install section instead.
  */
 
 import { DownloadOutlined, SelectOutlined } from '@ant-design/icons';
@@ -47,6 +51,8 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
   const copy = DESKTOP_TEASER_COPY[feature];
   const [installer, setInstaller] = useState<DesktopInstaller | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [launchable, setLaunchable] = useState(false);
+  const [launching, setLaunching] = useState(false);
 
   // Live loopback wire truth — the enabled loopback record's sync slot
   // going green IS "the desktop app is running and connected here".
@@ -72,6 +78,24 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
     };
   }, [companionConnected]);
 
+  // Installed-but-not-connected: the launch gesture needs the NM plane
+  // (`desktopLaunch`) AND OS truth that the app is actually installed —
+  // the presence probe, same derivation as the status popover's row.
+  const desktopLaunch = getCapability('desktopLaunch');
+  const launchAvailable = desktopLaunch !== undefined;
+  useEffect(() => {
+    if (companionConnected || !launchAvailable) return;
+    const probe = getCapability('nmHostPresence');
+    if (!probe) return;
+    let alive = true;
+    void probe().then((present) => {
+      if (alive) setLaunchable(present);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [companionConnected, launchAvailable]);
+
   const reveal = async (): Promise<void> => {
     if (!companionReveal) return;
     setRevealing(true);
@@ -80,6 +104,17 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
     // teaser back to the download CTA on the next status emission.
     await companionReveal(feature);
     setRevealing(false);
+  };
+
+  const launch = async (): Promise<void> => {
+    if (!desktopLaunch) return;
+    setLaunching(true);
+    const { ok } = await desktopLaunch();
+    setLaunching(false);
+    // A refused launch (moved install, unanchored host) falls back to
+    // the honest download CTA; success needs nothing — the connection
+    // landing re-derives this teaser to the reveal state.
+    if (!ok) setLaunchable(false);
   };
 
   return (
@@ -113,6 +148,17 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
           style={{ marginTop: 6 }}
         >
           {t('shared.desktopTeaser.openApp')}
+        </Button>
+      ) : launchAvailable && launchable ? (
+        <Button
+          type="primary"
+          icon={<SelectOutlined />}
+          loading={launching}
+          onClick={() => void launch()}
+          data-testid="desktop-teaser-launch"
+          style={{ marginTop: 6 }}
+        >
+          {t('shared.desktopTeaser.launchApp')}
         </Button>
       ) : (
         <>

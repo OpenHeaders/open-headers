@@ -79,6 +79,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionPeersConnected': '已连接 {count} 个',
   'shared.chrome.status.companionNoPeers': '暂无连接',
   'shared.chrome.status.companionConnect': '连接',
+  'shared.chrome.status.companionOpenApp': '打开应用',
   'shared.chrome.addons.title': '附加组件',
   'shared.chrome.addons.cli': 'CLI',
   'shared.chrome.addons.server': '服务器',

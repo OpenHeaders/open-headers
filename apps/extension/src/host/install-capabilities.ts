@@ -22,6 +22,7 @@ import './install-csp-exempt-capability';
 import './install-whats-new-capability';
 import { getBrowserAPI } from '@/types/browser';
 import { companionReveal } from './companion-reveal';
+import { desktopLaunch } from './desktop-launch';
 import { nmAutoPair } from './nm-auto-pair';
 import { nmHostPresence } from './nm-presence';
 import { pairWithCode } from './pair-with-code';
@@ -87,4 +88,7 @@ registerCapability('pairWithCode', pairWithCode);
 if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
   registerCapability('nmAutoPair', nmAutoPair);
   registerCapability('nmHostPresence', () => nmHostPresence());
+  // Explicit launch gesture for a disconnected companion — the NM
+  // host opens the desktop app it shipped inside (launch verb).
+  registerCapability('desktopLaunch', () => desktopLaunch());
 }

@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   daemonBootstrapEndpoint,
+  daemonListenAddress,
   daemonListenPort,
   parseBootstrapRequest,
   performBootstrap,
@@ -58,6 +59,20 @@ describe('daemonListenPort', () => {
     expect(daemonListenPort('ws://127.0.0.1:59210')).toBe(59210);
     expect(daemonListenPort('ws://127.0.0.1')).toBe(80);
     expect(daemonListenPort('not a url')).toBeNull();
+  });
+});
+
+describe('daemonListenAddress', () => {
+  it('derives the dial-ready loopback address, brackets stripped', () => {
+    expect(daemonListenAddress('ws://127.0.0.1:59210')).toEqual({ host: '127.0.0.1', port: 59210 });
+    expect(daemonListenAddress('ws://[::1]:59210')).toEqual({ host: '::1', port: 59210 });
+    expect(daemonListenAddress('ws://localhost')).toEqual({ host: 'localhost', port: 80 });
+  });
+
+  it('refuses non-loopback hosts and foreign schemes', () => {
+    expect(daemonListenAddress('ws://192.168.1.20:59210')).toBeNull();
+    expect(daemonListenAddress('wss://127.0.0.1:59210')).toBeNull();
+    expect(daemonListenAddress('not a url')).toBeNull();
   });
 });
 

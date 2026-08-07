@@ -19,6 +19,7 @@ import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { companionReveal } from '@/host/companion-reveal';
+import { desktopLaunch } from '@/host/desktop-launch';
 import { nmAutoPair } from '@/host/nm-auto-pair';
 import { nmHostPresence } from '@/host/nm-presence';
 import { pairWithCode } from '@/host/pair-with-code';
@@ -41,6 +42,9 @@ registerCapability('pairWithCode', pairWithCode);
 if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging')) {
   registerCapability('nmAutoPair', nmAutoPair);
   registerCapability('nmHostPresence', () => nmHostPresence());
+  // Explicit launch gesture for a disconnected companion — the desktop
+  // teaser's "Open the desktop app" renders IN the workbench too.
+  registerCapability('desktopLaunch', () => desktopLaunch());
 }
 
 // Companion reveal: the desktop teasers' "Open in the desktop app"

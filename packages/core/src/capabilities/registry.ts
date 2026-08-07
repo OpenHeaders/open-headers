@@ -307,6 +307,22 @@ export interface Capabilities {
   companionReveal?: (target: CompanionRevealTarget) => Promise<{ ok: boolean; reason?: string }>;
 
   /**
+   * Launch the desktop app installed on this machine — the explicit
+   * user gesture for a disconnected companion, riding the desktop's
+   * native-messaging host (`launch` verb): the host opens the app it
+   * shipped inside, anchored by its own install root, never by
+   * anything a caller passes. Same registration surface as
+   * {@link Capabilities.nmAutoPair} (extension surfaces whose manifest
+   * carries the `nativeMessaging` permission); callers pair it with
+   * {@link Capabilities.nmHostPresence} so the affordance only shows
+   * where an installed app can actually answer. Resolves
+   * `{ ok: false }` on every failure — no registered host, an
+   * unanchored dev host, a failed spawn — and the disconnected
+   * affordance it replaced remains the honest fallback.
+   */
+  desktopLaunch?: () => Promise<{ ok: boolean }>;
+
+  /**
    * Marker capability for the opt-in request-inspection path that attaches
    * the browser's debugging protocol to tabs with their developer tools
    * open. Present only on hosts whose runtime exposes that protocol; absent

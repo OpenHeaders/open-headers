@@ -72,6 +72,20 @@ export function daemonListenPort(backendUrl: string): number | null {
   return Number.isInteger(port) ? port : null;
 }
 
+/**
+ * The loopback listen address (dial-ready host + port) the backend URL
+ * names. Same pin as {@link daemonBootstrapEndpoint} — null refuses a
+ * non-loopback or unparseable URL; the host is bracket-stripped so a
+ * `[::1]` URL answers the form socket dials take.
+ */
+export function daemonListenAddress(backendUrl: string): { host: string; port: number } | null {
+  if (daemonBootstrapEndpoint(backendUrl) === null) return null;
+  const port = daemonListenPort(backendUrl);
+  if (port === null) return null;
+  const parsed = new URL(backendUrl);
+  return { host: parsed.hostname.replace(/^\[|\]$/g, ''), port };
+}
+
 interface DaemonBootstrapJson {
   ok?: unknown;
   secret?: unknown;

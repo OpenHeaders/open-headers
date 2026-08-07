@@ -467,6 +467,7 @@ export const sharedComponents = {
   'shared.peerExecute.enableCta': 'Enable in the desktop app',
   'shared.desktopTeaser.cta': 'Download the desktop app',
   'shared.desktopTeaser.openApp': 'Open in the desktop app',
+  'shared.desktopTeaser.launchApp': 'Open the desktop app',
   'shared.desktopTeaser.otherPlatforms': 'Other platforms and channels',
   'shared.desktopTeaser.terminal.title': 'Integrated terminal',
   'shared.desktopTeaser.terminal.body':

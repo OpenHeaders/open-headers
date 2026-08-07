@@ -471,6 +471,7 @@ export const sharedComponents = {
   // ── Desktop teaser ─────────────────────────────────────────────────
   'shared.desktopTeaser.cta': 'Desktop-App herunterladen',
   'shared.desktopTeaser.openApp': 'In der Desktop-App öffnen',
+  'shared.desktopTeaser.launchApp': 'Desktop-App öffnen',
   'shared.desktopTeaser.otherPlatforms': 'Weitere Plattformen und Kanäle',
   'shared.desktopTeaser.terminal.title': 'Integriertes Terminal',
   'shared.desktopTeaser.terminal.body':

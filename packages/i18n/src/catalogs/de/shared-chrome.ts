@@ -78,6 +78,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionPeersConnected': '{count} verbunden',
   'shared.chrome.status.companionNoPeers': 'Keine verbunden',
   'shared.chrome.status.companionConnect': 'Verbinden',
+  'shared.chrome.status.companionOpenApp': 'App öffnen',
   'shared.chrome.addons.title': 'Add-ons',
   'shared.chrome.addons.cli': 'CLI',
   'shared.chrome.addons.server': 'Server',
