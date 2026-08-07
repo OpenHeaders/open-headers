@@ -478,7 +478,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Ouvrir un terminal',
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'La vue unifiée du trafic en direct — choisissez une source à gauche : un onglet de navigateur connecté ' +
+    'La vue unifiée du trafic en direct — choisissez une source dans la liste : un onglet de navigateur connecté ' +
     '(l’extension diffuse son trafic en direct) ou l’interception du trafic (tout outil de cette machine pointé vers ' +
     'le port du proxy local). Les deux s’affichent avec le même journal réseau que le panneau DevTools ; rien ' +
     'n’est diffusé tant qu’aucune source n’est sélectionnée.',
@@ -499,7 +499,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Arrêter',
   'workbench.proxyCapture.port': 'Port',
   'workbench.proxyCapture.scope': 'Périmètre de déchiffrement',
-  'workbench.proxyCapture.scopeCount': 'Périmètre de déchiffrement · {count}',
+  'workbench.proxyCapture.optionsAria': 'Réglages de l’interception du trafic',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Seuls les hôtes listés sont déchiffrés ; tout le reste du trafic HTTPS passe en tunnel opaque.',
@@ -559,13 +559,14 @@ export const workbenchChrome = {
     'Route les hôtes du périmètre de déchiffrement des navigateurs connectés à travers le proxy d’interception. ' +
     'Surtout pour les navigateurs impossibles à surveiller ou à déboguer directement — un onglet observable ' +
     'obtient davantage via le mode Débogage sur sa ligne.',
-  'workbench.proxyCapture.routingOnTag': 'Activé',
 
   // ── Fenêtre d’outils Réseau en direct (observabilité, phase 1) ──────
   'workbench.trafficMonitor.browserConnected': 'Navigateurs connectés : {count}',
   'workbench.trafficMonitor.noBrowser': 'Aucun navigateur connecté',
   'workbench.trafficMonitor.untitledTab': 'Onglet sans titre',
   'workbench.trafficMonitor.closeSourceTab': 'Fermer l’onglet',
+  'workbench.trafficMonitor.railSideToRight': 'Déplacer les sources vers la droite',
+  'workbench.trafficMonitor.railSideToLeft': 'Déplacer les sources vers la gauche',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'En attente de trafic…',
   'workbench.trafficMonitor.emptyWatchingHint':
@@ -579,7 +580,7 @@ export const workbenchChrome = {
     'applications natives, autres appareils',
   'workbench.trafficMonitor.emptyNoSource': 'Aucune source sélectionnée',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Choisissez à gauche un onglet de navigateur ou l’interception du trafic pour suivre son trafic',
+    'Choisissez dans la liste des sources un onglet de navigateur ou l’interception du trafic pour suivre son trafic',
   'workbench.trafficMonitor.debugTab': 'Déboguer cet onglet — fidélité maximale : corps, en-têtes exacts, timings',
   'workbench.trafficMonitor.debugAttached':
     'Onglet en cours de débogage — fidélité maximale via le débogueur du navigateur',

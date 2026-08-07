@@ -17,9 +17,10 @@
  *     relayed to the owning extension peer, subscription-gated end to
  *     end) — the storage (Phase 3) and console (Phase 4) planes stack
  *     below it (browser-truth only: the wire has neither domain);
- *   - the wire renders the {@link ProxyCaptureStrip} (capture
- *     infrastructure, contextual to the source that owns it) over the
- *     same view bound to the reserved proxy partition.
+ *   - the wire renders the same view bound to the reserved proxy
+ *     partition — chrome-identical to a tab's column; the capture
+ *     infrastructure (start/stop, port, decrypt scope, routing) lives
+ *     on the rail row's {@link WireCaptureControl}.
  *
  * Row inspection routes outward to main editor tabs on both sources.
  * The window is gated on `liveNetwork`; the wire source additionally
@@ -28,6 +29,8 @@
  * in-process), the rail just keeps the coupling honest.
  */
 
+import { MinusOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
 import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { JsContext } from '@openheaders/core/js-contexts';
@@ -43,7 +46,7 @@ import { qualifiedLifecyclePortName } from '@openheaders/core/request-lifecycle'
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { createPanelHeaderWiring, type DockSlot, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { createPanelHeaderWiring, type DockSlot, LayoutMenuIcon, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { ConsoleView, type RemoteConsoleCapture } from '../../../panel/components/ConsoleView';
 import { NetworkCaptureView, type WireJoinSeam } from '../../../panel/components/NetworkCaptureView';
@@ -71,6 +74,7 @@ import {
   trafficStorageHandle,
 } from '../../data/traffic-storage-host';
 import { subscribeTrafficStorageReveal, takeTrafficStorageReveal } from '../../data/traffic-storage-reveal';
+import { useSetting } from '../../settings/hooks';
 import { useIsDockFocused } from '../../stores/focus-region-store';
 import type { LiveStorageDocRef, WorkbenchTab } from '../../types';
 import {
@@ -84,7 +88,7 @@ import {
   tabSourceKey,
   WIRE_SOURCE_KEY,
 } from './TrafficMonitorSourceRail';
-import { ProxyCaptureStrip, useProxyCaptureStatus } from './ProxyCaptureStrip';
+import { useProxyCaptureStatus, WireCaptureControl } from './WireCaptureControl';
 import TrafficMonitorTabStrip, { type TrafficStripTab } from './TrafficMonitorTabStrip';
 
 export interface TrafficMonitorPanelProps {
@@ -166,10 +170,11 @@ const lastPanelState: {
   consoleCollapsed: true,
 };
 
-/** The panel header's own left padding — the header's title cell is
- *  sized to `railWidth` minus this inset so the divider segment on the
- *  header row lands exactly over the body divider below it. */
+/** The panel header's own paddings — the header's title cell is sized
+ *  to `railWidth` minus the inset on the rail's side, so the divider
+ *  segment on the header row lands exactly over the body divider. */
 const PANEL_HEADER_LEFT_PAD = 12;
+const PANEL_HEADER_RIGHT_PAD = 6;
 
 /** Reported for a peer that vanished from the inventory mid-selection. */
 const DEBUG_NONE: TelemetryDebugState = { available: false, enabled: false, attachedTabs: [], pinnedTabs: [] };
@@ -208,6 +213,8 @@ interface TrafficConsolePaneProps {
   tabId: number;
   debug: TelemetryDebugState;
   onHide: () => void;
+  /** The plane toolbar's leading caret — collapses to the strip row. */
+  collapseToggle: () => void;
 }
 
 /**
@@ -217,7 +224,7 @@ interface TrafficConsolePaneProps {
  * stream, arming belongs to the source rail's Debug affordance, and the
  * REPL prompt never mounts (remoteCapture suppresses it).
  */
-function TrafficConsolePane({ nodeId, tabId, debug, onHide }: TrafficConsolePaneProps) {
+function TrafficConsolePane({ nodeId, tabId, debug, onHide, collapseToggle }: TrafficConsolePaneProps) {
   const portName = useCallback((tid: number) => qualifiedConsolePortName(tid, nodeId), [nodeId]);
   const { snapshot, store } = useConsoleClient({ tabId, portName });
   const remoteCapture = useMemo<RemoteConsoleCapture>(
@@ -238,6 +245,7 @@ function TrafficConsolePane({ nodeId, tabId, debug, onHide }: TrafficConsolePane
       onRequestClick={noopRequestClick}
       onClear={onClear}
       onHide={onHide}
+      collapseToggle={collapseToggle}
       reveal={null}
       onRevealConsumed={noopRevealConsumed}
       remoteCapture={remoteCapture}
@@ -270,6 +278,9 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const dockFocused = useIsDockFocused(dockSlot);
   const showWire = hasCapability('proxyCapture');
   const proxy = useProxyCaptureStatus();
+  // Which side the sources rail sits on — a persisted preference the
+  // header's layout button flips (its icon shows the TARGET layout).
+  const [railSide, setRailSide] = useSetting('trafficMonitor.railSide');
 
   const [peers, setPeers] = useState<RailPeer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1002,8 +1013,13 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     const startX = e.clientX;
     const startWidth = railWidthRef.current;
     const move = (ev: PointerEvent): void => {
-      // Rail is on the left, so dragging right (larger clientX) widens it.
-      const next = Math.min(Math.max(startWidth + (ev.clientX - startX), RAIL_MIN_WIDTH), RAIL_MAX_WIDTH);
+      // Dragging AWAY from the rail's side widens it — the factor
+      // mirrors with the rail side.
+      const delta = ev.clientX - startX;
+      const next = Math.min(
+        Math.max(startWidth + (railSideRef.current === 'left' ? delta : -delta), RAIL_MIN_WIDTH),
+        RAIL_MAX_WIDTH,
+      );
       setRailWidth(next);
     };
     const up = (): void => {
@@ -1013,9 +1029,11 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   }, []);
-  // Live width for the drag closure without re-binding the handler.
+  // Live width/side for the drag closure without re-binding the handler.
   const railWidthRef = useRef(railWidth);
   railWidthRef.current = railWidth;
+  const railSideRef = useRef(railSide);
+  railSideRef.current = railSide;
 
   // Exactly one expanded pane fills the column: the first in stack
   // order grows, later expanded panes keep their drag-set heights. A
@@ -1023,79 +1041,168 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   const storageGrows = networkCollapsed && !storageCollapsed;
   const consoleGrows = networkCollapsed && storageCollapsed && !consoleCollapsed;
 
+  // Title cell — title + (i) at its left, the panel's action cluster
+  // (the rail-side layout toggle and the hide −) right-aligned at the
+  // rail column's edge: the HTTP Rules posture, actions belong to the
+  // card the title names. PanelHeader's own far-right cluster is
+  // hidden for this panel (scoped CSS) and the cell renders its own
+  // with the header action classes, so the dock-hover reveal law
+  // still applies — the terminal panel's split-mode precedent.
+  const railSideOther = railSide === 'left' ? 'right' : 'left';
+  const railSideToggleLabel = t(
+    railSide === 'left' ? 'workbench.trafficMonitor.railSideToRight' : 'workbench.trafficMonitor.railSideToLeft',
+  );
+  const headerTitleCell = (
+    <div
+      style={{
+        flex: `0 0 ${railWidth - (railSide === 'left' ? PANEL_HEADER_LEFT_PAD : PANEL_HEADER_RIGHT_PAD)}px`,
+        minWidth: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        // Divider-facing inner padding, mirroring the card-edge insets:
+        // rail LEFT — the action cluster stops short of the bar the way
+        // it stops short of a card's right edge; rail RIGHT — the title
+        // gets the same leading room it has at a card's left edge.
+        ...(railSide === 'left'
+          ? { paddingRight: PANEL_HEADER_RIGHT_PAD }
+          : { paddingLeft: PANEL_HEADER_LEFT_PAD }),
+      }}
+    >
+      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {t('workbench.toolWindows.trafficMonitor')}
+      </strong>
+      <InfoTrigger content={info} className="rules-panel-header-info" />
+      <div className="rules-panel-header-actions" data-focus-skip style={{ marginLeft: 'auto' }}>
+        {/* The layout toggle's icon shows the TARGET layout — the side
+            the sources rail SWITCHES TO, not where it is. */}
+        <Tooltip placement="bottom" title={railSideToggleLabel}>
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={railSideToggleLabel}
+            data-testid="traffic-monitor-rail-side-toggle"
+            className="rules-panel-header-action"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setRailSide(railSideOther)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') setRailSide(railSideOther);
+            }}
+          >
+            <LayoutMenuIcon kind={railSide === 'left' ? 'split-right' : 'split-left'} size={14} />
+          </span>
+        </Tooltip>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t('shared.dock.hidePanel')}
+          className="rules-panel-header-action"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onHide}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') onHide();
+          }}
+        >
+          <MinusOutlined />
+        </span>
+      </div>
+    </div>
+  );
+  const headerSash = (
+    <div
+      className="traffic-monitor-rail-sash traffic-monitor-rail-sash--top"
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={onRailSashDown}
+    />
+  );
+  const headerStrip = (
+    <TrafficMonitorTabStrip
+      tabs={openTabs}
+      activeKey={selectedKey}
+      focused={dockFocused}
+      onActivate={onActivateStripTab}
+      onClose={onCloseStripTab}
+    />
+  );
+  const railNode = (
+    <TrafficMonitorSourceRail
+      peers={peers}
+      loading={loading}
+      showWire={showWire}
+      wireRunning={proxy.status?.running === true}
+      wirePort={proxy.status?.boundPort ?? null}
+      selected={selectedKey}
+      onSelect={onSelect}
+      onDebugPin={onDebugPin}
+      onDebugEnable={onDebugEnable}
+      debugPending={debugPending}
+      debugEnablePending={debugEnablePending}
+      observeArmed={observeArmedKeys}
+      observePending={observePending}
+      onObserveAction={onObserveAction}
+      captureActive={captureActive}
+      onOpenSessions={onOpenSessionsWindow}
+      width={railWidth}
+      side={railSide}
+      wireControl={
+        <WireCaptureControl
+          controls={proxy}
+          placement={railSide === 'left' ? 'rightBottom' : 'leftBottom'}
+          onOpenProxySettings={onOpenProxySettings}
+        />
+      }
+    />
+  );
+  const bodySash = (
+    <div
+      className="traffic-monitor-rail-sash traffic-monitor-rail-sash--bottom"
+      data-testid="traffic-monitor-rail-sash"
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={onRailSashDown}
+    />
+  );
+
   return (
-    <div className="rules-bottom-panel">
+    <div className="rules-bottom-panel traffic-monitor-panel">
       {/* Single-row header (terminal posture): the title cell — sized to
           the rail width — the divider's header segment, and the source
           tab strip share the ONE 32px PanelHeader row, so the divider
           reads as one continuous bar from the card's top edge down
-          through the body row. The (i) rides inline after the title —
-          PanelHeader's own info slot would land after the flex-grown
-          strip, at the far right. */}
+          through the body row; the whole row mirrors with the rail
+          side. The (i) rides inline after the title — PanelHeader's
+          own info slot would land after the flex-grown strip. */}
       <PanelHeader
         wiring={headerWiring}
         title={
           <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, alignSelf: 'stretch' }}>
-            <div
-              style={{
-                flex: `0 0 ${railWidth - PANEL_HEADER_LEFT_PAD}px`,
-                minWidth: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                overflow: 'hidden',
-              }}
-            >
-              <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {t('workbench.toolWindows.trafficMonitor')}
-              </strong>
-              <InfoTrigger content={info} className="rules-panel-header-info" />
-            </div>
-            <div
-              className="traffic-monitor-rail-sash"
-              role="separator"
-              aria-orientation="vertical"
-              onPointerDown={onRailSashDown}
-            />
-            <TrafficMonitorTabStrip
-              tabs={openTabs}
-              activeKey={selectedKey}
-              focused={dockFocused}
-              onActivate={onActivateStripTab}
-              onClose={onCloseStripTab}
-            />
+            {railSide === 'left' ? (
+              <>
+                {headerTitleCell}
+                {headerSash}
+                {headerStrip}
+              </>
+            ) : (
+              <>
+                {headerStrip}
+                {headerSash}
+                {headerTitleCell}
+              </>
+            )}
           </div>
         }
       />
       <div style={{ display: 'flex', minHeight: 0, flex: '1 1 auto' }}>
-        <TrafficMonitorSourceRail
-          peers={peers}
-          loading={loading}
-          showWire={showWire}
-          wireRunning={proxy.status?.running === true}
-          wirePort={proxy.status?.boundPort ?? null}
-          selected={selectedKey}
-          onSelect={onSelect}
-          onDebugPin={onDebugPin}
-          onDebugEnable={onDebugEnable}
-          debugPending={debugPending}
-          debugEnablePending={debugEnablePending}
-          observeArmed={observeArmedKeys}
-          observePending={observePending}
-          onObserveAction={onObserveAction}
-          captureActive={captureActive}
-          onOpenSessions={onOpenSessionsWindow}
-          width={railWidth}
-        />
-        <div
-          className="traffic-monitor-rail-sash"
-          data-testid="traffic-monitor-rail-sash"
-          role="separator"
-          aria-orientation="vertical"
-          onPointerDown={onRailSashDown}
-        />
+        {railSide === 'left' && (
+          <>
+            {railNode}
+            {bodySash}
+          </>
+        )}
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {wireSelected && <ProxyCaptureStrip controls={proxy} onOpenProxySettings={onOpenProxySettings} />}
           <div style={{ flex: '1 1 auto', minHeight: 0 }}>
             {wireSelected ? (
               <NetworkCaptureView
@@ -1147,7 +1254,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                       onInspectRequest={inspectTabRequest}
                       highlightRequestId={tabHighlight}
                       wireJoin={tabWireJoin}
-                      onHide={() => setNetworkCollapsed(true)}
+                      collapseToggle={() => setNetworkCollapsed(true)}
                       emptyHero={
                         <div className="dt-empty-hero">
                           <strong>{t('workbench.trafficMonitor.emptyWatching')}</strong>
@@ -1191,6 +1298,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                         <div className="dt-capture-surface">
                           <StoragePanel
                             onHide={() => setStorageCollapsed(true)}
+                            collapseToggle={() => setStorageCollapsed(true)}
                             onOpenIdbRecord={openIdbRecord}
                             onOpenDomEntry={openDomEntry}
                             onOpenCookie={openCookie}
@@ -1239,6 +1347,7 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
                           tabId={tabSelection.tabId}
                           debug={selectedPeerDebug}
                           onHide={() => setConsoleCollapsed(true)}
+                          collapseToggle={() => setConsoleCollapsed(true)}
                         />
                       </div>
                     </div>
@@ -1253,6 +1362,12 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
             )}
           </div>
         </div>
+        {railSide === 'right' && (
+          <>
+            {bodySash}
+            {railNode}
+          </>
+        )}
       </div>
     </div>
   );

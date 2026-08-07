@@ -4,6 +4,7 @@ import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { type ReactNode, useMemo } from 'react';
 import type { FilterConfig } from '../../data/filter-engine';
 import { FilterInput } from '../FilterInput';
+import { PlaneCollapseCaret } from '../PlaneCollapseCaret';
 import { ResourceFilter } from '../ResourceFilter';
 import { getResourceFilterInfo, getSortInfo } from './filter-strip-info';
 
@@ -19,6 +20,9 @@ interface NetworkPanelHeaderProps {
   onFilterChange: (next: Set<string>) => void;
   showFilter: boolean;
   onHide: () => void;
+  /** Stacked-plane posture (Traffic Monitor): leading caret collapses
+   *  the plane to its strip row; the host CSS drops the − cluster. */
+  collapseToggle?: () => void;
   viewMenu: ReactNode;
   sortMenu: ReactNode;
 }
@@ -35,13 +39,25 @@ export function NetworkPanelHeader({
   onFilterChange,
   showFilter,
   onHide,
+  collapseToggle,
   viewMenu,
   sortMenu,
 }: NetworkPanelHeaderProps) {
   const t = useT();
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   if (!showFilter) {
-    return <PanelHeader wiring={headerWiring} title={<strong>{t('panel.toolWindows.network')}</strong>} />;
+    return (
+      <PanelHeader
+        wiring={headerWiring}
+        title={
+          collapseToggle !== undefined ? (
+            <PlaneCollapseCaret label={t('panel.toolWindows.network')} onCollapse={collapseToggle} />
+          ) : (
+            <strong>{t('panel.toolWindows.network')}</strong>
+          )
+        }
+      />
+    );
   }
 
   return (
@@ -49,7 +65,11 @@ export function NetworkPanelHeader({
       wiring={headerWiring}
       title={
         <div className="dt-header-filter-row">
-          <strong className="dt-header-panel-name">{t('panel.toolWindows.network')}</strong>
+          {collapseToggle !== undefined ? (
+            <PlaneCollapseCaret label={t('panel.toolWindows.network')} onCollapse={collapseToggle} />
+          ) : (
+            <strong className="dt-header-panel-name">{t('panel.toolWindows.network')}</strong>
+          )}
           <div className="dt-filter-separator" />
           <FilterInput
             value={urlFilter}

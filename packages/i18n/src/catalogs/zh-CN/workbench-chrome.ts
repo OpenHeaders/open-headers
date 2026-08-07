@@ -450,7 +450,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': '打开终端',
   'workbench.terminal.cliGate.openSettings': '打开设置',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    '统一的实时流量视图——在左侧选择来源：已连接的浏览器标签页（扩展实时流式传输其流量），或流量拦截' +
+    '统一的实时流量视图——在来源列表中选择来源：已连接的浏览器标签页（扩展实时流式传输其流量），或流量拦截' +
     '（本机任何指向本地代理端口的工具）。两者都使用与 DevTools 面板相同的网络日志呈现；' +
     '在选择来源之前，不会传输任何数据。',
   'workbench.toolWindows.info.terminal.summary':
@@ -487,7 +487,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': '停止',
   'workbench.proxyCapture.port': '端口',
   'workbench.proxyCapture.scope': '解密范围',
-  'workbench.proxyCapture.scopeCount': '解密范围 · {count}',
+  'workbench.proxyCapture.optionsAria': '流量拦截设置',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint': '只有列出的主机会被解密；其他所有 HTTPS 流量都以不透明隧道通过。',
   'workbench.proxyCapture.scopeSaved': '解密范围已更新',
@@ -529,13 +529,14 @@ export const workbenchChrome = {
     '被路由的主机从 HTTP/3 回退到 HTTP/2 或 1.1；证书固定的端点在路由期间可能失败。',
   'workbench.proxyCapture.routingPopoverHint':
     '把已连接浏览器中解密范围内的主机经拦截代理路由。主要用于无法直接监视或调试的浏览器——可监视的标签页在其行上启用调试模式能获得更多。',
-  'workbench.proxyCapture.routingOnTag': '开',
 
   // ── 流量监视工具窗口（统一可观测性界面） ────────────────────────────
   'workbench.trafficMonitor.browserConnected': '已连接浏览器：{count}',
   'workbench.trafficMonitor.noBrowser': '未连接浏览器',
   'workbench.trafficMonitor.untitledTab': '无标题标签页',
   'workbench.trafficMonitor.closeSourceTab': '关闭标签页',
+  'workbench.trafficMonitor.railSideToRight': '将来源列表移到右侧',
+  'workbench.trafficMonitor.railSideToLeft': '将来源列表移到左侧',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': '等待流量…',
   'workbench.trafficMonitor.emptyWatchingHint': '在受监视的标签页中浏览——其请求会实时显示在这里',
@@ -546,7 +547,7 @@ export const workbenchChrome = {
   'workbench.trafficMonitor.trafficInterceptionHint':
     '非浏览器及不可监视的流量——所有经捕获端口路由的内容：CLI 工具、原生应用、其他设备',
   'workbench.trafficMonitor.emptyNoSource': '未选择来源',
-  'workbench.trafficMonitor.emptyNoSourceHint': '在左侧选择一个浏览器标签页或流量拦截，即可实时查看其流量',
+  'workbench.trafficMonitor.emptyNoSourceHint': '在来源列表中选择一个浏览器标签页或流量拦截，即可实时查看其流量',
   'workbench.trafficMonitor.debugTab': '调试此标签页——完整保真：响应体、精确标头、时序',
   'workbench.trafficMonitor.debugAttached': '正在调试此标签页——经浏览器调试器获得完整保真',
   'workbench.trafficMonitor.debugPinned': '已固定用于调试——调试模式开启后即会附加',

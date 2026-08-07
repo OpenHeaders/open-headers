@@ -84,6 +84,8 @@ interface TrafficListProps {
   onSaveAllAsHar: (sanitize?: boolean) => void;
   onCopyAllAsHar: (sanitize?: boolean) => void;
   onHide: () => void;
+  /** Stacked-plane posture — see NetworkPanelHeader's twin prop. */
+  collapseToggle?: () => void;
   /** Open the row's inspector tab at the detail section an annotation
    *  targets — the OH annotation rail's click-through. */
   onAnnotationJump: (requestId: string) => void;
@@ -133,6 +135,7 @@ export function TrafficList({
   onSaveAllAsHar,
   onCopyAllAsHar,
   onHide,
+  collapseToggle,
   onAnnotationJump,
   filterHiddenHint,
   onFilterHintClear,
@@ -532,6 +535,7 @@ export function TrafficList({
     onFilterChange,
     showFilter,
     onHide,
+    ...(collapseToggle !== undefined ? { collapseToggle } : {}),
     viewMenu,
     sortMenu,
   };

@@ -477,7 +477,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Ein Terminal öffnen',
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'Die vereinte Live-Verkehrsansicht — wähle links eine Quelle: einen verbundenen Browser-Tab (die Erweiterung ' +
+    'Die vereinte Live-Verkehrsansicht — wähle eine Quelle aus der Liste: einen verbundenen Browser-Tab (die Erweiterung ' +
     'streamt seinen Verkehr live) oder die Traffic-Interception (beliebige Tools dieser Maschine, die auf den ' +
     'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
     'gestreamt, bis eine Quelle ausgewählt ist.',
@@ -495,7 +495,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Stoppen',
   'workbench.proxyCapture.port': 'Port',
   'workbench.proxyCapture.scope': 'Entschlüsselungsbereich',
-  'workbench.proxyCapture.scopeCount': 'Entschlüsselungsbereich · {count}',
+  'workbench.proxyCapture.optionsAria': 'Traffic-Interception-Einstellungen',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Nur gelistete Hosts werden entschlüsselt; der übrige HTTPS-Verkehr läuft als opaker Tunnel durch.',
@@ -554,13 +554,14 @@ export const workbenchChrome = {
     'Leitet Hosts im Entschlüsselungsbereich verbundener Browser über den Interception-Proxy. Vor allem für Browser, die sich ' +
     'nicht direkt beobachten oder debuggen lassen — ein beobachtbarer Tab bekommt mehr über den Debug-Modus in ' +
     'seiner Zeile.',
-  'workbench.proxyCapture.routingOnTag': 'An',
 
   // ── Live-Netzwerk-Werkzeugfenster (Observability, Phase 1) ──────────
   'workbench.trafficMonitor.browserConnected': 'Verbundene Browser: {count}',
   'workbench.trafficMonitor.noBrowser': 'Kein Browser verbunden',
   'workbench.trafficMonitor.untitledTab': 'Unbenannter Tab',
   'workbench.trafficMonitor.closeSourceTab': 'Tab schließen',
+  'workbench.trafficMonitor.railSideToRight': 'Quellen auf die rechte Seite verschieben',
+  'workbench.trafficMonitor.railSideToLeft': 'Quellen auf die linke Seite verschieben',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Warte auf Verkehr…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Surfe im beobachteten Tab — seine Anfragen erscheinen hier live',
@@ -573,7 +574,7 @@ export const workbenchChrome = {
     'native Apps, andere Geräte',
   'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Wähle links einen Browser-Tab oder die Traffic-Interception, um den zugehörigen Verkehr live zu sehen',
+    'Wähle in der Quellenliste einen Browser-Tab oder die Traffic-Interception, um den zugehörigen Verkehr live zu sehen',
   'workbench.trafficMonitor.debugTab': 'Diesen Tab debuggen — volle Genauigkeit: Bodies, exakte Header, Timing',
   'workbench.trafficMonitor.debugAttached': 'Tab wird debuggt — volle Genauigkeit über den Debugger des Browsers',
   'workbench.trafficMonitor.debugPinned': 'Zum Debuggen angepinnt — verbindet sich, sobald der Debug-Modus an ist',

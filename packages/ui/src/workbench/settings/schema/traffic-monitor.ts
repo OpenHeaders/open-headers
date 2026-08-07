@@ -19,16 +19,47 @@ import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
+const railSideSchema = v.picklist(['left', 'right']);
+export type TrafficMonitorRailSide = v.InferOutput<typeof railSideSchema>;
+
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'trafficMonitor.observeDebugDefault': boolean;
     'trafficMonitor.observeSaveDefault': boolean;
     'trafficMonitor.sessionRetentionGiB': number;
     'trafficMonitor.sessionAgentRawReads': boolean;
+    'trafficMonitor.railSide': TrafficMonitorRailSide;
   }
 }
 
 const desktopOnly = (): boolean => getCurrentHost() === 'desktop';
+
+// The panel header's layout button flips this too — the row and the
+// button are the same preference.
+registerSetting({
+  key: 'trafficMonitor.railSide',
+  type: 'enum',
+  default: 'left',
+  schema: railSideSchema,
+  labelKey: 'workbench.settings.def.trafficMonitor.railSide.label',
+  descriptionKey: 'workbench.settings.def.trafficMonitor.railSide.description',
+  category: 'trafficMonitor',
+  tags: ['traffic', 'sources', 'rail', 'side', 'layout', 'left', 'right'],
+  scope: 'user',
+  when: desktopOnly,
+  enumOptions: [
+    {
+      value: 'left',
+      labelKey: 'workbench.settings.def.trafficMonitor.railSide.option.left.label',
+      descriptionKey: 'workbench.settings.def.trafficMonitor.railSide.option.left.description',
+    },
+    {
+      value: 'right',
+      labelKey: 'workbench.settings.def.trafficMonitor.railSide.option.right.label',
+      descriptionKey: 'workbench.settings.def.trafficMonitor.railSide.option.right.description',
+    },
+  ],
+});
 
 registerSetting({
   key: 'trafficMonitor.observeDebugDefault',

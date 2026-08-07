@@ -361,6 +361,7 @@ export const panel = {
 
   // ── Tool-window registry labels (activity bar / dock tabs / restore) ─
   'panel.toolWindows.network': 'Network',
+  'panel.capture.collapsePlane': 'Diesen Bereich einklappen',
   'panel.toolWindows.storage': 'Storage',
   'panel.toolWindows.console': 'Console',
   'panel.toolWindows.search': 'Suche',

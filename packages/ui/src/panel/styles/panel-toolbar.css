@@ -150,6 +150,35 @@
   color: var(--dt-link);
 }
 
+/* Stacked-plane collapse header (PlaneCollapseCaret) — caret + plane
+   title as ONE click target. Zero padding via the negative-margin
+   trick: the layout box starts at the bare triangle, so the caret
+   column-aligns with the collapsed strip's caret and the title lands
+   at the strip's own text offset (both lead with 12px inset + 6px
+   gap); the padded hover pill never moves the neighbors. */
+.dt-plane-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--dt-text);
+  /* The toolbar title's own type (13px, <strong> bold) — the collapsed
+     strip mirrors this exactly, so toggling never reads as a font
+     jump. */
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 3px 6px;
+  margin: -3px -6px;
+}
+
+.dt-plane-collapse:hover {
+  background: var(--dt-row-hover);
+}
+
 .dt-toolbar-icon--record {
   color: #888;
 }

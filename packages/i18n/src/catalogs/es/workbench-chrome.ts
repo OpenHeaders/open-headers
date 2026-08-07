@@ -480,7 +480,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Abrir un terminal',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'La vista unificada del tráfico en vivo: elige una fuente a la izquierda, una pestaña de navegador conectada ' +
+    'La vista unificada del tráfico en vivo: elige una fuente de la lista, una pestaña de navegador conectada ' +
     '(la extensión transmite su tráfico en vivo) o la interceptación de tráfico (cualquier herramienta de esta máquina ' +
     'apuntada al puerto del proxy local). Ambas usan el mismo registro de red del panel DevTools; no se transmite ' +
     'nada hasta que se selecciona una fuente.',
@@ -498,7 +498,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Detener',
   'workbench.proxyCapture.port': 'Puerto',
   'workbench.proxyCapture.scope': 'Ámbito de descifrado',
-  'workbench.proxyCapture.scopeCount': 'Ámbito de descifrado · {count}',
+  'workbench.proxyCapture.optionsAria': 'Ajustes de la interceptación de tráfico',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Solo se descifran los hosts listados; el resto del tráfico HTTPS pasa como túnel opaco.',
@@ -558,13 +558,14 @@ export const workbenchChrome = {
     'Enruta los hosts del ámbito de descifrado de los navegadores conectados a través del proxy de interceptación. ' +
     'Sobre todo para navegadores que no puedes observar ni depurar directamente: una pestaña observable obtiene ' +
     'más con el modo Depuración en su fila.',
-  'workbench.proxyCapture.routingOnTag': 'Activado',
 
   // ── Ventana de herramientas Red en vivo (observabilidad, fase 1) ────
   'workbench.trafficMonitor.browserConnected': 'Navegadores conectados: {count}',
   'workbench.trafficMonitor.noBrowser': 'Ningún navegador conectado',
   'workbench.trafficMonitor.untitledTab': 'Pestaña sin título',
   'workbench.trafficMonitor.closeSourceTab': 'Cerrar pestaña',
+  'workbench.trafficMonitor.railSideToRight': 'Mover las fuentes al lado derecho',
+  'workbench.trafficMonitor.railSideToLeft': 'Mover las fuentes al lado izquierdo',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Esperando tráfico…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Navega en la pestaña observada: sus solicitudes aparecen aquí en vivo',
@@ -577,7 +578,7 @@ export const workbenchChrome = {
     'aplicaciones nativas, otros dispositivos',
   'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Elige a la izquierda una pestaña del navegador o la interceptación de tráfico para ver su tráfico',
+    'Elige en la lista de fuentes una pestaña del navegador o la interceptación de tráfico para ver su tráfico',
   'workbench.trafficMonitor.debugTab': 'Depurar esta pestaña: fidelidad completa — cuerpos, cabeceras exactas, tiempos',
   'workbench.trafficMonitor.debugAttached':
     'Depurando esta pestaña: fidelidad completa mediante el depurador del navegador',

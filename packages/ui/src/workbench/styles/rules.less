@@ -607,6 +607,26 @@ body {
   }
 }
 
+// The Traffic Monitor's action cluster (rail-side layout toggle + the
+// hide −) lives INSIDE the header's title composite, at the rail
+// column's right edge (the HTTP Rules posture: actions belong to the
+// card the title names) — so PanelHeader's own far-right cluster is
+// dropped for this panel; the panel renders its replacement with the
+// same header action classes, keeping the dock-hover reveal law (the
+// terminal panel's split-mode precedent).
+.traffic-monitor-panel > .rules-panel-header > .rules-panel-header-actions {
+  display: none;
+}
+
+// The stacked plane toolbars (Network / Storage / Console) collapse
+// via their always-visible leading caret (PlaneCollapseCaret) — their
+// shared toolbars' − clusters are dropped here; the strip row is the
+// reopen affordance. The wire plane never collapses (it is the wire
+// column's only plane) and its − was always inert on this surface.
+.traffic-monitor-panel .dt-panel > .rules-panel-header > .rules-panel-header-actions {
+  display: none;
+}
+
 // Draggable vertical divider between the source rail and the plane
 // views — the workbench's inter-panel gutter idiom (a 6px band of the
 // layout background, the editor split seam's exact treatment) rather
@@ -619,7 +639,64 @@ body {
   align-self: stretch;
   width: 6px;
   cursor: col-resize;
+  position: relative;
   background: var(--ant-color-bg-layout, #f5f5f5);
+
+  // The band splits the panel into two visual cards, so the four
+  // inner corners where it meets the card's top and bottom edges get
+  // the dock cards' 8px rounding: gutter-colored fillets overlay each
+  // column's corner, and the card background shows through the
+  // quarter-circle cutout. The `--top` segment rides the header row
+  // (card top), the `--bottom` segment spans the body (card bottom).
+  &--top::before,
+  &--top::after,
+  &--bottom::before,
+  &--bottom::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    pointer-events: none;
+  }
+
+  &--top::before {
+    top: 0;
+    left: -8px;
+    background: radial-gradient(circle 8px at 0 100%, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+
+  &--top::after {
+    top: 0;
+    right: -8px;
+    background: radial-gradient(circle 8px at 100% 100%, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+
+  &--bottom::before {
+    bottom: 0;
+    left: -8px;
+    background: radial-gradient(circle 8px at 0 0, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+
+  &--bottom::after {
+    bottom: 0;
+    right: -8px;
+    background: radial-gradient(circle 8px at 100% 0, transparent 7.5px, var(--ant-color-bg-layout, #f5f5f5) 8px);
+  }
+}
+
+// Segments of the wire row's Start/Stop split control — hover feedback
+// like the observe popover's option rows (the control renders spans,
+// nested inside the row button).
+.traffic-monitor-wire-segment {
+  transition: background-color 0.12s ease;
+
+  &:hover {
+    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+}
+
+[data-theme='dark'] .traffic-monitor-wire-segment:hover {
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 // Option rows inside the observe affordance's popover.
@@ -684,8 +761,12 @@ body {
   border-top: 1px solid var(--dt-border);
   background: var(--dt-bg);
   color: var(--dt-text);
+  // The expanded toolbar title's type (13px, <strong> bold, the app
+  // font — buttons don't inherit family on their own) — the two
+  // states must read as the same header, never a font jump.
+  font-family: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: bold;
   text-align: left;
   padding: 0 12px;
   cursor: pointer;

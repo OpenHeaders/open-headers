@@ -1,6 +1,8 @@
 /**
- * TrafficMonitorSourceRail — the left-hand source list of the Traffic Monitor
- * tool window, in the sidebar's own idiom (shared {@link SectionHeader}
+ * TrafficMonitorSourceRail — the source list of the Traffic Monitor
+ * tool window (on the panel's left by default; the `side` prop mirrors
+ * every overlay when the user flips the rail to the right), in the
+ * sidebar's own idiom (shared {@link SectionHeader}
  * + `rules-sidebar-item` rows inside one `rules-sidebar-content`
  * column). BROWSER TABS — every connected peer under a colored brand
  * roundel with its extension version, each tab as favicon + title like
@@ -139,6 +141,14 @@ export interface TrafficMonitorSourceRailProps {
   onOpenSessions: () => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
+  /** Which side of the panel the rail sits on — overlays (tooltips,
+   *  the observe popover) always open AWAY from the rail so they
+   *  never clip at the window edge. */
+  side: 'left' | 'right';
+  /** The wire row's always-visible capture control (Start/Stop split
+   *  button + settings chevron) — composed by the panel, which owns
+   *  the proxy admin plane; the rail stays presentational. */
+  wireControl?: React.ReactNode;
 }
 
 /** `@openheaders/extension@2026.7.11` → `2026.7.11` (null when unparsable). */
@@ -185,12 +195,15 @@ function TabDebugAffordance({
   attached,
   pinned,
   pending,
+  placement,
   onToggle,
 }: {
   attached: boolean;
   pinned: boolean;
   /** An attach/detach the last click triggered is still in flight. */
   pending: boolean;
+  /** Away from the rail's side (see the rail's `side` prop). */
+  placement: 'left' | 'right';
   onToggle: () => void;
 }) {
   const t = useT();
@@ -210,7 +223,7 @@ function TabDebugAffordance({
     <BugOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
   );
   return (
-    <Tooltip title={title} placement="right">
+    <Tooltip title={title} placement={placement}>
       <span
         role="button"
         tabIndex={0}
@@ -249,23 +262,23 @@ function TabDebugAffordance({
  */
 export type ObserveAction = { kind: 'start'; debug: boolean; save: boolean } | { kind: 'stop' };
 
-/** One popover option row: icon + title, optional honesty hint below. */
-function ObserveMenuOption({
+/** The popover's lead row: icon + the verb CLICKING THE GLYPH fires,
+ *  with an honesty hint below. Informational, never a button — the
+ *  record glyph itself is the start/stop control. */
+function ObserveMenuHeader({
   testid,
   icon,
   title,
   hint,
-  onClick,
 }: {
   testid: string;
   icon: React.ReactNode;
   title: string;
   hint?: string;
-  onClick: () => void;
 }) {
   const { token } = theme.useToken();
   return (
-    <button type="button" data-testid={testid} className="traffic-monitor-observe-option" onClick={onClick}>
+    <div data-testid={testid} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 8px' }}>
       <span style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', paddingTop: 1 }}>{icon}</span>
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
         <span style={{ fontSize: 12, fontWeight: 600 }}>{title}</span>
@@ -273,7 +286,7 @@ function ObserveMenuOption({
           <span style={{ fontSize: 11, color: token.colorTextTertiary, textAlign: 'left' }}>{hint}</span>
         )}
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -308,23 +321,25 @@ function ObserveMenuToggle({
 /**
  * Per-source observation affordance (AGENT_TRAFFIC_PLAN.md §11.1 —
  * one gesture, one bundle): the record glyph (the browser devtools'
- * own record-start/record-stop pair) opens a popover on hover with
- * ONE primary verb. Idle it offers "Start observing", with an
- * Advanced expand/collapse over the two bundled toggles — Debug mode
- * (full fidelity; shown only where the peer has the debugger) and
- * Save session — seeded from their Settings defaults per open. Armed
- * or recording it offers the single stop, which unwinds the whole
- * bundle. Colors state the stakes — blue (the Debug affordance's
- * color) = streaming to the desktop app, red = also recording to the
- * session archive — and the red record-stop glyph IS the per-row
- * retention indicator, always visible, never hover-revealed, the
- * whole time a session records (PLAN §3).
+ * own record-start/record-stop pair) IS the verb — clicking it starts
+ * observing idle, stops armed/recording. The hover popover never
+ * carries a clickable verb: it states what the click will do, and
+ * idle it adds an Advanced expand/collapse over the two bundled
+ * toggles — Debug mode (full fidelity; shown only where the peer has
+ * the debugger) and Save session — seeded from their Settings
+ * defaults per open; the start click bundles whatever they say.
+ * Colors state the stakes — blue (the Debug affordance's color) =
+ * streaming to the desktop app, red = also recording to the session
+ * archive — and the red record-stop glyph IS the per-row retention
+ * indicator, always visible, never hover-revealed, the whole time a
+ * session records (PLAN §3).
  */
 function SourceObserveAffordance({
   armed,
   capturing,
   pending,
   debugAvailable,
+  placement,
   onAction,
 }: {
   armed: boolean;
@@ -334,6 +349,8 @@ function SourceObserveAffordance({
   pending: boolean;
   /** The peer offers CDP debug fidelity for this source. */
   debugAvailable: boolean;
+  /** Away from the rail's side; bottom-anchored either way (see below). */
+  placement: 'leftBottom' | 'rightBottom';
   onAction: (action: ObserveAction) => void;
 }) {
   const t = useT();
@@ -342,8 +359,10 @@ function SourceObserveAffordance({
   const saveDefault = useSettingValue('trafficMonitor.observeSaveDefault');
   const [menuOpen, setMenuOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [debugOn, setDebugOn] = useState(true);
-  const [saveOn, setSaveOn] = useState(true);
+  // Seeded from the Settings defaults so a glyph click that never
+  // opened the popover still bundles the configured posture.
+  const [debugOn, setDebugOn] = useState<boolean>(() => debugDefault);
+  const [saveOn, setSaveOn] = useState<boolean>(() => saveDefault);
   // The record glyphs draw on the browser's padded 20x20 grid, so they
   // render a size up to hold the same optical weight as the 16-grid
   // neighbours (the bug/pin affordances).
@@ -362,21 +381,19 @@ function SourceObserveAffordance({
   };
   const options =
     armed || capturing ? (
-      <ObserveMenuOption
+      <ObserveMenuHeader
         testid="traffic-monitor-observe-stop"
         icon={<EyeInvisibleOutlined style={{ fontSize: 12, color: capturing ? token.colorError : token.colorPrimary }} />}
         title={t('workbench.trafficMonitor.observeMenuStop')}
         {...(capturing ? { hint: t('workbench.trafficMonitor.observeMenuStopRecordingHint') } : {})}
-        onClick={() => fire({ kind: 'stop' })}
       />
     ) : (
       <>
-        <ObserveMenuOption
+        <ObserveMenuHeader
           testid="traffic-monitor-observe-start"
           icon={<EyeOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
           title={t('workbench.trafficMonitor.observeMenuStart')}
           hint={t('workbench.trafficMonitor.observeMenuStartHint')}
-          onClick={() => fire({ kind: 'start', debug: debugAvailable && debugOn, save: saveOn })}
         />
         <button
           type="button"
@@ -436,11 +453,12 @@ function SourceObserveAffordance({
         setMenuOpen(open);
       }}
       trigger="hover"
-      // Top-anchored so toggling Advanced only grows/shrinks the overlay
-      // BELOW the cursor — the centered `right` placement re-centers on
-      // resize, sliding the overlay out from under a stationary cursor
-      // (a hover-close the collapse click never intended).
-      placement="rightTop"
+      // Bottom-anchored so the overlay opens ABOVE the row: source rows
+      // live near the panel's bottom edge, where a downward overlay
+      // runs off the window. Toggling Advanced grows the overlay upward
+      // AROUND a stationary cursor (never out from under it — the
+      // hover-close hazard a centered placement's re-centering causes).
+      placement={placement}
       overlayInnerStyle={{ padding: 4 }}
       content={
         // The overlay is portaled but React still bubbles its events
@@ -470,14 +488,26 @@ function SourceObserveAffordance({
         }`}
         style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
         onClick={(e) => {
+          // The glyph IS the verb: start idle, stop armed/recording.
           e.stopPropagation();
-          if (pending) e.preventDefault();
+          if (pending) {
+            e.preventDefault();
+            return;
+          }
+          fire(
+            armed || capturing ? { kind: 'stop' } : { kind: 'start', debug: debugAvailable && debugOn, save: saveOn },
+          );
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             e.stopPropagation();
-            if (!pending) setMenuOpen((v) => !v);
+            if (pending) return;
+            fire(
+              armed || capturing
+                ? { kind: 'stop' }
+                : { kind: 'start', debug: debugAvailable && debugOn, save: saveOn },
+            );
           }
         }}
       >
@@ -505,9 +535,16 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   captureActive,
   onOpenSessions,
   width,
+  side,
+  wireControl,
 }) => {
   const t = useT();
   const { token } = theme.useToken();
+  // Overlays open AWAY from the rail's side, toward the plane views;
+  // popovers additionally anchor at the row's bottom and grow upward
+  // (source rows sit near the panel's bottom edge).
+  const tooltipPlacement = side === 'left' ? ('right' as const) : ('left' as const);
+  const popoverPlacement = side === 'left' ? ('rightBottom' as const) : ('leftBottom' as const);
   const [browsersOpen, setBrowsersOpen] = useState(true);
   const [wireOpen, setWireOpen] = useState(true);
   // Per-peer expansion, expanded by default — the peer row is a
@@ -617,7 +654,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                     </span>
                   </button>
                   {!peer.watchConsent && (
-                    <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement="right">
+                    <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement={tooltipPlacement}>
                       <Tag
                         data-testid="traffic-monitor-peer-consent-off"
                         icon={<EyeInvisibleOutlined />}
@@ -628,7 +665,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                     </Tooltip>
                   )}
                   {peer.debug.available && peer.watchConsent && (
-                    <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="right">
+                    <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement={tooltipPlacement}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                         <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
                           {t('shared.chrome.debug.title')}
@@ -657,7 +694,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                         const key = tabSourceKey(peer.nodeId, tab.tabId);
                         const title = tab.title || tab.url || t('workbench.trafficMonitor.untitledTab');
                         return (
-                          <Tooltip key={key} title={tab.url} placement="right">
+                          <Tooltip key={key} title={tab.url} placement={tooltipPlacement}>
                             <SourceRow
                               testid="traffic-monitor-source-tab"
                               active={selected === key}
@@ -689,6 +726,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                                   capturing={captureActive.has(key)}
                                   pending={observePending.has(key)}
                                   debugAvailable={peer.debug.available}
+                                  placement={popoverPlacement}
                                   onAction={(action) => onObserveAction(key, action)}
                                 />
                               )}
@@ -697,6 +735,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                                   attached={peer.debug.attachedTabs.includes(tab.tabId)}
                                   pinned={peer.debug.pinnedTabs.includes(tab.tabId)}
                                   pending={debugPending.has(key)}
+                                  placement={tooltipPlacement}
                                   onToggle={() =>
                                     onDebugPin(peer.nodeId, tab.tabId, !peer.debug.pinnedTabs.includes(tab.tabId))
                                   }
@@ -722,9 +761,19 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         title={t('workbench.trafficMonitor.proxySystem')}
         expanded={wireOpen}
         onToggle={() => setWireOpen((v) => !v)}
+        actions={
+          // Running/Stopped rides the section header — the BROWSER TABS
+          // posture (the connected-browsers tag), keeping the source row
+          // itself to identity + affordances.
+          <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0 }} data-testid="traffic-monitor-wire-status">
+            {wireRunning && wirePort !== null
+              ? t('workbench.proxyCapture.running', { port: wirePort })
+              : t('workbench.proxyCapture.stopped')}
+          </Tag>
+        }
       />
       {wireOpen && (
-        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="right">
+        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement={tooltipPlacement}>
           <SourceRow
             testid="traffic-monitor-source-wire"
             active={selected === WIRE_SOURCE_KEY}
@@ -737,13 +786,10 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
               capturing={captureActive.has(WIRE_SOURCE_KEY)}
               pending={observePending.has(WIRE_SOURCE_KEY)}
               debugAvailable={false}
+              placement={popoverPlacement}
               onAction={(action) => onObserveAction(WIRE_SOURCE_KEY, action)}
             />
-            <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
-              {wireRunning && wirePort !== null
-                ? t('workbench.proxyCapture.running', { port: wirePort })
-                : t('workbench.proxyCapture.stopped')}
-            </Tag>
+            {wireControl}
           </SourceRow>
         </Tooltip>
       )}
@@ -770,7 +816,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
             anchored at the bottom. */}
         {!browsersOpen && <div style={{ flex: 1 }} />}
         {wireSection}
-        <TrafficMonitorSessionsSection onOpenArchive={onOpenSessions} />
+        <TrafficMonitorSessionsSection onOpenArchive={onOpenSessions} tooltipPlacement={tooltipPlacement} />
       </div>
     </div>
   );

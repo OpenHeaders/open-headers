@@ -61,10 +61,13 @@ export interface NetworkCaptureViewProps {
    *  Selection only: never routes outward (DevTools posture — the list
    *  follows focus, it doesn't navigate). `null` keeps the last pick. */
   readonly highlightRequestId?: string | null;
-  /** Toolbar minus — the host decides what hiding means (the Traffic
-   *  Monitor collapses the network plane to its strip row). Omitted, the
+  /** Toolbar minus — the host decides what hiding means. Omitted, the
    *  minus is inert. */
   readonly onHide?: () => void;
+  /** Stacked-plane posture (Traffic Monitor): an always-visible leading
+   *  caret collapses the plane to its strip row; the host CSS drops the
+   *  − cluster. */
+  readonly collapseToggle?: () => void;
   /** Wire-join seam (Phase 6) — see {@link WireJoinSeam}. Omitted on
    *  hosts without the wire capture (the in-browser panel). */
   readonly wireJoin?: WireJoinSeam;
@@ -145,6 +148,7 @@ export function NetworkCaptureView({
   emptyHero,
   highlightRequestId,
   onHide,
+  collapseToggle,
   wireJoin,
   onWireSeenJump,
   watchRefusedCopy,
@@ -221,6 +225,7 @@ export function NetworkCaptureView({
       onSaveAllAsHar={NOOP}
       onCopyAllAsHar={NOOP}
       onHide={onHide ?? NOOP}
+      {...(collapseToggle !== undefined ? { collapseToggle } : {})}
       onAnnotationJump={handleSelect}
       filterHiddenHint={null}
       onFilterHintClear={NOOP}

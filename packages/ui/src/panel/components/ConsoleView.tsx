@@ -33,6 +33,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PlaneCollapseCaret } from './PlaneCollapseCaret';
 import { resolveContextSelection, topContextKey } from '../data/console-context-selector';
 import {
   DEFAULT_LEVELS,
@@ -102,6 +103,10 @@ interface ConsoleViewProps {
   /** Client-local clear — empties the view, leaves the engine log intact. */
   onClear: () => void;
   onHide: () => void;
+  /** Stacked-plane posture (Traffic Monitor): an always-visible leading
+   *  caret collapses the plane to its strip row; the host CSS drops the
+   *  − cluster. */
+  collapseToggle?: () => void;
   /** Pending search-jump — consumed exactly once via `onRevealConsumed`. */
   reveal: ConsoleRevealRequest | null;
   onRevealConsumed: () => void;
@@ -305,6 +310,7 @@ export function ConsoleView({
   onRequestClick,
   onClear,
   onHide,
+  collapseToggle,
   reveal,
   onRevealConsumed,
   remoteCapture,
@@ -647,7 +653,11 @@ export function ConsoleView({
         wiring={wiring}
         title={
           <div className="dt-header-filter-row">
-            <strong className="dt-header-panel-name">{t('panel.toolWindows.console')}</strong>
+            {collapseToggle !== undefined ? (
+              <PlaneCollapseCaret label={t('panel.toolWindows.console')} onCollapse={collapseToggle} />
+            ) : (
+              <strong className="dt-header-panel-name">{t('panel.toolWindows.console')}</strong>
+            )}
             <div className="dt-filter-separator" />
             <button
               type="button"

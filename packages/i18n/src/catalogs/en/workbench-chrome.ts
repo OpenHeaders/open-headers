@@ -401,7 +401,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Per-request behavior — SSL verification, redirects, and more.',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'The unified live traffic view — pick a source on the left: a connected browser tab (the extension streams its ' +
+    'The unified live traffic view — pick a source from the list: a connected browser tab (the extension streams its ' +
     'traffic live) or Traffic Interception (any tool on this machine pointed at the local proxy port). Both render the ' +
     'same network log the DevTools panel uses; nothing streams until a source is selected.',
   'workbench.toolWindows.info.trafficSessions.summary':
@@ -485,7 +485,7 @@ export const workbenchChrome = {
   'workbench.proxyCapture.stop': 'Stop',
   'workbench.proxyCapture.port': 'Port',
   'workbench.proxyCapture.scope': 'Decrypt scope',
-  'workbench.proxyCapture.scopeCount': 'Decrypt scope · {count}',
+  'workbench.proxyCapture.optionsAria': 'Traffic Interception settings',
   'workbench.proxyCapture.scopePlaceholder': 'example.com, *.example.com',
   'workbench.proxyCapture.scopeHint':
     'Only listed hosts are decrypted; all other HTTPS traffic passes through as an opaque tunnel.',
@@ -537,13 +537,14 @@ export const workbenchChrome = {
   'workbench.proxyCapture.routingPopoverHint':
     'Routes decrypt-scope hosts from connected browsers through the interception proxy. Mainly for browsers ' +
     'you can’t watch or debug directly — a watchable tab gets more via Debug mode on its row.',
-  'workbench.proxyCapture.routingOnTag': 'On',
 
   // ── Traffic Monitor tool window (unified observability surface) ─────
   'workbench.trafficMonitor.browserConnected': 'Connected browsers: {count}',
   'workbench.trafficMonitor.noBrowser': 'No browser connected',
   'workbench.trafficMonitor.untitledTab': 'Untitled tab',
   'workbench.trafficMonitor.closeSourceTab': 'Close tab',
+  'workbench.trafficMonitor.railSideToRight': 'Move sources to the right side',
+  'workbench.trafficMonitor.railSideToLeft': 'Move sources to the left side',
   'workbench.trafficMonitor.extensionVersion': 'v{version}',
   'workbench.trafficMonitor.emptyWatching': 'Waiting for traffic…',
   'workbench.trafficMonitor.emptyWatchingHint': 'Browse in the watched tab — its requests appear here live',
@@ -555,7 +556,7 @@ export const workbenchChrome = {
     'Non-browser & un-watchable traffic — anything routed through the capture port: CLI tools, native apps, other devices',
   'workbench.trafficMonitor.emptyNoSource': 'No source selected',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Pick a browser tab or Traffic Interception on the left to watch its traffic',
+    'Pick a browser tab or Traffic Interception in the source list to watch its traffic',
   'workbench.trafficMonitor.debugTab': 'Debug this tab — full fidelity: bodies, exact headers, timing',
   'workbench.trafficMonitor.debugAttached': 'Debugging this tab — full fidelity via the browser’s debugger',
   'workbench.trafficMonitor.debugPinned': 'Pinned for debugging — attaches once Debug mode is on',

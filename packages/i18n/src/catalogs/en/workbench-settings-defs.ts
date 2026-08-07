@@ -359,6 +359,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': 'Session archive size budget (GiB)',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Total disk space for archived sessions. Once the archive exceeds the budget, the oldest sealed sessions are removed first; a session that is still recording is never removed.',
+  'workbench.settings.def.trafficMonitor.railSide.label': 'Sources side',
+  'workbench.settings.def.trafficMonitor.railSide.description':
+    'Which side of the Traffic Monitor the source list sits on. The layout button on the panel header switches it too.',
+  'workbench.settings.def.trafficMonitor.railSide.option.left.label': 'Left',
+  'workbench.settings.def.trafficMonitor.railSide.option.left.description':
+    'Source list on the left, traffic views on the right.',
+  'workbench.settings.def.trafficMonitor.railSide.option.right.label': 'Right',
+  'workbench.settings.def.trafficMonitor.railSide.option.right.description':
+    'Source list on the right, traffic views on the left.',
 
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': 'Font Size',

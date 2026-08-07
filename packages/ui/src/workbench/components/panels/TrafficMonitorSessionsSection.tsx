@@ -16,13 +16,18 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 export interface TrafficMonitorSessionsSectionProps {
   /** Open the Traffic Sessions tool window — the row's only verb. */
   onOpenArchive: () => void;
+  /** Away from the rail's side (see the rail's `side` prop). */
+  tooltipPlacement: 'left' | 'right';
 }
 
-export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSectionProps> = ({ onOpenArchive }) => {
+export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSectionProps> = ({
+  onOpenArchive,
+  tooltipPlacement,
+}) => {
   const t = useT();
   const { token } = theme.useToken();
   return (
-    <Tooltip title={t('workbench.trafficMonitor.sessionsOpenArchive')} placement="right">
+    <Tooltip title={t('workbench.trafficMonitor.sessionsOpenArchive')} placement={tooltipPlacement}>
       <div
         className="rules-sidebar-section"
         data-testid="traffic-monitor-sessions-goto"
@@ -36,8 +41,11 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
         }}
       >
         <span className="rules-sidebar-section-title">
-          <ExportOutlined style={{ fontSize: 10, marginRight: 4 }} />
+          {/* Static right-pointing caret — the sibling section headers'
+              glyph, unrotated: the row opens a window, never expands. */}
+          <span style={{ display: 'inline-block', fontSize: 10, marginRight: 4 }}>&#9654;</span>
           {t('workbench.trafficMonitor.sessionsTitle')}
+          <ExportOutlined style={{ fontSize: 10, marginLeft: 6 }} />
         </span>
       </div>
     </Tooltip>

@@ -1,6 +1,6 @@
 /**
- * `(i)` info-popover content for the wire-capture strip's two
- * load-bearing controls — Decrypt scope and Route browsers. Same
+ * `(i)` info-popover content for the wire capture control's two
+ * load-bearing settings — Decrypt scope and Route browsers. Same
  * pattern as the network table's `NetworkColumnInfo`: every popover
  * leads with a compact colored example card (the `dt-col-eg` classes
  * the column popovers share) so the control's effect is shown on a

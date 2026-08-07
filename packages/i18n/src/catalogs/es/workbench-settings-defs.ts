@@ -478,6 +478,16 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     'Espacio en disco total para las sesiones archivadas. Al superar el presupuesto, se eliminan primero las ' +
     'sesiones selladas más antiguas; una sesión que aún graba nunca se elimina.',
+  'workbench.settings.def.trafficMonitor.railSide.label': 'Lado de las fuentes',
+  'workbench.settings.def.trafficMonitor.railSide.description':
+    'Lado del Traffic Monitor donde se sitúa la lista de fuentes. El botón de disposición en la cabecera del ' +
+    'panel también lo cambia.',
+  'workbench.settings.def.trafficMonitor.railSide.option.left.label': 'Izquierda',
+  'workbench.settings.def.trafficMonitor.railSide.option.left.description':
+    'Lista de fuentes a la izquierda, vistas de tráfico a la derecha.',
+  'workbench.settings.def.trafficMonitor.railSide.option.right.label': 'Derecha',
+  'workbench.settings.def.trafficMonitor.railSide.option.right.description':
+    'Lista de fuentes a la derecha, vistas de tráfico a la izquierda.',
 
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': 'Tamaño de fuente',

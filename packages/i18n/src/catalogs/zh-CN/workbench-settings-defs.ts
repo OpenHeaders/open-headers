@@ -340,6 +340,13 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.label': '会话归档大小预算（GiB）',
   'workbench.settings.def.trafficMonitor.sessionRetentionGiB.description':
     '归档会话占用的磁盘空间总额。超出预算后，最旧的已封存会话会最先被删除；正在录制的会话永远不会被删除。',
+  'workbench.settings.def.trafficMonitor.railSide.label': '来源列表位置',
+  'workbench.settings.def.trafficMonitor.railSide.description':
+    '来源列表位于流量监视器的哪一侧。面板标题栏上的布局按钮也可以切换。',
+  'workbench.settings.def.trafficMonitor.railSide.option.left.label': '左侧',
+  'workbench.settings.def.trafficMonitor.railSide.option.left.description': '来源列表在左，流量视图在右。',
+  'workbench.settings.def.trafficMonitor.railSide.option.right.label': '右侧',
+  'workbench.settings.def.trafficMonitor.railSide.option.right.description': '来源列表在右，流量视图在左。',
 
   // ── Code Editor category defs ──────────────────────────────────────
   'workbench.settings.def.editor.fontSize.label': '字号',

@@ -41,6 +41,9 @@
  *      tabs on the panel's header line; the active tab drives the
  *      plane views; closing a tab activates its neighbor and closing
  *      the last restores the no-source hero.
+ *   9. Rail-side toggle (S25 rider): the header's layout button —
+ *      riding the rail's own header cell beside the hide − — mirrors
+ *      the whole panel (rail right of the divider and back).
  *
  * Requires builds: `pnpm --filter @openheaders/desktop build` and the
  * extension `dist/chrome` (built separately). The playground dev server
@@ -529,12 +532,14 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
   await openTrafficMonitor();
   const before = (await captureSessions()).length;
 
-  // The idle eye opens the popover: ONE primary verb, with the two
-  // bundled toggles under Advanced, seeded ON from their Settings
-  // defaults (`trafficMonitor.observe{Debug,Save}Default`).
+  // Hovering the idle eye opens the informational popover: the verb a
+  // glyph click fires, with the two bundled toggles under Advanced,
+  // seeded ON from their Settings defaults
+  // (`trafficMonitor.observe{Debug,Save}Default`).
   const row = workbench.locator('[data-testid="traffic-monitor-source-tab"]', { hasText: 'Session archive' }).first();
   await row.hover();
-  await row.locator('[data-testid="traffic-monitor-source-observe"]').click();
+  const observeGlyph = row.locator('[data-testid="traffic-monitor-source-observe"]');
+  await observeGlyph.hover();
   await expect(workbench.locator('[data-testid="traffic-monitor-observe-start"]')).toBeVisible({ timeout: 10000 });
   await workbench.locator('[data-testid="traffic-monitor-observe-advanced"]').click();
   await expect(workbench.locator('[data-testid="traffic-monitor-observe-debug"]')).toHaveAttribute(
@@ -546,9 +551,10 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
     'true',
   );
 
-  // Start: the bundle arms the source, attaches the browser debugger,
-  // and opens a recording session — the gesture IS the consent.
-  await workbench.locator('[data-testid="traffic-monitor-observe-start"]').click();
+  // Start: clicking the glyph ITSELF fires the bundle — arms the
+  // source, attaches the browser debugger, and opens a recording
+  // session; the gesture IS the consent.
+  await observeGlyph.click();
   await expect
     .poll(async () => (await captureSessions()).find((s) => s.state === 'recording')?.sessionId ?? '', {
       timeout: 20000,
@@ -563,11 +569,11 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
     timeout: 10000,
   });
 
-  // The single stop unwinds the whole bundle: the session seals with
-  // the honest 'stopped' (stop BEFORE disarm), the source disarms, and
-  // the debug state restores to the cold posture the start found.
+  // The single stop unwinds the whole bundle: clicking the red glyph
+  // stops directly — the session seals with the honest 'stopped' (stop
+  // BEFORE disarm), the source disarms, and the debug state restores
+  // to the cold posture the start found.
   await workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first().click();
-  await workbench.locator('[data-testid="traffic-monitor-observe-stop"]').click();
   const ended = await waitSealed(active?.sessionId ?? '');
   expect(ended.endReason).toBe('stopped');
   expect((await captureSessions()).length).toBe(before + 1);
@@ -649,11 +655,12 @@ test('rail clicks open per-source tabs on the header row, the active tab drives 
   await expect(workbench.locator('[data-testid="traffic-monitor-empty-hero"]')).toHaveCount(0);
 
   // The wire row opens a SECOND tab; activation switches the planes to
-  // the wire view (capture strip present, tab-only panes gone).
+  // the wire view (tab-only panes gone; the wire's capture control
+  // rides the rail row itself, never the plane column).
   await workbench.locator('[data-testid="traffic-monitor-source-wire"]').click();
   await expect(pills).toHaveCount(2);
   await expect(pills.nth(1)).toHaveAttribute('data-tab-active', 'true');
-  await expect(workbench.locator('[data-testid="proxy-routing-trigger"]')).toBeVisible();
+  await expect(workbench.locator('[data-testid="traffic-monitor-wire-control"]')).toBeVisible();
   await expect(workbench.locator('[data-testid="traffic-monitor-storage-pane"]')).toHaveCount(0);
 
   // Re-clicking an already-open source activates, never duplicates.
@@ -676,4 +683,36 @@ test('rail clicks open per-source tabs on the header row, the active tab drives 
   await pills.first().locator('[data-testid="traffic-monitor-tab-close"]').click();
   await expect(pills).toHaveCount(0);
   await expect(workbench.locator('[data-testid="traffic-monitor-empty-hero"]')).toBeVisible();
+});
+
+// ── The rail-side toggle: the control panel goes where the user wants ─
+
+test('the rail-side toggle mirrors the layout and rides the rail header cell beside the hide affordance', async () => {
+  await openTrafficMonitor();
+  const rail = workbench.locator('[data-testid="traffic-monitor-source-rail"]');
+  const sash = workbench.locator('[data-testid="traffic-monitor-rail-sash"]');
+  const toggle = workbench.locator('[data-testid="traffic-monitor-rail-side-toggle"]');
+  const railLeftOfSash = async (): Promise<boolean> => {
+    const railBox = await rail.boundingBox();
+    const sashBox = await sash.boundingBox();
+    return (railBox?.x ?? 0) < (sashBox?.x ?? Number.POSITIVE_INFINITY);
+  };
+  expect(await railLeftOfSash()).toBe(true);
+
+  // The toggle sits in the rail's header cell — the rail side of the
+  // divider — together with the hide −.
+  const toggleBox = await toggle.boundingBox();
+  const sashBox = await sash.boundingBox();
+  expect((toggleBox?.x ?? Number.POSITIVE_INFINITY) < (sashBox?.x ?? 0)).toBe(true);
+
+  // Flip: the whole panel mirrors — rail right of the divider.
+  await toggle.click();
+  await expect.poll(railLeftOfSash).toBe(false);
+  const toggleBoxAfter = await toggle.boundingBox();
+  const sashBoxAfter = await sash.boundingBox();
+  expect((toggleBoxAfter?.x ?? 0) > (sashBoxAfter?.x ?? Number.POSITIVE_INFINITY)).toBe(true);
+
+  // Flip back.
+  await toggle.click();
+  await expect.poll(railLeftOfSash).toBe(true);
 });

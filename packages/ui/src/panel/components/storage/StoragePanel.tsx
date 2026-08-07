@@ -17,6 +17,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PlaneCollapseCaret } from '../PlaneCollapseCaret';
 import { emptyEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
 import {
   clearSiteJarCookies,
@@ -103,6 +104,10 @@ export interface OpenCacheEntryRequest {
 
 interface StoragePanelProps {
   onHide: () => void;
+  /** Stacked-plane posture (Traffic Monitor): an always-visible leading
+   *  caret collapses the plane to its strip row; the host CSS drops the
+   *  − cluster. */
+  collapseToggle?: () => void;
   /** Open one IndexedDB record as an editor tab (scope frame attached). */
   onOpenIdbRecord: (request: OpenIdbRecordRequest & { frameId: number }) => void;
   /** Open one localStorage/sessionStorage entry as an editor tab. */
@@ -142,6 +147,7 @@ const READ_ONLY_ADD_TITLE_KEYS = {
 
 export function StoragePanel({
   onHide,
+  collapseToggle,
   onOpenIdbRecord,
   onOpenDomEntry,
   onOpenCookie,
@@ -680,7 +686,11 @@ export function StoragePanel({
         wiring={wiring}
         title={
           <div className="dt-header-filter-row">
-            <strong className="dt-header-panel-name">{t('panel.toolWindows.storage')}</strong>
+            {collapseToggle !== undefined ? (
+              <PlaneCollapseCaret label={t('panel.toolWindows.storage')} onCollapse={collapseToggle} />
+            ) : (
+              <strong className="dt-header-panel-name">{t('panel.toolWindows.storage')}</strong>
+            )}
             <div className="dt-filter-separator" />
             <FilterInput
               value={textFilter}

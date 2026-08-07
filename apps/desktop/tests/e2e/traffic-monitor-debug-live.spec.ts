@@ -677,8 +677,9 @@ test('a storage row opens as an editor tab and a desktop delete actuates in the 
 
 test('the storage pane collapses to the reopen strip and survives dock-tab switches', async () => {
   const pane = workbench.locator('[data-testid="traffic-monitor-storage-pane"]');
-  // Hide via the pane's own header affordance → the slim reopen strip.
-  await pane.getByRole('button', { name: 'Hide panel' }).first().click();
+  // Collapse via the toolbar's always-visible leading caret → the slim
+  // reopen strip (the − hide cluster is dropped on this surface).
+  await pane.locator('[data-testid="dt-plane-collapse"]').first().click();
   await expect(pane).toHaveCount(0);
   const strip = workbench.locator('[data-testid="traffic-monitor-storage-strip"]');
   await expect(strip).toBeVisible();
@@ -715,7 +716,7 @@ test("the console pane streams the watched tab's console output, view-only", asy
 
 test('the console pane replays the retained log across collapse/reopen', async () => {
   const pane = workbench.locator('[data-testid="traffic-monitor-console-pane"]');
-  await pane.getByRole('button', { name: 'Hide panel' }).first().click();
+  await pane.locator('[data-testid="dt-plane-collapse"]').first().click();
   await expect(pane).toHaveCount(0);
   const strip = workbench.locator('[data-testid="traffic-monitor-console-strip"]');
   await expect(strip).toBeVisible();
@@ -742,28 +743,30 @@ test('un-pinning from the rail detaches and returns the row to the ghost state',
     .toBe('false');
 });
 
-// ── Leg 6: the demoted routing popover ──────────────────────────────
+// ── Leg 6: routing under the wire control's Advanced fold ───────────
 
-test('the routing popover flips routing and shows the On tag + ack alert', async () => {
-  // Wire source → the capture strip renders with the demoted trigger.
+test('the wire settings popover flips routing and shows the ack tags', async () => {
+  // Wire source → the row carries the always-visible capture control;
+  // its chevron opens the settings popover (decrypt scope top-level,
+  // port + routing under Advanced).
   const wire = workbench.locator('[data-testid="traffic-monitor-source-wire"]').first();
   await wire.click();
-  const trigger = workbench.locator('[data-testid="proxy-routing-trigger"]').first();
-  await expect(trigger).toBeVisible();
+  const control = workbench.locator('[data-testid="traffic-monitor-wire-control"]').first();
+  await expect(control).toBeVisible();
 
-  await trigger.click();
+  await control.locator('[data-testid="traffic-monitor-wire-options"]').click();
+  await workbench.locator('[data-testid="traffic-monitor-wire-advanced"]').click();
   const routingSwitch = workbench.locator('[data-testid="proxy-routing-switch"]').first();
   await expect(routingSwitch).toBeVisible();
   await routingSwitch.click();
 
-  // The trigger grows the green "On" tag and the ack alert renders once
-  // the peer acks with an applied mode.
-  await expect(trigger.locator('.ant-tag')).toBeVisible({ timeout: 15000 });
-  await expect(workbench.locator('.ant-alert').filter({ hasText: 'PAC' }).first()).toBeVisible({ timeout: 20000 });
+  // The ack block renders once the peer acks with an applied mode.
+  const acks = workbench.locator('[data-testid="traffic-monitor-wire-routing-acks"]');
+  await expect(acks.filter({ hasText: 'PAC' }).first()).toBeVisible({ timeout: 20000 });
 
-  // Off again — the tag and alert clear.
+  // Off again — the ack block clears.
   await routingSwitch.click();
-  await expect(trigger.locator('.ant-tag')).toHaveCount(0, { timeout: 15000 });
+  await expect(acks).toHaveCount(0, { timeout: 15000 });
 });
 
 // ── Selection survives dock-tab switches ────────────────────────────
@@ -779,7 +782,7 @@ test('the panel keeps its source selection across dock-tab switches', async () =
     'aria-pressed',
     'true',
   );
-  await expect(workbench.locator('[data-testid="proxy-routing-trigger"]').first()).toBeVisible();
+  await expect(workbench.locator('[data-testid="traffic-monitor-wire-control"]').first()).toBeVisible();
 });
 
 // ── Phase 6: the wire-join ──────────────────────────────────────────
