@@ -22,7 +22,7 @@ export const TrafficMonitorSessionsSection: React.FC<TrafficMonitorSessionsSecti
   const t = useT();
   const { token } = theme.useToken();
   return (
-    <Tooltip title={t('workbench.trafficMonitor.sessionsOpenArchive')} placement="left">
+    <Tooltip title={t('workbench.trafficMonitor.sessionsOpenArchive')} placement="right">
       <div
         className="rules-sidebar-section"
         data-testid="traffic-monitor-sessions-goto"

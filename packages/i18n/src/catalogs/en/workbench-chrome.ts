@@ -401,7 +401,7 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.settingsDesc':
     'Per-request behavior — SSL verification, redirects, and more.',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'The unified live traffic view — pick a source on the right: a connected browser tab (the extension streams its ' +
+    'The unified live traffic view — pick a source on the left: a connected browser tab (the extension streams its ' +
     'traffic live) or Traffic Interception (any tool on this machine pointed at the local proxy port). Both render the ' +
     'same network log the DevTools panel uses; nothing streams until a source is selected.',
   'workbench.toolWindows.info.trafficSessions.summary':
@@ -555,7 +555,7 @@ export const workbenchChrome = {
     'Non-browser & un-watchable traffic — anything routed through the capture port: CLI tools, native apps, other devices',
   'workbench.trafficMonitor.emptyNoSource': 'No source selected',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Pick a browser tab or Traffic Interception on the right to watch its traffic',
+    'Pick a browser tab or Traffic Interception on the left to watch its traffic',
   'workbench.trafficMonitor.debugTab': 'Debug this tab — full fidelity: bodies, exact headers, timing',
   'workbench.trafficMonitor.debugAttached': 'Debugging this tab — full fidelity via the browser’s debugger',
   'workbench.trafficMonitor.debugPinned': 'Pinned for debugging — attaches once Debug mode is on',

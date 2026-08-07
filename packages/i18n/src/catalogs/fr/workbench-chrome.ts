@@ -478,7 +478,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Ouvrir un terminal',
   'workbench.terminal.cliGate.openSettings': 'Ouvrir les paramètres',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'La vue unifiée du trafic en direct — choisissez une source à droite : un onglet de navigateur connecté ' +
+    'La vue unifiée du trafic en direct — choisissez une source à gauche : un onglet de navigateur connecté ' +
     '(l’extension diffuse son trafic en direct) ou l’interception du trafic (tout outil de cette machine pointé vers ' +
     'le port du proxy local). Les deux s’affichent avec le même journal réseau que le panneau DevTools ; rien ' +
     'n’est diffusé tant qu’aucune source n’est sélectionnée.',
@@ -579,7 +579,7 @@ export const workbenchChrome = {
     'applications natives, autres appareils',
   'workbench.trafficMonitor.emptyNoSource': 'Aucune source sélectionnée',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Choisissez à droite un onglet de navigateur ou l’interception du trafic pour suivre son trafic',
+    'Choisissez à gauche un onglet de navigateur ou l’interception du trafic pour suivre son trafic',
   'workbench.trafficMonitor.debugTab': 'Déboguer cet onglet — fidélité maximale : corps, en-têtes exacts, timings',
   'workbench.trafficMonitor.debugAttached':
     'Onglet en cours de débogage — fidélité maximale via le débogueur du navigateur',

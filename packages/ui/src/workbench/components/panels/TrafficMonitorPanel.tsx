@@ -882,8 +882,8 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     const startX = e.clientX;
     const startWidth = railWidthRef.current;
     const move = (ev: PointerEvent): void => {
-      // Rail is on the right, so dragging left (smaller clientX) widens it.
-      const next = Math.min(Math.max(startWidth + (startX - ev.clientX), RAIL_MIN_WIDTH), RAIL_MAX_WIDTH);
+      // Rail is on the left, so dragging right (larger clientX) widens it.
+      const next = Math.min(Math.max(startWidth + (ev.clientX - startX), RAIL_MIN_WIDTH), RAIL_MAX_WIDTH);
       setRailWidth(next);
     };
     const up = (): void => {
@@ -907,6 +907,32 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     <div className="rules-bottom-panel">
       <PanelHeader wiring={headerWiring} title={<strong>{t('workbench.toolWindows.trafficMonitor')}</strong>} info={info} />
       <div style={{ display: 'flex', minHeight: 0, height: '100%' }}>
+        <TrafficMonitorSourceRail
+          peers={peers}
+          loading={loading}
+          showWire={showWire}
+          wireRunning={proxy.status?.running === true}
+          wirePort={proxy.status?.boundPort ?? null}
+          selected={selectedKey}
+          onSelect={onSelect}
+          onDebugPin={onDebugPin}
+          onDebugEnable={onDebugEnable}
+          debugPending={debugPending}
+          debugEnablePending={debugEnablePending}
+          observeArmed={observeArmedKeys}
+          observePending={observePending}
+          onObserveAction={onObserveAction}
+          captureActive={captureActive}
+          onOpenSessions={onOpenSessionsWindow}
+          width={railWidth}
+        />
+        <div
+          className="traffic-monitor-rail-sash"
+          data-testid="traffic-monitor-rail-sash"
+          role="separator"
+          aria-orientation="vertical"
+          onPointerDown={onRailSashDown}
+        />
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {wireSelected && <ProxyCaptureStrip controls={proxy} onOpenProxySettings={onOpenProxySettings} />}
           <div style={{ flex: '1 1 auto', minHeight: 0 }}>
@@ -1066,32 +1092,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
             )}
           </div>
         </div>
-        <div
-          className="traffic-monitor-rail-sash"
-          data-testid="traffic-monitor-rail-sash"
-          role="separator"
-          aria-orientation="vertical"
-          onPointerDown={onRailSashDown}
-        />
-        <TrafficMonitorSourceRail
-          peers={peers}
-          loading={loading}
-          showWire={showWire}
-          wireRunning={proxy.status?.running === true}
-          wirePort={proxy.status?.boundPort ?? null}
-          selected={selectedKey}
-          onSelect={onSelect}
-          onDebugPin={onDebugPin}
-          onDebugEnable={onDebugEnable}
-          debugPending={debugPending}
-          debugEnablePending={debugEnablePending}
-          observeArmed={observeArmedKeys}
-          observePending={observePending}
-          onObserveAction={onObserveAction}
-          captureActive={captureActive}
-          onOpenSessions={onOpenSessionsWindow}
-          width={railWidth}
-        />
       </div>
     </div>
   );

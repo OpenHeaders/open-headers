@@ -95,13 +95,13 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'right-bottom',
   },
-  // Bottom dock, left pane: the host-process surfaces (a shell, the
-  // workspace tree's git plane). Bottom dock, right pane: the live
-  // observability surfaces (capture feed, workflow health, activity).
-  // The three capability-gated windows below declare
-  // `teaserWhenUnavailable`, so browser hosts keep their tabs and
-  // render the desktop teaser instead of dropping the feature from
-  // the dock — discoverability over silence.
+  // Bottom dock, left pane: the working surfaces (a shell, the live
+  // traffic monitor, the workspace tree's git plane). Bottom dock,
+  // right pane: the ambient/archive surfaces (sessions archive,
+  // workflow health, activity). The capability-gated windows below
+  // declare `teaserWhenUnavailable`, so browser hosts keep their tabs
+  // and render the desktop teaser instead of dropping the feature
+  // from the dock — discoverability over silence.
   //
   // Integrated terminal — a real pty running the user's shell,
   // supplied by the host through the `terminal` capability. Only pty
@@ -116,6 +116,25 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     openByDefault: false,
     requiresCapability: 'terminal',
     teaserWhenUnavailable: 'terminal',
+  },
+  // The unified observability surface (Observability epic): every
+  // source's live view in ONE window — connected browser tabs streamed
+  // through the daemon spine's telemetry relay, plus the L7 wire
+  // capture with its control strip. Gated on `liveNetwork`; the wire
+  // source additionally checks `proxyCapture` inside the panel — every
+  // host that registers one registers both (the desktop renderer,
+  // which runs the spine in-process). Dormant until opened. Sits
+  // under the terminal in the left pane — a working surface, not an
+  // ambient one.
+  {
+    id: 'traffic-monitor',
+    labelKey: 'workbench.toolWindows.trafficMonitor',
+    icon: <GlobalOutlined />,
+    core: false,
+    defaultSlot: 'bottom-left',
+    openByDefault: false,
+    requiresCapability: 'liveNetwork',
+    teaserWhenUnavailable: 'liveNetwork',
   },
   // The git log/history surface over the workspace-tree verb table
   // (GIT_PLAN.md §9) — commit timeline + per-commit detail for the
@@ -132,28 +151,10 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     requiresCapability: 'workspaceGit',
     teaserWhenUnavailable: 'git',
   },
-  // The unified observability surface (Observability epic): every
-  // source's live view in ONE window — connected browser tabs streamed
-  // through the daemon spine's telemetry relay, plus the L7 wire
-  // capture with its control strip. Gated on `liveNetwork`; the wire
-  // source additionally checks `proxyCapture` inside the panel — every
-  // host that registers one registers both (the desktop renderer,
-  // which runs the spine in-process). Dormant until opened.
-  {
-    id: 'traffic-monitor',
-    labelKey: 'workbench.toolWindows.trafficMonitor',
-    icon: <GlobalOutlined />,
-    core: false,
-    defaultSlot: 'bottom-right',
-    openByDefault: false,
-    requiresCapability: 'liveNetwork',
-    teaserWhenUnavailable: 'liveNetwork',
-  },
   // The sessions archive (AGENT_TRAFFIC_PLAN.md §11.1): every recorded
   // traffic session, prior runs included, with search/sort and
-  // folder organization over the archive's meta index. Lives beside
-  // the Traffic Monitor (the rail's SESSIONS section keeps live state
-  // only and links here); same capability posture.
+  // folder organization over the archive's meta index. The Traffic
+  // Monitor rail's SESSIONS row links here; same capability posture.
   {
     id: 'traffic-sessions',
     labelKey: 'workbench.toolWindows.trafficSessions',

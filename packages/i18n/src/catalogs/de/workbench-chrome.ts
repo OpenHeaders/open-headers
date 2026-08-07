@@ -477,7 +477,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Ein Terminal öffnen',
   'workbench.terminal.cliGate.openSettings': 'Einstellungen öffnen',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'Die vereinte Live-Verkehrsansicht — wähle rechts eine Quelle: einen verbundenen Browser-Tab (die Erweiterung ' +
+    'Die vereinte Live-Verkehrsansicht — wähle links eine Quelle: einen verbundenen Browser-Tab (die Erweiterung ' +
     'streamt seinen Verkehr live) oder die Traffic-Interception (beliebige Tools dieser Maschine, die auf den ' +
     'lokalen Proxy-Port zeigen). Beide nutzen dasselbe Netzwerkprotokoll wie das DevTools-Panel; es wird nichts ' +
     'gestreamt, bis eine Quelle ausgewählt ist.',
@@ -573,7 +573,7 @@ export const workbenchChrome = {
     'native Apps, andere Geräte',
   'workbench.trafficMonitor.emptyNoSource': 'Keine Quelle ausgewählt',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Wähle rechts einen Browser-Tab oder die Traffic-Interception, um den zugehörigen Verkehr live zu sehen',
+    'Wähle links einen Browser-Tab oder die Traffic-Interception, um den zugehörigen Verkehr live zu sehen',
   'workbench.trafficMonitor.debugTab': 'Diesen Tab debuggen — volle Genauigkeit: Bodies, exakte Header, Timing',
   'workbench.trafficMonitor.debugAttached': 'Tab wird debuggt — volle Genauigkeit über den Debugger des Browsers',
   'workbench.trafficMonitor.debugPinned': 'Zum Debuggen angepinnt — verbindet sich, sobald der Debug-Modus an ist',

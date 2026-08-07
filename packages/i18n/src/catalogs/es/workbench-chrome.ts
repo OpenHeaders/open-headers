@@ -480,7 +480,7 @@ export const workbenchChrome = {
   'workbench.terminal.cliGate.installOk': 'Abrir un terminal',
   'workbench.terminal.cliGate.openSettings': 'Abrir la configuración',
   'workbench.toolWindows.info.trafficMonitor.summary':
-    'La vista unificada del tráfico en vivo: elige una fuente a la derecha, una pestaña de navegador conectada ' +
+    'La vista unificada del tráfico en vivo: elige una fuente a la izquierda, una pestaña de navegador conectada ' +
     '(la extensión transmite su tráfico en vivo) o la interceptación de tráfico (cualquier herramienta de esta máquina ' +
     'apuntada al puerto del proxy local). Ambas usan el mismo registro de red del panel DevTools; no se transmite ' +
     'nada hasta que se selecciona una fuente.',
@@ -577,7 +577,7 @@ export const workbenchChrome = {
     'aplicaciones nativas, otros dispositivos',
   'workbench.trafficMonitor.emptyNoSource': 'Ninguna fuente seleccionada',
   'workbench.trafficMonitor.emptyNoSourceHint':
-    'Elige a la derecha una pestaña del navegador o la interceptación de tráfico para ver su tráfico',
+    'Elige a la izquierda una pestaña del navegador o la interceptación de tráfico para ver su tráfico',
   'workbench.trafficMonitor.debugTab': 'Depurar esta pestaña: fidelidad completa — cuerpos, cabeceras exactas, tiempos',
   'workbench.trafficMonitor.debugAttached':
     'Depurando esta pestaña: fidelidad completa mediante el depurador del navegador',

@@ -1,5 +1,5 @@
 /**
- * TrafficMonitorSourceRail — the right-hand source list of the Traffic Monitor
+ * TrafficMonitorSourceRail — the left-hand source list of the Traffic Monitor
  * tool window, in the sidebar's own idiom (shared {@link SectionHeader}
  * + `rules-sidebar-item` rows inside one `rules-sidebar-content`
  * column). BROWSER TABS — every connected peer under a colored brand
@@ -8,7 +8,7 @@
  * (the L7 capture partition — any app routed through the capture port)
  * and the SESSIONS opener row ({@link TrafficMonitorSessionsSection})
  * sit anchored at the bottom with no dead space under them. Selecting
- * a row binds the panel's plane views on the left to that source.
+ * a row binds the panel's plane views on the right to that source.
  *
  * Favicons arrive as `data:` URIs the EXTENSION resolved from the
  * browser's own favicon cache — the workbench renderer's CSP forbids
@@ -210,7 +210,7 @@ function TabDebugAffordance({
     <BugOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
   );
   return (
-    <Tooltip title={title} placement="left">
+    <Tooltip title={title} placement="right">
       <span
         role="button"
         tabIndex={0}
@@ -437,10 +437,10 @@ function SourceObserveAffordance({
       }}
       trigger="hover"
       // Top-anchored so toggling Advanced only grows/shrinks the overlay
-      // BELOW the cursor — the centered `left` placement re-centers on
+      // BELOW the cursor — the centered `right` placement re-centers on
       // resize, sliding the overlay out from under a stationary cursor
       // (a hover-close the collapse click never intended).
-      placement="leftTop"
+      placement="rightTop"
       overlayInnerStyle={{ padding: 4 }}
       content={
         // The overlay is portaled but React still bubbles its events
@@ -617,7 +617,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                     </span>
                   </button>
                   {!peer.watchConsent && (
-                    <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement="left">
+                    <Tooltip title={t('workbench.trafficMonitor.watchConsentOffHint')} placement="right">
                       <Tag
                         data-testid="traffic-monitor-peer-consent-off"
                         icon={<EyeInvisibleOutlined />}
@@ -628,7 +628,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                     </Tooltip>
                   )}
                   {peer.debug.available && peer.watchConsent && (
-                    <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="left">
+                    <Tooltip title={t('workbench.trafficMonitor.debugModeHint')} placement="right">
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                         <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
                           {t('shared.chrome.debug.title')}
@@ -657,7 +657,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
                         const key = tabSourceKey(peer.nodeId, tab.tabId);
                         const title = tab.title || tab.url || t('workbench.trafficMonitor.untitledTab');
                         return (
-                          <Tooltip key={key} title={tab.url} placement="left">
+                          <Tooltip key={key} title={tab.url} placement="right">
                             <SourceRow
                               testid="traffic-monitor-source-tab"
                               active={selected === key}
@@ -724,7 +724,7 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         onToggle={() => setWireOpen((v) => !v)}
       />
       {wireOpen && (
-        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="left">
+        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="right">
           <SourceRow
             testid="traffic-monitor-source-wire"
             active={selected === WIRE_SOURCE_KEY}
