@@ -1,16 +1,14 @@
 /**
  * TrafficMonitorSourceRail — the right-hand source list of the Traffic Monitor
- * tool window. Three collapsible sections in the sidebar's own idiom
- * (shared {@link SectionHeader} + `rules-sidebar-item` rows inside one
- * `rules-sidebar-content` column — collapsed sections shrink to their
- * headers, expanded bodies share the space, exactly like the workspace
- * sidebar's sections): BROWSER TABS — every connected peer under a
- * colored brand roundel with its extension version, each tab as
- * favicon + title like the browser's own tab strip — WIRE, the L7
- * capture partition (any app routed through the capture port) — and
- * SESSIONS, live recording state only
- * ({@link TrafficMonitorSessionsSection}). Selecting a row binds the
- * panel's plane views on the left to that source.
+ * tool window, in the sidebar's own idiom (shared {@link SectionHeader}
+ * + `rules-sidebar-item` rows inside one `rules-sidebar-content`
+ * column). BROWSER TABS — every connected peer under a colored brand
+ * roundel with its extension version, each tab as favicon + title like
+ * the browser's own tab strip — absorbs the column's slack, so WIRE
+ * (the L7 capture partition — any app routed through the capture port)
+ * and the SESSIONS opener row ({@link TrafficMonitorSessionsSection})
+ * sit anchored at the bottom with no dead space under them. Selecting
+ * a row binds the panel's plane views on the left to that source.
  *
  * Favicons arrive as `data:` URIs the EXTENSION resolved from the
  * browser's own favicon cache — the workbench renderer's CSP forbids
@@ -33,7 +31,6 @@ import {
 } from '@ant-design/icons';
 import { getCapability, type InstallTargetBrowser } from '@openheaders/core/capabilities';
 import type { TelemetryDebugState } from '@openheaders/core/protocol';
-import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
 import { Button, Popover, Switch, Tag, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
@@ -137,15 +134,8 @@ export interface TrafficMonitorSourceRailProps {
    *  eye is the retention indicator and must be visible the whole time
    *  a session records — PLAN §3. */
   captureActive: ReadonlySet<TrafficSourceKey>;
-  /** LIVE sessions only (recording/sealing) — the SESSIONS section's
-   *  rows; sealed sessions belong to the C5 sessions window. */
-  sessions: ReadonlyArray<TrafficCaptureSessionProjection>;
-  /** Sessions whose stop command is in flight — spinner state. */
-  sessionPending: ReadonlySet<string>;
-  /** Stop an ACTIVE session from its row. */
-  onSessionStop: (session: TrafficCaptureSessionProjection) => void;
-  /** Open the Traffic Sessions tool window — the section's go-to into
-   *  the archive (§11.1, C5). */
+  /** Open the Traffic Sessions tool window — the SESSIONS row's verb
+   *  (§11.1, C5). */
   onOpenSessions: () => void;
   /** Current rail width — the panel owns it (vertical sash resizes it). */
   width: number;
@@ -513,9 +503,6 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
   observePending,
   onObserveAction,
   captureActive,
-  sessions,
-  sessionPending,
-  onSessionStop,
   onOpenSessions,
   width,
 }) => {
@@ -737,30 +724,28 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
         onToggle={() => setWireOpen((v) => !v)}
       />
       {wireOpen && (
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'none' }}>
-          <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="left">
-            <SourceRow
-              testid="traffic-monitor-source-wire"
-              active={selected === WIRE_SOURCE_KEY}
-              onClick={() => onSelect(WIRE_SOURCE_KEY)}
-            >
-              <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
-              <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
-              <SourceObserveAffordance
-                armed={observeArmed.has(WIRE_SOURCE_KEY)}
-                capturing={captureActive.has(WIRE_SOURCE_KEY)}
-                pending={observePending.has(WIRE_SOURCE_KEY)}
-                debugAvailable={false}
-                onAction={(action) => onObserveAction(WIRE_SOURCE_KEY, action)}
-              />
-              <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
-                {wireRunning && wirePort !== null
-                  ? t('workbench.proxyCapture.running', { port: wirePort })
-                  : t('workbench.proxyCapture.stopped')}
-              </Tag>
-            </SourceRow>
-          </Tooltip>
-        </div>
+        <Tooltip title={t('workbench.trafficMonitor.trafficInterceptionHint')} placement="left">
+          <SourceRow
+            testid="traffic-monitor-source-wire"
+            active={selected === WIRE_SOURCE_KEY}
+            onClick={() => onSelect(WIRE_SOURCE_KEY)}
+          >
+            <GlobalOutlined style={{ fontSize: 12, flex: '0 0 auto' }} />
+            <span className="rules-sidebar-item-label">{t('workbench.trafficMonitor.trafficInterception')}</span>
+            <SourceObserveAffordance
+              armed={observeArmed.has(WIRE_SOURCE_KEY)}
+              capturing={captureActive.has(WIRE_SOURCE_KEY)}
+              pending={observePending.has(WIRE_SOURCE_KEY)}
+              debugAvailable={false}
+              onAction={(action) => onObserveAction(WIRE_SOURCE_KEY, action)}
+            />
+            <Tag color={wireRunning ? 'green' : undefined} style={{ margin: 0, flex: '0 0 auto' }}>
+              {wireRunning && wirePort !== null
+                ? t('workbench.proxyCapture.running', { port: wirePort })
+                : t('workbench.proxyCapture.stopped')}
+            </Tag>
+          </SourceRow>
+        </Tooltip>
       )}
     </>
   ) : null;
@@ -790,13 +775,12 @@ export const TrafficMonitorSourceRail: React.FC<TrafficMonitorSourceRailProps> =
       </div>
       <div className="rules-sidebar-content">
         {browsersSection}
+        {/* The browsers body absorbs the column's slack while open; when
+            collapsed this spacer takes over so WIRE and SESSIONS stay
+            anchored at the bottom. */}
+        {!browsersOpen && <div style={{ flex: 1 }} />}
         {wireSection}
-        <TrafficMonitorSessionsSection
-          sessions={sessions}
-          pending={sessionPending}
-          onStop={onSessionStop}
-          onOpenArchive={onOpenSessions}
-        />
+        <TrafficMonitorSessionsSection onOpenArchive={onOpenSessions} />
       </div>
     </div>
   );

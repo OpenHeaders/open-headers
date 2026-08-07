@@ -575,8 +575,8 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
     .poll(async () => JSON.stringify(await debugState()), { timeout: 20000 })
     .toBe(JSON.stringify({ enabled: false, attached: false }));
 
-  // Re-arm for the legs that follow (the sessions section stops a
-  // session on this uid).
+  // Re-arm for the legs that follow (the SESSIONS-row leg records on
+  // this uid).
   const rearmed = (await invoke({
     type: 'oh.daemon.traffic.arm',
     kind: 'browser-tab',
@@ -587,35 +587,43 @@ test('the popover start bundles arm + debug + record, and the single stop unwind
   armedUid = rearmed.uid ?? '';
 });
 
-// ── The SESSIONS rail section: live state only (C4) ─────────────────
+// ── The SESSIONS rail row: opener only, live state on source rows ───
 
-test('the Sessions section shows live recordings only and its stop retires the row', async () => {
+test('the rail lists no session rows and the SESSIONS row opens the archive window', async () => {
   await openTrafficMonitor();
 
-  // Every prior leg's session is sealed — sealed sessions leave the
-  // rail (live state only; browsing the archive is the C5 window),
-  // and the reveal-in-folder affordance retired with the chip (disk
-  // location is an abstraction).
+  // The rail never lists session rows — sealed OR live. Live recording
+  // state shows on the source rows themselves (the red retention
+  // glyph), and browsing the archive is the C5 window.
   const sessions = await captureSessions();
   expect(sessions.length).toBeGreaterThanOrEqual(4);
   expect(sessions.every((s) => s.state === 'sealed')).toBe(true);
-  await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(0, { timeout: 10000 });
-  expect(await workbench.locator('[data-testid="traffic-monitor-session-reveal"]').count()).toBe(0);
-  await expect(workbench.locator('[data-testid="traffic-monitor-sessions-empty"]')).toBeVisible();
+  expect(await workbench.locator('[data-testid="traffic-monitor-session-row"]').count()).toBe(0);
+  expect(await workbench.locator('[data-testid="traffic-monitor-sessions-empty"]').count()).toBe(0);
 
-  // An active session appears as the one live row; its stop seals it
-  // and the row retires once sealed.
   const started = (await invoke({
     type: 'oh.daemon.traffic.capture.start',
     uid: armedUid,
-    name: 'sessions-section stop',
+    name: 'sessions-row leg',
   })) as { ok: boolean; error?: string; session?: CaptureSessionRow };
   expect(started.ok, started.error).toBe(true);
-  await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(1, { timeout: 10000 });
-  const stop = workbench.locator('[data-testid="traffic-monitor-session-stop"]');
-  await expect(stop).toBeVisible({ timeout: 10000 });
-  await stop.click();
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]').first()).toBeVisible({
+    timeout: 10000,
+  });
+  expect(await workbench.locator('[data-testid="traffic-monitor-session-row"]').count()).toBe(0);
+  await invoke({ type: 'oh.daemon.traffic.capture.stop', uid: armedUid });
   const ended = await waitSealed(started.session?.sessionId ?? '');
   expect(ended.endReason).toBe('stopped');
-  await expect(workbench.locator('[data-testid="traffic-monitor-session-row"]')).toHaveCount(0, { timeout: 10000 });
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-capturing"]')).toHaveCount(0, {
+    timeout: 10000,
+  });
+
+  // The whole SESSIONS row is the go-to into the Traffic Sessions
+  // window — no separate header action.
+  await workbench.locator('[data-testid="traffic-monitor-sessions-goto"]').click();
+  await expect(workbench.locator('[data-tool-window="traffic-sessions"]').first()).toHaveAttribute(
+    'aria-selected',
+    'true',
+    { timeout: 10000 },
+  );
 });

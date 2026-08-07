@@ -28,7 +28,6 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { JsContext } from '@openheaders/core/js-contexts';
-import type { TrafficCaptureSessionProjection } from '@openheaders/core/traffic';
 import {
   qualifiedConsolePortName,
   TELEMETRY_TABS_PORT_NAME,
@@ -431,9 +430,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
   // Sources an ACTIVE disk capture session is recording (S7) — the
   // retention indicator must stay visible the whole time one runs.
   const [captureActive, setCaptureActive] = useState<ReadonlySet<string>>(() => new Set());
-  // THIS RUN's capture sessions (active first, then recent ended ones)
-  // — the rail's SESSIONS section. Prior-run files stay unenumerated.
-  const [captureSessions, setCaptureSessions] = useState<ReadonlyArray<TrafficCaptureSessionProjection>>([]);
   const reloadArmed = useCallback(async (): Promise<void> => {
     try {
       const { sources } = await hostBridge.call('oh.daemon.traffic.status');
@@ -455,12 +451,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     } catch {
       setObserveArmed(new Map());
       setCaptureActive(new Set());
-    }
-    try {
-      const { sessions } = await hostBridge.call('oh.daemon.traffic.capture.status');
-      setCaptureSessions(sessions);
-    } catch {
-      setCaptureSessions([]);
     }
   }, []);
   // Armed/capture state is event-driven: the tap's invalidation feed
@@ -582,35 +572,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
     [observeArmed, captureActive, findTab, sourceName, debugControl, reloadArmed],
   );
 
-  // Session-row actions: stop rides the same operator verb as the rail
-  // affordance (keyed by sessionId for the spinner). The rail shows
-  // LIVE state only (§11.1 C4) — recording/sealing rows; sealed
-  // sessions belong to the C5 sessions window, and disk location stays
-  // an abstraction (no reveal affordance by design).
-  const liveSessions = useMemo(
-    () => captureSessions.filter((session) => session.state !== 'sealed'),
-    [captureSessions],
-  );
-  const [sessionPending, setSessionPending] = useState<ReadonlySet<string>>(() => new Set());
-  const onSessionStop = useCallback(
-    (session: TrafficCaptureSessionProjection) => {
-      setSessionPending((prev) => new Set(prev).add(session.sessionId));
-      void (async () => {
-        try {
-          await hostBridge.call('oh.daemon.traffic.capture.stop', { uid: session.sourceUid });
-        } catch {
-          // Tap unavailable — the reload below converges the row.
-        }
-        await reloadArmed();
-        setSessionPending((prev) => {
-          const next = new Set(prev);
-          next.delete(session.sessionId);
-          return next;
-        });
-      })();
-    },
-    [reloadArmed],
-  );
   const observeArmedKeys = useMemo(() => new Set(observeArmed.keys()), [observeArmed]);
 
   // Wire-join (Phase 6): a wire row's "seen on tab" annotation jumps to
@@ -1128,9 +1089,6 @@ const TrafficMonitorPanel: React.FC<TrafficMonitorPanelProps> = ({
           observePending={observePending}
           onObserveAction={onObserveAction}
           captureActive={captureActive}
-          sessions={liveSessions}
-          sessionPending={sessionPending}
-          onSessionStop={onSessionStop}
           onOpenSessions={onOpenSessionsWindow}
           width={railWidth}
         />
